@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { DomainError } from '@teable/v2-core';
 import { recordFilterDateModeSchema, TIME_ZONE_LIST } from '@teable/v2-core';
 import { err, ok, type Result } from 'neverthrow';
@@ -97,18 +99,20 @@ export function parseDataQueryManifestText(text: string): Result<DataQueryManife
   }
 }
 
-const stableValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(stableValue);
+const stableValue = (value: unknown, orderedMaps?: ReadonlySet<object>): unknown => {
+  if (Array.isArray(value)) return value.map((child) => stableValue(child, orderedMaps));
   if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value);
+    // A relation's `via` names an earlier declaration, so this map is ordered data.
+    if (!orderedMaps?.has(value)) entries.sort(([a], [b]) => a.localeCompare(b, 'en'));
     return Object.fromEntries(
-      Object.entries(value)
-        .sort(([a], [b]) => a.localeCompare(b, 'en'))
-        .map(([key, child]) => [key, stableValue(child)])
+      entries.map(([key, child]) => [key, stableValue(child, orderedMaps)])
     );
   }
   return value;
 };
-const json = (value: unknown): string => JSON.stringify(stableValue(value), null, 2);
+const json = (value: unknown, orderedMaps?: ReadonlySet<object>): string =>
+  JSON.stringify(stableValue(value, orderedMaps), null, 2);
 const outputType = (output: DataQueryOutput): string => {
   if (output.wireType === 'unknown') return 'unknown';
   const primitive: Record<Exclude<DataQueryOutput['wireType'], 'unknown'>, string> = {
@@ -142,6 +146,40 @@ const fallbackOutputType = (output: FallbackOutput): string => {
 const offlineSystemType = (system: string, joined: boolean): string => {
   const type = ['autoNumber', 'version'].includes(system) ? 'number | string' : 'string';
   return joined || system === 'lastModifiedTime' ? `${type} | null` : type;
+};
+
+export const DATA_QUERY_GENERATED_CLIENT_HEADER =
+  '// Generated from teable/queries.yaml. Do not edit.';
+
+/**
+ * New clients carry a body digest, so an edit that keeps the header is still
+ * detectable. Clients generated before the digest existed are `legacy` and may
+ * be materialized once; anything else is an edit and must fail the save gate.
+ */
+const GENERATED_CLIENT_DIGEST_PREFIX = '// Source SHA256: ';
+
+export const generatedClientState = (content: string): 'current' | 'legacy' | 'invalid' => {
+  const [header, digestLine, ...body] = content.split('\n');
+  if (header !== DATA_QUERY_GENERATED_CLIENT_HEADER) return 'invalid';
+  if (!digestLine?.startsWith(GENERATED_CLIENT_DIGEST_PREFIX)) return 'legacy';
+  const digest = /^\/\/ Source SHA256: ([0-9a-f]{64})$/.exec(digestLine);
+  if (!digest) return 'invalid';
+  return createHash('sha256').update(body.join('\n')).digest('hex') === digest[1]
+    ? 'current'
+    : 'invalid';
+};
+
+/** Re-seal a transformed host-generated client after ID replacement. */
+export const withGeneratedClientDigest = (content: string): string => {
+  const lines = content.split('\n');
+  if (lines[0] !== DATA_QUERY_GENERATED_CLIENT_HEADER) return content;
+  const body = lines.slice(lines[1]?.startsWith(GENERATED_CLIENT_DIGEST_PREFIX) ? 2 : 1);
+  const digest = createHash('sha256').update(body.join('\n')).digest('hex');
+  return [
+    DATA_QUERY_GENERATED_CLIENT_HEADER,
+    `${GENERATED_CLIENT_DIGEST_PREFIX}${digest}`,
+    ...body,
+  ].join('\n');
 };
 
 /** Pure, deterministic generator. Live descriptions refine otherwise unknown field values. */
@@ -256,14 +294,23 @@ export function generateAppQueryArtifacts(
           },`
     );
   }
+  const orderedRelations = new Set<object>();
   const definitions = Object.fromEntries(
-    ids.map((id) => [id, manifest.queries[id].definition ?? null])
+    ids.map((id) => {
+      const definition = manifest.queries[id].definition;
+      if (definition?.version === 2 && definition.relations) {
+        orderedRelations.add(definition.relations);
+      }
+      return [id, definition ?? null];
+    })
   );
   const fallbacks = Object.fromEntries(
     ids.map((id) => {
       const query = manifest.queries[id];
-      const fallback = query.fallback;
       const mode = query.mode ?? (query.definition ? 'structured' : 'sql-query');
+      // Only SQL-only entries execute their SQL. A frozen `auto`/structured
+      // fallback is validation metadata and is not bundled into the client.
+      const fallback = mode === 'sql-query' ? query.fallback : undefined;
       const parameterDefinitions = query.definition?.parameters ?? fallback?.parameters ?? {};
       const outputs =
         fallback?.outputs?.map((output) => ({
@@ -291,7 +338,6 @@ export function generateAppQueryArtifacts(
               parameterOrder: fallback.parameterOrder ?? [],
               parameters: parameterDefinitions,
               plannedMode: mode === 'sql-query' ? 'sql-query' : 'structured',
-              isFallback: mode !== 'sql-query',
             }
           : null,
       ];
@@ -299,13 +345,11 @@ export function generateAppQueryArtifacts(
   );
   const hasDateParameters = Object.values(manifest.queries).some(
     (query) =>
+      query.mode === 'sql-query' &&
       query.fallback &&
-      Object.values(query.definition?.parameters ?? query.fallback.parameters ?? {}).some(
-        (parameter) => parameter.type === 'date'
-      )
+      Object.values(query.fallback.parameters ?? {}).some((parameter) => parameter.type === 'date')
   );
-  const module = `// Generated from teable/queries.yaml. Do not edit.
-import 'server-only';
+  const body = `import 'server-only';
 import { getConfig, request } from './request';
 
 export type QueryId = ${ids.length ? ids.map((id) => JSON.stringify(id)).join(' | ') : 'never'};
@@ -331,7 +375,7 @@ const isQueryPage = (value: unknown): value is QueryPage =>
   typeof value.total === 'number';
 `
     : ''
-}const definitions = ${json(definitions)};
+}const definitions = ${json(definitions, orderedRelations)};
 const fallbacks = ${json(fallbacks)};
 
 export class QueryError extends Error {
@@ -341,7 +385,6 @@ export class QueryError extends Error {
   }
 }
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
-const canFallback = (code: string): boolean => code.startsWith('data_query.unsupported_');
 
 type SqlParameter = {
   type: 'string' | 'number' | 'boolean' | 'string[]' | 'number[]' | 'boolean[]' | 'date';
@@ -416,7 +459,6 @@ async function executeLegacy<K extends QueryId, One extends boolean>(
     parameterOrder: string[];
     parameters: Record<string, SqlParameter>;
     plannedMode: 'structured' | 'sql-query';
-    isFallback: boolean;
   } | null;
   if (!fallback) throw new QueryError('data_query.fallback_unconfigured', queryId);
   const boundParameters = bindSqlParameters(queryId, fallback.parameters, parameters);
@@ -432,8 +474,8 @@ async function executeLegacy<K extends QueryId, One extends boolean>(
         'x-teable-query-id': queryId,
         'x-teable-query-planned-mode': fallback.plannedMode,
         'x-teable-query-selected-mode': 'sql-query',
-        'x-teable-query-fallback': fallback.isFallback ? 'true' : 'false',
-        'x-teable-query-fallback-reason': fallback.isFallback ? reason : 'sql_query_by_design',
+        'x-teable-query-fallback': 'false',
+        'x-teable-query-fallback-reason': reason,
       },
       body: { sql: fallback.sql, ...(values.length ? { parameters: values } : {}) },
     });
@@ -468,16 +510,10 @@ ${
     ? `async function execute<K extends QueryId>(
   queryId: K, parameters: QueryParameters[K], one: boolean, withPage = false
 ): Promise<QueryRows[K] | Array<QueryRows[K]> | QueryPageResult<QueryRows[K]> | null> {
-  const queryFallback = fallbacks[queryId] as { isFallback: boolean } | null;
   if (definitions[queryId] === null) {
     // The SQL fallback cannot produce a same-scope total, so never fake one.
     if (withPage) throw new QueryError('data_query.unsupported_include_total', queryId);
-    return executeLegacy(
-      queryId,
-      parameters,
-      one,
-      queryFallback?.isFallback ? 'unsupported_definition' : 'sql_query_by_design'
-    );
+    return executeLegacy(queryId, parameters, one, 'sql_query_by_design');
   }
   let response: unknown;
   try {
@@ -490,8 +526,6 @@ ${
   }
   if (!isObject(response)) throw new QueryError('data_query.invalid_response', queryId);
   if (response.ok === false && isObject(response.error) && typeof response.error.code === 'string') {
-    if (canFallback(response.error.code) && queryFallback && !withPage)
-      return executeLegacy(queryId, parameters, one, response.error.code);
     throw new QueryError(response.error.code, queryId);
   }
   if (response.ok !== true || !isObject(response.data) || !Array.isArray(response.data.rows) || !response.data.rows.every(isObject)) {
@@ -509,14 +543,8 @@ ${
     : `async function execute<K extends QueryId, One extends boolean>(
   queryId: K, parameters: QueryParameters[K], one: One
 ): Promise<One extends true ? QueryRows[K] | null : Array<QueryRows[K]>> {
-  const queryFallback = fallbacks[queryId] as { isFallback: boolean } | null;
   if (definitions[queryId] === null)
-    return executeLegacy(
-      queryId,
-      parameters,
-      one,
-      queryFallback?.isFallback ? 'unsupported_definition' : 'sql_query_by_design'
-    );
+    return executeLegacy(queryId, parameters, one, 'sql_query_by_design');
   let response: unknown;
   try {
     response = await request<unknown>('/v2/queries/execute', {
@@ -528,8 +556,6 @@ ${
   }
   if (!isObject(response)) throw new QueryError('data_query.invalid_response', queryId);
   if (response.ok === false && isObject(response.error) && typeof response.error.code === 'string') {
-    if (canFallback(response.error.code) && queryFallback)
-      return executeLegacy(queryId, parameters, one, response.error.code);
     throw new QueryError(response.error.code, queryId);
   }
   if (response.ok !== true || !isObject(response.data) || !Array.isArray(response.data.rows) || !response.data.rows.every(isObject)) {
@@ -545,5 +571,7 @@ export const queries = {
 ${functions.join('\n')}
 };
 `;
+  const digest = createHash('sha256').update(body).digest('hex');
+  const module = `${DATA_QUERY_GENERATED_CLIENT_HEADER}\n${GENERATED_CLIENT_DIGEST_PREFIX}${digest}\n${body}`;
   return ok({ module, schema: `${json(dataQueryManifestJsonSchema())}\n` });
 }

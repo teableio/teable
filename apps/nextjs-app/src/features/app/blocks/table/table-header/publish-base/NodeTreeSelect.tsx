@@ -4,7 +4,6 @@ import type { IBaseNodeVo } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import type { ItemInstance } from '@teable/ui-lib/base/headless-tree';
 import {
-  checkboxesFeature,
   hotkeysCoreFeature,
   selectionFeature,
   syncDataLoaderFeature,
@@ -23,6 +22,7 @@ import {
 } from '../../../base/base-node/hooks';
 import type { TreeItemData } from '../../../base/base-node/hooks';
 import { useBaseNodeContext } from '../../../base/base-node/hooks/useBaseNodeContext';
+import { getNodeCheckedState, toggleNodeChecked } from './node-tree-check';
 
 interface INodeSelectProps {
   value?: string;
@@ -76,11 +76,9 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
     [checkedItems, onCheckedItemsChange]
   );
 
-  // filter nodes: filter by allowedTypes and search query
-  const filteredTreeItems = useMemo(() => {
-    const normalizedQuery = searchQuery.toLowerCase().trim();
-
-    // filter by type
+  // filter nodes by allowedTypes; checkbox state is derived from this full tree so
+  // nodes hidden by search are still part of a folder's selection
+  const typeFilteredTreeItems = useMemo(() => {
     let filtered: Record<string, TreeItemData> = treeItems;
 
     if (allowedTypes && allowedTypes.length > 0) {
@@ -122,7 +120,14 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
       }
     }
 
-    // filter by search query
+    return filtered;
+  }, [treeItems, allowedTypes]);
+
+  // filter nodes by search query
+  const filteredTreeItems = useMemo(() => {
+    const normalizedQuery = searchQuery.toLowerCase().trim();
+    const filtered = typeFilteredTreeItems;
+
     if (normalizedQuery) {
       const searchFiltered: Record<string, TreeItemData> = {};
       const matchedNodes = new Set<string>();
@@ -204,7 +209,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
     }
 
     return filtered;
-  }, [treeItems, allowedTypes, searchQuery]);
+  }, [typeFilteredTreeItems, searchQuery]);
 
   useEffect(() => {
     treeItemsRef.current = filteredTreeItems;
@@ -251,22 +256,15 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
   );
 
   // initialize tree
-  const features = [syncDataLoaderFeature, selectionFeature, hotkeysCoreFeature];
-  if (showCheckbox) {
-    features.push(checkboxesFeature);
-  }
-
   const tree = useTree<TreeItemData>({
     state: {
       expandedItems,
       selectedItems: value ? [value] : [],
-      ...(showCheckbox && { checkedItems }),
     },
     setExpandedItems,
     setSelectedItems: () => {
       // do not use default setSelectedItems, but handle with onPrimaryAction
     },
-    ...(showCheckbox && { setCheckedItems }),
     rootItemId: ROOT_ID,
     indent: INDENTATION_WIDTH,
     dataLoader: {
@@ -276,7 +274,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
     getItemName: (item) => getNodeName(item.getItemData()),
     isItemFolder: (item) => item.getItemData().resourceType === BaseNodeResourceType.Folder,
     onPrimaryAction: handlePrimaryAction,
-    features,
+    features: [syncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
   });
 
   // when treeItems changes, rebuild tree
@@ -440,33 +438,24 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
                 const isExpanded = item.isExpanded();
                 const isSelected = item.isSelected();
 
-                // Check if this is an empty folder (folder with no children)
-                const isEmptyFolder = isFolder && (!node.children || node.children.length === 0);
-
-                // For empty folders, we need to manually handle checkbox since headless-tree
-                // doesn't support checking folders without children
-                const handleEmptyFolderCheckboxChange = () => {
-                  const itemId = item.getId();
-                  if (checkedItems.includes(itemId)) {
-                    setCheckedItems(checkedItems.filter((id) => id !== itemId));
-                  } else {
-                    setCheckedItems([...checkedItems, itemId]);
-                  }
-                };
+                const checkedState = showCheckbox
+                  ? getNodeCheckedState(typeFilteredTreeItems, checkedItems, item.getId())
+                  : 'unchecked';
 
                 return (
                   <div key={item.getId()} className="flex w-full min-w-0 items-center gap-0.5">
                     {showCheckbox && (
                       <input
                         type="checkbox"
-                        {...(isEmptyFolder
-                          ? {
-                              checked: checkedItems.includes(item.getId()),
-                              onChange: handleEmptyFolderCheckboxChange,
-                            }
-                          : item.getCheckboxProps
-                            ? item.getCheckboxProps()
-                            : {})}
+                        checked={checkedState === 'checked'}
+                        ref={(el) => {
+                          if (el) el.indeterminate = checkedState === 'indeterminate';
+                        }}
+                        onChange={() =>
+                          setCheckedItems(
+                            toggleNodeChecked(typeFilteredTreeItems, checkedItems, item.getId())
+                          )
+                        }
                         className="size-4 shrink-0 cursor-pointer rounded border-gray-300 accent-black"
                         onClick={(e) => e.stopPropagation()}
                       />

@@ -5,15 +5,18 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseVo, ITableFullVo } from '@teable/openapi';
 import {
   createBase,
+  createDashboard,
   createTable,
   createView,
   deleteBase,
   deleteView,
   GET_USER_LAST_VISIT,
+  GET_USER_LAST_VISIT_LIST_BASE_NODE,
   GET_USER_LAST_VISIT_MAP,
   getUserLastVisit,
   getUserLastVisitBaseNode,
   getUserLastVisitListBase,
+  getUserLastVisitListBaseNode,
   getUserLastVisitMap,
   LastVisitResourceType,
   updateUserLastVisit,
@@ -386,6 +389,96 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
       await permanentDeleteTable(freshBase.id, freshTable.id);
       await permanentDeleteBase(freshBase.id);
+    });
+  });
+
+  describe('getUserLastVisitListBaseNode', () => {
+    let listBase: ICreateBaseVo;
+
+    beforeAll(async () => {
+      listBase = await createBase({
+        spaceId: globalThis.testConfig.spaceId,
+        name: 'recent_nodes',
+      }).then((res) => res.data);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteBase(listBase.id);
+    });
+
+    const visit = (resourceType: LastVisitResourceType, resourceId: string) =>
+      updateUserLastVisit({ resourceType, parentResourceId: listBase.id, resourceId });
+
+    const listVisits = () =>
+      getUserLastVisitListBaseNode({ parentResourceId: listBase.id }).then((res) =>
+        res.data.list.map(({ resourceType, resourceId }) => ({ resourceType, resourceId }))
+      );
+
+    it('lists the visited nodes of every type, newest first', async () => {
+      const tableA = await createTable(listBase.id, { name: 'a' }).then((res) => res.data);
+      const tableB = await createTable(listBase.id, { name: 'b' }).then((res) => res.data);
+      const dashboard = await createDashboard(listBase.id, { name: 'd' }).then((res) => res.data);
+
+      await visit(LastVisitResourceType.Table, tableA.id);
+      await visit(LastVisitResourceType.Dashboard, dashboard.id);
+      await visit(LastVisitResourceType.Table, tableB.id);
+      // A view visit is no node of the project's tree.
+      await updateUserLastVisit({
+        resourceType: LastVisitResourceType.View,
+        parentResourceId: tableB.id,
+        resourceId: tableB.views[0].id,
+      });
+
+      expect(await listVisits()).toEqual([
+        { resourceType: LastVisitResourceType.Table, resourceId: tableB.id },
+        { resourceType: LastVisitResourceType.Dashboard, resourceId: dashboard.id },
+        { resourceType: LastVisitResourceType.Table, resourceId: tableA.id },
+      ]);
+      // The project's last visited table is still the newest one.
+      const lastTable = await getUserLastVisit({
+        resourceType: LastVisitResourceType.Table,
+        parentResourceId: listBase.id,
+      });
+      expect(lastTable.data?.resourceId).toBe(tableB.id);
+    });
+
+    it('keeps the latest six visits of each node type', async () => {
+      const dashboard = await createDashboard(listBase.id, { name: 'kept' }).then(
+        (res) => res.data
+      );
+      await visit(LastVisitResourceType.Dashboard, dashboard.id);
+      const tables: ITableFullVo[] = [];
+      for (let i = 0; i < 7; i++) {
+        tables.push(await createTable(listBase.id, { name: `t${i}` }).then((res) => res.data));
+      }
+      for (const table of tables) {
+        await visit(LastVisitResourceType.Table, table.id);
+      }
+
+      const visits = await listVisits();
+      expect(visits.filter((item) => item.resourceType === LastVisitResourceType.Table)).toEqual(
+        tables
+          .slice(1)
+          .reverse()
+          .map((table) => ({ resourceType: LastVisitResourceType.Table, resourceId: table.id }))
+      );
+      // Pruning a type leaves the others' visits alone.
+      expect(visits).toContainEqual({
+        resourceType: LastVisitResourceType.Dashboard,
+        resourceId: dashboard.id,
+      });
+    });
+
+    it('answers an empty list for a base the caller cannot open', async () => {
+      const outsider = await createNewUserAxios({
+        email: `last-visit-list-outsider-${Date.now()}@test-last-visit.com`,
+        password: '12345678a',
+      });
+      const res = await outsider.get(GET_USER_LAST_VISIT_LIST_BASE_NODE, {
+        params: { parentResourceId: listBase.id },
+      });
+      expect(res.status).toBe(200);
+      expect(res.data).toEqual({ total: 0, list: [] });
     });
   });
 });

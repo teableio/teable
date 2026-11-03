@@ -3,6 +3,7 @@ import { getUniqName } from '@teable/core';
 import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, Plus, ShieldUser } from '@teable/icons';
 import {
   createSpace,
+  getSpaceById,
   getSubscriptionSummaryList,
   PinType,
   type IGetSpaceVo,
@@ -65,7 +66,7 @@ const TriggerIdentity = ({
   name?: string;
   avatar?: string | null;
   sharedOnly: boolean;
-  /** The space list is still on its way: hold the name's place rather than show a "?". */
+  /** The current space is still on its way: hold the name's place rather than show a "?". */
   loading: boolean;
 }) => {
   if (!sharedOnly && !name && loading) {
@@ -99,6 +100,48 @@ const TriggerIdentity = ({
   );
 };
 
+/**
+ * The trigger only names the current space; the lists behind the popover load once the
+ * pointer or focus reaches the trigger, so a page that never opens it never fetches them.
+ */
+const useSwitcherData = ({
+  currentSpaceId,
+  sharedOnly,
+  open,
+  isCloud,
+}: {
+  currentSpaceId?: string;
+  sharedOnly: boolean;
+  open: boolean;
+  isCloud: boolean;
+}) => {
+  const [warm, setWarm] = useState(false);
+  const listEnabled = warm || open;
+  const warmUp = useCallback(() => setWarm(true), []);
+
+  const pinMap = usePinMap(listEnabled);
+  const { spaceList } = useSpaceList(listEnabled);
+
+  const { data: spaceById, isLoading: spaceLoading } = useQuery({
+    queryKey: ReactQueryKeys.space(currentSpaceId as string),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: !!currentSpaceId && !sharedOnly,
+  });
+
+  const { data: subscriptionList } = useQuery({
+    queryKey: ['subscription-summary-list'],
+    queryFn: () => getSubscriptionSummaryList().then((res) => res.data),
+    enabled: isCloud && listEnabled,
+  });
+
+  const currentSpace = useMemo(
+    () => spaceList?.find((space) => space.id === currentSpaceId) ?? spaceById,
+    [spaceList, currentSpaceId, spaceById]
+  );
+
+  return { pinMap, spaceList, subscriptionList, currentSpace, spaceLoading, warmUp };
+};
+
 interface ISpaceSwitcherProps {
   open?: boolean;
   setOpen?: (open: boolean) => void;
@@ -113,6 +156,8 @@ interface ISpaceSwitcherProps {
   sharedOnly?: boolean;
   /** Where "Shared with me" opens: a new tab (the default), or this one for a shell that lists shared projects itself. */
   sharedBaseTarget?: '_blank' | '_self';
+  /** Whether each space shows its star, off in a shell that lists no starred spaces. */
+  showStar?: boolean;
   /** Where a picked space goes, in place of its page. */
   onSelectSpace?: (spaceId: string) => void;
 }
@@ -128,6 +173,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
     variant = 'inline',
     sharedOnly = false,
     sharedBaseTarget = '_blank',
+    showStar = true,
     onSelectSpace,
   } = props;
   const isField = variant === 'field';
@@ -157,16 +203,10 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
   const [spaceName, setSpaceName] = useState('');
   const [highlightedValue, setHighlightedValue] = useState<string | undefined>();
 
-  const pinMap = usePinMap();
-  const { spaceList, isLoading: spaceListLoading } = useSpaceList();
   const { spaceId: paramSpaceId } = useParams<{ spaceId: string }>();
   const currentSpaceId = spaceIdProp ?? paramSpaceId;
-
-  const { data: subscriptionList } = useQuery({
-    queryKey: ['subscription-summary-list'],
-    queryFn: () => getSubscriptionSummaryList().then((res) => res.data),
-    enabled: isCloud,
-  });
+  const { pinMap, spaceList, subscriptionList, currentSpace, spaceLoading, warmUp } =
+    useSwitcherData({ currentSpaceId, sharedOnly, open, isCloud });
 
   const subscriptionMap = useMemo(() => {
     const map = new Map<string, ISubscriptionSummaryVo>();
@@ -175,10 +215,6 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
     });
     return map;
   }, [subscriptionList]);
-
-  const currentSpace = useMemo(() => {
-    return spaceList?.find((space) => space.id === currentSpaceId);
-  }, [spaceList, currentSpaceId]);
 
   const sortedSpaceList = useMemo(() => {
     if (!spaceList || !currentSpaceId) return spaceList;
@@ -259,13 +295,15 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
               'h-10 max-w-full justify-start overflow-hidden',
               isField ? 'h-9 w-full gap-2 bg-muted px-2 font-normal dark:bg-muted' : 'p-2 text-base'
             )}
+            onPointerEnter={warmUp}
+            onFocus={warmUp}
           >
             <TriggerIdentity
               isField={isField}
               name={sharedOnly ? t('space:sharedBase.title') : currentSpace?.name}
               avatar={sharedOnly ? undefined : currentSpace?.avatar}
               sharedOnly={sharedOnly}
-              loading={spaceListLoading}
+              loading={spaceLoading}
             />
             {isField && !sharedOnly && (
               <DataDbBadge
@@ -333,13 +371,15 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
                         <div className="flex min-w-0 grow items-center gap-2">
                           <SpaceAvatar name={space.name} avatar={space.avatar} className="size-6" />
                           <span className="truncate text-sm">{space.name}</span>
-                          <StarButton
-                            id={space.id}
-                            type={PinType.Space}
-                            className={cn('w-0 shrink-0 group-hover:w-auto', {
-                              'opacity-100 w-auto': spaceIsPinned,
-                            })}
-                          />
+                          {showStar && (
+                            <StarButton
+                              id={space.id}
+                              type={PinType.Space}
+                              className={cn('w-0 shrink-0 group-hover:w-auto', {
+                                'opacity-100 w-auto': spaceIsPinned,
+                              })}
+                            />
+                          )}
                           {isCloud && (
                             <Level
                               level={subscription?.level}

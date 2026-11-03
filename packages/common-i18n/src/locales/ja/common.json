@@ -154,6 +154,22 @@
       "newSpacePlaceholder": "Space name",
       "createSpace": "Create",
       "loadFailed": "テンプレートの詳細を読み込めませんでした。"
+    },
+    "searchPlaceholder": "テンプレートを検索",
+    "rankThisMonth": "今月 {{rank}} 位",
+    "listing": {
+      "newest": "新着",
+      "featured": "おすすめ"
+    },
+    "detail": {
+      "install": "インストール",
+      "installs": "インストール数",
+      "author": "作成者",
+      "updated": "最終更新",
+      "history": "バージョン履歴",
+      "firstRelease": "初回リリース",
+      "about": "概要",
+      "noChangelog": "通常の更新"
     }
   },
   "baseShare": {
@@ -229,14 +245,21 @@
         "forbiddenUpdateSystemTemplate": "システムテンプレートは変更できません",
         "addCategoryTips": "検索入力欄にカテゴリ名を先に入力してください",
         "categoryNamePlaceholder": "カテゴリ名を入力",
-        "duplicateCategoryName": "カテゴリ名は既に存在します"
+        "subCategoryNamePlaceholder": "サブ業種名",
+        "noSubCategory": "サブ業種はまだありません。左側の業種をクリックしてタグ付けしてください。",
+        "duplicateCategoryName": "カテゴリ名は既に存在します",
+        "teamNamePlaceholder": "チーム名",
+        "addTeamTips": "先にチーム名を入力してください",
+        "keyPlaceholder": "URL キー（例：yoga）",
+        "invalidKey": "キーには小文字の英字、数字、ハイフンのみ使用できます"
       },
       "category": {
         "menu": {
           "getStarted": "はじめに",
           "recommended": "おすすめ",
           "all": "すべて",
-          "browseByCategory": "カテゴリで閲覧"
+          "browseByCategory": "カテゴリで閲覧",
+          "byTeam": "チーム別"
         }
       },
       "header": {
@@ -256,7 +279,9 @@
         "userNonExistent": "ユーザーが存在しません",
         "preview": "プレビュー",
         "usage": "使用回数",
-        "visit": "訪問回数"
+        "visit": "訪問回数",
+        "requirements": "連携",
+        "slug": "URL スラッグ"
       },
       "actions": {
         "title": "アクション",
@@ -267,7 +292,12 @@
         "use": "使用",
         "pinTop": "上部に固定",
         "addCategory": "カテゴリを追加",
+        "addSubCategory": "サブ業種を追加",
+        "addSubCategoryUnder": "{{name}} にサブ業種を追加",
         "selectCategory": "カテゴリを選択",
+        "addTeam": "チームを追加",
+        "industries": "業種",
+        "teams": "チーム",
         "viewTemplate": "テンプレートを表示",
         "manageCategory": "カテゴリ管理"
       },
@@ -503,7 +533,8 @@
     "newRoutine": "新しいルーティン",
     "newApp": "新しいアプリ",
     "newFolder": "新しいフォルダ",
-    "template": "テンプレート"
+    "template": "テンプレート",
+    "installedTemplates": "インストール済みテンプレート"
   },
   "level": {
     "free": "無料",
@@ -516,6 +547,7 @@
   "allNodes": "すべてのノード",
   "noDescription": "説明なし",
   "untitled": "無題",
+  "untitledBase": "無題のプロジェクト",
   "name": "名称",
   "description": "説明",
   "required": "必須",
@@ -1307,6 +1339,20 @@
         "message": "これはテストメールです。無視してください。"
       },
       "notify": {
+        "template": {
+          "approved": {
+            "title": "テンプレート {{name}} が公開されました",
+            "message": "{{name}} は審査に合格し、バージョン {{version}} として公開されました。",
+            "messageWithNote": "{{name}} は審査に合格し、バージョン {{version}} として公開されました。審査担当者のコメント：{{note}}",
+            "messageNoPayout": "{{name}} は審査に合格し、バージョン {{version}} として公開されました。支払い方法がまだ設定されていないため、収益は繰り越されます。クリエイターセンターで設定してください。",
+            "messageNoPayoutWithNote": "{{name}} は審査に合格し、バージョン {{version}} として公開されました。支払い方法がまだ設定されていないため、収益は繰り越されます。クリエイターセンターで設定してください。審査担当者のコメント：{{note}}"
+          },
+          "rejected": {
+            "title": "テンプレート {{name}} が差し戻されました",
+            "message": "{{name}} は審査に合格しませんでした。",
+            "messageWithNote": "{{name}} は審査に合格しませんでした。審査担当者のコメント：{{note}}"
+          }
+        },
         "subject": "通知 - {{brandName}}",
         "title": "通知",
         "buttonText": "表示",
@@ -1513,6 +1559,26 @@
           "spaceDeleted": {
             "title": "スペースのエクスポートの準備ができました",
             "message": "{{name}} 様<br><br>スペース {{spaceNames}} の完全削除前にご依頼いただいたコピーの準備ができました。<br><br>以下のリンクの有効期限は {{expiresInDays}} 日間です。"
+          }
+        },
+        "chatUnread": {
+          "done": {
+            "title": "タスクが完了しました",
+            "message": "{{name}} 様<br><br>Teable で開始したタスクが完了しました：<br><em>{{prompt}}</em><br><br>結果をご確認ください。",
+            "messageWithoutPrompt": "{{name}} 様<br><br>Teable で開始したタスクが完了しました。<br><br>結果をご確認ください。",
+            "buttonText": "結果を見る"
+          },
+          "failed": {
+            "title": "タスクを完了できませんでした",
+            "message": "{{name}} 様<br><br>Teable で開始したタスクが完了しませんでした：<br><em>{{prompt}}</em><br><br>開いて原因を確認し、もう一度お試しください。",
+            "messageWithoutPrompt": "{{name}} 様<br><br>Teable で開始したタスクが完了しませんでした。<br><br>開いて原因を確認し、もう一度お試しください。",
+            "buttonText": "詳細を見る"
+          },
+          "creditExhausted": {
+            "title": "AI クレジット不足のためタスクが中断されました",
+            "message": "{{name}} 様<br><br>Teable で開始したタスクが AI クレジット不足のため中断されました：<br><em>{{prompt}}</em><br><br>クレジットを追加するかプランをアップグレードすると、続きから再開できます。",
+            "messageWithoutPrompt": "{{name}} 様<br><br>Teable で開始したタスクが AI クレジット不足のため中断されました。<br><br>クレジットを追加するかプランをアップグレードすると、続きから再開できます。",
+            "buttonText": "詳細を見る"
           }
         }
       }
@@ -1884,6 +1950,7 @@
       "permission": "Cuppy が続行の確認を待っています。",
       "connectIntegration": "続けるにはアプリの接続が必要です。",
       "pickGoogleSheet": "使用するシートを選んでください。",
+      "presentTemplates": "Cuppy が既製のテンプレートを見つけました。使うかどうかの判断をお待ちしています。",
       "requestCredential": "続けるにはアクセス権限が必要です。"
     },
     "result": {

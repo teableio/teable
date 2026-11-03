@@ -1,10 +1,11 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Job } from 'bullmq';
 import { Queue } from 'bullmq';
 import ms from 'ms';
 import type { NestWorkerOptions } from '../../../utils/nest-worker-options';
+import { Processor } from '../../../utils/queue-processor';
 import { readNonNegativeIntEnv } from '../../cold-archive/env';
 
 export const NOTIFICATION_CLEANUP_QUEUE = 'notification-cleanup-queue';

@@ -6,15 +6,20 @@ import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentCellValue, IAttachmentItem } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, getRandomString } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { CreateAccessTokenRo, ITableFullVo, IUserMeVo } from '@teable/openapi';
 import {
   createAccessToken,
   createAxios,
   createBase,
   createSpace,
+  deleteField as deleteFieldApi,
+  exportBase,
   getRecord,
   getSignature,
+  getTrashItems,
   notify,
+  resetTrashItems,
   updateRecord,
   uploadAttachment,
   uploadFile,
@@ -27,17 +32,27 @@ import {
   READ_PATH,
   UPDATE_USER_AVATAR,
   USER_ME,
+  ResourceType,
+  TableTrashType,
+  TrashType,
   UploadType,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
+import * as unzipper from 'unzipper';
 import { CacheService } from '../src/cache/cache.service';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { AttachmentsService } from '../src/features/attachments/attachments.service';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import type { LocalStorage } from '../src/features/attachments/plugins/local';
-import { createAwaitWithEvent } from './utils/event-promise';
-import { permanentDeleteTable, createField, createTable, initApp } from './utils/init-app';
+import { createAwaitWithEvent, createAwaitWithEventWithResult } from './utils/event-promise';
+import {
+  permanentDeleteBase,
+  permanentDeleteTable,
+  createField,
+  createTable,
+  initApp,
+} from './utils/init-app';
 
 describe('OpenAPI AttachmentController (e2e)', () => {
   let app: INestApplication;
@@ -801,6 +816,191 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     const { data } = await listAccessToken();
     for (const { id } of data) {
       await deleteAccessToken(id);
+    }
+  });
+
+  it('T8166 purges attachment references when permanently resetting deleted field trash', async () => {
+    const prisma = app.get(PrismaService);
+    const deletedField = await createField(table.id, { type: FieldType.Attachment });
+    const retainedField = await createField(table.id, { type: FieldType.Attachment });
+    const recordId = table.records[0]!.id;
+    const upload = await uploadAttachment(
+      table.id,
+      recordId,
+      deletedField.id,
+      fs.createReadStream(filePath)
+    );
+
+    expect(upload.status).toBe(201);
+    expect(upload.headers['x-teable-v2']).toBe('true');
+    const attachment = (upload.data.fields[deletedField.id] as IAttachmentCellValue)[0]!;
+    const retained = await updateRecord(table.id, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      record: { fields: { [retainedField.id]: [attachment] } },
+    });
+    expect(retained.data.fields[retainedField.id]).toHaveLength(1);
+
+    await expect(
+      prisma.attachmentsTable.count({ where: { tableId: table.id, fieldId: deletedField.id } })
+    ).resolves.toBe(1);
+    await expect(
+      prisma.attachmentsTable.count({ where: { tableId: table.id, fieldId: retainedField.id } })
+    ).resolves.toBe(1);
+
+    const deleted = await deleteFieldApi(table.id, deletedField.id);
+    expect(deleted.status).toBe(200);
+    expect(deleted.headers['x-teable-v2']).toBe('true');
+    await expect(
+      prisma.attachmentsTable.count({ where: { tableId: table.id, fieldId: deletedField.id } })
+    ).resolves.toBe(1);
+
+    let fieldTrashExists = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const trash = await getTrashItems({ resourceId: table.id, resourceType: TrashType.Table });
+      fieldTrashExists = trash.data.trashItems.some(
+        (item) =>
+          item.resourceType === TableTrashType.Field && item.resourceIds.includes(deletedField.id)
+      );
+      if (fieldTrashExists) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    }
+    expect(fieldTrashExists).toBe(true);
+
+    await resetTrashItems({ resourceType: ResourceType.Table, resourceId: table.id });
+
+    await expect(prisma.field.findUnique({ where: { id: deletedField.id } })).resolves.toBeNull();
+    await expect(
+      prisma.attachmentsTable.count({ where: { tableId: table.id, fieldId: deletedField.id } })
+    ).resolves.toBe(0);
+    await expect(
+      prisma.attachmentsTable.count({ where: { tableId: table.id, fieldId: retainedField.id } })
+    ).resolves.toBe(1);
+    await expect(prisma.attachments.count({ where: { token: attachment.token } })).resolves.toBe(1);
+  });
+
+  it('T8166 excludes attachments from permanently deleted fields in the v2 base export', async () => {
+    const prisma = app.get(PrismaService);
+    const exportBaseRecord = (
+      await createBase({
+        spaceId: globalThis.testConfig.spaceId,
+        name: `T8166 attachment export ${Date.now()}`,
+      })
+    ).data;
+    let exportPath: string | undefined;
+
+    try {
+      expect(
+        await prisma.base.findUnique({
+          where: { id: exportBaseRecord.id },
+          select: { v2Enabled: true },
+        })
+      ).toMatchObject({ v2Enabled: true });
+
+      const exportTable = await createTable(exportBaseRecord.id, {
+        name: 'Attachment export',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Deleted attachment', type: FieldType.Attachment },
+          { name: 'Retained attachment', type: FieldType.Attachment },
+        ],
+        records: [{ fields: { Name: 'synthetic' } }],
+      });
+      const deletedField = exportTable.fields.find((field) => field.name === 'Deleted attachment')!;
+      const retainedField = exportTable.fields.find(
+        (field) => field.name === 'Retained attachment'
+      )!;
+      const recordId = exportTable.records[0]!.id;
+      const deletedUpload = await uploadAttachment(
+        exportTable.id,
+        recordId,
+        deletedField.id,
+        Buffer.from('deleted attachment fixture'),
+        { filename: 'deleted-fixture.txt' }
+      );
+      const retainedUpload = await uploadAttachment(
+        exportTable.id,
+        recordId,
+        retainedField.id,
+        Buffer.from('retained attachment fixture'),
+        { filename: 'retained-fixture.txt' }
+      );
+      const deletedAttachment = (
+        deletedUpload.data.fields[deletedField.id] as IAttachmentCellValue
+      )[0]!;
+      const retainedAttachment = (
+        retainedUpload.data.fields[retainedField.id] as IAttachmentCellValue
+      )[0]!;
+      expect(deletedUpload.headers['x-teable-v2']).toBe('true');
+      expect(retainedUpload.headers['x-teable-v2']).toBe('true');
+
+      await deleteFieldApi(exportTable.id, deletedField.id);
+      let fieldTrashExists = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const trash = await getTrashItems({
+          resourceId: exportTable.id,
+          resourceType: TrashType.Table,
+        });
+        fieldTrashExists = trash.data.trashItems.some(
+          (item) =>
+            item.resourceType === TableTrashType.Field && item.resourceIds.includes(deletedField.id)
+        );
+        if (fieldTrashExists) break;
+        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+      }
+      expect(fieldTrashExists).toBe(true);
+      await resetTrashItems({ resourceId: exportTable.id, resourceType: ResourceType.Table });
+
+      const awaitExport = createAwaitWithEventWithResult<{
+        status?: 'success' | 'failed';
+        previewUrl: string;
+        attachment?: { name: string; path: string };
+        errorMessage?: string;
+      }>(app.get(EventEmitterService), Events.BASE_EXPORT_COMPLETE);
+      const { status, attachment, errorMessage } = await awaitExport(async () => {
+        await exportBase(exportBaseRecord.id);
+      });
+      expect(status).toBe('success');
+      expect(attachment).toBeDefined();
+      expect(errorMessage).toBeUndefined();
+      exportPath = attachment!.path;
+
+      const storageAdapter = app.get<StorageAdapter>(Symbol.for('ObjectStorage'));
+      const archiveStream = await storageAdapter.downloadFile(
+        StorageAdapter.getBucket(UploadType.ExportBase),
+        exportPath
+      );
+      const chunks: Buffer[] = [];
+      for await (const chunk of archiveStream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      const zip = await unzipper.Open.buffer(Buffer.concat(chunks));
+      const entryNames = zip.files.map((file) => file.path);
+      expect(entryNames).toContain(`attachments/${retainedAttachment.token}.txt`);
+      expect(entryNames).not.toContain(`attachments/${deletedAttachment.token}.txt`);
+      const csvEntry = zip.files.find((file) => file.path === 'attachments/attachments.csv');
+      expect(csvEntry).toBeDefined();
+      const csv = (await csvEntry!.buffer()).toString('utf8');
+      expect(csv).toContain(retainedAttachment.token);
+      expect(csv).not.toContain(deletedAttachment.token);
+      const structure = zip.files.find((file) => file.path === 'structure.json');
+      expect(structure).toBeDefined();
+      const structureJson = JSON.parse((await structure!.buffer()).toString('utf8')) as {
+        tables: Array<{ id: string; fields: Array<{ id: string }> }>;
+      };
+      const exportedTable = structureJson.tables.find(({ id }) => id === exportTable.id);
+      expect(exportedTable?.fields.map(({ id }) => id)).toContain(retainedField.id);
+      expect(exportedTable?.fields.map(({ id }) => id)).not.toContain(deletedField.id);
+
+      await permanentDeleteTable(exportBaseRecord.id, exportTable.id);
+    } finally {
+      if (exportPath) {
+        await app
+          .get<StorageAdapter>(Symbol.for('ObjectStorage'))
+          .deleteFile(StorageAdapter.getBucket(UploadType.ExportBase), exportPath)
+          .catch(() => undefined);
+      }
+      await permanentDeleteBase(exportBaseRecord.id).catch(() => undefined);
     }
   });
 });

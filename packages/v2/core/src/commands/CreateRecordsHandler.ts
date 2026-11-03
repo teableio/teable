@@ -29,6 +29,7 @@ import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
+import { materializeRecordSpec } from '../domain/table/records/RecordSpecMaterializer';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import { NoopRecordOrderColumnPreparer } from '../ports/defaults/NoopRecordOrderColumnPreparer';
@@ -235,7 +236,12 @@ export class CreateRecordsHandler implements ICommandHandler<
               mutateSpec
             );
             // Re-apply the resolved spec to get the correct record values
-            record = yield* resolvedSpec.mutate(record);
+            record = yield* materializeRecordSpec({
+              id: record.id(),
+              tableId: record.tableId(),
+              spec: resolvedSpec,
+              baseFields: record.fields().entries(),
+            });
           }
         }
         records.push(record);

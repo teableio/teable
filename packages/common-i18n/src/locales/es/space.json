@@ -52,10 +52,10 @@
   "collaborators": "Colaboradores",
   "more": "Más",
   "pin": {
-    "add": "Agregar a fijados",
-    "remove": "Quitar de fijados",
-    "pin": "Fijar",
-    "empty": "Tus proyectos y espacios fijados aparecerán aquí"
+    "add": "Añadir a favoritos",
+    "remove": "Quitar de favoritos",
+    "pin": "Favoritos",
+    "empty": "Tus proyectos y espacios favoritos aparecerán aquí"
   },
   "tooltip": {
     "noPermissionToCreateBase": "No tienes permiso para crear un proyecto"
@@ -207,19 +207,51 @@
     "form": {
       "title": "Título",
       "description": "Descripción",
-      "security": "Seguridad",
-      "advanced": "Avanzado",
+      "changelog": "Notas de la versión",
+      "changelogPlaceholder": "Describe los cambios para las instalaciones existentes; se muestran en la vista previa de la actualización",
       "publishNode": "Publicar nodos",
       "includeData": "Incluir datos",
       "defaultActiveNode": "Nodo activo predeterminado",
       "descriptionPlaceholder": "Describe brevemente tu idea...",
-      "titlePlaceholder": "Nombra tu trabajo..."
+      "titlePlaceholder": "Nombra tu trabajo...",
+      "cover": "Portada",
+      "coverHint": "16:9; se usa en la tarjeta del catálogo y en la página pública",
+      "versionTitle": "Contenido de la versión",
+      "addChangelog": "Añadir notas de la versión"
     },
     "publishToCommunity": "Publicar en el centro de plantillas",
     "publish": "Publicar",
     "publishSuccess": "¡Publicación exitosa!",
     "previewTips": "Deja que el mundo vea tu trabajo",
     "update": "Actualizar",
+    "submit": "Enviar a revisión",
+    "submitted": "Enviada a revisión",
+    "review": {
+      "status": {
+        "review": "En revisión",
+        "rejected": "Devuelta",
+        "withdrawn": "Retirada"
+      },
+      "submittedTime": "Enviada {{time}}",
+      "note": "Nota del revisor",
+      "checks": "Comprobaciones automáticas",
+      "check": {
+        "connectors": "Conexiones",
+        "privacy": "Privacidad",
+        "estimate": "Estimación de ejecuciones",
+        "trial": "Ejecución de prueba"
+      },
+      "checkMessage": {
+        "connectors": "No se puede conectar aquí: {{providers}}",
+        "privacy": "Incluye registros; revisa si contienen datos personales",
+        "estimate": "Unas {{runs}} ejecuciones al mes, por encima de las {{free}} del plan gratuito",
+        "trial": "Las automatizaciones no necesitan cuenta; asegúrate de que funcionan sin ella"
+      },
+      "withdraw": "Retirar",
+      "withdrawn": "Envío retirado.",
+      "live": "Publicada · v{{version}}",
+      "publicLink": "Enlace público"
+    },
     "unPublish": "Despublicar",
     "unPublishSuccess": "¡Proyecto despublicado con éxito!",
     "unPublishConfirmTitle": "Confirmar despublicación",
@@ -237,9 +269,7 @@
     "urlCopied": "¡URL copiada al portapapeles!",
     "urlCopiedForDiscord": "¡URL copiada al portapapeles! Puedes pegarla en Discord.",
     "featuredLabel": "Featured",
-    "unfeaturedLabel": "Unfeatured",
     "featuredTip": "Seleccionado oficialmente como destacado. Tu plantilla recibirá más exposición.",
-    "unfeaturedTip": "Aún no destacado. Sigue mejorando para tener la oportunidad de ser recomendado. Deja que más personas vean tu trabajo.",
     "publishSuccessDescription": "Comparte tu trabajo con el mundo",
     "shareWith": "Compartir con",
     "unpublishedApps": {
@@ -257,7 +287,8 @@
       "goToFix": "Ir a corregir",
       "redeploy": "Redesplegar",
       "unnamedApp": "Aplicación sin nombre"
-    }
+    },
+    "submitVersion": "Enviar la v{{version}} a revisión"
   },
   "dataDb": {
     "create": {

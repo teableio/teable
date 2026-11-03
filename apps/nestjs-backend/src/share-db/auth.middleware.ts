@@ -289,10 +289,13 @@ export const authMiddleware = (shareDB: ShareDBClass, deps: IAuthMiddlewareDeps 
     const shareId = context.agent.custom.shareId;
     const baseShareId = context.agent.custom.baseShareId;
     const templateHeader = context.agent.custom.templateHeader;
+    const lang = context.agent.custom.lang;
+    const acceptLanguage = context.agent.custom.acceptLanguage;
+    const requestInfo = { cookie, shareId, baseShareId, templateHeader, lang, acceptLanguage };
     if (context.options) {
-      context.options = { ...context.options, cookie, shareId, baseShareId, templateHeader };
+      context.options = { ...context.options, ...requestInfo };
     } else {
-      context.options = { cookie, shareId, baseShareId, templateHeader };
+      context.options = requestInfo;
     }
     callback();
   };
@@ -315,6 +318,9 @@ export const authMiddleware = (shareDB: ShareDBClass, deps: IAuthMiddlewareDeps 
     context.agent.custom.templateHeader = templateHeader;
     context.agent.custom.shareId = shareId;
     context.agent.custom.baseShareId = baseShareId;
+    // The page's own language (sent by the SDK) and the browser's, for localizing errors.
+    context.agent.custom.lang = newUrl.searchParams.get('lang');
+    context.agent.custom.acceptLanguage = context.req.headers['accept-language'];
 
     // The signed-in user, from the session cookie. Notification channels are authorized by it.
     if (sessionHandleService && cookie) {

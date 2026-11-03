@@ -10,11 +10,11 @@ import {
   type AttachmentItem,
 } from '../../domain/table/records/specs/values/SetAttachmentValueSpec';
 import { CellValue } from '../../domain/table/records/values/CellValue';
+import type { TableId } from '../../domain/table/TableId';
 import type {
   IAttachmentLookupService,
   AttachmentLookupRecord,
 } from '../../ports/AttachmentLookupService';
-import type { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { ICellValueSpecResolver } from './SpecResolver';
@@ -50,16 +50,19 @@ const resolveItem = (
   preserveProvidedId: boolean
 ): AttachmentItem => {
   const resolvedId = ensureAttachmentId(preserveProvidedId ? item.id : undefined, usedIds);
+  const { width: itemWidth, height: itemHeight, ...itemWithoutDimensions } = item;
+  const width = stored.width ?? itemWidth;
+  const height = stored.height ?? itemHeight;
   return {
-    ...item,
+    ...itemWithoutDimensions,
     id: resolvedId,
     name: item.name ?? stored.name ?? '',
     token: stored.token,
     path: stored.path,
     size: stored.size,
     mimetype: stored.mimetype,
-    width: stored.width ?? item.width,
-    height: stored.height ?? item.height,
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
   };
 };
 

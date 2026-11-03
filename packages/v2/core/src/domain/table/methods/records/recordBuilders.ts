@@ -13,9 +13,10 @@ import { FieldDefaultValueVisitor } from '../../fields/visitors/FieldDefaultValu
 import { RecordCreateResult } from '../../records/RecordCreateResult';
 import { RecordId } from '../../records/RecordId';
 import { RecordMutationSpecBuilder } from '../../records/RecordMutationSpecBuilder';
+import { materializeRecordSpec } from '../../records/RecordSpecMaterializer';
 import { recordToFieldValues } from '../../records/recordToFieldValues';
+import type { ICellValueSpec } from '../../records/specs/values/ICellValueSpecVisitor';
 import { TableRecord } from '../../records/TableRecord';
-import { TableRecordFields } from '../../records/TableRecordFields';
 import type { Table } from '../../Table';
 
 interface CreateRecordEditableFieldContext {
@@ -23,6 +24,7 @@ interface CreateRecordEditableFieldContext {
   fieldId: string;
   hasDefaultValue: boolean;
   defaultValue: unknown;
+  resolveDefaultValue: (() => unknown) | undefined;
   isUserField: boolean;
   cellValueSchema: FieldCellValueSchema | undefined;
 }
@@ -32,7 +34,15 @@ export interface CreateRecordBuildContext {
   readonly editableFields: ReadonlyArray<CreateRecordEditableFieldContext>;
 }
 
-export function createRecordBuildContext(table: Table): CreateRecordBuildContext {
+export interface CreateRecordBuildContextOptions {
+  /** Streams reuse field metadata but must evaluate dynamic defaults (date `now`) per record. */
+  readonly freshDefaults?: boolean;
+}
+
+export function createRecordBuildContext(
+  table: Table,
+  options?: CreateRecordBuildContextOptions
+): CreateRecordBuildContext {
   const fieldByKey = new Map<string, Field>();
   for (const field of table.getFields()) {
     const fieldId = field.id().toString();
@@ -60,6 +70,13 @@ export function createRecordBuildContext(table: Table): CreateRecordBuildContext
       fieldId: field.id().toString(),
       hasDefaultValue: defaultValue !== undefined,
       defaultValue,
+      resolveDefaultValue:
+        options?.freshDefaults && field.type().equals(FieldType.date())
+          ? () => {
+              const result = field.accept(defaultValueVisitor);
+              return result.isOk() && result.value !== undefined ? result.value : undefined;
+            }
+          : undefined,
       isUserField: field.type().equals(FieldType.user()),
       cellValueSchema: schemaResult.isOk() ? schemaResult.value : undefined,
     } satisfies CreateRecordEditableFieldContext;
@@ -145,7 +162,9 @@ export function buildRecordWithSpec(
           builder.setWithSchema(field.field, providedValue, field.cellValueSchema);
         }
       } else if (field.hasDefaultValue) {
-        const defaultValue = field.defaultValue;
+        const defaultValue = field.resolveDefaultValue
+          ? field.resolveDefaultValue()
+          : field.defaultValue;
         if (field.isUserField && !typecast) {
           builder.withTypecast(true);
           builder.set(field.field, defaultValue);
@@ -182,32 +201,23 @@ export function buildRecordWithSpec(
       return err(builder.getErrors()[0]!);
     }
 
-    // 5. Create an empty record
-    const emptyFields = yield* TableRecordFields.create([]);
-    const emptyRecord = yield* TableRecord.create({
-      id: resolvedRecordId,
-      tableId: table.id(),
-      fieldValues: emptyFields.entries(),
-    });
-
-    // 6. Apply mutation spec if there are any values to set
+    // 5. Materialize all immediately known cells once. The mutation spec remains unchanged for
+    // persistence visitors and deferred link/user resolution.
+    let mutateSpec: ICellValueSpec | null = null;
+    let record: TableRecord;
     if (builder.hasSpecs()) {
-      const mutateSpec = yield* builder.build();
-      const record = yield* mutateSpec.mutate(emptyRecord);
-
-      if (emitRecordCreatedEvent) {
-        table.addDomainEvent(
-          RecordCreated.create({
-            tableId: table.id(),
-            baseId: table.baseId(),
-            recordId: record.id(),
-            fieldValues: recordToFieldValues(record),
-            source,
-          })
-        );
-      }
-
-      return ok(RecordCreateResult.create(record, mutateSpec, fieldKeyMapping));
+      mutateSpec = yield* builder.build();
+      record = yield* materializeRecordSpec({
+        id: resolvedRecordId,
+        tableId: table.id(),
+        spec: mutateSpec,
+      });
+    } else {
+      record = yield* TableRecord.create({
+        id: resolvedRecordId,
+        tableId: table.id(),
+        fieldValues: [],
+      });
     }
 
     if (emitRecordCreatedEvent) {
@@ -215,14 +225,14 @@ export function buildRecordWithSpec(
         RecordCreated.create({
           tableId: table.id(),
           baseId: table.baseId(),
-          recordId: emptyRecord.id(),
-          fieldValues: recordToFieldValues(emptyRecord),
+          recordId: record.id(),
+          fieldValues: recordToFieldValues(record),
           source,
         })
       );
     }
 
-    return ok(RecordCreateResult.create(emptyRecord, null, fieldKeyMapping));
+    return ok(RecordCreateResult.create(record, mutateSpec, fieldKeyMapping));
   });
 }
 
@@ -230,7 +240,12 @@ export function buildRecord(
   this: Table,
   fieldValues: ReadonlyMap<string, unknown>,
   recordId?: RecordId,
-  options?: { typecast?: boolean; source?: RecordCreateSource; emitRecordCreatedEvent?: boolean }
+  options?: {
+    typecast?: boolean;
+    source?: RecordCreateSource;
+    emitRecordCreatedEvent?: boolean;
+    buildContext?: CreateRecordBuildContext;
+  }
 ): Result<TableRecord, DomainError> {
   return buildRecordWithSpec
     .call(this, fieldValues, recordId, options)

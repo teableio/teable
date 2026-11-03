@@ -1,9 +1,13 @@
 import { SortFunc, type IRecord } from '@teable/core';
 import type { IGetRecordsRo, IGroupPointsVo } from '@teable/openapi';
+import { getSearchMatches, getShareViewSearchMatches } from '@teable/openapi';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ShareViewContext } from '../../../context/table/ShareViewContext';
 import { useFields, usePersonalView, useSearch, useView } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
+import { useTableListener } from '../../../hooks/use-table-listener';
 import { viewportFieldIds } from '../../../utils/column-projection';
 import { useGridViewCacheStore } from '../store/useGridViewCacheStore';
 import { useGridAsyncRecords } from './use-grid-async-records';
@@ -18,6 +22,12 @@ vi.mock('../../../hooks', () => ({
 
 vi.mock('../../../hooks/use-records', () => ({
   useRecords: vi.fn(),
+}));
+vi.mock('../../../hooks/use-table-listener', () => ({ useTableListener: vi.fn() }));
+vi.mock('@teable/openapi', async (importOriginal) => ({
+  ...((await importOriginal()) as object),
+  getSearchMatches: vi.fn(async () => ({ data: { matches: [], nextSkip: null } })),
+  getShareViewSearchMatches: vi.fn(async () => ({ data: { matches: [], nextSkip: null } })),
 }));
 
 const mockedUseSearch = vi.mocked(useSearch);
@@ -69,12 +79,135 @@ const mockUseRecordsResult = (
   }) as unknown as ReturnType<typeof useRecords>;
 
 describe('useGridAsyncRecords', () => {
+  it('uses bounded server cell matches rather than client display-text matching', async () => {
+    mockedUseSearch.mockReturnValue({ searchQuery: ['alpha, beta', '', false] } as never);
+    mockedUseView.mockReturnValue({ id: 'viwTest' } as never);
+    mockedUseRecords.mockReturnValue(mockUseRecordsResult([createRecord('recA')]));
+    vi.mocked(getSearchMatches).mockResolvedValueOnce({
+      data: {
+        matches: [{ recordId: 'recA', fieldId: 'fldMulti', index: 1 }],
+        nextSkip: null,
+        hasMore: false,
+        scannedRecordCount: 1,
+      },
+    } as never);
+
+    const personalScope = {
+      filter: { conjunction: 'and', filterSet: [] },
+      projection: ['fldMulti'],
+      ignoreViewQuery: true,
+    } as IGetRecordsRo;
+    const { result } = renderHook(() => useGridAsyncRecords(undefined, undefined, personalScope));
+    await waitFor(() =>
+      expect(result.current.searchHitIndex).toEqual([{ recordId: 'recA', fieldId: 'fldMulti' }])
+    );
+    expect(getSearchMatches).toHaveBeenCalledWith(
+      'tblTest',
+      expect.objectContaining({
+        filter: personalScope.filter,
+        projection: ['fldMulti'],
+        ignoreViewQuery: true,
+        selectedRecordIds: ['recA'],
+        take: 1,
+        skip: 0,
+      })
+    );
+  });
+
+  it('uses the shared view local filter and visible fields for server highlights', async () => {
+    const filter = { conjunction: 'and', filterSet: [{ fieldId: 'fldVisible' }] };
+    mockedUseSearch.mockReturnValue({ searchQuery: ['alpha', '', false] } as never);
+    mockedUseView.mockReturnValue({ id: 'viwTest', filter } as never);
+    mockedUseFields.mockReturnValue([{ id: 'fldVisible' }] as never);
+    mockedUseRecords.mockReturnValue(mockUseRecordsResult([createRecord('recA')]));
+    vi.mocked(getShareViewSearchMatches).mockResolvedValueOnce({
+      data: {
+        matches: [{ recordId: 'recA', fieldId: 'fldVisible', index: 1 }],
+        nextSkip: null,
+        hasMore: false,
+        scannedRecordCount: 1,
+      },
+    } as never);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ShareViewContext.Provider value={{ shareId: 'shrTest' } as never}>
+        {children}
+      </ShareViewContext.Provider>
+    );
+
+    const { result } = renderHook(() => useGridAsyncRecords(), { wrapper });
+
+    await waitFor(() =>
+      expect(result.current.searchHitIndex).toEqual([{ recordId: 'recA', fieldId: 'fldVisible' }])
+    );
+    expect(getShareViewSearchMatches).toHaveBeenCalledWith(
+      'shrTest',
+      expect.objectContaining({
+        filter,
+        projection: ['fldVisible'],
+        selectedRecordIds: ['recA'],
+      })
+    );
+  });
+
+  it('refreshes server matches after field formatting changes', async () => {
+    let notifySetField: (() => void) | undefined;
+    vi.mocked(useTableListener).mockImplementation((_tableId, matches, callback) => {
+      expect(matches).toContain('setField');
+      notifySetField = () => callback('setField');
+    });
+    mockedUseSearch.mockReturnValue({ searchQuery: ['1.50', '', false] } as never);
+    mockedUseView.mockReturnValue({ id: 'viwTest' } as never);
+    mockedUseRecords.mockReturnValue(mockUseRecordsResult([createRecord('recA')]));
+
+    renderHook(() => useGridAsyncRecords());
+    await waitFor(() => expect(getSearchMatches).toHaveBeenCalledTimes(1));
+    act(() => notifySetField?.());
+    await waitFor(() => expect(getSearchMatches).toHaveBeenCalledTimes(2));
+  });
+
+  it('retries a failed server-match request and restores highlighting', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockedUseSearch.mockReturnValue({ searchQuery: ['alpha', '', false] } as never);
+    mockedUseView.mockReturnValue({ id: 'viwTest' } as never);
+    mockedUseRecords.mockReturnValue(mockUseRecordsResult([createRecord('recA')]));
+    vi.mocked(getSearchMatches)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({
+        data: {
+          matches: [{ recordId: 'recA', fieldId: 'fldText', index: 1 }],
+          nextSkip: null,
+          hasMore: false,
+          scannedRecordCount: 1,
+        },
+      } as never);
+
+    const { result } = renderHook(() => useGridAsyncRecords());
+    await waitFor(
+      () =>
+        expect(result.current.searchHitIndex).toEqual([{ recordId: 'recA', fieldId: 'fldText' }]),
+      { timeout: 2500 }
+    );
+    expect(getSearchMatches).toHaveBeenCalledTimes(2);
+    consoleError.mockRestore();
+  });
+
   beforeEach(() => {
     mockedUseSearch.mockReturnValue({ searchQuery: undefined } as ReturnType<typeof useSearch>);
     mockedUseView.mockReset();
     mockedUseRecords.mockReset();
     mockedUsePersonalView.mockReturnValue({ isPersonalView: false } as never);
     mockedUseFields.mockReturnValue([] as never);
+    vi.mocked(useTableListener).mockReset();
+    vi.mocked(getSearchMatches)
+      .mockReset()
+      .mockResolvedValue({
+        data: { matches: [], nextSkip: null, hasMore: false, scannedRecordCount: 0 },
+      } as never);
+    vi.mocked(getShareViewSearchMatches)
+      .mockReset()
+      .mockResolvedValue({
+        data: { matches: [], nextSkip: null, hasMore: false, scannedRecordCount: 0 },
+      } as never);
     useGridViewCacheStore.setState({ cacheMap: {} });
   });
 

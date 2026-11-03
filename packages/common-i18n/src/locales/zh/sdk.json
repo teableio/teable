@@ -296,6 +296,8 @@
     "duplicateRecord": "复制记录",
     "addToChat": "添加到对话",
     "copyRecordUrl": "复制记录链接",
+    "copyLink": "复制链接",
+    "history": "历史",
     "deleteRecord": "删除记录",
     "addRecordComment": "添加评论",
     "viewRecordHistory": "查看记录历史",
@@ -1145,11 +1147,11 @@
     "space": {
       "notFound": "空间不存在",
       "noPermission": "您没有权限访问此空间",
-      "disallowSpaceCreation": "管理员已禁用空间创建功能",
-      "cannotChangeOnlyOwnerRole": "无法更改空间唯一所有者的角色",
-      "cannotDeleteOnlyOwner": "无法删除空间的唯一所有者",
+      "disallowSpaceCreation": "系统管理员已关闭空间创建",
+      "cannotChangeOnlyOwnerRole": "无法更改空间唯一一位空间管理员的角色",
+      "cannotDeleteOnlyOwner": "无法删除空间唯一一位空间管理员",
       "deleted": "空间已被删除",
-      "cannotOperate": "无法操作此空间，请确认空间中有组织成员且为所有者",
+      "cannotOperate": "无法操作此空间，请确认空间中有组织成员担任空间管理员",
       "notBelongToOrg": "此空间不属于该组织",
       "invalidSpaceIds": "空间ID无效: {{spaceIds}}",
       "freeOwnedSpaceLimitExceeded": "您已达到可拥有的免费空间数量上限（{{max}}），请升级现有空间或删除一个免费空间后再创建新空间。",
@@ -1280,7 +1282,8 @@
       "readRecordWithDeniedFields": "没有权限在记录({{recordId}})中读取字段({{fields}})",
       "updateRecordWithDeniedFields": "没有权限在记录({{recordId}})中更新字段({{fields}})",
       "checkIdNotExist": "权限检查ID不存在",
-      "userNotAdmin": "用户不是管理员",
+      "userNotAdmin": "用户不是系统管理员",
+      "userNotOrganizationAdmin": "用户不是组织管理员",
       "accessTokenNoPermission": "访问令牌没有所需的权限",
       "invalidResource": "资源无效",
       "notAllowedSpace": "您没有权限访问此空间",
@@ -1558,7 +1561,7 @@
       "invalidDotteaStructure": ".tea 文件结构无效或不受支持，请重新导出该项目后再试。"
     },
     "invitation": {
-      "disallowSpaceInvitation": "当前实例管理员已禁止空间邀请",
+      "disallowSpaceInvitation": "系统管理员已关闭空间邀请",
       "invalidCode": "无效的邀请码",
       "linkNotFound": "邀请链接不存在",
       "linkExpired": "邀请链接已过期",
@@ -1607,17 +1610,17 @@
       "allUnsubscribed": "所有收件人均已退订，请检查退订列表"
     },
     "user": {
-      "disallowSignUp": "管理员已禁止当前实例的用户注册",
+      "disallowSignUp": "系统管理员已关闭当前实例的用户注册",
       "signupUnavailableInApp": "这个登录方式还没有关联账号，请用你已有的账号登录。",
       "emailDomainBanned": "该邮箱域名因违规行为已被封禁",
       "waitlistInviteCodeRequired": "已启用等待列表，需要邀请码",
       "waitlistInviteCodeInvalid": "已启用等待列表，邀请码无效",
       "systemUser": "用户是系统用户",
-      "soleOwnerOfSpaces": "用户是部分空间的唯一所有者，删除账户前需先确认或移交这些空间",
+      "soleOwnerOfSpaces": "用户是部分空间唯一的空间管理员，删除账户前需先确认或移交这些空间",
       "notFound": "用户不存在",
-      "cannotDeleteAdmin": "无法删除管理员用户",
-      "cannotDeactivateAdmin": "无法停用管理员用户",
-      "cannotRemoveLastAdmin": "无法移除最后一个活跃管理员用户的管理员权限",
+      "cannotDeleteAdmin": "无法删除系统管理员",
+      "cannotDeactivateAdmin": "无法停用系统管理员",
+      "cannotRemoveLastAdmin": "无法取消最后一位活跃的系统管理员",
       "permanentDeleted": "用户已被永久删除",
       "cannotDeleteSelf": "无法删除自己",
       "alreadyInDepartment": "用户{{userId}}已在目标部门中",
@@ -1651,7 +1654,12 @@
       "sourceTemplateNotFound": "源模板不存在",
       "noMinOrderFound": "未找到最小排序值",
       "takeCountTooLarge": "请求的模板数量超过最大限制",
-      "categoryLimitReached": "模板分类数量已达上限（最多 {{maxCount}} 个）"
+      "categoryLimitReached": "模板分类数量已达上限（最多 {{maxCount}} 个）",
+      "categoryHasChildren": "该行业下还有细分行业，请先删除或移走它们",
+      "categoryDepthExceeded": "细分行业下不能再建细分",
+      "teamIsFlat": "团队不能有上级或细分",
+      "categoryKeyTaken": "这个网址标识已被其他分类使用",
+      "slugTaken": "这个网址标识已被其他模板使用"
     },
     "department": {
       "parentNotFound": "父部门未找到",
@@ -1678,6 +1686,8 @@
       "domainReserved": "子域名已被保留",
       "siteInfoBeforeGeneration": "请先生成应用，再自定义站点信息",
       "generationEditingConflict": "AI 正在编辑这个应用，请等它完成后再试",
+      "codeCopying": "应用代码仍在复制中，请稍后再试。",
+      "codeCopyFailed": "应用代码复制失败，请重新复制该应用。",
       "siteInfoLayoutNotEditable": "这个应用的代码结构暂不支持在这里编辑站点信息，请在聊天中让 AI 帮你修改站点标题、描述或图标",
       "siteInfoManagedInCode": "这个应用的站点标题和描述由代码管理，请在聊天中让 AI 帮你修改",
       "accessLinkSetupFailed": "访问链接设置失败：{{detail}}",
@@ -1733,7 +1743,8 @@
     "requestFailed": "操作失败",
     "operationFailed": "操作失败：{{detail}}",
     "filter": {
-      "operatorNoFieldReference": "运算符 {{operator}} 不支持与其他字段比较"
+      "operatorNoFieldReference": "运算符 {{operator}} 不支持与其他字段比较",
+      "fieldReferenceIncompatible": "字段 {{reference}} 与 {{source}} 类型不兼容，无法比较"
     },
     "oauth": {
       "invalidRequest": "OAuth 请求无效：{{detail}}",
@@ -1756,7 +1767,7 @@
     },
     "im": {
       "feishuNotConfigured": "未配置飞书应用凭据",
-      "slackNotConfigured": "尚未配置 Slack，请管理员在 IM 集成设置中配置 Slack 应用"
+      "slackNotConfigured": "当前实例未配置 Slack，请联系系统管理员在 IM 集成设置中配置。"
     },
     "computed": {
       "pausedWriteBlocked": "计算正在维护暂停中，暂时无法保存此修改，请稍后再试。"

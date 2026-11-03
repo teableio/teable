@@ -106,6 +106,7 @@ describe('KanbanCard unclicked button', () => {
             primaryField: primary,
             displayFields: [button, text, lookup],
             setExpandRecordId: expand,
+            setStackRecordIds: vi.fn(),
           }}
         >
           <KanbanCard
@@ -152,6 +153,7 @@ describe('KanbanCard add to chat', () => {
           primaryField: primary,
           displayFields: [],
           setExpandRecordId: vi.fn(),
+          setStackRecordIds: vi.fn(),
         }}
       >
         <KanbanCard

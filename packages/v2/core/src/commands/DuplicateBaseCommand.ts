@@ -93,6 +93,8 @@ export interface DuplicateBaseErrorEvent {
   id: 'error';
   message: string;
   code?: string;
+  /** Exact source-to-target table ids after metadata committed, even if provisioning failed. */
+  tableIdMap?: Readonly<Record<string, string>>;
   /** In-process diagnostic; non-enumerable so streaming contracts stay stable. */
   error?: DomainError;
 }

@@ -42,7 +42,8 @@ export const temporaryPasteRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: TEMPORARY_PASTE_URL,
   summary: 'Preview paste operation results',
-  description: 'Preview the results of a paste operation without applying changes to the table',
+  description:
+    'Preview typecast paste values without inserting records or updating cells. Typecasting may create select choices when automatic option creation is allowed; choice names must respect the configured length limit (1000 characters by default).',
   request: {
     params: z.object({
       tableId: z.string(),

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { getUniqName, hasPermission } from '@teable/core';
+import { hasPermission } from '@teable/core';
 import { Import, MoreHorizontal, Plus, UserPlus } from '@teable/icons';
 import { createBase, type IGetSpaceVo } from '@teable/openapi';
 import { useIsMobile } from '@teable/sdk/hooks';
@@ -13,12 +13,11 @@ import {
 } from '@teable/ui-lib/shadcn/ui/tooltip';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { GUIDE_CREATE_BASE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
 import { ImportBaseDialog } from '../../blocks/space/component/upload-panel';
-import { useBaseList } from '../../blocks/space/useBaseList';
 import { InviteSpacePopover } from '../collaborator/space/InviteSpacePopover';
 import { CreateBaseDialog, useCreateBaseChooserEnabled } from './create-base';
 
@@ -55,12 +54,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const isMobile = useIsMobile();
   const router = useRouter();
-  const bases = useBaseList();
   const chooserEnabled = useCreateBaseChooserEnabled();
-
-  const basesInSpace = useMemo(() => {
-    return bases?.filter((base) => base.spaceId === space.id);
-  }, [bases, space.id]);
 
   const { mutate: createBaseMutator, isPending: createBaseLoading } = useMutation({
     mutationFn: createBase,
@@ -77,8 +71,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
       setCreateBaseOpen(true);
       return;
     }
-    const name = getUniqName(t('common:noun.base'), basesInSpace?.map((base) => base.name) || []);
-    createBaseMutator({ spaceId: space.id, name });
+    createBaseMutator({ spaceId: space.id });
   };
 
   const canCreateBase = hasPermission(space.role, 'base|create');

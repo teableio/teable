@@ -1,8 +1,14 @@
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import { DataQueryDefinition } from './DataQueryDefinition';
 import type { DataQueryManifest } from './DataQueryManifest';
-import { generateAppQueryArtifacts, parseDataQueryManifestText } from './DataQueryManifestFiles';
+import {
+  generateAppQueryArtifacts,
+  generatedClientState,
+  parseDataQueryManifestText,
+  withGeneratedClientDigest,
+} from './DataQueryManifestFiles';
 
 const todo = `schemaVersion: 1
 queries:
@@ -38,6 +44,27 @@ queries:
         - { fieldId: fld${'e'.repeat(16)}, alias: tags }
         - { system: autoNumber, alias: sequence }
 `;
+
+describe('generated client integrity', () => {
+  it('detects body edits, reseals host transforms and accepts pre-digest clients', () => {
+    const module = artifacts().module;
+    expect(generatedClientState(module)).toBe('current');
+
+    const edited = module.replace('export const queries =', '// edited\nexport const queries =');
+    expect(generatedClientState(edited)).toBe('invalid');
+    expect(generatedClientState(withGeneratedClientDigest(edited))).toBe('current');
+
+    expect(
+      generatedClientState(module.replace(/^\/\/ Source SHA256: .*$/m, '// Source SHA256: bad'))
+    ).toBe('invalid');
+
+    const legacy = module
+      .split('\n')
+      .filter((line) => !line.startsWith('// Source SHA256: '))
+      .join('\n');
+    expect(generatedClientState(legacy)).toBe('legacy');
+  });
+});
 
 function artifacts(text = todo) {
   const parsed = parseDataQueryManifestText(text);
@@ -240,7 +267,75 @@ describe('app query manifest files', () => {
     ]);
   });
 
-  it('routes legacy-only queries and unsupported structured queries through the SQL fallback', async () => {
+  it('keeps multi-hop relation definitions valid after generating the client', async () => {
+    const manifest = parseDataQueryManifestText(
+      JSON.stringify({
+        schemaVersion: 1,
+        queries: {
+          getTodos: {
+            definition: {
+              version: 2,
+              kind: 'records',
+              tableId: `tbl${'a'.repeat(16)}`,
+              relations: {
+                zParent: { linkFieldId: `fld${'b'.repeat(16)}`, tableId: `tbl${'c'.repeat(16)}` },
+                mChild: {
+                  via: 'zParent',
+                  linkFieldId: `fld${'d'.repeat(16)}`,
+                  tableId: `tbl${'e'.repeat(16)}`,
+                },
+                aGrandchild: {
+                  via: 'mChild',
+                  linkFieldId: `fld${'f'.repeat(16)}`,
+                  tableId: `tbl${'g'.repeat(16)}`,
+                },
+                bPeer: { linkFieldId: `fld${'h'.repeat(16)}`, tableId: `tbl${'i'.repeat(16)}` },
+              },
+              select: [
+                { system: 'id', alias: 'id' },
+                { source: 'aGrandchild', system: 'id', alias: 'descendantId' },
+                { source: 'bPeer', system: 'id', alias: 'peerId' },
+              ],
+            },
+          },
+        },
+      })
+    )._unsafeUnwrap();
+    let sentDefinition: unknown;
+    const generated = loadModule(
+      async (_endpoint, options) => {
+        if (options === null || typeof options !== 'object' || !('body' in options)) {
+          throw new Error('Expected a generated request body');
+        }
+        const body = options.body;
+        if (body === null || typeof body !== 'object' || !('definition' in body)) {
+          throw new Error('Expected a generated definition');
+        }
+        sentDefinition = body.definition;
+        return { ok: true, data: { rows: [] } };
+      },
+      undefined,
+      generateAppQueryArtifacts(manifest)._unsafeUnwrap()
+    );
+
+    await generated.queries.getTodos();
+
+    const parsedDefinition = DataQueryDefinition.create(sentDefinition);
+    if (parsedDefinition.isErr()) throw new Error(parsedDefinition.error.message);
+    const definition = parsedDefinition.value.snapshot();
+    expect(definition.version).toBe(2);
+    if (definition.version !== 2) throw new Error('Expected a relation definition');
+    expect(Object.keys(definition.relations ?? {})).toEqual([
+      'zParent',
+      'mChild',
+      'aGrandchild',
+      'bPeer',
+    ]);
+    expect(definition.relations?.aGrandchild.via).toBe('mChild');
+    expect(definition.relations?.mChild.via).toBe('zParent');
+  });
+
+  it('executes SQL only for mode: sql-query and keeps automatic fallback frozen', async () => {
     const parsed = parseDataQueryManifestText(
       JSON.stringify({
         schemaVersion: 1,
@@ -263,7 +358,7 @@ describe('app query manifest files', () => {
               select: [{ system: 'id', alias: 'rank' }],
             },
             fallback: {
-              sql: 'SELECT rank FROM report',
+              sql: 'SELECT rank FROM auto_frozen',
               outputs: [{ alias: 'rank', wireType: 'numberOrString' }],
             },
           },
@@ -274,14 +369,16 @@ describe('app query manifest files', () => {
               tableId: `tbl${'a'.repeat(16)}`,
               select: [{ system: 'id', alias: 'rank' }],
             },
-            fallback: { sql: 'SELECT rank FROM report' },
+            fallback: { sql: 'SELECT rank FROM structured_frozen' },
           },
         },
       })
     )._unsafeUnwrap();
     const generated = generateAppQueryArtifacts(parsed)._unsafeUnwrap();
-    const calls: Array<{ endpoint: string; options: any }> = [];
-    const request = async (endpoint: string, options: any) => {
+    expect(generated.module).not.toContain('auto_frozen');
+    expect(generated.module).not.toContain('structured_frozen');
+    const calls: Array<{ endpoint: string; options: unknown }> = [];
+    const request = async (endpoint: string, options: unknown) => {
       calls.push({ endpoint, options });
       if (endpoint === '/v2/queries/execute') {
         return {
@@ -304,9 +401,15 @@ describe('app query manifest files', () => {
     };
 
     await expect(loaded.queries.legacyReport({ minimum: 3 })).resolves.toEqual([{ rank: 1 }]);
-    await expect(loaded.queries.autoReport()).resolves.toEqual([{ rank: 1 }]);
-    await expect(loaded.queries.fallbackReport()).resolves.toEqual([{ rank: 1 }]);
-    expect(calls).toHaveLength(5);
+    await expect(loaded.queries.autoReport()).rejects.toMatchObject({
+      code: 'data_query.unsupported_join',
+      queryId: 'autoReport',
+    });
+    await expect(loaded.queries.fallbackReport()).rejects.toMatchObject({
+      code: 'data_query.unsupported_join',
+      queryId: 'fallbackReport',
+    });
+    expect(calls).toHaveLength(3);
     expect(calls[0]).toMatchObject({
       endpoint: '/base/bseFallback/sql-query',
       options: {
@@ -320,29 +423,7 @@ describe('app query manifest files', () => {
       },
     });
     expect(calls[1]).toMatchObject({ endpoint: '/v2/queries/execute' });
-    expect(calls[2]).toMatchObject({
-      endpoint: '/base/bseFallback/sql-query',
-      options: {
-        headers: {
-          'x-teable-query-planned-mode': 'structured',
-          'x-teable-query-selected-mode': 'sql-query',
-          'x-teable-query-fallback': 'true',
-          'x-teable-query-fallback-reason': 'data_query.unsupported_join',
-        },
-      },
-    });
-    expect(calls[3]).toMatchObject({ endpoint: '/v2/queries/execute' });
-    expect(calls[4]).toMatchObject({
-      endpoint: '/base/bseFallback/sql-query',
-      options: {
-        headers: {
-          'x-teable-query-planned-mode': 'structured',
-          'x-teable-query-selected-mode': 'sql-query',
-          'x-teable-query-fallback': 'true',
-          'x-teable-query-fallback-reason': 'data_query.unsupported_join',
-        },
-      },
-    });
+    expect(calls[2]).toMatchObject({ endpoint: '/v2/queries/execute' });
   });
 
   it('rejects invalid SQL parameters before a request and applies defaults only to absent values', async () => {

@@ -18,6 +18,7 @@ import {
 import { groupBy, keyBy, mapValues } from 'lodash';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 
 interface IBaseSelectPanelProps {
   baseId?: string;
@@ -58,9 +59,9 @@ export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
   });
 
   const baseName = useMemo(() => {
-    return baseId
-      ? baseList.find((base) => base.id === baseId)?.name
-      : t('settings.templateAdmin.baseSelectPanel.selectBase');
+    if (!baseId) return t('settings.templateAdmin.baseSelectPanel.selectBase');
+    const base = baseList.find((base) => base.id === baseId);
+    return base ? getBaseDisplayName(base.name, t) : undefined;
   }, [baseId, baseList, t]);
 
   const [search, setSearch] = useState('');
@@ -73,7 +74,9 @@ export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
           return {
             ...group,
             bases: search
-              ? bases.filter((base) => base.name.toLowerCase().includes(search.toLowerCase()))
+              ? bases.filter((base) =>
+                  getBaseDisplayName(base.name, t).toLowerCase().includes(search.toLowerCase())
+                )
               : bases,
           };
         })
@@ -81,7 +84,7 @@ export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
         .filter((group) => group.spaceName)
         .filter((group) => group.bases.length > 0)
     );
-  }, [groupedBaseList, search]);
+  }, [groupedBaseList, search, t]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -132,8 +135,12 @@ export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
                       onClick={() => updateTemplateFn(base.id)}
                     >
                       <span className="shrink-0">{base.icon ?? <LayoutGrid />}</span>
-                      <span dir={contentDir} className="truncate" title={base.name}>
-                        {base.name}
+                      <span
+                        dir={contentDir}
+                        className="truncate"
+                        title={getBaseDisplayName(base.name, t)}
+                      >
+                        {getBaseDisplayName(base.name, t)}
                       </span>
                     </Button>
                   ))}

@@ -264,7 +264,7 @@ describe('lintDataQueryManifest', () => {
     expect(findings[0].message).toContain('mode: sql-query');
   });
 
-  it('reports mode: auto as info because its SQL fallback is a migration state', () => {
+  it('reports mode: auto as info because its SQL fallback is frozen', () => {
     const { text, manifest } = parse({
       automatic: {
         mode: 'auto',

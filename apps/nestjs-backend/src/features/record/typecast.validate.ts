@@ -19,6 +19,11 @@ import {
   nullsToUndefined,
 } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
+import {
+  DEFAULT_TABLE_DATA_SAFETY_LIMITS,
+  ensureWithinTableDataSafetyLimit,
+  tableDataSafetyLimitErrors,
+} from '@teable/v2-core';
 import { isObject, keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import { CustomHttpException } from '../../custom.exception';
@@ -86,22 +91,27 @@ export class TypeCastAndValidate {
   private readonly tableId: string;
   private readonly typecast?: boolean;
   private readonly cache: Record<string, unknown> = {};
+  private readonly maxSelectChoiceNameLength: number;
 
   constructor({
     services,
     field,
     typecast,
     tableId,
+    maxSelectChoiceNameLength = DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions
+      .maxSelectChoiceNameLength,
   }: {
     services: IServices;
     field: FieldCore;
     typecast?: boolean;
     tableId: string;
+    maxSelectChoiceNameLength?: number;
   }) {
     this.services = services;
     this.field = field;
     this.typecast = typecast;
     this.tableId = tableId;
+    this.maxSelectChoiceNameLength = maxSelectChoiceNameLength;
     if (
       !this.field.isComputed &&
       (this.field.type === FieldType.SingleSelect || this.field.type === FieldType.MultipleSelect)
@@ -219,6 +229,23 @@ export class TypeCastAndValidate {
       | MultipleSelectFieldDto;
     const existsChoicesNameMap = this.cache.choicesMap as Record<string, ISelectFieldChoice>;
     const notExists = choicesNames.filter((name) => !existsChoicesNameMap[name]);
+    for (const name of notExists) {
+      const result = ensureWithinTableDataSafetyLimit(
+        tableDataSafetyLimitErrors.selectChoiceNameMaxLength,
+        name.length,
+        this.maxSelectChoiceNameLength,
+        { target: 'field.options.choices.name' }
+      );
+      if (result.isErr()) {
+        const error = result.error;
+        throw new CustomHttpException(error.message, HttpErrorCode.VALIDATION_ERROR, {
+          domainCode: error.code,
+          domainTags: error.tags,
+          details: error.details,
+          localization: error.localization,
+        });
+      }
+    }
     const colors = ColorUtils.randomColor(map(options.choices, 'color'), notExists.length);
     const newChoices = notExists.map((name, index) => ({
       id: generateChoiceId(),

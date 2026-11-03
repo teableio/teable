@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { getUniqName, hasPermission } from '@teable/core';
+import { hasPermission } from '@teable/core';
 import { createBase } from '@teable/openapi';
 import type { IGetSpaceVo } from '@teable/openapi';
 import { useSession } from '@teable/sdk/hooks';
@@ -11,7 +11,6 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { useBaseList } from './useBaseList';
 
 interface INoBasesPlaceholderProps {
   space: IGetSpaceVo;
@@ -25,8 +24,6 @@ export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
 
   const { user } = useSession();
   const router = useRouter();
-  const allBases = useBaseList();
-  const bases = allBases?.filter((base) => base.spaceId === space.id);
 
   const { mutate: createBaseMutator, isPending: createBaseLoading } = useMutation({
     mutationFn: createBase,
@@ -39,8 +36,7 @@ export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
   });
 
   const handleCreateBase = () => {
-    const name = getUniqName(t('common:noun.base'), bases?.map((base) => base.name) || []);
-    createBaseMutator({ spaceId: space.id, name });
+    createBaseMutator({ spaceId: space.id });
   };
 
   const canCreateBase = hasPermission(space.role, 'base|create');

@@ -9,6 +9,7 @@ import {
 } from '@teable/openapi';
 import {
   AnchorContext,
+  ExpandRecordPanelHost,
   FieldProvider,
   generateLocalId,
   useGridCollapsedGroupStore,
@@ -24,6 +25,7 @@ import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import { usePersonalViewStore } from '@teable/sdk/context/view/store';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -36,6 +38,7 @@ import { PluginPanel } from '../../components/plugin-panel/PluginPanel';
 import type { IBaseResourceTable } from '../../hooks/useBaseResource';
 import { useBaseResource } from '../../hooks/useBaseResource';
 import { useBrand } from '../../hooks/useBrand';
+import { getBaseDisplayName } from '../../utils/base-name';
 import { View } from '../view/View';
 import { FailAlert } from './FailAlert';
 import {
@@ -91,6 +94,7 @@ export const Table: React.FC<ITableProps> = ({
   });
 
   const { brandName } = useBrand();
+  const { t } = useTranslation(['common']);
 
   // SSR props describe exactly the (table, view) that getServerSideProps
   // rendered; navigation is shallow-routed, so once the user goes anywhere
@@ -207,7 +211,7 @@ export const Table: React.FC<ITableProps> = ({
       <Head>
         <title>
           {table?.name
-            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${base?.name} - ${brandName}`
+            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${getBaseDisplayName(base?.name, t)} - ${brandName}`
             : `${brandName}`}
         </title>
         <style data-fullcalendar></style>
@@ -222,7 +226,7 @@ export const Table: React.FC<ITableProps> = ({
           <PersonalViewProxy serverData={effectiveViewData}>
             <FieldProvider serverSideData={effectiveFieldData}>
               <PersonalViewProvider>
-                <div className="flex h-full grow basis-[500px]">
+                <ExpandRecordPanelHost className="flex h-full grow basis-[500px]">
                   <div
                     className="flex flex-1 flex-col overflow-hidden"
                     data-screenshot-target="base-view"
@@ -247,7 +251,7 @@ export const Table: React.FC<ITableProps> = ({
                   <DownloadAllAttachmentsDialog />
                   <CellDownloadHandler />
                   {/* <ChatPanel /> */}
-                </div>
+                </ExpandRecordPanelHost>
               </PersonalViewProvider>
             </FieldProvider>
           </PersonalViewProxy>

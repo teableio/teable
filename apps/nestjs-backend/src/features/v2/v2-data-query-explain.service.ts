@@ -65,7 +65,7 @@ export class V2DataQueryExplainService {
       const metaDb = metadataContainer.resolve<Kysely<IDataQueryAdmissionDb>>(v2MetaDbTokens.db);
       let routingSnapshot: IDataDbRoutingSnapshot | undefined;
       const explainer: IDataQueryExplainer = {
-        explain: async (executionContext, table, query, scope) => {
+        explain: async (executionContext, table, query, scope, binding) => {
           try {
             if (!routingSnapshot) throw new Error('Query resource has not been admitted');
             const snapshot = routingSnapshot;
@@ -78,7 +78,7 @@ export class V2DataQueryExplainService {
             if (route.isErr()) return err(route.error);
             return await new PostgresDataQueryExplainer(
               route.value.resolve(v2DataDbTokens.db)
-            ).explain(executionContext, table, query, scope);
+            ).explain(executionContext, table, query, scope, binding);
           } catch (error) {
             return err(dataQueryHostError(error));
           }

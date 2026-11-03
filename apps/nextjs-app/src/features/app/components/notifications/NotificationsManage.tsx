@@ -8,7 +8,7 @@ import {
 import { Bell, CheckCircle2 as Read, Download, RefreshCcw } from '@teable/icons';
 import {
   getNotificationList,
-  getNotificationUnreadCount,
+  getNotificationSummary,
   notificationReadAll,
   updateNotificationStatus,
 } from '@teable/openapi';
@@ -32,7 +32,6 @@ const UNREAD_INVITE_TOAST_LIMIT = 3;
 // Matches the 1-month expiry of email invitation records: older unread invites
 // stay in the bell but are no longer recalled as toasts on app open.
 const UNREAD_INVITE_RECALL_WINDOW_DAYS = 30;
-const CATCH_UP_STALE_TIME = ms('5m');
 const TOAST_AUTO_CLOSE_DURATION = ms('3s');
 const TOAST_MANUAL_CLOSE_DURATION = Infinity;
 const CREDIT_EXHAUSTED_NOTIFICATION_TOAST_ID = 'credit-exhausted-notification';
@@ -40,6 +39,11 @@ const CREDIT_NOTIFICATION_I18N_KEYS = new Set([
   'email.templates.notify.task.ai.cancelled.creditExhausted',
   'email.templates.notify.automation.insufficientCredit.title',
 ]);
+// The badge count and both catch-up lists arrive in one request, shared by the bell and the alerts.
+const notificationSummaryQuery = {
+  queryKey: ReactQueryKeys.notifySummary(),
+  queryFn: () => getNotificationSummary().then(({ data }) => data),
+};
 const NOTIFICATION_SEVERITIES = [
   NotificationSeverityEnum.Critical,
   NotificationSeverityEnum.Warning,
@@ -96,6 +100,8 @@ const getExportBaseInfo = (notification: Pick<INotification, 'messageI18n' | 'ur
   if (!parsed) return null;
   const baseName = parsed.context?.baseName || '';
   return {
+    // Older notifications carry no baseId; the dialog then falls back to matching the name.
+    baseId: typeof parsed.context?.baseId === 'string' ? parsed.context.baseId : undefined,
     baseName,
     fileName: parsed.context?.name || baseName,
     downloadUrl: notification.url || parsed.context?.previewUrl || '',
@@ -230,36 +236,19 @@ const useNotificationAlerts = (onMarkedRead: () => void) => {
   const [importantNotifications, setImportantNotifications] = useState<INotification[]>([]);
 
   // The socket only covers arrivals while it is open — the SDK closes it after
-  // ten minutes hidden and presence does not replay what was missed — so both
-  // catch-up queries stay refetchable on focus. Anything already surfaced is
-  // dropped by the session dedup, so a refetch can only add missed items.
-  const { data: criticalAdminNotices } = useQuery({
-    queryKey: ReactQueryKeys.notifyCriticalAdmin(),
-    queryFn: () =>
-      getNotificationList({
-        notifyStates: NotificationStatesEnum.Unread,
-        severity: NotificationSeverityEnum.Critical,
-        notifyType: NotificationTypeEnum.AdminNotice,
-      }).then(({ data }) => data.notifications),
-    staleTime: CATCH_UP_STALE_TIME,
-  });
-
-  const { data: unreadInviteNotifications } = useQuery({
-    queryKey: ReactQueryKeys.notifyUnreadInvite(),
-    queryFn: () =>
-      getNotificationList({
-        notifyStates: NotificationStatesEnum.Unread,
-        notifyType: NotificationTypeEnum.CollaboratorInvite,
-      }).then(({ data }) => data.notifications),
-    staleTime: CATCH_UP_STALE_TIME,
-  });
+  // ten minutes hidden and presence does not replay what was missed — so the
+  // catch-up lists refetch on focus along with the badge count. Anything already
+  // surfaced is dropped by the session dedup, so a refetch can only add missed items.
+  const { data: notificationSummary } = useQuery(notificationSummaryQuery);
+  const criticalAdminNotices = notificationSummary?.criticalAdminNotices;
+  const unreadInviteNotifications = notificationSummary?.unreadInvites;
 
   const { mutate: markNotificationAsRead } = useMutation({
     mutationFn: (notificationId: string) =>
       updateNotificationStatus({ notificationId, updateNotifyStatusRo: { isRead: true } }),
     onSuccess: () => {
       onMarkedRead();
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifySummary() });
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
     },
   });
@@ -316,7 +305,7 @@ const useNotificationAlerts = (onMarkedRead: () => void) => {
       setImportantNotifications((prev) => prev.filter((n) => n.id !== id));
       onMarkedRead();
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifySummary() });
     },
     [queryClient, onMarkedRead]
   );
@@ -327,7 +316,7 @@ const useNotificationAlerts = (onMarkedRead: () => void) => {
   const clearAlerts = useCallback(() => {
     setImportantNotifications([]);
     toast.dismiss();
-    queryClient.resetQueries({ queryKey: ReactQueryKeys.notifyUnreadInvite() });
+    queryClient.resetQueries({ queryKey: ReactQueryKeys.notifySummary() });
   }, [queryClient]);
 
   return { importantNotifications, acknowledgeImportant, clearAlerts };
@@ -351,8 +340,8 @@ export const NotificationsManage: React.FC = () => {
     useNotificationAlerts(dropSocketUnreadCount);
 
   const { data: queryUnreadCount = 0 } = useQuery({
-    queryKey: ReactQueryKeys.notifyUnreadCount(),
-    queryFn: () => getNotificationUnreadCount().then(({ data }) => data.unreadCount),
+    ...notificationSummaryQuery,
+    select: (data) => data.unreadCount,
   });
 
   // Keyed off the buffer, not the number: after a read drops the override, the
@@ -389,7 +378,7 @@ export const NotificationsManage: React.FC = () => {
 
   const refresh = () => {
     setNewUnreadCount(undefined);
-    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifySummary() });
     queryClient.resetQueries({ queryKey: ReactQueryKeys.notifyList() });
   };
 

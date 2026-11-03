@@ -47,8 +47,8 @@ import {
   FolderInput,
   Info,
   Pen,
-  Pin,
-  PinOff,
+  Star,
+  StarOff,
   ShieldCheck,
   Trash,
 } from 'lucide-react';
@@ -155,8 +155,8 @@ interface IBaseNodeMoreProps {
     disabled?: boolean;
   }>;
 
-  /** Pin / Unpin, placed after Rename; a host that pins from the menu passes it. */
-  pin?: { pinned: boolean; onToggle: () => void };
+  /** Star / Unstar, placed after Rename; a host that stars from the menu passes it. */
+  star?: { starred: boolean; onToggle: () => void };
 }
 
 interface ITableOperationProps extends IBaseNodeMoreProps {
@@ -182,22 +182,24 @@ const anyOf = (...entries: unknown[]) => entries.some(Boolean);
 const GroupSeparator = ({ above, below }: { above: boolean; below: boolean }) =>
   above && below ? <DropdownMenuSeparator /> : null;
 
-/** The menu's Pin / Unpin entry, as a dropdown item or, on mobile, a list row. */
-const PinItem = ({
-  pin,
+/** The menu's Star / Unstar entry, as a dropdown item or, on mobile, a list row. */
+const StarItem = ({
+  star,
   list,
 }: {
-  pin: NonNullable<IBaseNodeMoreProps['pin']>;
+  star: NonNullable<IBaseNodeMoreProps['star']>;
   list?: boolean;
 }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const Icon = pin.pinned ? PinOff : Pin;
-  const label = pin.pinned ? t('table:aiChat.unpin') : t('table:aiChat.pin');
+  const Icon = star.starred ? StarOff : Star;
+  const label = star.starred ? t('space:pin.remove') : t('space:pin.add');
   if (list) {
-    return <ListMenuItem icon={<Icon className="size-4" />} label={label} onClick={pin.onToggle} />;
+    return (
+      <ListMenuItem icon={<Icon className="size-4" />} label={label} onClick={star.onToggle} />
+    );
   }
   return (
-    <DropdownMenuItem onClick={pin.onToggle}>
+    <DropdownMenuItem onClick={star.onToggle}>
       <Icon className="me-2 size-4" />
       {label}
     </DropdownMenuItem>
@@ -223,7 +225,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     canMoveToBase: canMoveToBaseProp,
     nodeTypeLabel,
     extraActions = [],
-    pin,
+    star,
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -314,7 +316,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
   );
 
   // The menu's groups: edit, info, then delete on its own.
-  const hasEditGroup = anyOf(canRename, pin, canDuplicate);
+  const hasEditGroup = anyOf(canRename, star, canDuplicate);
   const hasInfoGroup = anyOf(shareNodeId, node);
   const hasDeleteGroup = anyOf(canPermanentDelete, canDelete);
   const hasVisibleCommonActions = anyOf(hasEditGroup, hasInfoGroup, hasDeleteGroup);
@@ -344,7 +346,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
             onClick={() => onRename?.()}
           />
         )}
-        {pin && <PinItem pin={pin} list />}
+        {star && <StarItem star={star} list />}
         {canDuplicate && (
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
@@ -439,7 +441,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
-          {pin && <PinItem pin={pin} />}
+          {star && <StarItem star={star} />}
           {canDuplicate && (
             <DropdownMenuItem onClick={handleDuplicateClick}>
               <CopyPlus className="me-2 size-4" />
@@ -642,7 +644,7 @@ export const TableOperation = (props: ITableOperationProps) => {
     onRecordClick,
     variant = 'dropdown',
     contentAlign = 'end',
-    pin,
+    star,
   } = props;
 
   const baseId = useBaseId() as string;
@@ -958,7 +960,7 @@ export const TableOperation = (props: ITableOperationProps) => {
             onClick={() => onRename?.()}
           />
         )}
-        {pin && <PinItem pin={pin} list />}
+        {star && <StarItem star={star} list />}
         {menuPermission.duplicateTable && (
           <ListMenuItem
             icon={<CopyPlus className="size-4" />}
@@ -1086,7 +1088,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const hasEditGroup = anyOf(
     onDescription,
     menuPermission.updateTable,
-    pin,
+    star,
     menuPermission.duplicateTable
   );
   const hasDataGroup = anyOf(
@@ -1123,7 +1125,7 @@ export const TableOperation = (props: ITableOperationProps) => {
               {t('table:table.rename')}
             </DropdownMenuItem>
           )}
-          {pin && <PinItem pin={pin} />}
+          {star && <StarItem star={star} />}
           {menuPermission.duplicateTable && (
             <DropdownMenuItem
               disabled={isPreviewing}

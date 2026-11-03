@@ -3,6 +3,7 @@ import { Command, CommandInput, CommandItem } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
+import { errorRequestHandler } from '../../../context/app/queryClient';
 import type { ISelectOption } from '../../cell-value';
 import type { ICellEditor, IEditorRef } from '../type';
 import { OptionList } from './components';
@@ -44,6 +45,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   const [value, setValue] = useState<string[]>(getValue(originValue));
   const [searchValue, setSearchValue] = useState(initialSearch ?? '');
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const addingOptionRef = useRef(false);
   const { t } = useTranslation();
 
   useImperativeHandle(ref, () => ({
@@ -81,16 +83,28 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   );
 
   const onOptionAddInner = async () => {
-    if (!searchValue || preventAutoNewOptions) return;
-    setSearchValue('');
-    await onOptionAdd?.(searchValue);
+    if (!searchValue || preventAutoNewOptions || addingOptionRef.current) return;
+    const submittedName = searchValue;
+    addingOptionRef.current = true;
+    try {
+      await onOptionAdd?.(submittedName);
+    } catch (error) {
+      // Creating the choice is the caller's request (temporaryPaste) and it is a plain
+      // axios call, so no query/mutation cache reports it. The name stays in the input
+      // and never reaches onChange: the choice does not exist until the request succeeds.
+      errorRequestHandler(error, t);
+      return;
+    } finally {
+      addingOptionRef.current = false;
+    }
+    setSearchValue((current) => (current === submittedName ? '' : current));
     if (isMultiple) {
-      const newValue = value.concat(searchValue);
+      const newValue = value.concat(submittedName);
       setValue(newValue);
       return onChange?.(newValue);
     }
-    setValue([searchValue]);
-    onChange?.(searchValue);
+    setValue([submittedName]);
+    onChange?.(submittedName);
   };
 
   return (

@@ -5,7 +5,14 @@ import {
   Optional,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { IFieldVo, IOtOperation, IRecord, ISnapshotBase } from '@teable/core';
+import type {
+  ICustomHttpExceptionData,
+  IFieldVo,
+  ILocalization,
+  IOtOperation,
+  IRecord,
+  ISnapshotBase,
+} from '@teable/core';
 import { getRandomString, IdPrefix, RecordOpBuilder } from '@teable/core';
 import type { ITableVo } from '@teable/openapi';
 import { isTableProvisionPendingError, TABLE_PROVISION_PENDING_CODE } from '@teable/v2-core';
@@ -14,12 +21,14 @@ import { isTableProvisionPendingError, TABLE_PROVISION_PENDING_CODE } from '@tea
 import { isCancel } from 'axios';
 import { omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { I18nService } from 'nestjs-i18n';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
 import { FieldService } from '../features/field/field.service';
 import { TableService } from '../features/table/table.service';
 import type { IClsStore } from '../types/cls';
+import type { I18nTranslations } from '../types/i18n.generated';
 import { exceptionParse } from '../utils/exception-parse';
 import {
   RawOpType,
@@ -41,6 +50,33 @@ export interface ICollectionSnapshot {
 }
 
 type IProjection = { [fieldNameOrId: string]: boolean };
+
+const getLocalization = (data: unknown): ILocalization | undefined => {
+  if (!data || typeof data !== 'object' || !('localization' in data)) return;
+  const localization = (data as ICustomHttpExceptionData).localization;
+  return localization?.i18nKey ? localization : undefined;
+};
+
+const getLocaleFromCookie = (cookie: unknown): string | undefined => {
+  if (typeof cookie !== 'string') return;
+  const match = /(?:^|;\s*)NEXT_LOCALE=([^;]+)/.exec(cookie);
+  return match ? decodeURIComponent(match[1]) : undefined;
+};
+
+// Accept-Language tags in preference order (q-weighted), e.g. "ja,zh-CN;q=0.8" -> ["ja", "zh-CN"].
+const getAcceptLanguages = (header: unknown): string[] => {
+  if (typeof header !== 'string') return [];
+  return header
+    .split(',')
+    .map((part, index) => {
+      const [tag, ...params] = part.trim().split(';');
+      const q = params.map((p) => /^\s*q=([\d.]+)/.exec(p)?.[1]).find(Boolean);
+      return { tag: tag.trim(), q: q ? Number(q) : 1, index };
+    })
+    .filter(({ tag, q }) => tag && tag !== '*' && q > 0)
+    .sort((a, b) => b.q - a.q || a.index - b.index)
+    .map(({ tag }) => tag);
+};
 
 /**
  * Runs a callback-style ShareDB method that is implemented with async/await. ShareDB expects
@@ -72,7 +108,8 @@ export class ShareDbAdapter extends ShareDb.DB {
     private readonly fieldService: FieldReadonlyServiceAdapter,
     private readonly viewService: ViewReadonlyServiceAdapter,
     private readonly tableServiceInner: TableService,
-    @Optional() private readonly fieldServiceInner?: FieldService
+    @Optional() private readonly fieldServiceInner?: FieldService,
+    @Optional() private readonly i18n?: I18nService<I18nTranslations>
   ) {
     super();
     this.closed = false;
@@ -156,9 +193,16 @@ export class ShareDbAdapter extends ShareDb.DB {
     });
   };
 
-  private toShareDbError(error: Error) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toShareDbError(error: Error, options?: any) {
     const exception = exceptionParse(error);
     const data = 'data' in error ? error.data : undefined;
+    // ShareDB serializes only code/message, so the client cannot translate
+    // data.localization itself; send the message in the requester's language.
+    const localized = this.translateLocalization(data, options);
+    if (localized) {
+      exception.message = localized;
+    }
     // ShareDB serializes only code/message. Preserve the pending identity there,
     // before HTTP normalization discards the domain metadata.
     if (
@@ -170,6 +214,44 @@ export class ShareDbAdapter extends ShareDb.DB {
       exception.code = TABLE_PROVISION_PENDING_CODE;
     }
     return exception;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private translateLocalization(data: unknown, options?: any): string | undefined {
+    const localization = getLocalization(data);
+    if (!this.i18n || !localization) return;
+    try {
+      const message = this.i18n.t(`sdk.${localization.i18nKey}` as never, {
+        lang: this.getRequesterLang(options),
+        args: localization.context,
+      });
+      return typeof message === 'string' && message ? message : undefined;
+    } catch (e) {
+      this.logger.warn(`Failed to localize ShareDB error ${localization.i18nKey}: ${e}`);
+      return;
+    }
+  }
+
+  // Same order the page picks its language: the page's own (sent on the socket URL),
+  // then the NEXT_LOCALE cookie, then Accept-Language, then English.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private getRequesterLang(options?: any): string {
+    const pick = (key: string) => options?.[key] || options?.agentCustom?.[key];
+    const supported = this.i18n?.getSupportedLanguages() ?? [];
+    const candidates = [
+      pick('lang'),
+      getLocaleFromCookie(pick('cookie')),
+      ...getAcceptLanguages(pick('acceptLanguage')),
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate !== 'string' || !candidate) continue;
+      const tag = candidate.toLowerCase();
+      const match =
+        supported.find((lang) => lang.toLowerCase() === tag) ??
+        supported.find((lang) => lang.toLowerCase() === tag.split('-')[0]);
+      if (match) return match;
+    }
+    return 'en';
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -223,7 +305,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       }
       this.logger.error(e);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      callback(this.toShareDbError(e as Error), []);
+      callback(this.toShareDbError(e as Error, options), []);
     }
   }
 
@@ -336,7 +418,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         return callback(new ShareDbQueryCancelledError());
       }
       this.logger.error(err);
-      callback(this.toShareDbError(err as Error));
+      callback(this.toShareDbError(err as Error, options));
     }
   }
 
@@ -511,7 +593,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       callback(null, editOps);
     } catch (err) {
       this.logger.error(err);
-      callback(this.toShareDbError(err as Error));
+      callback(this.toShareDbError(err as Error, options));
     }
   }
 
@@ -546,7 +628,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       });
     } catch (err) {
       this.logger.error(err);
-      callback(this.toShareDbError(err as Error));
+      callback(this.toShareDbError(err as Error, options));
     }
   }
 
@@ -614,7 +696,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       callback(null, result);
     } catch (err) {
       this.logger.error(err);
-      callback(this.toShareDbError(err as Error));
+      callback(this.toShareDbError(err as Error, options));
     }
   }
 

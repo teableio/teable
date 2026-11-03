@@ -12,7 +12,7 @@ import {
 } from '@teable/v2-core';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
-import { assertDataQueryAccess } from './assertDataQueryAccess';
+import { dataQueryAccessForSource } from './assertDataQueryAccess';
 import { DataQueryBinding } from './DataQueryBinding';
 import type { DataQueryDefinition } from './DataQueryDefinition';
 import type { DataQueryExplainResult } from './DataQueryExplain';
@@ -34,7 +34,8 @@ export interface IDataQueryExplainer {
     context: IExecutionContext,
     table: Table,
     query: BoundDataQuery,
-    scope: RecordQueryPluginScope
+    scope: RecordQueryPluginScope,
+    binding?: DataQueryBinding
   ): Promise<Result<DataQueryExplainResult, DomainError>>;
   /** Optional so execute-only adapters stay valid; relation explain fails closed without it. */
   explainRelation?(
@@ -98,7 +99,7 @@ export class DataQueryExplainService {
                   context,
                   this.queryPlugins,
                   relation.rootTable,
-                  relation.binding.rootDependencies,
+                  dataQueryAccessForSource(relation.binding.plan, 'root'),
                   { limit: query.limit, offset: query.offset }
                 )
             );
@@ -116,7 +117,7 @@ export class DataQueryExplainService {
                     context,
                     this.queryPlugins,
                     source.table,
-                    source.dependencies
+                    dataQueryAccessForSource(relation.binding.plan, source.alias)
                   )
               );
               scopes.set(source.alias, scope);
@@ -129,14 +130,13 @@ export class DataQueryExplainService {
               query,
               rootTable: relation.rootTable,
               rootScope,
-              rootDependencies: relation.binding.rootDependencies,
               sources: relation.binding.sources.map((source) => ({
                 alias: source.alias,
                 table: relation.targetTables.get(source.alias)!,
                 linkFieldId: source.linkFieldId,
                 scope: scopes.get(source.alias)!,
-                dependencies: source.dependencies,
               })),
+              plan: relation.binding.plan,
             };
             return ok(yield* await explainRelation(context, plan));
           }
@@ -155,7 +155,7 @@ export class DataQueryExplainService {
             this.authorize(context, table, binding, query)
           );
           if (binding.deferredFilterError) return err(binding.deferredFilterError);
-          const result = yield* await this.explainer.explain(context, table, query, scope);
+          const result = yield* await this.explainer.explain(context, table, query, scope, binding);
           return ok(result);
         }.bind(this)
       );
@@ -176,22 +176,12 @@ export class DataQueryExplainService {
     binding: DataQueryBinding,
     pagination: { readonly limit: number; readonly offset: number }
   ): Promise<Result<RecordQueryPluginScope, DomainError>> {
-    const execution = await this.queryPlugins.prepare({
-      kind: 'list',
-      executionContext: context,
+    return authorizeDataQueryDependencies(
+      context,
+      this.queryPlugins,
       table,
-      payload: {
-        ignoreViewQuery: true,
-        projectionFieldIds: binding.dependencies.map((dependency) => dependency.fieldId),
-        ...pagination,
-      },
-    });
-    if (execution.isErr()) return err(execution.error);
-    const guard = await execution.value.guard();
-    if (guard.isErr()) return err(guard.error);
-    const scope = execution.value.getScope();
-    if (scope.isErr()) return err(scope.error);
-    const resolvedScope = scope.value ?? {};
-    return assertDataQueryAccess(binding, resolvedScope).map(() => resolvedScope);
+      binding.plan,
+      pagination
+    );
   }
 }

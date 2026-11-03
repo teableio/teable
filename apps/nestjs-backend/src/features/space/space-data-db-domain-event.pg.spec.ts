@@ -8,6 +8,7 @@ import {
   type IComputedOutboxMaintenanceTarget,
 } from '../../global/data-db-client-manager.service';
 import { DataDbRuntimeCacheService } from '../../global/data-db-runtime-cache.service';
+import { DataDbBaselineService } from './data-db-baseline.service';
 import {
   DATA_DB_MIGRATION_TABLE,
   DataDbMigrationService,
@@ -40,6 +41,19 @@ const otherBaseId = 'bseother';
 const tableId = 'tblcopy';
 const spaceId = 'spcdeotest';
 const jobId = `sdmjdeo${suffix}`;
+const undoTupleUpgrade: IDataDbMigration = {
+  id: '20261101000000_add_undo_capture_old_tuple',
+  sql: readFileSync(
+    new URL(
+      '../../../../../packages/db-data-prisma/prisma/migrations/20261101000000_add_undo_capture_old_tuple/migration.sql',
+      import.meta.url
+    ),
+    'utf8'
+  ),
+};
+const undoTupleBaselineService = new DataDbBaselineService(
+  new DataDbMigrationService([undoTupleUpgrade], dataDbKnexClientFactory)
+);
 
 const qualify = (schema: string, table: string) =>
   `"${schema.replace(/"/g, '""')}"."${table.replace(/"/g, '""')}"`;
@@ -306,7 +320,7 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
     const service = new SpaceDataDbMigrationService(
       prismaService as never,
       {} as never,
-      { getLatestSchemaVersion: vi.fn().mockReturnValue(null) } as never,
+      undoTupleBaselineService,
       dataDbClientManager as never,
       {} as never,
       dataDbKnexClientFactory

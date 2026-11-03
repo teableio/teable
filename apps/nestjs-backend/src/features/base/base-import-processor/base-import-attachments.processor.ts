@@ -1,11 +1,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { PassThrough } from 'node:stream';
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { Queue, Job } from 'bullmq';
 import * as unzipper from 'unzipper';
+import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import {

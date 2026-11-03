@@ -1,4 +1,4 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Attachments } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -7,6 +7,7 @@ import type { Job } from 'bullmq';
 import { Queue } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import * as unzipper from 'unzipper';
+import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { BatchProcessor } from '../BatchProcessor.class';

@@ -82,6 +82,28 @@ const records = {
 };
 
 describe('DataQueryBinding', () => {
+  it('passes the bound plan to the v1 executor', async () => {
+    const table = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const execute = vi.fn(async () => ok({ rows: [] }));
+    const service = new DataQueryService(
+      { findOne: async () => ok(table) },
+      new RecordQueryPluginRunner([], new NoopLogger()),
+      { execute }
+    );
+    const context = { actorId: ActorId.create('reader')._unsafeUnwrap() };
+    const definition = DataQueryDefinition.create(records)._unsafeUnwrap();
+
+    expect((await service.execute(context, definition)).isOk()).toBe(true);
+    expect(execute).toHaveBeenCalledWith(
+      context,
+      table,
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        plan: expect.objectContaining({ definitionVersion: 1, kind: 'records' }),
+      })
+    );
+  });
   it('does not confuse composite or computed semantic values with primitive wire types', () => {
     const dto = tableDto();
     const userId = `fld${'u'.repeat(16)}`;
@@ -156,6 +178,8 @@ describe('DataQueryBinding', () => {
       ...records,
       parameters: { id: { type: 'string' } },
       recordId: { type: 'parameter', name: 'id' },
+      sort: [{ fieldId: textId, order: 'asc' as const }],
+      filter: { fieldId: textId, operator: 'is', value: 'Visible order' },
     };
     expect((await service.validate(context, { definition }))._unsafeUnwrap()).toEqual({
       outputs: [
@@ -168,8 +192,24 @@ describe('DataQueryBinding', () => {
         },
       ],
     });
+    const requested = (
+      await service.validate(context, { definition, includeUsage: true })
+    )._unsafeUnwrap();
+    expect(requested.usage).toEqual([
+      {
+        source: 'root',
+        tableId,
+        fieldId: textId,
+        usages: ['projection', 'filter', 'sort'],
+      },
+    ]);
+    expect(JSON.stringify(requested.usage)).not.toContain('schema.original');
+    expect(JSON.stringify(requested.usage)).not.toContain('title');
     forbidden = true;
-    expect((await service.validate(context, { definition })).isErr()).toBe(true);
+    const denied = await service.validate(context, { definition, includeUsage: true });
+    expect(denied.isErr()).toBe(true);
+    expect(JSON.stringify(denied)).not.toContain('usage');
+    expect(JSON.stringify(denied)).not.toContain('schema.original');
     forbidden = false;
     const changed = tableDto();
     changed.fields = changed.fields.filter((field) => field.id !== numberId);
@@ -181,7 +221,7 @@ describe('DataQueryBinding', () => {
         })
       ).isErr()
     ).toBe(true);
-    expect(findOne).toHaveBeenCalledTimes(3);
+    expect(findOne).toHaveBeenCalledTimes(4);
     expect(execute).not.toHaveBeenCalled();
   });
   it('retains every predicate and field-reference dependency', () => {
@@ -365,12 +405,24 @@ describe('DataQueryBinding', () => {
     expect(JSON.stringify(forbidden._unsafeUnwrapErr())).not.toContain('singleSelect');
     expect(JSON.stringify(forbidden._unsafeUnwrapErr())).not.toContain('supportedOperators');
     expect(execute).not.toHaveBeenCalled();
+    const forbiddenValidation = await service.validate(context, definition, {
+      includeUsage: true,
+    });
+    expect(forbiddenValidation._unsafeUnwrapErr().code).toBe('data_query.forbidden');
+    expect(JSON.stringify(forbiddenValidation)).not.toContain('usage');
 
     denied = false;
     expect((await service.execute(context, definition))._unsafeUnwrapErr()).toMatchObject({
       code: 'data_query.filter_operator_unsupported',
       details: { fieldId: selectId, fieldType: 'singleSelect', operator: 'isGreaterEqual' },
     });
+    const invalidValidation = await service.validate(context, definition, {
+      includeUsage: true,
+    });
+    expect(invalidValidation._unsafeUnwrapErr().code).toBe(
+      'data_query.filter_operator_unsupported'
+    );
+    expect(JSON.stringify(invalidValidation)).not.toContain('usage');
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -668,6 +720,98 @@ describe('DataQueryBinding', () => {
       },
     ]);
   });
+
+  it('includes aggregate groups, metrics and alias sorts in the plan', () => {
+    const table = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 1,
+      kind: 'aggregate',
+      tableId,
+      groupBy: [{ fieldId: textId, alias: 'title' }],
+      aggregates: [{ fieldId: numberId, statisticFunc: 'sum', alias: 'total' }],
+      sort: [{ alias: 'total', order: 'desc' }],
+    })._unsafeUnwrap();
+
+    const binding = DataQueryBinding.prepare(definition, table)._unsafeUnwrap();
+
+    expect(binding.plan.aggregates).toEqual([
+      {
+        source: 'root',
+        alias: 'total',
+        statisticFunc: 'sum',
+        fieldId: numberId,
+        column: 'amount',
+      },
+    ]);
+    expect(binding.plan.groupBy).toEqual([
+      { source: 'root', fieldId: textId, column: 'title', alias: 'title' },
+    ]);
+    expect(binding.plan.sort).toEqual([{ kind: 'alias', alias: 'total', order: 'desc' }]);
+    expect(binding.plan.usage).toEqual(
+      expect.arrayContaining([
+        { source: 'root', fieldId: textId, usages: ['group'] },
+        { source: 'root', fieldId: numberId, usages: ['aggregate'] },
+      ])
+    );
+  });
+
+  it('produces a v1 source-qualified plan without changing the binding', () => {
+    const table = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      ...records,
+      filter: { fieldId: textId, operator: 'is', value: 'open' },
+      sort: [{ fieldId: numberId, order: 'desc' }],
+      page: { limit: 25 },
+    })._unsafeUnwrap();
+
+    const binding = DataQueryBinding.prepare(definition, table)._unsafeUnwrap();
+    const plan = binding.plan;
+
+    expect(plan.definitionVersion).toBe(1);
+    expect(plan.kind).toBe('records');
+    expect(plan.root).toMatchObject({
+      alias: 'root',
+      tableId,
+      physical: { schema: 'schema', tableName: 'original' },
+      cardinality: 'one',
+    });
+    expect(plan.root.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ fieldId: textId, column: 'title', fieldType: 'singleLineText' }),
+        expect.objectContaining({ fieldId: numberId, column: 'amount', fieldType: 'number' }),
+      ])
+    );
+    expect(plan.projections).toEqual([
+      {
+        kind: 'field',
+        source: 'root',
+        fieldId: textId,
+        column: 'title',
+        alias: 'title',
+      },
+    ]);
+    expect(plan.sort).toEqual([
+      {
+        kind: 'target',
+        source: 'root',
+        fieldId: numberId,
+        column: 'amount',
+        order: 'desc',
+      },
+    ]);
+    expect(plan.page).toEqual({ limit: 25, includeTotal: false });
+    expect(plan.filter).toEqual({ fieldId: textId, operator: 'is', value: 'open' });
+    expect(plan.usage).toEqual(
+      expect.arrayContaining([
+        { source: 'root', fieldId: textId, usages: ['projection', 'filter'] },
+        { source: 'root', fieldId: numberId, usages: ['sort'] },
+      ])
+    );
+    expect(binding.dependencies.map((dependency) => dependency.fieldId)).toEqual([
+      textId,
+      numberId,
+    ]);
+  });
 });
 
 describe('DataQueryRelationBinding', () => {
@@ -781,6 +925,7 @@ describe('DataQueryRelationBinding', () => {
     const root = mapper.toDomain(tableDto())._unsafeUnwrap();
     const target = mapper.toDomain(targetDto())._unsafeUnwrap();
     const calls: Array<{ tableId: string; fields: ReadonlyArray<string> }> = [];
+    let forbiddenTableId: string | undefined;
     const plugin: IRecordQueryPlugin = {
       name: 'relation-scope',
       supports: () => true,
@@ -789,7 +934,11 @@ describe('DataQueryRelationBinding', () => {
           tableId: pluginContext.table.id().toString(),
           fields: pluginContext.payload.projectionFieldIds ?? [],
         });
-        return ok({});
+        return ok(
+          pluginContext.table.id().toString() === forbiddenTableId
+            ? { readableFieldIds: new Set<string>() }
+            : {}
+        );
       },
     };
     const execute = vi.fn(async () => ok({ rows: [] }));
@@ -819,17 +968,44 @@ describe('DataQueryRelationBinding', () => {
       ],
     })._unsafeUnwrap();
 
-    const validation = await service.validate(context, definition);
-    expect(validation.isOk()).toBe(true);
+    const validation = await service.validate(context, definition, {
+      includeUsage: true,
+    });
+    expect(validation._unsafeUnwrap().usage).toEqual([
+      {
+        source: 'owner',
+        tableId: targetTableId,
+        fieldId: targetTitleId,
+        usages: ['projection'],
+      },
+      { source: 'root', tableId, fieldId: textId, usages: ['projection'] },
+      { source: 'root', tableId, fieldId: linkId, usages: ['relation'] },
+    ]);
+    expect(JSON.stringify(validation._unsafeUnwrap().usage)).not.toContain('schema.original');
+    expect(JSON.stringify(validation._unsafeUnwrap().usage)).not.toContain('schema.target');
     expect(calls).toEqual([
       { tableId, fields: [textId, linkId] },
       { tableId: targetTableId, fields: [targetTitleId] },
     ]);
 
     calls.length = 0;
+    forbiddenTableId = targetTableId;
+    const denied = await service.validate(context, definition, { includeUsage: true });
+    expect(denied._unsafeUnwrapErr().code).toBe('data_query.field_forbidden');
+    expect(JSON.stringify(denied)).not.toContain('usage');
+    expect(JSON.stringify(denied)).not.toContain('schema.target');
+    forbiddenTableId = undefined;
+
+    calls.length = 0;
     const execution = await service.execute(context, definition);
     expect(execution._unsafeUnwrap().rows).toEqual([{ ownerTitle: 'One' }]);
     expect(executeRelation).toHaveBeenCalledTimes(1);
+    expect(executeRelation).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({
+        plan: expect.objectContaining({ definitionVersion: 2, kind: 'records' }),
+      })
+    );
     expect(calls).toEqual([
       { tableId, fields: [textId, linkId] },
       { tableId: targetTableId, fields: [targetTitleId] },
@@ -978,11 +1154,11 @@ describe('DataQueryRelationBinding', () => {
       kind: 'records',
       tableId,
       relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
-      parameters: { by: { type: 'string' } },
+      parameters: { by: { type: 'string' }, dir: { type: 'string' } },
       sort: [
         {
           field: { type: 'parameter', name: 'by' },
-          order: 'asc',
+          order: { type: 'parameter', name: 'dir' },
           allowed: [{ source: 'owner', fieldId: targetTitleId }],
         },
       ],
@@ -1001,6 +1177,19 @@ describe('DataQueryRelationBinding', () => {
     expect(binding.rootDependencies.map((dependency) => dependency.fieldId)).toEqual([
       textId,
       linkId,
+    ]);
+    expect(binding.plan.sort).toEqual([
+      {
+        kind: 'parameter',
+        field: 'by',
+        order: { parameter: 'dir' },
+        allowed: [{ source: 'owner', fieldId: targetTitleId, column: 'name' }],
+        optional: false,
+      },
+    ]);
+    expect(binding.plan.parameters).toEqual([
+      { name: 'by', type: 'string', nullable: false, hasDefault: false },
+      { name: 'dir', type: 'string', nullable: false, hasDefault: false },
     ]);
   });
 
@@ -1078,6 +1267,87 @@ describe('DataQueryRelationBinding', () => {
     ]);
   });
 
+  it('produces a source-qualified relation plan without changing the binding', () => {
+    const root = mapper.toDomain(tableDto())._unsafeUnwrap();
+    const target = mapper.toDomain(targetDto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId,
+      relations: {
+        owner: {
+          linkFieldId: linkId,
+          tableId: targetTableId,
+          filter: { fieldId: targetTitleId, operator: 'is', value: 'Acme' },
+        },
+      },
+      select: [
+        { fieldId: textId, alias: 'title' },
+        { source: 'owner', fieldId: targetTitleId, alias: 'ownerTitle' },
+        { source: 'owner', system: 'id', alias: 'ownerId' },
+      ],
+    })._unsafeUnwrap();
+
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    )._unsafeUnwrap();
+    const plan = binding.plan;
+
+    expect(plan.definitionVersion).toBe(2);
+    expect(plan.root.physical).toEqual({ schema: 'schema', tableName: 'original' });
+    expect(plan.sources).toEqual([
+      {
+        alias: 'owner',
+        tableId: targetTableId,
+        physical: { schema: 'schema', tableName: 'target' },
+        cardinality: 'one',
+        parentAlias: 'root',
+        linkFieldId: linkId,
+        link: { kind: 'root-fk', column: 'fk_relation' },
+        fields: [
+          {
+            fieldId: targetTitleId,
+            column: 'name',
+            fieldType: 'singleLineText',
+            cellValueType: 'string',
+            isMultipleCellValue: false,
+            isComputed: false,
+            isLookupOrConditional: false,
+          },
+        ],
+      },
+    ]);
+    expect(plan.projections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'field', source: 'owner', fieldId: targetTitleId }),
+        {
+          kind: 'system',
+          source: 'owner',
+          system: 'id',
+          column: '__id',
+          alias: 'ownerId',
+        },
+      ])
+    );
+    expect(plan.relationFilters).toEqual([
+      {
+        source: 'owner',
+        filter: { fieldId: targetTitleId, operator: 'is', value: 'Acme' },
+      },
+    ]);
+    expect(plan.usage).toEqual(
+      expect.arrayContaining([
+        { source: 'owner', fieldId: targetTitleId, usages: ['projection', 'filter'] },
+        { source: 'root', fieldId: linkId, usages: ['relation'] },
+      ])
+    );
+    expect(binding.rootDependencies).toEqual(
+      expect.arrayContaining([expect.objectContaining({ fieldId: linkId })])
+    );
+  });
+
   it('rejects a masked relation link even without an allow-list or with it readable', () => {
     const root = mapper.toDomain(tableDto())._unsafeUnwrap();
     const target = mapper.toDomain(targetDto())._unsafeUnwrap();
@@ -1108,8 +1378,7 @@ describe('DataQueryRelationBinding', () => {
       { readableFieldIds: new Set([textId]), fieldMasks: [linkMask] },
     ]) {
       expect(
-        assertDataQueryAccess({ dependencies: binding.rootDependencies }, scope)._unsafeUnwrapErr()
-          .code
+        assertDataQueryAccess({ usage: binding.plan.usage }, scope)._unsafeUnwrapErr().code
       ).toBe('data_query.field_forbidden');
     }
   });

@@ -6,6 +6,14 @@ import { splitSchemaQualifiedTableName, type QualifiedIdentifierLiteral } from '
 
 type DbOrTx<DB> = Kysely<DB> | Transaction<DB>;
 
+/** Database-local physical identity observed by the trigger; invalid after clone/copy. */
+export type UndoCaptureTupleIdentity = {
+  xmin: string;
+  ctid: string;
+  relationOid: string;
+  relationFilenode: string;
+};
+
 export type UndoLogRow = {
   id: string;
   operation: 'INSERT' | 'UPDATE' | 'DELETE';
@@ -13,6 +21,31 @@ export type UndoLogRow = {
   record_id: string;
   old_row: unknown;
   new_row: unknown;
+  // Absent/null on legacy capture functions; this is never authorization evidence.
+  old_tuple?: UndoCaptureTupleIdentity | null;
+};
+
+/** Legacy or incomplete metadata must not seed a transaction-local generation chain. */
+export const getUndoCaptureOldTuple = (row: UndoLogRow): UndoCaptureTupleIdentity | undefined => {
+  if (row.operation !== 'UPDATE' && row.operation !== 'DELETE') {
+    return undefined;
+  }
+  const tuple = row.old_tuple;
+  if (
+    tuple == null ||
+    typeof tuple !== 'object' ||
+    typeof tuple.xmin !== 'string' ||
+    !/^\d+$/.test(tuple.xmin) ||
+    typeof tuple.ctid !== 'string' ||
+    !/^\(\d+,\d+\)$/.test(tuple.ctid) ||
+    typeof tuple.relationOid !== 'string' ||
+    !/^[1-9]\d*$/.test(tuple.relationOid) ||
+    typeof tuple.relationFilenode !== 'string' ||
+    !/^[1-9]\d*$/.test(tuple.relationFilenode)
+  ) {
+    return undefined;
+  }
+  return tuple;
 };
 
 export type UndoCaptureInfrastructureStatus =
@@ -58,8 +91,7 @@ export const invalidateUndoCaptureTableCache = (
   }
 };
 
-const nextSavepointName = () =>
-  `teable_undo_capture_${Date.now().toString(36)}_${randomHex(4)}`;
+const nextSavepointName = () => `teable_undo_capture_${Date.now().toString(36)}_${randomHex(4)}`;
 
 const toQuotedSavepointIdentifier = (savepointName: string) =>
   `"${savepointName.replaceAll('"', '""')}"`;
@@ -339,9 +371,11 @@ export const loadAndClearUndoLogRows = async <DB>(
     WITH deleted AS (
       DELETE FROM "__undo_log"
       WHERE "batch_id" = ${batchId}
-      RETURNING "id", "operation", "table_name", "record_id", "old_row", "new_row"
+      RETURNING "id", "operation", "table_name", "record_id", "old_row", "new_row",
+        to_jsonb("__undo_log") -> 'old_tuple' AS "old_tuple"
     )
-    SELECT "id"::text AS "id", "operation", "table_name", "record_id", "old_row", "new_row"
+    SELECT "id"::text AS "id", "operation", "table_name", "record_id", "old_row", "new_row",
+      "old_tuple"
     FROM deleted
     ORDER BY deleted."id" ASC
   `.execute(db);

@@ -2,7 +2,7 @@
 import os from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, type Readable } from 'node:stream';
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { UploadType } from '@teable/openapi';
 import { Queue } from 'bullmq';
@@ -11,6 +11,7 @@ import Papa from 'papaparse';
 import { CacheService } from '../../../cache/cache.service';
 import { BaseConfig, type IBaseConfig } from '../../../configs/base.config';
 import type { I18nPath } from '../../../types/i18n.generated';
+import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';

@@ -17,6 +17,7 @@ const tableBase: Record<string, string> = {
   tblMine: 'bseMine',
   tblOther: 'bseOther',
   tblShared: 'bseShared',
+  tblTpl: 'bseTpl',
 };
 // viewId -> table (for action_trigger keyed by a view id)
 const viewTable: Record<string, string> = { viwShared: 'tblShared' };
@@ -87,14 +88,18 @@ const createBackend = () => {
   return backend;
 };
 
-/** A browser connection, signed in as `userId` and/or carrying a share id (or anonymous). */
+/**
+ * A browser connection, signed in as `userId` and/or carrying a share id or a template preview
+ * header (or anonymous).
+ */
 const connectBrowser = (
   backend: ShareDBClass,
-  opts: { userId?: string; shareId?: string; baseShareId?: string } = {}
+  opts: { userId?: string; shareId?: string; baseShareId?: string; templateHeader?: string } = {}
 ): Connection => {
   const params = new URLSearchParams();
   if (opts.shareId) params.set('shareId', opts.shareId);
   if (opts.baseShareId) params.set('baseShareId', opts.baseShareId);
+  if (opts.templateHeader) params.set('templateHeader', opts.templateHeader);
   const query = params.toString();
   const connection = backend.connect(undefined, {
     headers: { cookie: opts.userId ? `session=${opts.userId}` : undefined },
@@ -273,6 +278,21 @@ describe('public-share presence is scoped to the share', () => {
       subscribe(connectBrowser(backend, { shareId: 'shrView' }), getBaseNodeChannel('bseShared'))
     ).rejects.toBeDefined();
   });
+});
+
+describe('template preview connections get no presence', () => {
+  // A template preview shows a frozen snapshot, so its page opens no presence channel
+  // (usePresenceConnection). The template header authorizes document reads only: it must never
+  // become a way onto a base's live channels.
+  it.each([getBaseNodeChannel('bseTpl'), getActionTriggerChannel('tblTpl')])(
+    'refuses %s to an anonymous template preview',
+    async (ch) => {
+      const backend = createBackend();
+      await expect(
+        subscribe(connectBrowser(backend, { templateHeader: 'tplHeader' }), ch)
+      ).rejects.toMatchObject({ message: 'Presence channel access denied' });
+    }
+  );
 });
 
 describe('workflow-test presence requires a signed-in user', () => {

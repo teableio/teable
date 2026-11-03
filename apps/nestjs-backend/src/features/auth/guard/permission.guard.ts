@@ -162,6 +162,7 @@ export class PermissionGuard {
       resourceId,
       permissions
     );
+    this.cls.set('baseShareId', shareId);
     // Preserve logged-in user identity for allowEdit; fall back to anonymous
     const currentUserId = this.cls.get('user.id');
     if (!currentUserId || isAnonymous(currentUserId)) {

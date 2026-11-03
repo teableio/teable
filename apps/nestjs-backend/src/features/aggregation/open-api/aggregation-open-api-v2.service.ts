@@ -14,8 +14,12 @@ import type {
   IRowCountVo,
   ISearchCountRo,
   ISearchCountVo,
+  ISearchCellCountRo,
+  ISearchCellCountVo,
   ISearchIndexByQueryRo,
   ISearchIndexVo,
+  ISearchMatchesRo,
+  ISearchMatchesVo,
   ISelectionAggregationRo,
 } from '@teable/openapi';
 import { mapTableRecordToDto } from '@teable/v2-contract-http';
@@ -339,6 +343,41 @@ export class AggregationOpenApiV2Service {
     return { count };
   }
 
+  async getSearchCellCount(
+    tableId: string,
+    query: ISearchCellCountRo,
+    projection?: string[]
+  ): Promise<ISearchCellCountVo> {
+    this.assertSearchQuery(query.search);
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
+    const [searchValue, searchFieldKeys] = query.search;
+    const filter = await normalizeLegacyFilterViaQueryBus(
+      tableId,
+      query.filter,
+      prepared.context.actorId.toString(),
+      prepared.queryBus,
+      prepared.context,
+      prepared.table
+    );
+    const requestedProjection = query.projection;
+    const hasProjectionScope = requestedProjection !== undefined || projection !== undefined;
+    let finalProjection = requestedProjection ?? projection;
+    if (requestedProjection && projection) {
+      finalProjection = projection.filter((fieldId) => requestedProjection.includes(fieldId));
+    }
+    const matchedCellCount = await this.executeCountQuery(prepared, {
+      tableId,
+      viewId: prepared.viewId,
+      ignoreViewQuery: query.ignoreViewQuery,
+      filter,
+      search: [searchValue, searchFieldKeys ?? '', true],
+      projection: finalProjection,
+      searchFieldScope: hasProjectionScope ? 'projection' : undefined,
+      countSearchMatches: true,
+    });
+    return { matchedCellCount };
+  }
+
   async getSearchIndex(
     tableId: string,
     query: ISearchIndexByQueryRo,
@@ -422,6 +461,96 @@ export class AggregationOpenApiV2Service {
       fieldId: match.fieldId,
       recordId: match.recordId,
     }));
+  }
+
+  async getSearchMatches(
+    tableId: string,
+    query: ISearchMatchesRo,
+    projection?: string[]
+  ): Promise<ISearchMatchesVo> {
+    if (query.take > 1000) {
+      throw new CustomHttpException(
+        'The maximum search index result is 1000',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    if (query.search?.[2] === true) {
+      throw new CustomHttpException(
+        'Search matches scan only supports show-all search mode',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    this.assertSearchQuery(query.search);
+    const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
+    const [searchValue, searchFieldKeys] = query.search;
+    const filter = await normalizeLegacyFilterViaQueryBus(
+      tableId,
+      query.filter,
+      prepared.context.actorId.toString(),
+      prepared.queryBus,
+      prepared.context,
+      prepared.table
+    );
+    const requestedProjection = query.projection;
+    const hasProjectionScope = requestedProjection !== undefined || projection !== undefined;
+    let finalProjection = requestedProjection ?? projection;
+    if (requestedProjection && projection) {
+      finalProjection = projection.filter((fieldId) => requestedProjection.includes(fieldId));
+    }
+    const sort = [...(query.groupBy ?? []), ...(query.orderBy ?? [])].map((item) => ({
+      fieldId: item.fieldId,
+      order: item.order,
+    }));
+    const listQuery = ListTableRecordsQuery.create(
+      {
+        tableId,
+        fieldKeyType: FieldKeyType.Id,
+        limit: query.take > 0 ? query.take : MAX_RECORDS_LIMIT,
+        offset: query.skip ?? 0,
+        includeTotal: false,
+        search: [searchValue, searchFieldKeys ?? '', true],
+        viewId: prepared.viewId,
+        ignoreViewQuery: query.ignoreViewQuery,
+        filter: filter ?? undefined,
+        sort,
+        groupBy: query.groupBy?.map((item) => item.fieldId),
+        projection: finalProjection ?? [],
+        filterLinkCellSelected: query.filterLinkCellSelected,
+        filterLinkCellCandidate: query.filterLinkCellCandidate,
+        selectedRecordIds: query.selectedRecordIds,
+      },
+      {
+        queryScope: prepared.queryScope,
+        table: prepared.table,
+        includeSearchFieldMatches: true,
+        searchIndexMode: 'view',
+        searchFieldScope: hasProjectionScope ? 'projection' : 'visible',
+        applySearchRowFilter: false,
+        recordSearchAccessPath: this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
+          table: prepared.table,
+          search: query.search,
+        }),
+      }
+    );
+    if (listQuery.isErr()) throwV2QueryDomainError(listQuery.error);
+    const result = await prepared.queryBus.execute<ListTableRecordsQuery, ListTableRecordsResult>(
+      prepared.context,
+      listQuery.value
+    );
+    if (result.isErr()) throwV2QueryDomainError(result.error);
+    const matches = (result.value.searchMatches ?? []).map((match) => ({
+      index: match.index,
+      fieldId: match.fieldId.toString(),
+      recordId: match.recordId.toString(),
+    }));
+    const scannedRecordCount = result.value.records.length;
+    const hasMore = result.value.hasMore === true;
+    return {
+      matches,
+      scannedRecordCount,
+      hasMore,
+      nextSkip: hasMore ? (query.skip ?? 0) + scannedRecordCount : null,
+    };
   }
   async getRecordIndex(tableId: string, query: IRecordIndexRo): Promise<IRecordIndexVo> {
     const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
@@ -522,6 +651,7 @@ export class AggregationOpenApiV2Service {
       filterLinkCellSelected?: IRowCountRo['filterLinkCellSelected'];
       filterLinkCellCandidate?: IRowCountRo['filterLinkCellCandidate'];
       selectedRecordIds?: IRowCountRo['selectedRecordIds'];
+      countSearchMatches?: boolean;
     }
   ): Promise<number> {
     const recordSearchAccessPath =
@@ -537,7 +667,7 @@ export class AggregationOpenApiV2Service {
         ...(input.ignoreViewQuery !== undefined ? { ignoreViewQuery: input.ignoreViewQuery } : {}),
         ...(input.filter ? { filter: input.filter } : {}),
         ...(input.search ? { search: input.search } : {}),
-        ...(input.projection?.length ? { projection: input.projection } : {}),
+        ...(input.projection !== undefined ? { projection: input.projection } : {}),
         ...(input.filterLinkCellSelected
           ? { filterLinkCellSelected: input.filterLinkCellSelected }
           : {}),
@@ -553,6 +683,7 @@ export class AggregationOpenApiV2Service {
         table: prepared.table,
         recordSearchAccessPath,
         ...(input.searchFieldScope ? { searchFieldScope: input.searchFieldScope } : {}),
+        ...(input.countSearchMatches ? { countSearchMatches: true } : {}),
       }
     );
     if (countQuery.isErr()) {

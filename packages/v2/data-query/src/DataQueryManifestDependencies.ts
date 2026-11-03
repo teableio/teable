@@ -29,11 +29,12 @@ export type DataQueryManifestQueryDependency = {
   /** Declared v2 targets; root fields remain in `fields`. */
   readonly relations?: ReadonlyArray<DataQueryManifestQueryRelationDependency>;
   /**
-   * Every field this query *declares* is listed. False when a SQL path can run:
-   * `mode: sql-query` has no structured definition, and a query that declares a
-   * `fallback` keeps that SQL reachable for `data_query.unsupported_*` failures
-   * even in `structured`/default mode. Never read `fields: []` as "this query
-   * reads nothing" without this flag.
+   * Every field this query *declares* is listed. False only when a SQL path
+   * actually runs: `mode: sql-query` has no structured definition. A `fallback`
+   * on `mode: auto` or on a structured query is retained for compatibility but
+   * is not executed automatically (C1 decision, 2026-11-02), so it no longer
+   * makes the declared field set incomplete. Never read `fields: []` as "this
+   * query reads nothing" without this flag.
    */
   readonly complete: boolean;
   /**
@@ -97,11 +98,10 @@ const queryDependency = (
     tableId: definition?.tableId ?? null,
     fields,
     ...(relations?.length ? { relations } : {}),
-    // The generated client runs a declared fallback for any reachable
-    // `data_query.unsupported_*` failure, whatever the mode says, and that SQL
-    // can read columns this index cannot see. Only a query with no fallback has
-    // a fully declared field set offline.
-    complete: definition !== undefined && query.fallback === undefined,
+    // Automatic fallback is frozen: only `mode: sql-query` executes SQL. A
+    // declared fallback on a structured definition is compatibility metadata,
+    // not a runtime read path, so it cannot read undeclared columns.
+    complete: definition !== undefined,
     transitiveDependencies: 'not-expanded',
   };
 };

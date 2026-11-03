@@ -22,6 +22,7 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useUpgradeCtaEnabled } from '../../../../hooks/useUpgradeCtaEnabled';
 import { ImportLogPanel, type ILogEntry, type ITableImportProgress } from './ImportLogPanel';
@@ -293,7 +294,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
       setNotify(null);
       setLogs([]);
       setTableProgresses({});
-      showImportSuccessToast(baseId, result.data.base.name);
+      showImportSuccessToast(baseId, getBaseDisplayName(result.data.base.name, t));
     } catch (err) {
       const { status, code } = err as HttpError;
       const localized =
@@ -333,6 +334,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
     queryClient,
     addLog,
     translatePhase,
+    t,
     tAny,
     onOpenChange,
     openUsageLimitModal,

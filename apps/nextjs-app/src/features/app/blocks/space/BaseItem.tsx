@@ -18,6 +18,7 @@ import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { useClickAway } from 'react-use';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
@@ -31,6 +32,7 @@ export interface IBaseItemProps {
   className?: string;
   isExpanded?: boolean;
   showDragHandle?: boolean;
+  showStar?: boolean;
   dragHandleListeners?: Record<string, unknown>;
   onToggleExpand?: () => void;
   onEnterBase?: () => void;
@@ -45,6 +47,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
     className,
     isExpanded = false,
     showDragHandle = false,
+    showStar = true,
     dragHandleListeners,
     onToggleExpand,
     onEnterBase,
@@ -66,7 +69,8 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
 
   const startEditing = () => {
     setIsEditing(true);
-    setEditingValue(base.name);
+    // An unnamed base starts the rename input empty; the placeholder shows what it is called
+    setEditingValue(base.name ?? '');
   };
 
   const finishEditing = () => {
@@ -149,6 +153,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
               ref={inputRef}
               className="size-full"
               value={editingValue}
+              placeholder={t('common:untitledBase')}
               onClick={stopPropagation}
               onMouseDown={stopPropagation}
               onChange={(e) => setEditingValue(e.target.value)}
@@ -166,20 +171,24 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
             <>
               <div
                 className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
-                title={base.name}
+                title={getBaseDisplayName(base.name, t)}
               >
-                <span className="truncate text-sm font-medium">{base.name}</span>
+                <span className="truncate text-sm font-medium">
+                  {getBaseDisplayName(base.name, t)}
+                </span>
                 {base.isShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
-                <StarButton
-                  className={cn(
-                    'size-4 w-0 shrink-0 opacity-0 group-hover:w-auto group-hover:opacity-100',
-                    {
-                      'w-auto opacity-100': pinMap?.[base.id],
-                    }
-                  )}
-                  id={base.id}
-                  type={PinType.Base}
-                />
+                {showStar && (
+                  <StarButton
+                    className={cn(
+                      'size-4 w-0 shrink-0 opacity-0 group-hover:w-auto group-hover:opacity-100',
+                      {
+                        'w-auto opacity-100': pinMap?.[base.id],
+                      }
+                    )}
+                    id={base.id}
+                    type={PinType.Base}
+                  />
+                )}
               </div>
 
               <Button

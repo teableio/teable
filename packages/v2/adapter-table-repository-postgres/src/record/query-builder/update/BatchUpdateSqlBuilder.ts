@@ -10,6 +10,13 @@ import type { DynamicDB } from '../ITableRecordQueryBuilder';
 type CompilableSqlExpression = {
   compile(db: Kysely<DynamicDB>): KyselyCompiledQuery;
 };
+export interface BatchUpdateNoopReleaseSpec {
+  groupKey: string;
+  sourceRecordId: string;
+  targetTableName: string;
+  ownerColumnName: string;
+  desiredTargetRecordIds: ReadonlyArray<string>;
+}
 
 /**
  * Parameters for building batch UPDATE SQL.
@@ -26,6 +33,10 @@ export interface BuildBatchUpdateSqlParams {
   db: Kysely<DynamicDB>;
   returnedOldFields?: ReadonlyArray<BatchUpdateReturnedOldField>;
   returnedNewFields?: ReadonlyArray<{ dbFieldName: string; alias: string }>;
+  /** Return rows that existed in this statement snapshot but were skipped as no-ops. */
+  returnMatchedRecords?: boolean;
+  /** Capture exact inverse FK tuples in the same snapshot as matched no-op sources. */
+  noopReleaseSpecs?: ReadonlyArray<BatchUpdateNoopReleaseSpec>;
 }
 
 export interface BatchUpdateReturnedOldFieldInput {
@@ -204,6 +215,50 @@ export function buildBatchUpdateSql(
       ({ dbFieldName, alias }) =>
         `t.${escapeSqlIdentifier(dbFieldName)} AS ${escapeSqlIdentifier(alias)}`
     );
+    const matchedNoOpOldValueSelects = returnedOldFields.map(
+      ({ alias }) => `matched.${escapeSqlIdentifier(alias)} AS ${escapeSqlIdentifier(alias)}`
+    );
+    const matchedNoOpNewValueSelects = (params.returnedNewFields ?? []).map(
+      ({ alias }) => `NULL AS ${escapeSqlIdentifier(alias)}`
+    );
+    const matchedNoOpSelects = [
+      `matched.${escapeSqlIdentifier('matched_id')} AS ${escapeSqlIdentifier('record_id')}`,
+      `NULL AS ${escapeSqlIdentifier('new_version')}`,
+      `matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}`,
+      ...matchedNoOpOldValueSelects,
+      ...matchedNoOpNewValueSelects,
+      `FALSE AS ${escapeSqlIdentifier('mutation_applied')}`,
+    ];
+    const noopReleaseSpecs = params.noopReleaseSpecs ?? [];
+    const noopReleaseCandidatesSql = buildNoopReleaseCandidatesSql(noopReleaseSpecs);
+    const noopReleaseSourceNullSelects = [
+      `NULL::text AS ${escapeSqlIdentifier('release_group_key')}`,
+      `NULL::text AS ${escapeSqlIdentifier('release_source_id')}`,
+      `NULL::text AS ${escapeSqlIdentifier('release_target_id')}`,
+      `NULL::text AS ${escapeSqlIdentifier('release_owner_id')}`,
+      `NULL::text AS ${escapeSqlIdentifier('release_xmin')}`,
+      `NULL::text AS ${escapeSqlIdentifier('release_ctid')}`,
+      `NULL::text AS ${escapeSqlIdentifier('release_relation_oid')}`,
+      `NULL::text AS ${escapeSqlIdentifier('release_relation_filenode')}`,
+    ];
+    const noopReleaseTokenSelects = [
+      `NULL AS ${escapeSqlIdentifier('record_id')}`,
+      `NULL AS ${escapeSqlIdentifier('new_version')}`,
+      `NULL AS ${escapeSqlIdentifier('old_version')}`,
+      ...returnedOldFields.map(({ alias }) => `NULL AS ${escapeSqlIdentifier(alias)}`),
+      ...(params.returnedNewFields ?? []).map(
+        ({ alias }) => `NULL AS ${escapeSqlIdentifier(alias)}`
+      ),
+      `NULL AS ${escapeSqlIdentifier('mutation_applied')}`,
+      `noop_release_candidates.${escapeSqlIdentifier('release_group_key')}`,
+      `noop_release_candidates.${escapeSqlIdentifier('release_source_id')}`,
+      `noop_release_candidates.${escapeSqlIdentifier('release_target_id')}`,
+      `noop_release_candidates.${escapeSqlIdentifier('release_owner_id')}`,
+      `noop_release_candidates.${escapeSqlIdentifier('release_xmin')}`,
+      `noop_release_candidates.${escapeSqlIdentifier('release_ctid')}`,
+      `noop_release_candidates.${escapeSqlIdentifier('release_relation_oid')}`,
+      `noop_release_candidates.${escapeSqlIdentifier('release_relation_filenode')}`,
+    ];
 
     // Build SET clauses
     const setClauses: string[] = [];
@@ -232,7 +287,62 @@ export function buildBatchUpdateSql(
         constantNullColumnFields,
         't'
       );
-      const updateSql = `
+      const updateBody = `
+UPDATE ${escapedTableName} AS t
+SET ${setClauses.join(', ')}
+FROM matched
+WHERE t.${escapeSqlIdentifier('__id')} = matched.${escapeSqlIdentifier('matched_id')}${distinctWhereClause}
+RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')},
+  t.${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('new_version')},
+  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}${returningNewValueSelects.length > 0 ? `,\n  ${returningNewValueSelects.join(',\n  ')}` : ''}`;
+      const updateSql = params.returnMatchedRecords
+        ? noopReleaseCandidatesSql
+          ? `
+WITH matched AS MATERIALIZED (
+  SELECT
+    ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
+    ${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('old_version')}${matchedOldValueSelects.length > 0 ? `,\n    ${matchedOldValueSelects.join(',\n    ')}` : ''}
+  FROM ${escapedTableName}
+  WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
+), noop_release_candidates AS MATERIALIZED (
+${noopReleaseCandidatesSql}
+), updated AS (${updateBody}
+), source_rows AS (
+  SELECT updated.*, TRUE AS ${escapeSqlIdentifier('mutation_applied')}
+  FROM updated
+  UNION ALL
+  SELECT ${matchedNoOpSelects.join(',\n    ')}
+  FROM matched
+  WHERE NOT EXISTS (
+    SELECT 1 FROM updated
+    WHERE updated.${escapeSqlIdentifier('record_id')} = matched.${escapeSqlIdentifier('matched_id')}
+  )
+)
+SELECT source_rows.*,
+  ${noopReleaseSourceNullSelects.join(',\n  ')}
+FROM source_rows
+UNION ALL
+SELECT ${noopReleaseTokenSelects.join(',\n  ')}
+FROM noop_release_candidates`.trim()
+          : `
+WITH matched AS MATERIALIZED (
+  SELECT
+    ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
+    ${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('old_version')}${matchedOldValueSelects.length > 0 ? `,\n    ${matchedOldValueSelects.join(',\n    ')}` : ''}
+  FROM ${escapedTableName}
+  WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
+), updated AS (${updateBody}
+)
+SELECT updated.*, TRUE AS ${escapeSqlIdentifier('mutation_applied')}
+FROM updated
+UNION ALL
+SELECT ${matchedNoOpSelects.join(',\n  ')}
+FROM matched
+WHERE NOT EXISTS (
+  SELECT 1 FROM updated
+  WHERE updated.${escapeSqlIdentifier('record_id')} = matched.${escapeSqlIdentifier('matched_id')}
+)`.trim()
+        : `
 WITH matched AS (
   SELECT
     ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
@@ -240,14 +350,7 @@ WITH matched AS (
   FROM ${escapedTableName}
   WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
 )
-UPDATE ${escapedTableName} AS t
-SET ${setClauses.join(', ')}
-FROM matched
-WHERE t.${escapeSqlIdentifier('__id')} = matched.${escapeSqlIdentifier('matched_id')}${distinctWhereClause}
-RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')},
-  t.${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('new_version')},
-  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}${returningNewValueSelects.length > 0 ? `,\n  ${returningNewValueSelects.join(',\n  ')}` : ''}
-      `.trim();
+${updateBody}`.trim();
 
       return ok(CompiledQuery.raw(updateSql));
     }
@@ -344,14 +447,7 @@ RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')
       constantNullColumnFields,
       varyingColumns
     );
-    const updateSql = `
-WITH matched AS (
-  SELECT
-    ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
-    ${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('old_version')}${matchedOldValueSelects.length > 0 ? `,\n    ${matchedOldValueSelects.join(',\n    ')}` : ''}
-  FROM ${escapedTableName}
-  WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
-)
+    const updateBody = `
 UPDATE ${escapedTableName} AS t
 SET ${setClauses.join(', ')}
 FROM matched, (VALUES
@@ -361,12 +457,114 @@ WHERE t.${escapeSqlIdentifier('__id')} = v.${escapeSqlIdentifier('__id')}
   AND t.${escapeSqlIdentifier('__id')} = matched.${escapeSqlIdentifier('matched_id')}${distinctWhereClause}
 RETURNING t.${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('record_id')},
   t.${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('new_version')},
-  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}${returningNewValueSelects.length > 0 ? `,\n  ${returningNewValueSelects.join(',\n  ')}` : ''}
-    `.trim();
+  matched.${escapeSqlIdentifier('old_version')} AS ${escapeSqlIdentifier('old_version')}${returningOldValueSelects.length > 0 ? `,\n  ${returningOldValueSelects.join(',\n  ')}` : ''}${returningNewValueSelects.length > 0 ? `,\n  ${returningNewValueSelects.join(',\n  ')}` : ''}`;
+    const updateSql = params.returnMatchedRecords
+      ? noopReleaseCandidatesSql
+        ? `
+WITH matched AS MATERIALIZED (
+  SELECT
+    ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
+    ${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('old_version')}${matchedOldValueSelects.length > 0 ? `,\n    ${matchedOldValueSelects.join(',\n    ')}` : ''}
+  FROM ${escapedTableName}
+  WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
+), noop_release_candidates AS MATERIALIZED (
+${noopReleaseCandidatesSql}
+), updated AS (${updateBody}
+), source_rows AS (
+  SELECT updated.*, TRUE AS ${escapeSqlIdentifier('mutation_applied')}
+  FROM updated
+  UNION ALL
+  SELECT ${matchedNoOpSelects.join(',\n    ')}
+  FROM matched
+  WHERE NOT EXISTS (
+    SELECT 1 FROM updated
+    WHERE updated.${escapeSqlIdentifier('record_id')} = matched.${escapeSqlIdentifier('matched_id')}
+  )
+)
+SELECT source_rows.*,
+  ${noopReleaseSourceNullSelects.join(',\n  ')}
+FROM source_rows
+UNION ALL
+SELECT ${noopReleaseTokenSelects.join(',\n  ')}
+FROM noop_release_candidates`.trim()
+        : `
+WITH matched AS MATERIALIZED (
+  SELECT
+    ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
+    ${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('old_version')}${matchedOldValueSelects.length > 0 ? `,\n    ${matchedOldValueSelects.join(',\n    ')}` : ''}
+  FROM ${escapedTableName}
+  WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
+), updated AS (${updateBody}
+)
+SELECT updated.*, TRUE AS ${escapeSqlIdentifier('mutation_applied')}
+FROM updated
+UNION ALL
+SELECT ${matchedNoOpSelects.join(',\n  ')}
+FROM matched
+WHERE NOT EXISTS (
+  SELECT 1 FROM updated
+  WHERE updated.${escapeSqlIdentifier('record_id')} = matched.${escapeSqlIdentifier('matched_id')}
+)`.trim()
+      : `
+WITH matched AS (
+  SELECT
+    ${escapeSqlIdentifier('__id')} AS ${escapeSqlIdentifier('matched_id')},
+    ${escapeSqlIdentifier('__version')} AS ${escapeSqlIdentifier('old_version')}${matchedOldValueSelects.length > 0 ? `,\n    ${matchedOldValueSelects.join(',\n    ')}` : ''}
+  FROM ${escapedTableName}
+  WHERE ${escapeSqlIdentifier('__id')} = ANY(ARRAY[${idList}])
+)
+${updateBody}`.trim();
 
     // Compile using kysely's sql tag for proper parameter handling
     return ok(CompiledQuery.raw(updateSql, parameters));
   })();
+}
+
+function buildNoopReleaseCandidatesSql(specs: ReadonlyArray<BatchUpdateNoopReleaseSpec>): string {
+  const groups = new Map<
+    string,
+    { targetTableName: string; ownerColumnName: string; specs: BatchUpdateNoopReleaseSpec[] }
+  >();
+  for (const spec of specs) {
+    const key = JSON.stringify([spec.groupKey, spec.targetTableName, spec.ownerColumnName]);
+    const group = groups.get(key) ?? {
+      targetTableName: spec.targetTableName,
+      ownerColumnName: spec.ownerColumnName,
+      specs: [],
+    };
+    group.specs.push(spec);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()]
+    .map((group) => {
+      const intentRows = group.specs
+        .map((spec) => {
+          const desiredIds = spec.desiredTargetRecordIds
+            .map((id) => escapeAndQuoteSqlValue(id))
+            .join(', ');
+          return `(${escapeAndQuoteSqlValue(spec.groupKey)}::text, ${escapeAndQuoteSqlValue(spec.sourceRecordId)}::text, ARRAY[${desiredIds}]::text[])`;
+        })
+        .join(',\n      ');
+      return `  SELECT
+    release_intent.${escapeSqlIdentifier('group_key')} AS ${escapeSqlIdentifier('release_group_key')},
+    release_intent.${escapeSqlIdentifier('source_id')} AS ${escapeSqlIdentifier('release_source_id')},
+    release_target.${escapeSqlIdentifier('__id')}::text AS ${escapeSqlIdentifier('release_target_id')},
+    release_target.${escapeSqlIdentifier(group.ownerColumnName)}::text AS ${escapeSqlIdentifier('release_owner_id')},
+    release_target.xmin::text AS ${escapeSqlIdentifier('release_xmin')},
+    release_target.ctid::text AS ${escapeSqlIdentifier('release_ctid')},
+    release_target.tableoid::oid::text AS ${escapeSqlIdentifier('release_relation_oid')},
+    pg_relation_filenode(release_target.tableoid::regclass)::text AS ${escapeSqlIdentifier('release_relation_filenode')}
+  FROM (VALUES
+      ${intentRows}
+  ) AS release_intent(${escapeSqlIdentifier('group_key')}, ${escapeSqlIdentifier('source_id')}, ${escapeSqlIdentifier('desired_ids')})
+  JOIN matched
+    ON matched.${escapeSqlIdentifier('matched_id')} = release_intent.${escapeSqlIdentifier('source_id')}
+  JOIN ${escapeSchemaQualifiedTableName(group.targetTableName)} AS release_target
+    ON release_target.${escapeSqlIdentifier(group.ownerColumnName)} = release_intent.${escapeSqlIdentifier('source_id')}
+   AND NOT (release_target.${escapeSqlIdentifier('__id')} = ANY(release_intent.${escapeSqlIdentifier('desired_ids')}))`;
+    })
+    .join('\n  UNION ALL\n');
 }
 
 type BatchColumnField = { name: string; field: Field | null };

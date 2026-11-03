@@ -4,7 +4,7 @@ import type { DomainError } from '../../../shared/DomainError';
 import type { TableRecord } from '../../records/TableRecord';
 import type { Table } from '../../Table';
 import { calculateBatchSize } from './calculateBatchSize';
-import { buildRecord } from './recordBuilders';
+import { buildRecord, createRecordBuildContext } from './recordBuilders';
 
 export interface CreateRecordsStreamOptions {
   /** Number of records per batch. If not specified, calculated dynamically based on field count. */
@@ -22,12 +22,14 @@ export function* createRecordsStream(
 ): Generator<Result<ReadonlyArray<TableRecord>, DomainError>> {
   const { typecast = false, emitRecordCreatedEvents = true } = options ?? {};
   const batchSize = calculateBatchSize(this.getFields().length, options?.batchSize);
+  const buildContext = createRecordBuildContext(this, { freshDefaults: true });
   let batch: TableRecord[] = [];
 
   for (const fieldValues of recordsFieldValues) {
     const recordResult = buildRecord.call(this, fieldValues, undefined, {
       typecast,
       emitRecordCreatedEvent: emitRecordCreatedEvents,
+      buildContext,
     });
     if (recordResult.isErr()) {
       yield err(recordResult.error);

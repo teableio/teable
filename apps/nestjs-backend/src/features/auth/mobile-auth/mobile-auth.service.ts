@@ -19,7 +19,7 @@ import { hashCode, randomCode, verifyS256 } from './pkce';
 const INVALID_CODE = 'Invalid or expired code';
 
 /** Every rejected step of the app sign-in asks the user to start over from the app. */
-const invalidExchange = (message: string) =>
+export const invalidExchange = (message: string) =>
   new CustomHttpException(message, HttpErrorCode.VALIDATION_ERROR, {
     localization: { i18nKey: 'httpErrors.auth.mobileExchangeInvalid' },
   });

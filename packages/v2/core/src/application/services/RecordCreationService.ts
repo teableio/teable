@@ -9,6 +9,7 @@ import type { RecordCreateSource } from '../../domain/table/events/RecordFieldVa
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordId } from '../../domain/table/records/RecordId';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
+import { materializeRecordSpec } from '../../domain/table/records/RecordSpecMaterializer';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
@@ -140,7 +141,12 @@ export class RecordCreationService {
             tableForCreate.id(),
             createResult.mutateSpec
           );
-          record = yield* resolvedSpec.mutate(record);
+          record = yield* materializeRecordSpec({
+            id: record.id(),
+            tableId: record.tableId(),
+            spec: resolvedSpec,
+            baseFields: record.fields().entries(),
+          });
         }
       }
       const persistCreatedRecord = async (

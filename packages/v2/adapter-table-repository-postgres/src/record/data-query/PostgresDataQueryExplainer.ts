@@ -6,6 +6,7 @@ import {
   type Table,
 } from '@teable/v2-core';
 import {
+  DataQueryBinding,
   projectExplainPlanDocument,
   traceDataQueryStage,
   type BoundDataQuery,
@@ -71,17 +72,24 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
     context: IExecutionContext,
     table: Table,
     query: BoundDataQuery,
-    scope: RecordQueryPluginScope
+    scope: RecordQueryPluginScope,
+    binding?: DataQueryBinding
   ): Promise<Result<DataQueryExplainResult, DomainError>> {
     const startedAt = performance.now();
+    // Direct adapter callers have no service binding. Prepare once here so both
+    // compilations still use the same live schema and dependency plan.
+    const prepared = binding
+      ? ok(binding)
+      : DataQueryBinding.prepare(query.validatedDefinition, table);
+    if (prepared.isErr()) return err(prepared.error);
     const compiler = new PostgresDataQueryExecutor(this.db, {
       statementTimeoutMs: this.statementTimeoutMs,
     });
-    const full = compiler.compile(context, table, query, scope);
+    const full = compiler.compile(context, table, query, scope, prepared.value);
     if (full.isErr()) return err(full.error);
     // Public text is caller-authored only. Host row/field policy is summarized,
     // never rendered: compiled predicates can disclose restricted schema policy.
-    const caller = compiler.compile(context, table, query, {});
+    const caller = compiler.compile(context, table, query, {}, prepared.value);
     if (caller.isErr()) return err(caller.error);
     const planning = await traceDataQueryStage(
       context,

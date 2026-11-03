@@ -1,6 +1,7 @@
 // oxlint-disable sonarjs/cognitive-complexity -- one branch per projection kind or usage source
 import { isRecordFilterFieldReferenceValue } from '@teable/v2-core';
 
+import { dataQueryFieldUsageValues } from './types';
 import type {
   DataQueryDefinitionInput,
   DataQueryFieldUsage,
@@ -13,15 +14,7 @@ import type {
  * it identically: byte-stable across runs and between the binding and the
  * offline manifest index.
  */
-const usageOrder: ReadonlyArray<DataQueryFieldUsage> = [
-  'projection',
-  'filter',
-  'sort',
-  'group',
-  'aggregate',
-  'reference',
-  'relation',
-];
+const usageOrder: ReadonlyArray<DataQueryFieldUsage> = dataQueryFieldUsageValues;
 
 export const sortDataQueryFieldUsages = (
   usages: Iterable<DataQueryFieldUsage>

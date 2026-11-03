@@ -15,6 +15,9 @@
  *   modules in one worker can share process-global Prisma/Knex resources, so
  *   closing a private app would poison the worker's canonical app. The process
  *   reclaims both shared and private apps at worker teardown.
+ * - Selecting/restoring an app switches PORT/STORAGE_PREFIX with axios. These
+ *   harness-owned origins also update the baseline: guarded attachment reads and
+ *   internal uploads must target the same app after CLOUD/EE/private-app switches.
  *
  * Parallel file execution is made safe by giving every worker its own database,
  * cloned from the freshly seeded template DB in globalSetup (CREATE DATABASE ...
@@ -188,6 +191,19 @@ export function setPendingMaintenance(promise: Promise<unknown>): void {
   state().pendingMaintenance = promise.catch(() => undefined);
 }
 
+/** Keep internal uploads and guarded attachment reads on the app selected by the harness. */
+export function setActiveAppOrigin(appUrl: string): void {
+  const port = new URL(appUrl).port;
+  process.env.PORT = port;
+  process.env.STORAGE_PREFIX = appUrl;
+  // A harness-owned app switch is not a test's boot-time environment override.
+  const baseline = state().baselineEnv;
+  if (baseline) {
+    baseline.PORT = port;
+    baseline.STORAGE_PREFIX = appUrl;
+  }
+}
+
 export async function acquireApp(
   cacheKey: string,
   boot: () => Promise<IBootResult>,
@@ -269,6 +285,7 @@ export async function acquireApp(
   // Reusing a secondary shared app (e.g. the EE-edition app while CLOUD is the
   // worker primary): point the axios singleton at it — booting did this, reuse
   // must too. The runner resets back to the primary after the file.
+  setActiveAppOrigin(entry.bundle.appUrl);
   if (axios) {
     axios.defaults.baseURL = entry.bundle.appUrl + '/api';
   }
@@ -321,6 +338,7 @@ export function resetAxiosToSharedApp(axios: any): void {
   if (!st.primaryKey || !st.axiosSnapshot) return;
   const entry = st.resolved.get(st.primaryKey);
   if (!entry) return;
+  setActiveAppOrigin(entry.bundle.appUrl);
   axios.defaults.baseURL = entry.bundle.appUrl + '/api';
   for (let id = st.axiosSnapshot.request; id < axios.interceptors.request.handlers.length; id++) {
     axios.interceptors.request.eject(id);

@@ -865,8 +865,8 @@ export class SettingOpenApiService {
         return await this.testGoogleImageGeneration(modelProvider, model, testImageToImage);
       }
 
-      // OpenAI-style image generation (DALL-E, GPT Image, etc.)
-      const imageModel = modelProvider.image(model);
+      // Images API generation (DALL-E, GPT Image, etc.), through the same entry the runtime uses
+      const imageModel = modelProvider.imageModel(model);
       const size = this.getImageGenerationTestSize(providerType, model);
       const sizeOptions = size ? { size } : {};
 

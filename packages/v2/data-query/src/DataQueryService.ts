@@ -13,15 +13,45 @@ import {
 } from '@teable/v2-core';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
-import { assertDataQueryAccess } from './assertDataQueryAccess';
+import {
+  assertDataQueryAccess,
+  dataQueryAccessForSource,
+  type DataQueryAccessPlan,
+} from './assertDataQueryAccess';
+import type { BoundDataQueryPlan } from './BoundDataQueryPlan';
 import { DataQueryBinding, DataQueryRelationBinding } from './DataQueryBinding';
 import type { DataQueryDefinition } from './DataQueryDefinition';
+import { sortDataQueryFieldUsages } from './DataQueryFieldUsage';
 import type { DataQueryRelationPlan, DataQueryResult, IDataQueryExecutor } from './ports';
-import type { DataQueryFieldDependency, DataQueryOutput } from './types';
+import type { DataQueryValidationResult, DataQueryValidationUsage } from './queryExecutionProtocol';
 
 export interface DataQueryExecutionInput {
   readonly parameters?: Readonly<Record<string, unknown>>;
 }
+
+export interface DataQueryValidationOptions {
+  readonly includeUsage?: boolean;
+}
+
+/** Projects only stable logical identifiers from an already-authorized bound plan. */
+const validationUsageFromPlan = (plan: BoundDataQueryPlan): DataQueryValidationUsage => {
+  const tableIds = new Map<string, string>([
+    [plan.root.alias, plan.root.tableId],
+    ...plan.sources.map((source) => [source.alias, source.tableId] as const),
+  ]);
+  return plan.usage
+    .map((entry) => ({
+      source: entry.source,
+      tableId: tableIds.get(entry.source)!,
+      fieldId: entry.fieldId,
+      usages: sortDataQueryFieldUsages(entry.usages),
+    }))
+    .sort((left, right) => {
+      if (left.source !== right.source) return left.source < right.source ? -1 : 1;
+      if (left.fieldId === right.fieldId) return 0;
+      return left.fieldId < right.fieldId ? -1 : 1;
+    });
+};
 
 /** Query-boundary tracing: only structural attributes and fixed failure labels leave this layer. */
 export const traceDataQueryStage = async <T>(
@@ -135,7 +165,7 @@ export const authorizeDataQueryDependencies = async (
   context: IExecutionContext,
   queryPlugins: RecordQueryPluginRunner,
   table: ITableReadModel,
-  dependencies: ReadonlyArray<DataQueryFieldDependency>,
+  plan: DataQueryAccessPlan,
   pagination?: { readonly limit: number; readonly offset: number }
 ): Promise<Result<RecordQueryPluginScope, DomainError>> => {
   const execution = await queryPlugins.prepare({
@@ -144,7 +174,7 @@ export const authorizeDataQueryDependencies = async (
     table,
     payload: {
       ignoreViewQuery: true,
-      projectionFieldIds: dependencies.map((dependency) => dependency.fieldId),
+      projectionFieldIds: plan.usage.map((usage) => usage.fieldId),
       ...pagination,
     },
   });
@@ -154,7 +184,7 @@ export const authorizeDataQueryDependencies = async (
   const scope = execution.value.getScope();
   if (scope.isErr()) return err(scope.error);
   const resolvedScope = scope.value ?? {};
-  return assertDataQueryAccess({ dependencies }, resolvedScope).map(() => resolvedScope);
+  return assertDataQueryAccess(plan, resolvedScope).map(() => resolvedScope);
 };
 
 /**
@@ -193,11 +223,12 @@ export class DataQueryService {
 
   async validate(
     context: IExecutionContext,
-    definition: DataQueryDefinition
-  ): Promise<Result<{ outputs: ReadonlyArray<DataQueryOutput> }, DomainError>> {
+    definition: DataQueryDefinition,
+    options: DataQueryValidationOptions = {}
+  ): Promise<Result<DataQueryValidationResult, DomainError>> {
     try {
       if (hasDataQueryRelations(definition)) {
-        return await this.validateRelation(context, definition);
+        return await this.validateRelation(context, definition, options);
       }
       return await safeTry(
         async function* (this: DataQueryService) {
@@ -206,7 +237,11 @@ export class DataQueryService {
             this.authorize(context, table, binding)
           );
           if (binding.deferredFilterError) return err(binding.deferredFilterError);
-          return ok({ outputs: binding.outputs });
+          return ok(
+            options.includeUsage === true
+              ? { outputs: binding.outputs, usage: validationUsageFromPlan(binding.plan) }
+              : { outputs: binding.outputs }
+          );
         }.bind(this)
       );
     } catch (cause) {
@@ -237,7 +272,7 @@ export class DataQueryService {
             this.authorize(context, table, binding, query)
           );
           if (binding.deferredFilterError) return err(binding.deferredFilterError);
-          const result = yield* await this.executor.execute(context, table, query, scope);
+          const result = yield* await this.executor.execute(context, table, query, scope, binding);
           return ok(result);
         }.bind(this)
       );
@@ -254,8 +289,9 @@ export class DataQueryService {
 
   private async validateRelation(
     context: IExecutionContext,
-    definition: DataQueryDefinition
-  ): Promise<Result<{ outputs: ReadonlyArray<DataQueryOutput> }, DomainError>> {
+    definition: DataQueryDefinition,
+    options: DataQueryValidationOptions
+  ): Promise<Result<DataQueryValidationResult, DomainError>> {
     try {
       return await safeTry(
         async function* (this: DataQueryService) {
@@ -269,7 +305,7 @@ export class DataQueryService {
               context,
               this.queryPlugins,
               rootTable,
-              binding.rootDependencies
+              dataQueryAccessForSource(binding.plan, 'root')
             )
           );
           for (const source of binding.sources) {
@@ -282,12 +318,16 @@ export class DataQueryService {
                   context,
                   this.queryPlugins,
                   source.table,
-                  source.dependencies
+                  dataQueryAccessForSource(binding.plan, source.alias)
                 )
             );
           }
           if (binding.deferredFilterError) return err(binding.deferredFilterError);
-          return ok({ outputs: binding.outputs });
+          return ok(
+            options.includeUsage === true
+              ? { outputs: binding.outputs, usage: validationUsageFromPlan(binding.plan) }
+              : { outputs: binding.outputs }
+          );
         }.bind(this)
       );
     } catch (cause) {
@@ -326,7 +366,7 @@ export class DataQueryService {
               context,
               this.queryPlugins,
               rootTable,
-              binding.rootDependencies,
+              dataQueryAccessForSource(binding.plan, 'root'),
               { limit: query.limit, offset: query.offset }
             )
           );
@@ -341,7 +381,7 @@ export class DataQueryService {
                   context,
                   this.queryPlugins,
                   source.table,
-                  source.dependencies
+                  dataQueryAccessForSource(binding.plan, source.alias)
                 )
             );
             scopes.set(source.alias, scope);
@@ -352,14 +392,13 @@ export class DataQueryService {
             query,
             rootTable,
             rootScope,
-            rootDependencies: binding.rootDependencies,
             sources: binding.sources.map((source) => ({
               alias: source.alias,
               table: targetTables.get(source.alias)!,
               linkFieldId: source.linkFieldId,
               scope: scopes.get(source.alias)!,
-              dependencies: source.dependencies,
             })),
+            plan: binding.plan,
           };
           const result = yield* await executor(context, plan);
           return ok(result);
@@ -386,7 +425,7 @@ export class DataQueryService {
       context,
       this.queryPlugins,
       table,
-      binding.dependencies,
+      binding.plan,
       pagination
     );
   }

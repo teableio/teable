@@ -1953,6 +1953,64 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         { validated: false },
       ]);
     });
+
+    it('keeps a name-based physical table name when copying into a new base through v2', async () => {
+      // Tables from before id-based physical names live under their own name, and app code
+      // queries them as "<baseId>"."<table>"; a copy only rewrites the base id (T8284).
+      const legacyTableName = `legacy_employees_${Date.now()}`;
+      const departments = await createTable(base.id, { name: 'Departments', records: [] });
+      const employees = await createTable(base.id, {
+        name: 'Employees',
+        dbTableName: legacyTableName,
+        records: [],
+      });
+      expect(employees.dbTableName).toBe(`${base.id}.${legacyTableName}`);
+      // Many-one: the foreign key column lives on the name-based table.
+      const departmentField = (
+        await createField(employees.id, {
+          name: 'Department',
+          type: FieldType.Link,
+          options: { relationship: Relationship.ManyOne, foreignTableId: departments.id },
+        })
+      ).data;
+      const department = (
+        await createRecords(departments.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: {} }],
+        })
+      ).records[0];
+      await createRecords(employees.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [{ fields: { [departmentField.name]: { id: department.id } } }],
+      });
+
+      const { result: duplicated, isV2 } = await duplicateBaseViaSse(appUrl, cookie, {
+        fromBaseId: base.id,
+        spaceId,
+        name: 'name-based table copy',
+        withRecords: true,
+      });
+      expect(isV2).toBe(true);
+      duplicateBaseId = duplicated.id;
+
+      const copiedTables = (await getTableList(duplicateBaseId)).data;
+      const copiedEmployees = copiedTables.find(({ name }) => name === employees.name)!;
+      const copiedDepartments = copiedTables.find(({ name }) => name === departments.name)!;
+      expect(copiedEmployees.dbTableName).toBe(`${duplicateBaseId}.${legacyTableName}`);
+      expect(copiedDepartments.dbTableName).toBe(`${duplicateBaseId}.${copiedDepartments.id}`);
+
+      const copiedRows = await prisma.$queryRawUnsafe<{ count: number }[]>(
+        knex
+          .raw('SELECT count(*)::int AS count FROM ??.??', [duplicateBaseId, legacyTableName])
+          .toQuery()
+      );
+      expect(copiedRows).toEqual([{ count: 1 }]);
+      const copiedDepartment = (await getRecords(copiedDepartments.id)).records[0];
+      const copiedEmployee = (await getRecords(copiedEmployees.id)).records[0];
+      expect(copiedEmployee.fields[departmentField.name]).toMatchObject({
+        id: copiedDepartment.id,
+      });
+    });
   });
 
   describe('Duplicate cross space', () => {

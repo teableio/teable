@@ -1,25 +1,26 @@
-import { Readable } from 'node:stream';
+import { PassThrough, Readable } from 'node:stream';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
-import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
+import type { IFieldVo } from '@teable/core';
+import { FieldKeyType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { IExportCsvRo } from '@teable/openapi';
+import { createPaginatedExportStream } from '@teable/v2-core';
 import { Response } from 'express';
 import { keyBy, sortBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
-import Papa from 'papaparse';
 import { CustomHttpException } from '../../../custom.exception';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
 import { FieldService } from '../../field/field.service';
-import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldOpenApiV2Service } from '../../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiV2Service } from '../../record/open-api/record-open-api-v2.service';
 import { RecordService } from '../../record/record.service';
 import { ExportMetricsService } from '../metrics/export-metrics.service';
 import { ExportTracingService } from '../metrics/export-tracing.service';
+import { CsvExportEncoder } from './csv-export-encoder';
 
 export interface ITableCsvExport {
   /** The table's name, with the view's appended when one was asked for; not URL-encoded. */
@@ -53,6 +54,10 @@ export class ExportOpenApiService {
   })
   async exportCsvFromTable(response: Response, tableId: string, query?: IExportCsvRo) {
     const { fileName, stream, run } = await this.prepareCsvExport(tableId, query);
+    if (response.destroyed) {
+      stream.destroy();
+      return;
+    }
 
     response.setHeader('Content-Type', 'text/csv; charset=utf-8');
     response.setHeader(
@@ -60,8 +65,20 @@ export class ExportOpenApiService {
       `attachment; filename=${encodeURIComponent(fileName)}.csv`
     );
 
-    stream.pipe(response);
-    await run();
+    const onClose = () => {
+      if (!response.writableFinished) stream.destroy();
+    };
+    response.once('close', onClose);
+    try {
+      if (response.destroyed) {
+        stream.destroy();
+        return;
+      }
+      stream.pipe(response);
+      await run();
+    } finally {
+      response.removeListener('close', onClose);
+    }
   }
 
   /**
@@ -84,11 +101,31 @@ export class ExportOpenApiService {
       columnMeta: queryColumnMeta,
     } = query ?? {};
     let count = 0;
-    let isOver = false;
-    const csvStream = new Readable({
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      read() {},
-    });
+    const csvStream = new PassThrough();
+    const abort = new AbortController();
+    csvStream.once('close', () => abort.abort());
+    const writeChunk = async (chunk: string): Promise<boolean> => {
+      if (csvStream.destroyed) return false;
+      if (csvStream.write(chunk)) return true;
+      // This package targets ES2022, whose Promise type does not expose withResolvers.
+      return new Promise<boolean>((resolve) => {
+        const cleanup = () => {
+          csvStream.removeListener('drain', onDrain);
+          csvStream.removeListener('close', onClose);
+        };
+        const onDrain = () => {
+          cleanup();
+          resolve(true);
+        };
+        const onClose = () => {
+          cleanup();
+          resolve(false);
+        };
+        csvStream.once('drain', onDrain);
+        csvStream.once('close', onClose);
+        if (csvStream.destroyed) onClose();
+      });
+    };
     let viewRaw = null;
 
     const tableRaw = await this.prismaService.tableMeta
@@ -164,102 +201,72 @@ export class ExportOpenApiService {
     const fieldsMap = keyBy(allFields, 'id');
     // Filter by projection but keep the original field order from view/table
     const headers = allFields.filter((field) => !projection || projection.includes(field.id));
-    const headerData = Papa.unparse([headers.map((h) => h.name)]);
+    const encoder = new CsvExportEncoder(headers);
+    const headerData = encoder.header();
 
     const projectionNames = projection
       ? (projection.map((p) => fieldsMap[p]?.name).filter(Boolean) as string[])
       : undefined;
 
-    const headersInfoMap = new Map(
-      headers.map((h, index) => [
-        h.name,
-        {
-          index,
-          type: h.type,
-          fieldInstance: createFieldInstanceByVo(h),
-        },
-      ])
-    );
+    const writeRecords = async (records: readonly { fields: Record<string, unknown> }[]) => {
+      // Limit synchronous work and let other requests run between batches.
+      for (let offset = 0; offset < records.length; offset += 100) {
+        if (csvStream.destroyed) return false;
+        const csvData = encoder.encode(records.slice(offset, offset + 100));
+        if (!(await writeChunk(`\r\n${csvData}`))) return false;
+        await yieldToEventLoop();
+      }
+      return true;
+    };
+    const getPage = async (skip: number, limit: number) => {
+      const options = {
+        take: limit,
+        skip,
+        viewId: viewIdForQuery,
+        filter: queryFilter,
+        orderBy: queryOrderBy,
+        groupBy: queryGroupBy,
+        ignoreViewQuery,
+        projection: projectionNames,
+      };
+      const result = useV2
+        ? await this.recordOpenApiV2Service.getRecords(tableId, {
+            ...options,
+            fieldKeyType: FieldKeyType.Name,
+          })
+        : await this.recordService.getRecords(tableId, options, true);
+      return result.records;
+    };
 
     const run = async () => {
-      // add BOM to make sure the csv file can be opened correctly in excel
-      csvStream.push('\uFEFF');
-      csvStream.push(headerData);
-
       try {
-        while (!isOver) {
-          const { records } = useV2
-            ? await this.recordOpenApiV2Service.getRecords(tableId, {
-                take: 1000,
-                skip: count,
-                viewId: viewIdForQuery,
-                filter: queryFilter,
-                orderBy: queryOrderBy,
-                groupBy: queryGroupBy,
-                ignoreViewQuery,
-                fieldKeyType: FieldKeyType.Name,
-                projection: projectionNames,
-              })
-            : await this.recordService.getRecords(
-                tableId,
-                {
-                  take: 1000,
-                  skip: count,
-                  viewId: viewIdForQuery,
-                  filter: queryFilter,
-                  orderBy: queryOrderBy,
-                  groupBy: queryGroupBy,
-                  ignoreViewQuery,
-                  projection: projectionNames,
-                },
-                true
-              );
-
-          if (records.length === 0) {
-            isOver = true;
-            // end the stream
-            csvStream.push(null);
-            this.exportTracing?.setExportAttributes({ rows: count });
-            this.exportMetrics?.recordExportComplete({
-              format: 'csv',
-              durationMs: Date.now() - exportStartTime,
-            });
-            break;
-          }
-
-          const csvData = Papa.unparse(
-            records.map((r) => {
-              const { fields } = r;
-              const recordsArr = Array.from({ length: headers.length });
-              for (const [key, value] of Object.entries(fields)) {
-                const { index: hIndex, type, fieldInstance } = headersInfoMap.get(key) ?? {};
-                if (hIndex !== undefined && type !== undefined) {
-                  const finalValue =
-                    type === FieldType.Attachment
-                      ? (value as IAttachmentCellValue)
-                          .map((v) => `${v.name} ${v.presignedUrl}`)
-                          .join(',')
-                      : fieldInstance?.cellValue2String(value);
-                  recordsArr[hIndex] = finalValue;
-                }
-              }
-              return recordsArr;
-            })
-          );
-
-          csvStream.push('\r\n');
-          csvStream.push(csvData);
+        // Add BOM so the CSV opens correctly in Excel.
+        if (!(await writeChunk('\uFEFF')) || !(await writeChunk(headerData))) return;
+        for await (const records of createPaginatedExportStream({
+          pageSize: 1000,
+          getPage,
+          signal: abort.signal,
+        })) {
+          if (csvStream.destroyed) return;
+          if (!(await writeRecords(records))) return;
           count += records.length;
         }
+        if (csvStream.destroyed) return;
+        csvStream.end();
+        this.exportTracing?.setExportAttributes({ rows: count });
+        this.exportMetrics?.recordExportComplete({
+          format: 'csv',
+          durationMs: Date.now() - exportStartTime,
+        });
       } catch (e) {
-        csvStream.push('\r\n');
-        csvStream.push(`Export fail reason:, ${(e as Error)?.message}`);
+        if (csvStream.destroyed) return;
+        await writeChunk(`\r\nExport fail reason:, ${(e as Error)?.message}`);
         this.logger.error((e as Error)?.message, `ExportCsv: ${tableId}`);
         this.exportMetrics?.recordExportError({
           format: 'csv',
           errorType: (e as Error)?.name ?? 'unknown',
         });
-        csvStream.push(null);
+        if (!csvStream.destroyed) csvStream.end();
       }
     };
 

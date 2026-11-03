@@ -10,13 +10,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nextTestStubProvider } from '../../../../../../config/tests/I18nextTestStubProvider';
 import { CommandPalette } from './CommandPalette';
 
-const { getUserLastVisitListBase, getBaseAll, spaceSearch, getPublicSetting, getAIDisableActions } =
+const { getUserLastVisitListBase, getBaseAll, spaceSearch, getPublicSetting, getAIConfig } =
   vi.hoisted(() => ({
     getUserLastVisitListBase: vi.fn(),
     getBaseAll: vi.fn(),
     spaceSearch: vi.fn(),
     getPublicSetting: vi.fn(),
-    getAIDisableActions: vi.fn(),
+    getAIConfig: vi.fn(),
   }));
 
 vi.mock('@teable/openapi', async (importOriginal) => ({
@@ -25,7 +25,7 @@ vi.mock('@teable/openapi', async (importOriginal) => ({
   getBaseAll,
   spaceSearch,
   getPublicSetting,
-  getAIDisableActions,
+  getAIConfig,
 }));
 
 const setup = () => {
@@ -150,7 +150,7 @@ describe('CommandPalette space recents', () => {
     });
     spaceSearch.mockReset().mockResolvedValue({ data: { list: [], nextCursor: null } });
     getPublicSetting.mockReset().mockResolvedValue({ data: {} });
-    getAIDisableActions.mockReset().mockResolvedValue({ data: { disableActions: [] } });
+    getAIConfig.mockReset().mockResolvedValue({ data: { disableActions: [] } });
   });
   afterEach(cleanup);
 

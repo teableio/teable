@@ -8,7 +8,7 @@ import {
 } from '@teable/openapi';
 import { MarkdownPreview } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
-import { useIsMobile, useContentDir } from '@teable/sdk/hooks';
+import { useIsMobile, useContentDir, useLanDayjs } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Badge, Button, cn, useToast } from '@teable/ui-lib/shadcn';
 import { ArrowUpRight, ChevronLeft, Share2 } from 'lucide-react';
@@ -17,7 +17,8 @@ import { useTranslation } from 'next-i18next';
 import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useOrigin } from '@/features/app/hooks/useOrigin';
 import { useSpaceId } from './hooks/use-space-id';
-import { TemplateHostContext } from './host-context';
+import type { ITemplateInstallResult } from './host-context';
+import { TemplateHostContext, TemplateHostInstallSource } from './host-context';
 import { RecommendTemplate } from './RecommendTemplate';
 import { TemplatePreview } from './TemplatePreview';
 import { TemplatePreviewSheet } from './TemplatePreviewSheet';
@@ -26,11 +27,15 @@ interface ITemplateDetailProps {
   templateId: string;
   onBackToTemplateList?: () => void;
   onTemplateClick?: (templateId: string) => void;
+  /** Takes over Install: the host that opened the detail (the chat's offer card) installs on its own terms. */
+  onInstall?: (templateId: string) => void;
 }
 export const TemplateDetail = (props: ITemplateDetailProps) => {
   const contentDir = useContentDir();
-  const { templateId, onBackToTemplateList, onTemplateClick } = props;
+  const { templateId, onBackToTemplateList, onTemplateClick, onInstall } = props;
   const { t } = useTranslation(['common']);
+  const dayjs = useLanDayjs();
+  const queryClient = useQueryClient();
   const detailRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -41,10 +46,13 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
 
   const templateDetail = _templateDetail?.id === templateId ? _templateDetail : undefined;
   const host = useContext(TemplateHostContext);
-  const useOptions = templateDetail ? host.useOptions?.(templateDetail) : undefined;
-  const detailExtra = templateDetail ? host.renderDetailExtra?.(templateDetail) : null;
+  const sidebarExtra = templateDetail ? host.renderDetailSidebar?.(templateDetail) : null;
 
-  const { name, description, categoryId, markdownDescription, cover } = templateDetail || {};
+  const { name, description, categoryId, markdownDescription, cover, version, usageCount } =
+    templateDetail || {};
+  const history = useMemo(() => [...(templateDetail?.history ?? [])].reverse(), [templateDetail]);
+  const updatedTime = history[0]?.publishedTime;
+  const author = templateDetail?.createdBy?.name;
 
   const { data: categoryList } = useQuery({
     queryKey: ReactQueryKeys.publishedTemplateCategoryList(),
@@ -57,44 +65,37 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
   }, [categoryList, categoryId]);
 
   const router = useRouter();
-  const queryClient = useQueryClient();
   const spaceId = useSpaceId();
   const routerBaseId = router.query.baseId as string | undefined;
 
   const { mutateAsync: createTemplateToBase, isPending: isLoading } = useMutation({
-    mutationFn: () =>
-      createBaseFromTemplate({
+    mutationFn: async (): Promise<ITemplateInstallResult | undefined> => {
+      if (host.install) {
+        return host.install({
+          templateId,
+          spaceId: spaceId as string,
+          baseId: routerBaseId,
+          source: TemplateHostInstallSource.Catalog,
+          queryClient,
+        });
+      }
+      const { data } = await createBaseFromTemplate({
         spaceId: spaceId as string,
         templateId,
-        withRecords: useOptions?.withRecords ?? true,
+        withRecords: true,
         baseId: routerBaseId,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      }),
+      });
+      return { redirect: data.defaultUrl ?? `/base/${data.id}`, baseId: data.id };
+    },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId as string) });
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
-      const { id: baseId, defaultUrl } = res.data;
-
-      // The host may own the landing (EE: a solution goes to its setup flow first)
-      const hostUrl = useOptions?.redirect?.(res.data);
-      if (hostUrl) {
-        router.push(hostUrl);
-        return;
-      }
-
-      // If defaultUrl is provided, navigate to it directly
-      if (defaultUrl) {
-        router.push(defaultUrl);
-        return;
-      }
-
-      // Otherwise, navigate to base home
-      router.push({
-        pathname: '/base/[baseId]',
-        query: { baseId },
-      });
+      if (res) router.push(res.redirect);
     },
   });
+
+  const install = () => (onInstall ? onInstall(templateId) : createTemplateToBase());
 
   const filterTemplateIds = useMemo(() => {
     return [templateId];
@@ -131,6 +132,54 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     }
   }, [templateId]);
 
+  const facts = (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+      <div className="flex flex-col gap-0.5">
+        <dt className="text-xs text-muted-foreground">{t('common:template.detail.installs')}</dt>
+        <dd>{usageCount ?? 0}</dd>
+      </div>
+      {author && (
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-xs text-muted-foreground">{t('common:template.detail.author')}</dt>
+          <dd className="truncate">{author}</dd>
+        </div>
+      )}
+      {updatedTime && (
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-xs text-muted-foreground">{t('common:template.detail.updated')}</dt>
+          <dd>
+            {version ? `v${version} · ` : ''}
+            {dayjs(updatedTime).format('YYYY-MM-DD')}
+          </dd>
+        </div>
+      )}
+    </dl>
+  );
+
+  const versionHistory = history.length > 1 && (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-xs text-muted-foreground">{t('common:template.detail.history')}</h2>
+      <ol className="flex flex-col gap-1.5 text-sm">
+        {history.map((entry) => (
+          <li key={entry.version} className="flex gap-3">
+            <span className="w-8 shrink-0 text-muted-foreground">v{entry.version}</span>
+            <span className="w-24 shrink-0 text-muted-foreground">
+              {dayjs(entry.publishedTime).format('YYYY-MM-DD')}
+            </span>
+            <span className="min-w-0 whitespace-pre-wrap break-words">
+              {entry.changelog ||
+                t(
+                  entry.version === 1
+                    ? 'common:template.detail.firstRelease'
+                    : 'common:template.detail.noChangelog'
+                )}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+
   if (isMobile) {
     return (
       <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
@@ -164,22 +213,27 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           <p className="text-base font-normal text-muted-foreground">{description}</p>
           <div className="flex gap-2">
             <TemplatePreviewSheet detail={templateDetail}>
-              <Button className="flex-1" variant="outline" size="xs">
+              <Button className="flex-1 rounded-full" variant="outline" size="xs">
                 <ArrowUpRight className="size-3" />
                 {t('common:settings.templateAdmin.actions.preview')}
               </Button>
             </TemplatePreviewSheet>
-            <Button className="flex-1" variant="outline" size="xs" onClick={handleCopyPermalink}>
+            <Button
+              className="flex-1 rounded-full"
+              variant="outline"
+              size="xs"
+              onClick={handleCopyPermalink}
+            >
               <Share2 className="size-3" />
               {t('common:template.non.share')}
             </Button>
             <Button
-              className="flex-1"
+              className="flex-1 rounded-full"
               size="xs"
-              onClick={() => createTemplateToBase()}
+              onClick={install}
               disabled={isLoading}
             >
-              {t('common:settings.templateAdmin.useTemplate')}
+              {t('common:template.detail.install')}
               {isLoading && <Spin className="size-3" />}
             </Button>
           </div>
@@ -192,7 +246,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
               />
             </div>
           )}
-          {detailExtra}
+          {sidebarExtra}
+          {facts}
+          {versionHistory}
           <div className="flex flex-col gap-1 pb-2">
             {markdownDescription && (
               <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
@@ -209,69 +265,75 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
 
   return (
     <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
-      <div className="flex gap-3 border-b px-6 py-4 pe-12">
-        <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-          <div className="flex items-center gap-3">
-            {onBackToTemplateList && (
-              <Button
-                className="h-auto p-0 font-normal"
-                variant="link"
-                onClick={onBackToTemplateList}
-              >
-                <ChevronLeft className="size-6" />
-              </Button>
-            )}
-            <h1 className="truncate text-lg font-semibold">{name}</h1>
-            <div className="flex gap-2">
-              {categoryNames.length > 0 &&
-                categoryNames.map((name) => (
-                  <Badge
-                    variant="secondary"
-                    className="px-2 text-xs font-normal text-muted-foreground"
-                    key={name}
-                  >
-                    {name}
-                  </Badge>
-                ))}
-            </div>
-          </div>
-          <p
-            className={cn(
-              'overflow-hidden text-wrap break-words ps-9 text-sm font-normal text-muted-foreground',
-              {
-                'ps-0': !onBackToTemplateList,
-              }
-            )}
-          >
-            {description}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={handleCopyPermalink}>
-            <Share2 className="size-4" />
-            {t('common:template.non.share')}
+      <div className="flex items-center gap-2 border-b px-6 py-3 pe-12">
+        {onBackToTemplateList && (
+          <Button className="h-auto p-0 font-normal" variant="link" onClick={onBackToTemplateList}>
+            <ChevronLeft className="size-5" />
           </Button>
-          <Button size="sm" onClick={() => createTemplateToBase()} disabled={isLoading}>
-            {t('common:settings.templateAdmin.useTemplate')}
-            {isLoading && <Spin className="size-3" />}
-          </Button>
-        </div>
-      </div>
-      <div
-        ref={detailRef}
-        className="flex flex-1 flex-col gap-8 overflow-y-auto bg-muted px-10 py-6"
-      >
-        <TemplatePreview detail={templateDetail} />
-        {detailExtra}
-        {markdownDescription && (
-          <div className="flex flex-col gap-1 pb-2">
-            <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
-          </div>
         )}
-        <RecommendTemplate
-          filterTemplateIds={filterTemplateIds}
-          onClickTemplateCardHandler={onTemplateClick}
-        />
+        <span className="text-sm text-muted-foreground">{t('common:template.title')}</span>
+        <span className="text-sm text-muted-foreground">/</span>
+        <span className="truncate text-sm font-medium">{name}</span>
+      </div>
+      <div className="flex min-h-0 flex-1">
+        <div className="relative min-w-0 flex-1 bg-muted p-4">
+          <TemplatePreview detail={templateDetail} isFull className="h-full" />
+        </div>
+        <aside
+          ref={detailRef}
+          className="flex w-[380px] shrink-0 flex-col gap-5 overflow-y-auto border-s px-6 py-5"
+        >
+          {cover?.presignedUrl && (
+            <img
+              src={cover.presignedUrl}
+              alt={name}
+              className="aspect-[16/9] w-full rounded-lg border object-cover"
+            />
+          )}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-semibold">{name}</h1>
+              {version !== undefined && (
+                <Badge variant="secondary" className="px-1.5 text-xs font-normal">
+                  v{version}
+                </Badge>
+              )}
+              {categoryNames.map((categoryName) => (
+                <Badge
+                  variant="outline"
+                  className={cn('px-1.5 text-xs font-normal text-muted-foreground')}
+                  key={categoryName}
+                >
+                  {categoryName}
+                </Badge>
+              ))}
+            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={install} disabled={isLoading}>
+              {t('common:template.detail.install')}
+              {isLoading && <Spin className="size-3" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={t('common:template.non.share')}
+              onClick={handleCopyPermalink}
+            >
+              <Share2 className="size-4" />
+            </Button>
+          </div>
+          {sidebarExtra}
+          {facts}
+          {versionHistory}
+          {markdownDescription && (
+            <section className="flex flex-col gap-2">
+              <h2 className="text-xs text-muted-foreground">{t('common:template.detail.about')}</h2>
+              <MarkdownPreview className="p-0 text-sm">{markdownDescription}</MarkdownPreview>
+            </section>
+          )}
+        </aside>
       </div>
     </div>
   );

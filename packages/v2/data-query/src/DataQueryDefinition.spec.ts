@@ -119,6 +119,9 @@ describe('DataQueryDefinition', () => {
     expect(
       dateQuery.bind({ date: { mode: 'today', timeZone: 'SECRET invalid timezone' } }).isErr()
     ).toBe(true);
+    // C1: numeric offsets are not IANA names and must not reach PostgreSQL as POSIX offsets.
+    expect(dateQuery.bind({ date: { mode: 'today', timeZone: '+05:00' } }).isErr()).toBe(true);
+    expect(dateQuery.bind({ date: { mode: 'today', timeZone: 'Etc/GMT+5' } }).isOk()).toBe(true);
     expect(dateQuery.bind({ date: { mode: 'today', timeZone: 'UTC' } }).isOk()).toBe(true);
   });
 

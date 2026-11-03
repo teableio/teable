@@ -13,7 +13,16 @@
       "typescript": {}
     }
   },
+  "rules": {
+    "teable/no-bare-bullmq-processor": "error"
+  },
   "overrides": [
+    {
+      "files": ["src/utils/queue-processor.ts"],
+      "rules": {
+        "teable/no-bare-bullmq-processor": "off"
+      }
+    },
     {
       "files": ["src/utils/ssrf-http.ts"],
       "rules": {

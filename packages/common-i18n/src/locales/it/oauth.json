@@ -31,6 +31,10 @@
       "description": "L'URL completo a cui reindirizzare dopo che un utente ha autorizzato la tua integrazione.",
       "add": "Aggiungi URL di Callback"
     },
+    "deviceFlow": {
+      "label": "Abilita il device flow",
+      "description": "Consenti a questa app di far accedere gli utenti con un codice monouso digitato in un browser (per CLI e dispositivi che ne sono privi). Chiunque conosca il client ID può avviare questo flusso a nome della tua app, quindi abilitalo solo se la tua app ne ha bisogno."
+    },
     "secret": {
       "label": "Client secrets",
       "add": "Genera un nuovo client secret",
@@ -66,6 +70,23 @@
     "redirectTitle": "Verrai reindirizzato a:",
     "trustRedirect": "Riconosco questo URL e mi fido",
     "continue": "Continua"
+  },
+  "device": {
+    "title": "Collega un dispositivo",
+    "description": "Inserisci il codice di 8 caratteri mostrato nel terminale per far accedere quel dispositivo al tuo account.",
+    "submit": "Continua",
+    "invalidCode": "Il codice non è valido o è scaduto. Controlla il terminale e riprova.",
+    "codeUsed": "Questo codice è già stato utilizzato. Esegui di nuovo il comando di login per ottenere un nuovo codice.",
+    "deviceFlowDisabled": "Questa app non consente l'accesso con un codice dispositivo.",
+    "codeLabel": "Codice di autorizzazione",
+    "confirmCode": "Assicurati che corrisponda al codice mostrato nel terminale.",
+    "securityTitle": "Avviso di sicurezza",
+    "phishingHint": "I codici dispositivo sono un bersaglio frequente di phishing e possono essere usati per accedere al tuo account. Non condividere mai il tuo e continua solo se hai avviato tu questo accesso.",
+    "phishingHintStrong": "Se non intendevi aprire questa pagina, o il link ti è stato inviato da qualcun altro, chiudi questa scheda.",
+    "approvedTitle": "Dispositivo collegato",
+    "approvedDescription": "Puoi chiudere questa pagina e tornare al terminale.",
+    "deniedTitle": "Richiesta rifiutata",
+    "deniedDescription": "A quel dispositivo non è stato concesso l'accesso. Puoi chiudere questa pagina."
   },
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",

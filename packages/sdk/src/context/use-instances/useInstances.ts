@@ -5,6 +5,7 @@ import { useCallback, useContext, useEffect, useReducer, useRef, useState } from
 import type { Doc, Query } from 'sharedb/lib/client';
 import type { Presence } from 'sharedb/lib/sharedb';
 import { useConnection } from '../../hooks/use-connection';
+import { usePresenceConnection } from '../../hooks/use-presence-connection';
 import { ShareViewContext } from '../table/ShareViewContext';
 import type { ProjectedFieldMergeMode } from './mergeProjectedRecordFields';
 import {
@@ -433,6 +434,7 @@ export function useInstances<T, R extends { id: string }>({
   initData,
 }: IUseInstancesProps<T, R>): IUseInstancesResult<R> {
   const { connection, connected } = useConnection();
+  const presenceConnection = usePresenceConnection();
   const { shareId, tableId: shareTableId } = useContext(ShareViewContext);
   const schemaRefreshCollectionTableId = getSchemaRefreshCollectionTableId(collection);
   const [query, setQuery] = useState<Query<T>>();
@@ -569,11 +571,11 @@ export function useInstances<T, R extends { id: string }>({
   );
 
   useEffect(() => {
-    if (!connection || !schemaRefreshCollectionTableId || !isRecordCollection(collection)) {
+    if (!presenceConnection || !schemaRefreshCollectionTableId || !isRecordCollection(collection)) {
       return;
     }
 
-    const presence: Presence = connection.getPresence(
+    const presence: Presence = presenceConnection.getPresence(
       getActionTriggerChannel(schemaRefreshCollectionTableId)
     );
     if (!presence.subscribed) {
@@ -630,7 +632,7 @@ export function useInstances<T, R extends { id: string }>({
     };
   }, [
     collection,
-    connection,
+    presenceConnection,
     refreshProjectedRecordFields,
     removeProjectedRecordsByIds,
     schemaRefreshCollectionTableId,

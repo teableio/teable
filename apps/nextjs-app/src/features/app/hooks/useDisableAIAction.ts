@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAIDisableActions } from '@teable/openapi';
+import { getAIConfig } from '@teable/openapi';
 import { useBaseId, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import { useMemo } from 'react';
 import { AIActions } from '../blocks/admin/setting/components/ai-config/AIControlCard';
@@ -7,30 +7,29 @@ import { AIActions } from '../blocks/admin/setting/components/ai-config/AIContro
 export const useDisableAIAction = () => {
   const baseId = useBaseId();
   const isReadOnlyPreview = useIsReadOnlyPreview();
-  const {
-    data: { disableActions } = {},
-    isFetched,
-    isError,
-  } = useQuery({
-    queryKey: ['disable-ai-actions', baseId],
-    queryFn: () => getAIDisableActions(baseId!).then((res) => res.data),
+  const { data, isFetched, isError, isSuccess } = useQuery({
+    queryKey: ['ai-config', baseId],
+    queryFn: () => getAIConfig(baseId!).then(({ data }) => data),
     enabled: !!baseId && !isReadOnlyPreview,
   });
+  // An empty `ai/config` means the base has no AI configured, so no AI action can run.
+  const isAIUnset = isSuccess && !data;
+  const disableActions = data ? data.disableActions : undefined;
 
   return useMemo(() => {
+    const isSettled = isFetched || !baseId || isReadOnlyPreview;
+    const isReady = isFetched && !isError;
+    if (isAIUnset) {
+      return { aiField: false, aiChat: false, isSettled, isReady };
+    }
     if (Array.isArray(disableActions) && disableActions.length > 0) {
       return {
         aiField: !disableActions.includes(AIActions.AIField),
         aiChat: !disableActions.includes(AIActions.AIChat),
-        isSettled: isFetched || !baseId || isReadOnlyPreview,
-        isReady: isFetched && !isError,
+        isSettled,
+        isReady,
       };
     }
-    return {
-      aiField: true,
-      aiChat: true,
-      isSettled: isFetched || !baseId || isReadOnlyPreview,
-      isReady: isFetched && !isError,
-    };
-  }, [baseId, disableActions, isError, isFetched, isReadOnlyPreview]);
+    return { aiField: true, aiChat: true, isSettled, isReady };
+  }, [baseId, disableActions, isAIUnset, isError, isFetched, isReadOnlyPreview]);
 };

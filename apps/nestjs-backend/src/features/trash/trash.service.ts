@@ -19,6 +19,8 @@ import type {
   V2Feature,
 } from '@teable/openapi';
 import { CollaboratorType, ResourceType, TableTrashType, TrashType } from '@teable/openapi';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { deleteAttachmentTableRefsByFieldIds } from '@teable/v2-adapter-table-repository-postgres';
 import {
   DELETED_RECORD_TRASH_MARKER_SNAPSHOT,
   RECORD_REMOVAL_REASON,
@@ -48,6 +50,7 @@ import type { IPerformanceCacheStore } from '../../performance-cache';
 import { PerformanceCacheService } from '../../performance-cache';
 import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { baseDisplayName } from '../../utils/base-name';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { PermissionService } from '../auth/permission.service';
@@ -543,7 +546,7 @@ export class TrashService {
       resourceMap[resourceId] = {
         id: resourceId,
         spaceId: baseInfo.spaceId,
-        name: baseInfo.name,
+        name: baseDisplayName(baseInfo.name),
       };
       resourceMap[baseInfo.spaceId] = {
         id: baseInfo.spaceId,
@@ -2335,7 +2338,11 @@ export class TrashService {
           where: { id: trash.resourceId },
           select: { name: true, spaceId: true },
         });
-        return { baseId: trash.resourceId, spaceId: base?.spaceId, name: base?.name };
+        return {
+          baseId: trash.resourceId,
+          spaceId: base?.spaceId,
+          name: base ? baseDisplayName(base.name) : undefined,
+        };
       }
       default:
         return undefined;
@@ -2552,6 +2559,16 @@ export class TrashService {
         });
       }
     });
+
+    if (deletedFieldIds.length > 0) {
+      const container = await this.v2ContainerService.getContainerForTable(tableId);
+      await deleteAttachmentTableRefsByFieldIds(
+        container.resolve(v2DataDbTokens.db) as never,
+        container.resolve(v2MetaDbTokens.db) as never,
+        tableId,
+        deletedFieldIds
+      );
+    }
 
     await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
       // Scope to trash rows: archive snapshots share record_trash (reason 'archived') and

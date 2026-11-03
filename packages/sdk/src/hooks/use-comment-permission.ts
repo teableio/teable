@@ -1,5 +1,6 @@
 import { useContext, useMemo } from 'react';
 import { AppContext } from '../context/app/AppContext';
+import { useBasePermission } from './use-base-permission';
 import { useTablePermission } from './use-table-permission';
 
 /**
@@ -15,14 +16,19 @@ import { useTablePermission } from './use-table-permission';
  */
 export const useCommentPermission = () => {
   const permission = useTablePermission();
+  const basePermission = useBasePermission();
   const { shareId } = useContext(AppContext);
 
   return useMemo(() => {
     // writing is never wider than reading: a comment hangs off a record you can see
     const commentReadable = !shareId && Boolean(permission['record|read']);
+    const commentWritable = commentReadable && Boolean(permission['record|comment']);
     return {
       commentReadable,
-      commentWritable: commentReadable && Boolean(permission['record|comment']),
+      commentWritable,
+      // base creators and owners may delete anyone's comment, App Robot's included.
+      // Read from the base role, as the server does, not the matrix-scoped table permission.
+      commentManageable: commentWritable && Boolean(basePermission?.['table|update']),
     };
-  }, [permission, shareId]);
+  }, [permission, basePermission, shareId]);
 };

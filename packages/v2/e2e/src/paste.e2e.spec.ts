@@ -1006,7 +1006,7 @@ describe('[B10] v2 http paste (e2e)', () => {
             type: 'link',
             id: linkFieldId,
             options: {
-              relationship: 'oneMany',
+              relationship: 'manyMany',
               foreignTableId: linkTableId,
               lookupFieldId: linkPrimaryFieldId,
               isOneWay: true,

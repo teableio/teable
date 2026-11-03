@@ -504,6 +504,27 @@ function ModelListEditor({
   );
 }
 
+/**
+ * What a model's reference fills in that its config lacks: pricing (×1) with tags, and the
+ * image-model flag when the reference is a pure image model and the admin has not chosen.
+ * Undefined when there is nothing to fill.
+ */
+const fillFromReference = (
+  config: IModelConfig | undefined,
+  reference: IGatewayModelAPI | undefined
+): IModelConfig | undefined => {
+  if (!reference) return undefined;
+  const pricing =
+    !config?.pricing && reference.pricing ? scalePricing(reference.pricing, 1) : undefined;
+  const isImageModel = config?.isImageModel === undefined && reference.type === 'image';
+  if (!pricing && !isImageModel) return undefined;
+  return {
+    ...config,
+    ...(pricing ? { pricing, tags: config?.tags ?? reference.tags } : {}),
+    ...(isImageModel ? { isImageModel } : {}),
+  };
+};
+
 const ModelRatesConfig = ({
   models,
   modelConfigs = {},
@@ -549,17 +570,8 @@ const ModelRatesConfig = ({
     if (gatewayModels.length === 0) return;
     const filled: Record<string, IModelConfig> = {};
     for (const model of modelList) {
-      const config = modelConfigs[model];
-      if (config?.pricing) continue;
-      const reference = resolveReferenceModel(model);
-      if (!reference?.pricing) continue;
-      const pricing = scalePricing(reference.pricing, 1);
-      if (!pricing) continue;
-      filled[model] = {
-        ...config,
-        pricing,
-        tags: config?.tags ?? reference.tags,
-      };
+      const config = fillFromReference(modelConfigs[model], resolveReferenceModel(model));
+      if (config) filled[model] = config;
     }
     if (Object.keys(filled).length > 0) {
       onChange({ ...modelConfigs, ...filled });

@@ -15,11 +15,13 @@ import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchC
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
-import type { RecordId } from '../domain/table/records/RecordId';
+import { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
-import type { TableRecord } from '../domain/table/records/TableRecord';
+import { SetSingleLineTextValueSpec } from '../domain/table/records/specs/values/SetSingleLineTextValueSpec';
+import { TableRecord } from '../domain/table/records/TableRecord';
+import { CellValue } from '../domain/table/records/values/CellValue';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -945,27 +947,26 @@ describe('ImportRecordsHandler', () => {
       })
     );
     const tableRecordRepository = new FakeTableRecordRepository();
-    // Stub TableRecord shape so handler's RecordsBatchCreated builder can call
-    // .id().toString() and .fields().entries() without exploding.
-    const stubRecord = (id: string) =>
-      ({
-        id: () => ({ toString: () => id }),
-        fields: () => ({ entries: () => [] }),
-      }) as unknown as TableRecord;
-    const originalRecord = stubRecord('raw-record');
-    const resolvedRecord = stubRecord('resolved-record');
-    const mutateSpec = {
-      mutate: () => ok(resolvedRecord),
-    } as unknown as ICellValueSpec;
+    // Real record/spec so the handler's reapply uses the same materializer as production.
+    const recordId = RecordId.create(`rec${'r'.repeat(16)}`)._unsafeUnwrap();
+    const originalRecord = TableRecord.create({
+      id: recordId,
+      tableId: table.id(),
+      fieldValues: [],
+    })._unsafeUnwrap();
+    const resolvedSpec = new SetSingleLineTextValueSpec(
+      textFieldId,
+      CellValue.fromValidated('resolved')
+    );
 
-    (
-      table as unknown as {
-        createRecords: typeof table.createRecords;
-      }
-    ).createRecords = () =>
+    // The handler only needs this write seam; keep the cast named so the unchecked shape is explicit.
+    const tableWithStubbedCreate = table as unknown as {
+      createRecords: typeof table.createRecords;
+    };
+    tableWithStubbedCreate.createRecords = () =>
       ok({
         records: [originalRecord],
-        mutateSpecs: [mutateSpec],
+        mutateSpecs: [resolvedSpec],
       });
 
     const handler = new ImportRecordsHandler(
@@ -974,7 +975,7 @@ describe('ImportRecordsHandler', () => {
       tableRecordRepository,
       {
         needsResolution: () => ok(true),
-        resolveAndReplaceMany: async () => ok([mutateSpec]),
+        resolveAndReplaceMany: async () => ok([resolvedSpec]),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
       {
@@ -992,6 +993,10 @@ describe('ImportRecordsHandler', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    expect(tableRecordRepository.inserted).toEqual([resolvedRecord]);
+    expect(tableRecordRepository.inserted).toHaveLength(1);
+    expect(tableRecordRepository.inserted[0]?.id().equals(recordId)).toBe(true);
+    expect(tableRecordRepository.inserted[0]?.fields().get(textFieldId)?.toValue()).toBe(
+      'resolved'
+    );
   });
 });

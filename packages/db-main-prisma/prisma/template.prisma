@@ -218,7 +218,7 @@ model PinResource {
 model Base {
   id               String      @id @default(cuid())
   spaceId          String      @map("space_id")
-  name             String
+  name             String?
   order            Float
   icon             String?
   schemaPass       String?     @map("schema_pass")
@@ -1180,9 +1180,14 @@ model Template {
   usageCount          Int       @default(0) @map("usage_count")
   publishInfo         Json?     @map("publish_info")
   visitCount          Int       @default(0) @map("visit_count")
-  // `template` (default) or `solution`: a solution is used through the setup wizard
-  // (connect the integrations it needs) rather than opened as a plain copy.
+  // Unused since the solution kind was retired; dropped once production no longer reads it.
   kind                String?   @map("kind")
+  version             Int       @default(1) @map("version")
+  manifest            Json?     @map("manifest")
+  review              Json?     @map("review")
+  history             Json?     @map("history")
+  parentTemplateId    String?   @map("parent_template_id")
+  slug                String?   @unique @map("slug")
 
   @@unique([baseId])
   @@map("template")
@@ -1196,7 +1201,11 @@ model TemplateCategory {
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
   order            Float     @map("order")
+  parentId         String?   @map("parent_id")
+  kind             String    @default("industry") @map("kind")
+  key              String?   @unique @map("key")
 
+  @@index([parentId])
   @@map("template_category")
 }
 

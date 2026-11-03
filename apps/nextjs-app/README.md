@@ -17,6 +17,17 @@ Run the focused interaction coverage with:
 pnpm --filter @teable/app exec vitest run src/features/app/components/field-setting/options/LinkedRecordSortLimitConfig.spec.tsx
 ```
 
+## Conditional field filter references
+
+In a cross-table v2 conditional lookup or rollup, a Link filter using `is` can compare the
+Link title with a scalar text field from the current table, including a text-valued formula.
+Other Link operators, multi-value text fields, and legacy runtime comparisons retain their
+existing restrictions. Changing to an unsupported operator clears the incompatible reference.
+
+```sh
+pnpm --filter @teable/sdk exec vitest run src/components/filter/view-filter/custom-component/BaseFieldValue.spec.tsx
+```
+
 ## Field editor save state
 
 While a field save is pending, the field editor disables Save and Cancel and shows a spinner on

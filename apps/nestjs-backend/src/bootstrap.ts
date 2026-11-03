@@ -18,6 +18,7 @@ import { setupSwagger } from './swagger';
 import type { IClsStore } from './types/cls';
 import { nestModuleIdOptions, nestRouteDiagnosticsOptions } from './utils/nest-module-id-options';
 import { relaxOAuthPopupCoop } from './utils/oauth-popup-coop';
+import { startQueueWorkers } from './utils/queue-processor';
 
 const host = 'localhost';
 
@@ -89,6 +90,7 @@ export async function bootstrap() {
   process.env.PORT = port.toString();
 
   await app.listen(port);
+  startQueueWorkers(app);
 
   const now = new Date();
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;

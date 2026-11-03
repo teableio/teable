@@ -74,6 +74,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     scrollState,
     collaborators,
     searchCursor,
+    highlightedRowIndex,
     mouseState,
     rowControls,
     rowControlPaddingX,
@@ -265,6 +266,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           columnStatistics={columnStatistics}
           collaborators={collaborators}
           searchCursor={searchCursor}
+          highlightedRowIndex={highlightedRowIndex}
           coordInstance={coordInstance}
           rowControls={rowControls}
           rowControlPaddingX={rowControlPaddingX}

@@ -4,14 +4,12 @@ import type { Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import {
-  buildAttachmentTableBatchReplaceQueries,
-  type AttachmentTableReplaceInput,
-} from '../../attachments/attachmentTableMutations';
+import type { AttachmentTableReplaceInput } from '../../attachments/attachmentTableMutations';
 import type { UpdateImpactHint } from '../../computed';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { createEmptyCollectedLinkChanges, type CollectedLinkChanges } from '../../visitors';
 import { CellValueMutateVisitor } from '../../visitors/CellValueMutateVisitor';
+import type { LinkExclusivityConstraint } from '../../visitors/LinkExclusivityConstraintCollector';
 import type { CompiledSqlStatement, LinkedRecordLockInfo } from '../insert';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
 
@@ -41,6 +39,7 @@ export interface BatchRecordUpdateImpact {
   linkChanges: CollectedLinkChanges;
   valueFieldIds: ReadonlyArray<FieldId>;
   linkedRecordLocks: LinkedRecordLockInfo[];
+  exclusivityConstraints: ReadonlyArray<LinkExclusivityConstraint>;
 }
 
 /**
@@ -61,6 +60,11 @@ export interface BatchRecordUpdateDataResult {
    * These are compiled immediately as they're not easily batchable.
    */
   additionalStatements: CompiledSqlStatement[];
+
+  /**
+   * Attachment table replacements to apply after the actual UPDATE result is known.
+   */
+  attachmentTableReplacements: ReadonlyArray<AttachmentTableReplaceInput>;
 
   /**
    * Deduplicated and sorted linked record locks.
@@ -172,6 +176,7 @@ export class BatchRecordUpdateBuilder {
         return ok({
           columnUpdateData: new Map(),
           additionalStatements: [],
+          attachmentTableReplacements: [],
           linkedRecordLocks: [],
           impact: {
             impactHint: { valueFieldIds: [], linkFieldIds: [] },
@@ -179,6 +184,7 @@ export class BatchRecordUpdateBuilder {
             linkChanges: createEmptyCollectedLinkChanges(),
             valueFieldIds: [],
             linkedRecordLocks: [],
+            exclusivityConstraints: [],
           },
           systemColumns: {
             lastModifiedTime: context.now,
@@ -195,6 +201,7 @@ export class BatchRecordUpdateBuilder {
       const attachmentTableReplacements: AttachmentTableReplaceInput[] = [];
       const allChangedFieldIds = new Set<string>();
       const allLinkedRecordLocks: LinkedRecordLockInfo[] = [];
+      const allExclusivityConstraints: LinkExclusivityConstraint[] = [];
       const allLinkChanges = createEmptyCollectedLinkChanges();
       const recordUpdateValues = new Map<string, Map<string, unknown>>();
 
@@ -264,6 +271,8 @@ export class BatchRecordUpdateBuilder {
           allAdditionalStatements.push({
             description: `Additional statement for record ${recordIdStr}`,
             compiled: stmt,
+            sourceRecordId: recordIdStr,
+            requiresSourceWrite: stmt.requiresSourceWrite,
           });
         }
         attachmentTableReplacements.push(...mutateVisitor.getAttachmentTableReplacements());
@@ -286,6 +295,7 @@ export class BatchRecordUpdateBuilder {
           return err(linkChangesResult.error);
         }
         mergeCollectedLinkChanges(allLinkChanges, linkChangesResult.value.linkChanges);
+        allExclusivityConstraints.push(...linkChangesResult.value.exclusivityConstraints);
         allLinkedRecordLocks.push(
           ...buildLinkedRecordLocksFromLinkChanges(linkChangesResult.value.linkChanges)
         );
@@ -295,16 +305,6 @@ export class BatchRecordUpdateBuilder {
           setClauses: Object.fromEntries(recordSetClauses),
           additionalStatements: [],
           changedFieldIds,
-        });
-      }
-
-      for (const stmt of buildAttachmentTableBatchReplaceQueries(
-        builder.db,
-        attachmentTableReplacements
-      )) {
-        allAdditionalStatements.push({
-          description: 'Batch attachment table replace',
-          compiled: stmt,
         });
       }
 
@@ -357,11 +357,13 @@ export class BatchRecordUpdateBuilder {
         linkChanges: allLinkChanges,
         valueFieldIds,
         linkedRecordLocks,
+        exclusivityConstraints: allExclusivityConstraints,
       };
 
       return ok({
         columnUpdateData,
         additionalStatements: allAdditionalStatements,
+        attachmentTableReplacements,
         linkedRecordLocks,
         impact,
         systemColumns: {

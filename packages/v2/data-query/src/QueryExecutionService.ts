@@ -8,8 +8,8 @@ import type { DataQueryResult } from './ports';
 import {
   executeDataQueryRequestSchema,
   validateDataQueryRequestSchema,
+  type DataQueryValidationResult,
 } from './queryExecutionProtocol';
-import type { DataQueryOutput } from './types';
 
 // Validate the envelope here; DataQueryDefinition.create owns definition parsing and construction.
 const executionEnvelopeSchema = executeDataQueryRequestSchema.extend({
@@ -26,7 +26,7 @@ export class QueryExecutionService {
   async validate(
     context: IExecutionContext,
     raw: unknown
-  ): Promise<Result<{ outputs: ReadonlyArray<DataQueryOutput> }, DomainError>> {
+  ): Promise<Result<DataQueryValidationResult, DomainError>> {
     try {
       return await traceDataQueryStage(context, 'validate', {}, async () => {
         const parsed = validationEnvelopeSchema.safeParse(raw);
@@ -39,7 +39,11 @@ export class QueryExecutionService {
           );
         const definition = DataQueryDefinition.create(parsed.data.definition);
         if (definition.isErr()) return err(definition.error);
-        return this.dataQueries.validate(context, definition.value);
+        return this.dataQueries.validate(
+          context,
+          definition.value,
+          parsed.data.includeUsage === true ? { includeUsage: true } : {}
+        );
       });
     } catch (cause) {
       return err(

@@ -95,6 +95,7 @@ export const Calendar = (props: ICalendarProps) => {
     colorField,
     permission,
     setExpandRecordId,
+    setOrderedRecordIds,
   } = useCalendar();
   const tableId = useTableId();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -238,6 +239,11 @@ export const Calendar = (props: ICalendarProps) => {
 
   const isLoading = startDateField && endDateField && !calendarDailyCollection;
   const { countMap, records = [] } = calendarDailyCollection ?? {};
+
+  const loadedRecords = calendarDailyCollection?.records;
+  useEffect(() => {
+    setOrderedRecordIds(loadedRecords?.map((record) => record.id) ?? []);
+  }, [loadedRecords, setOrderedRecordIds]);
 
   const events = useMemo(() => {
     return records
@@ -553,7 +559,11 @@ export const Calendar = (props: ICalendarProps) => {
             <DialogHeader className="px-2 py-1">
               <DialogTitle>{format(moreLinkDate, 'yyyy-MM-dd')}</DialogTitle>
             </DialogHeader>
-            <EventListContainer date={moreLinkDate} />
+            {/* the record side panel sits below this dialog, so the dialog has to go */}
+            <EventListContainer
+              date={moreLinkDate}
+              onRecordSelect={() => setMoreLinkDate(undefined)}
+            />
           </DialogContent>
         </Dialog>
       )}

@@ -54,7 +54,8 @@ export const SendVerificationButton = ({
       // Not the form's submit button: Enter in the code input must sign in, not resend.
       type="button"
       variant={'outline'}
-      className="mt-4 w-full"
+      // Sits beside the code input at its height, so it is not mistaken for the submit button.
+      className="h-9 shrink-0 sm:h-8"
       disabled={disabled}
       onClick={(e) => {
         if (isSuccess || countdown > 0) {

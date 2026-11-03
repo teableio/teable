@@ -5,6 +5,7 @@ import {
   isFieldReferenceValue,
   isFieldReferenceOperatorSupported,
   isFieldReferenceComparable,
+  getFieldReferenceComparisonKind,
   exactDate,
   exactFormatDate,
 } from '@teable/core';
@@ -48,6 +49,9 @@ import type { IFilterComponents } from '../types';
 export interface IFilterReferenceSource {
   fields: IFieldInstance[];
   tableId?: string;
+  isReady?: boolean;
+  /** Cross-table v2 conditions can compare a Link title to scalar text with `is`. */
+  supportsLinkTitleReference?: boolean;
 }
 
 interface IBaseFieldValue {
@@ -70,6 +74,8 @@ interface IConditionalRollupValueProps {
   modal?: boolean;
   field?: IFieldInstance;
 }
+
+const EMPTY_REFERENCE_FIELDS: IFieldInstance[] = [];
 
 /**
  * NumberEditor only displays runtime numbers. AutoNumber filters used to be
@@ -96,7 +102,7 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
   const inDrawer = useInDrawer();
   const { literalComponent, value, onSelect, operator, referenceSource, modal, field } = props;
   const { t } = useTranslation();
-  const referenceFields = referenceSource?.fields ?? [];
+  const referenceFields = referenceSource?.fields ?? EMPTY_REFERENCE_FIELDS;
   const referenceTableId = referenceSource?.tableId ?? referenceFields[0]?.tableId;
   const isFieldMode = isFieldReferenceValue(value);
   const [lastLiteralValue, setLastLiteralValue] = useState<IFilterItem['value'] | null>(
@@ -126,16 +132,37 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
       if (!field) {
         return false;
       }
+      if (
+        referenceSource?.supportsLinkTitleReference &&
+        field.type === FieldType.Link &&
+        operator === 'is' &&
+        candidate.cellValueType === CellValueType.String &&
+        !candidate.isMultipleCellValue &&
+        getFieldReferenceComparisonKind(candidate) === 'string'
+      ) {
+        return false;
+      }
       return !isFieldReferenceComparable(field, candidate);
     },
-    [field]
+    [field, operator, referenceSource?.supportsLinkTitleReference]
   );
 
-  const toggleDisabled = !operatorSupportsReferences || !referenceFields.length;
+  const comparableField = referenceFields.find((candidate) => !isReferenceFieldDisabled(candidate));
+  const toggleDisabled = !operatorSupportsReferences || (!isFieldMode && !comparableField);
+
+  useEffect(() => {
+    if (referenceSource?.isReady === false || !referenceSource || !isFieldReferenceValue(value)) {
+      return;
+    }
+    const candidate = referenceFields.find((candidate) => candidate.id === value.fieldId);
+    if (!candidate || isReferenceFieldDisabled(candidate)) {
+      onSelect(null);
+    }
+  }, [isReferenceFieldDisabled, onSelect, referenceFields, referenceSource, value]);
   const lastDefaultKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!referenceFields.length || !field || !operator || !operatorSupportsReferences) {
+    if (!field || !operator || !operatorSupportsReferences || !comparableField) {
       return;
     }
 
@@ -149,27 +176,18 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
       return;
     }
 
-    const comparableField = referenceFields.find(
-      (candidate) => !isReferenceFieldDisabled(candidate)
-    );
-    const targetField = comparableField ?? referenceFields[0];
-    if (!targetField) {
-      return;
-    }
-
     lastDefaultKeyRef.current = currentKey;
     onSelect({
       type: 'field',
-      fieldId: targetField.id,
-      tableId: targetField.tableId ?? referenceTableId,
+      fieldId: comparableField.id,
+      tableId: comparableField.tableId ?? referenceTableId,
     } satisfies IFieldReferenceValue);
   }, [
+    comparableField,
     field,
-    isReferenceFieldDisabled,
     onSelect,
     operator,
     operatorSupportsReferences,
-    referenceFields,
     referenceTableId,
     value,
   ]);
@@ -182,17 +200,13 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
       onSelect(lastLiteralValue ?? null);
       return;
     }
-    const comparableField = referenceFields.find(
-      (candidate) => !isReferenceFieldDisabled(candidate)
-    );
-    const targetField = comparableField ?? referenceFields[0];
-    if (!targetField) {
+    if (!comparableField) {
       return;
     }
     onSelect({
       type: 'field',
-      fieldId: targetField.id,
-      tableId: targetField.tableId ?? referenceTableId,
+      fieldId: comparableField.id,
+      tableId: comparableField.tableId ?? referenceTableId,
     } satisfies IFieldReferenceValue);
   };
 

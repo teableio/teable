@@ -17,6 +17,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecord, IRecordInsertOrderRo } from '@teable/openapi';
 import { isEqual, forEach, keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { type IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
@@ -45,7 +46,9 @@ export class RecordModifySharedService {
     private readonly collaboratorService: CollaboratorService,
     private readonly cls: ClsService<IClsStore>,
     private readonly dataLoaderService: DataLoaderService,
-    private readonly crossBaseLinkAccess: CrossBaseLinkAccessService
+    private readonly crossBaseLinkAccess: CrossBaseLinkAccessService,
+    @ThresholdConfig()
+    private readonly thresholdConfig: Pick<IThresholdConfig, 'maxSelectChoiceNameLength'>
   ) {}
 
   private buildMissingFieldsMessage(missedFields: string[]): string {
@@ -173,6 +176,7 @@ export class RecordModifySharedService {
         field,
         tableId: table.id,
         typecast,
+        maxSelectChoiceNameLength: this.thresholdConfig.maxSelectChoiceNameLength,
       });
       const fieldIdOrName = field[fieldKeyType];
 

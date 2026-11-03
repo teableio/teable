@@ -60,6 +60,7 @@ import type { Expression, Kysely, QueryResult, RawBuilder, SqlBool } from 'kysel
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { getPostgresTransaction } from '../../shared/db';
 import { extractUndefinedColumnError } from '../../shared/errors';
 import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
@@ -361,6 +362,11 @@ export class PostgresTableRecordQueryRepository
     db: Kysely<DynamicDB>,
     compiled: CompiledQuery<R>
   ): Promise<QueryResult<R>> {
+    const transaction = getPostgresTransaction<DynamicDB>(context, 'data');
+    if (transaction) {
+      return transaction.executeQuery(compiled);
+    }
+
     const budgetMs = this.recordQueryConfig.statementBudgetMs ?? 0;
     if (budgetMs <= 0 || getUnitOfWorkTransaction(context, 'data')) {
       return db.executeQuery(compiled);
@@ -852,6 +858,69 @@ export class PostgresTableRecordQueryRepository
       );
     } catch (error) {
       return err(buildUnexpectedQueryError('Failed to count table records', error));
+    } finally {
+      span?.end();
+    }
+  }
+
+  async countSearchMatches(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordCountOptions
+  ): Promise<Result<number, DomainError>> {
+    const findOptions = options as ITableRecordQueryOptions;
+    const span = context.tracer?.startSpan(
+      'teable.repository.record.count_search_matches',
+      createCountTraceAttributes(table, findOptions)
+    );
+
+    try {
+      return await safeTry<number, DomainError>(
+        async function* (this: PostgresTableRecordQueryRepository) {
+          const readQuerySource = this.getRecordReadQuerySource(findOptions);
+          const dbTableName = yield* table.dbTableName();
+          const tableName = yield* dbTableName.value();
+          const sourceTableName = readQuerySource?.tableName ?? tableName;
+          const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+          const whereClause = spec
+            ? buildRecordWhereClause(spec, { tableAlias: TABLE_ALIAS })
+            : ok(null);
+          if (whereClause.isErr()) return err(whereClause.error);
+
+          const fieldMaskSqlMap = yield* buildFieldMaskSqlMap(options.fieldMasks, TABLE_ALIAS);
+          const fieldMatches = yield* buildRecordSearchFieldMatches(table, options.search, {
+            tableAlias: TABLE_ALIAS,
+            fieldMaskSqlMap,
+          });
+          if (!fieldMatches.length) return ok(0);
+
+          const matchedCellExpression = fieldMatches.reduce<Expression<number>>(
+            (count, match) =>
+              sql<number>`${count} + CASE WHEN ${match.condition} THEN 1 ELSE 0 END`,
+            sql<number>`0`
+          );
+          const countCompiled = this.withRecordReadQuerySource(
+            dynamicDb
+              .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
+              .select(sql<string>`coalesce(sum(${matchedCellExpression}), 0)`.as('count'))
+              .$if(whereClause.value !== null, (qb) =>
+                qb.where(whereClause.value as Expression<SqlBool>)
+              )
+              .compile(),
+            readQuerySource
+          );
+          this.recordSqlDiagnostic(context, 'record_search_match_count', countCompiled);
+          const countResult = await this.executeQueryWithBudget<{ count: string }>(
+            context,
+            dynamicDb,
+            countCompiled
+          );
+          return ok(Number.parseInt(countResult.rows[0]?.count ?? '0', 10));
+        }.bind(this)
+      );
+    } catch (error) {
+      return err(buildUnexpectedQueryError('Failed to count record search matches', error));
     } finally {
       span?.end();
     }

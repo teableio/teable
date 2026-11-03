@@ -19,6 +19,7 @@ import { domainError, isNotFoundError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldType } from '../domain/table/fields/FieldType';
+import { materializeRecordSpec } from '../domain/table/records/RecordSpecMaterializer';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
@@ -195,7 +196,12 @@ export class DuplicateRecordHandler implements ICommandHandler<
             tableForCreate.id(),
             createResult.mutateSpec
           );
-          record = yield* resolvedSpec.mutate(record);
+          record = yield* materializeRecordSpec({
+            id: record.id(),
+            tableId: record.tableId(),
+            spec: resolvedSpec,
+            baseFields: record.fields().entries(),
+          });
         }
       }
 

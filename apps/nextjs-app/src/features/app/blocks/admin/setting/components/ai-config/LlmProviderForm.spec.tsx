@@ -367,4 +367,70 @@ describe('LLMProviderForm', () => {
       });
     });
   });
+
+  describe('image models', () => {
+    const gptImage2Reference: IGatewayApiModel = {
+      id: 'openai/gpt-image-2',
+      type: 'image',
+      pricing: { input: '0.000008', output: '0.00003' },
+    };
+    const imageProvider: LLMProvider = {
+      type: LLMProviderType.OPENAI_COMPATIBLE,
+      name: 'teable',
+      displayName: 'OpenRouter',
+      apiKey: 'sk-test',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      models: 'gpt-image-2',
+      modelConfigs: {},
+    };
+    const passingTest = () => vi.fn().mockResolvedValue({ success: true, response: 'ok' });
+    /** Whether the connection test sent the model through the image generation test. */
+    const testedAsImage = (onTest: ReturnType<typeof vi.fn>) =>
+      onTest.mock.calls.some(([ro]) => ro.testImageGeneration === true);
+    const runConnectionTest = async () => {
+      await userEvent.click(
+        screen.getByRole('button', { name: 'admin.setting.ai.testConnection' })
+      );
+    };
+
+    it('lets a new provider listing only an image model pass its test and be added', async () => {
+      mockGatewayModels([gptImage2Reference]);
+      const onTest = passingTest();
+      const onAdd = vi.fn();
+      render(<LLMProviderForm onAdd={onAdd} onTest={onTest} />);
+
+      await userEvent.type(
+        screen.getByPlaceholderText('https://api.openai.com/v1'),
+        'https://x/v1'
+      );
+      await userEvent.type(screen.getByLabelText('admin.setting.ai.apiKey'), 'sk-test');
+      await userEvent.type(
+        screen.getByPlaceholderText('gpt-5.5,o3,gpt-5-mini'),
+        'gpt-image-2{Enter}'
+      );
+      await runConnectionTest();
+
+      await userEvent.click(await screen.findByRole('button', { name: 'actions.add' }));
+      expect(testedAsImage(onTest)).toBe(true);
+      expect(onAdd.mock.calls[0][0].modelConfigs['gpt-image-2'].isImageModel).toBe(true);
+    });
+
+    it('tests a model the admin marked as not an image model as a text model', async () => {
+      mockGatewayModels([gptImage2Reference]);
+      const onTest = passingTest();
+      render(
+        <LLMProviderForm
+          value={{ ...imageProvider, modelConfigs: { 'gpt-image-2': { isImageModel: false } } }}
+          onChange={vi.fn()}
+          onTest={onTest}
+        />
+      );
+
+      await screen.findByRole('button', { name: 'actions.update' });
+      await runConnectionTest();
+
+      await waitFor(() => expect(onTest).toHaveBeenCalled());
+      expect(testedAsImage(onTest)).toBe(false);
+    });
+  });
 });

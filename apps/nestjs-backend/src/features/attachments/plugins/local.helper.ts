@@ -1,7 +1,28 @@
-import { isAbsolute, posix, resolve } from 'node:path';
+import { isAbsolute, posix, resolve, sep } from 'node:path';
 import { HttpErrorCode } from '@teable/core';
 import { READ_PATH } from '@teable/openapi';
 import { CustomHttpException } from '../../../custom.exception';
+
+/**
+ * Resolve `storageDir` + `segments` to an absolute path and assert it stays
+ * inside `storageDir`. `node:path.resolve` lets any absolute segment (e.g. a
+ * caller-supplied `/etc/hostname`) discard `storageDir`, and `..` segments can
+ * climb out, so every filesystem path the local provider builds from an object
+ * key (bucket/path, thumbnail path, …) must pass through here before it is read,
+ * written or deleted — otherwise an attacker-controlled key reaches arbitrary
+ * files on the host.
+ */
+export function resolveWithinStorage(storageDir: string, ...segments: string[]): string {
+  const resolved = resolve(storageDir, ...segments);
+  if (resolved !== storageDir && !resolved.startsWith(storageDir + sep)) {
+    throw new CustomHttpException('Could not find attachment', HttpErrorCode.VALIDATION_ERROR, {
+      localization: {
+        i18nKey: 'httpErrors.attachment.invalidPath',
+      },
+    });
+  }
+  return resolved;
+}
 
 export function assertPathWithinStorage(relativePath: string, storageDir: string): string {
   if (!relativePath || !storageDir || relativePath.includes('..') || isAbsolute(relativePath)) {

@@ -7,6 +7,7 @@ import {
   NullForeignTableLoaderService,
 } from '../application/services/ForeignTableLoaderService';
 import { type IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
+import { areRecordFieldValuesEqual } from '../application/services/RecordFieldValueEquality';
 import { requireRecordUpdateSnapshot } from '../application/services/RecordMutationSnapshotContract';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { preLeasePlan } from '../application/services/RecordWriteCoordinationPlan';
@@ -46,6 +47,7 @@ import {
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
+import { buildUserAvatarUrl } from '../ports/UserAvatarUrl';
 import { toTableRecord } from './shared/toTableRecord';
 import { UpdateRecordCommand } from './UpdateRecordCommand';
 
@@ -406,9 +408,26 @@ export class UpdateRecordApplicationService {
               }
             }
 
+            const noOpCurrentRecord =
+              mutateSpec && mutation.mutationApplied === false
+                ? yield* await handler.tableRecordQueryRepository.findOne(
+                    transactionContext,
+                    tableForUpdate,
+                    command.recordId,
+                    { mode: 'stored' }
+                  )
+                : undefined;
+
             const changes: RecordFieldChangeDTO[] = [];
             const mutationApplied = mutation.mutationApplied !== false;
-            const changedFieldValues = new Map<string, unknown>(mutation.changedFields ?? []);
+            // Shared-lease writers can commit after the pre-read. Compare the
+            // repository's before/after images, not the stale planning record.
+            const updateSnapshot = mutation.updateSnapshot;
+            const previousFieldValues = updateSnapshot?.previous.fields ?? currentRecord.fields;
+            const currentFieldValues = updateSnapshot?.current.fields;
+            const changedFieldValues = new Map<string, unknown>(
+              mutationApplied ? mutation.changedFields : undefined
+            );
             const computedFieldIds = new Set(
               tableForUpdate
                 .getFields()
@@ -425,36 +444,73 @@ export class UpdateRecordApplicationService {
                 if (changedFieldValues.has(fieldId) || computedFieldIds.has(fieldId)) {
                   continue;
                 }
-                if (!areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
+                if (!areFieldValuesEqual(previousFieldValues[fieldId], newValue)) {
                   changedFieldValues.set(fieldId, newValue);
                 }
+              }
+            }
+            if (currentFieldValues) {
+              for (const fieldId of changedFieldValues.keys()) {
+                // Repository changedFields carries presentation normalization
+                // (notably canonical user avatars); the snapshot is the fallback.
+                if (
+                  !mutation.changedFields?.has(fieldId) &&
+                  Object.hasOwn(currentFieldValues, fieldId)
+                ) {
+                  changedFieldValues.set(fieldId, currentFieldValues[fieldId]);
+                }
+              }
+            }
+            // The repository returns requested columns even when only another
+            // column changed. Gate events on storage values before attachment
+            // signing adds presentation-only URLs; keep all values available
+            // to decorate the response.
+            const eventFieldIds = new Set<string>();
+            for (const [fieldId, value] of changedFieldValues) {
+              if (!areRecordFieldValuesEqual(previousFieldValues[fieldId], value)) {
+                eventFieldIds.add(fieldId);
               }
             }
             const updatedFieldValues =
               yield* await handler.recordChangedValueDecoratorService.decorateChangedFields(
                 tableForUpdate,
                 changedFieldValues.size > 0 ? changedFieldValues : undefined,
-                currentRecord.fields
+                previousFieldValues
               );
             for (const [fieldId, newValue] of updatedFieldValues ?? new Map<string, unknown>()) {
-              if (computedFieldIds.has(fieldId)) {
+              if (!eventFieldIds.has(fieldId) || computedFieldIds.has(fieldId)) {
                 continue;
               }
-              if (areFieldValuesEqual(currentRecord.fields[fieldId], newValue)) {
-                continue;
+              let oldValue = previousFieldValues[fieldId];
+              const field = tableForUpdate.getField(
+                (candidate) => candidate.id().toString() === fieldId
+              );
+              if (field.isOk() && field.value.type().equals(FieldType.user())) {
+                // Match query/bulk presentation without replacing the actual
+                // before-image's users with either requested or pre-read IDs.
+                const withCanonicalAvatar = (value: unknown): unknown => {
+                  if (value == null || typeof value !== 'object') return value;
+                  const user = value as Record<string, unknown>;
+                  if (typeof user.id !== 'string' || user.id.length === 0) return value;
+                  const avatarUrl = buildUserAvatarUrl(user.id);
+                  return user.avatarUrl === avatarUrl ? value : { ...user, avatarUrl };
+                };
+                oldValue = Array.isArray(oldValue)
+                  ? oldValue.map(withCanonicalAvatar)
+                  : withCanonicalAvatar(oldValue);
+                if (areFieldValuesEqual(oldValue, newValue)) {
+                  continue;
+                }
               }
               changes.push({
                 fieldId,
-                oldValue: currentRecord.fields[fieldId],
+                oldValue,
                 newValue,
               });
             }
 
-            // The pre-read version is stale when another shared-lease update
-            // commits first; use the version pair captured by the update
-            // statement so realtime clients do not discard this event.
-            const oldVersion = mutation.updateSnapshot?.oldVersion ?? currentRecord.version;
-            const newVersion = mutation.updateSnapshot?.newVersion ?? oldVersion + 1;
+            const oldVersion = updateSnapshot?.oldVersion ?? currentRecord.version;
+            const newVersion = updateSnapshot?.newVersion ?? oldVersion + 1;
             const events: IDomainEvent[] = [...tableEvents];
             if (changes.length > 0) {
               events.push(
@@ -498,6 +554,7 @@ export class UpdateRecordApplicationService {
                   nextOrder,
                   updatedFieldValues,
                   changes,
+                  noOpCurrentRecord,
                 },
                 events,
                 { tables: [tableForUpdate] }
@@ -620,16 +677,21 @@ export class UpdateRecordApplicationService {
         tableId: table.id(),
         fields: {
           ...Object.fromEntries(
-            Object.entries(currentRecord.fields).filter(
+            Object.entries(mutationResult.noOpCurrentRecord?.fields ?? currentRecord.fields).filter(
               ([, value]) => value !== null && value !== undefined
             )
           ),
-          ...Object.fromEntries(
-            updatedRecord
-              .fields()
-              .entries()
-              .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
-          ),
+          // No-op mutations have no persisted replacement values. Keep the
+          // transaction-current database value rather than replacing it with
+          // an id-only typecast request that never reached storage.
+          ...(mutationResult.mutation.mutationApplied === false
+            ? {}
+            : Object.fromEntries(
+                updatedRecord
+                  .fields()
+                  .entries()
+                  .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+              )),
           ...(mutationResult.updatedFieldValues
             ? Object.fromEntries(mutationResult.updatedFieldValues)
             : {}),

@@ -9,6 +9,7 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType, KeyboardEvent, RefObject } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { useBaseList } from '../../space/useBaseList';
 import { BaseNodeResourceIconMap, getNodeUrl } from '../base-node/hooks';
 import { useLastVisitBase } from '../hooks';
@@ -64,6 +65,7 @@ export const CommandPalette = (props: CommandPaletteProps) => {
 
 const ProjectPalette = ({ baseId, ...props }: CommandPaletteProps & { baseId: string }) => {
   const base = useBase();
+  const { t } = useTranslation('common');
   const tableId = useTableId();
   const router = useRouter();
   const navigation = usePaletteNavigation({ baseId, tableId, open: props.open });
@@ -82,7 +84,7 @@ const ProjectPalette = ({ baseId, ...props }: CommandPaletteProps & { baseId: st
     <>
       <PaletteSurface
         {...props}
-        projectName={base?.name}
+        projectName={base ? getBaseDisplayName(base.name, t) : undefined}
         projectIcon={base?.icon ?? undefined}
         resources={resources}
         recent={navigation.recent}
@@ -97,6 +99,7 @@ const ProjectPalette = ({ baseId, ...props }: CommandPaletteProps & { baseId: st
 };
 
 const SpacePalette = (props: CommandPaletteProps) => {
+  const { t } = useTranslation('common');
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   useEffect(() => {
@@ -139,7 +142,7 @@ const SpacePalette = (props: CommandPaletteProps) => {
       return [
         {
           id: `base:${base.id}`,
-          label: base.name,
+          label: getBaseDisplayName(base.name, t),
           href: `/base/${base.id}`,
           icon: base.icon ? (
             <Emoji emoji={base.icon} size="1em" />
@@ -149,7 +152,7 @@ const SpacePalette = (props: CommandPaletteProps) => {
         },
       ];
     });
-  }, [baseList, lastVisitBases, props.spaceId]);
+  }, [baseList, lastVisitBases, props.spaceId, t]);
   const resources = useMemo(
     () =>
       (query.data?.pages.flatMap((page) => page.list) ?? []).flatMap((item): PaletteEntry[] => {

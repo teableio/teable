@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { dataQueryDefinitionInputSchema } from './DataQueryDefinition';
 import { dataQueryIdSchema } from './DataQueryManifest';
+import { dataQueryFieldUsageValues } from './types';
+import type { DataQueryFieldUsage, DataQueryOutput } from './types';
 
 /** Public inline input. Identity and permissions belong only to the execution context. */
 export const executeDataQueryRequestSchema = z
@@ -35,10 +37,37 @@ export const queryExecutionJsonSchema = () =>
   z.toJSONSchema(executeDataQueryRequestSchema, { target: 'draft-2020-12', io: 'input' });
 
 export const validateDataQueryRequestSchema = z
-  .object({ definition: dataQueryDefinitionInputSchema })
+  .object({
+    definition: dataQueryDefinitionInputSchema,
+    includeUsage: z.boolean().optional(),
+  })
   .strict();
 export type ValidateDataQueryRequest = z.infer<typeof validateDataQueryRequestSchema>;
-export const queryValidationResultSchema = z
+
+export type DataQueryValidationUsage = ReadonlyArray<{
+  readonly source: string;
+  readonly tableId: string;
+  readonly fieldId: string;
+  readonly usages: ReadonlyArray<DataQueryFieldUsage>;
+}>;
+
+export const dataQueryValidationUsageSchema: z.ZodType<DataQueryValidationUsage> = z.array(
+  z
+    .object({
+      source: z.string(),
+      tableId: z.string(),
+      fieldId: z.string(),
+      usages: z.array(z.enum(dataQueryFieldUsageValues)),
+    })
+    .strict()
+);
+
+export type DataQueryValidationResult = {
+  readonly outputs: ReadonlyArray<DataQueryOutput>;
+  readonly usage?: DataQueryValidationUsage;
+};
+
+export const queryValidationResultSchema: z.ZodType<DataQueryValidationResult> = z
   .object({
     outputs: z.array(
       z
@@ -51,6 +80,6 @@ export const queryValidationResultSchema = z
         })
         .strict()
     ),
+    usage: dataQueryValidationUsageSchema.optional(),
   })
   .strict();
-export type DataQueryValidationResult = z.infer<typeof queryValidationResultSchema>;

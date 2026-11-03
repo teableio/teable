@@ -402,8 +402,12 @@ const planQuery = (
     reasons,
     actions,
   });
+  // Only SQL-only entries execute their SQL. A frozen auto/structured fallback
+  // is not a runtime path, so its text cannot make a structured query unsafe.
   const fallbackMentionsTarget = Boolean(
-    query.fallback && sqlMentionsIdentifier(query.fallback.sql, target.sqlIdentifier)
+    (!query.definition || query.mode === 'sql-query') &&
+    query.fallback &&
+    sqlMentionsIdentifier(query.fallback.sql, target.sqlIdentifier)
   );
 
   // A SQL path can read columns the structured index cannot see. The name is
@@ -418,13 +422,6 @@ const planQuery = (
 
   if (kind === 'table_deleted' && definition.tableId === target.tableId) {
     reasons.add('table_deleted');
-    return outcome('manual');
-  }
-
-  // A fallback is the declared alternate path. If it names the affected field,
-  // no structured repair makes the query safe; SQL is never rewritten.
-  if (fallbackMentionsTarget) {
-    reasons.add('fallback_references_field');
     return outcome('manual');
   }
 
@@ -667,6 +664,12 @@ const planQuery = (
       : definition.aggregates.length === 0;
   if (empty) {
     if (query.mode === 'auto' && query.fallback) {
+      // Promotion makes the fallback executable. If it names the deleted field,
+      // activating it is not an automatic repair.
+      if (sqlMentionsIdentifier(query.fallback.sql, target.sqlIdentifier)) {
+        reasons.add('fallback_references_field');
+        return outcome('manual');
+      }
       // The SQL contract is unchanged by a structured repair; derive it from
       // the accepted query, not the emptied definition.
       const fallback = toSqlQueryFallback(original.definition!, original);

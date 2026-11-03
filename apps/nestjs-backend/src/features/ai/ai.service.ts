@@ -34,9 +34,12 @@ import type {
 import type { ImageModel, LanguageModel } from 'ai';
 import { createGateway, generateText, streamText } from 'ai';
 import type { Response } from 'express';
+import { ClsService } from 'nestjs-cls';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCacheService } from '../../performance-cache';
+import type { IClsStore } from '../../types/cls';
+import { getBaseCached } from '../../utils/meta-ancestry-cache';
 import { SettingService } from '../setting/setting.service';
 import { decryptAiIntegrationConfig } from '../space/ai-integration-secrets';
 import { AiGatewayModelsService } from './ai-gateway-models.service';
@@ -66,6 +69,7 @@ export function assertUniqueProviderModels(llmProviders: LLMProvider[] | undefin
 }
 
 export type ILanguageModelV2 = Exclude<LanguageModel, string>;
+export type IImageModelInstance = Exclude<ImageModel, string>;
 
 export interface IResolvedModelMapping {
   requestedModelKey: string;
@@ -82,7 +86,8 @@ export class AiService implements OnModuleInit {
     private readonly prismaService: PrismaService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     private readonly performanceCacheService: PerformanceCacheService,
-    private readonly aiGatewayModelsService: AiGatewayModelsService
+    private readonly aiGatewayModelsService: AiGatewayModelsService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   /** The providers the instance admin configured are what `aiProviderFetch` trusts. */
@@ -342,7 +347,7 @@ export class AiService implements OnModuleInit {
     modelKey: string,
     llmProviders: LLMProvider[],
     isImageGeneration: true
-  ): Promise<ReturnType<OpenAIProvider['image']>>;
+  ): Promise<IImageModelInstance>;
   async getModelInstance(
     modelKey: string,
     llmProviders?: LLMProvider[],
@@ -419,18 +424,15 @@ export class AiService implements OnModuleInit {
     });
     const modelProvider = provider(providerOptions as never) as OpenAIProvider;
 
+    // `imageModel` is the entry every provider has; `.image` is an alias only some SDKs add.
     return isImageGeneration
-      ? (modelProvider.image(effectiveModel) as ReturnType<OpenAIProvider['image']>)
+      ? modelProvider.imageModel(effectiveModel)
       : modelProvider(effectiveModel);
   }
 
   /** Callers already holding a spaceId should use getAIConfigBySpaceId and skip this lookup. */
   async getAIConfig(baseId: string) {
-    const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
-      where: { id: baseId },
-      select: { spaceId: true },
-    });
-    return this.getAIConfigBySpaceId(spaceId);
+    return this.getAIConfigBySpaceId(await this.getSpaceIdByBaseId(baseId));
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -631,10 +633,23 @@ export class AiService implements OnModuleInit {
   }
 
   async getAIDisableAIActions(baseId: string) {
-    const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
-      where: { id: baseId },
-      select: { spaceId: true },
-    });
+    const spaceId = await this.getSpaceIdByBaseId(baseId);
+    return { disableActions: await this.getDisableAIActionsBySpaceId(spaceId) };
+  }
+
+  /** The permission guard has already loaded this base for the request; reuse its row. */
+  private async getSpaceIdByBaseId(baseId: string) {
+    const base = await getBaseCached(this.cls, this.prismaService, baseId);
+    if (!base) {
+      throw new CustomHttpException('Project not found', HttpErrorCode.NOT_FOUND, {
+        localization: { i18nKey: 'httpErrors.base.notFound' },
+      });
+    }
+    return base.spaceId;
+  }
+
+  /** Instance-level disabled actions always apply; the space's own settings add to them. */
+  private async getDisableAIActionsBySpaceId(spaceId: string) {
     // get space ai setting
     const aiIntegration = await this.prismaService.integration.findUnique({
       where: { resourceId: spaceId, type: IntegrationType.AI },
@@ -653,9 +668,19 @@ export class AiService implements OnModuleInit {
       ...disableAIActionsFromInstanceAiSetting,
       ...disableAIActionsFromSpaceIntegration,
     ];
-    return {
-      disableActions: [...new Set(merged)],
-    };
+    return [...new Set(merged)];
+  }
+
+  /** `ai/config`: the simplified config plus the merged disabled actions; null while AI is unset. */
+  async getBaseAIConfigVo(baseId: string) {
+    const spaceId = await this.getSpaceIdByBaseId(baseId);
+    const [config, disableActions] = await Promise.all([
+      this.getAIConfigBySpaceId(spaceId)
+        .then((aiConfig) => this.simplifyAIConfig(aiConfig))
+        .catch(() => null),
+      this.getDisableAIActionsBySpaceId(spaceId),
+    ]);
+    return config && { ...config, disableActions };
   }
 
   async getSimplifiedAIConfig(baseId: string) {

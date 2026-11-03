@@ -12,7 +12,7 @@ import {
   type DataQueryRelationPlan,
 } from '@teable/v2-data-query';
 import { sql } from 'kysely';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createPGliteDb,
@@ -222,17 +222,20 @@ describe('Postgres relation data query on PGlite', () => {
       query,
       rootTable: root,
       rootScope: {},
-      rootDependencies: binding.rootDependencies,
       sources: binding.sources.map((source) => ({
         alias: source.alias,
         table: target,
         linkFieldId: source.linkFieldId,
         scope: {},
-        dependencies: source.dependencies,
       })),
+      plan: binding.plan,
     };
 
+    const prepare = vi.spyOn(DataQueryRelationBinding, 'prepare');
     const result = await executor.executeRelation(context, plan);
+    const prepareCalls = prepare.mock.calls.length;
+    prepare.mockRestore();
+    expect(prepareCalls).toBe(0);
 
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap().rows).toEqual([
@@ -273,14 +276,13 @@ describe('Postgres relation data query on PGlite', () => {
       query,
       rootTable: root,
       rootScope: {},
-      rootDependencies: binding.rootDependencies,
       sources: binding.sources.map((source) => ({
         alias: source.alias,
         table: target,
         linkFieldId: source.linkFieldId,
         scope: targetScope,
-        dependencies: source.dependencies,
       })),
+      plan: binding.plan,
     };
 
     const result = await executor.executeRelation(context, plan);
@@ -311,14 +313,13 @@ describe('Postgres relation data query on PGlite', () => {
       query: definition.bind(values)._unsafeUnwrap(),
       rootTable: root,
       rootScope,
-      rootDependencies: binding.rootDependencies,
       sources: binding.sources.map((source) => ({
         alias: source.alias,
         table: targetTables.get(source.alias)!,
         linkFieldId: source.linkFieldId,
         scope: sourceScopes.get(source.alias) ?? {},
-        dependencies: source.dependencies,
       })),
+      plan: binding.plan,
     };
   };
 
@@ -474,6 +475,37 @@ describe('Postgres relation data query on PGlite', () => {
       )
     );
     expect(linkUnreadable._unsafeUnwrapErr().code).toBe('data_query.field_forbidden');
+  });
+
+  it('checks target usage only against the target scope', async () => {
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId: rootTableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      page: { limit: 10 },
+      select: [
+        { fieldId: titleId, alias: 'title' },
+        { source: 'owner', fieldId: targetNameId, alias: 'ownerName' },
+      ],
+    })._unsafeUnwrap();
+    const result = await executor.executeRelation(
+      context,
+      planFor(
+        definition,
+        new Map([['owner', target]]),
+        { readableFieldIds: new Set([titleId, linkId]) },
+        new Map([['owner', { readableFieldIds: new Set([targetNameId]) }]])
+      )
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().rows).toEqual([
+      { title: 'Alpha', ownerName: 'One' },
+      { title: 'Beta', ownerName: 'Two' },
+      { title: 'Gamma', ownerName: null },
+      { title: 'Delta', ownerName: null },
+    ]);
   });
 
   it('accepts a relation alias r without an internal alias collision', async () => {
@@ -815,14 +847,13 @@ describe('Postgres relation data query on PGlite', () => {
       query,
       rootTable: root,
       rootScope: {},
-      rootDependencies: binding.rootDependencies,
       sources: binding.sources.map((source) => ({
         alias: source.alias,
         table: target,
         linkFieldId: source.linkFieldId,
         scope: {},
-        dependencies: source.dependencies,
       })),
+      plan: binding.plan,
     };
 
     const result = await executor.executeRelation(context, plan);

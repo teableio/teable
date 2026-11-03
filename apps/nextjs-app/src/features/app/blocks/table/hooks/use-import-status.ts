@@ -1,10 +1,10 @@
 import { getTableImportChannel } from '@teable/core';
-import { useConnection } from '@teable/sdk/hooks';
+import { usePresenceConnection } from '@teable/sdk/hooks';
 import { isEmpty, get } from 'lodash';
 import { useEffect, useState } from 'react';
 
 export const useImportStatus = (tableId: string) => {
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
   const presence = connection?.getPresence(getTableImportChannel(tableId));
   const [loading, setLoading] = useState(false);
 

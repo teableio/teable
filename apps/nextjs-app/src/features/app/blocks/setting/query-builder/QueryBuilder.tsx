@@ -19,6 +19,7 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { developerConfig } from '@/features/i18n/developer.config';
 import { SettingRight } from '../SettingRight';
 import { SettingRightTitle } from '../SettingRightTitle';
@@ -53,6 +54,11 @@ export const QueryBuilder = () => {
   });
 
   const [activeTab, setActiveTab] = useState<string>('api-builder');
+
+  const baseCandidates = useMemo(
+    () => baseListReq?.map((base) => ({ id: base.id, name: getBaseDisplayName(base.name, t) })),
+    [baseListReq, t]
+  );
 
   const query = useMemo(
     () => ({
@@ -95,7 +101,7 @@ export const QueryBuilder = () => {
               <Selector
                 className="w-80"
                 placeholder={t('developer:action.selectBase')}
-                candidates={baseListReq}
+                candidates={baseCandidates}
                 selectedId={baseId}
                 onChange={(id) => {
                   setBaseId(id);

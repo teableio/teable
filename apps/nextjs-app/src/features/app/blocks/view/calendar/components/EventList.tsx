@@ -10,10 +10,11 @@ import { getEventTitle, getPlainCellText } from '../util';
 
 interface IEventListProps {
   query?: IQueryBaseRo;
+  onRecordSelect?: () => void;
 }
 
 export const EventList = (props: IEventListProps) => {
-  const { query } = props;
+  const { query, onRecordSelect } = props;
   const rowCount = useRowCount();
   const { titleField, startDateField, endDateField, setExpandRecordId } = useCalendar();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -44,7 +45,10 @@ export const EventList = (props: IEventListProps) => {
       }}
       rowCount={rowCount ?? 0}
       onSelect={(index) => {
-        setExpandRecordId(recordMap[index]?.id);
+        const recordId = recordMap[index]?.id;
+        if (!recordId) return;
+        setExpandRecordId(recordId);
+        onRecordSelect?.();
       }}
       onVisibleChange={(range) => {
         const [startIndex, endIndex] = range;

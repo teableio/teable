@@ -288,6 +288,9 @@ export class BaseController {
   }
 
   @Post('create-from-template')
+  @UseV2Feature('duplicateBase', { always: true })
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
   @EmitControllerEvent(Events.BASE_CREATE)
@@ -648,6 +651,9 @@ export class BaseController {
 
   @Permissions('base|update')
   @Post(':baseId/publish')
+  @UseV2Feature('duplicateBase', { always: true })
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   async publishBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(publishBaseRoSchema)) publishBaseRo: IPublishBaseRo

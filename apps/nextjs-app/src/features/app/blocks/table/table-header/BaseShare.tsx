@@ -15,7 +15,7 @@ export const BaseShare = ({ onClose }: { onClose: () => void }) => {
   }
 
   return (
-    <PublishBaseDialog onClose={onClose} closeOnSuccess={false}>
+    <PublishBaseDialog base={base} onClose={onClose} closeOnSuccess={false}>
       <Button
         variant="outline"
         className="flex h-10 w-full items-center gap-2 bg-muted px-3 py-[10px]"

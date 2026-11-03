@@ -38,8 +38,13 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 1. Create specs for each field value
 2. Combine with `andSpec()`
-3. Call `spec.mutate(record)` to build the record in memory
+3. Apply the combined spec with `materializeRecordSpec` (create, update and post-resolution
+   rewrites); `spec.mutate(record)` remains for single-record flows such as button click/reset
+   and the single-record deferred-resolution update
 4. Repository serializes the complete record
+
+`materializeRecordSpec` preserves the same overwrite order and deferred-value behavior while
+creating one immutable record instead of intermediate per-cell records.
 
 ### Update (future)
 

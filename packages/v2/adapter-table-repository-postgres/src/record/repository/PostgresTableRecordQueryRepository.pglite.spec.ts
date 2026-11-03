@@ -937,6 +937,47 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     expect(driver.queries[0].sql).not.toContain('__auto_number');
   });
 
+  it('counts each matching cell and excludes cells hidden by field masks', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cell-match-count',
+      rows: [
+        { name: '10', age: 10 },
+        { name: 'no match', age: 20 },
+      ],
+    });
+    const search = {
+      search: RecordSearch.fromTuple(['10', '', true]),
+      visibleFieldIds: [fixture.nameFieldId, fixture.ageFieldId],
+    };
+
+    const unmasked = await fixture.repository.countSearchMatches(
+      fixture.context,
+      fixture.table,
+      undefined,
+      { mode: 'stored', search }
+    );
+    const masked = await fixture.repository.countSearchMatches(
+      fixture.context,
+      fixture.table,
+      undefined,
+      {
+        mode: 'stored',
+        search,
+        fieldMasks: [
+          {
+            fieldId: fixture.ageFieldId.toString(),
+            visibleWhen: RecordByIdsSpec.create([]),
+          },
+        ],
+      }
+    );
+
+    expect(unmasked._unsafeUnwrap()).toBe(2);
+    expect(masked._unsafeUnwrap()).toBe(1);
+  });
+
   it('orders by auto_number once when the view row column is missing', async () => {
     const baseId = BaseId.create(createId('bse', 'row-order-fallback'))._unsafeUnwrap();
     const tableId = TableId.create(createId('tbl', 'row-order-fallback'))._unsafeUnwrap();
@@ -2684,20 +2725,12 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     expect(lastOffsetPage.value.hasMore).toBe(false);
     expect(lastOffsetPage.value.nextCursor).toBeUndefined();
 
-    const cursorPage = await fixture.repository.find(
-      fixture.context,
-      fixture.table,
-      undefined,
-      {
-        mode: 'stored',
-        includeTotal: false,
-        cursor: partial.value.nextCursor,
-        pagination: OffsetPagination.create(
-          PageLimit.create(2)._unsafeUnwrap(),
-          PageOffset.zero()
-        ),
-      }
-    );
+    const cursorPage = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      cursor: partial.value.nextCursor,
+      pagination: OffsetPagination.create(PageLimit.create(2)._unsafeUnwrap(), PageOffset.zero()),
+    });
     expect(cursorPage.isOk()).toBe(true);
     if (cursorPage.isErr()) return;
     expect(cursorPage.value.records.map((record) => record.id.toString())).toEqual(

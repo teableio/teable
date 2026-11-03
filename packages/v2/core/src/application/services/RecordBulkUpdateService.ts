@@ -11,9 +11,12 @@ import type {
   RecordUpdateDTO,
 } from '../../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
-import { FieldId } from '../../domain/table/fields/FieldId';
 import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
-import { isOmittedComputedEventField } from '../../domain/table/fields/fieldPredicates';
+import {
+  isLastModifiedSystemField,
+  isOmittedComputedEventField,
+} from '../../domain/table/fields/fieldPredicates';
+import { FieldType } from '../../domain/table/fields/FieldType';
 import type { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type {
   UpdateRecordTraceEvent,
@@ -26,6 +29,7 @@ import type {
 import type { FieldKeyMapping } from '../../domain/table/records/RecordCreateResult';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
+import { materializeRecordSpec } from '../../domain/table/records/RecordSpecMaterializer';
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
@@ -763,7 +767,12 @@ export class RecordBulkUpdateService {
                 preparedWrite.tableForWrite.id(),
                 mutateSpec
               );
-              updatedRecord = yield* mutateSpec.mutate(updatedRecord);
+              updatedRecord = yield* materializeRecordSpec({
+                id: updatedRecord.id(),
+                tableId: updatedRecord.tableId(),
+                spec: mutateSpec,
+                baseFields: updatedRecord.fields().entries(),
+              });
             }
 
             yield* await pluginExecution.beforePersist(transactionContext);
@@ -1159,8 +1168,6 @@ export class RecordBulkUpdateService {
                 },
                 async () =>
                   safeTry<void, DomainError>(async function* () {
-                    const changedValuesByRecord = new Map<string, ReadonlyMap<string, unknown>>();
-                    const previousFieldsByRecord = new Map<string, Record<string, unknown>>();
                     const pendingMaterialized: Array<{
                       recordId: RecordId;
                       changes: ReadonlyArray<RecordFieldChangeDTO>;
@@ -1180,20 +1187,11 @@ export class RecordBulkUpdateService {
                         );
                       }
 
-                      const changes = yield* service.buildRecordChangesFromUpdateResult(
+                      const changes = yield* service.buildRecordChangeCandidatesFromUpdateResult(
                         preparedWrite.tableForWrite,
                         pending.currentRecord,
                         updateResult
                       );
-                      const changedValues =
-                        changes.length > 0
-                          ? new Map(changes.map((change) => [change.fieldId, change.newValue]))
-                          : undefined;
-                      const recordIdText = pending.recordId.toString();
-                      if (changedValues) {
-                        changedValuesByRecord.set(recordIdText, changedValues);
-                        previousFieldsByRecord.set(recordIdText, pending.currentRecord.fields);
-                      }
                       const updatedFields = new Map(
                         updateResult.record
                           .fields()
@@ -1209,27 +1207,12 @@ export class RecordBulkUpdateService {
                       resolvedIndex += 1;
                     }
 
-                    const decoratedValuesByRecord =
-                      yield* await service.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
-                        preparedWrite.tableForWrite,
-                        changedValuesByRecord,
-                        previousFieldsByRecord
-                      );
-
                     for (const item of pendingMaterialized) {
                       const recordIdText = item.recordId.toString();
-                      const decoratedValues = decoratedValuesByRecord?.get(recordIdText);
-                      const decoratedChanges = item.changes.map((change) => ({
-                        ...change,
-                        newValue: decoratedValues?.get(change.fieldId) ?? change.newValue,
-                      }));
                       pendingEventData.push({
                         recordId: recordIdText,
-                        changes: decoratedChanges,
+                        changes: item.changes,
                       });
-                      for (const [fieldId, value] of decoratedValues ?? []) {
-                        item.updatedFields.set(fieldId, value);
-                      }
                       const mergedFields = {
                         ...Object.fromEntries(
                           Object.entries(item.currentFields).filter(
@@ -1280,21 +1263,22 @@ export class RecordBulkUpdateService {
               );
             }
 
-            const fillLinkTitleForeignTables = input.typecast
-              ? yield* await traceRecordBulkUpdatePhase(
+            // ID-based links also need SQL-filled titles when typecast is off.
+            // This follows updateOne: the collector loads only missing-title
+            // foreign tables, and storage returns the final normalized values.
+            const fillLinkTitleForeignTables = yield* await traceRecordBulkUpdatePhase(
+              transactionContext,
+              'loadForeignTablesForLinkTitleFill',
+              {
+                ...transactionTraceAttributes,
+                'record.update.fillLinkTitleSpecCount': fillLinkTitleSpecs.length,
+              },
+              () =>
+                service.foreignTableLoaderService.loadForLinkTitleFill(
                   transactionContext,
-                  'loadForeignTablesForLinkTitleFill',
-                  {
-                    ...transactionTraceAttributes,
-                    'record.update.fillLinkTitleSpecCount': fillLinkTitleSpecs.length,
-                  },
-                  () =>
-                    service.foreignTableLoaderService.loadForLinkTitleFill(
-                      transactionContext,
-                      fillLinkTitleSpecs
-                    )
+                  fillLinkTitleSpecs
                 )
-              : new Map();
+            );
             const persistResult = yield* await traceRecordBulkUpdatePhase(
               transactionContext,
               'updateManyStream',
@@ -1312,7 +1296,9 @@ export class RecordBulkUpdateService {
                   {
                     deferComputedUpdates: input.deferComputedUpdates,
                     enqueueDeferredComputedUpdates: input.enqueueDeferredComputedUpdates,
-                    ...(input.typecast ? { fillLinkTitles: true } : {}),
+                    ...(input.typecast || fillLinkTitleForeignTables.size > 0
+                      ? { fillLinkTitles: true }
+                      : {}),
                     ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
                   }
                 )
@@ -1332,22 +1318,95 @@ export class RecordBulkUpdateService {
                     record,
                   ])
                 );
+                const computedFieldIds = new Set(
+                  preparedWrite.tableForWrite
+                    .getFields()
+                    .filter((field) => isOmittedComputedEventField(field))
+                    .map((field) => field.id().toString())
+                );
+                const lastModifiedSystemFieldIds = new Set(
+                  preparedWrite.tableForWrite
+                    .getFields()
+                    .filter((field) => isLastModifiedSystemField(field))
+                    .map((field) => field.id().toString())
+                );
+                const hasAttachmentResponseFields = preparedWrite.tableForWrite
+                  .getFields()
+                  .some((field) => field.type().equals(FieldType.attachment()));
+                const persistedEventCandidates: Array<{
+                  pendingEvent: PendingExplicitEventData;
+                  snapshot: (typeof persistResult.updatedRecords)[number];
+                  changes: ReadonlyArray<RecordFieldChangeDTO>;
+                }> = [];
+                const changedValuesByRecord = new Map<string, ReadonlyMap<string, unknown>>();
+                const previousFieldsByRecord = new Map<string, Record<string, unknown>>();
+                const readbackRecordIdTexts = new Set(
+                  fieldUpdateTargets
+                    .filter((target) => !persistedSnapshots.has(target.recordId.toString()))
+                    .map((target) => target.recordId.toString())
+                );
+                for (const pendingEvent of pendingEventData) {
+                  if (
+                    hasAttachmentResponseFields ||
+                    pendingEvent.changes.some((change) =>
+                      lastModifiedSystemFieldIds.has(change.fieldId)
+                    )
+                  ) {
+                    readbackRecordIdTexts.add(pendingEvent.recordId);
+                  }
+                }
+                const readbackRecordIds = fieldUpdateTargets
+                  .filter((target) => readbackRecordIdTexts.has(target.recordId.toString()))
+                  .map((target) => target.recordId);
+                const readbackCurrentRecords = new Map<string, TableRecordReadModel>();
+                if (readbackRecordIds.length > 0) {
+                  // Read through the same transaction: no-op responses and
+                  // generated LastModified values both require after-images.
+                  const readbackResult = await service.loadExplicitCurrentRecords(
+                    transactionContext,
+                    preparedWrite.tableForWrite,
+                    readbackRecordIds,
+                    false
+                  );
+                  if (readbackResult.isErr()) return err(readbackResult.error);
+                  for (const record of readbackResult.value.records) {
+                    readbackCurrentRecords.set(record.id, record);
+                  }
+                }
+
                 for (const pendingEvent of pendingEventData) {
                   const snapshot = persistedSnapshots.get(pendingEvent.recordId);
                   if (snapshot == null) {
-                    continue;
-                  }
-                  if (pendingEvent.changes.length === 0) {
+                    const currentRecord = readbackCurrentRecords.get(pendingEvent.recordId);
+                    if (!currentRecord) {
+                      return err(
+                        domainError.notFound({
+                          code: 'record.not_found',
+                          message: 'Record not found',
+                          details: { recordId: pendingEvent.recordId },
+                        })
+                      );
+                    }
+                    // Explicit null is part of the v2 response contract, even
+                    // when storage skips an unchanged/rejected typecast value.
+                    const responseFieldEntries = Object.entries(currentRecord.fields).filter(
+                      ([, value]) => value !== undefined
+                    );
+                    const currentRecordEntity = TableRecord.fromRawFieldValues({
+                      id: currentRecord.id,
+                      tableId: input.table.id(),
+                      fields: Object.fromEntries(responseFieldEntries),
+                    });
+                    if (currentRecordEntity.isErr()) return err(currentRecordEntity.error);
+                    updatedRecordMap.set(pendingEvent.recordId, currentRecordEntity.value);
+                    // Response decoration uses only the authoritative readback,
+                    // never the request or stale pre-read. It creates no event
+                    // or undo candidate, and cannot infer a rename from stale A.
+                    changedValuesByRecord.set(pendingEvent.recordId, new Map(responseFieldEntries));
+                    previousFieldsByRecord.set(pendingEvent.recordId, currentRecord.fields);
                     continue;
                   }
                   const changedFields = snapshot.changedFields;
-                  const changes = changedFields?.size
-                    ? pendingEvent.changes.map((change) =>
-                        changedFields.has(change.fieldId)
-                          ? { ...change, newValue: changedFields.get(change.fieldId) }
-                          : change
-                      )
-                    : pendingEvent.changes;
                   const updatedRecord = updatedRecordMap.get(pendingEvent.recordId);
                   if (changedFields?.size && updatedRecord) {
                     const persistedRecord = TableRecord.fromRawFieldValues({
@@ -1366,11 +1425,177 @@ export class RecordBulkUpdateService {
                     if (persistedRecord.isErr()) return err(persistedRecord.error);
                     updatedRecordMap.set(pendingEvent.recordId, persistedRecord.value);
                   }
+                  const responseReadback = readbackCurrentRecords.get(pendingEvent.recordId);
+                  if (readbackRecordIdTexts.has(pendingEvent.recordId) && !responseReadback) {
+                    return err(
+                      domainError.notFound({
+                        code: 'record.not_found',
+                        message: 'Record not found',
+                        details: { recordId: pendingEvent.recordId },
+                      })
+                    );
+                  }
+                  const responseValues = new Map<string, unknown>();
+                  if (responseReadback) {
+                    const responseFieldEntries = Object.entries(responseReadback.fields).filter(
+                      ([, value]) => value !== undefined
+                    );
+                    const responseRecord = TableRecord.fromRawFieldValues({
+                      id: responseReadback.id,
+                      tableId: input.table.id(),
+                      fields: Object.fromEntries(responseFieldEntries),
+                    });
+                    if (responseRecord.isErr()) return err(responseRecord.error);
+                    updatedRecordMap.set(pendingEvent.recordId, responseRecord.value);
+                    for (const [fieldId, value] of responseFieldEntries) {
+                      responseValues.set(fieldId, value);
+                    }
+                  }
+
+                  // Event gating compares storage-normalized mutation values,
+                  // never response readback presentation (for example signed
+                  // attachment URLs). Generated system fields are handled from
+                  // authoritative readback in their dedicated branch below.
+                  const candidateChanges = new Map(
+                    pendingEvent.changes.map((change) => [change.fieldId, change])
+                  );
+                  for (const [fieldId, newValue] of changedFields ?? []) {
+                    candidateChanges.set(fieldId, {
+                      fieldId,
+                      oldValue: snapshot.oldFieldValues[fieldId],
+                      newValue,
+                    });
+                  }
+                  const changes: RecordFieldChangeDTO[] = [];
+                  const changedValues = responseValues;
+                  for (const change of candidateChanges.values()) {
+                    if (computedFieldIds.has(change.fieldId)) {
+                      continue;
+                    }
+                    if (lastModifiedSystemFieldIds.has(change.fieldId)) {
+                      const readbackRecord = readbackCurrentRecords.get(pendingEvent.recordId);
+                      if (
+                        !readbackRecord ||
+                        !Object.hasOwn(readbackRecord.fields, change.fieldId)
+                      ) {
+                        return err(
+                          domainError.infrastructure({
+                            code: 'record.update_snapshot.missing',
+                            message: 'Record repository returned an incomplete update after-image.',
+                            details: {
+                              tableId: input.table.id().toString(),
+                              recordId: pendingEvent.recordId,
+                              fieldId: change.fieldId,
+                              reason: 'incomplete',
+                            },
+                          })
+                        );
+                      }
+                      const hasCapturedOldValue = Object.hasOwn(
+                        snapshot.oldFieldValues,
+                        change.fieldId
+                      );
+                      if (!hasCapturedOldValue) {
+                        return err(
+                          domainError.infrastructure({
+                            code: 'record.update_snapshot.missing',
+                            message:
+                              'Record repository returned an incomplete update before-image.',
+                            details: {
+                              tableId: input.table.id().toString(),
+                              recordId: pendingEvent.recordId,
+                              fieldId: change.fieldId,
+                              reason: 'incomplete',
+                            },
+                          })
+                        );
+                      }
+                      const oldValue = snapshot.oldFieldValues[change.fieldId];
+                      const newValue = readbackRecord.fields[change.fieldId];
+                      if (areRecordFieldValuesEqual(oldValue, newValue)) {
+                        continue;
+                      }
+                      changes.push({ ...change, oldValue, newValue });
+                      changedValues.set(change.fieldId, newValue);
+                      continue;
+                    }
+                    if (!Object.hasOwn(snapshot.oldFieldValues, change.fieldId)) {
+                      return err(
+                        domainError.infrastructure({
+                          code: 'record.update_snapshot.missing',
+                          message: 'Record repository returned an incomplete update before-image.',
+                          details: {
+                            tableId: input.table.id().toString(),
+                            recordId: pendingEvent.recordId,
+                            fieldId: change.fieldId,
+                            reason: 'incomplete',
+                          },
+                        })
+                      );
+                    }
+                    const oldValue = snapshot.oldFieldValues[change.fieldId];
+                    if (areRecordFieldValuesEqual(oldValue, change.newValue)) {
+                      continue;
+                    }
+                    changes.push({ ...change, oldValue });
+                    changedValues.set(change.fieldId, change.newValue);
+                  }
+                  changedValuesByRecord.set(pendingEvent.recordId, changedValues);
+                  previousFieldsByRecord.set(pendingEvent.recordId, {
+                    ...responseReadback?.fields,
+                    ...snapshot.oldFieldValues,
+                  });
+                  if (changes.length > 0) {
+                    persistedEventCandidates.push({ pendingEvent, snapshot, changes });
+                  }
+                }
+
+                // Response presentation includes unchanged attachments; event
+                // changes remain independently value-gated above. Keeping
+                // decoration inside the transaction rolls persistence back on
+                // permission or signing failures.
+                const decoratedValuesResult =
+                  await service.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
+                    preparedWrite.tableForWrite,
+                    changedValuesByRecord,
+                    previousFieldsByRecord
+                  );
+                if (decoratedValuesResult.isErr()) return err(decoratedValuesResult.error);
+                const decoratedValuesByRecord = decoratedValuesResult.value;
+                for (const [recordId, decoratedValues] of decoratedValuesByRecord ?? []) {
+                  const updatedRecord = updatedRecordMap.get(recordId);
+                  if (!decoratedValues.size || !updatedRecord) {
+                    continue;
+                  }
+                  const decoratedRecord = TableRecord.fromRawFieldValues({
+                    id: recordId,
+                    tableId: input.table.id(),
+                    fields: {
+                      ...Object.fromEntries(
+                        updatedRecord
+                          .fields()
+                          .entries()
+                          .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+                      ),
+                      ...Object.fromEntries(decoratedValues),
+                    },
+                  });
+                  if (decoratedRecord.isErr()) return err(decoratedRecord.error);
+                  updatedRecordMap.set(recordId, decoratedRecord.value);
+                }
+                for (const { pendingEvent, snapshot, changes } of persistedEventCandidates) {
+                  const decoratedValues = decoratedValuesByRecord?.get(pendingEvent.recordId);
+                  const decoratedChanges = changes.map((change) => ({
+                    ...change,
+                    newValue: decoratedValues?.has(change.fieldId)
+                      ? decoratedValues.get(change.fieldId)
+                      : change.newValue,
+                  }));
                   eventData.push({
                     recordId: pendingEvent.recordId,
                     oldVersion: snapshot.oldVersion,
                     newVersion: snapshot.newVersion,
-                    changes,
+                    changes: decoratedChanges,
                   });
                 }
                 return ok(undefined);
@@ -1697,7 +1922,12 @@ export class RecordBulkUpdateService {
     for (let index = 0; index < batch.length; index++) {
       const updateResult = batch[index]!;
       const mutateSpec = resolveManyResult.value[index] ?? updateResult.mutateSpec;
-      const mutateResult = mutateSpec.mutate(updateResult.record);
+      const mutateResult = materializeRecordSpec({
+        id: updateResult.record.id(),
+        tableId: updateResult.record.tableId(),
+        spec: mutateSpec,
+        baseFields: updateResult.record.fields().entries(),
+      });
       if (mutateResult.isErr()) {
         return err(mutateResult.error);
       }
@@ -1714,7 +1944,7 @@ export class RecordBulkUpdateService {
     return ok(resolvedBatch);
   }
 
-  private buildRecordChangesFromUpdateResult(
+  private buildRecordChangeCandidatesFromUpdateResult(
     table: Table,
     currentRecord: TableRecordReadModel,
     updateResult: RecordUpdateResult
@@ -1726,26 +1956,47 @@ export class RecordBulkUpdateService {
         .filter((field) => isOmittedComputedEventField(field))
         .map((field) => field.id().toString())
     );
+    const requestedLastModifiedFieldIds = new Set(
+      table
+        .getFields()
+        .filter((field) => isLastModifiedSystemField(field))
+        .map((field) => field.id().toString())
+    );
+    const mutationFieldIds = new Set<string>();
 
-    for (const [fieldId] of updateResult.fieldKeyMapping.entries()) {
+    // The mapping mirrors every recognized request key, including ignored
+    // read-only system fields. The mutated record contains only fields that
+    // the domain mutation spec actually writes.
+    for (const entry of updateResult.record.fields().entries()) {
+      const fieldId = entry.fieldId.toString();
+      mutationFieldIds.add(fieldId);
       if (computedFieldIds.has(fieldId)) {
         continue;
-      }
-      const typedFieldId = FieldId.create(fieldId);
-      if (typedFieldId.isErr()) {
-        return err(typedFieldId.error);
       }
 
       changes.push({
         fieldId,
         oldValue: currentRecord.fields[fieldId],
-        newValue: updateResult.record.fields().get(typedFieldId.value)?.toValue() ?? null,
+        newValue: entry.value.toValue(),
+      });
+    }
+    // Preserve the established event contract for explicitly submitted
+    // LastModified fields. Their authoritative values are substituted from
+    // SQL evidence/readback after persistence; the submitted spoof is ignored.
+    for (const [fieldId] of updateResult.fieldKeyMapping) {
+      if (!requestedLastModifiedFieldIds.has(fieldId) || mutationFieldIds.has(fieldId)) {
+        continue;
+      }
+      changes.push({
+        fieldId,
+        oldValue: currentRecord.fields[fieldId],
+        newValue: currentRecord.fields[fieldId],
       });
     }
 
-    return ok(
-      changes.filter((change) => !areRecordFieldValuesEqual(change.oldValue, change.newValue))
-    );
+    // Only the repository's before-image can decide whether these assignments
+    // changed storage; the pre-read is still used to gate value decoration.
+    return ok(changes);
   }
 
   private createSyncUpdateBatchesGenerator(

@@ -1,17 +1,19 @@
 import ipaddr from 'ipaddr.js';
-import { Agent, buildConnector, type Dispatcher } from 'undici';
+// Bun resolves the bare "undici" specifier to an incomplete builtin whose Agent has no
+// dispatcher methods; the package's explicit entry loads the real module in Node and Bun.
+import { Agent, buildConnector, fetch as undiciFetch, type Dispatcher } from 'undici/index.js';
 import { isCloudMetadataAddress, type ISafeAgentOptions } from './agents';
 
 /**
- * Shared SSRF-safe `fetch` machinery for v2 Node hosts: an undici dispatcher
+ * Shared SSRF-safe `fetch` machinery for v2 server hosts: an undici dispatcher
  * that rejects non-public resolved peer IPs on every hop (covers redirects and
- * DNS rebinding). Isomorphic adapters stay undici-free — Node containers
+ * DNS rebinding). Isomorphic adapters stay undici-free — Node and Bun hosts
  * inject an SSRF-guarded fetch instead.
  */
 
 /**
  * Fetch function for guarded URL sources: same call shape as global `fetch`.
- * Node containers inject `createSsrfSafeFetch`'s implementation; isomorphic
+ * Server containers inject `createSsrfSafeFetch`'s implementation; isomorphic
  * consumers depend only on this type and stay undici-free.
  */
 export type ISsrfSafeFetchFn = (url: string, init?: RequestInit) => Promise<Response>;
@@ -206,7 +208,7 @@ function createRoutingDispatcher(allowPrivateNetwork = false): Dispatcher {
   });
 }
 
-/** Default SSRF-guarded fetch for Node containers; bypass parity with V1 `safeFetch`. */
+/** Default SSRF-guarded fetch for Node and Bun containers; bypass parity with V1 `safeFetch`. */
 export function createSsrfSafeFetch(options?: ISafeAgentOptions): ISsrfSafeFetchFn {
   if (isSsrfProtectionDisabled()) {
     return (url, init) => fetch(url, init);
@@ -214,7 +216,15 @@ export function createSsrfSafeFetch(options?: ISafeAgentOptions): ISsrfSafeFetch
   // One routing dispatcher for every URL: trust is decided per dispatch (i.e.
   // per redirect hop) against the full URL, never baked in at request start.
   const dispatcher = createRoutingDispatcher(Boolean(options?.allowPrivateNetwork));
-  // Boundary cast: `@types/node` types `RequestInit.dispatcher` against a
-  // different `undici-types` version than the `undici` we run (type-only skew).
-  return (url, init) => fetch(url, { ...init, dispatcher } as unknown as RequestInit);
+  // Bun implements global fetch itself and ignores a dispatcher, so guarded requests must run
+  // through its undici entry there. Node keeps calling global fetch, so a host-level spy or
+  // instrumentation installed after construction still intercepts every guarded call.
+  // The casts are type-only skew between DOM `RequestInit` and undici's own declarations.
+  const isBun = 'Bun' in globalThis;
+  return (url, init) => {
+    const requestInit = { ...init, dispatcher } as unknown as RequestInit;
+    return isBun
+      ? (undiciFetch as unknown as typeof fetch)(url, requestInit)
+      : fetch(url, requestInit);
+  };
 }

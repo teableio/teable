@@ -11,8 +11,11 @@ import {
   useDeepCompareMemoize,
 } from '@teable/sdk/hooks';
 import type { AttachmentField, GalleryView } from '@teable/sdk/model';
-import { useRouter } from 'next/router';
-import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  getExpandRecordIds,
+  useRouteExpandRecord,
+} from '@/features/app/components/expand-record-container/useRouteExpandRecord';
 import { GalleryContext } from './GalleryContext';
 
 export const GalleryProvider = ({ children }: { children: ReactNode }) => {
@@ -38,20 +41,10 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
     fields.map(({ id }) => id).sort((a, b) => Number(a > b) - Number(a < b))
   ) as string[];
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
-  const [expandRecordId, setExpandRecordId] = useState<string>();
   const buttonClickStatusHook = useButtonClickStatus(tableId!, shareId);
-  const router = useRouter();
-  const {
-    recordId: routerRecordId,
-    showHistory: routerShowHistory,
-    showComment: routerShowComment,
-  } = router.query;
-  const showHistory = routerShowHistory === 'true';
-  const showComment = { true: true, false: false }[routerShowComment as string];
-
-  useEffect(() => {
-    setExpandRecordId(routerRecordId as string);
-  }, [routerRecordId, setExpandRecordId]);
+  const { expandRecordId, setExpandRecordId, closeExpandRecord, showHistory, showComment } =
+    useRouteExpandRecord(tableId);
+  const [orderedRecordIds, setOrderedRecordIds] = useState<string[]>();
 
   const coverField = useMemo(() => {
     if (!coverFieldId) return;
@@ -106,6 +99,7 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
       primaryField,
       displayFields,
       setExpandRecordId,
+      setOrderedRecordIds,
     };
   }, [
     recordQuery,
@@ -118,26 +112,6 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
     setExpandRecordId,
   ]);
 
-  const onClose = () => {
-    setExpandRecordId(undefined);
-    const {
-      recordId: _recordId,
-      showHistory: _showHistory,
-      showComment: _showComment,
-      ...resetQuery
-    } = router.query;
-    router.push(
-      {
-        pathname: router.pathname,
-        query: resetQuery,
-      },
-      undefined,
-      {
-        shallow: true,
-      }
-    );
-  };
-
   return (
     <GalleryContext.Provider value={value}>
       {children}
@@ -146,8 +120,9 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
           tableId={tableId}
           viewId={view?.id}
           recordId={expandRecordId}
-          recordIds={expandRecordId ? [expandRecordId] : []}
-          onClose={onClose}
+          recordIds={getExpandRecordIds(expandRecordId, orderedRecordIds)}
+          onClose={closeExpandRecord}
+          onUpdateRecordIdCallback={setExpandRecordId}
           buttonClickStatusHook={buttonClickStatusHook}
           showHistory={showHistory}
           showComment={showComment}

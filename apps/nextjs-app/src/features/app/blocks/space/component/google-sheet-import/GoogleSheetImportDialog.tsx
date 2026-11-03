@@ -30,6 +30,7 @@ import React from 'react';
 import { ConnectedAccountMenu } from '@/features/app/components/user-integration/ConnectedAccountMenu';
 import { ReauthorizeNotice } from '@/features/app/components/user-integration/ReauthorizeNotice';
 import { useConnectedAccounts } from '@/features/app/components/user-integration/useConnectedAccounts';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { spaceConfig } from '@/features/i18n/space.config';
 import {
   ImportLogPanel,
@@ -382,7 +383,9 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
       setCreatedBase(data.base);
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId) });
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
-      toast.success(t('space:googleSheetImport.done'), { description: data.base.name });
+      toast.success(t('space:googleSheetImport.done'), {
+        description: getBaseDisplayName(data.base.name, t),
+      });
     } catch (error) {
       addLog(error instanceof Error ? error.message : t('space:googleSheetImport.failed'), 'error');
       logPartialFailure(error);

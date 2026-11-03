@@ -40,6 +40,8 @@ export const IGetPinListVoSchema = z.array(
         type: z.string(),
         /** Resource the chat belongs to, e.g. the app id of an `appGen` chat. */
         resourceId: z.string().optional(),
+        /** Space of the chat's project, so a list can keep one space's pins without its project list. */
+        spaceId: z.string().optional(),
         lastModifiedTime: z.string().optional(),
         /** Activity state as on the chat history: idle / running / waiting_input / completed / failed. */
         state: z.string().optional(),

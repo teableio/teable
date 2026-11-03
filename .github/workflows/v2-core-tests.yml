@@ -33,10 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.19.0
+      - name: Use Node.js 24.22.2
         uses: actions/setup-node@v4
         with:
-          node-version: 24.19.0
+          node-version: 24.22.2
 
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
@@ -63,10 +63,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.19.0
+      - name: Use Node.js 24.22.2
         uses: actions/setup-node@v4
         with:
-          node-version: 24.19.0
+          node-version: 24.22.2
 
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
@@ -75,7 +75,7 @@ jobs:
 
       - name: 🧪 Run E2E tests with coverage (shard ${{ matrix.shard }}/4)
         run: |
-          pnpm -C packages/v2/e2e test-unit-cover -- --shard=${{ matrix.shard }}/4 --reporter=json --reporter=default --outputFile=e2e-report-${{ matrix.shard }}.json
+          pnpm -C packages/v2/e2e test-unit-cover --shard=${{ matrix.shard }}/4 --reporter=json --reporter=default --outputFile=e2e-report-${{ matrix.shard }}.json
 
       - name: 📊 Upload test report
         if: always()
@@ -102,10 +102,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 24.19.0
+      - name: Use Node.js 24.22.2
         uses: actions/setup-node@v4
         with:
-          node-version: 24.19.0
+          node-version: 24.22.2
 
       - name: 📥 Download all coverage artifacts
         uses: actions/download-artifact@v4

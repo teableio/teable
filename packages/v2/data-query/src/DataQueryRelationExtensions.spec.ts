@@ -1,7 +1,7 @@
 import { DefaultTableMapper, type ITablePersistenceDTO } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
-import { assertDataQueryAccess } from './assertDataQueryAccess';
+import { assertDataQueryAccess, dataQueryAccessForSource } from './assertDataQueryAccess';
 import { DataQueryRelationBinding } from './DataQueryBinding';
 import { DataQueryDefinition, dataQueryOptionalParameters } from './DataQueryDefinition';
 
@@ -330,6 +330,33 @@ describe('DataQueryRelationBinding relation extensions', () => {
     expect(binding.sources[0].dependencies).toEqual([
       expect.objectContaining({ fieldId: amountId, usages: ['aggregate'] }),
     ]);
+    expect(binding.plan.sources[0]).toMatchObject({
+      alias: 'items',
+      cardinality: 'many',
+      link: { kind: 'target-fk-many', column: 'fk_items' },
+    });
+    expect(binding.plan.projections).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'aggregate',
+          source: 'items',
+          alias: 'itemCount',
+          statisticFunc: 'count',
+          column: null,
+        },
+        {
+          kind: 'aggregate',
+          source: 'items',
+          alias: 'itemTotal',
+          statisticFunc: 'sum',
+          fieldId: amountId,
+          column: 'amount',
+        },
+      ])
+    );
+    expect(binding.plan.usage).toEqual(
+      expect.arrayContaining([{ source: 'items', fieldId: amountId, usages: ['aggregate'] }])
+    );
     expect(binding.outputs).toEqual([
       {
         alias: 'id',
@@ -359,6 +386,40 @@ describe('DataQueryRelationBinding relation extensions', () => {
         isMultipleCellValue: false,
         nullable: false,
       },
+    ]);
+  });
+
+  it('includes aggregate-query relation metrics in the plan', () => {
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'aggregate',
+      tableId: rootTableId,
+      relations: { items: { linkFieldId: itemsId, tableId: targetTableId } },
+      groupBy: [{ fieldId: titleId, alias: 'title' }],
+      aggregates: [
+        { source: 'items', statisticFunc: 'count', alias: 'itemCount' },
+        { source: 'items', fieldId: amountId, statisticFunc: 'sum', alias: 'itemTotal' },
+      ],
+    })._unsafeUnwrap();
+
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root(),
+      new Map([['items', target()]])
+    )._unsafeUnwrap();
+
+    expect(binding.plan.aggregates).toEqual([
+      { source: 'items', alias: 'itemCount', statisticFunc: 'count', column: null },
+      {
+        source: 'items',
+        alias: 'itemTotal',
+        statisticFunc: 'sum',
+        fieldId: amountId,
+        column: 'amount',
+      },
+    ]);
+    expect(binding.plan.groupBy).toEqual([
+      { source: 'root', fieldId: titleId, column: 'title', alias: 'title' },
     ]);
   });
 
@@ -402,6 +463,9 @@ describe('DataQueryRelationBinding relation extensions', () => {
         foreignKeyName: '__fk_note_target',
       },
     ]);
+    expect(binding.plan.sources.map((source) => source.link)).toEqual(
+      binding.sources.map((source) => source.linkStorage)
+    );
   });
 
   it('rejects stored projections, sorts and to-one aggregates on the wrong cardinality', () => {
@@ -505,6 +569,19 @@ describe('DataQueryRelationBinding relation extensions', () => {
     )._unsafeUnwrap();
 
     expect(binding.sources.map((source) => source.parentAlias)).toEqual(['root', 'owner']);
+    expect(
+      binding.plan.sources.map(({ alias, parentAlias, cardinality }) => ({
+        alias,
+        parentAlias,
+        cardinality,
+      }))
+    ).toEqual([
+      { alias: 'owner', parentAlias: 'root', cardinality: 'one' },
+      { alias: 'ownerDepartment', parentAlias: 'owner', cardinality: 'one' },
+    ]);
+    expect(binding.plan.sources.map((source) => source.link)).toEqual(
+      binding.sources.map((source) => source.linkStorage)
+    );
     expect(binding.sources[0].cardinality).toBe('one');
     expect(binding.sources[0].dependencies).toContainEqual(
       expect.objectContaining({ fieldId: departmentLinkId, usages: ['relation'] })
@@ -644,14 +721,17 @@ describe('Relation query binding regressions', () => {
       expect.objectContaining({ fieldId: titleId, usages: ['filter'] })
     );
     // A plugin returning only readableFieldIds (no masks) must fail closed.
+    const rootAccess = dataQueryAccessForSource(binding.plan, 'root');
+    const forbidden = assertDataQueryAccess(rootAccess, {
+      readableFieldIds: new Set([ownerId]),
+    })._unsafeUnwrapErr();
+    expect(forbidden.code).toBe('data_query.field_forbidden');
+    expect(forbidden.details?.fieldId).toBe(titleId);
     expect(
-      assertDataQueryAccess(
-        { dependencies: binding.rootDependencies },
-        {
-          readableFieldIds: new Set([ownerId]),
-        }
-      )._unsafeUnwrapErr().code
-    ).toBe('data_query.field_forbidden');
+      assertDataQueryAccess(rootAccess, {
+        readableFieldIds: new Set([titleId, ownerId]),
+      }).isOk()
+    ).toBe(true);
   });
 
   it('treats a parameter used only by a relation filter as optional', () => {

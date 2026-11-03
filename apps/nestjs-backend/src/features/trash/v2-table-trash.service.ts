@@ -258,7 +258,11 @@ export class V2RecordsDeletedAttachmentProjection implements IEventHandler<Recor
       return ok(undefined);
     }
 
-    const container = await this.v2ContainerService.getContainer();
+    // BYODB spaces keep attachment reference rows in the table's data db.
+    // getContainer() is the meta-fallback container, where the data and meta
+    // connections are the same handle, so the split-db delete would only touch
+    // meta and leave the data-db rows billing the space forever.
+    const container = await this.v2ContainerService.getContainerForTable(event.tableId.toString());
     const dataDb = container.resolve<Kysely<IAttachmentsTableDb>>(v2DataDbTokens.db);
     const metaDb = container.resolve<Kysely<IAttachmentsTableDb>>(v2MetaDbTokens.db);
 

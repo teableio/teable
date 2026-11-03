@@ -14,6 +14,8 @@ describe('CommentOpenApiService audit rows', () => {
   const cls = { get: vi.fn(() => 'usr1') };
   // A comment is only reachable while its record is alive.
   const recordService = { getExistingRecordIds: vi.fn(async () => new Set(['rec1'])) };
+  // Editor-level permissions by default: no table|update, so only own comments are deletable.
+  const permissionService = { getPermissions: vi.fn(async () => ['record|comment']) };
 
   const createService = () => {
     const service = new CommentOpenApiService(
@@ -24,7 +26,9 @@ describe('CommentOpenApiService audit rows', () => {
       {} as never,
       {} as never,
       {} as never,
-      audit as never
+      audit as never,
+      {} as never,
+      permissionService as never
     );
     vi.spyOn(service as any, 'validateQuoteId').mockResolvedValue(undefined);
     vi.spyOn(service as any, 'filterCommentContent').mockImplementation(async (c) => c);
@@ -90,6 +94,36 @@ describe('CommentOpenApiService audit rows', () => {
     audit.emitAtomic.mockClear();
     prismaService.comment.updateMany.mockResolvedValueOnce({ count: 0 });
     await expect(service.deleteComment('tbl1', 'rec1', 'com2')).rejects.toThrow();
+    expect(audit.emitAtomic).not.toHaveBeenCalled();
+  });
+
+  it('lets a base creator delete a comment written by someone else, App Robot included', async () => {
+    permissionService.getPermissions.mockResolvedValueOnce(['record|comment', 'table|update']);
+    prismaService.comment.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    await createService().deleteComment('tbl1', 'rec1', 'comByRobot');
+
+    const secondWhere = (prismaService.comment.updateMany.mock.calls[1] as any[])[0].where;
+    expect(secondWhere).toEqual({
+      id: 'comByRobot',
+      tableId: 'tbl1',
+      recordId: 'rec1',
+      deletedTime: null,
+    });
+    expect(audit.emitAtomic).toHaveBeenCalledWith({
+      action: 'table.record.comment.delete',
+      resourceId: 'comByRobot',
+      params: { tableId: 'tbl1', recordId: 'rec1', commentId: 'comByRobot' },
+    });
+  });
+
+  it('does not let an editor delete someone else’s comment', async () => {
+    prismaService.comment.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(createService().deleteComment('tbl1', 'rec1', 'comOther')).rejects.toThrow();
+    expect(prismaService.comment.updateMany).toHaveBeenCalledTimes(1);
     expect(audit.emitAtomic).not.toHaveBeenCalled();
   });
 });

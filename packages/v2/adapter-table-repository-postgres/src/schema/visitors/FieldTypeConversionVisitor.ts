@@ -6,6 +6,8 @@ import {
   NumberFormatting,
   SelectOptionId,
   domainError,
+  ensureWithinTableDataSafetyLimit,
+  tableDataSafetyLimitErrors,
 } from '@teable/v2-core';
 import {
   type FormulaField,
@@ -214,8 +216,6 @@ const dateToFormattedTextSql = (columnSql: string, formatting: DateTimeFormattin
 
 const SELECT_CHOICE_NAME_MAX_LENGTH =
   DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoiceNameLength;
-
-const selectChoiceNameLengthError = `Select choice name exceeds ${SELECT_CHOICE_NAME_MAX_LENGTH} characters`;
 
 type SelectChoiceDto = {
   id: string;
@@ -657,7 +657,15 @@ WHERE name IS NOT NULL AND name <> ''
         (name) => name.length > SELECT_CHOICE_NAME_MAX_LENGTH
       );
       if (oversizedName) {
-        throw new Error(`${selectChoiceNameLengthError}${oversizedName}`);
+        const result = ensureWithinTableDataSafetyLimit(
+          tableDataSafetyLimitErrors.selectChoiceNameMaxLength,
+          oversizedName.length,
+          SELECT_CHOICE_NAME_MAX_LENGTH,
+          { target: 'field.options.choices.name' }
+        );
+        if (result.isErr()) {
+          throw domainError.toError(result.error);
+        }
       }
 
       const currentRows = await sql<{ options: unknown }>`

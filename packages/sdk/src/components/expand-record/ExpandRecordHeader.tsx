@@ -18,20 +18,20 @@ import {
   Separator,
 } from '@teable/ui-lib';
 import { CopyPlus, Trash } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { useCommentPermission, useIsMobile, useTablePermission } from '../../hooks';
-import { useContentDir } from '../../hooks/use-content-dir';
 import { useRecordCommentCount } from '../comment/hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
   tableId: string;
+  // the records stacked on the way to this one, after the prev / next arrows
+  breadcrumb?: ReactNode;
   recordId: string;
-  title?: string;
   recordHistoryVisible?: boolean;
   commentVisible?: boolean;
-  foreignTableName?: string;
   disabledPrev?: boolean;
   disabledNext?: boolean;
   onClose?: () => void;
@@ -43,20 +43,24 @@ interface IExpandRecordHeader {
   onDelete?: () => Promise<void>;
   onDuplicate?: () => Promise<void>;
   onAddToChat?: () => void;
-  onForeignTableClick?: () => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const MIN_TITLE_WIDTH = 300;
-// eslint-disable-next-line @typescript-eslint/naming-convention
 const MIN_OPERATOR_WIDTH = 200;
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const MIN_LABELED_OPERATOR_WIDTH = 600;
+// below this a header with a breadcrumb moves copy link and history into the more menu
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const MIN_INLINE_OPERATOR_WIDTH = 480;
 
 const ExpandRecordMoreMenu = ({
   isMobile,
+  historyInMenu,
   editable,
   canDelete,
   canDuplicate,
   recordHistoryVisible,
+  onCopyUrl,
   onRecordHistoryToggle,
   onDuplicate,
   onAddToChat,
@@ -64,10 +68,14 @@ const ExpandRecordMoreMenu = ({
   onClose,
 }: {
   isMobile: boolean;
+  // history moves here from the header on a phone, and when the header has no room for it
+  historyInMenu: boolean;
   editable: boolean;
   canDelete: boolean;
   canDuplicate: boolean;
   recordHistoryVisible?: boolean;
+  // set when the header has no room for its copy link button
+  onCopyUrl?: () => void;
   onRecordHistoryToggle?: () => void;
   onDuplicate?: () => Promise<void>;
   onAddToChat?: () => void;
@@ -76,7 +84,8 @@ const ExpandRecordMoreMenu = ({
 }) => {
   const { t } = useTranslation();
   const showMenu =
-    (isMobile && editable && !!onRecordHistoryToggle) ||
+    !!onCopyUrl ||
+    (historyInMenu && editable && !!onRecordHistoryToggle) ||
     canDelete ||
     (canDuplicate && !!onDuplicate) ||
     !!onAddToChat;
@@ -88,7 +97,15 @@ const ExpandRecordMoreMenu = ({
         <MoreHorizontal className="size-4 shrink-0" />
       </DropdownMenuTrigger>
       <DropdownMenuContent collisionPadding={isMobile ? 16 : undefined}>
-        {isMobile && editable && onRecordHistoryToggle && (
+        {onCopyUrl && (
+          <DropdownMenuItem
+            className="flex cursor-pointer items-center gap-2 text-sm outline-none"
+            onClick={onCopyUrl}
+          >
+            <Link className="size-4 shrink-0" /> {t('expandRecord.copyRecordUrl')}
+          </DropdownMenuItem>
+        )}
+        {historyInMenu && editable && onRecordHistoryToggle && (
           <DropdownMenuItem
             className="flex cursor-pointer items-center gap-2 text-sm outline-none"
             onClick={onRecordHistoryToggle}
@@ -141,10 +158,9 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const {
     tableId,
     recordId,
-    title,
+    breadcrumb,
     recordHistoryVisible,
     commentVisible,
-    foreignTableName,
     disabledPrev,
     disabledNext,
     onPrev,
@@ -156,7 +172,6 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onDelete,
     onDuplicate,
     onAddToChat,
-    onForeignTableClick,
   } = props;
 
   const permission = useTablePermission();
@@ -167,23 +182,25 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const canDuplicate = Boolean(permission['record|create']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
-  const contentDir = useContentDir();
   const isMobile = useIsMobile();
-  const showTitle = width > MIN_TITLE_WIDTH;
   const showOperator = width > MIN_OPERATOR_WIDTH;
+  // a breadcrumb takes the room the labels would: its header keeps the actions to icons
+  const showOperatorLabel = !isMobile && !breadcrumb && width >= MIN_LABELED_OPERATOR_WIDTH;
+  const operatorSize = showOperatorLabel ? 'xs' : 'icon-xs';
+  const operatorsInMenu = Boolean(breadcrumb) && width < MIN_INLINE_OPERATOR_WIDTH;
   const recordCommentCount = useRecordCommentCount(tableId, recordId, commentReadable);
 
+  // the title lives at the top of the body; the header holds navigation and actions
   return (
     <div
       ref={ref}
       className={cn(
-        'w-full flex items-center gap-4 px-4 border-b border-solid border-border',
-        foreignTableName ? 'h-14' : 'h-12',
-        { 'justify-between': !showTitle }
+        'flex h-12 w-full items-center border-b border-solid border-border px-4',
+        breadcrumb ? 'gap-2' : 'gap-4'
       )}
     >
       {!isMobile && (
-        <div>
+        <div className="shrink-0">
           <TooltipWrap description="Previous record" disabled={disabledPrev}>
             <Button
               variant={'ghost'}
@@ -208,49 +225,25 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           </TooltipWrap>
         </div>
       )}
-      {showTitle && (
-        <div
-          className="min-w-0 flex-1"
-          data-link-highlight-target={foreignTableName ? tableId : undefined}
-        >
-          <h4
-            dir={contentDir}
-            title={title}
-            className={cn(
-              'scroll-m-20 truncate font-semibold tracking-tight',
-              isMobile ? 'text-base' : 'text-xl'
-            )}
-          >
-            {title || t('common.untitled')}
-          </h4>
-          {foreignTableName && (
-            <p className="truncate text-xs text-muted-foreground">
-              {t('expandRecord.recordFrom')}{' '}
-              {onForeignTableClick ? (
-                <button
-                  dir={contentDir}
-                  className="cursor-pointer text-primary hover:underline"
-                  onClick={onForeignTableClick}
-                >
-                  {foreignTableName}
-                </button>
-              ) : (
-                <span dir={contentDir}>{foreignTableName}</span>
-              )}
-            </p>
-          )}
-        </div>
+      {breadcrumb ? (
+        <>
+          {!isMobile && <Separator className="h-4" orientation="vertical" />}
+          <div className="flex min-w-0 flex-1">{breadcrumb}</div>
+        </>
+      ) : (
+        <div className="flex-1" />
       )}
       {showOperator && (
         <div className="flex items-center gap-1">
-          {onCopyUrl && (
+          {onCopyUrl && !operatorsInMenu && (
             <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
-              <Button variant={'ghost'} size={'icon-xs'} onClick={onCopyUrl}>
+              <Button variant={'ghost'} size={operatorSize} onClick={onCopyUrl}>
                 <Link className="size-4 shrink-0" />
+                {showOperatorLabel && t('expandRecord.copyLink')}
               </Button>
             </TooltipWrap>
           )}
-          {!isMobile && editable && onRecordHistoryToggle && (
+          {!isMobile && !operatorsInMenu && editable && onRecordHistoryToggle && (
             <TooltipWrap
               description={
                 recordHistoryVisible
@@ -260,10 +253,11 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             >
               <Button
                 variant={recordHistoryVisible ? 'secondary' : 'ghost'}
-                size={'icon-xs'}
+                size={operatorSize}
                 onClick={onRecordHistoryToggle}
               >
                 <History className="size-4 shrink-0" />
+                {showOperatorLabel && t('expandRecord.history')}
               </Button>
             </TooltipWrap>
           )}
@@ -271,12 +265,13 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           {commentReadable && (
             <TooltipWrap description={t('comment.title')}>
               <Button
-                size={'icon-xs'}
+                size={operatorSize}
                 onClick={onCommentToggle}
                 variant={commentVisible ? 'secondary' : 'ghost'}
                 className="relative"
               >
                 <MessageSquare className="size-4 shrink-0" />
+                {showOperatorLabel && t('comment.title')}
                 {recordCommentCount ? (
                   <div className="absolute start-4 top-0.5 flex h-3 min-w-3 max-w-5 items-center justify-center rounded-[2px] bg-orange-500 px-0.5 text-[8px] text-white">
                     {recordCommentCount > 99 ? '99+' : recordCommentCount}
@@ -288,6 +283,8 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
 
           <ExpandRecordMoreMenu
             isMobile={isMobile}
+            historyInMenu={isMobile || operatorsInMenu}
+            onCopyUrl={operatorsInMenu ? onCopyUrl : undefined}
             editable={editable}
             canDelete={canDelete}
             canDuplicate={canDuplicate}

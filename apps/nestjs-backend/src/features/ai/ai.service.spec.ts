@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { createServer, type Server } from 'node:http';
 import { getOfferedTierModelKey, LLMProviderType, MODEL_TIER_IDS } from '@teable/openapi';
 import type { LLMProvider } from '@teable/openapi';
-import { describe, expect, it, vi } from 'vitest';
+import { generateImage } from 'ai';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AiService } from './ai.service';
 
 const openAIProviderName = 'custom-openai';
@@ -350,6 +352,43 @@ describe('AiService.getSimplifiedAIConfig', () => {
 
     expect(config?.llmProviders).toEqual([spaceProvider, instanceProvider]);
   });
+
+  it('carries the merged disabled actions in the base config, and stays null while AI is unset', async () => {
+    const service = createService(false);
+    const findBase = vi.fn();
+    const metaAncestryCache = new Map([['base:base-id', { id: 'base-id', spaceId: 'spc-id' }]]);
+    (service as unknown as { cls: unknown }).cls = {
+      isActive: () => true,
+      get: () => metaAncestryCache,
+      set: vi.fn(),
+    };
+    (service as unknown as { prismaService: unknown }).prismaService = {
+      base: { findUnique: findBase },
+      integration: {
+        findUnique: vi.fn().mockResolvedValue({
+          config: JSON.stringify({ capabilities: { disableActions: ['ai-chat'] } }),
+        }),
+      },
+    };
+    (service as unknown as { settingService: unknown }).settingService = {
+      getSetting: vi.fn().mockResolvedValue({
+        aiConfig: { capabilities: { disableActions: ['ai-field', 'ai-chat'] } },
+      }),
+    };
+    const getBySpace = vi
+      .spyOn(service, 'getAIConfigBySpaceId')
+      .mockResolvedValue(await service.getAIConfig('base-id'));
+
+    const config = await service.getBaseAIConfigVo('base-id');
+    expect(config?.disableActions).toEqual(['ai-field', 'ai-chat']);
+    expect(config?.llmProviders).toEqual([spaceProvider, instanceProvider]);
+    expect(getBySpace).toHaveBeenCalledWith('spc-id');
+    // the permission guard already loaded the base for this request
+    expect(findBase).not.toHaveBeenCalled();
+
+    getBySpace.mockRejectedValue(new Error('AI configuration is not set'));
+    expect(await service.getBaseAIConfigVo('base-id')).toBeNull();
+  });
 });
 
 describe('AiService.resolveModelSelectionByConfig', () => {
@@ -397,5 +436,55 @@ describe('AiService.resolveModelSelectionByConfig', () => {
     expect(service.resolveModelSelectionByConfig('sm', chatModel)).toEqual({});
     expect(service.resolveModelSelectionByConfig('xl', { lg: opusKey })).toEqual({});
     expect(service.resolveModelSelectionByConfig('lg', null)).toEqual({});
+  });
+});
+
+describe('AiService.getModelInstance for image generation', () => {
+  const service = Object.create(AiService.prototype) as AiService;
+  setBaseConfig(service, false);
+  let server: Server;
+  let baseUrl: string;
+  const requests: string[] = [];
+
+  beforeAll(
+    () =>
+      new Promise<void>((resolve) => {
+        server = createServer((req, res) => {
+          requests.push(`${req.method} ${req.url}`);
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ created: 1, data: [{ b64_json: 'aW1hZ2U=' }] }));
+        });
+        server.listen(0, '127.0.0.1', () => {
+          baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`;
+          resolve();
+        });
+      })
+  );
+
+  afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
+
+  it.each([
+    [LLMProviderType.OPENAI_COMPATIBLE, 'POST /v1/images/generations'],
+    [LLMProviderType.OPENROUTER, 'POST /v1/images'],
+    [LLMProviderType.OPENAI, 'POST /v1/images/generations'],
+  ])('generates images with a %s provider at its images endpoint', async (type, request) => {
+    requests.length = 0;
+    const provider: LLMProvider = {
+      type,
+      name: 'custom',
+      apiKey: 'sk-test',
+      baseUrl,
+      models: gptImage2Model,
+    };
+    const model = await service.getModelInstance(
+      `${type}@${gptImage2Model}@custom`,
+      [provider],
+      true
+    );
+
+    const { images } = await generateImage({ model, prompt: 'a red circle', n: 1 });
+
+    expect(images).toHaveLength(1);
+    expect(requests).toEqual([request]);
   });
 });

@@ -16,7 +16,10 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { describeError } from '../../shared/errors';
-import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
+import {
+  splitSchemaQualifiedTableName,
+  toQualifiedIdentifierLiteral,
+} from '../../shared/sqlIdentifiers';
 import {
   clearUndoCaptureBatchId,
   ensureUndoCaptureInfrastructure,
@@ -106,7 +109,8 @@ export interface IPostgresRecordMutationSnapshotCaptureService {
   begin(
     traceContext: RecordMutationSnapshotTraceContext | undefined,
     db: DbOrTx,
-    tableName: string
+    tableName: string,
+    additionalTableNames?: ReadonlyArray<string>
   ): Promise<Result<IPostgresRecordMutationSnapshotCaptureSession, DomainError>>;
 }
 
@@ -119,6 +123,7 @@ class PostgresRecordMutationSnapshotCaptureSession implements IPostgresRecordMut
     private readonly previousBatchId: string | undefined,
     private readonly batchIdLocal: boolean,
     private readonly tableName: string,
+    private readonly tableNames: ReadonlyArray<string>,
     private readonly logger: ILogger,
     private readonly traceContext?: RecordMutationSnapshotTraceContext
   ) {}
@@ -139,7 +144,11 @@ class PostgresRecordMutationSnapshotCaptureSession implements IPostgresRecordMut
         try {
           const rows = await loadAndClearUndoLogRows(this.db, this.batchId);
           return ok(
-            rows.filter((row) => matchesUndoCaptureTableName(row.table_name, this.tableName))
+            rows.filter((row) =>
+              this.tableNames.some((tableName) =>
+                matchesUndoCaptureTableName(row.table_name, tableName)
+              )
+            )
           );
         } catch (error) {
           this.logger.warn('undo:capture:read_failed', {
@@ -247,7 +256,8 @@ export class PostgresRecordMutationSnapshotCaptureService implements IPostgresRe
   async begin(
     traceContext: RecordMutationSnapshotTraceContext | undefined,
     db: DbOrTx,
-    tableName: string
+    tableName: string,
+    additionalTableNames?: ReadonlyArray<string>
   ): Promise<Result<IPostgresRecordMutationSnapshotCaptureSession, DomainError>> {
     return runWithTraceSpan(
       traceContext,
@@ -256,11 +266,23 @@ export class PostgresRecordMutationSnapshotCaptureService implements IPostgresRe
         'teable.table_name': tableName,
       }),
       async () => {
-        const ensureResult = await this.ensureTable(traceContext, db, tableName);
-        if (ensureResult.isErr()) {
-          return err(ensureResult.error);
+        // Fresh trigger DDL holds relation locks until commit: always acquire them in the
+        // same order, including when callers use both public-qualified and bare names.
+        const tableNames = [
+          ...new Set(
+            [tableName, ...(additionalTableNames ?? [])].map((captureTableName) => {
+              const { schemaName, plainTableName } =
+                splitSchemaQualifiedTableName(captureTableName);
+              return `${schemaName ?? 'public'}.${plainTableName}`;
+            })
+          ),
+        ].sort();
+        for (const captureTableName of tableNames) {
+          const ensureResult = await this.ensureTable(traceContext, db, captureTableName);
+          if (ensureResult.isErr()) {
+            return err(ensureResult.error);
+          }
         }
-
         const batchId = generateUuid();
         const previousBatchId = await getUndoCaptureBatchId(db);
         let batchIdLocal = true;
@@ -303,6 +325,7 @@ export class PostgresRecordMutationSnapshotCaptureService implements IPostgresRe
             previousBatchId,
             batchIdLocal,
             tableName,
+            tableNames,
             this.logger,
             traceContext
           )

@@ -209,14 +209,16 @@ export type BoundDataQuery = {
   readonly sort: ReadonlyArray<DataQuerySortResolved>;
   readonly includeTotal: boolean;
 };
-export type DataQueryFieldUsage =
-  | 'projection'
-  | 'filter'
-  | 'sort'
-  | 'group'
-  | 'aggregate'
-  | 'reference'
-  | 'relation';
+export const dataQueryFieldUsageValues = [
+  'projection',
+  'filter',
+  'sort',
+  'group',
+  'aggregate',
+  'reference',
+  'relation',
+] as const;
+export type DataQueryFieldUsage = (typeof dataQueryFieldUsageValues)[number];
 export type DataQueryFieldDependency = {
   readonly fieldId: string;
   readonly usages: ReadonlyArray<DataQueryFieldUsage>;

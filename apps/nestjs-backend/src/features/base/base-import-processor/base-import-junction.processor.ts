@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   PrismaClientKnownRequestError,
@@ -18,6 +18,7 @@ import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { postgresAddForeignKeyNotValidSql } from '../../../db-provider/postgres-fk-delete-action';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
+import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../../field/model/factory';

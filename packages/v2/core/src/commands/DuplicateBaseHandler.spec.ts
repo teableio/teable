@@ -1,9 +1,13 @@
 import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
+import { TableCreationService } from '../application/services/TableCreationService';
 import { BaseId } from '../domain/base/BaseId';
 import { domainError } from '../domain/shared/DomainError';
+import type { Table } from '../domain/table/Table';
 import type { BaseDataBulkCopyPlan, BaseDataBulkCopyProgress } from '../ports/BaseDataBulkCopier';
+import type { IExecutionContext } from '../ports/ExecutionContext';
+import type { UnitOfWorkOperation, IUnitOfWorkOptions } from '../ports/UnitOfWork';
 import { DuplicateBaseCommand } from './DuplicateBaseCommand';
 import { DuplicateBaseHandler } from './DuplicateBaseHandler';
 
@@ -568,7 +572,10 @@ describe('DuplicateBaseHandler', () => {
 
   it('creates duplicated table structures with duplicate-only schema options', async () => {
     const tableCreationService = {
-      execute: vi.fn(async (_context: unknown, input: { tables: ReadonlyArray<unknown> }) =>
+      persistMetadata: vi.fn(async (_context: unknown, input: { tables: ReadonlyArray<unknown> }) =>
+        ok({ persistedTables: input.tables })
+      ),
+      provisionData: vi.fn(async (_context: unknown, input: { tables: ReadonlyArray<unknown> }) =>
         ok({
           persistedTables: input.tables,
           tableState: new Map(),
@@ -618,7 +625,7 @@ describe('DuplicateBaseHandler', () => {
       if (event.id === 'error') throw new Error(event.message);
     }
 
-    expect(tableCreationService.execute).toHaveBeenCalledWith(
+    expect(tableCreationService.provisionData).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         schemaOptions: { optimizeForEmptyTables: true, skipUndoCaptureSetup: true },
@@ -642,6 +649,226 @@ describe('DuplicateBaseHandler', () => {
     );
     expect(tablePluginExecution.guard).toHaveBeenCalledOnce();
   });
+
+  it('reports committed table ownership when domain event publication fails', async () => {
+    const sourceTableId = 'tblSourceA';
+    let committedTargetTableId: string | undefined;
+    const tableCreationService = {
+      persistMetadata: vi.fn(
+        async (
+          _context: unknown,
+          input: { tables: ReadonlyArray<{ id(): { toString(): string } }> }
+        ) => {
+          committedTargetTableId = input.tables[0]?.id().toString();
+          return ok({
+            persistedTables: input.tables,
+          });
+        }
+      ),
+      provisionData: vi.fn(
+        async (_context: unknown, input: { persistedTables: ReadonlyArray<unknown> }) =>
+          ok({
+            persistedTables: input.persistedTables,
+            tableState: new Map(),
+            sideEffectEvents: [],
+          })
+      ),
+    };
+    const handler = createHandler({
+      foreignTableLoaderService: { load: vi.fn(async () => ok([])) },
+      tableCreationService,
+      eventBus: {
+        publishMany: vi.fn(async () =>
+          err(
+            domainError.unexpected({
+              code: 'duplicate_base.event_publication_failed',
+              message: 'Failed to publish table events',
+            })
+          )
+        ),
+      },
+      unitOfWork: {
+        withTransaction: vi.fn((_context, callback: (tx: unknown) => Promise<unknown>) =>
+          callback({ tx: true })
+        ),
+      },
+      tableOperationPluginRunner: {
+        prepare: vi.fn(async () => ok({ guard: vi.fn(async () => ok(undefined)) })),
+      },
+    });
+    const command = DuplicateBaseCommand.createFromSource({
+      baseId,
+      source: {
+        structure: {
+          tables: [{ id: sourceTableId, name: 'People', fields: [] }],
+        },
+        records: async function* () {
+          yield undefined as never;
+        },
+      },
+      withRecords: false,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle({} as never, command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) events.push(event);
+
+    expect(committedTargetTableId).toBeDefined();
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        id: 'error',
+        code: 'duplicate_base.event_publication_failed',
+        tableIdMap: { [sourceTableId]: committedTargetTableId },
+      })
+    );
+    expect(events).not.toContainEqual(expect.objectContaining({ id: 'done' }));
+  });
+
+  it.each(['result', 'throw', 'afterCommit'])(
+    'retains exact ownership and compensates rolled-back provisioning only: %s',
+    async (failureMode) => {
+      const sourceTableId = 'tblSourceA';
+      const unrelatedTableId = 'tblExistingTable';
+      const persistedIds = new Set([unrelatedTableId]);
+      let committedTargetTableId: string | undefined;
+      const tableRepository = {
+        insertMany: vi.fn(async (_context: IExecutionContext, tables: ReadonlyArray<Table>) => {
+          for (const table of tables) persistedIds.add(table.id().toString());
+          committedTargetTableId = tables[0]?.id().toString();
+          return ok(tables);
+        }),
+        delete: vi.fn(async (_context: IExecutionContext, table: Table) => {
+          persistedIds.delete(table.id().toString());
+          return ok(undefined);
+        }),
+      };
+      const provisionError = domainError.infrastructure({
+        code: 'duplicate_base.provision_failed',
+        message: 'Data schema provisioning failed',
+      });
+      const tableSchemaRepository = {
+        insertMany: vi.fn(async () => {
+          expect(persistedIds.has(committedTargetTableId!)).toBe(true);
+          if (failureMode === 'throw') throw provisionError;
+          if (failureMode === 'afterCommit') return ok(undefined);
+          return err(provisionError);
+        }),
+      };
+      const scopes: string[] = [];
+      const unitOfWork = {
+        withTransaction: async <T>(
+          context: IExecutionContext,
+          work: UnitOfWorkOperation<T>,
+          options?: IUnitOfWorkOptions
+        ) => {
+          scopes.push(options?.scope ?? 'data');
+          const transaction = {
+            kind: 'unitOfWorkTransaction' as const,
+            scope: options?.scope,
+            committed: false,
+            rolledBack: false,
+          };
+          const result = await work({ ...context, transaction });
+          transaction.committed = result.isOk();
+          transaction.rolledBack = result.isErr();
+          if (options?.scope === 'data' && failureMode === 'afterCommit') {
+            return err(provisionError);
+          }
+          return result;
+        },
+      };
+      const eventBus = { publishMany: vi.fn(async () => ok(undefined)) };
+      const handler = createHandler({
+        foreignTableLoaderService: { load: vi.fn(async () => ok([])) },
+        tableCreationService: new TableCreationService(
+          tableRepository as never,
+          tableSchemaRepository as never,
+          {} as never
+        ),
+        eventBus,
+        unitOfWork,
+        tableOperationPluginRunner: {
+          prepare: vi.fn(async () => ok({ guard: vi.fn(async () => ok(undefined)) })),
+        },
+      });
+      const command = DuplicateBaseCommand.createFromSource({
+        baseId,
+        source: {
+          structure: { tables: [{ id: sourceTableId, name: 'People', fields: [] }] },
+          records: async function* () {
+            yield undefined as never;
+          },
+        },
+        withRecords: false,
+      })._unsafeUnwrap();
+
+      const stream = (await handler.handle({} as never, command))._unsafeUnwrap();
+      const events = [];
+      for await (const event of stream) events.push(event);
+
+      expect(committedTargetTableId).toBeDefined();
+      if (failureMode === 'afterCommit') {
+        expect(persistedIds).toEqual(new Set([unrelatedTableId, committedTargetTableId]));
+        expect(scopes).toEqual(['meta', 'data']);
+        expect(tableRepository.delete).not.toHaveBeenCalled();
+      } else {
+        expect(persistedIds).toEqual(new Set([unrelatedTableId]));
+        expect(scopes).toEqual(['meta', 'data', 'meta']);
+        expect(tableRepository.delete).toHaveBeenCalledExactlyOnceWith(
+          expect.anything(),
+          expect.objectContaining({}),
+          { mode: 'permanent' }
+        );
+        expect(tableRepository.delete.mock.calls[0]?.[1].id().toString()).toBe(
+          committedTargetTableId
+        );
+      }
+      expect(eventBus.publishMany).not.toHaveBeenCalled();
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          id: 'error',
+          code: failureMode === 'throw' ? 'unexpected' : provisionError.code,
+          tableIdMap: { [sourceTableId]: committedTargetTableId },
+        })
+      );
+      expect(events).not.toContainEqual(expect.objectContaining({ id: 'done' }));
+    }
+  );
+
+  it.each(['meta', 'data'] as const)(
+    'rejects an ambient %s transaction without creating tables or claiming ownership',
+    async (scope) => {
+      const handler = createHandler();
+      const command = DuplicateBaseCommand.createFromSource({
+        baseId,
+        source: {
+          structure: { tables: [] },
+          records: async function* () {
+            yield undefined as never;
+          },
+        },
+        withRecords: false,
+      })._unsafeUnwrap();
+      const stream = (
+        await handler.handle(
+          {
+            transactions: { [scope]: { kind: 'unitOfWorkTransaction', scope } },
+          } as never,
+          command
+        )
+      )._unsafeUnwrap();
+      const events = [];
+      for await (const event of stream) events.push(event);
+
+      expect(events).toEqual([
+        {
+          id: 'error',
+          code: 'duplicate_base.ambient_transaction',
+          message: 'Duplicate base requires independently owned metadata and data transactions',
+        },
+      ]);
+    }
+  );
 
   it('remaps aiConfig references when duplicating fields', async () => {
     const handler = createHandler();
@@ -876,6 +1103,7 @@ describe('DuplicateBaseHandler', () => {
       id: 'error',
       message: 'computed backfill failed',
       code: 'computed.backfill_failed',
+      tableIdMap: { [sourceTableId]: 'tblbbbbbbbbbbbbbbbb' },
     });
     expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'done' })]));
   });
@@ -961,6 +1189,7 @@ describe('DuplicateBaseHandler', () => {
       id: 'error',
       message: 'link restore failed',
       code: 'duplicate_base.link_restore_failed',
+      tableIdMap: { [sourceTableId]: 'tblbbbbbbbbbbbbbbbb' },
     });
     expect(computedFieldBackfillService.executeSyncMany).not.toHaveBeenCalled();
     expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'done' })]));

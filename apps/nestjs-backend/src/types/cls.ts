@@ -16,6 +16,7 @@ export type IV2Reason =
   | 'env_force_v2_all'
   | 'config_force_v2_all'
   | 'new_base'
+  | 'native_only'
   | 'header_override'
   | 'space_feature'
   | 'unsupported_feature'

@@ -153,6 +153,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
   const duplicateBaseName = 'Duplicated base';
   const sourceTableName = 'Source table';
   const sourceDbTableName = 'bseSource.tblSource';
+  const sourceTableId = `tbl${'s'.repeat(16)}`;
   const createDataKnexManager = (dataKnex: (...args: never[]) => Record<string, unknown>) => ({
     withDataKnexConnectionForBase: vi.fn(
       (
@@ -168,6 +169,55 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       }
     ),
   });
+  type ISourceSnapshotFixture = {
+    id: string;
+    name: string;
+    dbTableName?: string;
+    fields: Array<{
+      id?: string;
+      name?: string;
+      type?: string;
+      isPrimary?: boolean;
+      isLookup?: boolean;
+      isConditionalLookup?: boolean;
+      options?: Record<string, unknown>;
+    }>;
+    views: Array<{ id?: string }>;
+  };
+  const createSourceContainer = (
+    structure: { tables: ISourceSnapshotFixture[] },
+    snapshotTables: ISourceSnapshotFixture[] = structure.tables
+  ) => {
+    let snapshotIndex = 0;
+    const table = {};
+    const tableRepository = {
+      findOne: vi.fn().mockResolvedValue({ isErr: () => false, value: table }),
+    };
+    const tableMapper = {
+      toDTO: vi.fn().mockImplementation(() => {
+        const source = snapshotTables[snapshotIndex++]!;
+        return {
+          isErr: () => false,
+          value: {
+            id: source.id,
+            baseId: 'bseSource',
+            name: source.name,
+            dbTableName: source.dbTableName,
+            primaryFieldId: source.fields.find((field) => field.isPrimary)?.id ?? '',
+            fields: source.fields,
+            views: source.views,
+          },
+        };
+      }),
+    };
+    return {
+      resolve: vi.fn((token: symbol) => {
+        if (token === v2CoreTokens.tableRepository) return tableRepository;
+        if (token === v2CoreTokens.tableMapper) return tableMapper;
+        throw new Error(`Unexpected source container token: ${String(token)}`);
+      }),
+    };
+  };
 
   type IDuplicateServiceInternals = {
     buildDuplicateStructureConfig: (...args: unknown[]) => Promise<unknown>;
@@ -179,6 +229,15 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     getV2BulkCopySourceLinkFields: (...args: unknown[]) => Promise<unknown[]>;
     getDisconnectedLinkFieldIds: (...args: unknown[]) => Promise<string[]>;
     normalizeDuplicateStructureForV2: (structure: unknown) => unknown;
+    createNativeTableSnapshots: (
+      sourceBaseId: string,
+      structure: unknown
+    ) => Promise<
+      ReadonlyMap<
+        string,
+        { fields: ReadonlyArray<{ id: string; options?: Record<string, unknown> }> }
+      >
+    >;
     createDuplicateBaseSource: (...args: unknown[]) => {
       records(
         tableId: string,
@@ -190,6 +249,179 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     duplicateLinkJunction: (...args: unknown[]) => Promise<void>;
   };
 
+  it('clears source workflow bindings from native button snapshots', async () => {
+    const buttonFieldId = `fld${'b'.repeat(16)}`;
+    const structure = {
+      tables: [
+        {
+          id: sourceTableId,
+          name: sourceTableName,
+          fields: [
+            {
+              id: buttonFieldId,
+              name: 'Run workflow',
+              type: FieldType.Button,
+              options: {
+                label: 'Run',
+                color: 'blue',
+                workflow: { id: 'wflSource', name: 'Source workflow', isActive: true },
+              },
+            },
+          ],
+          views: [],
+        },
+      ],
+    };
+    const sourceContainer = createSourceContainer(structure);
+    const service = new BaseDuplicateService(
+      {} as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      {} as IServiceArgs[8],
+      {
+        getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
+      } as unknown as IServiceArgs[9],
+      { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+
+    const snapshots = await (
+      service as unknown as IDuplicateServiceInternals
+    ).createNativeTableSnapshots('bseSource', structure);
+    const button = snapshots.get(sourceTableId)?.fields.find(({ id }) => id === buttonFieldId);
+
+    expect(button?.options).toEqual({ label: 'Run', color: 'blue' });
+    expect(button?.options).not.toHaveProperty('workflow');
+  });
+
+  it('makes only included physical table hosts portable in native link snapshots', async () => {
+    const ordersTableId = `tbl${'o'.repeat(16)}`;
+    const customersTableId = `tbl${'c'.repeat(16)}`;
+    const manyOneFieldId = `fld${'m'.repeat(16)}`;
+    const oneOneFieldId = `fld${'n'.repeat(16)}`;
+    const externalFieldId = `fld${'e'.repeat(16)}`;
+    const junctionFieldId = `fld${'j'.repeat(16)}`;
+    const structure = {
+      tables: [
+        {
+          id: ordersTableId,
+          name: 'Orders',
+          fields: [
+            { id: manyOneFieldId, name: 'Customer', type: FieldType.Link },
+            { id: externalFieldId, name: 'External', type: FieldType.Link },
+            { id: junctionFieldId, name: 'Tags', type: FieldType.Link },
+          ],
+          views: [],
+        },
+        {
+          id: customersTableId,
+          name: 'Customers',
+          fields: [{ id: oneOneFieldId, name: 'Primary order', type: FieldType.Link }],
+          views: [],
+        },
+      ],
+    };
+    const snapshots = [
+      {
+        ...structure.tables[0],
+        dbTableName: 'bseSource.Orders',
+        fields: [
+          {
+            ...structure.tables[0].fields[0],
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: customersTableId,
+              lookupFieldId: oneOneFieldId,
+              fkHostTableName: 'bseSource.Orders',
+              selfKeyName: '__id',
+              foreignKeyName: '__fk_customer',
+            },
+          },
+          {
+            ...structure.tables[0].fields[1],
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: 'tblExternal',
+              lookupFieldId: 'fldExternal',
+              fkHostTableName: 'bseExternal.vendor_orders',
+              selfKeyName: '__id',
+              foreignKeyName: '__fk_external',
+            },
+          },
+          {
+            ...structure.tables[0].fields[2],
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: customersTableId,
+              lookupFieldId: oneOneFieldId,
+              fkHostTableName: 'bseSource.junction_orders_tags',
+              selfKeyName: '__fk_self',
+              foreignKeyName: '__fk_foreign',
+            },
+          },
+        ],
+      },
+      {
+        ...structure.tables[1],
+        dbTableName: 'bseSource.customer_records',
+        fields: [
+          {
+            ...structure.tables[1].fields[0],
+            options: {
+              relationship: Relationship.OneOne,
+              foreignTableId: ordersTableId,
+              lookupFieldId: manyOneFieldId,
+              fkHostTableName: 'bseSource.customer_records',
+              selfKeyName: '__id',
+              foreignKeyName: '__fk_primary_order',
+            },
+          },
+        ],
+      },
+    ];
+    const sourceContainer = createSourceContainer(structure, snapshots);
+    const service = new BaseDuplicateService(
+      {} as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      {} as IServiceArgs[8],
+      {
+        getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
+      } as unknown as IServiceArgs[9],
+      { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+
+    const nativeSnapshots = await (
+      service as unknown as IDuplicateServiceInternals
+    ).createNativeTableSnapshots('bseSource', structure);
+    const ordersFields = nativeSnapshots.get(ordersTableId)!.fields;
+    const customerFields = nativeSnapshots.get(customersTableId)!.fields;
+
+    expect(ordersFields.find(({ id }) => id === manyOneFieldId)?.options?.fkHostTableName).toBe(
+      `bseSource.${ordersTableId}`
+    );
+    expect(customerFields.find(({ id }) => id === oneOneFieldId)?.options?.fkHostTableName).toBe(
+      `bseSource.${customersTableId}`
+    );
+    expect(ordersFields.find(({ id }) => id === externalFieldId)?.options?.fkHostTableName).toBe(
+      'bseExternal.vendor_orders'
+    );
+    expect(ordersFields.find(({ id }) => id === junctionFieldId)?.options?.fkHostTableName).toBe(
+      'bseSource.junction_orders_tags'
+    );
+  });
+
   it('should create the v2 execution context from the space data container', async () => {
     const spaceId = 'spcTarget';
     const targetBaseId = 'bseTarget';
@@ -199,7 +431,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const structure = {
       name: duplicateBaseName,
       icon: undefined,
-      tables: [{ id: 'tblSource', name: sourceTableName, fields: [], views: [] }],
+      tables: [{ id: sourceTableId, name: sourceTableName, fields: [], views: [] }],
     };
     const source = {
       structure,
@@ -225,11 +457,13 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const container = {
       resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(db),
     };
+    const sourceContainer = createSourceContainer(structure);
     const baseImportService = {
       createBaseV2: vi.fn().mockResolvedValue({ id: targetBaseId }),
       restoreBaseExtrasV2: vi.fn().mockResolvedValue({ appIdMap: {}, workflowIdMap: {} }),
     };
     const v2ContainerService = {
+      getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
       getContainerForSpace: vi.fn().mockResolvedValue(container),
     };
     const v2ContextFactory = {
@@ -252,7 +486,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[8],
       v2ContainerService as unknown as IServiceArgs[9],
       v2ContextFactory as unknown as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
 
@@ -280,6 +514,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     expect(internals.createDuplicateBaseSource).toHaveBeenCalledWith(
       'bseSource',
       structure,
+      expect.any(Map),
       {},
       sourceDbTableNameByTableId,
       {},
@@ -300,7 +535,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const structure = {
       name: duplicateBaseName,
       icon: undefined,
-      tables: [{ id: 'tblSource', name: sourceTableName, fields: [], views: [] }],
+      tables: [{ id: sourceTableId, name: sourceTableName, fields: [], views: [] }],
     };
     const source = {
       structure,
@@ -327,6 +562,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const container = {
       resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(db),
     };
+    const sourceContainer = createSourceContainer(structure);
     const baseUpdate = vi.fn();
     const baseImportService = {
       createBaseV2: vi.fn().mockResolvedValue({ id: targetBaseId }),
@@ -339,6 +575,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       getDataDatabaseForBase: vi.fn().mockResolvedValue({ cacheKey: 'same-db' }),
     };
     const v2ContainerService = {
+      getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
       getContainerForSpace: vi.fn().mockResolvedValue(container),
     };
     const v2ContextFactory = {
@@ -361,7 +598,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       dataDbClientManager as unknown as IServiceArgs[8],
       v2ContainerService as unknown as IServiceArgs[9],
       v2ContextFactory as unknown as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const mergedLinkFieldTableMap = {
@@ -425,7 +662,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const structure = {
       name: duplicateBaseName,
       icon: undefined,
-      tables: [{ id: 'tblSource', name: sourceTableName, fields: [], views: [] }],
+      tables: [{ id: sourceTableId, name: sourceTableName, fields: [], views: [] }],
     };
     const source = {
       structure,
@@ -452,6 +689,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const container = {
       resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(db),
     };
+    const sourceContainer = createSourceContainer(structure);
     const baseUpdate = vi.fn();
     const baseImportService = {
       createBaseV2: vi.fn().mockResolvedValue({ id: targetBaseId }),
@@ -464,6 +702,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
         .mockResolvedValueOnce({ cacheKey: 'target-db' }),
     };
     const v2ContainerService = {
+      getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
       getContainerForSpace: vi.fn().mockResolvedValue(container),
     };
     const v2ContextFactory = {
@@ -486,7 +725,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       dataDbClientManager as unknown as IServiceArgs[8],
       v2ContainerService as unknown as IServiceArgs[9],
       v2ContextFactory as unknown as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
 
@@ -512,11 +751,8 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       withRecords: true,
     });
 
-    // The same-database precheck moved into the v2 bulk copier port, so the
-    // host no longer compares data databases here.
-    expect((commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean }).withRecords).toBe(
-      true
-    );
+    const executedCommand = commandBus.execute.mock.calls[0]?.[1];
+    expect(executedCommand).toMatchObject({ withRecords: true });
     expect(internals.duplicateTableData).not.toHaveBeenCalled();
     expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
     expect(internals.duplicateAttachments).toHaveBeenCalledWith(
@@ -538,7 +774,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const structure = {
       name: duplicateBaseName,
       icon: undefined,
-      tables: [{ id: 'tblSource', name: sourceTableName, fields: [], views: [] }],
+      tables: [{ id: sourceTableId, name: sourceTableName, fields: [], views: [] }],
     };
     const source = {
       structure,
@@ -586,6 +822,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const container = {
       resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(db),
     };
+    const sourceContainer = createSourceContainer(structure);
     const baseImportService = {
       createBaseV2: vi.fn().mockResolvedValue({ id: targetBaseId }),
       restoreBaseExtrasV2: vi.fn().mockResolvedValue({ appIdMap: {}, workflowIdMap: {} }),
@@ -597,6 +834,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       getDataDatabaseForBase: vi.fn().mockResolvedValue({ cacheKey: 'same-db' }),
     };
     const v2ContainerService = {
+      getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
       getContainerForSpace: vi.fn().mockResolvedValue(container),
     };
     const v2ContextFactory = {
@@ -619,7 +857,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       dataDbClientManager as unknown as IServiceArgs[8],
       v2ContainerService as unknown as IServiceArgs[9],
       v2ContextFactory as unknown as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const progressEvents: unknown[] = [];
@@ -650,13 +888,8 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       (event: string | IBaseImportProgress) => progressEvents.push(event)
     );
 
-    // Record copying runs inside the command now; its progress events are
-    // forwarded to the caller as-is, in both bulk and stream modes.
-    expect(internals.duplicateTableData).not.toHaveBeenCalled();
-    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
-    expect((commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean }).withRecords).toBe(
-      true
-    );
+    const executedCommand = commandBus.execute.mock.calls[0]?.[1];
+    expect(executedCommand).toMatchObject({ withRecords: true });
     expect(progressEvents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ phase: 'table_data_start', processedRows: 0 }),
@@ -829,6 +1062,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
           },
         ],
       },
+      new Map(),
       {},
       { tblSource: 'bseSource.tblShortName' }
     );
@@ -906,6 +1140,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
           },
         ],
       },
+      new Map(),
       {},
       { tblSource: 'bseSource.tblSource' },
       {
@@ -1007,6 +1242,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
           },
         ],
       },
+      new Map(),
       {},
       { tblSource: 'bseSource.tblSource' },
       {
@@ -1102,6 +1338,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
           },
         ],
       },
+      new Map(),
       {},
       { tblChild: 'bseSource.childTable' },
       {
@@ -1204,6 +1441,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
           },
         ],
       },
+      new Map(),
       {},
       { tblParent: 'bseSource.parentTable' },
       {
@@ -1289,6 +1527,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
           },
         ],
       },
+      new Map(),
       {
         tblSource: [
           {

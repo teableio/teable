@@ -119,10 +119,11 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const isShareContext = Boolean(shareId);
 
   const isForeignTable = isLinkedRecord || (Boolean(currentTableId) && tableId !== currentTableId);
-  const foreignTableName = useMemo(() => {
-    if (!isForeignTable) return undefined;
-    return tables.find((table) => table.id === tableId)?.name;
-  }, [isForeignTable, tables, tableId]);
+  const tableName = useMemo(
+    () => tables.find((table) => table.id === tableId)?.name,
+    [tables, tableId]
+  );
+  const foreignTableName = isForeignTable ? tableName : undefined;
 
   useEffect(() => {
     if (!isLinkedRecord || !recordId) return;
@@ -248,10 +249,13 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           serverData={serverData?.id === recordId ? serverData : undefined}
           recordHistoryVisible={!isShareContext && editable && recordHistoryVisible}
           commentVisible={commentReadable && commentVisible}
+          tableName={tableName}
           foreignTableName={foreignTableName}
           onForeignTableClick={
-            isForeignTable && tableId !== currentTableId
-              ? () => navigateToTable?.(tableId)
+            // without a navigation host (e.g. a single-view share) there is nowhere to jump,
+            // so render the table name as plain text instead of a dead button
+            navigateToTable && isForeignTable && tableId !== currentTableId
+              ? () => navigateToTable(tableId)
               : undefined
           }
           onClose={onClose}

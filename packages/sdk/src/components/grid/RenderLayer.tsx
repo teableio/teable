@@ -35,6 +35,7 @@ export interface IRenderLayerProps extends Pick<
   | 'rowIndexVisible'
   | 'searchCursor'
   | 'searchHitIndex'
+  | 'highlightedRowIndex'
   | 'collaborators'
   | 'columnHeaderHeight'
   | 'isMultiSelectionEnable'
@@ -83,6 +84,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     collaborators,
     searchCursor,
     searchHitIndex,
+    highlightedRowIndex,
     dragState,
     scrollState,
     columnFreezeState,
@@ -164,6 +166,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       collaborators,
       searchCursor,
       searchHitIndex,
+      highlightedRowIndex,
       dragState,
       scrollState,
       columnFreezeState,
@@ -211,6 +214,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     collaborators,
     searchCursor,
     searchHitIndex,
+    highlightedRowIndex,
     dragState,
     mouseState,
     scrollState,

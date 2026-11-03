@@ -1,7 +1,7 @@
 import { getActionTriggerChannel } from '@teable/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
-import { useConnection } from './use-connection';
+import { usePresenceConnection } from './use-presence-connection';
 
 export interface IActionData {
   actionKey: string;
@@ -9,7 +9,7 @@ export interface IActionData {
 }
 
 export const usePresence = (channel: string | undefined) => {
-  const { connection } = useConnection();
+  const connection = usePresenceConnection();
   const [presence, setPresence] = useState<Presence>();
   const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 

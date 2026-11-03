@@ -11,13 +11,12 @@ import {
 } from '@teable/v2-core';
 import {
   assertDataQueryAccess,
+  dataQueryAccessForSource,
   DataQueryBinding,
-  DataQueryRelationBinding,
   isBoundDataQuery,
   traceDataQueryStage,
   validateDataQueryFilter,
   type BoundDataQuery,
-  type DataQueryAggregate,
   type DataQueryBucket,
   type DataQueryRelationAggregate,
   type DataQueryRelationLinkStorage,
@@ -157,21 +156,35 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     this.statementTimeoutMs = Math.ceil(timeout);
   }
 
+  private prepareBinding(
+    table: ITableReadModel,
+    query: BoundDataQuery,
+    binding?: DataQueryBinding
+  ): Result<DataQueryBinding, DomainError> {
+    return binding ? ok(binding) : DataQueryBinding.prepare(query.validatedDefinition, table);
+  }
+
   /** Diagnostic output only: execute never accepts a compiled statement. */
   compile(
     context: IExecutionContext,
     table: ITableReadModel,
     query: BoundDataQuery,
-    scope: RecordQueryPluginScope
+    scope: RecordQueryPluginScope,
+    binding?: DataQueryBinding
   ): Result<CompiledQuery<Row>, DomainError> {
-    return this.buildQueries(context, table, query, scope).map((queries) => queries.rows);
+    const prepared = this.prepareBinding(table, query, binding);
+    if (prepared.isErr()) return err(prepared.error);
+    return this.buildQueries(context, table, query, scope, prepared.value).map(
+      (queries) => queries.rows
+    );
   }
 
   private buildQueries(
     context: IExecutionContext,
     table: ITableReadModel,
     query: BoundDataQuery,
-    scope: RecordQueryPluginScope
+    scope: RecordQueryPluginScope,
+    binding: DataQueryBinding
   ): Result<
     {
       rows: CompiledQuery<Row>;
@@ -186,9 +199,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         if (!isBoundDataQuery(query)) {
           return err(failure('invalid_bound_query', 'Query must be bound by DataQueryDefinition'));
         }
-        const definition = query.validatedDefinition;
-        const binding = yield* DataQueryBinding.prepare(definition, table);
-        yield* assertDataQueryAccess(binding, scope);
+        const plan = binding.plan;
+        yield* assertDataQueryAccess(plan, scope);
         yield* validateDataQueryFilter(table, query.filter);
         if (
           !Number.isInteger(query.limit) ||
@@ -199,16 +211,18 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         ) {
           return err(failure('invalid_bound_query', 'Invalid bound query page'));
         }
-        const snapshot = definition.snapshot();
-        const tableName = yield* (yield* table.dbTableName()).split({ defaultSchema: 'public' });
+        const tableName = plan.root.physical;
         const fields = new Map<string, Field>();
         const columns = new Map<string, string>();
-        for (const dependency of binding.dependencies) {
+        for (const planned of plan.root.fields) {
           const field = yield* table.getField(
-            (candidate) => candidate.id().toString() === dependency.fieldId
+            (candidate) => candidate.id().toString() === planned.fieldId
           );
-          fields.set(dependency.fieldId, field);
-          columns.set(dependency.fieldId, yield* (yield* field.dbFieldName()).value());
+          if (planned.column === null) {
+            return err(failure('field_physical', 'A query field has no physical column'));
+          }
+          fields.set(planned.fieldId, field);
+          columns.set(planned.fieldId, planned.column);
         }
         const maskIds = new Set<string>();
         for (const mask of scope.fieldMasks ?? []) {
@@ -272,23 +286,21 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                   : sql`${expression} desc`
           );
         };
-        if (snapshot.kind === 'records') {
-          if (snapshot.select.some((projection) => 'statisticFunc' in projection)) {
+        if (plan.kind === 'records') {
+          if (plan.projections.some((projection) => projection.kind === 'aggregate')) {
             return err(
               failure('join_version', 'Relation aggregates require a relation execution plan')
             );
           }
-          const selections = snapshot.select.map((projection) => {
-            if ('system' in projection) {
-              return sql`${sql.id('t', systemColumns[projection.system])} as ${sql.id(
-                projection.alias
-              )}`;
+          const selections = plan.projections.map((projection) => {
+            if (projection.kind === 'system') {
+              return sql`${sql.id('t', projection.column)} as ${sql.id(projection.alias)}`;
             }
-            if ('statisticFunc' in projection || !('fieldId' in projection))
+            if (projection.kind !== 'field' || projection.column === null)
               throw new Error('Missing field projection');
             const stored = values.get(projection.fieldId)!;
             const expression =
-              'bucket' in projection && projection.bucket !== undefined
+              projection.bucket !== undefined
                 ? // Teable stores every date cell as an instant (timestamptz), even
                   // when the view formats it as a date; convert through the declared zone.
                   buildBucketExpression(stored, projection.bucket)
@@ -342,19 +354,21 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           });
         }
 
-        const rootAggregates: DataQueryAggregate[] = [];
-        for (const aggregate of snapshot.aggregates) {
-          if ('source' in aggregate) {
+        const rootAggregates = plan.aggregates;
+        for (const aggregate of rootAggregates) {
+          if (aggregate.source !== 'root') {
             return err(
               failure('invalid_relation_plan', 'A relation metric requires the relation executor')
             );
           }
-          rootAggregates.push(aggregate);
+          if (aggregate.fieldId === undefined) {
+            return err(failure('invalid_relation_plan', 'A root aggregate requires a field'));
+          }
         }
         const sourceIds = [
           ...new Set([
-            ...rootAggregates.map((aggregate) => aggregate.fieldId),
-            ...(snapshot.groupBy ?? []).map((group) => group.fieldId),
+            ...rootAggregates.map((aggregate) => aggregate.fieldId!),
+            ...plan.groupBy.map((group) => group.fieldId),
           ]),
         ];
         // Field projections used by aggregates/groups, plus a private column for each
@@ -375,8 +389,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           return sql`${expression} as ${sql.id(id)}`;
         });
         const bucketColumns = new Map<string, string>();
-        for (const [index, group] of (snapshot.groupBy ?? []).entries()) {
-          const bucket = 'bucket' in group ? group.bucket : undefined;
+        for (const [index, group] of plan.groupBy.entries()) {
+          const bucket = group.bucket;
           if (bucket === undefined) continue;
           const privateName = `__bucket_${index}`;
           bucketColumns.set(group.alias, privateName);
@@ -391,14 +405,14 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         const selections = rootAggregates.map(
           (aggregate) =>
             sql`${buildTableRecordAggregationExpression(
-              fields.get(aggregate.fieldId)!,
-              aggregate.fieldId,
+              fields.get(aggregate.fieldId!)!,
+              aggregate.fieldId!,
               aggregate.statisticFunc
             )} as ${sql.id(aggregate.alias)}`
         );
         const groups = new Map<string, RawBuilder<unknown>>();
         const bucketGroupAliases = new Set<string>();
-        for (const group of snapshot.groupBy ?? []) {
+        for (const group of plan.groupBy) {
           const field = fields.get(group.fieldId)!;
           const column = sql.ref(`a.${group.fieldId}`);
           const bucketColumn = bucketColumns.get(group.alias);
@@ -422,13 +436,13 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           groupOrders.flatMap((sort) => {
             if ('fieldId' in sort) return [sort.fieldId];
             if ('alias' in sort) {
-              const group = snapshot.groupBy?.find((candidate) => candidate.alias === sort.alias);
+              const group = plan.groupBy.find((candidate) => candidate.alias === sort.alias);
               return group ? [group.fieldId] : [];
             }
             return [];
           })
         );
-        for (const group of snapshot.groupBy ?? []) {
+        for (const group of plan.groupBy) {
           if (orderedIds.has(group.fieldId)) continue;
           groupOrders.push(
             bucketGroupAliases.has(group.alias)
@@ -447,10 +461,9 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           }
           const group =
             'fieldId' in sort
-              ? snapshot.groupBy?.find(
+              ? plan.groupBy.find(
                   (candidate) =>
-                    candidate.fieldId === sort.fieldId &&
-                    !('bucket' in candidate && candidate.bucket !== undefined)
+                    candidate.fieldId === sort.fieldId && candidate.bucket === undefined
                 )
               : undefined;
           const expression = group === undefined ? undefined : groups.get(`group:${group.alias}`);
@@ -536,40 +549,35 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         if (!isBoundDataQuery(plan.query)) {
           return err(failure('invalid_bound_query', 'Query must be bound by DataQueryDefinition'));
         }
-        const relationDefinition = plan.query.definition;
-        if (relationDefinition.kind !== 'records' && relationDefinition.kind !== 'aggregate') {
+        const boundPlan = plan.plan;
+        if (boundPlan.kind !== 'records' && boundPlan.kind !== 'aggregate') {
           return err(
             failure('invalid_relation_plan', 'Relation execution requires records or aggregate')
           );
         }
-        const targetTables = new Map(plan.sources.map((source) => [source.alias, source.table]));
-        const binding = yield* DataQueryRelationBinding.prepare(
-          plan.definition,
-          plan.rootTable,
-          targetTables
-        );
         const sourcePlans = new Map(plan.sources.map((source) => [source.alias, source]));
-        if (sourcePlans.size !== binding.sources.length) {
+        if (sourcePlans.size !== boundPlan.sources.length) {
           return err(failure('invalid_relation_plan', 'Relation plan is incomplete'));
         }
         // Public relation aliases are arbitrary strings (long, dotted, unicode). They are
         // never SQL identifiers: a private per-source alias keeps PostgreSQL identifier
         // limits and quoting rules out of the public contract.
         const sqlAliases = new Map(
-          binding.sources.map((source, index) => [source.alias, `relation_${index}`])
+          boundPlan.sources.map((source, index) => [source.alias, `relation_${index}`])
         );
-        yield* assertDataQueryAccess({ dependencies: binding.rootDependencies }, plan.rootScope);
-        for (const source of binding.sources) {
+        yield* assertDataQueryAccess(dataQueryAccessForSource(boundPlan, 'root'), plan.rootScope);
+        for (const source of boundPlan.sources) {
           const sourcePlan = sourcePlans.get(source.alias);
           if (!sourcePlan) {
             return err(failure('invalid_relation_plan', 'A relation scope is missing'));
           }
-          yield* assertDataQueryAccess({ dependencies: source.dependencies }, sourcePlan.scope);
+          yield* assertDataQueryAccess(
+            dataQueryAccessForSource(boundPlan, source.alias),
+            sourcePlan.scope
+          );
         }
         yield* validateDataQueryFilter(plan.rootTable, plan.query.filter);
-        const rootName = yield* (yield* plan.rootTable.dbTableName()).split({
-          defaultSchema: 'public',
-        });
+        const rootName = boundPlan.root.physical;
         // `root` is reserved for the public root source, so a declared relation alias
         // can never shadow the internal root alias.
         const rootAlias = 'root';
@@ -579,12 +587,15 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
 
         const rootFields = new Map<string, Field>();
         const rootColumns = new Map<string, string>();
-        for (const dependency of binding.rootDependencies) {
+        for (const planned of boundPlan.root.fields) {
           const field = yield* plan.rootTable.getField(
-            (candidate) => candidate.id().toString() === dependency.fieldId
+            (candidate) => candidate.id().toString() === planned.fieldId
           );
-          rootFields.set(dependency.fieldId, field);
-          rootColumns.set(dependency.fieldId, yield* (yield* field.dbFieldName()).value());
+          if (planned.column === null) {
+            return err(failure('field_physical', 'A query field has no physical column'));
+          }
+          rootFields.set(planned.fieldId, field);
+          rootColumns.set(planned.fieldId, planned.column);
         }
         const rootMasks = yield* buildFieldMaskSqlMap(plan.rootScope.fieldMasks, rootAlias);
         const rootVisitor = new StoredFieldSelectVisitor(rootAlias);
@@ -596,33 +607,36 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           rootValues.set(id, mask ? maskValueExpression(mask, expression) : expression);
         }
 
-        const relationMetrics: DataQueryRelationAggregate[] =
-          relationDefinition.kind === 'records'
-            ? relationDefinition.select.filter(
-                (projection): projection is DataQueryRelationAggregate =>
-                  'statisticFunc' in projection
-              )
-            : relationDefinition.aggregates.filter(
-                (aggregate): aggregate is DataQueryRelationAggregate => 'source' in aggregate
-              );
+        type BoundMetric = {
+          readonly source: string;
+          readonly alias: string;
+          readonly statisticFunc: DataQueryRelationAggregate['statisticFunc'];
+          readonly fieldId?: string;
+          readonly column: string | null;
+        };
+        const relationMetrics = (
+          boundPlan.kind === 'records'
+            ? boundPlan.projections.filter((projection) => projection.kind === 'aggregate')
+            : boundPlan.aggregates.filter((aggregate) => aggregate.source !== 'root')
+        ) as BoundMetric[];
         // Group-level averages need both components per root; the hidden column
         // names are index-based so a long public alias cannot exceed PG limits.
         const metricOrder = new Map(
           relationMetrics.map((metric, index) => [metric.alias, index] as const)
         );
-        const metricValueAlias = (metric: DataQueryRelationAggregate): string =>
+        const metricValueAlias = (metric: BoundMetric): string =>
           `metric_${metricOrder.get(metric.alias)}_value`;
-        const metricSumAlias = (metric: DataQueryRelationAggregate): string =>
+        const metricSumAlias = (metric: BoundMetric): string =>
           `metric_${metricOrder.get(metric.alias)}_sum`;
-        const metricCountAlias = (metric: DataQueryRelationAggregate): string =>
+        const metricCountAlias = (metric: BoundMetric): string =>
           `metric_${metricOrder.get(metric.alias)}_count`;
-        const metricsBySource = new Map<string, DataQueryRelationAggregate[]>();
+        const metricsBySource = new Map<string, BoundMetric[]>();
         for (const metric of relationMetrics) {
           const metrics = metricsBySource.get(metric.source) ?? [];
           metrics.push(metric);
           metricsBySource.set(metric.source, metrics);
         }
-        const grouped = relationDefinition.kind === 'aggregate';
+        const grouped = boundPlan.kind === 'aggregate';
 
         type SqlSource = {
           readonly alias: string;
@@ -641,23 +655,24 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           readonly restrictions: RawBuilder<unknown>[];
         };
         const sqlSources: SqlSource[] = [];
-        for (const source of binding.sources) {
+        for (const source of boundPlan.sources) {
           const sourcePlan = sourcePlans.get(source.alias)!;
           const sqlAlias = sqlAliases.get(source.alias)!;
-          const name = yield* (yield* sourcePlan.table.dbTableName()).split({
-            defaultSchema: 'public',
-          });
+          const name = source.physical;
           const from = name.schema
             ? sql`${sql.id(name.schema, name.tableName)} as ${sql.id(sqlAlias)}`
             : sql`${sql.id(name.tableName)} as ${sql.id(sqlAlias)}`;
           const fields = new Map<string, Field>();
           const columns = new Map<string, string>();
-          for (const dependency of source.dependencies) {
+          for (const planned of source.fields) {
             const field = yield* sourcePlan.table.getField(
-              (candidate) => candidate.id().toString() === dependency.fieldId
+              (candidate) => candidate.id().toString() === planned.fieldId
             );
-            fields.set(dependency.fieldId, field);
-            columns.set(dependency.fieldId, yield* (yield* field.dbFieldName()).value());
+            if (planned.column === null) {
+              return err(failure('field_physical', 'A query field has no physical column'));
+            }
+            fields.set(planned.fieldId, field);
+            columns.set(planned.fieldId, planned.column);
           }
           const masks = yield* buildFieldMaskSqlMap(sourcePlan.scope.fieldMasks, sqlAlias);
           const visitor = new StoredFieldSelectVisitor(sqlAlias);
@@ -691,6 +706,13 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 tableAlias: sqlAlias,
               })
             : undefined;
+          if (
+            source.linkFieldId === undefined ||
+            source.link === undefined ||
+            source.parentAlias === undefined
+          ) {
+            return err(failure('join_storage', 'A relation source has no link storage'));
+          }
           // A masked link edge must not reveal membership. The mask belongs to the
           // table that hosts the link (root for the first hop, the parent alias after).
           const parentMasks =
@@ -709,7 +731,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             from,
             parentAlias: source.parentAlias,
             linkFieldId: source.linkFieldId,
-            linkStorage: source.linkStorage,
+            linkStorage: source.link,
             fields,
             columns,
             values,
@@ -906,22 +928,18 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         }
         const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
 
-        if (relationDefinition.kind === 'aggregate') {
-          const groupSource = (group: object): string => {
-            if ('source' in group && typeof group.source === 'string') return group.source;
-            return rootAlias;
-          };
+        if (boundPlan.kind === 'aggregate') {
           const innerSelections: RawBuilder<unknown>[] = [];
           const rootInnerAlias = (fieldId: string) => `root__${fieldId}`;
           const sourceInnerAlias = (index: number, fieldId: string) =>
             `source_${index}__${fieldId}`;
-          const rootAggregates = relationDefinition.aggregates.filter(
-            (aggregate): aggregate is DataQueryAggregate => !('source' in aggregate)
+          const rootAggregates = boundPlan.aggregates.filter(
+            (aggregate) => aggregate.source === 'root'
           );
           const rootIds = new Set<string>([
-            ...rootAggregates.map((aggregate) => aggregate.fieldId),
-            ...(relationDefinition.groupBy ?? [])
-              .filter((group) => groupSource(group) === rootAlias)
+            ...rootAggregates.map((aggregate) => aggregate.fieldId!),
+            ...boundPlan.groupBy
+              .filter((group) => group.source === 'root')
               .map((group) => group.fieldId),
           ]);
           for (const fieldId of rootIds) {
@@ -934,8 +952,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           for (const [alias, index] of sourceIndexByAlias) {
             const source = sqlSources[index];
             const fieldIds = new Set(
-              (relationDefinition.groupBy ?? [])
-                .filter((group) => groupSource(group) === alias)
+              boundPlan.groupBy
+                .filter((group) => group.source === alias)
                 .map((group) => group.fieldId)
             );
             for (const fieldId of fieldIds) {
@@ -951,10 +969,10 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           // Bucket expressions become private inner columns so GROUP BY never
           // references a public alias that could shadow an input column.
           const bucketColumns = new Map<string, string>();
-          for (const [index, group] of (relationDefinition.groupBy ?? []).entries()) {
-            const bucket = 'bucket' in group ? group.bucket : undefined;
+          for (const [index, group] of boundPlan.groupBy.entries()) {
+            const bucket = group.bucket;
             if (bucket === undefined) continue;
-            const source = groupSource(group);
+            const source = group.source;
             const position = source === rootAlias ? undefined : sourceIndexByAlias.get(source);
             if (source !== rootAlias && position === undefined) {
               return err(failure('invalid_relation_plan', 'A group source is missing'));
@@ -999,8 +1017,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           const inner = sql`select ${sql.join([...innerSelections, ...metricSelections])} from ${rootFrom}
             ${sql.join([...joins, ...manyLaterals], sql` `)} ${where}`;
           const selections: RawBuilder<unknown>[] = [];
-          for (const aggregate of relationDefinition.aggregates) {
-            if ('source' in aggregate) {
+          for (const aggregate of boundPlan.aggregates) {
+            if (aggregate.source !== 'root') {
               if (!aggregateAliases.has(aggregate.source)) {
                 return err(failure('invalid_relation_plan', 'A relation metric has no branch'));
               }
@@ -1021,9 +1039,9 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 case 'average':
                   // Weighted mean over every related value in the group.
                   selections.push(
-                    sql`sum(${sql.id('b', metricSumAlias(aggregate))}) / nullif(sum(${sql.id(
+                    sql`sum(${sql.id('b', metricSumAlias(aggregate as BoundMetric))}) / nullif(sum(${sql.id(
                       'b',
-                      metricCountAlias(aggregate)
+                      metricCountAlias(aggregate as BoundMetric)
                     )}), 0) as ${sql.id(aggregate.alias)}`
                   );
                   break;
@@ -1033,6 +1051,9 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                   );
               }
               continue;
+            }
+            if (aggregate.fieldId === undefined) {
+              return err(failure('invalid_relation_plan', 'A root aggregate requires a field'));
             }
             const field = rootFields.get(aggregate.fieldId);
             if (!field) {
@@ -1048,8 +1069,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             );
           }
           const groups = new Map<string, RawBuilder<unknown>>();
-          for (const group of relationDefinition.groupBy ?? []) {
-            const source = groupSource(group);
+          for (const group of boundPlan.groupBy) {
+            const source = group.source;
             const sourcePosition =
               source === rootAlias ? undefined : sourceIndexByAlias.get(source);
             if (source !== rootAlias && sourcePosition === undefined) {
@@ -1108,11 +1129,11 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             if (!('fieldId' in sort) || 'source' in sort) {
               return err(failure('invalid_sort', 'Aggregate sorting must use a group alias'));
             }
-            const group = (relationDefinition.groupBy ?? []).find(
+            const group = boundPlan.groupBy.find(
               (candidate) =>
-                groupSource(candidate) === rootAlias &&
+                candidate.source === rootAlias &&
                 candidate.fieldId === sort.fieldId &&
-                (!('bucket' in candidate) || candidate.bucket === undefined)
+                candidate.bucket === undefined
             );
             const field = rootFields.get(sort.fieldId);
             const expression = group === undefined ? undefined : groups.get(`group:${group.alias}`);
@@ -1132,7 +1153,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               addOrder(clause.expression, clause.direction, index === 0 ? sort.nulls : undefined)
             );
           }
-          for (const group of relationDefinition.groupBy ?? []) {
+          for (const group of boundPlan.groupBy) {
             if (
               !orders.length ||
               !plan.query.sort.some((sort) => 'alias' in sort && sort.alias === group.alias)
@@ -1160,27 +1181,26 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           return ok({ rows, count });
         }
 
-        const selections = relationDefinition.select.map((projection) => {
-          if ('statisticFunc' in projection) {
+        const selections = boundPlan.projections.map((projection) => {
+          if (projection.kind === 'aggregate') {
             const aggregateAlias = aggregateAliases.get(projection.source);
             if (!aggregateAlias) throw new Error('Missing relation aggregate source');
             return sql`${sql.id(aggregateAlias, projection.alias)} as ${sql.id(projection.alias)}`;
           }
-          const source = 'source' in projection ? projection.source : undefined;
-          const sqlAlias =
-            source === undefined || source === 'root' ? rootAlias : sqlAliases.get(source)!;
-          if ('system' in projection) {
-            const expression = sql`${sql.id(sqlAlias, systemColumns[projection.system])}`;
+          const source = projection.source;
+          const sqlAlias = source === 'root' ? rootAlias : sqlAliases.get(source)!;
+          if (projection.kind === 'system') {
+            const expression = sql`${sql.id(sqlAlias, projection.column)}`;
             return sql`${expression} as ${sql.id(projection.alias)}`;
           }
           const values =
-            source === undefined || source === 'root'
+            source === 'root'
               ? rootValues
               : sqlSources.find((candidate) => candidate.alias === source)?.values;
           const stored = values?.get(projection.fieldId);
-          if (!stored) throw new Error('Missing relation projection');
+          if (!stored || projection.column === null) throw new Error('Missing relation projection');
           const expression =
-            'bucket' in projection && projection.bucket !== undefined
+            projection.bucket !== undefined
               ? buildBucketExpression(stored, projection.bucket)
               : stored;
           return sql`${
@@ -1324,7 +1344,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         {
           'teable.component': 'repository',
           'teable.table_id': plan.rootTable.id().toString(),
-          'teable.data_query.kind': plan.query.definition.kind,
+          'teable.data_query.kind': plan.plan.kind,
           'teable.data_query.relation_count': plan.sources.length,
           'teable.data_query.limit': plan.query.limit,
           'teable.data_query.offset': plan.query.offset,
@@ -1387,15 +1407,12 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         );
       }
       const statistics = new Map(
-        plan.query.definition.kind === 'records'
-          ? plan.query.definition.select
-              .filter(
-                (projection): projection is DataQueryRelationAggregate =>
-                  'statisticFunc' in projection
-              )
+        plan.plan.kind === 'records'
+          ? plan.plan.projections
+              .filter((projection) => projection.kind === 'aggregate')
               .map((projection) => [projection.alias, projection.statisticFunc] as const)
-          : plan.query.definition.kind === 'aggregate'
-            ? plan.query.definition.aggregates.map(
+          : plan.plan.kind === 'aggregate'
+            ? plan.plan.aggregates.map(
                 (aggregate) => [aggregate.alias, aggregate.statisticFunc] as const
               )
             : []
@@ -1426,13 +1443,17 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     context: IExecutionContext,
     table: Table,
     query: BoundDataQuery,
-    scope: RecordQueryPluginScope
+    scope: RecordQueryPluginScope,
+    binding?: DataQueryBinding
   ): Promise<Result<DataQueryResult, DomainError>> {
+    const prepared = this.prepareBinding(table, query, binding);
+    if (prepared.isErr()) return err(prepared.error);
+    const bound = prepared.value;
     const compiled = await traceDataQueryStage(
       context,
       'compile',
       { 'teable.component': 'repository' },
-      async () => this.buildQueries(context, table, query, scope)
+      async () => this.buildQueries(context, table, query, scope, bound)
     );
     if (compiled.isErr()) return err(compiled.error);
     try {
@@ -1442,7 +1463,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         {
           'teable.component': 'repository',
           'teable.table_id': table.id().toString(),
-          'teable.data_query.kind': query.definition.kind,
+          'teable.data_query.kind': bound.plan.kind,
           'teable.data_query.limit': query.limit,
           'teable.data_query.offset': query.offset,
           ...(query.includeTotal ? { 'teable.data_query.include_total': true } : {}),
@@ -1507,9 +1528,11 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         );
       }
       const aggregates = new Map(
-        (query.definition.kind === 'aggregate' ? query.definition.aggregates : []).map(
-          (aggregate) => [aggregate.alias, aggregate.statisticFunc]
-        )
+        bound.plan.kind === 'aggregate'
+          ? bound.plan.aggregates.map(
+              (aggregate) => [aggregate.alias, aggregate.statisticFunc] as const
+            )
+          : []
       );
       return ok({
         rows: pages.rows.map((row) => {

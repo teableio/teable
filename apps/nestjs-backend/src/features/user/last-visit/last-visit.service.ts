@@ -12,6 +12,7 @@ import type {
   IUserLastVisitMapVo,
   IUserLastVisitVo,
   IUserLastVisitBaseNodeVo,
+  IUserLastVisitListBaseNodeVo,
 } from '@teable/openapi';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -35,6 +36,21 @@ import { LastVisitUpdateEvent } from '../../../event-emitter/events/last-visit/l
 import type { IClsStore } from '../../../types/cls';
 import { mergeBaseVisitRows } from './merge-base-visit-rows';
 
+/** The node types a project's tree lists; their visits are kept per project. */
+const BASE_NODE_VISIT_TYPES: string[] = [
+  LastVisitResourceType.Table,
+  LastVisitResourceType.Dashboard,
+  LastVisitResourceType.Workflow,
+  LastVisitResourceType.App,
+  LastVisitResourceType.Routine,
+];
+
+/**
+ * Visits kept per project and node type: enough for the project's recently opened list (six
+ * nodes) to fill with a single kind.
+ */
+const RECENT_BASE_NODE_VISITS = 6;
+
 @Injectable()
 export class LastVisitService {
   constructor(
@@ -52,15 +68,7 @@ export class LastVisitService {
       where: {
         userId,
         parentResourceId: params.parentResourceId,
-        resourceType: {
-          in: [
-            LastVisitResourceType.Table,
-            LastVisitResourceType.Dashboard,
-            LastVisitResourceType.Workflow,
-            LastVisitResourceType.App,
-            LastVisitResourceType.Routine,
-          ],
-        },
+        resourceType: { in: BASE_NODE_VISIT_TYPES },
       },
       orderBy: {
         lastVisitTime: 'desc',
@@ -83,6 +91,28 @@ export class LastVisitService {
   }
 
   /**
+   * The caller's visited nodes in a project, newest first: up to RECENT_BASE_NODE_VISITS of each
+   * node type. Rows of deleted nodes go with their delete events; callers drop the ones the
+   * reader can no longer open.
+   */
+  async listUserLastVisitBaseNode(
+    userId: string,
+    parentResourceId: string
+  ): Promise<IUserLastVisitListBaseNodeVo> {
+    const visits = await this.prismaService.userLastVisit.findMany({
+      where: { userId, parentResourceId, resourceType: { in: BASE_NODE_VISIT_TYPES } },
+      orderBy: { lastVisitTime: 'desc' },
+      select: { resourceId: true, resourceType: true, lastVisitTime: true },
+    });
+    const list = visits.map((visit) => ({
+      resourceId: visit.resourceId,
+      resourceType: visit.resourceType as LastVisitResourceType,
+      lastVisitTime: visit.lastVisitTime.toISOString(),
+    }));
+    return { total: list.length, list };
+  }
+
+  /**
    * The entry URL of each given base, resolved purely from the user's own
    * visit history — so a base-list click can navigate straight to
    * /base/{id}/table/{tableId}/{viewId} instead of paying the /base/{id}
@@ -101,21 +131,13 @@ export class LastVisitService {
 
     // Latest visited node per base (newest first, pick first occurrence);
     // only table nodes proceed — matching what the redirect chain would pick.
-    // Visit rows are pruned to one per (base, type). The userId filter keeps
-    // this to the caller's own history only.
+    // Visit rows are pruned to RECENT_BASE_NODE_VISITS per (base, type). The
+    // userId filter keeps this to the caller's own history only.
     const nodeVisits = await this.prismaService.userLastVisit.findMany({
       where: {
         userId,
         parentResourceId: { in: baseIds },
-        resourceType: {
-          in: [
-            LastVisitResourceType.Table,
-            LastVisitResourceType.Dashboard,
-            LastVisitResourceType.Workflow,
-            LastVisitResourceType.App,
-            LastVisitResourceType.Routine,
-          ],
-        },
+        resourceType: { in: BASE_NODE_VISIT_TYPES },
       },
       orderBy: { lastVisitTime: 'desc' },
       select: { parentResourceId: true, resourceId: true, resourceType: true },
@@ -302,6 +324,7 @@ export class LastVisitService {
           .where('ulv.user_id', userId)
           .where('ulv.resource_type', LastVisitResourceType.Table)
           .where('ulv.parent_resource_id', baseId)
+          .orderBy('ulv.last_visit_time', 'desc')
           .limit(1);
       })
       .select({
@@ -471,6 +494,7 @@ export class LastVisitService {
       .where('ulv.resource_type', LastVisitResourceType.Dashboard)
       .where('ulv.parent_resource_id', parentResourceId)
       .whereNotNull('v.id')
+      .orderBy('ulv.last_visit_time', 'desc')
       .limit(1);
 
     const sql = query.toQuery();
@@ -515,6 +539,7 @@ export class LastVisitService {
       .where('ulv.resource_type', LastVisitResourceType.Workflow)
       .where('ulv.parent_resource_id', parentResourceId)
       .whereNotNull('v.id')
+      .orderBy('ulv.last_visit_time', 'desc')
       .limit(1)
       .toQuery();
 
@@ -563,6 +588,7 @@ export class LastVisitService {
       .where('ulv.resource_type', LastVisitResourceType.App)
       .where('ulv.parent_resource_id', parentResourceId)
       .whereNotNull('a.id')
+      .orderBy('ulv.last_visit_time', 'desc')
       .limit(1)
       .toQuery();
 
@@ -612,6 +638,7 @@ export class LastVisitService {
       .where('ulv.resource_type', LastVisitResourceType.Routine)
       .where('ulv.parent_resource_id', parentResourceId)
       .whereNotNull('r.id')
+      .orderBy('ulv.last_visit_time', 'desc')
       .limit(1)
       .toQuery();
 
@@ -771,7 +798,7 @@ export class LastVisitService {
       resourceType,
       resourceId,
       parentResourceId,
-      maxRecords: 1,
+      maxRecords: BASE_NODE_VISIT_TYPES.includes(resourceType) ? RECENT_BASE_NODE_VISITS : 1,
       maxKeys: ['parentResourceId'],
     });
 

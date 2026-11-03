@@ -55,7 +55,13 @@ export class FieldReferenceCompatibilityException extends CustomHttpException {
   constructor(sourceField: string, referenceField: string) {
     super(
       `Field '${referenceField}' is not compatible with '${sourceField}' for filter comparisons`,
-      HttpErrorCode.VALIDATION_ERROR
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.filter.fieldReferenceIncompatible',
+          context: { reference: referenceField, source: sourceField },
+        },
+      }
     );
   }
 }

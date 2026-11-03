@@ -1,13 +1,17 @@
-import { useIsMobile } from '@teable/sdk/hooks';
+import { TemplateListSort } from '@teable/openapi';
 import { cn } from '@teable/ui-lib/shadcn';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { CategoryMenu } from './CategoryMenu';
+import { TemplateHostContext } from './host-context';
 import { TemplateList } from './TemplateList';
 
 export interface ITemplateBaseProps {
   onClickUseTemplateHandler?: (templateId: string) => void;
   onClickTemplateCardHandler?: (template: string) => void;
 }
+
+/** Which slice of the catalogue the list shows: the host's default order, newest first, or the featured ones. */
+export type ITemplateListing = 'featured' | 'newest';
 
 interface ITemplateMainProps extends ITemplateBaseProps {
   currentCategoryId: string | null;
@@ -17,11 +21,9 @@ interface ITemplateMainProps extends ITemplateBaseProps {
   categoryHeaderRender?: () => React.ReactNode;
   className?: string;
   templateListClassName?: string;
-  disabledFeaturedToggle?: boolean;
 }
 
 export const TemplateMain = (props: ITemplateMainProps) => {
-  const isMobile = useIsMobile();
   const {
     currentCategoryId,
     search,
@@ -32,23 +34,17 @@ export const TemplateMain = (props: ITemplateMainProps) => {
     categoryHeaderRender,
     className,
     templateListClassName,
-    disabledFeaturedToggle = true,
   } = props;
-  const [isFeatured, setIsFeatured] = useState<boolean | undefined>(true);
+  const host = useContext(TemplateHostContext);
+  const [listing, setListing] = useState<ITemplateListing>('featured');
+  const sort = listing === 'newest' ? TemplateListSort.Newest : host.catalogSort;
   return (
-    <div
-      className={cn('flex flex-1 overflow-hidden', className, {
-        'flex-col': isMobile,
-      })}
-    >
+    <div className={cn('@container flex flex-1 flex-col overflow-hidden @5xl:flex-row', className)}>
       <CategoryMenu
         currentCategoryId={currentCategoryId}
         onCategoryChange={onCategoryChange}
         className={categoryMenuClassName}
         categoryHeaderRender={categoryHeaderRender}
-        isFeatured={isFeatured}
-        onFeaturedChange={setIsFeatured}
-        disabledFeaturedToggle={disabledFeaturedToggle}
       />
       <TemplateList
         currentCategoryId={currentCategoryId}
@@ -56,7 +52,10 @@ export const TemplateMain = (props: ITemplateMainProps) => {
         onClickUseTemplateHandler={onClickUseTemplateHandler}
         onClickTemplateCardHandler={onClickTemplateCardHandler}
         className={cn(templateListClassName, 'p-4 shrink-0 content-start')}
-        isFeatured={isFeatured}
+        isFeatured={listing === 'featured' ? true : undefined}
+        sort={sort}
+        listing={listing}
+        onListingChange={setListing}
       />
     </div>
   );

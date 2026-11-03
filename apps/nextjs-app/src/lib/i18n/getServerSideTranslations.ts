@@ -5,6 +5,7 @@
 import type { SSRConfig, UserConfig } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { I18nNamespace } from '@/lib/i18n/I18nNamespace.types';
+import { pruneFallbackI18nStore } from './pruneFallbackStore';
 
 export const getServerSideTranslations = async (
   locale: string,
@@ -14,5 +15,11 @@ export const getServerSideTranslations = async (
 ): Promise<SSRConfig> => {
   // Let serverSideTranslations auto-detect the nearest next-i18next.config.js
   // This allows EE apps to use their own config without explicitly passing it
-  return serverSideTranslations(locale, namespacesRequired, configOverride, extraLocales);
+  const ssrConfig = await serverSideTranslations(
+    locale,
+    namespacesRequired,
+    configOverride,
+    extraLocales
+  );
+  return pruneFallbackI18nStore(ssrConfig);
 };

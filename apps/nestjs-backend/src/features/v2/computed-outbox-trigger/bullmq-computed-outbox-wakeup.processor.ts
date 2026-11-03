@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { WorkerHost } from '@nestjs/bullmq';
 import {
   Inject,
   Logger,
@@ -10,6 +10,7 @@ import { createComputedOutboxWakeup } from '@teable/v2-adapter-table-repository-
 import { UnrecoverableError, type Job } from 'bullmq';
 
 import { resolveComputedOutboxWorkerConcurrency } from '../../../configs/computed-outbox-trigger.config';
+import { Processor } from '../../../utils/queue-processor';
 import { ComputedOutboxTriggerMetrics } from './computed-outbox-trigger.metrics';
 import type { ComputedOutboxWakeupHandlerOutcome } from './computed-outbox-wakeup.handler';
 import { ComputedOutboxWakeupHandler } from './computed-outbox-wakeup.handler';

@@ -400,6 +400,7 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   failFindOne: DomainError | undefined;
   findCalls = 0;
   findOneCalls = 0;
+  findOneContexts: IExecutionContext[] = [];
   findOneOptions: Array<
     Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'> | undefined
   > = [];
@@ -414,12 +415,13 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   }
 
   async findOne(
-    _: IExecutionContext,
+    context: IExecutionContext,
     __: Table,
     ___: RecordId,
     options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'>
   ): Promise<Result<TableRecordReadModel, DomainError>> {
     this.findOneCalls += 1;
+    this.findOneContexts.push(context);
     this.findOneOptions.push(options);
     if (this.failFindOne) return err(this.failFindOne);
     const record = this.records.shift() ?? this.record;
@@ -1329,10 +1331,20 @@ describe('UpdateRecordHandler', () => {
     expect(result._unsafeUnwrapErr().code).toBe('record.update_snapshot.unavailable');
   });
 
-  it('does not require an update snapshot when a stale no-op update was not persisted', async () => {
-    const { table, tableId, textFieldId } = buildTable();
+  it('returns the transaction-current resolved link after a concurrent stale no-op', async () => {
+    const { table, tableId, textFieldId, linkFieldId } = buildTableWithLink();
+    const preReadTargetId = `rec${'a'.repeat(16)}`;
+    const currentTargetId = `rec${'b'.repeat(16)}`;
+    const preReadLinkValue = [{ id: preReadTargetId, title: 'Target A' }];
+    const currentLinkValue = [{ id: currentTargetId, title: 'Target B' }];
+    const requestedLinkValue = [{ id: currentTargetId }];
     const recordResult = table
-      .createRecord(new Map([[textFieldId.toString(), 'Old Title']]))
+      .createRecord(
+        new Map([
+          [textFieldId.toString(), 'Old Title'],
+          [linkFieldId.toString(), preReadLinkValue],
+        ])
+      )
       ._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
@@ -1343,37 +1355,65 @@ describe('UpdateRecordHandler', () => {
     recordRepository.omitUpdateSnapshot = true;
     recordRepository.mutationApplied = false;
     const recordQueryRepository = new FakeTableRecordQueryRepository();
-    recordQueryRepository.record = {
-      id: recordResult.record.id().toString(),
-      fields: { [textFieldId.toString()]: 'Old Title' },
-      version: 1,
-    };
+    recordQueryRepository.records = [
+      {
+        id: recordResult.record.id().toString(),
+        fields: {
+          [textFieldId.toString()]: 'Old Title',
+          [linkFieldId.toString()]: preReadLinkValue,
+        },
+        version: 1,
+      },
+      {
+        id: recordResult.record.id().toString(),
+        fields: {
+          [textFieldId.toString()]: 'Old Title',
+          [linkFieldId.toString()]: currentLinkValue,
+        },
+        version: 2,
+      },
+    ];
 
     const eventBus = new FakeEventBus();
     const undoRedoService = new FakeUndoRedoService();
+    const unitOfWork = new FakeUnitOfWork();
     const handler = createHandler(
       tableQueryService,
       recordRepository,
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
-      createTableUpdateFlow(tableRepository, eventBus, new FakeUnitOfWork()),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
       undoRedoService as unknown as UndoRedoStackService,
-      new FakeUnitOfWork()
+      unitOfWork
     );
 
     const command = UpdateRecordCommand.create({
       tableId: tableId.toString(),
       recordId: recordResult.record.id().toString(),
-      fields: { [textFieldId.toString()]: 'New Title' },
+      fields: { [linkFieldId.toString()]: requestedLinkValue },
+      typecast: true,
     })._unsafeUnwrap();
 
     const result = await handler.handle(createContext(), command);
+    const returnedLinkValue = result._unsafeUnwrap().record.fields().get(linkFieldId)?.toValue();
 
-    expect(result.isOk()).toBe(true);
-    expect(eventBus.published.some(isRecordUpdatedEvent)).toBe(false);
+    expect(returnedLinkValue).toEqual(currentLinkValue);
+    expect(returnedLinkValue).not.toEqual(preReadLinkValue);
+    expect(returnedLinkValue).not.toEqual(requestedLinkValue);
+    expect(recordQueryRepository.findOneCalls).toBe(2);
+    expect(recordQueryRepository.findOneContexts[0]?.transaction).toBeUndefined();
+    expect(recordQueryRepository.findOneContexts[1]?.transaction?.kind).toBe(
+      'unitOfWorkTransaction'
+    );
+    expect(recordQueryRepository.findOneOptions).toEqual([
+      { mode: 'stored', includeOrders: true },
+      { mode: 'stored' },
+    ]);
+    expect(eventBus.published).toHaveLength(0);
     expect(undoRedoService.calls).toHaveLength(0);
+    expect(undoRedoService.entryCalls).toHaveLength(0);
   });
 
   it('event changes contain resolved values after typecast user field resolution', async () => {

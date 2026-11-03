@@ -53,4 +53,13 @@ export class NoopTableRecordQueryRepository implements ITableRecordCountQueryRep
   ): Promise<Result<number, DomainError>> {
     return ok(0);
   }
+
+  async countSearchMatches(
+    _context: IExecutionContext,
+    _table: Table,
+    _spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    _options: ITableRecordCountOptions
+  ): Promise<Result<number, DomainError>> {
+    return ok(0);
+  }
 }

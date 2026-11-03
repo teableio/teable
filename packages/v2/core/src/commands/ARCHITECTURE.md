@@ -29,6 +29,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `CreateTablesHandler.ts` - Role: command handler; Purpose: create multiple tables in one unit of work.
 - `CreateFieldCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for adding a field.
 - `CreateFieldHandler.ts` - Role: command handler; Purpose: update table meta/schema and publish events.
+- `CreateFieldsHandler.ts` - Role: batch field command handler; Purpose: resolve same-batch
+  dependencies, capture undo snapshots once with `captureMany` in creation order, and append one
+  undo/redo entry. Undo deletes in reverse creation order; redo restores snapshots in creation order.
 - `CreateRecordCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for creating a record.
 - `CreateRecordHandler.ts` - Role: command handler; Purpose: create record, persist, publish.
 - `CreateRecordsCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for batch record creation.

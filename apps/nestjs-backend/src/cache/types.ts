@@ -1,5 +1,5 @@
 import type { IColumnMeta, IFieldVo, IOtOperation, IViewPropertyKeys, IViewVo } from '@teable/core';
-import type { IRecord, MailType } from '@teable/openapi';
+import type { IRecord, MailType, PluginBaseAction } from '@teable/openapi';
 import type { ICellContext } from '../features/calculation/utils/changes';
 import type { IOpsMap } from '../features/calculation/utils/compose-maps';
 import type { ISendMailOptions } from '../features/mail-sender/mail-helpers';
@@ -430,6 +430,13 @@ export type IUndoRedoOperation =
 export interface IPluginAuthStore {
   baseId: string;
   pluginId: string;
+  // The user who minted the auth code, and the scopes that user could actually grant on
+  // the base at mint time. The token exchange is a public, session-less endpoint, so it
+  // cannot recompute the minter's permissions — it caps the issued scopes to this snapshot.
+  // Without it a base Viewer could mint a code and redeem it for write scopes seated as the
+  // plugin's higher-privileged bot user (privilege escalation).
+  userId: string;
+  scopes: PluginBaseAction[];
 }
 
 export interface ICollaboratorNotifyPending {

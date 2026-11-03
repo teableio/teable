@@ -44,6 +44,7 @@ export * from './record/computed/reliability/config';
 
 export {
   deleteAttachmentTableRefsByRecordIds,
+  deleteAttachmentTableRefsByFieldIds,
   listAttachmentTableRefs,
   listAttachmentTokensByTableIds,
   mergeAttachmentTableRefs,

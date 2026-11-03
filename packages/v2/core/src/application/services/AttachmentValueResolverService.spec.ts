@@ -169,7 +169,7 @@ describe('AttachmentValueResolverService', () => {
     expect(resolvedValue).toBeNull();
   });
 
-  it('resolves attachment ids when token is missing', async () => {
+  it('resolves attachment ids and omits unavailable dimensions when token is missing', async () => {
     const fieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
     const inputItem: AttachmentItem = {
       id: 'att-2',
@@ -212,5 +212,7 @@ describe('AttachmentValueResolverService', () => {
       size: 12,
       mimetype: 'text/plain',
     });
+    expect(resolvedItem).not.toHaveProperty('width');
+    expect(resolvedItem).not.toHaveProperty('height');
   });
 });
