@@ -2,6 +2,7 @@ import { computedReliabilitySchemaSql } from '@teable/v2-postgres-schema';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
+import { computedDeadLetterRecoveryGuardSchemaStatements } from '../deadLetterRecoveryGuardSchema';
 
 export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<void> => {
   await db.schema
@@ -415,6 +416,21 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     ])
     .execute();
 
+  // Match the production migrations, including when ensureSchema upgrades an
+  // existing fixture database whose original constraint admitted only three kinds.
+  // DROP and ADD are one ALTER, so no session sees the table without a kind
+  // constraint; NOT VALID keeps it catalog-only (no scan). Validation is a
+  // separate execute() and therefore a separate transaction on a non-transactional
+  // db, where it takes SHARE UPDATE EXCLUSIVE and does not block DML.
+  await sql`alter table computed_update_stage_ledger
+    drop constraint if exists computed_update_stage_ledger_kind_check,
+    add constraint computed_update_stage_ledger_kind_check check
+      (kind in ('excluded','frontier','consumed','rerun-source','rerun-input-v1')) not valid`.execute(
+    db
+  );
+  await sql`alter table computed_update_stage_ledger
+    validate constraint computed_update_stage_ledger_kind_check`.execute(db);
+
   await db.schema
     .createTable('computed_update_pause_scope')
     .ifNotExists()
@@ -473,10 +489,32 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull())
     .execute();
 
+  await db.schema
+    .createTable('computed_update_dead_letter_seed')
+    .ifNotExists()
+    .addColumn('task_id', 'text', (col) =>
+      col
+        .notNull()
+        .references('computed_update_dead_letter.id')
+        .onDelete('cascade')
+        .onUpdate('cascade')
+    )
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('record_id', 'text', (col) => col.notNull())
+    .addPrimaryKeyConstraint('computed_update_dead_letter_seed_pkey', [
+      'task_id',
+      'table_id',
+      'record_id',
+    ])
+    .execute();
+
   await sql`
     ALTER TABLE computed_update_dead_letter
     ADD COLUMN IF NOT EXISTS worker_lane text NOT NULL DEFAULT 'production'
   `.execute(db);
+  for (const statement of computedDeadLetterRecoveryGuardSchemaStatements) {
+    await sql.raw(statement).execute(db);
+  }
 
   await db.schema
     .createTable('computed_update_run_history')

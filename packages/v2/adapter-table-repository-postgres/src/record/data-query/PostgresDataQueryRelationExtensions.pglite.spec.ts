@@ -224,7 +224,6 @@ describe('Postgres relation aggregates and buckets on PGlite', () => {
     ]);
     const binding = DataQueryRelationBinding.prepare(definition, root, targets)._unsafeUnwrap();
     return {
-      definition,
       query: definition.bind({})._unsafeUnwrap(),
       rootTable: root,
       rootScope,
@@ -927,7 +926,6 @@ describe('Postgres relation aggregates and buckets on PGlite', () => {
       ._unsafeUnwrap();
 
     const result = await executor.executeRelation(context, {
-      definition,
       query,
       rootTable: root,
       rootScope: {},

@@ -25,6 +25,7 @@ import {
   initApp,
   createSpace,
   createBase,
+  permanentDeleteBase,
   permanentDeleteSpace,
   deleteSpace,
   deleteBase,
@@ -141,6 +142,161 @@ describe('Trash (e2e)', () => {
   afterAll(async () => {
     await app.close();
   });
+
+  type RoutedDataClient = {
+    $executeRawUnsafe(query: string, ...values: unknown[]): PromiseLike<number>;
+    $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): PromiseLike<T>;
+  };
+
+  const insertVersionedArchive = async (
+    client: RoutedDataClient,
+    input: { taskId: string; baseId: string; seedTableId: string; recordId: string }
+  ) => {
+    const { taskId, baseId, seedTableId, recordId } = input;
+    await client.$executeRawUnsafe(
+      `insert into computed_update_dead_letter
+        (id,worker_lane,base_id,seed_table_id,seed_record_ids,change_type,steps,edges,status,
+         attempts,max_attempts,next_run_at,estimated_complexity,plan_hash,dirty_stats,run_id,
+         origin_run_ids,run_total_steps,run_completed_steps_before,affected_table_ids,
+         affected_field_ids,stage_depth,failed_at,created_at,updated_at)
+       values($1,'production',$2,$3,null,'update','[]'::jsonb,'[]'::jsonb,'dead',1,8,now(),1,$1,
+         '{"rerunInputs":{"version":1,"complete":true,"seedCount":"1"}}'::jsonb,$1,
+         array[$1],0,0,array[$3],array[]::text[],0,now(),now(),now())`,
+      taskId,
+      baseId,
+      seedTableId
+    );
+    await client.$executeRawUnsafe(
+      `insert into computed_update_dead_letter_seed(task_id,table_id,record_id)
+       values($1,$2,$3)`,
+      taskId,
+      seedTableId,
+      recordId
+    );
+  };
+
+  const readArchiveFamilyCounts = async (
+    client: RoutedDataClient,
+    removedTaskIds: string[],
+    retainedTaskIds: string[]
+  ) => {
+    const rows = await client.$queryRawUnsafe<
+      Array<{
+        removedArchives: number;
+        removedChildren: number;
+        retainedArchives: number;
+        retainedChildren: number;
+      }>
+    >(
+      `select
+        (select count(*)::int from computed_update_dead_letter where id=any($1::text[])) as "removedArchives",
+        (select count(*)::int from computed_update_dead_letter_seed where task_id=any($1::text[])) as "removedChildren",
+        (select count(*)::int from computed_update_dead_letter where id=any($2::text[])) as "retainedArchives",
+        (select count(*)::int from computed_update_dead_letter_seed where task_id=any($2::text[])) as "retainedChildren"`,
+      removedTaskIds,
+      retainedTaskIds
+    );
+    return rows[0];
+  };
+
+  const discardArchiveFixtures = async (client: RoutedDataClient, taskIds: string[]) => {
+    await client.$queryRawUnsafe('select computed_outbox_discard_existing($1::text[])', taskIds);
+  };
+
+  const pendingPauseScopeId = (taskId: string) => `cup-pending-${taskId}`;
+
+  const insertPendingOutboxTask = async (
+    client: RoutedDataClient,
+    input: { taskId: string; baseId: string; seedTableId: string }
+  ) => {
+    const { taskId, baseId, seedTableId } = input;
+    // The orphan redrive makes a long-pending row due again. The active table pause
+    // keeps this fixture unclaimable for the whole assertion window, so the test
+    // observes the rows it inserted instead of a claim/redrive racing the check.
+    await client.$executeRawUnsafe(
+      `insert into computed_update_pause_scope (id, scope_type, scope_id, resume_at, updated_at)
+       values ($1, 'table', $2, null, now())`,
+      pendingPauseScopeId(taskId),
+      seedTableId
+    );
+    await client.$executeRawUnsafe(
+      `insert into computed_update_outbox
+        (id,worker_lane,base_id,seed_table_id,seed_record_ids,change_type,steps,edges,status,
+         attempts,max_attempts,next_run_at,estimated_complexity,plan_hash,dirty_stats,run_id,
+         origin_run_ids,run_total_steps,run_completed_steps_before,affected_table_ids,
+         affected_field_ids,stage_depth,created_at,updated_at)
+       values($1,'production',$2,$3,null,'update','[]'::jsonb,'[]'::jsonb,'pending',0,8,now() + interval '1 day',1,$1,
+         '{}'::jsonb,$1,array[$1],0,0,array[$3],array[]::text[],0,now(),now())`,
+      taskId,
+      baseId,
+      seedTableId
+    );
+    await client.$executeRawUnsafe(
+      `insert into computed_update_outbox_seed(id,task_id,table_id,record_id)
+       values($1,$2,$3,$4)`,
+      `${taskId}-seed`,
+      taskId,
+      seedTableId,
+      'rec-pending-seed'
+    );
+  };
+
+  const readLiveOutboxCounts = async (
+    client: RoutedDataClient,
+    removedTaskIds: string[],
+    retainedTaskIds: string[]
+  ) => {
+    const rows = await client.$queryRawUnsafe<
+      Array<{
+        removedTasks: number;
+        removedSeeds: number;
+        retainedTasks: number;
+        retainedSeeds: number;
+      }>
+    >(
+      `select
+        (select count(*)::int from computed_update_outbox where id=any($1::text[])) as "removedTasks",
+        (select count(*)::int from computed_update_outbox_seed where task_id=any($1::text[])) as "removedSeeds",
+        (select count(*)::int from computed_update_outbox where id=any($2::text[])) as "retainedTasks",
+        (select count(*)::int from computed_update_outbox_seed where task_id=any($2::text[])) as "retainedSeeds"`,
+      removedTaskIds,
+      retainedTaskIds
+    );
+    return rows[0];
+  };
+
+  const readPauseScopeCounts = async (
+    client: RoutedDataClient,
+    removedTableIds: string[],
+    retainedTableIds: string[]
+  ) => {
+    const rows = await client.$queryRawUnsafe<
+      Array<{ removedScopes: number; retainedScopes: number }>
+    >(
+      `select
+        (select count(*)::int from computed_update_pause_scope
+          where scope_type = 'table' and scope_id = any($1::text[])) as "removedScopes",
+        (select count(*)::int from computed_update_pause_scope
+          where scope_type = 'table' and scope_id = any($2::text[])) as "retainedScopes"`,
+      removedTableIds,
+      retainedTableIds
+    );
+    return rows[0];
+  };
+
+  const discardOutboxFixtures = async (client: RoutedDataClient, taskIds: string[]) => {
+    await client.$executeRawUnsafe(
+      'delete from computed_update_outbox where id=any($1::text[])',
+      taskIds
+    );
+    // Remove only this fixture's pause rows. Pauses created by other tests or by the
+    // product stay untouched, and this is still safe when the target purge, space
+    // deletion or a retried cleanup already removed them.
+    await client.$executeRawUnsafe(
+      'delete from computed_update_pause_scope where id=any($1::text[])',
+      taskIds.map(pendingPauseScopeId)
+    );
+  };
 
   describe('Retrieving trash items', () => {
     let spaceId: string;
@@ -325,6 +481,233 @@ describe('Trash (e2e)', () => {
         .data;
 
       expect(resetTrash.trashItems.length).toEqual(0);
+    });
+  });
+
+  describe('Versioned archive permanent deletion (real PostgreSQL)', () => {
+    it('deletes only the archive family owned by the permanently deleted base', async () => {
+      const space = await createSpace({ name: 'archive base deletion' });
+      const deletedBase = await createBase({ spaceId: space.id, name: 'deleted archive base' });
+      const retainedBase = await createBase({ spaceId: space.id, name: 'retained archive base' });
+      const deletedTable = await createTable(deletedBase.id, { name: 'deleted archive table' });
+      const retainedTable = await createTable(retainedBase.id, { name: 'retained archive table' });
+      const deletedTaskId = `cuo${deletedTable.id.slice(3)}`;
+      const retainedTaskId = `cuo${retainedTable.id.slice(3)}`;
+      const deletedPendingTaskId = `cuo-pending-${deletedTable.id}`;
+      const retainedPendingTaskId = `cuo-pending-${retainedTable.id}`;
+      const dataClient = await app.get(DataDbClientManager).dataPrismaForBase(deletedBase.id);
+
+      try {
+        await insertVersionedArchive(dataClient, {
+          taskId: deletedTaskId,
+          baseId: deletedBase.id,
+          seedTableId: deletedTable.id,
+          recordId: 'rec-deleted-base',
+        });
+        await insertVersionedArchive(dataClient, {
+          taskId: retainedTaskId,
+          baseId: retainedBase.id,
+          seedTableId: retainedTable.id,
+          recordId: 'rec-retained-base',
+        });
+        await insertPendingOutboxTask(dataClient, {
+          taskId: deletedPendingTaskId,
+          baseId: deletedBase.id,
+          seedTableId: deletedTable.id,
+        });
+        await insertPendingOutboxTask(dataClient, {
+          taskId: retainedPendingTaskId,
+          baseId: retainedBase.id,
+          seedTableId: retainedTable.id,
+        });
+
+        await permanentDeleteBase(deletedBase.id);
+
+        await expect(
+          readArchiveFamilyCounts(dataClient, [deletedTaskId], [retainedTaskId])
+        ).resolves.toEqual({
+          removedArchives: 0,
+          removedChildren: 0,
+          retainedArchives: 1,
+          retainedChildren: 1,
+        });
+        await expect(
+          readLiveOutboxCounts(dataClient, [deletedPendingTaskId], [retainedPendingTaskId])
+        ).resolves.toEqual({
+          removedTasks: 0,
+          removedSeeds: 0,
+          retainedTasks: 1,
+          retainedSeeds: 1,
+        });
+        await expect(
+          readPauseScopeCounts(dataClient, [deletedTable.id], [retainedTable.id])
+        ).resolves.toEqual({ removedScopes: 0, retainedScopes: 1 });
+        await expect(
+          dataClient.$queryRawUnsafe<Array<{ schemaName: string }>>(
+            'select nspname as "schemaName" from pg_namespace where nspname=any($1::text[])',
+            [deletedBase.id, retainedBase.id]
+          )
+        ).resolves.toEqual([{ schemaName: retainedBase.id }]);
+        await expect(prisma.base.findUnique({ where: { id: deletedBase.id } })).resolves.toBeNull();
+        await expect(
+          prisma.base.findUnique({ where: { id: retainedBase.id } })
+        ).resolves.not.toBeNull();
+      } finally {
+        await discardOutboxFixtures(dataClient, [
+          deletedPendingTaskId,
+          retainedPendingTaskId,
+        ]).catch(() => undefined);
+        await discardArchiveFixtures(dataClient, [deletedTaskId, retainedTaskId]).catch(
+          () => undefined
+        );
+        for (const baseId of [deletedBase.id, retainedBase.id]) {
+          if (await prisma.base.findUnique({ where: { id: baseId } })) {
+            await permanentDeleteBase(baseId).catch(() => undefined);
+          }
+        }
+        if (await prisma.space.findUnique({ where: { id: space.id } })) {
+          await permanentDeleteSpace(space.id).catch(() => undefined);
+        }
+      }
+    });
+
+    it('deletes every archive family in a permanently deleted space and retains other spaces', async () => {
+      const deletedSpace = await createSpace({ name: 'deleted archive space' });
+      const retainedSpace = await createSpace({ name: 'retained archive space' });
+      const firstDeletedBase = await createBase({
+        spaceId: deletedSpace.id,
+        name: 'first deleted archive base',
+      });
+      const secondDeletedBase = await createBase({
+        spaceId: deletedSpace.id,
+        name: 'second deleted archive base',
+      });
+      const retainedBase = await createBase({
+        spaceId: retainedSpace.id,
+        name: 'retained archive space base',
+      });
+      const firstDeletedTable = await createTable(firstDeletedBase.id, {
+        name: 'first deleted archive table',
+      });
+      const secondDeletedTable = await createTable(secondDeletedBase.id, {
+        name: 'second deleted archive table',
+      });
+      const retainedTable = await createTable(retainedBase.id, {
+        name: 'retained archive space table',
+      });
+      const firstDeletedTaskId = `cuo${firstDeletedTable.id.slice(3)}`;
+      const secondDeletedTaskId = `cuo${secondDeletedTable.id.slice(3)}`;
+      const retainedTaskId = `cuo${retainedTable.id.slice(3)}`;
+      const firstDeletedPendingTaskId = `cuo-pending-${firstDeletedTable.id}`;
+      const secondDeletedPendingTaskId = `cuo-pending-${secondDeletedTable.id}`;
+      const retainedPendingTaskId = `cuo-pending-${retainedTable.id}`;
+      const dataClient = await app.get(DataDbClientManager).dataPrismaForBase(firstDeletedBase.id);
+
+      try {
+        for (const fixture of [
+          {
+            taskId: firstDeletedTaskId,
+            baseId: firstDeletedBase.id,
+            seedTableId: firstDeletedTable.id,
+            recordId: 'rec-first-deleted-space',
+          },
+          {
+            taskId: secondDeletedTaskId,
+            baseId: secondDeletedBase.id,
+            seedTableId: secondDeletedTable.id,
+            recordId: 'rec-second-deleted-space',
+          },
+          {
+            taskId: retainedTaskId,
+            baseId: retainedBase.id,
+            seedTableId: retainedTable.id,
+            recordId: 'rec-retained-space',
+          },
+        ]) {
+          await insertVersionedArchive(dataClient, fixture);
+        }
+        for (const fixture of [
+          {
+            taskId: firstDeletedPendingTaskId,
+            baseId: firstDeletedBase.id,
+            seedTableId: firstDeletedTable.id,
+          },
+          {
+            taskId: secondDeletedPendingTaskId,
+            baseId: secondDeletedBase.id,
+            seedTableId: secondDeletedTable.id,
+          },
+          {
+            taskId: retainedPendingTaskId,
+            baseId: retainedBase.id,
+            seedTableId: retainedTable.id,
+          },
+        ]) {
+          await insertPendingOutboxTask(dataClient, fixture);
+        }
+
+        await permanentDeleteSpace(deletedSpace.id);
+
+        await expect(
+          readArchiveFamilyCounts(
+            dataClient,
+            [firstDeletedTaskId, secondDeletedTaskId],
+            [retainedTaskId]
+          )
+        ).resolves.toEqual({
+          removedArchives: 0,
+          removedChildren: 0,
+          retainedArchives: 1,
+          retainedChildren: 1,
+        });
+        await expect(
+          readLiveOutboxCounts(
+            dataClient,
+            [firstDeletedPendingTaskId, secondDeletedPendingTaskId],
+            [retainedPendingTaskId]
+          )
+        ).resolves.toEqual({
+          removedTasks: 0,
+          removedSeeds: 0,
+          retainedTasks: 1,
+          retainedSeeds: 1,
+        });
+        await expect(
+          readPauseScopeCounts(
+            dataClient,
+            [firstDeletedTable.id, secondDeletedTable.id],
+            [retainedTable.id]
+          )
+        ).resolves.toEqual({ removedScopes: 0, retainedScopes: 1 });
+        await expect(
+          dataClient.$queryRawUnsafe<Array<{ schemaName: string }>>(
+            'select nspname as "schemaName" from pg_namespace where nspname=any($1::text[])',
+            [firstDeletedBase.id, secondDeletedBase.id, retainedBase.id]
+          )
+        ).resolves.toEqual([{ schemaName: retainedBase.id }]);
+        await expect(
+          prisma.space.findUnique({ where: { id: deletedSpace.id } })
+        ).resolves.toBeNull();
+        await expect(
+          prisma.space.findUnique({ where: { id: retainedSpace.id } })
+        ).resolves.not.toBeNull();
+      } finally {
+        await discardOutboxFixtures(dataClient, [
+          firstDeletedPendingTaskId,
+          secondDeletedPendingTaskId,
+          retainedPendingTaskId,
+        ]).catch(() => undefined);
+        await discardArchiveFixtures(dataClient, [
+          firstDeletedTaskId,
+          secondDeletedTaskId,
+          retainedTaskId,
+        ]).catch(() => undefined);
+        for (const spaceId of [deletedSpace.id, retainedSpace.id]) {
+          if (await prisma.space.findUnique({ where: { id: spaceId } })) {
+            await permanentDeleteSpace(spaceId).catch(() => undefined);
+          }
+        }
+      }
     });
   });
 

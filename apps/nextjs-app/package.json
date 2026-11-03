@@ -127,6 +127,7 @@
     "@teable/openapi": "workspace:^",
     "@teable/sdk": "workspace:^",
     "@teable/ui-lib": "workspace:^",
+    "@teable/v2-contract-http": "workspace:*",
     "axios": "1.20.0",
     "canvas-confetti": "1.9.4",
     "class-variance-authority": "0.7.0",

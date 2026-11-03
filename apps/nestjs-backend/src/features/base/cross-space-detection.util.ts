@@ -44,7 +44,7 @@ export function extractForeignTableId(field: ICrossSpaceFieldInput): string | un
 }
 
 export interface ICollectCrossSpaceAffectedArgs {
-  fields: ICrossSpaceFieldInput[];
+  readonly fields: ReadonlyArray<ICrossSpaceFieldInput>;
   /**
    * Returns true when foreignTableId resolves to a different space than the
    * duplicate destination. Should return false when the foreign table is

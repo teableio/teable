@@ -2,12 +2,18 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
+  getPostgresTransaction,
+  PostgresQueryCancelledError,
+  runWithPostgresQueryCancellation,
+} from '@teable/v2-adapter-db-postgres-pg';
+import {
   computedUpdateLockKeyForRecord,
   defaultComputedUpdateOutboxConfig,
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
   type ComputedUpdateOutboxTaskInput,
   type IComputedUpdateOutbox,
+  type ComputedTaskExecutionCancellation,
 } from '@teable/v2-adapter-table-repository-postgres';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
@@ -399,6 +405,129 @@ const runOneStageBatch = async (harness: TestHarness) => {
 };
 
 describe('[C14][S19] computed outbox recovery (e2e)', () => {
+  it('cancels an executing computed transaction, rolls back settlement and recovers without attempts', async () => {
+    const harness = await createHarness({
+      computedUpdate: {
+        mode: 'hybrid',
+        hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
+        outboxConfig: {
+          stageMaxSteps: 1,
+          stageSmallRunComplexityThreshold: 0,
+          taskStatementTimeoutMs: 0,
+          continuationRelayClaimEnabled: true,
+          baseBackoffMs: 0,
+          maxBackoffMs: 0,
+        },
+      },
+    });
+    const scenario = await prepareLockContentionScenario(harness);
+    const target = await createRecord(harness, scenario.targetTableId, {
+      [scenario.targetNameFieldId]: 'Cancellation target',
+      [scenario.linkFieldId]: { id: scenario.sourceRecordId },
+    });
+    await harness.testContainer.processOutbox();
+    await updateRecord(harness, scenario.sourceTableId, scenario.sourceRecordId, {
+      [scenario.sourceValueFieldId]: 200,
+    });
+    const db = harness.testContainer.db;
+    const before = await db
+      .selectFrom('computed_update_outbox')
+      .select(['id', 'attempts'])
+      .where('base_id', '=', harness.baseId)
+      .execute();
+    expect(before.length).toBeGreaterThan(0);
+    const worker = harness.testContainer.container.resolve<ComputedUpdateWorker>(
+      v2RecordRepositoryPostgresTokens.computedUpdateWorker
+    );
+    const unitOfWork = harness.testContainer.container.resolve<IUnitOfWork>(
+      v2CoreTokens.unitOfWork
+    );
+    const transact = unitOfWork.withTransaction.bind(unitOfWork);
+    const original = unitOfWork.withTransaction;
+    const abort = new AbortController();
+    const cancellation: ComputedTaskExecutionCancellation = {
+      signal: abort.signal,
+      async runTransaction(work) {
+        try {
+          return {
+            status: 'completed',
+            result: await runWithPostgresQueryCancellation(abort.signal, work),
+          };
+        } catch (error) {
+          if (error instanceof PostgresQueryCancelledError) return { status: 'cancelled', error };
+          throw error;
+        }
+      },
+    };
+    const marker = `computed-cancel-${getRandomString(8)}`;
+    let injected = false;
+    unitOfWork.withTransaction = (context, work, options) =>
+      transact(
+        context,
+        async (txContext) => {
+          const result = await work(txContext);
+          if (!injected && result.isOk()) {
+            injected = true;
+            const trx = getPostgresTransaction(txContext);
+            if (!trx) throw new Error('Expected real computed transaction');
+            await sql.raw(`select pg_sleep(60) /* ${marker} */`).execute(trx);
+          }
+          return result;
+        },
+        options
+      );
+    try {
+      const run = worker.runOnce({ workerId: 'cancelled-computed-worker', limit: 1, cancellation });
+      await waitFor(
+        async () => {
+          const active = await sql<{ count: number }>`select count(*)::int as count
+          from pg_stat_activity where query like ${`%${marker}%`} and wait_event = 'PgSleep'`.execute(
+            db
+          );
+          expect(active.rows[0].count).toBe(1);
+        },
+        { timeoutMs: 10_000, intervalMs: 10 }
+      );
+
+      abort.abort();
+
+      const result = await run;
+      expect(result._unsafeUnwrap()).toBe(0);
+      const rows = await listRecordsWithoutDrain(harness, scenario.targetTableId);
+      expect(
+        parseArrayCell(rows.find((row) => row.id === target.id)?.fields[scenario.lookupFieldId])
+      ).toEqual([100]);
+      const pending = await db
+        .selectFrom('computed_update_outbox')
+        .select(['id', 'status', 'attempts', 'locked_by'])
+        .where('base_id', '=', harness.baseId)
+        .execute();
+      expect(pending.map((row) => row.id).sort()).toEqual(before.map((row) => row.id).sort());
+      expect(pending.every((row) => row.status === 'pending' && row.locked_by === null)).toBe(true);
+      expect(pending.map((row) => row.attempts)).toEqual(before.map((row) => row.attempts));
+      expect(
+        await db
+          .selectFrom('computed_update_dead_letter')
+          .select('id')
+          .where('base_id', '=', harness.baseId)
+          .execute()
+      ).toEqual([]);
+      expect((await sql`select 42 as answer`.execute(db)).rows).toEqual([{ answer: 42 }]);
+    } finally {
+      abort.abort();
+      unitOfWork.withTransaction = original;
+    }
+
+    await harness.testContainer.processOutbox();
+    const recovered = await listRecordsWithoutDrain(harness, scenario.targetTableId);
+    expect(
+      parseArrayCell(recovered.find((row) => row.id === target.id)?.fields[scenario.lookupFieldId])
+    ).toEqual([200]);
+    expect(
+      recovered.find((row) => row.id === target.id)?.fields[scenario.finalFormulaFieldId]
+    ).toBe(204);
+    expect(await pendingOutboxStatuses(harness)).toEqual([]);
+  }, 120_000);
   it('worker lane prevents a staging worker from claiming a production API write', async () => {
     const production = await createHarness({
       computedUpdate: {

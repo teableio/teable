@@ -68,6 +68,26 @@ const getEventResourceIds = (
 let nameCounter = 0;
 const nextName = (prefix: string) => `${prefix}-${nameCounter++}`;
 
+const insertVersionedArchive = async (
+  ctx: SharedTestContext,
+  input: { taskId: string; baseId: string; seedTableId: string; recordId: string }
+) => {
+  const { taskId, baseId, seedTableId, recordId } = input;
+  const now = new Date();
+  await sql`insert into computed_update_dead_letter
+    (id,worker_lane,base_id,seed_table_id,seed_record_ids,change_type,steps,edges,status,
+     attempts,max_attempts,next_run_at,estimated_complexity,plan_hash,dirty_stats,run_id,
+     origin_run_ids,run_total_steps,run_completed_steps_before,affected_table_ids,
+     affected_field_ids,stage_depth,failed_at,created_at,updated_at)
+    values(${taskId},'production',${baseId},${seedTableId},null,'update','[]'::jsonb,
+      '[]'::jsonb,'dead',1,8,${now},1,${taskId},
+      '{"rerunInputs":{"version":1,"complete":true,"seedCount":"1"}}'::jsonb,
+      ${taskId},array[${taskId}],0,0,array[${seedTableId}],array[]::text[],0,
+      ${now},${now},${now})`.execute(ctx.testContainer.dataDb);
+  await sql`insert into computed_update_dead_letter_seed(task_id,table_id,record_id)
+    values(${taskId},${seedTableId},${recordId})`.execute(ctx.testContainer.dataDb);
+};
+
 const getTableLogEntriesByMessage = (ctx: SharedTestContext, message: string, tableId: string) =>
   ctx.testContainer.spyLogger.getEntriesByMessage(message).filter((entry) => {
     const context = entry.context;
@@ -2382,4 +2402,98 @@ describe('v2 http deleteTable (e2e)', () => {
   it.todo(
     '[V1 PARITY][trash.e2e-spec.ts] resets base trash after deleting multiple tables once v2 exposes trash routes'
   );
+});
+
+describe('v2 http permanent delete archive cleanup', () => {
+  let pgCtx: SharedTestContext;
+
+  beforeAll(async () => {
+    pgCtx = await getSharedTestContext({
+      dbMode: process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1' ? 'postgres' : 'pglite',
+    });
+    if (process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1') {
+      expect(pgCtx.testContainer.connectionString).toMatch(/^postgres(?:ql)?:\/\//);
+    }
+  });
+
+  it('deletes only the versioned archive family seeded by the permanently deleted table', async () => {
+    const deletedTable = await pgCtx.createTable({
+      baseId: pgCtx.baseId,
+      name: nextName('Archive Delete Target'),
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    const retainedTable = await pgCtx.createTable({
+      baseId: pgCtx.baseId,
+      name: nextName('Archive Delete Sibling'),
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    const deletedTaskId = `cuo${deletedTable.id.slice(3)}`;
+    const retainedTaskId = `cuo${retainedTable.id.slice(3)}`;
+
+    await insertVersionedArchive(pgCtx, {
+      taskId: deletedTaskId,
+      baseId: pgCtx.baseId,
+      seedTableId: deletedTable.id,
+      recordId: 'rec-delete-target',
+    });
+    await insertVersionedArchive(pgCtx, {
+      taskId: retainedTaskId,
+      baseId: pgCtx.baseId,
+      seedTableId: retainedTable.id,
+      recordId: 'rec-delete-sibling',
+    });
+
+    try {
+      const response = await fetch(`${pgCtx.baseUrl}/tables/delete`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: pgCtx.baseId,
+          tableId: deletedTable.id,
+          mode: 'permanent',
+        }),
+      });
+      const responseBody = await response.text();
+      expect(response.status, responseBody).toBe(200);
+      expect(await physicalTableExists(pgCtx, deletedTable.id)).toBe(false);
+      await expect(
+        pgCtx.testContainer.db
+          .selectFrom('table_meta')
+          .select('id')
+          .where('id', '=', deletedTable.id)
+          .execute()
+      ).resolves.toEqual([]);
+
+      const state = await sql<{
+        deletedArchives: number;
+        deletedChildren: number;
+        retainedArchives: number;
+        retainedChildren: number;
+      }>`select
+          (select count(*)::int from computed_update_dead_letter where id=${deletedTaskId}) as "deletedArchives",
+          (select count(*)::int from computed_update_dead_letter_seed where task_id=${deletedTaskId}) as "deletedChildren",
+          (select count(*)::int from computed_update_dead_letter where id=${retainedTaskId}) as "retainedArchives",
+          (select count(*)::int from computed_update_dead_letter_seed where task_id=${retainedTaskId}) as "retainedChildren"`.execute(
+        pgCtx.testContainer.dataDb
+      );
+      expect(state.rows[0]).toEqual({
+        deletedArchives: 0,
+        deletedChildren: 0,
+        retainedArchives: 1,
+        retainedChildren: 1,
+      });
+      await expect(
+        sql`delete from computed_update_dead_letter where id=${retainedTaskId}`.execute(
+          pgCtx.testContainer.dataDb
+        )
+      ).rejects.toMatchObject({ code: '23514' });
+    } finally {
+      await sql`select computed_outbox_discard_existing(${[
+        deletedTaskId,
+        retainedTaskId,
+      ]}::text[])`.execute(pgCtx.testContainer.dataDb);
+      await pgCtx.deleteTable(deletedTable.id, { mode: 'permanent' }).catch(() => undefined);
+      await pgCtx.deleteTable(retainedTable.id, { mode: 'permanent' }).catch(() => undefined);
+    }
+  });
 });

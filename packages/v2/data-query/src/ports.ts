@@ -8,7 +8,6 @@ import type { Result } from 'neverthrow';
 
 import type { BoundDataQueryPlan } from './BoundDataQueryPlan';
 import type { DataQueryBinding } from './DataQueryBinding';
-import type { DataQueryDefinition } from './DataQueryDefinition';
 import type { BoundDataQuery } from './types';
 
 export interface DataQueryResult {
@@ -26,7 +25,6 @@ export type DataQueryRelationPlanSource = {
 
 /** A bound v2 query plus the independently authorized scopes of every joined table. */
 export type DataQueryRelationPlan = {
-  readonly definition: DataQueryDefinition;
   readonly query: BoundDataQuery;
   readonly rootTable: Table;
   readonly rootScope: RecordQueryPluginScope;

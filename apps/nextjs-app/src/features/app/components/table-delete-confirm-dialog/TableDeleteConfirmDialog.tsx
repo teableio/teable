@@ -1,42 +1,37 @@
-import { useQuery } from '@tanstack/react-query';
-import { getTableDeleteReferences } from '@teable/openapi';
 import { useBaseId } from '@teable/sdk/hooks';
-import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
-import { Trans, useTranslation } from 'next-i18next';
-import { AffectedFieldsList } from '../field-setting/field-delete-confirm-dialog/AffectedFieldsList';
-import type { AffectedItem } from '../field-setting/field-delete-confirm-dialog/types';
+import { ConfirmDialog } from '@teable/ui-lib/base';
+import { useTranslation } from 'next-i18next';
 import { LoginAppWarning } from '../LoginAppWarning';
+import { OperationPreviewPanel, useOperationPreview } from '../operation-preview';
 
 export interface TableDeleteConfirmDialogProps {
   open: boolean;
   tableId: string;
   tableName: string;
   isDeleting?: boolean;
+  mode?: 'soft' | 'permanent';
   loginApps?: Array<{ id: string; name: string }>;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }
 
 export const TableDeleteConfirmDialog = (props: TableDeleteConfirmDialogProps) => {
-  const { open, tableId, tableName, isDeleting, loginApps, onOpenChange, onConfirm } = props;
+  const {
+    open,
+    tableId,
+    tableName,
+    mode = 'soft',
+    isDeleting,
+    loginApps,
+    onOpenChange,
+    onConfirm,
+  } = props;
   const { t } = useTranslation(['common', 'table']);
   const baseId = useBaseId();
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['table-delete-references', baseId, tableId],
-    queryFn: () => getTableDeleteReferences(baseId as string, tableId).then((res) => res.data),
-    enabled: open && Boolean(baseId && tableId),
-    refetchOnWindowFocus: false,
-  });
-
-  const affectedItems: AffectedItem[] = (data?.dependentFields ?? []).map((field) => ({
-    id: field.id,
-    name: field.name,
-    itemType: 'field',
-    type: field.type,
-    source: field.source,
-  }));
-
+  const preview = useOperationPreview(
+    { operation: 'table.delete', input: { baseId, tableId, mode }, options: { detail: 'full' } },
+    open && Boolean(baseId && tableId)
+  );
   return (
     <ConfirmDialog
       open={open}
@@ -48,37 +43,23 @@ export const TableDeleteConfirmDialog = (props: TableDeleteConfirmDialogProps) =
           {loginApps && loginApps.length > 0 && (
             <LoginAppWarning message={t('table:table.loginDeleteWarning')} apps={loginApps} />
           )}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Spin />
-            </div>
-          ) : affectedItems.length > 0 ? (
-            <>
-              <p className="shrink-0 text-foreground">
-                <Trans
-                  ns="table"
-                  i18nKey="table.deleteWithDependencies"
-                  components={{ b: <b /> }}
-                  values={{ tableName }}
-                />
-              </p>
-              <AffectedFieldsList items={affectedItems} />
-              <p className="shrink-0 text-muted-foreground">{t('common:trash.description')}</p>
-            </>
-          ) : (
-            <>
-              <p>{t('table:table.deleteTip1')}</p>
-              <p>{t('common:trash.description')}</p>
-            </>
-          )}
+          <OperationPreviewPanel
+            preview={preview.data}
+            error={preview.error}
+            isLoading={preview.isPending || preview.isFetching}
+            onRetry={() => void preview.refetch()}
+          />
         </div>
       }
       cancelText={t('common:actions.cancel')}
-      confirmText={t('common:trash.addToTrash')}
+      confirmText={mode === 'permanent' ? t('common:actions.delete') : t('common:trash.addToTrash')}
       confirmLoading={isDeleting}
-      confirmDisabled={isDeleting || isLoading}
+      confirmDisabled={isDeleting || !preview.canConfirm}
+      confirmButtonVariant={mode === 'permanent' ? 'destructive' : 'default'}
       onCancel={() => onOpenChange(false)}
-      onConfirm={onConfirm}
+      onConfirm={() => {
+        if (preview.canConfirm && !isDeleting) onConfirm();
+      }}
     />
   );
 };

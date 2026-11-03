@@ -9,6 +9,7 @@ import {
   type IComputedOutboxTriggerConfig,
 } from '../../../configs/computed-outbox-trigger.config';
 import type {
+  IComputedOutboxBasePendingCapacityPage,
   IComputedOutboxLockConvoy,
   IComputedOutboxMaintenanceSnapshot,
   IComputedOutboxMaintenanceTarget,
@@ -189,6 +190,7 @@ export type ComputedOutboxQueueJobScanResult = {
 // often. Multiple replicas sweeping concurrently is harmless (ZREM idempotent).
 const ORPHANED_FAILED_SWEEP_MIN_INTERVAL_MS = 5 * 60_000;
 const BACKLOG_ALERT_REPEAT_MS = 5 * 60_000;
+const BASE_PENDING_CAPACITY_ALERT_REPEAT_MS = 5 * 60_000;
 const LOCK_CONVOY_ALERT_REPEAT_MS = 5 * 60_000;
 const LOCK_CONVOY_IDLE_MS = 90_000;
 const LOCK_CONVOY_MIN_WAITERS = 5;
@@ -230,6 +232,12 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
   private backlogAlertActive = false;
   private lastBacklogAlertAt = 0;
   private readonly lockConvoyAlertAt = new Map<string, number>();
+  // T8159 per-base pending capacity alarm. Cursor and suppression state are kept
+  // per target so one base (or one target) can neither suppress nor clear another.
+  // Alerted identities stay until a successful range proves recovery or the target
+  // leaves inventory. Memory tracks unresolved alerts, not the query page size.
+  private readonly basePendingCapacityCursor = new Map<string, string>();
+  private readonly basePendingCapacityState = new Map<string, number>();
 
   constructor(
     @ComputedOutboxTriggerConfig()
@@ -753,6 +761,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
       });
       return { ...this.emptyOutbox(), error: 'Data database targets are unavailable' };
     }
+    this.pruneBasePendingCapacityTargets(targets);
 
     const results = await this.inspectTargets(targets);
     const byStorage = new Map<
@@ -797,6 +806,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
           target,
           defaultComputedUpdateOutboxConfig.processingLeaseMs
         );
+        await this.reportBasePendingCapacity(target);
         await this.reportLockConvoy(target);
         return { target, snapshot };
       } catch (error) {
@@ -842,6 +852,140 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
         oldestDueAgeMs: item.oldestDueAgeMs,
       })),
     });
+  }
+
+  /**
+   * T8159: per-base pending capacity alarm. Each sample advances one keyset page
+   * per target (`base_id > cursor`), so an (N+1)th over-threshold base becomes
+   * visible on a later sample instead of being hidden forever by a top-N. The
+   * cursor wraps to the start after a page proves the end of the id range.
+   *
+   * Every logged event carries exactly one baseId; no OTel gauge is labelled with
+   * baseId because that series would grow with tenant count.
+   */
+  private async reportBasePendingCapacity(target: IComputedOutboxMaintenanceTarget): Promise<void> {
+    const probe = this.dataDbClientManager.inspectComputedOutboxBasePendingCapacity;
+    if (typeof probe !== 'function') return;
+    const threshold = this.config.basePendingCapacityThreshold;
+    const limit = this.config.basePendingCapacityQueryLimit;
+    const afterBaseId = this.basePendingCapacityCursor.get(target.cacheKey);
+    let page: IComputedOutboxBasePendingCapacityPage;
+    try {
+      page = await probe.call(this.dataDbClientManager, target, {
+        threshold,
+        limit,
+        afterBaseId,
+      });
+    } catch (error) {
+      // A failed probe proves nothing: keep the cursor and suppression state.
+      this.logger.debug('computed:outbox:base_pending_capacity_probe_failed', {
+        storage: target.storage,
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
+      return;
+    }
+    this.reportOverCapacityBases(target, page);
+    this.reportRecoveredBaseCapacity(target, page);
+    if (page.scannedToEnd) {
+      // Next sample starts a new sweep; there is no id above the last page.
+      this.basePendingCapacityCursor.delete(target.cacheKey);
+    } else if (page.nextBaseId) {
+      this.basePendingCapacityCursor.set(target.cacheKey, page.nextBaseId);
+    }
+    if (page.truncated) {
+      this.logger.warn({
+        event: 'computed:outbox:base_pending_capacity_truncated',
+        msg: 'computed:outbox:base_pending_capacity_truncated',
+        storage: target.storage,
+        threshold,
+        limit,
+        afterBaseId,
+        nextBaseId: page.nextBaseId,
+      });
+    }
+  }
+
+  /**
+   * Removes cursor/suppression state for targets that left the inventory. A
+   * vanished target is not evidence its backlog cleared, so this never logs a
+   * recovery event.
+   */
+  private pruneBasePendingCapacityTargets(
+    targets: ReadonlyArray<IComputedOutboxMaintenanceTarget>
+  ): void {
+    const live = new Set(targets.map((target) => target.cacheKey));
+    for (const cacheKey of this.basePendingCapacityCursor.keys()) {
+      if (!live.has(cacheKey)) this.basePendingCapacityCursor.delete(cacheKey);
+    }
+    for (const key of this.basePendingCapacityState.keys()) {
+      if (!live.has(this.capacityKeyTarget(key))) this.basePendingCapacityState.delete(key);
+    }
+  }
+
+  private capacityKey(cacheKey: string, baseId: string): string {
+    return `${cacheKey}\u0000${baseId}`;
+  }
+
+  private capacityKeyTarget(key: string): string {
+    return key.slice(0, key.indexOf('\u0000'));
+  }
+
+  private capacityKeyBase(key: string): string {
+    return key.slice(key.indexOf('\u0000') + 1);
+  }
+
+  private reportOverCapacityBases(
+    target: IComputedOutboxMaintenanceTarget,
+    page: IComputedOutboxBasePendingCapacityPage
+  ): void {
+    const now = Date.now();
+    for (const base of page.bases) {
+      const key = this.capacityKey(target.cacheKey, base.baseId);
+      const last = this.basePendingCapacityState.get(key);
+      if (last !== undefined && now - last < BASE_PENDING_CAPACITY_ALERT_REPEAT_MS) continue;
+      this.basePendingCapacityState.set(key, now);
+      this.logger.warn({
+        event: 'computed:outbox:base_pending_capacity',
+        msg: 'computed:outbox:base_pending_capacity',
+        storage: target.storage,
+        baseId: base.baseId,
+        pending: base.pending,
+        threshold: page.threshold,
+      });
+    }
+  }
+
+  /**
+   * A base may only be reported recovered when the page proves its id was
+   * scanned: inside `(afterBaseId, scannedThroughBaseId]`, or anywhere above
+   * `afterBaseId` when the page reached the end of the id range.
+   */
+  private reportRecoveredBaseCapacity(
+    target: IComputedOutboxMaintenanceTarget,
+    page: IComputedOutboxBasePendingCapacityPage
+  ): void {
+    const reported = new Set(page.bases.map((base) => base.baseId));
+    const afterBaseId = page.afterBaseId;
+    const throughBaseId = page.scannedThroughBaseId;
+    for (const [key, lastAlertAt] of this.basePendingCapacityState) {
+      if (this.capacityKeyTarget(key) !== target.cacheKey) continue;
+      const baseId = this.capacityKeyBase(key);
+      if (reported.has(baseId)) continue;
+      if (afterBaseId !== undefined && baseId <= afterBaseId) continue;
+      if (!page.scannedToEnd && (throughBaseId === undefined || baseId > throughBaseId)) continue;
+      this.basePendingCapacityState.delete(key);
+      // The bounded query only returns bases at or above the threshold, so the
+      // post-recovery count is not observable: report null, never an invented zero.
+      this.logger.log({
+        event: 'computed:outbox:base_pending_capacity_recovered',
+        msg: 'computed:outbox:base_pending_capacity_recovered',
+        storage: target.storage,
+        baseId,
+        pending: null,
+        threshold: page.threshold,
+        lastAlertAt: new Date(lastAlertAt).toISOString(),
+      });
+    }
   }
 
   private async reportLockConvoy(target: IComputedOutboxMaintenanceTarget): Promise<void> {

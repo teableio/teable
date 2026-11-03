@@ -135,7 +135,7 @@ export const mapItemReferences = (refs: IFieldDeleteReferencesItem): AffectedIte
 export const useMultiFieldReferences = (tableId: string, fieldIds: string[], enabled: boolean) => {
   const fieldIdsKey = fieldIds.join(',');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['get-field-delete-references', tableId, fieldIdsKey],
     queryFn: async () => {
       const res = await getFieldDeleteReferences(tableId, fieldIds);
@@ -156,7 +156,9 @@ export const useMultiFieldReferences = (tableId: string, fieldIds: string[], ena
 
   return {
     fieldRiskMap,
-    isLoading,
-    isAllLoaded: !isLoading,
+    isLoading: isLoading || isFetching,
+    isAllLoaded: !isLoading && !isFetching && !isError && fieldIds.every((id) => data?.[id]),
+    hasError: isError || (!isLoading && !isFetching && fieldIds.some((id) => !data?.[id])),
+    refetch,
   };
 };

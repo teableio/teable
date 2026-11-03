@@ -149,7 +149,6 @@ describe('RecordOpenApiV2Service', () => {
   const legacyGetRecordsById = vi.fn();
   const getReadQuerySource = vi.fn();
   const getFieldsByQuery = vi.fn();
-  const getField = vi.fn();
   const getFieldInstances = vi.fn();
   const performRowCount = vi.fn();
   const execute = vi.fn();
@@ -157,6 +156,7 @@ describe('RecordOpenApiV2Service', () => {
   const resolve = vi.fn();
   const isRegistered = vi.fn();
   const getContainer = vi.fn();
+  const getPreviewContainer = vi.fn();
   const clsGet = vi.fn();
   const clsSet = vi.fn();
   const clsRunWith = vi.fn();
@@ -167,6 +167,7 @@ describe('RecordOpenApiV2Service', () => {
   const assertTableRecordWritable = vi.fn();
   const tableFindOne = vi.fn();
   const uploadFromUrl = vi.fn();
+  const getPreviewPermissions = vi.fn();
   const pluginPrepare = vi.fn();
 
   let testTable: V2Table;
@@ -263,6 +264,7 @@ describe('RecordOpenApiV2Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     assertTableRecordWritable.mockResolvedValue(undefined);
+    getPreviewPermissions.mockResolvedValue(['record|update', 'record|create', 'field|create']);
     testTable = createTestTable();
 
     isRegistered.mockImplementation((token) => {
@@ -300,6 +302,7 @@ describe('RecordOpenApiV2Service', () => {
       return undefined;
     });
     getContainer.mockResolvedValue({ resolve, isRegistered });
+    getPreviewContainer.mockResolvedValue({ resolve, isRegistered });
     createContext.mockResolvedValue({});
     clsGet.mockImplementation((key: string) => {
       if (key == null) {
@@ -376,7 +379,10 @@ describe('RecordOpenApiV2Service', () => {
       { data: { id: 'rec2222222222222222', fields: {} } },
     ]);
     service = new RecordOpenApiV2Service(
-      { getContainerForTable: getContainer } as never,
+      {
+        getContainerForTable: getContainer,
+        getPreviewContainerForTable: getPreviewContainer,
+      } as never,
       { createContext } as never,
       { get: clsGet, set: clsSet, runWith: clsRunWith } as never,
       { del: cacheDel, setDetail: cacheSetDetail } as never,
@@ -387,10 +393,13 @@ describe('RecordOpenApiV2Service', () => {
         withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
       } as never,
       { assertTableRecordWritable } as never,
-      { maxCopyCells: 50_000, maxGroupPoints: 5_000 } as never,
+      { maxCopyCells: 50_000, maxPasteCells: 50_000, maxGroupPoints: 5_000 } as never,
       { uploadFromUrl } as never,
       new TableQuerySearchVectorRuntimeService({ get: () => 'auto' } as never)
     );
+    Reflect.set(service, 'previewPermissionService', {
+      getPermissions: getPreviewPermissions,
+    });
   });
 
   it('resolves range record ids through the v2 query path', async () => {
@@ -404,6 +413,110 @@ describe('RecordOpenApiV2Service', () => {
     expect(getDocIdsByQuery).not.toHaveBeenCalled();
     const query = execute.mock.calls[0]?.[1] as ListTableRecordsQuery;
     expect(query.projection).toEqual([]);
+  });
+
+  it('normalizes an omitted paste view without invoking record query execution plugins', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const defaultViewId = testTable.defaultView()._unsafeUnwrap().id().toString();
+
+    const commandInput = await service.preparePastePreviewCommandInput(tableId, {
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      content: [['preview']],
+    });
+
+    expect(commandInput).toMatchObject({
+      tableId,
+      viewId: defaultViewId,
+      content: [['preview']],
+    });
+    expect(pluginPrepare).not.toHaveBeenCalled();
+    expect(getPreviewContainer).toHaveBeenCalledWith(tableId);
+    expect(getContainer).not.toHaveBeenCalled();
+    expect(getPreviewPermissions).toHaveBeenCalledWith(tableId, undefined);
+    expect(commandExecute).not.toHaveBeenCalled();
+  });
+
+  it('rejects a gigantic tiled preview range before mounted paste expansion', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+
+    await expect(
+      service.preparePastePreviewCommandInput(tableId, {
+        ranges: [
+          [0, 0],
+          [0, 100_000_000],
+        ],
+        content: [['x']],
+      })
+    ).rejects.toMatchObject({
+      data: { localization: { i18nKey: 'httpErrors.selection.exceedMaxPasteCells' } },
+    });
+    expect(commandExecute).not.toHaveBeenCalled();
+  });
+
+  it('passes read-only admitted expansion permissions into shared paste preparation', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const commandInput = {
+      tableId,
+      viewId: `viw${'v'.repeat(16)}`,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      content: [['preview']],
+    };
+    const prepare = vi
+      .spyOn(
+        service as unknown as {
+          preparePasteCommandInput: (...args: unknown[]) => Promise<{ commandInput: unknown }>;
+        },
+        'preparePasteCommandInput'
+      )
+      .mockResolvedValue({ commandInput });
+
+    await service.preparePastePreviewCommandInput(tableId, {
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      content: [['preview']],
+    });
+
+    expect(prepare).toHaveBeenCalledWith(
+      tableId,
+      expect.anything(),
+      expect.objectContaining({
+        allowFieldExpansion: true,
+        allowRecordExpansion: true,
+        previewReadOnly: true,
+      })
+    );
+  });
+
+  it('keeps collapsed-group normalization on the preview container without plugins', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+
+    const internals = service as unknown as {
+      normalizeRangeQuery: (
+        tableId: string,
+        query: unknown,
+        previewReadOnly: boolean
+      ) => Promise<unknown>;
+    };
+    await internals.normalizeRangeQuery(
+      tableId,
+      {
+        groupBy: [{ fieldId: statusFieldId, order: SortFunc.Asc }],
+        collapsedGroupIds: ['collapsed-preview-group'],
+      },
+      true
+    );
+
+    expect(getPreviewContainer).toHaveBeenCalledWith(tableId);
+    expect(getContainer).not.toHaveBeenCalled();
+    expect(pluginPrepare).not.toHaveBeenCalled();
   });
 
   it('converts copied link cell values to titles when preparing v2 paste into text fields', async () => {

@@ -54,6 +54,26 @@ type LinkResolveEntry = {
   readonly titles: ReadonlyArray<string>;
 };
 
+export const extractPasteLinkTitles = (value: unknown): string[] => {
+  if (value == null) return [];
+  const values = Array.isArray(value) ? value : [value];
+  const titles: string[] = [];
+  for (const item of values) {
+    if (typeof item === 'string') {
+      titles.push(
+        ...item
+          .split(',')
+          .map((token) => token.trim())
+          .filter(Boolean)
+          .filter((token) => !RecordId.isCanonical(token))
+      );
+    } else if (typeof item === 'number' || typeof item === 'boolean' || typeof item === 'bigint') {
+      titles.push(String(item));
+    }
+  }
+  return titles;
+};
+
 @injectable()
 export class PasteLinkAutoResolveService {
   constructor(
@@ -288,7 +308,7 @@ export class PasteLinkAutoResolveService {
 
       const titles = new Set<string>();
       for (const rowData of input.rowDataList) {
-        for (const title of this.extractLinkTitles(rowData[column.columnIndex])) {
+        for (const title of extractPasteLinkTitles(rowData[column.columnIndex])) {
           titles.add(title);
         }
       }
@@ -337,34 +357,5 @@ export class PasteLinkAutoResolveService {
     }
 
     return linkField.validateAutoCreateTarget(hostTable, foreignTable);
-  }
-
-  private extractLinkTitles(value: unknown): string[] {
-    if (value == null) return [];
-
-    const values = Array.isArray(value) ? value : [value];
-    const titles: string[] = [];
-
-    for (const item of values) {
-      if (typeof item === 'string') {
-        const tokens = item
-          .split(',')
-          .map((token) => token.trim())
-          .filter(Boolean)
-          .filter((token) => !this.isRecordIdToken(token));
-        titles.push(...tokens);
-        continue;
-      }
-
-      if (typeof item === 'number' || typeof item === 'boolean' || typeof item === 'bigint') {
-        titles.push(String(item));
-      }
-    }
-
-    return titles;
-  }
-
-  private isRecordIdToken(token: string): boolean {
-    return RecordId.isCanonical(token);
   }
 }

@@ -15,8 +15,7 @@ import {
   urlBuilder,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
-import { AuthService } from '../src/features/auth/auth.service';
-import { JwtAuthInternalType } from '../src/features/auth/strategies/types';
+import { createAppToken } from './utils/app-token';
 import { getError } from './utils/get-error';
 import {
   createBase,
@@ -46,9 +45,9 @@ describe('App robot permission isolation (e2e)', () => {
     ]);
     ownBaseId = ownBase.id;
     foreignSpaceId = foreignSpace.id;
-    const [foreignBase, { accessToken }] = await Promise.all([
+    const [foreignBase, accessToken] = await Promise.all([
       createBase({ spaceId: foreignSpaceId, name: 'robot foreign' }),
-      app.get(AuthService).getTempInternalToken(ownBaseId, JwtAuthInternalType.App),
+      createAppToken(app, ownBaseId),
     ]);
     foreignBaseId = foreignBase.id;
 

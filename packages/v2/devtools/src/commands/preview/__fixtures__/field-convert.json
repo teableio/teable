@@ -1,0 +1,8 @@
+{
+  "tableId": "tblPreviewSmoke0000",
+  "fieldId": "fldPreviewSmoke0000",
+  "field": {
+    "type": "singleLineText",
+    "name": "Preview smoke converted field"
+  }
+}

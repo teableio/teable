@@ -33,6 +33,7 @@ import { sql } from 'kysely';
 import { Database, DatabaseConfig } from '../services/Database';
 import { getAbsolutePgliteDataDir } from '../utils/connection';
 import { NodeCryptoHasher } from './NodeCryptoHasher';
+import { StderrLogger } from './StderrLogger';
 
 /**
  * Create a pglite-based Database layer.
@@ -60,6 +61,12 @@ export const DatabasePgliteLive = Layer.effect(
     // Create child container
     const c = container.createChildContainer();
 
+    // JSON output reserves stdout for the DTO, including diagnostics emitted while
+    // adapters and plugins are registered.
+    if (config.diagnostics === 'stderr') {
+      c.registerInstance(v2CoreTokens.logger, new StderrLogger());
+    }
+
     // Register pglite database
     yield* Effect.tryPromise({
       try: () =>
@@ -72,12 +79,13 @@ export const DatabasePgliteLive = Layer.effect(
     const metaDb = c.resolve(v2MetaDbTokens.db) as Kysely<V1TeableDatabase>;
     const dataDb = c.resolve(v2DataDbTokens.db) as Kysely<V1TeableDatabase>;
 
-    // Register state adapter (creates schema if needed)
+    // Preview uses existing metadata only. Schema creation belongs to ordinary
+    // devtools commands and would violate preview's strict no-write contract.
     yield* Effect.tryPromise({
       try: () =>
         registerV2PostgresStateAdapter(c, {
           db: metaDb,
-          ensureSchema: true,
+          ensureSchema: config.initializePglite,
         }),
       catch: (error) => new Error(`Failed to register state adapter: ${error}`),
     });
@@ -92,7 +100,9 @@ export const DatabasePgliteLive = Layer.effect(
     c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
       lifecycle: Lifecycle.Singleton,
     });
-    c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());
+    if (config.diagnostics === 'default') {
+      c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());
+    }
     c.register(v2CoreTokens.tracer, NoopTracer, {
       lifecycle: Lifecycle.Singleton,
     });
@@ -135,70 +145,75 @@ export const DatabasePgliteLive = Layer.effect(
       catch: () => null as string | null,
     });
 
-    let baseId: string;
+    let baseId: string | undefined = existingBase ?? undefined;
 
-    if (existingBase) {
-      // Reuse existing project
-      baseId = existingBase;
-    } else {
-      // Create new space and base
-      const baseIdResult = BaseId.generate();
-      if (baseIdResult.isErr()) {
-        return yield* Effect.fail(new Error(baseIdResult.error.message));
+    if (config.initializePglite) {
+      if (!baseId) {
+        // Create the local workspace used by ordinary mutable devtools commands.
+        const baseIdResult = BaseId.generate();
+        if (baseIdResult.isErr()) {
+          return yield* Effect.fail(new Error(baseIdResult.error.message));
+        }
+        const generatedBaseId = baseIdResult.value.toString();
+        baseId = generatedBaseId;
+
+        const spaceId = `spc${getRandomString(16)}`;
+        const actorId = 'cli-pglite';
+
+        yield* Effect.tryPromise({
+          try: async () => {
+            await metaDb
+              .insertInto('space')
+              .values({ id: spaceId, name: 'CLI Space', created_by: actorId })
+              .execute();
+
+            await metaDb
+              .insertInto('base')
+              .values({
+                id: generatedBaseId,
+                space_id: spaceId,
+                name: 'CLI Base',
+                order: 1,
+                created_by: actorId,
+              })
+              .execute();
+          },
+          catch: (error) => new Error(`Failed to initialize space/base: ${error}`),
+        });
       }
-      baseId = baseIdResult.value.toString();
 
-      const spaceId = `spc${getRandomString(16)}`;
-      const actorId = 'cli-pglite';
+      // Same local bootstrap as the headless runtime: record mutations need the
+      // undo-capture globals and resolve actors through `public.users`.
+      yield* Effect.tryPromise({
+        try: () => installUndoCaptureGlobals(metaDb as unknown as Kysely<unknown>),
+        catch: (error) => new Error(`Failed to install pglite undo capture globals: ${error}`),
+      });
 
       yield* Effect.tryPromise({
         try: async () => {
-          await metaDb
-            .insertInto('space')
-            .values({ id: spaceId, name: 'CLI Space', created_by: actorId })
-            .execute();
-
-          await metaDb
-            .insertInto('base')
-            .values({
-              id: baseId,
-              space_id: spaceId,
-              name: 'CLI Base',
-              order: 1,
-              created_by: actorId,
-            })
-            .execute();
+          await sql`
+            create table if not exists public.users (
+              id varchar(255) primary key,
+              name varchar(255) not null,
+              email varchar(255)
+            )
+          `.execute(metaDb);
+          for (const actorId of [
+            'cli-mock-records',
+            'cli-record-mutation',
+            'cli-pglite',
+            'system',
+          ]) {
+            await sql`
+              insert into public.users (id, name)
+              values (${actorId}, ${actorId})
+              on conflict (id) do nothing
+            `.execute(metaDb);
+          }
         },
-        catch: (error) => new Error(`Failed to initialize space/base: ${error}`),
+        catch: (error) => new Error(`Failed to bootstrap pglite users: ${error}`),
       });
     }
-
-    // Same local bootstrap as the headless runtime: record mutations need the
-    // undo-capture globals and resolve actors through `public.users`.
-    yield* Effect.tryPromise({
-      try: () => installUndoCaptureGlobals(metaDb as unknown as Kysely<unknown>),
-      catch: (error) => new Error(`Failed to install pglite undo capture globals: ${error}`),
-    });
-
-    yield* Effect.tryPromise({
-      try: async () => {
-        await sql`
-          create table if not exists public.users (
-            id varchar(255) primary key,
-            name varchar(255) not null,
-            email varchar(255)
-          )
-        `.execute(metaDb);
-        for (const actorId of ['cli-mock-records', 'cli-record-mutation', 'cli-pglite', 'system']) {
-          await sql`
-            insert into public.users (id, name)
-            values (${actorId}, ${actorId})
-            on conflict (id) do nothing
-          `.execute(metaDb);
-        }
-      },
-      catch: (error) => new Error(`Failed to bootstrap pglite users: ${error}`),
-    });
 
     return {
       container: c,

@@ -574,7 +574,7 @@ describe('CreateFieldsHandler', () => {
         {
           id: formulaFieldId,
           type: 'formula',
-          name: 'Amount Formula',
+          name: 'Amount',
           options: {
             expression: `{${numberFieldId}}`,
           },
@@ -596,6 +596,10 @@ describe('CreateFieldsHandler', () => {
     expect(result.value.fields.map((field) => field.id().toString())).toEqual([
       formulaFieldId,
       numberFieldId,
+    ]);
+    expect(result.value.fields.map((field) => field.name().toString())).toEqual([
+      'Amount 2',
+      'Amount',
     ]);
     const createdFormula = result.value.table.getField(
       (field): field is FormulaField => field.id().toString() === formulaFieldId

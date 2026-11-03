@@ -610,7 +610,6 @@ describe('BaseService', () => {
         'computed_update_stage_ledger',
         'computed_update_change_frontier',
         'computed_update_outbox',
-        'computed_update_dead_letter',
         'computed_update_run_history',
         'computed_task_field_ref',
         'computed_field_activity',
@@ -643,6 +642,86 @@ describe('BaseService', () => {
       await expect(service.purgeComputedOutboxForBase('bse1', ['tbl1'])).rejects.toThrow(
         'connection refused'
       );
+    });
+  });
+
+  describe('previewDuplicateBaseV2', () => {
+    it('runs migration guards plus user and access-token permissions without writes', async () => {
+      const validPermissions = vi.fn().mockResolvedValue(undefined);
+      const permissionService = { validPermissions };
+      const cls = {
+        get: vi.fn((key: string) => (key === 'accessTokenId' ? 'patPreview' : undefined)),
+      };
+      const migrationGuard = {
+        assertBaseWritable: vi.fn().mockResolvedValue(undefined),
+        assertSpaceWritable: vi.fn().mockResolvedValue(undefined),
+      };
+      const eventEmitter = { emit: vi.fn() };
+      const canaryService = {
+        shouldUseV2WithReason: vi.fn().mockResolvedValue({
+          useV2: false,
+          reason: 'feature_not_enabled',
+        }),
+      };
+      const prisma = {
+        base: {
+          create: vi.fn(),
+          update: vi.fn(),
+          findFirst: vi.fn().mockResolvedValue({ id: 'bseTarget' }),
+        },
+      };
+      const service = new BaseService(
+        prisma as never,
+        {} as never,
+        cls as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        permissionService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        canaryService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        eventEmitter as never,
+        migrationGuard as never,
+        {} as never
+      );
+
+      const decision = await service.previewDuplicateBaseV2({} as never, {
+        fromBaseId: 'bseSource',
+        spaceId: 'spcTarget',
+        baseId: 'bseTarget',
+        withRecords: true,
+      });
+
+      expect(decision).toEqual({ useV2: false, reason: 'feature_not_enabled' });
+      expect(canaryService.shouldUseV2WithReason).toHaveBeenCalledWith(
+        'spcTarget',
+        'duplicateBase'
+      );
+
+      expect(migrationGuard.assertBaseWritable).toHaveBeenCalledWith('bseSource');
+      expect(migrationGuard.assertBaseWritable).toHaveBeenCalledWith('bseTarget');
+      expect(migrationGuard.assertSpaceWritable).toHaveBeenCalledWith('spcTarget');
+      expect(validPermissions.mock.calls).toEqual([
+        ['bseSource', ['base|update']],
+        ['bseSource', ['base|update'], 'patPreview'],
+        ['spcTarget', ['base|create']],
+        ['spcTarget', ['base|create'], 'patPreview'],
+        ['bseTarget', ['base|update']],
+        ['bseTarget', ['base|update'], 'patPreview'],
+      ]);
+      expect(prisma.base.findFirst).toHaveBeenCalledWith({
+        where: { id: 'bseTarget', spaceId: 'spcTarget', deletedTime: null },
+        select: { id: true },
+      });
+      expect(prisma.base.create).not.toHaveBeenCalled();
+      expect(prisma.base.update).not.toHaveBeenCalled();
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
     });
   });
 });

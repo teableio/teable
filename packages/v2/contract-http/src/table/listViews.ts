@@ -26,7 +26,7 @@ export type IListViewsEndpointResult =
   | { status: HttpErrorStatus; body: IListViewsErrorResponseDto };
 
 export const listViewsResponseDataSchema = z.object({
-  views: z.array(viewReadDtoSchema),
+  views: z.array(viewReadDtoSchema).readonly(),
 });
 
 export const listViewsOkResponseSchema = apiOkResponseDtoSchema(listViewsResponseDataSchema);

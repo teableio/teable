@@ -2,7 +2,7 @@ import { HttpErrorCode } from '@teable/core';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import { Pool } from 'pg';
-import { newDb } from 'pg-mem';
+import { DataType, newDb } from 'pg-mem';
 import { describe, expect, it, vi } from 'vitest';
 import { encryptDataDbUrl } from '../features/space/data-db-url-secret';
 import {
@@ -45,7 +45,8 @@ const displayDatabase = 'teable_data';
 const urlFingerprint = 'fp_xxx';
 
 const createComputedRecoveryDb = async () => {
-  const db = newDb().adapters.createKnex();
+  const mem = newDb();
+  const db = mem.adapters.createKnex();
   await db.schema.createTable('computed_update_outbox', (table: Knex.TableBuilder) => {
     table.text('id').primary();
     table.text('worker_lane').notNullable().defaultTo('production');
@@ -72,6 +73,10 @@ const createComputedRecoveryDb = async () => {
     table.specificType('affected_table_ids', 'text[]');
     table.specificType('affected_field_ids', 'text[]');
     table.integer('sync_max_level');
+    table.timestamp('source_changed_at');
+    table.integer('stage_depth');
+    table.text('predecessor_task_id');
+    table.integer('dead_letter_restore_version');
     table.timestamp('created_at');
     table.timestamp('updated_at');
   });
@@ -80,9 +85,38 @@ const createComputedRecoveryDb = async () => {
        on computed_update_outbox(base_id, seed_table_id, plan_hash, change_type)
        where status = 'pending'`
   );
+  await db.schema.createTable('computed_update_outbox_seed', (table: Knex.TableBuilder) => {
+    table.text('id').primary();
+    table.text('task_id');
+    table.text('table_id');
+    table.text('record_id');
+    table.unique(['task_id', 'table_id', 'record_id']);
+  });
   await db.schema.createTable('computed_update_dead_letter', (table: Knex.TableBuilder) =>
     table.text('id').primary()
   );
+  await db.schema.createTable('computed_update_dead_letter_seed', (table: Knex.TableBuilder) => {
+    table.text('task_id');
+    table.text('table_id');
+    table.text('record_id');
+    table.primary(['task_id', 'table_id', 'record_id']);
+  });
+  // pg-mem cannot run the plpgsql authorization guard or its triggers; the real
+  // PostgreSQL guard matrix proves that contract. Keep this unit scenario on the
+  // actual delete contract: remove exactly the archives whose rerun was inserted.
+  mem.public.registerFunction({
+    name: 'computed_outbox_complete_restore',
+    args: [mem.public.getType(DataType.text).asArray()],
+    returns: DataType.integer,
+    implementation: (taskIds: string[]) => {
+      const ids = taskIds ?? [];
+      if (ids.length === 0) return 0;
+      const list = ids.map((id) => `'${String(id).replaceAll("'", "''")}'`).join(',');
+      mem.public.none(`delete from computed_update_dead_letter_seed where task_id in (${list})`);
+      mem.public.none(`delete from computed_update_dead_letter where id in (${list})`);
+      return ids.length;
+    },
+  });
   return db;
 };
 
@@ -91,14 +125,19 @@ const createDeadLetterRow = (taskId: string): IComputedOutboxDeadLetterRow => ({
   workerLane: 'production',
   baseId: 'bse1',
   seedTableId: 'tbl1',
-  seedRecordIds: [`rec-${taskId}`],
-  changeType: 'update',
+  seedRecordIds: [{ tableId: 'tbl1', recordIds: [`rec-${taskId}`] }],
+  changeType: 'seed',
   steps: [],
   edges: [],
   maxAttempts: 8,
   estimatedComplexity: 1,
   planHash: 'same-plan',
-  dirtyStats: null,
+  dirtyStats: {
+    changeType: 'update',
+    impact: { valueFieldIds: ['fld1'], linkFieldIds: [] },
+    beforeImageRecords: [],
+    orchestration: { operationId: `op-${taskId}` },
+  },
   runId: `run-${taskId}`,
   originRunIds: [],
   runTotalSteps: 1,
@@ -106,6 +145,7 @@ const createDeadLetterRow = (taskId: string): IComputedOutboxDeadLetterRow => ({
   affectedTableIds: ['tbl1'],
   affectedFieldIds: ['fld1'],
   syncMaxLevel: 0,
+  sourceChangedAt: new Date('2026-08-06T11:59:00.000Z'),
   createdAt: new Date('2026-08-06T12:00:00.000Z'),
 });
 
@@ -690,6 +730,77 @@ describe('DataDbClientManager', () => {
     expect(cls.set).not.toHaveBeenCalled();
   });
 
+  it('resolves ready preview routing without migration-on-acquire', async () => {
+    const migration = {
+      getLatestSchemaVersion: vi.fn().mockReturnValue('schema-current'),
+      ensureConnectionMigrated: vi.fn(),
+    };
+    const prismaService = withTxClient({
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({
+          mode: 'byodb',
+          state: 'ready',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'ready',
+            schemaVersion: 'schema-current',
+            internalSchema,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+          },
+        }),
+      },
+    });
+    const manager = createManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      migration as never
+    );
+
+    await expect(manager.getDataDatabaseForSpacePreviewReadOnly('spcxxx')).resolves.toMatchObject({
+      cacheKey: connectionId,
+      connectionId,
+      isMetaFallback: false,
+    });
+    expect(migration.ensureConnectionMigrated).not.toHaveBeenCalled();
+  });
+
+  it('returns unknown routing evidence for a stale preview database without migration writes', async () => {
+    const migration = {
+      getLatestSchemaVersion: vi.fn().mockReturnValue('schema-current'),
+      ensureConnectionMigrated: vi.fn(),
+    };
+    const prismaService = withTxClient({
+      tableMeta: {
+        findUnique: vi.fn().mockResolvedValue({ base: { spaceId: 'spcxxx' } }),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({
+          mode: 'byodb',
+          state: 'ready',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'ready',
+            schemaVersion: 'schema-stale',
+            internalSchema,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+          },
+        }),
+      },
+    });
+    const manager = createManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      migration as never
+    );
+
+    await expect(manager.getDataDatabaseForTablePreviewReadOnly('tblxxx')).resolves.toBeNull();
+    expect(migration.ensureConnectionMigrated).not.toHaveBeenCalled();
+  });
+
   it('ensures the BYODB internal schema is migrated before returning a scoped URL', async () => {
     const dataDbMigrationService = {
       ensureConnectionMigrated: vi.fn().mockResolvedValue([]),
@@ -742,7 +853,7 @@ describe('DataDbClientManager', () => {
           id: 'cuo-live',
           base_id: 'bse1',
           seed_table_id: 'tbl1',
-          change_type: 'update',
+          change_type: 'seed',
           status: 'pending',
           plan_hash: 'same-plan',
         });
@@ -757,9 +868,39 @@ describe('DataDbClientManager', () => {
         await expect(db('computed_update_outbox').count({ count: '*' })).resolves.toEqual([
           { count: taskCount },
         ]);
-        await expect(db('computed_update_dead_letter').count({ count: '*' })).resolves.toEqual([
-          { count: 0 },
-        ]);
+        // Only archives whose rerun was inserted are completed; the already-pending
+        // task keeps its archive and is not rewritten.
+        await expect(db('computed_update_dead_letter').pluck('id')).resolves.toEqual(['cuo-live']);
+        const restoredRows = await db('computed_update_outbox')
+          .whereNot({ id: 'cuo-live' })
+          .select(
+            'id',
+            'run_id',
+            'origin_run_ids',
+            'dead_letter_restore_version',
+            'status',
+            'attempts',
+            'stage_depth',
+            'predecessor_task_id',
+            'seed_record_ids'
+          );
+        expect(restoredRows).toHaveLength(taskCount - 1);
+        expect(new Set(restoredRows.map((row) => row.run_id)).size).toBe(taskCount - 1);
+        for (const row of restoredRows) {
+          expect(row.origin_run_ids).toEqual([row.run_id]);
+          expect(row.dead_letter_restore_version).toBe(1);
+          expect(row.status).toBe('pending');
+          expect(row.attempts).toBe(0);
+          expect(row.stage_depth).toBe(0);
+          expect(row.predecessor_task_id).toBeNull();
+          expect(row.seed_record_ids).toBeNull();
+        }
+        const restoredSeeds = await db('computed_update_outbox_seed').select(
+          'task_id',
+          'record_id'
+        );
+        expect(restoredSeeds).toHaveLength(taskCount - 1);
+        expect(new Set(restoredSeeds.map((row) => row.task_id)).size).toBe(taskCount - 1);
         const replayPlanHashes = await db('computed_update_outbox')
           .whereNot({ id: 'cuo-live' })
           .pluck('plan_hash');
@@ -770,6 +911,203 @@ describe('DataDbClientManager', () => {
       // V8 coverage instrumentation (SONAR_COVERAGE_RUN) slows this bulk restore several times over.
     },
     process.env.SONAR_COVERAGE_RUN === '1' ? 60_000 : 15_000
+  );
+
+  it('restores an archived seed trigger as a fresh rerun without continuation state', async () => {
+    const db = await createComputedRecoveryDb();
+    const row: IComputedOutboxDeadLetterRow = {
+      ...createDeadLetterRow('cuo-seed-rerun'),
+      seedRecordIds: [
+        { tableId: 'tbl1', recordIds: ['rec1'] },
+        { tableId: 'tbl2', recordIds: ['rec2'] },
+      ],
+      dirtyStats: {
+        changeType: 'delete',
+        impact: { valueFieldIds: ['fld1'], linkFieldIds: ['fld2'] },
+        beforeImageRecords: [{ recordId: 'rec1', fieldValuesByDbName: { value: 'before' } }],
+        orchestration: { operationId: 'op-seed-rerun' },
+        traceparent: '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
+        tracestate: 'vendor=value',
+        ledgerScopeId: 'cuo-chain-root',
+        partialStageBudget: { maxSteps: 1, maxFields: 1, maxEdges: 1 },
+        seedAllCursors: { tbl1: 'rec0' },
+        terminalFieldErrors: [{ fieldId: 'fld-stale' }],
+      },
+      runTotalSteps: 9,
+      runCompletedStepsBefore: 7,
+      syncMaxLevel: 4,
+    };
+    await db('computed_update_dead_letter').insert({ id: row.taskId });
+
+    try {
+      await db.transaction(
+        async (trx: Knex.Transaction) => await restoreComputedOutboxDeadLetterRows(trx, [row])
+      );
+
+      const restored = await db('computed_update_outbox').where({ id: row.taskId }).first();
+      expect(restored).toMatchObject({
+        change_type: 'seed',
+        seed_record_ids: null,
+        attempts: 0,
+        run_total_steps: 0,
+        run_completed_steps_before: 0,
+        affected_table_ids: ['tbl1'],
+        affected_field_ids: ['fld1'],
+        sync_max_level: 0,
+        stage_depth: 0,
+        predecessor_task_id: null,
+      });
+      expect(JSON.parse(String(restored.steps))).toEqual([]);
+      expect(JSON.parse(String(restored.edges))).toEqual([]);
+      const restoredDirtyStats = JSON.parse(String(restored.dirty_stats));
+      expect(restoredDirtyStats).toEqual({
+        changeType: 'delete',
+        impact: { valueFieldIds: ['fld1'], linkFieldIds: ['fld2'] },
+        beforeImageRecords: [{ recordId: 'rec1', fieldValuesByDbName: { value: 'before' } }],
+        orchestration: { operationId: 'op-seed-rerun' },
+        traceparent: '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
+        tracestate: 'vendor=value',
+      });
+      await expect(
+        db('computed_update_outbox_seed')
+          .where({ task_id: row.taskId })
+          .orderBy(['table_id', 'record_id'])
+          .select(['table_id', 'record_id'])
+      ).resolves.toEqual([
+        { table_id: 'tbl1', record_id: 'rec1' },
+        { table_id: 'tbl2', record_id: 'rec2' },
+      ]);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('restores an archived planned stage as a fresh current-stage rerun', async () => {
+    const db = await createComputedRecoveryDb();
+    const row: IComputedOutboxDeadLetterRow = {
+      ...createDeadLetterRow('cuo-planned-stage'),
+      changeType: 'update',
+      steps: [{ level: 2, tableId: 'tbl2', fieldIds: ['fld2'] }],
+      edges: [
+        {
+          fromTableId: 'tbl1',
+          toTableId: 'tbl2',
+          mode: 'same_record',
+          propagationSourceFieldIds: ['fld1'],
+        },
+      ],
+      dirtyStats: {
+        rerunInputs: { version: 1, complete: true, seedCount: '0' },
+        dirtyStats: [{ tableId: 'tbl1', recordCount: 1 }],
+        beforeImageRecords: [{ recordId: 'rec1', fieldValuesByDbName: { value: 'before' } }],
+        orchestration: { operationId: 'op-stage-rerun' },
+        sameTableBatches: [{ tableId: 'tbl2', fieldIds: ['fld2'] }],
+        ledgerScopeId: 'cuo-chain-root',
+        partialStageBudget: { maxSteps: 1, maxFields: 1, maxEdges: 1 },
+        seedAllCursors: { tbl1: 'rec0' },
+        terminalFieldErrors: [{ fieldId: 'fld-stale' }],
+      },
+      runTotalSteps: 9,
+      runCompletedStepsBefore: 7,
+      syncMaxLevel: 2,
+    };
+    await db('computed_update_dead_letter').insert({ id: row.taskId });
+
+    try {
+      await db.transaction(
+        async (trx: Knex.Transaction) => await restoreComputedOutboxDeadLetterRows(trx, [row])
+      );
+
+      const restored = await db('computed_update_outbox').where({ id: row.taskId }).first();
+      expect(restored).toMatchObject({
+        change_type: 'update',
+        seed_record_ids: null,
+        attempts: 0,
+        run_total_steps: 1,
+        run_completed_steps_before: 0,
+        sync_max_level: 2,
+        stage_depth: 0,
+        predecessor_task_id: null,
+      });
+      expect(JSON.parse(String(restored.steps))).toEqual(row.steps);
+      expect(JSON.parse(String(restored.edges))).toEqual([
+        { fromTableId: 'tbl1', toTableId: 'tbl2', mode: 'same_record' },
+      ]);
+      expect(row.edges).toEqual([
+        {
+          fromTableId: 'tbl1',
+          toTableId: 'tbl2',
+          mode: 'same_record',
+          propagationSourceFieldIds: ['fld1'],
+        },
+      ]);
+      expect(JSON.parse(String(restored.dirty_stats))).toEqual({
+        plannedRerun: true,
+        dirtyStats: [{ tableId: 'tbl1', recordCount: 1 }],
+        beforeImageRecords: [{ recordId: 'rec1', fieldValuesByDbName: { value: 'before' } }],
+        orchestration: { operationId: 'op-stage-rerun' },
+        sameTableBatches: [{ tableId: 'tbl2', fieldIds: ['fld2'] }],
+      });
+      await expect(
+        db('computed_update_outbox_seed').where({ task_id: row.taskId }).select('record_id')
+      ).resolves.toEqual([{ record_id: `rec-${row.taskId}` }]);
+      await expect(
+        db('computed_update_dead_letter').where({ id: row.taskId })
+      ).resolves.toHaveLength(0);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('reruns an archived field backfill from the start of its field scope', async () => {
+    const db = await createComputedRecoveryDb();
+    const row: IComputedOutboxDeadLetterRow = {
+      ...createDeadLetterRow('cuo-backfill'),
+      changeType: 'field-backfill',
+      seedRecordIds: null,
+      dirtyStats: { fieldBackfillCursor: 'rec-old' },
+      affectedFieldIds: ['fld1', 'fld2'],
+      runCompletedStepsBefore: 7,
+    };
+    await db('computed_update_dead_letter').insert({ id: row.taskId });
+    try {
+      await db.transaction(
+        async (trx: Knex.Transaction) => await restoreComputedOutboxDeadLetterRows(trx, [row])
+      );
+      const restored = await db('computed_update_outbox').where({ id: row.taskId }).first();
+      expect(restored).toMatchObject({
+        change_type: 'field-backfill',
+        affected_field_ids: ['fld1', 'fld2'],
+        run_total_steps: 1,
+        run_completed_steps_before: 0,
+      });
+      expect(JSON.parse(String(restored.dirty_stats))).toEqual({});
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it.each(['insert', 'update', 'delete'])(
+    'preserves an incomplete historical partial %s archive',
+    async (changeType) => {
+      const db = await createComputedRecoveryDb();
+      const row = {
+        ...createDeadLetterRow('legacy-partial'),
+        changeType,
+        predecessorTaskId: 'prior-task',
+        dirtyStats: { partialStageBudget: { maxSteps: 1, maxFields: 1, maxEdges: 1 } },
+      };
+      await db('computed_update_dead_letter').insert({ id: row.taskId });
+      try {
+        await expect(
+          db.transaction((trx: Knex.Transaction) => restoreComputedOutboxDeadLetterRows(trx, [row]))
+        ).rejects.toThrow('no complete durable rerun inputs');
+        expect(await db('computed_update_dead_letter').where({ id: row.taskId })).toHaveLength(1);
+        expect(await db('computed_update_outbox').where({ id: row.taskId })).toHaveLength(0);
+      } finally {
+        await db.destroy();
+      }
+    }
   );
 
   it('lists BYODB-bound bases even when their connection is not queryable', async () => {

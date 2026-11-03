@@ -1,4 +1,4 @@
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -158,6 +158,69 @@ export function parseClipboardText(content: string): string[][] {
   return tableData;
 }
 
+export const MAX_PASTE_CELLS = 50_000;
+
+const maxPasteCellsError = () =>
+  domainError.validation({
+    code: 'validation.paste.max_cells_exceeded',
+    message: `Exceed max paste cells ${MAX_PASTE_CELLS}`,
+    details: { max: MAX_PASTE_CELLS },
+  });
+
+/**
+ * Validate both submitted and selected cell counts without multiplying untrusted dimensions.
+ * Every caller must invoke this before allocating an expanded paste grid.
+ */
+export const validatePasteExpansion = (
+  content: ReadonlyArray<ReadonlyArray<unknown>>,
+  targetRows: number,
+  targetCols: number
+): Result<void, DomainError> => {
+  if (!Number.isSafeInteger(targetRows) || !Number.isSafeInteger(targetCols)) {
+    return err(
+      domainError.validation({
+        code: 'validation.paste.invalid_expansion_dimensions',
+        message: 'Invalid paste expansion dimensions',
+      })
+    );
+  }
+
+  if (
+    targetRows > 0 &&
+    targetCols > 0 &&
+    (targetRows > MAX_PASTE_CELLS || targetCols > Math.floor(MAX_PASTE_CELLS / targetRows))
+  ) {
+    return err(maxPasteCellsError());
+  }
+
+  let submittedCells = 0;
+  for (const row of content) {
+    if (row.length > MAX_PASTE_CELLS - submittedCells) {
+      return err(maxPasteCellsError());
+    }
+    submittedCells += row.length;
+  }
+  return ok(undefined);
+};
+
+export const validatePasteInputSize = (
+  content: ReadonlyArray<ReadonlyArray<unknown>>,
+  ranges: ReadonlyArray<readonly [number, number]>,
+  rangeType: RangeType
+): Result<void, DomainError> => {
+  if (rangeType === 'columns') {
+    const [startCol, endCol] = ranges[0]!;
+    return validatePasteExpansion(content, 1, endCol - startCol + 1);
+  }
+  if (rangeType === 'rows') {
+    const [startRow, endRow] = ranges[0]!;
+    return validatePasteExpansion(content, endRow - startRow + 1, 1);
+  }
+  const [startCol, startRow] = ranges[0]!;
+  const [endCol, endRow] = ranges[1]!;
+  return validatePasteExpansion(content, endRow - startRow + 1, endCol - startCol + 1);
+};
+
 export const pasteCommandInputSchema = z.object({
   tableId: z.string(),
   viewId: z.string(),
@@ -277,31 +340,33 @@ export class PasteCommand {
       );
     }
 
-    return TableId.create(parsed.data.tableId).andThen((tableId) =>
-      ViewId.create(parsed.data.viewId).map((viewId) => {
-        // Parse content if it's a string (clipboard format)
-        const content =
-          typeof parsed.data.content === 'string'
-            ? parseClipboardText(parsed.data.content)
-            : parsed.data.content;
+    const content =
+      typeof parsed.data.content === 'string'
+        ? parseClipboardText(parsed.data.content)
+        : parsed.data.content;
+    const sizeResult = validatePasteInputSize(content, ranges, type);
+    if (sizeResult.isErr()) return err(sizeResult.error);
 
-        return new PasteCommand(
-          tableId,
-          viewId,
-          parsed.data.ranges,
-          parsed.data.type,
-          content,
-          parsed.data.filter ?? undefined,
-          parsed.data.updateFilter ?? undefined,
-          RecordSearch.fromOptionalTuple(parsed.data.search),
-          parsed.data.sourceFields,
-          parsed.data.typecast,
-          parsed.data.projection,
-          parsed.data.sort,
-          parsed.data.groupBy,
-          parsed.data.ignoreViewQuery ?? false
-        );
-      })
+    return TableId.create(parsed.data.tableId).andThen((tableId) =>
+      ViewId.create(parsed.data.viewId).map(
+        (viewId) =>
+          new PasteCommand(
+            tableId,
+            viewId,
+            parsed.data.ranges,
+            parsed.data.type,
+            content,
+            parsed.data.filter ?? undefined,
+            parsed.data.updateFilter ?? undefined,
+            RecordSearch.fromOptionalTuple(parsed.data.search),
+            parsed.data.sourceFields,
+            parsed.data.typecast,
+            parsed.data.projection,
+            parsed.data.sort,
+            parsed.data.groupBy,
+            parsed.data.ignoreViewQuery ?? false
+          )
+      )
     );
   }
 

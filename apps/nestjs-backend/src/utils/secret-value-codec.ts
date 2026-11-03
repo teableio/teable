@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes } from 'node:crypto';
 import { resolveSecret } from '../configs/secrets/resolve-secret';
 import type { ISecretSpec } from '../configs/secrets/secret-specs';
 
@@ -35,6 +35,13 @@ export interface ISecretValueCodecConfig {
   hkdfInfo: string;
   /** Names the purpose in the decryption error. */
   label: string;
+  /**
+   * Derive the IV from the plaintext (an HMAC under its own HKDF key) instead of drawing it at
+   * random: one plaintext then always gives one ciphertext per key, so a column holding it can
+   * still be looked up by equality (encryptedForms). It reveals which stored values are equal,
+   * so use it only for values that are unique anyway, such as tokens.
+   */
+  syntheticIv?: boolean;
 }
 
 /**
@@ -52,6 +59,8 @@ export interface ISecretValueCodecConfig {
 export class SecretValueCodec {
   /** keys[0] encrypts; every key participates in decryption, in order. */
   private readonly keys: Buffer[];
+  /** syntheticIv only: the IV key of each entry of keys. */
+  private readonly ivKeys?: Buffer[];
   /** True when the encrypting root is the publicly known zero-config default. */
   readonly usesPublicDefaultRoot: boolean;
   private readonly label: string;
@@ -64,6 +73,11 @@ export class SecretValueCodec {
     this.keys = roots.map((root) =>
       Buffer.from(hkdfSync('sha256', root, '', config.hkdfInfo, KEY_BYTES))
     );
+    if (config.syntheticIv) {
+      this.ivKeys = roots.map((root) =>
+        Buffer.from(hkdfSync('sha256', root, '', `${config.hkdfInfo}:iv`, KEY_BYTES))
+      );
+    }
     this.usesPublicDefaultRoot = primaryRoot === config.spec.legacyDefault;
     this.label = config.label;
   }
@@ -73,11 +87,18 @@ export class SecretValueCodec {
     if (isEncryptedSecretValue(plaintext)) {
       return plaintext;
     }
-    const iv = randomBytes(IV_BYTES);
-    const cipher = createCipheriv(ALGORITHM, this.keys[0], iv);
-    const enc = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-    const tag = cipher.getAuthTag();
-    return SECRET_CIPHER_PREFIX + Buffer.concat([iv, tag, enc]).toString('base64');
+    return this.encryptWith(0, plaintext);
+  }
+
+  /**
+   * syntheticIv only: every ciphertext this plaintext can be stored as, one per key, the
+   * primary first — to find a stored value by equality whichever key wrote it.
+   */
+  encryptedForms(plaintext: string): string[] {
+    if (!this.ivKeys) {
+      throw new Error(`${this.label} encryption draws a random IV and has no fixed forms`);
+    }
+    return this.keys.map((_, index) => this.encryptWith(index, plaintext));
   }
 
   /** Plaintext passes through; an undecryptable ciphertext throws. */
@@ -106,6 +127,16 @@ export class SecretValueCodec {
     } catch {
       return false;
     }
+  }
+
+  private encryptWith(index: number, plaintext: string): string {
+    const iv = this.ivKeys
+      ? createHmac('sha256', this.ivKeys[index]).update(plaintext).digest().subarray(0, IV_BYTES)
+      : randomBytes(IV_BYTES);
+    const cipher = createCipheriv(ALGORITHM, this.keys[index], iv);
+    const enc = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return SECRET_CIPHER_PREFIX + Buffer.concat([iv, tag, enc]).toString('base64');
   }
 
   private decryptWith(key: Buffer, value: string): string {

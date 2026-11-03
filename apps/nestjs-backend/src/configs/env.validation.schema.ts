@@ -2,7 +2,11 @@
 import Joi from 'joi';
 
 import { resolveBoolean } from '../features/v2/v2-config-parsers';
-import { DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY } from './computed-outbox-trigger.config';
+import {
+  DEFAULT_BASE_PENDING_CAPACITY_QUERY_LIMIT,
+  DEFAULT_BASE_PENDING_CAPACITY_THRESHOLD,
+  DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY,
+} from './computed-outbox-trigger.config';
 
 /** `envName` becomes required once `SOCIAL_AUTH_PROVIDERS` lists `provider`. */
 const requiredForSocialProvider = (
@@ -138,6 +142,14 @@ export const envValidationSchema = Joi.object({
   V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_BASE: Joi.number().integer().positive().default(2),
   V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE: Joi.number().integer().positive().default(1),
   V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS: Joi.number().integer().min(0).default(60000),
+  V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_THRESHOLD: Joi.number()
+    .integer()
+    .positive()
+    .default(DEFAULT_BASE_PENDING_CAPACITY_THRESHOLD),
+  V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_QUERY_LIMIT: Joi.number()
+    .integer()
+    .positive()
+    .default(DEFAULT_BASE_PENDING_CAPACITY_QUERY_LIMIT),
   V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_AGE_MS: Joi.number()
     .integer()
     .min(0)

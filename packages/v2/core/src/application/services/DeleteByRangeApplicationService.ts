@@ -5,12 +5,12 @@ import type { Result } from 'neverthrow';
 import type { RecordGroupByValue } from '../../commands/DeleteByRangeCommand';
 import { normalizeRanges, type RangeType } from '../../commands/RangeUtils';
 import { buildDeletedRecordSnapshot } from '../../commands/shared/buildDeletedRecordSnapshot';
-import { persistDeletedTrashMarkers } from '../../commands/shared/persistDeletedTrashMarkers';
 import {
   mergeOrderByWithViewRowTieBreaker,
   resolveGroupByToOrderBy,
   resolveOrderBy,
 } from '../../commands/shared/orderBy';
+import { persistDeletedTrashMarkers } from '../../commands/shared/persistDeletedTrashMarkers';
 import { ensureRecordIdsWithinScope } from '../../commands/shared/recordWriteScope';
 import { resolveDeleteStreamBatchSize } from '../../commands/shared/streamBatchSize';
 import {
@@ -73,7 +73,7 @@ const MAX_DELETE_STREAM_BUFFERED_EVENTS = 64;
 const toRangeTypeSpanAttribute = (rangeType: RangeType): 'columns' | 'rows' | 'cells' =>
   rangeType ?? 'cells';
 
-type DeleteByRangeCommandLike = {
+export type DeleteByRangeCommandLike = {
   readonly tableId: TableId;
   readonly viewId: ViewId;
   readonly rawRanges: ReadonlyArray<readonly [number, number]>;
@@ -91,7 +91,7 @@ type DeleteByRangeStreamCommandLike = DeleteByRangeCommandLike & {
   readonly batchSize?: number;
 };
 
-type PreparedDeletePlan = {
+export type PreparedDeletePlan = {
   readonly table: Table;
   readonly recordIds: ReadonlyArray<RecordId>;
   readonly deletedRecordIds: ReadonlyArray<string>;
@@ -217,7 +217,7 @@ export class DeleteByRangeApplicationService {
         'teable.range_count': command.rawRanges.length,
         'teable.delete_mode': 'direct',
       },
-      () => this.prepareDeletePlan(context, command, DEFAULT_DELETE_QUERY_PAGE_SIZE)
+      () => this.prepareDelete(context, command, DEFAULT_DELETE_QUERY_PAGE_SIZE)
     );
     if (planResult.isErr()) {
       return err(planResult.error);
@@ -420,10 +420,10 @@ export class DeleteByRangeApplicationService {
     }
   }
 
-  private async prepareDeletePlan(
+  async prepareDelete(
     context: IExecutionContext,
     command: DeleteByRangeCommandLike,
-    pageSize: number
+    pageSize: number = DEFAULT_DELETE_QUERY_PAGE_SIZE
   ): Promise<Result<PreparedDeletePlan, DomainError>> {
     const tableResult = await this.tableQueryService.getById(context, command.tableId);
     if (tableResult.isErr()) {

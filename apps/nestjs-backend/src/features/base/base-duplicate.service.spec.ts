@@ -422,6 +422,239 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     );
   });
 
+  it.each([true, false])(
+    'prepares native snapshots without migrating when preview routing is available=%s',
+    async (routeAvailable) => {
+      const structure = {
+        name: duplicateBaseName,
+        tables: [{ id: sourceTableId, name: sourceTableName, fields: [], views: [] }],
+      };
+      const sourceContainer = createSourceContainer(structure);
+      const v2ContainerService = {
+        getPreviewContainerForTable: vi
+          .fn()
+          .mockResolvedValue(routeAvailable ? sourceContainer : null),
+        getContainerForBase: vi.fn(),
+      };
+      const service = new BaseDuplicateService(
+        {} as IServiceArgs[0],
+        {} as IServiceArgs[1],
+        {} as IServiceArgs[2],
+        {} as IServiceArgs[3],
+        {} as IServiceArgs[4],
+        {} as IServiceArgs[5],
+        {} as IServiceArgs[6],
+        {} as IServiceArgs[7],
+        {} as IServiceArgs[8],
+        v2ContainerService as unknown as IServiceArgs[9],
+        { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[10],
+        {} as IServiceArgs[11]
+      );
+      const internals = service as unknown as IDuplicateServiceInternals;
+      vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
+        structure,
+        sourceDbTableNameByTableId: { [sourceTableId]: sourceDbTableName },
+        fieldConversions: { external: 0, partialSelection: 0 },
+      });
+      vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
+      vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
+      vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
+      vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
+
+      const preparation = service.prepareDuplicateBaseV2({
+        fromBaseId: 'bseSource',
+        spaceId: 'spcTarget',
+        withRecords: false,
+      });
+      if (routeAvailable) {
+        const result = await preparation;
+        expect(result.execution.tableSnapshots.has(sourceTableId)).toBe(true);
+        expect(result.execution.source.tableSnapshots).toBe(result.execution.tableSnapshots);
+      } else {
+        await expect(preparation).rejects.toThrow(
+          'Native duplicate source route is unavailable for read-only preview'
+        );
+      }
+      expect(v2ContainerService.getPreviewContainerForTable).toHaveBeenCalledWith(sourceTableId);
+      expect(v2ContainerService.getContainerForBase).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(
+    ['a new base', 'an existing target base'].flatMap((targetLabel) =>
+      [
+        { routeLabel: 'preview', options: {} as { readOnly?: boolean } },
+        { routeLabel: 'execution', options: { readOnly: false } as { readOnly?: boolean } },
+      ].map((route) => ({ ...route, targetLabel }))
+    )
+  )(
+    'keeps source physical table names for $targetLabel on the $routeLabel route',
+    async ({ targetLabel, routeLabel, options }) => {
+      const existingTargetBaseId =
+        targetLabel === 'an existing target base' ? 'bseTarget' : undefined;
+      const keepDbTableNames = existingTargetBaseId === undefined;
+      const ordersTableId = `tbl${'o'.repeat(16)}`;
+      const customersTableId = `tbl${'c'.repeat(16)}`;
+      const manyOneFieldId = `fld${'m'.repeat(16)}`;
+      const oneOneFieldId = `fld${'n'.repeat(16)}`;
+      const externalFieldId = `fld${'e'.repeat(16)}`;
+      const structure = {
+        name: duplicateBaseName,
+        tables: [
+          {
+            id: ordersTableId,
+            name: 'Orders',
+            fields: [
+              { id: manyOneFieldId, name: 'Customer', type: FieldType.Link },
+              { id: externalFieldId, name: 'External', type: FieldType.Link },
+            ],
+            views: [],
+          },
+          {
+            id: customersTableId,
+            name: 'Customers',
+            fields: [{ id: oneOneFieldId, name: 'Primary order', type: FieldType.Link }],
+            views: [],
+          },
+        ],
+      };
+      const sourceSnapshots: ISourceSnapshotFixture[] = [
+        {
+          ...structure.tables[0],
+          dbTableName: 'bseSource.Orders',
+          fields: [
+            {
+              ...structure.tables[0].fields[0],
+              options: {
+                relationship: Relationship.ManyOne,
+                foreignTableId: customersTableId,
+                lookupFieldId: oneOneFieldId,
+                fkHostTableName: 'bseSource.Orders',
+                selfKeyName: '__id',
+                foreignKeyName: '__fk_customer',
+              },
+            },
+            {
+              ...structure.tables[0].fields[1],
+              options: {
+                relationship: Relationship.ManyOne,
+                foreignTableId: 'tblExternal',
+                lookupFieldId: 'fldExternal',
+                fkHostTableName: 'bseExternal.vendor_orders',
+                selfKeyName: '__id',
+                foreignKeyName: '__fk_external',
+              },
+            },
+          ],
+        },
+        {
+          ...structure.tables[1],
+          dbTableName: 'bseSource.customer_records',
+          fields: [
+            {
+              ...structure.tables[1].fields[0],
+              options: {
+                relationship: Relationship.OneOne,
+                foreignTableId: ordersTableId,
+                lookupFieldId: manyOneFieldId,
+                fkHostTableName: 'bseSource.customer_records',
+                selfKeyName: '__id',
+                foreignKeyName: '__fk_primary_order',
+              },
+            },
+          ],
+        },
+      ];
+      const previewContainer = createSourceContainer(structure, sourceSnapshots);
+      const routingContainer = createSourceContainer(structure, sourceSnapshots);
+      const v2ContainerService = {
+        getPreviewContainerForTable: vi.fn().mockResolvedValue(previewContainer),
+        getContainerForBase: vi.fn().mockResolvedValue(routingContainer),
+      };
+      const service = new BaseDuplicateService(
+        {} as IServiceArgs[0],
+        {} as IServiceArgs[1],
+        {} as IServiceArgs[2],
+        {} as IServiceArgs[3],
+        {} as IServiceArgs[4],
+        {} as IServiceArgs[5],
+        {} as IServiceArgs[6],
+        {} as IServiceArgs[7],
+        {} as IServiceArgs[8],
+        v2ContainerService as unknown as IServiceArgs[9],
+        { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[10],
+        {} as IServiceArgs[11]
+      );
+      const internals = service as unknown as IDuplicateServiceInternals;
+      vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
+        structure,
+        sourceDbTableNameByTableId: {
+          [ordersTableId]: 'bseSource.Orders',
+          [customersTableId]: 'bseSource.customer_records',
+        },
+        fieldConversions: { external: 0, partialSelection: 0 },
+      });
+      vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
+      vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
+      vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
+      vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
+      const fixtureBefore = structuredClone({ structure, sourceSnapshots });
+
+      const result = await service.prepareDuplicateBaseV2(
+        {
+          fromBaseId: 'bseSource',
+          spaceId: 'spcTarget',
+          withRecords: false,
+          ...(existingTargetBaseId ? { baseId: existingTargetBaseId } : {}),
+        },
+        true,
+        BaseDuplicateMode.Normal,
+        options
+      );
+      const execution = result.execution as unknown as {
+        tableSnapshots: ReadonlyMap<string, ISourceSnapshotFixture>;
+      };
+      const ordersSnapshot = execution.tableSnapshots.get(ordersTableId)!;
+      const customersSnapshot = execution.tableSnapshots.get(customersTableId)!;
+
+      // Preparation is read-only: neither the structure nor the physical source
+      // snapshots may be rewritten in place while the copy is being planned.
+      expect({ structure, sourceSnapshots }).toEqual(fixtureBefore);
+      expect(execution.tableSnapshots.size).toBe(2);
+      expect(result.execution.source.tableSnapshots).toBe(result.execution.tableSnapshots);
+
+      // A new base preserves the source physical names because nothing else
+      // occupies them in the target; an existing target is named after its new
+      // table ids, so the source name must be omitted.
+      expect(ordersSnapshot.dbTableName).toBe(keepDbTableNames ? 'bseSource.Orders' : undefined);
+      expect(customersSnapshot.dbTableName).toBe(
+        keepDbTableNames ? 'bseSource.customer_records' : undefined
+      );
+      // Internal link hosts follow the table's own physical name: kept names
+      // stay foreign-key hosts, id-based names must be rewritten or the new
+      // links would point at the source table.
+      expect(
+        ordersSnapshot.fields.find(({ id }) => id === manyOneFieldId)?.options?.fkHostTableName
+      ).toBe(keepDbTableNames ? 'bseSource.Orders' : `bseSource.${ordersTableId}`);
+      expect(
+        customersSnapshot.fields.find(({ id }) => id === oneOneFieldId)?.options?.fkHostTableName
+      ).toBe(keepDbTableNames ? 'bseSource.customer_records' : `bseSource.${customersTableId}`);
+      expect(
+        ordersSnapshot.fields.find(({ id }) => id === externalFieldId)?.options?.fkHostTableName
+      ).toBe('bseExternal.vendor_orders');
+
+      if (routeLabel === 'preview') {
+        // Preview preparation must acquire the source through the read-only
+        // route and never initialize or migrate a routing container.
+        expect(v2ContainerService.getPreviewContainerForTable).toHaveBeenCalledWith(ordersTableId);
+        expect(v2ContainerService.getContainerForBase).not.toHaveBeenCalled();
+      } else {
+        expect(v2ContainerService.getContainerForBase).toHaveBeenCalledWith('bseSource');
+        expect(v2ContainerService.getPreviewContainerForTable).not.toHaveBeenCalled();
+      }
+    }
+  );
+
   it('should create the v2 execution context from the space data container', async () => {
     const spaceId = 'spcTarget';
     const targetBaseId = 'bseTarget';
@@ -469,13 +702,15 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const v2ContextFactory = {
       createContext: vi.fn().mockResolvedValue(context),
     };
+    const prismaService = {
+      txClient: vi.fn().mockReturnValue({
+        base: { update: vi.fn() },
+      }),
+      $tx: vi.fn(async (callback: () => Promise<unknown>) => callback()),
+    };
 
     const service = new BaseDuplicateService(
-      {
-        txClient: vi.fn().mockReturnValue({
-          base: { update: vi.fn() },
-        }),
-      } as unknown as IServiceArgs[0],
+      prismaService as unknown as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
       baseImportService as unknown as IServiceArgs[3],
@@ -488,6 +723,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       v2ContextFactory as unknown as IServiceArgs[10],
       { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
     );
+    const serviceWithConfig = service as unknown as {
+      thresholdConfig: { bigTransactionTimeout: number };
+    };
+    serviceWithConfig.thresholdConfig = { bigTransactionTimeout: 1000 };
     const internals = service as unknown as IDuplicateServiceInternals;
 
     const sourceDbTableNameByTableId = { tblSource: sourceDbTableName };
@@ -495,6 +734,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
       structure,
       sourceDbTableNameByTableId,
+      fieldConversions: { external: 0, partialSelection: 0 },
     });
     vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
@@ -502,12 +742,31 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
 
-    await service.duplicateBaseV2({
+    let preparationCompleted = false;
+    const prepareDuplicateBaseV2 = service.prepareDuplicateBaseV2.bind(service);
+    const preparationSpy = vi
+      .spyOn(service, 'prepareDuplicateBaseV2')
+      .mockImplementation(async (...args) => {
+        const preparation = await prepareDuplicateBaseV2(...args);
+        preparationCompleted = true;
+        return preparation;
+      });
+    baseImportService.createBaseV2.mockImplementation(async () => {
+      expect(preparationCompleted).toBe(true);
+      return { id: targetBaseId };
+    });
+
+    const request = {
       fromBaseId: 'bseSource',
       spaceId,
       name: duplicateBaseName,
+      baseId: targetBaseId,
+      nodes: ['nodSelected'],
+      shareId: 'shrSource',
+      timeZone: 'America/New_York',
       withRecords: false,
-    });
+    };
+    await service.duplicateBaseV2(request, false, BaseDuplicateMode.ApplyTemplate);
 
     expect(v2ContainerService.getContainerForSpace).toHaveBeenCalledWith(spaceId);
     expect(v2ContextFactory.createContext).toHaveBeenCalledWith(container);
@@ -521,6 +780,11 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       []
     );
     expect(commandBus.execute).toHaveBeenCalledWith(context, expect.any(Object));
+    expect(preparationSpy).toHaveBeenCalledTimes(1);
+    expect(preparationSpy).toHaveBeenCalledWith(request, false, BaseDuplicateMode.ApplyTemplate, {
+      includeRowCount: false,
+      readOnly: false,
+    });
   });
 
   it('should delegate record copying to the v2 command and recompute computed columns after a bulk copy', async () => {
@@ -608,6 +872,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
       structure,
       sourceDbTableNameByTableId: { tblSource: sourceDbTableName },
+      fieldConversions: { external: 0, partialSelection: 0 },
     });
     vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue(
@@ -732,6 +997,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
       structure,
       sourceDbTableNameByTableId: { tblSource: sourceDbTableName },
+      fieldConversions: { external: 0, partialSelection: 0 },
     });
     vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
@@ -751,8 +1017,9 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       withRecords: true,
     });
 
-    const executedCommand = commandBus.execute.mock.calls[0]?.[1];
-    expect(executedCommand).toMatchObject({ withRecords: true });
+    // The same-database precheck moved into the v2 bulk copier port, so the
+    // host no longer compares data databases here.
+    expect(commandBus.execute.mock.calls[0]?.[1]).toMatchObject({ withRecords: true });
     expect(internals.duplicateTableData).not.toHaveBeenCalled();
     expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
     expect(internals.duplicateAttachments).toHaveBeenCalledWith(
@@ -865,6 +1132,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
       structure,
       sourceDbTableNameByTableId: { tblSource: sourceDbTableName },
+      fieldConversions: { external: 0, partialSelection: 0 },
     });
     vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
@@ -888,8 +1156,11 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       (event: string | IBaseImportProgress) => progressEvents.push(event)
     );
 
-    const executedCommand = commandBus.execute.mock.calls[0]?.[1];
-    expect(executedCommand).toMatchObject({ withRecords: true });
+    // Record copying runs inside the command now; its progress events are
+    // forwarded to the caller as-is, in both bulk and stream modes.
+    expect(internals.duplicateTableData).not.toHaveBeenCalled();
+    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
+    expect(commandBus.execute.mock.calls[0]?.[1]).toMatchObject({ withRecords: true });
     expect(progressEvents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ phase: 'table_data_start', processedRows: 0 }),

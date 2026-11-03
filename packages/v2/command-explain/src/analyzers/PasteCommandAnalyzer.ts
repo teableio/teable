@@ -14,6 +14,7 @@ import {
   type Table,
   TableQueryService,
   PasteCommand,
+  validatePasteExpansion,
   FieldId,
   RecordId,
   OffsetPagination,
@@ -156,6 +157,7 @@ export class PasteCommandAnalyzer implements ICommandAnalyzer<PasteCommand> {
       const [[startCol, startRow], [endCol, endRow]] = normalizedRanges;
       const targetRangeCols = endCol - startCol + 1;
       const targetRangeRows = endRow - startRow + 1;
+      yield* validatePasteExpansion(command.content, targetRangeRows, targetRangeCols);
       const expandedContent = expandPasteContent(command.content, targetRangeRows, targetRangeCols);
 
       if (expandedContent.length === 0 || expandedContent[0]?.length === 0) {

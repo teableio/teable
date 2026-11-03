@@ -20,6 +20,7 @@ import type {
   IGetViewFilterLinkRecordsResponseDataDto,
   IGetViewPluginInstallResponseDataDto,
   IGetViewSnapshotsResponseDataDto,
+  IInstallViewPluginEndpointResult,
   IInstallViewPluginResponseDataDto,
   IUpdateViewPluginStorageResponseDataDto,
   IViewMutationResponseDataDto,
@@ -350,10 +351,10 @@ export const executeInstallViewPluginEndpoint = async (
   context: IExecutionContext,
   input: unknown,
   commandBus: ICommandBus
-) => {
+): Promise<IInstallViewPluginEndpointResult> => {
   const parsed = installViewPluginInputSchema.safeParse(input);
   if (!parsed.success) {
-    return errorEndpointResult(
+    return errorEndpointResult<IInstallViewPluginResponseDataDto>(
       domainError.validation({
         message: 'Invalid install View plugin input',
         details: parsed.error.flatten(),

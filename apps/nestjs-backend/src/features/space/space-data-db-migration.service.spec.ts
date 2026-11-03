@@ -375,6 +375,9 @@ describe('SpaceDataDbMigrationService', () => {
       if (sql.includes(`MAX("seq")`)) {
         return { rows: [{ maxSeq: 0 }] };
       }
+      if (sql.includes('to_regclass')) {
+        return { rows: [{ exists: true }] };
+      }
       return { rows: [] };
     });
     sourceClient.destroy.mockReset().mockResolvedValue(undefined);
@@ -7222,6 +7225,11 @@ describe('SpaceDataDbMigrationService', () => {
           sharedTables: [
             { object: 'shared:computed_update_outbox', sourceCount: 0, targetCount: 0 },
             { object: 'shared:computed_update_dead_letter', sourceCount: 0, targetCount: 0 },
+            {
+              object: 'shared:computed_update_dead_letter_seed',
+              sourceCount: 0,
+              targetCount: 0,
+            },
             { object: 'shared:domain_event_outbox', sourceCount: 0, targetCount: 0 },
             { object: 'shared:domain_event_delivery', sourceCount: 0, targetCount: 0 },
             { object: 'shared:domain_event_inbox', sourceCount: 0, targetCount: 0 },

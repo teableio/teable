@@ -338,7 +338,9 @@ const expectConsistentState = async (
   for (const row of childRows.rows) {
     const ownsChild = row.id === child.id;
     expect(row.owner, `physical FK for ${row.id}`).toBe(ownsChild ? fixture.p.id : null);
-    expect(row.parent, `stored inverse cache for ${row.id}`).toEqual(ownsChild ? parentValue : null);
+    expect(row.parent, `stored inverse cache for ${row.id}`).toEqual(
+      ownsChild ? parentValue : null
+    );
   }
   // Read HTTP-visible values without draining work while T1 still holds its gate.
   const parents = await ctx.listRecordsWithoutDrain(fixture.parentTableId);

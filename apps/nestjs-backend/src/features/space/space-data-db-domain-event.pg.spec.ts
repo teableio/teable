@@ -14,9 +14,12 @@ import {
   DataDbMigrationService,
   type IDataDbMigration,
 } from './data-db-migration.service';
-import { dataDbKnexClientFactory } from './data-db-preflight.service';
+import { dataDbKnexClientFactory, type IDataDbPreflightClient } from './data-db-preflight.service';
 import { encryptDataDbUrl } from './data-db-url-secret';
-import { buildMigrationSharedTableSqlCopyPlans } from './space-data-db-copy-plan';
+import {
+  buildMigrationSharedTablePostgresFdwCopyPlans,
+  buildMigrationSharedTableSqlCopyPlans,
+} from './space-data-db-copy-plan';
 import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
 
 // Run environments that guarantee a postgres for unit tests (EE's
@@ -98,8 +101,99 @@ const createDomainEventTables = async (client: Client, schema: string) => {
   await client.query(`
     CREATE TABLE "${schema}"."computed_update_dead_letter" (
       "id" text PRIMARY KEY,
-      "base_id" text
+      "base_id" text,
+      "worker_lane" text,
+      "seed_table_id" text,
+      "seed_record_ids" jsonb,
+      "change_type" text,
+      "steps" jsonb,
+      "edges" jsonb,
+      "status" text,
+      "attempts" integer,
+      "max_attempts" integer,
+      "next_run_at" timestamptz,
+      "locked_at" timestamptz,
+      "locked_by" text,
+      "last_error" text,
+      "estimated_complexity" integer,
+      "plan_hash" text,
+      "dirty_stats" jsonb,
+      "run_id" text,
+      "origin_run_ids" text[],
+      "run_total_steps" integer,
+      "run_completed_steps_before" integer,
+      "affected_table_ids" text[],
+      "affected_field_ids" text[],
+      "sync_max_level" integer,
+      "source_changed_at" timestamptz,
+      "stage_depth" integer,
+      "predecessor_task_id" text,
+      "created_at" timestamptz,
+      "updated_at" timestamptz,
+      "trace_data" jsonb,
+      "failed_at" timestamptz,
+      "delete_authorized_txid" bigint
     )
+  `);
+  await client.query(`
+    CREATE TABLE "${schema}"."computed_update_dead_letter_seed" (
+      "task_id" text NOT NULL REFERENCES "${schema}"."computed_update_dead_letter" ("id") ON DELETE CASCADE,
+      "table_id" text NOT NULL,
+      "record_id" text NOT NULL,
+      PRIMARY KEY ("task_id", "table_id", "record_id")
+    )
+  `);
+  await client.query(`
+    CREATE FUNCTION "${schema}"."computed_outbox_discard_base"(base_ids text[])
+    RETURNS bigint LANGUAGE plpgsql AS $$
+    DECLARE deleted_count bigint;
+    BEGIN
+      WITH deleted AS (
+        DELETE FROM "${schema}"."computed_update_dead_letter"
+        WHERE base_id = ANY(base_ids) RETURNING 1
+      ) SELECT count(*) INTO deleted_count FROM deleted;
+      RETURN deleted_count;
+    END;
+    $$;
+    CREATE FUNCTION "${schema}"."computed_outbox_discard"(task_ids text[])
+    RETURNS bigint LANGUAGE plpgsql AS $$
+    DECLARE deleted_count bigint;
+    BEGIN
+      WITH deleted AS (
+        DELETE FROM "${schema}"."computed_update_dead_letter"
+        WHERE id = ANY(task_ids) RETURNING 1
+      ) SELECT count(*) INTO deleted_count FROM deleted;
+      RETURN deleted_count;
+    END;
+    $$;
+    CREATE FUNCTION "${schema}"."computed_outbox_discard_existing"(task_ids text[])
+    RETURNS bigint LANGUAGE plpgsql AS $$
+    DECLARE deleted_count bigint;
+    BEGIN
+      WITH deleted AS (
+        DELETE FROM "${schema}"."computed_update_dead_letter"
+        WHERE id = ANY(task_ids) RETURNING 1
+      ) SELECT count(*) INTO deleted_count FROM deleted;
+      RETURN deleted_count;
+    END;
+    $$;
+    CREATE FUNCTION "${schema}"."computed_outbox_delete_archive_seed"(
+      archive_task_id text,
+      archive_table_id text,
+      archive_record_id text
+    ) RETURNS bigint LANGUAGE plpgsql AS $$
+    DECLARE deleted_count bigint;
+    BEGIN
+      WITH deleted AS (
+        DELETE FROM "${schema}"."computed_update_dead_letter_seed"
+        WHERE task_id = archive_task_id
+          AND table_id = archive_table_id
+          AND record_id = archive_record_id
+        RETURNING 1
+      ) SELECT count(*) INTO deleted_count FROM deleted;
+      RETURN deleted_count;
+    END;
+    $$;
   `);
   await client.query(`
     CREATE TABLE "${schema}"."computed_update_outbox_seed" (
@@ -188,6 +282,27 @@ const insertOutboxFamily = async (
   );
 };
 
+const insertDeadLetterFamily = async (
+  client: Client,
+  schema: string,
+  input: {
+    taskId: string;
+    baseId: string;
+    tableId: string;
+    recordId: string;
+  }
+) => {
+  await client.query(
+    `INSERT INTO "${schema}"."computed_update_dead_letter" ("id", "base_id") VALUES ($1, $2)`,
+    [input.taskId, input.baseId]
+  );
+  await client.query(
+    `INSERT INTO "${schema}"."computed_update_dead_letter_seed"
+      ("task_id", "table_id", "record_id") VALUES ($1, $2, $3)`,
+    [input.taskId, input.tableId, input.recordId]
+  );
+};
+
 describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
   const client = new Client({ connectionString: databaseUrl });
 
@@ -205,18 +320,42 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
       deliveryId: 'dlv-other',
       baseId: otherBaseId,
     });
+    await insertDeadLetterFamily(client, sourceSchema, {
+      taskId: 'cudl-copy-delete',
+      baseId,
+      tableId: 'tbl-cross-base-membership',
+      recordId: 'rec-delete',
+    });
+    await insertDeadLetterFamily(client, sourceSchema, {
+      taskId: 'cudl-copy-update',
+      baseId,
+      tableId: 'tbl-cross-base-membership',
+      recordId: 'rec-before-update',
+    });
+    await insertDeadLetterFamily(client, sourceSchema, {
+      taskId: 'cudl-copy-child-delete',
+      baseId,
+      tableId: 'tbl-cross-base-membership',
+      recordId: 'rec-child-delete',
+    });
+    await insertDeadLetterFamily(client, sourceSchema, {
+      taskId: 'cudl-copy-other',
+      baseId: otherBaseId,
+      tableId,
+      recordId: 'rec-other',
+    });
     const copyPlans = buildMigrationSharedTableSqlCopyPlans({
       sourceSchema,
       targetSchema,
       spaceId,
       baseIds: [baseId],
       tableIds: [tableId],
-    }).filter((plan) => plan.table.startsWith('domain_event_'));
-    if (copyPlans.length !== 3) {
-      throw new Error(
-        `Expected 3 domain-event copy plans, received ${copyPlans.map((plan) => plan.table).join(',')}`
-      );
-    }
+    }).filter(
+      (plan) =>
+        plan.table.startsWith('domain_event_') ||
+        plan.table === 'computed_update_dead_letter' ||
+        plan.table === 'computed_update_dead_letter_seed'
+    );
     for (const plan of copyPlans) {
       await client.query(plan.resetSql);
       await client.query(plan.copySql);
@@ -273,9 +412,113 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
         `SELECT COUNT(*) AS count FROM ${qualify(targetSchema, 'domain_event_inbox')} WHERE "event_id" = 'deo-other'`
       )
     ).resolves.toBe(0);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count FROM ${qualify(targetSchema, 'computed_update_dead_letter_seed')}`
+      )
+    ).resolves.toBe(3);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter_seed')}
+         WHERE "task_id" = 'cudl-copy-other'`
+      )
+    ).resolves.toBe(0);
   });
 
-  it('captures and replays only the selected base outbox family through real triggers', async () => {
+  it('copies archive parent and child through postgres_fdw across different schemas', async () => {
+    const fdwSource = `fdw_src_${suffix}`;
+    const fdwTarget = `fdw_tgt_${suffix}`;
+    let firstError: unknown;
+    let cleanupError: unknown;
+    try {
+      await createDomainEventTables(client, fdwSource);
+      await createDomainEventTables(client, fdwTarget);
+      await insertDeadLetterFamily(client, fdwSource, {
+        taskId: 'cudl-fdw',
+        baseId,
+        tableId: 'tbl-fdw-cross-table',
+        recordId: 'rec-fdw',
+      });
+      await insertDeadLetterFamily(client, fdwSource, {
+        taskId: 'cudl-fdw-other',
+        baseId: otherBaseId,
+        tableId,
+        recordId: 'rec-fdw-other',
+      });
+      // The Node client may use a Docker-published host port that is not reachable
+      // from postgres_fdw inside the server container. Ask PostgreSQL for the
+      // endpoint it can use to connect back to this same test database.
+      const endpointResult = await client.query<{ host: string | null; port: number }>(
+        'SELECT inet_server_addr()::text AS host, inet_server_port() AS port'
+      );
+      const endpoint = endpointResult.rows[0];
+      if (!endpoint?.host || !endpoint.port) {
+        throw new Error('PostgreSQL did not report a server-reachable TCP endpoint');
+      }
+      const fdwSourceUrl = new URL(databaseUrl as string);
+      fdwSourceUrl.hostname = endpoint.host.includes(':') ? `[${endpoint.host}]` : endpoint.host;
+      fdwSourceUrl.port = String(endpoint.port);
+      const plans = buildMigrationSharedTablePostgresFdwCopyPlans({
+        sourceUrl: fdwSourceUrl.toString(),
+        targetUrl: databaseUrl as string,
+        sourceSchema: fdwSource,
+        targetSchema: fdwTarget,
+        spaceId,
+        baseIds: [baseId],
+        tableIds: [tableId],
+        fdwSchemaPrefix: `fdw_${suffix}`,
+        serverNamePrefix: `fdw_srv_${suffix}`,
+      }).filter((plan) =>
+        ['computed_update_dead_letter', 'computed_update_dead_letter_seed'].includes(plan.table)
+      );
+      for (let pass = 0; pass < 2; pass++) {
+        for (const plan of plans) await client.query(plan.sql);
+      }
+      await expect(
+        queryCount(
+          client,
+          `SELECT COUNT(*) AS count FROM ${qualify(fdwTarget, 'computed_update_dead_letter_seed')}
+           WHERE "task_id" = 'cudl-fdw' AND "table_id" = 'tbl-fdw-cross-table'
+             AND "record_id" = 'rec-fdw'`
+        )
+      ).resolves.toBe(1);
+      await expect(
+        queryCount(
+          client,
+          `SELECT COUNT(*) AS count FROM ${qualify(fdwTarget, 'computed_update_dead_letter_seed')}
+           WHERE "task_id" = 'cudl-fdw-other'`
+        )
+      ).resolves.toBe(0);
+    } catch (error) {
+      firstError = error;
+      // Every FDW plan owns an explicit transaction. Release an aborted plan so
+      // this suite's shared client remains usable, but clean up on another session.
+      await client.query('ROLLBACK').catch(() => undefined);
+    } finally {
+      const cleanupClient = new Client({ connectionString: databaseUrl });
+      try {
+        await cleanupClient.connect();
+        await cleanupClient.query(`DROP SCHEMA IF EXISTS "${fdwSource}" CASCADE`);
+        await cleanupClient.query(`DROP SCHEMA IF EXISTS "${fdwTarget}" CASCADE`);
+      } catch (error) {
+        cleanupError = error;
+      } finally {
+        await cleanupClient.end().catch(() => undefined);
+      }
+    }
+    if (firstError !== undefined) {
+      if (firstError instanceof Error) {
+        firstError.message = `postgres_fdw cross-schema archive copy failed: ${firstError.message}`;
+      }
+      throw firstError;
+    }
+    if (cleanupError !== undefined) throw cleanupError;
+  });
+
+  it('captures and replays scoped parent-child deltas including archive seed key changes', async () => {
     const job = {
       id: jobId,
       spaceId,
@@ -375,20 +618,65 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
        SET "settled" = 'dead'
        WHERE "id" = 'deo-other'`
     );
+    await insertDeadLetterFamily(client, sourceSchema, {
+      taskId: 'cudl-delta',
+      baseId,
+      tableId: 'tbl-cross-delta',
+      recordId: 'rec-delta',
+    });
+    await insertDeadLetterFamily(client, sourceSchema, {
+      taskId: 'cudl-other-delta',
+      baseId: otherBaseId,
+      tableId,
+      recordId: 'rec-other-delta',
+    });
+    await client.query(
+      `UPDATE ${qualify(sourceSchema, 'computed_update_dead_letter_seed')}
+       SET "table_id" = 'tbl-cross-after-update', "record_id" = 'rec-after-update'
+       WHERE "task_id" = 'cudl-copy-update'
+         AND "table_id" = 'tbl-cross-base-membership'
+         AND "record_id" = 'rec-before-update'`
+    );
+    await client.query(
+      `UPDATE ${qualify(sourceSchema, 'computed_update_dead_letter_seed')}
+       SET "record_id" = 'rec-other-after-update'
+       WHERE "task_id" = 'cudl-copy-other'`
+    );
+    await client.query(
+      `DELETE FROM ${qualify(sourceSchema, 'computed_update_dead_letter_seed')}
+       WHERE "task_id" = 'cudl-copy-child-delete'
+         AND "table_id" = 'tbl-cross-base-membership'
+         AND "record_id" = 'rec-child-delete'`
+    );
+    await client.query(
+      `DELETE FROM ${qualify(sourceSchema, 'computed_update_dead_letter')}
+       WHERE "id" = 'cudl-copy-delete'`
+    );
+    await client.query(
+      `DELETE FROM ${qualify(sourceSchema, 'computed_update_dead_letter')}
+       WHERE "id" = 'cudl-copy-other'`
+    );
 
     const captured = await client.query<{
       tableName: string;
       op: string;
-      eventId: string | null;
+      scopeKey: string | null;
     }>(
       `SELECT "table_name" AS "tableName", "op",
-              COALESCE("new_row" ->> 'id', "old_row" ->> 'id', "new_row" ->> 'event_id', "old_row" ->> 'event_id') AS "eventId"
+              COALESCE(
+                "new_row" ->> 'id',
+                "old_row" ->> 'id',
+                "new_row" ->> 'event_id',
+                "old_row" ->> 'event_id',
+                "new_row" ->> 'task_id',
+                "old_row" ->> 'task_id'
+              ) AS "scopeKey"
        FROM ${qualify(sourceSchema, '__teable_space_migration_delta_log')}
        WHERE "job_id" = $1
        ORDER BY "seq"`,
       [jobId]
     );
-    const capturedKeys = captured.rows.map((row) => `${row.tableName}:${row.op}:${row.eventId}`);
+    const capturedKeys = captured.rows.map((row) => `${row.tableName}:${row.op}:${row.scopeKey}`);
     expect(capturedKeys).toEqual(
       expect.arrayContaining([
         'domain_event_outbox:INSERT:deo-delta',
@@ -396,13 +684,23 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
         'domain_event_inbox:INSERT:deo-delta',
         'domain_event_outbox:UPDATE:deo-copy',
         'domain_event_delivery:DELETE:dlv-copy',
+        'computed_update_dead_letter:INSERT:cudl-delta',
+        'computed_update_dead_letter_seed:INSERT:cudl-delta',
+        'computed_update_dead_letter_seed:UPDATE:cudl-copy-update',
+        'computed_update_dead_letter_seed:DELETE:cudl-copy-child-delete',
+        'computed_update_dead_letter:DELETE:cudl-copy-delete',
       ])
     );
     expect(
       captured.rows.some((row) =>
-        ['deo-other', 'deo-other-delta', 'dlv-other', 'dlv-other-delta'].includes(
-          row.event_id ?? ''
-        )
+        [
+          'deo-other',
+          'deo-other-delta',
+          'dlv-other',
+          'dlv-other-delta',
+          'cudl-copy-other',
+          'cudl-other-delta',
+        ].includes(row.scopeKey ?? '')
       )
     ).toBe(false);
 
@@ -441,6 +739,76 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
     await expect(
       queryCount(
         client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter_seed')}
+         WHERE "task_id" = 'cudl-delta'
+           AND "table_id" = 'tbl-cross-delta'
+           AND "record_id" = 'rec-delta'`
+      )
+    ).resolves.toBe(1);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter_seed')}
+         WHERE "task_id" = 'cudl-copy-update'
+           AND "table_id" = 'tbl-cross-base-membership'
+           AND "record_id" = 'rec-before-update'`
+      )
+    ).resolves.toBe(0);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter_seed')}
+         WHERE "task_id" = 'cudl-copy-update'
+           AND "table_id" = 'tbl-cross-after-update'
+           AND "record_id" = 'rec-after-update'`
+      )
+    ).resolves.toBe(1);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter_seed')}
+         WHERE "task_id" = 'cudl-copy-child-delete'`
+      )
+    ).resolves.toBe(0);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter')}
+         WHERE "id" = 'cudl-copy-child-delete'`
+      )
+    ).resolves.toBe(1);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter')}
+         WHERE "id" = 'cudl-copy-delete'`
+      )
+    ).resolves.toBe(0);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter_seed')}
+         WHERE "task_id" = 'cudl-copy-delete'`
+      )
+    ).resolves.toBe(0);
+    await expect(
+      queryCount(
+        client,
+        `SELECT COUNT(*) AS count
+         FROM ${qualify(targetSchema, 'computed_update_dead_letter')}
+         WHERE "id" = 'cudl-other-delta'`
+      )
+    ).resolves.toBe(0);
+    await expect(
+      queryCount(
+        client,
         `SELECT COUNT(*) AS count FROM ${qualify(targetSchema, 'domain_event_outbox')} WHERE "id" = 'deo-other-delta'`
       )
     ).resolves.toBe(0);
@@ -456,6 +824,57 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
         `SELECT COUNT(*) AS count FROM ${qualify(targetSchema, 'domain_event_outbox')} WHERE "id" = 'deo-other' AND "settled" = 'dead'`
       )
     ).resolves.toBe(0);
+    const replayClient = dataDbKnexClientFactory(databaseUrl as string);
+    try {
+      const deleteRow = (await replayClient.raw<{
+        seq: string;
+        schemaName: string;
+        tableName: string;
+        op: string;
+        oldRow: unknown;
+        newRow: unknown;
+      }>(
+        `SELECT "seq", "schema_name" AS "schemaName", "table_name" AS "tableName", "op",
+                  "old_row" AS "oldRow", "new_row" AS "newRow"
+           FROM ${qualify(sourceSchema, '__teable_space_migration_delta_log')}
+           WHERE "job_id" = ?
+             AND "table_name" = 'computed_update_dead_letter'
+             AND "op" = 'DELETE'
+           ORDER BY "seq" LIMIT 1`,
+        [jobId]
+      )) as { rows: Array<Record<string, unknown>> };
+      expect(deleteRow.rows).toHaveLength(1);
+      const applyDelta = (
+        service as unknown as {
+          applyDeltaRowToTarget: (input: {
+            targetClient: IDataDbPreflightClient;
+            row: unknown;
+            sourceSchema: string;
+            targetSchema: string;
+          }) => Promise<boolean>;
+        }
+      ).applyDeltaRowToTarget.bind(service);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await expect(
+          applyDelta({
+            targetClient: replayClient,
+            row: deleteRow.rows[0],
+            sourceSchema,
+            targetSchema,
+          })
+        ).resolves.toBe(true);
+      }
+      await expect(
+        queryCount(
+          client,
+          `SELECT COUNT(*) AS count
+           FROM ${qualify(targetSchema, 'computed_update_dead_letter')}
+           WHERE "id" = 'cudl-copy-delete'`
+        )
+      ).resolves.toBe(0);
+    } finally {
+      await replayClient.destroy();
+    }
   });
 });
 

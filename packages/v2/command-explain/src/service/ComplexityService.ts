@@ -65,6 +65,8 @@ export type ComplexityAssessInput = {
   readonly assumptions?: SchemaComplexityAssumptions;
   /** Read catalog aggregates for tableId. Caller assumptions are merged per key. */
   readonly includeCatalogStats?: boolean;
+  /** Existing single-record fallback; disable when the caller knows selection evidence is absent. */
+  readonly assumeSingleRecordWhenSelectionUnknown?: boolean;
   readonly completeness?: 'complete' | 'partial' | 'truncated';
   readonly focusTableId?: string;
   readonly maxTraversalDepth?: number;
@@ -245,8 +247,7 @@ export const orderMatrixRowsBySeverity = (
   const rowScore = (row: ComplexityMatrixRow) =>
     row.cells.length === 0 ? -1 : Math.max(...row.cells.map((cell) => numeric(cell.score)));
   return [...rows].sort((left, right) => {
-    const severity =
-      MATRIX_LEVEL_SEVERITY[right.level] - MATRIX_LEVEL_SEVERITY[left.level];
+    const severity = MATRIX_LEVEL_SEVERITY[right.level] - MATRIX_LEVEL_SEVERITY[left.level];
     if (severity !== 0) return severity;
     const worst = numeric(right.worstRows) - numeric(left.worstRows);
     if (worst !== 0) return worst;
@@ -258,9 +259,7 @@ export const orderMatrixRowsBySeverity = (
   });
 };
 
-const descriptorKind = (
-  operation: ComplexityMatrixOperation
-): OperationDescriptor['kind'] =>
+const descriptorKind = (operation: ComplexityMatrixOperation): OperationDescriptor['kind'] =>
   operation === 'create-record'
     ? 'create'
     : operation === 'delete-record'
@@ -269,15 +268,19 @@ const descriptorKind = (
         ? 'field-change'
         : 'update';
 
-const fieldChangeFor = (
-  operation: ComplexityMatrixOperation
-): 'delete' | 'convert' | null =>
+const fieldChangeFor = (operation: ComplexityMatrixOperation): 'delete' | 'convert' | null =>
   operation === 'field-delete' ? 'delete' : operation === 'field-convert' ? 'convert' : null;
 
 const summarizeMatrixRow = (
   input: Omit<
     ComplexityMatrixRow,
-    'level' | 'typicalRows' | 'worstRows' | 'mainReason' | 'confidence' | 'basis' | 'unknownCellCount'
+    | 'level'
+    | 'typicalRows'
+    | 'worstRows'
+    | 'mainReason'
+    | 'confidence'
+    | 'basis'
+    | 'unknownCellCount'
   >
 ): ComplexityMatrixRow => {
   const cells = input.cells;
@@ -309,9 +312,7 @@ const summarizeMatrixRow = (
     .filter((value): value is number => value !== null);
   const confidence = (knownCells.length > 0 ? knownCells : cells).reduce(
     (lowest, cell) =>
-      CONFIDENCE_SEVERITY[cell.confidence] < CONFIDENCE_SEVERITY[lowest]
-        ? cell.confidence
-        : lowest,
+      CONFIDENCE_SEVERITY[cell.confidence] < CONFIDENCE_SEVERITY[lowest] ? cell.confidence : lowest,
     cells[0]!.confidence
   );
   return {
@@ -345,8 +346,6 @@ const addGapWarnings = (
   for (const id of ids.slice(0, limit)) warnings.push(`${prefix}:${id}`);
   if (ids.length > limit) warnings.push(`${prefix}:+${ids.length - limit}`);
 };
-
-
 
 type ConditionalEdgeSource = FieldDependencyGraphData['edges'][number];
 
@@ -398,13 +397,15 @@ export class ComplexityService implements IComplexityService {
     context: IExecutionContext,
     input: ComplexityMatrixInput
   ): Promise<Result<ComplexityMatrixResult, DomainError>> {
-    const metadataResult = await this.loadTableMetadata(context, input.tableId, input.authorizedTableIds);
+    const metadataResult = await this.loadTableMetadata(
+      context,
+      input.tableId,
+      input.authorizedTableIds
+    );
     if (metadataResult.isErr()) return err(metadataResult.error);
     const metadata = metadataResult.value;
 
-    const requestedFields = input.fieldIds?.length
-      ? new Set(input.fieldIds)
-      : undefined;
+    const requestedFields = input.fieldIds?.length ? new Set(input.fieldIds) : undefined;
     const selected = metadata.table
       .getFields()
       .filter((field) => !requestedFields || requestedFields.has(field.id().toString()));
@@ -425,7 +426,8 @@ export class ComplexityService implements IComplexityService {
       ? input.operations
       : ['update', 'field-delete', 'field-convert', 'create-record', 'delete-record'];
     const fieldOperations = operations.filter(
-      (operation) => operation === 'update' || operation === 'field-delete' || operation === 'field-convert'
+      (operation) =>
+        operation === 'update' || operation === 'field-delete' || operation === 'field-convert'
     );
     const tableOperations = operations.filter(
       (operation) => operation === 'create-record' || operation === 'delete-record'
@@ -494,9 +496,7 @@ export class ComplexityService implements IComplexityService {
               fieldId,
               fieldType: field.type().toString(),
               tableId: metadata.table.id().toString(),
-              cells: fieldOperations.map((operationKind) =>
-                evaluateCell(operationKind, [fieldId])
-              ),
+              cells: fieldOperations.map((operationKind) => evaluateCell(operationKind, [fieldId])),
             })
           );
         }
@@ -570,7 +570,11 @@ export class ComplexityService implements IComplexityService {
     input: ComplexityAssessInput,
     rawTableId: string
   ): Promise<Result<SchemaComplexityProfile, DomainError>> {
-    const metadataResult = await this.loadTableMetadata(context, rawTableId, input.authorizedTableIds);
+    const metadataResult = await this.loadTableMetadata(
+      context,
+      rawTableId,
+      input.authorizedTableIds
+    );
     if (metadataResult.isErr()) return err(metadataResult.error);
     const metadata = metadataResult.value;
 
@@ -578,6 +582,8 @@ export class ComplexityService implements IComplexityService {
       includeCatalogStats: input.includeCatalogStats === true,
       assumptions: input.assumptions,
       operationPresent: input.operation !== undefined,
+      assumeSingleRecordWhenSelectionUnknown:
+        input.assumeSingleRecordWhenSelectionUnknown !== false,
       ...(input.operation ? { operationKind: input.operation.kind } : {}),
       warnings: [],
     });
@@ -629,18 +635,14 @@ export class ComplexityService implements IComplexityService {
     let tables: ReadonlyArray<Table> = [table];
 
     const countResult = this.tableRepository.count
-      ? await this.tableRepository.count(
-          context,
-          TableByBaseIdSpec.create(baseId),
-          { state: 'active' }
-        )
+      ? await this.tableRepository.count(context, TableByBaseIdSpec.create(baseId), {
+          state: 'active',
+        })
       : null;
     const totalTables = countResult?.isOk() ? countResult.value : null;
     if (totalTables !== null && totalTables > COMPLEXITY_METADATA_MAX_TABLES) {
       truncated = true;
-      warnings.push(
-        `table-metadata-truncated:${totalTables}:${COMPLEXITY_METADATA_MAX_TABLES}`
-      );
+      warnings.push(`table-metadata-truncated:${totalTables}:${COMPLEXITY_METADATA_MAX_TABLES}`);
     } else {
       const tablesResult = await this.tableRepository.find(
         context,
@@ -669,7 +671,8 @@ export class ComplexityService implements IComplexityService {
     if (graphResult.isErr()) return err(graphResult.error);
 
     const authorized = authorizedTableIds ? new Set(authorizedTableIds) : null;
-    if (authorized) tables = tables.filter((candidate) => authorized.has(candidate.id().toString()));
+    if (authorized)
+      tables = tables.filter((candidate) => authorized.has(candidate.id().toString()));
     const loadedTableIds = new Set(tables.map((candidate) => candidate.id().toString()));
     const formulaFieldIds = new Set<string>();
     for (const loaded of tables) {
@@ -725,7 +728,6 @@ export class ComplexityService implements IComplexityService {
       missingTableIds,
       warnings,
     });
-
   }
 
   private resolveCompleteness(
@@ -798,6 +800,7 @@ export class ComplexityService implements IComplexityService {
       readonly includeCatalogStats: boolean;
       readonly assumptions?: SchemaComplexityAssumptions;
       readonly operationPresent: boolean;
+      readonly assumeSingleRecordWhenSelectionUnknown?: boolean;
       readonly operationKind?: SchemaOperationKind;
       readonly warnings: string[];
     }
@@ -815,6 +818,7 @@ export class ComplexityService implements IComplexityService {
     let seedRecordCount = input.assumptions?.seedRecordCount ?? null;
     if (
       seedRecordCount === null &&
+      input.assumeSingleRecordWhenSelectionUnknown !== false &&
       input.operationPresent &&
       input.operationKind !== undefined &&
       input.operationKind !== 'paste'

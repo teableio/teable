@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DataQueryManifest } from './DataQueryManifest';
+import {
+  collectDataQueryManifestDependencies,
+  type DataQueryManifestRepairDependencies,
+} from './DataQueryManifestDependencies';
 import { parseDataQueryManifestText } from './DataQueryManifestFiles';
 import {
   diffDataQueryManifestRepair,
-  planDataQueryManifestRepair,
+  planDataQueryManifestRepair as planWithDependencies,
   serializeDataQueryManifest,
   sqlMentionsIdentifier,
   type DataQuerySchemaChange,
@@ -28,6 +32,13 @@ const parse = (yaml: string): DataQueryManifest => {
   if (result.isErr()) throw new Error(result.error.message);
   return result.value;
 };
+
+const planDataQueryManifestRepair = (
+  manifest: DataQueryManifest,
+  change: DataQuerySchemaChange,
+  dependencies: DataQueryManifestRepairDependencies = collectDataQueryManifestDependencies(manifest)
+    .queries
+) => planWithDependencies(manifest, change, dependencies);
 
 /** Every repair must survive the same parser the save gate uses. */
 const expectRoundTrip = (manifest: DataQueryManifest) => {
@@ -70,6 +81,189 @@ queries:
       outputs:
         - { alias: title }
 `;
+
+describe('planDataQueryManifestRepair: dependency evidence authority', () => {
+  const projectedManifest = parse(`
+schemaVersion: 1
+queries:
+  listOpen:
+    definition:
+      version: 1
+      kind: records
+      tableId: ${tableId}
+      select:
+        - { fieldId: ${titleField}, alias: title }
+`);
+
+  it('treats successful empty field evidence as authoritative over YAML', () => {
+    const dependencies: DataQueryManifestRepairDependencies = [
+      {
+        queryId: 'listOpen',
+        mode: 'structured',
+        result: 'many',
+        tableId,
+        complete: true,
+        fields: [],
+      },
+    ];
+    const plan = planDataQueryManifestRepair(
+      projectedManifest,
+      { kind: 'field_deleted', tableId, fieldId: titleField },
+      dependencies
+    );
+
+    expect(plan.queries[0]).toEqual({
+      queryId: 'listOpen',
+      classification: 'noop',
+      reasons: [],
+      actions: [],
+    });
+  });
+
+  it('keeps a missing query evidence entry unknown rather than empty', () => {
+    const plan = planDataQueryManifestRepair(
+      projectedManifest,
+      { kind: 'field_deleted', tableId, fieldId: titleField },
+      []
+    );
+
+    expect(plan.queries[0]).toEqual({
+      queryId: 'listOpen',
+      classification: 'manual',
+      reasons: ['dependency_evidence_unavailable'],
+      actions: [],
+    });
+  });
+
+  it('blocks an implicit filter dependency without inventing a YAML action', () => {
+    const dependencies: DataQueryManifestRepairDependencies = [
+      {
+        queryId: 'listOpen',
+        mode: 'structured',
+        result: 'many',
+        tableId,
+        complete: true,
+        fields: [
+          { fieldId: titleField, usages: ['projection'] },
+          { fieldId: statusField, usages: ['filter'] },
+        ],
+      },
+    ];
+    const plan = planDataQueryManifestRepair(
+      projectedManifest,
+      { kind: 'field_deleted', tableId, fieldId: statusField },
+      dependencies
+    );
+
+    expect(plan.queries[0]).toEqual({
+      queryId: 'listOpen',
+      classification: 'manual',
+      reasons: ['filter_semantics_changed'],
+      actions: [],
+    });
+    expect(plan.preview).toBeUndefined();
+  });
+
+  it('treats an implicit field reference as filter-semantic risk', () => {
+    const dependencies: DataQueryManifestRepairDependencies = [
+      {
+        queryId: 'listOpen',
+        mode: 'structured',
+        result: 'many',
+        tableId,
+        complete: true,
+        fields: [{ fieldId: statusField, usages: ['reference'] }],
+      },
+    ];
+    const plan = planDataQueryManifestRepair(
+      projectedManifest,
+      { kind: 'field_deleted', tableId, fieldId: statusField },
+      dependencies
+    );
+
+    expect(plan.queries[0]).toMatchObject({
+      classification: 'manual',
+      reasons: ['filter_semantics_changed'],
+      actions: [],
+    });
+  });
+
+  it('qualifies an equal field id by its relation table and source', () => {
+    const manifest = parse(`
+schemaVersion: 1
+queries:
+  joined:
+    definition:
+      version: 2
+      kind: records
+      tableId: ${tableId}
+      relations:
+        owner: { linkFieldId: ${linkField}, tableId: ${targetTableId} }
+      select:
+        - { source: owner, fieldId: ${statusField}, alias: ownerStatus }
+`);
+    const plan = planDataQueryManifestRepair(manifest, {
+      kind: 'field_deleted',
+      tableId,
+      fieldId: statusField,
+    });
+
+    expect(plan.queries[0]?.classification).toBe('noop');
+  });
+
+  it('keeps a zero-field relation target identifiable for table deletion', () => {
+    const manifest = parse(`
+schemaVersion: 1
+queries:
+  systemOwner:
+    definition:
+      version: 2
+      kind: records
+      tableId: ${tableId}
+      relations:
+        owner: { linkFieldId: ${linkField}, tableId: ${targetTableId} }
+      select:
+        - { fieldId: ${titleField}, alias: title }
+        - { source: owner, system: id, alias: ownerId }
+`);
+    const plan = planDataQueryManifestRepair(manifest, {
+      kind: 'table_deleted',
+      tableId: targetTableId,
+    });
+
+    expect(plan.queries[0]).toMatchObject({ classification: 'auto' });
+    expect(plan.queries[0]?.actions).toContainEqual({ kind: 'remove_relation', alias: 'owner' });
+  });
+
+  it('uses conservative declared evidence retained after a failed binding', () => {
+    const dependencies = collectDataQueryManifestDependencies(projectedManifest).queries;
+    const plan = planDataQueryManifestRepair(
+      projectedManifest,
+      { kind: 'field_deleted', tableId, fieldId: titleField },
+      dependencies
+    );
+
+    expect(plan.queries[0]).toMatchObject({
+      classification: 'manual',
+      reasons: ['field_deleted_projection', 'definition_empty'],
+    });
+  });
+
+  it('does not block an unrelated replacement with no mapping', () => {
+    const plan = planDataQueryManifestRepair(projectedManifest, {
+      kind: 'field_replaced',
+      tableId,
+      fieldId: statusField,
+    });
+
+    expect(plan.queries[0]).toEqual({
+      queryId: 'listOpen',
+      classification: 'noop',
+      reasons: [],
+      actions: [],
+    });
+  });
+});
 
 describe('planDataQueryManifestRepair: field delete', () => {
   it('suggests removing a projection, filter branch and sort item, but blocks filter semantics', () => {

@@ -2,15 +2,16 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { FieldConversionPreparationService } from '../application/services/FieldConversionPreparationService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import type { DomainError } from '../domain/shared/DomainError';
+import { FieldName } from '../domain/table/fields/FieldName';
+import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
 import { LongTextShowAs } from '../domain/table/fields/types/LongTextShowAs';
 import { RatingMax } from '../domain/table/fields/types/RatingMax';
-import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
 import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue';
-import { FieldName } from '../domain/table/fields/FieldName';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
@@ -73,9 +74,11 @@ const aggregationRepoWithFilledCount = (
 
 const createHandler = (filledCount: number, repo: MemoryTableRepository) =>
   new DryRunFieldConversionHandler(
-    repo,
-    new DefaultTableMapper(),
-    new ForeignTableLoaderService(repo),
+    new FieldConversionPreparationService(
+      repo,
+      new DefaultTableMapper(),
+      new ForeignTableLoaderService(repo)
+    ),
     aggregationRepoWithFilledCount(filledCount)
   );
 

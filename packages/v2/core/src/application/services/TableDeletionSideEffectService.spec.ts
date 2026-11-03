@@ -1,11 +1,12 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { flattenAndSpecs } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
@@ -22,12 +23,14 @@ import { RollupField } from '../../domain/table/fields/types/RollupField';
 import { RollupFieldConfig } from '../../domain/table/fields/types/RollupFieldConfig';
 import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineTextField';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
+import { TableUpdateFieldHasErrorSpec } from '../../domain/table/specs/TableUpdateFieldHasErrorSpec';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import type { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IEventBus } from '../../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
+import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../../ports/RepositoryQuery';
 import type { ITableRepository } from '../../ports/TableRepository';
 import type { ITableSchemaRepository } from '../../ports/TableSchemaRepository';
@@ -247,6 +250,18 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 }
+class StaleCandidateTableRepository extends FakeTableRepository {
+  constructor(
+    tablesById: Map<string, Table>,
+    private readonly staleCandidate: Table
+  ) {
+    super(tablesById);
+  }
+
+  override async find(): Promise<Result<ReadonlyArray<Table>, DomainError>> {
+    return ok([this.staleCandidate]);
+  }
+}
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
@@ -296,19 +311,224 @@ class FakeUnitOfWork implements IUnitOfWork {
   }
 }
 
-class CountingUnitOfWork extends FakeUnitOfWork {
-  transactionCount = 0;
-
-  override async withTransaction<T>(
-    context: IExecutionContext,
-    work: UnitOfWorkOperation<T>
-  ): Promise<Result<T, DomainError>> {
-    this.transactionCount += 1;
-    return super.withTransaction(context, work);
-  }
-}
-
 describe('TableDeletionSideEffectService', () => {
+  it('prepares link conversion before dependent reactions without persistence', async () => {
+    const deletedTable = createDeletedTable();
+    const hostTable = createHostTable(deletedTable);
+    const tableRepository = new FakeTableRepository(
+      new Map([
+        [deletedTable.id().toString(), deletedTable],
+        [hostTable.id().toString(), hostTable],
+      ])
+    );
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      unitOfWork
+    );
+    const fieldUpdateSideEffectService = new FieldUpdateSideEffectService(
+      tableUpdateFlow,
+      tableRepository,
+      new LinkFieldUpdateSideEffectService(tableUpdateFlow),
+      new FieldCrossTableUpdateSideEffectService(tableRepository, tableUpdateFlow)
+    );
+    const service = new TableDeletionSideEffectService(
+      tableRepository,
+      tableUpdateFlow,
+      fieldUpdateSideEffectService,
+      new DefaultTableMapper()
+    );
+
+    const preparation = (
+      await service.prepare(createContext(), { table: deletedTable })
+    )._unsafeUnwrap();
+
+    expect(preparation.candidateEvidence).toBe('known');
+    expect(preparation.reactionEffects.map(({ consequence }) => consequence)).toEqual([
+      'inbound-link-converted-to-text',
+      'dependent-field-marked-error',
+      'dependent-field-marked-error',
+      'dependent-field-marked-error',
+      'dependent-field-marked-error',
+    ]);
+    expect(preparation.downstreamCascadeEvidence).toBe('unknown');
+    const afterPersistIntent = preparation.candidatePlans[0]?.isolatedReactions[0]?.afterPersist;
+    expect(afterPersistIntent).toMatchObject({ kind: 'field-update-side-effects' });
+    expect(
+      Object.values(afterPersistIntent ?? {}).every((value) => typeof value !== 'function')
+    ).toBe(true);
+    expect(
+      hostTable
+        .getFields((field) => field.name().toString() === 'Link')[0]
+        ?.type()
+        .toString()
+    ).toBe('link');
+  });
+
+  it('keeps batch-only execution sources healthy and persists the dependent error reactions', async () => {
+    const deletedTable = createDeletedTable();
+    const hostWithLink = createHostTable(deletedTable);
+    const hostTable = hostWithLink
+      .update((mutator) => {
+        let next = mutator;
+        for (const field of hostWithLink.getFields((field) =>
+          ['Link', 'Lookup', 'Rollup'].includes(field.name().toString())
+        )) {
+          next = next.removeField(field.id());
+        }
+        return next;
+      })
+      ._unsafeUnwrap().table;
+    const dependentIds = hostTable
+      .getFields((field) => field.name().toString().startsWith('Conditional'))
+      .map((field) => field.id().toString());
+    const tableRepository = new FakeTableRepository(
+      new Map([
+        [deletedTable.id().toString(), deletedTable],
+        [hostTable.id().toString(), hostTable],
+      ])
+    );
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const updateOne = vi.spyOn(tableRepository, 'updateOne');
+    const updateSchema = vi.spyOn(schemaRepository, 'update');
+    const publishEvents = vi.spyOn(eventBus, 'publishMany');
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      new FakeUnitOfWork()
+    );
+    const fieldUpdateSideEffectService = new FieldUpdateSideEffectService(
+      tableUpdateFlow,
+      tableRepository,
+      new LinkFieldUpdateSideEffectService(tableUpdateFlow),
+      new FieldCrossTableUpdateSideEffectService(tableRepository, tableUpdateFlow)
+    );
+    const executeFieldSideEffects = vi.spyOn(fieldUpdateSideEffectService, 'execute');
+    const service = new TableDeletionSideEffectService(
+      tableRepository,
+      tableUpdateFlow,
+      fieldUpdateSideEffectService,
+      new DefaultTableMapper()
+    );
+
+    const preparation = (
+      await service.prepare(createContext(), { table: deletedTable })
+    )._unsafeUnwrap();
+
+    for (const source of [hostTable, preparation.candidatePlans[0]!.sourceTable]) {
+      expect(
+        source
+          .getFields((field) => dependentIds.includes(field.id().toString()))
+          .map((field) => field.hasError().isError())
+      ).toEqual([false, false]);
+    }
+    expect(preparation.reactionEffects).toEqual(
+      dependentIds.map((fieldId) =>
+        expect.objectContaining({
+          fieldId,
+          consequence: 'dependent-field-marked-error',
+        })
+      )
+    );
+    expect(updateOne).not.toHaveBeenCalled();
+    expect(updateSchema).not.toHaveBeenCalled();
+    expect(publishEvents).not.toHaveBeenCalled();
+    expect(executeFieldSideEffects).not.toHaveBeenCalled();
+
+    const execution = (await service.executePrepared(createContext(), preparation))._unsafeUnwrap();
+    const persistedErrorFieldIds = updateOne.mock.calls.flatMap(([, , spec]) =>
+      flattenAndSpecs(spec)
+        .filter(
+          (item): item is TableUpdateFieldHasErrorSpec =>
+            item instanceof TableUpdateFieldHasErrorSpec && item.isSettingError()
+        )
+        .map((item) => item.fieldId().toString())
+    );
+    expect(persistedErrorFieldIds).toEqual(dependentIds);
+    expect(
+      execution.updatedTables[0]!.getFields((field) =>
+        dependentIds.includes(field.id().toString())
+      ).map((field) => field.hasError().isError())
+    ).toEqual([true, true]);
+    expect(
+      hostTable
+        .getFields((field) => dependentIds.includes(field.id().toString()))
+        .map((field) => field.hasError().isError())
+    ).toEqual([false, false]);
+  });
+
+  it('marks empty candidate metadata as unknown rather than exact zero impact', async () => {
+    const deletedTable = createDeletedTable();
+    const tableRepository = new FakeTableRepository(
+      new Map([[deletedTable.id().toString(), deletedTable]])
+    );
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+    const service = new TableDeletionSideEffectService(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldUpdateSideEffectService(
+        tableUpdateFlow,
+        tableRepository,
+        new LinkFieldUpdateSideEffectService(tableUpdateFlow),
+        new FieldCrossTableUpdateSideEffectService(tableRepository, tableUpdateFlow)
+      ),
+      new DefaultTableMapper()
+    );
+
+    const preparation = (
+      await service.prepare(createContext(), { table: deletedTable })
+    )._unsafeUnwrap();
+
+    expect(preparation.candidateEvidence).toBe('unknown');
+    expect(preparation.reactionEffects).toEqual([]);
+  });
+
+  it('marks stale candidate metadata without a reaction as unknown', async () => {
+    const deletedTable = createDeletedTable();
+    const staleCandidate = createDeletedTable();
+    const tableRepository = new StaleCandidateTableRepository(
+      new Map([
+        [deletedTable.id().toString(), deletedTable],
+        [staleCandidate.id().toString(), staleCandidate],
+      ]),
+      staleCandidate
+    );
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+    const service = new TableDeletionSideEffectService(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldUpdateSideEffectService(
+        tableUpdateFlow,
+        tableRepository,
+        new LinkFieldUpdateSideEffectService(tableUpdateFlow),
+        new FieldCrossTableUpdateSideEffectService(tableRepository, tableUpdateFlow)
+      ),
+      new DefaultTableMapper()
+    );
+
+    const preparation = (
+      await service.prepare(createContext(), { table: deletedTable })
+    )._unsafeUnwrap();
+
+    expect(preparation.candidateTableCount).toBe(1);
+    expect(preparation.candidateEvidence).toBe('unknown');
+    expect(preparation.reactionEffects).toEqual([]);
+  });
+
   it('converts incoming links to text and marks all foreign-table dependents errored', async () => {
     const deletedTable = createDeletedTable();
     const hostTable = createHostTable(deletedTable);
@@ -333,7 +553,8 @@ describe('TableDeletionSideEffectService', () => {
     const service = new TableDeletionSideEffectService(
       tableRepository,
       tableUpdateFlow,
-      fieldUpdateSideEffectService
+      fieldUpdateSideEffectService,
+      new DefaultTableMapper()
     );
 
     const result = await service.execute(createContext(), { table: deletedTable });
@@ -361,39 +582,6 @@ describe('TableDeletionSideEffectService', () => {
     expect(rollupField?.hasError().isError()).toBe(true);
     expect(conditionalLookupField?.hasError().isError()).toBe(true);
     expect(conditionalRollupField?.hasError().isError()).toBe(true);
-  });
-
-  it('keeps hook-bearing link conversion isolated and batches the remaining delete-table reactions', async () => {
-    const deletedTable = createDeletedTable();
-    const hostTable = createHostTable(deletedTable);
-    const tableRepository = new FakeTableRepository(
-      new Map([
-        [deletedTable.id().toString(), deletedTable],
-        [hostTable.id().toString(), hostTable],
-      ])
-    );
-    const unitOfWork = new CountingUnitOfWork();
-    const tableUpdateFlow = new TableUpdateFlow(
-      tableRepository,
-      new FakeTableSchemaRepository(),
-      new FakeEventBus(),
-      unitOfWork
-    );
-    const fieldUpdateSideEffectService = new FieldUpdateSideEffectService(
-      tableUpdateFlow,
-      tableRepository,
-      new LinkFieldUpdateSideEffectService(tableUpdateFlow),
-      new FieldCrossTableUpdateSideEffectService(tableRepository, tableUpdateFlow)
-    );
-    const service = new TableDeletionSideEffectService(
-      tableRepository,
-      tableUpdateFlow,
-      fieldUpdateSideEffectService
-    );
-
-    const result = await service.execute(createContext(), { table: deletedTable });
-    expect(result.isOk()).toBe(true);
-    expect(unitOfWork.transactionCount).toBe(8);
   });
 
   it('reacts to cross-base incoming references when deleting a foreign table', async () => {
@@ -424,7 +612,8 @@ describe('TableDeletionSideEffectService', () => {
     const service = new TableDeletionSideEffectService(
       tableRepository,
       tableUpdateFlow,
-      fieldUpdateSideEffectService
+      fieldUpdateSideEffectService,
+      new DefaultTableMapper()
     );
 
     const result = await service.execute(createContext(), { table: deletedTable });

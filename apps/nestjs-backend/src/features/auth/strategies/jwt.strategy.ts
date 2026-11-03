@@ -76,7 +76,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     this.cls.set('tempAuthBaseId', payload.baseId);
 
     if (payload.type === JwtAuthInternalType.App) {
-      await this.setAppIdFromToken(payload.baseId, req);
+      await this.authenticateAppToken(payload.baseId, req);
     }
     if (payload.type === JwtAuthInternalType.Automation) {
       this.cls.set('workflowContext', payload.context);
@@ -85,9 +85,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     return user;
   }
 
-  protected async setAppIdFromToken(_baseId: string, _req: Request) {
-    // This method is overridden in enterprise edition to support app authentication
-    // Community edition does not have app model, so this is a no-op
+  protected async authenticateAppToken(_baseId: string, _req: Request) {
+    // Overridden in the enterprise edition, which only accepts the token a live
+    // app currently holds. Community edition has no app model, so this is a no-op
   }
 
   private async validateUserToken(payload: IJwtAuthInfo) {

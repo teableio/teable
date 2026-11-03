@@ -456,6 +456,7 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       .addColumn('failed_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+      .addColumn('delete_authorized_txid', 'bigint')
       .execute();
 
     await db.schema
@@ -485,6 +486,23 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
         'kind',
         'table_id',
         'record_id',
+      ])
+      .execute();
+
+    await db.schema
+      .createTable('computed_update_change_frontier')
+      .ifNotExists()
+      .addColumn('scope_id', 'text', (col) => col.notNull())
+      .addColumn('kind', 'text', (col) => col.notNull())
+      .addColumn('table_id', 'text', (col) => col.notNull())
+      .addColumn('record_id', 'text', (col) => col.notNull())
+      .addColumn('field_id', 'text', (col) => col.notNull())
+      .addPrimaryKeyConstraint('computed_update_change_frontier_pkey', [
+        'scope_id',
+        'kind',
+        'table_id',
+        'record_id',
+        'field_id',
       ])
       .execute();
 
@@ -949,6 +967,16 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     await sql
       .raw(
         `create table "${dataSchema}"."computed_update_pause_scope" (like "public"."computed_update_pause_scope" including all)`
+      )
+      .execute(db);
+    await sql
+      .raw(
+        `create table "${dataSchema}"."computed_update_stage_ledger" (like "public"."computed_update_stage_ledger" including all)`
+      )
+      .execute(db);
+    await sql
+      .raw(
+        `create table "${dataSchema}"."computed_update_change_frontier" (like "public"."computed_update_change_frontier" including all)`
       )
       .execute(db);
 
@@ -2956,6 +2984,137 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       expect(new Date(String(afterMerge.source_changed_at)).getTime()).toBe(
         new Date(String(afterFirst.source_changed_at)).getTime()
       );
+    });
+
+    it('restores the first durable trace origin for DB-only redrive after a merge', async () => {
+      const outbox = createTestOutbox(db);
+      const firstTraceparent = '00-11111111111111111111111111111111-1111111111111111-01';
+      const secondTraceparent = '00-22222222222222222222222222222222-2222222222222222-01';
+      const tracingContext = (traceparent: string) =>
+        ({
+          tracer: {
+            startSpan: () => undefined,
+            capturePropagationCarrier: () => ({ traceparent, tracestate: 'vendor=value' }),
+          },
+        }) as never;
+
+      const first = await outbox.enqueueOrMerge(
+        buildComputedTaskInput({ runId: 'run-trace-first' }),
+        tracingContext(firstTraceparent)
+      );
+      expect(first.isOk()).toBe(true);
+      const second = await outbox.enqueueOrMerge(
+        buildComputedTaskInput({
+          runId: 'run-trace-second',
+          seedRecordIds: ['rec0000000000000003'],
+        }),
+        tracingContext(secondTraceparent)
+      );
+      expect(second.isOk()).toBe(true);
+      expect(second._unsafeUnwrap()).toMatchObject({
+        taskId: first._unsafeUnwrap().taskId,
+        merged: true,
+      });
+
+      const claimed = await outbox.claimById({
+        taskId: first._unsafeUnwrap().taskId,
+        workerId: 'db-only-redrive',
+      });
+      if (claimed.isErr()) throw claimed.error;
+      expect(claimed._unsafeUnwrap()).toMatchObject({
+        traceparent: firstTraceparent,
+        tracestate: 'vendor=value',
+      });
+    });
+
+    it('keeps persisted continuation and unrelated origins across after-commit wakeups', async () => {
+      const publisher = new RecordingWakeupPublisher();
+      const outbox = createTestOutbox(db, publisher);
+      const traceA = '00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-aaaaaaaaaaaaaaaa-01';
+      const traceB = '00-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-bbbbbbbbbbbbbbbb-01';
+      const enqueueAfterCommit = async (
+        input: ComputedUpdateOutboxTaskInput,
+        capturedTraceparent?: string
+      ) => {
+        let transaction: PostgresUnitOfWorkTransaction<unknown> | undefined;
+        let outcome: { taskId: string; merged: boolean } | undefined;
+        const wakeupCountBefore = publisher.wakeups.length;
+        await db.transaction().execute(async (trx) => {
+          transaction = new PostgresUnitOfWorkTransaction(trx as never, 'data');
+          const context = {
+            transaction,
+            ...(capturedTraceparent
+              ? {
+                  tracer: {
+                    startSpan: () => undefined,
+                    capturePropagationCarrier: () => ({ traceparent: capturedTraceparent }),
+                  },
+                }
+              : {}),
+          };
+          outcome = (await outbox.enqueueOrMerge(input, context as never))._unsafeUnwrap();
+          expect(publisher.wakeups).toHaveLength(wakeupCountBefore);
+        });
+        await transaction?.runAfterCommitHandlers();
+        if (!outcome) throw new Error('expected enqueue outcome');
+        return outcome;
+      };
+
+      const first = await enqueueAfterCommit(
+        buildComputedTaskInput({ planHash: 'trace-a-root', runId: 'trace-a-root' }),
+        traceA
+      );
+      expect(publisher.wakeups.at(-1)).toMatchObject({
+        taskId: first.taskId,
+        traceparent: traceA,
+      });
+      const claimedFirst = (
+        await outbox.claimById({ taskId: first.taskId, workerId: 'trace-worker' })
+      )._unsafeUnwrap();
+      if (!claimedFirst || 'taskType' in claimedFirst) throw new Error('expected computed task');
+      expect(claimedFirst.traceparent).toBe(traceA);
+
+      const continuation = await enqueueAfterCommit(
+        buildComputedTaskInput({
+          planHash: 'trace-a-continuation',
+          runId: claimedFirst.runId,
+          stageDepth: 1,
+          predecessorTaskId: claimedFirst.id,
+          sourceChangedAt: claimedFirst.sourceChangedAt,
+          traceparent: claimedFirst.traceparent,
+          tracestate: claimedFirst.tracestate,
+        })
+      );
+      expect(publisher.wakeups.at(-1)).toMatchObject({
+        taskId: continuation.taskId,
+        traceparent: traceA,
+      });
+      expect((await outbox.markDone(claimedFirst))._unsafeUnwrap()).toBe(true);
+      const claimedContinuation = (
+        await outbox.claimById({ taskId: continuation.taskId, workerId: 'trace-worker' })
+      )._unsafeUnwrap();
+      if (!claimedContinuation || 'taskType' in claimedContinuation) {
+        throw new Error('expected computed continuation');
+      }
+      expect(claimedContinuation).toMatchObject({
+        traceparent: traceA,
+        stageDepth: 1,
+        predecessorTaskId: claimedFirst.id,
+      });
+      expect((await outbox.markDone(claimedContinuation))._unsafeUnwrap()).toBe(true);
+
+      const unrelated = await enqueueAfterCommit(
+        buildComputedTaskInput({ planHash: 'trace-b-root', runId: 'trace-b-root' }),
+        traceB
+      );
+      const claimedUnrelated = (
+        await outbox.claimById({ taskId: unrelated.taskId, workerId: 'trace-worker' })
+      )._unsafeUnwrap();
+      expect(claimedUnrelated).toMatchObject({ traceparent: traceB });
+      expect(publisher.wakeups.at(-1)).toMatchObject({
+        taskId: unrelated.taskId,
+        traceparent: traceB,
+      });
     });
 
     it('round-trips stage depth, predecessor and source-changed time on computed tasks', async () => {

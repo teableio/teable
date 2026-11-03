@@ -18,6 +18,7 @@ export {
   explain,
   mock,
   repro,
+  preview,
   schemaOperation,
   tableQueryOps,
   underlying,

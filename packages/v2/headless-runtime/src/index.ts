@@ -6,6 +6,7 @@ import {
   type ComputedUpdateWorker,
   type DomainEventOutboxWorker,
 } from '@teable/v2-adapter-table-repository-postgres';
+import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
   createV2BrowserContainer,
   type IV2BrowserPgliteContainerOptions,
@@ -931,6 +932,10 @@ export async function createHeadlessRuntime(
           ? new NodeImportEventSpoolFactory()
           : undefined);
       container = await createV2BrowserContainer({ ...browserOptions, importEventSpoolFactory });
+      // The browser composition root intentionally omits Node-only command explain
+      // wiring. Headless PGlite runs under Node/Bun, so mount the canonical preview
+      // registry and service here instead of duplicating preview routes or checks.
+      registerCommandExplainModule(container);
       const init = await initializeContainer(container, options, 'pglite', bootstrap, actor);
       const queue =
         typeof process !== 'undefined' && typeof process.getBuiltinModule === 'function'

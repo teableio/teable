@@ -7,6 +7,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Provide centralized DI registration for v2 core internal services.
 - Allow external containers to override default implementations.
 - Eliminate registration duplication across container packages.
+- Register read-only preparation services under `v2CoreTokens`: handlers, dry-run queries and preview planners consume the same injected preparation service. Production callers must not construct preparation services manually or provide default service instances.
+- Preserve host overrides by registering them before `registerV2CoreServices`. Explain overlays use a child container with explicit overlay repositories and update-flow dependencies; they must not resolve preparation against the live repository.
 
 ## Files
 

@@ -26,6 +26,8 @@ export enum UploadType {
   Artifact = 20,
   // One archive of everything a user owns, mailed to them before an account or space goes.
   UserDataExport = 21,
+  // An artifact's cover, written by the backend and shown in galleries through read urls.
+  ArtifactThumbnail = 22,
 }
 
 export const signatureRoSchema = z.object({

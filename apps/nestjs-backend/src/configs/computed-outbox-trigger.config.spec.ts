@@ -49,6 +49,29 @@ describe('computedOutboxTriggerConfig', () => {
 
     expect(computedOutboxTriggerConfig().claimConcurrencyPerSeedTable).toBe(2);
   });
+
+  it('exposes a positive per-base pending capacity threshold and bounded query limit', () => {
+    const defaults = computedOutboxTriggerConfig();
+    expect(defaults.basePendingCapacityThreshold).toBe(100);
+    expect(defaults.basePendingCapacityQueryLimit).toBe(50);
+
+    vi.stubEnv('V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_THRESHOLD', '37');
+    vi.stubEnv('V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_QUERY_LIMIT', '12');
+    const overridden = computedOutboxTriggerConfig();
+    expect(overridden.basePendingCapacityThreshold).toBe(37);
+    expect(overridden.basePendingCapacityQueryLimit).toBe(12);
+
+    vi.stubEnv('V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_THRESHOLD', '0');
+    vi.stubEnv('V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_QUERY_LIMIT', '-5');
+    const invalid = computedOutboxTriggerConfig();
+    expect(invalid.basePendingCapacityThreshold).toBe(100);
+    expect(invalid.basePendingCapacityQueryLimit).toBe(50);
+
+    // The resolved limit is clamped at config time so SQL, the manager slice and
+    // `truncated` all share one page size.
+    vi.stubEnv('V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_QUERY_LIMIT', '5000');
+    expect(computedOutboxTriggerConfig().basePendingCapacityQueryLimit).toBe(1000);
+  });
 });
 
 it('reserves shared process capacity with two compute workers by default', () => {

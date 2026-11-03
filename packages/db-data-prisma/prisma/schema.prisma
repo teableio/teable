@@ -38,6 +38,7 @@ model ComputedUpdateOutbox {
   sourceChangedAt         DateTime?                  @map("source_changed_at")
   stageDepth              Int                        @default(0) @map("stage_depth")
   predecessorTaskId       String?                    @map("predecessor_task_id")
+  deadLetterRestoreVersion Int? @map("dead_letter_restore_version")
   createdAt               DateTime                   @default(now()) @map("created_at")
   updatedAt               DateTime                   @updatedAt @map("updated_at")
 
@@ -129,11 +130,23 @@ model ComputedUpdateDeadLetter {
   failedAt                DateTime @map("failed_at")
   createdAt               DateTime @map("created_at")
   updatedAt               DateTime @map("updated_at")
+  deleteAuthorizedTxid BigInt? @map("delete_authorized_txid")
+  seeds ComputedUpdateDeadLetterSeed[]
 
   @@index([baseId, seedTableId])
   @@index([planHash])
   @@index([runId])
   @@map("computed_update_dead_letter")
+}
+
+model ComputedUpdateDeadLetterSeed {
+  taskId   String @map("task_id")
+  tableId  String @map("table_id")
+  recordId String @map("record_id")
+  task ComputedUpdateDeadLetter @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([taskId, tableId, recordId])
+  @@map("computed_update_dead_letter_seed")
 }
 
 /// Completion ledger for computed-update outbox tasks (lineage / latency

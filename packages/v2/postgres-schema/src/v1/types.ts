@@ -230,6 +230,11 @@ export interface V1ComputedUpdateOutboxTable {
   source_changed_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
   stage_depth: ColumnType<number, number | undefined, number | undefined>;
   predecessor_task_id: string | null;
+  dead_letter_restore_version: ColumnType<
+    number | null,
+    number | null | undefined,
+    number | null | undefined
+  >;
   created_at: ColumnType<Date, Date | undefined, Date | undefined>;
   updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
 }
@@ -299,6 +304,11 @@ export interface V1ComputedUpdateDeadLetterTable {
   failed_at: ColumnType<Date, Date | undefined, Date | undefined>;
   created_at: ColumnType<Date, Date | undefined, Date | undefined>;
   updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
+  delete_authorized_txid: ColumnType<
+    bigint | number | string | null,
+    bigint | number | string | null | undefined,
+    bigint | number | string | null | undefined
+  >;
 }
 
 /**

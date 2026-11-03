@@ -32,7 +32,10 @@ import { LookupField } from './fields/types/LookupField';
 import { LookupOptions } from './fields/types/LookupOptions';
 import { NumberDefaultValue } from './fields/types/NumberDefaultValue';
 import { NumberField } from './fields/types/NumberField';
+import { measureSelectOptionsBytes } from './fields/types/SelectFieldOptionWriteConfig';
+import { SelectOption } from './fields/types/SelectOption';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
+import type { SingleSelectField } from './fields/types/SingleSelectField';
 import { TextDefaultValue } from './fields/types/TextDefaultValue';
 import { RecordId } from './records/RecordId';
 import { TableUpdateFieldNameSpec } from './specs/TableUpdateFieldNameSpec';
@@ -3025,5 +3028,64 @@ describe('Table auto-create validation', () => {
     expect(result._unsafeUnwrapErr().details).toMatchObject({
       requiredFieldNames: ['Required'],
     });
+  });
+});
+
+describe('Table.addSelectOptions', () => {
+  const buildSelectTable = () => {
+    const builder = Table.builder()
+      .withBaseId(createBaseId('o')._unsafeUnwrap())
+      .withName(TableName.create('Select Options')._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+    const selectFieldId = createFieldId('s')._unsafeUnwrap();
+    builder
+      .field()
+      .singleSelect()
+      .withId(selectFieldId)
+      .withName(FieldName.create('Status')._unsafeUnwrap())
+      .withOptions([SelectOption.create({ name: 'Open', color: 'blue' })._unsafeUnwrap()])
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const field = table
+      .getField((candidate) => candidate.id().equals(selectFieldId))
+      ._unsafeUnwrap() as SingleSelectField;
+    return { table, selectFieldId, optionsBytes: measureSelectOptionsBytes(field.selectOptions()) };
+  };
+  const byteLimitContext = (maxBytes: number) => ({
+    config: { tableLimits: { fieldOptions: { maxBytes } } },
+  });
+  const newOption = () =>
+    SelectOption.create({ name: 'In Progress', color: 'red' })._unsafeUnwrap();
+
+  it('rejects options that would exceed the options byte budget', () => {
+    const { table, selectFieldId, optionsBytes } = buildSelectTable();
+
+    const result = table.addSelectOptions(
+      selectFieldId,
+      [newOption()],
+      byteLimitContext(optionsBytes + 10)
+    );
+
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.field_options_max_bytes');
+  });
+
+  it('adds options that fit the options byte budget', () => {
+    const { table, selectFieldId, optionsBytes } = buildSelectTable();
+
+    const result = table.addSelectOptions(
+      selectFieldId,
+      [newOption()],
+      byteLimitContext(optionsBytes + 1000)
+    );
+
+    const field = result
+      ._unsafeUnwrap()
+      .getField((candidate) => candidate.id().equals(selectFieldId))
+      ._unsafeUnwrap() as SingleSelectField;
+    expect(field.selectOptions().map((option) => option.name().toString())).toEqual([
+      'Open',
+      'In Progress',
+    ]);
   });
 });

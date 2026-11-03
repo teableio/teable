@@ -67,6 +67,23 @@ export class ComputedOutboxTriggerMetrics {
     'v2.computed.outbox.wakeup.execution.duration',
     { description: 'Queue-triggered computed task execution duration', unit: 'ms' }
   );
+  private readonly sourceToSettlement = this.meter.createHistogram(
+    'v2.computed.outbox.source_to_settlement.duration',
+    {
+      description:
+        'Elapsed source-mutation time to a committed task settlement; continued=false is a terminal branch',
+      unit: 'ms',
+      advice: { explicitBucketBoundaries: [100, 1000, 10000, 60000, 300000] },
+    }
+  );
+
+  private readonly admissionLeaseLossStopDuration = this.meter.createHistogram(
+    'v2.computed.outbox.admission.lease_loss_stop.duration',
+    {
+      description: 'Time from per-base admission lease loss until processing stops',
+      unit: 'ms',
+    }
+  );
   private readonly monitorTotal = this.meter.createCounter('v2.computed.outbox.monitor.total', {
     description: 'Read-only computed outbox monitoring snapshot outcomes',
   });
@@ -155,6 +172,26 @@ export class ComputedOutboxTriggerMetrics {
   ): void {
     this.executionDuration.record(durationMs, { trigger: 'queue', outcome });
     this.runtimeSnapshot = { ...this.runtimeSnapshot, lastExecutionDurationMs: durationMs };
+  }
+
+  /**
+   * Records the elapsed time from losing a per-base admission lease until the
+   * currently executing operation has stopped. No base id is attached: tenant
+   * identifiers would create an unbounded OTel series.
+   */
+  recordAdmissionLeaseLossStop(durationMs: number): void {
+    this.admissionLeaseLossStopDuration.record(Math.max(0, durationMs));
+  }
+
+  recordTaskSettlement(observation: {
+    taskKind: 'computed' | 'seed' | 'field-backfill';
+    sourceToSettlementMs: number;
+    continued: boolean;
+  }): void {
+    this.sourceToSettlement.record(Math.max(0, observation.sourceToSettlementMs), {
+      taskKind: observation.taskKind,
+      continued: observation.continued,
+    });
   }
 
   updateBacklogSnapshot(

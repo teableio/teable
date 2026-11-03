@@ -149,6 +149,7 @@ const BASELINE_TABLES = [
   'attachments',
   'attachments_table',
 ];
+const OPTIONAL_ADDITIVE_TABLES = ['computed_update_dead_letter_seed'];
 const DATA_SCHEMA_MIGRATION_TABLE = '__teable_data_schema_migrations';
 
 const createService = (state: IFakeDbState) =>
@@ -297,6 +298,52 @@ describe('DataDbPreflightService', () => {
     }).preflight({ url: DATA_URL, targetMode: 'initialize-empty', internalSchema });
     expect(result.ok).toBe(true);
     expect(result.classification).toBe('teable-managed-compatible');
+  });
+
+  it('accepts a complete baseline with the optional dead-letter seed table', async () => {
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables: [...BASELINE_TABLES, ...OPTIONAL_ADDITIVE_TABLES, DATA_SCHEMA_MIGRATION_TABLE].map(
+        (table_name) => ({ table_schema: internalSchema, table_name })
+      ),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'adopt-existing', internalSchema });
+    expect(result.ok).toBe(true);
+    expect(result.classification).toBe('teable-managed-compatible');
+    expect(result.errors).toEqual([]);
+  });
+
+  it('accepts a complete baseline without the optional dead-letter seed table', async () => {
+    const tables = [...BASELINE_TABLES, ...OPTIONAL_ADDITIVE_TABLES].filter(
+      (table) => table !== 'computed_update_dead_letter_seed'
+    );
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables: [...tables, DATA_SCHEMA_MIGRATION_TABLE].map((table_name) => ({
+        table_schema: internalSchema,
+        table_name,
+      })),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'adopt-existing', internalSchema });
+    expect(result.ok).toBe(true);
+    expect(result.classification).toBe('teable-managed-compatible');
+    expect(result.errors).toEqual([]);
+  });
+
+  it('rejects an incomplete additive reliability group even with the optional dead-letter seed table', async () => {
+    const tables = [
+      ...BASELINE_TABLES.filter((table) => table !== 'computed_reliability_scope'),
+      ...OPTIONAL_ADDITIVE_TABLES,
+      DATA_SCHEMA_MIGRATION_TABLE,
+    ].map((table_name) => ({ table_schema: internalSchema, table_name }));
+    const result = await createService({
+      schemas: ['public', internalSchema],
+      tables,
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'adopt-existing', internalSchema });
+    expect(result.ok).toBe(false);
+    expect(result.classification).toBe('teable-managed-incompatible');
+    expect(result.errors.map((error) => error.code)).toContain('INCOMPATIBLE_TEABLE_DATABASE');
   });
 
   it('rejects an incomplete additive reliability migration on a complete baseline', async () => {

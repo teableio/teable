@@ -25,6 +25,27 @@ export const resolveComputedOutboxWorkerConcurrency = (): number =>
     DEFAULT_COMPUTED_OUTBOX_WORKER_CONCURRENCY
   );
 
+/**
+ * T8159 per-base pending capacity probe. One resolved page size is shared by the
+ * config reader, the SQL builder and the manager, so the SQL sentinel row, the
+ * manager slice and `truncated` can never disagree.
+ */
+export const MAX_BASE_PENDING_CAPACITY_QUERY_LIMIT = 1000;
+export const DEFAULT_BASE_PENDING_CAPACITY_THRESHOLD = 100;
+export const DEFAULT_BASE_PENDING_CAPACITY_QUERY_LIMIT = 50;
+
+export const normalizeBasePendingCapacityQueryLimit = (limit: number): number => {
+  const parsed = Math.trunc(limit);
+  if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_BASE_PENDING_CAPACITY_QUERY_LIMIT;
+  return Math.min(MAX_BASE_PENDING_CAPACITY_QUERY_LIMIT, parsed);
+};
+
+export const normalizeBasePendingCapacityThreshold = (threshold: number): number => {
+  const parsed = Math.trunc(threshold);
+  if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_BASE_PENDING_CAPACITY_THRESHOLD;
+  return parsed;
+};
+
 export const computedOutboxTriggerConfig = registerAs('computedOutboxTrigger', () => {
   return {
     producerEnabled: readComputedOutboxBoolean(
@@ -63,6 +84,26 @@ export const computedOutboxTriggerConfig = registerAs('computedOutboxTrigger', (
     claimConcurrencyPerSeedTable: readPositiveInteger(
       process.env.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_SEED_TABLE,
       1
+    ),
+
+    /**
+     * T8159: a base reports when its pending capacity (due + future-dated,
+     * non-paused, routed pending rows) reaches this count. The value is only a
+     * measured backlog. Each paged sample returns and logs at most
+     * `basePendingCapacityQueryLimit` bases, so per-sample data stays bounded;
+     * the underlying grouped scan is not bounded by that limit.
+     */
+    basePendingCapacityThreshold: normalizeBasePendingCapacityThreshold(
+      readPositiveInteger(
+        process.env.V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_THRESHOLD,
+        DEFAULT_BASE_PENDING_CAPACITY_THRESHOLD
+      )
+    ),
+    basePendingCapacityQueryLimit: normalizeBasePendingCapacityQueryLimit(
+      readPositiveInteger(
+        process.env.V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_QUERY_LIMIT,
+        DEFAULT_BASE_PENDING_CAPACITY_QUERY_LIMIT
+      )
     ),
   };
 });

@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import type { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
+import { PastePreparationService } from '../application/services/PastePreparationService';
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -852,7 +853,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(recordQueryRepository),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -917,7 +922,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -976,7 +985,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1035,7 +1048,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(recordQueryRepository),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1106,7 +1123,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(recordQueryRepository),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1180,7 +1201,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1253,7 +1278,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1301,7 +1330,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1358,7 +1391,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1408,7 +1445,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         resolver as unknown as RecordMutationSpecResolverService,
@@ -1479,7 +1520,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         recordQueryRepository,
         resolver as unknown as RecordMutationSpecResolverService,
@@ -1530,7 +1575,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         new FakeTableRecordQueryRepository(),
         resolver as unknown as RecordMutationSpecResolverService,
@@ -1593,7 +1642,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         resolver as unknown as RecordMutationSpecResolverService,
@@ -1641,7 +1694,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1696,7 +1753,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1748,7 +1809,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1816,7 +1881,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1883,7 +1952,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -1973,7 +2046,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, new FakeEventBus(), new FakeUnitOfWork()),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2039,7 +2116,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         new FakeTableRecordRepository(),
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2109,7 +2190,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2156,7 +2241,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          new FakeTableRecordQueryRepository(),
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         new FakeTableRecordQueryRepository(),
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2216,7 +2305,11 @@ describe('PasteHandler', () => {
       tableQueryService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       new FakeFieldCreationSideEffectService() as never,
-      new FakeForeignTableLoaderService() as never,
+      new PastePreparationService(
+        tableQueryService,
+        recordQueryRepository,
+        new FakeForeignTableLoaderService() as never
+      ),
       recordRepository,
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2305,7 +2398,11 @@ describe('PasteHandler', () => {
       tableQueryService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       new FakeFieldCreationSideEffectService() as never,
-      new FakeForeignTableLoaderService() as never,
+      new PastePreparationService(
+        tableQueryService,
+        recordQueryRepository,
+        new FakeForeignTableLoaderService() as never
+      ),
       recordRepository,
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2379,7 +2476,11 @@ describe('PasteHandler', () => {
       tableQueryService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       new FakeFieldCreationSideEffectService() as never,
-      new FakeForeignTableLoaderService() as never,
+      new PastePreparationService(
+        tableQueryService,
+        recordQueryRepository,
+        new FakeForeignTableLoaderService() as never
+      ),
       new FakeTableRecordRepository(),
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2434,7 +2535,11 @@ describe('PasteHandler', () => {
       tableQueryService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       new FakeFieldCreationSideEffectService() as never,
-      new FakeForeignTableLoaderService() as never,
+      new PastePreparationService(
+        tableQueryService,
+        recordQueryRepository,
+        new FakeForeignTableLoaderService() as never
+      ),
       recordRepository,
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2496,7 +2601,11 @@ describe('PasteHandler', () => {
       tableQueryService,
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       new FakeFieldCreationSideEffectService() as never,
-      new FakeForeignTableLoaderService() as never,
+      new PastePreparationService(
+        tableQueryService,
+        recordQueryRepository,
+        new FakeForeignTableLoaderService() as never
+      ),
       recordRepository,
       recordQueryRepository,
       new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2582,7 +2691,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2758,7 +2871,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2833,7 +2950,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
@@ -2905,7 +3026,11 @@ describe('PasteHandler', () => {
         tableQueryService,
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         new FakeFieldCreationSideEffectService() as never,
-        new FakeForeignTableLoaderService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
         recordRepository,
         recordQueryRepository,
         new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,

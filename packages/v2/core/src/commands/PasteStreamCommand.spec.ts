@@ -23,4 +23,21 @@ describe('PasteStreamCommand', () => {
     ]);
     expect(command.batchSize).toBe(5);
   });
+
+  it('rejects a gigantic tiled paste range before stream planning', () => {
+    const result = PasteStreamCommand.create({
+      tableId: `tbl${'a'.repeat(16)}`,
+      viewId: `viw${'b'.repeat(16)}`,
+      ranges: [
+        [0, 0],
+        [0, 100_000_000],
+      ],
+      content: [['x']],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.paste.max_cells_exceeded',
+    });
+  });
 });

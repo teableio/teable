@@ -26,6 +26,12 @@ import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kyse
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type {
+  ComputedReliabilityRuntimeConfig,
+  ComputedRuntimeConfig,
+} from '../../../config/runtimeConfig';
+import { defaultComputedRuntimeConfig } from '../../../config/runtimeConfig';
+import { resolveTableSql } from '../../../shared/sqlIdentifiers';
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
 import {
@@ -41,18 +47,15 @@ import {
   resolveFieldTargetsFromOutboxItem,
   sumDirtyRecordCount,
 } from '../activity/resolveFieldTargets';
+import { CHANGE_FRONTIER_TABLE } from '../ComputedChangeFrontier';
 import type { DirtyRecordStats } from '../ComputedFieldUpdater';
-import { compactStageLedgerWhenEmpty } from '../ComputedStageLedger';
+import { clearStageLedger, compactStageLedgerWhenEmpty } from '../ComputedStageLedger';
 import { toErrorLogFields } from '../errorLog';
 import { buildComputedTaskNotPausedCondition } from '../pause/ComputedUpdatePauseRegistry';
 import { COMPUTED_UPDATE_PAUSE_SCOPE_TABLE } from '../pause/IComputedUpdatePauseRegistry';
-import type {
-  ComputedReliabilityRuntimeConfig,
-  ComputedRuntimeConfig,
-} from '../../../config/runtimeConfig';
-import { defaultComputedRuntimeConfig } from '../../../config/runtimeConfig';
 import { isComputedReliabilityEnabled } from '../reliability/config';
 import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
+import { archiveComputedRerunSeeds } from './ComputedDeadLetterSeeds';
 import {
   createComputedOutboxWakeup,
   noopComputedOutboxWakeupPublisher,
@@ -67,6 +70,8 @@ import type {
 import {
   mergeBeforeImageRecordDtos,
   mergeComputedRealtimeOrchestration,
+  normalizeTracePropagationCarrier,
+  parseTracePropagationCarrier,
 } from './ComputedUpdateOutboxPayload';
 import type { ComputedUpdateSeedTaskInput } from './ComputedUpdateSeedPayload';
 import { buildSeedTaskChunk, mergeSeedPayloads } from './ComputedUpdateSeedPayload';
@@ -151,6 +156,8 @@ const OUTBOX_SEED_ID_BODY_LENGTH = 16;
 const OUTBOX_CLAIM_ID_PREFIX = 'cuc';
 const OUTBOX_CLAIM_ID_BODY_LENGTH = 10;
 const OUTBOX_CLAIM_ADVISORY_LOCK_KEY = 'v2:outbox:claim:global';
+/** Fresh work keeps the throughput heuristic; aged due work receives FIFO service. */
+const PENDING_FAIRNESS_AGE_MS = 30_000;
 
 /** Change type for field backfill tasks (stored in change_type column) */
 const FIELD_BACKFILL_CHANGE_TYPE = 'field-backfill';
@@ -332,6 +339,29 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   private scopeTaskToLane<T extends { planHash: string }>(task: T): T {
     if (!this.lanePlanHashPrefix || task.planHash.startsWith(this.lanePlanHashPrefix)) return task;
     return { ...task, planHash: `${this.lanePlanHashPrefix}${task.planHash}` };
+  }
+
+  private withTraceOrigin<
+    T extends {
+      traceparent?: string;
+      tracestate?: string;
+      predecessorTaskId?: string;
+    },
+  >(task: T, context?: IExecutionContext, captureFreshOrigin = true): T {
+    // A source clock also belongs to fresh mutations. Only lineage/identity or
+    // an explicit internal preservation boundary identifies existing work.
+    const freshMutation =
+      captureFreshOrigin &&
+      !task.predecessorTaskId &&
+      !('id' in task) &&
+      task.traceparent === undefined;
+    const carrier =
+      normalizeTracePropagationCarrier(task) ??
+      (freshMutation
+        ? normalizeTracePropagationCarrier(context?.tracer?.capturePropagationCarrier?.())
+        : undefined);
+    const { traceparent: _traceparent, tracestate: _tracestate, ...payload } = task;
+    return { ...payload, ...carrier } as T;
   }
 
   private resolvePublishContext(context?: IExecutionContext): IExecutionContext {
@@ -537,7 +567,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         );
         if (claimedResult.isErr()) return err(claimedResult.error);
 
-        return ok({ enqueued: enqueuedResult.value, claimed: claimedResult.value });
+        return ok({
+          enqueued: enqueuedResult.value,
+          claimed: claimedResult.value,
+        });
       },
       {
         logger: this.logger,
@@ -558,13 +591,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       baseId: string;
       availableAt?: Date;
       cause: ComputedOutboxWakeupCause;
+      traceparent?: string;
+      tracestate?: string;
     },
     context?: IExecutionContext
   ): Promise<void> {
-    // Capture the write-path parent before afterCommit so the worker can join the same trace.
-    const carrier = context?.tracer?.capturePropagationCarrier?.();
+    // Enqueue already captured a fresh origin; existing unknown origins stay unknown.
+    const carrier = normalizeTracePropagationCarrier(params);
     const wakeup = createComputedOutboxWakeup({
-      ...params,
+      taskId: params.taskId,
+      baseId: params.baseId,
+      ...(params.availableAt ? { availableAt: params.availableAt } : {}),
+      cause: params.cause,
       ...(carrier?.traceparent ? { traceparent: carrier.traceparent } : {}),
       ...(carrier?.tracestate ? { tracestate: carrier.tracestate } : {}),
     });
@@ -648,7 +686,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     context?: IExecutionContext,
     options?: EnqueueOrMergeOptions
   ): Promise<Result<EnqueueOrMergeOutcome, DomainError>> {
-    const task = this.scopeTaskToLane(input);
+    const task = this.scopeTaskToLane(this.withTraceOrigin(input, context));
     const span = context?.tracer?.startSpan('teable.outbox.enqueueOrMerge', {
       'outbox.baseId': task.baseId,
       'outbox.seedTableId': task.seedTableId,
@@ -684,18 +722,30 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .where('base_id', '=', task.baseId)
                 .where('worker_lane', '=', this.config.workerLane)
                 .where('seed_table_id', '=', task.seedTableId)
-                .where('plan_hash', '=', task.planHash)
+                .where((eb) => buildPendingMergeFamilyCondition(eb, task.planHash, task))
                 .where('change_type', '=', task.changeType)
                 .where('status', '=', DEFAULT_STATUS)
+                .orderBy('created_at')
+                .orderBy('id')
+                .limit(1)
                 .forUpdate()
                 .executeTakeFirst()
             : undefined;
 
           if (!existing) {
-            const effectiveTask = mergeLockAcquired
-              ? task
-              : { ...task, planHash: uniquifyPlanHash(task.planHash) };
-            if (!mergeLockAcquired) {
+            const identityOccupied =
+              mergeLockAcquired &&
+              (await this.isPendingPlanIdentityOccupied(trx, {
+                baseId: task.baseId,
+                seedTableId: task.seedTableId,
+                planHash: task.planHash,
+                changeType: task.changeType,
+              }));
+            const effectiveTask =
+              mergeLockAcquired && !identityOccupied
+                ? task
+                : { ...task, planHash: uniquifyPlanHash(task.planHash) };
+            if (!mergeLockAcquired || identityOccupied) {
               this.logger.debug('computed:outbox:merge_lock_busy_bypass_insert', {
                 baseId: task.baseId,
                 seedTableId: task.seedTableId,
@@ -837,6 +887,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           taskId: result.value.taskId,
           baseId: task.baseId,
           cause: result.value.merged ? 'merged' : 'created',
+          traceparent: task.traceparent,
+          tracestate: task.tracestate,
         },
         context
       );
@@ -883,7 +935,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     context?: IExecutionContext
   ): Promise<
     Result<
-      { claimed: AnyOutboxItem; activity: ComputedActivityProjectionResult | null } | null,
+      {
+        claimed: AnyOutboxItem;
+        activity: ComputedActivityProjectionResult | null;
+      } | null,
       DomainError
     >
   > {
@@ -968,7 +1023,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   ): Promise<
     Result<{ taskId: string; merged: boolean; claimed?: AnyOutboxItem | null }, DomainError>
   > {
-    const task = this.scopeTaskToLane(input);
+    const task = this.scopeTaskToLane(this.withTraceOrigin(input, context));
     const span = context?.tracer?.startSpan('teable.outbox.enqueueFieldBackfill', {
       'outbox.baseId': task.baseId,
       'outbox.tableId': task.tableId,
@@ -1003,18 +1058,30 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .where('base_id', '=', task.baseId)
                 .where('worker_lane', '=', this.config.workerLane)
                 .where('seed_table_id', '=', task.tableId)
-                .where('plan_hash', '=', task.planHash)
+                .where((eb) => buildPendingMergeFamilyCondition(eb, task.planHash, task))
                 .where('change_type', '=', FIELD_BACKFILL_CHANGE_TYPE)
                 .where('status', '=', DEFAULT_STATUS)
+                .orderBy('created_at')
+                .orderBy('id')
+                .limit(1)
                 .forUpdate()
                 .executeTakeFirst()
             : undefined;
 
           if (!existing) {
-            const effectiveTask = mergeLockAcquired
-              ? task
-              : { ...task, planHash: uniquifyPlanHash(task.planHash) };
-            if (!mergeLockAcquired) {
+            const identityOccupied =
+              mergeLockAcquired &&
+              (await this.isPendingPlanIdentityOccupied(trx, {
+                baseId: task.baseId,
+                seedTableId: task.tableId,
+                planHash: task.planHash,
+                changeType: FIELD_BACKFILL_CHANGE_TYPE,
+              }));
+            const effectiveTask =
+              mergeLockAcquired && !identityOccupied
+                ? task
+                : { ...task, planHash: uniquifyPlanHash(task.planHash) };
+            if (!mergeLockAcquired || identityOccupied) {
               this.logger.debug('computed:outbox:backfill_merge_lock_busy_bypass_insert', {
                 baseId: task.baseId,
                 tableId: task.tableId,
@@ -1078,7 +1145,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 });
               }
             }
-            return ok({ taskId, merged: false, activity: projected.value.activity });
+            return ok({
+              taskId,
+              merged: false,
+              activity: projected.value.activity,
+            });
           }
 
           // Merge field IDs with existing task
@@ -1090,7 +1161,6 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             .updateTable(OUTBOX_TABLE)
             .set({
               affected_field_ids: mergedFieldIds,
-              next_run_at: now,
               updated_at: now,
             })
             .where('id', '=', taskId)
@@ -1108,7 +1178,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               tableId: task.tableId,
               planHash: task.planHash,
             });
-            const fallbackTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+            const fallbackTask = {
+              ...task,
+              planHash: uniquifyPlanHash(task.planHash),
+            };
             mergedTaskId = await this.insertFieldBackfill(trx, fallbackTask, now);
             backfillMerged = false;
           } else {
@@ -1185,6 +1258,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           taskId: result.value.taskId,
           baseId: task.baseId,
           cause: result.value.merged ? 'merged' : 'created',
+          traceparent: task.traceparent,
+          tracestate: task.tracestate,
         },
         context
       );
@@ -1208,9 +1283,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   private async enqueueSeedTaskInternal(
     input: ComputedUpdateSeedTaskInput,
     context?: IExecutionContext,
-    notify = true
+    notify = true,
+    captureFreshOrigin = true
   ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>> {
-    const task = this.scopeTaskToLane(input);
+    const task = this.scopeTaskToLane(this.withTraceOrigin(input, context, captureFreshOrigin));
     const transaction = notify ? getPostgresTransaction(context) : null;
     const seedKey = JSON.stringify([task.baseId, task.seedTableId, task.planHash, task.changeType]);
     const ownedTaskId = transaction
@@ -1256,7 +1332,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               'merge'
             ));
           if (!mergeLockAcquired) {
-            const bypassTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+            const bypassTask = {
+              ...task,
+              planHash: uniquifyPlanHash(task.planHash),
+            };
             this.logger.debug('computed:outbox:seed_merge_lock_busy_bypass_insert', {
               baseId: task.baseId,
               seedTableId: task.seedTableId,
@@ -1300,17 +1379,30 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               context
             );
             if (projected.isErr()) return err(projected.error);
-            return ok({ taskId, merged: false, activity: projected.value.activity });
+            return ok({
+              taskId,
+              merged: false,
+              activity: projected.value.activity,
+            });
           }
 
           const existing = ownedTask ?? (await this.findPendingSeedTask(trx, task));
 
           if (!existing) {
-            const taskId = await this.insertSeedTask(trx, task, now);
+            const identityOccupied = await this.isPendingPlanIdentityOccupied(trx, {
+              baseId: task.baseId,
+              seedTableId: task.seedTableId,
+              planHash: task.planHash,
+              changeType: SEED_CHANGE_TYPE,
+            });
+            const effectiveTask = identityOccupied
+              ? { ...task, planHash: uniquifyPlanHash(task.planHash) }
+              : task;
+            const taskId = await this.insertSeedTask(trx, effectiveTask, now);
             if (taskId) {
               const verifiedInsert = await this.verifyOutboxTaskPersisted(trx, {
                 taskId,
-                planHash: task.planHash,
+                planHash: effectiveTask.planHash,
                 merged: false,
                 phase: 'seed_insert',
                 baseId: task.baseId,
@@ -1323,7 +1415,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   taskId,
                   baseId: task.baseId,
                   item: {
-                    ...task,
+                    ...effectiveTask,
                     id: taskId,
                     status: 'pending',
                     attempts: 0,
@@ -1338,7 +1430,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 context
               );
               if (projected.isErr()) return err(projected.error);
-              return ok({ taskId, merged: false, activity: projected.value.activity });
+              return ok({
+                taskId,
+                merged: false,
+                activity: projected.value.activity,
+              });
             }
 
             const conflicted = await this.findPendingSeedTask(trx, task);
@@ -1463,6 +1559,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             taskId: result.value.taskId,
             baseId: task.baseId,
             cause: result.value.merged ? 'merged' : 'created',
+            traceparent: task.traceparent,
+            tracestate: task.tracestate,
           },
           context
         );
@@ -1473,6 +1571,176 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     }
   }
 
+  private async isPendingPlanIdentityOccupied(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    params: { baseId: string; seedTableId: string; planHash: string; changeType: string }
+  ): Promise<boolean> {
+    const row = await trx
+      .selectFrom(OUTBOX_TABLE)
+      .select(sql<number>`1`.as('one'))
+      .where('base_id', '=', params.baseId)
+      .where('worker_lane', '=', this.config.workerLane)
+      .where('seed_table_id', '=', params.seedTableId)
+      .where('plan_hash', '=', params.planHash)
+      .where('change_type', '=', params.changeType)
+      .where('status', '=', DEFAULT_STATUS)
+      .executeTakeFirst();
+    return row != null;
+  }
+
+  /** Coalesce only locked, due pending siblings; never hydrate an unbounded ledger. */
+  private async consolidatePendingFamily(
+    trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    row: OutboxRow,
+    now: Date,
+    selectedIds: string[],
+    context?: IExecutionContext
+  ): Promise<Result<OutboxRow, DomainError>> {
+    if (
+      row.status !== DEFAULT_STATUS ||
+      hasProtectedMergeState((parseJsonValue(row.dirty_stats) ?? {}) as object)
+    ) {
+      return ok(row);
+    }
+    const taskId = String(row.id);
+    const acquired = await tryAcquireOutboxAdvisoryLock(
+      trx,
+      buildOutboxLockKey({
+        baseId: String(row.base_id),
+        seedTableId: String(row.seed_table_id),
+        planHash: String(row.plan_hash),
+        changeType: String(row.change_type),
+      }),
+      'merge'
+    );
+    if (!acquired) return ok(row);
+
+    // The survivor may already be locked by a batch/by-ID claim. Never wait for
+    // sibling locks: an enqueuer may own one while waiting for this survivor.
+    const siblings = await trx
+      .selectFrom(OUTBOX_TABLE)
+      .selectAll()
+      .where('base_id', '=', String(row.base_id))
+      .where('worker_lane', '=', this.config.workerLane)
+      .where('seed_table_id', '=', String(row.seed_table_id))
+      .where('change_type', '=', String(row.change_type))
+      .where((eb) => buildPendingMergeFamilyCondition(eb, String(row.plan_hash)))
+      .where('status', '=', DEFAULT_STATUS)
+      .where('next_run_at', '<=', now)
+      .where('id', 'not in', [taskId, ...selectedIds])
+      .orderBy('created_at')
+      .orderBy('id')
+      .limit(32)
+      .forUpdate()
+      .skipLocked()
+      .execute();
+    if (siblings.length === 0) return ok(row);
+
+    const ids = [taskId, ...siblings.map((sibling) => String(sibling.id))];
+    // A legacy implicit ledger root can have durable frontier/exclusions even
+    // without ledgerScopeId in its payload. It must retain its own task identity.
+    const protectedScopes = await Promise.all(
+      [STAGE_LEDGER_TABLE, CHANGE_FRONTIER_TABLE].map((table) =>
+        trx.selectFrom(table).select('scope_id').where('scope_id', 'in', ids).distinct().execute()
+      )
+    );
+    const protectedIds = new Set(
+      protectedScopes.flatMap((roots) => roots.map((root) => String(root.scope_id)))
+    );
+    if (protectedIds.has(taskId)) return ok(row);
+    const counts = await trx
+      .selectFrom(OUTBOX_SEED_TABLE)
+      .select(['task_id', sql<number>`count(*)::integer`.as('count')])
+      .where('task_id', 'in', ids)
+      .groupBy('task_id')
+      .execute();
+    const seedCounts = new Map(counts.map((count) => [String(count.task_id), Number(count.count)]));
+    const countSeeds = (candidate: OutboxRow) =>
+      candidate.seed_record_ids === null
+        ? (seedCounts.get(String(candidate.id)) ?? 0)
+        : countSeedRecords(
+            parseSeedGroups(candidate.seed_record_ids, String(candidate.seed_table_id))
+          );
+    let seedCount = countSeeds(row);
+    const maxSeeds = Math.max(1, Math.trunc(this.config.maxSeedRecordsPerTask));
+    for (const sibling of siblings) {
+      if (
+        protectedIds.has(String(sibling.id)) ||
+        hasProtectedMergeState((parseJsonValue(sibling.dirty_stats) ?? {}) as object)
+      )
+        continue;
+      const siblingCount = countSeeds(sibling);
+      // Conservative sum (before dedupe) bounds both hydration and merge work.
+      if (seedCount + siblingCount > maxSeeds) continue;
+      const seedMap = await this.loadSeedRecords(trx, [sibling]);
+      const incoming = toAnyOutboxItem(sibling, seedMap.get(String(sibling.id)) ?? []);
+      const sourceFirst =
+        new Date(sibling.created_at as Date).getTime() < new Date(row.created_at as Date).getTime();
+      const beforeImages = mergeBeforeImageRecordDtos(
+        parseBeforeImageRecordDtos(sourceFirst ? sibling.dirty_stats : row.dirty_stats),
+        parseBeforeImageRecordDtos(sourceFirst ? row.dirty_stats : sibling.dirty_stats)
+      );
+      const merged = await this.mergeRetryTaskIntoPending(trx, row, incoming, now);
+      if (!merged.merged || merged.taskId !== taskId) {
+        return err(
+          domainError.infrastructure({
+            message: 'Lost pending family consolidation survivor',
+          })
+        );
+      }
+      row = await trx
+        .updateTable(OUTBOX_TABLE)
+        .set({
+          created_at: sql`LEAST(created_at, ${sibling.created_at})`,
+          source_changed_at: sql`LEAST(source_changed_at, ${sibling.source_changed_at})`,
+          next_run_at: sql`LEAST(next_run_at, ${sibling.next_run_at})`,
+          dirty_stats: sql`jsonb_set(coalesce(dirty_stats, '{}'::jsonb), '{beforeImageRecords}', ${JSON.stringify(beforeImages)}::jsonb)`,
+          origin_run_ids: [
+            ...new Set([
+              ...parseStringArray(row.origin_run_ids),
+              ...parseStringArray(sibling.origin_run_ids),
+              String(sibling.run_id),
+            ]),
+          ],
+        })
+        .where('id', '=', taskId)
+        .where('status', '=', DEFAULT_STATUS)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      // Transfer field activity before removing the donor's queued references.
+      const mergedSeeds = await this.loadSeedRecords(trx, [row]);
+      const projected = await this.projectEnqueuedItem(
+        {
+          taskId,
+          baseId: String(row.base_id),
+          item: toAnyOutboxItem(row, mergedSeeds.get(taskId) ?? []),
+          now,
+          trx,
+        },
+        context
+      );
+      if (projected.isErr()) return err(projected.error);
+      const retired = await this.activityProjector.onTaskDone(
+        {
+          taskId: String(sibling.id),
+          baseId: String(sibling.base_id),
+          now,
+          trx,
+        },
+        context
+      );
+      if (retired.isErr()) return err(retired.error);
+      await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', String(sibling.id)).execute();
+      await trx
+        .deleteFrom(OUTBOX_TABLE)
+        .where('id', '=', String(sibling.id))
+        .where('status', '=', DEFAULT_STATUS)
+        .execute();
+      seedCount += siblingCount;
+    }
+    return ok(row);
+  }
+
   private async boundSeedTaskForClaim(
     trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
     row: OutboxRow,
@@ -1480,6 +1748,41 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     afterCommit: Array<() => Promise<void>>,
     context?: IExecutionContext
   ): Promise<Result<OutboxRow, DomainError>> {
+    const metadata = parseJsonValue(row.dirty_stats);
+    if (
+      row.seed_record_ids === null &&
+      ['insert', 'update', 'delete'].includes(String(row.change_type)) &&
+      metadata &&
+      typeof metadata === 'object' &&
+      !Array.isArray(metadata) &&
+      'plannedRerun' in metadata &&
+      metadata.plannedRerun === true
+    ) {
+      // An archived scope may contain millions of source rows. Transfer membership
+      // SQL-side before loadSeedRecords; existing dirty-budget frontier consumption
+      // bounds the worker, without materializing all IDs or independently splitting
+      // a current-stage plan whose sources must remain in one serial scope.
+      const scopeId = String(row.id);
+      const ledger = resolveTableSql(trx, STAGE_LEDGER_TABLE);
+      const seeds = resolveTableSql(trx, OUTBOX_SEED_TABLE);
+      await sql`insert into ${ledger}(scope_id,kind,table_id,record_id,seq)
+        select ${scopeId},kind,table_id,record_id,
+          row_number() over(partition by kind order by table_id,record_id)
+        from ${seeds} cross join (values ('frontier'),('rerun-source')) as kinds(kind)
+        where task_id=${scopeId}
+        on conflict do nothing`.execute(trx);
+      await sql`insert into ${ledger}(scope_id,kind,table_id,record_id)
+        values(${scopeId},'rerun-input-v1','','') on conflict do nothing`.execute(trx);
+      const { plannedRerun: _plannedRerun, ...planMetadata } = metadata;
+      const dirtyStats = toJsonValue({ ...planMetadata, ledgerScopeId: scopeId });
+      await trx
+        .updateTable(OUTBOX_TABLE)
+        .set({ seed_record_ids: toJsonValue([]), dirty_stats: dirtyStats })
+        .where('id', '=', scopeId)
+        .execute();
+      await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', scopeId).execute();
+      return ok({ ...row, seed_record_ids: [], dirty_stats: dirtyStats });
+    }
     if (row.change_type !== SEED_CHANGE_TYPE || row.seed_record_ids !== null) return ok(row);
     const maxSeeds = Math.max(1, Math.trunc(this.config.maxSeedRecordsPerTask));
     const count = await trx
@@ -1525,11 +1828,16 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         const last = groups[groups.length - 1];
         if (last?.tableId === tableId) last.recordIds.push(recordId);
         else groups.push({ tableId, recordIds: [recordId] });
-        cursor = { rank: tableId === task.seedTableId ? 0 : 1, tableId, recordId };
+        cursor = {
+          rank: tableId === task.seedTableId ? 0 : 1,
+          tableId,
+          recordId,
+        };
       }
       const enqueued = await this.enqueueSeedTaskInternal(
         buildSeedTaskChunk(task, splitSeedGroups(task.seedTableId, groups), chunkIndex, chunkCount),
         splitContext,
+        false,
         false
       );
       if (enqueued.isErr()) return err(enqueued.error);
@@ -1554,7 +1862,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const first = await trx
       .updateTable(OUTBOX_TABLE)
-      .set({ status: 'processing', locked_at: now, locked_by: row.locked_by, updated_at: now })
+      .set({
+        status: 'processing',
+        locked_at: now,
+        locked_by: row.locked_by,
+        updated_at: now,
+      })
       .where('id', '=', firstTaskId)
       .where('status', '=', DEFAULT_STATUS)
       .returningAll()
@@ -1586,7 +1899,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       hasMore = tasks.length === 100;
       for (const task of tasks) {
         await this.scheduleWakeup(
-          { taskId: task.id, baseId, availableAt: new Date(task.next_run_at), cause: 'created' },
+          {
+            taskId: task.id,
+            baseId,
+            availableAt: new Date(task.next_run_at),
+            cause: 'created',
+          },
           context
         );
         cursor = task.id;
@@ -1756,9 +2074,17 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .where((eb) =>
                     buildProcessingConcurrencyCondition(eb, 'o', reclaimBefore, this.config)
                   )
+                  // Promotion is by age, not complexity. Fresh work retains the
+                  // lightweight-first heuristic, but cannot overtake aged due
+                  // work forever. next_run_at remains an eligibility fence.
+                  .orderBy(
+                    sql`case when o.created_at <= ${new Date(now.getTime() - PENDING_FAIRNESS_AGE_MS)} then o.created_at else null end`,
+                    'asc'
+                  )
                   .orderBy('o.estimated_complexity', 'asc')
                   .orderBy('o.next_run_at', 'asc')
                   .orderBy('o.created_at', 'asc')
+                  .orderBy('o.id', 'asc')
                   .limit(remaining)
                   .forUpdate()
                   .skipLocked()
@@ -1779,6 +2105,19 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           const rows = await this.filterRowsByConcurrency(trx, unpausedRows, reclaimBefore);
 
           if (rows.length === 0) return ok({ tasks: [], activity: null, deadLetterActivities });
+
+          const selectedIds = rows.map((row) => String(row.id));
+          for (let index = 0; index < rows.length; index++) {
+            const consolidated = await this.consolidatePendingFamily(
+              trx,
+              rows[index]!,
+              now,
+              selectedIds,
+              context
+            );
+            if (consolidated.isErr()) return err(consolidated.error);
+            rows[index] = consolidated.value;
+          }
 
           const reclaimedIdSet = new Set(retryableStale.map((row) => String(row.id)));
           const ids = rows.map((row) => String(row.id));
@@ -1870,7 +2209,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             });
           }
 
-          return ok({ tasks, activity: activityResult.value, deadLetterActivities, afterCommit });
+          return ok({
+            tasks,
+            activity: activityResult.value,
+            deadLetterActivities,
+            afterCommit,
+          });
         },
         {
           logger: this.logger,
@@ -2068,6 +2412,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
           if (!row) return ok(null);
 
+          const consolidated = await this.consolidatePendingFamily(trx, row, now, [], context);
+          if (consolidated.isErr()) return err(consolidated.error);
+          row = consolidated.value;
+
           // Taking over a lease that expired without a graceful markFailed
           // means the previous run died mid-task (OOM kill / SIGKILL): charge
           // the lost attempt, and retire the task to the dead letter when the
@@ -2160,7 +2508,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             context
           );
           if (activityResult.isErr()) return err(activityResult.error);
-          return ok({ task: claimed, activity: activityResult.value, afterCommit });
+          return ok({
+            task: claimed,
+            activity: activityResult.value,
+            afterCommit,
+          });
         },
         {
           logger: this.logger,
@@ -2270,7 +2622,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const concurrencyRetryAt = await this.getConcurrencyRetryAt(db, row, reclaimBefore);
     if (concurrencyRetryAt !== undefined) {
-      return { status: 'deferred', reason: 'concurrency', retryAt: concurrencyRetryAt };
+      return {
+        status: 'deferred',
+        reason: 'concurrency',
+        retryAt: concurrencyRetryAt,
+      };
     }
 
     return null;
@@ -2510,7 +2866,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
           await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
 
-          if (fieldErrors?.length && isComputedReliabilityEnabled(String(deleted[0].base_id), this.reliability)) {
+          if (
+            fieldErrors?.length &&
+            isComputedReliabilityEnabled(String(deleted[0].base_id), this.reliability)
+          ) {
             const reliability = new PostgresComputedReliabilityStore(trx);
             await reliability.recordFailure({
               taskId,
@@ -2886,6 +3245,15 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             .execute();
           // Dead letters seeded from the dropped table can only be replayed into
           // "Table not found" — purge them in the same transaction as the drop.
+          // The archive guard admits a delete only from the transaction that
+          // authorized exactly these rows; scope the marker to this table so a
+          // concurrent archive in the same base still fails closed.
+          await trx
+            .updateTable(DEAD_LETTER_TABLE)
+            .set({ delete_authorized_txid: sql`txid_current()` })
+            .where('base_id', '=', baseId)
+            .where('seed_table_id', '=', seedTableId)
+            .execute();
           const deadDeleted = await trx
             .deleteFrom(DEAD_LETTER_TABLE)
             .where('base_id', '=', baseId)
@@ -2978,7 +3346,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
    * target is gone.
    */
   async discardFieldBackfills(
-    params: { baseId: string; seedTableId: string; fieldIds: ReadonlyArray<string> },
+    params: {
+      baseId: string;
+      seedTableId: string;
+      fieldIds: ReadonlyArray<string>;
+    },
     context?: IExecutionContext
   ): Promise<
     Result<
@@ -3000,7 +3372,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     if (removedFieldIds.size === 0) {
-      return ok({ discardedTaskIds: [], trimmedTaskIds: [], discardedDeadLetterTaskIds: [] });
+      return ok({
+        discardedTaskIds: [],
+        trimmedTaskIds: [],
+        discardedDeadLetterTaskIds: [],
+      });
     }
 
     const executeDiscard = async (): Promise<Result<DiscardFieldBackfillOutcome, DomainError>> => {
@@ -3211,9 +3587,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 .where('base_id', '=', params.task.baseId)
                 .where('worker_lane', '=', this.config.workerLane)
                 .where('seed_table_id', '=', getOutboxRowSeedTableId(params.task))
-                .where('plan_hash', '=', params.task.planHash)
+                .where((eb) =>
+                  buildPendingMergeFamilyCondition(eb, params.task.planHash, params.task)
+                )
                 .where('change_type', '=', getOutboxRowChangeType(params.task))
                 .where('status', '=', DEFAULT_STATUS)
+                .orderBy('created_at')
+                .orderBy('id')
+                .limit(1)
                 .forUpdate()
                 .executeTakeFirst()
             : undefined;
@@ -3228,7 +3609,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               params.task.createdAt instanceof Date ? params.task.createdAt : now;
             await trx
               .updateTable(OUTBOX_TABLE)
-              .set({ created_at: sql`LEAST(created_at, ${taskCreatedAt})` })
+              .set({
+                created_at: sql`LEAST(created_at, ${taskCreatedAt})`,
+                next_run_at: sql`GREATEST(next_run_at, ${nextRunAt})`,
+              })
               .where('id', '=', mergedTaskId)
               .execute();
             // Verify the merge target survived before we delete the retrying
@@ -3276,7 +3660,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             return ok({
               released: true,
               taskId: mergedTaskId,
-              availableAt: now,
+              availableAt: new Date(
+                Math.max(nextRunAt.getTime(), new Date(pending.next_run_at as Date).getTime())
+              ),
               activity: dropActivity.value,
             });
           }
@@ -3353,6 +3739,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             baseId: params.task.baseId,
             availableAt: result.value.availableAt,
             cause: 'retry',
+            traceparent: params.task.traceparent,
+            tracestate: params.task.tracestate,
           },
           context
         );
@@ -3526,6 +3914,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             baseId: task.baseId,
             availableAt: result.value.retryAt,
             cause: 'retry',
+            traceparent: task.traceparent,
+            tracestate: task.tracestate,
           },
           context
         );
@@ -3567,7 +3957,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           taskId: task.id,
           baseId: task.baseId,
           targets: params.remainingTargets,
-          metrics: { estimatedComplexity: 0, estimatedDirtyRecords: 0, hasAllTargetRecords: false },
+          metrics: {
+            estimatedComplexity: 0,
+            estimatedDirtyRecords: 0,
+            hasAllTargetRecords: false,
+          },
           now,
           trx,
         },
@@ -3590,6 +3984,21 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       .insertInto(DEAD_LETTER_TABLE)
       .values({ ...deadLetterValues, worker_lane: this.config.workerLane })
       .execute();
+    if (!isFieldBackfillOutboxItem(task) && !isSeedOutboxItem(task)) {
+      const rerunInputs = await archiveComputedRerunSeeds(trx, task, buildSeedGroupsFromTask(task));
+      const archivedStats = parseJsonValue(deadLetterValues.dirty_stats) as Record<string, unknown>;
+      await trx
+        .updateTable(DEAD_LETTER_TABLE)
+        .set({
+          seed_record_ids: rerunInputs ? null : deadLetterValues.seed_record_ids,
+          dirty_stats: toJsonValue({
+            ...archivedStats,
+            rerunInputs: rerunInputs ?? { version: 1, complete: false },
+          }),
+        })
+        .where('id', '=', task.id)
+        .execute();
+    }
     if (isComputedReliabilityEnabled(task.baseId, this.reliability)) {
       // The legacy resolver guesses the seed table for affected fields when steps
       // are missing. Durable evidence must only use explicit placements or refs.
@@ -3619,17 +4028,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       .where('worker_lane', '=', this.config.workerLane)
       .execute();
     await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
-    // A dead-lettered task ends its continuation chain: drop the chain's
-    // durable stage-ledger state (scope = chain root task id; a task
-    // that never staged has no rows and this is a no-op).
-    await trx
-      .deleteFrom(STAGE_LEDGER_TABLE)
-      .where(
-        'scope_id',
-        '=',
-        (!isBackfill && !isSeed && (task as ComputedUpdateOutboxItem).ledgerScopeId) || task.id
-      )
-      .execute();
+    // A dead-lettered task ends its continuation chain. Drop both the processed-target
+    // exclusion ledger and the output-value frontier under the chain root scope; leaving
+    // either behind would make a later fresh rerun inherit stale progress evidence.
+    const ledgerScopeId =
+      (!isBackfill && !isSeed && (task as ComputedUpdateOutboxItem).ledgerScopeId) || task.id;
+    const clearedLedger = await clearStageLedger(trx, ledgerScopeId);
+    if (clearedLedger.isErr()) return err(clearedLedger.error);
 
     const terminalActivity = await this.activityProjector.onTaskFailed(
       {
@@ -3697,6 +4102,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           partialStageBudget: task.partialStageBudget,
           terminalFieldErrors: task.terminalFieldErrors,
           sourceFieldIds: task.sourceFieldIds?.length ? [...task.sourceFieldIds] : undefined,
+          traceparent: task.traceparent,
+          tracestate: task.tracestate,
         }),
         run_id: task.runId,
         origin_run_ids: task.originRunIds,
@@ -3815,7 +4222,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const seedInlineLimit = this.config.seedInlineLimit;
     const mergedSeedCount = countSeedRecords(mergedSeedGroups);
-    const useSeedTable = mergedSeedCount > seedInlineLimit;
+    const useSeedTable = existing.seed_record_ids === null || mergedSeedCount > seedInlineLimit;
 
     if (useSeedTable) {
       await this.upsertSeedRows(trx, taskId, flattenSeedGroups(mergedSeedGroups));
@@ -3828,6 +4235,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       .set({
         seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
         dirty_stats: toJsonValue({
+          ...(parseTracePropagationCarrier(existing.dirty_stats) ??
+            normalizeTracePropagationCarrier(task)),
           dirtyStats: mergedDirtyStats,
           beforeImageRecords: mergedBeforeImageRecords,
           seedAllTableIds:
@@ -3869,7 +4278,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           (existing.predecessor_task_id ? String(existing.predecessor_task_id) : null) ??
           task.predecessorTaskId ??
           null,
-        next_run_at: now,
+        affected_table_ids: [
+          ...new Set([...parseStringArray(existing.affected_table_ids), ...task.affectedTableIds]),
+        ],
+        affected_field_ids: [
+          ...new Set([...parseStringArray(existing.affected_field_ids), ...task.affectedFieldIds]),
+        ],
         updated_at: now,
       })
       .where('id', '=', taskId)
@@ -3893,7 +4307,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         planHash: task.planHash,
       });
       await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
-      const fallbackTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+      const fallbackTask = {
+        ...task,
+        planHash: uniquifyPlanHash(task.planHash),
+      };
       const insertedId = await this.insertOutbox(trx, fallbackTask, now);
       return { taskId: insertedId, merged: false };
     }
@@ -3944,7 +4361,6 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           Number(existing.estimated_complexity ?? 0),
           task.estimatedRowCount ?? 0
         ),
-        next_run_at: now,
         updated_at: now,
       })
       .where('id', '=', taskId)
@@ -3960,7 +4376,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         tableId: task.tableId,
         planHash: task.planHash,
       });
-      const fallbackTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+      const fallbackTask = {
+        ...task,
+        planHash: uniquifyPlanHash(task.planHash),
+      };
       const insertedId = await this.insertFieldBackfill(trx, fallbackTask, now);
       return { taskId: insertedId, merged: false };
     }
@@ -4107,7 +4526,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         last_error: null,
         estimated_complexity: task.estimatedRowCount ?? 0,
         plan_hash: task.planHash,
-        dirty_stats: task.cursor ? toJsonValue({ fieldBackfillCursor: task.cursor }) : null,
+        dirty_stats: toJsonValue({
+          fieldBackfillCursor: task.cursor,
+          traceparent: task.traceparent,
+          tracestate: task.tracestate,
+        }),
         run_id: task.runId,
         origin_run_ids: [],
         run_total_steps: 1,
@@ -4115,9 +4538,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         affected_table_ids: [task.tableId],
         affected_field_ids: task.fieldIds,
         sync_max_level: 0,
-        source_changed_at: now,
-        stage_depth: 0,
-        predecessor_task_id: null,
+        source_changed_at: task.sourceChangedAt ?? now,
+        stage_depth: task.stageDepth ?? 0,
+        predecessor_task_id: task.predecessorTaskId ?? null,
         created_at: now,
         updated_at: now,
       })
@@ -4146,9 +4569,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       .where('base_id', '=', task.baseId)
       .where('worker_lane', '=', this.config.workerLane)
       .where('seed_table_id', '=', task.seedTableId)
-      .where('plan_hash', '=', task.planHash)
+      .where((eb) => buildPendingMergeFamilyCondition(eb, task.planHash, task))
       .where('change_type', '=', SEED_CHANGE_TYPE)
       .where('status', '=', DEFAULT_STATUS)
+      .orderBy('created_at')
+      .orderBy('id')
+      .limit(1)
       .forUpdate()
       .executeTakeFirst();
   }
@@ -4191,13 +4617,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         seed_record_ids: useSeedTable ? null : toJsonValue(mergedSeedGroups),
         affected_field_ids: mergedPayload.changedFieldIds,
         dirty_stats: toJsonValue({
+          ...(parseTracePropagationCarrier(existing.dirty_stats) ??
+            normalizeTracePropagationCarrier(task)),
           changeType: mergedPayload.changeType,
           impact: mergedPayload.impact ?? null,
           beforeImageRecords: mergedPayload.beforeImageRecords,
           orchestration: mergedPayload.orchestration,
         }),
         origin_run_ids: mergedSeedOriginRunIds,
-        next_run_at: now,
         updated_at: now,
       })
       .where('id', '=', taskId)
@@ -4214,7 +4641,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         planHash: task.planHash,
       });
       await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
-      const fallbackTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+      const fallbackTask = {
+        ...task,
+        planHash: uniquifyPlanHash(task.planHash),
+      };
       const insertedId = await this.insertSeedTask(trx, fallbackTask, now);
       if (!insertedId) {
         throw new Error(
@@ -4267,6 +4697,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         impact: task.impact ?? null,
         beforeImageRecords: task.beforeImageRecords,
         orchestration: task.orchestration,
+        traceparent: task.traceparent,
+        tracestate: task.tracestate,
       }),
       run_id: task.runId,
       origin_run_ids: [],
@@ -4279,8 +4711,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       // the source-change time this lineage chain traces back to (chunk
       // re-enqueues carry the original time instead).
       source_changed_at: task.sourceChangedAt ?? now,
-      stage_depth: 0,
-      predecessor_task_id: null,
+      stage_depth: task.stageDepth ?? 0,
+      predecessor_task_id: task.predecessorTaskId ?? null,
       created_at: now,
       updated_at: now,
     };
@@ -4386,6 +4818,7 @@ const toOutboxItem = (
     terminalFieldErrors: parseTerminalFieldErrors(row.dirty_stats),
     orchestration: parseRealtimeOrchestration(row.dirty_stats),
     sourceFieldIds: parseSourceFieldIds(row.dirty_stats),
+    ...(parseTracePropagationCarrier(row.dirty_stats) ?? {}),
     runId: String(row.run_id ?? ''),
     originRunIds: parseStringArray(row.origin_run_ids),
     runTotalSteps: Number(row.run_total_steps ?? 0),
@@ -4505,14 +4938,19 @@ const parseBeforeImageRecordDtos = (
   return rawRecords
     .map((item) => {
       if (!item || typeof item !== 'object') return null;
-      const record = item as { recordId?: unknown; fieldValuesByDbName?: unknown };
+      const record = item as {
+        recordId?: unknown;
+        fieldValuesByDbName?: unknown;
+      };
       if (typeof record.recordId !== 'string') return null;
       if (!record.fieldValuesByDbName || typeof record.fieldValuesByDbName !== 'object') {
         return null;
       }
       return {
         recordId: record.recordId,
-        fieldValuesByDbName: { ...(record.fieldValuesByDbName as Record<string, unknown>) },
+        fieldValuesByDbName: {
+          ...(record.fieldValuesByDbName as Record<string, unknown>),
+        },
       };
     })
     .filter(
@@ -4757,7 +5195,12 @@ const computedOutboxItemToTaskInput = (
   runTotalSteps: task.runTotalSteps,
   runCompletedStepsBefore: task.runCompletedStepsBefore,
   stageDepth: task.stageDepth,
+  sourceChangedAt: task.sourceChangedAt,
+  predecessorTaskId: task.predecessorTaskId,
+  sourceFieldIds: task.sourceFieldIds,
   orchestration: task.orchestration,
+  traceparent: task.traceparent,
+  tracestate: task.tracestate,
   planHash: task.planHash,
   dirtyStats: task.dirtyStats,
   affectedTableIds: task.affectedTableIds,
@@ -4784,7 +5227,12 @@ const seedOutboxItemToTaskInput = (task: SeedOutboxItem): ComputedUpdateSeedTask
   changeType: task.changeType,
   impact: task.impact,
   orchestration: task.orchestration,
+  traceparent: task.traceparent,
+  tracestate: task.tracestate,
   runId: task.runId,
+  sourceChangedAt: task.sourceChangedAt,
+  stageDepth: task.stageDepth,
+  predecessorTaskId: task.predecessorTaskId,
   planHash: task.planHash,
 });
 
@@ -4825,7 +5273,10 @@ const mergeDirtyStats = (
   for (const stat of incoming ?? []) {
     map.set(stat.tableId, (map.get(stat.tableId) ?? 0) + stat.recordCount);
   }
-  return [...map.entries()].map(([tableId, recordCount]) => ({ tableId, recordCount }));
+  return [...map.entries()].map(([tableId, recordCount]) => ({
+    tableId,
+    recordCount,
+  }));
 };
 
 const mergeOriginRunIds = (existing: string[], incoming: string[]): string[] => {
@@ -4926,7 +5377,7 @@ const buildOutboxLockKey = (params: {
   planHash: string;
   changeType: string;
 }): string =>
-  `v2:outbox:${params.baseId}:${params.seedTableId}:${params.planHash}:${params.changeType}`;
+  `v2:outbox:${params.baseId}:${params.seedTableId}:${logicalPlanHash(params.planHash)}:${params.changeType}`;
 
 type OutboxAdvisoryLockScope = 'merge' | 'claim_global' | 'claim_base';
 
@@ -4968,12 +5419,107 @@ const NO_MERGE_PLAN_HASH_MARKER = ':nolock:';
 
 /**
  * Bypass plan hash for enqueues that lost the merge try-lock. A unique suffix keeps the
- * insert clear of the pending-unique index and merge lookups, trading one redundant
- * (idempotent) recompute for never blocking inside the caller's transaction.
+ * insert clear of the pending-unique index while the family lock is busy. A later
+ * enqueue or bounded claim consolidation can absorb this independently durable work.
  */
 const uniquifyPlanHash = (planHash: string): string => {
-  const base = planHash.split(NO_MERGE_PLAN_HASH_MARKER)[0];
+  const base = logicalPlanHash(planHash);
   return `${base}${NO_MERGE_PLAN_HASH_MARKER}${generatePrefixedId('cnm', 8)}`;
+};
+
+// Only generated contention suffixes belong to the original merge family.
+// Recovery replay identities and continuation/chunk lineage remain independent.
+const CONTENTION_SUFFIX = ':nolock:cnm[A-Za-z0-9]{8}$';
+const CONTENTION_SUFFIX_PATTERN = new RegExp(CONTENTION_SUFFIX);
+const logicalPlanHash = (planHash: string): string =>
+  planHash.replace(CONTENTION_SUFFIX_PATTERN, '');
+
+const hasProtectedMergeState = (task: object): boolean => {
+  const state = task as Record<string, unknown>;
+  return (
+    state.ledgerScopeId != null ||
+    state.seedAllCursors != null ||
+    state.partialStageBudget != null ||
+    state.cursor != null ||
+    state.fieldBackfillCursor != null
+  );
+};
+
+const buildPendingMergeFamilyCondition = (
+  eb: ExpressionBuilder<DynamicDB, keyof DynamicDB>,
+  planHash: string,
+  incoming?: object
+) => {
+  const state = (incoming ?? {}) as Record<string, unknown>;
+  const candidateHasNoCheckpoint = eb.and([
+    sql<boolean>`not (coalesce(dirty_stats, '{}'::jsonb) ?| array[
+      'ledgerScopeId', 'seedAllCursors', 'partialStageBudget', 'fieldBackfillCursor'
+    ])`,
+    eb.not(
+      eb.exists(
+        eb
+          .selectFrom(STAGE_LEDGER_TABLE)
+          .select(sql<number>`1`.as('one'))
+          .whereRef('scope_id', '=', 'computed_update_outbox.id')
+      )
+    ),
+    eb.not(
+      eb.exists(
+        eb
+          .selectFrom(CHANGE_FRONTIER_TABLE)
+          .select(sql<number>`1`.as('one'))
+          .whereRef('scope_id', '=', 'computed_update_outbox.id')
+      )
+    ),
+  ]);
+
+  if (hasProtectedMergeState(state)) {
+    const compatible = {
+      ledgerScopeId: state.ledgerScopeId ?? null,
+      seedAllCursors: state.seedAllCursors ?? null,
+      partialStageBudget: state.partialStageBudget ?? null,
+      fieldBackfillCursor: state.cursor ?? state.fieldBackfillCursor ?? null,
+    };
+    const noImplicitRootOwnedByCandidate = eb.and([
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom(STAGE_LEDGER_TABLE)
+            .select(sql<number>`1`.as('one'))
+            .whereRef('scope_id', '=', 'computed_update_outbox.id')
+        )
+      ),
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom(CHANGE_FRONTIER_TABLE)
+            .select(sql<number>`1`.as('one'))
+            .whereRef('scope_id', '=', 'computed_update_outbox.id')
+        )
+      ),
+    ]);
+    const candidateHasSameCheckpoint = eb.and([
+      sql<boolean>`coalesce(dirty_stats -> 'ledgerScopeId', 'null'::jsonb) = ${JSON.stringify(compatible.ledgerScopeId)}::jsonb`,
+      sql<boolean>`coalesce(dirty_stats -> 'seedAllCursors', 'null'::jsonb) = ${JSON.stringify(compatible.seedAllCursors)}::jsonb`,
+      sql<boolean>`coalesce(dirty_stats -> 'partialStageBudget', 'null'::jsonb) = ${JSON.stringify(compatible.partialStageBudget)}::jsonb`,
+      sql<boolean>`coalesce(dirty_stats -> 'fieldBackfillCursor', 'null'::jsonb) = ${JSON.stringify(compatible.fieldBackfillCursor)}::jsonb`,
+      // A null explicit root cannot prove ownership of a candidate's implicit
+      // stage-ledger/change-frontier rows; only an explicit matching root may.
+      ...(compatible.ledgerScopeId === null ? [noImplicitRootOwnedByCandidate] : []),
+    ]);
+    return eb.and([
+      eb('plan_hash', '=', planHash),
+      eb.or([candidateHasNoCheckpoint, candidateHasSameCheckpoint]),
+    ]);
+  }
+
+  return eb.and([
+    eb.or([
+      eb('plan_hash', '=', planHash),
+      sql<boolean>`regexp_replace(plan_hash, ${CONTENTION_SUFFIX}, '') = ${logicalPlanHash(planHash)}`,
+    ]),
+    candidateHasNoCheckpoint,
+  ]);
 };
 
 /** Spread retries across [0.5x, 1.5x) so same-key losers do not wake in lockstep. */
@@ -5020,6 +5566,7 @@ const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
     fieldIds: parseStringArray(row.affected_field_ids),
     estimatedRowCount: Number(row.estimated_complexity ?? 0),
     cursor: parseFieldBackfillCursor(row.dirty_stats),
+    ...(parseTracePropagationCarrier(row.dirty_stats) ?? {}),
     runId: String(row.run_id ?? ''),
     planHash: String(row.plan_hash),
     status: String(row.status) as FieldBackfillOutboxItem['status'],
@@ -5030,6 +5577,8 @@ const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
     lockedBy: row.locked_by ? String(row.locked_by) : null,
     lastError: row.last_error ? String(row.last_error) : null,
     sourceChangedAt: parseDateColumn(row.source_changed_at),
+    stageDepth: Number(row.stage_depth ?? 0),
+    predecessorTaskId: row.predecessor_task_id ? String(row.predecessor_task_id) : undefined,
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -5074,6 +5623,7 @@ const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): See
     changeType,
     impact,
     orchestration: parseRealtimeOrchestration(row.dirty_stats),
+    ...(parseTracePropagationCarrier(row.dirty_stats) ?? {}),
     runId: String(row.run_id ?? ''),
     planHash: String(row.plan_hash),
     status: String(row.status) as SeedOutboxItem['status'],
@@ -5084,6 +5634,8 @@ const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): See
     lockedBy: row.locked_by ? String(row.locked_by) : null,
     lastError: row.last_error ? String(row.last_error) : null,
     sourceChangedAt: parseDateColumn(row.source_changed_at),
+    stageDepth: Number(row.stage_depth ?? 0),
+    predecessorTaskId: row.predecessor_task_id ? String(row.predecessor_task_id) : undefined,
     createdAt: new Date(String(row.created_at)),
     updatedAt: new Date(String(row.updated_at)),
   };
@@ -5108,7 +5660,11 @@ const parseSeedPayloadFromRow = (row: OutboxRow): ComputedUpdateSeedTaskInput =>
     changeType: parseSeedChangeType(row.dirty_stats) ?? 'update',
     impact: parseSeedImpact(row.dirty_stats),
     orchestration: parseRealtimeOrchestration(row.dirty_stats),
+    ...(parseTracePropagationCarrier(row.dirty_stats) ?? {}),
     runId: String(row.run_id ?? ''),
+    sourceChangedAt: parseDateColumn(row.source_changed_at),
+    stageDepth: Number(row.stage_depth ?? 0),
+    predecessorTaskId: row.predecessor_task_id ? String(row.predecessor_task_id) : undefined,
     planHash: String(row.plan_hash),
   };
 };
@@ -5150,7 +5706,11 @@ const parseSeedChangeType = (value: unknown): 'insert' | 'update' | 'delete' | u
 const buildSeedGroupsFromSeedPayload = (
   task:
     | ComputedUpdateSeedTaskInput
-    | { seedTableId: string; seedRecordIds: string[]; extraSeedRecords: SeedGroup[] }
+    | {
+        seedTableId: string;
+        seedRecordIds: string[];
+        extraSeedRecords: SeedGroup[];
+      }
 ): SeedGroup[] => {
   const baseGroup: SeedGroup = {
     tableId: task.seedTableId,
@@ -5183,7 +5743,10 @@ const resolveRunHistoryPlan = (
     (taskItem.steps.length > 0 ||
       ('edges' in taskItem && Array.isArray(taskItem.edges) && taskItem.edges.length > 0))
   ) {
-    return { steps: taskItem.steps, edges: 'edges' in taskItem ? taskItem.edges : [] };
+    return {
+      steps: taskItem.steps,
+      edges: 'edges' in taskItem ? taskItem.edges : [],
+    };
   }
   return {
     steps: parseJsonArray(row.steps) ?? [],
@@ -5214,16 +5777,28 @@ const countSeedRecordsForHistory = (
 const buildFailureLogFields = (
   task: AnyOutboxItem,
   options: MarkFailedOptions
-): Record<string, unknown> => ({
-  baseId: task.baseId,
-  seedTableId: 'seedTableId' in task ? task.seedTableId : null,
-  tableId: 'tableId' in task ? task.tableId : null,
-  taskType: isFieldBackfillItem(task) ? 'field-backfill' : isSeedItem(task) ? 'seed' : 'computed',
-  ...(options.failureKind ? { failureKind: options.failureKind } : {}),
-  ...(options.failureReason ? { failureReason: options.failureReason } : {}),
-  ...(options.retryable !== undefined ? { retryable: options.retryable } : {}),
-  ...(options.directDeadLetter !== undefined ? { directDeadLetter: options.directDeadLetter } : {}),
-});
+): Record<string, unknown> => {
+  const sourceChangedAt = task.sourceChangedAt;
+  return {
+    baseId: task.baseId,
+    seedTableId: 'seedTableId' in task ? task.seedTableId : null,
+    tableId: 'tableId' in task ? task.tableId : null,
+    taskType: isFieldBackfillItem(task) ? 'field-backfill' : isSeedItem(task) ? 'seed' : 'computed',
+    runId: task.runId,
+    stageDepth: 'stageDepth' in task ? (task.stageDepth ?? 0) : 0,
+    predecessorTaskId: 'predecessorTaskId' in task ? (task.predecessorTaskId ?? null) : null,
+    sourceChangedAt: sourceChangedAt?.toISOString() ?? null,
+    sourceToFailureElapsedMs: sourceChangedAt
+      ? Math.max(0, Date.now() - sourceChangedAt.getTime())
+      : null,
+    ...(options.failureKind ? { failureKind: options.failureKind } : {}),
+    ...(options.failureReason ? { failureReason: options.failureReason } : {}),
+    ...(options.retryable !== undefined ? { retryable: options.retryable } : {}),
+    ...(options.directDeadLetter !== undefined
+      ? { directDeadLetter: options.directDeadLetter }
+      : {}),
+  };
+};
 
 /**
  * Build dead letter table values based on task type.
@@ -5256,8 +5831,8 @@ const buildDeadLetterValues = (
     plan_hash: task.planHash,
     run_id: task.runId,
     source_changed_at: task.sourceChangedAt ?? null,
-    stage_depth: 0,
-    predecessor_task_id: null as string | null,
+    stage_depth: task.stageDepth ?? 0,
+    predecessor_task_id: task.predecessorTaskId ?? (null as string | null),
     failed_at: now,
     created_at: task.createdAt,
     updated_at: now,
@@ -5273,9 +5848,11 @@ const buildDeadLetterValues = (
       steps: toJsonValue([]),
       edges: toJsonValue([]),
       estimated_complexity: backfillTask.estimatedRowCount ?? 0,
-      dirty_stats: backfillTask.cursor
-        ? toJsonValue({ fieldBackfillCursor: backfillTask.cursor })
-        : null,
+      dirty_stats: toJsonValue({
+        fieldBackfillCursor: backfillTask.cursor,
+        traceparent: backfillTask.traceparent,
+        tracestate: backfillTask.tracestate,
+      }),
       origin_run_ids: [],
       run_total_steps: 1,
       run_completed_steps_before: 0,
@@ -5300,6 +5877,8 @@ const buildDeadLetterValues = (
         impact: seedTask.impact ?? null,
         beforeImageRecords: seedTask.beforeImageRecords,
         orchestration: seedTask.orchestration,
+        traceparent: seedTask.traceparent,
+        tracestate: seedTask.tracestate,
       }),
       origin_run_ids: [],
       run_total_steps: 0,
@@ -5327,6 +5906,10 @@ const buildDeadLetterValues = (
       beforeImageRecords: computedTask.beforeImageRecords,
       orchestration: computedTask.orchestration,
       sameTableBatches: computedTask.sameTableBatches,
+      seedAllTableIds: computedTask.seedAllTableIds,
+      sourceFieldIds: computedTask.sourceFieldIds,
+      traceparent: computedTask.traceparent,
+      tracestate: computedTask.tracestate,
     }),
     origin_run_ids: computedTask.originRunIds,
     run_total_steps: computedTask.runTotalSteps,

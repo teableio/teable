@@ -5,8 +5,10 @@ import type { IDomainContext } from '../../../shared/DomainContext';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import {
   DEFAULT_TABLE_DATA_SAFETY_LIMITS,
+  measureJsonBytes,
   tableDataSafetyLimitErrors,
 } from '../../../shared/TableDataSafetyLimits';
+import type { SelectOption } from './SelectOption';
 
 export const resolveMaxSelectChoices = (domainContext?: IDomainContext): number =>
   domainContext?.config?.tableLimits?.fieldOptions?.maxSelectChoices ??
@@ -70,4 +72,34 @@ export const ensureSelectFieldOptionNamesWithinLimit = (
   }
 
   return ok(undefined);
+};
+
+export const resolveMaxSelectOptionsBytes = (domainContext?: IDomainContext): number =>
+  domainContext?.config?.tableLimits?.fieldOptions?.maxBytes ??
+  DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxBytes;
+
+/** Same measure as the field update limit: the JSON bytes of the choice DTOs. */
+export const measureSelectOptionsBytes = (options: ReadonlyArray<SelectOption>): number =>
+  measureJsonBytes(options.map((option) => option.toDto()));
+
+export const selectFieldOptionsBytesExceededError = (maxBytes: number): DomainError =>
+  domainError.validation({
+    code: tableDataSafetyLimitErrors.fieldOptionsMaxBytes.code,
+    message: `Select field options cannot exceed ${maxBytes} bytes`,
+    localization: {
+      i18nKey: tableDataSafetyLimitErrors.fieldOptionsMaxBytes.i18nKey,
+      context: { max: maxBytes },
+    },
+  });
+
+export const ensureSelectFieldOptionsBytesWithinLimit = (
+  options: ReadonlyArray<SelectOption>,
+  domainContext?: IDomainContext
+): Result<void, DomainError> => {
+  const maxBytes = resolveMaxSelectOptionsBytes(domainContext);
+  if (maxBytes == null || measureSelectOptionsBytes(options) <= maxBytes) {
+    return ok(undefined);
+  }
+
+  return err(selectFieldOptionsBytesExceededError(maxBytes));
 };

@@ -27,6 +27,7 @@ export default abstract class StorageAdapter {
       case UploadType.RecordHistory:
       case UploadType.RecordRemoval:
       case UploadType.Artifact:
+      case UploadType.ArtifactThumbnail:
       case UploadType.WorkflowRunCold:
       case UploadType.AuditLogCold:
       case UploadType.UserDataExport:
@@ -91,6 +92,8 @@ export default abstract class StorageAdapter {
         return 'audit-log';
       case UploadType.Artifact:
         return 'artifact';
+      case UploadType.ArtifactThumbnail:
+        return 'artifact-thumbnail';
       case UploadType.UserDataExport:
         return 'user-data-export';
       default:

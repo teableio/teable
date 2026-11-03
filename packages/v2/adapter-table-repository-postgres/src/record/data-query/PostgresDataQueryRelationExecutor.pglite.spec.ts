@@ -218,7 +218,6 @@ describe('Postgres relation data query on PGlite', () => {
     )._unsafeUnwrap();
     const query = definition.bind({})._unsafeUnwrap();
     const plan: DataQueryRelationPlan = {
-      definition,
       query,
       rootTable: root,
       rootScope: {},
@@ -272,7 +271,6 @@ describe('Postgres relation data query on PGlite', () => {
       })._unsafeUnwrap(),
     };
     const plan: DataQueryRelationPlan = {
-      definition,
       query,
       rootTable: root,
       rootScope: {},
@@ -309,7 +307,6 @@ describe('Postgres relation data query on PGlite', () => {
       targetTables
     )._unsafeUnwrap();
     return {
-      definition,
       query: definition.bind(values)._unsafeUnwrap(),
       rootTable: root,
       rootScope,
@@ -843,7 +840,6 @@ describe('Postgres relation data query on PGlite', () => {
       })
       ._unsafeUnwrap();
     const plan: DataQueryRelationPlan = {
-      definition,
       query,
       rootTable: root,
       rootScope: {},

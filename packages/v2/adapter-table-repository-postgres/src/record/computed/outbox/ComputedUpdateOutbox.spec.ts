@@ -126,6 +126,8 @@ describe('ComputedUpdateOutbox', () => {
           }
           return selectChain;
         }),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
         forUpdate: vi.fn().mockReturnValue({
           executeTakeFirst: vi.fn().mockImplementation(() => Promise.resolve(selectedRows.shift())),
         }),
@@ -220,7 +222,10 @@ describe('ComputedUpdateOutbox', () => {
       });
       expect(updateValues?.attempts).toBeUndefined();
       // Retry delays carry jitter across [0.5x, 1.5x) of the requested delay.
-      const nextRunAtMs = (updateValues?.next_run_at as Date).getTime();
+      const nextRunAt = updateValues?.next_run_at;
+      expect(nextRunAt).toBeInstanceOf(Date);
+      if (!(nextRunAt instanceof Date)) throw new TypeError('Expected a scheduled retry date');
+      const nextRunAtMs = nextRunAt.getTime();
       expect(nextRunAtMs).toBeGreaterThanOrEqual(now.getTime() + 125);
       expect(nextRunAtMs).toBeLessThanOrEqual(now.getTime() + 375);
       expect(publish).toHaveBeenCalledOnce();
@@ -233,6 +238,8 @@ describe('ComputedUpdateOutbox', () => {
       const order: string[] = [];
       const selectChain = {
         where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
         forUpdate: vi.fn().mockReturnValue({
           executeTakeFirst: vi.fn().mockResolvedValue(undefined),
         }),
@@ -241,9 +248,11 @@ describe('ComputedUpdateOutbox', () => {
       // selects from the outbox table; report the just-"inserted" row as
       // present so this test can focus on publish ordering.
       const verifyChain = {
-        where: vi.fn().mockReturnValue({
-          executeTakeFirst: vi.fn().mockResolvedValue({ one: 1 }),
-        }),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirst: vi
+          .fn()
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce({ one: 1 }),
       };
       const mockDb = {
         transaction: () => ({
@@ -541,12 +550,19 @@ describe('ComputedUpdateOutbox', () => {
       let deadLetterInserted = false;
       let outboxDeleted = false;
       let seedDeleted = false;
+      let stageLedgerDeleted = false;
+      let changeFrontierDeleted = false;
 
       const mockDb = {
         ...createUnmigratedQueryDb(),
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) =>
             fn({ ...mockDb, isTransaction: true }),
+        }),
+        updateTable: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnThis(),
+          where: vi.fn().mockReturnThis(),
+          execute: vi.fn().mockResolvedValue([]),
         }),
         insertInto: vi.fn().mockReturnValue({
           values: vi.fn().mockReturnValue({
@@ -556,14 +572,20 @@ describe('ComputedUpdateOutbox', () => {
             }),
           }),
         }),
-        deleteFrom: vi.fn().mockImplementation((table: string) => ({
-          where: vi.fn().mockReturnThis(),
-          execute: vi.fn().mockImplementation(() => {
+        deleteFrom: vi.fn().mockImplementation((table: string) => {
+          const executeDelete = vi.fn().mockImplementation(() => {
             if (table === 'computed_update_outbox') outboxDeleted = true;
             if (table === 'computed_update_outbox_seed') seedDeleted = true;
-            return Promise.resolve([]);
-          }),
-        })),
+            if (table === 'computed_update_stage_ledger') stageLedgerDeleted = true;
+            if (table === 'computed_update_change_frontier') changeFrontierDeleted = true;
+            return Promise.resolve({ numDeletedRows: 0n });
+          });
+          return {
+            where: vi.fn().mockReturnThis(),
+            execute: executeDelete,
+            executeTakeFirst: executeDelete,
+          };
+        }),
       } as unknown as MockDb;
 
       const logger = createLogger();
@@ -576,6 +598,8 @@ describe('ComputedUpdateOutbox', () => {
       expect(deadLetterInserted).toBe(true);
       expect(outboxDeleted).toBe(true);
       expect(seedDeleted).toBe(true);
+      expect(stageLedgerDeleted).toBe(true);
+      expect(changeFrontierDeleted).toBe(true);
     });
   });
 
@@ -761,7 +785,8 @@ describe('ComputedUpdateOutbox', () => {
           .mockImplementationOnce(() => createSelectChain([mockRow]))
           .mockImplementationOnce(() => ({
             select: vi.fn().mockReturnValue(activeRowsChain),
-          })),
+          }))
+          .mockImplementationOnce(() => createSelectChain([])),
         updateTable: vi.fn().mockReturnValue({
           set: vi.fn().mockImplementation((values) => {
             updateStatus = values.status;
@@ -789,14 +814,18 @@ describe('ComputedUpdateOutbox', () => {
     it('resolves pendingActivityEnqueue instead of calling onTaskEnqueued', async () => {
       const selectChain = {
         where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
         forUpdate: vi.fn().mockReturnValue({
           executeTakeFirst: vi.fn().mockResolvedValue(undefined),
         }),
       };
       const verifyChain = {
-        where: vi.fn().mockReturnValue({
-          executeTakeFirst: vi.fn().mockResolvedValue({ one: 1 }),
-        }),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirst: vi
+          .fn()
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce({ one: 1 }),
       };
       const mockDb = {
         transaction: () => ({
@@ -876,6 +905,8 @@ describe('ComputedUpdateOutbox', () => {
 
       const selectAllChain = {
         where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
         forUpdate: vi.fn().mockReturnValue({
           executeTakeFirst: vi.fn().mockResolvedValue(existingRow),
         }),
@@ -968,15 +999,15 @@ describe('ComputedUpdateOutbox', () => {
       // enqueueOrMerge must not return ok(...) for it.
       const selectAllChain = {
         where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
         forUpdate: vi.fn().mockReturnValue({
           executeTakeFirst: vi.fn().mockResolvedValue(undefined),
         }),
       };
       const missingVerifyChain = {
-        where: vi.fn().mockReturnValue({
-          // The just-"inserted" row is not actually visible in this transaction.
-          executeTakeFirst: vi.fn().mockResolvedValue(undefined),
-        }),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirst: vi.fn().mockResolvedValue(undefined),
       };
 
       const mockDb = {
@@ -1026,6 +1057,8 @@ describe('retry jitter', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const selectChain: Record<string, any> = {};
     selectChain.where = vi.fn().mockReturnValue(selectChain);
+    selectChain.orderBy = vi.fn().mockReturnValue(selectChain);
+    selectChain.limit = vi.fn().mockReturnValue(selectChain);
     selectChain.forUpdate = vi.fn().mockReturnValue({
       // Alternate ownership-check hit and pending-lookup miss for every release call.
       executeTakeFirst: vi.fn().mockImplementation(() => {

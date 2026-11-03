@@ -198,7 +198,6 @@ export type DataQueryDefinitionInput = (
 export type DataQueryAggregateEntry = DataQueryAggregate | DataQueryRelationAggregate;
 export type BoundDataQuery = {
   readonly validatedDefinition: DataQueryDefinition;
-  readonly definition: DataQueryDefinitionInput;
   readonly filter?: RecordFilter;
   /** Resolved relation filters, keyed by relation alias. */
   readonly relationFilters?: Readonly<Record<string, RecordFilter>>;

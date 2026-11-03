@@ -6,6 +6,7 @@ import type {
 } from '@teable/v2-complexity';
 import { z } from 'zod';
 
+import { complexityAssessmentSchema, estimatedRangeSchema } from './complexityAssessment';
 import { complexityAssumptionsSchema } from './complexityInput';
 import type { complexityAssessInputSchema } from './complexityInput';
 import {
@@ -19,6 +20,7 @@ export type {
   EstimatedRange as IComplexityRangeDto,
   PathDataEstimate as IComplexityPathEstimateDto,
 };
+export { complexityAssessmentSchema, estimatedRangeSchema } from './complexityAssessment';
 
 export * from './complexityPaths';
 
@@ -38,91 +40,13 @@ export const complexityProfileSchema = z
     basis: z.literal('schema-only'),
     scope: z.record(z.string(), z.unknown()),
     structural: z.record(z.string(), z.unknown()),
-    formulas: z.array(z.record(z.string(), z.unknown())),
+    formulas: z.array(z.record(z.string(), z.unknown())).readonly(),
     operation: z.record(z.string(), z.unknown()).nullable(),
     dataEstimate: z.record(z.string(), z.unknown()).optional(),
     evidence: z.record(z.string(), z.unknown()),
-    warnings: z.array(z.string()),
+    warnings: z.array(z.string()).readonly(),
   })
   .passthrough();
-
-export const estimatedRangeSchema = z.object({
-  status: z.enum(['estimated', 'bounded', 'unknown']),
-  expected: z.number().nullable(),
-  lower: z.number().nullable(),
-  upper: z.number().nullable(),
-});
-
-/**
- * Policy projection over the profile. `level` comes from the workload envelope,
- * never from `score`; `score` is a sort-only helper and is null when a required
- * data dimension is unknown.
- */
-
-const complexityShareSchema = z.object({
-  typicalShare: z.number().nonnegative().nullable(),
-  worstCaseShare: z.number().nonnegative().nullable(),
-  warnings: z.array(z.string()),
-});
-
-const complexityModeBreakdownSchema = z.object({
-  mode: z.enum(['sameRecord', 'linkTraversal', 'conditionalFiltered', 'allTargetRecords', 'backfill']),
-  pathCount: z.number().int().nonnegative(),
-  scan: estimatedRangeSchema,
-  dirty: estimatedRangeSchema,
-  estimatedWrites: estimatedRangeSchema,
-  workRows: estimatedRangeSchema,
-  share: complexityShareSchema,
-});
-
-const complexityPathBreakdownSchema = z.object({
-  mode: z.enum(['sameRecord', 'linkTraversal', 'conditionalFiltered', 'allTargetRecords', 'backfill']),
-  fromFieldId: z.string().min(1),
-  toFieldId: z.string().min(1),
-  fromTableId: z.string().min(1),
-  toTableId: z.string().min(1),
-  linkFieldId: z.string().nullable(),
-  level: z.number().int().nonnegative(),
-  beforeImage: z.enum(['included', 'not-required', 'unknown']),
-  alternativeGroup: z.string().nullable(),
-  certainty: z.enum(['structural', 'possible', 'unknown']),
-  scan: estimatedRangeSchema,
-  dirty: estimatedRangeSchema,
-  estimatedWrites: estimatedRangeSchema,
-  workRows: estimatedRangeSchema,
-  share: complexityShareSchema,
-});
-
-const complexityWorkloadBreakdownSchema = z.object({
-  shareBasis: z.literal('path-work'),
-  modes: z.array(complexityModeBreakdownSchema),
-  paths: z.array(complexityPathBreakdownSchema),
-});
-
-export const complexityAssessmentSchema = z.object({
-  policyVersion: z.literal('v2-complexity-policy-2'),
-  level: z.enum(['unknown', 'trivial', 'low', 'medium', 'high', 'critical']),
-  score: z.number().min(0).max(100).nullable(),
-  headline: z.string().min(1),
-  workload: z.object({
-    status: z.enum(['estimated', 'bounded', 'unknown']),
-    rows: estimatedRangeSchema,
-    typicalLevel: z.enum(['unknown', 'trivial', 'low', 'medium', 'high', 'critical']),
-    worstCaseLevel: z.enum(['unknown', 'trivial', 'low', 'medium', 'high', 'critical']),
-    level: z.enum(['unknown', 'trivial', 'low', 'medium', 'high', 'critical']),
-    basis: z.literal('max-scan-dirty'),
-    warnings: z.array(z.string()),
-  }),
-  breakdown: complexityWorkloadBreakdownSchema,
-  components: z.object({
-    structural: z.number().nonnegative(),
-    dataWork: z.number().nonnegative().nullable(),
-    risk: z.number().nonnegative(),
-  }),
-  reasonCodes: z.array(z.string()),
-  recommendations: z.array(z.string()),
-  confidence: z.enum(['high', 'medium', 'low']),
-});
 
 export const complexityAssessResultSchema = z.object({
   profile: complexityProfileSchema,
@@ -214,13 +138,10 @@ export const complexityAssessMatrixOkResponseSchema = apiOkResponseDtoSchema(
 export type IComplexityAssessMatrixInputDto = z.infer<typeof complexityAssessMatrixInputSchema>;
 export type IComplexityMatrixCellDto = z.infer<typeof complexityMatrixCellSchema>;
 export type IComplexityMatrixRowDto = z.infer<typeof complexityMatrixRowSchema>;
-export type IComplexityAssessMatrixResultDto = z.infer<
-  typeof complexityAssessMatrixResultSchema
->;
+export type IComplexityAssessMatrixResultDto = z.infer<typeof complexityAssessMatrixResultSchema>;
 export type IComplexityAssessMatrixOkResponseDto =
   IApiOkResponseDto<IComplexityAssessMatrixResultDto>;
-export type IComplexityAssessMatrixResponseDto =
-  IApiResponseDto<IComplexityAssessMatrixResultDto>;
+export type IComplexityAssessMatrixResponseDto = IApiResponseDto<IComplexityAssessMatrixResultDto>;
 
 export type IComplexityAssessInputDto = z.infer<typeof complexityAssessInputSchema>;
 /** Wire input as the caller writes it (defaults not applied). */

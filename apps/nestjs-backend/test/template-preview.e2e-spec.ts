@@ -22,9 +22,8 @@ import {
 import type { IGetBaseVo, ITableFullVo, ITableListVo } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { TemplateAppTokenNotAllowedException } from '../src/custom.exception';
-import { AuthService } from '../src/features/auth/auth.service';
 import { PermissionService } from '../src/features/auth/permission.service';
-import { JwtAuthInternalType } from '../src/features/auth/strategies/types';
+import { createAppToken } from './utils/app-token';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { createTable, createView, initApp, permanentDeleteBase } from './utils/init-app';
@@ -545,18 +544,9 @@ describe('Template Preview Permission (e2e)', () => {
   describe('Template preview app token operations', () => {
     let appToken: string;
     const anonymousAxios = createAxios();
-    let authService: AuthService;
-
-    beforeAll(async () => {
-      authService = app.get(AuthService);
-    });
 
     beforeEach(async () => {
-      const { accessToken } = await authService.getTempInternalToken(
-        templateBaseId,
-        JwtAuthInternalType.App
-      );
-      appToken = accessToken;
+      appToken = await createAppToken(app, templateBaseId);
       anonymousAxios.defaults.baseURL = defaultAxios.defaults.baseURL;
     });
     it('should allow getTableList with valid app token', async () => {
@@ -572,12 +562,9 @@ describe('Template Preview Permission (e2e)', () => {
     it('should reject a retired snapshot app token after template republish', async () => {
       const retiredSnapshotBaseId = templateBaseId;
       const headers = { Authorization: `Bearer ${appToken}` };
-      const normalAppToken = await authService.getTempInternalToken(
-        baseId,
-        JwtAuthInternalType.App
-      );
+      const normalAppToken = await createAppToken(app, baseId);
       const normalAppRead = await anonymousAxios.get(`/base/${baseId}/table`, {
-        headers: { Authorization: `Bearer ${normalAppToken.accessToken}` },
+        headers: { Authorization: `Bearer ${normalAppToken}` },
       });
       expect(normalAppRead.status).toBe(200);
 

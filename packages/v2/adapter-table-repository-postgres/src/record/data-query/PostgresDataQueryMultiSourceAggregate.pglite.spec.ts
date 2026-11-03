@@ -241,7 +241,6 @@ describe('Multi-source and multi-hop aggregates on PGlite', () => {
     ]);
     const binding = DataQueryRelationBinding.prepare(definition, vendor, targets)._unsafeUnwrap();
     return {
-      definition,
       query: definition.bind({})._unsafeUnwrap(),
       rootTable: vendor,
       rootScope,

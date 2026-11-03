@@ -1,4 +1,11 @@
-import { BaseId, FieldId, TableId, type DomainError, type IHasher } from '@teable/v2-core';
+import {
+  BaseId,
+  FieldId,
+  TableId,
+  type DomainError,
+  type IHasher,
+  type TracePropagationCarrier,
+} from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -29,10 +36,14 @@ export type FieldBackfillOutboxPayload = {
 /**
  * Input for creating a field backfill outbox task.
  */
-export type FieldBackfillOutboxTaskInput = FieldBackfillOutboxPayload & {
-  runId: string;
-  planHash: string;
-};
+export type FieldBackfillOutboxTaskInput = FieldBackfillOutboxPayload &
+  TracePropagationCarrier & {
+    runId: string;
+    planHash: string;
+    sourceChangedAt?: Date;
+    stageDepth?: number;
+    predecessorTaskId?: string;
+  };
 
 /**
  * Serialize domain objects to field backfill payload.
@@ -120,6 +131,11 @@ export const buildFieldBackfillTaskInput = (params: {
   runId: string;
   estimatedRowCount?: number;
   cursor?: string;
+  sourceChangedAt?: Date;
+  stageDepth?: number;
+  predecessorTaskId?: string;
+  traceparent?: string;
+  tracestate?: string;
 }): FieldBackfillOutboxTaskInput => {
   const payload = serializeFieldBackfillPayload({
     baseId: params.baseId,
@@ -132,6 +148,11 @@ export const buildFieldBackfillTaskInput = (params: {
   return {
     ...payload,
     runId: params.runId,
+    sourceChangedAt: params.sourceChangedAt,
+    stageDepth: params.stageDepth,
+    predecessorTaskId: params.predecessorTaskId,
+    traceparent: params.traceparent,
+    tracestate: params.tracestate,
     planHash: computeFieldBackfillHash(payload, params.hasher),
   };
 };

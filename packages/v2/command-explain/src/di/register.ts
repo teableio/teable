@@ -4,6 +4,7 @@ import { Lifecycle } from '@teable/v2-di';
 import { v2CommandExplainTokens } from './tokens';
 import { ExplainService } from '../service/ExplainService';
 import { ComplexityService } from '../service/ComplexityService';
+import type { IComplexityService } from '../service/ComplexityService';
 import { SqlExplainRunner } from '../utils/SqlExplainRunner';
 import { ComplexityCalculator } from '../utils/ComplexityCalculator';
 import { CreateFieldAnalyzer } from '../analyzers/CreateFieldAnalyzer';
@@ -14,6 +15,7 @@ import { DeleteFieldAnalyzer } from '../analyzers/DeleteFieldAnalyzer';
 import { DeleteTableAnalyzer } from '../analyzers/DeleteTableAnalyzer';
 import { DeleteRecordsAnalyzer } from '../analyzers/DeleteRecordsAnalyzer';
 import { PasteCommandAnalyzer } from '../analyzers/PasteCommandAnalyzer';
+import { createCorePreviewPlannerRegistry, OperationPreviewService } from '../preview';
 
 /**
  * Register command-explain module services.
@@ -60,4 +62,15 @@ export const registerCommandExplainModule = (container: DependencyContainer): vo
   container.register(v2CommandExplainTokens.complexityService, ComplexityService, {
     lifecycle: Lifecycle.Singleton,
   });
+
+  const previewPlannerRegistry = createCorePreviewPlannerRegistry(container);
+  container.registerInstance(v2CommandExplainTokens.previewPlannerRegistry, previewPlannerRegistry);
+  container.registerInstance(
+    v2CommandExplainTokens.operationPreviewService,
+    new OperationPreviewService(previewPlannerRegistry, {
+      complexityService: container.resolve<IComplexityService>(
+        v2CommandExplainTokens.complexityService
+      ),
+    })
+  );
 };

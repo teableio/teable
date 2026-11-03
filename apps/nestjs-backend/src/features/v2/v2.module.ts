@@ -28,6 +28,8 @@ import {
   V2CollaboratorNotificationService,
 } from './v2-collaborator-notification.service';
 import { V2ContainerService } from './v2-container.service';
+import { V2DeletePreviewResourceAuthorizationRegistrar } from './v2-delete-preview-resource-authorization';
+import { V2DeletionReferenceEvidenceNormalizer } from './v2-deletion-reference-evidence-normalizer';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2FieldDeleteCompatService } from './v2-field-delete-compat.service';
 import { V2OpenApiController } from './v2-openapi.controller';
@@ -91,6 +93,34 @@ const toErrorMessage = (body: unknown): string => {
   return message;
 };
 
+export const toV2HttpError = (
+  body: unknown
+):
+  | string
+  | {
+      readonly message: string;
+      readonly code: string;
+      readonly tags: ReadonlyArray<string>;
+      readonly details?: Record<string, unknown>;
+      readonly localization?: Record<string, unknown>;
+    } => {
+  const message = toErrorMessage(body);
+  if (!isRecord(body) || !isRecord(body.data) || typeof body.data.domainCode !== 'string') {
+    return message;
+  }
+
+  const tags = Array.isArray(body.data.domainTags)
+    ? body.data.domainTags.filter((tag): tag is string => typeof tag === 'string')
+    : [];
+  return {
+    message,
+    code: body.data.domainCode,
+    tags,
+    ...(isRecord(body.data.details) ? { details: body.data.details } : {}),
+    ...(isRecord(body.data.localization) ? { localization: body.data.localization } : {}),
+  };
+};
+
 @Module({
   imports: [
     ORPCModule.forRoot({
@@ -111,7 +141,7 @@ const toErrorMessage = (body: unknown): string => {
             }
           }
 
-          return { ok: false as const, error: toErrorMessage(standardResponse.body) };
+          return { ok: false as const, error: toV2HttpError(standardResponse.body) };
         },
       ],
     }),
@@ -137,6 +167,8 @@ const toErrorMessage = (body: unknown): string => {
     V2CollaboratorNotificationDispatcher,
     V2CollaboratorNotificationService,
     V2UserRenamePropagationService,
+    V2DeletionReferenceEvidenceNormalizer,
+    V2DeletePreviewResourceAuthorizationRegistrar,
     V2FieldDeleteCompatService,
     V2RecordHistoryService,
     V2SchemaOperationRunnerService,
@@ -158,6 +190,7 @@ const toErrorMessage = (body: unknown): string => {
     TableQueryObservationRuntimeModule,
     V2ExecutionContextFactory,
     V2UserRenamePropagationService,
+    V2DeletionReferenceEvidenceNormalizer,
     ComputedOutboxWakeupProducerModule,
     ComputedOutboxMonitorService,
     ComputedOutboxAnomalyService,

@@ -22,6 +22,7 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
 import type { Table } from '../domain/table/Table';
+import type { TableFieldAppender } from '../domain/table/TableFieldAppender';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
@@ -236,13 +237,7 @@ export class CreateFieldsHandler implements ICommandHandler<
     context: ExecutionContextPort.IExecutionContext,
     domainContext?: IDomainContext
   ): Result<BuildBatchUpdateResult, DomainError> {
-    const plannedFieldsResult = this.planFields(
-      table,
-      command,
-      foreignTables,
-      context,
-      domainContext
-    );
+    const plannedFieldsResult = this.planFields(table, command, foreignTables, context);
     if (plannedFieldsResult.isErr()) {
       return err(plannedFieldsResult.error);
     }
@@ -273,10 +268,10 @@ export class CreateFieldsHandler implements ICommandHandler<
     table: Table,
     command: CreateFieldsCommand,
     foreignTables: ReadonlyArray<Table>,
-    context: ExecutionContextPort.IExecutionContext,
-    domainContext?: IDomainContext
+    context: ExecutionContextPort.IExecutionContext
   ): Result<ReadonlyArray<PlannedField>, DomainError> {
     let currentTable = table;
+    const fieldAppender = table.createFieldAppender({ foreignTables });
     const remaining = command.fields.map((field, inputIndex) => ({ field, inputIndex }));
     const planned: PlannedField[] = [];
 
@@ -288,11 +283,11 @@ export class CreateFieldsHandler implements ICommandHandler<
         const current = remaining[index]!;
         const attemptResult = this.tryPlanField(
           currentTable,
+          fieldAppender,
           current.field,
           command,
           foreignTables,
-          context,
-          domainContext
+          context
         );
 
         if (attemptResult.isErr()) {
@@ -325,11 +320,11 @@ export class CreateFieldsHandler implements ICommandHandler<
 
   private tryPlanField(
     table: Table,
+    fieldAppender: TableFieldAppender,
     fieldInput: CreateFieldsCommand['fields'][number],
     command: CreateFieldsCommand,
     foreignTables: ReadonlyArray<Table>,
-    context: ExecutionContextPort.IExecutionContext,
-    domainContext?: IDomainContext
+    context: ExecutionContextPort.IExecutionContext
   ): Result<{ table: Table; field: Field }, DomainError> {
     const existingNames = table.getFields().map((field) => field.name().toString());
     return resolveTableFieldInputName(fieldInput, existingNames, {
@@ -345,19 +340,14 @@ export class CreateFieldsHandler implements ICommandHandler<
         .andThen((spec) => spec.createField({ baseId: command.baseId, tableId: command.tableId }))
         .andThen((field) => this.applyDbFieldName(field, normalized.dbFieldName))
         .andThen((field) =>
-          table
-            .addField(field, {
-              foreignTables,
-              domainContext,
-            })
-            .andThen((nextTable) =>
-              nextTable
-                .getField((candidate) => candidate.id().equals(field.id()))
-                .map((createdField) => ({
-                  table: nextTable,
-                  field: createdField,
-                }))
-            )
+          fieldAppender.append(field).andThen((nextTable) =>
+            nextTable
+              .getField((candidate) => candidate.id().equals(field.id()))
+              .map((createdField) => ({
+                table: nextTable,
+                field: createdField,
+              }))
+          )
         );
     });
   }

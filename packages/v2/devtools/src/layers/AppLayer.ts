@@ -8,6 +8,7 @@ import type { DebugData } from '../services/DebugData';
 import type { DotTeaImporter } from '../services/DotTeaImporter';
 import type { MockRecords } from '../services/MockRecords';
 import type { Output } from '../services/Output';
+import type { PreviewCapabilities } from '../services/PreviewCapabilities';
 import type { RecordMutation } from '../services/RecordMutation';
 import type { SchemaChecker } from '../services/SchemaChecker';
 import type { SchemaOperationControl } from '../services/SchemaOperationControl';
@@ -17,12 +18,17 @@ import type { TableQueryOps } from '../services/TableQueryOps';
 import { CommandExplainLive } from './CommandExplainLive';
 import { ComputedTaskControlLive } from './ComputedTaskControlLive';
 import { ComputedTaskInspectorLive } from './ComputedTaskInspectorLive';
-import { DatabaseLive, DatabaseConfigFromOption } from './DatabaseLive';
+import {
+  DatabaseLive,
+  DatabaseConfigFromOption,
+  type DatabaseRuntimeOptions,
+} from './DatabaseLive';
 import { DataDbMigrationInspectorLive } from './DataDbMigrationInspectorLive';
 import { DebugDataLive } from './DebugDataLive';
 import { DotTeaImporterLive } from './DotTeaImporterLive';
 import { MockRecordsLive } from './MockRecordsLive';
 import { OutputLive } from './OutputLive';
+import { PreviewCapabilitiesLive } from './PreviewCapabilitiesLive';
 import { RecordMutationLive } from './RecordMutationLive';
 import { SchemaCheckerLive } from './SchemaCheckerLive';
 import { SchemaOperationControlLive } from './SchemaOperationControlLive';
@@ -31,10 +37,10 @@ import { TableCreatorLive } from './TableCreatorLive';
 import { TableQueryOpsLive } from './TableQueryOpsLive';
 
 /**
- * Create the Database layer with optional connection string override
+ * Create the Database layer with optional connection string and runtime policy.
  */
-const createDatabaseLayer = (connectionString?: string) =>
-  DatabaseLive.pipe(Layer.provide(DatabaseConfigFromOption(connectionString)));
+const createDatabaseLayer = (connectionString?: string, options: DatabaseRuntimeOptions = {}) =>
+  DatabaseLive.pipe(Layer.provide(DatabaseConfigFromOption(connectionString, options)));
 
 /**
  * Layer for read-only operations (DebugData + CommandExplain + SchemaChecker)
@@ -68,6 +74,7 @@ export const FullLayer = (connectionString?: string) => {
   return Layer.mergeAll(
     OutputLive,
     configLayer,
+    PreviewCapabilitiesLive,
     DebugDataLive.pipe(Layer.provide(dbLayer)),
     CommandExplainLive.pipe(Layer.provide(dbLayer)),
     ComputedTaskControlLive.pipe(Layer.provide(dbLayer)),
@@ -85,12 +92,36 @@ export const FullLayer = (connectionString?: string) => {
 };
 
 /**
+ * Preview operations need the in-process planner registry but not the general-purpose services.
+ * PGlite is opened without schema creation/seeding; the preview reads the supplied database only.
+ */
+export const PreviewLayer = (
+  connectionString?: string,
+  options: Pick<DatabaseRuntimeOptions, 'diagnostics'> = {}
+) => {
+  const runtimeOptions: DatabaseRuntimeOptions = {
+    initializePglite: false,
+    diagnostics: options.diagnostics ?? 'default',
+  };
+  const dbLayer = createDatabaseLayer(connectionString, runtimeOptions);
+  return Layer.mergeAll(
+    OutputLive,
+    DatabaseConfigFromOption(connectionString, runtimeOptions),
+    CommandExplainLive.pipe(Layer.provide(dbLayer))
+  );
+};
+
+/** Capability discovery is registry metadata only and never opens a database. */
+export const PreviewCapabilitiesLayer = Layer.mergeAll(OutputLive, PreviewCapabilitiesLive);
+
+/**
  * Type-safe layer for CLI - provides all possible services
  */
 export type AppLayerType = Layer.Layer<
   Output['Type'] &
     DebugData['Type'] &
     CommandExplain['Type'] &
+    PreviewCapabilities['Type'] &
     ComputedTaskControl['Type'] &
     ComputedTaskInspector['Type'] &
     DataDbMigrationInspector['Type'] &

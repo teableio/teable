@@ -1,14 +1,13 @@
-# Computed updates (hybrid mode) — Observability & DLQ Replay Plan
+# Computed updates (hybrid mode) — execution and recovery
 
-This document describes the **operational plan** for monitoring computed-update plans in **hybrid mode** (sync + async outbox), using **OpenTelemetry logs + metrics as the source of truth**, and adding **dead-letter replay (original task id)**.
+This document records the current v2 computed-update invariants for hybrid execution, durable
+outbox stages, OpenTelemetry correlation, and administrator recovery. The database ledger is the
+execution source of truth; BullMQ is a wake-up channel. A dead-letter archive is the failed task's
+current stage, not automatically a durable copy of the original computation trigger.
 
-Scope constraints (as requested)
-
-- v2-only context (v2 container + v2 adapters)
-- Prefer OTel Collector as the backend
-- Sentry is optional/secondary; primary signals are OTel logs/metrics
-- Primary operational question: “did the computed plan execute, and how far did it get?”
-- Primary operational action: “replay DLQ with original id”; if too complex, alert
+The primary operational questions are whether a plan ran, how far it progressed, and whether its
+archive contains an eligible seed trigger for a fresh rerun. Never resume archived continuation
+state, and never report accepted queue delivery as successful or verified computation.
 
 ---
 
@@ -109,9 +108,11 @@ For any computed plan (sync or async), operators should be able to answer:
 - If it failed: how many attempts, and did it end up in DLQ?
 - If it partially executed: how far (progress), and where did it fail?
 
-### G2. DLQ replay with original task id
+### G2. Safe dead-letter rerun
 
-Allow a DLQ item to be **moved back** into outbox using the **same `id`** so all correlations (`taskId`, `runId`, `originRunIds`, `planHash`) remain consistent.
+Fresh-run the archived task unit after clearing checkpoint-only progress: seed triggers re-plan,
+planned stages rerun their archived plan/seeds, and field backfills restart their archived scope.
+Reject only malformed archives that lack metadata required by their own task kind.
 
 ### G3. Simple, strict alerting
 
@@ -194,133 +195,98 @@ Design note: gauges often require polling the DB. If you want **strictly “no D
 - log-based stuck detection (requires log-based rules)
 - or collector-side “dbquery receiver”/exporter strategy
 
-Given your preference “完全基于 OTel logs/metrics”: counters + histogram are the safest and lowest coupling.
+Given your preference “完全基于 OTel logs/metrics”: counters + histograms are the safest and lowest-coupling signals. The worker records
+`v2.computed.outbox.source_to_settlement.duration` when a task commits settlement. Each observation is one task branch, not a whole merged logical run; `continued=false` identifies a terminal branch. It measures from the durable `source_changed_at` lineage clock and uses only `taskKind` and `continued` labels; task, run, table, field and trace IDs never become metric labels.
 
 ### Trace model (OTel Traces)
 
 Traces are best for debugging a single incident (why slow / where failed), not for alerting.
 
-- Ensure async tasks (outbox worker) create a span with attributes: `computed.taskId`, `computed.runId`, `computed.planHash`
-- Ensure step-level spans include `step.index`, `step.level`, `step.tableId`, `step.fieldIds`
+- Enqueue captures one bounded W3C origin (`traceparent`, optional `tracestate`) in the task's existing `dirty_stats` envelope. A merge keeps the pending task's primary origin; it does not accumulate carrier arrays.
+- Computed, seed and field-backfill claims reconstruct that origin from PostgreSQL. Every fixed-name `teable.worker.processClaimedTask` span starts under its own task origin, so a `runOnce` drain cannot attach unrelated tasks to the wakeup that happened to start the drain.
+- Missing or invalid legacy origins establish an explicit root context, not the active wakeup's parent. Fresh mutation input captures active context even when its source clock is already stamped. Existing work is identified by predecessor/task identity or an explicit internal preservation boundary (claim-time seed splitting), never by `sourceChangedAt` alone; continuations and subsequent wakeups cannot recapture a consumer trace.
+- Chunks and continuations retain the origin together with `runId`, `originRunIds`, `stageDepth`, `predecessorTaskId` and `sourceChangedAt`. The task span and terminal failure diagnostics expose those lineage values plus source-to-settlement/failure elapsed time.
+- IDs remain span/log attributes, never span-name or metric-label components.
 
-If trace context does not propagate across async boundaries, do NOT rely on trace parent/child. Use attribute correlation for linking.
-
+`computed:worker:long_continuation_chain` warns when source-to-current-settlement elapsed time reaches the dedicated 5-minute operational-delay threshold (`LONG_CONTINUATION_CHAIN_WARN_ELAPSED_MS`). `MAX_STAGE_DEPTH` remains the separate hard safety ceiling (50). The warning is diagnostic evidence, not an SLO or a new online alert rule.
 ---
 
-## DLQ replay: semantics and design
+## Dead-letter recovery contract
 
-### Replay semantics
+### Archive meaning and eligibility
 
-Replay is a **move**:
+`computed_update_dead_letter` stores the task unit that failed, not an immutable copy of the first
+user mutation. A seed archive contains a persisted trigger and therefore re-plans against current
+schema. A planned-stage archive contains the current stage's steps, edges and durable seeds; recovery
+reruns that archived stage from its beginning. A field-backfill archive identifies its field scope;
+recovery reruns that scope from the beginning rather than resuming its failed cursor.
 
-- FROM: `computed_update_dead_letter`
-- TO: `computed_update_outbox`
-- WITH: same `id`
+Recovery is therefore a fresh run of the **archived task unit**, not checkpoint continuation and not
+reconstruction of earlier completed stages. A malformed archive missing the metadata required by its
+own task kind is rejected transactionally and remains in dead letter.
 
-Keep:
+Before the first partial batch consumes a frontier, a previously empty ledger scope receives a
+`rerun-input-v1` marker. Explicit and generated sources are retained as `rerun-source` SQL rows;
+neither kind participates in normal frontier selection, exclusions, output collection or follow-on
+planning. An existing legacy partial scope cannot obtain completeness from its remaining rows.
+Terminal archival copies source membership into `computed_update_dead_letter_seed` before clearing
+the live ledger/frontier, and preserves `seedAllTableIds` independently from discarded cursors.
+The bounded `rerunInputs` manifest records version, completeness and archived row count. Restoration
+validates it and uses `INSERT SELECT` into live seeds. The archived seed FK cascades on recovery or
+discard. Historical partial archives with unknown capture completeness are refused and preserved,
+even when some exact seeds remain. Ordinary non-partial exact-input archives remain supported.
+Propagation target tables (`step.tableId`, `edge.toTableId`) do not have to appear in exact seed
+membership. A complete historical A-only seed can legitimately propagate to B; eligibility rejects
+unknown partial/cursor/lineage state, not the absence of pre-materialized output records.
 
-- `id` (taskId)
-- `run_id`, `origin_run_ids`
-- `plan_hash`
-- payload (`steps`, `edges`, seed groups)
-- `run_total_steps`, `run_completed_steps_before`
-- `affected_table_ids`, `affected_field_ids`, `sync_max_level`
+Only restored planned tasks receive `plannedRerun` metadata. Before their first claim hydrates seed
+rows, the outbox transfers the complete normalized membership SQL-side into task-owned frontier and
+rerun-source rows, creates a fresh completeness marker, and empties the live seed child rows. The
+claimed JS payload contains no unbounded ID list; existing stage dirty budgets consume the frontier.
+Ordinary planned jobs retain their existing claim behavior. No archived checkpoints are reused.
+Restored planned edges also discard only `propagationSourceFieldIds`, the archived delta-pruning
+evidence. A source scalar may have committed before its linked output propagated; unchanged source
+values during rerun do not prove that output is current. The logical edge (from/to/link/filter/target)
+is preserved and follows the existing conservative no-provenance path across deferred rerun stages.
+Ordinary non-rerun value gating is unchanged.
 
-Reset:
+Deploy both additive migrations `20261102000000_add_computed_dead_letter_seed` and
+`20261102010000_allow_computed_rerun_ledger_kinds` in both metadata editions and every BYODB database
+before workers. The latter atomically replaces the production CHECK with old3+new2 valid kinds;
+unsupported kinds remain rejected. Finish mixed-version rollout before admin recovery. No migration
+reconstructs source membership already discarded by an earlier worker.
 
-- `status = 'pending'`
-- `attempts = 0` (recommended)
-- `next_run_at = now()`
-- `locked_at/locked_by = null`
-- `last_error = null`
-- `updated_at = now()`
+### Fresh-rerun transaction
 
-Seed storage rule:
+The administrator single/exact-group path locks archive rows and atomically:
 
-- If inline seed groups exceed `seedInlineLimit`, spill to `computed_update_outbox_seed` and set `seed_record_ids = null`.
+1. creates a new run identity while retaining the task ID used by failure/reliability evidence;
+2. preserves the archived task unit: seed trigger, or planned steps/edges/seeds, or backfill fields;
+3. resets attempts, locks, completed-step count, stage depth and predecessor;
+4. removes checkpoint-only cursor, ledger scope, exclusion, partial-budget and terminal-error state;
+5. stores restored seeds in `computed_update_outbox_seed`, leaving inline seed JSON null so the live
+   task payload remains bounded;
+6. deletes the archive only after the live task and seed rows are durable.
 
-### API surface (v2-only)
+Seed workers plan from current schema. Planned workers execute the archived current-stage plan, and
+backfill workers start the archived field scope without its old cursor. Any form may recompute more
+work and cost more than resuming the failed checkpoint. Terminal archival clears both
+`computed_update_stage_ledger` and `computed_update_change_frontier` for the continuation-chain scope,
+so the fresh run cannot inherit stale exclusions or output evidence.
 
-Add a method on the outbox port (or a sibling admin port) rather than having the UI manipulate tables directly.
+### Operational invariants
 
-Option A (preferred): extend `IComputedUpdateOutbox`
-
-- `replayDeadLetter(taskId: string, params?: { resetAttempts?: boolean }, context?: IExecutionContext): Promise<Result<{ replayed: boolean }, DomainError>>`
-
-Option B: new port `IComputedUpdateAdmin`
-
-- `listDeadLetters(...)`
-- `replayDeadLetter(...)`
-- `listOutbox(...)`
-
-Option B keeps operational concerns separate from core outbox semantics.
-
-### Implementation sketch (Kysely + transaction)
-
-Pseudocode:
-
-```ts
-// replayDeadLetter(taskId)
-return runInTransaction(db, context, async (trx) => {
-  const dlq = await trx
-    .selectFrom(DEAD_LETTER_TABLE)
-    .selectAll()
-    .where("id", "=", taskId)
-    .forUpdate()
-    .executeTakeFirst();
-
-  if (!dlq) return ok({ replayed: false });
-
-  // Build seedGroups (inline JSON) or load from existing structure if any
-  // Decide spill-to-seed-table based on config.seedInlineLimit
-
-  await trx.insertInto(OUTBOX_TABLE).values({
-    id: dlq.id,
-    base_id: dlq.base_id,
-    seed_table_id: dlq.seed_table_id,
-    seed_record_ids: useSeedTable ? null : dlq.seed_record_ids,
-    change_type: dlq.change_type,
-    steps: dlq.steps,
-    edges: dlq.edges,
-    status: "pending",
-    attempts: 0,
-    max_attempts: dlq.max_attempts,
-    next_run_at: now,
-    locked_at: null,
-    locked_by: null,
-    last_error: null,
-    estimated_complexity: dlq.estimated_complexity,
-    plan_hash: dlq.plan_hash,
-    dirty_stats: dlq.dirty_stats,
-    run_id: dlq.run_id,
-    origin_run_ids: dlq.origin_run_ids,
-    run_total_steps: dlq.run_total_steps,
-    run_completed_steps_before: dlq.run_completed_steps_before,
-    affected_table_ids: dlq.affected_table_ids,
-    affected_field_ids: dlq.affected_field_ids,
-    sync_max_level: dlq.sync_max_level,
-    created_at: dlq.created_at, // or now
-    updated_at: now,
-  });
-
-  if (useSeedTable) {
-    await insertSeedRows(trx, taskId, flattenSeedGroups(seedGroups));
-  }
-
-  await trx.deleteFrom(DEAD_LETTER_TABLE).where("id", "=", taskId).execute();
-
-  return ok({ replayed: true });
-});
-```
-
-Convergence/invariants:
-
-- Must be idempotent if called twice:
-  - second call should see no DLQ row and return `replayed: false`.
-  - protect against duplicates in outbox by primary key on `id`.
-- If outbox already has `id` (rare):
-  - either return `err(domainError.conflict(...))`
-  - or treat as `replayed: false`.
+- Never recover before the underlying code, schema, data, capacity or infrastructure fix is live.
+- Recovery requires administrator authorization and current default/BYODB routing checks.
+- Single and group paths use a task-specific recovery plan hash; same-ID live rows remain
+  idempotent and are not duplicated.
+- BullMQ delivery happens after the durable transaction. Delivery failure leaves pending database
+  work for later polling; delivery success does not prove execution success.
+- Accepted/requeued is not recovered or verified. Close the incident only after task completion and
+  independent value checks.
+- `computed run-task` and `computed replay` execute live outbox rows only. They are not dead-letter
+  recovery commands. Stale-lease re-arm is also distinct: it resets an expired live processing lease
+  without creating a fresh run.
 
 ---
 
@@ -371,44 +337,25 @@ Two approaches:
 
 ---
 
-## Playground built-in panel (hybrid mode)
+## Administrator interface
 
-Goal: provide an **internal panel** (playground only) to inspect and replay.
+The admin anomaly view groups dead letters by exact target, base, seed table, normalized error
+signature and worker lane. Single and group recovery call the reviewed service path; the UI never
+mutates queue tables directly. The interface must describe the action as a fresh run of the archived
+task unit and surface validation rejection only for malformed archives.
 
-Because you requested “完全基于 OTel logs/metrics”, the panel can either:
+Minimum operator evidence:
 
-- Option 1 (pure OTel): query your log/metrics backend (SigNoz/Grafana Loki/Tempo) from the panel.
+- task/group identity, routing target, failure classification and last error;
+- archived task kind and whether its required rerun metadata is structurally valid;
+- durable recovery result separately from immediate BullMQ delivery;
+- first subsequent claim/completion and independent computed-value verification;
+- unresolved reliability evidence after submission.
 
-  - Pros: no extra DB endpoints
-  - Cons: depends on your observability backend having an API accessible from playground
+## Notes / risks
 
-- Option 2 (v2-only endpoints): the panel queries the v2 service which reads DB and also emits OTel.
-  - Pros: works standalone
-  - Cons: panel is not “pure OTel”, but OTel remains the truth for monitoring/alerts.
-
-Given “deadletter 重放优先”, Option 2 is usually required anyway (replay mutates DB).
-
-Minimal panel features:
-
-- List DLQ rows (id/runId/baseId/failedAt/lastError/attempts)
-- View details (steps/edges counts, dirtyStats summary)
-- Replay button (calls replay API)
-
----
-
-## Implementation checklist (when you decide to implement)
-
-1. Add OTel metrics instruments in worker/outbox strategy codepaths:
-   - enqueue, claim, fail→retry, fail→dead-letter, replay
-2. Ensure all existing outbox logs include correlation fields via `toRunLogContext(...)` plus `planHash`
-3. Add replay method (transactional move DLQ→outbox) preserving original id
-4. Add playground internal endpoints + minimal UI
-5. Add tests for replay idempotency and seed spill behavior
-
----
-
-## Notes / Risks
-
-- Async trace context propagation across worker boundaries is typically not automatic; rely on attributes (`taskId/runId/planHash`) for correlation.
-- “Stuck processing” detection is easiest with DB-derived metrics; if you require OTel-only without DB polling, prefer log-based TTL rules.
-- Replay should be guarded (admin-only) because it can trigger large recomputation.
+- Recovery can trigger a larger current-schema plan than the failed stage and is administrator-only.
+- Async trace carriers are persisted with archived task units; task/run attributes remain the
+  fallback correlation when upstream sampling or carrier validation prevents parentage.
+- Stuck-processing detection is easiest with DB-derived metrics; log-based TTL rules are the
+  fallback when in-app database polling is prohibited.

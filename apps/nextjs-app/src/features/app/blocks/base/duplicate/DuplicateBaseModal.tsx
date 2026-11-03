@@ -4,7 +4,6 @@ import { hasPermission } from '@teable/core';
 import { Check, LayoutGrid } from '@teable/icons';
 import {
   duplicateBase,
-  duplicateBaseCheck,
   duplicateBaseStream,
   getSpaceList,
   type DuplicateBaseProgressCallback,
@@ -16,10 +15,6 @@ import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/compon
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/base';
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
   Button,
   Dialog,
   DialogClose,
@@ -33,11 +28,16 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import type { IOperationPreviewRequestDto } from '@teable/v2-contract-http/operationPreview';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import {
+  OperationPreviewPanel,
+  useOperationPreview,
+} from '@/features/app/components/operation-preview';
 import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { getDuplicateProgressPercent, mergeDuplicateProgress } from './duplicateBaseProgress';
@@ -55,7 +55,7 @@ type DuplicateBaseMutationResult =
 const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
   const { closeModal } = useDuplicateBaseStore();
   const [withRecords, setWithRecords] = useState(true);
-  const [targetSpaceId, setTargetSpaceId] = useState<string>();
+  const [targetSpaceId, setTargetSpaceId] = useState('');
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const [baseName, setBaseName] = useState(
@@ -74,34 +74,18 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
   });
 
   const queryClient = useQueryClient();
-  // Pre-fetch the cross-space affected fields whenever the target space changes,
-  // so the warning is visible up front rather than only after the user clicks
-  // duplicate once.
-  const { data: previewData } = useQuery({
-    queryKey: ['duplicate-base-preview', base.id, targetSpaceId],
-    queryFn: () => duplicateBaseCheck(base.id, targetSpaceId as string).then((res) => res.data),
-    enabled: Boolean(targetSpaceId),
-  });
-  const affectedCrossSpace = previewData?.affectedFields?.length
-    ? previewData.affectedFields
-    : null;
-
-  const affectedByTable = useMemo(() => {
-    if (!affectedCrossSpace) return null;
-    const groups = new Map<string, { tableName: string; fields: typeof affectedCrossSpace }>();
-    for (const f of affectedCrossSpace) {
-      const existing = groups.get(f.tableId);
-      if (existing) {
-        existing.fields.push(f);
-      } else {
-        groups.set(f.tableId, { tableName: f.tableName, fields: [f] });
-      }
-    }
-    return Array.from(groups.entries()).map(([tableId, value]) => ({
-      tableId,
-      ...value,
-    }));
-  }, [affectedCrossSpace]);
+  const pendingWriteInput: IDuplicateBaseRo = {
+    fromBaseId: base.id,
+    spaceId: targetSpaceId,
+    name: baseName,
+    withRecords,
+  };
+  const previewRequest: IOperationPreviewRequestDto = {
+    operation: 'base.duplicate',
+    input: pendingWriteInput,
+    options: { detail: 'full' },
+  };
+  const previewQuery = useOperationPreview(previewRequest, Boolean(targetSpaceId));
 
   const { mutateAsync: duplicateBaseMutator, isPending: isLoading } = useMutation<
     DuplicateBaseMutationResult,
@@ -144,7 +128,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       }
       toast.error(error.message);
     },
-    // Suppress the global validation toast — we render the affected fields inline.
+    // Mutation failures are handled locally, including the upgrade flow.
     meta: { preventGlobalError: true },
   });
 
@@ -157,6 +141,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       toast.error(t('space:baseModal.missTargetTip'));
       return;
     }
+    if (isLoading || !previewQuery.canConfirm) return;
 
     setDuplicateProgress(
       useStreamDuplicate
@@ -168,10 +153,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
     );
 
     duplicateBaseMutator({
-      fromBaseId: base.id,
-      spaceId: targetSpaceId,
-      name: baseName,
-      withRecords,
+      ...pendingWriteInput,
       useStream: useStreamDuplicate,
       onProgress: (_phase, _detail, event) => {
         if (event) {
@@ -192,7 +174,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
     }
   }, [base.spaceId, editableSpaceList, targetSpaceId]);
   return (
-    <DialogContent className="sm:max-w-[425px]">
+    <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[425px]">
       <DialogHeader>
         <DialogTitle>
           {t('space:baseModal.duplicate', {
@@ -252,50 +234,13 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
             onChange={(id) => setTargetSpaceId(id)}
           />
         </div>
-        {affectedByTable && (
-          <div className="rounded-md border border-yellow-300 bg-yellow-50 p-2.5 text-xs text-yellow-900 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-200">
-            <p className="font-medium">{t('space:crossSpace.duplicateBaseTitle')}</p>
-            <p className="mt-1">
-              {t('space:crossSpace.duplicateBaseDescription', {
-                count: affectedCrossSpace?.length ?? 0,
-              })}
-            </p>
-            <Accordion
-              type="multiple"
-              className="mt-2 max-h-60 overflow-y-auto"
-              aria-label={t('space:crossSpace.duplicateBaseTitle')}
-            >
-              {affectedByTable.map((group) => (
-                <AccordionItem key={group.tableId} value={group.tableId} className="border-b-0">
-                  <AccordionTrigger
-                    aria-label={t('space:crossSpace.affectedTableSuffix', {
-                      count: group.fields.length,
-                    })}
-                    className="py-1.5 text-xs font-normal hover:no-underline"
-                  >
-                    <span className="flex min-w-0 flex-1 items-center gap-1.5 text-start">
-                      <span className="truncate font-medium">{group.tableName}</span>
-                      <span className="ms-1 shrink-0 rounded bg-yellow-200/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none text-yellow-900 dark:bg-yellow-800/60 dark:text-yellow-100">
-                        {group.fields.length}
-                      </span>
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent innerClassName="pb-1.5 pt-0">
-                    <div className="flex flex-wrap gap-1">
-                      {group.fields.map((f) => (
-                        <span
-                          key={f.fieldId}
-                          className="inline-flex items-center rounded border border-yellow-300/60 bg-background/70 px-1.5 py-0.5 text-[11px] dark:border-yellow-700/60 dark:bg-yellow-950/40"
-                        >
-                          {f.fieldName}
-                        </span>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
+        {targetSpaceId && (
+          <OperationPreviewPanel
+            preview={previewQuery.data}
+            error={previewQuery.error}
+            isLoading={previewQuery.isPending || previewQuery.isFetching}
+            onRetry={() => void previewQuery.refetch()}
+          />
         )}
       </div>
       <DialogFooter className="mt-4">
@@ -319,13 +264,11 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
             }
           }}
           className="flex items-center gap-2"
-          disabled={isLoading}
+          disabled={isLoading || (!successDuplicate && !previewQuery.canConfirm)}
         >
           {successDuplicate
             ? t('space:baseModal.duplicateBaseSucceedAndJump')
-            : affectedCrossSpace
-              ? t('space:crossSpace.convertAndDuplicate')
-              : t('space:baseModal.duplicateBase')}
+            : t('space:baseModal.duplicateBase')}
 
           {successDuplicate && <Check className="size-3 text-green-300" />}
 

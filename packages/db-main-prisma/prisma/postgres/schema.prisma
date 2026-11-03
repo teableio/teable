@@ -489,11 +489,22 @@ model ComputedUpdateDeadLetter {
   failedAt           DateTime @map("failed_at")
   createdAt          DateTime @map("created_at")
   updatedAt          DateTime @map("updated_at")
+  seeds ComputedUpdateDeadLetterSeed[]
 
   @@index([baseId, seedTableId])
   @@index([planHash])
   @@index([runId])
   @@map("computed_update_dead_letter")
+}
+
+model ComputedUpdateDeadLetterSeed {
+  taskId   String @map("task_id")
+  tableId  String @map("table_id")
+  recordId String @map("record_id")
+  task ComputedUpdateDeadLetter @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([taskId, tableId, recordId])
+  @@map("computed_update_dead_letter_seed")
 }
 
 /// Completion ledger for computed-update outbox tasks (lineage / latency

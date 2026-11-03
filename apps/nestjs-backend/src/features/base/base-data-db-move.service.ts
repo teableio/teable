@@ -323,6 +323,14 @@ export class BaseDataDbMoveService {
         copyStats: this.buildCopyStats('copying_shared_rows', 0.65),
       });
 
+      const sourceHasDeadLetterSeed = await this.withPgClient(sourceUrl, async (client) => {
+        const result = await client.query<{ exists: boolean }>(
+          `SELECT to_regclass($1::text) IS NOT NULL AS exists`,
+          [`${this.quoteIdent(inventory.sourceInternalSchema)}."computed_update_dead_letter_seed"`]
+        );
+        return result.rows[0]?.exists === true;
+      });
+
       const sharedPlans = buildMigrationSharedTablePsqlCopyPlans({
         sourceUrl,
         targetUrl,
@@ -332,6 +340,7 @@ export class BaseDataDbMoveService {
         spaceIds: [],
         baseIds: [inventory.baseId],
         tableIds: inventory.tableIds,
+        sourceHasDeadLetterSeed,
         includePauseScopes: true,
         includeSpacePauseScopes: false,
       });
@@ -704,10 +713,9 @@ export class BaseDataDbMoveService {
     await client.query(`DELETE FROM ${schemaIdent}."computed_update_outbox" WHERE base_id = $1`, [
       baseId,
     ]);
-    await client.query(
-      `DELETE FROM ${schemaIdent}."computed_update_dead_letter" WHERE base_id = $1`,
-      [baseId]
-    );
+    await client.query(`SELECT ${schemaIdent}."computed_outbox_discard_base"(ARRAY[$1]::text[])`, [
+      baseId,
+    ]);
     await client.query(
       `DELETE FROM ${schemaIdent}."computed_update_pause_scope"
        WHERE (scope_type = 'base' AND scope_id = $1)

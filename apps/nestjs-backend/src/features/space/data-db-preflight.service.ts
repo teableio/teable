@@ -78,12 +78,16 @@ const DATA_PLANE_TABLES = [
 // Additive migrations may be entirely absent on an otherwise complete older data DB.
 // A partially applied group is still incompatible and must be repaired before adoption.
 const ADDITIVE_DATA_PLANE_TABLES = ['computed_reliability_issue', 'computed_reliability_scope'];
+// Each entry here is optional on its own: it may appear on a compatible data DB without
+// its sibling additions, so presence is never checked as an all-or-none group.
+const OPTIONAL_ADDITIVE_DATA_PLANE_TABLES = ['computed_update_dead_letter_seed'];
 
 const DATA_SCHEMA_MIGRATION_TABLE = '__teable_data_schema_migrations';
 const DATA_PLANE_FUNCTIONS = ['__teable_capture_undo_row'];
 const ALLOWED_INTERNAL_TABLES = new Set([
   ...DATA_PLANE_TABLES,
   ...ADDITIVE_DATA_PLANE_TABLES,
+  ...OPTIONAL_ADDITIVE_DATA_PLANE_TABLES,
   DATA_SCHEMA_MIGRATION_TABLE,
   '_prisma_migrations',
 ]);
@@ -974,8 +978,14 @@ export class DataDbPreflightService {
     const additiveTables = internalTables.filter((table) =>
       ADDITIVE_DATA_PLANE_TABLES.includes(table)
     );
+    const optionalAdditiveTables = internalTables.filter((table) =>
+      OPTIONAL_ADDITIVE_DATA_PLANE_TABLES.includes(table)
+    );
     const hasManagedObjects =
-      managedTables.length > 0 || managedFunctions.length > 0 || additiveTables.length > 0;
+      managedTables.length > 0 ||
+      managedFunctions.length > 0 ||
+      additiveTables.length > 0 ||
+      optionalAdditiveTables.length > 0;
     const hasCompleteAdditiveGroup =
       additiveTables.length === 0 || additiveTables.length === ADDITIVE_DATA_PLANE_TABLES.length;
     const hasAllBaselineObjects =

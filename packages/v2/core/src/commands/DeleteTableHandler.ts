@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { ITableDeletionPreparationService } from '../application/services/TableDeletionPreparationService';
 import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
 import {
   beginTableSchemaOperation,
@@ -9,10 +10,9 @@ import {
   failRecoverableTableSchemaOperation,
   failTableSchemaOperation,
 } from '../application/services/TableSchemaOperationLifecycleService';
-import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
-import { Table as TableAggregate } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
@@ -45,6 +45,8 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     @inject(v2CoreTokens.tableDeletionSideEffectService)
     private readonly tableDeletionSideEffectService: TableDeletionSideEffectService,
+    @inject(v2CoreTokens.tableDeletionPreparationService)
+    private readonly tableDeletionPreparationService: ITableDeletionPreparationService,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.logger)
@@ -70,42 +72,24 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     const tableRepository = this.tableRepository;
     const tableSchemaRepository = this.tableSchemaRepository;
     const tableDeletionSideEffectService = this.tableDeletionSideEffectService;
+    const tableDeletionPreparationService = this.tableDeletionPreparationService;
     const unitOfWork = this.unitOfWork;
     const eventBus = this.eventBus;
     const result = await safeTry<DeleteTableResult, DomainError>(async function* () {
-      const specResult = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
-      const activeTableResult = await tableRepository.findOne(context, specResult, {
-        state: 'activeAnyProvision',
-      });
-      let tableResult = activeTableResult;
-      // Match v1: convert inbound link fields to text as soon as the table is
-      // trashed. Waiting until permanent delete leaves broken link cells that
-      // freeze the record editor until the trash is emptied.
-      let shouldRunSideEffects = activeTableResult.isOk();
-
-      if (
-        command.mode === 'permanent' &&
-        activeTableResult.isErr() &&
-        isNotFoundError(activeTableResult.error)
-      ) {
-        tableResult = await tableRepository.findOne(context, specResult, { state: 'all' });
-        shouldRunSideEffects = true;
+      // Read-only preparation completes before schema-operation lifecycle or transactions begin.
+      const preparation = yield* await tableDeletionPreparationService.prepare(context, command);
+      const blocker = preparation.blockers[0];
+      if (blocker) {
+        return err(domainError.conflict({ code: blocker.code, message: blocker.message }));
       }
-
-      if (tableResult.isErr()) {
-        if (isNotFoundError(tableResult.error)) {
-          return err(domainError.notFound({ code: 'table.not_found', message: 'Table not found' }));
-        }
-        return err(tableResult.error);
-      }
-      const table = tableResult.value;
+      const table = preparation.table;
       const sideEffectEvents: IDomainEvent[] = [];
       const sideEffectPostPersistEvents: IDomainEvent[] = [];
       yield* await beginTableSchemaOperation(unitOfWork, tableRepository, context, table, {
         type: 'table.delete',
         phase: 'deleting',
         state: 'deleting',
-        payload: { mode: command.mode },
+        payload: { mode: preparation.mode },
       });
 
       let dataPhaseCompleted = false;
@@ -117,22 +101,20 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
               metaTransactionContext,
               async (dataTransactionContext) =>
                 safeTry<void, DomainError>(async function* () {
-                  if (shouldRunSideEffects) {
-                    const sideEffectResult = yield* await tableDeletionSideEffectService.execute(
-                      dataTransactionContext,
-                      { table }
-                    );
-                    sideEffectEvents.push(...sideEffectResult.events);
-                    sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
-                  }
+                  const sideEffectResult = yield* await tableDeletionSideEffectService.executePrepared(
+                    dataTransactionContext,
+                    preparation.sideEffects
+                  );
+                  sideEffectEvents.push(...sideEffectResult.events);
+                  sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
                   yield* await tableSchemaRepository.delete(dataTransactionContext, table, {
-                    mode: command.mode,
+                    mode: preparation.mode,
                   });
                   // Stage the target metadata delete before an independent data transaction may
                   // commit. Same-database adapters share one transaction; split adapters return a
                   // metadata SQL failure while the relation conversion can still roll back.
                   yield* await tableRepository.delete(metaTransactionContext, table, {
-                    mode: command.mode,
+                    mode: preparation.mode,
                   });
                   return ok(undefined);
                 }),
@@ -153,7 +135,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
               nextRunAt: new Date(),
               lastError: deleteResult.error.message,
             })
-          : command.mode === 'soft'
+          : preparation.mode === 'soft'
             ? await failRecoverableTableSchemaOperation(
                 unitOfWork,
                 tableRepository,
@@ -181,7 +163,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
       yield* await completeTableSchemaOperation(unitOfWork, tableRepository, context, table, {
         type: 'table.delete',
       });
-      if (command.mode === 'permanent') {
+      if (preparation.mode === 'permanent') {
         yield* table.markDeleted();
       } else {
         yield* table.markTrashed();

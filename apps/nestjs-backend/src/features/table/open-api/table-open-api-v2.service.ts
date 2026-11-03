@@ -388,6 +388,17 @@ export class TableOpenApiV2Service {
     return this.tableDuplicateLegacyService.previewCrossSpaceAffectedFields(tableId);
   }
 
+  /** Read-only host policy shared by v2 execution and operation preview. */
+  async previewDuplicateTableV2Policy(
+    baseId: string,
+    tableId: string
+  ): Promise<{ readonly affectedFieldCount: number }> {
+    await this.assertBaseWritable(baseId);
+    await this.assertTableWritable(tableId);
+    const affected = await this.collectCrossSpaceAffectedFields(tableId);
+    return { affectedFieldCount: affected.length };
+  }
+
   @Audit({
     // Only open the CreateDefaultRecords scope for the canonical 3-empty-row UI default.
     // Custom records sent via API skip the attribution and produce plain atomic record events.
@@ -528,14 +539,10 @@ export class TableOpenApiV2Service {
     tableId: string,
     duplicateTableRo: IDuplicateTableRo
   ): Promise<IDuplicateTableVo> {
-    await this.assertBaseWritable(baseId);
-    await this.assertTableWritable(tableId);
-    // The v2 duplicate command does not run cross-space validation when
-    // creating fields, so a table containing any cross-space link would
-    // silently produce another cross-space copy. Refuse instead of
-    // downgrading those fields to single line text on a hidden v1 path.
-    const affected = await this.collectCrossSpaceAffectedFields(tableId);
-    if (affected.length > 0) {
+    const { affectedFieldCount } = await this.previewDuplicateTableV2Policy(baseId, tableId);
+    // The v2 duplicate command does not silently downgrade cross-space fields;
+    // execution and preview share this explicit blocker.
+    if (affectedFieldCount > 0) {
       throw new CustomHttpException(
         'v2 will not silently downgrade cross-space fields when duplicating a table',
         HttpErrorCode.VALIDATION_ERROR,

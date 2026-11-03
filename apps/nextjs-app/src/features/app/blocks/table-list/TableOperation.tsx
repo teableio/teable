@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUniqName } from '@teable/core';
 import { MoreHorizontal, Settings, Export, Import, FileCsv, FileExcel } from '@teable/icons';
-import { duplicateTable, duplicateTableCheck, SUPPORTEDTYPE } from '@teable/openapi';
+import { duplicateTable, SUPPORTEDTYPE } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase, useBasePermission, useTables } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useMemo, useState } from 'react';
+import { OperationPreviewPanel } from '@/features/app/components/operation-preview';
 import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useDownload } from '../../hooks/useDownLoad';
@@ -32,7 +33,8 @@ import {
   markTableDeletedLocally,
   unmarkTableDeletedLocally,
 } from '../table/hooks/stale-table-fallback';
-
+import { TableDuplicateConversionWarning } from './TableDuplicateConversionWarning';
+import { useTableDuplicatePreview } from './useTableDuplicatePreview';
 interface ITableOperationProps {
   className?: string;
   table: Table;
@@ -111,29 +113,15 @@ export const TableOperation = (props: ITableOperationProps) => {
     }
   };
 
-  // Cross-space preview resolved BEFORE opening the duplicate dialog (see
-  // handleDuplicateClick below) so the warning is rendered with the dialog's
-  // initial frame rather than appearing late.
-  const [affectedCrossSpace, setAffectedCrossSpace] = useState<Array<{
-    fieldId: string;
-    fieldName: string;
-  }> | null>(null);
-  const [isPreviewing, setIsPreviewing] = useState(false);
+  const duplicatePreview = useTableDuplicatePreview(
+    baseId as string,
+    table.id,
+    duplicateOption,
+    duplicateSetting && Boolean(baseId)
+  );
 
-  const handleDuplicateClick = async () => {
-    if (!baseId) {
-      setDuplicateSetting(true);
-      return;
-    }
-    setIsPreviewing(true);
-    try {
-      const res = await duplicateTableCheck(baseId as string, table.id);
-      const affected = res.data.affectedFields;
-      setAffectedCrossSpace(affected && affected.length > 0 ? affected : null);
-    } catch {
-      setAffectedCrossSpace(null);
-    }
-    setIsPreviewing(false);
+  const handleDuplicateClick = () => {
+    setDuplicateOption((prev) => ({ ...prev, name: defaultTableName }));
     setDuplicateSetting(true);
   };
 
@@ -188,10 +176,10 @@ export const TableOperation = (props: ITableOperationProps) => {
           </DropdownMenuItem>
           {menuPermission.duplicateTable && (
             <DropdownMenuItem
-              disabled={isPreviewing}
+              disabled={isLoading}
               onClick={(e) => {
                 e.preventDefault();
-                void handleDuplicateClick();
+                handleDuplicateClick();
               }}
             >
               <CopyPlus className="me-2 size-4" />
@@ -261,23 +249,22 @@ export const TableOperation = (props: ITableOperationProps) => {
         tableId={table.id}
         tableName={table?.name}
         isDeleting={isDeleting}
+        mode="soft"
         onOpenChange={setDeleteConfirm}
         onConfirm={() => deleteTable()}
       />
 
       <ConfirmDialog
         open={duplicateSetting}
-        onOpenChange={(open) => {
-          setDuplicateSetting(open);
-          if (!open) setAffectedCrossSpace(null);
-        }}
+        onOpenChange={setDuplicateSetting}
         title={`${t('common:actions.duplicate')} ${table?.name}`}
         cancelText={t('common:actions.cancel')}
         confirmText={
-          affectedCrossSpace
+          duplicatePreview.affectedFields?.length
             ? t('table:crossSpace.convertAndDuplicate')
             : t('common:actions.duplicate')
         }
+        confirmDisabled={isLoading || !duplicatePreview.canConfirm}
         confirmLoading={isLoading}
         content={
           <div className="flex flex-col space-y-2 text-sm">
@@ -286,7 +273,7 @@ export const TableOperation = (props: ITableOperationProps) => {
                 {t('common:noun.table')} {t('common:name')}
               </Label>
               <Input
-                defaultValue={defaultTableName}
+                value={duplicateOption.name}
                 onChange={(e) => {
                   const value = e.target.value;
                   setDuplicateOption((prev) => ({ ...prev, name: value }));
@@ -305,31 +292,24 @@ export const TableOperation = (props: ITableOperationProps) => {
               <Label htmlFor="include-record">{t('table:import.menu.includeRecords')}</Label>
             </div>
 
-            {affectedCrossSpace && (
-              <div className="mt-2 rounded-md border border-yellow-300 bg-yellow-50 p-2.5 text-xs text-yellow-900 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-200">
-                <p className="font-medium">{t('table:crossSpace.duplicateTableTitle')}</p>
-                <p className="mt-1">
-                  {t('table:crossSpace.duplicateTableDescription', {
-                    count: affectedCrossSpace.length,
-                  })}
-                </p>
-                <div className="mt-2 flex max-h-40 flex-wrap gap-1 overflow-y-auto">
-                  {affectedCrossSpace.map((f) => (
-                    <span
-                      key={f.fieldId}
-                      className="inline-flex items-center rounded border border-yellow-300/60 bg-background/70 px-1.5 py-0.5 text-[11px] dark:border-yellow-700/60 dark:bg-yellow-950/40"
-                    >
-                      {f.fieldName}
-                    </span>
-                  ))}
-                </div>
-              </div>
+            {duplicatePreview.useV2 ? (
+              <OperationPreviewPanel
+                preview={duplicatePreview.preview.data}
+                error={duplicatePreview.preview.error}
+                isLoading={
+                  duplicatePreview.preview.isPending || duplicatePreview.preview.isFetching
+                }
+                onRetry={() => void duplicatePreview.preview.refetch()}
+              />
+            ) : (
+              <TableDuplicateConversionWarning fields={duplicatePreview.affectedFields} />
             )}
           </div>
         }
         onCancel={() => setDuplicateSetting(false)}
         onConfirm={async () => {
-          duplicateTableFn();
+          if (isLoading || !duplicatePreview.canConfirm) return;
+          await duplicateTableFn();
         }}
       />
     </>

@@ -26,7 +26,6 @@ import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { FieldType } from './fields/FieldType';
-import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
 import { FieldIsComputedSpec } from './fields/specs/FieldIsComputedSpec';
 import { CellValueMultiplicity } from './fields/types/CellValueMultiplicity';
 import { CellValueType } from './fields/types/CellValueType';
@@ -38,6 +37,7 @@ import { MultipleSelectField } from './fields/types/MultipleSelectField';
 import {
   ensureSelectFieldOptionCountWithinLimit,
   ensureSelectFieldOptionNamesWithinLimit,
+  ensureSelectFieldOptionsBytesWithinLimit,
 } from './fields/types/SelectFieldOptionWriteConfig';
 import type { SelectOption } from './fields/types/SelectOption';
 import { SingleSelectField } from './fields/types/SingleSelectField';
@@ -206,16 +206,13 @@ import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
 import { TableBuilder } from './TableBuilder';
+import { TableFieldAppender } from './TableFieldAppender';
 import type { TableId } from './TableId';
 import { TableMutator, type TableUpdateResult } from './TableMutator';
 import type { TableName } from './TableName';
 import { TableProperties, type TablePropertiesPatch } from './TableProperties';
 import type { View } from './views/View';
-import {
-  ViewColumnMeta,
-  type ViewColumnMetaEntry,
-  type ViewColumnMetaPatch,
-} from './views/ViewColumnMeta';
+import { ViewColumnMeta, type ViewColumnMetaPatch } from './views/ViewColumnMeta';
 import type { ViewId } from './views/ViewId';
 import type { ViewName } from './views/ViewName';
 import type { ViewQueryGroupItem } from './views/ViewQueryDefaults';
@@ -1285,6 +1282,20 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
     return updatePropertiesMethod.call(this, patch);
   }
 
+  /**
+   * Creates an operation-local append context for dependency planning. Tables returned by
+   * `append` contain the accepted field prefix but deliberately retain the original Views;
+   * callers must use `finish` before exposing or persisting the result.
+   */
+  createFieldAppender(options?: {
+    foreignTables?: ReadonlyArray<Table>;
+    targetViewId?: ViewId;
+  }): TableFieldAppender {
+    return new TableFieldAppender(this, options ?? {}, (fields, views) =>
+      this.rehydrateWithFieldsAndViews(fields, views)
+    );
+  }
+
   addField(
     field: Field,
     options?: {
@@ -1293,72 +1304,25 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       targetViewId?: ViewId;
     }
   ): Result<Table, DomainError> {
-    if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
-      return err(domainError.conflict({ message: 'Field already exists' }));
+    return this.addFields([field], options);
+  }
+
+  addFields(
+    fields: ReadonlyArray<Field>,
+    options?: {
+      foreignTables?: ReadonlyArray<Table>;
+      domainContext?: IDomainContext;
+      targetViewId?: ViewId;
     }
-    if (this.fieldsValue.some((existing) => existing.name().equals(field.name()))) {
-      return err(domainError.conflict({ message: 'Field names must be unique' }));
+  ): Result<Table, DomainError> {
+    if (fields.length === 0) return ok(this);
+
+    const appender = this.createFieldAppender(options);
+    for (const field of fields) {
+      const appendResult = appender.append(field);
+      if (appendResult.isErr()) return err(appendResult.error);
     }
-
-    const nextDbFieldNameResult = field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
-    if (nextDbFieldNameResult.isOk()) {
-      const hasDuplicateDbFieldName = this.fieldsValue.some((existing) => {
-        const existingDbFieldNameResult = existing
-          .dbFieldName()
-          .andThen((dbFieldName) => dbFieldName.value());
-        return (
-          existingDbFieldNameResult.isOk() &&
-          existingDbFieldNameResult.value === nextDbFieldNameResult.value
-        );
-      });
-
-      if (hasDuplicateDbFieldName) {
-        return err(
-          domainError.conflict({
-            message: `Db Field name ${nextDbFieldNameResult.value} already exists in this table`,
-            localization: {
-              i18nKey: 'httpErrors.field.dbFieldNameAlreadyExists',
-              context: { dbFieldName: nextDbFieldNameResult.value },
-            },
-          })
-        );
-      }
-    }
-
-    const validationResult = this.validateForeignTables([field], options?.foreignTables);
-    if (validationResult.isErr()) return err(validationResult.error);
-
-    const nextFields = [...this.fieldsValue, field];
-    const nextViewsResult = this.cloneViewsWithField(nextFields, field, {
-      targetViewId: options?.targetViewId,
-    });
-    if (nextViewsResult.isErr()) return err(nextViewsResult.error);
-
-    const props: ITableBuildProps = {
-      id: this.id(),
-      baseId: this.baseIdValue,
-      name: this.nameValue,
-      properties: this.propertiesValue,
-      fields: nextFields,
-      views: nextViewsResult.value,
-      primaryFieldId: this.primaryFieldIdValue,
-      searchIndex: this.searchIndexValue,
-    };
-
-    if (this.dbTableNameValue.isRehydrated()) {
-      props.dbTableName = this.dbTableNameValue;
-    }
-
-    return Table.rehydrate(props).andThen((nextTable) => {
-      const resolved = field.type().equals(FieldType.formula())
-        ? resolveFormulaFields(nextTable, {
-            ignoreMissingReferenceOnExisting: true,
-            strictFieldId: field.id(),
-          })
-        : ok(undefined);
-      if (resolved.isErr()) return err(resolved.error);
-      return ok(nextTable);
-    });
+    return appender.finish();
   }
 
   addView(view: View): Result<Table, DomainError> {
@@ -1521,6 +1485,8 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       domainContext
     );
     if (nameLimitResult.isErr()) return err(nameLimitResult.error);
+    const bytesLimitResult = ensureSelectFieldOptionsBytesWithinLimit(mergedOptions, domainContext);
+    if (bytesLimitResult.isErr()) return err(bytesLimitResult.error);
 
     const nextFieldResult = isSingle
       ? SingleSelectField.create({
@@ -1881,121 +1847,22 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
     return ok(this);
   }
 
-  private validateForeignTables(
+  private rehydrateWithFieldsAndViews(
     fields: ReadonlyArray<Field>,
-    foreignTables?: ReadonlyArray<Table>
-  ): Result<void, DomainError> {
-    if (!foreignTables || foreignTables.length === 0) return ok(undefined);
-    return validateForeignTablesForFields(fields, { hostTable: this, foreignTables });
-  }
-
-  private cloneViewsWithField(
-    fields: ReadonlyArray<Field>,
-    newField: Field,
-    options?: {
-      targetViewId?: ViewId;
-    }
-  ): Result<ReadonlyArray<View>, DomainError> {
-    const defaultMetaByType = new Map<string, ViewColumnMeta>();
-    const newFieldKey = newField.id().toString();
-    let requiresFormInput = false;
-    if (newField.notNull().toBoolean() || newField.unique().toBoolean()) {
-      const defaultValueResult = newField.accept(FieldDefaultValueVisitor.create());
-      if (defaultValueResult.isErr()) return err(defaultValueResult.error);
-      const defaultValue = defaultValueResult.value;
-      // Empty text and user defaults normalize to null during record creation.
-      const hasDefaultValue =
-        defaultValue !== undefined &&
-        defaultValue !== '' &&
-        (!Array.isArray(defaultValue) || defaultValue.length > 0);
-      requiresFormInput =
-        (newField.notNull().toBoolean() && !hasDefaultValue) ||
-        (newField.unique().toBoolean() && hasDefaultValue);
-    }
-
-    const clones = this.viewsValue.map((view) => {
-      const currentMetaResult = view.columnMeta();
-      if (currentMetaResult.isErr()) return err(currentMetaResult.error);
-      const currentMeta = currentMetaResult.value.toDto();
-
-      const viewType = view.type().toString();
-      let defaultMeta = defaultMetaByType.get(viewType);
-      if (!defaultMeta) {
-        const metaResult = ViewColumnMeta.forView({
-          viewType: view.type(),
-          fields,
-          primaryFieldId: this.primaryFieldIdValue,
-        });
-        if (metaResult.isErr()) return err(metaResult.error);
-        defaultMeta = metaResult.value;
-        defaultMetaByType.set(viewType, defaultMeta);
-      }
-
-      const defaultMetaDto = defaultMeta.toDto();
-      const defaultEntry = defaultMetaDto[newFieldKey];
-      if (!defaultEntry)
-        return err(domainError.validation({ message: 'Missing new field column meta' }));
-
-      const hydratedCurrentMeta = { ...currentMeta };
-      const currentEntries = Object.values(currentMeta);
-      let maxOrder = currentEntries.length
-        ? Math.max(...currentEntries.map((entry) => entry.order ?? -1))
-        : -1;
-
-      for (const existingField of fields) {
-        const fieldKey = existingField.id().toString();
-        if (fieldKey === newFieldKey || typeof hydratedCurrentMeta[fieldKey]?.order === 'number') {
-          continue;
-        }
-
-        const defaultExistingEntry = defaultMetaDto[fieldKey];
-        if (!defaultExistingEntry) {
-          return err(domainError.validation({ message: 'Missing existing field column meta' }));
-        }
-
-        maxOrder += 1;
-        hydratedCurrentMeta[fieldKey] = {
-          ...defaultExistingEntry,
-          ...hydratedCurrentMeta[fieldKey],
-          order: maxOrder,
-        };
-      }
-
-      const nextEntry = this.buildAddedFieldColumnMetaEntry({
-        view,
-        currentMeta,
-        defaultEntry,
-        targetViewId: options?.targetViewId,
-        requiresFormInput,
-      });
-
-      const nextMeta = {
-        ...hydratedCurrentMeta,
-        [newFieldKey]: { ...nextEntry, order: maxOrder + 1 },
-      };
-
-      const nextMetaResult = ViewColumnMeta.create(nextMeta);
-      if (nextMetaResult.isErr()) return err(nextMetaResult.error);
-
-      const cloneResult = view.accept(new CloneViewVisitor());
-      if (cloneResult.isErr()) return err(cloneResult.error);
-
-      const clone = cloneResult.value;
-      const setResult = clone.setColumnMeta(nextMetaResult.value);
-      if (setResult.isErr()) return err(setResult.error);
-
-      const queryDefaultsResult = view.queryDefaults();
-      if (queryDefaultsResult.isErr()) return err(queryDefaultsResult.error);
-      const setQueryResult = clone.setQueryDefaults(queryDefaultsResult.value);
-      if (setQueryResult.isErr()) return err(setQueryResult.error);
-
-      return ok(clone);
-    });
-
-    return clones.reduce<Result<ReadonlyArray<View>, DomainError>>(
-      (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
-      ok([])
-    );
+    views: ReadonlyArray<View>
+  ): Result<Table, DomainError> {
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      properties: this.propertiesValue,
+      fields,
+      views,
+      primaryFieldId: this.primaryFieldIdValue,
+      searchIndex: this.searchIndexValue,
+    };
+    if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
+    return Table.rehydrate(props);
   }
 
   private cloneViewsWithoutField(
@@ -2033,41 +1900,5 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
       ok([])
     );
-  }
-
-  private buildAddedFieldColumnMetaEntry(params: {
-    view: View;
-    currentMeta: Record<string, ViewColumnMetaEntry>;
-    defaultEntry: ViewColumnMetaEntry;
-    targetViewId?: ViewId;
-    requiresFormInput: boolean;
-  }): ViewColumnMetaEntry {
-    const { view, currentMeta, defaultEntry, targetViewId, requiresFormInput } = params;
-
-    if (targetViewId && view.id().equals(targetViewId)) {
-      return { ...defaultEntry };
-    }
-
-    if (view.type().toString() === 'form' && requiresFormInput) {
-      return { ...defaultEntry };
-    }
-
-    if (view.type().toString() !== 'grid') {
-      const hasHiddenField = Object.values(currentMeta).some((entry) => entry.visible === false);
-      return hasHiddenField ? { ...defaultEntry, visible: false } : { ...defaultEntry };
-    }
-
-    // A view decides by how many fields it actually hides, not by whether any
-    // entry carries a `hidden` key: "show all" leaves `hidden: false` behind,
-    // and such a view must still pick up new fields.
-    const hasHiddenField = Object.values(currentMeta).some((entry) => entry.hidden === true);
-    if (!hasHiddenField) {
-      return { ...defaultEntry };
-    }
-
-    return {
-      ...defaultEntry,
-      hidden: true,
-    };
   }
 }

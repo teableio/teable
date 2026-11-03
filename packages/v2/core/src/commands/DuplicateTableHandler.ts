@@ -2,9 +2,9 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { DuplicateTablePreparationService } from '../application/services/DuplicateTablePreparationService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
-import { TableQueryService } from '../application/services/TableQueryService';
 import {
   beginTableSchemaOperation,
   completeTableSchemaOperation,
@@ -17,18 +17,14 @@ import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated'
 import type { Field } from '../domain/table/fields/Field';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldType } from '../domain/table/fields/FieldType';
-import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
-import { FormulaField } from '../domain/table/fields/types/FormulaField';
 import { LinkField } from '../domain/table/fields/types/LinkField';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
-import { getFormulaSourceBudget } from '../ports/ExecutionContext';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
-import * as TableMapper from '../ports/mappers/TableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -39,10 +35,7 @@ import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
-import {
-  buildPhysicalTableDuplicatePlan,
-  canUsePhysicalTableDuplicate,
-} from './buildPhysicalTableDuplicatePlan';
+import { buildPhysicalTableDuplicatePlan } from './buildPhysicalTableDuplicatePlan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 
@@ -71,10 +64,8 @@ export class DuplicateTableHandler implements ICommandHandler<
   DuplicateTableResult
 > {
   constructor(
-    @inject(v2CoreTokens.tableQueryService)
-    private readonly tableQueryService: TableQueryService,
-    @inject(v2CoreTokens.tableMapper)
-    private readonly tableMapper: TableMapper.ITableMapper,
+    @inject(v2CoreTokens.duplicateTablePreparationService)
+    private readonly duplicateTablePreparationService: DuplicateTablePreparationService,
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableSchemaRepository)
@@ -107,22 +98,16 @@ export class DuplicateTableHandler implements ICommandHandler<
   ): Promise<Result<DuplicateTableResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DuplicateTableResult, DomainError>(async function* () {
-      const sourceTable = yield* await handler.tableQueryService.getByIdInBase(
+      const preparation = yield* await handler.duplicateTablePreparationService.prepare(
         context,
-        command.baseId,
-        command.tableId
+        command
       );
-      for (const field of sourceTable.getFields()) {
-        if (field instanceof FormulaField)
-          yield* FormulaExpression.create(
-            field.expression().toString(),
-            getFormulaSourceBudget(context)
-          );
-      }
-      const duplicated = yield* sourceTable.duplicate({
-        mapper: handler.tableMapper,
-        newName: command.name,
-      });
+      const sourceTable = preparation.sourceTable;
+      const duplicated = {
+        table: preparation.duplicatedTable,
+        fieldIdMap: preparation.fieldIdMap,
+        viewIdMap: preparation.viewIdMap,
+      };
       const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
         kind: TableOperationKind.duplicate,
         executionContext: context,
@@ -136,10 +121,10 @@ export class DuplicateTableHandler implements ICommandHandler<
       });
       yield* await tablePluginExecution.guard();
 
-      // Prefer physical bulk copy after schema exists; hydrate only when the
-      // plan cannot map link storage (e.g. foreign-hosted oneMany FK).
+      // Prefer physical bulk copy only for a proven source candidate; hydrated copy remains the
+      // safe fallback for unsupported or incomplete physical metadata.
       const preferPhysicalRowCopy =
-        command.includeRecords && canUsePhysicalTableDuplicate(sourceTable);
+        preparation.recordCopyPath.classification === 'physical-pending-metadata';
 
       let records: ReadonlyArray<TableRecord> = [];
       let restoreRecordsById: ReadonlyMap<string, RecordRestoreSystemValues> | undefined;

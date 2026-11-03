@@ -6,6 +6,7 @@ import { defaultComputedUpdateOutboxConfig } from '@teable/v2-adapter-table-repo
 import { Queue } from 'bullmq';
 
 import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-claim-concurrency.service';
+import { ComputedOutboxTriggerMetrics } from './computed-outbox-trigger.metrics';
 import { COMPUTED_OUTBOX_WAKEUP_QUEUE } from './constants';
 
 const ACQUIRE_SCRIPT = `
@@ -80,6 +81,7 @@ export type ComputedOutboxBaseAdmissionResult<T> =
   | { admitted: true; value: T };
 
 export type ComputedOutboxBaseAdmissionPermit = {
+  readonly signal: AbortSignal;
   assertActive(): void;
 };
 
@@ -96,7 +98,9 @@ export class ComputedOutboxBaseAdmissionService {
     @InjectQueue(COMPUTED_OUTBOX_WAKEUP_QUEUE)
     private readonly queue: Queue,
     @Optional()
-    private readonly claimConcurrency?: ComputedOutboxClaimConcurrencyService
+    private readonly claimConcurrency?: ComputedOutboxClaimConcurrencyService,
+    @Optional()
+    private readonly metrics?: ComputedOutboxTriggerMetrics
   ) {}
 
   /**
@@ -121,6 +125,8 @@ export class ComputedOutboxBaseAdmissionService {
     if (acquired !== 1) return { admitted: false };
     let activeUntil = acquisitionStartedAt + LEASE_MS;
 
+    const abort = new AbortController();
+    let leaseLostAt: number | undefined;
     let leaseLost: ComputedOutboxBaseAdmissionLeaseLostError | undefined;
     let renewInFlight: Promise<void> | undefined;
     const markLeaseLost = (error?: unknown): void => {
@@ -129,6 +135,8 @@ export class ComputedOutboxBaseAdmissionService {
         baseId,
         error === undefined ? undefined : { cause: error }
       );
+      leaseLostAt = performance.now();
+      abort.abort(leaseLost);
       this.logger.error('computed:outbox:admission_lease_lost', {
         baseId,
         error:
@@ -136,6 +144,7 @@ export class ComputedOutboxBaseAdmissionService {
       });
     };
     const permit: ComputedOutboxBaseAdmissionPermit = {
+      signal: abort.signal,
       assertActive: () => {
         if (!leaseLost && performance.now() >= activeUntil) markLeaseLost();
         if (leaseLost) throw leaseLost;
@@ -178,6 +187,14 @@ export class ComputedOutboxBaseAdmissionService {
       permit.assertActive();
       return { admitted: true, value };
     } finally {
+      if (leaseLostAt !== undefined) {
+        const stopLatencyMs = Math.max(0, Math.round(performance.now() - leaseLostAt));
+        this.metrics?.recordAdmissionLeaseLossStop(stopLatencyMs);
+        this.logger.warn('computed:outbox:admission_lease_loss_stopped', {
+          baseId,
+          stopLatencyMs,
+        });
+      }
       clearInterval(renew);
       if (renewInFlight) await renewInFlight;
       await this.eval(RELEASE_SCRIPT, [key], [owner]).catch((error: unknown) => {

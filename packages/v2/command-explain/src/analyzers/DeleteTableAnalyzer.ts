@@ -4,12 +4,10 @@ import type { Result } from 'neverthrow';
 import {
   DeleteTableCommand,
   DeleteTableHandler,
-  FieldCrossTableUpdateSideEffectService,
-  FieldUpdateSideEffectService,
-  LinkFieldUpdateSideEffectService,
   NoopLogger,
   TableByIdSpec,
   TableDeletionSideEffectService,
+  type ITableDeletionPreparationService,
   type DomainError,
   type IExecutionContext,
   type ITableRepository,
@@ -77,29 +75,20 @@ export class DeleteTableAnalyzer implements ICommandAnalyzer<DeleteTableCommand>
         typeValidationStrategy: this.typeValidationStrategy,
       });
 
-      const fieldCrossTableUpdateSideEffectService = new FieldCrossTableUpdateSideEffectService(
-        dryRun.overlayTableRepository,
-        dryRun.tableUpdateFlow
-      );
-      const linkFieldUpdateSideEffectService = new LinkFieldUpdateSideEffectService(
-        dryRun.tableUpdateFlow
-      );
-      const fieldUpdateSideEffectService = new FieldUpdateSideEffectService(
-        dryRun.tableUpdateFlow,
-        dryRun.overlayTableRepository,
-        linkFieldUpdateSideEffectService,
-        fieldCrossTableUpdateSideEffectService
-      );
-      const tableDeletionSideEffectService = new TableDeletionSideEffectService(
-        dryRun.overlayTableRepository,
-        dryRun.tableUpdateFlow,
-        fieldUpdateSideEffectService
-      );
+      const tableDeletionSideEffectService =
+        dryRun.container.resolve<TableDeletionSideEffectService>(
+          v2CoreTokens.tableDeletionSideEffectService
+        );
+      const tableDeletionPreparationService =
+        dryRun.container.resolve<ITableDeletionPreparationService>(
+          v2CoreTokens.tableDeletionPreparationService
+        );
 
       const handler = new DeleteTableHandler(
         dryRun.overlayTableRepository,
         dryRun.captureTableSchemaRepository,
         tableDeletionSideEffectService,
+        tableDeletionPreparationService,
         new NoopEventBus(),
         new NoopLogger(),
         new NoopUnitOfWork()

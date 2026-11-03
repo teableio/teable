@@ -6,6 +6,7 @@ import {
   TableId,
   type DomainError,
   type IHasher,
+  type TracePropagationCarrier,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -79,6 +80,56 @@ export type ComputedRealtimeOrchestrationDto = {
   scope: 'operation' | 'chunk';
 };
 
+/** Durable payload bound; W3C tracestate itself also caps at 512 characters. */
+export const TRACE_PROPAGATION_VALUE_MAX_LENGTH = 512;
+
+const TRACEPARENT_PATTERN = /^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/i;
+
+/**
+ * Keep one compact version-00 W3C carrier rather than a carrier per merged run.
+ * OpenTelemetry currently injects version 00; future versions stay rejected until
+ * their additional fields have explicit durable parsing semantics here.
+ */
+export const normalizeTracePropagationCarrier = (
+  carrier: TracePropagationCarrier | undefined
+): TracePropagationCarrier | undefined => {
+  const traceparent = carrier?.traceparent;
+  if (typeof traceparent !== 'string' || traceparent.length > TRACE_PROPAGATION_VALUE_MAX_LENGTH) {
+    return undefined;
+  }
+  const match = TRACEPARENT_PATTERN.exec(traceparent);
+  if (!match || /^0+$/.test(match[1]) || /^0+$/.test(match[2])) return undefined;
+
+  const tracestate = carrier?.tracestate;
+  return {
+    traceparent,
+    ...(typeof tracestate === 'string' &&
+    tracestate.length > 0 &&
+    tracestate.length <= TRACE_PROPAGATION_VALUE_MAX_LENGTH
+      ? { tracestate }
+      : {}),
+  };
+};
+
+export const parseTracePropagationCarrier = (
+  value: unknown
+): TracePropagationCarrier | undefined => {
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed) as unknown;
+    } catch {
+      return undefined;
+    }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+  const carrier = parsed as { traceparent?: unknown; tracestate?: unknown };
+  return normalizeTracePropagationCarrier({
+    ...(typeof carrier.traceparent === 'string' ? { traceparent: carrier.traceparent } : {}),
+    ...(typeof carrier.tracestate === 'string' ? { tracestate: carrier.tracestate } : {}),
+  });
+};
+
 export const mergeBeforeImageRecordDtos = (
   existing: ReadonlyArray<ComputedBeforeImageRecordDto>,
   incoming: ReadonlyArray<ComputedBeforeImageRecordDto>
@@ -146,7 +197,8 @@ export type ComputedUpdateRunMeta = {
 };
 
 export type ComputedUpdateOutboxTaskInput = ComputedUpdateOutboxPayload &
-  ComputedUpdateRunMeta & {
+  ComputedUpdateRunMeta &
+  TracePropagationCarrier & {
     planHash: string;
     dirtyStats?: ReadonlyArray<DirtyRecordStats>;
     affectedTableIds: string[];
@@ -241,6 +293,8 @@ export const buildOutboxTaskInput = (params: {
   /** Original mutation field ids for this run. Bounded by schema width. */
   sourceFieldIds?: ReadonlyArray<string>;
   orchestration?: ComputedRealtimeOrchestrationDto;
+  traceparent?: string;
+  tracestate?: string;
 }): ComputedUpdateOutboxTaskInput => {
   const payload = serializeComputedUpdatePlan(params.plan);
   const affectedTableIds = params.affectedTableIds ?? [
@@ -274,6 +328,8 @@ export const buildOutboxTaskInput = (params: {
     predecessorTaskId: params.predecessorTaskId,
     ...(params.sourceFieldIds?.length ? { sourceFieldIds: [...params.sourceFieldIds] } : {}),
     orchestration: params.orchestration,
+    traceparent: params.traceparent,
+    tracestate: params.tracestate,
   };
 };
 

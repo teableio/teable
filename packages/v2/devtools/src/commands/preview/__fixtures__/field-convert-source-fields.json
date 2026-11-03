@@ -1,0 +1,13 @@
+[
+  {
+    "id": "fldPreviewTitle0000",
+    "type": "singleLineText",
+    "name": "Title",
+    "isPrimary": true
+  },
+  {
+    "id": "fldPreviewSmoke0000",
+    "type": "number",
+    "name": "Preview smoke number"
+  }
+]

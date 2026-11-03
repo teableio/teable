@@ -182,8 +182,31 @@ describe('envValidationSchema', () => {
     expect(value.V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS).toBe(60_000);
     expect(value.V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS).toBe(60_000);
     expect(value.V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE).toBe(500);
+    expect(value.V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_THRESHOLD).toBe(100);
+    expect(value.V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_QUERY_LIMIT).toBe(50);
   });
 
+  it('rejects non-positive per-base pending capacity settings', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_THRESHOLD: '0',
+      })
+    );
+
+    expect(error?.message).toContain('V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_THRESHOLD');
+  });
+
+  it('rejects a non-positive per-base pending capacity query limit', () => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_QUERY_LIMIT: '0',
+      })
+    );
+
+    expect(error?.message).toContain('V2_COMPUTED_OUTBOX_BASE_PENDING_CAPACITY_QUERY_LIMIT');
+  });
   it('accepts computed task timeout, claim concurrency, and field-backfill overrides', () => {
     const { error, value } = envValidationSchema.validate(
       createEnv({

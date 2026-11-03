@@ -2,20 +2,18 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { DuplicateTablePreparationService } from '../application/services/DuplicateTablePreparationService';
 import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableQueryService } from '../application/services/TableQueryService';
-import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
-import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { DbTableName } from '../domain/table/DbTableName';
 import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
 import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
-import { DbTableName } from '../domain/table/DbTableName';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
-import { FieldId } from '../domain/table/fields/FieldId';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
@@ -29,6 +27,9 @@ import type {
   IUnitOfWorkTransaction,
   UnitOfWorkScope,
 } from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryOptions,
@@ -40,7 +41,8 @@ import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   InsertOptions,
   ITableRecordRepository,
-  RecordRestoreSystemValues,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   UpdateManyStreamBatchInput,
   UpdateManyStreamOptions,
   UpdateManyStreamResult,
@@ -51,7 +53,6 @@ import type {
   TableSchemaInsertManyOptions,
 } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 import { DuplicateTableHandler } from './DuplicateTableHandler';
 import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
@@ -96,6 +97,7 @@ const createSourceTable = (): Table => {
         id: primaryFieldId,
         name: 'Name',
         type: 'singleLineText',
+        dbFieldName: 'Name',
       },
       {
         id: selfLinkFieldId,
@@ -378,10 +380,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 
   async duplicatePhysicalRows(
     _context: IExecutionContext,
-    plan: import('../ports/TableRecordRepository').PhysicalTableDuplicatePlan
-  ): Promise<
-    Result<import('../ports/TableRecordRepository').PhysicalTableDuplicateResult, DomainError>
-  > {
+    plan: PhysicalTableDuplicatePlan
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
     this.physicalPlans.push(plan);
     return ok({
       rowCount: this.physicalRecordIds.length,
@@ -488,10 +488,6 @@ class FakeUnitOfWork implements IUnitOfWork {
   }
 }
 
-const getFieldValue = (record: TableRecord, fieldId: string): unknown => {
-  return record.fields().get(FieldId.create(fieldId)._unsafeUnwrap())?.toValue();
-};
-
 describe('DuplicateTableHandler', () => {
   it('duplicates records while remapping self links, preserving external links, and restoring row orders', async () => {
     const sourceTable = createSourceTable();
@@ -536,8 +532,7 @@ describe('DuplicateTableHandler', () => {
     ];
 
     const handler = new DuplicateTableHandler(
-      tableQueryService,
-      tableMapper,
+      new DuplicateTablePreparationService(tableQueryService, tableMapper),
       tableRepository,
       tableSchemaRepository,
       tableRecordQueryRepository,
@@ -672,8 +667,7 @@ describe('DuplicateTableHandler', () => {
     const unitOfWork = new FakeUnitOfWork();
 
     const handler = new DuplicateTableHandler(
-      tableQueryService,
-      tableMapper,
+      new DuplicateTablePreparationService(tableQueryService, tableMapper),
       tableRepository,
       tableSchemaRepository,
       tableRecordQueryRepository,
@@ -747,8 +741,7 @@ describe('DuplicateTableHandler', () => {
     const unitOfWork = new FakeUnitOfWork();
 
     const handler = new DuplicateTableHandler(
-      tableQueryService,
-      tableMapper,
+      new DuplicateTablePreparationService(tableQueryService, tableMapper),
       tableRepository,
       tableSchemaRepository,
       tableRecordQueryRepository,
@@ -779,5 +772,58 @@ describe('DuplicateTableHandler', () => {
       sourceRecordIdA,
       sourceRecordIdB,
     ]);
+  });
+
+  it('blocks execution-only table policy after preparation and before persistence', async () => {
+    const sourceTable = createSourceTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(sourceTable);
+    const tableSchemaRepository = new FakeTableSchemaRepository();
+    const tableRecordQueryRepository = new FakeTableRecordQueryRepository();
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tablePluginRunner = createTableOperationPluginRunner([
+      {
+        name: 'blocking-duplicate-policy',
+        supports: (operation) => operation === 'duplicate',
+        guard: () =>
+          err(
+            domainError.validation({
+              code: 'table.duplicate.policy_blocked',
+              message: 'Duplicate blocked by execution policy',
+            })
+          ),
+      },
+    ]);
+    const handler = new DuplicateTableHandler(
+      new DuplicateTablePreparationService(new TableQueryService(tableRepository), tableMapper),
+      tableRepository,
+      tableSchemaRepository,
+      tableRecordQueryRepository,
+      tableRecordRepository,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      unitOfWork,
+      undefined,
+      tablePluginRunner
+    );
+    const command = DuplicateTableCommand.create({
+      baseId: sourceBaseId,
+      tableId: sourceTableId,
+      name: 'Blocked Copy',
+      includeRecords: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('table.duplicate.policy_blocked');
+    expect(unitOfWork.transactions).toEqual([]);
+    expect(tableRepository.insertedTables).toEqual([]);
+    expect(tableRepository.provisionStateChanges).toEqual([]);
+    expect(tableSchemaRepository.insertedTables).toEqual([]);
+    expect(tableRecordRepository.insertedRecords).toEqual([]);
+    expect(tableRecordRepository.physicalPlans).toEqual([]);
+    expect(eventBus.published).toEqual([]);
   });
 });

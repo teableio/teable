@@ -57,25 +57,6 @@ const recordFilterUsages = (
   if (isLocalFieldReference(node.value, tableId)) record(node.value.fieldId, 'reference');
 };
 
-// oxlint-disable-next-line sonarjs/cognitive-complexity -- one branch per projection kind
-const recordSourceUsages = (definition: DataQueryDefinitionInput, record: UsageRecorder): void => {
-  if (definition.kind === 'records') {
-    for (const projection of definition.select) {
-      if ('statisticFunc' in projection) {
-        if (projection.fieldId !== undefined) record(projection.fieldId, 'aggregate');
-        continue;
-      }
-      if ('fieldId' in projection) record(projection.fieldId, 'projection');
-    }
-    return;
-  }
-  for (const group of definition.groupBy ?? []) record(group.fieldId, 'group');
-  for (const aggregate of definition.aggregates) {
-    // A relation metric reads its target field; this walk has no source map.
-    if (aggregate.fieldId !== undefined) record(aggregate.fieldId, 'aggregate');
-  }
-};
-
 /**
  * Aggregate alias sorting names an output, not a field, and system columns are
  * not fields, so neither becomes a dependency. Every allow-listed target of a
@@ -105,35 +86,6 @@ const recordSortUsages = (
   }
 };
 
-/**
- * The single walker for every field a definition declares, keyed by field id in
- * first-appearance order. Callers own rendering: the manifest index sorts by
- * field id, the binding keeps declared order.
- */
-export const collectDataQueryFieldUsages = (
-  definition: DataQueryDefinitionInput
-): Map<string, Set<DataQueryFieldUsage>> => {
-  const usages = new Map<string, Set<DataQueryFieldUsage>>();
-  const record: UsageRecorder = (fieldId, usage) => {
-    const current = usages.get(fieldId) ?? new Set<DataQueryFieldUsage>();
-    current.add(usage);
-    usages.set(fieldId, current);
-  };
-  recordSourceUsages(definition, record);
-  if (definition.sort) {
-    recordSortUsages(definition.sort, (_source, fieldId, usage) => record(fieldId, usage));
-  }
-  if (definition.filter) recordFilterUsages(definition.filter, definition.tableId, record);
-  if (definition.version === 2) {
-    for (const relation of Object.values(definition.relations ?? {})) {
-      if (relation.filter) {
-        recordFilterUsages(relation.filter, relation.tableId, record);
-      }
-    }
-  }
-  return usages;
-};
-
 type SourceUsageRecorder = (source: string, fieldId: string, usage: DataQueryFieldUsage) => void;
 
 const recordRelationSourceUsages = (
@@ -152,8 +104,8 @@ const recordRelationSourceUsages = (
 };
 
 /**
- * Source-qualified view of the same walk, for v2 relation manifests. `root`
- * always exists, even when the definition only reads system columns.
+ * Offline declaration index, qualified by source for historical manifest fallback.
+ * `root` always exists, even when the definition only reads system columns.
  */
 
 // oxlint-disable-next-line sonarjs/cognitive-complexity -- one walk over every source-qualified usage

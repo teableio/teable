@@ -6,6 +6,7 @@ import {
   TableId,
   type DomainError,
   type IHasher,
+  type TracePropagationCarrier,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -56,17 +57,15 @@ export type ComputedUpdateSeedPayload = {
 /**
  * Input for creating a seed outbox task.
  */
-export type ComputedUpdateSeedTaskInput = ComputedUpdateSeedPayload & {
-  runId: string;
-  planHash: string;
-  /**
-   * Earliest source-mutation time this seed traces back to. Only set when a
-   * seed task is re-enqueued (chunk splits) so the lineage clock keeps the
-   * original mutation time; fresh enqueues omit it and the outbox stamps
-   * `now` at insert.
-   */
-  sourceChangedAt?: Date;
-};
+export type ComputedUpdateSeedTaskInput = ComputedUpdateSeedPayload &
+  TracePropagationCarrier & {
+    runId: string;
+    planHash: string;
+    /** Earliest source mutation retained across seed chunk handoffs. */
+    sourceChangedAt?: Date;
+    stageDepth?: number;
+    predecessorTaskId?: string;
+  };
 
 /**
  * Deserialized seed task domain objects.
@@ -357,7 +356,11 @@ export const buildSeedTaskChunk = (
         }
       : undefined,
     runId: task.runId,
+    traceparent: task.traceparent,
+    tracestate: task.tracestate,
     sourceChangedAt: task.sourceChangedAt ?? undefined,
+    stageDepth: task.stageDepth ?? 0,
+    predecessorTaskId: task.id,
     planHash: `${task.planHash}:chunk:${chunkIndex + 1}/${chunkCount}`,
   };
 };

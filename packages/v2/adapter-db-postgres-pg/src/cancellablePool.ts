@@ -50,7 +50,9 @@ const checkout = (
   const releaseIfSettled = () => {
     if (released || !releaseRequested || activeStatement || !cancellationSettled) return;
     released = true;
-    client.release(cancellationAttempted);
+    // An abort between statements still prevents Kysely's ROLLBACK from running.
+    // Retire that checkout too: returning it idle could expose an open transaction.
+    client.release(cancellationAttempted || signal.aborted);
   };
 
   const query = async <R>(

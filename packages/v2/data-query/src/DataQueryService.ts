@@ -388,7 +388,6 @@ export class DataQueryService {
           }
           if (binding.deferredFilterError) return err(binding.deferredFilterError);
           const plan: DataQueryRelationPlan = {
-            definition,
             query,
             rootTable,
             rootScope,

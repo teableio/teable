@@ -24,6 +24,20 @@ describe('DataDbRuntimeCacheService', () => {
     expect(destroy).toHaveBeenCalledTimes(1);
   });
 
+  it('reads an existing runtime without creating a missing entry', async () => {
+    const cache = new DataDbRuntimeCacheService();
+    const create = vi.fn().mockResolvedValue({ id: 'client' });
+    const destroy = vi.fn();
+
+    await expect(cache.get('ns', 'missing')).resolves.toBeUndefined();
+    expect(create).not.toHaveBeenCalled();
+
+    await cache.getOrCreate('ns', 'key', create, destroy);
+    await expect(cache.get<{ id: string }>('ns', 'key')).resolves.toEqual({ id: 'client' });
+    expect(create).toHaveBeenCalledOnce();
+    await cache.onModuleDestroy();
+  });
+
   it('evicts the least recently used entry and destroys it', async () => {
     process.env.BYODB_RUNTIME_CACHE_MAX = '2';
     const cache = new DataDbRuntimeCacheService();

@@ -35,6 +35,7 @@ import type {
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
+import type { IExecutionContext } from '@teable/v2-core';
 import { isNumber, keyBy, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -657,6 +658,41 @@ export class BaseService {
     });
   }
 
+  private async assertDuplicateBaseAdmission(duplicateBaseRo: IDuplicateBaseRo): Promise<void> {
+    const { fromBaseId, spaceId, baseId } = duplicateBaseRo;
+    await this.assertBaseWritable(fromBaseId);
+    await this.assertSpaceWritable(spaceId);
+    await this.checkBaseUpdatePermission(fromBaseId);
+    await this.checkBaseCreatePermission(spaceId);
+
+    if (!baseId) return;
+    await this.assertBaseWritable(baseId);
+    await this.checkBaseUpdatePermission(baseId);
+    const destination = await this.prismaService.base.findFirst({
+      where: { id: baseId, spaceId, deletedTime: null },
+      select: { id: true },
+    });
+    if (!destination) {
+      throw new CustomHttpException(
+        'The destination project does not belong to the selected space',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+  }
+
+  /**
+   * Read-only host checks for base duplication preview. The execution context
+   * is supplied per request while authorization continues to use the live CLS
+   * identity and access-token state; neither is retained on a singleton.
+   */
+  async previewDuplicateBaseV2(
+    _context: IExecutionContext,
+    duplicateBaseRo: IDuplicateBaseRo
+  ): Promise<IV2Decision> {
+    await this.assertDuplicateBaseAdmission(duplicateBaseRo);
+    return this.canaryService.shouldUseV2WithReason(duplicateBaseRo.spaceId, 'duplicateBase');
+  }
+
   /**
    * `auditBaseCreate`: the caller has no controller BASE_CREATE event to record the new base (the
    * duplicate-stream route answers over SSE), so its `base.create` row is written here, inside the
@@ -672,11 +708,7 @@ export class BaseService {
     options: { auditBaseCreate?: boolean } = {}
   ) {
     const { fromBaseId, spaceId } = duplicateBaseRo;
-    await this.assertBaseWritable(fromBaseId);
-    await this.assertSpaceWritable(spaceId);
-
-    // Regular permission check, base update permission
-    await this.checkBaseUpdatePermission(fromBaseId);
+    await this.assertDuplicateBaseAdmission(duplicateBaseRo);
 
     this.logger.log(`base-duplicate-service: Start to duplicating base: ${fromBaseId}`);
 
@@ -708,11 +740,7 @@ export class BaseService {
   })
   async duplicateBaseV2(duplicateBaseRo: IDuplicateBaseRo) {
     const { fromBaseId, spaceId } = duplicateBaseRo;
-    await this.assertBaseWritable(fromBaseId);
-    await this.assertSpaceWritable(spaceId);
-
-    // Regular permission check, base update permission
-    await this.checkBaseUpdatePermission(fromBaseId);
+    await this.assertDuplicateBaseAdmission(duplicateBaseRo);
 
     this.logger.log(`base-duplicate-service-v2: Start to duplicating base: ${fromBaseId}`);
 
@@ -751,10 +779,7 @@ export class BaseService {
     onProgress?: BaseImportProgressCallback
   ) {
     const { fromBaseId, spaceId } = duplicateBaseRo;
-    await this.assertBaseWritable(fromBaseId);
-    await this.assertSpaceWritable(spaceId);
-
-    await this.checkBaseUpdatePermission(fromBaseId);
+    await this.assertDuplicateBaseAdmission(duplicateBaseRo);
 
     this.logger.log(`base-duplicate-service-v2: Start to duplicating base stream: ${fromBaseId}`);
 
@@ -1103,7 +1128,9 @@ export class BaseService {
         `delete from "computed_update_change_frontier" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
         `delete from "computed_update_stage_ledger" where "scope_id" in (select coalesce(case when jsonb_typeof("dirty_stats") = 'object' then "dirty_stats"->>'ledgerScopeId' end, "id") from "computed_update_outbox" where "base_id" = $1)`,
         `delete from "computed_update_outbox" where "base_id" = $1`,
-        `delete from "computed_update_dead_letter" where "base_id" = $1`,
+        // The archived dead-letter guard admits deletion only when authorization
+        // and deletion happen in one transaction; the helper performs both.
+        `select "computed_outbox_discard_base"(array[$1]::text[])`,
         `delete from "computed_update_run_history" where "base_id" = $1`,
         `delete from "computed_task_field_ref" where "base_id" = $1`,
         `delete from "computed_field_activity" where "base_id" = $1`,

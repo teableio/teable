@@ -174,9 +174,15 @@ export const pushStageLedgerFrontierHead = async (
   const rows = groups.flatMap((group) =>
     group.recordIds.map((recordId) => ({ tableId: group.tableId, recordId }))
   );
-  if (rows.length === 0) return ok(0);
   try {
     const stageLedger = resolveTableSql(db, STAGE_LEDGER_TABLE);
+    // Only a scope with no prior progress can establish complete input capture. A
+    // legacy partial scope must never be upgraded from its remaining frontier.
+    await sql`insert into ${stageLedger}(scope_id,kind,table_id,record_id)
+      select ${scopeId}, 'rerun-input-v1', '', ''
+      where not exists(select 1 from ${stageLedger} where scope_id=${scopeId})
+      on conflict do nothing`.execute(db);
+    if (rows.length === 0) return ok(0);
     // Fix the seq base once up front: batched inserts below must not shift it.
     const minRow = await db
       .selectFrom(STAGE_LEDGER_TABLE)
@@ -204,6 +210,16 @@ export const pushStageLedgerFrontierHead = async (
       );
       pushed += Number(result.numAffectedRows ?? 0);
     }
+    // Frontier retirement must not destroy the stage's rerun input membership.
+    await db.executeQuery(
+      sql`
+        insert into ${stageLedger} (scope_id, kind, table_id, record_id, seq)
+        select scope_id, 'rerun-source', table_id, record_id, seq
+        from ${stageLedger}
+        where scope_id = ${scopeId} and kind = 'frontier'
+        on conflict (scope_id, kind, table_id, record_id) do nothing
+      `.compile(db)
+    );
     return ok(pushed);
   } catch (error) {
     return err(infrastructureError('Failed to push stage ledger frontier head', error));
@@ -261,6 +277,14 @@ export const appendStageLedgerPartialBatch = async (
         `.compile(db)
       );
       newFrontierRows = Number(frontier.numAffectedRows ?? 0);
+      // Retain only this bounded dirty batch, not the entire remaining queue on
+      // every generation. Rows already excluded were not newly appended sources.
+      await sql`insert into ${stageLedger}(scope_id,kind,table_id,record_id)
+        select ${scopeId},'rerun-source',d.table_id,d.record_id from ${sql.table(DIRTY_TABLE)} d
+        where d.table_id in (${tableFilter}) and not exists (
+          select 1 from ${stageLedger} l where l.scope_id=${scopeId} and l.kind='excluded'
+            and l.table_id=d.table_id and l.record_id=d.record_id
+        ) on conflict do nothing`.execute(db);
     }
     const excluded = await db.executeQuery(
       sql`

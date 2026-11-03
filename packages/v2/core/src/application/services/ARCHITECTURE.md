@@ -9,7 +9,54 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Keep domain logic inside domain model/visitors; this layer only wires ports and supplies
   preloaded data for cross-table validation.
 
+## Operation preview preparation
+
+Canonical operation previews are coordinated by `@teable/v2-command-explain`, not by adding
+`dryRun` flags to write commands. This layer supplies shared preparation seams where execution
+and preview can reuse input interpretation and domain decisions before persistence. Preparation
+must stay separate from transactions that persist metadata/data, publish events, capture undo,
+enqueue outbox work, or invoke external hooks. Reusing a preparation seam is not evidence that
+every downstream execution policy or hook has been checked by preview.
+
+Preview effects describe the evidence available for an exact pending write input. Missing row
+selection, authorization, dependency, or host-policy evidence remains unknown; an empty effect
+list does not establish that a write has no impact. The caller must retain blockers and unknown
+coverage instead of replacing them with zero counts or a successful empty result.
+
+Core remains the Table bounded context. Space/base-node placement, billing and quotas, trash
+retention, attachments, workflows, shares, and other host configuration belong to host preview
+adapters; do not add those concepts to core commands or ports to complete a preview.
+
+The preview is advisory: it does not reserve capacity, lock the selected records, or issue an
+approval token. Execution still parses and authorizes the original input and runs its normal
+preparation and policy checks against current state.
+
 ## Files
+
+- `FieldConversionPreparationService.ts` - Role: shared update/conversion preparation; Purpose:
+  validate references and build update specs on detached aggregates for `UpdateFieldHandler` and
+  preview. Execution-only field plugins and downstream cascades are not established here.
+- `FieldDeletionPreparationService.ts` - Role: shared single/batch field-deletion preparation;
+  Purpose: project direct removal, symmetric-link effects, surviving dependents and view cleanup.
+  Missing foreign metadata stays explicit; internal aggregates/specs are not public preview DTOs.
+- `TableDeletionPreparationService.ts` - Role: shared table-delete preparation; Purpose: resolve
+  active targets, or trashed targets for permanent deletion, and prepare direct side-effect reactions.
+  `TableDeletionSideEffectService.prepare` is separate from `executePrepared`; inconclusive or
+  empty incoming-reference candidates do not prove an absence of impact or downstream cascades.
+- `DuplicateTablePreparationService.ts` - Role: shared detached aggregate duplication; Purpose:
+  project fields/views, validate formula admission and classify links. It does not read/copy
+  records or finalize physical-copy applicability before target metadata is persisted.
+- `PastePreparationService.ts` - Role: shared selection, create/update split and schema projection;
+  Purpose: interpret view/filter/search/range and editable-column scope. Prepared counts precede
+  execution write policy; link-title candidates are not counts of auto-created foreign rows.
+  `applyWriteScope` is the separate step that consumes execution policy decisions.
+- `BulkRecordPreparationService.ts` - Role: data-only explicit/selector preparation; Purpose:
+  expose loaded/selected/missing records and optional read-only policy evidence. Execution also
+  reuses its exported scope/resolution helpers. An absent policy is not unrestricted access;
+  nonempty affected-update counts generally remain unknown until mutation resolution.
+- `DeleteByRangeApplicationService.ts` - Role: range-delete orchestration; Purpose: share only
+  its read-only `prepareDelete` method with preview while retaining execution/stream methods in
+  the application service. Preview does not cover streaming deletion's chunk policy.
 
 - `DomainWriteTransaction.ts` - Role: event-aware transaction orchestration; Purpose: apply same-tx
   projections and append the journal before commit. Streaming imports snapshot complete event

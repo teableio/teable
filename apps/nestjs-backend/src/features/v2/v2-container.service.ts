@@ -6,7 +6,6 @@ import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { COMPUTE_ACTIVITY_CHANGED, getActionTriggerChannel } from '@teable/core';
 import type { IPgPoolLease } from '@teable/db-main-prisma';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
-import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ShareDbBackendPresencePublisher,
   ShareDbPubSubPublisher,
@@ -176,6 +175,8 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   >();
   private readonly poolLeases = new WeakMap<DependencyContainer, ReadonlyArray<IPgPoolLease>>();
   private readonly claimConcurrencyUnregisters = new WeakMap<DependencyContainer, () => void>();
+  private readonly containerRouteSignatures = new WeakMap<DependencyContainer, string>();
+  private readonly containersPendingTableQueryOpsRunners = new WeakSet<DependencyContainer>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -248,6 +249,39 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     );
   }
 
+  /**
+   * Resolves only a metadata-proven current route. A cold route may initialize the same cached
+   * container used by normal requests, but initialization is explicitly non-migrating and does
+   * not start background workers. A later normal acquisition promotes that container's workers.
+   */
+  async getPreviewContainerForTable(tableId: string): Promise<DependencyContainer | null> {
+    const dataDb = await this.dataDbClientManager.getDataDatabaseForTablePreviewReadOnly(tableId);
+    if (!dataDb) return null;
+    const dataConnectionString = dataDb.connectionUrl ?? dataDb.url;
+    const signature = this.containerRouteSignature(dataConnectionString, dataDb.internalSchema);
+    const cached = await this.runtimeCache.get<DependencyContainer>(
+      V2_CONTAINER_CACHE_NAMESPACE,
+      dataDb.cacheKey
+    );
+    if (cached) {
+      return this.containerRouteSignatures.get(cached) === signature ? cached : null;
+    }
+
+    const container = await this.runtimeCache.getOrCreate(
+      V2_CONTAINER_CACHE_NAMESPACE,
+      dataDb.cacheKey,
+      async () => {
+        const created = await this.createContainer(dataConnectionString, dataDb.internalSchema, {
+          previewReadOnly: true,
+        });
+        this.containerRouteSignatures.set(created, signature);
+        return created;
+      },
+      (created) => this.destroyContainer(created)
+    );
+    return this.containerRouteSignatures.get(container) === signature ? container : null;
+  }
+
   isTableQuerySearchVectorRuntimeEnabled(): boolean {
     return (
       resolveTableQuerySearchVectorRuntimeMode(
@@ -280,12 +314,28 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     dataConnectionString: string,
     dataSchema?: string
   ): Promise<DependencyContainer> {
-    return await this.runtimeCache.getOrCreate(
+    const container = await this.runtimeCache.getOrCreate(
       V2_CONTAINER_CACHE_NAMESPACE,
       cacheKey,
-      () => this.createContainer(dataConnectionString, dataSchema),
-      (container) => this.destroyContainer(container)
+      async () => {
+        const created = await this.createContainer(dataConnectionString, dataSchema);
+        this.containerRouteSignatures.set(
+          created,
+          this.containerRouteSignature(dataConnectionString, dataSchema)
+        );
+        return created;
+      },
+      (created) => this.destroyContainer(created)
     );
+    if (this.containersPendingTableQueryOpsRunners.has(container)) {
+      this.startTableQueryOpsRunners(container);
+      this.containersPendingTableQueryOpsRunners.delete(container);
+    }
+    return container;
+  }
+
+  private containerRouteSignature(dataConnectionString: string, dataSchema?: string): string {
+    return `${dataConnectionString}\u0000${dataSchema ?? ''}`;
   }
 
   private getMetaConnectionString(): string {
@@ -379,7 +429,8 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
 
   private async createContainer(
     dataConnectionString: string,
-    dataSchema?: string
+    dataSchema?: string,
+    options: { previewReadOnly?: boolean } = {}
   ): Promise<DependencyContainer> {
     const metaConnectionString = this.getMetaConnectionString();
     const metaPoolLease = this.pgPoolRegistry.acquire(metaConnectionString);
@@ -402,22 +453,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         new V2QueryCancellationMiddleware(this.cls),
       ];
       const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
-      const tableQueryOpsConfig = this.resolveTableQueryOpsOptions();
-      const tableQueryObservationRuntime = tableQueryOpsConfig
-        ? await this.tableQueryObservationRuntime.get()
-        : undefined;
-      const tableQueryOps = tableQueryOpsConfig
-        ? {
-            ...tableQueryOpsConfig,
-            ensureObservationSchema: false,
-            observationPublisher: this.tableQueryObservationRuntime,
-            observationReader: this.tableQueryObservationRuntime,
-            observationSink: this.tableQueryObservationRuntime,
-            ...(tableQueryObservationRuntime
-              ? { observationDb: tableQueryObservationRuntime.db }
-              : { observationDisabled: true }),
-          }
-        : undefined;
+      const tableQueryOps = await this.resolveContainerTableQueryOpsOptions(options);
       const taskStatementTimeoutMs = resolveNonNegativeInteger(
         this.configService.get('V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS')
       );
@@ -465,6 +501,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         metaConnectionString,
         dataConnectionString,
         dataSchema,
+        ...(options.previewReadOnly ? { ensureSchema: false } : {}),
         metaDbDependencies: { pool: metaPoolLease.pool },
         dataDbDependencies: { pool: dataPoolLease.pool },
         logger,
@@ -522,7 +559,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       setSafeFetch(importFetch);
       registerV2ImportServices(container, { fetch: importFetch });
       if (tableQueryOps) {
-        this.startTableQueryOpsRunners(container);
+        this.registerTableQueryOpsRunners(container, options.previewReadOnly);
       }
 
       for (const registrar of this.discoverProjectionRegistrars()) {
@@ -548,6 +585,43 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       await Promise.all(poolLeases.map((lease) => lease.release()));
       throw error;
     }
+  }
+
+  /**
+   * Table query ops options for a new container. Preview initialization stays non-migrating: it
+   * never initializes the observation runtime and disables schema work.
+   */
+  private async resolveContainerTableQueryOpsOptions(options: {
+    previewReadOnly?: boolean;
+  }): Promise<IV2NodePgContainerOptions['tableQueryOps']> {
+    const config = this.resolveTableQueryOpsOptions();
+    if (!config) return undefined;
+    const observationRuntime = options.previewReadOnly
+      ? undefined
+      : await this.tableQueryObservationRuntime.get();
+    return {
+      ...config,
+      ensureSchema: options.previewReadOnly ? false : config.ensureSchema,
+      ensureObservationSchema: false,
+      observationPublisher: this.tableQueryObservationRuntime,
+      observationReader: this.tableQueryObservationRuntime,
+      observationSink: this.tableQueryObservationRuntime,
+      ...(observationRuntime
+        ? { observationDb: observationRuntime.db }
+        : { observationDisabled: true }),
+    };
+  }
+
+  /** Preview containers park their runners until a normal request promotes the container. */
+  private registerTableQueryOpsRunners(
+    container: DependencyContainer,
+    previewReadOnly: boolean | undefined
+  ): void {
+    if (previewReadOnly) {
+      this.containersPendingTableQueryOpsRunners.add(container);
+      return;
+    }
+    this.startTableQueryOpsRunners(container);
   }
 
   private resolveTableQueryOpsOptions(): IV2NodePgContainerOptions['tableQueryOps'] | undefined {

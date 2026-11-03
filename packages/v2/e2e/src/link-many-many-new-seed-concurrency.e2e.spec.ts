@@ -705,6 +705,8 @@ describe('manyMany captured NEW seeds (postgres e2e, T8242)', () => {
         FROM ${sql.table(fixture.junctionTableName)}
         WHERE ${sql.id(fixture.sourceKeyColumn)} IN (${sourceA.id}, ${sourceB.id})
       `.execute(ctx.testContainer.db);
+      // Junction membership is the contract; SQL returns rows in database
+      // collation order, which need not match JS localeCompare.
       expect(junction.rows).toHaveLength(2);
       expect(junction.rows).toEqual(
         expect.arrayContaining([

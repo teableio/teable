@@ -2,10 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import {
+  type FieldConversionPreparationService,
   FieldCrossTableUpdateSideEffectService,
   FieldUndoRedoSnapshotService,
   FieldUpdateSideEffectService,
-  ForeignTableLoaderService,
   LinkFieldUpdateSideEffectService,
   TableByIdSpec,
   UpdateFieldCommand,
@@ -46,8 +46,6 @@ export class UpdateFieldAnalyzer implements ICommandAnalyzer<UpdateFieldCommand>
     private readonly tableRepository: ITableRepository,
     @inject(v2CoreTokens.tableMapper)
     private readonly tableMapper: ITableMapper,
-    @inject(v2CoreTokens.foreignTableLoaderService)
-    private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
@@ -85,6 +83,7 @@ export class UpdateFieldAnalyzer implements ICommandAnalyzer<UpdateFieldCommand>
       const dryRun = createFieldExplainDryRunEnvironment({
         db: this.db,
         tableRepository: this.tableRepository,
+        tableMapper: this.tableMapper,
         computedUpdatePlanner: this.computedUpdatePlanner,
         typeValidationStrategy: this.typeValidationStrategy,
       });
@@ -98,11 +97,11 @@ export class UpdateFieldAnalyzer implements ICommandAnalyzer<UpdateFieldCommand>
       );
 
       const handler = new UpdateFieldHandler(
-        dryRun.overlayTableRepository,
-        this.tableMapper,
+        dryRun.container.resolve<FieldConversionPreparationService>(
+          v2CoreTokens.fieldConversionPreparationService
+        ),
         tableUpdateFlow,
         fieldUpdateSideEffectService,
-        this.foreignTableLoaderService,
         createNoopFieldOperationPluginRunner(),
         createNoopUndoRedoService() as never,
         this.fieldUndoRedoSnapshotService

@@ -23,6 +23,7 @@ import {
   explainPaste,
 } from './explain';
 import { mockGenerate } from './mock';
+import { preview } from './preview';
 import { recordsList, recordsGet, recordsCreate, recordsUpdate, recordsDelete } from './records';
 import { relations } from './relations';
 import { reproComputed } from './repro';
@@ -181,6 +182,7 @@ export const root = Command.make('teable-devtools').pipe(
     dataDb,
     explain,
     mock,
+    preview,
     records,
     relations,
     schema,
@@ -193,4 +195,4 @@ export const root = Command.make('teable-devtools').pipe(
   ])
 );
 
-export { complexity, dataDbMigrationStatus, dottea, relations };
+export { complexity, dataDbMigrationStatus, dottea, preview, relations };

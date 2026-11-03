@@ -17,6 +17,7 @@ import { TableDuplicateService } from '../table-duplicate.service';
 import { TableIndexService } from '../table-index.service';
 import { TableMoveService } from '../table-move.service';
 import { TableModule } from '../table.module';
+import { TableDuplicatePreviewRegistrar } from './table-duplicate-preview-registrar.service';
 import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidator';
 import { TableOpenApiV2Service } from './table-open-api-v2.service';
 import { TableController } from './table-open-api.controller';
@@ -44,6 +45,7 @@ import { V2TableMutationCacheInvalidatorService } from './v2-table-mutation-cach
   providers: [
     DbProvider,
     TableOpenApiService,
+    TableDuplicatePreviewRegistrar,
     TableOpenApiV2Service,
     TableIndexService,
     TableDuplicateService,
