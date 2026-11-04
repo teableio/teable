@@ -28,6 +28,90 @@ import { createOllama } from 'ollama-ai-provider-v2';
 import { CustomHttpException } from '../../custom.exception';
 import { TASK_MODEL_MAP } from './constant';
 
+const MINIMAX_IMAGE_MODELS = new Set(['image-01', 'image-01-live']);
+
+const toBase64 = (bytes: ArrayBuffer): string => Buffer.from(bytes).toString('base64');
+
+/**
+ * MiniMax image generation is close to OpenAI's image API but uses a distinct
+ * path, request fields, and `data.image_urls` response. Keep the regular
+ * OpenAI provider for language models and adapt only image calls here.
+ */
+export const createMiniMaxImageFetch = (baseFetch: typeof fetch): typeof fetch => async (input, init) => {
+  const requestUrl =
+    typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (!requestUrl.endsWith('/images/generations') || !init?.body) {
+    return baseFetch(input, init);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(String(init.body)) as Record<string, unknown>;
+  } catch {
+    return baseFetch(input, init);
+  }
+  const model = typeof body.model === 'string' ? body.model : '';
+  if (!MINIMAX_IMAGE_MODELS.has(model)) {
+    return baseFetch(input, init);
+  }
+
+  const targetBody: Record<string, unknown> = {
+    model,
+    prompt: body.prompt,
+    n: body.n,
+    response_format: body.response_format === 'b64_json' ? 'base64' : body.response_format,
+  };
+  if (typeof body.size === 'string') {
+    const [width, height] = body.size.split('x').map(Number);
+    if (Number.isFinite(width) && Number.isFinite(height)) {
+      targetBody.width = width;
+      targetBody.height = height;
+    }
+  }
+  for (const field of ['subject_reference', 'aspect_ratio', 'seed', 'prompt_optimizer']) {
+    if (body[field] !== undefined) targetBody[field] = body[field];
+  }
+
+  const response = await baseFetch(
+    requestUrl.replace(/\/images\/generations$/, '/image_generation'),
+    { ...init, body: JSON.stringify(targetBody) },
+  );
+  if (!response.ok) return response;
+
+  const payload = (await response.json()) as {
+    data?: { image_urls?: unknown };
+    base_resp?: { status_code?: number };
+  };
+  if (payload.base_resp?.status_code && payload.base_resp.status_code !== 0) {
+    return new Response(JSON.stringify(payload), {
+      status: 400,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+  const values = Array.isArray(payload.data?.image_urls) ? payload.data.image_urls : [];
+  const images = await Promise.all(
+    values
+      .filter((value): value is string => typeof value === 'string')
+      .map(async (value) => {
+        if (/^https?:\/\//i.test(value)) {
+          const imageResponse = await baseFetch(value, { signal: init.signal });
+          if (!imageResponse.ok) {
+            throw new Error(`MiniMax image download failed: ${imageResponse.status}`);
+          }
+          return { b64_json: toBase64(await imageResponse.arrayBuffer()) };
+        }
+        return { b64_json: value.replace(/^data:[^;]+;base64,/, '') };
+      })
+  );
+  return new Response(JSON.stringify({ data: images }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+};
+
+const createMiniMaxProvider = (options: Parameters<typeof createOpenAI>[0]) =>
+  createOpenAI({ ...options, fetch: createMiniMaxImageFetch(options.fetch ?? fetch) });
+
 // Same switch `@teable/v2-utils` honours (it is not exported from its index).
 const isSsrfProtectionDisabled = () => process.env.TEABLE_SSRF_PROTECTION_DISABLED === 'true';
 
@@ -272,6 +356,7 @@ export const modelProviders = {
   [LLMProviderType.COHERE]: withProviderFetch(createCohere),
   [LLMProviderType.MISTRAL]: withProviderFetch(createMistral),
   [LLMProviderType.DEEPSEEK]: withProviderFetch(createDeepSeek),
+  [LLMProviderType.MINIMAX]: withProviderFetch(createMiniMaxProvider),
   [LLMProviderType.QWEN]: withProviderFetch(createOpenAICompatible),
   [LLMProviderType.ZHIPU]: withProviderFetch(createOpenAICompatible),
   [LLMProviderType.LINGYIWANWU]: withProviderFetch(createOpenAICompatible),
