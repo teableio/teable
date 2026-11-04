@@ -2,7 +2,7 @@
 import { cn } from '@teable/ui-lib';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from '../../context/app/i18n';
-import { useDragFile } from './useDragFile';
+import { consumeFilePaste, useDragFile } from './useDragFile';
 
 type IAction = 'paste' | 'drop' | 'click';
 const defaultZone = ['drop', 'click'] as IAction[];
@@ -35,8 +35,8 @@ export const FileZone = (props: {
       onDrop: (files: File[]) => {
         if (actions.includes('drop')) onChange?.(files);
       },
-      onPaste: (files: File[]) => {
-        if (actions.includes('paste')) onChange?.(files);
+      onPaste: (files: File[], event: Event) => {
+        if (actions.includes('paste')) consumeFilePaste(event, files, onChange);
       },
     },
   });
