@@ -11,6 +11,7 @@ export const DownloadAllAttachmentsDialog = () => {
     tableId,
     fieldId,
     fieldName,
+    fieldIds,
     viewId,
     shareId,
     personalViewCommonQuery,
@@ -31,6 +32,7 @@ export const DownloadAllAttachmentsDialog = () => {
           tableId={tableId}
           fieldId={fieldId}
           fieldName={fieldName}
+          fieldIds={fieldIds}
           viewId={viewId}
           shareId={shareId}
           personalViewCommonQuery={personalViewCommonQuery}
