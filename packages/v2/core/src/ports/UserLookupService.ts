@@ -8,6 +8,10 @@ export interface UserLookupRecord {
   email: string | null;
   avatarUrl?: string | null;
 }
+export interface UserIdentityPair {
+  id: string;
+  email: string;
+}
 
 export interface IUserLookupService {
   /**
@@ -20,12 +24,16 @@ export interface IUserLookupService {
     identifiers: ReadonlyArray<string>
   ): Promise<Result<ReadonlyArray<UserLookupRecord>, DomainError>>;
 
+  /** Resolve only exact id/email pairs belonging to the same active user. */
+  listUsersByIdentityPairs(
+    pairs: ReadonlyArray<UserIdentityPair>
+  ): Promise<Result<ReadonlyArray<UserLookupRecord>, DomainError>>;
+
   /**
-   * Primary-key lookup by user id, without collaborator scoping. Used to
-   * validate structured user values on write and to enrich ids already stored
-   * in cells for display — never for resolving free-form input into user
-   * values. Deleted users are excluded by default; display enrichment passes
-   * `includeDeleted` so historical cells keep their owner names.
+   * Primary-key lookup by user id, without collaborator scoping. Used only for
+   * server-trusted existing values and display enrichment, never caller-controlled
+   * input. Deleted users are excluded by default; display enrichment passes
+   * `includeDeleted` so historical cells retain their owner names.
    */
   listUsersByIds(
     ids: ReadonlyArray<string>,

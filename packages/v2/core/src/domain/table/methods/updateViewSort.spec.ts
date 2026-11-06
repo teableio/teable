@@ -69,6 +69,44 @@ describe('Table.updateViewSort', () => {
     expect(cleared.nextSort).toBeNull();
   });
 
+  it('uses the next manual mode for group conflicts and still validates field support', () => {
+    const table = buildTable();
+    const viewId = table.views()[0]!.id();
+    const textFieldId = table.getFields()[0]!.id().toString();
+    const numberFieldId = table.getFields()[1]!.id().toString();
+    const group = [{ fieldId: textFieldId, order: 'asc' as const }];
+    const sortObjs = [
+      { fieldId: textFieldId, order: 'desc' as const, collation: 'zh-pinyin' as const },
+    ];
+    const grouped = table.updateViewGroup(viewId, group)._unsafeUnwrap().updateResult!.table;
+
+    const entered = grouped.updateViewSort(viewId, { sortObjs, manualSort: true })._unsafeUnwrap();
+    expect(entered.nextQueryDefaults.group()).toEqual(group);
+    expect(entered.nextQueryDefaults.manualSort()).toBe(true);
+
+    const manual = entered.updateResult!.table;
+    expect(
+      manual.updateViewSort(viewId, { sortObjs, manualSort: false })._unsafeUnwrapErr().code
+    ).toBe('sort.collation_group_conflict');
+    expect(manual.updateViewSort(viewId, { sortObjs })._unsafeUnwrapErr().code).toBe(
+      'sort.collation_group_conflict'
+    );
+    expect(
+      grouped
+        .updateViewSort(viewId, {
+          sortObjs: [
+            {
+              fieldId: numberFieldId,
+              order: 'asc',
+              collation: 'zh-pinyin',
+            },
+          ],
+          manualSort: true,
+        })
+        ._unsafeUnwrapErr().code
+    ).toBe('sort.unsupported_collation');
+  });
+
   it('preserves duplicate sort items accepted by the public contract', () => {
     const table = buildTable();
     const fieldId = table.getFields()[0]!.id().toString();

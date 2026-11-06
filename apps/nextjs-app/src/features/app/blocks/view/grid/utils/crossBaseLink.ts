@@ -35,3 +35,16 @@ export const downgradeCrossBaseHeaders = (
   });
   return { headers: next, downgradedIndices };
 };
+
+export const downgradeCrossBaseRawContent = (
+  rawContent: unknown[][],
+  displayContent: string[][],
+  downgradedIndices: ReadonlySet<number>
+): unknown[][] => {
+  if (downgradedIndices.size === 0) return rawContent;
+  return rawContent.map((row, rowIndex) =>
+    row.map((cell, columnIndex) =>
+      downgradedIndices.has(columnIndex) ? (displayContent[rowIndex]?.[columnIndex] ?? '') : cell
+    )
+  );
+};

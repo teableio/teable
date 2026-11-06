@@ -314,7 +314,10 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
       });
       const expression =
         column.kind === 'field' ? expressions[0]! : `COALESCE(${expressions.join(', ')})`;
-      return `${expression} ${column.direction === 'desc' ? 'DESC' : 'ASC'}`;
+      const direction = column.direction === 'desc' ? 'DESC' : 'ASC';
+      const nulls =
+        column.kind === 'field' && column.nulls ? ` NULLS ${column.nulls.toUpperCase()}` : '';
+      return `${expression} ${direction}${nulls}`;
     });
     return `CREATE INDEX IF NOT EXISTS "${indexName}" ON "${schema}"."${table}" USING btree (${columns.join(', ')})`;
   }

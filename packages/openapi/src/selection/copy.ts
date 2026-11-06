@@ -13,6 +13,9 @@ export const COPY_BY_ID_URL = '/table/{tableId}/selection/copy-by-id';
 export const copyVoSchema = z.object({
   content: z.string(),
   header: fieldVoSchema.array(),
+  // Optional rich clipboard data from the same authorized source cells.
+  // Existing consumers keep using content; this is transport, not proof of trust.
+  rawContent: z.array(z.array(z.unknown())).optional(),
 });
 
 export type ICopyVo = z.infer<typeof copyVoSchema>;

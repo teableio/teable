@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   FieldDeletePreviewPlanner,
+  createFieldDeletePreviewRegistration,
   type IFieldDeletePreviewAuthorization,
 } from './FieldDeletePreviewPlanner';
 import type { PreviewOptions } from './types';
@@ -47,6 +48,7 @@ const preparation = (overrides: Partial<FieldDeletionPreparation> = {}): FieldDe
     sideEffects: { sideEffects: [] },
     cleanup: [],
     tablesBeforeDeletionById: new Map(),
+    projectedTablesById: new Map(),
     ...overrides,
   }) as FieldDeletionPreparation;
 
@@ -65,6 +67,27 @@ const plannerWith = (
 };
 
 describe('FieldDeletePreviewPlanner', () => {
+  it('accepts existing single deletes and exact ordered deduplicated batches exclusively', () => {
+    const { planner } = plannerWith(ok(preparation()));
+    const registration = createFieldDeletePreviewRegistration(planner);
+    const identity = { baseId: command.baseId.toString(), tableId: command.tableId.toString() };
+    const first = `fld${'d'.repeat(16)}`;
+    const second = command.fieldId.toString();
+    const single = registration.parseInput({ ...identity, fieldId: second })._unsafeUnwrap();
+    expect('fieldId' in single && single.fieldId.toString()).toBe(second);
+    const batch = registration
+      .parseInput({ ...identity, fieldIds: [first, second, first] })
+      ._unsafeUnwrap();
+    expect('fieldIds' in batch && batch.fieldIds.map((fieldId) => fieldId.toString())).toEqual([
+      first,
+      second,
+    ]);
+    expect(registration.parseInput({ ...identity, fieldIds: [] }).isErr()).toBe(true);
+    expect(
+      registration.parseInput({ ...identity, fieldId: second, fieldIds: [first] }).isErr()
+    ).toBe(true);
+  });
+
   it('normalizes direct, dependent, view, and symmetric effects without executable plans', async () => {
     const authorization: IFieldDeletePreviewAuthorization = {
       canReadResource: vi.fn(async () => ok(true)),

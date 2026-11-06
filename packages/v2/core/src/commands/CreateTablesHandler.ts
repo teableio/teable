@@ -9,6 +9,12 @@ import {
   prepareFieldOperationSideEffectPlugins,
 } from '../application/services/FieldOperationSideEffectPluginSupport';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import {
+  type IRecordChangedValueDecoratorService,
+  NullRecordChangedValueDecoratorService,
+} from '../application/services/RecordChangedValueDecoratorService';
+import { aggregateRecordCreatedEvents } from '../application/services/recordEventFieldValues';
+import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
@@ -25,6 +31,7 @@ import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTa
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
+import type { IBatchMutationOrchestration } from '../ports/BatchMutationOrchestration';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
@@ -40,6 +47,7 @@ import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { buildTable, type CreateTableRecordSeed } from './CreateTableCommand';
 import { CreateTablesCommand } from './CreateTablesCommand';
+import { buildOperationBatchMutation } from './shared/batchMutationOrchestration';
 
 const sequence = <T>(
   values: ReadonlyArray<Result<T, DomainError>>
@@ -254,10 +262,17 @@ export class CreateTablesResult {
   }
 }
 
+type InitialRecordMutation = {
+  mutationResult: TableRecordRepositoryPort.BatchRecordMutationResult;
+  decoratedChangedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>;
+  orchestration: IBatchMutationOrchestration;
+};
+
 type TransactionResult = {
   persistedTables: ReadonlyArray<Table>;
   tableState: ReadonlyMap<string, Table>;
   sideEffectEvents: ReadonlyArray<IDomainEvent>;
+  recordMutationsByTableId: ReadonlyMap<string, InitialRecordMutation>;
 };
 
 @CommandHandler(CreateTablesCommand)
@@ -279,6 +294,8 @@ export class CreateTablesHandler implements ICommandHandler<
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordMutationSpecResolverService)
+    private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordWritePluginRunner)
     private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
       [],
@@ -295,7 +312,9 @@ export class CreateTablesHandler implements ICommandHandler<
       [],
       new NoopLogger(),
       new DefaultTableMapper()
-    )
+    ),
+    @inject(v2CoreTokens.recordChangedValueDecoratorService)
+    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService = new NullRecordChangedValueDecoratorService()
   ) {}
 
   @TraceSpan()
@@ -461,6 +480,7 @@ export class CreateTablesHandler implements ICommandHandler<
             }
 
             const sortedTablesWithRecords = sortTablesByRecordDependencies(tablesWithRecords);
+            const recordMutationsByTableId = new Map<string, InitialRecordMutation>();
 
             for (const { table: persistedTable, recordsFieldValues } of sortedTablesWithRecords) {
               const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
@@ -479,21 +499,40 @@ export class CreateTablesHandler implements ICommandHandler<
               const recordSpan = dataTransactionContext.tracer?.startSpan(
                 'teable.CreateTablesHandler.createRecords'
               );
-              const { records } = yield* persistedTable.createRecords(recordsFieldValues);
+              const { records: createdRecords, mutateSpecs } =
+                yield* persistedTable.createRecords(recordsFieldValues);
+              const { records } =
+                yield* await handler.recordMutationSpecResolver.resolveCreatedRecords(
+                  dataTransactionContext,
+                  persistedTable.id(),
+                  { records: createdRecords, mutateSpecs }
+                );
               recordSpan?.end();
               yield* await pluginExecution.beforePersist(dataTransactionContext);
-              yield* await handler.tableRecordRepository.insertMany(
+              const orchestration = buildOperationBatchMutation(context.requestId, records.length);
+              const mutationResult = yield* await handler.tableRecordRepository.insertMany(
                 dataTransactionContext,
                 persistedTable,
                 records,
-                { allowPendingTableProvisionForComputedUpdates: true }
+                { orchestration, allowPendingTableProvisionForComputedUpdates: true }
               );
+              const decoratedChangedFieldsByRecord =
+                yield* await handler.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
+                  persistedTable,
+                  mutationResult.changedFieldsByRecord
+                );
+              recordMutationsByTableId.set(persistedTable.id().toString(), {
+                mutationResult,
+                decoratedChangedFieldsByRecord,
+                orchestration,
+              });
             }
 
             return ok({
               persistedTables: creationResult.persistedTables,
               tableState: creationResult.tableState,
               sideEffectEvents: creationResult.sideEffectEvents,
+              recordMutationsByTableId,
             });
           }),
         { scope: 'data' }
@@ -526,11 +565,14 @@ export class CreateTablesHandler implements ICommandHandler<
       );
 
       // Build and publish events
-      const hostEvents = builtTables.flatMap((table) => table.pullDomainEvents());
-      const recordEvents = [...dataResult.value.tableState.values()].flatMap((table) =>
-        table.pullDomainEvents()
+      const events = [...builtTables, ...dataResult.value.tableState.values()].flatMap((table) =>
+        aggregateRecordCreatedEvents({
+          events: table.pullDomainEvents(),
+          ...dataResult.value.recordMutationsByTableId.get(table.id().toString()),
+          preserveEventOrder: true,
+        })
       );
-      const events = [...hostEvents, ...recordEvents, ...dataResult.value.sideEffectEvents];
+      events.push(...dataResult.value.sideEffectEvents);
       yield* await handler.eventBus.publishMany(context, events);
       for (const execution of sideEffectPluginExecutions) {
         await execution.afterCommit();

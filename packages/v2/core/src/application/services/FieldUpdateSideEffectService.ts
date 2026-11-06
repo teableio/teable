@@ -11,8 +11,11 @@ import type { FieldId } from '../../domain/table/fields/FieldId';
 import {
   buildFieldFilterSyncPlan,
   hasFieldFilterSyncPlanChanges,
+  hasFieldReferenceInFilterById,
   hasFieldReferenceInRecordFilter,
+  isEquivalentFilter,
   isEquivalentRecordFilter,
+  syncFilterByFieldChangesWithId,
   syncRecordFilterByFieldChanges,
 } from '../../domain/table/fields/filter-sync';
 import {
@@ -39,13 +42,18 @@ import { TableUpdateResult } from '../../domain/table/TableMutator';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import type { ViewId } from '../../domain/table/views/ViewId';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
+import { ViewSourceFilter } from '../../domain/table/views/ViewSourceFilter';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
 import type { RecordFilter } from '../../queries/RecordFilterDto';
+import { buildUnsupportedViewSortCollationCleanup } from './buildUnsupportedViewSortCollationCleanup';
 import { FieldCrossTableUpdateSideEffectService } from './FieldCrossTableUpdateSideEffectService';
-import { LinkFieldUpdateSideEffectService } from './LinkFieldUpdateSideEffectService';
+import {
+  LinkFieldUpdateSideEffectService,
+  type LinkFieldViewQuerySnapshotChange,
+} from './LinkFieldUpdateSideEffectService';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 export type FieldUpdateSideEffectInput = {
@@ -68,6 +76,8 @@ export type FieldUpdateSideEffectResult = {
   updatedTable: Table;
   /** Events generated during side effect processing */
   events: ReadonlyArray<IDomainEvent>;
+  /** Cross-table view-query changes produced by reciprocal field updates. */
+  viewQueryChanges: ReadonlyArray<LinkFieldViewQuerySnapshotChange>;
 };
 
 @injectable()
@@ -148,11 +158,13 @@ export class FieldUpdateSideEffectService {
       const { table, updatedField, updateSpecs, foreignTables } = input;
 
       if (updateSpecs.length === 0) {
-        return ok({ specs: [], updatedTable: table, events: [] });
+        return ok({ specs: [], updatedTable: table, events: [], viewQueryChanges: [] });
       }
 
       const events: IDomainEvent[] = [];
-      const currentForeignTables = yield* await service.resolveForeignTablesForExecution(
+      const viewQueryChanges: LinkFieldViewQuerySnapshotChange[] = [];
+      let currentTable = table;
+      let currentForeignTables = yield* await service.resolveForeignTablesForExecution(
         context,
         table,
         foreignTables,
@@ -173,6 +185,11 @@ export class FieldUpdateSideEffectService {
           }
         );
         events.push(...linkSideEffectResult.events);
+        viewQueryChanges.push(...linkSideEffectResult.viewQueryChanges);
+        // Self-links can update views on this same aggregate. Continue from the
+        // persisted state, including its current view defaults and versions.
+        currentTable = linkSideEffectResult.tableState.get(table.id().toString()) ?? currentTable;
+        currentForeignTables = [...linkSideEffectResult.tableState.values()];
       }
 
       // Side effect #1a: non-link → link conversion (create symmetric field on foreign table)
@@ -216,18 +233,17 @@ export class FieldUpdateSideEffectService {
       }
 
       // Side effect #2: in-table dependency cascade (formula/lookup/rollup)
-      const dependentsResult = service.getDependentsInOrder(table, updatedField);
+      const dependentsResult = service.getDependentsInOrder(currentTable, updatedField);
       if (dependentsResult.isErr()) return err(dependentsResult.error);
       const dependents = dependentsResult.value;
 
       const updateContext: FieldUpdateContext = {
-        table,
+        table: currentTable,
         foreignTables: currentForeignTables,
       };
 
       // Process each dependent - cascade specs accumulate
       const allSpecs: ISpecification<Table, ITableSpecVisitor>[] = [];
-      let currentTable = table;
       const changedFields = new Map<string, Field>([[updatedField.id().toString(), updatedField]]);
 
       for (const dependent of dependents) {
@@ -288,12 +304,25 @@ export class FieldUpdateSideEffectService {
         const updateResult = yield* await service.tableUpdateFlow.execute(
           context,
           { table: currentTable },
-          (table) => ok(TableUpdateResult.create(table, viewQueryCleanupSpec)),
+          (table) => table.update((mutator) => mutator.applySpecs([viewQueryCleanupSpec])),
           { publishEvents: false }
         );
         currentTable = updateResult.table;
         events.push(...updateResult.events);
         allSpecs.push(...flattenAndSpecs(viewQueryCleanupSpec));
+      }
+
+      const sortCleanupSpec = yield* buildUnsupportedViewSortCollationCleanup(currentTable);
+      if (sortCleanupSpec) {
+        const updateResult = yield* await service.tableUpdateFlow.execute(
+          context,
+          { table: currentTable },
+          (table) => table.update((mutator) => mutator.applySpecs([sortCleanupSpec])),
+          { publishEvents: false }
+        );
+        currentTable = updateResult.table;
+        events.push(...updateResult.events);
+        allSpecs.push(sortCleanupSpec);
       }
 
       const viewColumnMetaCleanupSpecResult = service.buildViewColumnMetaCleanupSpecs(
@@ -329,6 +358,7 @@ export class FieldUpdateSideEffectService {
         specs: allSpecs,
         updatedTable: currentTable,
         events,
+        viewQueryChanges,
       });
     });
   }
@@ -534,31 +564,53 @@ export class FieldUpdateSideEffectService {
       if (queryDefaultsResult.isErr()) return err(queryDefaultsResult.error);
       const currentQueryDefaults = queryDefaultsResult.value;
       const currentFilter = currentQueryDefaults.filter();
-      if (currentFilter == null) continue;
-      let nextFilter: RecordFilter = currentFilter;
+      const currentSourceFilter = currentQueryDefaults.sourceFilter();
+      let nextFilter = currentFilter;
+      let nextSourceFilter: unknown = currentSourceFilter;
       let changed = false;
 
       for (const { fieldId, plan } of filterSyncTargets) {
-        if (nextFilter == null) break;
-        if (!hasFieldReferenceInRecordFilter(nextFilter, fieldId)) continue;
+        if (nextFilter != null && hasFieldReferenceInRecordFilter(nextFilter, fieldId)) {
+          const syncedFilter = syncRecordFilterByFieldChanges(nextFilter, fieldId, plan);
+          if (!isEquivalentRecordFilter(nextFilter, syncedFilter)) {
+            nextFilter = syncedFilter;
+            changed = true;
+          }
+        }
 
-        const syncedFilter = syncRecordFilterByFieldChanges(nextFilter, fieldId, plan);
-        if (isEquivalentRecordFilter(nextFilter, syncedFilter)) continue;
-
-        nextFilter = syncedFilter;
-        changed = true;
+        if (
+          nextSourceFilter !== undefined &&
+          hasFieldReferenceInFilterById(nextSourceFilter, fieldId)
+        ) {
+          const syncedSourceFilter = syncFilterByFieldChangesWithId(
+            nextSourceFilter,
+            fieldId,
+            plan
+          );
+          if (!isEquivalentFilter(nextSourceFilter, syncedSourceFilter)) {
+            nextSourceFilter = syncedSourceFilter;
+            changed = true;
+          }
+        }
       }
 
       if (!changed) continue;
 
-      const nextQueryDefaultsResult = ViewQueryDefaults.rehydrate({
-        ...currentQueryDefaults.toDto(),
-        filter: nextFilter,
-      });
+      const sourceFilterResult =
+        nextSourceFilter === undefined ? ok(undefined) : ViewSourceFilter.create(nextSourceFilter);
+      if (sourceFilterResult.isErr()) return err(sourceFilterResult.error);
+      const nextQueryDefaultsResult = ViewQueryDefaults.rehydrate(
+        {
+          ...currentQueryDefaults.toDto(),
+          filter: nextFilter,
+        },
+        { sourceFilter: sourceFilterResult.value?.toDto() }
+      );
       if (nextQueryDefaultsResult.isErr()) return err(nextQueryDefaultsResult.error);
 
       updates.push({
         viewId: view.id(),
+        previousQueryDefaults: currentQueryDefaults,
         queryDefaults: nextQueryDefaultsResult.value,
       });
     }

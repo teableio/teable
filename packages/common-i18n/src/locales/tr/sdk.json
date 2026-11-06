@@ -332,9 +332,14 @@
     "autoSort": "Kayıtları otomatik sırala",
     "selectASCLabel": "ilk → son",
     "selectDESCLabel": "son → ilk",
+    "pinyinASCLabel": "Pinyin: artan",
+    "pinyinDESCLabel": "Pinyin: azalan",
+    "pinyinGroupConflict": "Gruplanmış bir alan için Pinyin sıralaması kullanılamaz. Bu alanın gruplamasını kaldırın veya varsayılan sıralamayı kullanın.",
+    "pinyinGroupRecovered": "Kişisel görünümde gruplamayla çakışan Pinyin sıralaması varsayılan sıralamaya sıfırlandı. Gruplarınız ve sıralama yönleriniz korundu. Pinyin sıralamasını yeniden etkinleştirmek için bu alanın gruplamasını kaldırın.",
     "orderTitle": "Sıralama düzenini seçin"
   },
   "group": {
+    "pinyinSortConflict": "Bu alan Pinyin sıralaması kullanıyor. Gruplamadan önce sıralamayı varsayılan düzene değiştirin veya başka bir alan seçin.",
     "label": "Grupla",
     "displayLabel_one": "{{count}} alana göre grupla",
     "displayLabel_other": "{{count}} alana göre grupla",
@@ -1199,6 +1204,7 @@
       "configRequiredToRun": "Kaydedilmiş bir yapılandırma olmadan rutin çalıştırılamaz",
       "runAlreadyInFlight": "Bu rutinin bir çalıştırması zaten devam ediyor",
       "runNowWhileActiveEvent": "Bu rutin etkin ve olaylarını zaten alıyor; çalıştığını görmek için bir olay tetikleyin",
+      "runNowOwnerOnly": "Rutin etkinken yalnızca adına çalıştığı kişi onu hemen çalıştırabilir",
       "invalidRunCursor": "Geçersiz çalıştırma listesi imleci",
       "invalidSchedule": "Geçersiz rutin zamanlaması: {{reason}}"
     },
@@ -1699,6 +1705,7 @@
         "loginDisabled": "Bu uygulama için oturum açma etkin değil",
         "googleDisabled": "Bu uygulama için Google ile oturum açma etkin değil",
         "teableDisabled": "Bu uygulama için Teable ile oturum açma etkin değil",
+        "oidcDisabled": "Bu uygulama için SSO ile oturum açma etkin değil",
         "userTableMissing": "Seçilen kullanıcı tablosu bu projede yok",
         "emailFieldMissing": "Seçilen kullanıcı tablosunda e-posta alanı yok",
         "emailFieldType": "E-posta alanı yazılabilir bir tek satırlık metin alanı olmalıdır",

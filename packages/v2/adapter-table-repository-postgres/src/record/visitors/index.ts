@@ -26,6 +26,7 @@ export {
 } from './TableRecordConditionWhereVisitor';
 export {
   CellValueMutateVisitor,
+  type MutationPlan,
   type MutationStatements,
   type CellValueMutateContext,
 } from './CellValueMutateVisitor';

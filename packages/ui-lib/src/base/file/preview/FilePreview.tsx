@@ -1,16 +1,21 @@
-import { useContext, useMemo } from 'react';
-import { cn } from '../../../shadcn';
+import { lazy, Suspense, useContext, useMemo } from 'react';
+import { cn, Skeleton } from '../../../shadcn';
+import { Spin } from '../../spin/Spin';
 import { AudioPreview } from './audio/AudioPreview';
 import { FilePreviewContext } from './FilePreviewContext';
 import { getFileIcon } from './getFileIcon';
 import { HtmlPreview } from './html/HtmlPreview';
 import { ImagePreview } from './image/ImagePreview';
-import { ExcelPreview } from './office/ExcelPreview';
 import { WordPreview } from './office/WordPreview';
 import { PDFPreview } from './pdf/PDFPreview';
 import { TextPreview } from './text/TextPreview';
 import { isAudio, isImage, isVideo, isPdf, isWord, isExcel, isTextLike, isHtml } from './utils';
 import { VideoPreview } from './video/VideoPreview';
+
+// Its spreadsheet grid is heavy; load it when an Excel file is opened.
+const ExcelPreview = lazy(() =>
+  import('./office/ExcelPreview').then((mod) => ({ default: mod.ExcelPreview }))
+);
 
 interface IFilePreviewProps {
   className?: string;
@@ -38,7 +43,20 @@ export const FilePreview = (props: IFilePreviewProps) => {
     case isPdf(mimetype):
       return <PDFPreview {...currentFile} />;
     case isExcel(mimetype):
-      return <ExcelPreview {...currentFile} />;
+      return (
+        <Suspense
+          fallback={
+            <div className="relative size-full">
+              <Skeleton className="size-full" />
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                <Spin />
+              </div>
+            </div>
+          }
+        >
+          <ExcelPreview {...currentFile} />
+        </Suspense>
+      );
     case isWord(mimetype):
       return <WordPreview {...currentFile} />;
     case isHtml(mimetype):

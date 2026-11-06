@@ -1,5 +1,4 @@
 import { InjectQueue, WorkerHost } from '@nestjs/bullmq';
-import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { UploadType } from '@teable/openapi';
 import type { Job } from 'bullmq';
@@ -41,9 +40,8 @@ export interface IExportBaseCleanupResult {
  */
 @Injectable()
 @Processor(EXPORT_BASE_CLEANUP_QUEUE, queueOptions)
-export class ExportBaseCleanupProcessor extends WorkerHost implements OnModuleDestroy {
+export class ExportBaseCleanupProcessor extends WorkerHost {
   private readonly logger = new Logger(ExportBaseCleanupProcessor.name);
-  private timer?: NodeJS.Timeout;
 
   constructor(
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
@@ -54,17 +52,6 @@ export class ExportBaseCleanupProcessor extends WorkerHost implements OnModuleDe
   }
 
   async onModuleInit(): Promise<void> {
-    // the redis-less fallback queue has no job schedulers; such a deployment is a single
-    // process, so it sweeps on its own timer
-    if (typeof this.queue.upsertJobScheduler !== 'function') {
-      this.timer = setInterval(() => {
-        this.cleanupExpired().catch((error) =>
-          this.logger.error('Export base cleanup failed', error)
-        );
-      }, CLEANUP_INTERVAL_MS);
-      this.timer.unref();
-      return;
-    }
     try {
       await this.queue.upsertJobScheduler(
         CLEANUP_JOB_ID,
@@ -75,10 +62,6 @@ export class ExportBaseCleanupProcessor extends WorkerHost implements OnModuleDe
     } catch (error) {
       this.logger.error('Failed to register export base cleanup job', error);
     }
-  }
-
-  onModuleDestroy() {
-    clearInterval(this.timer);
   }
 
   async process(_job: Job): Promise<IExportBaseCleanupResult> {

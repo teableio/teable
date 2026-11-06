@@ -130,6 +130,7 @@ export type OperationPreview = {
     readonly unknown: ReadonlyArray<string>;
   };
   readonly complexity: ComplexityAssessment | null;
+  readonly hostChecks?: Readonly<Record<string, unknown>>;
   readonly authorization: 'checked' | 'not-applicable';
   readonly observedAt: string;
   readonly consistency: 'best-effort' | 'snapshot';
@@ -158,7 +159,14 @@ export type PreviewComplexityProjection = {
 /** Planner result before canonical service-owned metadata is attached. */
 export type OperationPreviewPlan = Pick<
   OperationPreview,
-  'effects' | 'blockers' | 'warnings' | 'coverage' | 'complexity' | 'authorization' | 'consistency'
+  | 'effects'
+  | 'blockers'
+  | 'warnings'
+  | 'coverage'
+  | 'complexity'
+  | 'authorization'
+  | 'consistency'
+  | 'hostChecks'
 > & {
   readonly complexityProjection?: PreviewComplexityProjection;
 };

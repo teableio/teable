@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MessageSquareDot, Zap, Box, Loader2 } from '@teable/icons';
+import { Loader2 } from '@teable/icons';
 import { aiConfigVoSchema } from '@teable/openapi';
 import type {
   IAIConfigVo,
@@ -24,7 +24,7 @@ import { DefaultModelsStep, type IChatModel } from './DefaultModelsStep';
 import { GatewayModelsStep } from './GatewayModelsStep';
 import { LLMApiConfigStep } from './LLMApiConfigStep';
 import type { IModelTestResult } from './LlmproviderManage';
-import { SetupStepCard } from './SetupStepCard';
+import { SetupStepCard, SetupStepper } from './SetupStepCard';
 import {
   generateModelKeyList,
   generateGatewayModelKeyList,
@@ -69,6 +69,9 @@ interface IAIConfigFormWizardProps {
   chatModelExtension?: (params: { models: IModelOption[] }) => ReactNode;
   /** Rendered in the LLM API step's action row (e.g. an enterprise model catalog tool). */
   llmApiExtension?: ReactNode;
+  /** Shown step (0-2). Lets the page jump to a step; the wizard still moves on its own. */
+  step?: number;
+  onStepChange?: (step: number) => void;
 }
 
 export function AIConfigFormWizard({
@@ -77,6 +80,8 @@ export function AIConfigFormWizard({
   onSaveAiConfig,
   chatModelExtension,
   llmApiExtension,
+  step,
+  onStepChange,
 }: IAIConfigFormWizardProps) {
   const defaultValues = useMemo(
     () =>
@@ -148,10 +153,6 @@ export function AIConfigFormWizard({
     form.reset(clearedConfig);
   }, [form]);
 
-  // Current step state
-  // Default collapsed on page load, user can expand steps manually.
-  const [currentStep, setCurrentStep] = useState(-1);
-
   // Compute step completion status
   const { hasGatewayKey, isStep1Complete, isStep2Complete } = useAISetupSteps({
     aiConfig,
@@ -159,15 +160,41 @@ export function AIConfigFormWizard({
     llmProviders: aiConfig?.llmProviders ?? [],
     llmApiMode,
   });
+  const isStep3Complete = Boolean(aiConfig?.chatModel?.lg);
 
-  // Models available for Step 3 Chat Model selection
-  // Strictly comes from Step 2's "model pool"
+  // Shown step: opens on the first unfinished one.
+  const [innerStep, setInnerStep] = useState(() =>
+    !isStep1Complete ? 0 : !isStep2Complete ? 1 : !isStep3Complete ? 2 : 0
+  );
+  const currentStep = step ?? innerStep;
+  // Each step's form folds. A step first shows folded if it is finished and open if not;
+  // after that it keeps what it shows until the page reloads.
+  const [openSteps, setOpenSteps] = useState<Record<number, boolean>>({});
+  const isStepOpen =
+    openSteps[currentStep] ?? ![isStep1Complete, isStep2Complete, isStep3Complete][currentStep];
+  const toggleStep = () => setOpenSteps((prev) => ({ ...prev, [currentStep]: !isStepOpen }));
+  const setCurrentStep = useCallback(
+    (next: number) => {
+      setInnerStep(next);
+      onStepChange?.(next);
+    },
+    [onStepChange]
+  );
+  useEffect(() => {
+    const done = [isStep1Complete, isStep2Complete, isStep3Complete][currentStep];
+    setOpenSteps((prev) => (currentStep in prev ? prev : { ...prev, [currentStep]: !done }));
+  }, [currentStep, isStep1Complete, isStep2Complete, isStep3Complete]);
+
+  // Step 3 options: enabled gateway models plus custom provider models. Both sources stay usable;
+  // the step-1 tile only picks which one to edit.
   const availableModels = useMemo(() => {
-    if (llmApiMode === 'gateway') {
-      return gatewayModelsList;
-    }
-    return providerModels;
-  }, [llmApiMode, gatewayModelsList, providerModels]);
+    const seen = new Set<string>();
+    return [...gatewayModelsList, ...providerModels].filter((model) => {
+      if (seen.has(model.modelKey)) return false;
+      seen.add(model.modelKey);
+      return true;
+    });
+  }, [gatewayModelsList, providerModels]);
 
   useEffect(() => {
     reset(defaultValues);
@@ -398,117 +425,135 @@ export function AIConfigFormWizard({
     <Form {...form}>
       <form onSubmit={(e) => e.preventDefault()}>
         <AISetupWizard>
-          <div className="space-y-4">
+          <SetupStepper
+            current={currentStep}
+            onSelect={setCurrentStep}
+            steps={[
+              { title: t('admin.setting.ai.wizard.step.llmApi'), isComplete: isStep1Complete },
+              {
+                title: t('admin.setting.ai.wizard.step.modelPool'),
+                isComplete: isStep2Complete,
+                disabled: !isStep1Complete,
+              },
+              {
+                title: t('admin.setting.ai.wizard.step.chatModel'),
+                isComplete: isStep3Complete,
+                disabled: !isStep2Complete,
+              },
+            ]}
+          />
+          <div className="mt-3">
             {/* Step 1: Configure LLM API (Gateway OR Custom Provider) */}
-            <SetupStepCard
-              icon={<Zap className="size-4" />}
-              title={t('admin.setting.ai.wizard.step.llmApi')}
-              description={t('admin.setting.ai.wizard.step.llmApiDesc')}
-              isComplete={isStep1Complete}
-              isExpanded={currentStep === 0}
-              onToggle={() => setCurrentStep(currentStep === 0 ? -1 : 0)}
-            >
-              <LLMApiConfigStep
-                mode={llmApiMode}
-                onModeChange={setLlmApiMode}
-                aiConfig={draftAiConfig}
-                onAiConfigChange={updateAiConfig}
-                onResetGateway={handleResetGateway}
-                llmProviders={llmProviders}
-                onProvidersChange={updateProviders}
-                control={form.control}
-                modelTestResults={modelTestResults}
-                onModelTestResultsChange={setModelTestResults}
-                testingProviders={testingProviders}
-                onTestingProvidersChange={setTestingProviders}
-                testingModels={testingModels}
-                onTestingModelsChange={setTestingModels}
-                onSaveTestResult={onSaveTestResult}
-                onToggleImageModel={onToggleImageModel}
-                testProviderCallbackRef={testProviderCallbackRef}
-                testModelCallbackRef={testModelCallbackRef}
-                onSave={saveLlmApi}
-                isSaving={savingSection === 'llmApi'}
-                isDirty={isLlmApiDirty}
-                hasClearedProviders={hasClearedProviders}
-                onComplete={() => setCurrentStep(1)}
-                footerExtension={llmApiExtension}
-              />
-            </SetupStepCard>
+            {currentStep === 0 && (
+              <SetupStepCard
+                title={t('admin.setting.ai.wizard.step.llmApi')}
+                description={t('admin.setting.ai.wizard.step.llmApiDesc')}
+                isComplete={isStep1Complete}
+                isExpanded={isStepOpen}
+                onToggle={toggleStep}
+              >
+                <LLMApiConfigStep
+                  mode={llmApiMode}
+                  onModeChange={setLlmApiMode}
+                  aiConfig={draftAiConfig}
+                  onAiConfigChange={updateAiConfig}
+                  onResetGateway={handleResetGateway}
+                  llmProviders={llmProviders}
+                  onProvidersChange={updateProviders}
+                  control={form.control}
+                  modelTestResults={modelTestResults}
+                  onModelTestResultsChange={setModelTestResults}
+                  testingProviders={testingProviders}
+                  onTestingProvidersChange={setTestingProviders}
+                  testingModels={testingModels}
+                  onTestingModelsChange={setTestingModels}
+                  onSaveTestResult={onSaveTestResult}
+                  onToggleImageModel={onToggleImageModel}
+                  testProviderCallbackRef={testProviderCallbackRef}
+                  testModelCallbackRef={testModelCallbackRef}
+                  onSave={saveLlmApi}
+                  isSaving={savingSection === 'llmApi'}
+                  isDirty={isLlmApiDirty}
+                  hasClearedProviders={hasClearedProviders}
+                  onComplete={() => setCurrentStep(1)}
+                  footerExtension={llmApiExtension}
+                />
+              </SetupStepCard>
+            )}
 
             {/* Step 2: Configure Model Pool */}
-            <SetupStepCard
-              icon={<Box className="size-4" />}
-              title={t('admin.setting.ai.wizard.step.modelPool')}
-              description={t('admin.setting.ai.wizard.step.modelPoolDesc')}
-              isComplete={isStep2Complete}
-              isExpanded={currentStep === 1}
-              onToggle={() => setCurrentStep(currentStep === 1 ? -1 : 1)}
-              disabled={!isStep1Complete}
-            >
-              {llmApiMode === 'gateway' ? (
-                <>
-                  <GatewayModelsStep
-                    gatewayModels={gatewayModels}
-                    onChange={updateGatewayModels}
-                    disabled={!hasGatewayKey}
-                    apiKey={form.getValues().aiGatewayApiKey ?? undefined}
-                  />
-                  {isModelPoolDirty && (
-                    <StepSaveBar
-                      isSaving={savingSection === 'modelPool'}
-                      label={t('actions.save')}
-                      onSave={async () => {
-                        await saveModelPool();
-                        setCurrentStep(2);
-                      }}
+            {currentStep === 1 && (
+              <SetupStepCard
+                title={t('admin.setting.ai.wizard.step.modelPool')}
+                description={t('admin.setting.ai.wizard.step.modelPoolDesc')}
+                isComplete={isStep2Complete}
+                isExpanded={isStepOpen}
+                onToggle={toggleStep}
+              >
+                {llmApiMode === 'gateway' ? (
+                  <>
+                    <GatewayModelsStep
+                      gatewayModels={gatewayModels}
+                      onChange={updateGatewayModels}
+                      disabled={!hasGatewayKey}
+                      apiKey={form.getValues().aiGatewayApiKey ?? undefined}
                     />
-                  )}
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-500/10 dark:text-green-400">
-                    <p>{t('admin.setting.ai.wizard.customModelsAutoImported')}</p>
-                    <p className="mt-1 font-medium">
-                      {t('admin.setting.ai.wizard.modelsCount', {
-                        count: providerModels.length,
-                      })}
+                    {isModelPoolDirty && (
+                      <StepSaveBar
+                        isSaving={savingSection === 'modelPool'}
+                        label={t('actions.save')}
+                        onSave={async () => {
+                          await saveModelPool();
+                          setCurrentStep(2);
+                        }}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                      <p>{t('admin.setting.ai.wizard.customModelsAutoImported')}</p>
+                      <p className="mt-1 font-medium">
+                        {t('admin.setting.ai.wizard.modelsCount', {
+                          count: providerModels.length,
+                        })}
+                      </p>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {t('admin.setting.ai.wizard.customModelsHint')}
                     </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {t('admin.setting.ai.wizard.customModelsHint')}
-                  </p>
-                </div>
-              )}
-            </SetupStepCard>
+                )}
+              </SetupStepCard>
+            )}
 
             {/* Step 3: Set Chat Model */}
-            <SetupStepCard
-              icon={<MessageSquareDot className="size-4" />}
-              title={t('admin.setting.ai.wizard.step.chatModel')}
-              description={t('admin.setting.ai.wizard.step.chatModelDesc')}
-              isComplete={Boolean(aiConfig?.chatModel?.lg)}
-              isExpanded={currentStep === 2}
-              onToggle={() => setCurrentStep(currentStep === 2 ? -1 : 2)}
-              disabled={!isStep2Complete}
-            >
-              <DefaultModelsStep
-                chatModel={chatModel ?? undefined}
-                models={availableModels}
-                tierCreditRatio={chatTierCreditRatio}
-                onChange={updateChatModel}
-                disabled={!isStep2Complete}
-                agentRoutingSlot={chatModelExtension?.({ models: availableModels })}
-              />
-              {isDefaultModelsDirty && (
-                <StepSaveBar
-                  isSaving={savingSection === 'defaultModels'}
-                  disabled={!chatModel?.lg || !isStep2Complete}
-                  label={t('actions.save')}
-                  onSave={saveDefaultModels}
+            {currentStep === 2 && (
+              <SetupStepCard
+                title={t('admin.setting.ai.wizard.step.chatModel')}
+                description={t('admin.setting.ai.wizard.step.chatModelDesc')}
+                isComplete={isStep3Complete}
+                isExpanded={isStepOpen}
+                onToggle={toggleStep}
+              >
+                <DefaultModelsStep
+                  chatModel={chatModel ?? undefined}
+                  models={availableModels}
+                  tierCreditRatio={chatTierCreditRatio}
+                  onChange={updateChatModel}
+                  disabled={!isStep2Complete}
+                  agentRoutingSlot={chatModelExtension?.({ models: availableModels })}
                 />
-              )}
-            </SetupStepCard>
+                {isDefaultModelsDirty && (
+                  <StepSaveBar
+                    isSaving={savingSection === 'defaultModels'}
+                    disabled={!chatModel?.lg || !isStep2Complete}
+                    label={t('actions.save')}
+                    onSave={saveDefaultModels}
+                  />
+                )}
+              </SetupStepCard>
+            )}
           </div>
         </AISetupWizard>
       </form>

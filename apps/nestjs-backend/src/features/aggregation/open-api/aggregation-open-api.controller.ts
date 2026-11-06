@@ -1,5 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Controller, Get, Param, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import type { IFilter } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -211,12 +221,13 @@ export class AggregationOpenApiController {
   }
 
   @InteractiveQueryCancellation()
-  @Get('/search-matches')
+  @Post('/search-matches')
+  @HttpCode(200)
   @Permissions('table|read')
   @UseV2Feature('getSearchIndex', { always: true })
   async getSearchMatches(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(searchMatchesRoSchema), TqlPipe) query: ISearchMatchesRo
+    @Body(new ZodValidationPipe(searchMatchesRoSchema), TqlPipe) query: ISearchMatchesRo
   ): Promise<ISearchMatchesVo> {
     await this.spaceDataDbMigrationGuardService.assertTableRecordSearchReadable(tableId, query);
     return this.aggregationOpenApiV2Service.getSearchMatches(tableId, query);

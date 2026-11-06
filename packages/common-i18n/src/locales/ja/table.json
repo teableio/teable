@@ -1638,7 +1638,6 @@
       "share": "共有",
       "enableShare": "共有を有効にする",
       "copyLink": "リンクをコピー",
-      "rotateLink": "リンクをリセット",
       "scope": "閲覧できる人",
       "scopePublic": "リンクを知っている全員",
       "scopeSpace": "スペースメンバー",
@@ -1729,7 +1728,8 @@
       "running": "生成中…",
       "waitingInput": "あなたの返信を待っています",
       "failed": "返信に失敗しました"
-    }
+    },
+    "routineRunPrompt": "ルーティンが自動送信"
   },
   "upload": {
     "panelUploading": "{{count}} 件のファイルをアップロード中",

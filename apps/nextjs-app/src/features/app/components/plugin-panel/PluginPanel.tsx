@@ -1,5 +1,11 @@
+import dynamic from 'next/dynamic';
 import { usePluginPanelStorage } from './hooks/usePluginPanelStorage';
-import { PluginPanelContainer } from './PluginPanelContainer';
+
+// The panel's layout grid loads when the panel is shown.
+const PluginPanelContainer = dynamic(
+  () => import('./PluginPanelContainer').then((mod) => mod.PluginPanelContainer),
+  { ssr: false }
+);
 
 interface IPluginPanelProps {
   tableId: string;

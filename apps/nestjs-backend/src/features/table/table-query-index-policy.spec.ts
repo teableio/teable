@@ -136,6 +136,7 @@ const createWorld = (input?: { policy?: ITableQueryIndexPolicyVo | null; fields?
     const names = new Map<string, string>([
       ['__id', '__id'],
       ['__created_time', '__created_time'],
+      ['__auto_number', '__auto_number'],
     ]);
     for (const field of fields) {
       names.set(field.id, field.dbFieldName);
@@ -426,6 +427,39 @@ describe('query index policy', () => {
         ],
       })
     ).rejects.toThrow('Field is not eligible for a query index: fldLong');
+  });
+
+  it('restores a paging index when its user field conversion fails', async () => {
+    const policy: ITableQueryIndexPolicyVo = {
+      version: 1,
+      indexes: [
+        {
+          id: 'window_start_page',
+          columns: [
+            { kind: 'field', fieldId: 'fldStarted', direction: 'desc', nulls: 'last' },
+            { kind: 'field', fieldId: '__auto_number', direction: 'asc' },
+          ],
+        },
+      ],
+    };
+    const world = createWorld({ policy });
+    const failure = new Error('field conversion failed');
+
+    await expect(
+      world.service.withQueryIndexesForFieldConversion(
+        tableId,
+        'fldStarted',
+        FieldType.LongText,
+        async () => {
+          expect(world.indexNames()).toEqual([]);
+          expect(world.meta.queryIndexPolicy).toEqual(policy);
+          throw failure;
+        }
+      )
+    ).rejects.toBe(failure);
+
+    expect(world.indexNames()).toEqual(world.expectedNames(policy));
+    await expect(world.service.getQueryIndexPolicy(tableId)).resolves.toEqual(policy);
   });
 
   it('rejects a coalesce column with a non-date field', async () => {

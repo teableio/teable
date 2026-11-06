@@ -6,12 +6,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
+import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { tableConfig } from '@/features/i18n/table.config';
-import { CommandPalette } from './CommandPalette';
+// The palette and its search (pinyin matching included) load on first open.
+const CommandPalette = dynamic(() => import('./CommandPalette').then((mod) => mod.CommandPalette), {
+  ssr: false,
+});
 
 export interface QuickActionProps {
   onAskAI?: (prompt: string, files?: File[]) => void;
@@ -19,6 +23,9 @@ export interface QuickActionProps {
 
 export const QuickAction = ({ onAskAI }: QuickActionProps) => {
   const [open, setOpen] = useState(false);
+  // Kept mounted once opened, so closing still animates and returns focus.
+  const [opened, setOpened] = useState(false);
+  if (open && !opened) setOpened(true);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const modKeyStr = useModKeyStr();
@@ -57,12 +64,14 @@ export const QuickAction = ({ onAskAI }: QuickActionProps) => {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <CommandPalette
-        open={open}
-        onOpenChange={setOpen}
-        onAskAI={onAskAI}
-        triggerRef={triggerRef}
-      />
+      {opened && (
+        <CommandPalette
+          open={open}
+          onOpenChange={setOpen}
+          onAskAI={onAskAI}
+          triggerRef={triggerRef}
+        />
+      )}
     </>
   );
 };

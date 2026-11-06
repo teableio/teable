@@ -5,9 +5,13 @@ import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
 import type { ViewQueryDefaults } from './ViewQueryDefaults';
 
+export const sortCollationSchema = z.literal('zh-pinyin');
+export type SortCollation = z.infer<typeof sortCollationSchema>;
+
 export const viewSortItemSchema = z.object({
   fieldId: z.string().min(1),
   order: z.enum(['asc', 'desc']),
+  collation: sortCollationSchema.optional(),
 });
 
 export const viewSortSchema = z

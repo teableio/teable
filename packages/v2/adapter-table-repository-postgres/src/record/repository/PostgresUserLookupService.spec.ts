@@ -16,11 +16,16 @@ import { PostgresUserLookupService } from './PostgresUserLookupService';
 const TABLE_ID = 'tblxxxxxxxxxxxxxxxx';
 const BASE_ID = 'bsexxxxxxxxxxxxxxxx';
 const SPACE_ID = 'spcxxxxxxxxxxxxxxxx';
+const PRIVATE_USE_USER_ID = `usr${String.fromCodePoint(0xe000)}`;
+const EMOJI_USER_ID = `usr${String.fromCodePoint(0x1f600)}`;
+
+let beforeExecuteQuery: ((compiledQuery: CompiledQuery) => void | Promise<void>) | undefined;
 
 class PGliteConnection {
   constructor(private readonly client: PGlite) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+    await beforeExecuteQuery?.(compiledQuery);
     const result = await this.client.query<R>(compiledQuery.sql, [...compiledQuery.parameters]);
     return {
       rows: result.rows,
@@ -56,7 +61,7 @@ describe('PostgresUserLookupService (pglite)', () => {
 
     await sql`
       CREATE TABLE users (
-        id text PRIMARY KEY,
+        id text COLLATE "C" PRIMARY KEY,
         name text NOT NULL,
         email text,
         phone text,
@@ -90,20 +95,30 @@ describe('PostgresUserLookupService (pglite)', () => {
     await sql`INSERT INTO table_meta (id, base_id) VALUES (${TABLE_ID}, ${BASE_ID})`.execute(db);
     await sql`
       INSERT INTO users (id, name, email, phone, deleted_time) VALUES
+        ('usrAaron', 'Aaron', 'aaron@example.com', NULL, NULL),
         ('usrAlice', 'Alice', 'alice@example.com', '13800000000', NULL),
         ('usrBob', 'Bob', 'bob@example.com', NULL, NULL),
         ('usrCarol', 'Carol', 'carol@example.com', NULL, NULL),
         ('usrGone', 'Gone', 'gone@example.com', NULL, now()),
         ('usrOutsider', 'Outsider', 'outsider@example.com', NULL, NULL),
         ('usrDeptDan', 'Dan', 'dan@example.com', NULL, NULL),
-        ('usrNestedNed', 'Ned', 'ned@example.com', NULL, NULL)
+        ('usrNestedNed', 'Ned', 'ned@example.com', NULL, NULL),
+        ('usrTwinA', 'Twin', 'twin-a@example.com', NULL, NULL),
+        ('usrTwinB', 'Twin', 'twin-b@example.com', NULL, NULL),
+        (${PRIVATE_USE_USER_ID}, 'CollationTwin', 'collation-private@example.com', NULL, NULL),
+        (${EMOJI_USER_ID}, 'CollationTwin', 'collation-emoji@example.com', NULL, NULL)
     `.execute(db);
     await sql`
       INSERT INTO collaborator (id, resource_type, resource_id, principal_id, principal_type) VALUES
+        ('colAaron', 'base', ${BASE_ID}, 'usrAaron', 'user'),
         ('colAlice', 'base', ${BASE_ID}, 'usrAlice', 'user'),
         ('colBob', 'space', ${SPACE_ID}, 'usrBob', 'user'),
         ('colCarol', 'base', 'bseOtherBase0000000', 'usrCarol', 'user'),
-        ('colGone', 'base', ${BASE_ID}, 'usrGone', 'user')
+        ('colGone', 'base', ${BASE_ID}, 'usrGone', 'user'),
+        ('colTwinA', 'base', ${BASE_ID}, 'usrTwinA', 'user'),
+        ('colTwinB', 'space', ${SPACE_ID}, 'usrTwinB', 'user'),
+        ('colCollationPrivate', 'base', ${BASE_ID}, ${PRIVATE_USE_USER_ID}, 'user'),
+        ('colCollationEmoji', 'base', ${BASE_ID}, ${EMOJI_USER_ID}, 'user')
     `.execute(db);
   });
 
@@ -118,16 +133,15 @@ describe('PostgresUserLookupService (pglite)', () => {
       expect(result._unsafeUnwrap()).toEqual([]);
     });
 
-    it('resolves base and space collaborators by id / email / name', async () => {
+    it('returns users ordered by id regardless of identifier order', async () => {
       const service = new PostgresUserLookupService(db);
       const result = await service.listTableUsersByIdentifiers(TABLE_ID, [
-        'usrAlice',
-        'bob@example.com',
         'Bob',
+        'bob@example.com',
+        'usrAlice',
       ]);
 
-      const rows = [...result._unsafeUnwrap()].sort((a, b) => a.id.localeCompare(b.id));
-      expect(rows).toEqual([
+      expect(result._unsafeUnwrap()).toEqual([
         {
           id: 'usrAlice',
           name: 'Alice',
@@ -141,6 +155,33 @@ describe('PostgresUserLookupService (pglite)', () => {
           avatarUrl: '/api/attachments/read/public/avatar/usrBob',
         },
       ]);
+    });
+
+    it('returns every scoped user sharing the same name', async () => {
+      const service = new PostgresUserLookupService(db);
+      const result = await service.listTableUsersByIdentifiers(TABLE_ID, ['Twin']);
+
+      expect(result._unsafeUnwrap().map((row) => row.id)).toEqual(['usrTwinA', 'usrTwinB']);
+    });
+
+    it('preserves PostgreSQL collation order for same-name users', async () => {
+      const { rows: expectedRows } = await sql<{ id: string }>`
+        select id
+        from users
+        where name = 'CollationTwin'
+        order by id
+      `.execute(db);
+      const expectedIds = expectedRows.map((row) => row.id);
+      const javascriptOrderedIds = [...expectedIds].sort((left, right) =>
+        left < right ? -1 : left > right ? 1 : 0
+      );
+      expect(expectedIds).toHaveLength(2);
+      expect(javascriptOrderedIds).not.toEqual(expectedIds);
+
+      const service = new PostgresUserLookupService(db);
+      const result = await service.listTableUsersByIdentifiers(TABLE_ID, ['CollationTwin']);
+
+      expect(result._unsafeUnwrap().map((row) => row.id)).toEqual(expectedIds);
     });
 
     it('does not resolve collaborators by phone number (v1 matchUser parity)', async () => {
@@ -157,6 +198,91 @@ describe('PostgresUserLookupService (pglite)', () => {
         'usrGone',
       ]);
       expect(result._unsafeUnwrap()).toEqual([]);
+    });
+
+    it('resolves more identifiers than a single PostgreSQL query can bind', async () => {
+      const service = new PostgresUserLookupService(db);
+      // 21,845 distinct identifiers would compile to 65,537 parameters in
+      // the unbatched query: two table ids plus three copies of each value.
+      const identifiers = Array.from({ length: 21_845 }, (_, index) => `missing-${index}`);
+      identifiers[0] = 'Alice';
+      identifiers[1] = 'Twin';
+      identifiers[2] = PRIVATE_USE_USER_ID;
+      identifiers[10_000] = 'usrBob';
+      identifiers[10_001] = 'alice@example.com';
+      identifiers[10_002] = EMOJI_USER_ID;
+      identifiers[21_844] = 'usrAaron';
+
+      const result = await service.listTableUsersByIdentifiers(TABLE_ID, identifiers);
+
+      expect(result._unsafeUnwrap().map((row) => row.id)).toEqual([
+        'usrAaron',
+        'usrAlice',
+        'usrBob',
+        'usrTwinA',
+        'usrTwinB',
+        PRIVATE_USE_USER_ID,
+        EMOJI_USER_ID,
+      ]);
+    });
+
+    it('propagates a failure from a later identifier batch without returning partial rows', async () => {
+      const service = new PostgresUserLookupService(db);
+      // Prime the optional-department capability check so the interceptor below
+      // observes only the bounded lookup batches.
+      (await service.listTableUsersByIdentifiers(TABLE_ID, ['usrAlice']))._unsafeUnwrap();
+
+      let batchCount = 0;
+      beforeExecuteQuery = () => {
+        batchCount += 1;
+        if (batchCount === 2) throw new Error('second batch failed');
+      };
+
+      try {
+        const identifiers = Array.from({ length: 10_001 }, (_, index) => `missing-${index}`);
+        identifiers[0] = 'usrAlice';
+        const result = await service.listTableUsersByIdentifiers(TABLE_ID, identifiers);
+
+        expect(result.isErr()).toBe(true);
+        expect(result._unsafeUnwrapErr()).toMatchObject({
+          tags: ['infrastructure'],
+          message: 'Failed to lookup users',
+          details: { error: 'second batch failed' },
+        });
+      } finally {
+        beforeExecuteQuery = undefined;
+      }
+    });
+
+    it('drops a user whose collaborator grant is revoked before the final read', async () => {
+      const service = new PostgresUserLookupService(db);
+      // Prime the optional-department capability check so the interceptor below
+      // observes only the identifier lookup and the final profile read.
+      (await service.listTableUsersByIdentifiers(TABLE_ID, ['usrAlice']))._unsafeUnwrap();
+
+      let revoked = false;
+      beforeExecuteQuery = async (compiledQuery) => {
+        if (revoked || !compiledQuery.sql.includes('= any(')) return;
+        revoked = true;
+        // The grant disappears after the identifier batch resolved usrAlice but
+        // before the query that reads the profile. The lookup must not return
+        // the now-unscoped account.
+        beforeExecuteQuery = undefined;
+        await sql`DELETE FROM collaborator WHERE id = 'colAlice'`.execute(db);
+      };
+
+      try {
+        const result = await service.listTableUsersByIdentifiers(TABLE_ID, ['Alice']);
+
+        expect(revoked).toBe(true);
+        expect(result._unsafeUnwrap()).toEqual([]);
+      } finally {
+        beforeExecuteQuery = undefined;
+        await sql`
+          INSERT INTO collaborator (id, resource_type, resource_id, principal_id, principal_type)
+          VALUES ('colAlice', 'base', ${BASE_ID}, 'usrAlice', 'user')
+        `.execute(db);
+      }
     });
 
     it('expands department collaborators (including nested departments) when org tables exist', async () => {
@@ -195,6 +321,46 @@ describe('PostgresUserLookupService (pglite)', () => {
       // deptRoot is a base collaborator; Dan is a direct member and Ned is a
       // member of a child department whose path contains deptRoot.
       expect(ids).toEqual(['usrDeptDan', 'usrNestedNed']);
+    });
+  });
+
+  describe('listUsersByIdentityPairs', () => {
+    it('returns only exact active id and email pairs from the same row', async () => {
+      const service = new PostgresUserLookupService(db);
+      const result = await service.listUsersByIdentityPairs([
+        { id: 'usrOutsider', email: 'outsider@example.com' },
+        { id: 'usrAlice', email: 'bob@example.com' },
+        { id: 'usrBob', email: 'BOB@example.com' },
+        { id: 'usrGone', email: 'gone@example.com' },
+        { id: 'usrMissing', email: 'outsider@example.com' },
+      ]);
+      expect(result._unsafeUnwrap()).toMatchObject([
+        { id: 'usrOutsider', email: 'outsider@example.com' },
+      ]);
+    });
+
+    it('batches large pair lists and fails closed on a later query', async () => {
+      const service = new PostgresUserLookupService(db);
+      const pairs = Array.from({ length: 10_001 }, (_, index) => ({
+        id: `missing-${index}`,
+        email: `missing-${index}@example.invalid`,
+      }));
+      pairs[0] = { id: 'usrOutsider', email: 'outsider@example.com' };
+      let calls = 0;
+      beforeExecuteQuery = () => {
+        calls += 1;
+        if (calls === 2) throw new Error('later identity batch failed');
+      };
+      try {
+        const result = await service.listUsersByIdentityPairs(pairs);
+        expect(result._unsafeUnwrapErr()).toMatchObject({
+          message: 'Failed to lookup users',
+          tags: ['infrastructure'],
+        });
+        expect(calls).toBe(2);
+      } finally {
+        beforeExecuteQuery = undefined;
+      }
     });
   });
 

@@ -3,6 +3,7 @@ import type { DynamicModule } from '@nestjs/common';
 import { ConfigurableModuleBuilder, Module } from '@nestjs/common';
 import { EventEmitterModule as BaseEventEmitterModule } from '@nestjs/event-emitter';
 import { AttachmentsTableModule } from '../features/attachments/attachments-table.module';
+import { CollaboratorModule } from '../features/collaborator/collaborator.module';
 import { MailSenderModule } from '../features/mail-sender/mail-sender.module';
 import { NotificationModule } from '../features/notification/notification.module';
 import { RecordModule } from '../features/record/record.module';
@@ -38,6 +39,7 @@ export class EventEmitterModule extends EventEmitterModuleClass {
       imports: [
         module,
         ShareDbModule,
+        CollaboratorModule,
         NotificationModule,
         AttachmentsTableModule,
         RecordModule,

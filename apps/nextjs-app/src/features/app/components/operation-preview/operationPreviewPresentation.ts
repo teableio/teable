@@ -10,6 +10,11 @@ const consequenceMessages = {
   'field.delete.symmetric_link_removed': 'symmetricLinkRemovedDetail',
   'field.delete.dependent_field_changed': 'fieldDependenciesChangedDetail',
   'field.delete.view_changed': 'fieldViewsChangedDetail',
+  'field.conversion.type_change': 'fieldTypeChanged',
+  'field.conversion.metadata_change': 'fieldConfigurationChanged',
+  'field.conversion.record_rewrite': 'fieldValuesRewritten',
+  'field.conversion.noop': 'fieldUnchanged',
+  'field.conversion.link_side_effects': 'fieldLinkChanges',
   'table.delete.inbound_link.converted_to_text': 'linksConvertedDetail',
   'table.delete.dependent_field.marked_error': 'dependentFieldsError',
   'table.delete.dependent_field.updated': 'dependentFieldsUpdatedDetail',
@@ -50,6 +55,7 @@ type CoverageMessage =
   | 'retentionUnknown'
   | 'storageUnknown'
   | 'recordCountUnknown'
+  | 'affectedCellCountUnknown'
   | 'uncertaintyDetail';
 
 export interface CopySummary {
@@ -70,6 +76,8 @@ export interface ConsequenceSummary {
   tables: string[];
   fields?: PreviewMeasure;
   views?: PreviewMeasure;
+  cells?: PreviewMeasure;
+  linkChanges?: PreviewMeasure;
   hidden: boolean;
   preserved: boolean;
 }
@@ -200,8 +208,10 @@ const describeConsequence = (effect: PreviewEffect): ConsequenceSummary => {
     message: consequenceMessages[effect.code as keyof typeof consequenceMessages],
     names,
     tables,
-    fields: !hidden ? effect.measures.fields : undefined,
+    fields: !hidden ? (effect.measures.fields ?? effect.measures.changedFields) : undefined,
     views: !hidden ? effect.measures.views : undefined,
+    cells: !hidden ? effect.measures.affectedCells : undefined,
+    linkChanges: !hidden ? effect.measures.changedDependencies : undefined,
     hidden,
     preserved: effect.code === 'base.duplicate.link.same_space_preserved',
   };
@@ -210,7 +220,7 @@ const describeConsequence = (effect: PreviewEffect): ConsequenceSummary => {
 const mergeConsequence = (existing: ConsequenceSummary, next: ConsequenceSummary) => {
   existing.names = [...new Set([...existing.names, ...next.names])];
   existing.hidden ||= next.hidden;
-  for (const label of ['fields', 'views'] as const) {
+  for (const label of ['fields', 'views', 'cells', 'linkChanges'] as const) {
     const current = existing[label];
     const incoming = next[label];
     existing[label] = existing.hidden
@@ -218,7 +228,11 @@ const mergeConsequence = (existing: ConsequenceSummary, next: ConsequenceSummary
       : current?.basis === 'exact' && incoming?.basis === 'exact'
         ? { ...current, value: current.value + incoming.value }
         : current || incoming
-          ? { basis: 'unknown', unit: label, reason: 'aggregate-count-unavailable' }
+          ? {
+              basis: 'unknown',
+              unit: current?.unit ?? incoming?.unit ?? label,
+              reason: 'aggregate-count-unavailable',
+            }
           : undefined;
   }
 };
@@ -277,6 +291,8 @@ const coverageMessages: Record<string, CoverageMessage> = {
   'host.trash-retention': 'retentionUnknown',
   'host.usage-effects': 'storageUnknown',
   'field-operation execution plugins': 'executionCoverageUnknown',
+  fieldOperationPolicies: 'executionCoverageUnknown',
+  affectedCellCount: 'affectedCellCountUnknown',
   'host external hooks': 'executionCoverageUnknown',
   'host authorization and external hooks': 'executionCoverageUnknown',
   'table-operation-policy': 'executionCoverageUnknown',

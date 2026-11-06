@@ -65,16 +65,11 @@ export class ShareDbService extends ShareDBClass {
       maxSubmitRetries: 3,
     });
 
-    const { provider, redis } = this.cacheConfig;
-    if (provider === 'redis') {
-      if (!redis.uri) {
-        throw new Error('Redis URI is required for Redis cache provider.');
-      }
-      const redisPubsub = new RedisPubSub({ redisURI: redis.uri });
-
-      this.logger.log(`> Detected Redis cache; enabled the Redis pub/sub adapter for ShareDB.`);
-      this.pubsub = redisPubsub;
+    const { redis } = this.cacheConfig;
+    if (!redis.uri) {
+      throw new Error('Redis URI is required for the ShareDB pub/sub adapter.');
     }
+    this.pubsub = new RedisPubSub({ redisURI: redis.uri });
 
     registerQueryCancellation(this);
     authMiddleware(this, {

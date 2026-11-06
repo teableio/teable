@@ -410,11 +410,11 @@
     "title": "كيف تريد أن تبدأ؟"
   },
   "importBaseDialog": {
-    "title": "استيراد مشروع",
-    "fromFile": "الاستيراد من ملف",
-    "fromFileDesc": "ارفع ملف مشروع ‎.tea",
-    "fromAirtableDesc": "اربط حسابك في Airtable",
-    "fromGoogleSheetDesc": "اختر جدول بيانات من Google Drive الخاص بك"
+    "title": "استيراد كمشروع",
+    "fromFile": "ملف {{brand}}",
+    "fromFileDesc": "ارفع ملف ‎.tea",
+    "fromAirtableDesc": "اختر قاعدة",
+    "fromGoogleSheetDesc": "اختر جدول بيانات"
   },
   "googleSheetImport": {
     "title": "الاستيراد من Google Sheets",

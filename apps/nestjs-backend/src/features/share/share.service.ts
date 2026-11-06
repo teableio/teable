@@ -539,12 +539,17 @@ export class ShareService {
           )
         : shareViewCopyRo.projection;
 
-    return this.selectionService.copy(shareInfo.tableId, {
-      viewId: shareInfo.view?.id,
-      ...shareViewCopyRo,
-      projection,
-      search: scopeSearchToVisibleFields(shareViewCopyRo.search, visibleFieldIds),
-    });
+    return this.selectionService.copy(
+      shareInfo.tableId,
+      {
+        viewId: shareInfo.view?.id,
+        ...shareViewCopyRo,
+        projection,
+        search: scopeSearchToVisibleFields(shareViewCopyRo.search, visibleFieldIds),
+      },
+      true,
+      true
+    );
   }
 
   async copyV2(shareInfo: IShareViewInfo, shareViewCopyRo: IShareViewCopyQuery) {

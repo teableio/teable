@@ -48,6 +48,8 @@ export class ApplyFieldSnapshotHandler implements ICommandHandler<
         baseId: command.baseId.toString(),
         tableId: command.tableId.toString(),
         snapshot: command.snapshot,
+        ...(command.expectedSnapshot ? { expectedSnapshot: command.expectedSnapshot } : {}),
+        ...(command.relatedViewQueries ? { relatedViewQueries: command.relatedViewQueries } : {}),
       });
 
       return ok(ApplyFieldSnapshotResult.create(table));

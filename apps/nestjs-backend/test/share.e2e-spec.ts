@@ -1491,37 +1491,101 @@ describe('OpenAPI ShareController (e2e)', () => {
       }
     });
 
-    it('counts visible matching cells and scans complete View row pages', async () => {
+    it('counts visible matching cells and returns matching rows with View indexes', async () => {
       const count = await getShareViewSearchCellCount(searchShareId, {
         search: ['Alpha', '', false],
       });
       expect(count.data).toEqual({ matchedCellCount: 2 });
 
-      const firstPage = await getShareViewSearchMatches(searchShareId, {
+      const page = await getShareViewSearchMatches(searchShareId, {
         take: 2,
         search: ['Alpha', '', false],
       });
-      expect(firstPage.data).toEqual({
-        matches: [expect.objectContaining({ index: 1, fieldId: nameFieldId })],
+      expect(page.data).toEqual({
+        matches: [
+          expect.objectContaining({ index: 1, fieldId: nameFieldId }),
+          expect.objectContaining({ index: 3, fieldId: notesFieldId }),
+        ],
         scannedRecordCount: 2,
-        nextSkip: 2,
-        hasMore: true,
+        nextSkip: null,
+        hasMore: false,
       });
+      expect(page.data.matches.map((match) => match.recordId)).not.toContain(hiddenRecordId);
+    });
 
-      const secondPage = await getShareViewSearchMatches(searchShareId, {
-        skip: firstPage.data.nextSkip!,
+    it('continues shared matching-row pages while retaining original View positions', async () => {
+      const first = await getShareViewSearchMatches(searchShareId, {
         take: 1,
         search: ['Alpha', '', false],
       });
-      expect(secondPage.data).toEqual({
+      expect(first.data).toEqual({
+        matches: [expect.objectContaining({ index: 1, fieldId: nameFieldId })],
+        scannedRecordCount: 1,
+        nextSkip: 1,
+        hasMore: true,
+      });
+
+      const second = await getShareViewSearchMatches(searchShareId, {
+        take: 1,
+        skip: first.data.nextSkip!,
+        search: ['Alpha', '', false],
+      });
+      expect(second.data).toEqual({
         matches: [expect.objectContaining({ index: 3, fieldId: notesFieldId })],
         scannedRecordCount: 1,
         nextSkip: null,
         hasMore: false,
       });
-      expect(
-        [...firstPage.data.matches, ...secondPage.data.matches].map((match) => match.recordId)
-      ).not.toContain(hiddenRecordId);
+    });
+
+    it('cannot escape the shared View through extra POST body scope keys', async () => {
+      const result = await getShareViewSearchMatches(searchShareId, {
+        take: 1000,
+        viewId: `viw${'x'.repeat(16)}`,
+        ignoreViewQuery: true,
+        selectedRecordIds: [hiddenRecordId],
+        projection: [nameFieldId],
+        search: ['Alpha', '', false],
+      } as never);
+
+      expect(result.data).toEqual({
+        matches: [],
+        scannedRecordCount: 0,
+        nextSkip: null,
+        hasMore: false,
+      });
+    });
+
+    it('keeps shared cell counts and navigation aligned past the all-field row-search cap', async () => {
+      const wideTable = await createTable(baseId, {
+        name: 'shared_search_full_cell_scope_t8327',
+        fields: Array.from({ length: 21 }, (_, index) => ({
+          name: `Text${index + 1}`,
+          type: FieldType.SingleLineText,
+        })),
+        records: [{ fields: { Text1: 'ordinary', Text21: 'needle-wide' } }],
+      });
+      try {
+        const { data: share } = await apiEnableShareView({
+          tableId: wideTable.id,
+          viewId: wideTable.defaultViewId!,
+        });
+        const search: [string, string, boolean] = ['needle-wide', '', false];
+        const count = await getShareViewSearchCellCount(share.shareId, { search });
+        expect(count.data).toEqual({ matchedCellCount: 1 });
+
+        const matches = await getShareViewSearchMatches(share.shareId, { search, take: 10 });
+        expect(matches.data).toEqual({
+          matches: [
+            { recordId: wideTable.records[0].id, fieldId: wideTable.fields[20].id, index: 1 },
+          ],
+          scannedRecordCount: 1,
+          nextSkip: null,
+          hasMore: false,
+        });
+      } finally {
+        await permanentDeleteTable(baseId, wideTable.id);
+      }
     });
 
     it('returns empty show-all results when sharing disables records', async () => {

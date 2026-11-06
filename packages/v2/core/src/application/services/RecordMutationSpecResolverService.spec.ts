@@ -66,6 +66,14 @@ class FakeUserLookupService implements IUserLookupService {
     );
   }
 
+  async listUsersByIdentityPairs(pairs: ReadonlyArray<{ id: string; email: string }>) {
+    return ok(
+      this.users.filter((user) =>
+        pairs.some((pair) => pair.id === user.id && pair.email === user.email)
+      )
+    );
+  }
+
   async listUsersByIds(ids: ReadonlyArray<string>) {
     return ok(this.users.filter((user) => ids.includes(user.id)));
   }
@@ -137,6 +145,28 @@ const buildTable = () => {
   builder.field().singleLineText().withName(fieldName).primary().done();
   builder.view().defaultGrid().done();
   return builder.build()._unsafeUnwrap();
+};
+
+const buildUserTable = () => {
+  const builder = Table.builder()
+    .withId(testTableId)
+    .withBaseId(BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap())
+    .withName(TableName.create('User Table')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .primary()
+    .done();
+  const userFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
+  builder
+    .field()
+    .user()
+    .withId(userFieldId)
+    .withName(FieldName.create('Owner')._unsafeUnwrap())
+    .done();
+  builder.view().defaultGrid().done();
+  return { table: builder.build()._unsafeUnwrap(), userFieldId };
 };
 
 describe('RecordMutationSpecResolverService', () => {
@@ -254,6 +284,72 @@ describe('RecordMutationSpecResolverService', () => {
       avatarUrl: '/api/attachments/read/public/avatar/usr-1',
     });
   });
+
+  it('resolves and materializes created records in one batch', async () => {
+    const { table, userFieldId } = buildUserTable();
+    const service = new RecordMutationSpecResolverService(
+      new LinkTitleResolverService(new FakeTableRepository(table), new FakeRecordQueryRepository()),
+      new AttachmentValueResolverService(new FakeAttachmentLookupService([])),
+      new UserValueResolverService(
+        new FakeUserLookupService([{ id: 'usr-1', name: 'Alice', email: 'alice@example.com' }])
+      )
+    );
+    const created = table
+      .createRecords([new Map([[userFieldId.toString(), 'Alice']])], {
+        typecast: true,
+        emitRecordCreatedEvents: false,
+      })
+      ._unsafeUnwrap();
+
+    expect(created.records[0]?.fields().get(userFieldId)).toBeUndefined();
+
+    const result = await service.resolveCreatedRecords(createContext(), table.id(), created);
+    const resolved = result._unsafeUnwrap();
+
+    expect(resolved.mutateSpecs[0]).toBeInstanceOf(SetUserValueSpec);
+    expect(resolved.records[0]?.fields().get(userFieldId)?.toValue()).toMatchObject({
+      id: 'usr-1',
+      title: 'Alice',
+      email: 'alice@example.com',
+    });
+  });
+
+  it('keeps already-materialized records when specs need no replacement', async () => {
+    const table = buildTable();
+    const field = table.getFields()[0]!;
+    const created = table
+      .createRecords([new Map([[field.id().toString(), 'unchanged']])], {
+        emitRecordCreatedEvents: false,
+      })
+      ._unsafeUnwrap();
+    const service = new RecordMutationSpecResolverService(
+      new LinkTitleResolverService(new FakeTableRepository(table), new FakeRecordQueryRepository()),
+      new AttachmentValueResolverService(new FakeAttachmentLookupService([])),
+      new UserValueResolverService(new FakeUserLookupService([]))
+    );
+
+    const result = await service.resolveCreatedRecords(createContext(), table.id(), created);
+    const resolved = result._unsafeUnwrap();
+
+    expect(resolved.records).toBe(created.records);
+    expect(resolved.mutateSpecs).toBe(created.mutateSpecs);
+  });
+
+  it('rejects mismatched created record and mutation spec batches', async () => {
+    const table = buildTable();
+    const service = new RecordMutationSpecResolverService(
+      new LinkTitleResolverService(new FakeTableRepository(table), new FakeRecordQueryRepository()),
+      new AttachmentValueResolverService(new FakeAttachmentLookupService([])),
+      new UserValueResolverService(new FakeUserLookupService([]))
+    );
+
+    const result = await service.resolveCreatedRecords(createContext(), table.id(), {
+      records: [],
+      mutateSpecs: [null],
+    });
+
+    expect(result._unsafeUnwrapErr().code).toBe('unexpected.created_record_specs_length_mismatch');
+  });
   it('resolveAndReplaceMany batches resolution for multiple specs', async () => {
     const userFieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
     const userFieldId3 = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
@@ -276,6 +372,9 @@ describe('RecordMutationSpecResolverService', () => {
           { id: 'usr-3', name: 'Charlie', email: 'charlie@example.com' },
         ];
         return ok(users.filter((u) => identifiers.includes(u.id)));
+      },
+      async listUsersByIdentityPairs() {
+        return ok([]);
       },
       async listUsersByIds() {
         return ok([]);

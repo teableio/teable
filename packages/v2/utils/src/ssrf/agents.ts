@@ -49,24 +49,32 @@ const cloudMetadataError = (address: string, host?: string) =>
     `DNS lookup ${address}(host:${host ?? address}) is not allowed. Because, It is a cloud metadata address.`
   );
 
-/** `dns.lookup` that rejects a hostname resolving to a cloud-metadata address. */
-export const createCloudMetadataRejectingLookup =
-  (baseLookup: LookupFunction = dns.lookup): LookupFunction =>
-  (hostname, options, callback) => {
+/** `dns.lookup` that rejects a hostname resolving to any address `isRejected` refuses. */
+export const createRejectingLookup = (
+  isRejected: (address: string) => boolean,
+  createError: (address: string, hostname: string) => Error,
+  baseLookup: LookupFunction = dns.lookup
+): LookupFunction => {
+  return (hostname, options, callback) => {
     baseLookup(hostname, options, (err, address, family) => {
       if (err) {
         callback(err, address, family);
         return;
       }
       const resolved = Array.isArray(address) ? address.map((entry) => entry.address) : [address];
-      const blocked = resolved.find(isCloudMetadataAddress);
+      const blocked = resolved.find(isRejected);
       if (blocked) {
-        callback(cloudMetadataError(blocked, hostname), address, family);
+        callback(createError(blocked, hostname), address, family);
         return;
       }
       callback(null, address, family);
     });
   };
+};
+
+/** `dns.lookup` that rejects a hostname resolving to a cloud-metadata address. */
+export const createCloudMetadataRejectingLookup = (baseLookup: LookupFunction = dns.lookup) =>
+  createRejectingLookup(isCloudMetadataAddress, cloudMetadataError, baseLookup);
 
 // Node skips DNS for an IP-literal host, so the literal is checked before connecting.
 // A hostname is left to the lookup: isCloudMetadataAddress fails closed on it.

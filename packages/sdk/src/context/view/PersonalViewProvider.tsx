@@ -13,12 +13,21 @@ import {
   stripSortByReadableFieldIds,
 } from '@teable/core';
 import type { IGetRecordsRo, IAggregationRo } from '@teable/openapi';
-import { useCallback, useMemo } from 'react';
+import { sonner } from '@teable/ui-lib';
+import { isEqual } from 'lodash';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useFields, useTableId, useTableListener, useView } from '../../hooks';
-import { validatePersonalViewProps } from '../../utils/personalView';
+import {
+  validatePersonalViewProps,
+  validatePersonalViewSortCollations,
+} from '../../utils/personalView';
+import { findPinyinSortGroupConflict } from '../../utils/sort';
 import { buildStatisticFieldMap } from '../../utils/statistic';
+import { useTranslation } from '../app/i18n';
 import { PersonalViewContext } from './PersonalViewContext';
 import { useResolvedPersonalViewStore } from './store';
+
+const { toast } = sonner;
 
 interface IPersonalViewProviderProps {
   children: React.ReactNode;
@@ -29,19 +38,26 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
   const tableId = useTableId();
   const visibleFields = useFields();
   const fields = useFields({ withHidden: true, withDenied: true });
+  const { t } = useTranslation();
   const { personalViewMap, setPersonalViewMap } = useResolvedPersonalViewStore();
 
   const viewId = view?.id ?? '';
   const cachedView = personalViewMap?.[viewId];
+  const validatedCachedView = useMemo(() => {
+    if (!cachedView) return cachedView;
+    return fields.length
+      ? validatePersonalViewProps(cachedView as IViewVo, fields)
+      : validatePersonalViewSortCollations(cachedView as IViewVo, fields);
+  }, [cachedView, fields]);
   const isPersonalView = Boolean(cachedView);
   const visibleFieldIds = visibleFields.map(({ id }) => id);
 
   const { personalViewCommonQuery, personalViewAggregationQuery } = useMemo(() => {
-    if (!cachedView) {
+    if (!validatedCachedView) {
       return { personalViewCommonQuery: undefined, personalViewAggregationQuery: undefined };
     }
 
-    const { filter, sort, group, columnMeta } = cachedView || {};
+    const { filter, sort, group, columnMeta } = validatedCachedView;
     // The personal-view query inlines persisted defaults with
     // ignoreViewQuery: true, which makes them indistinguishable from explicit
     // client conditions server-side (where unreadable-field references are
@@ -67,7 +83,9 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
         stripFilterByReadableFieldIds(filter as IFilter, readableFieldIds),
         cellValueTypeMap
       ),
-      orderBy: stripSortByReadableFieldIds(sort as ISort, readableFieldIds)?.sortObjs,
+      orderBy: (sort as ISort)?.manualSort
+        ? undefined
+        : stripSortByReadableFieldIds(sort as ISort, readableFieldIds)?.sortObjs,
       groupBy: readableFieldIds
         ? (group as IGroup)?.filter((item) => readableFieldIds.has(item.fieldId))
         : (group as IGroup),
@@ -86,7 +104,20 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
       personalViewCommonQuery: commonQuery,
       personalViewAggregationQuery: aggregationQuery,
     };
-  }, [cachedView, visibleFieldIds, fields]);
+  }, [validatedCachedView, visibleFieldIds, fields]);
+
+  useEffect(() => {
+    if (!cachedView || isEqual(cachedView, validatedCachedView)) return;
+
+    if (findPinyinSortGroupConflict(cachedView.sort as ISort, cachedView.group as IGroup)) {
+      toast.warning(t('sort.pinyinGroupRecovered'));
+    }
+    setPersonalViewMap(viewId, (prev) =>
+      fields.length
+        ? validatePersonalViewProps(prev as IViewVo, fields)
+        : validatePersonalViewSortCollations(prev as IViewVo, fields)
+    );
+  }, [cachedView, fields, setPersonalViewMap, t, validatedCachedView, viewId]);
 
   const updatePersonalView = useCallback(
     (actionKey: string, payload?: Record<string, unknown>) => {

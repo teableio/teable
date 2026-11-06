@@ -47,7 +47,7 @@ export const AppProvider = (props: IAppProviderProps) => {
   const value = useMemo(
     () => ({
       lang,
-      locale: isObject(locale) ? merge(defaultLocale, locale) : defaultLocale,
+      locale: isObject(locale) ? merge({}, defaultLocale, locale) : defaultLocale,
       template,
       shareId,
       maxSearchFieldCount,

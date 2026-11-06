@@ -1635,7 +1635,6 @@
       "share": "Paylaş",
       "enableShare": "Paylaşımı etkinleştir",
       "copyLink": "Bağlantıyı kopyala",
-      "rotateLink": "Bağlantıyı sıfırla",
       "scope": "Kimler görebilir",
       "scopePublic": "Bağlantıya sahip herkes",
       "scopeSpace": "Alan üyeleri",
@@ -1753,7 +1752,8 @@
       "running": "Oluşturuluyor…",
       "waitingInput": "Yanıtınız bekleniyor",
       "failed": "Yanıt başarısız oldu"
-    }
+    },
+    "routineRunPrompt": "Rutin tarafından gönderildi"
   },
   "upload": {
     "panelUploading": "{{count}} dosya yükleniyor",

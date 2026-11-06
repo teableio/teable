@@ -50,7 +50,7 @@ const referencedFieldId = (item: RawFilterItem): string | null => {
 };
 
 /**
- * Validates a conditional field's filter against the tables that will evaluate
+ * Validates a foreign-table field's filter against the tables that will evaluate
  * it. Rejected here: an operator the target field's value shape cannot
  * evaluate, and a value the condition schema refuses or leaves incomplete
  * (either would later drop the predicate or dead-letter the backfill). Shapes a
@@ -60,10 +60,12 @@ const referencedFieldId = (item: RawFilterItem): string | null => {
  * operator detectable even when another predicate in the same filter is stale.
  */
 export const validateForeignTableCondition = (
-  condition: FieldCondition,
+  condition: FieldCondition | undefined,
   context: ForeignTableValidationContext,
   foreignTable: Table
 ): Result<void, DomainError> => {
+  if (!condition) return ok(undefined);
+
   const foreignFieldIds = new Set(foreignTable.getFields().map((field) => field.id().toString()));
   const hostFieldIds = new Set(context.hostTable.getFields().map((field) => field.id().toString()));
 

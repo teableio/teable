@@ -11,6 +11,12 @@ export const queryIndexFieldColumnSchema = z.object({
   kind: z.literal('field'),
   fieldId: z.string(),
   direction: queryIndexDirectionSchema,
+  /**
+   * Omit to preserve PostgreSQL's btree defaults. Ordinary v2 nullable sorts
+   * use ASC NULLS FIRST / DESC NULLS LAST; state the same placement when the
+   * index must provide that ordering without a separate sort.
+   */
+  nulls: z.enum(['first', 'last']).optional(),
 });
 
 export const queryIndexCoalesceColumnSchema = z.object({

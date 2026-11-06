@@ -1,7 +1,7 @@
 import { v2CoreTokens, type IExecutionContext } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { ok } from 'neverthrow';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { TableQueryDecisionPolicy } from './decisionPolicy';
 import { TableQueryRemediationTask } from './domain';
@@ -11,6 +11,7 @@ import {
   runSearchAccessPathRecommendSweepOnce,
   startTableQueryOpsTaskWorkerIfEnabled,
   startTableQueryOpsAnalyzerIfEnabled,
+  startTableQueryOpsManualSearchTaskWorker,
 } from './runners';
 import { v2TableOpsTokens } from './tokens';
 
@@ -233,6 +234,7 @@ describe('table-scoped task routing', () => {
       now: NOW,
     })._unsafeUnwrap();
     let stored = queued;
+    const claimNextAccepted = vi.fn().mockResolvedValue(ok(queued));
     const values = new Map<symbol, unknown>([
       [
         v2TableOpsTokens.taskWorkerConfig,
@@ -247,7 +249,7 @@ describe('table-scoped task routing', () => {
       [
         v2TableOpsTokens.taskRepository,
         {
-          claimNextAccepted: async () => ok(queued),
+          claimNextAccepted,
           save: async (_context: IExecutionContext, task: TableQueryRemediationTask) => {
             stored = task;
             return ok(undefined);
@@ -258,7 +260,7 @@ describe('table-scoped task routing', () => {
     const container = {
       isRegistered: () => false,
       resolve: (token: symbol) => values.get(token),
-    } as DependencyContainer;
+    } as unknown as DependencyContainer;
     const handle = startTableQueryOpsTaskWorkerIfEnabled(
       container,
       {} as IExecutionContext,
@@ -274,8 +276,138 @@ describe('table-scoped task routing', () => {
           lastError: expect.stringContaining('Target database is unavailable'),
         })
       );
+      expect(claimNextAccepted).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ scope: 'all', workerId: 'routing-test' })
+      );
     } finally {
       handle?.stop();
+    }
+  });
+});
+
+describe('startTableQueryOpsManualSearchTaskWorker', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const createManualRunnerContainer = (claimNextAccepted: Mock) => {
+    const values = new Map<symbol, unknown>([
+      [
+        v2TableOpsTokens.taskWorkerConfig,
+        {
+          enabled: false,
+          intervalMs: 60_000,
+          workerId: 'task-worker',
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+          allowedKinds: ['manual_investigation'],
+        },
+      ],
+      [v2TableOpsTokens.clock, { now: () => NOW }],
+      [v2TableOpsTokens.taskRepository, { claimNextAccepted }],
+    ]);
+    const resolve = vi.fn((token: symbol) => {
+      if (!values.has(token)) throw new Error(`Unexpected token: ${String(token)}`);
+      return values.get(token);
+    });
+    return {
+      container: { isRegistered: () => false, resolve } as unknown as DependencyContainer,
+      resolve,
+    };
+  };
+
+  it('claims only manual search jobs immediately even when the general worker is disabled', async () => {
+    vi.useFakeTimers();
+    const claimNextAccepted = vi.fn().mockResolvedValue(ok(null));
+    const { container, resolve } = createManualRunnerContainer(claimNextAccepted);
+    const context = {} as IExecutionContext;
+    const handle = startTableQueryOpsManualSearchTaskWorker(container, context);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(claimNextAccepted).toHaveBeenCalledExactlyOnceWith(context, {
+        scope: 'manual_search',
+        workerId: 'task-worker:manual-search',
+        now: NOW,
+        allowManualIndexExecution: true,
+        allowPolicyIndexExecution: false,
+        allowedKinds: [
+          'create_search_access_path',
+          'rebuild_search_access_path',
+          'drop_search_access_path',
+        ],
+      });
+      expect(resolve).not.toHaveBeenCalledWith(v2TableOpsTokens.observationReader);
+      expect(resolve).not.toHaveBeenCalledWith(v2TableOpsTokens.searchAccessPathReclaimSource);
+    } finally {
+      handle.stop();
+    }
+  });
+
+  it('routes a recovered queued job to its table container and context', async () => {
+    vi.useFakeTimers();
+    const task = TableQueryRemediationTask.createQueued({
+      tableId: 'tblManualTarget',
+      baseId: 'bseManualTarget',
+      kind: 'rebuild_search_access_path',
+      payload: { trigger: 'admin_search_access_path', executionMode: 'manual' },
+      now: NOW,
+    })._unsafeUnwrap();
+    const claimNextAccepted = vi.fn().mockResolvedValue(ok(task));
+    const { container } = createManualRunnerContainer(claimNextAccepted);
+    const targetContext = {} as IExecutionContext;
+    const execute = vi.fn().mockResolvedValue(ok(undefined));
+    const targetContainer = {
+      resolve: vi.fn(() => ({ execute })),
+    } as unknown as DependencyContainer;
+    const resolveExecution = vi.fn().mockResolvedValue({
+      container: targetContainer,
+      context: targetContext,
+    });
+    const handle = startTableQueryOpsManualSearchTaskWorker(
+      container,
+      {} as IExecutionContext,
+      resolveExecution
+    );
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      expect(resolveExecution).toHaveBeenCalledExactlyOnceWith('tblManualTarget');
+      expect(targetContainer.resolve).toHaveBeenCalledWith(v2CoreTokens.commandBus);
+      expect(execute).toHaveBeenCalledExactlyOnceWith(
+        targetContext,
+        expect.objectContaining({
+          taskId: task.snapshot().id,
+          allowManualIndexExecution: true,
+          workerId: 'task-worker:manual-search',
+        })
+      );
+    } finally {
+      handle.stop();
+    }
+  });
+
+  it('polls within one second without overlapping claims and stops when disposed', async () => {
+    vi.useFakeTimers();
+    const gate = Promise.withResolvers<void>();
+    const claimNextAccepted = vi.fn(async () => {
+      await gate.promise;
+      return ok(null);
+    });
+    const { container } = createManualRunnerContainer(claimNextAccepted);
+    const handle = startTableQueryOpsManualSearchTaskWorker(container, {} as IExecutionContext);
+    try {
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(claimNextAccepted).toHaveBeenCalledTimes(1);
+      gate.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(claimNextAccepted).toHaveBeenCalledTimes(2);
+      handle.stop();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(claimNextAccepted).toHaveBeenCalledTimes(2);
+    } finally {
+      gate.resolve();
+      handle.stop();
     }
   });
 });
@@ -313,7 +445,7 @@ describe('startTableQueryOpsAnalyzerIfEnabled', () => {
         }
         return value;
       },
-    } as DependencyContainer;
+    } as unknown as DependencyContainer;
 
     const handle = startTableQueryOpsAnalyzerIfEnabled(container, {} as IExecutionContext);
     await Promise.resolve();

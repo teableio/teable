@@ -4,56 +4,50 @@ import { SortFunctionPostgres } from '../sort-query.function';
 
 export class JsonSortAdapter extends SortFunctionPostgres {
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
-    if (!this.columnName) {
+    const expression = this.getJsonOrderExpression();
+    if (!expression) {
       return builderClient;
     }
-    const { type } = this.field;
 
-    if (isUserOrLink(type)) {
-      builderClient.orderByRaw(`${this.columnName}::jsonb ->> 'title' ASC NULLS FIRST`);
-    } else {
-      builderClient.orderByRaw(`${this.columnName}::jsonb ASC NULLS FIRST`);
-    }
+    builderClient.orderByRaw(`${expression} ASC NULLS FIRST`);
     return builderClient;
   }
 
   desc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
-    if (!this.columnName) {
+    const expression = this.getJsonOrderExpression();
+    if (!expression) {
       return builderClient;
     }
-    const { type } = this.field;
 
-    if (isUserOrLink(type)) {
-      builderClient.orderByRaw(`${this.columnName}::jsonb ->> 'title' DESC NULLS LAST`);
-    } else {
-      builderClient.orderByRaw(`${this.columnName}::jsonb DESC NULLS LAST`);
-    }
+    builderClient.orderByRaw(`${expression} DESC NULLS LAST`);
     return builderClient;
   }
 
   getAscSQL() {
-    if (!this.columnName) {
+    const expression = this.getJsonOrderExpression();
+    if (!expression) {
       return undefined;
     }
-    const { type } = this.field;
 
-    if (isUserOrLink(type)) {
-      return this.knex.raw(`${this.columnName}::jsonb ->> 'title' ASC NULLS FIRST`).toQuery();
-    } else {
-      return this.knex.raw(`${this.columnName}::jsonb ASC NULLS FIRST`).toQuery();
-    }
+    return this.knex.raw(`${expression} ASC NULLS FIRST`).toQuery();
   }
 
   getDescSQL() {
+    const expression = this.getJsonOrderExpression();
+    if (!expression) {
+      return undefined;
+    }
+
+    return this.knex.raw(`${expression} DESC NULLS LAST`).toQuery();
+  }
+
+  private getJsonOrderExpression(): string | undefined {
     if (!this.columnName) {
       return undefined;
     }
-    const { type } = this.field;
-
-    if (isUserOrLink(type)) {
-      return this.knex.raw(`${this.columnName}::jsonb ->> 'title' DESC NULLS LAST`).toQuery();
-    } else {
-      return this.knex.raw(`${this.columnName}::jsonb DESC NULLS LAST`).toQuery();
-    }
+    const expression = isUserOrLink(this.field.type)
+      ? `${this.columnName}::jsonb ->> 'title'`
+      : `${this.columnName}::jsonb`;
+    return this.applyCollation(expression);
   }
 }

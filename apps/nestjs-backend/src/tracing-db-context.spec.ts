@@ -8,6 +8,7 @@ import {
 } from '@opentelemetry/sdk-trace-base';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
+  createPgInstrumentationConfig,
   parseDatabaseUrl,
   parseDatabaseUrlCache,
   redactTeablePgQuerySpan,
@@ -261,5 +262,42 @@ describe('scoped PostgreSQL span redaction', () => {
       expect(span.status).toEqual({ code: SpanStatusCode.ERROR, message: 'unscoped-error-value' });
       expect(span.events[0].attributes?.['exception.message']).toBe('unscoped-error-value');
     }
+  });
+});
+
+describe('PgInstrumentation config', () => {
+  const env = {
+    PRISMA_DATABASE_URL: 'postgresql://postgres:secret@meta.example.test:5433/teable',
+  };
+
+  it('keeps bound parameter values out of query spans by default', () => {
+    expect(createPgInstrumentationConfig(env).enhancedDatabaseReporting).toBe(false);
+  });
+
+  it('reports them when OTEL_PG_ENHANCED_DATABASE_REPORTING=true', () => {
+    expect(
+      createPgInstrumentationConfig({ ...env, OTEL_PG_ENHANCED_DATABASE_REPORTING: 'true' })
+        .enhancedDatabaseReporting
+    ).toBe(true);
+  });
+
+  it.each(['', 'false', '1', 'TRUE'])('ignores OTEL_PG_ENHANCED_DATABASE_REPORTING=%j', (value) => {
+    expect(
+      createPgInstrumentationConfig({ ...env, OTEL_PG_ENHANCED_DATABASE_REPORTING: value })
+        .enhancedDatabaseReporting
+    ).toBe(false);
+  });
+
+  it('labels query spans with the database they ran against', () => {
+    parseDatabaseUrlCache.clear();
+    const span = { setAttribute: vi.fn(), setStatus: vi.fn(), recordException: vi.fn() };
+
+    createPgInstrumentationConfig(env).requestHook?.(span as never, {
+      query: { text: 'SELECT 1' },
+      connection: { database: 'teable', host: 'meta.example.test', port: 5433, user: 'postgres' },
+    });
+
+    expect(span.setAttribute).toHaveBeenCalledWith('teable.db.role', 'meta');
+    expect(span.setAttribute).toHaveBeenCalledWith('teable.db.source', 'PRISMA_DATABASE_URL');
   });
 });

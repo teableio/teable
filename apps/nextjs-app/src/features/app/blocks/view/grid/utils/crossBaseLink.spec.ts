@@ -1,7 +1,7 @@
 import type { IFieldVo } from '@teable/core';
 import { CellValueType, DbFieldType, FieldType } from '@teable/core';
 import { describe, expect, it } from 'vitest';
-import { downgradeCrossBaseHeaders } from './crossBaseLink';
+import { downgradeCrossBaseHeaders, downgradeCrossBaseRawContent } from './crossBaseLink';
 
 const currentBaseId = 'bseCurrent';
 const foreignBaseId = 'bseOther';
@@ -63,5 +63,24 @@ describe('downgradeCrossBaseHeaders', () => {
     expect(downgradedIndices).toEqual(new Set([1]));
     expect(next[1].type).toBe(FieldType.SingleLineText);
     expect(next[1].options).toEqual({});
+  });
+});
+
+describe('downgradeCrossBaseRawContent', () => {
+  it('downgrades only foreign link cells while preserving allowed user objects', () => {
+    const allowedUser = { id: 'usrA', title: 'Alice', email: 'alice@example.com' };
+    const foreignLink = { id: 'recForeign', title: 'Foreign record' };
+    const rawContent = [[allowedUser, foreignLink, 'note']];
+    const displayContent = [['Alice', 'Foreign record', 'note']];
+
+    const result = downgradeCrossBaseRawContent(rawContent, displayContent, new Set([1]));
+
+    expect(result).toEqual([[allowedUser, 'Foreign record', 'note']]);
+    expect(result[0]?.[0]).toBe(allowedUser);
+  });
+
+  it('returns the original payload when no columns need downgrading', () => {
+    const rawContent = [[{ id: 'usrA', title: 'Alice' }]];
+    expect(downgradeCrossBaseRawContent(rawContent, [['Alice']], new Set())).toBe(rawContent);
   });
 });

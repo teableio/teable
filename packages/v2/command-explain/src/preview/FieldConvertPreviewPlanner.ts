@@ -5,7 +5,7 @@ import {
   type ITableRecordAggregationQueryRepository,
   UpdateFieldCommand,
 } from '@teable/v2-core';
-import type { Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 
 import type {
   IPreviewPlanner,
@@ -68,99 +68,103 @@ export class FieldConvertPreviewPlanner implements IPreviewPlanner<unknown> {
       allowNoop: true,
       aggregationRepository: this.aggregationRepository,
     });
-    return preparation.map((facts) => {
-      const effects: PreviewEffect[] = [conversionEffect(facts)];
-      if (facts.requiresDataRewrite) {
-        effects.push({
-          code: 'field.conversion.record_rewrite',
-          kind: 'record.rewrite',
-          measures: {
-            affectedCells:
-              facts.affectedCellCount == null
-                ? {
-                    basis: 'unknown',
-                    unit: 'cells',
-                    reason: 'filled-cell aggregation did not return evidence for the target field',
-                  }
-                : exact(facts.affectedCellCount, 'cells'),
-          },
-        });
-      }
-      if (facts.linkSideEffectCount > 0) {
-        effects.push({
-          code: 'field.conversion.link_side_effects',
-          kind: 'dependency.change',
-          measures: {
-            changedDependencies: exact(facts.linkSideEffectCount, 'fields'),
-          },
-        });
-      }
+    if (preparation.isErr()) return err(preparation.error);
+    return this.previewPrepared(preparation.value);
+  }
 
-      const unknown: string[] = ['fieldOperationPolicies'];
-      if (facts.requiresDataRewrite && facts.affectedCellCount == null) {
-        unknown.push('affectedCellCount');
-      }
+  previewPrepared(facts: FieldConversionPreparation): Result<OperationPreviewPlan, DomainError> {
+    const effects: PreviewEffect[] = [conversionEffect(facts)];
+    if (facts.requiresDataRewrite) {
+      effects.push({
+        code: 'field.conversion.record_rewrite',
+        kind: 'record.rewrite',
+        measures: {
+          affectedCells:
+            facts.affectedCellCount == null
+              ? {
+                  basis: 'unknown',
+                  unit: 'cells',
+                  reason: 'filled-cell aggregation did not return evidence for the target field',
+                }
+              : exact(facts.affectedCellCount, 'cells'),
+        },
+      });
+    }
+    if (facts.linkSideEffectCount > 0) {
+      effects.push({
+        code: 'field.conversion.link_side_effects',
+        kind: 'dependency.change',
+        measures: {
+          changedDependencies: exact(facts.linkSideEffectCount, 'fields'),
+        },
+      });
+    }
 
-      return {
-        effects,
-        blockers: [],
-        warnings: [],
+    const unknown: string[] = ['fieldOperationPolicies'];
+    if (facts.requiresDataRewrite && facts.affectedCellCount == null) {
+      unknown.push('affectedCellCount');
+    }
+
+    const plan: OperationPreviewPlan = {
+      effects,
+      blockers: [],
+      warnings: [],
+      coverage: {
+        known: [
+          'updateInputValidation',
+          'foreignTableReferences',
+          'updateSpecifications',
+          'conversionClassification',
+          'dataRewriteRequirement',
+          'linkSideEffects',
+          ...(facts.affectedCellCount == null ? [] : ['affectedCellCount']),
+        ],
+        unknown,
+      },
+      complexity: null,
+      complexityProjection: {
+        tableId: facts.command.tableId.toString(),
+        operation: {
+          kind: 'field-change',
+          tableId: facts.command.tableId.toString(),
+          changedFieldIds: [facts.command.fieldId.toString()],
+          fieldChange: facts.isTypeConversion ? 'convert' : 'update',
+          dataPresence: facts.affectedCellCount === 0 ? 'empty' : 'unknown',
+        },
+        ...(facts.affectedCellCount == null
+          ? {}
+          : { assumptions: { seedRecordCount: facts.affectedCellCount } }),
+        includeCatalogStats: true,
         coverage: {
           known: [
-            'updateInputValidation',
-            'foreignTableReferences',
-            'updateSpecifications',
-            'conversionClassification',
-            'dataRewriteRequirement',
-            'linkSideEffects',
-            ...(facts.affectedCellCount == null ? [] : ['affectedCellCount']),
+            'complexity-operation-descriptor',
+            ...(facts.affectedCellCount == null ? [] : ['complexity-selection']),
           ],
-          unknown,
+          unknown: [
+            'complexity-planner-projection',
+            ...(facts.affectedCellCount == null ? ['complexity-selection'] : []),
+          ],
         },
-        complexity: null,
-        complexityProjection: {
-          tableId: facts.command.tableId.toString(),
-          operation: {
-            kind: 'field-change',
-            tableId: facts.command.tableId.toString(),
-            changedFieldIds: [facts.command.fieldId.toString()],
-            fieldChange: facts.isTypeConversion ? 'convert' : 'update',
-            dataPresence: facts.affectedCellCount === 0 ? 'empty' : 'unknown',
+        warnings: [
+          {
+            code: 'preview.complexity.planner_projection_unknown',
+            message:
+              'The write planner projection is unavailable; complexity uses schema-potential propagation only.',
           },
           ...(facts.affectedCellCount == null
-            ? {}
-            : { assumptions: { seedRecordCount: facts.affectedCellCount } }),
-          includeCatalogStats: true,
-          coverage: {
-            known: [
-              'complexity-operation-descriptor',
-              ...(facts.affectedCellCount == null ? [] : ['complexity-selection']),
-            ],
-            unknown: [
-              'complexity-planner-projection',
-              ...(facts.affectedCellCount == null ? ['complexity-selection'] : []),
-            ],
-          },
-          warnings: [
-            {
-              code: 'preview.complexity.planner_projection_unknown',
-              message:
-                'The write planner projection is unavailable; complexity uses schema-potential propagation only.',
-            },
-            ...(facts.affectedCellCount == null
-              ? [
-                  {
-                    code: 'preview.complexity.selection_unknown',
-                    message: 'The field conversion rewrite row count is unavailable.',
-                  },
-                ]
-              : []),
-          ],
-        },
-        authorization: 'not-applicable',
-        consistency: 'best-effort',
-      };
-    });
+            ? [
+                {
+                  code: 'preview.complexity.selection_unknown',
+                  message: 'The field conversion rewrite row count is unavailable.',
+                },
+              ]
+            : []),
+        ],
+      },
+      authorization: 'not-applicable',
+      consistency: 'best-effort',
+    };
+    return ok(plan);
   }
 }
 

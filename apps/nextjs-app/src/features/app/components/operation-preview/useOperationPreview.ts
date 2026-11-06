@@ -23,6 +23,7 @@ export const useOperationPreview = (request: IOperationPreviewRequestDto, enable
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     meta: { preventGlobalError: true },
   });
 

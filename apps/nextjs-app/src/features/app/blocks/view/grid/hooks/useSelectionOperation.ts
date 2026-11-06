@@ -51,6 +51,7 @@ import {
   pasteSelectionByIdStream,
   RangeType,
   saveQueryParams,
+  shareViewCopy,
   temporaryPaste,
 } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
@@ -72,11 +73,12 @@ import {
   UsageLimitModalType,
   useUsageLimitModalStore,
 } from '@teable/sdk/components/billing/store';
+import { ShareViewContext } from '@teable/sdk/context';
 import { useConfirm } from '@teable/ui-lib/base';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import type { AxiosResponse } from 'axios';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
 import { serializerCellValueHtml, serializerHtml } from '@/features/app/utils/clipboard';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -100,7 +102,11 @@ import {
 } from '../utils/copyAndPaste';
 import { getSyncCopyData } from '../utils/getSyncCopyData';
 import { resolveGridSelectionForChat } from '../utils/gridSelectionChat';
-import { buildSelectionViewQuery, getSelectionGroupBy } from '../utils/selectionViewQuery';
+import {
+  buildSelectionViewQuery,
+  buildSharedViewCopyRequest,
+  getSelectionGroupBy,
+} from '../utils/selectionViewQuery';
 import { useSyncSelectionStore } from './useSelectionStore';
 
 const clearToastId = 'clearToastId';
@@ -199,6 +205,7 @@ export const useSelectionOperation = (props?: {
   const baseId = useBaseId();
   const tableId = useTableId();
   const viewId = useViewId();
+  const { shareId: shareViewId } = useContext(ShareViewContext);
   const fields = useFields();
   const view = useView();
   const { searchQuery: search } = useSearch();
@@ -985,14 +992,24 @@ export const useSelectionOperation = (props?: {
       const getCopyDataDefault = async () => {
         const ranges = selection.serialize();
         const type = rangeTypes[selection.type];
-        const { data } = copyReq
-          ? await copyRequest({
-              ranges,
-              ...(type ? { type } : {}),
+        const copyRo = { ranges, ...(type ? { type } : {}) };
+        if (copyReq) {
+          return (await copyRequest(copyRo)).data;
+        }
+        const sharedCopyRequest = shareViewId
+          ? buildSharedViewCopyRequest({
+              shareViewId,
+              rangesRo: await buildSelectionRequest(copyRo),
+              proxyView: view,
+              visibleFieldIds,
             })
-          : await defaultCopyByIdReq(await buildCopySelectionIdRequest(selection, recordMap ?? {}));
-        const { content, header } = data;
-        return { content, header };
+          : undefined;
+        if (sharedCopyRequest) {
+          return (await shareViewCopy(sharedCopyRequest.shareId, sharedCopyRequest.query)).data;
+        }
+        return (
+          await defaultCopyByIdReq(await buildCopySelectionIdRequest(selection, recordMap ?? {}))
+        ).data;
       };
 
       const getCopyDataInner = getCopyData ?? getCopyDataDefault;
@@ -1016,13 +1033,17 @@ export const useSelectionOperation = (props?: {
     },
     [
       buildCopySelectionIdRequest,
+      buildSelectionRequest,
       checkCopyAndPasteEnvironment,
       copyReq,
       copyRequest,
       defaultCopyByIdReq,
+      shareViewId,
       tableId,
       t,
       viewId,
+      view,
+      visibleFieldIds,
     ]
   );
 
@@ -1796,11 +1817,14 @@ export const useSelectionOperation = (props?: {
       const toastId = toast.loading(t('table:table.actionTips.copying'));
       try {
         if ('getCopyData' in params) {
-          const data = params.getCopyData();
-          const content = data.content;
-          const header = data.header;
+          const { content, header, rawContent } = params.getCopyData();
           e.clipboardData.setData(ClipboardTypes.text, content);
-          e.clipboardData.setData(ClipboardTypes.html, serializerHtml(content, header));
+          e.clipboardData.setData(
+            ClipboardTypes.html,
+            rawContent
+              ? serializerCellValueHtml(rawContent, header, content)
+              : serializerHtml(content, header)
+          );
         } else if ('recordMap' in params && 'selection' in params) {
           const { recordMap, selection, rowCount } = params;
           const res = getSyncCopyData({ recordMap, fields, selection, rowCount });

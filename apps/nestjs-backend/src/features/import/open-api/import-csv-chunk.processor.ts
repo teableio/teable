@@ -101,7 +101,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv-chunk';
 
   private readonly logger = new Logger(ImportTableCsvChunkQueueProcessor.name);
-  private readonly importQueueEvents?: QueueEvents;
+  private readonly importQueueEvents: QueueEvents;
 
   constructor(
     private readonly notificationService: NotificationService,
@@ -116,28 +116,12 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     @Optional() private readonly importTracing?: ImportTracingService
   ) {
     super();
-    // When BACKEND_CACHE_REDIS_URI is not set, queues are backed by the local
-    // fallback implementation instead of BullMQ. In that case the injected
-    // queue object does not expose BullMQ's `opts.connection`, so we must guard
-    // against it to avoid throwing during application bootstrap (e.g. e2e).
-    const underlyingQueue = this.importTableCsvQueueProcessor.queue as Queue<unknown> & {
-      // `opts` only exists when using the real BullMQ queue
-      opts?: { connection?: unknown };
-    };
-
-    const connection = underlyingQueue?.opts?.connection;
-
-    if (connection) {
-      this.importQueueEvents = new QueueEvents(TABLE_IMPORT_CSV_QUEUE, {
-        // Reuse the Redis connection configuration of the import queue
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        connection: connection as any,
-      });
-    } else {
-      this.logger.log(
-        'ImportTableCsvChunkQueueProcessor initialized without Redis connection; QueueEvents disabled (fallback queue in use).'
-      );
-    }
+    this.importQueueEvents = new QueueEvents(TABLE_IMPORT_CSV_QUEUE, {
+      // Reuse the Redis connection configuration of the import queue. Keep the cast: checking
+      // ConnectionOptions structurally here adds ~700 MB to the backend-ee typecheck heap.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      connection: this.importTableCsvQueueProcessor.queue.opts.connection as any,
+    });
   }
 
   private async getUserLang(userId: string): Promise<string> {
@@ -163,7 +147,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   ): ILocalization<I18nPath> {
     if (errorMessage === OVER_PLAN_ROW_COUNT_ERROR_MESSAGE) {
       return {
-        i18nKey: 'common.email.templates.notify.import.table.planLimitExceeded.message' as I18nPath,
+        i18nKey: 'common.email.templates.notify.import.table.planLimitExceeded.message',
         context: { tableName },
       };
     }
@@ -536,33 +520,22 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       errorReportConfig,
     };
 
-    if (this.importQueueEvents) {
-      // Redis mode: use the queue and wait for the result
-      const importJob = await this.importTableCsvQueueProcessor.queue.add(
-        TABLE_IMPORT_CSV_QUEUE,
-        jobData,
-        {
-          jobId: chunkJobId,
-          removeOnComplete: 1000,
-          removeOnFail: 1000,
-        }
-      );
+    const importJob = await this.importTableCsvQueueProcessor.queue.add(
+      TABLE_IMPORT_CSV_QUEUE,
+      jobData,
+      {
+        jobId: chunkJobId,
+        removeOnComplete: 1000,
+        removeOnFail: 1000,
+      }
+    );
 
-      // Wait for the current chunk import job to complete before processing the next chunk,
-      // ensuring that all chunks of the same import task are executed sequentially across multiple Pods.
-      return (await importJob.waitUntilFinished(
-        this.importQueueEvents,
-        200000
-      )) as IChunkImportResult;
-    }
-
-    // Fallback (non-Redis) mode: call the processor directly to get the result,
-    // since the local queue's fire-and-forget approach discards return values.
-    const fakeJob = {
-      id: chunkJobId,
-      data: jobData,
-    } as Job;
-    return await this.importTableCsvQueueProcessor.process(fakeJob);
+    // Wait for the current chunk import job to complete before processing the next chunk,
+    // ensuring that all chunks of the same import task are executed sequentially across multiple Pods.
+    return (await importJob.waitUntilFinished(
+      this.importQueueEvents,
+      200000
+    )) as IChunkImportResult;
   }
 
   private async writeCatastrophicChunkErrors(

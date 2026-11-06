@@ -6,22 +6,29 @@ import type {
   IUserMapVo,
 } from '@teable/openapi';
 import { getTrashItemRecords } from '@teable/openapi';
-import {
-  RecordSnapshotExpandDialog,
-  RecordSnapshotGrid,
-  useRecordSnapshotFields,
-} from '@teable/sdk/components';
+import { RecordSnapshotExpandDialog, useRecordSnapshotFields } from '@teable/sdk/components';
 import type { IGridRef, IRecordSnapshotSystemColumn } from '@teable/sdk/components';
 import { BaseMultipleSelect } from '@teable/sdk/components/filter/view-filter/component/base';
 import type { IDateRangeValue } from '@teable/sdk/components/filter/view-filter/component/filterDatePicker/DateRangePicker';
 import { DateRangePicker } from '@teable/sdk/components/filter/view-filter/component/filterDatePicker/DateRangePicker';
+import type { RecordSnapshotGrid as RecordSnapshotGridComponent } from '@teable/sdk/components/record-snapshot-grid/RecordSnapshotGrid';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useCollaboratorFilterUsers } from '@teable/sdk/hooks';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
+import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+
+// The grid engine is heavy and only needed once the dialog shows records.
+const RecordSnapshotGrid = dynamic(
+  () =>
+    import('@teable/sdk/components/record-snapshot-grid/RecordSnapshotGrid').then(
+      (mod) => mod.RecordSnapshotGrid
+    ),
+  { ssr: false }
+) as typeof RecordSnapshotGridComponent;
 
 const TRASH_TIME_FORMAT = 'YYYY/MM/DD HH:mm';
 

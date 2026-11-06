@@ -1680,7 +1680,6 @@
       "share": "Compartir",
       "enableShare": "Activar compartir",
       "copyLink": "Copiar enlace",
-      "rotateLink": "Restablecer enlace",
       "scope": "Quién puede ver",
       "scopePublic": "Cualquiera con el enlace",
       "scopeSpace": "Miembros del espacio",
@@ -1777,7 +1776,8 @@
       "running": "Generando…",
       "waitingInput": "Esperando tu respuesta",
       "failed": "La respuesta falló"
-    }
+    },
+    "routineRunPrompt": "Enviado por la rutina"
   },
   "upload": {
     "panelUploading": "Subiendo {{count}} archivos",

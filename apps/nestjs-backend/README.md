@@ -62,3 +62,18 @@ still apply to the target. Unscoped internal/system calls retain their existing
 behavior.
 Regression coverage: `test/cross-base-paste-auto-create-authz.e2e-spec.ts` and the
 record feature's Link-title permission and plugin-registrar unit tests.
+
+## User-field notification recipients
+
+A valid complete `{ id, email }` pair can retain a user reference across spaces,
+but writing that reference does not authorize a collaborator notification. V1 and
+V2 notification dispatchers intersect candidate user IDs with the destination
+table's effective base/space collaborators (including enterprise departments)
+before loading record titles or scheduling a notification. The existing source
+rules still keep imports, table duplication, trash restore, and undo/redo silent.
+
+Regression coverage: `test/v2-user-field-notify-bulk-actions.e2e-spec.ts` checks
+V1/V2 strict create/update with an external user and a base- or space-level
+collaborator, then repeats the write after revoking the collaborator's grant.
+Complete identities persist canonically in all cases; only current collaborators
+receive a notification or mail-send call.

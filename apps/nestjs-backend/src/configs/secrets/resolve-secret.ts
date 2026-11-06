@@ -10,18 +10,18 @@ const deriveFromSecretKey = (purpose: string, secretKey: string): string =>
   createHash('sha256').update(`${secretKey}:teable:${purpose}`).digest('hex').slice(0, 16);
 
 /**
- * Resolve a secret: dedicated env var → fallback env vars → legacy source-code
- * default → SECRET_KEY derivation. Config factories call this, which runs when
- * ConfigModule loads — BEFORE any module init. Policy (what production should
- * set, migration teaching, weak-value warnings) lives in secrets-policy.ts,
- * not here.
+ * Resolve a secret: dedicated env var → fallback env vars → SECRET_KEY
+ * derivation → legacy source-code default. Config factories call this, which
+ * runs when ConfigModule loads — BEFORE any module init. Policy (what
+ * production should set, migration teaching, weak-value warnings) lives in
+ * secrets-policy.ts, not here.
  *
- * The legacy default sits BEFORE the SECRET_KEY derivation on purpose: a
- * pre-hardening deployment that set SECRET_KEY but no dedicated vars had its
- * data encrypted under the old literal defaults — resolving to a derived value
- * instead would silently change its effective keys and strand that data.
- * Booting on a legacy default is allowed (enforceSecretsPolicy warns loudly);
- * the derivation branch remains only for specs without a legacy default.
+ * Only the key/iv pairs read through resolveCipherEntries carry a
+ * derivePurpose. A deployment that set SECRET_KEY but not such a pair used to
+ * encrypt under its legacy literals, so the consumer decides whether those
+ * stay decrypt-only (resolveCipherEntries). Without SECRET_KEY the legacy
+ * default stays the fallback; booting on it is allowed (enforceSecretsPolicy
+ * warns loudly).
  *
  * An empty-string env var counts as unset, like everywhere else in the policy
  * (isConfigured in secrets-policy.ts, deriveFromSecretKey above): compose
@@ -35,10 +35,10 @@ export const resolveSecret = (
 ): string => {
   const resolved =
     [spec.envKey, ...(spec.fallbackEnvKeys ?? [])].map((key) => env[key]).find(Boolean) ??
-    spec.legacyDefault ??
     (spec.derivePurpose && env.SECRET_KEY
       ? deriveFromSecretKey(spec.derivePurpose, env.SECRET_KEY)
-      : undefined);
+      : undefined) ??
+    spec.legacyDefault;
   if (!resolved) {
     const alternatives = [
       ...(spec.fallbackEnvKeys ?? []),

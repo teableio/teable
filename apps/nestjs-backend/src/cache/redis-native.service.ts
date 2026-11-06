@@ -1,5 +1,5 @@
 import { hash } from 'node:crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { LRUCache } from 'lru-cache';
 import { CacheService } from './cache.service';
@@ -10,11 +10,9 @@ import { CacheService } from './cache.service';
  * Provides:
  * - Normalized return types (e.g. `exists` → boolean, `sismember` → boolean)
  * - Defensive guards (empty array protection for variadic commands)
- * - Consistent error when Redis is unavailable
  */
 @Injectable()
 export class RedisNativeService {
-  private readonly logger = new Logger(RedisNativeService.name);
   private readonly redis: Redis | undefined;
   private readonly scriptShas = new LRUCache<string, string>({ max: 256 });
 
@@ -26,19 +24,11 @@ export class RedisNativeService {
     } catch {
       this.redis = undefined;
     }
-    if (!this.redis) {
-      this.logger.warn('Redis client not available — RedisNativeService disabled');
-    }
-  }
-
-  /** false when the cache provider is not redis; every command below then throws */
-  get available(): boolean {
-    return this.redis !== undefined;
   }
 
   private get client(): Redis {
     if (!this.redis) {
-      throw new Error('RedisNativeService: Redis is not available (cache provider is not redis)');
+      throw new Error('RedisNativeService: the cache store has no Redis client');
     }
     return this.redis;
   }

@@ -278,6 +278,8 @@ export const ReactQueryKeys = {
 
   userLastVisitMap: (baseId: string) => ['user-last-visit-map', baseId] as const,
 
+  recentBaseNodes: (baseId: string) => ['recent-base-nodes', baseId] as const,
+
   // prefix-matched by ['base-entry-map'] in useEnterBase — keep the first
   // segment stable
   baseEntryMap: (spaceId: string) => ['base-entry-map', spaceId] as const,

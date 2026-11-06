@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import { sortCollationSchema } from '../domain/table/views/ViewSort';
 import { recordFilterSchema, type RecordFilter } from '../queries/RecordFilterDto';
 import { RecordSearch, recordSearchInputSchema } from '../queries/RecordSearch';
 import {
@@ -40,6 +41,7 @@ export type SourceFieldMeta = z.infer<typeof sourceFieldMetaSchema>;
 export const pasteSortSchema = z.object({
   fieldId: z.string(),
   order: z.enum(['asc', 'desc']),
+  collation: sortCollationSchema.optional(),
 });
 
 export type PasteSort = z.infer<typeof pasteSortSchema>;

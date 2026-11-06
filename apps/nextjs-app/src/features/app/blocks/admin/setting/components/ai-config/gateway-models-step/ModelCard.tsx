@@ -76,7 +76,7 @@ export function ModelCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center gap-3 rounded-lg border p-4 transition-colors',
+        'flex flex-wrap items-center gap-3 rounded-lg border p-4 transition-colors',
         model.enabled ? 'bg-card' : 'bg-muted text-muted-foreground',
         isDragging && 'z-10 opacity-50 shadow-lg'
       )}
@@ -90,8 +90,9 @@ export function ModelCard({
         <DraggableHandle className="size-4" />
       </button>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex items-center gap-2">
+      {/* Below ~12rem of room the switches drop under the model info */}
+      <div className="flex min-w-0 flex-[1_1_12rem] flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {ProviderIcon && <ProviderIcon className="size-4 shrink-0" />}
           <span className="font-medium">{model.label}</span>
           {(() => {
@@ -132,7 +133,7 @@ export function ModelCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-1">
-          <code className="text-xs text-muted-foreground">{model.id}</code>
+          <code className="break-all text-xs text-muted-foreground">{model.id}</code>
           {model.capabilities &&
             Object.entries(model.capabilities)
               .filter(([, v]) => v)

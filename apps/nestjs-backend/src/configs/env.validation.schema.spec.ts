@@ -227,19 +227,19 @@ describe('envValidationSchema', () => {
     expect(value.V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE).toBe(250);
   });
 
-  // A Joi default on BACKEND_CACHE_PROVIDER is written back into process.env by
-  // ConfigModule.forRoot before the registerAs factories run, which would shadow
-  // the URI-aware provider resolution in cache.config.ts and silently downgrade
-  // Redis deployments to the sqlite cache.
-  it('leaves the cache provider unset so cache.config can derive it', () => {
-    const { error, value } = envValidationSchema.validate(
+  // Deployments upgraded from the memory/sqlite cache may still set these; the
+  // cache always runs on Redis now, so they must not fail startup.
+  it('ignores the retired cache provider variables', () => {
+    const { error } = envValidationSchema.validate(
       createEnv({
         PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
-      })
+        BACKEND_CACHE_PROVIDER: 'sqlite',
+        BACKEND_CACHE_SQLITE_URI: 'sqlite://.assets/.cache.db',
+      }),
+      { allowUnknown: true }
     );
 
     expect(error).toBeUndefined();
-    expect(value.BACKEND_CACHE_PROVIDER).toBeUndefined();
   });
 
   it('rejects disabling both BullMQ roles', () => {

@@ -1107,10 +1107,13 @@ export class PostgresTableSearchVectorExecutor {
         rebuild: input.payload.rebuild ?? false,
         alreadyReady,
         validationMode,
-        requirePlanImprovement: input.payload.requirePlanImprovement ?? true,
+        requirePlanImprovement:
+          !executionInput.noSearchableTextValidation &&
+          (input.payload.requirePlanImprovement ?? true),
         providerCapability,
         realDdlBeforePlan,
         searchProbe,
+        noSearchableTextValidation: executionInput.noSearchableTextValidation === true,
         validationFields,
       });
 
@@ -1239,6 +1242,7 @@ export class PostgresTableSearchVectorExecutor {
     readonly providerCapability: TableQuerySubstringSearchProviderCapability;
     readonly realDdlBeforePlan: ExplainPlan | undefined;
     readonly searchProbe: string | undefined;
+    readonly noSearchableTextValidation: boolean;
     readonly validationFields: readonly IncludedSearchVectorField[];
   }): Promise<{
     readonly inventory: TableQuerySearchVectorInventory;
@@ -1287,6 +1291,7 @@ export class PostgresTableSearchVectorExecutor {
             providerCapability: input.providerCapability,
             beforePlan: input.realDdlBeforePlan,
             searchProbe: input.searchProbe,
+            noSearchableTextValidation: input.noSearchableTextValidation,
             fields: input.validationFields,
             generatedColumnName: input.columnName,
             indexName: input.indexName,
@@ -2021,9 +2026,9 @@ type SearchDocumentExpressionField = {
 };
 
 /**
- * Unattended real-DDL runs have no admin-typed probe: sample one from the table's
- * own data (guaranteed to match a row), or fall back to plan validation on empty
- * tables where result-compatibility checks are meaningless.
+ * Unattended real-DDL runs use an ephemeral probe sampled only inside execution.
+ * Empty tables/documents use a noncustomer constant and still validate actual DDL and
+ * exact result sets. Never silently downgrade real-DDL validation to plan-only.
  */
 const withUnattendedProbe = async (
   dataDb: Kysely<UnknownPostgresDatabase>,
@@ -2031,7 +2036,7 @@ const withUnattendedProbe = async (
   fields: readonly SearchDocumentExpressionField[],
   capability: TableQuerySubstringSearchProviderCapability,
   input: ExecuteTableSearchVectorInput
-): Promise<ExecuteTableSearchVectorInput> => {
+): Promise<ExecuteTableSearchVectorInput & { readonly noSearchableTextValidation?: boolean }> => {
   if ((input.payload.validationMode ?? 'plan') !== 'real_ddl') return input;
   if (input.payload.searchProbe?.trim()) return input;
   const sampledProbe = await sampleSearchProbeFromData(
@@ -2040,15 +2045,30 @@ const withUnattendedProbe = async (
     fields,
     capability.minimumProbeLength
   );
-  return sampledProbe
-    ? { ...input, payload: { ...input.payload, searchProbe: sampledProbe } }
-    : { ...input, payload: { ...input.payload, validationMode: 'plan' } };
+  if (sampledProbe) return { ...input, payload: { ...input.payload, searchProbe: sampledProbe } };
+  const expression = buildSearchDocumentExpression(fields);
+  const presence = await sql<{ has_searchable_text: boolean }>`
+    SELECT EXISTS (
+      SELECT 1 FROM ${sql.raw(makePhysicalTableSql(physical.schema, physical.tableName))}
+      WHERE ${sql.raw(expression)} ~ '[^[:space:]]'
+    ) AS has_searchable_text
+  `.execute(dataDb);
+  if (presence.rows[0]?.has_searchable_text !== false) {
+    throw new Error(
+      `No validation sample meets the ${capability.minimumProbeLength}-character provider minimum; add a sufficiently long searchable value and try again`
+    );
+  }
+  return {
+    ...input,
+    noSearchableTextValidation: true,
+    payload: { ...input.payload, searchProbe: 'teable_empty_search_validation' },
+  };
 };
 
 /**
- * Samples a substring probe from the table's own search document so unattended
- * real-DDL validation always probes something that matches at least one row. The
- * caller trims/normalizes; returns undefined when no row carries enough text.
+ * Samples one canonical field projection, never across document separators, so
+ * the ephemeral probe matches at least one legacy per-field ILIKE predicate.
+ * Returns undefined when no individual field value carries enough text.
  */
 const sampleSearchProbeFromData = async (
   dataDb: Kysely<UnknownPostgresDatabase>,
@@ -2056,12 +2076,20 @@ const sampleSearchProbeFromData = async (
   fields: readonly SearchDocumentExpressionField[],
   minimumProbeLength: number
 ): Promise<string | undefined> => {
-  const expression = buildSearchDocumentExpression(fields);
+  const projections = fields.map((field) => {
+    const projection = renderSearchTextProjectionSql(
+      `${quoteIdentifier('source')}.${quoteIdentifier(field.fieldDbName)}`,
+      field.textProjection
+    );
+    return sql`(${sql.raw(projection)})`;
+  });
+  const trimmedExpression = sql<string>`regexp_replace(coalesce(${sql.ref('sample.value')}, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g')`;
   const probeLength = Math.max(minimumProbeLength, 3) + 5;
   const result = await sql<{ probe: string | null }>`
-    SELECT substring(btrim(${sql.raw(expression)}) FROM 1 FOR ${probeLength}) AS probe
-    FROM ${sql.raw(makePhysicalTableSql(physical.schema, physical.tableName))}
-    WHERE char_length(btrim(${sql.raw(expression)})) >= ${minimumProbeLength}
+    SELECT substring(${trimmedExpression} FROM 1 FOR ${probeLength}) AS probe
+    FROM ${sql.raw(makePhysicalTableSql(physical.schema, physical.tableName))} AS ${sql.ref('source')}
+    CROSS JOIN LATERAL (VALUES ${sql.join(projections)}) AS ${sql.ref('sample')}(${sql.ref('value')})
+    WHERE char_length(${trimmedExpression}) >= ${minimumProbeLength}
     LIMIT 1
   `.execute(dataDb);
   const probe = result.rows[0]?.probe?.trim();
@@ -2822,6 +2850,7 @@ const validateRealDdlSearchVectorPlan = async (
     readonly providerCapability: TableQuerySubstringSearchProviderCapability;
     readonly beforePlan?: ExplainPlan;
     readonly searchProbe?: string;
+    readonly noSearchableTextValidation?: boolean;
     readonly fields: readonly IncludedSearchVectorField[];
     readonly generatedColumnName: string;
     readonly indexName: string;
@@ -2836,7 +2865,9 @@ const validateRealDdlSearchVectorPlan = async (
     return {
       explainStatus: 'validated',
       explainMethod: 'real_index',
-      explainReason: 'real_ddl_plan_validated',
+      explainReason: input.noSearchableTextValidation
+        ? 'real_ddl_empty_search_exact_results_validated_performance_not_measured'
+        : 'real_ddl_plan_validated',
       costBefore: input.beforePlan.totalCost,
       costAfter: after.totalCost,
       costDeltaPct: explainCostDeltaPct(input.beforePlan.totalCost, after.totalCost),

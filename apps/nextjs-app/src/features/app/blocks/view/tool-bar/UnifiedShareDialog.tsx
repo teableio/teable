@@ -1,5 +1,6 @@
 import { BaseNodeResourceType } from '@teable/openapi';
 import { useBaseId, useView, useContentDir } from '@teable/sdk/hooks';
+import { Spin } from '@teable/ui-lib/base';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@teable/ui-lib/shadcn';
+import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { useBaseNodeContext } from '@/features/app/blocks/base/base-node/hooks/useBaseNodeContext';
@@ -20,7 +22,19 @@ import {
 import { VIEW_ICON_MAP } from '@/features/app/blocks/view/constant';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { tableConfig } from '@/features/i18n/table.config';
-import { ShareViewContent } from './ShareViewContent';
+
+// The view share settings load when the dialog shows them; the node menu mounts this dialog.
+const ShareViewContent = dynamic(
+  () => import('./ShareViewContent').then((mod) => mod.ShareViewContent),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-24 items-center justify-center">
+        <Spin />
+      </div>
+    ),
+  }
+);
 
 interface IUnifiedShareDialogProps {
   open: boolean;

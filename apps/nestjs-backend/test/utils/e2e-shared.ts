@@ -444,7 +444,7 @@ export function applyWorkerDatabaseEnv(): void {
   // user; concurrent workers on one redis db would clobber each other (e.g. the
   // auth specs invalidating every worker's session). One redis db per worker.
   const cacheUri = (state().originalCacheRedisUri ??= process.env.BACKEND_CACHE_REDIS_URI);
-  if (cacheUri && process.env.BACKEND_CACHE_PROVIDER === 'redis') {
+  if (cacheUri) {
     const parsed = new URL(cacheUri);
     parsed.pathname = `/${poolId}`;
     process.env.BACKEND_CACHE_REDIS_URI = parsed.toString();

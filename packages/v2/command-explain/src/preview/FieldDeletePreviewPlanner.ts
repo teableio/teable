@@ -1,5 +1,7 @@
 import {
   DeleteFieldCommand,
+  DeleteFieldsCommand,
+  domainError,
   type DomainError,
   type FieldDeletionPreparation,
   type FieldDeletionPreparationService,
@@ -227,7 +229,9 @@ const blockerPlan = (error: DomainError): OperationPreviewPlan => ({
   consistency: 'best-effort',
 });
 
-export class FieldDeletePreviewPlanner implements IPreviewPlanner<DeleteFieldCommand> {
+export class FieldDeletePreviewPlanner implements IPreviewPlanner<
+  DeleteFieldCommand | DeleteFieldsCommand
+> {
   readonly operation = 'field.delete' as const;
   readonly plannerVersion = 'field-delete-v1';
   readonly executionPath = 'DeleteFieldHandler/FieldDeletionPreparationService';
@@ -239,14 +243,23 @@ export class FieldDeletePreviewPlanner implements IPreviewPlanner<DeleteFieldCom
 
   async preview(
     context: IExecutionContext,
-    command: DeleteFieldCommand,
+    command: DeleteFieldCommand | DeleteFieldsCommand,
     options: PreviewOptions
   ): Promise<Result<OperationPreviewPlan, DomainError>> {
     const preparation = await this.preparationService.prepare(context, {
       baseId: command.baseId,
       tableId: command.tableId,
-      fieldIds: [command.fieldId],
+      fieldIds: 'fieldIds' in command ? command.fieldIds : [command.fieldId],
     });
+    return this.previewPrepared(context, command, preparation, options);
+  }
+
+  async previewPrepared(
+    context: IExecutionContext,
+    command: DeleteFieldCommand | DeleteFieldsCommand,
+    preparation: Result<FieldDeletionPreparation, DomainError>,
+    options: PreviewOptions
+  ): Promise<Result<OperationPreviewPlan, DomainError>> {
     if (preparation.isErr()) {
       if (
         preparation.error.tags.some(
@@ -316,7 +329,9 @@ export class FieldDeletePreviewPlanner implements IPreviewPlanner<DeleteFieldCom
         operation: {
           kind: 'field-change',
           tableId: command.tableId.toString(),
-          changedFieldIds: [command.fieldId.toString()],
+          changedFieldIds: ('fieldIds' in command ? command.fieldIds : [command.fieldId]).map(
+            (id) => id.toString()
+          ),
           fieldChange: 'delete',
           dataPresence: 'unknown',
         },
@@ -345,9 +360,19 @@ export class FieldDeletePreviewPlanner implements IPreviewPlanner<DeleteFieldCom
 
 export const createFieldDeletePreviewRegistration = (
   planner: FieldDeletePreviewPlanner
-): PreviewOperationRegistration<DeleteFieldCommand> => ({
+): PreviewOperationRegistration<DeleteFieldCommand | DeleteFieldsCommand> => ({
   operation: 'field.delete',
-  parseInput: DeleteFieldCommand.create,
+  parseInput: (input) => {
+    if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+      return DeleteFieldCommand.create(input);
+    }
+    if ('fieldId' in input && 'fieldIds' in input) {
+      return err(domainError.validation({ message: 'Specify fieldId or fieldIds, not both' }));
+    }
+    return 'fieldIds' in input
+      ? DeleteFieldsCommand.create(input)
+      : DeleteFieldCommand.create(input);
+  },
   planner,
   capability: {
     canonicalWriteRoute: 'DELETE /tables/deleteField',

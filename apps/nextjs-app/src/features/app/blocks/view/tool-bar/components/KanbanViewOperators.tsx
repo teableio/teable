@@ -75,9 +75,17 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
     view?.updateOption({ isEmptyStackHidden: checked });
   };
 
+  // A kanban without a stack field asks for one. Once the field arrives from elsewhere (an AI
+  // update made right after creating the view, a collaborator), the question is answered.
+  const autoOpenedRef = useRef(false);
   useEffect(() => {
-    if (stackFieldId == null && !disabled) {
+    if (disabled) return;
+    if (stackFieldId == null) {
       dialogRef.current?.onOpen();
+      autoOpenedRef.current = true;
+    } else if (autoOpenedRef.current) {
+      dialogRef.current?.onClose();
+      autoOpenedRef.current = false;
     }
   }, [disabled, stackFieldId]);
 

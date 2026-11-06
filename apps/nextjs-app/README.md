@@ -4,6 +4,33 @@ You don't need start this app when developing locally, it's started by the `nest
 
 all env is maintained in the .env\* file, it is shared with the backend.
 
+## View sorting: Chinese pinyin
+
+In a view's sort settings, open the direction selector for an eligible field and
+choose **拼音升序** (pinyin ascending) or **拼音降序** (pinyin descending). These
+choices sit beside the ordinary ascending/descending choices; grouping does not
+offer them. Pinyin ordering is opt-in for each sort rule. Existing views keep
+their current order until explicitly changed. Selecting an ordinary direction
+or changing to an unsupported field removes the pinyin option.
+
+Eligible fields are native single-line text, native long text, and single-value
+links. Links use their displayed title. Multiple-value links, lookup/rollup/formula
+results (including text results), numbers, dates, selects and user fields do not
+support this option. The saved sort item uses `collation: 'zh-pinyin'`; omitting
+`collation` keeps the existing database ordering. Unsupported explicit requests
+are rejected rather than silently ignored.
+
+The server sorts the complete matching result before selecting a page, not just
+the visible rows. Subsequent pages, record positions, and selection-range copy,
+paste, clear and delete use the same sort rules. Existing null ordering and
+tie-breakers remain in effect; changing records while paging is not a snapshot.
+
+Pinyin order uses the data database's ICU rules. Polyphonic characters can sort
+differently from their contextual reading in a name or phrase; this is not a
+pronunciation dictionary. If the data database lacks the required ICU collation,
+the request returns an explicit error, with no fallback to ordinary ordering or
+browser-only sorting.
+
 ## Conditional lookup sort and limit
 
 Enabling sort/limit leaves the limit blank: sorting alone must not add a numeric limit to

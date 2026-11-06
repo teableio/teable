@@ -1,8 +1,11 @@
 import {
   getActionTriggerChannel,
   getBaseNodeChannel,
+  getBasePermissionUpdateChannel,
   getChatChannel,
   getCollaboratorsChannel,
+  getTableButtonClickChannel,
+  getTableImportChannel,
   getUserNotificationChannel,
   getWorkflowTestChannel,
 } from '@teable/core';
@@ -245,15 +248,33 @@ describe('public-share presence is scoped to the share', () => {
     ).resolves.toBeDefined();
   });
 
-  it('lets a base-share visitor use a table channel inside the shared base', async () => {
+  // Every channel a base (or node) share page subscribes to; the table header's import spinner
+  // included, since an allowEdit share lets a signed-in visitor import.
+  it.each([
+    getBasePermissionUpdateChannel('bseShared'),
+    getBaseNodeChannel('bseShared'),
+    getActionTriggerChannel('tblShared'),
+    getActionTriggerChannel('viwShared'),
+    getTableButtonClickChannel('tblShared'),
+    getTableImportChannel('tblShared'),
+  ])('lets a base-share visitor subscribe to %s', async (ch) => {
     const backend = createBackend();
     await expect(
-      subscribe(
-        connectBrowser(backend, { baseShareId: 'shrBase' }),
-        getCollaboratorsChannel('tblShared')
-      )
+      subscribe(connectBrowser(backend, { baseShareId: 'shrBase' }), ch)
     ).resolves.toBeDefined();
   });
+
+  // Header avatars carry the name and email of every member viewing the table; share pages
+  // never show them.
+  it.each([{ baseShareId: 'shrBase' }, { shareId: 'shrView' }])(
+    'refuses header-avatar presence to a share visitor (%o)',
+    async (share) => {
+      const backend = createBackend();
+      await expect(
+        subscribe(connectBrowser(backend, share), getCollaboratorsChannel('tblShared'))
+      ).rejects.toBeDefined();
+    }
+  );
 
   it('rejects a base-share visitor reaching a base outside the share', async () => {
     const backend = createBackend();
@@ -293,6 +314,59 @@ describe('template preview connections get no presence', () => {
       ).rejects.toMatchObject({ message: 'Presence channel access denied' });
     }
   );
+});
+
+describe('share-granted presence is listen-only', () => {
+  // Share pages never publish presence; a publish from one would reach the members who have the
+  // same table open.
+  it.each([
+    getActionTriggerChannel('tblShared'),
+    getTableButtonClickChannel('tblShared'),
+    getTableImportChannel('tblShared'),
+    getBaseNodeChannel('bseShared'),
+    getBasePermissionUpdateChannel('bseShared'),
+  ])('refuses a base-share visitor publishing onto %s', async (ch) => {
+    const backend = createBackend();
+    await expect(
+      submit(connectBrowser(backend, { baseShareId: 'shrBase' }), ch, 'fake', { x: 1 })
+    ).rejects.toMatchObject({ message: expect.stringContaining('listen-only') });
+  });
+
+  it('refuses a view-share visitor publishing onto the shared table', async () => {
+    const backend = createBackend();
+    await expect(
+      submit(
+        connectBrowser(backend, { shareId: 'shrView' }),
+        getActionTriggerChannel('tblShared'),
+        'fake',
+        [{ actionKey: 'deleteRecord' }]
+      )
+    ).rejects.toMatchObject({ message: expect.stringContaining('listen-only') });
+  });
+
+  it('still delivers what members publish to a subscribed share visitor', async () => {
+    const backend = createBackend();
+    const channel = getActionTriggerChannel('tblShared');
+    const visitor = await subscribe(connectBrowser(backend, { baseShareId: 'shrBase' }), channel);
+    const received = new Promise((resolve) =>
+      visitor.on('receive', (_id, value) => resolve(value))
+    );
+
+    await submit(backend.connect(), channel, 'srv', [{ actionKey: 'setRecord' }]);
+    await expect(received).resolves.toEqual([{ actionKey: 'setRecord' }]);
+  });
+
+  it('lets a base member publish presence on their own table', async () => {
+    const backend = createBackend();
+    await expect(
+      submit(
+        connectBrowser(backend, { userId: 'usrMe' }),
+        getCollaboratorsChannel('tblMine'),
+        'me',
+        { name: 'me' }
+      )
+    ).resolves.toBeUndefined();
+  });
 });
 
 describe('workflow-test presence requires a signed-in user', () => {

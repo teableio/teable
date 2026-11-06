@@ -8,6 +8,7 @@ export const sortItemSchema = z.object({
     description: 'The id of the field.',
   }),
   order: orderSchema,
+  collation: z.literal('zh-pinyin').optional(),
 });
 
 export const sortSchema = z

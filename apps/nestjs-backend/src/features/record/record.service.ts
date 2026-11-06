@@ -303,18 +303,29 @@ export class RecordService {
     rows: Record<string, unknown>[],
     fields: IFieldInstance[]
   ): Promise<void> {
-    if (!rows.length) {
-      return;
-    }
     const userLikeColumns = fields
       .filter((field) =>
         [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type)
       )
       .map((field) => this.getQueryColumnName(field));
-    if (!userLikeColumns.length) {
-      return;
-    }
+    await this.hydrateUnresolvedUserValues(rows, userLikeColumns);
+  }
 
+  async hydrateSelectedUserCells(
+    records: Pick<IRecord, 'fields'>[],
+    fields: ReadonlyArray<{ id: string; type: FieldType; isLookup?: boolean | null }>
+  ): Promise<void> {
+    const userFieldIds = fields
+      .filter((field) => field.type === FieldType.User && !field.isLookup)
+      .map((field) => field.id);
+    await this.hydrateUnresolvedUserValues(records.map((record) => record.fields), userFieldIds);
+  }
+
+  private async hydrateUnresolvedUserValues(
+    rows: Record<string, unknown>[],
+    userLikeColumns: readonly string[]
+  ): Promise<void> {
+    if (!rows.length || !userLikeColumns.length) return;
     const isUnresolvedUserId = (cell: unknown): cell is { id: string } => {
       if (!cell || typeof cell !== 'object' || Array.isArray(cell)) {
         return false;

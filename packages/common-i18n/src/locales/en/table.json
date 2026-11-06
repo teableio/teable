@@ -1735,7 +1735,6 @@
       "share": "Share",
       "enableShare": "Enable sharing",
       "copyLink": "Copy link",
-      "rotateLink": "Reset link",
       "scope": "Who can view",
       "scopePublic": "Anyone with the link",
       "scopeSpace": "Space members",
@@ -1753,7 +1752,8 @@
       "running": "Generating…",
       "waitingInput": "Waiting for your reply",
       "failed": "Reply failed"
-    }
+    },
+    "routineRunPrompt": "Sent by routine"
   },
   "upload": {
     "panelUploading": "Uploading {{count}} files",

@@ -421,6 +421,7 @@ export class ViewOpenApiService {
         );
       }
     }
+    await this.viewService.validateSortCollations(tableId, sort);
   }
 
   async validateGroup(tableId: string, group: IGroup) {

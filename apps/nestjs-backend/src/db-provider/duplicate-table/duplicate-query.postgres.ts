@@ -1,3 +1,4 @@
+import type { BulkCopyTableInput } from '@teable/v2-core';
 import type { Knex } from 'knex';
 import { DuplicateTableQueryAbstract } from './abstract';
 
@@ -17,13 +18,27 @@ export class DuplicateTableQueryPostgres extends DuplicateTableQueryAbstract {
     range?: {
       minAutoNumberExclusive?: number;
       maxAutoNumberInclusive?: number;
-    }
+    },
+    dateTimeZoneConversions: BulkCopyTableInput['dateTimeZoneConversions'] = []
   ) {
     const newColumnList = newColumns.map((col) => `"${col}"`).join(', ');
+    const dateConversions = new Map(
+      dateTimeZoneConversions.map((conversion) => [conversion.dbFieldName, conversion])
+    );
+    const projectionBindings: unknown[] = [];
     const oldColumnList = oldColumns
       .map((col) => {
         if (col === '__version') {
           return '1 AS "__version"';
+        }
+        const dateConversion = dateConversions.get(col);
+        if (dateConversion) {
+          projectionBindings.push(
+            dateConversion.targetTimeZone,
+            dateConversion.sourceTimeZone,
+            col
+          );
+          return 'timezone(?, timezone(?, ??))';
         }
         // cross base link field should transform to text from json
         if (crossBaseLinkDbFieldNames.map(({ dbFieldName }) => dbFieldName).includes(col)) {
@@ -54,7 +69,7 @@ export class DuplicateTableQueryPostgres extends DuplicateTableQueryAbstract {
     const whereSql = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
     return this.knex.raw(
       `INSERT INTO ?? (${newColumnList}) SELECT ${oldColumnList} FROM ??${whereSql} ORDER BY "__auto_number"`,
-      [targetTable, sourceTable, ...whereBindings]
+      [targetTable, ...projectionBindings, sourceTable, ...whereBindings]
     );
   }
 }

@@ -3583,6 +3583,10 @@ export class SpaceDataDbMigrationService {
         BEGIN
           batch_id := current_setting('teable.undo_batch_id', true);
 
+          IF batch_id IS NULL OR batch_id = '' THEN
+            RETURN NULL;
+          END IF;
+
           IF TG_OP = 'INSERT' THEN
             captured_record_id := COALESCE(NEW."__id"::text, '');
             captured_new_row := to_jsonb(NEW);
@@ -3593,10 +3597,6 @@ export class SpaceDataDbMigrationService {
           ELSIF TG_OP = 'DELETE' THEN
             captured_record_id := COALESCE(OLD."__id"::text, '');
             captured_old_row := to_jsonb(OLD);
-          END IF;
-
-          IF batch_id IS NULL OR batch_id = '' THEN
-            RETURN NULL;
           END IF;
 
           IF TG_OP IN ('UPDATE', 'DELETE') THEN

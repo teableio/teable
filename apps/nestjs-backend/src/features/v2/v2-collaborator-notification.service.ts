@@ -30,6 +30,7 @@ import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { keyBy } from 'lodash';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 import {
   maxCollaboratorNotifyRecordTitles,
   NotificationService,
@@ -158,7 +159,8 @@ export class V2CollaboratorNotificationDispatcher {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly notificationService: NotificationService,
-    private readonly v2ContextFactory: V2ExecutionContextFactory
+    private readonly v2ContextFactory: V2ExecutionContextFactory,
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
   async notifyUserFields(params: {
@@ -179,10 +181,23 @@ export class V2CollaboratorNotificationDispatcher {
     }
 
     const notificationData = this.extractNotificationData(records, userFieldIds);
+    const candidateUserIds = Object.keys(notificationData);
+    if (!candidateUserIds.length) {
+      return;
+    }
+    const collaborators = await this.collaboratorService.getUserCollaboratorsByTableId(tableId, {
+      containsIn: { keys: ['id'], values: candidateUserIds },
+    });
+    const collaboratorIds = new Set(collaborators.map(({ id }) => id));
+    const recipientIds = candidateUserIds.filter((userId) => collaboratorIds.has(userId));
+    if (!recipientIds.length) {
+      return;
+    }
+
     const recordIdsNeedingTitles = [
       ...new Set(
-        Object.values(notificationData).flatMap((data) =>
-          data.recordIds.slice(0, maxCollaboratorNotifyRecordTitles)
+        recipientIds.flatMap((userId) =>
+          notificationData[userId]!.recordIds.slice(0, maxCollaboratorNotifyRecordTitles)
         )
       ),
     ];
@@ -191,7 +206,7 @@ export class V2CollaboratorNotificationDispatcher {
         ? await this.loadRecordTitles(tableId, recordIdsNeedingTitles)
         : [];
     const recordTitlesMap = keyBy(recordTitles, 'id');
-    for (const userId of Object.keys(notificationData)) {
+    for (const userId of recipientIds) {
       const { fieldId, recordIds } = notificationData[userId]!;
       const field = userFields[fieldId];
       if (!field) {

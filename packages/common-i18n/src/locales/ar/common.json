@@ -6,6 +6,7 @@
     "deleteTableTitle": "Delete table",
     "copyTableTitle": "Copy table",
     "copyBaseTitle": "Copy project",
+    "convertFieldTitle": "Change field",
     "changedEffectsTitle": "What else changes",
     "preservedTitle": "Stays connected",
     "loading": "Loading details…",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "execution-time effects",
     "uncertaintyDetail": "other effects",
     "recordCountUnknown": "record count",
+    "affectedCellCountUnknown": "affected-cell count",
     "retentionUnknown": "The Trash retention period is not checked.",
     "storageUnknown": "Storage impact is not checked.",
     "retentionStorageUnknown": "The Trash retention period and storage impact are not checked.",
     "inTables": "In table: {{names}}",
     "affectedFields": "Affected fields:",
     "affectedViews": "Affected views:",
+    "affectedCells": "Affected cells:",
+    "affectedLinkChanges": "Related link changes:",
     "labels": {
       "tables": "Tables",
       "fields": "Fields",
@@ -67,7 +71,12 @@
       "dependentFieldsUpdatedDetail": "Update dependent fields; final values are not specified",
       "alreadyTrashed": "This table is already in Trash.",
       "unknownLinksDetail": "Some linked tables could not be classified; whether their links are kept or converted is unknown.",
-      "truncatedEffectsDetail": "Only part of the affected-resource list is shown."
+      "truncatedEffectsDetail": "Only part of the affected-resource list is shown.",
+      "fieldTypeChanged": "Change the field type",
+      "fieldConfigurationChanged": "Update the field settings",
+      "fieldValuesRewritten": "Rewrite existing field values for the new settings",
+      "fieldUnchanged": "Keep the current field settings",
+      "fieldLinkChanges": "Apply related link changes"
     }
   },
   "actions": {
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "الإعدادات",
       "logout": "تسجيل الخروج",
-      "contactSupport": "التواصل مع الدعم"
+      "contactSupport": "التواصل مع الدعم",
+      "downloadApp": "تنزيل التطبيق"
     },
     "integration": {
       "title": "التكاملات",
@@ -1121,7 +1131,6 @@
           "smDesc": "الاستعلامات البسيطة والردود السريعة",
           "readyToUse": "تم إعداد الذكاء الاصطناعي وهو جاهز للاستخدام!",
           "customProviderHelp": "أضف مزوّدي ذكاء اصطناعي خاصين بك (OpenAI وAnthropic وAzure وغيرها)، وأعدّ مفاتيح API والنماذج.",
-          "testModelCapabilities": "اختبار قدرات النموذج",
           "customModelsAutoImported": "تم استيراد نماذج مزوّدك تلقائيًا إلى مجموعة النماذج.",
           "modelsCount": "{{count}} نموذج متاح",
           "customModelsHint": "لتعديل إعدادات النماذج، ارجع إلى الخطوة 1 وغيّر إعدادات المزوّد.",
@@ -1178,7 +1187,8 @@
       "group": {
         "system": "الأساسيات",
         "ai": "خدمات الذكاء الاصطناعي",
-        "appBuilder": "منشئ التطبيقات"
+        "appBuilder": "منشئ التطبيقات",
+        "security": "الأمان"
       },
       "copyInstance": "نسخ المعرّف",
       "list": {
@@ -1227,7 +1237,23 @@
         "sandboxOpenSandbox": {
           "title": "بيئة تشغيل محادثة الذكاء الاصطناعي",
           "description": "أعدّ بيئة تشغيل OpenSandbox لمحادثة الذكاء الاصطناعي، <anchor>الانتقال إلى الإعداد</anchor>"
+        },
+        "signupVerification": {
+          "title": "التسجيل مفتوح دون التحقق من البريد الإلكتروني",
+          "description": "يمكن لأي شخص التسجيل ببريد إلكتروني لا يملكه: يمكنه حجز عنوان زميل أو عميل، والاستيلاء على حساب شخص دُعي عبر البريد ولم يسجّل بعد، مع الصلاحيات التي منحتها الدعوة. فعّل التحقق من البريد الإلكتروني (يتطلب إعداد إرسال البريد) أو أوقف التسجيل المفتوح، <anchor>انتقل إلى الإعدادات</anchor>"
+        },
+        "secrets": {
+          "title": "أسرار الخادم",
+          "description": "أسرار غير مُعيّنة أو تستخدم قيمة افتراضية معروفة للعامة: {{total}}. قد يتيح ذلك للآخرين تزوير رموز تسجيل الدخول أو فك تشفير البيانات المخزّنة. عيّنها كمتغيرات بيئة ثم أعد التشغيل؛ يشرح سجل بدء التشغيل كل عنصر. في مثيل يحتوي على بيانات، ثبّت القيم الحالية أولاً ثم نفّذ التدوير: استبدال مفتاح التشفير مباشرةً يجعل البيانات المشفّرة به غير قابلة للقراءة.",
+          "missing": "غير مُعيّن",
+          "publicDefault": "قيمة افتراضية عامة",
+          "docsLink": "مرجع متغيرات البيئة",
+          "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
+      },
+      "banner": {
+        "message": "هناك مهام أمان تحتاج إلى معالجة في لوحة الإدارة",
+        "action": "مراجعة"
       }
     },
     "canary": {
@@ -1515,6 +1541,18 @@
           },
           "connectorDisconnected": {
             "title": "توقف الروتين {{name}} عن استقبال أحداث الموصل"
+          },
+          "handedToYou": {
+            "title": "تم نقل الروتين {{name}} إليك",
+            "message": "لم يعد بإمكان {{previousOwner}} تعديل الروتين {{name}}، لذلك تم نقله إليك. أصبح يعمل الآن باسمك، وتصلك نتائجه وتنبيهاته. راجع تعليماته ومشغّله، أو أوقفه مؤقتًا إذا لم تعد بحاجة إليه."
+          },
+          "handedAway": {
+            "title": "تم نقل الروتين {{name}} الخاص بك إلى {{newOwner}}",
+            "message": "لم يعد بإمكانك تعديل الروتين {{name}}، لذلك تم نقله إلى {{newOwner}}. أصبح يعمل الآن باسم {{newOwner}}."
+          },
+          "takenOver": {
+            "title": "أصبح الروتين {{name}} يعمل الآن باسم {{newOwner}}",
+            "message": "تولّى {{newOwner}} الروتين {{name}}. أصبح يعمل الآن باسم {{newOwner}}، وتذهب نتائجه وتنبيهاته إلى {{newOwner}}."
           }
         },
         "billing": {
@@ -2074,5 +2112,16 @@
         "description": "تساعدنا على قياس فعالية إعلاناتنا وعروضنا الترويجية."
       }
     }
+  },
+  "openInApp": {
+    "title": "تطبيق Teable",
+    "description": "افتح هذه الصفحة في التطبيق لتجربة أكثر سلاسة",
+    "open": "فتح",
+    "dismiss": "إغلاق",
+    "notInstalledTitle": "ألم تثبّت التطبيق بعد؟",
+    "notInstalledDescription": "ثبّته، ثم عد إلى هنا واضغط على فتح",
+    "getApp": "تنزيل التطبيق",
+    "inAppBrowserHint": "للانتقال إلى التطبيق، افتح هذه الصفحة في المتصفح من القائمة أعلى الشاشة",
+    "menuItem": "فتح في تطبيق Teable"
   }
 }

@@ -335,9 +335,14 @@
     "autoSort": "Trier automatiquement les enregistrements",
     "selectASCLabel": "Ordre d'options",
     "selectDESCLabel": "Options dans l'ordre inverse",
+    "pinyinASCLabel": "Pinyin : croissant",
+    "pinyinDESCLabel": "Pinyin : décroissant",
+    "pinyinGroupConflict": "Le tri pinyin n’est pas disponible pour un champ groupé. Supprimez le regroupement de ce champ ou utilisez le tri par défaut.",
+    "pinyinGroupRecovered": "Le tri pinyin de la vue personnelle qui était en conflit a été réinitialisé au tri par défaut. Vos regroupements et vos sens de tri ont été conservés. Supprimez le regroupement de ce champ pour réactiver le tri pinyin.",
     "orderTitle": "Sélectionner l’ordre de tri"
   },
   "group": {
+    "pinyinSortConflict": "Ce champ utilise le tri pinyin. Rétablissez le tri par défaut avant de le regrouper ou choisissez un autre champ.",
     "label": "Grouper",
     "displayLabel_one": "Grouper par {{count}} champ",
     "displayLabel_many": "Grouper par {{count}} champs",
@@ -1203,6 +1208,7 @@
       "configRequiredToRun": "Impossible d'exécuter une routine sans configuration enregistrée",
       "runAlreadyInFlight": "Une exécution de cette routine est déjà en cours",
       "runNowWhileActiveEvent": "Cette routine est active et reçoit déjà ses événements ; déclenchez-en un pour la voir s'exécuter",
+      "runNowOwnerOnly": "Tant que la routine est active, seule la personne au nom de laquelle elle s'exécute peut la lancer maintenant",
       "invalidRunCursor": "Curseur de liste d'exécutions non valide",
       "invalidSchedule": "Planification de routine non valide : {{reason}}"
     },
@@ -1703,6 +1709,7 @@
         "loginDisabled": "La connexion n'est pas activée pour cette application",
         "googleDisabled": "La connexion Google n'est pas activée pour cette application",
         "teableDisabled": "La connexion Teable n'est pas activée pour cette application",
+        "oidcDisabled": "La connexion SSO n'est pas activée pour cette application",
         "userTableMissing": "La table des utilisateurs sélectionnée n'existe pas dans ce projet",
         "emailFieldMissing": "La table des utilisateurs sélectionnée n'a pas de champ e-mail",
         "emailFieldType": "Le champ e-mail doit être un champ de texte sur une seule ligne modifiable",

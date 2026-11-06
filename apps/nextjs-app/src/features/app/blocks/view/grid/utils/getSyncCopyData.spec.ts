@@ -1,8 +1,8 @@
-import { FieldType } from '@teable/core';
+import { CellValueType, DbFieldType, FieldType } from '@teable/core';
 import type { Field, IRecordIndexMap } from '@teable/sdk';
 import { CombinedSelection, SelectionRegionType } from '@teable/sdk';
 import { describe, expect, it } from 'vitest';
-import { getSyncCopyData } from './getSyncCopyData';
+import { getSingleRowCopyData, getSyncCopyData } from './getSyncCopyData';
 
 const textField = {
   id: 'fldText1111111111',
@@ -13,6 +13,28 @@ const textField = {
   cellValueType: 'string',
   dbFieldType: 'TEXT',
   cellValue2String: (value: unknown) => (value == null ? '' : String(value)),
+} as unknown as Field;
+
+const userField = {
+  id: 'fldUser1111111111',
+  name: 'Owner',
+  dbFieldName: 'owner',
+  type: FieldType.User,
+  options: { isMultiple: false, shouldNotify: false },
+  cellValueType: CellValueType.String,
+  dbFieldType: DbFieldType.Json,
+  isMultipleCellValue: false,
+  cellValue2String: (value: { title?: string } | null) => value?.title ?? '',
+} as unknown as Field;
+
+const multipleUserField = {
+  ...userField,
+  id: 'fldUsers111111111',
+  name: 'Owners',
+  options: { isMultiple: true, shouldNotify: false },
+  isMultipleCellValue: true,
+  cellValue2String: (value: Array<{ title?: string }> | null) =>
+    value?.map(({ title }) => title ?? '').join(', ') ?? '',
 } as unknown as Field;
 
 const buildRecordMap = (values: (string | undefined)[]) =>
@@ -78,5 +100,45 @@ describe('getSyncCopyData', () => {
       expect(content).toBe('kept\t');
       expect(rawContent).toEqual([['kept', undefined]]);
     });
+  });
+});
+
+describe('getSingleRowCopyData', () => {
+  it('keeps a single user value exactly as loaded', () => {
+    const user = { id: 'usrA', title: 'Alice', email: 'alice@example.com' };
+    const result = getSingleRowCopyData({
+      fields: [userField],
+      selection: new CombinedSelection(SelectionRegionType.Cells, [
+        [0, 0],
+        [0, 0],
+      ]),
+      fieldValueMap: { [userField.id]: user },
+    });
+
+    expect(result.content).toBe('Alice');
+    expect(result.displayContent).toEqual([['Alice']]);
+    expect(result.rawContent).toEqual([[user]]);
+  });
+
+  it('keeps multiple users and does not add a missing email', () => {
+    const users = [
+      { id: 'usrEmpty', title: 'Empty email', email: '' },
+      { id: 'usrMissing', title: 'Missing email' },
+    ];
+    const result = getSingleRowCopyData({
+      fields: [multipleUserField],
+      selection: new CombinedSelection(SelectionRegionType.Cells, [
+        [0, 0],
+        [0, 0],
+      ]),
+      fieldValueMap: { [multipleUserField.id]: users },
+    });
+
+    expect(result.content).toBe('Empty email, Missing email');
+    expect(result.displayContent).toEqual([['Empty email, Missing email']]);
+    expect(result.rawContent).toEqual([[users]]);
+    expect((result.rawContent[0]?.[0] as Array<Record<string, unknown>>)[1]).not.toHaveProperty(
+      'email'
+    );
   });
 });

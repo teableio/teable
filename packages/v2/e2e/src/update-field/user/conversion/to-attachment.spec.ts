@@ -47,7 +47,7 @@ describe('update-field: user → attachment conversion', () => {
       },
     });
     const r1 = await ctx.createRecord(tableId, {
-      [fieldId]: { id: 'system', title: 'System', email: 'system@teable.io' },
+      [fieldId]: { id: ctx.testUser.id },
     });
 
     await ctx.updateField({
@@ -103,8 +103,8 @@ describe('update-field: user → attachment conversion', () => {
     });
     const r1 = await ctx.createRecord(tableId, {
       [fieldId]: [
-        { id: 'system', title: 'System' },
-        { id: 'usrTestUserId', title: 'Test User' },
+        { id: ctx.testUser.id },
+        { id: ctx.testUser.id },
       ],
     });
 

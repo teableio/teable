@@ -1382,6 +1382,22 @@ export class PostgresTableRepository implements core.ITableRepository {
     }
   }
 
+  async lockViewVersions(
+    context: core.IExecutionContext,
+    table: core.Table,
+    viewIds: ReadonlyArray<string>
+  ): Promise<Result<void, DomainError>> {
+    const transaction = getPostgresTransaction<V1TeableDatabase>(context, 'meta');
+    if (!transaction) {
+      return err(
+        domainError.invariant({
+          message: 'View version locks require a transaction-bound execution context',
+        })
+      );
+    }
+    return this.lockAndValidateViewVersions(transaction, table, table.id().toString(), viewIds);
+  }
+
   private async lockAndValidateViewVersions(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
     table: core.Table,
@@ -2418,7 +2434,7 @@ export class PostgresTableRepository implements core.ITableRepository {
   }
 
   private parseViewSort(raw: string | null): {
-    sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    sort?: Array<core.ViewQuerySortItem>;
     manualSort?: boolean;
   } {
     if (!raw) return {};
@@ -2429,10 +2445,19 @@ export class PostgresTableRepository implements core.ITableRepository {
     const sort = sortObjs
       .map((item) => item as Record<string, unknown>)
       .filter(
-        (item): item is { fieldId: string; order: 'asc' | 'desc' } =>
-          typeof item.fieldId === 'string' && (item.order === 'asc' || item.order === 'desc')
+        (
+          item
+        ): item is {
+          fieldId: string;
+          order: 'asc' | 'desc';
+          collation?: unknown;
+        } => typeof item.fieldId === 'string' && (item.order === 'asc' || item.order === 'desc')
       )
-      .map((item) => ({ fieldId: item.fieldId, order: item.order }));
+      .map((item): core.ViewQuerySortItem => ({
+        fieldId: item.fieldId,
+        order: item.order,
+        ...(item.collation === 'zh-pinyin' ? { collation: item.collation } : {}),
+      }));
     const manualSort = typeof record.manualSort === 'boolean' ? record.manualSort : undefined;
     return {
       sort: Array.isArray(record.sortObjs) ? sort : undefined,

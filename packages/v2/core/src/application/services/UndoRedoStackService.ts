@@ -198,6 +198,15 @@ export const toUndoRedoStackReplayContext = (
 const resolveUndoRedoStackMode = (context: UndoRedoStackAppendContext): UndoRedoStackMode =>
   context.stackMode ?? 'normal';
 
+/**
+ * Whether this append may reach the store. Callers build undo/redo payloads before appending,
+ * so they must ask before constructing anything that only a recorded entry would consume.
+ */
+const shouldAppendUndoRedoEntry = (
+  context: UndoRedoStackAppendContext
+): context is UndoRedoStackAppendContext & { readonly windowId: string } =>
+  resolveUndoRedoStackMode(context) === 'normal' && Boolean(context.windowId);
+
 const describeError = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message || error.name;
@@ -483,6 +492,11 @@ export class UndoRedoStackService {
       return ok(undefined);
     }
 
+    // Restore payloads and the Delete/Restore commands are only consumed by a recorded entry.
+    if (!shouldAppendUndoRedoEntry(context)) {
+      return ok(undefined);
+    }
+
     const createdRecordIds =
       params.createdRecordIds ?? params.createdRecords.map((snapshot) => snapshot.recordId);
 
@@ -518,11 +532,7 @@ export class UndoRedoStackService {
     tableId: TableId,
     entry: Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'>
   ): Promise<Result<void, DomainError>> {
-    if (context.stackMode === 'undo' || context.stackMode === 'redo') {
-      return ok(undefined);
-    }
-
-    if (!context.windowId) {
+    if (!shouldAppendUndoRedoEntry(context)) {
       return ok(undefined);
     }
 

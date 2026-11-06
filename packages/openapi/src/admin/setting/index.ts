@@ -8,6 +8,7 @@ export * from './byok-provider';
 export * from './get';
 export * from './get-public';
 export * from './update';
+export * from './oidc-connection';
 export * from './update-ai-config';
 export * from './upload-logo';
 export * from './test-llm';

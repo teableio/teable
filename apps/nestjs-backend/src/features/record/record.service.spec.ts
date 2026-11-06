@@ -27,6 +27,35 @@ describe('RecordService', () => {
     vi.clearAllMocks();
   });
 
+  it('hydrates selected user cells without losing positions, duplicates or stored metadata', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      { id: 'usrOne', name: 'Current One', email: 'one@example.test' },
+      { id: 'usrTwo', name: 'Current Two', email: 'two@example.test' },
+    ]);
+    const service = Object.create(RecordService.prototype) as RecordService;
+    Object.assign(service, { prismaService: { txClient: () => ({ user: { findMany } }) } });
+    const records = [{ fields: {
+      fldUser: [null, { id: 'usrOne' }, { id: 'usrOne', title: 'usrOne' },
+        { id: 'usrTwo', title: 'Historical Two', email: 'old@example.test' }, null],
+      fldHidden: [{ id: 'usrHidden' }],
+    } }];
+    await service.hydrateSelectedUserCells(records, [
+      { id: 'fldUser', type: FieldType.User },
+      { id: 'fldHidden', type: FieldType.User, isLookup: true },
+    ]);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['usrOne'] } },
+      select: { id: true, name: true, email: true },
+    });
+    expect(records[0]!.fields).toEqual({
+      fldUser: [null,
+        { id: 'usrOne', title: 'Current One', email: 'one@example.test' },
+        { id: 'usrOne', title: 'Current One', email: 'one@example.test' },
+        { id: 'usrTwo', title: 'Historical Two', email: 'old@example.test' }, null],
+      fldHidden: [{ id: 'usrHidden' }],
+    });
+  });
+
   it('excludes pending fields from snapshot projections while keeping errored fields readable', async () => {
     const createTextField = (id: string, overrides: Partial<IFieldVo> = {}): IFieldVo => ({
       id,

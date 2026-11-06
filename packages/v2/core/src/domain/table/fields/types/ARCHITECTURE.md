@@ -12,6 +12,11 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   result multiplicity alone does not determine whether ordering is supported.
 - Ordinary and conditional lookups reject button source fields during foreign-table validation,
   before create or update can persist the lookup configuration.
+- Ordinary and conditional lookup/rollup filters are validated against the foreign and host
+  fields before creation or updates persist them, using `../foreignTableConditionValidation.ts`
+  and the shared record-condition builder. Unsupported operators and values fail as request
+  validation errors, not delayed backfill dead letters. Optional/cleared filters and legacy
+  checkbox `is`/`isNot` + null conditions retain their existing semantics.
 
 ## Files
 

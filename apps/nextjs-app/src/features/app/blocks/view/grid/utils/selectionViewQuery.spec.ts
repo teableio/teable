@@ -1,7 +1,11 @@
 import { SortFunc } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { describe, expect, it } from 'vitest';
-import { buildSelectionViewQuery, getSelectionGroupBy } from './selectionViewQuery';
+import {
+  buildSelectionViewQuery,
+  buildSharedViewCopyRequest,
+  getSelectionGroupBy,
+} from './selectionViewQuery';
 
 describe('buildSelectionViewQuery', () => {
   it('returns undefined when there is no personal view query', () => {
@@ -150,5 +154,89 @@ describe('buildSelectionViewQuery', () => {
         viewGroup,
       })
     ).toEqual(viewGroup);
+  });
+});
+
+describe('buildSharedViewCopyRequest', () => {
+  it('leaves normal and base-share copying on the common route without a view-share context', () => {
+    expect(
+      buildSharedViewCopyRequest({
+        rangesRo: {
+          ranges: [
+            [0, 0],
+            [1, 1],
+          ],
+        },
+        visibleFieldIds: ['fldA', 'fldB'],
+      })
+    ).toBeUndefined();
+  });
+
+  it('copies visitor-filtered rows in local sort order and uses the visible column coordinates', () => {
+    const filter: NonNullable<IGetRecordsRo['filter']> = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldStatus', operator: 'is', value: 'Open' }],
+    };
+    const localSort = [{ fieldId: 'fldScore', order: SortFunc.Desc }];
+    const localGroup = [{ fieldId: 'fldStatus', order: SortFunc.Asc }];
+    const request = buildSharedViewCopyRequest({
+      shareViewId: 'shrView',
+      rangesRo: {
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
+        viewId: 'viwStored',
+        ignoreViewQuery: true,
+        filter: null,
+        orderBy: [{ fieldId: 'fldOldSort', order: SortFunc.Asc }],
+        projection: ['fldHidden', 'fldA', 'fldB'],
+        search: ['needle', 'fldA', true],
+        collapsedGroupIds: ['groupCollapsed'],
+      },
+      proxyView: { filter, sort: { sortObjs: localSort }, group: localGroup },
+      visibleFieldIds: ['fldB', 'fldA'],
+    });
+
+    expect(request).toEqual({
+      shareId: 'shrView',
+      query: {
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
+        type: undefined,
+        filterByTql: undefined,
+        filter,
+        orderBy: localSort,
+        groupBy: localGroup,
+        projection: ['fldB', 'fldA'],
+        search: ['needle', 'fldA', true],
+        collapsedGroupIds: ['groupCollapsed'],
+        queryId: undefined,
+      },
+    });
+    expect(request?.query).not.toHaveProperty('viewId');
+    expect(request?.query).not.toHaveProperty('ignoreViewQuery');
+  });
+
+  it('preserves saved collapsed-group query references and locally empty grouping', () => {
+    const request = buildSharedViewCopyRequest({
+      shareViewId: 'shrView',
+      rangesRo: {
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+        queryId: 'querySaved',
+      },
+      proxyView: { filter: null, sort: null, group: [] },
+      visibleFieldIds: ['fldA'],
+    });
+
+    expect(request?.query.queryId).toBe('querySaved');
+    expect(request?.query.groupBy).toEqual([]);
+    expect(request?.query.filter).toBeNull();
+    expect(request?.query.orderBy).toBeUndefined();
   });
 });
