@@ -14,17 +14,20 @@ import {
 import { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFields } from '../../hooks';
+import { supportsPinyinSort } from '../../utils/sort';
 import { AdaptiveSelect } from '../adaptive-panel';
 
 interface IOrderProps {
   value: SortFunc;
   fieldId: string;
-  onSelect: (value: SortFunc) => void;
+  onSelect: (value: SortFunc, collation?: 'zh-pinyin') => void;
   triggerClassName?: string;
+  collation?: 'zh-pinyin';
+  enablePinyin?: boolean;
 }
 
 function OrderSelect(props: Readonly<IOrderProps>) {
-  const { value, onSelect, fieldId, triggerClassName } = props;
+  const { value, onSelect, fieldId, triggerClassName, collation, enablePinyin = false } = props;
   const { t } = useTranslation();
 
   const fields = useFields({ withHidden: true, withDenied: true });
@@ -122,22 +125,44 @@ function OrderSelect(props: Readonly<IOrderProps>) {
       option = NUMBEROPTIONS;
     }
 
-    return option || DEFAULTOPTIONS;
-  }, [field?.cellValueType, field?.type, t]);
+    const baseOptions = option || DEFAULTOPTIONS;
+    return enablePinyin && supportsPinyinSort(field)
+      ? [
+          ...baseOptions,
+          { value: 'pinyin-asc', label: t('sort.pinyinASCLabel') },
+          { value: 'pinyin-desc', label: t('sort.pinyinDESCLabel') },
+        ]
+      : baseOptions;
+  }, [field, enablePinyin, t]);
 
-  const selectedLabel = options.find((option) => option.value === value)?.label;
+  const selectedValue = collation === 'zh-pinyin' && enablePinyin ? `pinyin-${value}` : value;
+  const selectedLabel = options.find((option) => option.value === selectedValue)?.label;
+  const handleSelect = (next: string) => {
+    const isPinyin = next.startsWith('pinyin-');
+    onSelect(
+      (isPinyin ? next.slice('pinyin-'.length) : next) as SortFunc,
+      isPinyin ? 'zh-pinyin' : undefined
+    );
+  };
 
   return (
     <AdaptiveSelect
       title={t('sort.orderTitle')}
       options={options.map((option) => ({ value: option.value, label: option.label }))}
-      value={value}
-      onSelect={(next) => onSelect(next as SortFunc)}
-      // Two options, no search: let the panel be as tall as its content.
+      value={selectedValue}
+      onSelect={handleSelect}
+      // No search: let the panel be as tall as its content.
       size="auto"
       desktop={
-        <Select value={value} onValueChange={onSelect}>
-          <SelectTrigger className={cn('mx-2 w-32', triggerClassName)}>
+        <Select value={selectedValue} onValueChange={handleSelect}>
+          <SelectTrigger
+            aria-label={t('sort.orderTitle')}
+            className={cn(
+              'mx-2 w-32',
+              enablePinyin && supportsPinyinSort(field) && 'w-48',
+              triggerClassName
+            )}
+          >
             <SelectValue placeholder={t('common.selectPlaceHolder')} />
           </SelectTrigger>
           <SelectContent>
@@ -155,11 +180,13 @@ function OrderSelect(props: Readonly<IOrderProps>) {
         <Button
           variant="outline"
           role="combobox"
+          aria-label={t('sort.orderTitle')}
           className={cn(
             // Shares the row with the field selector rather than reserving a
             // fixed 128px: at 320px a fixed order button leaves the field name
             // about two characters wide.
             'h-9 w-auto min-w-24 max-w-32 flex-1 justify-between px-3 font-normal',
+            enablePinyin && supportsPinyinSort(field) && 'max-w-48',
             triggerClassName
           )}
         >

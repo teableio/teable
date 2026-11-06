@@ -33,7 +33,8 @@ describe('withNestOperationPreviewRoutes', () => {
   });
 
   it('preserves routes already mounted by the generic v2 controller', () => {
-    expect(withNestOperationPreviewRoutes([capability('records.bulkDelete')])[0])
-      .toMatchObject({ canonicalWriteRoute: 'core-only' });
+    expect(withNestOperationPreviewRoutes([capability('records.bulkDelete')])[0]).toMatchObject({
+      canonicalWriteRoute: 'core-only',
+    });
   });
 });

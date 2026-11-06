@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { HttpErrorCode } from '@teable/core';
@@ -8,10 +8,10 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { Mock, MockInstance } from 'vitest';
 import { mockDeep } from 'vitest-mock-extended';
 import { CacheService } from '../../cache/cache.service';
-import { CustomHttpException } from '../../custom.exception';
 import { GlobalModule } from '../../global/global.module';
 import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { OAuthServerService } from './oauth-server.service';
+import { OAuthTokenError } from './oauth-token.error';
 import { OAuthModule } from './oauth.module';
 
 describe('OAuthServerService', () => {
@@ -349,7 +349,7 @@ describe('OAuthServerService', () => {
       });
     });
 
-    it('should return an UnauthorizedException if the code is invalid', async () => {
+    it('answers invalid_grant for an unknown or used code', async () => {
       const mockClient = { clientId: 'clientId', name: 'clientName', secretId: 'secretId' };
       const mockCode = 'invalidCode';
       const mockRedirectUri = 'http://redirect.uri';
@@ -359,10 +359,16 @@ describe('OAuthServerService', () => {
       await service['codeExchange'](mockClient, mockCode, mockRedirectUri, mockDone);
 
       expect(cacheService.get).toHaveBeenCalledWith(`oauth:code:${mockCode}`);
-      expect(mockDone).toHaveBeenCalledWith(new UnauthorizedException('Invalid code'));
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError(
+          'invalid_grant',
+          'Authorization code is invalid, expired or already used'
+        )
+      );
+      expect(mockDone.mock.calls[0][0].getStatus()).toBe(400);
     });
 
-    it('should return an UnauthorizedException if the clientId is invalid', async () => {
+    it('answers invalid_grant for a code issued to another client', async () => {
       const mockClient = { clientId: 'clientId', name: 'clientName', secretId: 'secretId' };
       const mockCode = 'validCode';
       const mockRedirectUri = 'http://redirect.uri';
@@ -378,10 +384,12 @@ describe('OAuthServerService', () => {
       await service['codeExchange'](mockClient, mockCode, mockRedirectUri, mockDone);
 
       expect(cacheService.get).toHaveBeenCalledWith(`oauth:code:${mockCode}`);
-      expect(mockDone).toHaveBeenCalledWith(new UnauthorizedException('Invalid client'));
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError('invalid_grant', 'Authorization code was issued to another client')
+      );
     });
 
-    it('should return an UnauthorizedException if the redirectUri is invalid', async () => {
+    it('answers invalid_grant when the redirect_uri differs from the authorization request', async () => {
       const mockClient = { clientId: 'clientId', name: 'clientName', secretId: 'secretId' };
       const mockCode = 'validCode';
       const mockRedirectUri = 'http://invalid.redirect.uri';
@@ -397,7 +405,12 @@ describe('OAuthServerService', () => {
       await service['codeExchange'](mockClient, mockCode, mockRedirectUri, mockDone);
 
       expect(cacheService.get).toHaveBeenCalledWith(`oauth:code:${mockCode}`);
-      expect(mockDone).toHaveBeenCalledWith(new UnauthorizedException('Invalid redirectUri'));
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError(
+          'invalid_grant',
+          'redirect_uri does not match the authorization request'
+        )
+      );
     });
 
     it('should catch and handle errors', async () => {
@@ -523,7 +536,25 @@ describe('OAuthServerService', () => {
       });
     });
 
-    it('should return unauthorized exception for invalid client', async () => {
+    it('answers invalid_grant for a refresh token that fails verification', async () => {
+      const client = {
+        clientId: 'client1',
+        clientSecret: 'secret',
+        name: 'testApp',
+        secretId: 'secretId',
+        type: 'secret',
+      } as const;
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      await service['refreshTokenExchange'](client, 'expiredRefreshToken', mockDone);
+
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError('invalid_grant', 'Refresh token is invalid or expired')
+      );
+      expect(mockDone.mock.calls[0][0].getStatus()).toBe(400);
+    });
+
+    it('answers invalid_grant for a refresh token issued to another client', async () => {
       const client = {
         clientId: 'client1',
         clientSecret: 'secret',
@@ -544,10 +575,12 @@ describe('OAuthServerService', () => {
 
       await service['refreshTokenExchange'](client, refreshToken, mockDone);
 
-      expect(mockDone).toHaveBeenCalledWith(new UnauthorizedException('Invalid client'));
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError('invalid_grant', 'Refresh token was issued to another client')
+      );
     });
 
-    it('should return unauthorized exception for invalid secret', async () => {
+    it('answers invalid_grant for a refresh token bound to other client credentials', async () => {
       const client = {
         clientId: 'client1',
         clientSecret: 'secret',
@@ -571,10 +604,15 @@ describe('OAuthServerService', () => {
       });
       await service['refreshTokenExchange'](client, refreshToken, mockDone);
 
-      expect(mockDone).toHaveBeenCalledWith(new UnauthorizedException('Invalid secret'));
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError(
+          'invalid_grant',
+          'Refresh token was issued under different client credentials'
+        )
+      );
     });
 
-    it('should return unauthorized exception for invalid access token', async () => {
+    it('answers invalid_grant once the access token row behind the refresh token is gone', async () => {
       const client = {
         clientId: 'client1',
         clientSecret: 'secret',
@@ -595,10 +633,12 @@ describe('OAuthServerService', () => {
 
       await service['refreshTokenExchange'](client, refreshToken, mockDone);
 
-      expect(mockDone).toHaveBeenCalledWith(new UnauthorizedException('Invalid access token'));
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError('invalid_grant', 'Refresh token has been revoked')
+      );
     });
 
-    it('should catch and return error', async () => {
+    const rotatedTokenSetup = () => {
       const client = {
         clientId: 'client1',
         clientSecret: 'secret',
@@ -606,16 +646,12 @@ describe('OAuthServerService', () => {
         secretId: 'secretId',
         type: 'secret',
       } as const;
-      const refreshToken = 'validRefreshToken';
-
-      const verifiedToken = {
+      jwtService.verifyAsync.mockResolvedValue({
         clientId: 'client1',
         secret: 'secret',
         accessTokenId: 'accessTokenId',
         sign: 'sign',
-      };
-      const mockAccessToken = { id: 'accessTokenId', token: 'accessToken' };
-      jwtService.verifyAsync.mockResolvedValue(verifiedToken);
+      });
       mockFindAccessToken.mockResolvedValueOnce({
         userId: 'userId',
         scopes: JSON.stringify(['user|email_read']),
@@ -624,12 +660,54 @@ describe('OAuthServerService', () => {
         clientId: client.clientId,
         userId: 'userId',
       });
-      mockGenerateAccessToken.mockResolvedValue(mockAccessToken);
-      mockUpdateRefreshToken.mockRejectedValueOnce(new Error('Database error'));
+      mockGenerateAccessToken.mockResolvedValue({ id: 'accessTokenId', token: 'accessToken' });
+      return client;
+    };
 
-      await service['refreshTokenExchange'](client, refreshToken, mockDone);
+    it('answers invalid_grant for a refresh token that was already rotated (no row to update)', async () => {
+      const client = rotatedTokenSetup();
+      // Prisma P2025: the sign in the token matches no row, i.e. an earlier
+      // refresh already rotated it. This is the loop an MCP client got stuck
+      // in: replaying a used refresh token and being told 401 instead of
+      // invalid_grant.
+      mockUpdateRefreshToken.mockRejectedValueOnce(
+        Object.assign(new Error('Record to update not found.'), { code: 'P2025' })
+      );
 
-      expect(mockDone).toHaveBeenCalledWith(new UnauthorizedException('Invalid refresh token'));
+      await service['refreshTokenExchange'](client, 'usedRefreshToken', mockDone);
+
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError('invalid_grant', 'Refresh token has already been used or revoked')
+      );
+    });
+
+    it('passes a database failure through instead of calling the grant invalid', async () => {
+      const client = rotatedTokenSetup();
+      const outage = new Error('Database error');
+      mockUpdateRefreshToken.mockRejectedValueOnce(outage);
+
+      await service['refreshTokenExchange'](client, 'validRefreshToken', mockDone);
+
+      expect(mockDone).toHaveBeenCalledWith(outage);
+      expect(mockDone.mock.calls[0][0]).not.toBeInstanceOf(OAuthTokenError);
+    });
+
+    it('answers invalid_grant for a verified token whose payload lacks the sign', async () => {
+      const client = {
+        clientId: 'client1',
+        clientSecret: 'secret',
+        name: 'testApp',
+        secretId: 'secretId',
+        type: 'secret',
+      } as const;
+      jwtService.verifyAsync.mockResolvedValue({ clientId: 'client1', secret: 'secret' });
+
+      await service['refreshTokenExchange'](client, 'oddRefreshToken', mockDone);
+
+      expect(mockDone).toHaveBeenCalledWith(
+        new OAuthTokenError('invalid_grant', 'Refresh token is malformed')
+      );
+      expect(mockFindAccessToken).not.toHaveBeenCalled();
     });
   });
 
@@ -648,14 +726,43 @@ describe('OAuthServerService', () => {
       await expect(service['checkTokenRateLimit']('clientId', 'userId')).resolves.toBeUndefined();
     });
 
-    it('should throw when request count exceeds the limit', async () => {
+    it('refuses with too_many_requests and the seconds left in the window once over the limit', async () => {
       cacheService.incr.mockResolvedValue(31);
-      await expect(service['checkTokenRateLimit']('clientId', 'userId')).rejects.toThrow(
-        new CustomHttpException(
-          'Token request rate limit exceeded, please try again later',
-          HttpErrorCode.TOO_MANY_REQUESTS
-        )
-      );
+      cacheService.ttl.mockResolvedValue(123);
+
+      const error = await service['checkTokenRateLimit']('clientId', 'userId').catch((e) => e);
+
+      expect(error).toBeInstanceOf(OAuthTokenError);
+      expect(error.error).toBe('too_many_requests');
+      expect(error.getStatus()).toBe(429);
+      expect(error.retryAfter).toBe(123);
+      expect(cacheService.ttl).toHaveBeenCalledWith('oauth:token-rate:clientId:userId');
+    });
+
+    it('tells the client to retry right away when the window key has already lapsed', async () => {
+      cacheService.incr.mockResolvedValue(31);
+      cacheService.ttl.mockResolvedValue(-2);
+
+      const error = await service['checkTokenRateLimit']('clientId', 'userId').catch((e) => e);
+
+      expect(error.retryAfter).toBe(1);
+    });
+
+    it('warns once per window, on the first refused request, not on every one', async () => {
+      const warn = vitest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      cacheService.ttl.mockResolvedValue(60);
+
+      cacheService.incr.mockResolvedValue(31);
+      await service['checkTokenRateLimit']('clientId', 'userId').catch(() => undefined);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain('client clientId user userId');
+
+      cacheService.incr.mockResolvedValue(32);
+      await service['checkTokenRateLimit']('clientId', 'userId').catch(() => undefined);
+      cacheService.incr.mockResolvedValue(26_000);
+      await service['checkTokenRateLimit']('clientId', 'userId').catch(() => undefined);
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
     });
 
     it('should use clientId:userId as the rate limit key', async () => {

@@ -2,12 +2,13 @@ import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConditionalModule } from '@nestjs/config';
 import { resolveBoolean } from './v2-config-parsers';
+import { V2DataQueryCandidateModule } from './v2-data-query-candidate.module';
 import { V2DataQueryController } from './v2-data-query.controller';
 import { V2DataQueryService } from './v2-data-query.service';
 import { V2Module } from './v2.module';
 
 @Module({
-  imports: [V2Module],
+  imports: [V2Module, V2DataQueryCandidateModule],
   controllers: [V2DataQueryController],
   providers: [V2DataQueryService],
 })

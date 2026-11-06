@@ -1,7 +1,9 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { HttpErrorCode, Role } from '@teable/core';
+import type { ITestLLMRo } from '@teable/openapi';
 import { GlobalModule } from '../../global/global.module';
+import { decryptAiIntegrationConfig, maskAiIntegrationConfig } from './ai-integration-secrets';
 import { SpaceModule } from './space.module';
 import { SpaceService } from './space.service';
 
@@ -157,6 +159,77 @@ describe('SpaceService', () => {
         where: { id: 'int1', resourceId: 'spcOwn' },
       });
       expect(performanceCacheService.del).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('masked integration secrets', () => {
+    const storedConfig = {
+      llmProviders: [
+        { type: 'openai', name: 'p1', apiKey: 'sk-stored', baseUrl: 'https://llm.example/v1' },
+      ],
+    };
+    const createService = () => {
+      const row = { id: 'int1', resourceId: 'spc1', type: 'AI' };
+      const prismaService = {
+        integration: {
+          findFirst: vi
+            .fn()
+            .mockResolvedValue({ id: 'int1', config: JSON.stringify(storedConfig) }),
+          update: vi.fn(async ({ data }: { data: { config: string } }) => ({ ...row, ...data })),
+        },
+      };
+      const settingOpenApiService = { testLLM: vi.fn().mockResolvedValue({ success: true }) };
+      const testService = new SpaceService(
+        prismaService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        settingOpenApiService as never,
+        { del: vi.fn() } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+      return { testService, prismaService, settingOpenApiService };
+    };
+    const maskedProvider = () => maskAiIntegrationConfig(storedConfig).llmProviders[0];
+
+    it('saves a round-tripped mask as the stored key, never as the mask', async () => {
+      const { testService, prismaService } = createService();
+      const { baseUrl: _baseUrl, ...provider } = maskedProvider();
+
+      await testService.updateIntegration(
+        'int1',
+        { config: { llmProviders: [provider] } as never },
+        'spc1'
+      );
+
+      const saved = JSON.parse(prismaService.integration.update.mock.calls[0][0].data.config);
+      expect(decryptAiIntegrationConfig(saved).llmProviders[0].apiKey).toBe('sk-stored');
+    });
+
+    it("tests a masked key with the key this space stored, and refuses another space's", async () => {
+      const { testService, settingOpenApiService } = createService();
+      const { type, apiKey, baseUrl } = maskedProvider();
+      const ro = { type, apiKey, baseUrl, models: 'gpt-4o' } as never as ITestLLMRo;
+
+      await testService.testIntegrationLLM('spc1', ro);
+      expect(settingOpenApiService.testLLM).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: 'sk-stored', baseUrl })
+      );
+
+      settingOpenApiService.testLLM.mockClear();
+      const otherSpaceMask = maskAiIntegrationConfig({
+        llmProviders: [{ ...storedConfig.llmProviders[0], apiKey: 'sk-other-space' }],
+      }).llmProviders[0].apiKey;
+      await expect(
+        testService.testIntegrationLLM('spc1', { ...ro, apiKey: otherSpaceMask })
+      ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
+      expect(settingOpenApiService.testLLM).not.toHaveBeenCalled();
     });
   });
 });

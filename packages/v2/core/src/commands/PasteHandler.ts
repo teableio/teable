@@ -47,7 +47,6 @@ import { generateUuid } from '../domain/shared/IdGenerator';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
-import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type {
   RecordFieldChangeDTO,
@@ -71,7 +70,6 @@ import { materializeRecordSpec } from '../domain/table/records/RecordSpecMateria
 import { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
-import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import { type TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
@@ -1143,8 +1141,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         const resolvedBatchResult = await this.resolveUpdateBatch(
           context,
           batchTable.id(),
-          batchResult.value,
-          typecast
+          batchResult.value
         );
         if (resolvedBatchResult.isErr()) {
           yield err(resolvedBatchResult.error);
@@ -1283,18 +1280,16 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         throw createResult.error;
       }
 
-      const resolvedRecordsResult = await this.resolveCreatedRecords(
+      const resolvedRecordsResult = await this.recordMutationSpecResolver.resolveCreatedRecords(
         context,
         batchTable.id(),
-        createResult.value.records,
-        createResult.value.mutateSpecs,
-        typecast
+        createResult.value
       );
       if (resolvedRecordsResult.isErr()) {
         throw resolvedRecordsResult.error;
       }
 
-      const records = resolvedRecordsResult.value;
+      const { records } = resolvedRecordsResult.value;
       createdRecordBatches.push(
         records.map((record) => ({
           recordId: record.id().toString(),
@@ -1315,13 +1310,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
   protected async resolveUpdateBatch(
     context: ExecutionContextPort.IExecutionContext,
     tableId: TableId,
-    batch: ReadonlyArray<RecordUpdateResult>,
-    typecast: boolean
+    batch: ReadonlyArray<RecordUpdateResult>
   ): Promise<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
-    if (!typecast) {
-      return ok(batch);
-    }
-
     const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
       tableId,
@@ -1331,58 +1321,23 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       return err(resolveManyResult.error);
     }
 
-    return ok(
-      batch.map((updateResult, index) =>
+    const resolvedBatch: RecordUpdateResult[] = [];
+    for (const [index, updateResult] of batch.entries()) {
+      const resolvedSpec = resolveManyResult.value[index] ?? updateResult.mutateSpec;
+      const resolvedRecord = resolvedSpec.mutate(updateResult.record);
+      if (resolvedRecord.isErr()) {
+        return err(resolvedRecord.error);
+      }
+      resolvedBatch.push(
         RecordUpdateResult.create(
-          updateResult.record,
-          resolveManyResult.value[index] ?? updateResult.mutateSpec,
+          resolvedRecord.value,
+          resolvedSpec,
           updateResult.fieldKeyMapping,
           updateResult.events
         )
-      )
-    );
-  }
-
-  protected async resolveCreatedRecords(
-    context: ExecutionContextPort.IExecutionContext,
-    tableId: TableId,
-    records: ReadonlyArray<TableRecord>,
-    mutateSpecs: ReadonlyArray<ICellValueSpec | null>,
-    typecast: boolean
-  ): Promise<Result<ReadonlyArray<TableRecord>, DomainError>> {
-    if (!typecast) {
-      return ok(records);
+      );
     }
-
-    const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
-      context,
-      tableId,
-      mutateSpecs
-    );
-    if (resolveManyResult.isErr()) {
-      return err(resolveManyResult.error);
-    }
-
-    const resolvedRecords: TableRecord[] = [];
-    for (let index = 0; index < records.length; index++) {
-      let record = records[index]!;
-      const mutateSpec = resolveManyResult.value[index] ?? null;
-      if (mutateSpec) {
-        const materialized = materializeRecordSpec({
-          id: record.id(),
-          tableId: record.tableId(),
-          spec: mutateSpec,
-          baseFields: record.fields().entries(),
-        });
-        if (materialized.isErr()) {
-          return err(materialized.error);
-        }
-        record = materialized.value;
-      }
-      resolvedRecords.push(record);
-    }
-
-    return ok(resolvedRecords);
+    return ok(resolvedBatch);
   }
 
   protected async readNextUpdateChunk(
@@ -2378,7 +2333,7 @@ export class PasteStreamApplicationService extends PasteHandler {
     if (groupByOrderByResult.isErr()) {
       return err(groupByOrderByResult.error);
     }
-    const sortOrderByResult = resolveOrderBy(effectiveSort);
+    const sortOrderByResult = resolveOrderBy(effectiveSort, persistedTable, effectiveGroup);
     if (sortOrderByResult.isErr()) {
       return err(sortOrderByResult.error);
     }

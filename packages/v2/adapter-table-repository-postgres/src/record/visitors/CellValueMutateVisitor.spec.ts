@@ -240,7 +240,7 @@ describe('CellValueMutateVisitor', () => {
 
     expect(result.isOk()).toBe(true);
     expect(visitor.getChangedFieldIds()).toEqual([]);
-    expect(visitor.getSetClausesRaw().setClauses).not.toHaveProperty('formula_col');
+    expect(visitor.finalize()._unsafeUnwrap().setClauses).not.toHaveProperty('formula_col');
   });
 
   it('clears non-link fields directly and records changed ids', () => {
@@ -256,7 +256,7 @@ describe('CellValueMutateVisitor', () => {
     } as never);
 
     expect(result.isOk()).toBe(true);
-    expect(visitor.getSetClausesRaw().setClauses.text_col).toBeNull();
+    expect(visitor.finalize()._unsafeUnwrap().setClauses.text_col).toBeNull();
     expect(visitor.getChangedFieldIds().map((id) => id.toString())).toEqual([
       textField.id().toString(),
     ]);
@@ -285,10 +285,10 @@ describe('CellValueMutateVisitor', () => {
     const result = visitor.visitSetAttachmentValue(spec);
 
     expect(result.isOk()).toBe(true);
-    expect(visitor.getSetClausesRaw().setClauses.files_col).toBe(
+    expect(visitor.finalize()._unsafeUnwrap().setClauses.files_col).toBe(
       JSON.stringify([{ id: 'act000000000000001', token: 'tok-1', name: 'a.txt' }])
     );
-    expect(visitor.getSetClausesRaw().additionalStatements).toHaveLength(0);
+    expect(visitor.finalize()._unsafeUnwrap().additionalStatements).toHaveLength(0);
     expect(visitor.getAttachmentTableReplacements()).toEqual([
       expect.objectContaining({
         recordId: mkRecordId('source'),
@@ -316,7 +316,7 @@ describe('CellValueMutateVisitor', () => {
     } as never);
 
     expect(result.isOk()).toBe(true);
-    const raw = visitor.getSetClausesRaw();
+    const raw = visitor.finalize()._unsafeUnwrap();
     expect(raw.setClauses.link_json).toBe(JSON.stringify([]));
     expect(raw.additionalStatements).toHaveLength(1);
     expect(normalizeSql(raw.additionalStatements[0].sql)).toContain(
@@ -349,7 +349,7 @@ describe('CellValueMutateVisitor', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    const raw = visitor.getSetClausesRaw();
+    const raw = visitor.finalize()._unsafeUnwrap();
     expect(raw.setClauses.link_json).toBe(
       JSON.stringify([{ id: mkRecordId('first') }, { id: mkRecordId('second') }])
     );
@@ -406,7 +406,7 @@ describe('CellValueMutateVisitor', () => {
     const result = visitor.visitSetLinkValue(spec);
 
     expect(result.isOk()).toBe(true);
-    const raw = visitor.getSetClausesRaw();
+    const raw = visitor.finalize()._unsafeUnwrap();
     expect(raw.setClauses.link_json).toBe(JSON.stringify({ id: mkRecordId('foreignA') }));
     expect(raw.setClauses.__fk_target).toBe(mkRecordId('foreignA'));
     expect(raw.additionalStatements).toHaveLength(0);
@@ -525,7 +525,7 @@ describe('CellValueMutateVisitor', () => {
     const result = visitor.visitSetLinkValue(spec);
 
     expect(result.isOk()).toBe(true);
-    const raw = visitor.getSetClausesRaw();
+    const raw = visitor.finalize()._unsafeUnwrap();
     expect(raw.additionalStatements).toHaveLength(2);
     expect(normalizeSql(raw.additionalStatements[0].sql)).toContain(
       'update "public"."foreign_table" set "__fk_backref" = $1, "__fk_backref_order" = $2 where "__fk_backref" = $3'
@@ -548,7 +548,7 @@ describe('CellValueMutateVisitor', () => {
     const clearSpec = SetLinkValueByTitleSpec.create(manyOneField.id(), mkTableId('foreign'), []);
     const clearResult = visitor.visitSetLinkValueByTitle(clearSpec);
     expect(clearResult.isOk()).toBe(true);
-    expect(visitor.getSetClausesRaw().setClauses.__fk_target).toBeNull();
+    expect(visitor.finalize()._unsafeUnwrap().setClauses.__fk_target).toBeNull();
 
     const unresolvedResult = visitor.visitSetLinkValueByTitle(
       SetLinkValueByTitleSpec.create(manyOneField.id(), mkTableId('foreign'), ['Project A'])
@@ -596,10 +596,12 @@ describe('CellValueMutateVisitor', () => {
         .isOk()
     ).toBe(true);
 
-    expect(normalizeSql(junctionVisitor.getSetClausesRaw().additionalStatements[0].sql)).toContain(
-      'delete from "public"."junction_links" where "__fk_source" = $1'
-    );
-    expect(normalizeSql(oneManyVisitor.getSetClausesRaw().additionalStatements[0].sql)).toContain(
+    expect(
+      normalizeSql(junctionVisitor.finalize()._unsafeUnwrap().additionalStatements[0].sql)
+    ).toContain('delete from "public"."junction_links" where "__fk_source" = $1');
+    expect(
+      normalizeSql(oneManyVisitor.finalize()._unsafeUnwrap().additionalStatements[0].sql)
+    ).toContain(
       'update "public"."foreign_table" set "__fk_parent" = $1, "__fk_parent_order" = $2 where "__fk_parent" = $3'
     );
   });
@@ -625,7 +627,7 @@ describe('CellValueMutateVisitor', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    const raw = visitor.getSetClausesRaw();
+    const raw = visitor.finalize()._unsafeUnwrap();
     expect(raw.additionalStatements).toHaveLength(2);
     expect(normalizeSql(raw.additionalStatements[0].sql)).toContain(
       'update "public"."foreign_table" set "__fk_parent" = $1, "__fk_parent_order" = $2 where "__fk_parent" = $3'
@@ -669,7 +671,7 @@ describe('CellValueMutateVisitor', () => {
     const buildResult = visitor.build();
     expect(buildResult.isOk()).toBe(true);
     const built = buildResult._unsafeUnwrap();
-    const setClauses = visitor.getSetClausesRaw().setClauses;
+    const setClauses = visitor.finalize()._unsafeUnwrap().setClauses;
     expect(built.changedFieldIds.map((id) => id.toString())).toEqual([
       textField.id().toString(),
       lastModifiedTimeField.id().toString(),
@@ -710,11 +712,73 @@ describe('CellValueMutateVisitor', () => {
     ).toBe(true);
 
     expect(visitor.build().isOk()).toBe(true);
-    expect(JSON.parse(visitor.getSetClausesRaw().setClauses.lmb_col as string)).toMatchObject({
+    expect(
+      JSON.parse(visitor.finalize()._unsafeUnwrap().setClauses.lmb_col as string)
+    ).toMatchObject({
       id: 'usrActor000000001',
       title: 'Nee',
       email: 'nee@teable.io',
     });
+  });
+
+  it('finalizes tracked fields without compiling SQL or touching unrelated tracked fields', () => {
+    const textField = createField({
+      fieldId: 'directText',
+      type: 'singleLineText',
+      dbFieldName: 'text_col',
+    });
+    const unrelatedField = createField({
+      fieldId: 'unrelatedText',
+      type: 'singleLineText',
+      dbFieldName: 'unrelated_col',
+    });
+    const generatedLastModifiedBy = createTrackedLastModifiedByField({
+      fieldId: 'generatedTrackedBy',
+      dbFieldName: 'lmb_col',
+      trackedFieldIds: [textField.id()],
+      persistedAsGeneratedColumn: true,
+    });
+    const unrelatedLastModifiedTime = createTrackedLastModifiedTimeField({
+      fieldId: 'unrelatedTrackedTime',
+      dbFieldName: 'lmt_col',
+      trackedFieldIds: [unrelatedField.id()],
+    });
+    const visitor = CellValueMutateVisitor.create(
+      {
+        updateTable: () => {
+          throw new Error('finalize() must not compile a single-record UPDATE');
+        },
+      } as never,
+      createTable(
+        textField,
+        unrelatedField,
+        generatedLastModifiedBy as never,
+        unrelatedLastModifiedTime as never
+      ) as never,
+      'public.records',
+      {
+        recordId: mkRecordId('source'),
+        actorId: 'usrActor000000001',
+        now: '2025-01-01T00:00:00.000Z',
+      }
+    );
+
+    expect(
+      visitor
+        .visitSetSingleLineTextValue({
+          fieldId: textField.id(),
+          value: CellValue.fromValidated('updated'),
+        } as never)
+        .isOk()
+    ).toBe(true);
+
+    const plan = visitor.finalize()._unsafeUnwrap();
+    expect(plan.setClauses).not.toHaveProperty('lmb_col');
+    expect(plan.setClauses).not.toHaveProperty('lmt_col');
+    expect(plan.changedFieldIds.map((id) => id.toString())).toEqual([
+      textField.id().toString(),
+      generatedLastModifiedBy.id().toString(),
+    ]);
   });
 
   it('handles row-order updates and unsupported logical combinators', () => {
@@ -726,7 +790,7 @@ describe('CellValueMutateVisitor', () => {
         orderValue: 42,
       } as never)
     ).toMatchObject({ isOk: expect.any(Function) });
-    expect(visitor.getSetClausesRaw().setClauses.__row_order_viw123).toBe(42);
+    expect(visitor.finalize()._unsafeUnwrap().setClauses.__row_order_viw123).toBe(42);
 
     expect(visitor.visit({})).toMatchObject({ isOk: expect.any(Function) });
     expect(visitor.and().isOk()).toBe(true);

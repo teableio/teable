@@ -335,9 +335,14 @@
     "autoSort": "Ordenar los registros automáticamente",
     "selectASCLabel": "Primero → último",
     "selectDESCLabel": "Último → Primero",
+    "pinyinASCLabel": "Pinyin: ascendente",
+    "pinyinDESCLabel": "Pinyin: descendente",
+    "pinyinGroupConflict": "La ordenación por pinyin no está disponible para un campo agrupado. Elimina la agrupación de este campo o usa la ordenación predeterminada.",
+    "pinyinGroupRecovered": "La ordenación por pinyin de la vista personal que entraba en conflicto se restableció a la ordenación predeterminada. Se conservaron las agrupaciones y las direcciones de ordenación. Elimina la agrupación de este campo para volver a activar la ordenación por pinyin.",
     "orderTitle": "Seleccionar orden"
   },
   "group": {
+    "pinyinSortConflict": "Este campo usa la ordenación por pinyin. Cambia a la ordenación predeterminada antes de agrupar o elige otro campo.",
     "label": "Grupo",
     "displayLabel_one": "Group by {{count}} fields",
     "displayLabel_many": "Group by {{count}} fields",
@@ -1203,6 +1208,7 @@
       "configRequiredToRun": "No se puede ejecutar una rutina sin una configuración guardada",
       "runAlreadyInFlight": "Ya hay una ejecución en curso para esta rutina",
       "runNowWhileActiveEvent": "Esta rutina está activa y ya recibe sus eventos; provoca uno para verla ejecutarse",
+      "runNowOwnerOnly": "Mientras la rutina está activa, solo la persona con cuya identidad se ejecuta puede ejecutarla ahora",
       "invalidRunCursor": "Cursor de lista de ejecuciones no válido",
       "invalidSchedule": "Programación de rutina no válida: {{reason}}"
     },
@@ -1703,6 +1709,7 @@
         "loginDisabled": "El inicio de sesión no está habilitado para esta aplicación",
         "googleDisabled": "El inicio de sesión con Google no está habilitado para esta aplicación",
         "teableDisabled": "El inicio de sesión con Teable no está habilitado para esta aplicación",
+        "oidcDisabled": "El inicio de sesión con SSO no está habilitado para esta aplicación",
         "userTableMissing": "La tabla de usuarios seleccionada no existe en este proyecto",
         "emailFieldMissing": "La tabla de usuarios seleccionada no tiene un campo de correo electrónico",
         "emailFieldType": "El campo de correo electrónico debe ser un campo de texto de una sola línea editable",

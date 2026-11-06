@@ -1831,7 +1831,6 @@
       "share": "مشاركة",
       "enableShare": "تفعيل المشاركة",
       "copyLink": "نسخ الرابط",
-      "rotateLink": "إعادة تعيين الرابط",
       "scope": "من يمكنه العرض",
       "scopePublic": "أي شخص لديه الرابط",
       "scopeSpace": "أعضاء المساحة",
@@ -1849,7 +1848,8 @@
       "running": "جارٍ التوليد…",
       "waitingInput": "بانتظار ردّك",
       "failed": "فشل الرد"
-    }
+    },
+    "routineRunPrompt": "أرسله الروتين"
   },
   "upload": {
     "panelUploading": "جارٍ رفع {{count}} ملف",

@@ -291,7 +291,7 @@ export class AggregateTableRecordsHandler implements IQueryHandler<
           const combined = [...requestSort, ...viewSort.filter((item) => !seen.has(item.fieldId))];
           orderBy = mergeOrderBy(
             yield* resolveGroupByToOrderBy(groupBy),
-            yield* resolveOrderBy(combined),
+            yield* resolveOrderBy(combined, table, groupBy),
             aggregationViewId
           );
         }

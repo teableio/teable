@@ -11,13 +11,13 @@ export type ComputedFieldBackfillManyResult = {
 };
 
 export interface IComputedFieldBackfillService {
-  executeSyncMany(
+  /** Complete stored computed values for tables in the same base, in dependency order. */
+  executeSyncTables(
     context: IExecutionContext,
     input: {
-      table: Table;
-      fields: ReadonlyArray<Field>;
+      tables: ReadonlyArray<Table>;
       skipDistinctFilter?: boolean;
       includeOneManyTwoWay?: boolean;
     }
-  ): Promise<Result<ComputedFieldBackfillManyResult, DomainError>>;
+  ): Promise<Result<void, DomainError>>;
 }

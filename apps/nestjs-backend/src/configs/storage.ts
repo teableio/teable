@@ -51,6 +51,8 @@ export const storageConfig = registerAs('storage', () => ({
   },
   uploadMethod: process.env.BACKEND_STORAGE_UPLOAD_METHOD ?? 'put',
   encryption: {
+    // No keepLegacyForDecrypt: a read token only claims a path, so the public
+    // pair left decrypt-only would keep minting links to any known file.
     entries: resolveCipherEntries({
       algorithm: process.env.BACKEND_STORAGE_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
       keySpec: SECRET_SPECS.storageEncryptionKey,

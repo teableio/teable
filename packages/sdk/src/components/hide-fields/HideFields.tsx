@@ -54,10 +54,12 @@ export const HideFields: React.FC<{
 
     const newOrder = swapReorder(1, fromIndex, toIndex, fields.length, (index) => {
       const fieldId = fields[index].id;
-      return view?.columnMeta[fieldId].order;
+      return view.columnMeta[fieldId]?.order;
     })[0];
 
-    if (newOrder === view?.columnMeta[fieldId].order) {
+    // Column meta can be momentarily missing for a field. Bail out instead of
+    // dereferencing it or persisting the NaN order that produces.
+    if (!Number.isFinite(newOrder) || newOrder === view.columnMeta[fieldId]?.order) {
       return;
     }
 

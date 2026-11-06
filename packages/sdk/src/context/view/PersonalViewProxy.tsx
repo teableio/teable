@@ -1,12 +1,17 @@
 import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup, IColumnMeta } from '@teable/core';
+import { sonner } from '@teable/ui-lib';
 import { defaults } from 'lodash';
 import { useCallback, useEffect, useMemo } from 'react';
 import { generateLocalId, useGridCollapsedGroupStore } from '../../components';
 import { useTableId, useViews } from '../../hooks';
 import type { IViewInstance } from '../../model/view/factory';
 import { createViewInstance } from '../../model/view/factory';
+import { findPinyinSortGroupConflict, removePinyinSortGroupConflicts } from '../../utils/sort';
+import { useTranslation } from '../app/i18n';
 import { useResolvedPersonalViewStore } from './store';
 import { ViewContext } from './ViewContext';
+
+const { toast } = sonner;
 
 interface IPersonalViewProxyProps {
   serverData?: IViewVo[];
@@ -48,6 +53,7 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
   const views = useViews();
   const tableId = useTableId();
   const { setCollapsedGroupMap } = useGridCollapsedGroupStore();
+  const { t } = useTranslation();
   const { personalViewMap, isPersonalView, setPersonalViewMap } = useResolvedPersonalViewStore();
 
   const generateProxyView = useCallback(
@@ -55,7 +61,15 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
       const viewData = getViewData(view, serverData);
       const viewId = viewData.id;
       const newViewProxy = createViewInstance(viewData) as IProxyPersonalView;
-      const cachedView = personalViewMap?.[viewId];
+      const persistedCachedView = personalViewMap?.[viewId] as IViewVo | undefined;
+      const sanitizedSort = removePinyinSortGroupConflicts(
+        persistedCachedView?.sort,
+        persistedCachedView?.group
+      );
+      const cachedView =
+        persistedCachedView && sanitizedSort !== persistedCachedView.sort
+          ? { ...persistedCachedView, sort: sanitizedSort }
+          : persistedCachedView;
       newViewProxy.tableId = tableId as string;
       newViewProxy.filter = cachedView?.filter as IFilter;
       newViewProxy.sort = cachedView?.sort as ISort;
@@ -73,16 +87,35 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
         }));
       };
       newViewProxy.updateSort = (sort: ISort) => {
-        setPersonalViewMap(viewId, (prev) => ({
-          ...prev,
-          sort,
-        }));
+        let conflict = false;
+        setPersonalViewMap(viewId, (prev) => {
+          if (findPinyinSortGroupConflict(sort, prev.group as IGroup | undefined)) {
+            conflict = true;
+            return prev;
+          }
+          return {
+            ...prev,
+            sort,
+          };
+        });
+        if (conflict) toast.warning(t('sort.pinyinGroupConflict'));
       };
       newViewProxy.updateGroup = (group: IGroup) => {
-        setPersonalViewMap(viewId, (prev) => ({
-          ...prev,
-          group,
-        }));
+        let conflict = false;
+        setPersonalViewMap(viewId, (prev) => {
+          if (findPinyinSortGroupConflict(prev.sort as ISort | undefined, group)) {
+            conflict = true;
+            return prev;
+          }
+          return {
+            ...prev,
+            group,
+          };
+        });
+        if (conflict) {
+          toast.warning(t('group.pinyinSortConflict'));
+          return;
+        }
         setCollapsedGroupMap(generateLocalId(tableId, view.id), []);
       };
       newViewProxy.updateOption = (options: Record<string, unknown>) => {
@@ -111,19 +144,44 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
         });
       };
       newViewProxy.syncViewProperties = async () => {
-        const cachedView = personalViewMap?.[viewId];
-        if (!cachedView || !view) return;
+        const persistedView = personalViewMap?.[viewId] as IViewVo | undefined;
+        if (!persistedView || !view) return;
+        const sort = removePinyinSortGroupConflicts(persistedView.sort, persistedView.group);
+        const cachedView = sort === persistedView.sort ? persistedView : { ...persistedView, sort };
 
         if (JSON.stringify(cachedView.filter) !== JSON.stringify(viewData.filter)) {
           await view.updateFilter((cachedView.filter as IFilter) ?? null);
         }
-        if (JSON.stringify(cachedView.sort) !== JSON.stringify(viewData.sort)) {
-          await view.updateSort((cachedView.sort as ISort) ?? null);
-        }
-        if (JSON.stringify(cachedView.group) !== JSON.stringify(viewData.group)) {
+        const sortChanged = JSON.stringify(cachedView.sort) !== JSON.stringify(viewData.sort);
+        const groupChanged = JSON.stringify(cachedView.group) !== JSON.stringify(viewData.group);
+        const syncSort = async () => {
+          if (sortChanged) await view.updateSort((cachedView.sort as ISort) ?? null);
+        };
+        const syncGroup = async () => {
+          if (!groupChanged) return;
           await view.updateGroup((cachedView.group as IGroup) ?? null);
           setCollapsedGroupMap(generateLocalId(tableId, view.id), []);
           view.group = cachedView.group as IGroup;
+        };
+
+        // Removing a saved group must land before enabling pinyin on that field;
+        // the opposite transition must change the sort first. This keeps every
+        // intermediate server state valid instead of relying on a later update.
+        if (
+          sortChanged &&
+          groupChanged &&
+          findPinyinSortGroupConflict(cachedView.sort, viewData.group)
+        ) {
+          if (findPinyinSortGroupConflict(viewData.sort, cachedView.group)) {
+            await view.updateSort(
+              removePinyinSortGroupConflicts(viewData.sort, cachedView.group) ?? null
+            );
+          }
+          await syncGroup();
+          await syncSort();
+        } else {
+          await syncSort();
+          await syncGroup();
         }
         if (JSON.stringify(cachedView.options) !== JSON.stringify(viewData.options)) {
           await view?.updateOption(cachedView.options as Record<string, unknown>);
@@ -144,7 +202,7 @@ export const PersonalViewProxy = (props: IPersonalViewProxyProps) => {
 
       return newViewProxy;
     },
-    [tableId, personalViewMap, setPersonalViewMap, setCollapsedGroupMap]
+    [tableId, personalViewMap, setPersonalViewMap, setCollapsedGroupMap, t]
   );
 
   const proxyViews = useMemo(() => {

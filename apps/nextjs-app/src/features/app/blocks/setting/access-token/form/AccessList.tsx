@@ -14,15 +14,12 @@ import { getBaseDisplayName } from '@/features/app/utils/base-name';
 interface IAccessListProps {
   baseIds?: string[];
   spaceIds?: string[];
-  hasFullAccess?: boolean;
-  onDeleteFullAccess: () => void;
   onDeleteBaseId: (baseId: string) => void;
   onDeleteSpaceId: (spaceId: string) => void;
 }
 
 export const AccessList = (props: IAccessListProps) => {
-  const { baseIds, spaceIds, hasFullAccess, onDeleteBaseId, onDeleteSpaceId, onDeleteFullAccess } =
-    props;
+  const { baseIds, spaceIds, onDeleteBaseId, onDeleteSpaceId } = props;
   const { t } = useTranslation('token');
   const { t: tCommon } = useTranslation('common');
   const contentDir = useContentDir();
@@ -78,21 +75,6 @@ export const AccessList = (props: IAccessListProps) => {
 
   return (
     <div className="space-y-3 text-sm">
-      {hasFullAccess && (
-        <div className="space-y-1">
-          <div className="text-xs text-muted-foreground">{t('accessSelect.fullAccess.title')}</div>
-
-          <div className="flex h-8 items-center justify-between hover:bg-accent">
-            <div className="flex items-center gap-2">
-              <Component className="size-4 shrink-0" />
-              {t('accessSelect.fullAccess.description')}
-            </div>
-            <Button variant={'ghost'} size={'icon-xs'} onClick={() => onDeleteFullAccess()}>
-              <X className="size-4 shrink-0" />
-            </Button>
-          </div>
-        </div>
-      )}
       {allDisplaySpaceIds.map((spaceId) => {
         const space = spaceMap[spaceId];
         const displaySpace = displaySpaceMap[spaceId];

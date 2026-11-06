@@ -281,8 +281,7 @@ const readAdminSearchPayload = (
     value.mode !== 'drop' &&
     (typeof value.expectedDefinitionKey !== 'string' ||
       !['pg_bigm', 'pg_trgm'].includes(String(value.provider)) ||
-      typeof value.searchProbe !== 'string' ||
-      !value.searchProbe.trim() ||
+      (value.searchProbe !== undefined && typeof value.searchProbe !== 'string') ||
       value.validationMode !== 'real_ddl')
   )
     throw new Error('Invalid queued search validation payload');

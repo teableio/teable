@@ -28,6 +28,7 @@ import {
   PrincipalType,
   IntegrationType,
   UploadType,
+  isMaskedSecret,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy, map } from 'lodash';
@@ -54,7 +55,11 @@ import { queueClearCacheKeys } from '../model/helper';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
 import { normalizeSpaceAIIntegrationConfig } from './ai-integration-config';
-import { decryptAiIntegrationConfig, encryptAiIntegrationConfig } from './ai-integration-secrets';
+import {
+  decryptAiIntegrationConfig,
+  encryptAiIntegrationConfig,
+  unmaskAiIntegrationConfig,
+} from './ai-integration-secrets';
 import { DataDbBindingService } from './data-db-binding.service';
 import { SpaceDataDbMigrationGuardService } from './space-data-db-migration-guard.service';
 
@@ -794,7 +799,10 @@ export class SpaceService {
     }));
   }
 
-  /** Stored integration configs hold ciphertext; API responses keep plaintext. */
+  /**
+   * Stored integration configs hold ciphertext; service results are plaintext (the EE audit
+   * diff compares them), and the controller masks them for the API.
+   */
   private decryptIntegrationRow<T extends { id: string; config: string }>(row: T): T {
     return {
       ...row,
@@ -806,7 +814,7 @@ export class SpaceService {
 
   async createIntegration(spaceId: string, addIntegrationRo: ICreateIntegrationRo) {
     const { type, enable } = addIntegrationRo;
-    const { config } = addIntegrationRo;
+    let { config } = addIntegrationRo;
 
     if (type === IntegrationType.AI) {
       // Only the incoming providers: stored ones were vetted when written (or
@@ -818,6 +826,16 @@ export class SpaceService {
           type: IntegrationType.AI,
         },
       });
+      // Merged over the stored config below, so a mask read from the API must not overwrite
+      // the secret it stands for.
+      config = unmaskAiIntegrationConfig(
+        config,
+        aiIntegration &&
+          decryptAiIntegrationConfig(
+            JSON.parse(aiIntegration.config),
+            `integration:${aiIntegration.id}`
+          )
+      );
 
       if (!aiIntegration) {
         const nextConfig = normalizeSpaceAIIntegrationConfig(config);
@@ -897,8 +915,15 @@ export class SpaceService {
     spaceId: string
   ) {
     const { enable } = updateIntegrationRo;
+    const stored = await this.assertIntegrationInSpace(integrationId, spaceId);
+    // The config is replaced whole: the masks a read returned keep their stored secrets.
     const config = updateIntegrationRo.config
-      ? normalizeSpaceAIIntegrationConfig(updateIntegrationRo.config)
+      ? normalizeSpaceAIIntegrationConfig(
+          unmaskAiIntegrationConfig(
+            updateIntegrationRo.config,
+            decryptAiIntegrationConfig(JSON.parse(stored.config), `integration:${stored.id}`)
+          )
+        )
       : undefined;
     if (config) {
       await assertAiProviderBaseUrlsAllowed(config.llmProviders);
@@ -910,7 +935,6 @@ export class SpaceService {
     if (config) {
       updateData.config = JSON.stringify(encryptAiIntegrationConfig(config));
     }
-    await this.assertIntegrationInSpace(integrationId, spaceId);
     const res = await this.prismaService.integration.update({
       where: { id: integrationId, resourceId: spaceId },
       data: updateData,
@@ -930,21 +954,40 @@ export class SpaceService {
   /**
    * The route authorizes `space|update` on the space in the URL, so the integration must belong to
    * that space — otherwise an id from another space would let the caller rewrite or delete it (and
-   * read its decrypted keys back from the update response).
+   * resolve the masks of its keys).
    */
   private async assertIntegrationInSpace(integrationId: string, spaceId: string) {
     const integration = await this.prismaService.integration.findFirst({
       where: { id: integrationId, resourceId: spaceId },
-      select: { id: true },
+      select: { id: true, config: true },
     });
     if (!integration) {
       throw new CustomHttpException('Integration not found', HttpErrorCode.NOT_FOUND, {
         localization: { i18nKey: 'httpErrors.notFound' },
       });
     }
+    return integration;
   }
 
-  async testIntegrationLLM(testLLMRo: ITestLLMRo) {
-    return await this.settingOpenApiService.testLLM(testLLMRo);
+  async testIntegrationLLM(spaceId: string, testLLMRo: ITestLLMRo) {
+    if (!isMaskedSecret(testLLMRo.apiKey)) {
+      return await this.settingOpenApiService.testLLM(testLLMRo);
+    }
+    // A masked key read from this space's integration stands for the key stored there.
+    const aiIntegration = await this.prismaService.integration.findFirst({
+      where: { resourceId: spaceId, type: IntegrationType.AI },
+      select: { id: true, config: true },
+    });
+    const stored =
+      aiIntegration &&
+      decryptAiIntegrationConfig(
+        JSON.parse(aiIntegration.config),
+        `integration:${aiIntegration.id}`
+      );
+    const [{ apiKey }] = unmaskAiIntegrationConfig(
+      { llmProviders: [{ apiKey: testLLMRo.apiKey }] },
+      stored
+    ).llmProviders;
+    return await this.settingOpenApiService.testLLM({ ...testLLMRo, apiKey });
   }
 }

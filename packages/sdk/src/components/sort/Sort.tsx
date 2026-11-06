@@ -1,13 +1,18 @@
 import { useMutation } from '@tanstack/react-query';
 import type { ISort, IManualSortRo } from '@teable/core';
+import { sonner } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
+import { useTranslation } from '../../context/app/i18n';
 import { useView } from '../../hooks';
 import type { View } from '../../model';
+import { findPinyinSortGroupConflict } from '../../utils/sort';
 import type { ISortBaseRef } from './SortBase';
 import { SortBase } from './SortBase';
 import { useSortNode } from './useSortNode';
+
+const { toast } = sonner;
 
 interface ISortProps {
   children: (text: string, isActive: boolean) => React.ReactElement;
@@ -22,6 +27,7 @@ function Sort(props: Readonly<ISortProps>) {
   const sortBaseRef = useRef<ISortBaseRef>(null);
 
   const view = useView();
+  const { t } = useTranslation();
 
   const [innerSorts, setInnerSorts] = useState(outerSorts);
 
@@ -51,6 +57,11 @@ function Sort(props: Readonly<ISortProps>) {
       if (isEqual(innerSorts, outerSorts)) {
         return;
       }
+      if (findPinyinSortGroupConflict(innerSorts, view?.group)) {
+        setInnerSorts(outerSorts);
+        toast.warning(t('sort.pinyinGroupConflict'));
+        return;
+      }
 
       const onlyAutoSortChange =
         isEqual(outerSorts?.sortObjs, innerSorts?.sortObjs) &&
@@ -69,10 +80,15 @@ function Sort(props: Readonly<ISortProps>) {
       !innerSorts?.manualSort && onChange(innerSorts);
     },
     50,
-    [innerSorts]
+    [innerSorts, view?.group]
   );
 
   const manualSort = async () => {
+    if (findPinyinSortGroupConflict(innerSorts, view?.group)) {
+      setInnerSorts(outerSorts);
+      toast.warning(t('sort.pinyinGroupConflict'));
+      return;
+    }
     if (innerSorts?.sortObjs?.length) {
       const viewRo: IManualSortRo = {
         sortObjs: innerSorts.sortObjs,

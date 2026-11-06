@@ -7,6 +7,7 @@ import type { Table } from '../Table';
 import type { TableUpdateResult } from '../TableMutator';
 import type { View } from '../views/View';
 import { diffColumnMetaChanges } from '../views/ViewColumnMeta';
+import { validateViewSortCollations } from '../views/validateViewSortCollations';
 
 const jsonEquals = (left: unknown, right: unknown): boolean =>
   JSON.stringify(left) === JSON.stringify(right);
@@ -21,6 +22,13 @@ export const applyViewSnapshot = function (
 ): Result<ApplyViewSnapshotMethodResult, DomainError> {
   const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<ApplyViewSnapshotMethodResult, DomainError>(function* () {
+    const nextQuery = yield* snapshotView.queryDefaults();
+    yield* validateViewSortCollations(
+      table,
+      nextQuery.sort(),
+      nextQuery.group(),
+      nextQuery.manualSort()
+    );
     const currentResult = table.getView(snapshotView.id());
     if (currentResult.isErr()) {
       const updateResult = yield* table.update((mutator) => mutator.addView(snapshotView));
@@ -34,7 +42,6 @@ export const applyViewSnapshot = function (
       table.primaryFieldId()
     );
     const previousQuery = yield* current.queryDefaults();
-    const nextQuery = yield* snapshotView.queryDefaults();
     const previousOrder = current.order();
     const nextOrder = snapshotView.order();
     const fieldIdByValue = new Map(

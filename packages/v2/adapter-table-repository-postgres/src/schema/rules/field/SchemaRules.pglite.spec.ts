@@ -797,6 +797,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       { hash: () => 'hash' } as never,
       db,
       { enqueueFieldBackfill: async () => ok({ taskId: 'task' }) } as never,
+      {} as never,
       { mode: 'sync', hybridThreshold: 5000 },
       new Pg16TypeValidationStrategy()
     );

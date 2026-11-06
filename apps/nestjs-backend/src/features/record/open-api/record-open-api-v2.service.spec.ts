@@ -677,7 +677,7 @@ describe('RecordOpenApiV2Service', () => {
 
     await service.getRecords(tableIdText, {
       fieldKeyType: FieldKeyType.Id,
-      orderBy: [{ fieldId: statusFieldId, order: SortFunc.Asc }],
+      orderBy: [{ fieldId: statusFieldId, order: SortFunc.Asc, collation: 'zh-pinyin' }],
       groupBy: [{ fieldId: noteFieldId, order: SortFunc.Desc }],
       includeQueryExtra: false,
     });
@@ -685,9 +685,29 @@ describe('RecordOpenApiV2Service', () => {
     const query = execute.mock.calls[0]?.[1] as ListTableRecordsQuery;
     expect(query.sort).toEqual([
       { fieldId: noteFieldId, order: SortFunc.Desc },
-      { fieldId: statusFieldId, order: SortFunc.Asc },
+      { fieldId: statusFieldId, order: SortFunc.Asc, collation: 'zh-pinyin' },
     ]);
     expect(query.groupBy).toEqual([noteFieldId]);
+  });
+
+  it('keeps orderBy collation when range sort is prefixed by the same group field', () => {
+    type SortItem = {
+      fieldId: string;
+      order: SortFunc;
+      collation?: 'zh-pinyin';
+    };
+    // Exercise the one helper shared by every v2 range/selection command.
+    const rangeSortService = service as unknown as {
+      mergeGroupByIntoSort: (groupBy?: SortItem[], orderBy?: SortItem[]) => SortItem[] | undefined;
+    };
+    const mergeGroupByIntoSort = rangeSortService.mergeGroupByIntoSort.bind(service);
+
+    expect(
+      mergeGroupByIntoSort(
+        [{ fieldId: statusFieldId, order: SortFunc.Desc }],
+        [{ fieldId: statusFieldId, order: SortFunc.Asc, collation: 'zh-pinyin' }]
+      )
+    ).toEqual([{ fieldId: statusFieldId, order: SortFunc.Desc, collation: 'zh-pinyin' }]);
   });
 
   it('forwards the full record-status query and prepared row scope to v2 core', async () => {
@@ -708,7 +728,7 @@ describe('RecordOpenApiV2Service', () => {
 
     await service.getRecordStatus(tableIdText, targetRecordId, {
       fieldKeyType: FieldKeyType.Name,
-      orderBy: [{ fieldId: 'Status', order: SortFunc.Asc }],
+      orderBy: [{ fieldId: 'Status', order: SortFunc.Asc, collation: 'zh-pinyin' }],
       groupBy: [{ fieldId: 'Note', order: SortFunc.Desc }],
       selectedRecordIds,
       viewId: `viw${'v'.repeat(16)}`,
@@ -732,7 +752,7 @@ describe('RecordOpenApiV2Service', () => {
     expect(statusQuery).toBeInstanceOf(GetRecordStatusQuery);
     expect(statusQuery.sort).toEqual([
       { fieldId: noteFieldId, order: SortFunc.Desc },
-      { fieldId: statusFieldId, order: SortFunc.Asc },
+      { fieldId: statusFieldId, order: SortFunc.Asc, collation: 'zh-pinyin' },
     ]);
     expect(statusQuery.groupBy).toEqual([noteFieldId]);
     expect(statusQuery.selectedRecordIds).toEqual(selectedRecordIds);
@@ -1427,7 +1447,8 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.commandBus) return { execute: commandExecute };
       if (token === v2CoreTokens.tableRepository) return { findOne: tableFindOne };
       if (token === v2CoreTokens.recordQueryPluginRunner) return { prepare: pluginPrepare };
-      if (token === v2CoreTokens.userLookupService) return { listUsersByIds };
+      if (token === v2CoreTokens.userLookupService)
+        return { listUsersByIds, listTableUsersByIdentifiers: vi.fn(), listUsersByIdentityPairs: vi.fn() };
       return undefined;
     });
     execute.mockResolvedValueOnce({
@@ -1712,6 +1733,52 @@ describe('RecordOpenApiV2Service', () => {
     });
   });
 
+  it('hydrates selected user cells without changing array positions, IDs or unselected fields', async () => {
+    const listUsersByIds = vi.fn().mockResolvedValue({
+      isOk: () => true,
+      value: [
+        { id: 'usrOne', name: 'Current One', email: 'one@example.test' },
+        { id: 'usrTwo', name: 'Current Two', email: null },
+      ],
+    });
+    const container = {
+      isRegistered: vi.fn().mockReturnValue(true),
+      resolve: vi.fn().mockReturnValue({ listUsersByIds }),
+    };
+    const records = [{ id: 'rec1', fields: {
+      fldUser: [null, { id: 'usrOne', title: 'Old' }, { id: 'usrOne' },
+        { id: 'usrTwo', title: 'Old Two' }, null],
+      fldOther: [{ id: 'usrHidden', email: 'hidden@example.test' }],
+    } }];
+    const result = await service.hydrateSelectedUserCells(container as never, records, ['fldUser']);
+    expect(listUsersByIds).toHaveBeenCalledWith(['usrOne', 'usrTwo'], { includeDeleted: true });
+    expect(result[0]!.fields.fldUser).toEqual([
+      null,
+      expect.objectContaining({ id: 'usrOne', title: 'Current One', email: 'one@example.test' }),
+      expect.objectContaining({ id: 'usrOne', title: 'Current One', email: 'one@example.test' }),
+      expect.objectContaining({ id: 'usrTwo', title: 'Current Two' }),
+      null,
+    ]);
+    expect(result[0]!.fields.fldOther).toEqual(records[0]!.fields.fldOther);
+    expect((result[0]!.fields.fldUser as Record<string, unknown>[])[3]).not.toHaveProperty('email');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('keeps selected identities and positions when directory lookup fails', async () => {
+    const container = {
+      isRegistered: vi.fn().mockReturnValue(true),
+      resolve: vi.fn().mockReturnValue({ listUsersByIds: vi.fn().mockRejectedValue(new Error('offline')) }),
+    };
+    const records = [{ fields: { fldUser: [null, { id: 'usrOne', title: 'Stored' }, { id: 'usrOne' }] } }];
+    const result = await service.hydrateSelectedUserCells(container as never, records, ['fldUser']);
+    expect(result[0]!.fields.fldUser).toEqual([
+      null,
+      expect.objectContaining({ id: 'usrOne', title: 'Stored' }),
+      expect.objectContaining({ id: 'usrOne', title: 'usrOne' }),
+    ]);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('hydrates legacy generated audit-user ids into public user cells', async () => {
     const userId = `usr${'a'.repeat(16)}`;
     const listUsersByIds = vi.fn().mockResolvedValue({
@@ -1748,7 +1815,8 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.commandBus) return { execute: commandExecute };
       if (token === v2CoreTokens.tableRepository) return { findOne: tableFindOne };
       if (token === v2CoreTokens.recordQueryPluginRunner) return { prepare: pluginPrepare };
-      if (token === v2CoreTokens.userLookupService) return { listUsersByIds };
+      if (token === v2CoreTokens.userLookupService)
+        return { listUsersByIds, listTableUsersByIdentifiers: vi.fn(), listUsersByIdentityPairs: vi.fn() };
       return undefined;
     });
     execute.mockResolvedValueOnce({
@@ -1821,7 +1889,8 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.commandBus) return { execute: commandExecute };
       if (token === v2CoreTokens.tableRepository) return { findOne: tableFindOne };
       if (token === v2CoreTokens.recordQueryPluginRunner) return { prepare: pluginPrepare };
-      if (token === v2CoreTokens.userLookupService) return { listUsersByIds };
+      if (token === v2CoreTokens.userLookupService)
+        return { listUsersByIds, listTableUsersByIdentifiers: vi.fn(), listUsersByIdentityPairs: vi.fn() };
       return undefined;
     });
     execute.mockResolvedValueOnce({
@@ -1904,7 +1973,8 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.commandBus) return { execute: commandExecute };
       if (token === v2CoreTokens.tableRepository) return { findOne: tableFindOne };
       if (token === v2CoreTokens.recordQueryPluginRunner) return { prepare: pluginPrepare };
-      if (token === v2CoreTokens.userLookupService) return { listUsersByIds };
+      if (token === v2CoreTokens.userLookupService)
+        return { listUsersByIds, listTableUsersByIdentifiers: vi.fn(), listUsersByIdentityPairs: vi.fn() };
       return undefined;
     });
     execute.mockResolvedValueOnce({

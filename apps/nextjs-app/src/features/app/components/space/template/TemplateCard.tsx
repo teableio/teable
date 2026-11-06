@@ -1,5 +1,6 @@
 import { Eye } from '@teable/icons';
 import type { ITemplateVo } from '@teable/openapi';
+import { stripMarkdown } from '@teable/sdk/components';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +32,9 @@ export const TemplateCard = ({
   dataAttr,
   rank,
 }: ITemplateCardProps) => {
-  const { name, cover, visitCount, id: templateId, createdBy, description } = template;
+  const { name, cover, visitCount, id: templateId, createdBy } = template;
+  // Descriptions are markdown; a card has room for its plain text only.
+  const description = template.description ? stripMarkdown(template.description) : undefined;
   const { presignedUrl } = cover ?? {};
   const { t, i18n } = useTranslation(['common']);
   const host = useContext(TemplateHostContext);

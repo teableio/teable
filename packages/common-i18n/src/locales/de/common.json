@@ -6,6 +6,7 @@
     "deleteTableTitle": "Delete table",
     "copyTableTitle": "Copy table",
     "copyBaseTitle": "Copy project",
+    "convertFieldTitle": "Change field",
     "changedEffectsTitle": "What else changes",
     "preservedTitle": "Stays connected",
     "loading": "Loading details…",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "execution-time effects",
     "uncertaintyDetail": "other effects",
     "recordCountUnknown": "record count",
+    "affectedCellCountUnknown": "affected-cell count",
     "retentionUnknown": "The Trash retention period is not checked.",
     "storageUnknown": "Storage impact is not checked.",
     "retentionStorageUnknown": "The Trash retention period and storage impact are not checked.",
     "inTables": "In table: {{names}}",
     "affectedFields": "Affected fields:",
     "affectedViews": "Affected views:",
+    "affectedCells": "Affected cells:",
+    "affectedLinkChanges": "Related link changes:",
     "labels": {
       "tables": "Tables",
       "fields": "Fields",
@@ -67,7 +71,12 @@
       "dependentFieldsUpdatedDetail": "Update dependent fields; final values are not specified",
       "alreadyTrashed": "This table is already in Trash.",
       "unknownLinksDetail": "Some linked tables could not be classified; whether their links are kept or converted is unknown.",
-      "truncatedEffectsDetail": "Only part of the affected-resource list is shown."
+      "truncatedEffectsDetail": "Only part of the affected-resource list is shown.",
+      "fieldTypeChanged": "Change the field type",
+      "fieldConfigurationChanged": "Update the field settings",
+      "fieldValuesRewritten": "Rewrite existing field values for the new settings",
+      "fieldUnchanged": "Keep the current field settings",
+      "fieldLinkChanges": "Apply related link changes"
     }
   },
   "actions": {
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "Einstellungen",
       "logout": "Ausloggen",
-      "contactSupport": "Support kontaktieren"
+      "contactSupport": "Support kontaktieren",
+      "downloadApp": "App herunterladen"
     },
     "integration": {
       "title": "Integrationen",
@@ -1113,7 +1123,6 @@
           "smDesc": "Einfache Anfragen, schnelle Antworten",
           "readyToUse": "Die KI ist konfiguriert und einsatzbereit!",
           "customProviderHelp": "Fügen Sie eigene KI-Anbieter hinzu (OpenAI, Anthropic, Azure usw.) und konfigurieren Sie API-Schlüssel und Modelle.",
-          "testModelCapabilities": "Modellfähigkeiten testen",
           "customModelsAutoImported": "Die Modelle Ihres Anbieters wurden automatisch in den Modellpool importiert.",
           "modelsCount": "{{count}} Modelle verfügbar",
           "customModelsHint": "Um Modellkonfigurationen anzupassen, kehren Sie zu Schritt 1 zurück und ändern Sie die Anbietereinstellungen.",
@@ -1170,7 +1179,8 @@
       "group": {
         "system": "Grundlagen",
         "ai": "KI-Dienste",
-        "appBuilder": "App Builder"
+        "appBuilder": "App Builder",
+        "security": "Sicherheit"
       },
       "copyInstance": "ID kopieren",
       "list": {
@@ -1219,7 +1229,23 @@
         "sandboxOpenSandbox": {
           "title": "KI-Chat-Laufzeit",
           "description": "Konfigurieren Sie die OpenSandbox-Laufzeitumgebung für den KI-Chat, <anchor>zur Einstellung</anchor>"
+        },
+        "signupVerification": {
+          "title": "Offene Registrierung ohne E-Mail-Bestätigung",
+          "description": "Jeder kann sich mit einer E-Mail-Adresse registrieren, die ihm nicht gehört: Adressen von Kollegen oder Kunden lassen sich vorab belegen, und das Konto einer per E-Mail eingeladenen Person, die sich noch nicht registriert hat, wird samt der durch die Einladung gewährten Rechte übernommen. Aktivieren Sie die E-Mail-Bestätigung (E-Mail-Versand muss konfiguriert sein) oder deaktivieren Sie die offene Registrierung, <anchor>zu den Einstellungen gehen</anchor>"
+        },
+        "secrets": {
+          "title": "Server-Secrets",
+          "description": "Nicht gesetzte oder öffentlich bekannte Secrets: {{total}}. Dadurch könnten Dritte Anmelde-Tokens fälschen oder gespeicherte Daten entschlüsseln. Setzen Sie sie als Umgebungsvariablen und starten Sie neu; das Startprotokoll erklärt jeden Eintrag. Bei einer Instanz mit vorhandenen Daten legen Sie zuerst die aktuellen Werte fest und rotieren danach: Wird ein Verschlüsselungsschlüssel direkt ersetzt, lassen sich die damit gespeicherten Daten nicht mehr entschlüsseln.",
+          "missing": "Nicht gesetzt",
+          "publicDefault": "Öffentlicher Standardwert",
+          "docsLink": "Referenz der Umgebungsvariablen",
+          "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
+      },
+      "banner": {
+        "message": "Im Admin-Bereich stehen Sicherheitsaufgaben an",
+        "action": "Ansehen"
       }
     },
     "canary": {
@@ -1507,6 +1533,18 @@
           },
           "connectorDisconnected": {
             "title": "Routine {{name}} empfängt keine Connector-Ereignisse mehr"
+          },
+          "handedToYou": {
+            "title": "Die Routine {{name}} wurde an Sie übergeben",
+            "message": "{{previousOwner}} kann die Routine {{name}} nicht mehr bearbeiten, daher wurde sie an Sie übergeben. Sie läuft jetzt unter Ihrem Konto, und Ergebnisse und Warnungen gehen an Sie. Prüfen Sie Anweisungen und Auslöser oder pausieren Sie sie, falls sie nicht benötigt wird."
+          },
+          "handedAway": {
+            "title": "Ihre Routine {{name}} wurde an {{newOwner}} übergeben",
+            "message": "Sie können die Routine {{name}} nicht mehr bearbeiten, daher wurde sie an {{newOwner}} übergeben. Sie läuft jetzt unter dem Konto von {{newOwner}}."
+          },
+          "takenOver": {
+            "title": "Die Routine {{name}} läuft jetzt unter dem Konto von {{newOwner}}",
+            "message": "{{newOwner}} hat die Routine {{name}} übernommen. Sie läuft jetzt als {{newOwner}}, und Ergebnisse und Warnungen gehen an {{newOwner}}."
           }
         },
         "billing": {
@@ -2062,5 +2100,16 @@
         "description": "Helfen uns zu messen, wie gut unsere Werbung und Aktionen funktionieren."
       }
     }
+  },
+  "openInApp": {
+    "title": "Teable-App",
+    "description": "Öffnen Sie diese Seite in der App für ein flüssigeres Erlebnis",
+    "open": "Öffnen",
+    "dismiss": "Schließen",
+    "notInstalledTitle": "Noch keine App installiert?",
+    "notInstalledDescription": "Installieren Sie sie, kehren Sie hierher zurück und tippen Sie auf Öffnen",
+    "getApp": "App laden",
+    "inAppBrowserHint": "Öffnen Sie diese Seite über das Menü oben rechts im Browser, um zur App zu wechseln",
+    "menuItem": "In der Teable-App öffnen"
   }
 }

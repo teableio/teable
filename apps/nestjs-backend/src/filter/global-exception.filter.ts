@@ -1,8 +1,10 @@
-import type { ArgumentsHost, ExceptionFilter, HttpException } from '@nestjs/common';
+import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import {
   BadRequestException,
   Catch,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Logger,
   NotFoundException,
@@ -96,18 +98,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     this.recordDataDbMetric(dataDbError);
     this.captureException(exception, dataDbError);
 
-    if (
-      enableGlobalErrorLogging ||
-      !(
-        exception instanceof BadRequestException ||
-        // a localized 400 is the same routine rejection, just with translatable copy
-        (exception instanceof CustomHttpException && exception.getStatus() === 400) ||
-        exception instanceof UnauthorizedException ||
-        exception instanceof ForbiddenException ||
-        exception instanceof NotFoundException ||
-        exception instanceof NotImplementedException
-      )
-    ) {
+    if (enableGlobalErrorLogging || !this.isClientRejection(exception)) {
       this.logError(exception, request);
     }
     if (!responseWritable) {
@@ -279,6 +270,23 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       typeof exception === 'object' &&
       exception !== null &&
       ('status' in exception || 'error' in exception)
+    );
+  }
+
+  /** A request the server refused on purpose: the client's to fix, not a fault to error-log. */
+  private isClientRejection(exception: Error | HttpException) {
+    return (
+      exception instanceof BadRequestException ||
+      // a localized 400 is the same client rejection, just with translatable copy
+      (exception instanceof CustomHttpException && exception.getStatus() === 400) ||
+      exception instanceof UnauthorizedException ||
+      exception instanceof ForbiddenException ||
+      exception instanceof NotFoundException ||
+      exception instanceof NotImplementedException ||
+      // a rate limit refusing a client over its quota is the limiter working; the
+      // limiter logs who it refused, and at one request a second this line alone
+      // multiplied the error log
+      (exception instanceof HttpException && exception.getStatus() === HttpStatus.TOO_MANY_REQUESTS)
     );
   }
 

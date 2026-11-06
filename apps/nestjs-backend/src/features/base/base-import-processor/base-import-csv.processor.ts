@@ -7,6 +7,8 @@ import { DbFieldType, FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
 import { CreateRecordAction, UploadType } from '@teable/openapi';
+import type { IUserLookupService, UserLookupRecord } from '@teable/v2-core';
+import { v2CoreTokens } from '@teable/v2-core';
 import { Queue, Job } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import { ClsService } from 'nestjs-cls';
@@ -24,6 +26,7 @@ import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
 import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
+import { V2ContainerService } from '../../v2/v2-container.service';
 import { BatchProcessor } from '../BatchProcessor.class';
 import { EXCLUDE_SYSTEM_FIELDS } from '../constant';
 import { BaseImportJunctionCsvQueueProcessor } from './base-import-junction.processor';
@@ -59,6 +62,12 @@ interface IBaseImportCsvJob {
 
 export const BASE_IMPORT_CSV_QUEUE = 'base-import-csv-queue';
 
+const SAFE_BASE_IMPORT_CSV_FAILURES: Record<string, true> = {
+  'validation.field.user_not_found': true,
+  'validation.field.invalid_user_format': true,
+  'Failed to validate imported user references': true,
+};
+
 @Injectable()
 @Processor(BASE_IMPORT_CSV_QUEUE)
 export class BaseImportCsvQueueProcessor extends WorkerHost {
@@ -76,6 +85,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
     private readonly dataDbClientManager: DataDbClientManager,
+    private readonly v2ContainerService: V2ContainerService,
     private readonly audit: AuditScope
   ) {
     super();
@@ -98,7 +108,18 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         `Process base import csv failed: ${(error as Error)?.message}`,
         (error as Error)?.stack
       );
+      this.processedJobs.delete(jobId);
+      throw this.toQueueFailure(error);
     }
+  }
+
+  private toQueueFailure(error: unknown): Error {
+    const message = error instanceof Error ? error.message : '';
+    return new Error(
+      SAFE_BASE_IMPORT_CSV_FAILURES[message] === true
+        ? message
+        : 'Base import CSV processing failed'
+    );
   }
 
   private async handleBaseImportCsv(job: Job<IBaseImportCsvJob>): Promise<void> {
@@ -136,12 +157,47 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
     await new Promise<void>((resolve, reject) => {
       const entryImports: Promise<void>[] = [];
+      const activeChunkImports = new Set<Promise<void>>();
+      const activeEntries = new Set<unzipper.Entry>();
+      let acceptingEntries = true;
+      let firstError: Error | undefined;
+      let finishing = false;
+
+      const finish = async (parserError?: Error) => {
+        if (finishing) return;
+        finishing = true;
+        acceptingEntries = false;
+        firstError ??= parserError;
+        await Promise.allSettled(entryImports);
+        await Promise.allSettled([...activeChunkImports]);
+        if (firstError) {
+          reject(firstError);
+          return;
+        }
+        this.logger.log(`import csv parser completed, total records: ${totalRecordsCount}`);
+        resolve();
+      };
+      const stop = (error: Error) => {
+        if (firstError) return;
+        firstError = error;
+        acceptingEntries = false;
+        csvStream.unpipe(parser);
+        for (const activeEntry of activeEntries) activeEntry.destroy(error);
+        parser.destroy();
+        csvStream.destroy();
+        void finish();
+      };
       parser.on('entry', (entry) => {
+        if (!acceptingEntries) {
+          entry.autodrain();
+          return;
+        }
         const filePath = entry.path;
         const isTable = filePath.startsWith('tables/') && entry.type !== 'Directory';
         const isJunction = filePath.includes('junction_');
 
         if (isTable && !isJunction) {
+          activeEntries.add(entry);
           const tableId = filePath.replace('tables/', '').split('.')[0];
           const table = structure.tables.find((table) => table.id === tableId);
           const attachmentsFields =
@@ -201,23 +257,37 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           });
 
           const batchProcessor = new BatchProcessor<Record<string, unknown>>(async (chunk) => {
+            if (firstError) throw firstError;
             totalRecordsCount += chunk.length;
-            // handleChunk emits one atomic record-create row per chunk under the
-            // active BaseImport operation.
-            await this.handleChunk(
-              chunk,
-              {
-                baseId,
-                tableId: tableIdMap[tableId],
-                userId,
-                fieldIdMap,
-                viewIdMap,
-                fkMap,
-                attachmentsFields,
-                notNullFieldMap,
-              },
-              excludeDbFieldNames
+            // Concurrent ZIP entries must not share CLS transaction slots. DataPrisma.$tx
+            // reuses an existing dataTx.client; sharing it lets another entry commit that
+            // transaction while this chunk is still inserting. Keep attribution inherited,
+            // but each chunk owns its metadata/data transaction lifecycle.
+            const chunkImport = this.cls.runWith({ ...this.cls.get(), tx: {}, dataTx: {} }, () =>
+              this.handleChunk(
+                chunk,
+                {
+                  baseId,
+                  tableId: tableIdMap[tableId],
+                  userId,
+                  fieldIdMap,
+                  viewIdMap,
+                  fkMap,
+                  attachmentsFields,
+                  notNullFieldMap,
+                },
+                excludeDbFieldNames
+              )
             );
+            activeChunkImports.add(chunkImport);
+            try {
+              await chunkImport;
+            } catch (error) {
+              stop(error as Error);
+              throw error;
+            } finally {
+              activeChunkImports.delete(chunkImport);
+            }
           });
 
           const entryImport = pipeline(
@@ -247,10 +317,14 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
             this.logger.log(`csv ${tableId} finished, total records so far: ${totalRecordsCount}`);
           });
 
-          void entryImport.catch((error: Error) => {
-            this.logger.error(`import csv import error: ${error.message}`, error.stack);
-            reject(error);
-          });
+          void entryImport.then(
+            () => activeEntries.delete(entry),
+            (error: Error) => {
+              activeEntries.delete(entry);
+              this.logger.error(`import csv import error: ${error.message}`, error.stack);
+              stop(error);
+            }
+          );
           entryImports.push(entryImport);
         } else {
           entry.autodrain();
@@ -258,19 +332,12 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       });
 
       parser.on('close', () => {
-        Promise.all(entryImports)
-          .then(() => {
-            this.logger.log(`import csv parser completed, total records: ${totalRecordsCount}`);
-            resolve();
-          })
-          .catch((error) => {
-            reject(error);
-          });
+        void finish();
       });
 
       parser.on('error', (error) => {
         this.logger.error(`ZIP parser error: ${error.message}`, error.stack);
-        reject(error);
+        stop(error);
       });
     });
 
@@ -328,12 +395,43 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   ) {
     const { baseId, tableId, userId, fieldIdMap, attachmentsFields, fkMap, notNullFieldMap } =
       config;
-    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: {
-        dbTableName: true,
-      },
-    });
+    const { dbTableName, fields: targetFields = [] } =
+      await this.prismaService.tableMeta.findUniqueOrThrow({
+        where: { id: tableId },
+        select: {
+          dbTableName: true,
+          fields: {
+            where: { deletedTime: null },
+            select: {
+              dbFieldName: true,
+              type: true,
+              isMultipleCellValue: true,
+              isComputed: true,
+              isLookup: true,
+            },
+          },
+        },
+      });
+
+    // The archive structure is caller-controlled. Classify writable and computed columns from
+    // the freshly-created destination table instead, then validate each bounded CSV chunk against
+    // that table's current collaborator scope.
+    const targetComputedDbFieldNames = targetFields
+      .filter((field) => field.isComputed || field.isLookup)
+      .map((field) => field.dbFieldName);
+    const targetUserFields = targetFields
+      .filter((field) => field.type === FieldType.User && !field.isComputed && !field.isLookup)
+      .map(({ dbFieldName, isMultipleCellValue }) => ({
+        dbFieldName,
+        isMultipleCellValue: Boolean(isMultipleCellValue),
+      }));
+    const authorizedResults = targetUserFields.length
+      ? await this.authorizeImportedUserValues(results, tableId, baseId, targetUserFields)
+      : results;
+    const authoritativeExcludeDbFieldNames = new Set([
+      ...excludeDbFieldNames,
+      ...targetComputedDbFieldNames,
+    ]);
 
     const allForeignKeyInfos = [] as {
       constraint_name: string;
@@ -390,10 +488,10 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
       const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
-      const newResult = [...results].map((res) => {
+      const newResult = authorizedResults.map((res) => {
         const newRes = { ...res };
 
-        excludeDbFieldNames.forEach((header) => {
+        authoritativeExcludeDbFieldNames.forEach((header) => {
           delete newRes[header];
         });
 
@@ -515,6 +613,150 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     }
 
     await this.updateAttachmentTable(userId, attachmentsTableData);
+  }
+
+  private async authorizeImportedUserValues(
+    records: Record<string, unknown>[],
+    tableId: string,
+    baseId: string,
+    userFields: ReadonlyArray<{ dbFieldName: string; isMultipleCellValue: boolean }>
+  ): Promise<Record<string, unknown>[]> {
+    const scopedIds = new Set<string>();
+    const identityPairs: Array<{ id: string; email: string }> = [];
+    const parsedCells = new Map<
+      Record<string, unknown>,
+      Map<string, ReadonlyArray<{ id: string; email?: string }> | null>
+    >();
+
+    for (const record of records) {
+      const cells = new Map<string, ReadonlyArray<{ id: string; email?: string }> | null>();
+      parsedCells.set(record, cells);
+      for (const field of userFields) {
+        const references = this.parseImportedUserReferences(
+          record[field.dbFieldName],
+          field.isMultipleCellValue
+        );
+        cells.set(field.dbFieldName, references);
+        for (const reference of references ?? []) {
+          if (reference.email !== undefined) {
+            identityPairs.push({ id: reference.id, email: reference.email });
+          } else {
+            scopedIds.add(reference.id);
+          }
+        }
+      }
+    }
+
+    const { scopedUsersById, pairedUsersById } = await this.lookupImportedUsers(
+      tableId,
+      baseId,
+      scopedIds,
+      identityPairs
+    );
+
+    return records.map((record) => {
+      const authorized = { ...record };
+      for (const field of userFields) {
+        const references = parsedCells.get(record)?.get(field.dbFieldName);
+        if (references == null) {
+          authorized[field.dbFieldName] = null;
+          continue;
+        }
+        const canonical = references.map((reference) =>
+          this.toCanonicalUser(
+            (reference.email === undefined ? scopedUsersById : pairedUsersById).get(reference.id)!
+          )
+        );
+        authorized[field.dbFieldName] = JSON.stringify(
+          field.isMultipleCellValue ? canonical : canonical[0]
+        );
+      }
+      return authorized;
+    });
+  }
+
+  private async lookupImportedUsers(
+    tableId: string,
+    baseId: string,
+    scopedIds: ReadonlySet<string>,
+    identityPairs: ReadonlyArray<{ id: string; email: string }>
+  ) {
+    if (scopedIds.size === 0 && identityPairs.length === 0) {
+      return {
+        scopedUsersById: new Map<string, UserLookupRecord>(),
+        pairedUsersById: new Map<string, UserLookupRecord>(),
+      };
+    }
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const userLookupService = container.resolve<IUserLookupService>(v2CoreTokens.userLookupService);
+    const scopedUsersById = new Map<string, UserLookupRecord>();
+    if (scopedIds.size) {
+      const result = await userLookupService.listTableUsersByIdentifiers(tableId, [...scopedIds]);
+      if (result.isErr()) {
+        throw new Error('Failed to validate imported user references');
+      }
+      for (const user of result.value) scopedUsersById.set(user.id, user);
+    }
+    const pairedUsersById = new Map<string, UserLookupRecord>();
+    if (identityPairs.length) {
+      const result = await userLookupService.listUsersByIdentityPairs(identityPairs);
+      if (result.isErr()) {
+        throw new Error('Failed to validate imported user references');
+      }
+      for (const user of result.value) pairedUsersById.set(user.id, user);
+    }
+    if (
+      [...scopedIds].some((id) => !scopedUsersById.has(id)) ||
+      identityPairs.some((pair) => pairedUsersById.get(pair.id)?.email !== pair.email)
+    ) {
+      throw new Error('validation.field.user_not_found');
+    }
+    return { scopedUsersById, pairedUsersById };
+  }
+
+  private parseImportedUserReferences(
+    rawValue: unknown,
+    isMultiple: boolean
+  ): ReadonlyArray<{ id: string; email?: string }> | null {
+    if (rawValue == null || rawValue === '') return null;
+
+    let value = rawValue;
+    if (typeof value === 'string') {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        throw new Error('validation.field.invalid_user_format');
+      }
+    }
+    if (value == null) return null;
+
+    const values = isMultiple ? value : [value];
+    if (!Array.isArray(values) || (!isMultiple && Array.isArray(value))) {
+      throw new Error('validation.field.invalid_user_format');
+    }
+    return values.map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        throw new Error('validation.field.invalid_user_format');
+      }
+      const id = Reflect.get(item, 'id');
+      if (typeof id !== 'string' || id.length === 0) {
+        throw new Error('validation.field.invalid_user_format');
+      }
+      const email = Reflect.get(item, 'email');
+      if (email !== undefined && (typeof email !== 'string' || email.length === 0)) {
+        throw new Error('validation.field.invalid_user_format');
+      }
+      return email === undefined ? { id } : { id, email: email as string };
+    });
+  }
+
+  private toCanonicalUser(user: UserLookupRecord) {
+    return {
+      id: user.id,
+      title: user.name,
+      ...(user.email ? { email: user.email } : {}),
+      ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
+    };
   }
 
   private getNotNullDefault(dbFieldType: string, isMultipleCellValue: boolean): unknown {

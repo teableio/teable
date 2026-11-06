@@ -230,10 +230,8 @@ export class DuplicateBaseHandler implements ICommandHandler<
           bulkCopySupported.value;
 
         if (bulkCopyPlan && bulkCopyReady) {
-          // Same-database physical copy: rows, link storage columns and junction
-          // tables are cloned verbatim, so no link restore or computed backfill
-          // runs here; the host recomputes persisted computed columns after the
-          // command completes.
+          // Physical copying preserves rows and link storage; native computed
+          // completion runs below after every table and junction is populated.
           recordCopyMode = 'bulk';
           const bulkCopyResult = yield* this.bulkCopyRecordsStream(context, bulkCopyPlan);
           if (bulkCopyResult.isErr()) {
@@ -277,15 +275,16 @@ export class DuplicateBaseHandler implements ICommandHandler<
               if (event.id === 'error') return;
             }
           }
+        }
 
-          const backfillResult = await this.backfillComputedFields(
-            context,
-            Array.from(tablesBySourceId.values())
-          );
-          if (backfillResult.isErr()) {
-            yield this.errorEvent(backfillResult.error, commitState.tableIdMap);
-            return;
-          }
+        const backfillResult = await this.computedFieldBackfillService.executeSyncTables(context, {
+          tables: Array.from(tablesBySourceId.values()),
+          skipDistinctFilter: true,
+          includeOneManyTwoWay: true,
+        });
+        if (backfillResult.isErr()) {
+          yield this.errorEvent(backfillResult.error, commitState.tableIdMap);
+          return;
         }
       }
 
@@ -629,6 +628,9 @@ export class DuplicateBaseHandler implements ICommandHandler<
         targetDbTableName: targetDbTableNameResult.value,
         excludedTargetColumns,
         linkValueColumns: source.linkValueColumnsByTableId?.[sourceTableId] ?? [],
+        ...(source.dateTimeZoneConversionsByTableId?.[sourceTableId]
+          ? { dateTimeZoneConversions: source.dateTimeZoneConversionsByTableId[sourceTableId] }
+          : {}),
       });
     }
     if (tables.length === 0) {
@@ -713,26 +715,6 @@ export class DuplicateBaseHandler implements ICommandHandler<
       wake = undefined;
     }
     return copyPromise;
-  }
-
-  private async backfillComputedFields(
-    context: IExecutionContext,
-    targetTables: ReadonlyArray<Table>
-  ): Promise<Result<void, DomainError>> {
-    return safeTry<void, DomainError>(
-      async function* (this: DuplicateBaseHandler) {
-        for (const table of targetTables) {
-          yield* await this.computedFieldBackfillService.executeSyncMany(context, {
-            table,
-            fields: table.getFields(),
-            skipDistinctFilter: true,
-            includeOneManyTwoWay: true,
-          });
-        }
-
-        return ok(undefined);
-      }.bind(this)
-    );
   }
 
   private async remapStructure(baseId: BaseId, normalized: NormalizedDotTeaStructure) {

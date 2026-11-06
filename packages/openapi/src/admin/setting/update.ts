@@ -277,6 +277,24 @@ export const appAuthGoogleConfigSchema = z.object({
 
 export type IAppAuthGoogleConfig = z.infer<typeof appAuthGoogleConfigSchema>;
 
+// Instance-level OIDC provider for app sign-in; the same endpoint set as the
+// enterprise SSO configuration so one IdP registration serves both.
+export const appAuthOidcConfigSchema = z.object({
+  authorizationUrl: z.string().optional(),
+  tokenUrl: z.string().optional(),
+  userInfoUrl: z.string().optional(),
+  clientId: z.string().optional(),
+  clientSecret: z.string().optional(),
+  scope: z
+    .string()
+    .refine((scope) => !scope.trim() || scope.trim().split(/\s+/).includes('openid'), {
+      message: 'scope must include openid',
+    })
+    .optional(),
+});
+
+export type IAppAuthOidcConfig = z.infer<typeof appAuthOidcConfigSchema>;
+
 export const appAuthEmailOtpConfigSchema = z.object({
   smtp: mailTransportConfigSchema.optional(),
 });
@@ -285,6 +303,7 @@ export type IAppAuthEmailOtpConfig = z.infer<typeof appAuthEmailOtpConfigSchema>
 
 export const appAuthConfigSchema = z.object({
   google: appAuthGoogleConfigSchema.optional(),
+  oidc: appAuthOidcConfigSchema.optional(),
   emailOtp: appAuthEmailOtpConfigSchema.optional(),
 });
 
@@ -308,12 +327,6 @@ export const appConfigSchema = z.object({
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;
-
-export const webSearchConfigSchema = z.object({
-  apiKey: z.string().optional(),
-});
-
-export type IWebSearchConfig = z.infer<typeof webSearchConfigSchema>;
 
 // V2 feature names for canary control
 export const v2FeatureSchema = z.enum([

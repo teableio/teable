@@ -24,9 +24,13 @@ Sentry.init({
   // Sentry 11 reports the user's IP by default; keep what v10 sent without sendDefaultPii.
   dataCollection: { userInfo: false },
 
-  // Unhandled rejections from userscript managers (Tampermonkey etc.) carry no frames of ours;
-  // the injected function names are random per page load, so each one opens a new issue.
-  denyUrls: [/userscript\.html/i],
+  // Report an error only when its innermost frame is our own bundle (/_next/, also behind an
+  // assetPrefix CDN); errors without frames still pass. Extensions, userscripts and proxies that
+  // wrap window.fetch leave its rejection unhandled, so every failed PostHog/GA request surfaces as
+  // "Failed to fetch (<host>)" with their script innermost, whatever they named it. Matched on the
+  // raw URL: the Next.js frame normalization later rewrites every origin, chrome-extension://
+  // included, to app:///, so Sentry's server-side browser-extension filter never recognises them.
+  allowUrls: [/\/_next\//],
 
   replaysOnErrorSampleRate: 1.0,
 

@@ -66,11 +66,6 @@ export class RecordHistoryColdProcessor extends WorkerHost {
       // per day until re-enable (or a manual scheduler cleanup).
       return;
     }
-    // the redis-less fallback queue has no job schedulers; skip silently there
-    if (typeof this.queue.upsertJobScheduler !== 'function') {
-      this.logger.warn('record-history cold schedulers unavailable without redis');
-      return;
-    }
     // schedulers are only ever ADDED here, never removed: no process can
     // tell a fleet-wide rollback from "that scheduler belongs to another
     // pod" (API pods, or flush/compact split across worker pods), and a
@@ -175,7 +170,7 @@ export class RecordHistoryColdProcessor extends WorkerHost {
   /**
    * compact the closed months (day parts → month parts) of every table the
    * flusher marked pending, or of every cold table until the pending set is
-   * bootstrapped (or without redis)
+   * bootstrapped
    */
   private async runCompaction(): Promise<ICompactMonthResult[]> {
     const scan = await runCompactionScan<ICompactMonthResult>({

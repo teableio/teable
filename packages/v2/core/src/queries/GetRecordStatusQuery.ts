@@ -7,6 +7,7 @@ import { type FieldKeyType, fieldKeyTypeSchema } from '../domain/table/fields/Fi
 import { RecordId } from '../domain/table/records/RecordId';
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
+import { sortCollationSchema } from '../domain/table/views/ViewSort';
 import type { RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
 import { MAX_RECORDS_LIMIT, type RecordSortValue } from './ListTableRecordsQuery';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
@@ -36,6 +37,7 @@ export const getRecordStatusInputSchema = z.object({
       z.object({
         fieldId: z.string().min(1),
         order: z.enum(['asc', 'desc']),
+        collation: sortCollationSchema.optional(),
       })
     )
   ).optional(),

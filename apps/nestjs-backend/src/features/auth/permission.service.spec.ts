@@ -4,7 +4,13 @@ import { ForbiddenException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { Action } from '@teable/core';
-import { APP_ROBOT_ID, AUTOMATION_ROBOT_ID, Role, getPermissions } from '@teable/core';
+import {
+  APP_ROBOT_ID,
+  AUTOMATION_ROBOT_ID,
+  Role,
+  TemplatePermissions,
+  getPermissions,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -377,6 +383,44 @@ describe('PermissionService', () => {
 
       expect(result.scopes).not.toContain('base|read_all');
       expect(result.scopes).toEqual(['table|read']);
+    });
+  });
+
+  describe('getPermissionByBaseId with an internal token', () => {
+    const snapshotBase = { id: 'bseSnapshot', spaceId: 'spcTemplates', deletedTime: null };
+
+    beforeEach(() => {
+      prismaServiceMock.txClient.mockReturnValue(prismaServiceMock);
+      clsServiceMock.get.mockImplementation(((key: string) =>
+        key === 'tempAuthBaseId' ? snapshotBase.id : undefined) as any);
+      prismaServiceMock.base.findUnique.mockResolvedValue(snapshotBase as any);
+    });
+
+    const lookups = (published: unknown, pending: unknown) =>
+      prismaServiceMock.template.findFirst.mockImplementation((({ where }: any) =>
+        Promise.resolve(where.review ? pending : published)) as any);
+
+    it('keeps a snapshot under review read-only', async () => {
+      prismaServiceMock.space.findUnique.mockResolvedValue({ isTemplate: true } as any);
+      lookups(null, { id: 'tplPending' });
+
+      const permissions = await service['getPermissionByBaseId'](snapshotBase.id);
+
+      expect(permissions).toEqual(TemplatePermissions);
+      expect(clsServiceMock.set).toHaveBeenCalledWith('template', {
+        id: 'tplPending',
+        baseId: snapshotBase.id,
+      });
+    });
+
+    it('still gives an app in an ordinary project its owner permissions', async () => {
+      prismaServiceMock.space.findUnique.mockResolvedValue({ isTemplate: false } as any);
+      lookups(null, null);
+
+      const permissions = await service['getPermissionByBaseId'](snapshotBase.id);
+
+      expect(permissions).toEqual(getPermissions(Role.Owner));
+      expect(prismaServiceMock.template.findFirst).toHaveBeenCalledTimes(1);
     });
   });
 

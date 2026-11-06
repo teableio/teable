@@ -36,6 +36,7 @@ import {
   getImageModelConfig,
   getImageModelConfigByGatewayId,
   INSTANCE_PROVIDER_NAME,
+  isMaskedSecret,
   UploadType,
   LLMProviderType,
   resolveOpenAITranscriptionEndpoint,
@@ -69,6 +70,7 @@ import { AuditScope } from '../../audit/audit-scope';
 import { EMAIL_LOGO_TOKEN } from '../../builtin-assets-init';
 import { verifyTransport } from '../../mail-sender/mail-helpers';
 import { collectChangedKeys, collectChangedPatchKeys } from '../changed-setting-keys';
+import { unmaskSecret, unmaskSettingSecrets } from '../setting-secrets';
 import { SettingService } from '../setting.service';
 
 const unknownErrorMsg = 'unknown error';
@@ -171,6 +173,15 @@ export class SettingOpenApiService {
     return this.settingService.getSetting(names);
   }
 
+  /** A secret an admin client sent, a mask resolved to the secret it stands for in `names`. */
+  async unmaskSecret<T extends string | undefined>(names: string[], value: T): Promise<T> {
+    if (!isMaskedSecret(value)) {
+      return value;
+    }
+    const settings = (await this.settingService.getSetting(names)) as Record<string, unknown>;
+    return unmaskSecret(value, settings) as T;
+  }
+
   async updateSetting(updateSettingRo: Partial<ISettingVo>): Promise<ISettingVo> {
     // Instance providers must use "teable" as name so modelKeys end with @teable,
     // allowing a simple suffix check to distinguish instance vs BYOK models.
@@ -183,6 +194,9 @@ export class SettingOpenApiService {
     const before = keys.length
       ? ((await this.settingService.getSetting(keys)) as Record<string, unknown>)
       : {};
+    for (const key of keys) {
+      patch[key] = unmaskSettingSecrets(key, patch[key], before[key]);
+    }
     const result = await this.settingService.updateSetting(updateSettingRo);
     const changedKeys = collectChangedPatchKeys(before, patch);
     if (changedKeys.length) {
@@ -209,7 +223,11 @@ export class SettingOpenApiService {
 
   async updateAiConfig(updateAiConfigRo: IUpdateAiConfigRo): Promise<IUpdateAiConfigVo> {
     const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
-    const patch = clearUndefinedPatchValues(updateAiConfigRo.patch);
+    const patch = unmaskSettingSecrets(
+      SettingKey.AI_CONFIG,
+      clearUndefinedPatchValues(updateAiConfigRo.patch),
+      aiConfig
+    );
     const nextAiConfig = {
       ...aiConfig,
       ...patch,
@@ -247,7 +265,11 @@ export class SettingOpenApiService {
 
   async updateAppConfig(updateAppConfigRo: IUpdateAppConfigRo): Promise<IUpdateAppConfigVo> {
     const { appConfig } = await this.settingService.getSetting([SettingKey.APP_CONFIG]);
-    const patch = clearUndefinedPatchValues(updateAppConfigRo.patch);
+    const patch = unmaskSettingSecrets(
+      SettingKey.APP_CONFIG,
+      clearUndefinedPatchValues(updateAppConfigRo.patch),
+      appConfig
+    );
     const nextAppConfig = {
       ...appConfig,
       ...patch,
@@ -1008,9 +1030,14 @@ export class SettingOpenApiService {
   }
 
   async setMailTransportConfig(setMailTransportConfigRo: ISetSettingMailTransportConfigRo) {
-    const { name, transportConfig } = setMailTransportConfigRo;
-    await verifyTransport(transportConfig);
+    const { name } = setMailTransportConfigRo;
     const before = await this.settingService.getSetting([name]);
+    const transportConfig = unmaskSettingSecrets(
+      name,
+      setMailTransportConfigRo.transportConfig,
+      (before as Record<string, unknown>)[name]
+    );
+    await verifyTransport(transportConfig);
     await this.settingService.updateSetting({
       [name]: transportConfig,
     });
@@ -1121,7 +1148,12 @@ export class SettingOpenApiService {
     let providers: LLMProvider[];
 
     if (batchTestLLMRo?.providers && batchTestLLMRo.providers.length > 0) {
-      providers = batchTestLLMRo.providers;
+      const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+      providers = unmaskSettingSecrets(
+        SettingKey.AI_CONFIG,
+        { llmProviders: batchTestLLMRo.providers },
+        aiConfig
+      ).llmProviders;
     } else {
       const setting = await this.getSetting();
       providers = setting.aiConfig?.llmProviders ?? [];
@@ -1200,7 +1232,11 @@ export class SettingOpenApiService {
    * When testAttachment is true, results are automatically saved to appConfig
    */
   async testApiKey(testApiKeyRo: ITestApiKeyRo): Promise<ITestApiKeyVo> {
-    const { type, apiKey, baseUrl, testAttachment } = testApiKeyRo;
+    const { type, baseUrl, testAttachment } = testApiKeyRo;
+    const apiKey = await this.unmaskSecret(
+      [type === 'vercel' ? SettingKey.APP_CONFIG : SettingKey.AI_CONFIG],
+      testApiKeyRo.apiKey
+    );
 
     if (type === 'aiGateway') {
       const keyResult = await this.testAiGatewayKey(apiKey, baseUrl);

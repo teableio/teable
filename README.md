@@ -117,6 +117,8 @@ make switch-db-mode
 ```sh
 cd apps/nextjs-app
 cp .env.development .env.development.local
+# Give this checkout its own SECRET_KEY instead of the public built-in default
+grep -q '^SECRET_KEY=' .env.development.local || echo "SECRET_KEY=$(openssl rand -hex 32)" >> .env.development.local
 ```
 
 #### 4. Run Dev Server

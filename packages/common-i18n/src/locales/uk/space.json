@@ -444,10 +444,10 @@
     "title": "Як ви хочете почати?"
   },
   "importBaseDialog": {
-    "title": "Імпорт проєкту",
-    "fromFile": "Імпорт з файлу",
-    "fromFileDesc": "Завантажте файл проєкту .tea",
-    "fromAirtableDesc": "Підключіть обліковий запис Airtable",
-    "fromGoogleSheetDesc": "Виберіть таблицю на своєму Google Drive"
+    "title": "Імпортувати як проєкт",
+    "fromFile": "Файл {{brand}}",
+    "fromFileDesc": "Завантажте файл .tea",
+    "fromAirtableDesc": "Виберіть базу",
+    "fromGoogleSheetDesc": "Виберіть таблицю"
   }
 }

@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import { describe, it, expect, afterEach } from 'vitest';
 import {
   createCloudMetadataRejectingLookup,
+  createRejectingLookup,
   getSafeAxiosAgents,
   getSafeFetchAgent,
   isCloudMetadataAddress,
@@ -142,6 +143,31 @@ describe('getSafeFetchAgent', () => {
       );
       expect(result).toEqual([{ address: '10.0.0.8', family: 4 }]);
     });
+  });
+});
+
+describe('createRejectingLookup', () => {
+  it('rejects a resolution the predicate refuses', async () => {
+    const lookup = createRejectingLookup(
+      (address) => address.startsWith('10.'),
+      (address, hostname) => new Error(`blocked ${address} from ${hostname}`),
+      (_hostname, _options, callback) => callback(null, '10.1.2.3', 4)
+    );
+    const { promise, resolve } = Promise.withResolvers<Error | null>();
+    lookup('peer.internal', {}, (error) => resolve(error));
+    expect((await promise)?.message).toBe('blocked 10.1.2.3 from peer.internal');
+  });
+
+  it('passes an admitted resolution through unchanged, including the `all` form', async () => {
+    const lookup = createRejectingLookup(
+      (address) => address.startsWith('10.'),
+      (address, hostname) => new Error(`blocked ${address} from ${hostname}`),
+      (_hostname, _options, callback) =>
+        callback(null, [{ address: '8.8.8.8', family: 4 }], undefined)
+    );
+    const { promise, resolve } = Promise.withResolvers<unknown>();
+    lookup('peer.internal', { all: true }, (error, address) => resolve(error ?? address));
+    expect(await promise).toEqual([{ address: '8.8.8.8', family: 4 }]);
   });
 });
 

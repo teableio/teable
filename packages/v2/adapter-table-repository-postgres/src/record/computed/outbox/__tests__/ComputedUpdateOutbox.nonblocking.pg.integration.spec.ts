@@ -482,7 +482,10 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
       },
     ]);
     expect(new Set(claimed.affectedFieldIds)).toEqual(
-      new Set([FIELD_ID, ...Array.from({ length: 8 }, (_, index) => `fld${String(index).repeat(16)}`)])
+      new Set([
+        FIELD_ID,
+        ...Array.from({ length: 8 }, (_, index) => `fld${String(index).repeat(16)}`),
+      ])
     );
     // The persisted uniqueness escape hatch remains, even on the survivor.
     expect(claimed!.planHash).toContain(':nolock:cnm');

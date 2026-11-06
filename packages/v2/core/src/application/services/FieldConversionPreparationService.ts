@@ -51,6 +51,7 @@ export type FieldConversionPreparation = {
   readonly command: UpdateFieldCommand;
   readonly table: Table;
   readonly previousField: Field;
+  readonly projectedTable: Table;
   readonly foreignTables: ReadonlyArray<Table>;
   readonly updateSpecs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>;
   readonly plannedSideEffects: ReadonlyArray<FieldOperationSideEffect>;
@@ -84,6 +85,11 @@ export class FieldConversionPreparationService {
     options?: {
       readonly allowNoop?: boolean;
       readonly aggregationRepository?: Pick<ITableRecordAggregationQueryRepository, 'aggregate'>;
+      /**
+       * An aggregate the host already admitted for this exact operation. It must match the
+       * command table; reusing it prevents a second, unadmitted metadata snapshot.
+       */
+      readonly table?: Table;
     }
   ): Promise<Result<FieldConversionPreparation, DomainError>> {
     const service = this;
@@ -91,16 +97,29 @@ export class FieldConversionPreparationService {
       const command = yield* input instanceof UpdateFieldCommand
         ? ok(input)
         : UpdateFieldCommand.create(input, { allowNoop: options?.allowNoop ?? true });
-      const whereSpec = yield* Table.specs().byId(command.tableId).build();
-      const tableResult = await service.tableRepository.findOne(context, whereSpec);
-      if (tableResult.isErr()) {
-        return err(
-          isNotFoundError(tableResult.error)
-            ? domainError.notFound({ code: 'table.not_found', message: 'Table not found' })
-            : tableResult.error
-        );
+      let table: Table;
+      if (options?.table) {
+        if (!options.table.id().equals(command.tableId)) {
+          return err(
+            domainError.validation({
+              code: 'field.conversion_table_mismatch',
+              message: 'Supplied table does not match the conversion command',
+            })
+          );
+        }
+        table = options.table;
+      } else {
+        const whereSpec = yield* Table.specs().byId(command.tableId).build();
+        const tableResult = await service.tableRepository.findOne(context, whereSpec);
+        if (tableResult.isErr()) {
+          return err(
+            isNotFoundError(tableResult.error)
+              ? domainError.notFound({ code: 'table.not_found', message: 'Table not found' })
+              : tableResult.error
+          );
+        }
+        table = tableResult.value;
       }
-      const table = tableResult.value;
       const previousField = yield* table.getField((field) => field.id().equals(command.fieldId));
       const references = yield* collectFieldConversionForeignTableReferences(
         command,
@@ -123,6 +142,7 @@ export class FieldConversionPreparationService {
         (spec) => spec instanceof TableUpdateFieldTypeSpec && spec.isTypeConversion()
       );
       let plannedSideEffects: ReadonlyArray<FieldOperationSideEffect> = [];
+      let projectedTable = table;
       if (!isNoop) {
         const detachedTable = yield* table.clone(service.tableMapper);
         const detachedPreviousField = yield* detachedTable.getField((field) =>
@@ -131,6 +151,7 @@ export class FieldConversionPreparationService {
         const detachedUpdate = yield* detachedTable.update((mutator) =>
           mutator.updateField(command.fieldId, updateSpecs, { foreignTables })
         );
+        projectedTable = detachedUpdate.table;
         const detachedUpdatedField = yield* detachedUpdate.table.getField((field) =>
           field.id().equals(command.fieldId)
         );
@@ -166,6 +187,7 @@ export class FieldConversionPreparationService {
       return ok({
         command,
         table,
+        projectedTable,
         previousField,
         foreignTables,
         updateSpecs,

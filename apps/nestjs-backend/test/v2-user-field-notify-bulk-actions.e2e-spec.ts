@@ -16,6 +16,7 @@ import type { IUserMeVo } from '@teable/openapi';
 import {
   duplicateTable as apiDuplicateTable,
   emailBaseInvitation,
+  emailSpaceInvitation,
   ensureUndoRedoWindowIdHeader,
   getSignature as apiGetSignature,
   getTrashItems,
@@ -30,8 +31,13 @@ import {
   UploadType,
   USER_ME,
 } from '@teable/openapi';
+import { vi } from 'vitest';
+import type { RecordCreateEvent, RecordUpdateEvent } from '../src/event-emitter/events';
+import { CollaboratorNotificationListener } from '../src/event-emitter/listeners/collaborator-notification.listener';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
+import { MailSenderService } from '../src/features/mail-sender/mail-sender.service';
+import { V2CollaboratorNotificationDispatcher } from '../src/features/v2/v2-collaborator-notification.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   createField,
@@ -55,10 +61,10 @@ import {
  * T7798 / Q2-15: single/batch record duplicate is an ordinary create, so the
  * copied assignee IS notified; only the bulk-movement paths above stay silent.
  *
- * All requests run with FORCE_V2_ALL=true so they route through the v2
- * command handlers that publish record events with sources
+ * Bulk-source scenarios use FORCE_V2_ALL=true and the v2 event sources
  * 'import' / 'tableDuplicate' / 'recordDuplicate' / 'restore'; replayed
- * updates are silenced via the undo/redo execution context.
+ * updates are silenced via the undo/redo execution context. Recipient-scope
+ * regressions exercise strict writes through both V1 and V2.
  */
 const sleep = (ms: number): Promise<void> => {
   const { promise, resolve } = Promise.withResolvers<void>();
@@ -72,6 +78,8 @@ describe('V2 user field notification on bulk actions (e2e)', () => {
   let assignee: IUserMeVo;
   let previousForceV2All: string | undefined;
   let previousNotifyBatchWindowMs: string | undefined;
+  let outsider: IUserMeVo;
+  let spaceAssignee: IUserMeVo;
 
   const baseId = globalThis.testConfig.baseId;
   const actorId = globalThis.testConfig.userId;
@@ -101,6 +109,20 @@ describe('V2 user field notification on bulk actions (e2e)', () => {
     });
     assignee = (await assigneeAxios.get<IUserMeVo>(USER_ME)).data;
 
+    const outsiderAxios = await createNewUserAxios({
+      email: `v2-bulk-notify-outsider-${Date.now()}@example.com`,
+      password: '12345678',
+    });
+    outsider = (await outsiderAxios.get<IUserMeVo>(USER_ME)).data;
+    const spaceAssigneeAxios = await createNewUserAxios({
+      email: `v2-notify-space-${Date.now()}@example.com`,
+      password: '12345678',
+    });
+    spaceAssignee = (await spaceAssigneeAxios.get<IUserMeVo>(USER_ME)).data;
+    await emailSpaceInvitation({
+      spaceId: globalThis.testConfig.spaceId,
+      emailSpaceInvitationRo: { emails: [spaceAssignee.email], role: baseRole.Editor },
+    });
     await emailBaseInvitation({
       baseId,
       emailBaseInvitationRo: {
@@ -148,11 +170,197 @@ describe('V2 user field notification on bulk actions (e2e)', () => {
     await prisma.notification.deleteMany({
       where: {
         fromUserId: actorId,
-        toUserId: assignee.id,
+        toUserId: { in: [assignee.id, spaceAssignee.id, outsider.id] },
         urlPath: { contains: tableId },
       },
     });
   };
+
+  const createMultiUserFieldTable = async (name: string) => {
+    const table = await createTable(baseId, {
+      name,
+      fields: [
+        { name: 'Title', type: FieldType.SingleLineText, isPrimary: true },
+        {
+          name: 'Assignee',
+          type: FieldType.User,
+          options: { isMultiple: true, shouldNotify: true },
+        },
+      ],
+    });
+    return {
+      table,
+      titleFieldId: table.fields.find((field) => field.name === 'Title')?.id ?? '',
+      assigneeFieldId: table.fields.find((field) => field.name === 'Assignee')?.id ?? '',
+    };
+  };
+
+  it.each([
+    ['v2', 'create', 'base'],
+    ['v2', 'update', 'base'],
+    ['v1', 'create', 'base'],
+    ['v1', 'update', 'base'],
+    ['v2', 'create', 'space'],
+    ['v2', 'update', 'space'],
+    ['v1', 'create', 'space'],
+    ['v1', 'update', 'space'],
+  ] as const)(
+    'preserves an outsider on %s strict %s, notifying only the current %s collaborator',
+    async (engine, operation, grant) => {
+      const recipient = grant === 'base' ? assignee : spaceAssignee;
+      const resourceId = grant === 'base' ? baseId : globalThis.testConfig.spaceId;
+      const grantRows = await prisma.collaborator.findMany({
+        where: { principalId: recipient.id, resourceId },
+      });
+      const forceV2All = process.env.FORCE_V2_ALL;
+      const enableCanary = process.env.ENABLE_CANARY_FEATURE;
+      const { table, titleFieldId, assigneeFieldId } = await createMultiUserFieldTable(
+        `${engine} multi-user strict ${operation}`
+      );
+      process.env.FORCE_V2_ALL = String(engine === 'v2');
+      process.env.ENABLE_CANARY_FEATURE = 'false';
+      const mailSender = app.get(MailSenderService);
+      let dispatchDone = Promise.withResolvers<void>();
+      const observeV2 = () => {
+        const dispatcher = app.get(V2CollaboratorNotificationDispatcher);
+        const notifyUserFields = dispatcher.notifyUserFields.bind(dispatcher);
+        return vi.spyOn(dispatcher, 'notifyUserFields').mockImplementation(async (params) => {
+          try {
+            await notifyUserFields(params);
+          } finally {
+            if (
+              params.tableId === table.id &&
+              params.records.some((record) => record.fields[assigneeFieldId] != null)
+            ) {
+              dispatchDone.resolve();
+            }
+          }
+        });
+      };
+      const observeV1 = () => {
+        // The registered OnEvent wrapper calls this method dynamically; observe its
+        // real completion without replacing either event delivery or persistence.
+        const listener = app.get(CollaboratorNotificationListener) as unknown as {
+          updateTableRecord: (
+            event: RecordCreateEvent | RecordUpdateEvent,
+            userFieldIds: string[],
+            userFields: unknown
+          ) => Promise<void>;
+        };
+        const updateTableRecord = listener.updateTableRecord.bind(listener);
+        return vi.spyOn(listener, 'updateTableRecord').mockImplementation(async (...args) => {
+          try {
+            await updateTableRecord(...args);
+          } finally {
+            const { tableId, record } = args[0].payload;
+            const records = Array.isArray(record) ? record : [record];
+            if (
+              tableId === table.id &&
+              records.some((candidate) => candidate?.fields?.[assigneeFieldId] != null)
+            ) {
+              dispatchDone.resolve();
+            }
+          }
+        });
+      };
+      const dispatchSpy = engine === 'v2' ? observeV2() : observeV1();
+      const sendMailSpy = vi.spyOn(mailSender, 'sendMail');
+
+      try {
+        await clearNotifications(table.id);
+        const value = [
+          { id: outsider.id, email: outsider.email },
+          { id: recipient.id, email: recipient.email },
+        ];
+        let recordId: string;
+        if (operation === 'create') {
+          const { records } = await createRecords(table.id, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [{ fields: { [titleFieldId]: 'strict create', [assigneeFieldId]: value } }],
+          });
+          recordId = records[0]!.id;
+        } else {
+          const { records } = await createRecords(table.id, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [{ fields: { [titleFieldId]: 'strict update' } }],
+          });
+          recordId = records[0]!.id;
+          await updateRecord(table.id, recordId, {
+            record: { fields: { [assigneeFieldId]: value } },
+            fieldKeyType: FieldKeyType.Id,
+          });
+        }
+
+        await dispatchDone.promise;
+
+        const { records: readback } = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+        const assignees = readback.find(({ id }) => id === recordId)?.fields[assigneeFieldId] as
+          | Array<{ id: string; email?: string }>
+          | undefined;
+        expect(assignees).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: outsider.id, email: outsider.email }),
+            expect.objectContaining({ id: recipient.id, email: recipient.email }),
+          ])
+        );
+
+        const notifications = await prisma.notification.findMany({
+          where: {
+            fromUserId: actorId,
+            type: NotificationTypeEnum.CollaboratorCellTag,
+            urlPath: { contains: table.id },
+          },
+        });
+        expect(notifications.map(({ toUserId }) => toUserId)).toContain(recipient.id);
+        expect(notifications.map(({ toUserId }) => toUserId)).not.toContain(outsider.id);
+        const deliveredEmails = sendMailSpy.mock.calls.flatMap(([message]) => {
+          const recipients = Array.isArray(message.to) ? message.to : [message.to];
+          return recipients.map((recipient) =>
+            typeof recipient === 'string' ? recipient : recipient?.address
+          );
+        });
+        expect(deliveredEmails).toContain(recipient.email);
+        expect(deliveredEmails).not.toContain(outsider.email);
+
+        await prisma.collaborator.deleteMany({
+          where: { principalId: recipient.id, resourceId },
+        });
+        await clearNotifications(table.id);
+        sendMailSpy.mockClear();
+        dispatchDone = Promise.withResolvers<void>();
+        const { records: afterRevocation } = await createRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [titleFieldId]: 'after revocation', [assigneeFieldId]: value } }],
+        });
+        await dispatchDone.promise;
+        expect(afterRevocation[0]?.fields[assigneeFieldId]).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: recipient.id, email: recipient.email }),
+          ])
+        );
+        expect(
+          await prisma.notification.findMany({ where: { urlPath: { contains: table.id } } })
+        ).toEqual([]);
+        expect(sendMailSpy).not.toHaveBeenCalled();
+      } finally {
+        if (forceV2All === undefined) delete process.env.FORCE_V2_ALL;
+        else process.env.FORCE_V2_ALL = forceV2All;
+        if (enableCanary === undefined) delete process.env.ENABLE_CANARY_FEATURE;
+        else process.env.ENABLE_CANARY_FEATURE = enableCanary;
+        dispatchSpy.mockRestore();
+        sendMailSpy.mockRestore();
+        await prisma.collaborator.createMany({ data: grantRows, skipDuplicates: true });
+        await prisma.notification.deleteMany({
+          where: {
+            fromUserId: actorId,
+            toUserId: { in: [recipient.id, outsider.id] },
+            urlPath: { contains: table.id },
+          },
+        });
+        await permanentDeleteTable(baseId, table.id);
+      }
+    }
+  );
 
   const waitForCollaboratorNotification = async (params: {
     tableId: string;

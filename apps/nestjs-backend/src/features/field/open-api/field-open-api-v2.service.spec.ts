@@ -11,8 +11,14 @@ import {
   type IFieldVo,
 } from '@teable/core';
 import type * as V2ContractHttp from '@teable/v2-contract-http';
-import { tableProvisionPendingError, v2CoreTokens } from '@teable/v2-core';
-import { err, ok } from 'neverthrow';
+import {
+  DefaultTableMapper,
+  tableProvisionPendingError,
+  type ITablePersistenceDTO,
+  type Table,
+  v2CoreTokens,
+} from '@teable/v2-core';
+import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 // Mapping tests inject their service dependencies explicitly; keep database and
@@ -128,6 +134,11 @@ type ITestFieldOpenApiV2Service = {
     },
     context: Record<string, unknown>
   ) => Promise<Record<string, unknown>>;
+  prepareConvertFieldInput: (
+    table: Table,
+    fieldId: string,
+    field: Record<string, unknown>
+  ) => Result<{ tableId: string; fieldId: string; field: Record<string, unknown> }, unknown>;
 };
 
 const createService = () =>
@@ -3413,4 +3424,135 @@ describe('FieldOpenApiV2Service pending propagation', () => {
     expect(tableQueryService.getById).toHaveBeenCalledOnce();
     expect(commandBus.execute).toHaveBeenCalledOnce();
   });
+});
+
+/** Every acquisition collaborator throws; only the supplied loaded table may be read. */
+const createReadOnlyService = (): {
+  service: ITestFieldOpenApiV2Service;
+  acquisitions: Record<string, ReturnType<typeof vi.fn>>;
+} => {
+  const acquisitions = {
+    getFieldFromV2: vi.fn(() => {
+      throw new Error('Unexpected acquisition through getFieldFromV2');
+    }),
+    listDomainFields: vi.fn(() => {
+      throw new Error('Unexpected acquisition through listDomainFields');
+    }),
+    hydrateLookupFieldVo: vi.fn(() => {
+      throw new Error('Unexpected acquisition through hydrateLookupFieldVo');
+    }),
+    getContainerForTable: vi.fn(() => {
+      throw new Error('Migration-capable container acquisition is forbidden');
+    }),
+  };
+  const service = new FieldOpenApiV2Service(
+    { getContainerForTable: acquisitions.getContainerForTable } as never,
+    { createContext: vi.fn() } as never,
+    {} as never,
+    {} as never,
+    createFieldSupplementService() as never,
+    {} as never
+  ) as unknown as ITestFieldOpenApiV2Service;
+  Object.defineProperties(service, {
+    getFieldFromV2: { value: acquisitions.getFieldFromV2 },
+    listDomainFields: { value: acquisitions.listDomainFields },
+    hydrateLookupFieldVo: { value: acquisitions.hydrateLookupFieldVo },
+  });
+  return { service, acquisitions };
+};
+
+describe('FieldOpenApiV2Service prepareConvertFieldInput', () => {
+  const tableId = `tbl${'a'.repeat(16)}`;
+  const titleId = `fld${'a'.repeat(16)}`;
+  const amountId = `fld${'b'.repeat(16)}`;
+  const table = (): Table =>
+    new DefaultTableMapper()
+      .toDomain({
+        id: tableId,
+        baseId: `bse${'a'.repeat(16)}`,
+        name: 'Preview',
+        dbTableName: 'base.preview',
+        primaryFieldId: titleId,
+        fields: [
+          { id: titleId, name: 'Title', type: 'singleLineText', dbFieldName: 'title' },
+          { id: amountId, name: 'Amount', type: 'number', dbFieldName: 'amount' },
+        ],
+        views: [{ id: `viw${'a'.repeat(16)}`, name: 'Grid', type: 'grid', columnMeta: {} }],
+      } satisfies ITablePersistenceDTO)
+      ._unsafeUnwrap();
+
+  it('projects canonical convert input from the loaded table only', () => {
+    const { service, acquisitions } = createReadOnlyService();
+
+    const result = service.prepareConvertFieldInput(table(), amountId, {
+      type: FieldType.SingleLineText,
+      name: 'Amount',
+    });
+
+    expect(result.isOk()).toBe(true);
+    const prepared = result._unsafeUnwrap();
+    expect(prepared).toMatchObject({
+      tableId,
+      fieldId: amountId,
+      field: { type: 'singleLineText', name: 'Amount', updateMode: 'full' },
+    });
+    for (const [name, acquisition] of Object.entries(acquisitions)) {
+      expect(acquisition, name).not.toHaveBeenCalled();
+    }
+  });
+
+  it('returns a domain error for an unknown field without acquiring metadata elsewhere', () => {
+    const { service, acquisitions } = createReadOnlyService();
+    const result = service.prepareConvertFieldInput(table(), `fld${'z'.repeat(16)}`, {
+      type: FieldType.SingleLineText,
+    });
+    expect(result.isErr()).toBe(true);
+    for (const [name, acquisition] of Object.entries(acquisitions)) {
+      expect(acquisition, name).not.toHaveBeenCalled();
+    }
+  });
+});
+
+describe('FieldOpenApiV2Service trusted legacy member replay', () => {
+  it.each(['undo', 'redo'] as const)(
+    'creates server-only %s context for stored modified ops',
+    async (mode) => {
+      const commandBus = { execute: vi.fn() };
+      const container = { resolve: vi.fn(() => commandBus) };
+      const service = new FieldOpenApiV2Service(
+        { getContainerForTable: vi.fn().mockResolvedValue(container) } as never,
+        { createContext: vi.fn().mockResolvedValue({ windowId: 'original-window' }) } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+      executeUpdateRecordEndpoint.mockReset();
+      executeUpdateRecordEndpoint.mockResolvedValue({ status: 200, body: { ok: true } });
+      const oldValue = { id: 'usrHistoricalMember', title: 'Historical Member' };
+      const newValue = null;
+
+      await service.replayModifiedOps(
+        {
+          tblHistorical: {
+            recHistorical: [{ p: ['fields', 'fldHistorical'], od: oldValue, oi: newValue }],
+          },
+        },
+        mode === 'undo' ? 'old' : 'new',
+        mode
+      );
+
+      expect(executeUpdateRecordEndpoint).toHaveBeenCalledWith(
+        { undoRedo: { mode } },
+        {
+          tableId: 'tblHistorical',
+          recordId: 'recHistorical',
+          fields: { fldHistorical: mode === 'undo' ? oldValue : newValue },
+          fieldKeyType: 'id',
+          typecast: false,
+        },
+        commandBus
+      );
+    }
+  );
 });

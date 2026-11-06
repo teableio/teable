@@ -50,6 +50,13 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   A staged snapshot whose pointer swap fails is retired into Trash only after checking, under the
   snapshot swap lock, that no template points to it; a post-commit callback failure must not retire
   the published snapshot. Permanent base purge also removes edition-owned authority metadata.
+  Both record-copy paths complete persisted computed fields inside the command before the `done`
+  event: physical bulk copy leaves computed columns out of the cloned row, while the per-record
+  stream restores links first. Completion runs the native dependency planner over the copied
+  tables and applies ordered synchronous backfills, so a valid field graph may revisit a table
+  (A -> B -> A) without following source table order. The host never recomputes copied computed
+  fields. For scalar lookup targets, `countall` counts matching linked rows even when the target
+  is null; no matching rows yield `0`.
 - Field-operation plugins observe reciprocal Link schema changes as actual create/update/delete
   operations. The side-effect context names the table being changed in `table`, and retains the
   initiating table and operation in `target`; host adapters authorize that actual target.

@@ -48,6 +48,7 @@ describe('TableService', () => {
       $executeRawUnsafe: vi.fn().mockResolvedValue(0),
     };
     const metaTxClient = {
+      $executeRaw: vi.fn().mockResolvedValue(0),
       tableMeta: {
         findMany: vi.fn().mockResolvedValue([]),
         findFirst: vi.fn().mockResolvedValue(null),
@@ -61,7 +62,7 @@ describe('TableService', () => {
       { dataPrismaForBase: vi.fn().mockResolvedValue(dataRootClient) } as never,
       {} as never,
       {
-        driver: 'sqlite',
+        driver: 'postgresql',
         generateDbTableName: vi.fn((_baseId: string, name: string) => `bseTest.${name}`),
         dropTable: vi.fn((name: string) => `drop table ${name}`),
       } as never,

@@ -10,18 +10,41 @@ import type {
   IFilterSet,
   ISelectFieldOptions,
   IOperator,
+  ISortItem,
 } from '@teable/core';
 import {
   assertNever,
+  CellValueType,
   ColorConfigType,
   FieldType,
   filterSchema,
   getValidFilterOperators,
+  isFieldReferenceValue,
   ViewType,
 } from '@teable/core';
 import { keyBy } from 'lodash';
 import type { GridView, KanbanView, GalleryView, CalendarView, FormView } from '../model';
 import type { PluginView } from '../model/view/plugin.view';
+import { removePinyinSortGroupConflicts, supportsPinyinSort } from './sort';
+
+export const validatePersonalViewSortCollations = (view: IViewVo, fields: IFieldVo[]) => {
+  const sort = removePinyinSortGroupConflicts(view.sort, view.group);
+  if (!sort) return sort === view.sort ? view : { ...view, sort };
+
+  const fieldMap = keyBy(fields, 'id');
+  let changed = sort !== view.sort;
+  const sortObjs = sort.sortObjs.map((sortItem) => {
+    const field = fieldMap[sortItem.fieldId];
+    if (sortItem.collation !== 'zh-pinyin' || !field || supportsPinyinSort(field)) {
+      return sortItem;
+    }
+    changed = true;
+    const { collation: _collation, ...sortWithoutCollation } = sortItem;
+    return sortWithoutCollation;
+  });
+
+  return changed ? { ...view, sort: { ...sort, sortObjs } } : view;
+};
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const validatePersonalViewProps = (view: IViewVo, fields: IFieldVo[]) => {
@@ -33,11 +56,23 @@ export const validatePersonalViewProps = (view: IViewVo, fields: IFieldVo[]) => 
     willSyncViewData.filter = validateViewFilter(filter, fieldMap);
   }
 
-  if (sort) {
-    const sortObjs = sort?.sortObjs?.filter((s) => fieldMap[s.fieldId]);
+  const groupSafeSort = removePinyinSortGroupConflicts(sort, group);
+  if (groupSafeSort) {
+    const sortObjs = groupSafeSort.sortObjs?.reduce<ISortItem[]>((validSorts, sortItem) => {
+      const field = fieldMap[sortItem.fieldId];
+      if (!field) return validSorts;
+
+      if (sortItem.collation === 'zh-pinyin' && !supportsPinyinSort(field)) {
+        const { collation: _collation, ...sortWithoutCollation } = sortItem;
+        validSorts.push(sortWithoutCollation);
+      } else {
+        validSorts.push(sortItem);
+      }
+      return validSorts;
+    }, []);
     willSyncViewData.sort = sortObjs?.length
       ? {
-          ...sort,
+          ...groupSafeSort,
           sortObjs,
         }
       : undefined;
@@ -64,30 +99,51 @@ export const validatePersonalViewProps = (view: IViewVo, fields: IFieldVo[]) => 
   return willSyncViewData;
 };
 
+const validateSelectFilterValue = (
+  item: IFilterItem,
+  choices: ISelectFieldOptions['choices'],
+  expectsArray: boolean
+): IFilterItem | null => {
+  const { value } = item;
+  if (expectsArray) {
+    if (!Array.isArray(value)) return null;
+    const validChoices = choices.filter((choice) => value.includes(choice.name));
+    return validChoices.length
+      ? ({ ...item, value: validChoices.map((choice) => choice.name) } as IFilterItem)
+      : null;
+  }
+  if (typeof value !== 'string') return null;
+  return choices.some((choice) => choice.name === value) ? item : null;
+};
+
 export const validateFilterItem = (item: IFilterItem, fieldMap: Record<string, IFieldVo>) => {
   const { fieldId, value, operator } = item;
   const field = fieldMap[fieldId];
 
   if (!field) return null;
 
+  if (item.isSymbol) return item;
+
   const { type, options, isMultipleCellValue } = field;
   const validOperators = getValidFilterOperators(field);
 
   if (!validOperators.includes(operator as IOperator)) return null;
+
+  if (isFieldReferenceValue(value)) return item;
 
   if (value == null) {
     return item;
   }
 
   if (type === FieldType.SingleSelect && !isMultipleCellValue) {
-    if (typeof value !== 'string') return null;
-    const choice = (options as ISelectFieldOptions).choices.find((c) => c.name === value);
-    return choice ? item : null;
+    return validateSelectFilterValue(
+      item,
+      (options as ISelectFieldOptions).choices,
+      operator === 'isAnyOf' || operator === 'isNoneOf'
+    );
   }
   if ([FieldType.MultipleSelect, FieldType.SingleSelect].includes(type) && isMultipleCellValue) {
-    if (!Array.isArray(value)) return null;
-    const choices = (options as ISelectFieldOptions).choices.filter((c) => value.includes(c.name));
-    return choices.length ? ({ ...item, value: choices.map((c) => c.name) } as IFilterItem) : null;
+    return validateSelectFilterValue(item, (options as ISelectFieldOptions).choices, true);
   }
   return item;
 };
@@ -156,8 +212,8 @@ export const validateViewOptions = (view: IViewVo, fieldMap: Record<string, IFie
 
       return {
         ...options,
-        startDateFieldId: validateField(startDateFieldId, fieldMap, FieldType.Date),
-        endDateFieldId: validateField(endDateFieldId, fieldMap, FieldType.Date),
+        startDateFieldId: validateCalendarDateField(startDateFieldId, fieldMap),
+        endDateFieldId: validateCalendarDateField(endDateFieldId, fieldMap),
         titleFieldId: validateField(titleFieldId, fieldMap),
         colorConfig: isColorByField
           ? colorFieldId && colorField && colorField.type === FieldType.SingleSelect
@@ -184,6 +240,16 @@ const validateField = (
   const field = fieldMap[fieldId];
   if (!field) return;
   if (expectedType && field.type !== expectedType) return;
+  return fieldId;
+};
+
+const validateCalendarDateField = (
+  fieldId: string | null | undefined,
+  fieldMap: Record<string, IFieldVo>
+) => {
+  if (!fieldId) return;
+  const field = fieldMap[fieldId];
+  if (field?.cellValueType !== CellValueType.DateTime || field.isMultipleCellValue) return;
   return fieldId;
 };
 

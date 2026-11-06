@@ -1711,7 +1711,6 @@
       "share": "分享",
       "enableShare": "开启分享",
       "copyLink": "复制链接",
-      "rotateLink": "重置链接",
       "scope": "可见范围",
       "scopePublic": "任何拥有链接的人",
       "scopeSpace": "空间成员",
@@ -1729,7 +1728,8 @@
       "running": "生成中…",
       "waitingInput": "等待你回复",
       "failed": "回复失败"
-    }
+    },
+    "routineRunPrompt": "任务自动发送"
   },
   "upload": {
     "panelUploading": "正在上传 {{count}} 个文件",

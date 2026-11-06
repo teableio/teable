@@ -31,6 +31,7 @@ import { withPgParameterRedaction } from '../../tracing-db-context';
 import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';
 import { admitDataQueryResource, type IDataQueryAdmissionDb } from './v2-data-query-admission';
+import { V2DataQueryCandidateService } from './v2-data-query-candidate.service';
 import { dataQueryErrorResponse, dataQueryHostError } from './v2-data-query-http';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 
@@ -40,15 +41,21 @@ export class V2DataQueryService {
   constructor(
     private readonly containers: V2ContainerService,
     private readonly contexts: V2ExecutionContextFactory,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly candidates: V2DataQueryCandidateService
   ) {}
 
   execute(raw: unknown): Promise<IEndpointResult<ExecuteDataQueryResponseDto>> {
     return this.run(raw, 'execute');
   }
 
-  validate(raw: unknown): Promise<IEndpointResult<ValidateDataQueryResponseDto>> {
-    return this.run(raw, 'validate');
+  validate(
+    raw: unknown,
+    authorization?: string
+  ): Promise<IEndpointResult<ValidateDataQueryResponseDto>> {
+    return this.cls.runWith({ ...this.cls.get(), v2PreviewReadOnly: true }, () =>
+      this.run(raw, 'validate', authorization)
+    );
   }
 
   private run(
@@ -57,16 +64,20 @@ export class V2DataQueryService {
   ): Promise<IEndpointResult<ExecuteDataQueryResponseDto>>;
   private run(
     raw: unknown,
-    operation: 'validate'
+    operation: 'validate',
+    authorization?: string
   ): Promise<IEndpointResult<ValidateDataQueryResponseDto>>;
   private async run(
     raw: unknown,
-    operation: 'execute' | 'validate'
+    operation: 'execute' | 'validate',
+    authorization?: string
   ): Promise<IEndpointResult<ExecuteDataQueryResponseDto | ValidateDataQueryResponseDto>> {
     try {
       const actorId = this.cls.get('user.id');
       if (!actorId || isAnonymous(actorId)) throw new UnauthorizedException();
-      const metadataContainer = await this.containers.getContainer();
+      const metadataContainer = await (operation === 'validate'
+        ? this.containers.getPreviewContainer()
+        : this.containers.getContainer());
       const context = await this.contexts.createContext(metadataContainer);
       const tables = metadataContainer.resolve<ITableRepository>(v2CoreTokens.tableRepository);
       const metaDb = metadataContainer.resolve<Kysely<IDataQueryAdmissionDb>>(v2MetaDbTokens.db);
@@ -147,7 +158,14 @@ export class V2DataQueryService {
           },
         },
         metadataContainer.resolve<RecordQueryPluginRunner>(v2CoreTokens.recordQueryPluginRunner),
-        executor
+        executor,
+        (executionContext, candidate, proof) =>
+          this.candidates.prepareAuthorizedCandidate(
+            executionContext,
+            candidate,
+            proof,
+            authorization?.match(/^Bearer\s+(\S+)$/i)?.[1]
+          )
       );
       const service = new QueryExecutionService(dataQueries);
       return await withPgParameterRedaction(() =>

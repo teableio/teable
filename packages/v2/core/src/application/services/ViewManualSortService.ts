@@ -69,7 +69,7 @@ export class ViewManualSortService {
     viewId: ViewId,
     sort: ReadonlyArray<ViewSortItem>
   ): Promise<Result<ViewManualSortMaterializeResult, DomainError>> {
-    const resolvedSort = resolveOrderBy(sort);
+    const resolvedSort = resolveOrderBy(sort, table);
     if (resolvedSort.isErr()) return err(resolvedSort.error);
     const orderBy = mergeOrderBy(undefined, resolvedSort.value, undefined);
     const batches = this.buildUpdateBatches(context, table, viewId, orderBy);

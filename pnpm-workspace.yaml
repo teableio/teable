@@ -45,8 +45,6 @@ overrides:
   protobufjs: ^7.5.5
   shell-quote: ^1.11.0
   katex: ^0.18.2
-  sqlite3>tar: ^7.5.22
-  sqlite3>node-gyp: ^12.4.0
   '@storybook/builder-webpack5>webpack-dev-middleware': ^7.4.6
   rollup-plugin-terser>serialize-javascript: ^7.1.4
   rollup-plugin-postcss>cssnano: ^7.1.9

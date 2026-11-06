@@ -71,9 +71,9 @@ export class UserValueResolverService implements ICellValueSpecResolver<
       };
 
       const strictIds = new Set<string>();
-      // Bare `{ id }` references from strict (non-typecast) writes must resolve
-      // inside the table's collaborator scope, matching v1.
+      // Incomplete caller-controlled references resolve within table scope.
       const collaboratorScopedIds = new Set<string>();
+      const identityPairs: { id: string; email: string }[] = [];
       const identifiers = new Set<string>();
 
       for (const spec of specs) {
@@ -91,7 +91,7 @@ export class UserValueResolverService implements ICellValueSpecResolver<
         const rawValue = spec.value.toValue();
         if (rawValue == null) continue;
         const normalized = normalizeUserValue(rawValue);
-        for (const item of normalized.items) {
+        for (const item of spec.itemsToValidate ?? normalized.items) {
           if (!item || typeof item !== 'object' || !('id' in item)) {
             return err(
               domainError.validation({
@@ -106,17 +106,22 @@ export class UserValueResolverService implements ICellValueSpecResolver<
           }
           if (spec.requireCollaborator) {
             collaboratorScopedIds.add(idResult.value);
+            if (
+              typeof item.id === 'string' &&
+              item.id !== 'me' &&
+              item.id.length > 0 &&
+              typeof item.email === 'string' &&
+              item.email.length > 0
+            ) {
+              identityPairs.push({ id: item.id, email: item.email });
+            }
           } else {
             strictIds.add(idResult.value);
           }
         }
       }
 
-      // Typecast/paste structured snapshots carry a platform user id, so resolve
-      // them by primary key without collaborator scoping: a copied cell must
-      // paste the same member even when that member is not a collaborator of
-      // this table. Strict structured input and free-form text stay scoped to
-      // the table's collaborators.
+      // Trusted stored values remain separate from caller-supplied identity pairs.
       const strictUsersResult = yield* await service.userLookupService.listUsersByIds([
         ...strictIds,
       ]);
@@ -124,8 +129,11 @@ export class UserValueResolverService implements ICellValueSpecResolver<
         tableId.toString(),
         [...collaboratorScopedIds, ...identifiers]
       );
+      const pairedUsersResult =
+        yield* await service.userLookupService.listUsersByIdentityPairs(identityPairs);
 
       const usersById = new Map<string, UserLookupRecord>();
+      const pairedUsersById = new Map(pairedUsersResult.map((user) => [user.id, user]));
       const scopedUsersById = new Map<string, UserLookupRecord>();
       const scopedUsersByEmail = new Map<string, UserLookupRecord>();
       const scopedUsersByName = new Map<string, UserLookupRecord>();
@@ -199,18 +207,38 @@ export class UserValueResolverService implements ICellValueSpecResolver<
         const normalized = normalizeUserValue(rawValue);
         const resolvedItems: UserItem[] = [];
 
-        for (const item of normalized.items) {
+        for (const item of spec.itemsToValidate ?? normalized.items) {
           const idResult = resolveIdentifier(String(item.id));
           if (idResult.isErr()) {
             return err(idResult.error);
           }
           const id = idResult.value;
-          const user = spec.requireCollaborator ? scopedUsersById.get(id) : usersById.get(id);
+          let user: UserLookupRecord | undefined;
+          if (!spec.requireCollaborator) {
+            user = usersById.get(id);
+          } else if (item.email !== undefined) {
+            // Check the supplied tuple itself, not merely an ID verified by another item.
+            const paired = pairedUsersById.get(id);
+            if (
+              typeof item.id === 'string' &&
+              item.id !== 'me' &&
+              item.id === id &&
+              typeof item.email === 'string' &&
+              paired?.email === item.email
+            ) {
+              user = paired;
+            } else if (item.id === 'me') {
+              const scoped = scopedUsersById.get(id);
+              if (scoped?.email === item.email) user = scoped;
+            }
+          } else {
+            user = scopedUsersById.get(id);
+          }
           if (!user) {
             return err(
               domainError.validation({
                 code: 'validation.field.user_not_found',
-                message: `User(${id}) not found`,
+                message: 'User not found',
                 localization: { i18nKey: sdkErrorI18nKeys.user.notFound },
               })
             );

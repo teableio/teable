@@ -4,6 +4,8 @@ import { LLMProviderType } from '@teable/openapi';
 import { APICallError, generateImage as aiGenerateImage, generateText as aiGenerateText } from 'ai';
 import axios from 'axios';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { verifyTransport } from '../../mail-sender/mail-helpers';
+import { maskSettingSecrets } from '../setting-secrets';
 import { SettingOpenApiService } from './setting-open-api.service';
 
 vi.mock('../../mail-sender/mail-helpers', () => ({
@@ -344,6 +346,51 @@ describe('SettingOpenApiService audit', () => {
     expect(JSON.stringify(audit.emitAtomic.mock.calls)).not.toContain('new-token');
   });
 
+  it('keeps the stored Vercel token when an app config patch writes back its mask', async () => {
+    const appConfig = { vercelToken: 'stored-token', deployProvider: 'vercel' as const };
+    const { service, settingService, audit } = createAuditedService({ appConfig });
+    const masked = maskSettingSecrets('appConfig', appConfig);
+
+    const result = await service.updateAppConfig({
+      section: 'engine',
+      patch: { vercelToken: masked.vercelToken, deployProvider: 'docker-runtime' },
+    });
+
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      appConfig: { vercelToken: 'stored-token', deployProvider: 'docker-runtime' },
+    });
+    expect(result.appConfig.vercelToken).toBe('stored-token');
+    expect(audit.emitAtomic.mock.calls[0][0].params.changedKeys).toEqual(['deployProvider']);
+  });
+
+  it('resolves masked secrets in a whole-setting write before saving it', async () => {
+    const notifyMailTransportConfig = {
+      host: 'smtp.example.com',
+      port: 465,
+      secure: true,
+      sender: 'noreply@example.com',
+      senderName: 'Teable',
+      auth: { user: 'mailer', pass: secretApiKey },
+    };
+    const { service, settingService, audit } = createAuditedService({
+      notifyMailTransportConfig,
+    });
+
+    await service.updateSetting({
+      notifyMailTransportConfig: {
+        ...maskSettingSecrets('notifyMailTransportConfig', notifyMailTransportConfig),
+        senderName: 'Teable Bot',
+      },
+    });
+
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      notifyMailTransportConfig: { ...notifyMailTransportConfig, senderName: 'Teable Bot' },
+    });
+    expect(audit.emitAtomic.mock.calls[0][0].params.changedKeys).toEqual([
+      'notifyMailTransportConfig.senderName',
+    ]);
+  });
+
   it('records the changed SMTP fields of a mail transport without the password', async () => {
     const { service, audit } = createAuditedService({
       notifyMailTransportConfig: {
@@ -375,6 +422,34 @@ describe('SettingOpenApiService audit', () => {
       },
     });
     expect(JSON.stringify(audit.emitAtomic.mock.calls)).not.toContain(secretApiKey);
+  });
+
+  it('verifies and saves a mail transport with the stored password behind its mask', async () => {
+    const stored = {
+      host: 'smtp.example.com',
+      port: 465,
+      secure: true,
+      sender: 'noreply@example.com',
+      auth: { user: 'mailer', pass: secretApiKey },
+    };
+    const { service, settingService } = createAuditedService({
+      notifyMailTransportConfig: stored,
+    });
+    const next = {
+      ...maskSettingSecrets('notifyMailTransportConfig', stored),
+      host: 'smtp2.example.com',
+    };
+
+    await service.setMailTransportConfig({
+      name: 'notifyMailTransportConfig',
+      transportConfig: next,
+    } as never);
+
+    const resolved = { ...stored, host: 'smtp2.example.com' };
+    expect(verifyTransport).toHaveBeenCalledWith(resolved);
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      notifyMailTransportConfig: resolved,
+    });
   });
 
   it('records a logo upload as its own row, not as a settings update', async () => {

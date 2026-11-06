@@ -43,6 +43,7 @@ export function AIModelSelect({
   children,
   onlyImageOutput = false,
   placeholder,
+  groupBySource,
 }: Readonly<IAIModelSelectProps>) {
   const isCloud = useIsCloud();
   const { t } = useTranslation('common');
@@ -217,7 +218,23 @@ export function AIModelSelect({
             <ScrollArea className="w-full">
               <div className="max-h-[500px]">
                 <CommandList>
-                  {needGroup ? (
+                  {groupBySource ? (
+                    <Fragment>
+                      {gatewayOptions.length > 0 && (
+                        <CommandGroup heading="Vercel AI Gateway">
+                          {renderGatewayOptions(gatewayOptions)}
+                        </CommandGroup>
+                      )}
+                      {spaceOptions.length + instanceOptions.length > 0 && (
+                        <Fragment>
+                          {gatewayOptions.length > 0 && <CommandSeparator />}
+                          <CommandGroup heading={t('admin.setting.ai.wizard.customOption.title')}>
+                            {renderProviderOptions(spaceOptions, instanceOptions)}
+                          </CommandGroup>
+                        </Fragment>
+                      )}
+                    </Fragment>
+                  ) : needGroup ? (
                     <Fragment>
                       {renderSpaceOptions(spaceOptions, false)}
                       {renderGatewayOptions(gatewayOptions, true, !!spaceOptions.length)}

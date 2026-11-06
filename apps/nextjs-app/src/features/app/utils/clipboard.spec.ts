@@ -1,9 +1,14 @@
+import type { IFieldVo } from '@teable/core';
 import { vi } from 'vitest';
 import {
   CellValueType,
   DbFieldType,
   FieldType,
 } from '../../../../../../packages/core/src/models/field/constant';
+import {
+  parseClipboardText,
+  stringifyClipboardText,
+} from '../../../../../../packages/core/src/utils/clipboard';
 import {
   extractHtmlHeader,
   isTeableHTML,
@@ -14,18 +19,13 @@ import {
 } from './clipboard';
 
 const stringData = 'John\t20\tlight\nTom\t30\tmedium\nBob\t40\theavy';
-const parseData = [
-  ['John', '20', 'light'],
-  ['Tom', '30', 'medium'],
-  ['Bob', '40', 'heavy'],
-];
 
 vi.mock('@teable/core', () => {
   return {
     __esModule: true,
     IFieldVo: {},
     FieldType: FieldType,
-    parseClipboardText: () => parseData,
+    parseClipboardText,
     fieldVoSchema: {
       safeParse: () => ({ success: true }),
     },
@@ -203,5 +203,54 @@ describe('clipboard', () => {
     // Round-trip extract back to original cell values
     const parsed = extractTableContent(html);
     expect(parsed).toEqual(data);
+  });
+
+  it('keeps user identities and visible rows aligned when quoted long text contains CRLF', () => {
+    const headers: IFieldVo[] = [
+      {
+        id: 'owner',
+        name: 'Owner',
+        type: FieldType.User,
+        options: { isMultiple: false, shouldNotify: false },
+        dbFieldName: 'owner',
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.String,
+      },
+      {
+        id: 'notes',
+        name: 'Notes',
+        type: FieldType.LongText,
+        options: {},
+        dbFieldName: 'notes',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+      },
+    ];
+    const alice = { id: 'usrAlice', title: 'Alice', email: 'alice@example.com' };
+    const bob = { id: 'usrBob', title: 'Bob', email: 'bob@example.com' };
+    const data = [
+      [alice, 'first\r\nsecond'],
+      [bob, 'third\r\nfourth'],
+    ];
+    const displayContent = stringifyClipboardText([
+      ['Alice', 'first\r\nsecond'],
+      ['Bob', 'third\r\nfourth'],
+    ]);
+
+    const html = serializerCellValueHtml(data, headers, displayContent);
+    const document = new DOMParser().parseFromString(html, 'text/html');
+    const rows = Array.from(document.querySelectorAll('tr'));
+
+    expect(displayContent).toBe('Alice\t"first\r\nsecond"\nBob\t"third\r\nfourth"');
+    expect(extractTableContent(html)).toEqual(data);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.cells[0].textContent)).toEqual(['Alice', 'Bob']);
+    expect(rows.map((row) => row.cells[1].querySelectorAll('br').length)).toEqual([1, 1]);
+    expect(html).toContain(
+      '>first\r<br data-teable-line-tag="1" style="mso-data-placement:same-cell;">second</td>'
+    );
+    expect(html).toContain(
+      '>third\r<br data-teable-line-tag="1" style="mso-data-placement:same-cell;">fourth</td>'
+    );
   });
 });

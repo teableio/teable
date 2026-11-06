@@ -49,7 +49,7 @@ export class OAuthAppInitService implements OnModuleInit {
       this.logger.log(`Initialized CLI OAuth app: ${clientId}`);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      // Without Redis the lock is a no-op, so a concurrent upsert from another
+      // The lock is skipped when Redis errors, so a concurrent upsert from another
       // instance can still race on the unique clientId — ignore that conflict.
       if (error.code !== 'P2002') {
         throw error;

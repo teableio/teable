@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  DbFieldType,
   getValidFilterOperators,
   FieldType,
   ViewOpBuilder,
@@ -17,6 +18,7 @@ import type {
   ILinkFieldOptions,
   IOtOperation,
   IColumn,
+  ISort,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { isEqual, differenceBy, find, isEmpty } from 'lodash';
@@ -205,6 +207,7 @@ export class FieldViewSyncService {
     const views = await this.prismaService.txClient().view.findMany({
       select: {
         filter: true,
+        sort: true,
         id: true,
         type: true,
         columnMeta: true,
@@ -217,6 +220,8 @@ export class FieldViewSyncService {
     }
 
     const opsMap: { [viewId: string]: IOtOperation[] } = {};
+    const shouldClearSortCollation =
+      this.supportsPinyinCollation(oldField) && !this.supportsPinyinCollation(newField);
     for (let i = 0; i < views.length; i++) {
       const view = views[i];
       const viewId = view.id;
@@ -234,6 +239,31 @@ export class FieldViewSyncService {
           oldValue: filter,
         });
         opsMap[viewId] = [ops];
+      }
+
+      // Keep the sort and its order intact when a converted field can no longer use collation.
+      const sortString = view.sort;
+      if (shouldClearSortCollation && sortString?.includes(newField.id)) {
+        const sort = JSON.parse(sortString) as NonNullable<ISort>;
+        let changed = false;
+        const sortObjs = sort.sortObjs.map((sortItem) => {
+          if (sortItem.fieldId !== newField.id || sortItem.collation === undefined) {
+            return sortItem;
+          }
+
+          changed = true;
+          const { collation: _collation, ...sortItemWithoutCollation } = sortItem;
+          return sortItemWithoutCollation;
+        });
+
+        if (changed) {
+          const updateOp = ViewOpBuilder.editor.setViewProperty.build({
+            key: 'sort',
+            newValue: { ...sort, sortObjs },
+            oldValue: sort,
+          });
+          opsMap[viewId] = [...(opsMap[viewId] || []), updateOp];
+        }
       }
 
       // clear invalid aggregation statisticFunc from columnMeta
@@ -286,6 +316,20 @@ export class FieldViewSyncService {
     }
 
     await this.viewService.batchUpdateViewByOps(tableId, opsMap);
+  }
+
+  private supportsPinyinCollation(field: IFieldInstance): boolean {
+    const isNativeText =
+      (field.type === FieldType.SingleLineText || field.type === FieldType.LongText) &&
+      field.dbFieldType === DbFieldType.Text &&
+      !field.isComputed &&
+      !field.isMultipleCellValue;
+    const isSingleValueLink =
+      field.type === FieldType.Link &&
+      field.dbFieldType === DbFieldType.Json &&
+      !field.isMultipleCellValue;
+
+    return isNativeText || isSingleValueLink;
   }
 
   async getLinkForeignFields(tableId: string) {

@@ -400,9 +400,13 @@ export class PermissionService {
           baseId: template.snapshot.baseId,
         });
         return TemplatePermissions;
-      } else {
-        return getPermissions('owner');
       }
+      const pending = await this.pendingSnapshotTemplate(base);
+      if (pending) {
+        this.cls.set('template', pending);
+        return TemplatePermissions;
+      }
+      return getPermissions('owner');
     }
     const role = await this.getRoleByBaseId(baseId);
     const spaceRole = await this.getRoleBySpaceId(
@@ -559,6 +563,20 @@ export class PermissionService {
       );
     }
     return TemplatePermissions;
+  }
+
+  /**
+   * A snapshot still under review is frozen like a published one, so the apps deployed from it
+   * only read. Snapshots live in the template space, which keeps other bases off the lookup.
+   */
+  private async pendingSnapshotTemplate(base: {
+    id: string;
+    spaceId: string;
+  }): Promise<{ id: string; baseId: string } | null> {
+    const space = await getSpaceCached(this.cls, this.prismaService, base.spaceId);
+    if (!space?.isTemplate) return null;
+    const pending = await this.templateModel.getPendingTemplateRawByBaseId(base.id);
+    return pending ? { id: pending.id, baseId: base.id } : null;
   }
 
   /** A published snapshot is open to everyone; one still under review only to the reviewers. */

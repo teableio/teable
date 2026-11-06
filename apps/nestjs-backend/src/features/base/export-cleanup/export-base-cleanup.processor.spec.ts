@@ -116,7 +116,7 @@ describe('ExportBaseCleanupProcessor', () => {
     expect(result).toEqual({ deleted: 1, failed: 1 });
   });
 
-  it('registers an hourly scheduler on a redis queue', async () => {
+  it('registers an hourly scheduler', async () => {
     const upsertJobScheduler = vi.fn();
     const { processor } = setup([], { queue: { upsertJobScheduler } });
     await processor.onModuleInit();
@@ -125,22 +125,6 @@ describe('ExportBaseCleanupProcessor', () => {
       { every: 60 * 60 * 1000 },
       { name: 'export-base:cleanup' }
     );
-  });
-
-  it('sweeps on its own timer without redis', async () => {
-    vi.useFakeTimers({ now: NOW });
-    try {
-      const { processor, listObjects } = setup([], { queue: {} });
-      await processor.onModuleInit();
-      expect(listObjects).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
-      expect(listObjects).toHaveBeenCalledTimes(1);
-      processor.onModuleDestroy();
-      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
-      expect(listObjects).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });
 

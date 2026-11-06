@@ -6,6 +6,7 @@
     "deleteTableTitle": "Delete table",
     "copyTableTitle": "Copy table",
     "copyBaseTitle": "Copy project",
+    "convertFieldTitle": "Change field",
     "changedEffectsTitle": "What else changes",
     "preservedTitle": "Stays connected",
     "loading": "Loading details…",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "execution-time effects",
     "uncertaintyDetail": "other effects",
     "recordCountUnknown": "record count",
+    "affectedCellCountUnknown": "affected-cell count",
     "retentionUnknown": "The Trash retention period is not checked.",
     "storageUnknown": "Storage impact is not checked.",
     "retentionStorageUnknown": "The Trash retention period and storage impact are not checked.",
     "inTables": "In table: {{names}}",
     "affectedFields": "Affected fields:",
     "affectedViews": "Affected views:",
+    "affectedCells": "Affected cells:",
+    "affectedLinkChanges": "Related link changes:",
     "labels": {
       "tables": "Tables",
       "fields": "Fields",
@@ -67,7 +71,12 @@
       "dependentFieldsUpdatedDetail": "Update dependent fields; final values are not specified",
       "alreadyTrashed": "This table is already in Trash.",
       "unknownLinksDetail": "Some linked tables could not be classified; whether their links are kept or converted is unknown.",
-      "truncatedEffectsDetail": "Only part of the affected-resource list is shown."
+      "truncatedEffectsDetail": "Only part of the affected-resource list is shown.",
+      "fieldTypeChanged": "Change the field type",
+      "fieldConfigurationChanged": "Update the field settings",
+      "fieldValuesRewritten": "Rewrite existing field values for the new settings",
+      "fieldUnchanged": "Keep the current field settings",
+      "fieldLinkChanges": "Apply related link changes"
     }
   },
   "actions": {
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "設定",
       "logout": "ログアウト",
-      "contactSupport": "サポートに連絡"
+      "contactSupport": "サポートに連絡",
+      "downloadApp": "アプリをダウンロード"
     },
     "integration": {
       "title": "統合",
@@ -1111,7 +1121,6 @@
           "smDesc": "簡単な問い合わせ、素早い応答",
           "readyToUse": "AI の設定が完了し、利用できます。",
           "customProviderHelp": "独自の AI プロバイダー（OpenAI、Anthropic、Azure など）を追加し、API キーとモデルを設定します。",
-          "testModelCapabilities": "モデルの機能をテスト",
           "customModelsAutoImported": "プロバイダーのモデルがモデルプールに自動的にインポートされました。",
           "modelsCount": "{{count}} 件のモデルが利用可能",
           "customModelsHint": "モデルの設定を調整するには、ステップ 1 に戻ってプロバイダー設定を変更してください。",
@@ -1168,7 +1177,8 @@
       "group": {
         "system": "基本",
         "ai": "AI サービス",
-        "appBuilder": "アプリビルダー"
+        "appBuilder": "アプリビルダー",
+        "security": "セキュリティ"
       },
       "copyInstance": "IDをコピー",
       "list": {
@@ -1217,7 +1227,23 @@
         "sandboxOpenSandbox": {
           "title": "AI チャットのランタイム",
           "description": "AI チャット用の OpenSandbox 実行環境を設定します、<anchor>設定へ移動</anchor>"
+        },
+        "signupVerification": {
+          "title": "メール認証なしで新規登録を受け付けています",
+          "description": "誰でも自分のものではないメールアドレスで登録できます。同僚や顧客のアドレスを先取りされるほか、メールで招待されてまだ登録していないメンバーのアカウント（招待で付与された権限付き）を、先に登録した人に乗っ取られます。「メール認証」を有効にする（メール配信の設定が必要）か、新規登録を無効にしてください。<anchor>設定に移動</anchor>"
+        },
+        "secrets": {
+          "title": "サーバーシークレット",
+          "description": "未設定、または公開されている既定値のままのシークレットが {{total}} 件あります。ログイントークンの偽造や保存データの復号に悪用されるおそれがあります。環境変数で設定してから再起動してください。各項目の手順は起動ログに出力されています。既存データがあるインスタンスでは、まず現在の値を固定してからローテーションしてください。暗号化キーをいきなり置き換えると、保存済みのデータを復号できなくなります。",
+          "missing": "未設定",
+          "publicDefault": "公開既定値",
+          "docsLink": "環境変数リファレンス",
+          "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
+      },
+      "banner": {
+        "message": "管理画面に対応が必要なセキュリティ項目があります",
+        "action": "確認する"
       }
     },
     "canary": {
@@ -1505,6 +1531,18 @@
           },
           "connectorDisconnected": {
             "title": "ルーチン {{name}} がコネクタイベントを受信できなくなりました"
+          },
+          "handedToYou": {
+            "title": "ルーティン {{name}} があなたに引き継がれました",
+            "message": "{{previousOwner}} がルーティン {{name}} を編集できなくなったため、あなたに引き継がれました。今後はあなたとして実行され、実行結果とアラートもあなたに届きます。指示とトリガーを確認し、不要であれば停止してください。"
+          },
+          "handedAway": {
+            "title": "ルーティン {{name}} は {{newOwner}} に引き継がれました",
+            "message": "あなたはルーティン {{name}} を編集できなくなったため、{{newOwner}} に引き継がれました。今後は {{newOwner}} として実行されます。"
+          },
+          "takenOver": {
+            "title": "ルーティン {{name}} は {{newOwner}} として実行されるようになりました",
+            "message": "{{newOwner}} がルーティン {{name}} を引き継ぎました。今後は {{newOwner}} として実行され、実行結果とアラートも {{newOwner}} に届きます。"
           }
         },
         "billing": {
@@ -2059,5 +2097,16 @@
         "description": "広告やプロモーションの効果測定に役立てます。"
       }
     }
+  },
+  "openInApp": {
+    "title": "Teable アプリ",
+    "description": "このページをアプリで開くと、より快適に使えます",
+    "open": "開く",
+    "dismiss": "閉じる",
+    "notInstalledTitle": "アプリをまだインストールしていませんか？",
+    "notInstalledDescription": "インストール後、ここに戻って「開く」をタップしてください",
+    "getApp": "アプリを入手",
+    "inAppBrowserHint": "右上のメニューからこのページをブラウザで開くと、アプリに切り替えられます",
+    "menuItem": "Teable アプリで開く"
   }
 }

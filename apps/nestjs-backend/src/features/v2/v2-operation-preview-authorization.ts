@@ -97,6 +97,11 @@ export interface IV2OperationPreviewAuthorization {
     request: IOperationPreviewRequestDto,
     container: DependencyContainer
   ): Promise<Result<void, DomainError>>;
+  /** Target-specific policy before loading any referenced field schema. */
+  authorizeForeignTables(
+    context: IExecutionContext,
+    tableIds: readonly string[]
+  ): Promise<Result<void, DomainError>>;
 }
 
 export const V2_OPERATION_PREVIEW_AUTHORIZATION = Symbol('v2.operationPreview.authorization');

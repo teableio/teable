@@ -92,5 +92,30 @@ export const getSyncCopyData = ({
       throw new Error('Unsupported selection type');
   }
   const contentString = stringifyClipboardText(content);
-  return { content: contentString, headers, rawContent };
+  return { content: contentString, displayContent: content, headers, rawContent };
+};
+
+export const getSingleRowCopyData = ({
+  fields,
+  selection,
+  fieldValueMap,
+}: {
+  fields: Field[];
+  selection: CombinedSelection;
+  fieldValueMap: Record<string, unknown>;
+}) => {
+  if (selection.type !== SelectionRegionType.Cells) {
+    throw new Error('Unsupported selection type');
+  }
+  const [start, end] = selection.serialize();
+  const selectedFields = fields.slice(start[0], end[0] + 1);
+  const displayContent = [
+    selectedFields.map((field) => field.cellValue2String(fieldValueMap[field.id] as never)),
+  ];
+  return {
+    content: stringifyClipboardText(displayContent),
+    displayContent,
+    header: selectedFields.map((field) => fieldVoSchema.parse(field)),
+    rawContent: [selectedFields.map((field) => fieldValueMap[field.id])],
+  };
 };

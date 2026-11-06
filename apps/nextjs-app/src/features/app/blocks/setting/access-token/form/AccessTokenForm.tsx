@@ -1,4 +1,15 @@
-import { ActionPrefix, allActions, type Action } from '@teable/core';
+import type { Action, IVisibleScopeGroup } from '@teable/core';
+import {
+  AccessTokenPreset,
+  AccessTokenScopeGroup,
+  accessTokenScopeMap,
+  adminScopeGroups,
+  allActions,
+  getAccessTokenPreset,
+  getAccessTokenPresetScopes,
+  presetScopeGroups,
+} from '@teable/core';
+import { ChevronRight } from '@teable/icons';
 import {
   createAccessTokenRoSchema,
   type CreateAccessTokenRo,
@@ -7,15 +18,16 @@ import {
 } from '@teable/openapi';
 import { useSession, useOrganization } from '@teable/sdk/hooks';
 import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
-import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
+import { Button, Input, Label, Separator, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
 import { RequireCom } from '../../components/RequireCom';
-import { ScopesSelect } from '../../components/ScopesSelect';
 import { AccessSelect } from './AccessSelect';
 import { ExpirationSelect } from './ExpirationSelect';
 import { RefreshToken } from './RefreshToken';
+import { ScopeGroups } from './ScopeGroups';
+import { ScopePresets } from './ScopePresets';
 
 export type IFormType = 'new' | 'edit';
 
@@ -60,35 +72,35 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   const [scopes, setScopes] = useState<string[]>(
     () =>
       defaultData?.scopes?.filter((scope) => (allActions as readonly string[]).includes(scope)) ??
-      []
+      getAccessTokenPresetScopes(AccessTokenPreset.Builder)
   );
   const [hasFullAccess, setHasFullAccess] = useState<boolean | undefined>(
-    defaultData?.hasFullAccess
+    type === 'new' ? true : defaultData?.hasFullAccess
   );
+  const preset = useMemo(() => getAccessTokenPreset(scopes), [scopes]);
+  // Open the detailed groups when an existing token matches no preset or carries admin scopes.
+  const [customOpen, setCustomOpen] = useState(
+    () =>
+      type === 'edit' &&
+      (getAccessTokenPreset(scopes) === null ||
+        scopes.some((scope) =>
+          (adminScopeGroups as readonly AccessTokenScopeGroup[]).includes(
+            accessTokenScopeMap[scope as Action]?.group
+          )
+        ))
+  );
+  const [scopeQuery, setScopeQuery] = useState('');
   const [showNoAccessConfirm, setShowNoAccessConfirm] = useState(false);
 
-  const actionsPrefixes = useMemo(() => {
-    const prefixes = [
-      ActionPrefix.Space,
-      ActionPrefix.Base,
-      ActionPrefix.Table,
-      ActionPrefix.View,
-      ActionPrefix.Field,
-      ActionPrefix.Record,
-      ActionPrefix.TableRecordHistory,
-      ActionPrefix.User,
-      ActionPrefix.Automation,
-      ActionPrefix.Routine,
-      ActionPrefix.App,
-    ];
-
+  const scopeGroups = useMemo(() => {
+    const groups: IVisibleScopeGroup[] = [...presetScopeGroups];
     if (user.isAdmin) {
-      prefixes.push(ActionPrefix.Instance);
+      groups.push(AccessTokenScopeGroup.Instance);
     }
     if (organization?.isAdmin) {
-      prefixes.push(ActionPrefix.Enterprise);
+      groups.push(AccessTokenScopeGroup.Enterprise);
     }
-    return prefixes;
+    return groups;
   }, [user.isAdmin, organization?.isAdmin]);
 
   const disableSubmit = useMemo(() => {
@@ -184,16 +196,48 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
       )}
       <div className="space-y-2">
         <Label>
-          {t('token:scopes')} <RequireCom />
+          {t('token:permission.title')} <RequireCom />
           <div className="text-xs font-normal text-muted-foreground">
-            {t('token:formLabelTips.scopes')}
+            {t('token:permission.tip')}
           </div>
         </Label>
-        <ScopesSelect
-          initValue={scopes as Action[]}
-          onChange={setScopes}
-          actionsPrefixes={actionsPrefixes}
+        <ScopePresets
+          value={preset}
+          onChange={(value) => setScopes(getAccessTokenPresetScopes(value, scopes))}
         />
+        {!preset && (
+          <div className="rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+            {t('token:permission.customHint')}
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <button
+            type="button"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            onClick={() => setCustomOpen((open) => !open)}
+          >
+            <ChevronRight
+              className={cn('size-4 shrink-0 transition-transform', customOpen && 'rotate-90')}
+            />
+            {t('token:permission.customize')}
+          </button>
+          <Input
+            className="h-8 w-80 text-sm"
+            value={scopeQuery}
+            placeholder={t('token:permission.searchPlaceholder')}
+            onChange={(e) => setScopeQuery(e.target.value)}
+          />
+        </div>
+        <ScopeGroups
+          scopes={scopes}
+          groups={scopeGroups}
+          onChange={setScopes}
+          query={scopeQuery}
+          showGroups={customOpen || Boolean(scopeQuery.trim())}
+        />
+        <div className="text-xs text-muted-foreground">
+          {t('token:permission.summary', { count: scopes.length })}
+        </div>
       </div>
       <Separator className="y-2" />
       <div className="space-y-2">

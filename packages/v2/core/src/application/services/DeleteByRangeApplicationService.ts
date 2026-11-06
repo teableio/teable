@@ -478,7 +478,7 @@ export class DeleteByRangeApplicationService {
     if (groupByOrderByResult.isErr()) {
       return err(groupByOrderByResult.error);
     }
-    const sortOrderByResult = resolveOrderBy(effectiveSort);
+    const sortOrderByResult = resolveOrderBy(effectiveSort, table, effectiveGroup);
     if (sortOrderByResult.isErr()) {
       return err(sortOrderByResult.error);
     }
@@ -616,7 +616,7 @@ export class DeleteByRangeApplicationService {
     if (groupByOrderByResult.isErr()) {
       return err(groupByOrderByResult.error);
     }
-    const sortOrderByResult = resolveOrderBy(effectiveSort);
+    const sortOrderByResult = resolveOrderBy(effectiveSort, table, effectiveGroup);
     if (sortOrderByResult.isErr()) {
       return err(sortOrderByResult.error);
     }

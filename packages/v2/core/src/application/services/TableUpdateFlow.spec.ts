@@ -364,6 +364,51 @@ describe('TableUpdateFlow', () => {
     expect(repository.provisionStateChanges).toEqual([]);
   });
 
+  it('publishes nested schema mutations only after the parent commits and the table is ready', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const unitOfWork = new FakeUnitOfWork();
+    const published: Array<{ name: string; provisionState: TableProvisionState | undefined }> = [];
+    const eventBus: IEventBus = {
+      publish: async () => ok(undefined),
+      publishMany: async (context, events) => {
+        expect(context.transaction).toBeUndefined();
+        expect(context.transactions).toBeUndefined();
+        published.push(
+          ...events.map((event) => ({
+            name: event.name.toString(),
+            provisionState: repository.provisionStateChanges.at(-1),
+          }))
+        );
+        return ok(undefined);
+      },
+    };
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      unitOfWork
+    );
+
+    const result = await unitOfWork.withTransaction(
+      createContext(),
+      async (context) => {
+        const updated = await flow.execute(context, { table }, (candidate) =>
+          candidate.update((mutator) => mutator.addField(buildTextField('u', 'Deferred events')))
+        );
+        expect(updated.isOk()).toBe(true);
+        expect(repository.provisionStateChanges.at(-1)).toBe('pending');
+        expect(published).toEqual([]);
+        return updated;
+      },
+      { scope: 'meta' }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(published.some(({ name }) => name === 'FieldCreated')).toBe(true);
+    expect(published.every(({ provisionState }) => provisionState === 'ready')).toBe(true);
+  });
+
   it('finalizes schema provision inside the active transaction when requested', async () => {
     const table = buildTable();
     const repository = new FakeTableRepository();

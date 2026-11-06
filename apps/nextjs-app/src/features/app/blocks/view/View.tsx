@@ -7,19 +7,38 @@ import {
   useView,
   useViews,
 } from '@teable/sdk';
+import dynamic from 'next/dynamic';
 import { useTranslation } from 'next-i18next';
 import { useEffect } from 'react';
 import type { Query } from 'sharedb';
 import { useShareEffectiveEdit } from '@/features/app/context/ShareContext';
 import { tableConfig } from '@/features/i18n/table.config';
-import { CalendarView } from './calendar/CalendarView';
-import { FormView } from './form/FormView';
-import { GalleryView } from './gallery/GalleryView';
 import { GridView } from './grid/GridView';
-import { KanbanView } from './kanban/KanbanView';
-import { PluginView } from './plugin/PluginView';
 import type { IViewBaseProps } from './types';
 import { ViewSkeleton } from './ViewSkeleton';
+
+// The grid ships with the table; each other view type loads when a view of that type is shown.
+// next/dynamic requires each options argument to be an object literal.
+const CalendarView = dynamic(
+  () => import('./calendar/CalendarView').then((mod) => mod.CalendarView),
+  { ssr: false, loading: () => <ViewSkeleton /> }
+);
+const FormView = dynamic(() => import('./form/FormView').then((mod) => mod.FormView), {
+  ssr: false,
+  loading: () => <ViewSkeleton />,
+});
+const GalleryView = dynamic(() => import('./gallery/GalleryView').then((mod) => mod.GalleryView), {
+  ssr: false,
+  loading: () => <ViewSkeleton />,
+});
+const KanbanView = dynamic(() => import('./kanban/KanbanView').then((mod) => mod.KanbanView), {
+  ssr: false,
+  loading: () => <ViewSkeleton />,
+});
+const PluginView = dynamic(() => import('./plugin/PluginView').then((mod) => mod.PluginView), {
+  ssr: false,
+  loading: () => <ViewSkeleton />,
+});
 
 export const View = (props: IViewBaseProps) => {
   const view = useView();

@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  Res,
+  UseFilters,
+  UseGuards,
+} from '@nestjs/common';
 import type { DecisionInfoGetVo, DeviceAppGetVo, IDeviceDecisionRo } from '@teable/openapi';
 import { deviceDecisionRoSchema } from '@teable/openapi';
 import { Request, Response } from 'express';
@@ -13,6 +23,7 @@ import { DeviceAuthorizationError, OAuthDeviceService } from './oauth-device.ser
 import type { IClientRegistrationRequest } from './oauth-registration.service';
 import { ClientRegistrationError, OAuthRegistrationService } from './oauth-registration.service';
 import { OAuthServerService } from './oauth-server.service';
+import { OAuthTokenExceptionFilter } from './oauth-token-exception.filter';
 
 @Controller('/api/oauth')
 export class OAuthServerController {
@@ -50,8 +61,11 @@ export class OAuthServerController {
     await this.oauthServerService.authorize(req, res);
   }
 
+  // Errors here (the guard's included) go out as RFC 6749 §5.2 objects: this
+  // is the wire format OAuth clients parse, not this deployment's exception shape.
   @Post('access_token')
   @UseGuards(OAuthClientGuard)
+  @UseFilters(OAuthTokenExceptionFilter)
   @Public()
   async accessToken(@Res() res: Response, @Req() req: Request) {
     await this.oauthServerService.token(req, res);

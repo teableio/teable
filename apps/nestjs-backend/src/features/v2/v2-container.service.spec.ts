@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => ({
   registerV2ImportServices: vi.fn(),
   startTableQueryOpsAnalyzerIfEnabled: vi.fn(),
   startTableQueryOpsTaskWorkerIfEnabled: vi.fn(),
+  startTableQueryOpsManualSearchTaskWorker: vi.fn(),
 }));
 
 vi.mock('@teable/v2-container-node', () => ({
@@ -88,6 +89,7 @@ vi.mock('@teable/v2-table-query-ops', () => ({
   NoopTableQueryObservationPublisher: class NoopTableQueryObservationPublisher {},
   startTableQueryOpsAnalyzerIfEnabled: mocks.startTableQueryOpsAnalyzerIfEnabled,
   startTableQueryOpsTaskWorkerIfEnabled: mocks.startTableQueryOpsTaskWorkerIfEnabled,
+  startTableQueryOpsManualSearchTaskWorker: mocks.startTableQueryOpsManualSearchTaskWorker,
 }));
 
 vi.mock('@teable/v2-adapter-undo-redo-keyv', () => ({
@@ -725,6 +727,7 @@ describe('V2ContainerService', () => {
     expect(tableQueryObservationRuntime.get).not.toHaveBeenCalled();
     expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
     expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsManualSearchTaskWorker).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -750,6 +753,7 @@ describe('V2ContainerService', () => {
       expect(tableQueryObservationRuntime.get).not.toHaveBeenCalled();
       expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
       expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).not.toHaveBeenCalled();
+      expect(mocks.startTableQueryOpsManualSearchTaskWorker).not.toHaveBeenCalled();
     }
   );
 
@@ -765,7 +769,7 @@ describe('V2ContainerService', () => {
     expect(service.isTableQuerySearchVectorRuntimeEnabled()).toBe(false);
   });
 
-  it('keeps analyzer and search workers off when only the enable flag is set', async () => {
+  it('keeps automatic workers off while configuring the dedicated manual search runner', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);
     const { service, configService } = createService();
@@ -791,6 +795,63 @@ describe('V2ContainerService', () => {
         }),
       })
     );
+    expect(service.isSearchAccessPathManualExecutionEnabled()).toBe(true);
+    expect(mocks.startTableQueryOpsManualSearchTaskWorker).toHaveBeenCalledExactlyOnceWith(
+      container,
+      expect.anything(),
+      expect.any(Function)
+    );
+  });
+
+  it.each([undefined, 'false', 'true'])(
+    'reports manual execution from management enablement (%s), not automatic worker flags',
+    (enabled) => {
+      const { service, configService } = createService();
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return enabled;
+        if (key === 'V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED') return 'false';
+        if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'false';
+        if (key === 'V2_TABLE_QUERY_OPS_AUTO_ACCEPT') return 'off';
+        return undefined;
+      });
+      expect(service.isSearchAccessPathManualExecutionEnabled()).toBe(enabled === 'true');
+    }
+  );
+
+  it('starts manual recovery at bootstrap, routes by table, and stops it on shutdown', async () => {
+    const container = createContainerMock();
+    const target = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValueOnce(container).mockResolvedValueOnce(target);
+    const stop = vi.fn();
+    mocks.startTableQueryOpsManualSearchTaskWorker.mockReturnValueOnce({ stop });
+    const { service, configService, dataDbClientManager } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED') return 'false';
+      if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'false';
+      if (key === 'V2_TABLE_QUERY_OPS_AUTO_ACCEPT') return 'off';
+      return undefined;
+    });
+    dataDbClientManager.getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'manual-search-target',
+      url: 'postgres://manual-search-target',
+    });
+
+    await service.onApplicationBootstrap();
+    expect(mocks.startTableQueryOpsManualSearchTaskWorker).toHaveBeenCalledOnce();
+    const resolveExecution = mocks.startTableQueryOpsManualSearchTaskWorker.mock.calls[0][2];
+    const execution = await resolveExecution('tblManualSearchTarget');
+    expect(dataDbClientManager.getDataDatabaseForTable).toHaveBeenCalledExactlyOnceWith(
+      'tblManualSearchTarget'
+    );
+    expect(execution.container).toBe(target);
+    expect(execution.context.actorId.toString()).toBe('system');
+    expect(execution.context.requestId).toBe('v2-table-query-ops:nest');
+
+    await service.onModuleDestroy();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledWith(container);
+    expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledWith(target);
   });
 
   it('scopes table query ops worker ids to HOSTNAME so container pid 1 does not share leases', async () => {
@@ -923,6 +984,65 @@ describe('V2ContainerService', () => {
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledOnce();
   });
 
+  it('reacquires cold metadata for preview without normal initialization or worker promotion', async () => {
+    const warmContainer = createContainerMock();
+    const coldContainer = createContainerMock();
+    mocks.createV2NodePgContainer
+      .mockResolvedValueOnce(warmContainer)
+      .mockResolvedValueOnce(coldContainer);
+    const { service, configService, runtimeCache, tableQueryObservationRuntime } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_AUTO_ACCEPT') return 'auto';
+      return undefined;
+    });
+    const normalAcquisition = vi.spyOn(service, 'getContainer').mockImplementation(() => {
+      throw new Error('Normal metadata acquisition is forbidden during preview');
+    });
+
+    await expect(service.getPreviewContainer()).resolves.toBe(warmContainer);
+    await runtimeCache.deleteByKey('meta-fallback');
+    await expect(service.getPreviewContainer()).resolves.toBe(coldContainer);
+    await expect(service.getPreviewContainer()).resolves.toBe(coldContainer);
+
+    expect(normalAcquisition).not.toHaveBeenCalled();
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledTimes(2);
+    for (const [options] of mocks.createV2NodePgContainer.mock.calls) {
+      expect(options).toMatchObject({
+        ensureSchema: false,
+        tableQueryOps: { ensureSchema: false, ensureObservationSchema: false },
+      });
+    }
+    expect(tableQueryObservationRuntime.get).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsManualSearchTaskWorker).not.toHaveBeenCalled();
+  });
+
+  it('promotes preview metadata workers only on a later normal acquisition', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'true';
+      return undefined;
+    });
+
+    await service.getPreviewContainer();
+    await service.getPreviewContainer();
+    expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsManualSearchTaskWorker).not.toHaveBeenCalled();
+
+    await expect(service.getContainer()).resolves.toBe(container);
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledOnce();
+    expect(mocks.startTableQueryOpsAnalyzerIfEnabled).toHaveBeenCalledOnce();
+    expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).toHaveBeenCalledOnce();
+    expect(mocks.startTableQueryOpsManualSearchTaskWorker).toHaveBeenCalledOnce();
+  });
+
   it('reuses a cached container for a metadata-proven preview route', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);
@@ -979,6 +1099,7 @@ describe('V2ContainerService', () => {
     expect(tableQueryObservationRuntime.get).not.toHaveBeenCalled();
     expect(mocks.startTableQueryOpsAnalyzerIfEnabled).not.toHaveBeenCalled();
     expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).not.toHaveBeenCalled();
+    expect(mocks.startTableQueryOpsManualSearchTaskWorker).not.toHaveBeenCalled();
   });
 
   it('reacquires an evicted ready preview route into the normal runtime cache', async () => {
@@ -1033,6 +1154,7 @@ describe('V2ContainerService', () => {
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledOnce();
     expect(mocks.startTableQueryOpsAnalyzerIfEnabled).toHaveBeenCalledOnce();
     expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).toHaveBeenCalledOnce();
+    expect(mocks.startTableQueryOpsManualSearchTaskWorker).toHaveBeenCalledOnce();
   });
 
   it('rejects a cached container whose connection signature no longer matches metadata', async () => {

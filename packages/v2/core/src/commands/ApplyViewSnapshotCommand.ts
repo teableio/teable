@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import type { ViewSnapshotValue } from '../domain/table/views/ViewSnapshot';
+import { viewSortItemSchema } from '../domain/table/views/ViewSort';
 import { PublicCommand } from './PublicCommand';
 
 export const viewSnapshotSchema = z
@@ -36,7 +37,7 @@ export const viewSnapshotSchema = z
     query: z
       .object({
         filter: z.unknown().optional(),
-        sort: z.array(z.object({ fieldId: z.string(), order: z.enum(['asc', 'desc']) })).optional(),
+        sort: z.array(viewSortItemSchema).optional(),
         group: z
           .array(z.object({ fieldId: z.string(), order: z.enum(['asc', 'desc']) }))
           .optional(),

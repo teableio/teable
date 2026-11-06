@@ -18,6 +18,12 @@ export const templateIdOrSlugWhere = (identifier: string): Prisma.TemplateWhereI
   OR: [{ id: identifier }, { slug: identifier }],
 });
 
+/**
+ * How long the template lookups stay cached. The publish and admin flows clear them; this only
+ * bounds how long a stale answer survives anything those clears miss.
+ */
+export const TEMPLATE_CACHE_TTL = 60 * 60;
+
 /** A listing published outside the review flow starts its history here. */
 export const firstPublishHistory = (version: number): ITemplateHistoryEntry[] => [
   { version, publishedTime: new Date().toISOString() },
@@ -31,7 +37,7 @@ export class TemplateModel {
   ) {}
 
   @PerformanceCache({
-    ttl: 60 * 60 * 24, // 1 day
+    ttl: TEMPLATE_CACHE_TTL,
     keyGenerator: (baseId: string) => generateTemplateCacheKeyByBaseId(baseId),
     statsType: 'template',
   })

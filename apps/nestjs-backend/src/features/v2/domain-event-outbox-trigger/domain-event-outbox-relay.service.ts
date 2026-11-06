@@ -127,7 +127,6 @@ export class DomainEventOutboxRelayService implements OnModuleInit, OnModuleDest
     let db: Kysely<V1TeableDatabase> | undefined;
     try {
       // Retain the pacing key until expiry, including on failure and SQL lock contention.
-      // Memory-cache pacing is process-local; the database lock still prevents overlap.
       const admitted = await this.cache.setnx(
         `lock:domain-event:maintenance:pace:${target.cacheKey}`,
         '1',

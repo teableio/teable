@@ -6,6 +6,8 @@ import {
   AggregateTableRecordsResult,
   CountTableRecordsQuery,
   CountTableRecordsResult,
+  domainError,
+  type DomainError,
   FieldId,
   GetCalendarDailyCollectionQuery,
   GetCalendarDailyCollectionResult,
@@ -22,8 +24,9 @@ import {
   RecordId,
   v2CoreTokens,
 } from '@teable/v2-core';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { vi } from 'vitest';
+import { CustomHttpException } from '../../custom.exception';
 import { string2Hash } from '../../utils';
 import { TableQuerySearchVectorRuntimeService } from '../v2/table-query-search-vector-runtime.service';
 import { createSearchIndexTable } from '../v2/table-query-search-vector-runtime.test-fixture';
@@ -53,7 +56,9 @@ describe('SharedViewRecordQueryV2Service', () => {
     copyResult?: GetViewSelectionCopyResult
   ) => {
     const queries: unknown[] = [];
+    let listQueryError: DomainError | undefined;
     const mappedField = {
+      type: () => ({ toString: () => 'singleLineText' }),
       accept: vi.fn().mockReturnValue(
         ok({
           id: fieldId,
@@ -70,6 +75,7 @@ describe('SharedViewRecordQueryV2Service', () => {
           return ok(ListFieldsResult.create([mappedField as never], primaryFieldId));
         }
         if (query instanceof ListTableRecordsQuery) {
+          if (listQueryError) return err(listQueryError);
           return ok(ListTableRecordsResult.create([], total, 0, 1, undefined, searchMatches));
         }
         if (query instanceof CountTableRecordsQuery) {
@@ -118,6 +124,7 @@ describe('SharedViewRecordQueryV2Service', () => {
       { createContext } as never,
       { maxGroupPoints: 5_000, maxCopyCells: 50_000 } as never,
       { get: cacheGet } as never,
+      { hydrateSelectedUserCells: vi.fn(async (_container, records) => records) } as never,
       runtime
     );
 
@@ -130,6 +137,9 @@ describe('SharedViewRecordQueryV2Service', () => {
       createContext,
       cacheGet,
       tableRepository,
+      failListQuery: (error: DomainError) => {
+        listQueryError = error;
+      },
       table,
     };
   };
@@ -886,33 +896,6 @@ describe('SharedViewRecordQueryV2Service', () => {
     expect(countQuery?.searchFieldIds).toEqual([secondFieldId.toString(), fieldId]);
   });
 
-  it('scans shared-view rows without using empty cell hits as the page boundary', async () => {
-    const fixture = createFixture(0, []);
-
-    const result = await fixture.service.getSearchMatches(
-      shareInfo,
-      {
-        skip: 2,
-        take: 5,
-        search: ['missing', '', false],
-      },
-      [fieldId]
-    );
-    const searchQuery = fixture.queries.find(
-      (query): query is ListTableRecordsQuery => query instanceof ListTableRecordsQuery
-    );
-
-    expect(result).toEqual({
-      matches: [],
-      scannedRecordCount: 0,
-      nextSkip: null,
-      hasMore: false,
-    });
-    expect(searchQuery?.viewId).toBe(viewId);
-    expect(searchQuery?.applySearchRowFilter).toBe(false);
-    expect(searchQuery?.searchFieldIds).toEqual([fieldId]);
-  });
-
   it('rejects shared match scans in hide-not-match mode', async () => {
     const fixture = createFixture();
 
@@ -974,7 +957,6 @@ describe('SharedViewRecordQueryV2Service', () => {
       viewId: candidateViewId,
       ignoreViewQuery: true,
       groupBy: [{ fieldId, order: SortFunc.Asc }],
-      orderBy: [{ fieldId, order: SortFunc.Desc }],
       search: ['Alpha', fieldId, false],
     });
     const searchQuery = fixture.queries.find(
@@ -987,10 +969,35 @@ describe('SharedViewRecordQueryV2Service', () => {
     expect(searchQuery?.includeSearchFieldMatches).toBe(true);
     expect(searchQuery?.searchIndexMode).toBe('view');
     expect(searchQuery?.search).toEqual(['Alpha', fieldId, true]);
-    expect(searchQuery?.sort).toEqual([
-      { fieldId, order: 'asc' },
-      { fieldId, order: 'desc' },
-    ]);
+    expect(searchQuery?.sort).toEqual([{ fieldId, order: 'asc' }]);
+  });
+
+  it('preserves same-field pinyin collation so the core group conflict is returned', async () => {
+    const fixture = createFixture();
+    fixture.failListQuery(
+      domainError.validation({
+        code: 'sort.collation_group_conflict',
+        message: `Sort field ${fieldId} cannot use zh-pinyin collation while grouped`,
+      })
+    );
+
+    const caught = await fixture.service
+      .getSearchIndex(shareInfo, {
+        take: 10,
+        groupBy: [{ fieldId, order: SortFunc.Asc }],
+        orderBy: [{ fieldId, order: SortFunc.Desc, collation: 'zh-pinyin' }],
+        search: ['Alpha', fieldId, false],
+      })
+      .catch((error: unknown) => error);
+    const searchQuery = fixture.queries.find(
+      (query): query is ListTableRecordsQuery => query instanceof ListTableRecordsQuery
+    );
+
+    expect(searchQuery?.sort).toEqual([{ fieldId, order: SortFunc.Asc, collation: 'zh-pinyin' }]);
+    expect(searchQuery?.groupBy).toEqual([fieldId]);
+    expect(caught).toBeInstanceOf(CustomHttpException);
+    if (!(caught instanceof CustomHttpException)) throw new Error('Expected CustomHttpException');
+    expect(caught.data?.domainCode).toBe('sort.collation_group_conflict');
   });
 
   it('uses matched-row numbering and returns null when no field matches remain', async () => {

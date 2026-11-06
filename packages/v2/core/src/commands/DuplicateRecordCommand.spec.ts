@@ -17,6 +17,32 @@ describe('DuplicateRecordCommand', () => {
     expect(command.recordId.toString()).toBe(recordId);
   });
 
+  it('ignores source snapshots and trust flags in client input', () => {
+    const command = DuplicateRecordCommand.create({
+      tableId,
+      recordId,
+      sourceSnapshot: { tableId, recordId, fields: { fldForged: 'forged' } },
+      valuesAreValidated: true,
+    })._unsafeUnwrap();
+    expect(command.sourceSnapshot).toBeUndefined();
+  });
+
+  it('keeps an empty server snapshot distinct from an unrestricted source read', () => {
+    const command = DuplicateRecordCommand.create(
+      { tableId, recordId },
+      { sourceSnapshot: { tableId, recordId, fields: new Map() } }
+    )._unsafeUnwrap();
+    expect(command.sourceSnapshot?.fields.size).toBe(0);
+  });
+
+  it('rejects a server snapshot for another record', () => {
+    const result = DuplicateRecordCommand.create(
+      { tableId, recordId },
+      { sourceSnapshot: { tableId, recordId: `rec${'d'.repeat(16)}`, fields: new Map() } }
+    );
+    expect(result.isErr()).toBe(true);
+  });
+
   it('rejects invalid table ID', () => {
     const commandResult = DuplicateRecordCommand.create({
       tableId: 'invalid',

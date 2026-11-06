@@ -10,6 +10,5 @@ export interface PaletteEntry {
   href?: string;
   execute?: () => void | Promise<void>;
   lastVisited?: number;
-  visitCount?: number;
   page?: 'appearance' | 'shortcuts';
 }

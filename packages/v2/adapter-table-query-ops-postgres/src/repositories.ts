@@ -631,42 +631,162 @@ export class PostgresTableQueryRemediationTaskRepository {
     const snapshot = task.snapshot();
     try {
       return await this.db.transaction().execute(async (trx) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended('table-query-ops:claim', 0))`.execute(
+          trx
+        );
         await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`table-query-ops:submit:${snapshot.tableId}`}, 0))`.execute(
           trx
         );
-        if (snapshot.status === 'queued' && snapshot.attempts === 0) {
-          const existing = await trx
-            .selectFrom('table_query_remediation_task')
-            .selectAll()
-            .where((eb) =>
-              snapshot.recommendationId
-                ? eb.or([
-                    eb('id', '=', snapshot.id),
-                    eb('recommendation_id', '=', snapshot.recommendationId),
-                  ])
-                : eb('id', '=', snapshot.id)
-            )
-            .executeTakeFirst();
-          if (existing) return rowToTask(existing);
-          const active = await trx
-            .selectFrom('table_query_remediation_task')
-            .select('id')
-            .where('table_id', '=', snapshot.tableId)
-            .where('status', 'in', ['queued', 'running'])
-            .executeTakeFirst();
-          if (active)
-            return err(
-              domainError.conflict({
-                code: 'table_query_ops.table_task_conflict',
-                message: `Table already has an active task: ${active.id}`,
-                localization: {
-                  i18nKey: 'httpErrors.tableQueryOps.tableTaskConflict',
-                  context: { taskId: active.id },
-                },
-              })
-            );
-        }
-        await trx
+        return snapshot.status === 'queued' && snapshot.attempts === 0
+          ? this.saveQueued(trx, task)
+          : this.saveExecutionTransition(trx, task);
+      });
+    } catch (error) {
+      return err(toInfrastructureError(error, 'Failed to save table query remediation task'));
+    }
+  }
+
+  private async saveQueued(
+    trx: Kysely<TableQueryOpsDatabase>,
+    task: TableQueryRemediationTask
+  ): Promise<Result<TableQueryRemediationTask, DomainError>> {
+    const snapshot = task.snapshot();
+    const existing = await trx
+      .selectFrom('table_query_remediation_task')
+      .selectAll()
+      .where((eb) =>
+        snapshot.recommendationId
+          ? eb.or([
+              eb('id', '=', snapshot.id),
+              eb('recommendation_id', '=', snapshot.recommendationId),
+            ])
+          : eb('id', '=', snapshot.id)
+      )
+      .executeTakeFirst();
+    if (existing) return rowToTask(existing);
+    const active = await trx
+      .selectFrom('table_query_remediation_task')
+      .select('id')
+      .where('table_id', '=', snapshot.tableId)
+      .where((eb) =>
+        eb.or([
+          eb('status', 'in', ['queued', 'running']),
+          eb.and([
+            eb('status', '=', 'failed'),
+            eb('locked_at', '>=', sql<Date>`now() - interval '60 seconds'`),
+          ]),
+        ])
+      )
+      .executeTakeFirst();
+    if (active)
+      return err(
+        domainError.conflict({
+          code: 'table_query_ops.table_task_conflict',
+          message: `Table already has an active task: ${active.id}`,
+          localization: {
+            i18nKey: 'httpErrors.tableQueryOps.tableTaskConflict',
+            context: { taskId: active.id },
+          },
+        })
+      );
+    await trx
+      .insertInto('table_query_remediation_task')
+      .values({
+        id: snapshot.id,
+        recommendation_id: snapshot.recommendationId ?? null,
+        base_id: snapshot.baseId,
+        table_id: snapshot.tableId,
+        kind: snapshot.kind,
+        status: snapshot.status,
+        payload: toJsonb(snapshot.payload),
+        result: snapshot.result == null ? null : toJsonb(snapshot.result),
+        attempts: snapshot.attempts,
+        max_attempts: snapshot.maxAttempts,
+        locked_at: snapshot.lockedAt ?? null,
+        locked_by: snapshot.lockedBy ?? null,
+        last_error: snapshot.lastError ?? null,
+        created_time: snapshot.createdTime,
+        last_modified_time: snapshot.lastModifiedTime ?? null,
+      })
+      .onConflict((oc) => oc.column('id').doNothing())
+      .execute();
+    return ok(task);
+  }
+
+  private async saveExecutionTransition(
+    trx: Kysely<TableQueryOpsDatabase>,
+    task: TableQueryRemediationTask
+  ): Promise<Result<TableQueryRemediationTask, DomainError>> {
+    const snapshot = task.snapshot();
+    const isStarting = snapshot.status === 'running';
+    if (!isStarting && snapshot.status !== 'succeeded' && snapshot.status !== 'failed') {
+      return err(domainError.conflict({ message: 'Use cancelQueued to cancel a task' }));
+    }
+    if (!snapshot.lockedBy || !snapshot.lockedAt) {
+      return err(domainError.conflict({ message: 'Task execution ownership is required' }));
+    }
+    const executionTime = snapshot.lastModifiedTime ?? new Date();
+    const reservationCutoff = new Date(Date.now() - 60_000);
+    const owned = sql`locked_by = ${snapshot.lockedBy} AND locked_at = ${snapshot.lockedAt}`;
+    const priorState = isStarting
+      ? sql`status IN ('queued', 'failed')
+          AND attempts = ${snapshot.attempts - 1}
+          AND (${owned} OR (locked_by IS NULL AND locked_at IS NULL))
+          AND ${snapshot.lockedAt}::timestamptz >= ${reservationCutoff}::timestamptz`
+      : sql`(${owned}) AND (
+          (status = 'running' AND attempts = ${snapshot.attempts})
+          OR (${snapshot.status === 'failed'} AND status IN ('queued', 'failed')
+            AND attempts = ${snapshot.attempts - 1} AND locked_at >= ${reservationCutoff})
+        )`;
+    const capacity = isStarting
+      ? sql`AND NOT EXISTS (
+          SELECT 1 FROM table_query_remediation_task AS active
+          WHERE active.id <> ${snapshot.id} AND active.table_id = ${snapshot.tableId}
+            AND (active.status = 'running' OR (active.status IN ('queued', 'failed')
+              AND active.locked_at >= ${reservationCutoff}))
+        ) AND (SELECT count(*) FROM table_query_remediation_task AS active
+          WHERE active.id <> ${snapshot.id}
+            AND (active.status = 'running' OR (active.status IN ('queued', 'failed')
+              AND active.locked_at >= ${reservationCutoff}))) < 2`
+      : sql``;
+    const updated = await sql<TableQueryOpsDatabase['table_query_remediation_task']>`
+      UPDATE table_query_remediation_task
+      SET status = ${snapshot.status},
+          result = ${snapshot.result == null ? null : toJsonb(snapshot.result)},
+          attempts = ${snapshot.attempts},
+          locked_at = ${isStarting ? snapshot.lockedAt : null},
+          locked_by = ${isStarting ? snapshot.lockedBy : null},
+          last_error = ${snapshot.lastError ?? null},
+          last_modified_time = ${executionTime}
+      WHERE id = ${snapshot.id} AND table_id = ${snapshot.tableId}
+        AND (${priorState}) ${capacity}
+      RETURNING *
+    `.execute(trx);
+    const row = updated.rows[0];
+    return row
+      ? rowToTask(row)
+      : err(
+          domainError.conflict({
+            code: 'table_query_ops.task_ownership_conflict',
+            message: 'Task changed or its execution reservation is no longer owned',
+          })
+        );
+  }
+
+  async saveIfAbsent(
+    _context: IExecutionContext,
+    task: TableQueryRemediationTask
+  ): Promise<Result<boolean, DomainError>> {
+    const snapshot = task.snapshot();
+    try {
+      const result = await this.db.transaction().execute(async (trx) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended('table-query-ops:claim', 0))`.execute(
+          trx
+        );
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`table-query-ops:submit:${snapshot.tableId}`}, 0))`.execute(
+          trx
+        );
+        return trx
           .insertInto('table_query_remediation_task')
           .values({
             id: snapshot.id,
@@ -685,62 +805,73 @@ export class PostgresTableQueryRemediationTaskRepository {
             created_time: snapshot.createdTime,
             last_modified_time: snapshot.lastModifiedTime ?? null,
           })
-          .onConflict((oc) =>
-            oc.column('id').doUpdateSet({
-              status: snapshot.status,
-              payload: toJsonb(snapshot.payload),
-              result: snapshot.result == null ? null : toJsonb(snapshot.result),
-              attempts: snapshot.attempts,
-              locked_at: snapshot.lockedAt ?? null,
-              locked_by: snapshot.lockedBy ?? null,
-              last_error: snapshot.lastError ?? null,
-              last_modified_time: snapshot.lastModifiedTime ?? new Date(),
-            })
-          )
-          .execute();
-        return ok(task);
+          .onConflict((oc) => oc.column('id').doNothing())
+          .executeTakeFirst();
       });
-    } catch (error) {
-      return err(toInfrastructureError(error, 'Failed to save table query remediation task'));
-    }
-  }
-
-  async saveIfAbsent(
-    _context: IExecutionContext,
-    task: TableQueryRemediationTask
-  ): Promise<Result<boolean, DomainError>> {
-    const snapshot = task.snapshot();
-    try {
-      const result = await this.db
-        .insertInto('table_query_remediation_task')
-        .values({
-          id: snapshot.id,
-          recommendation_id: snapshot.recommendationId ?? null,
-          base_id: snapshot.baseId,
-          table_id: snapshot.tableId,
-          kind: snapshot.kind,
-          status: snapshot.status,
-          payload: toJsonb(snapshot.payload),
-          result: snapshot.result == null ? null : toJsonb(snapshot.result),
-          attempts: snapshot.attempts,
-          max_attempts: snapshot.maxAttempts,
-          locked_at: snapshot.lockedAt ?? null,
-          locked_by: snapshot.lockedBy ?? null,
-          last_error: snapshot.lastError ?? null,
-          created_time: snapshot.createdTime,
-          last_modified_time: snapshot.lastModifiedTime ?? null,
-        })
-        .onConflict((oc) => oc.column('id').doNothing())
-        .executeTakeFirst();
       return ok(Number(result.numInsertedOrUpdatedRows ?? 0) === 1);
     } catch (error) {
       return err(toInfrastructureError(error, 'Failed to save table query remediation task'));
     }
   }
 
+  async cancelQueued(
+    _context: IExecutionContext,
+    input: { readonly taskId: string; readonly tableId: string; readonly now: Date }
+  ): Promise<Result<TableQueryRemediationTask, DomainError>> {
+    try {
+      return await this.db.transaction().execute(async (trx) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended('table-query-ops:claim', 0))`.execute(
+          trx
+        );
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`table-query-ops:submit:${input.tableId}`}, 0))`.execute(
+          trx
+        );
+        const row = await trx
+          .selectFrom('table_query_remediation_task')
+          .selectAll()
+          .where('id', '=', input.taskId)
+          .where('table_id', '=', input.tableId)
+          .forUpdate()
+          .executeTakeFirst();
+        if (!row) return err(domainError.notFound({ message: 'Remediation task not found' }));
+        if (
+          ![
+            'create_search_access_path',
+            'rebuild_search_access_path',
+            'drop_search_access_path',
+            'create_search_vector',
+            'rebuild_search_vector',
+          ].includes(row.kind)
+        ) {
+          return err(
+            domainError.conflict({ message: 'Only search access path tasks can be cancelled' })
+          );
+        }
+        const task = rowToTask(row);
+        if (task.isErr()) return err(task.error);
+        const cancelled = task.value.cancel(input.now);
+        if (cancelled.isErr()) return err(cancelled.error);
+        await trx
+          .updateTable('table_query_remediation_task')
+          .set({
+            status: 'cancelled',
+            locked_at: null,
+            locked_by: null,
+            last_modified_time: input.now,
+          })
+          .where('id', '=', input.taskId)
+          .execute();
+        return ok(cancelled.value);
+      });
+    } catch (error) {
+      return err(toInfrastructureError(error, 'Failed to cancel table query remediation task'));
+    }
+  }
+
   async claimNextAccepted(
     _context: IExecutionContext,
     input: {
+      readonly scope: 'all' | 'manual_search';
       readonly workerId: string;
       readonly now: Date;
       readonly allowedKinds: ReadonlyArray<ExecutablePhase1RemediationKind>;
@@ -762,14 +893,19 @@ export class PostgresTableQueryRemediationTaskRepository {
           SELECT id
           FROM table_query_remediation_task
           WHERE status IN ('queued', 'failed')
+            AND (${input.scope === 'all'} OR (
+              payload ->> 'trigger' = 'admin_search_access_path'
+              AND payload ->> 'executionMode' = 'manual'
+              AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'drop_search_access_path')
+            ))
             AND NOT EXISTS (
               SELECT 1 FROM table_query_remediation_task AS active
               WHERE active.table_id = table_query_remediation_task.table_id
                 AND active.id <> table_query_remediation_task.id
-                AND (active.status = 'running' OR (active.status = 'queued' AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)}))
+                AND (active.status = 'running' OR (active.status IN ('queued', 'failed') AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)}))
             )
             AND (SELECT count(*) FROM table_query_remediation_task AS active
-              WHERE active.status = 'running' OR (active.status = 'queued' AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)})) < 2
+              WHERE active.status = 'running' OR (active.status IN ('queued', 'failed') AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)})) < 2
             AND (kind = ANY(${input.allowedKinds}) OR payload ->> 'trigger' IN ('admin_search_access_path', 'admin_index'))
             AND (
               ${input.allowManualIndexExecution}

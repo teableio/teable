@@ -102,17 +102,27 @@ export type UndoRedoFieldSnapshot = {
   readonly records?: ReadonlyArray<UndoRedoFieldRecordValue>;
 };
 
+export type UndoRedoRelatedViewQuerySnapshot = {
+  readonly tableId: string;
+  readonly viewId: string;
+  readonly query: ViewQueryDefaultsDTO;
+  readonly sourceFilter?: unknown;
+};
+
+export type UndoRedoRelatedViewQueryReplay = {
+  readonly snapshot: UndoRedoRelatedViewQuerySnapshot;
+  readonly expected: UndoRedoRelatedViewQuerySnapshot;
+};
+
 export type UndoRedoApplyFieldSnapshotPayload = {
   readonly baseId: string;
   readonly tableId: string;
   readonly snapshot: UndoRedoFieldSnapshot;
+  readonly expectedSnapshot?: UndoRedoFieldSnapshot;
+  readonly relatedViewQueries?: ReadonlyArray<UndoRedoRelatedViewQueryReplay>;
 };
 
-export type UndoRedoReplayFieldTypeConversionPayload = {
-  readonly baseId: string;
-  readonly tableId: string;
-  readonly snapshot: UndoRedoFieldSnapshot;
-};
+export type UndoRedoReplayFieldTypeConversionPayload = UndoRedoApplyFieldSnapshotPayload;
 
 export type UndoRedoApplyViewSnapshotPayload = {
   readonly tableId: string;

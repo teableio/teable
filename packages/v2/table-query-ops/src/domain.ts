@@ -1210,13 +1210,19 @@ export class TableQueryRemediationTask {
     if (this.props.status !== 'queued' && this.props.status !== 'failed') {
       return err(domainError.conflict({ message: 'Only queued or failed tasks can start' }));
     }
+    if (this.props.lockedBy && this.props.lockedBy !== workerId) {
+      return err(domainError.conflict({ message: 'Task is reserved by another worker' }));
+    }
+    if (this.props.lockedAt && this.props.lockedAt.getTime() < now.getTime() - 60_000) {
+      return err(domainError.conflict({ message: 'Task reservation has expired' }));
+    }
     return ok(
       new TableQueryRemediationTask({
         ...this.props,
         status: 'running',
         attempts: this.props.attempts + 1,
         lockedBy: workerId,
-        lockedAt: now,
+        lockedAt: this.props.lockedAt ?? now,
         lastModifiedTime: now,
       })
     );
@@ -1245,6 +1251,24 @@ export class TableQueryRemediationTask {
         ...this.props,
         status: 'failed',
         lastError: errorMessage,
+        lastModifiedTime: now,
+      })
+    );
+  }
+
+  cancel(now: Date): Result<TableQueryRemediationTask, DomainError> {
+    if (this.props.status !== 'queued' && this.props.status !== 'failed') {
+      return err(domainError.conflict({ message: 'Only queued or failed tasks can be cancelled' }));
+    }
+    if (this.props.lockedAt && this.props.lockedAt.getTime() >= now.getTime() - 60_000) {
+      return err(domainError.conflict({ message: 'Task has a live worker reservation' }));
+    }
+    return ok(
+      new TableQueryRemediationTask({
+        ...this.props,
+        status: 'cancelled',
+        lockedAt: undefined,
+        lockedBy: undefined,
         lastModifiedTime: now,
       })
     );

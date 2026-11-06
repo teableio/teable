@@ -1,10 +1,15 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { filterSchema, groupSchema, sortItemSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { searchIndexByQueryRoSchema, searchMatchSchema } from './get-search-by-index';
 
-export const searchMatchesRoSchema = searchIndexByQueryRoSchema;
+export const searchMatchesRoSchema = searchIndexByQueryRoSchema.extend({
+  filter: filterSchema.optional(),
+  orderBy: sortItemSchema.array().optional(),
+  groupBy: groupSchema.optional(),
+});
 export type ISearchMatchesRo = z.infer<typeof searchMatchesRoSchema>;
 
 export const searchMatchesVoSchema = z.object({
@@ -16,17 +21,20 @@ export const searchMatchesVoSchema = z.object({
 
 export type ISearchMatchesVo = z.infer<typeof searchMatchesVoSchema>;
 
-export const GET_SEARCH_MATCHES = '/table/{tableId}/aggregation/search-matches';
+export const SEARCH_MATCHES = '/table/{tableId}/aggregation/search-matches';
 
 export const GetSearchMatchesRoute: RouteConfig = registerRoute({
-  method: 'get',
-  path: GET_SEARCH_MATCHES,
-  summary: 'Scan matching cells',
+  method: 'post',
+  path: SEARCH_MATCHES,
+  summary: 'List matching cells',
   description:
-    'Returns visible matching cells for a bounded show-all record page plus explicit scan pagination metadata. hideNotMatchRow=true is rejected; use the existing search-index API for hide mode.',
+    'Returns matching cells for show-all search mode. Each page holds up to `take` matching rows (not view rows): `skip` advances over matching rows, and every hit carries its absolute View row index. Pagination does not walk preceding non-matching rows. The read-only query is sent as JSON so selected record IDs and view criteria do not expand the URL. hideNotMatchRow=true is rejected; use the existing search-index API for hide mode.',
   request: {
     params: z.object({ tableId: z.string() }),
-    query: searchMatchesRoSchema,
+    body: {
+      required: true,
+      content: { 'application/json': { schema: searchMatchesRoSchema } },
+    },
   },
   responses: {
     200: {
@@ -38,12 +46,5 @@ export const GetSearchMatchesRoute: RouteConfig = registerRoute({
 });
 
 export const getSearchMatches = async (tableId: string, query: ISearchMatchesRo) => {
-  return axios.get<ISearchMatchesVo>(urlBuilder(GET_SEARCH_MATCHES, { tableId }), {
-    params: {
-      ...query,
-      filter: JSON.stringify(query.filter),
-      orderBy: JSON.stringify(query.orderBy),
-      groupBy: JSON.stringify(query.groupBy),
-    },
-  });
+  return axios.post<ISearchMatchesVo>(urlBuilder(SEARCH_MATCHES, { tableId }), query);
 };

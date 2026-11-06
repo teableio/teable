@@ -411,7 +411,7 @@ describe('FieldTypeConversionVisitor', () => {
         const sqls = statements.map((s) => s.compile(db as never).sql);
         expect(statements[0]?.scope).toBe('data');
         expect(statements[0]?.execute).toBeDefined();
-        expect(sqls.length).toBeGreaterThanOrEqual(2);
+        expect(sqls).toHaveLength(1);
         const matchSql = sqls[0];
         expect(matchSql).toContain('text_parts');
         expect(matchSql).toContain('jsonb_build_object');

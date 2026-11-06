@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { useTranslation, Trans } from 'next-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ACTIONS, EVENTS, STATUS } from 'react-joyride';
+// Types only: a value import (even its constants) would pull react-joyride into every page.
 import type { CallBackProps, Step, StoreHelpers } from 'react-joyride';
 import colors from 'tailwindcss/colors';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -201,15 +201,15 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
   const onCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
 
-    if ([ACTIONS.CLOSE, ACTIONS.SKIP].includes(action as never)) {
+    if (action === 'close' || action === 'skip') {
       setRun(false);
       if (!userId) return;
       return setCompletedGuideMap(userId, Object.keys(guideStepMap));
     }
 
-    if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type as never)) {
-      setStepIndex(index + (action === ACTIONS.PREV ? -1 : 1));
-    } else if (status === STATUS.FINISHED || type === EVENTS.TOUR_END) {
+    if (type === 'step:after' || type === 'error:target_not_found') {
+      setStepIndex(index + (action === 'prev' ? -1 : 1));
+    } else if (status === 'finished' || type === 'tour:end') {
       setRun(false);
 
       if (!userId) return;

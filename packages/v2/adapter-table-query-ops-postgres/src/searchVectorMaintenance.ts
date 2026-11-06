@@ -31,6 +31,13 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler implements Tabl
 
     try {
       const scheduled = await this.metaDb.transaction().execute(async (trx) => {
+        // Queue mutations use the same ordering as admission, claims and cancellation.
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended('table-query-ops:claim', 0))`.execute(
+          trx
+        );
+        await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`table-query-ops:submit:${tableId}`}, 0))`.execute(
+          trx
+        );
         await sql`
           SELECT pg_advisory_xact_lock(
             hashtext('teable.table_query_ops.search_vector_maintenance'),
@@ -70,6 +77,7 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler implements Tabl
             AND kind IN ('rebuild_search_access_path', 'rebuild_search_vector')
             AND status = 'queued'
             AND payload ->> 'trigger' = 'schema_change'
+            AND (locked_at IS NULL OR locked_at < now() - interval '60 seconds')
           ORDER BY created_time DESC
           LIMIT 1
         `.execute(trx);

@@ -47,8 +47,6 @@ export class NotificationCleanupProcessor extends WorkerHost {
       this.logger.log('Notification retention is not set, skipping cleanup job registration');
       return;
     }
-    // the redis-less fallback queue has no job schedulers
-    if (typeof this.queue.upsertJobScheduler !== 'function') return;
     try {
       await this.queue.upsertJobScheduler(
         CLEANUP_JOB_ID,

@@ -38,6 +38,7 @@ import { registerV2ImportServices } from '@teable/v2-import';
 import {
   executablePhase1RemediationKindValues,
   startTableQueryOpsAnalyzerIfEnabled,
+  startTableQueryOpsManualSearchTaskWorker,
   startTableQueryOpsTaskWorkerIfEnabled,
   type ExecutablePhase1RemediationKind,
   type TableQueryOpsRunnerHandle,
@@ -211,6 +212,23 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     return await this.getContainerForDataDb('meta-fallback', this.getMetaConnectionString());
   }
 
+  /** Metadata-only preview acquisition also stays non-migrating after cache eviction. */
+  async getPreviewContainer(): Promise<DependencyContainer> {
+    const connectionString = this.getMetaConnectionString();
+    return this.runtimeCache.getOrCreate(
+      V2_CONTAINER_CACHE_NAMESPACE,
+      'meta-fallback',
+      async () => {
+        const created = await this.createContainer(connectionString, undefined, {
+          previewReadOnly: true,
+        });
+        this.containerRouteSignatures.set(created, this.containerRouteSignature(connectionString));
+        return created;
+      },
+      (created) => this.destroyContainer(created)
+    );
+  }
+
   async getContainerForSpace(spaceId: string): Promise<DependencyContainer> {
     const dataDb = await this.dataDbClientManager.getDataDatabaseForSpace(spaceId);
     return await this.getContainerForDataDb(
@@ -289,6 +307,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
           this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME')
       ) === 'auto'
     );
+  }
+
+  isSearchAccessPathManualExecutionEnabled(): boolean {
+    // Management always registers the dedicated manual runner, independently of
+    // automatic analysis, policy acceptance, and the general task worker switch.
+    return resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ENABLED'), false);
   }
 
   async getContainerForMaintenanceTarget(
@@ -721,6 +745,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const handles = [
       startTableQueryOpsAnalyzerIfEnabled(container, context, resolveExecution),
       startTableQueryOpsTaskWorkerIfEnabled(container, context, resolveExecution),
+      startTableQueryOpsManualSearchTaskWorker(container, context, resolveExecution),
     ].filter((handle): handle is TableQueryOpsRunnerHandle => Boolean(handle));
 
     if (handles.length === 0) {

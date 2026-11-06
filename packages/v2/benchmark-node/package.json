@@ -26,8 +26,10 @@
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo",
     "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "bench": "vitest bench --run",
+    "bench": "pnpm test:retention && vitest bench --run",
     "bench:watch": "vitest bench",
+    "profile:record-update": "node --expose-gc ./node_modules/vitest/vitest.mjs run --config vitest-record-update-profile.config.ts",
+    "test:retention": "vitest run --config vitest-retention-unit.config.ts && node --test scripts/record-update-heap.test.mjs",
     "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {

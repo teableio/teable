@@ -43,6 +43,8 @@ type RecordSearchWhereBuilderOptions = {
   readonly tableAlias?: string;
   readonly searchAccessPath?: IRecordSearchAccessPath;
   readonly fieldMaskSqlMap?: FieldMaskSqlMap;
+  /** Cell navigation must filter the same complete field set as its match flags. */
+  readonly requireCompleteFieldScope?: boolean;
 };
 
 const applyFieldMask = (
@@ -426,7 +428,8 @@ const buildGeneratedTextSearchCondition = (
   recordSearch: RecordQuerySearch,
   accessPath: IRecordSearchAccessPath | undefined,
   tableAlias: string,
-  fieldMaskSqlMap: FieldMaskSqlMap | undefined
+  fieldMaskSqlMap: FieldMaskSqlMap | undefined,
+  requireCompleteFieldScope = false
 ): Result<GeneratedTextSearchPlan, DomainError> => {
   if (accessPath?.kind !== 'generated_text') {
     return ok({ fallbackReason: 'generated_text_unavailable' });
@@ -437,14 +440,15 @@ const buildGeneratedTextSearchCondition = (
 
   const coveredFieldIds = new Set(accessPath.coveredFieldIds.map((fieldId) => fieldId.toString()));
   const searchesAllFields = recordSearch.search.searchesAllFields();
-  const contractFields = searchesAllFields
+  const useConfiguredScope = searchesAllFields && !requireCompleteFieldScope;
+  const contractFields = useConfiguredScope
     ? resolvedFields.filter((field) => coveredFieldIds.has(field.id().toString()))
     : resolvedFields;
 
   if (accessPath.indexUsable === false || !coveredFieldIds.size) {
     return ok({
       fallbackReason: 'generated_text_unavailable',
-      ...(searchesAllFields ? { fallbackFields: contractFields } : {}),
+      ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
     });
   }
 
@@ -455,15 +459,14 @@ const buildGeneratedTextSearchCondition = (
   ) {
     return ok({
       fallbackReason: 'generated_text_probe_too_short',
-      ...(searchesAllFields ? { fallbackFields: contractFields } : {}),
+      ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
     });
   }
 
   return safeTry<GeneratedTextSearchPlan, DomainError>(function* () {
-    // For global search, coveredFieldIds is the configured search contract.
-    // Fields added after the document was built remain outside search until a
-    // rebuild updates that contract. Explicit field scopes retain the legacy
-    // behavior and fall back when any requested predicate is uncovered.
+    // Ordinary global search uses configured coverage as its durable contract.
+    // Cell navigation and explicit field scopes instead require every matching
+    // field to be covered, or fall back to the complete field predicate.
     const conditionFields: Field[] = [];
     for (const field of contractFields) {
       const shape = yield* resolveSearchFieldTextShape(field);
@@ -481,7 +484,7 @@ const buildGeneratedTextSearchCondition = (
       if (!isSearchFieldTextProjection(shape)) {
         return ok({
           fallbackReason: 'generated_text_unsupported_projection',
-          ...(searchesAllFields ? { fallbackFields: contractFields } : {}),
+          ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
         });
       }
       conditionFields.push(field);
@@ -490,11 +493,11 @@ const buildGeneratedTextSearchCondition = (
     if (!conditionFields.length) {
       return ok({
         fallbackReason: 'generated_text_unavailable',
-        ...(searchesAllFields ? { fallbackFields: contractFields } : {}),
+        ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
       });
     }
     if (
-      !searchesAllFields &&
+      (!searchesAllFields || requireCompleteFieldScope) &&
       conditionFields.some((field) => !coveredFieldIds.has(field.id().toString()))
     ) {
       return ok({ fallbackReason: 'generated_text_coverage_mismatch' });
@@ -509,7 +512,7 @@ const buildGeneratedTextSearchCondition = (
     if (!exactCondition) {
       return ok({
         fallbackReason: 'generated_text_unavailable',
-        ...(searchesAllFields ? { fallbackFields: contractFields } : {}),
+        ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
       });
     }
 
@@ -519,6 +522,55 @@ const buildGeneratedTextSearchCondition = (
     // runtime one predicate shape; the original field predicate below remains the result oracle.
     const indexedPrefilter = sql<SqlBool>`${documentRef} LIKE lower(${pattern}) ESCAPE '\\'`;
     return ok({ condition: sql<SqlBool>`(${indexedPrefilter}) AND (${exactCondition})` });
+  });
+};
+
+/**
+ * Monotone prefilter for callers whose result oracle stays the exact per-field
+ * predicates, such as cell match counts. A row only contributes when at least one
+ * searched field matches, and the generated document embeds the same projections
+ * for every configured field, so a document `LIKE` may run first and only remove
+ * rows that contribute nothing. It returns null unless every searched field is
+ * covered by the document and the probe can use the index, which keeps the
+ * caller's full scan as the fallback instead of risking an under-count.
+ */
+export const buildSearchDocumentPrefilter = (
+  table: Table,
+  recordSearch: RecordQuerySearch | undefined,
+  accessPath: IRecordSearchAccessPath | undefined,
+  options?: { tableAlias?: string }
+): Result<Expression<SqlBool> | null, DomainError> => {
+  if (!recordSearch || accessPath?.kind !== 'generated_text') return ok(null);
+  if (accessPath.indexUsable === false) return ok(null);
+  if (!isPostgresIdentifier(accessPath.generatedColumnName)) return ok(null);
+
+  const probeLength = Array.from(recordSearch.search.value).length;
+  if (accessPath.provider === 'pg_trgm' && probeLength < 3) return ok(null);
+  if (accessPath.provider === 'pg_bigm' && probeLength < 1) return ok(null);
+
+  return safeTry(function* () {
+    const resolvedFields = yield* recordSearch.search.resolveFields(table, {
+      visibleFieldIds: recordSearch.visibleFieldIds,
+    });
+    const coveredFieldIds = new Set(
+      accessPath.coveredFieldIds.map((fieldId) => fieldId.toString())
+    );
+    for (const field of resolvedFields) {
+      const shape = yield* resolveSearchFieldTextShape(field);
+      if (!shapeProducesCondition(shape, recordSearch.search)) continue;
+      // Scoped dates and other non-document shapes are matched outside the
+      // document, so they cannot be filtered by it.
+      if (!isSearchFieldTextProjection(shape)) return ok(null);
+      if (!coveredFieldIds.has(field.id().toString())) return ok(null);
+    }
+
+    const tableAlias = options?.tableAlias ?? 't';
+    const pattern = `%${escapeLikeWildcards(recordSearch.search.value)}%`;
+    return ok(
+      sql<SqlBool>`${sql.ref(
+        `${tableAlias}.${accessPath.generatedColumnName}`
+      )} LIKE lower(${pattern}) ESCAPE '\\'`
+    );
   });
 };
 
@@ -548,19 +600,23 @@ export const buildRecordSearchWherePlan = (
       recordSearch,
       options?.searchAccessPath,
       tableAlias,
-      options?.fieldMaskSqlMap
+      options?.fieldMaskSqlMap,
+      options?.requireCompleteFieldScope
     );
     if ('condition' in generatedTextCondition) {
       return ok({ condition: generatedTextCondition.condition, usedAccessPath: 'generated_text' });
     }
 
-    const searchAccessPathCondition = yield* buildGeneratedTsvectorSearchCondition(
-      resolvedFields,
-      recordSearch,
-      options?.searchAccessPath,
-      tableAlias,
-      options?.fieldMaskSqlMap
-    );
+    // Lexical documents are not the substring oracle used by cell match flags.
+    const searchAccessPathCondition = options?.requireCompleteFieldScope
+      ? undefined
+      : yield* buildGeneratedTsvectorSearchCondition(
+          resolvedFields,
+          recordSearch,
+          options?.searchAccessPath,
+          tableAlias,
+          options?.fieldMaskSqlMap
+        );
     if (searchAccessPathCondition) {
       return ok({
         condition: searchAccessPathCondition,
@@ -579,7 +635,9 @@ export const buildRecordSearchWherePlan = (
       recordSearch,
       tableAlias,
       options?.fieldMaskSqlMap,
-      searchesAllFields && generatedTextFallbackFields == null
+      searchesAllFields &&
+        generatedTextFallbackFields == null &&
+        !options?.requireCompleteFieldScope
         ? defaultAllFieldSearchConditionLimit
         : undefined
     );

@@ -1,16 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../cache/cache.service';
-import type { ICacheConfig } from '../configs/cache.config';
 
 /**
  * Best-effort distributed lock backed by Redis (`SET NX`).
  *
  * Lets a caller run a critical section on exactly one instance across a
- * multi-pod deployment. Without Redis there is no shared store, so the lock
- * degrades to a no-op and every instance proceeds — callers must therefore
- * keep the guarded work idempotent.
+ * multi-pod deployment. When Redis errors the lock is skipped and the caller
+ * proceeds, so callers must keep the guarded work idempotent.
  */
 @Injectable()
 export class DistributedLockService {
@@ -19,10 +16,7 @@ export class DistributedLockService {
   /** Unique per process — identifies the locks this instance owns. */
   private readonly owner = `${process.pid}-${randomUUID()}`;
 
-  constructor(
-    private readonly cacheService: CacheService,
-    private readonly configService: ConfigService
-  ) {}
+  constructor(private readonly cacheService: CacheService) {}
 
   /**
    * Run `task` while holding the lock named `name`, so only one instance runs
@@ -51,15 +45,7 @@ export class DistributedLockService {
     return true;
   }
 
-  private get usesRedis(): boolean {
-    return this.configService.get<ICacheConfig>('cache')?.provider === 'redis';
-  }
-
   private async acquire(key: `lock:${string}`, ttlSeconds: number): Promise<boolean> {
-    // No Redis — no shared store to lock against; let the caller proceed.
-    if (!this.usesRedis) {
-      return true;
-    }
     try {
       return await this.cacheService.setnx(key, this.owner, ttlSeconds);
     } catch (error) {
@@ -69,9 +55,6 @@ export class DistributedLockService {
   }
 
   private async release(key: `lock:${string}`): Promise<void> {
-    if (!this.usesRedis) {
-      return;
-    }
     try {
       // Only release a lock this instance still owns.
       if ((await this.cacheService.get(key)) === this.owner) {

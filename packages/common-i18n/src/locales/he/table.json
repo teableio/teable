@@ -1759,7 +1759,6 @@
       "share": "שיתוף",
       "enableShare": "הפעלת השיתוף",
       "copyLink": "העתקת הקישור",
-      "rotateLink": "איפוס הקישור",
       "scope": "מי יכול לצפות",
       "scopePublic": "כל בעלי הקישור",
       "scopeSpace": "חברי המרחב",
@@ -1777,7 +1776,8 @@
       "running": "יוצר…",
       "waitingInput": "ממתין לתשובתך",
       "failed": "התשובה נכשלה"
-    }
+    },
+    "routineRunPrompt": "נשלח על ידי השגרה"
   },
   "upload": {
     "panelUploading": "בהעלאת {{count}} קבצים",

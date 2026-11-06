@@ -16,6 +16,7 @@ import {
   type IDuplicateTableVo,
   type IFieldWithTableIdJson,
 } from '@teable/openapi';
+import type { BulkCopyTableInput } from '@teable/v2-core';
 import { Knex } from 'knex';
 import { get, pick, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -63,6 +64,7 @@ type IDuplicateTableDataProgress = {
 type IDuplicateTableDataOptions = {
   batchSize?: number;
   onProgress?: (progress: IDuplicateTableDataProgress) => void;
+  dateTimeZoneConversions?: BulkCopyTableInput['dateTimeZoneConversions'];
 };
 
 const duplicateTableDataDefaultBatchSize = 500;
@@ -413,7 +415,8 @@ export class TableDuplicateService {
           newColumns,
           oldColumns,
           crossBaseLinkDbFieldNames,
-          range
+          range,
+          options?.dateTimeZoneConversions
         )
         .toQuery();
 
@@ -424,7 +427,9 @@ export class TableDuplicateService {
         targetDbTableName,
         newColumns,
         oldColumns,
-        crossBaseLinkDbFieldNames
+        crossBaseLinkDbFieldNames,
+        undefined,
+        options?.dateTimeZoneConversions
       )
       .toQuery();
 

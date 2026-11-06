@@ -149,6 +149,12 @@ describe('FieldConversionPreparationService', () => {
       affectedCellCount: null,
       linkSideEffectCount: 0,
     });
+    const projectedField = result
+      ._unsafeUnwrap()
+      .projectedTable.getField((candidate) => candidate.id().equals(field.id()))
+      ._unsafeUnwrap();
+    expect(projectedField.type().toString()).toBe('singleLineText');
+    expect(projectedField).not.toBe(field);
     expect(aggregationRepository.aggregate).toHaveBeenCalledOnce();
     expect(table.getFields()[1]!.type().toString()).toBe('longText');
   });
@@ -174,5 +180,60 @@ describe('FieldConversionPreparationService', () => {
     );
 
     expect(result._unsafeUnwrap().affectedCellCount).toBe(17);
+  });
+
+  it('reuses the supplied admitted aggregate instead of reloading another snapshot', async () => {
+    const admitted = buildTable();
+    const changed = buildTable('a');
+    const findOne = vi.fn(async () => ok(changed));
+    const load = vi.fn(async () => ok([]));
+    const service = new FieldConversionPreparationService(
+      { findOne } as never,
+      new DefaultTableMapper(),
+      { load } as never
+    );
+    const field = admitted.getFields()[1]!;
+
+    const result = await service.prepare(
+      context,
+      {
+        tableId: admitted.id().toString(),
+        fieldId: field.id().toString(),
+        field: { type: 'singleLineText', updateMode: 'full' },
+      },
+      { table: admitted }
+    );
+
+    expect(result._unsafeUnwrap().table).toBe(admitted);
+    expect(findOne).not.toHaveBeenCalled();
+    expect(load).toHaveBeenCalledWith(context, { references: [] });
+  });
+
+  it('rejects a supplied aggregate that does not match the command table', async () => {
+    const admitted = buildTable();
+    const other = buildTable('a');
+    const findOne = vi.fn(async () => ok(other));
+    const load = vi.fn(async () => ok([]));
+    const service = new FieldConversionPreparationService(
+      { findOne } as never,
+      new DefaultTableMapper(),
+      { load } as never
+    );
+
+    const result = await service.prepare(
+      context,
+      {
+        tableId: other.id().toString(),
+        fieldId: other.getFields()[1]!.id().toString(),
+        field: { type: 'singleLineText', updateMode: 'full' },
+      },
+      { table: admitted }
+    );
+
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'field.conversion_table_mismatch',
+    });
+    expect(findOne).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
   });
 });

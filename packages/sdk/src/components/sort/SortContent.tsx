@@ -15,6 +15,7 @@ interface ISortProps {
   /** Shown in place of the add button once `limit` is reached. Drawer only. */
   limitTip?: string;
   allowButtonFields?: boolean;
+  enablePinyin?: boolean;
   onChange: (sort?: NonNullable<ISort>['sortObjs']) => void;
 }
 
@@ -26,6 +27,7 @@ export function SortContent(props: Readonly<ISortProps>) {
     limitTip,
     limit = Infinity,
     allowButtonFields = false,
+    enablePinyin = false,
   } = props;
   const inDrawer = useInDrawer();
 
@@ -83,6 +85,7 @@ export function SortContent(props: Readonly<ISortProps>) {
         <DraggableSortList
           sorts={sortValues}
           fields={fields}
+          enablePinyin={enablePinyin}
           selectedFields={selectedFieldIds}
           onChange={onSortChange}
         />

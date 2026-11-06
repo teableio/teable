@@ -101,10 +101,11 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
               metaTransactionContext,
               async (dataTransactionContext) =>
                 safeTry<void, DomainError>(async function* () {
-                  const sideEffectResult = yield* await tableDeletionSideEffectService.executePrepared(
-                    dataTransactionContext,
-                    preparation.sideEffects
-                  );
+                  const sideEffectResult =
+                    yield* await tableDeletionSideEffectService.executePrepared(
+                      dataTransactionContext,
+                      preparation.sideEffects
+                    );
                   sideEffectEvents.push(...sideEffectResult.events);
                   sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
                   yield* await tableSchemaRepository.delete(dataTransactionContext, table, {
