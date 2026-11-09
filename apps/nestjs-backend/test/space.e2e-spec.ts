@@ -222,9 +222,39 @@ describe('OpenAPI SpaceController (e2e)', () => {
         password: '12345678',
       });
       userRequestId = (await userRequest.get<IUserMeVo>(USER_ME)).data.id;
-      const res = await userRequest.post<ICreateSpaceVo>(CREATE_SPACE, {
-        name: 'new space',
-      });
+      let res: { data: ICreateSpaceVo };
+      try {
+        res = await userRequest.post<ICreateSpaceVo>(CREATE_SPACE, {
+          name: 'new space',
+        });
+      } catch (createErr) {
+        // [DIAG-401] one-shot diagnostics for the CI-only CREATE_SPACE 401.
+        const probe = async (fn: () => Promise<unknown>) => {
+          try {
+            await fn();
+            return 'ok';
+          } catch (e) {
+            const err = e as { status?: number; code?: string; message?: string };
+            return `err status=${err.status} code=${err.code} msg=${err.message}`;
+          }
+        };
+        const e = createErr as { status?: number; code?: string; message?: string; data?: unknown };
+        const meAgain = await probe(() => userRequest.get(USER_ME));
+        const freshUser = await createNewUserAxios({
+          email: `diag-fresh-${Date.now()}@example.com`,
+          password: '12345678',
+        });
+        const freshCreate = await probe(() => freshUser.post(CREATE_SPACE, { name: 'diag' }));
+        const retrySame = await probe(() => userRequest.post(CREATE_SPACE, { name: 'diag2' }));
+        const cookie = (userRequest.defaults.headers as Record<string, unknown>)?.Cookie;
+        throw new Error(
+          `[DIAG-401] CREATE_SPACE failed status=${e.status} code=${e.code} data=${JSON.stringify(
+            e.data
+          )} | USER_ME-after=${meAgain} | retry-same-user=${retrySame} | fresh-user-create=${freshCreate} | hasCookie=${Boolean(
+            cookie
+          )} cookieLen=${cookie ? String(cookie).length : 0}`
+        );
+      }
       space2Id = res.data.id;
       await userRequest.post(urlBuilder(EMAIL_SPACE_INVITATION, { spaceId: space2Id }), {
         emails: [globalThis.testConfig.email],
