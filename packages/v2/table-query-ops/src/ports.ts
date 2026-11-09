@@ -239,9 +239,15 @@ export interface TableQueryRemediationTaskRepository {
     task: TableQueryRemediationTask
   ): Promise<Result<boolean, DomainError>>;
 
+  cancelQueued(
+    context: IExecutionContext,
+    input: { readonly taskId: string; readonly tableId: string; readonly now: Date }
+  ): Promise<Result<TableQueryRemediationTask, DomainError>>;
+
   claimNextAccepted(
     context: IExecutionContext,
     input: {
+      readonly scope: 'all' | 'manual_search';
       readonly workerId: string;
       readonly now: Date;
       readonly allowedKinds: ReadonlyArray<ExecutablePhase1RemediationKind>;

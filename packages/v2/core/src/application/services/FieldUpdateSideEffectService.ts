@@ -11,8 +11,11 @@ import type { FieldId } from '../../domain/table/fields/FieldId';
 import {
   buildFieldFilterSyncPlan,
   hasFieldFilterSyncPlanChanges,
+  hasFieldReferenceInFilterById,
   hasFieldReferenceInRecordFilter,
+  isEquivalentFilter,
   isEquivalentRecordFilter,
+  syncFilterByFieldChangesWithId,
   syncRecordFilterByFieldChanges,
 } from '../../domain/table/fields/filter-sync';
 import {
@@ -39,13 +42,19 @@ import { TableUpdateResult } from '../../domain/table/TableMutator';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import type { ViewId } from '../../domain/table/views/ViewId';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
+import { ViewSourceFilter } from '../../domain/table/views/ViewSourceFilter';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
 import type { RecordFilter } from '../../queries/RecordFilterDto';
+import { buildUnsupportedViewSortCollationCleanup } from './buildUnsupportedViewSortCollationCleanup';
+import { completeFieldSideEffectUpdate } from './completeFieldSideEffectUpdate';
 import { FieldCrossTableUpdateSideEffectService } from './FieldCrossTableUpdateSideEffectService';
-import { LinkFieldUpdateSideEffectService } from './LinkFieldUpdateSideEffectService';
+import {
+  LinkFieldUpdateSideEffectService,
+  type LinkFieldViewQuerySnapshotChange,
+} from './LinkFieldUpdateSideEffectService';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 export type FieldUpdateSideEffectInput = {
@@ -68,6 +77,8 @@ export type FieldUpdateSideEffectResult = {
   updatedTable: Table;
   /** Events generated during side effect processing */
   events: ReadonlyArray<IDomainEvent>;
+  /** Cross-table view-query changes produced by reciprocal field updates. */
+  viewQueryChanges: ReadonlyArray<LinkFieldViewQuerySnapshotChange>;
 };
 
 @injectable()
@@ -128,7 +139,7 @@ export class FieldUpdateSideEffectService {
           (candidate) =>
             sideEffect.mutateSpec
               .mutate(candidate)
-              .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
+              .andThen((updated) => completeFieldSideEffectUpdate(updated, sideEffect.mutateSpec)),
           { publishEvents: false }
         );
         events.push(...updateResult.events);
@@ -148,11 +159,13 @@ export class FieldUpdateSideEffectService {
       const { table, updatedField, updateSpecs, foreignTables } = input;
 
       if (updateSpecs.length === 0) {
-        return ok({ specs: [], updatedTable: table, events: [] });
+        return ok({ specs: [], updatedTable: table, events: [], viewQueryChanges: [] });
       }
 
       const events: IDomainEvent[] = [];
-      const currentForeignTables = yield* await service.resolveForeignTablesForExecution(
+      const viewQueryChanges: LinkFieldViewQuerySnapshotChange[] = [];
+      let currentTable = table;
+      let currentForeignTables = yield* await service.resolveForeignTablesForExecution(
         context,
         table,
         foreignTables,
@@ -173,61 +186,86 @@ export class FieldUpdateSideEffectService {
           }
         );
         events.push(...linkSideEffectResult.events);
+        viewQueryChanges.push(...linkSideEffectResult.viewQueryChanges);
+        // Self-links can update views on this same aggregate. Continue from the
+        // persisted state, including its current view defaults and versions.
+        currentTable = linkSideEffectResult.tableState.get(table.id().toString()) ?? currentTable;
+        currentForeignTables = [...linkSideEffectResult.tableState.values()];
       }
 
-      // Side effect #1a: non-link → link conversion (create symmetric field on foreign table)
-      if (updatedField instanceof LinkField && !(input.previousField instanceof LinkField)) {
-        const creationSideEffects = yield* FieldCreationSideEffectVisitor.collect([updatedField], {
-          table,
-          foreignTables: currentForeignTables,
-        });
-        for (const sideEffect of creationSideEffects) {
-          const updateResult = yield* await service.tableUpdateFlow.execute(
-            context,
-            { table: sideEffect.foreignTable },
-            (candidate) =>
-              sideEffect.mutateSpec
-                .mutate(candidate)
-                .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
-            { publishEvents: false }
-          );
-          events.push(...updateResult.events);
-        }
-      }
-
-      // Side effect #1b: link → non-link conversion (delete symmetric field from foreign table)
-      if (!(updatedField instanceof LinkField) && input.previousField instanceof LinkField) {
-        const deletionSideEffects = yield* FieldDeletionSideEffectVisitor.collect(
-          [input.previousField],
-          { table, foreignTables: currentForeignTables }
+      // Type conversions create or delete a reciprocal field using the same lifecycle specs as
+      // ordinary field creation/deletion. Two-way conversions must use the persisted aggregate,
+      // not the pre-conversion snapshot, for dependent and View cleanup.
+      if (
+        (updatedField instanceof LinkField && !(input.previousField instanceof LinkField)) ||
+        (!(updatedField instanceof LinkField) && input.previousField instanceof LinkField)
+      ) {
+        const foreignTableState = new Map(
+          currentForeignTables.map((foreignTable) => [foreignTable.id().toString(), foreignTable])
         );
-        for (const sideEffect of deletionSideEffects) {
+        if (updatedField instanceof LinkField && !updatedField.isOneWay()) {
+          // prepare() persisted the reciprocal field on this same table, which the aggregate
+          // handed to afterPersist does not contain yet. A one-way conversion writes no
+          // reciprocal, so reusing the passed-in snapshot there would resurrect the old field.
+          const sourceSpecResult = Table.specs(currentTable.baseId())
+            .byId(currentTable.id())
+            .build();
+          if (sourceSpecResult.isErr()) return err(sourceSpecResult.error);
+          const latestSourceResult = await service.tableRepository.findOne(
+            context,
+            sourceSpecResult.value,
+            { state: 'activeWithPending' }
+          );
+          if (latestSourceResult.isErr()) return err(latestSourceResult.error);
+          currentTable = latestSourceResult.value;
+        }
+        foreignTableState.set(currentTable.id().toString(), currentTable);
+
+        const sideEffects = yield* updatedField instanceof LinkField
+          ? FieldCreationSideEffectVisitor.collect([updatedField], {
+              table: currentTable,
+              foreignTables: [...foreignTableState.values()],
+            })
+          : FieldDeletionSideEffectVisitor.collect(
+              input.previousField ? [input.previousField] : [],
+              { table: currentTable, foreignTables: [...foreignTableState.values()] }
+            );
+
+        for (const sideEffect of sideEffects) {
+          const foreignTable = foreignTableState.get(sideEffect.foreignTable.id().toString());
+          if (!foreignTable) {
+            return err(domainError.notFound({ message: 'Foreign table not found in state' }));
+          }
           const updateResult = yield* await service.tableUpdateFlow.execute(
             context,
-            { table: sideEffect.foreignTable },
+            { table: foreignTable },
             (candidate) =>
               sideEffect.mutateSpec
                 .mutate(candidate)
-                .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
+                .andThen((updated) =>
+                  completeFieldSideEffectUpdate(updated, sideEffect.mutateSpec)
+                ),
             { publishEvents: false }
           );
+          foreignTableState.set(updateResult.table.id().toString(), updateResult.table);
           events.push(...updateResult.events);
         }
+        currentTable = foreignTableState.get(table.id().toString()) ?? currentTable;
+        currentForeignTables = [...foreignTableState.values()];
       }
 
       // Side effect #2: in-table dependency cascade (formula/lookup/rollup)
-      const dependentsResult = service.getDependentsInOrder(table, updatedField);
+      const dependentsResult = service.getDependentsInOrder(currentTable, updatedField);
       if (dependentsResult.isErr()) return err(dependentsResult.error);
       const dependents = dependentsResult.value;
 
       const updateContext: FieldUpdateContext = {
-        table,
+        table: currentTable,
         foreignTables: currentForeignTables,
       };
 
       // Process each dependent - cascade specs accumulate
       const allSpecs: ISpecification<Table, ITableSpecVisitor>[] = [];
-      let currentTable = table;
       const changedFields = new Map<string, Field>([[updatedField.id().toString(), updatedField]]);
 
       for (const dependent of dependents) {
@@ -288,12 +326,25 @@ export class FieldUpdateSideEffectService {
         const updateResult = yield* await service.tableUpdateFlow.execute(
           context,
           { table: currentTable },
-          (table) => ok(TableUpdateResult.create(table, viewQueryCleanupSpec)),
+          (table) => table.update((mutator) => mutator.applySpecs([viewQueryCleanupSpec])),
           { publishEvents: false }
         );
         currentTable = updateResult.table;
         events.push(...updateResult.events);
         allSpecs.push(...flattenAndSpecs(viewQueryCleanupSpec));
+      }
+
+      const sortCleanupSpec = yield* buildUnsupportedViewSortCollationCleanup(currentTable);
+      if (sortCleanupSpec) {
+        const updateResult = yield* await service.tableUpdateFlow.execute(
+          context,
+          { table: currentTable },
+          (table) => table.update((mutator) => mutator.applySpecs([sortCleanupSpec])),
+          { publishEvents: false }
+        );
+        currentTable = updateResult.table;
+        events.push(...updateResult.events);
+        allSpecs.push(sortCleanupSpec);
       }
 
       const viewColumnMetaCleanupSpecResult = service.buildViewColumnMetaCleanupSpecs(
@@ -329,6 +380,7 @@ export class FieldUpdateSideEffectService {
         specs: allSpecs,
         updatedTable: currentTable,
         events,
+        viewQueryChanges,
       });
     });
   }
@@ -534,31 +586,53 @@ export class FieldUpdateSideEffectService {
       if (queryDefaultsResult.isErr()) return err(queryDefaultsResult.error);
       const currentQueryDefaults = queryDefaultsResult.value;
       const currentFilter = currentQueryDefaults.filter();
-      if (currentFilter == null) continue;
-      let nextFilter: RecordFilter = currentFilter;
+      const currentSourceFilter = currentQueryDefaults.sourceFilter();
+      let nextFilter = currentFilter;
+      let nextSourceFilter: unknown = currentSourceFilter;
       let changed = false;
 
       for (const { fieldId, plan } of filterSyncTargets) {
-        if (nextFilter == null) break;
-        if (!hasFieldReferenceInRecordFilter(nextFilter, fieldId)) continue;
+        if (nextFilter != null && hasFieldReferenceInRecordFilter(nextFilter, fieldId)) {
+          const syncedFilter = syncRecordFilterByFieldChanges(nextFilter, fieldId, plan);
+          if (!isEquivalentRecordFilter(nextFilter, syncedFilter)) {
+            nextFilter = syncedFilter;
+            changed = true;
+          }
+        }
 
-        const syncedFilter = syncRecordFilterByFieldChanges(nextFilter, fieldId, plan);
-        if (isEquivalentRecordFilter(nextFilter, syncedFilter)) continue;
-
-        nextFilter = syncedFilter;
-        changed = true;
+        if (
+          nextSourceFilter !== undefined &&
+          hasFieldReferenceInFilterById(nextSourceFilter, fieldId)
+        ) {
+          const syncedSourceFilter = syncFilterByFieldChangesWithId(
+            nextSourceFilter,
+            fieldId,
+            plan
+          );
+          if (!isEquivalentFilter(nextSourceFilter, syncedSourceFilter)) {
+            nextSourceFilter = syncedSourceFilter;
+            changed = true;
+          }
+        }
       }
 
       if (!changed) continue;
 
-      const nextQueryDefaultsResult = ViewQueryDefaults.rehydrate({
-        ...currentQueryDefaults.toDto(),
-        filter: nextFilter,
-      });
+      const sourceFilterResult =
+        nextSourceFilter === undefined ? ok(undefined) : ViewSourceFilter.create(nextSourceFilter);
+      if (sourceFilterResult.isErr()) return err(sourceFilterResult.error);
+      const nextQueryDefaultsResult = ViewQueryDefaults.rehydrate(
+        {
+          ...currentQueryDefaults.toDto(),
+          filter: nextFilter,
+        },
+        { sourceFilter: sourceFilterResult.value?.toDto() }
+      );
       if (nextQueryDefaultsResult.isErr()) return err(nextQueryDefaultsResult.error);
 
       updates.push({
         viewId: view.id(),
+        previousQueryDefaults: currentQueryDefaults,
         queryDefaults: nextQueryDefaultsResult.value,
       });
     }

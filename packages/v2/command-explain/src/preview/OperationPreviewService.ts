@@ -188,6 +188,7 @@ export class OperationPreviewService implements IOperationPreviewService {
       warnings: plan.value.warnings,
       coverage: plan.value.coverage,
       complexity: plan.value.complexity,
+      ...(plan.value.hostChecks ? { hostChecks: plan.value.hostChecks } : {}),
       authorization: plan.value.authorization,
       observedAt: this.now().toISOString(),
       consistency: plan.value.consistency,

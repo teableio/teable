@@ -1,7 +1,8 @@
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragOverlay,
@@ -56,10 +57,17 @@ export const GalleryViewBase = () => {
     overscan: 5,
   });
 
+  // On touch, a card is picked up only by a long press, so a swipe scrolls the gallery
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
       },
     })
   );

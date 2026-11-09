@@ -34,6 +34,7 @@ it('compares singleton and fused backfill on native PG, including WAL and versio
     {} as never,
     db as never,
     {} as never,
+    {} as never,
     { mode: 'sync', hybridThreshold: 10000 },
     new Pg16TypeValidationStrategy()
   );

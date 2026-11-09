@@ -48,9 +48,7 @@ export const parseRecordsPasteHostPreviewInput = (
   return parsed.success ? ok({ tableId, pasteRo: parsed.data }) : invalidInput();
 };
 
-export class RecordsPasteHostPreviewPlanner
-  implements IHostPreviewAdapter<RecordsPasteHostPreviewInput>
-{
+export class RecordsPasteHostPreviewPlanner implements IHostPreviewAdapter<RecordsPasteHostPreviewInput> {
   readonly operation = 'records.paste' as const;
   readonly concerns = [] as const;
   readonly plannerVersion = 'records-paste-host-v1';

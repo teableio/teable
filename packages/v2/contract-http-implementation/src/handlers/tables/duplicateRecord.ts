@@ -10,9 +10,10 @@ import type { DuplicateRecordResult, ICommandBus, IExecutionContext } from '@tea
 export const executeDuplicateRecordEndpoint = async (
   context: IExecutionContext,
   rawBody: unknown,
-  commandBus: ICommandBus
+  commandBus: ICommandBus,
+  options?: Parameters<typeof DuplicateRecordCommand.create>[1]
 ): Promise<IDuplicateRecordEndpointResult> => {
-  const commandResult = DuplicateRecordCommand.create(rawBody);
+  const commandResult = DuplicateRecordCommand.create(rawBody, options);
   if (commandResult.isErr()) {
     const error = commandResult.error;
     return {

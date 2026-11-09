@@ -121,6 +121,7 @@ export const useGridAsyncRecords = (
   const loadedRecordIdsKey = JSON.stringify(loadedRecordIds);
   const searchFilter = shareId ? view?.filter : outerQuery?.filter;
   const searchProjection = shareId ? fields.map(({ id }) => id) : outerQuery?.projection;
+
   const searchRequestKey = JSON.stringify([
     tableId,
     shareId,
@@ -144,27 +145,27 @@ export const useGridAsyncRecords = (
     if (hideNotMatchRow || !searchQuery?.[0] || !tableId || !view || !loadedRecordIds.length)
       return;
     let cancelled = false;
+    const fixedScope = {
+      search: searchQuery,
+      filter: searchFilter,
+      orderBy: outerQuery?.orderBy,
+      groupBy: outerQuery?.groupBy,
+      projection: searchProjection,
+      skip: 0,
+      ...(shareId ? {} : { viewId: view.id, ignoreViewQuery: outerQuery?.ignoreViewQuery }),
+    };
     const fetchHits = async () => {
       const hits: ISearchHitIndex = [];
-      for (let start = 0; start < loadedRecordIds.length; start += 1000) {
-        const selectedRecordIds = loadedRecordIds.slice(start, start + 1000);
+      for (let offset = 0; offset < loadedRecordIds.length; offset += 1000) {
+        const selectedRecordIds = loadedRecordIds.slice(offset, offset + 1000);
         const scope = {
-          search: searchQuery,
-          filter: searchFilter,
-          orderBy: outerQuery?.orderBy,
-          groupBy: outerQuery?.groupBy,
-          projection: searchProjection,
+          ...fixedScope,
           selectedRecordIds,
-          skip: 0,
           take: selectedRecordIds.length,
         };
         const response = shareId
           ? await getShareViewSearchMatches(shareId, scope)
-          : await getSearchMatches(tableId, {
-              ...scope,
-              viewId: view.id,
-              ignoreViewQuery: outerQuery?.ignoreViewQuery,
-            });
+          : await getSearchMatches(tableId, scope);
         hits.push(...response.data.matches.map(({ recordId, fieldId }) => ({ recordId, fieldId })));
       }
       if (!cancelled) {

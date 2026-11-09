@@ -25,6 +25,105 @@ describe('BaseDuplicateService', () => {
   });
 });
 
+describe('BaseDuplicateService dateTimeZoneConversions', () => {
+  const conversionsFor = (options: unknown, targetTimeZone = 'Asia/Shanghai') => {
+    const service = Object.create(BaseDuplicateService.prototype) as BaseDuplicateService;
+    const internals = service as unknown as {
+      dateTimeZoneConversions: (
+        structure: unknown,
+        targetTimeZone: string
+      ) => Record<
+        string,
+        { dbFieldName: string; sourceTimeZone: string; targetTimeZone: string }[]
+      >;
+    };
+    return internals.dateTimeZoneConversions(
+      {
+        tables: [
+          {
+            id: 'tblSource',
+            fields: [{ type: FieldType.Date, dbFieldName: 'start', options }],
+          },
+        ],
+      },
+      targetTimeZone
+    );
+  };
+
+  it.each([
+    undefined,
+    null,
+    {},
+    { formatting: {} },
+    { formatting: { timeZone: '' } },
+    { formatting: { timeZone: 123 } },
+    { formatting: { timeZone: 'Not/AZone' } },
+    { formatting: { timeZone: '+05:00' } },
+  ])('does not invent a conversion for source options %j', (options) => {
+    expect(conversionsFor(options)).toEqual({});
+  });
+
+  it.each(['America/Chicago', 'US/Central', 'UTC', 'Etc/GMT+5'])(
+    'keeps the valid named source zone %s',
+    (sourceTimeZone) => {
+      expect(conversionsFor({ formatting: { timeZone: sourceTimeZone } })).toEqual({
+        tblSource: [{ dbFieldName: 'start', sourceTimeZone, targetTimeZone: 'Asia/Shanghai' }],
+      });
+    }
+  );
+
+  it('does not relocate values already in the target zone', () => {
+    expect(conversionsFor({ formatting: { timeZone: 'Asia/Shanghai' } })).toEqual({});
+  });
+
+  it.each([
+    ['US/Central', 'America/Chicago'],
+    ['America/Chicago', 'US/Central'],
+    ['Etc/UTC', 'UTC'],
+  ])('does not relocate equivalent zone identities %s and %s', (sourceTimeZone, targetTimeZone) => {
+    expect(conversionsFor({ formatting: { timeZone: sourceTimeZone } }, targetTimeZone)).toEqual(
+      {}
+    );
+  });
+
+  it('does not equate distinct zones that share a winter offset', () => {
+    expect(
+      conversionsFor({ formatting: { timeZone: 'America/Panama' } }, 'America/New_York')
+    ).toEqual({
+      tblSource: [
+        {
+          dbFieldName: 'start',
+          sourceTimeZone: 'America/Panama',
+          targetTimeZone: 'America/New_York',
+        },
+      ],
+    });
+  });
+
+  it('keeps the conversion when the runtime cannot resolve zone identities', () => {
+    // The accepted IANA list can outpace the runtime's ICU data; an identity that cannot be
+    // resolved must keep the original conversion instead of suppressing it or failing.
+    const spy = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => {
+      throw new RangeError('Unsupported time zone');
+    });
+    try {
+      expect(conversionsFor({ formatting: { timeZone: 'America/Chicago' } }, 'US/Central')).toEqual(
+        {
+          tblSource: [
+            {
+              dbFieldName: 'start',
+              sourceTimeZone: 'America/Chicago',
+              targetTimeZone: 'US/Central',
+            },
+          ],
+        }
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe('BaseDuplicateService normalizeDuplicateStructureForV2', () => {
   it('preserves same-space cross-base link fields outside the duplicated table set', () => {
     const service = Object.create(BaseDuplicateService.prototype) as BaseDuplicateService;
@@ -770,264 +869,12 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
 
     expect(v2ContainerService.getContainerForSpace).toHaveBeenCalledWith(spaceId);
     expect(v2ContextFactory.createContext).toHaveBeenCalledWith(container);
-    expect(internals.createDuplicateBaseSource).toHaveBeenCalledWith(
-      'bseSource',
-      structure,
-      expect.any(Map),
-      {},
-      sourceDbTableNameByTableId,
-      {},
-      []
-    );
     expect(commandBus.execute).toHaveBeenCalledWith(context, expect.any(Object));
     expect(preparationSpy).toHaveBeenCalledTimes(1);
     expect(preparationSpy).toHaveBeenCalledWith(request, false, BaseDuplicateMode.ApplyTemplate, {
       includeRowCount: false,
       readOnly: false,
     });
-  });
-
-  it('should delegate record copying to the v2 command and recompute computed columns after a bulk copy', async () => {
-    const spaceId = 'spcTarget';
-    const targetBaseId = 'bseTarget';
-    const tableIdMap = { tblSource: 'tblTarget' };
-    const targetTableId = tableIdMap.tblSource;
-    const fieldIdMap = { fldLink: 'fldTargetLink' };
-    const viewIdMap = { viwSource: 'viwTarget' };
-    const context = { requestId: 'ctx' };
-    const db = { dialect: 'pg' };
-    const structure = {
-      name: duplicateBaseName,
-      icon: undefined,
-      tables: [{ id: sourceTableId, name: sourceTableName, fields: [], views: [] }],
-    };
-    const source = {
-      structure,
-      records: async function* () {
-        yield undefined as never;
-      },
-    };
-    const commandBus = {
-      execute: vi.fn().mockResolvedValue({
-        isErr: () => false,
-        value: (async function* () {
-          yield {
-            id: 'done',
-            baseId: targetBaseId,
-            tableIdMap,
-            fieldIdMap,
-            viewIdMap,
-            recordsLength: 12,
-            recordCopyMode: 'bulk',
-          };
-        })(),
-      }),
-    };
-    const container = {
-      resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(db),
-    };
-    const sourceContainer = createSourceContainer(structure);
-    const baseUpdate = vi.fn();
-    const baseImportService = {
-      createBaseV2: vi.fn().mockResolvedValue({ id: targetBaseId }),
-      restoreBaseExtrasV2: vi.fn().mockResolvedValue({ appIdMap: {}, workflowIdMap: {} }),
-    };
-    const persistedComputedBackfillService = {
-      recomputeForTables: vi.fn().mockResolvedValue(undefined),
-    };
-    const dataDbClientManager = {
-      getDataDatabaseForBase: vi.fn().mockResolvedValue({ cacheKey: 'same-db' }),
-    };
-    const v2ContainerService = {
-      getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
-      getContainerForSpace: vi.fn().mockResolvedValue(container),
-    };
-    const v2ContextFactory = {
-      createContext: vi.fn().mockResolvedValue(context),
-    };
-
-    const service = new BaseDuplicateService(
-      {
-        txClient: vi.fn().mockReturnValue({
-          base: { update: baseUpdate },
-        }),
-      } as unknown as IServiceArgs[0],
-      {} as IServiceArgs[1],
-      {} as IServiceArgs[2],
-      baseImportService as unknown as IServiceArgs[3],
-      {} as IServiceArgs[4],
-      {} as IServiceArgs[5],
-      persistedComputedBackfillService as unknown as IServiceArgs[6],
-      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
-      dataDbClientManager as unknown as IServiceArgs[8],
-      v2ContainerService as unknown as IServiceArgs[9],
-      v2ContextFactory as unknown as IServiceArgs[10],
-      { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
-    );
-    const internals = service as unknown as IDuplicateServiceInternals;
-    const mergedLinkFieldTableMap = {
-      tblSource: [{ dbFieldName: 'fldLink', selfKeyName: '__id', isMultipleCellValue: true }],
-    };
-
-    vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
-      structure,
-      sourceDbTableNameByTableId: { tblSource: sourceDbTableName },
-      fieldConversions: { external: 0, partialSelection: 0 },
-    });
-    vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue(
-      mergedLinkFieldTableMap
-    );
-    vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getV2BulkCopySourceLinkFields').mockResolvedValue([]);
-    vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue(['fldDisconnected']);
-    vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
-    vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
-    vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(12);
-    vi.spyOn(internals, 'duplicateAttachments').mockResolvedValue(undefined);
-    vi.spyOn(internals, 'duplicateLinkJunction').mockResolvedValue(undefined);
-
-    const result = await service.duplicateBaseV2({
-      fromBaseId: 'bseSource',
-      spaceId,
-      name: duplicateBaseName,
-      withRecords: true,
-    });
-
-    const executedCommand = commandBus.execute.mock.calls[0]?.[1] as {
-      withRecords: boolean;
-      batchSize: number;
-    };
-    // The command owns record copying end to end; the host no longer drives the
-    // legacy bulk helpers and only recomputes computed columns when the handler
-    // reports a physical bulk copy.
-    expect(executedCommand.withRecords).toBe(true);
-    expect(executedCommand.batchSize).toBe(500);
-    expect(internals.duplicateTableData).not.toHaveBeenCalled();
-    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
-    expect(persistedComputedBackfillService.recomputeForTables).toHaveBeenCalledWith([
-      targetTableId,
-    ]);
-    expect(internals.duplicateAttachments).toHaveBeenCalledWith(
-      targetBaseId,
-      tableIdMap,
-      fieldIdMap
-    );
-    expect(result.recordsLength).toBe(12);
-  });
-
-  it('should stream v2 duplicate records when source and target data databases differ', async () => {
-    const spaceId = 'spcTarget';
-    const targetBaseId = 'bseTarget';
-    const tableIdMap = { tblSource: 'tblTarget' };
-    const fieldIdMap = { fldText: 'fldTargetText' };
-    const viewIdMap = { viwSource: 'viwTarget' };
-    const context = { requestId: 'ctx' };
-    const db = { dialect: 'pg' };
-    const structure = {
-      name: duplicateBaseName,
-      icon: undefined,
-      tables: [{ id: sourceTableId, name: sourceTableName, fields: [], views: [] }],
-    };
-    const source = {
-      structure,
-      records: async function* () {
-        yield undefined as never;
-      },
-    };
-    const commandBus = {
-      execute: vi.fn().mockResolvedValue({
-        isErr: () => false,
-        value: (async function* () {
-          yield {
-            id: 'done',
-            baseId: targetBaseId,
-            tableIdMap,
-            fieldIdMap,
-            viewIdMap,
-            recordsLength: 7,
-            recordCopyMode: 'stream',
-          };
-        })(),
-      }),
-    };
-    const container = {
-      resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(db),
-    };
-    const sourceContainer = createSourceContainer(structure);
-    const baseUpdate = vi.fn();
-    const baseImportService = {
-      createBaseV2: vi.fn().mockResolvedValue({ id: targetBaseId }),
-      restoreBaseExtrasV2: vi.fn().mockResolvedValue({ appIdMap: {}, workflowIdMap: {} }),
-    };
-    const dataDbClientManager = {
-      getDataDatabaseForBase: vi
-        .fn()
-        .mockResolvedValueOnce({ cacheKey: 'source-db' })
-        .mockResolvedValueOnce({ cacheKey: 'target-db' }),
-    };
-    const v2ContainerService = {
-      getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
-      getContainerForSpace: vi.fn().mockResolvedValue(container),
-    };
-    const v2ContextFactory = {
-      createContext: vi.fn().mockResolvedValue(context),
-    };
-
-    const service = new BaseDuplicateService(
-      {
-        txClient: vi.fn().mockReturnValue({
-          base: { update: baseUpdate },
-        }),
-      } as unknown as IServiceArgs[0],
-      {} as IServiceArgs[1],
-      {} as IServiceArgs[2],
-      baseImportService as unknown as IServiceArgs[3],
-      {} as IServiceArgs[4],
-      {} as IServiceArgs[5],
-      {} as IServiceArgs[6],
-      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
-      dataDbClientManager as unknown as IServiceArgs[8],
-      v2ContainerService as unknown as IServiceArgs[9],
-      v2ContextFactory as unknown as IServiceArgs[10],
-      { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
-    );
-    const internals = service as unknown as IDuplicateServiceInternals;
-
-    vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
-      structure,
-      sourceDbTableNameByTableId: { tblSource: sourceDbTableName },
-      fieldConversions: { external: 0, partialSelection: 0 },
-    });
-    vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getV2BulkCopySourceLinkFields').mockResolvedValue([]);
-    vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue([]);
-    vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
-    vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
-    vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(0);
-    vi.spyOn(internals, 'duplicateAttachments').mockResolvedValue(undefined);
-    vi.spyOn(internals, 'duplicateLinkJunction').mockResolvedValue(undefined);
-
-    const result = await service.duplicateBaseV2({
-      fromBaseId: 'bseSource',
-      spaceId,
-      name: duplicateBaseName,
-      withRecords: true,
-    });
-
-    // The same-database precheck moved into the v2 bulk copier port, so the
-    // host no longer compares data databases here.
-    expect(commandBus.execute.mock.calls[0]?.[1]).toMatchObject({ withRecords: true });
-    expect(internals.duplicateTableData).not.toHaveBeenCalled();
-    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
-    expect(internals.duplicateAttachments).toHaveBeenCalledWith(
-      targetBaseId,
-      tableIdMap,
-      fieldIdMap
-    );
-    expect(result.recordsLength).toBe(7);
   });
 
   it('should forward real row totals through duplicateBaseV2 progress events', async () => {

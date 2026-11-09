@@ -3,7 +3,10 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
+import { composeAndSpecs } from '../../domain/shared/specification/composeAndSpecs';
+import { LinkField } from '../../domain/table/fields/types/LinkField';
 import type { LinkForeignTableReference } from '../../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import { UpdateLinkConfigSpec } from '../../domain/table/specs/field-updates/UpdateLinkConfigSpec';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
@@ -279,6 +282,8 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
         allowMissing: operation.type === 'table.update',
       });
 
+      yield* await handler.normalizeForeignHostLinkConfigs(context, tables, foreignTables);
+
       yield* await handler.unitOfWork.withTransaction(
         context,
         async (dataContext) =>
@@ -404,6 +409,63 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
       refs.push(...tableRefs.value);
     }
     return ok(uniqueForeignTableReferences(refs));
+  }
+
+  private async normalizeForeignHostLinkConfigs(
+    context: IExecutionContext,
+    tables: ReadonlyArray<Table>,
+    foreignTables: ReadonlyArray<Table>
+  ): Promise<Result<void, DomainError>> {
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    return safeTry<void, DomainError>(async function* () {
+      const tablesById = new Map(
+        [...foreignTables, ...tables].map((table) => [table.id().toString(), table] as const)
+      );
+      const updates = new Map<Table, UpdateLinkConfigSpec[]>();
+      for (const table of tables) {
+        for (const field of table.getFields()) {
+          if (
+            !(field instanceof LinkField) ||
+            field.relationship().toString() !== 'oneMany' ||
+            field.isOneWay()
+          ) {
+            continue;
+          }
+          const foreignTable = tablesById.get(field.foreignTableId().toString());
+          if (!foreignTable) continue;
+          const previousConfig = field.config();
+          yield* field.ensureDbConfig({
+            baseId: table.baseId(),
+            hostTableId: table.id(),
+            foreignTableDbTableName: yield* foreignTable.dbTableName(),
+          });
+          if (field.config() === previousConfig) continue;
+          const specs = updates.get(table) ?? [];
+          specs.push(UpdateLinkConfigSpec.create(field.id(), previousConfig, field.config()));
+          updates.set(table, specs);
+        }
+      }
+      if (updates.size === 0) return ok(undefined);
+
+      // Persist the corrected host as well as using it for DDL: record queries
+      // and the reciprocal field must use the same physical relation after repair.
+      yield* await service.unitOfWork.withTransaction(
+        context,
+        async (metaContext) =>
+          safeTry<void, DomainError>(async function* () {
+            for (const [table, specs] of updates) {
+              yield* await service.tableRepository.updateOne(
+                metaContext,
+                table,
+                yield* composeAndSpecs(specs)
+              );
+            }
+            return ok(undefined);
+          }),
+        { scope: 'meta' }
+      );
+      return ok(undefined);
+    });
   }
 
   private async replayFieldCreationSideEffects(

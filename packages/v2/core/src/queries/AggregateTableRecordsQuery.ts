@@ -10,6 +10,7 @@ import type {
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import { sortCollationSchema, type ViewSortItem } from '../domain/table/views/ViewSort';
 import type { RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
 import type { IRecordSearchAccessPath } from '../ports/TableRecordQueryRepository';
 import { countTableRecordsInputSchema } from './CountTableRecordsQuery';
@@ -26,6 +27,10 @@ const aggregationGroupSchema = z.object({
   order: z.enum(['asc', 'desc']),
 });
 
+const aggregationOrderSchema = aggregationGroupSchema.extend({
+  collation: sortCollationSchema.optional(),
+});
+
 export const aggregateTableRecordsInputSchema = z
   .object({
     tableId: z.string(),
@@ -34,7 +39,7 @@ export const aggregateTableRecordsInputSchema = z
     search: recordSearchInputSchema,
     fields: z.array(aggregationFieldSchema).optional(),
     groupBy: z.array(aggregationGroupSchema).optional(),
-    orderBy: z.array(aggregationGroupSchema).optional(),
+    orderBy: z.array(aggregationOrderSchema).optional(),
     skip: z.number().int().min(0).optional(),
     take: z.number().int().min(1).optional(),
     ignoreViewQuery: z.boolean().optional(),
@@ -78,7 +83,7 @@ export class AggregateTableRecordsQuery {
     readonly search: RecordSearchInput | undefined,
     readonly fields: ReadonlyArray<TableRecordAggregationFieldInput> | undefined,
     readonly groupBy: ReadonlyArray<TableRecordAggregationGroupInput> | undefined,
-    readonly orderBy: ReadonlyArray<TableRecordAggregationGroupInput> | undefined,
+    readonly orderBy: ReadonlyArray<ViewSortItem> | undefined,
     readonly skip: number | undefined,
     readonly take: number | undefined,
     readonly ignoreViewQuery: boolean,

@@ -68,6 +68,11 @@ class RecordingDriver {
     failWithSqlState: null,
   };
 
+  statementFailureProbe: {
+    matches: (sql: string) => boolean;
+    error: Error;
+  } | null = null;
+
   /**
    * Test probe (T7323): records the `statement_timeout` in force for every
    * statement, so a test can assert that a budget reached a whole read path
@@ -84,6 +89,10 @@ class RecordingDriver {
   }
 
   private async beforeStatement(sql: string): Promise<void> {
+    const failureProbe = this.statementFailureProbe;
+    if (failureProbe?.matches(sql)) {
+      throw failureProbe.error;
+    }
     const isCount = /count\(\*\)/i.test(sql);
     if (isCount && this.countProbe.failWithSqlState) {
       const error = new Error('canceling statement due to statement timeout');
@@ -452,6 +461,7 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
   });
 
   afterEach(async () => {
+    driver.statementFailureProbe = null;
     for (const schemaName of createdSchemas) {
       await sql`DROP SCHEMA IF EXISTS ${sql.id(schemaName)} CASCADE`.execute(db);
     }
@@ -976,6 +986,281 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
 
     expect(unmasked._unsafeUnwrap()).toBe(2);
     expect(masked._unsafeUnwrap()).toBe(1);
+  });
+
+  it('prefilters cell match counting through the generated search document only with complete coverage', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cell-match-prefilter',
+      rows: [
+        { name: '100', age: 100 },
+        { name: 'no match', age: 20 },
+      ],
+    });
+    const search = {
+      search: RecordSearch.fromTuple(['100', '', true]),
+      visibleFieldIds: [fixture.nameFieldId, fixture.ageFieldId],
+    };
+    const accessPath = (coveredFieldIds: FieldId[]): IRecordSearchAccessPath => ({
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_trgm',
+      searchScope: 'selected_fields',
+      coveredFieldIds,
+    });
+
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (
+        lower(coalesce(col_name, '') || ' ' || coalesce(col_age::text, ''))
+      ) STORED
+    `.execute(db);
+
+    driver.queries.length = 0;
+    const covered = await fixture.repository.countSearchMatches(
+      fixture.context,
+      fixture.table,
+      undefined,
+      {
+        mode: 'stored',
+        search,
+        searchAccessPath: accessPath([fixture.nameFieldId, fixture.ageFieldId]),
+      }
+    );
+
+    expect(covered._unsafeUnwrap()).toBe(2);
+    const coveredSql = driver.queries.at(-1)?.sql.toLowerCase() ?? '';
+    expect(coveredSql).toContain('"t"."__tqops_search_document" like lower(');
+    expect(coveredSql).toContain('ilike');
+
+    driver.queries.length = 0;
+    const partial = await fixture.repository.countSearchMatches(
+      fixture.context,
+      fixture.table,
+      undefined,
+      {
+        mode: 'stored',
+        search,
+        searchAccessPath: accessPath([fixture.nameFieldId]),
+      }
+    );
+
+    expect(partial._unsafeUnwrap()).toBe(2);
+    expect(driver.queries.at(-1)?.sql.toLowerCase() ?? '').not.toContain('__tqops_search_document');
+
+    driver.queries.length = 0;
+    const masked = await fixture.repository.countSearchMatches(
+      fixture.context,
+      fixture.table,
+      undefined,
+      {
+        mode: 'stored',
+        search,
+        searchAccessPath: accessPath([fixture.nameFieldId, fixture.ageFieldId]),
+        fieldMasks: [
+          {
+            fieldId: fixture.ageFieldId.toString(),
+            visibleWhen: RecordByIdsSpec.create([]),
+          },
+        ],
+      }
+    );
+
+    expect(masked._unsafeUnwrap()).toBe(1);
+    expect(driver.queries.at(-1)?.sql.toLowerCase() ?? '').toContain(
+      '"t"."__tqops_search_document" like lower('
+    );
+  });
+
+  it('keeps counting cells beyond the twentieth searched field and skips hidden ones', async () => {
+    const seed = 'cell-match-wide';
+    const baseId = BaseId.create(createId('bse', seed))._unsafeUnwrap();
+    const tableId = TableId.create(createId('tbl', seed))._unsafeUnwrap();
+    const fieldIds = Array.from({ length: 21 }, (_, index) =>
+      FieldId.create(createId('fld', `w${index}-${seed}`))._unsafeUnwrap()
+    );
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Wide search table')._unsafeUnwrap());
+    fieldIds.forEach((fieldId, index) => {
+      const fieldBuilder = builder
+        .field()
+        .singleLineText()
+        .withId(fieldId)
+        .withName(FieldName.create(`F${index}`)._unsafeUnwrap());
+      if (index === 0) {
+        fieldBuilder.primary();
+      }
+      fieldBuilder.done();
+    });
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    fieldIds.forEach((fieldId, index) => {
+      table
+        .getField((field) => field.id().equals(fieldId))
+        ._unsafeUnwrap()
+        .setDbFieldName(DbFieldName.rehydrate(`col_f${index}`)._unsafeUnwrap())
+        ._unsafeUnwrap();
+    });
+
+    const schemaName = baseId.toString();
+    const tableName = tableId.toString();
+    const fullTableName = `${schemaName}.${tableName}`;
+    createdSchemas.push(schemaName);
+    await sql`CREATE SCHEMA ${sql.id(schemaName)}`.execute(db);
+    const columnDefinitions = sql.join(
+      fieldIds.map((_, index) => sql`${sql.id(`col_f${index}`)} text`),
+      sql`, `
+    );
+    await sql`
+      CREATE TABLE ${sql.table(fullTableName)} (
+        __id text PRIMARY KEY,
+        __version integer NOT NULL,
+        __auto_number integer,
+        __created_time timestamptz,
+        __created_by text,
+        __last_modified_time timestamptz,
+        __last_modified_by text,
+        ${columnDefinitions}
+      )
+    `.execute(db);
+
+    for (const [index, matchIndex] of [20, -1].entries()) {
+      const values = sql.join(
+        fieldIds.map(
+          (_, fieldIndex) => sql`${fieldIndex === matchIndex ? 'needle' : `cell-${fieldIndex}`}`
+        ),
+        sql`, `
+      );
+      const columns = sql.join(
+        fieldIds.map((_, fieldIndex) => sql`${sql.id(`col_f${fieldIndex}`)}`),
+        sql`, `
+      );
+      await sql`
+        INSERT INTO ${sql.table(fullTableName)}
+          (__id, __version, __auto_number, __created_time, __created_by, __last_modified_time, __last_modified_by, ${columns})
+        VALUES (${createId('rec', `${index}-${seed}`)}, 1, ${index + 1},
+          ${'2025-01-01T00:00:00.000Z'}, ${'usr_creator'},
+          ${'2025-01-02T00:00:00.000Z'}, ${'usr_modifier'}, ${values})
+      `.execute(db);
+    }
+
+    const documentParts = sql.join(
+      fieldIds.map((_, index) => sql`coalesce(${sql.id(`col_f${index}`)}, '')`),
+      sql` || ' ' || `
+    );
+    await sql`
+      ALTER TABLE ${sql.table(fullTableName)}
+      ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (lower(${documentParts})) STORED
+    `.execute(db);
+
+    const manager = new TableRecordQueryBuilderManager(
+      db,
+      {} as unknown as ITableRepository,
+      new Pg16TypeValidationStrategy()
+    );
+    const repository = new PostgresTableRecordQueryRepository(manager, db, createLogger());
+    const context = { actorId: ActorId.create('tester')._unsafeUnwrap() };
+    const accessPath: IRecordSearchAccessPath = {
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_trgm',
+      searchScope: 'selected_fields',
+      coveredFieldIds: fieldIds,
+    };
+    const searchWith = (visibleFieldIds: FieldId[]) => ({
+      search: RecordSearch.fromTuple(['needle', '', true]),
+      visibleFieldIds,
+    });
+
+    driver.queries.length = 0;
+    const allFields = await repository.countSearchMatches(context, table, undefined, {
+      mode: 'stored',
+      search: searchWith(fieldIds),
+      searchAccessPath: accessPath,
+    });
+
+    expect(allFields._unsafeUnwrap()).toBe(1);
+    const allFieldsSql = driver.queries.at(-1)?.sql.toLowerCase() ?? '';
+    expect(allFieldsSql).toContain('"t"."__tqops_search_document" like lower(');
+    expect(allFieldsSql).toContain('"t"."col_f20"');
+
+    driver.queries.length = 0;
+    const hidden = await repository.countSearchMatches(context, table, undefined, {
+      mode: 'stored',
+      search: searchWith(fieldIds.slice(0, 20)),
+      searchAccessPath: accessPath,
+    });
+
+    expect(hidden._unsafeUnwrap()).toBe(0);
+    expect(driver.queries.at(-1)?.sql.toLowerCase() ?? '').not.toContain('"t"."col_f20"');
+  });
+
+  it('drops the cell count prefilter once too many rows match the document', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'cell-match-selectivity',
+      rows: [{ name: 'rare-token', age: 1 }],
+    });
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (
+        lower(coalesce(col_name, '') || ' ' || coalesce(col_age::text, ''))
+      ) STORED
+    `.execute(db);
+    // 2_401 matching rows exceed the 2_000-candidate cap, so the document recheck
+    // would read more than the plain scan on a wide table.
+    await sql`
+      INSERT INTO ${sql.table(fixture.fullTableName)} (
+        __id, __version, __auto_number, __created_time, __created_by,
+        __last_modified_time, __last_modified_by, col_name, col_age
+      )
+      SELECT 'recbulk' || g, 1, 100 + g, now(), 'usr_creator', now(), 'usr_modifier',
+        'common', g
+      FROM generate_series(1, 2_400) AS g
+    `.execute(db);
+    const accessPath: IRecordSearchAccessPath = {
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_trgm',
+      searchScope: 'selected_fields',
+      coveredFieldIds: [fixture.nameFieldId, fixture.ageFieldId],
+    };
+    const searchAll = (value: string) => ({
+      search: RecordSearch.fromTuple([value, '', true]),
+      visibleFieldIds: [fixture.nameFieldId, fixture.ageFieldId],
+    });
+
+    driver.queries.length = 0;
+    const commonWord = await fixture.repository.countSearchMatches(
+      fixture.context,
+      fixture.table,
+      undefined,
+      { mode: 'stored', search: searchAll('common'), searchAccessPath: accessPath }
+    );
+
+    expect(commonWord._unsafeUnwrap()).toBe(2_400);
+    expect(driver.queries).toHaveLength(2);
+    expect(driver.queries[0]?.sql.toLowerCase() ?? '').toContain('limit');
+    expect(driver.queries.at(-1)?.sql.toLowerCase() ?? '').not.toContain('__tqops_search_document');
+
+    driver.queries.length = 0;
+    const rareWord = await fixture.repository.countSearchMatches(
+      fixture.context,
+      fixture.table,
+      undefined,
+      { mode: 'stored', search: searchAll('rare-token'), searchAccessPath: accessPath }
+    );
+
+    expect(rareWord._unsafeUnwrap()).toBe(1);
+    expect(driver.queries).toHaveLength(2);
+    expect(driver.queries.at(-1)?.sql.toLowerCase() ?? '').toContain(
+      '"t"."__tqops_search_document" like lower('
+    );
   });
 
   it('orders by auto_number once when the view row column is missing', async () => {
@@ -2141,6 +2426,60 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     expect(linkOrdered.recordIndex).toBe(2);
   });
 
+  it('maps only a missing pinyin collation while locating a record index', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'record-index-missing-collation',
+      rows: [{ name: '张三', age: 10 }],
+    });
+    const options = {
+      mode: 'stored' as const,
+      recordIndexId: fixture.insertedRecordIds[0],
+      orderBy: [
+        {
+          fieldId: fixture.nameFieldId,
+          direction: 'asc' as const,
+          collation: 'zh-pinyin' as const,
+        },
+      ],
+    };
+    const failIndexQueryWith = (error: Error) => {
+      driver.statementFailureProbe = {
+        matches: (statement) =>
+          /row_number\(\) over \(\)/i.test(statement) && /collate\s+"zh-x-icu"/i.test(statement),
+        error,
+      };
+    };
+
+    failIndexQueryWith(
+      Object.assign(new Error('collation "zh-x-icu" for encoding "UTF8" does not exist'), {
+        code: '42704',
+      })
+    );
+    const missingCollation = await fixture.repository.find(
+      fixture.context,
+      fixture.table,
+      undefined,
+      options
+    );
+
+    expect(missingCollation.isErr()).toBe(true);
+    if (missingCollation.isOk()) return;
+    expect(missingCollation.error.code).toBe('db.missing_collation');
+    expect((missingCollation.error.details as { pgCode?: string } | undefined)?.pgCode).toBe(
+      '42704'
+    );
+
+    const unrelatedFailure = Object.assign(new Error('forced index query failure'), {
+      code: 'XX000',
+    });
+    failIndexQueryWith(unrelatedFailure);
+    await expect(
+      fixture.repository.find(fixture.context, fixture.table, undefined, options)
+    ).rejects.toBe(unrelatedFailure);
+  });
+
   it('projects matched fields with search-result row numbering', async () => {
     const fixture = await setupRepositoryFixture({
       db,
@@ -2507,6 +2846,27 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     expect(unsupported.isErr()).toBe(true);
     expect(unsupported.isErr() && unsupported.error.code).toBe('validation.invalid');
     expect(unsupported.isErr() && unsupported.error.message).toContain(
+      'Cursor pagination supports stored scalar order keys'
+    );
+
+    // A raw-column token from the default collation must never resume an ICU
+    // expression order. Pinyin pages deliberately stay on offset pagination.
+    const pinyinReuse = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      orderBy: [
+        {
+          fieldId: fixture.nameFieldId,
+          direction: 'asc',
+          collation: 'zh-pinyin',
+        },
+        { column: '__auto_number', direction: 'asc' },
+      ],
+      cursor,
+      pagination: pageSize,
+    });
+    expect(pinyinReuse.isErr()).toBe(true);
+    expect(pinyinReuse.isErr() && pinyinReuse.error.message).toContain(
       'Cursor pagination supports stored scalar order keys'
     );
   });

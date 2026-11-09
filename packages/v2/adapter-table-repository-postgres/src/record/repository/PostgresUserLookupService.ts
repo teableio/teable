@@ -2,6 +2,7 @@ import {
   domainError,
   type DomainError,
   type IUserLookupService,
+  type UserIdentityPair,
   type UserLookupRecord,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
@@ -13,6 +14,15 @@ import type { Result } from 'neverthrow';
 
 import { buildUserAvatarUrl } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
+import {
+  buildTableUserScopeSql,
+  hasTableUserDepartmentRelations,
+} from '../query-builder/tableUserScopeSql';
+
+// Each identifier is bound three times (id / email / name), while tableId is
+// bound twice. Keep each query comfortably below PostgreSQL's 65,535 bind
+// parameter limit and leave room for the query to evolve.
+const TABLE_USER_IDENTIFIER_BATCH_SIZE = 10_000;
 
 @injectable()
 export class PostgresUserLookupService implements IUserLookupService {
@@ -33,58 +43,91 @@ export class PostgresUserLookupService implements IUserLookupService {
     }
 
     try {
-      // Single pushed-down query mirroring v1 typecast semantics: only
-      // collaborators of the table's base or space are eligible, matched by
-      // id / email / name (v1 matchUser ignores phone, so it is not matched
-      // here either). The collaborator join keeps the users scan bounded to
-      // a small principal set instead of the whole users table.
-      // In enterprise deployments collaborators can also be departments
-      // (including ancestors via the department path), expanded to member
-      // users — same shape as the EE v1 getUserCollaboratorsBuilder.
-      const identifierList = sql.join(unique.map((value) => sql`${value}`));
-      const departmentBranch = (await this.detectOrgDepartmentTables())
-        ? sql`
-            union
-            select oud.user_id
-            from collaborator c
-            join organization_department od
-              on c.principal_id = od.id
-              or od.path @> jsonb_build_array(c.principal_id)
-            join organization_user_department oud on od.id = oud.department_id
-            where c.resource_id in (select resource_id from scope_ids)
-              and c.principal_type = 'department'
-          `
-        : sql``;
+      // The same user can match different identifiers in different batches;
+      // collect ids so batching does not introduce duplicate results.
+      const matchedUserIds = new Set<string>();
+      const scopeCte = buildTableUserScopeSql(tableId, await this.detectOrgDepartmentTables());
 
-      const query = sql<{ id: string; name: string; email: string | null }>`
-        with scope_ids as (
-          select tm.base_id as resource_id from table_meta tm where tm.id = ${tableId}
-          union
-          select b.space_id
-          from table_meta tm
-          join base b on b.id = tm.base_id
-          where tm.id = ${tableId}
-        ),
-        eligible_users as (
-          select c.principal_id as user_id
-          from collaborator c
-          where c.resource_id in (select resource_id from scope_ids)
-            and c.principal_type = 'user'
-          ${departmentBranch}
-        )
+      for (let offset = 0; offset < unique.length; offset += TABLE_USER_IDENTIFIER_BATCH_SIZE) {
+        const batch = unique.slice(offset, offset + TABLE_USER_IDENTIFIER_BATCH_SIZE);
+        const identifierList = sql.join(batch.map((value) => sql`${value}`));
+
+        // Pushed-down query mirroring v1 typecast semantics: only collaborators
+        // of the table's base or space are eligible, matched by id / email /
+        // name (v1 matchUser ignores phone, so it is not matched here either).
+        // The collaborator join keeps the users scan bounded to a small
+        // principal set instead of the whole users table. In enterprise
+        // deployments collaborators can also be departments (including
+        // ancestors via the department path), expanded to member users — same
+        // shape as the EE v1 getUserCollaboratorsBuilder.
+        const query = sql<{ id: string }>`
+          with ${scopeCte}
+          select distinct u.id
+          from users u
+          join eligible_users e on e.user_id = u.id
+          where u.deleted_time is null
+            and (
+              u.id in (${identifierList})
+              or u.email in (${identifierList})
+              or u.name in (${identifierList})
+            )
+          order by u.id
+        `;
+
+        const { rows } = await query.execute(this.db);
+        for (const row of rows) {
+          matchedUserIds.add(row.id);
+        }
+      }
+
+      if (matchedUserIds.size === 0) {
+        return ok([]);
+      }
+
+      // The final read re-checks eligibility in the same statement that returns
+      // the profile, and lets PostgreSQL perform the cross-batch ordering
+      // (JavaScript string comparison does not necessarily match the database
+      // collation).
+      const { rows } = await sql<{ id: string; name: string; email: string | null }>`
+        with ${scopeCte}
         select distinct u.id, u.name, u.email
         from users u
         join eligible_users e on e.user_id = u.id
         where u.deleted_time is null
-          and (
-            u.id in (${identifierList})
-            or u.email in (${identifierList})
-            or u.name in (${identifierList})
-          )
-      `;
-
-      const { rows } = await query.execute(this.db);
+          and u.id = any(${sql.val([...matchedUserIds])}::text[])
+        order by u.id
+      `.execute(this.db);
       return ok(rows.map((row) => this.toRecord(row)));
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: 'Failed to lookup users',
+          details: { error: (error as Error)?.message ?? String(error) },
+        })
+      );
+    }
+  }
+
+  async listUsersByIdentityPairs(
+    pairs: ReadonlyArray<UserIdentityPair>
+  ): Promise<Result<ReadonlyArray<UserLookupRecord>, DomainError>> {
+    if (pairs.length === 0) return ok([]);
+    try {
+      const users = new Map<string, UserLookupRecord>();
+      for (let offset = 0; offset < pairs.length; offset += TABLE_USER_IDENTIFIER_BATCH_SIZE) {
+        const batch = pairs.slice(offset, offset + TABLE_USER_IDENTIFIER_BATCH_SIZE);
+        const values = sql.join(batch.map(({ id, email }) => sql`(${id}, ${email})`));
+        const { rows } = await sql<{ id: string; name: string; email: string | null }>`
+          SELECT DISTINCT u.id, u.name, u.email
+          FROM users u
+          JOIN (VALUES ${values}) AS input(id, email)
+            ON u.id COLLATE "C" = input.id COLLATE "C"
+            AND u.email COLLATE "C" = input.email COLLATE "C"
+          WHERE u.deleted_time IS NULL
+        `.execute(this.db);
+        for (const row of rows) users.set(row.id, this.toRecord(row));
+      }
+      return ok([...users.values()]);
     } catch (error) {
       return err(
         domainError.infrastructure({
@@ -97,12 +140,7 @@ export class PostgresUserLookupService implements IUserLookupService {
 
   private async detectOrgDepartmentTables(): Promise<boolean> {
     if (this.hasOrgDepartmentTables === undefined) {
-      const { rows } = await sql<{ dept: string | null; membership: string | null }>`
-        select
-          to_regclass('organization_department') as dept,
-          to_regclass('organization_user_department') as membership
-      `.execute(this.db);
-      this.hasOrgDepartmentTables = Boolean(rows[0]?.dept && rows[0]?.membership);
+      this.hasOrgDepartmentTables = await hasTableUserDepartmentRelations(this.db);
     }
     return this.hasOrgDepartmentTables;
   }

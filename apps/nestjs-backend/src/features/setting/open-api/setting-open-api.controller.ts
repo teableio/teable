@@ -42,6 +42,10 @@ import {
 } from '@teable/openapi';
 import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import { IMailConfig, MailConfig } from '../../../configs/mail.config';
+import {
+  findInsecureSecrets,
+  isSecretAdminToolsEnabled,
+} from '../../../configs/secrets/secrets-policy';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
 import { resolveBuildVersion } from '../../../utils/build-version';
@@ -50,6 +54,7 @@ import { AiService } from '../../ai/ai.service';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import { TurnstileService } from '../../auth/turnstile/turnstile.service';
+import { maskSettingsSecrets } from '../setting-secrets';
 import { SettingOpenApiService } from './setting-open-api.service';
 
 @Controller('api/admin/setting')
@@ -90,7 +95,11 @@ export class SettingOpenApiController {
   async getSetting(): Promise<ISettingVo> {
     const setting = await this.settingOpenApiService.getSetting();
     const aiChatTierCreditRatio = this.aiService.getAdminChatTierCreditRatio(setting.aiConfig);
-    return aiChatTierCreditRatio ? { ...setting, aiChatTierCreditRatio } : setting;
+    return maskSettingsSecrets({
+      ...setting,
+      ...(aiChatTierCreditRatio ? { aiChatTierCreditRatio } : {}),
+      ...(isSecretAdminToolsEnabled() ? { insecureSecrets: findInsecureSecrets() } : {}),
+    });
   }
 
   /**
@@ -120,7 +129,7 @@ export class SettingOpenApiController {
     @Body(new ZodValidationPipe(updateSettingRoSchema))
     updateSettingRo: IUpdateSettingRo
   ): Promise<ISettingVo> {
-    return await this.settingOpenApiService.updateSetting(updateSettingRo);
+    return maskSettingsSecrets(await this.settingOpenApiService.updateSetting(updateSettingRo));
   }
 
   @Patch('ai-config')
@@ -129,7 +138,7 @@ export class SettingOpenApiController {
     @Body(new ZodValidationPipe(updateAiConfigRoSchema))
     updateAiConfigRo: IUpdateAiConfigRo
   ): Promise<IUpdateAiConfigVo> {
-    return await this.settingOpenApiService.updateAiConfig(updateAiConfigRo);
+    return maskSettingsSecrets(await this.settingOpenApiService.updateAiConfig(updateAiConfigRo));
   }
 
   @Patch('app-config')
@@ -138,7 +147,7 @@ export class SettingOpenApiController {
     @Body(new ZodValidationPipe(updateAppConfigRoSchema))
     updateAppConfigRo: IUpdateAppConfigRo
   ): Promise<IUpdateAppConfigVo> {
-    return await this.settingOpenApiService.updateAppConfig(updateAppConfigRo);
+    return maskSettingsSecrets(await this.settingOpenApiService.updateAppConfig(updateAppConfigRo));
   }
 
   @UseInterceptors(
@@ -169,7 +178,14 @@ export class SettingOpenApiController {
   async testLLM(
     @Body(new ZodValidationPipe(testLLMRoSchema)) testLLMRo: ITestLLMRo
   ): Promise<ITestLLMVo> {
-    return await this.settingOpenApiService.testLLM(testLLMRo, { asInstanceAdmin: true });
+    const apiKey = await this.settingOpenApiService.unmaskSecret(
+      [SettingKey.AI_CONFIG],
+      testLLMRo.apiKey
+    );
+    return await this.settingOpenApiService.testLLM(
+      { ...testLLMRo, apiKey },
+      { asInstanceAdmin: true }
+    );
   }
 
   @Permissions('instance|update')

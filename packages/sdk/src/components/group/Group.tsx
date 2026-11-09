@@ -1,10 +1,15 @@
 import type { IGroup } from '@teable/core';
 import { LayoutList } from '@teable/icons';
+import { sonner } from '@teable/ui-lib';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
+import { useView } from '../../hooks';
+import { findPinyinSortGroupConflict } from '../../utils/sort';
 import { AdaptivePanel, useIsDrawerPanel } from '../adaptive-panel';
 import { ReadOnlyTip } from '../ReadOnlyTip';
 import { SortContent } from '../sort/SortContent';
+
+const { toast } = sonner;
 
 const GROUP_LIMIT = 3;
 
@@ -19,6 +24,7 @@ interface IGroupProps {
 export const Group = (props: IGroupProps) => {
   const { children, onChange, group, responsive } = props;
   const { t, tPlural } = useTranslation();
+  const view = useView();
   const [isOpen, setIsOpen] = useState(false);
   const isDrawer = useIsDrawerPanel(responsive);
 
@@ -34,7 +40,12 @@ export const Group = (props: IGroupProps) => {
   }, [groupLength, t, tPlural]);
 
   const onChangeInner = (group?: IGroup | null) => {
-    onChange?.(group?.length ? group : null);
+    const nextGroup = group?.length ? group : null;
+    if (findPinyinSortGroupConflict(view?.sort, nextGroup)) {
+      toast.warning(t('group.pinyinSortConflict'));
+      return;
+    }
+    onChange?.(nextGroup);
   };
 
   const hasGroups = Boolean(groupLength);

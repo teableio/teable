@@ -46,6 +46,8 @@ export const mailConfig = registerAs('mail', () => {
         algorithm: 'aes-128-cbc',
         keySpec: SECRET_SPECS.mailEncryptionKey,
         ivSpec: SECRET_SPECS.mailEncryptionIv,
+        // Unsubscribe links already sent never expire.
+        keepLegacyForDecrypt: true,
       }),
       encoding: 'base64' as BufferEncoding,
     },

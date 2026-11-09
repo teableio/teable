@@ -8,6 +8,7 @@ import type { View } from '../views/View';
 import { ViewGroup, viewGroupDtoFromQueryDefaults, type ViewGroupDTO } from '../views/ViewGroup';
 import type { ViewId } from '../views/ViewId';
 import { ViewQueryDefaults } from '../views/ViewQueryDefaults';
+import { validateViewSortCollations } from '../views/validateViewSortCollations';
 
 export type UpdateViewGroupMethodResult = {
   readonly view: View;
@@ -50,6 +51,12 @@ export function updateViewGroup(
     yield* validateGroupFields(table, nextGroup);
 
     const previousQueryDefaults = yield* view.queryDefaults();
+    yield* validateViewSortCollations(
+      table,
+      previousQueryDefaults.sort(),
+      nextGroup ?? undefined,
+      previousQueryDefaults.manualSort()
+    );
     const previousGroup = viewGroupDtoFromQueryDefaults(previousQueryDefaults);
     const { group: _previousGroup, ...preservedDefaults } = previousQueryDefaults.toDto();
     const nextQueryDefaults = yield* ViewQueryDefaults.rehydrate(

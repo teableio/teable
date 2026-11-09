@@ -103,18 +103,26 @@ export class DuplicateRecordHandler implements ICommandHandler<
       // 1. Get the table
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
-      // 2. Fetch source record
-      const sourceRecord = yield* (
-        await handler.tableRecordQueryRepository.findOne(context, table, command.recordId, {
-          mode: 'stored',
-        })
-      ).mapErr((error: DomainError) =>
-        isNotFoundError(error)
-          ? domainError.notFound({ code: 'record.not_found', message: 'Record not found' })
-          : error
-      );
+      // 2. Use the authorized snapshot when provided; otherwise perform the
+      // normal stored read. A snapshot is server-only and must never be a
+      // client-supplied source of values.
+      let sourceFields: ReadonlyMap<string, unknown>;
+      if (command.sourceSnapshot) {
+        sourceFields = command.sourceSnapshot.fields;
+      } else {
+        const sourceRecord = yield* (
+          await handler.tableRecordQueryRepository.findOne(context, table, command.recordId, {
+            mode: 'stored',
+          })
+        ).mapErr((error: DomainError) =>
+          isNotFoundError(error)
+            ? domainError.notFound({ code: 'record.not_found', message: 'Record not found' })
+            : error
+        );
+        sourceFields = new Map(Object.entries(sourceRecord.fields));
+      }
 
-      // 3. Extract non-computed field values from source record
+      // 3. Extract non-computed field values from the authorized source
       const fieldValues = new Map<string, unknown>();
       const fields = table.getFields();
 
@@ -125,7 +133,7 @@ export class DuplicateRecordHandler implements ICommandHandler<
         }
 
         const fieldId = field.id().toString();
-        const value = sourceRecord.fields[fieldId];
+        const value = sourceFields.get(fieldId);
 
         // Only copy non-null/undefined values
         if (value !== null && value !== undefined) {
@@ -178,23 +186,25 @@ export class DuplicateRecordHandler implements ICommandHandler<
       const tableForCreate = sideEffectResult.table;
       const tableUpdateResult = sideEffectResult.updateResult;
 
-      // 5. Create the record (validates and applies field values internally)
-      const createResult = yield* tableForCreate.createRecord(fieldValues, {
+      // These values were loaded from the source record and filtered by the write scope,
+      // not supplied by the caller. Preserve historical identities as batch duplication does.
+      const createResult = yield* tableForCreate.createRecords([fieldValues], {
         typecast: false,
+        valuesAreValidated: true,
         source: { type: 'recordDuplicate' },
       });
 
       // 6. Resolve values that require external lookups (user/link)
-      let record = createResult.record;
-      if (createResult.mutateSpec) {
-        const needsResolution = yield* handler.recordMutationSpecResolver.needsResolution(
-          createResult.mutateSpec
-        );
+      let record = createResult.records[0]!;
+      const mutateSpec = createResult.mutateSpecs[0];
+      if (mutateSpec) {
+        const needsResolution =
+          yield* handler.recordMutationSpecResolver.needsResolution(mutateSpec);
         if (needsResolution) {
           const resolvedSpec = yield* await handler.recordMutationSpecResolver.resolveAndReplace(
             context,
             tableForCreate.id(),
-            createResult.mutateSpec
+            mutateSpec
           );
           record = yield* materializeRecordSpec({
             id: record.id(),

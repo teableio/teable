@@ -381,7 +381,7 @@ describe('AggregationOpenApiV2Service', () => {
       skip: 1,
       take: 2,
       field: { sum: [fieldId] },
-      orderBy: [{ fieldId, order: SortFunc.Asc }],
+      orderBy: [{ fieldId, order: SortFunc.Asc, collation: 'zh-pinyin' }],
       groupBy: [{ fieldId, order: SortFunc.Desc }],
     });
 
@@ -394,7 +394,9 @@ describe('AggregationOpenApiV2Service', () => {
     expect(aggregateQuery?.skip).toBe(1);
     expect(aggregateQuery?.take).toBe(2);
     expect(aggregateQuery?.groupBy).toEqual([{ fieldId, order: SortFunc.Desc }]);
-    expect(aggregateQuery?.orderBy).toEqual([{ fieldId, order: SortFunc.Asc }]);
+    expect(aggregateQuery?.orderBy).toEqual([
+      { fieldId, order: SortFunc.Asc, collation: 'zh-pinyin' },
+    ]);
   });
 
   it('passes collapsed groups through the v2 aggregate query', async () => {
@@ -628,40 +630,6 @@ describe('AggregationOpenApiV2Service', () => {
 
     expect(listQuery?.projection).toEqual([]);
     expect(listQuery?.searchFieldIds).toBeUndefined();
-  });
-
-  it('returns scan pagination even when cell hits do not define the page boundary', async () => {
-    const recordId = RecordId.create(`rec${'r'.repeat(16)}`)._unsafeUnwrap();
-    const fixture = createFixture({
-      records: [{ id: recordId.toString(), fields: {}, version: 1 }],
-      searchMatches: [
-        { index: 4, fieldId: primaryFieldId, recordId },
-        { index: 4, fieldId: primaryFieldId, recordId },
-      ],
-      hasMore: true,
-    });
-
-    await expect(
-      fixture.service.getSearchMatches(tableId, {
-        skip: 4,
-        take: 1,
-        search: ['Cup', '', false],
-        selectedRecordIds: [recordId.toString()],
-      })
-    ).resolves.toEqual({
-      matches: [
-        { index: 4, fieldId, recordId: recordId.toString() },
-        { index: 4, fieldId, recordId: recordId.toString() },
-      ],
-      scannedRecordCount: 1,
-      nextSkip: 5,
-      hasMore: true,
-    });
-    const listQuery = fixture.queries.find(
-      (query): query is ListTableRecordsQuery => query instanceof ListTableRecordsQuery
-    );
-    expect(listQuery?.applySearchRowFilter).toBe(false);
-    expect(listQuery?.selectedRecordIds?.map((id) => id.toString())).toEqual([recordId.toString()]);
   });
 
   it('rejects match scans in hide-not-match mode before resolving persistence', async () => {

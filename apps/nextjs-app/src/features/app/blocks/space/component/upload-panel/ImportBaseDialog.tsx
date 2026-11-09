@@ -1,8 +1,10 @@
-import { Airtable, FileText, GoogleSheet } from '@teable/icons';
+import { Airtable, GoogleSheet } from '@teable/icons';
 import { UserIntegrationProvider } from '@teable/openapi';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import React from 'react';
+import React, { type ComponentType } from 'react';
+import { TeableLogo } from '@/components/TeableLogo';
+import { useBrand } from '@/features/app/hooks/useBrand';
 import { useAvailableIntegrationProviders } from '@/features/app/hooks/useSetting';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { AirtableImportDialog } from '../airtable-import';
@@ -17,6 +19,33 @@ interface IImportBaseDialogProps {
 
 type IImportSource = 'file' | 'airtable' | 'googleSheet';
 
+/** One source: its icon, its name, and one line on what it takes. */
+const SourceCard = ({
+  Icon,
+  title,
+  description,
+  onClick,
+}: {
+  Icon: ComponentType<{ className: string }>;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:bg-muted/50"
+  >
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface">
+      <Icon className="size-5" />
+    </div>
+    <div className="min-w-0">
+      <div className="truncate text-sm font-medium">{title}</div>
+      <div className="truncate text-xs text-muted-foreground">{description}</div>
+    </div>
+  </button>
+);
+
 /**
  * Space-level "import" entry: first pick a source (a .tea file, an Airtable
  * base or a Google spreadsheet), then hand off to the matching importer. All
@@ -26,6 +55,7 @@ type IImportSource = 'file' | 'airtable' | 'googleSheet';
 export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
   const { spaceId, open, onOpenChange } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
+  const { brandName } = useBrand();
   const [source, setSource] = React.useState<IImportSource | null>(null);
   const availableIntegrationProviders = useAvailableIntegrationProviders();
   // Integration imports need their instance-level OAuth app (AIRTABLE_CLIENT_ID /
@@ -57,54 +87,28 @@ export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
             <DialogTitle>{t('space:importBaseDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
+            {/* The dialog names the action; each card only names its source. */}
+            <SourceCard
+              Icon={TeableLogo}
+              title={t('space:importBaseDialog.fromFile', { brand: brandName })}
+              description={t('space:importBaseDialog.fromFileDesc')}
               onClick={() => setSource('file')}
-              className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:bg-muted/50"
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                <FileText className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium">{t('space:importBaseDialog.fromFile')}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {t('space:importBaseDialog.fromFileDesc')}
-                </div>
-              </div>
-            </button>
+            />
             {airtableImportEnabled && (
-              <button
-                type="button"
+              <SourceCard
+                Icon={Airtable}
+                title="Airtable"
+                description={t('space:importBaseDialog.fromAirtableDesc')}
                 onClick={() => setSource('airtable')}
-                className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:bg-muted/50"
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <Airtable className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{t('space:airtableImport.title')}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {t('space:importBaseDialog.fromAirtableDesc')}
-                  </div>
-                </div>
-              </button>
+              />
             )}
             {googleSheetImportEnabled && (
-              <button
-                type="button"
+              <SourceCard
+                Icon={GoogleSheet}
+                title="Google Sheets"
+                description={t('space:importBaseDialog.fromGoogleSheetDesc')}
                 onClick={() => setSource('googleSheet')}
-                className="flex items-center gap-3 rounded-lg border p-4 text-start transition-colors hover:bg-muted/50"
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <GoogleSheet className="size-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{t('space:googleSheetImport.title')}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {t('space:importBaseDialog.fromGoogleSheetDesc')}
-                  </div>
-                </div>
-              </button>
+              />
             )}
           </div>
         </DialogContent>

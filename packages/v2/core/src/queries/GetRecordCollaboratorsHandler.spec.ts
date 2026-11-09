@@ -72,6 +72,7 @@ const createUserLookup = () => {
     service: {
       listUsersByIds,
       listTableUsersByIdentifiers: vi.fn(),
+      listUsersByIdentityPairs: vi.fn(),
     } as unknown as IUserLookupService,
     listUsersByIds,
   };

@@ -103,6 +103,16 @@
           "confirmText": "終了を確認"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "フィールドを非表示",
+      "hiddenCount": "非表示({{count}})",
+      "filter": "フィルター",
+      "filterCount": "フィルター({{count}})",
+      "sort": "並べ替え",
+      "sortCount": "並べ替え({{count}})",
+      "group": "グループ",
+      "groupCount": "グループ({{count}})"
     }
   },
   "welcome": {
@@ -1137,6 +1147,8 @@
   "view": {
     "addRecord": "レコードを追加",
     "searchView": "ビューを検索...",
+    "starredGroup": "スター付き",
+    "otherGroup": "その他のビュー",
     "dragToolTip": "自動並べ替えがオンになっており、手動ドラッグは利用できません",
     "insertToolTip": "自動並べ替えがオンになっているため、順序付き挿入は利用できません",
     "action": {
@@ -1159,6 +1171,7 @@
       "description": "このビューは壊れています。それでも更新が失敗する場合は、お問い合わせください。support@teable.ai"
     },
     "addPluginView": "プラグインビューを追加",
+    "addView": "ビューを作成",
     "search": {
       "field_other": "フィールド（{{length}}）"
     },
@@ -1638,7 +1651,6 @@
       "share": "共有",
       "enableShare": "共有を有効にする",
       "copyLink": "リンクをコピー",
-      "rotateLink": "リンクをリセット",
       "scope": "閲覧できる人",
       "scopePublic": "リンクを知っている全員",
       "scopeSpace": "スペースメンバー",
@@ -1729,7 +1741,8 @@
       "running": "生成中…",
       "waitingInput": "あなたの返信を待っています",
       "failed": "返信に失敗しました"
-    }
+    },
+    "routineRunPrompt": "ルーティンが自動送信"
   },
   "upload": {
     "panelUploading": "{{count}} 件のファイルをアップロード中",

@@ -145,7 +145,7 @@ export class GetViewLinkRecordsHandler implements IQueryHandler<
           const effectiveSort = defaults.manualSort() ? [] : defaults.sort();
           orderBy = mergeOrderBy(
             yield* resolveGroupByToOrderBy(defaults.group()),
-            yield* resolveOrderBy(effectiveSort),
+            yield* resolveOrderBy(effectiveSort, targetTable, defaults.group()),
             filterByViewId.toString()
           );
         } else {

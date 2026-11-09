@@ -210,7 +210,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
               ))}
             </div>
           )}
-          <p className="text-base font-normal text-muted-foreground">{description}</p>
+          {description && <MarkdownPreview className="p-0">{description}</MarkdownPreview>}
           <div className="flex gap-2">
             <TemplatePreviewSheet detail={templateDetail}>
               <Button className="flex-1 rounded-full" variant="outline" size="xs">
@@ -308,7 +308,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
                 </Badge>
               ))}
             </div>
-            <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+            {description && (
+              <MarkdownPreview className="p-0 text-sm">{description}</MarkdownPreview>
+            )}
           </div>
           <div className="flex gap-2">
             <Button className="flex-1" onClick={install} disabled={isLoading}>

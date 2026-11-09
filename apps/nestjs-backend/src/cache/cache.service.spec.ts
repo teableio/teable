@@ -37,6 +37,7 @@ describe('CacheService raw-command interop with the keyv layout', () => {
     incr: ReturnType<typeof vi.fn>;
     expire: ReturnType<typeof vi.fn>;
     eval: ReturnType<typeof vi.fn>;
+    ttl: ReturnType<typeof vi.fn>;
   };
   let service: CacheService;
 
@@ -46,6 +47,7 @@ describe('CacheService raw-command interop with the keyv layout', () => {
       incr: vi.fn().mockResolvedValue(1),
       expire: vi.fn().mockResolvedValue(1),
       eval: vi.fn().mockResolvedValue(1),
+      ttl: vi.fn().mockResolvedValue(-2),
     };
     const keyv = {
       opts: {
@@ -107,6 +109,18 @@ describe('CacheService raw-command interop with the keyv layout', () => {
     expect(redis.eval).not.toHaveBeenCalled();
   });
 
+  it('ttl reads the seconds left on the same derived key incr counts on', async () => {
+    // The OAuth token limiter pairs these two: incr counts, ttl is what it
+    // tells a refused client to wait (Retry-After).
+    redis.ttl.mockResolvedValue(42);
+
+    expect(await service.ttl('oauth:token-rate:client:user')).toBe(42);
+
+    expect(redis.ttl).toHaveBeenCalledWith(
+      'sets:namespace:teable_cache:teable_cache:oauth:token-rate:client:user'
+    );
+  });
+
   it('expire retargets the same derived key that incr counts on', async () => {
     // The sign-in limiter pairs these two: incr counts attempts, expire cuts
     // the counter short at lockout. Split layouts made expire a silent no-op.
@@ -164,36 +178,10 @@ describe('CacheService raw-command interop with the keyv layout', () => {
   });
 });
 
-describe('CacheService local lock ownership', () => {
-  it('allows only one concurrent acquisition', async () => {
+describe('CacheService without a Redis store', () => {
+  it('fails atomic operations instead of degrading to a process-local emulation', async () => {
     const service = new CacheService(new Keyv());
-    const acquired = await Promise.all([
-      service.setnx('lock:x', 'A', 120),
-      service.setnx('lock:x', 'B', 120),
-    ]);
-    expect(acquired).toEqual([true, false]);
-    expect(await service.get('lock:x')).toBe('A');
-  });
-
-  it('renews beyond the original expiry and cannot affect a replacement owner', async () => {
-    vi.useFakeTimers();
-    try {
-      const service = new CacheService(new Keyv());
-      await service.setnx('lock:x', 'A', 120);
-      await vi.advanceTimersByTimeAsync(90_000);
-      expect(await service.renewLock('lock:x', 'A', 120)).toBe(true);
-      await vi.advanceTimersByTimeAsync(60_000);
-      expect(await service.get('lock:x')).toBe('A');
-      await vi.advanceTimersByTimeAsync(61_000);
-      expect(await service.renewLock('lock:x', 'A', 120)).toBe(false);
-      expect(await service.setnx('lock:x', 'B', 120)).toBe(true);
-      expect(await service.renewLock('lock:x', 'A', 120)).toBe(false);
-      expect(await service.releaseLock('lock:x', 'A')).toBe(false);
-      expect(await service.get('lock:x')).toBe('B');
-      expect(await service.releaseLock('lock:x', 'B')).toBe(true);
-      expect(await service.get('lock:x')).toBeUndefined();
-    } finally {
-      vi.useRealTimers();
-    }
+    await expect(service.setnx('lock:x', 'A', 120)).rejects.toThrow('no Redis client');
+    await expect(service.incr('signin:attempts:x' as any)).rejects.toThrow('no Redis client');
   });
 });

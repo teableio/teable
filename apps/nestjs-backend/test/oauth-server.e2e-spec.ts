@@ -352,8 +352,9 @@ describe('OpenAPI OAuthController (e2e)', () => {
         }
       )
     );
-    expect(error?.status).toBe(401);
-    expect(error?.message).toBe('Invalid client');
+    // RFC 6749 §5.2: a code issued to another client is an invalid grant (400), not a
+    // failure of this client's authentication (401).
+    expect(error?.status).toBe(400);
 
     await oauthDelete(otherClient.data.clientId);
   });
@@ -404,7 +405,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
     const results = await Promise.all(Array.from({ length: 10 }, redeem));
     const statuses = results.map((r) => r.status);
     expect(statuses.filter((status) => status === 201)).toHaveLength(1);
-    expect(statuses.filter((status) => status === 401)).toHaveLength(9);
+    expect(statuses.filter((status) => status === 400)).toHaveLength(9);
   });
 
   it('/api/oauth/authorize (GET) - asks again when the app got no token from the approval', async () => {
@@ -679,26 +680,30 @@ describe('OpenAPI OAuthController (e2e)', () => {
       refresh_expires_in: expect.any(Number),
     });
 
-    // previous refresh token should be invalid
-    const error = await getError(() =>
-      anonymousAxios.post(
-        `/oauth/access_token`,
-        new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: `${tokenRes.data.refresh_token}`,
-          client_id: oauth.clientId,
-          client_secret: secret.data.secret,
-        }),
-        {
-          maxRedirects: 0,
-          headers: {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      )
+    // The previous refresh token was rotated away: replaying it is an invalid grant,
+    // in the wire format OAuth clients parse (RFC 6749 §5.2). This is what an MCP
+    // client needs to stop retrying the dead token and send the person to sign in.
+    const reused = await anonymousAxios.post(
+      `/oauth/access_token`,
+      new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: `${tokenRes.data.refresh_token}`,
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+      }),
+      {
+        maxRedirects: 0,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        validateStatus: () => true,
+      }
     );
-    expect(error?.status).toBe(401);
+    expect(reused.status).toBe(400);
+    expect(reused.data).toEqual({
+      error: 'invalid_grant',
+      error_description: 'Refresh token has already been used or revoked',
+    });
+    expect(reused.headers['cache-control']).toBe('no-store');
   });
 
   it('/api/oauth/access_token (POST) - confidential refresh token missing client_secret should fail', async () => {
@@ -744,7 +749,8 @@ describe('OpenAPI OAuthController (e2e)', () => {
         }
       )
     );
-    expect(error?.status).toBe(401);
+    // authenticated as a public client, but the token was issued under a secret: invalid_grant
+    expect(error?.status).toBe(400);
   });
 
   it('/api/oauth/access_token (POST) - confidential refresh token wrong client_secret should fail', async () => {
@@ -837,10 +843,10 @@ describe('OpenAPI OAuthController (e2e)', () => {
         }
       )
     );
-    expect(error?.status).toBe(401);
+    expect(error?.status).toBe(400);
   });
 
-  it('/api/oauth/access_token (POST) - refresh token failing verification answers 401', async () => {
+  it('/api/oauth/access_token (POST) - refresh token failing verification answers invalid_grant', async () => {
     const secret = await generateOAuthSecret(oauth.clientId);
     const { transactionID } = await getAuthorize(axios, oauth);
     const res = await decision(axios, transactionID!);
@@ -885,7 +891,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
         }
       )
     );
-    expect(badSignature?.status).toBe(401);
+    expect(badSignature?.status).toBe(400);
 
     // jsonwebtoken rejects an expired token before any lookup; expiry is still a
     // client credential error, not a server fault.
@@ -913,7 +919,115 @@ describe('OpenAPI OAuthController (e2e)', () => {
         }
       )
     );
-    expect(expiredError?.status).toBe(401);
+    expect(expiredError?.status).toBe(400);
+  });
+
+  describe('token endpoint errors are RFC 6749 §5.2 objects', () => {
+    const postToken = (params: Record<string, string>) =>
+      anonymousAxios.post(`/oauth/access_token`, new URLSearchParams(params), {
+        maxRedirects: 0,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        validateStatus: () => true,
+      });
+
+    it('answers an unsupported grant_type with unsupported_grant_type, not a 500', async () => {
+      const secret = await generateOAuthSecret(oauth.clientId);
+
+      const res = await postToken({
+        grant_type: 'password',
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.data).toEqual({
+        error: 'unsupported_grant_type',
+        error_description: expect.stringContaining('password'),
+      });
+    });
+
+    it('answers a refresh without refresh_token with invalid_request', async () => {
+      const secret = await generateOAuthSecret(oauth.clientId);
+
+      const res = await postToken({
+        grant_type: 'refresh_token',
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.data.error).toBe('invalid_request');
+    });
+
+    it('answers an unknown client with invalid_client', async () => {
+      const res = await postToken({
+        grant_type: 'refresh_token',
+        refresh_token: 'whatever',
+        client_id: 'no-such-client',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.data).toEqual({ error: 'invalid_client', error_description: expect.any(String) });
+    });
+
+    it('answers a wrong client_secret with invalid_client', async () => {
+      const res = await postToken({
+        grant_type: 'refresh_token',
+        refresh_token: 'whatever',
+        client_id: oauth.clientId,
+        client_secret: 'invalid-secret',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.data.error).toBe('invalid_client');
+    });
+
+    it('refuses the request over the window limit with too_many_requests and Retry-After', async () => {
+      // The limit is per (client, user), and `oauth` is a fresh app for this test alone.
+      const limit = Number(process.env.BACKEND_OAUTH_TOKEN_RATE_LIMIT || 30);
+      // One secret throughout: a refresh token is bound to the secret the code was exchanged with.
+      const secret = await generateOAuthSecret(oauth.clientId);
+      const { transactionID } = await getAuthorize(axios, oauth);
+      const approved = await decision(axios, transactionID!);
+      // Token request 1: the code exchange.
+      const exchanged = await postToken({
+        grant_type: 'authorization_code',
+        code: new URL(approved.headers.location).searchParams.get('code')!,
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: oauth.redirectUris[0],
+      });
+      expect(exchanged.status).toBe(201);
+      let refreshToken = exchanged.data.refresh_token as string;
+
+      // Requests 2..limit succeed and rotate the token; request limit + 1 is refused.
+      for (let request = 2; request <= limit; request++) {
+        const res = await postToken({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: oauth.clientId,
+          client_secret: secret.data.secret,
+        });
+        expect(res.status).toBe(201);
+        refreshToken = res.data.refresh_token;
+      }
+      const refused = await postToken({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+      });
+
+      expect(refused.status).toBe(429);
+      expect(refused.data).toEqual({
+        error: 'too_many_requests',
+        error_description: expect.any(String),
+      });
+      const retryAfter = Number(refused.headers['retry-after']);
+      expect(retryAfter).toBeGreaterThan(0);
+      expect(retryAfter).toBeLessThanOrEqual(15 * 60);
+    }, 60_000);
   });
 
   describe('PKCE flow', () => {
@@ -1114,7 +1228,8 @@ describe('OpenAPI OAuthController (e2e)', () => {
           }
         )
       );
-      expect(error?.status).toBe(401);
+      // RFC 7636 §4.6: a verifier that does not match is an invalid grant
+      expect(error?.status).toBe(400);
     });
 
     it('/api/oauth/access_token (POST) - PKCE missing code_verifier', async () => {
@@ -1257,7 +1372,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
           }
         )
       );
-      expect(error?.status).toBe(401);
+      expect(error?.status).toBe(400);
     });
 
     it('/api/oauth/access_token (POST) - non-PKCE code with only client_id should fail', async () => {
@@ -1788,7 +1903,8 @@ describe('OpenAPI OAuthController (e2e)', () => {
         code_verifier: crypto.randomBytes(32).toString('base64url'),
         redirect_uri: redirectUri,
       });
-      expect(wrongVerifier.status).toBe(401);
+      // RFC 7636 §4.6: a verifier that does not match is an invalid grant
+      expect(wrongVerifier.status).toBe(400);
       const wrongSecret = await exchange({
         grant_type: 'authorization_code',
         code: await authorizeCode(codeChallenge),

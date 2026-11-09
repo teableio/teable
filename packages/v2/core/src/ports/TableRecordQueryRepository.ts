@@ -215,6 +215,8 @@ export interface ITableRecordQueryOptions {
 export type FieldOrderBy = {
   readonly fieldId: FieldId;
   readonly direction: 'asc' | 'desc';
+  /** Optional user-selected collation; omission preserves the existing field ordering. */
+  readonly collation?: 'zh-pinyin';
   /**
    * Collate this field the way its group buckets collate (set on entries
    * derived from a view's groupBy). Grouped lists and offset-addressed range

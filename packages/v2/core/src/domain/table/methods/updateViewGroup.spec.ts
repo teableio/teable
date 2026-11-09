@@ -8,6 +8,7 @@ import { Table } from '../Table';
 import { TableId } from '../TableId';
 import { TableName } from '../TableName';
 import { ViewId } from '../views/ViewId';
+import { ViewQueryDefaults } from '../views/ViewQueryDefaults';
 
 const buildTable = (): Table => {
   const builder = Table.builder()
@@ -64,6 +65,43 @@ describe('Table.updateViewGroup', () => {
     expect(cleared.nextQueryDefaults.sort()).toEqual([
       { fieldId: table.getFields()[1]!.id().toString(), order: 'desc' },
     ]);
+  });
+
+  it('ignores dormant manual sort conflicts while preserving pinyin sort validation', () => {
+    const table = buildTable();
+    const viewId = table.views()[0]!.id();
+    const fieldId = table.getFields()[0]!.id().toString();
+    const sortObjs = [{ fieldId, order: 'asc' as const, collation: 'zh-pinyin' as const }];
+
+    const sorted = table.updateViewSort(viewId, { sortObjs })._unsafeUnwrap().updateResult!.table;
+    expect(
+      sorted.updateViewGroup(viewId, [{ fieldId, order: 'asc' }])._unsafeUnwrapErr().code
+    ).toBe('sort.collation_group_conflict');
+
+    const manual = sorted.updateViewSort(viewId, { sortObjs, manualSort: true })._unsafeUnwrap()
+      .updateResult!.table;
+    const result = manual.updateViewGroup(viewId, [{ fieldId, order: 'asc' }])._unsafeUnwrap();
+
+    expect(result.nextQueryDefaults.sort()).toEqual(sortObjs);
+    expect(result.nextQueryDefaults.manualSort()).toBe(true);
+    expect(result.nextQueryDefaults.group()).toEqual([{ fieldId, order: 'asc' }]);
+  });
+
+  it('still rejects unsupported pinyin collation for dormant manual sorts', () => {
+    const table = buildTable();
+    const viewId = table.views()[0]!.id();
+    const fieldId = table.getFields()[1]!.id().toString();
+    const queryDefaults = ViewQueryDefaults.create({
+      sort: [{ fieldId, order: 'asc', collation: 'zh-pinyin' }],
+      manualSort: true,
+    })._unsafeUnwrap();
+    const restored = TableUpdateViewQueryDefaultsSpec.create([{ viewId, queryDefaults }])
+      .mutate(table)
+      ._unsafeUnwrap();
+
+    expect(
+      restored.updateViewGroup(viewId, [{ fieldId, order: 'asc' }])._unsafeUnwrapErr().code
+    ).toBe('sort.unsupported_collation');
   });
 
   it('preserves duplicate group items accepted by the public contract', () => {

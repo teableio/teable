@@ -22,12 +22,19 @@ import { useImportStatus } from '../hooks/use-import-status';
 
 interface ITableInfoProps {
   className?: string;
+  /** Leaves out the description, which the header's menu opens instead. */
+  compact?: boolean;
   isEditing?: boolean;
   setIsEditing?: (isEditing: boolean) => void;
 }
 
 export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => {
-  const { className, isEditing: isEditingProp, setIsEditing: setIsEditingProp } = props;
+  const {
+    className,
+    compact = false,
+    isEditing: isEditingProp,
+    setIsEditing: setIsEditingProp,
+  } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const [internalIsEditing, setInternalIsEditing] = useState(false);
   const isControlled = isEditingProp !== undefined;
@@ -85,11 +92,19 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
 
   return (
     <div
-      className={cn('relative flex items-center justify-center gap-2 overflow-hidden', className)}
+      className={cn(
+        'relative flex items-center justify-center overflow-hidden',
+        'gap-1',
+        className
+      )}
     >
       {connected && !isImporting ? (
         <EmojiPicker
-          className="flex size-5 cursor-pointer items-center justify-center hover:bg-muted-foreground/60"
+          className={cn(
+            'flex cursor-pointer items-center justify-center',
+            // A ghost button's 28px hover area, instead of one the size of the icon.
+            'size-7 rounded-md hover:bg-accent'
+          )}
           icon={table?.icon}
           onChange={(icon: string) => table?.updateIcon(icon)}
           onRemove={() => table?.updateIcon(null)}
@@ -103,7 +118,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
       <div
         className={cn(
           'relative flex h-9 max-w-[120px] shrink-0 grow-0 flex-col items-start justify-center gap-0 @xl/view-header:max-w-[144px]',
-          isEditing ? 'min-w-[120px]' : 'min-w-20'
+          isEditing || compact ? 'min-w-[120px]' : 'min-w-20'
         )}
       >
         {isEditing ? (
@@ -179,15 +194,17 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
             )}
           </div>
         )}
-        <ResourceDescription
-          key={table?.id}
-          canUpdate={canUpdateTable}
-          description={table?.description}
-          errorLogName="table"
-          onSave={async (description) => {
-            await table?.updateDescription(description);
-          }}
-        />
+        {!compact && (
+          <ResourceDescription
+            key={table?.id}
+            canUpdate={canUpdateTable}
+            description={table?.description}
+            errorLogName="table"
+            onSave={async (description) => {
+              await table?.updateDescription(description);
+            }}
+          />
+        )}
       </div>
     </div>
   );

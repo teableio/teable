@@ -80,4 +80,59 @@ describe('undo-redo/duplicateRecord (db)', () => {
     expect(harness.probe.names()).toEqual(['RedoCommand', 'RestoreRecordsCommand']);
     expect((await fetchRowById(harness.db, table, duplicateId))?.[amountDbName]).toBe(8);
   });
+
+  it('keeps duplicates created without a window or during replay out of the window undo stack', async () => {
+    if (!harness) throw new Error('Missing harness');
+
+    const table = await createBasicTable(harness, 'Undo Duplicate Record Ignored Context');
+    const titleField = findField(table, 'Title');
+    const amountField = findField(table, 'Amount');
+    const amountDbName = getFieldDbName(table, 'Amount');
+
+    const source = await harness.execute<CreateRecordCommand, CreateRecordResult>(
+      CreateRecordCommand.create({
+        tableId: table.id().toString(),
+        fields: {
+          [titleField.id().toString()]: 'Window Source',
+          [amountField.id().toString()]: 5,
+        },
+      })._unsafeUnwrap()
+    );
+    const sourceId = source.record.id().toString();
+
+    const withoutWindow = await harness.execute<DuplicateRecordCommand, DuplicateRecordResult>(
+      DuplicateRecordCommand.create({
+        tableId: table.id().toString(),
+        recordId: sourceId,
+      })._unsafeUnwrap(),
+      { actorId: harness.context.actorId }
+    );
+    const duringReplay = await harness.execute<DuplicateRecordCommand, DuplicateRecordResult>(
+      DuplicateRecordCommand.create({
+        tableId: table.id().toString(),
+        recordId: sourceId,
+      })._unsafeUnwrap(),
+      { ...harness.context, undoRedo: { mode: 'undo' } }
+    );
+    const untrackedIds = [
+      withoutWindow.record.id().toString(),
+      duringReplay.record.id().toString(),
+    ];
+
+    for (const id of untrackedIds) {
+      expect((await fetchRowById(harness.db, table, id))?.[amountDbName]).toBe(5);
+    }
+
+    await harness.undo(table.id().toString());
+    expect(await fetchRowById(harness.db, table, sourceId)).toBeUndefined();
+    for (const id of untrackedIds) {
+      expect((await fetchRowById(harness.db, table, id))?.[amountDbName]).toBe(5);
+    }
+
+    await harness.redo(table.id().toString());
+    expect((await fetchRowById(harness.db, table, sourceId))?.[amountDbName]).toBe(5);
+    for (const id of untrackedIds) {
+      expect((await fetchRowById(harness.db, table, id))?.[amountDbName]).toBe(5);
+    }
+  });
 });

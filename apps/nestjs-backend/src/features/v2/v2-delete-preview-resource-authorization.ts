@@ -19,6 +19,7 @@ import {
   type TableQueryService,
   v2CoreTokens,
   type DeleteFieldCommand,
+  type DeleteFieldsCommand,
   type DeleteTableCommand,
   type DomainError,
   type IExecutionContext,
@@ -65,7 +66,7 @@ const hostFieldDeleteRegistration = (
   planner: FieldDeletePreviewPlanner,
   priority: number,
   edition: string
-): HostPreviewRegistration<DeleteFieldCommand> => {
+): HostPreviewRegistration<DeleteFieldCommand | DeleteFieldsCommand> => {
   const core = createFieldDeletePreviewRegistration(planner);
   return {
     ...core,

@@ -7,15 +7,15 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import type * as Pg from 'pg';
 import { describe, expect, it } from 'vitest';
-import { redactTeablePgQuerySpan, withPgParameterRedaction } from './tracing-db-context';
+import { createPgInstrumentationConfig, withPgParameterRedaction } from './tracing-db-context';
 
 const describePg = process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1' ? describe : describe.skip;
 const connectionString = process.env.PRISMA_DATABASE_URL;
 
 // This opts into a real server and the installed PgInstrumentation, rather than mocking
 // requestHook. The ordinary backend suite never needs a PostgreSQL connection.
-describePg('structured query PostgreSQL span parameter redaction', () => {
-  it('preserves results and scoped spans without leaking values or redacting concurrent callers', async () => {
+describePg('PostgreSQL span parameter values', () => {
+  it('keeps bound values out of spans, and scoped failures redacted, without changing results', async () => {
     if (!connectionString) throw new Error('PRISMA_DATABASE_URL is required for PG integration');
     const exporter = new InMemorySpanExporter();
     const processor = new SimpleSpanProcessor(exporter);
@@ -25,12 +25,14 @@ describePg('structured query PostgreSQL span parameter redaction', () => {
       metricReaders: [],
       contextManager: new AsyncLocalStorageContextManager(),
       spanProcessors: [processor],
+      // The config the backend runs with, so this covers what production exports.
       instrumentations: [
-        new PgInstrumentation({
-          enhancedDatabaseReporting: true,
-          requireParentSpan: false,
-          requestHook: redactTeablePgQuerySpan,
-        }),
+        new PgInstrumentation(
+          createPgInstrumentationConfig({
+            ...process.env,
+            OTEL_PG_ENHANCED_DATABASE_REPORTING: undefined,
+          })
+        ),
       ],
     });
     sdk.start();
@@ -86,6 +88,10 @@ describePg('structured query PostgreSQL span parameter redaction', () => {
         query('legacy-query', 'legacy-value'),
       ]);
       const following = await query('following-query', 'following-value');
+      // A bulk write binds whole record snapshots; such a span once carried megabytes of them.
+      const bulkValue = `bulk-${'x'.repeat(1_000_000)}`;
+      const bulk = await query('bulk-query', bulkValue);
+      expect(bulk.rows).toEqual([{ value: bulkValue }]);
       expect(scoped.rows).toEqual([{ value: secret }]);
       expect(concurrent.rows).toEqual([{ value: 'legacy-value' }]);
       expect(following.rows).toEqual([{ value: 'following-value' }]);
@@ -113,8 +119,11 @@ describePg('structured query PostgreSQL span parameter redaction', () => {
           )
           .map((span) => span.attributes['db.postgresql.values']);
       expect(valuesFor(scoped.traceId)).toEqual(['[REDACTED]']);
-      expect(valuesFor(concurrent.traceId)).toEqual([['legacy-value']]);
-      expect(valuesFor(following.traceId)).toEqual([['following-value']]);
+      expect(valuesFor(concurrent.traceId)).toEqual([undefined]);
+      expect(valuesFor(following.traceId)).toEqual([undefined]);
+      expect(valuesFor(bulk.traceId)).toEqual([undefined]);
+      const bulkTrace = spans.filter((span) => span.spanContext().traceId === bulk.traceId);
+      expect(JSON.stringify(bulkTrace.map((span) => span.attributes)).length).toBeLessThan(10_000);
       const privateTrace = spans.filter((span) => span.spanContext().traceId === scoped.traceId);
       expect(
         JSON.stringify(
@@ -173,7 +182,7 @@ describePg('structured query PostgreSQL span parameter redaction', () => {
           code: SpanStatusCode.ERROR,
           message: expect.stringContaining(value),
         });
-        expect(querySpans[0].attributes['db.postgresql.values']).toEqual([value]);
+        expect(querySpans[0].attributes['db.postgresql.values']).toBeUndefined();
         expect(querySpans[0].events[0].attributes?.['exception.message']).toBe(
           "PostgreSQL error of type 'error' occurred (code: 22P02)"
         );

@@ -1,3 +1,6 @@
+import { container } from '@teable/v2-di';
+import { ok } from 'neverthrow';
+
 import {
   BaseId,
   DefaultTableMapper,
@@ -15,8 +18,11 @@ import {
   registerV2CoreServices,
   v2CoreTokens,
 } from '@teable/v2-core';
-import type { ITableRepository } from '@teable/v2-core';
-import { container } from '@teable/v2-di';
+import type {
+  IAttachmentLookupService,
+  ITableRepository,
+  IUserLookupService,
+} from '@teable/v2-core';
 
 import type { IV2NodeUnitTestContainer } from './v2NodeUnitTestContainer';
 
@@ -33,6 +39,10 @@ export const createV2NodeUnitTestContainer = (): IV2NodeUnitTestContainer => {
   const commandBus = new MemoryCommandBus(c);
   const queryBus = new MemoryQueryBus(c);
 
+  c.registerInstance(v2CoreTokens.attachmentLookupService, {
+    listAttachmentsByTokens: async () => ok([]),
+    listAttachmentsByAttachmentIds: async () => ok([]),
+  } satisfies IAttachmentLookupService);
   c.registerInstance(v2CoreTokens.tableRepository, tableRepository);
   c.registerInstance(v2CoreTokens.tableRecordQueryRepository, new NoopTableRecordQueryRepository());
   c.registerInstance(v2CoreTokens.tableRecordRepository, new NoopTableRecordRepository());
@@ -42,6 +52,11 @@ export const createV2NodeUnitTestContainer = (): IV2NodeUnitTestContainer => {
   c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.unitOfWork, new NoopUnitOfWork());
+  c.registerInstance(v2CoreTokens.userLookupService, {
+    listTableUsersByIdentifiers: async () => ok([]),
+    listUsersByIdentityPairs: async () => ok([]),
+    listUsersByIds: async () => ok([]),
+  } satisfies IUserLookupService);
   registerV2CoreServices(c);
   c.registerInstance(v2CoreTokens.tableMapper, new DefaultTableMapper());
   c.registerInstance(v2CoreTokens.realtimeEngine, new NoopRealtimeEngine());

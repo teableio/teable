@@ -424,6 +424,22 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).not.toContain('"t"."__auto_number" is null');
     });
 
+    test('orders text with explicit zh-pinyin collation and v1 null placement', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+      const textField = table.getFields()[0];
+
+      const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
+      const { sql } = compileQuery(
+        db,
+        qb.from(table).orderBy(textField.id(), 'desc', { collation: 'zh-pinyin' })
+      );
+
+      expect(sql).toContain(
+        `order by ("t"."col_single_line_text") COLLATE "zh-x-icu" desc nulls last`
+      );
+    });
+
     test('collapses duplicate system column order keys', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();
@@ -781,6 +797,53 @@ describe('ComputedTableRecordQueryBuilder', () => {
         expect(sql).toContain(')[0]');
       }
     });
+
+    test.each(['oneOne', 'manyOne'] as const)(
+      'orders a single-value %s link title with zh-pinyin',
+      (relationship) => {
+        const db = createTestDb();
+        const { mainTable, foreignTable, foreignTableId } = createLinkedTables(relationship);
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const linkField = mainTable.getFields()[1];
+
+        const { sql } = compileQuery(
+          db,
+          new ComputedTableRecordQueryBuilder(db, {
+            foreignTables,
+            typeValidationStrategy,
+          })
+            .from(mainTable)
+            .orderBy(linkField.id(), 'asc', { collation: 'zh-pinyin' })
+        );
+
+        expect(sql).toContain(
+          `order by ("t"."col_link"::jsonb ->> 'title') COLLATE "zh-x-icu" asc nulls first`
+        );
+      }
+    );
+
+    test.each(['oneMany', 'manyMany'] as const)(
+      'rejects zh-pinyin for a multiple-value %s link',
+      (relationship) => {
+        const db = createTestDb();
+        const { mainTable, foreignTable, foreignTableId } = createLinkedTables(relationship);
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const linkField = mainTable.getFields()[1];
+
+        const result = new ComputedTableRecordQueryBuilder(db, {
+          foreignTables,
+          typeValidationStrategy,
+        })
+          .from(mainTable)
+          .orderBy(linkField.id(), 'asc', { collation: 'zh-pinyin' })
+          .build();
+
+        expect(result.isErr()).toBe(true);
+        if (result.isErr()) {
+          expect(result.error.code).toBe('sort.unsupported_collation');
+        }
+      }
+    );
 
     test.each(relationships)('%s relationship snapshot', (relationship) => {
       const db = createTestDb();

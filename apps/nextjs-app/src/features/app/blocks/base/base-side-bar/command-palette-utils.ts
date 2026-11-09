@@ -101,8 +101,7 @@ export const searchPaletteEntries = (
         ? Math.max(0, now - item.entry.lastVisited) / 86400000
         : Infinity;
       const recency = Number.isFinite(ageDays) ? 40 / (1 + ageDays) : 0;
-      const frequency = Math.min(20, (item.entry.visitCount ?? 0) * 2);
-      return { entry: item.entry, score: match ? match + recency + frequency : 0 };
+      return { entry: item.entry, score: match ? match + recency : 0 };
     })
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || (b.entry.lastVisited ?? 0) - (a.entry.lastVisited ?? 0))

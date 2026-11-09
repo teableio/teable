@@ -47,9 +47,11 @@ preparation and policy checks against current state.
   project fields/views, validate formula admission and classify links. It does not read/copy
   records or finalize physical-copy applicability before target metadata is persisted.
 - `PastePreparationService.ts` - Role: shared selection, create/update split and schema projection;
-  Purpose: interpret view/filter/search/range and editable-column scope. Prepared counts precede
-  execution write policy; link-title candidates are not counts of auto-created foreign rows.
-  `applyWriteScope` is the separate step that consumes execution policy decisions.
+  Purpose: interpret view/filter/search/range and editable-column scope. Saved and explicit sort
+  collations are validated against the table and effective grouping before selecting records, so
+  preview and execution reject unsupported pinyin targets and same-field group conflicts alike.
+  Prepared counts precede execution write policy; link-title candidates are not counts of
+  auto-created foreign rows. `applyWriteScope` consumes execution policy decisions separately.
 - `BulkRecordPreparationService.ts` - Role: data-only explicit/selector preparation; Purpose:
   expose loaded/selected/missing records and optional read-only policy evidence. Execution also
   reuses its exported scope/resolution helpers. An absent policy is not unrestricted access;
@@ -68,16 +70,42 @@ preparation and policy checks against current state.
   table/operation without retaining payloads, preserving bulk realtime and notification policy.
 - `FieldCreationSideEffectService.ts` - Role: application service; Purpose: validate cross-table field
   dependencies (via visitors) and apply side effects after field creation.
+  An explicit caller `tableState` owns cumulative aggregates during multi-table creation; never seed
+  over its source-table entry with the original persisted snapshot. Without it, use the current source
+  aggregate rather than the loader snapshot for self-links.
 - `FieldDeletionSideEffectService.ts` - Role: application service; Purpose: apply cross-table side
   effects after field deletion (e.g. remove symmetric link fields).
+- `completeFieldSideEffectUpdate.ts` - Role: reciprocal-field persistence completion; Purpose: append
+  explicit View column-metadata specs from the execution-time aggregate after reciprocal add/remove
+  mutations, then generate lifecycle and View metadata events. Preparation keeps raw lifecycle specs
+  for authorization and deletion/undo classification; sequential effects retain the latest table state.
+  Link conversion still uses `RemoveSymmetricLinkFieldSpec` to preserve shared relationship storage.
+  Non-Link ↔ Link type conversions use the same completion in both pre-persist creation and
+  post-persist lifecycle execution. Two-way conversions re-read the persisted source aggregate
+  because pre-persist creation added its reciprocal field; a one-way conversion writes no
+  reciprocal, so its pre-conversion snapshot must not replace the updated aggregate.
 - `ForeignTableLoaderService.ts` - Role: application service; Purpose: load foreign tables once and
   validate missing references.
 - `TableDeletionSideEffectService.ts` - Role: application service; Purpose: dispatch explicit
   `OnTeableTableDeleted` reactions in other tables before deleting a table, including link-to-text
   conversion and dependent metadata cleanup.
+- `RecordBatchCreationService.ts` - Role: shared record creation for upsert and linked-title
+  auto-creation. Resolve field keys with one operation-local context before plugins and select-option
+  side effects; never reuse it across tables or operations. Current upsert/paste callers pass IDs;
+  `CreateRecordsHandler` has its own batch normalization pipeline. Empty batches build no context.
 - `RecordBulkUpdateService.ts` - Role: application service; Purpose: prepare and execute selector
   or explicit-record batch updates, letting the domain model build specs/results while the service
   coordinates repository persistence, events, and undo/redo.
+  Explicit updates (including transaction-bound upsert updates) reuse the already-materialized
+  local update result only after resolution succeeds and returns the identical mutation spec.
+  Replacement specs still rematerialize; identity reuse is not a storage no-op decision and does
+  not bypass resolver validation, persistence before-images, or final response decoration.
+- `UndoRedoStackService.ts` - Role: undo/redo entry stack; Purpose: persist reversible commands and
+  replay them. An entry is only recordable in normal stack mode with a window, and that eligibility
+  is checked before callers build undo/redo payloads; `appendEntry` re-checks the same predicate, so
+  payload construction never substitutes for entry qualification. Create undo skips restoring
+  payloads and Delete/Restore commands for unrecorded requests, while stored snapshots, events and
+  persistence are untouched.
 - `PasteLinkAutoResolveService.ts` - Role: paste-specific link-title validation and resolution.
   Both range paste and ID-based paste must validate textual link targets before record writes;
   ID-based hosts also validate planned link columns before persisting column expansion. Clipboard
@@ -106,8 +134,17 @@ preparation and policy checks against current state.
   persist + publish), including mapping one persisted View query-default version touch to its
   filter/group/sort semantic events without consuming later mutation versions. Physical schema
   completion publishes `TableProvisionReady` after ready is committed, even when mutation events
-  are deferred with `publishEvents: false`; outer transactions own this notification after commit.
-- `FieldUndoRedoReplayService.ts` - Role: field snapshot replay; Purpose: restore field state through aggregate mutation when changing `hasError`, so persisted recovery also emits `FieldUpdated` to existing realtime subscribers.
+  are deferred with `publishEvents: false`. With an outer metadata transaction, readiness and
+  mutation publication wait for its commit and publish without transaction handles; rollback
+  publishes no mutation events.
+- `FieldUndoRedoReplayService.ts` - Role: field snapshot replay; Purpose: restore field state through
+  aggregate mutation, including transactionally locked source snapshots and reciprocal-table View
+  query snapshots. Initial guards require ready tables; replay's own post-mutation reads include
+  pending metadata until the owning transaction commits. Record-value replay remains a separate
+  top-level domain-write transaction after metadata commit. Snapshot guards compare canonical
+  field sequences rather than numeric column-order spacing. Related query restoration uses the
+  Table mutator so `ViewSortUpdated` reaches standalone View realtime subscribers and audit
+  consumers; `hasError` recovery still emits `FieldUpdated`.
 - `ViewPluginCreationService.ts` - Role: application service; Purpose: resolve external Plugin
   definitions and prepare/install Plugin View integrations around aggregate creation.
 - `ViewManualSortService.ts` - Role: application service; Purpose: execute aggregate-declared

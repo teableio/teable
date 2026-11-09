@@ -22,6 +22,8 @@ interface SwitchListProps {
   onChange: (value: { disableActions: string[] }) => Promise<unknown> | void;
   /** Edition-specific rows rendered right after an action's own row */
   renderAfterAction?: (action: AIActions, ctx: { enabled: boolean }) => ReactNode;
+  /** `inline`: the switches side by side, for a bar the parent draws */
+  variant?: 'card' | 'inline';
 }
 
 export enum AIActions {
@@ -60,6 +62,7 @@ const SwitchList = (props: SwitchListProps) => {
     sandboxConfigured,
     disabled: disabledAll,
     renderAfterAction,
+    variant = 'card',
   } = props;
   const { t } = useTranslation('common');
 
@@ -115,7 +118,11 @@ const SwitchList = (props: SwitchListProps) => {
     <>
       {AIFeatureListWithOptions.map(({ name, description, disabled, key }) => (
         <Fragment key={key}>
-          <div className="flex items-center justify-between">
+          <div
+            className={
+              variant === 'inline' ? 'flex items-center gap-2' : 'flex items-center justify-between'
+            }
+          >
             <div className="flex items-center gap-x-1">
               <Label
                 htmlFor={key}
@@ -155,6 +162,7 @@ export const AIControlCard = ({
   disabled,
   onChange,
   renderAfterAction,
+  variant = 'card',
 }: {
   disableActions: string[];
   instanceDisableActions?: string[];
@@ -163,6 +171,8 @@ export const AIControlCard = ({
   onChange: (value: { disableActions: string[] }) => Promise<unknown> | void;
   /** Edition-specific rows rendered right after an action's own row */
   renderAfterAction?: (action: AIActions, ctx: { enabled: boolean }) => ReactNode;
+  /** `inline`: no card or title; the switches sit side by side in a bar the parent draws */
+  variant?: 'card' | 'inline';
 }) => {
   const { t } = useTranslation('common');
   const [localDisableActions, setLocalDisableActions] = useState(disableActions);
@@ -184,6 +194,22 @@ export const AIControlCard = ({
       setIsSaving(false);
     }
   };
+
+  if (variant === 'inline') {
+    return (
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <SwitchList
+          onChange={handleChange}
+          disableActions={localDisableActions}
+          instanceDisableActions={instanceDisableActions}
+          sandboxConfigured={sandboxConfigured}
+          disabled={disabled || isSaving}
+          renderAfterAction={renderAfterAction}
+          variant="inline"
+        />
+      </div>
+    );
+  }
 
   return (
     <Card className="p-5 shadow-none">

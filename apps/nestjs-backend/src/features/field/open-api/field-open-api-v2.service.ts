@@ -47,6 +47,8 @@ import {
   type CreateFieldsResult,
   DeleteFieldsCommand,
   DbTableName,
+  domainError,
+  type DomainError,
   DryRunFieldConversionQuery,
   type FieldConversionDryRunResult,
   type Field,
@@ -77,6 +79,7 @@ import {
 } from '@teable/v2-core';
 import { instanceToPlain } from 'class-transformer';
 import { ClsService } from 'nestjs-cls';
+import { err, ok, type Result } from 'neverthrow';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
@@ -245,7 +248,7 @@ export class FieldOpenApiV2Service {
    * (which owns the foreign read check) only runs after the specs. Keep the
    * localized cross-space rejection on the executing update/convert paths.
    */
-  private async assertSameSpaceForV2FieldPatch(
+  async assertSameSpaceForV2FieldPatch(
     tableId: string,
     v2Field: Record<string, unknown>
   ): Promise<void> {
@@ -2661,6 +2664,50 @@ export class FieldOpenApiV2Service {
     }
 
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  /**
+   * Read-only input preparation for candidate-schema validation.
+   * Uses only the caller's already-loaded authoritative table aggregate: it never acquires a
+   * container, routes a data connection, or hydrates foreign resources.
+   */
+  prepareConvertFieldInput(
+    table: Table,
+    fieldId: string,
+    field: IConvertFieldRo
+  ): Result<{ tableId: string; fieldId: string; field: Record<string, unknown> }, DomainError> {
+    const fieldIdResult = FieldId.create(fieldId);
+    if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+    const fieldResult = table.getField((candidate) => candidate.id().equals(fieldIdResult.value));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+    const fieldDto = mapFieldToDto(fieldResult.value, table.primaryFieldId());
+    if (fieldDto.isErr()) {
+      return err(
+        domainError.infrastructure({
+          code: 'field.conversion_preview_metadata_unavailable',
+          message: 'Field metadata is insufficient for a conversion preview',
+          cause: fieldDto.error,
+        })
+      );
+    }
+    const currentField = this.normalizeFieldVo(fieldDto.value);
+    // The loaded aggregate already carries sibling link metadata; never follow a foreign table.
+    this.enrichLookupLinkMetadata(currentField, (linkFieldId) => {
+      const linkId = FieldId.create(linkFieldId);
+      if (linkId.isErr()) return undefined;
+      const link = table.getField((candidate) => candidate.id().equals(linkId.value));
+      if (link.isErr()) return undefined;
+      const linkDto = mapFieldToDto(link.value, table.primaryFieldId());
+      return linkDto.isOk() ? (linkDto.value as Record<string, unknown>) : undefined;
+    });
+    return ok({
+      tableId: table.id().toString(),
+      fieldId,
+      field: {
+        ...this.mapConvertFieldToV2(field, currentField as Record<string, unknown>),
+        updateMode: 'full',
+      },
+    });
   }
 
   async convertField(

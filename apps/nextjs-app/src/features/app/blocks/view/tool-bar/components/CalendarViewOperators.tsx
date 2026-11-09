@@ -9,11 +9,13 @@ import { CalendarConfig } from '../../calendar/components/CalendarConfig';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
 import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
+import { useToolbarLabels } from './useToolbarLabels';
 
 export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView() as CalendarView | undefined;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const labels = useToolbarLabels();
   const { onFilterChange } = useToolbarChange();
   if (!view) return null;
 
@@ -34,7 +36,7 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
           <ToolBarButton
             disabled={disabled}
             isActive={false}
-            text={t('sdk:hidden.label')}
+            text={labels.hidden()}
             textClassName="@2xl/toolbar:inline"
           >
             <EyeOff className="size-4 text-sm" />
@@ -58,7 +60,7 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.filter(isActive, view?.filter)}
             className={cn(
               'max-w-[200px]',
               isActive &&

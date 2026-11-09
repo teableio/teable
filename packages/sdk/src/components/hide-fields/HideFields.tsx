@@ -12,7 +12,7 @@ export const HideFields: React.FC<{
   onFieldClick?: (field: IFieldInstance) => void;
   responsive?: boolean;
   title?: string;
-  children: (text: string, isActive: boolean) => React.ReactNode;
+  children: (text: string, isActive: boolean, hiddenCount: number) => React.ReactNode;
 }> = ({ footer, onFieldClick, responsive, title, children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true, withDenied: true });
@@ -54,10 +54,12 @@ export const HideFields: React.FC<{
 
     const newOrder = swapReorder(1, fromIndex, toIndex, fields.length, (index) => {
       const fieldId = fields[index].id;
-      return view?.columnMeta[fieldId].order;
+      return view.columnMeta[fieldId]?.order;
     })[0];
 
-    if (newOrder === view?.columnMeta[fieldId].order) {
+    // Column meta can be momentarily missing for a field. Bail out instead of
+    // dereferencing it or persisting the NaN order that produces.
+    if (!Number.isFinite(newOrder) || newOrder === view.columnMeta[fieldId]?.order) {
       return;
     }
 
@@ -88,7 +90,8 @@ export const HideFields: React.FC<{
     >
       {children(
         hiddenCount ? t('hidden.configLabel_other', { count: hiddenCount }) : t('hidden.label'),
-        Boolean(hiddenCount)
+        Boolean(hiddenCount),
+        hiddenCount
       )}
     </HideFieldsBase>
   );

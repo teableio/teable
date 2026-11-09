@@ -444,10 +444,10 @@
     "title": "你想如何开始？"
   },
   "importBaseDialog": {
-    "title": "导入项目",
-    "fromFile": "从文件导入",
-    "fromFileDesc": "上传 .tea 项目文件",
-    "fromAirtableDesc": "连接 Airtable 账号导入 base",
-    "fromGoogleSheetDesc": "从 Google Drive 选择表格导入"
+    "title": "导入为项目",
+    "fromFile": "{{brand}} 文件",
+    "fromFileDesc": "上传 .tea 文件",
+    "fromAirtableDesc": "选择一个 base",
+    "fromGoogleSheetDesc": "选择一个表格"
   }
 }

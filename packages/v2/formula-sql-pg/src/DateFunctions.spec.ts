@@ -44,6 +44,56 @@ const workdayDiffResults: Record<string, string | null> = {
   user: '#ERROR:TYPE:cannot_cast_to_datetime',
 };
 
+const datetimeDiffResults: Record<string, string | null> = {
+  attachment: '#ERROR:TYPE:cannot_cast_to_datetime',
+  autoNumber: '-1',
+  button: '#ERROR:TYPE:cannot_cast_to_datetime',
+  checkbox: '#ERROR:TYPE:cannot_cast_boolean_to_datetime',
+  conditionalLookup: null,
+  conditionalRollup: null,
+  createdBy: '#ERROR:TYPE:cannot_cast_to_datetime',
+  createdTime: '-0',
+  date: '-1',
+  formula: '-1',
+  lastModifiedBy: '#ERROR:TYPE:cannot_cast_to_datetime',
+  lastModifiedTime: '-0',
+  link: '#ERROR:TYPE:cannot_cast_to_datetime',
+  longText: '#ERROR:TYPE:cannot_cast_to_datetime',
+  lookup: null,
+  multipleSelect: '#ERROR:TYPE:cannot_cast_to_datetime',
+  number: '-1',
+  rating: '-1',
+  rollup: null,
+  singleLineText: '#ERROR:TYPE:cannot_cast_to_datetime',
+  singleSelect: '#ERROR:TYPE:cannot_cast_to_datetime',
+  user: '#ERROR:TYPE:cannot_cast_to_datetime',
+};
+
+const datetimeDiffInvalidUnitResults: Record<string, string> = {
+  attachment: '#ERROR:TYPE:cannot_cast_to_datetime',
+  autoNumber: '#ERROR:ARG:invalid_datetime_diff_unit',
+  button: '#ERROR:TYPE:cannot_cast_to_datetime',
+  checkbox: '#ERROR:TYPE:cannot_cast_boolean_to_datetime',
+  conditionalLookup: '#ERROR:ARG:invalid_datetime_diff_unit',
+  conditionalRollup: '#ERROR:ARG:invalid_datetime_diff_unit',
+  createdBy: '#ERROR:TYPE:cannot_cast_to_datetime',
+  createdTime: '#ERROR:ARG:invalid_datetime_diff_unit',
+  date: '#ERROR:ARG:invalid_datetime_diff_unit',
+  formula: '#ERROR:ARG:invalid_datetime_diff_unit',
+  lastModifiedBy: '#ERROR:TYPE:cannot_cast_to_datetime',
+  lastModifiedTime: '#ERROR:ARG:invalid_datetime_diff_unit',
+  link: '#ERROR:TYPE:cannot_cast_to_datetime',
+  longText: '#ERROR:ARG:invalid_datetime_diff_unit',
+  lookup: '#ERROR:ARG:invalid_datetime_diff_unit',
+  multipleSelect: '#ERROR:TYPE:cannot_cast_to_datetime',
+  number: '#ERROR:ARG:invalid_datetime_diff_unit',
+  rating: '#ERROR:ARG:invalid_datetime_diff_unit',
+  rollup: '#ERROR:ARG:invalid_datetime_diff_unit',
+  singleLineText: '#ERROR:ARG:invalid_datetime_diff_unit',
+  singleSelect: '#ERROR:TYPE:cannot_cast_to_datetime',
+  user: '#ERROR:TYPE:cannot_cast_to_datetime',
+};
+
 const dateFunctionCases: ReadonlyArray<DateFunctionCase> = [
   { id: 'Year', buildExpression: (fieldName) => `YEAR({${fieldName}})` },
   { id: 'Month', buildExpression: (fieldName) => `MONTH({${fieldName}})` },
@@ -239,6 +289,18 @@ const runDateFunctionSuite = (
         const result = normalizeResult ? normalizeResult(context.result) : context.result;
         if (funcId === 'WorkdayDiff') {
           expect(result).toBe(workdayDiffResults[fieldCase.type]);
+          return;
+        }
+        if (funcId === 'DatetimeDiff') {
+          expect(result).toBe(datetimeDiffResults[fieldCase.type]);
+          return;
+        }
+        if (funcId === 'DatetimeDiffInvalidUnit') {
+          expect(result).toBe(datetimeDiffInvalidUnitResults[fieldCase.type]);
+          return;
+        }
+        if (funcId === 'DatetimeDiffUnitField') {
+          expect(result).toBe('#ERROR:ARG:invalid_datetime_diff_unit');
           return;
         }
         expect({

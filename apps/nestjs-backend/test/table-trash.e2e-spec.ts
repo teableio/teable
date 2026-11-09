@@ -709,7 +709,7 @@ describe('Trash (e2e)', () => {
         expect(item).toBeTruthy();
         expect(item!.record.fields[selectField.id]).toEqual(['A', 'B']);
 
-        // Force the JSON-string form a raw TEXT column produces (legacy/sqlite storage),
+        // Force the JSON-string form a raw TEXT column produces (legacy TEXT storage),
         // then assert the endpoint still returns the parsed cell value.
         const rawTrash = await prisma.recordTrash.findFirst({
           where: { tableId, recordId },

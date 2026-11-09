@@ -132,12 +132,16 @@ export interface ITableRecordQueryBuilder {
    * buckets collate (user fields by {id, title} identity, date-like fields by
    * their formatting bucket) so grouped record pages and offset-addressed range
    * reads line up with the group row blocks; without it plain sorts keep the v1
-   * raw-cell collation
+   * raw-cell collation. collation: explicit field collation; currently only
+   * zh-pinyin for text and single-value link fields.
    */
   orderBy(
     column: OrderByColumn,
     direction: 'asc' | 'desc',
-    options?: { readonly groupIdentityCollation?: boolean }
+    options?: {
+      readonly groupIdentityCollation?: boolean;
+      readonly collation?: 'zh-pinyin';
+    }
   ): this;
 
   /**

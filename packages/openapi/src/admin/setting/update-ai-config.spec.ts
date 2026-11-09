@@ -127,4 +127,16 @@ describe('updateAppConfigRoSchema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('rejects an app auth OIDC scope that drops openid', () => {
+    const parse = (scope: string) =>
+      updateAppConfigRoSchema.safeParse({
+        section: 'appAuth',
+        patch: { appAuth: { oidc: { scope } } },
+      }).success;
+
+    expect(parse('openid email groups')).toBe(true);
+    expect(parse('')).toBe(true);
+    expect(parse('email profile')).toBe(false);
+  });
 });

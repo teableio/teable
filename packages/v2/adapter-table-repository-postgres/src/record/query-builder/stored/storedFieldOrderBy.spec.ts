@@ -1,14 +1,19 @@
 import {
+  BaseId,
   DateTimeFormatting,
   FieldId,
   FieldName,
   LookupField,
+  LinkFieldConfig,
   LookupOptions,
   TimeFormatting,
   createCheckboxField,
   createDateField,
   createSingleLineTextField,
   createUserField,
+  Table,
+  TableId,
+  TableName,
   type Field,
 } from '@teable/v2-core';
 import {
@@ -188,5 +193,93 @@ describe('storedFieldOrderBy', () => {
     expect(sql).toContain(`->> 'title' asc nulls first`);
     expect(sql).not.toContain('is null');
     expect(sql).not.toContain('"t"."lookup_owner"::jsonb is null');
+  });
+  test('applies zh-x-icu to text without changing v1 null placement', () => {
+    const field = createSingleLineTextField({
+      id: FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap(),
+      name: FieldName.create('Chinese Text')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = buildStoredFieldOrderByClauses(field, 'col_text', 'asc', 't', {
+      collation: 'zh-pinyin',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(compileOrderBy(result._unsafeUnwrap())).toContain(
+      `order by ("t"."col_text") COLLATE "zh-x-icu" asc nulls first`
+    );
+  });
+
+  test('rejects zh-pinyin for unsupported fields instead of using default ordering', () => {
+    const field = createCheckboxField({
+      id: FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap(),
+      name: FieldName.create('Checked')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const result = buildStoredFieldOrderByClauses(field, 'col_checked', 'asc', 't', {
+      collation: 'zh-pinyin',
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.code).toBe('sort.unsupported_collation');
+    }
+  });
+
+  test.each([
+    ['manyOne', true],
+    ['manyMany', false],
+  ] as const)('supports zh-pinyin only for scalar %s links', (relationship, supported) => {
+    const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+    const hostTableId = TableId.create(`tbl${'h'.repeat(16)}`)._unsafeUnwrap();
+    const titleFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+    const foreignBuilder = Table.builder()
+      .withId(foreignTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(titleFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+    const hostBuilder = Table.builder()
+      .withId(hostTableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Chinese Link')._unsafeUnwrap())
+      .withConfig(
+        LinkFieldConfig.create({
+          relationship,
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: titleFieldId.toString(),
+          symmetricFieldId: `fld${'s'.repeat(16)}`,
+        })._unsafeUnwrap()
+      )
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+    const linkField = hostTable.getFields()[0];
+
+    const result = buildStoredFieldOrderByClauses(linkField, 'col_link', 'asc', 't', {
+      collation: 'zh-pinyin',
+    });
+
+    expect(result.isOk()).toBe(supported);
+    if (result.isOk()) {
+      expect(compileOrderBy(result.value)).toContain(
+        `order by ("t"."col_link"::jsonb ->> 'title') COLLATE "zh-x-icu" asc nulls first`
+      );
+    } else {
+      expect(result.error.code).toBe('sort.unsupported_collation');
+    }
   });
 });

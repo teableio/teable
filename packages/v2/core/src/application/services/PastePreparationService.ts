@@ -32,6 +32,7 @@ import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { ViewId } from '../../domain/table/views/ViewId';
+import type { SortCollation } from '../../domain/table/views/ViewSort';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
 import type { ITableMapper } from '../../ports/mappers/TableMapper';
@@ -73,6 +74,7 @@ export type PastePreparationSourceField = {
 export type PastePreparationSort = {
   readonly fieldId: string;
   readonly order: 'asc' | 'desc';
+  readonly collation?: SortCollation;
 };
 
 export type PastePreparationGroup = {
@@ -379,7 +381,7 @@ export class PastePreparationService {
       }
 
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
-      const sortOrderBy = yield* resolveOrderBy(effectiveSort);
+      const sortOrderBy = yield* resolveOrderBy(effectiveSort, persistedTable, effectiveGroup);
       const orderBy = mergeOrderByWithViewRowTieBreaker(
         groupByOrderBy,
         sortOrderBy,

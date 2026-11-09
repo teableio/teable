@@ -159,6 +159,7 @@ export const operationPreviewSchema = z.object({
     unknown: z.array(z.string()).readonly(),
   }),
   complexity: complexityAssessmentSchema.nullable(),
+  hostChecks: z.record(z.string(), z.unknown()).readonly().optional(),
   authorization: z.enum(['checked', 'not-applicable']),
   observedAt: z.iso.datetime({ offset: true }),
   consistency: z.enum(['best-effort', 'snapshot']),

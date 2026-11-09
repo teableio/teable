@@ -7,6 +7,7 @@ import type { Field } from '@teable/sdk/model';
 import {
   extractTableContent,
   extractHtmlHeader,
+  serializerCellValueHtml,
   serializerHtml,
   isTeableHTML,
   parseNormalHtml,
@@ -30,35 +31,35 @@ export const rangeTypes = {
 export const isSafari = () => /^(?:(?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 export const copyHandler = async (getCopyData: () => Promise<ICopyVo>) => {
-  // Can't await asynchronous action before navigator.clipboard.write in safari
-  if (!isSafari()) {
-    const { header, content } = await getCopyData();
+  // Safari requires clipboard.write to happen in the original user gesture. Start the request
+  // synchronously and share it between MIME producers so large selections are fetched only once.
+  const copyDataPromise = getCopyData();
+  const getText = async () => {
+    const { content } = await copyDataPromise;
+    return new Blob([content], { type: ClipboardTypes.text });
+  };
+  const getHtml = async () => {
+    const { header, content, rawContent } = await copyDataPromise;
+    const html = rawContent
+      ? serializerCellValueHtml(rawContent, header, content)
+      : serializerHtml(content, header);
+    return new Blob([html], { type: ClipboardTypes.html });
+  };
+
+  if (isSafari()) {
     await navigator.clipboard.write([
       new ClipboardItem({
-        [ClipboardTypes.text]: new Blob([content], { type: ClipboardTypes.text }),
-        [ClipboardTypes.html]: new Blob([serializerHtml(content, header)], {
-          type: ClipboardTypes.html,
-        }),
+        [ClipboardTypes.text]: getText(),
+        [ClipboardTypes.html]: getHtml(),
       }),
     ]);
     return;
   }
 
-  const getText = async () => {
-    const { content } = await getCopyData();
-
-    return new Blob([content], { type: ClipboardTypes.text });
-  };
-
-  const getHtml = async () => {
-    const { header, content } = await getCopyData();
-    return new Blob([serializerHtml(content, header)], { type: ClipboardTypes.html });
-  };
-
   await navigator.clipboard.write([
     new ClipboardItem({
-      [ClipboardTypes.text]: getText(),
-      [ClipboardTypes.html]: getHtml(),
+      [ClipboardTypes.text]: await getText(),
+      [ClipboardTypes.html]: await getHtml(),
     }),
   ]);
 };

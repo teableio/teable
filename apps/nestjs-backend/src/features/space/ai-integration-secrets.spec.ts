@@ -1,7 +1,14 @@
+import { HttpErrorCode } from '@teable/core';
+import { isMaskedSecret } from '@teable/openapi';
 import { describe, expect, it, vi } from 'vitest';
 import { getAiConfigValueCodec } from '../../utils/ai-config-encryption';
 import { getThirdPartyCredentialCodec } from '../../utils/third-party-credential-encryption';
-import { decryptAiIntegrationConfig, encryptAiIntegrationConfig } from './ai-integration-secrets';
+import {
+  decryptAiIntegrationConfig,
+  encryptAiIntegrationConfig,
+  maskAiIntegrationConfig,
+  unmaskAiIntegrationConfig,
+} from './ai-integration-secrets';
 
 describe('space AI integration secrets', () => {
   it('round-trips a space AI integration config through both codecs', () => {
@@ -38,5 +45,58 @@ describe('space AI integration secrets', () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  describe('masking for the API', () => {
+    const stored = {
+      llmProviders: [
+        { type: 'openai', name: 'p1', apiKey: 'sk-one', baseUrl: 'https://a.example/v1' },
+        { type: 'openai', name: 'p2', apiKey: 'sk-two', baseUrl: 'https://b.example/v1' },
+      ],
+      aiGatewayApiKey: 'gw-key',
+      appConfig: { vercelToken: 'vercel-token', customDomain: 'apps.x' },
+    };
+
+    it('masks every secret slot, the embedded appConfig included', () => {
+      const masked = maskAiIntegrationConfig(stored);
+
+      expect(JSON.stringify(masked)).not.toMatch(/sk-one|sk-two|gw-key|vercel-token/);
+      expect(isMaskedSecret(masked.llmProviders[0].apiKey)).toBe(true);
+      expect(isMaskedSecret(masked.appConfig.vercelToken)).toBe(true);
+      expect(masked.llmProviders[0].baseUrl).toBe('https://a.example/v1');
+      expect(masked.appConfig.customDomain).toBe('apps.x');
+    });
+
+    it('resolves a round-tripped config back to the stored secrets, keeping new plaintext', () => {
+      const masked = maskAiIntegrationConfig(stored);
+      // A client reorders the providers, drops one and adds a fresh key.
+      const incoming = {
+        ...masked,
+        llmProviders: [
+          masked.llmProviders[1],
+          { type: 'openai', name: 'p3', apiKey: 'sk-new', baseUrl: 'https://c.example/v1' },
+        ],
+      };
+
+      expect(unmaskAiIntegrationConfig(incoming, stored)).toEqual({
+        ...stored,
+        llmProviders: [
+          stored.llmProviders[1],
+          { type: 'openai', name: 'p3', apiKey: 'sk-new', baseUrl: 'https://c.example/v1' },
+        ],
+      });
+    });
+
+    it('refuses a mask that matches no stored secret instead of saving it as the key', () => {
+      const masked = maskAiIntegrationConfig(stored);
+      const rotated = { ...stored, aiGatewayApiKey: 'gw-rotated' };
+
+      expect(() => unmaskAiIntegrationConfig(masked, rotated)).toThrow(
+        expect.objectContaining({ code: HttpErrorCode.VALIDATION_ERROR })
+      );
+      expect(() => unmaskAiIntegrationConfig(masked, undefined)).toThrow(
+        expect.objectContaining({ code: HttpErrorCode.VALIDATION_ERROR })
+      );
+    });
   });
 });

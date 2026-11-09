@@ -5,17 +5,11 @@ import type { Result } from 'neverthrow';
 import { buildOperationBatchMutation } from '../../commands/shared/batchMutationOrchestration';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import { RecordCreated, isRecordCreatedEvent } from '../../domain/table/events/RecordCreated';
-import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreated';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../../domain/table/records/RecordCreateResult';
 import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
-import { materializeRecordSpec } from '../../domain/table/records/RecordSpecMaterializer';
-import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
-import type { TableId } from '../../domain/table/TableId';
-import type { IBatchMutationOrchestration } from '../../ports/BatchMutationOrchestration';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import {
   RecordWriteOperationKind,
@@ -35,7 +29,7 @@ import {
   NullForeignTableLoaderService,
 } from './ForeignTableLoaderService';
 import { type IRecordChangedValueDecoratorService } from './RecordChangedValueDecoratorService';
-import { mergeRecordFieldValues } from './recordEventFieldValues';
+import { aggregateRecordCreatedEvents } from './recordEventFieldValues';
 import {
   requireStoredRecordSnapshots,
   toUndoRedoRestoreRecords,
@@ -134,12 +128,10 @@ export class RecordBatchCreationService {
       } = yield* tableForCreate.createRecords(resolvedRecordsFieldValues, {
         typecast: input.typecast,
       });
-      const records = yield* await service.resolveCreatedRecords(
+      const { records } = yield* await service.recordMutationSpecResolver.resolveCreatedRecords(
         context,
         tableForCreate.id(),
-        createdRecords,
-        mutateSpecs,
-        input.typecast
+        { records: createdRecords, mutateSpecs }
       );
 
       let tableEvents: ReadonlyArray<IDomainEvent> = [];
@@ -177,15 +169,12 @@ export class RecordBatchCreationService {
           tableForCreate,
           mutationResult.changedFieldsByRecord
         );
-      const aggregateEvents = service.aggregateCreatedEvents(
-        tableForCreate,
-        {
-          ...mutationResult,
-          changedFieldsByRecord: decoratedChangedFieldsByRecord,
-        },
-        tableForCreate.pullDomainEvents(),
-        batchMutation
-      );
+      const aggregateEvents = aggregateRecordCreatedEvents({
+        events: tableForCreate.pullDomainEvents(),
+        mutationResult,
+        decoratedChangedFieldsByRecord,
+        orchestration: batchMutation,
+      });
       const recordSnapshotsResult = await service.buildRecordSnapshots(
         context,
         tableForCreate,
@@ -232,11 +221,15 @@ export class RecordBatchCreationService {
     input: IRecordBatchCreationInput
   ): Result<ReadonlyArray<ReadonlyMap<string, unknown>>, DomainError> {
     const resolvedRecordsFieldValues: Array<ReadonlyMap<string, unknown>> = [];
+    if (input.recordsFieldValues.length === 0) return ok(resolvedRecordsFieldValues);
+    const fieldKeyResolutionContext = FieldKeyResolverService.createResolutionContext(
+      input.table,
+      input.fieldKeyType
+    );
     for (const recordFieldValues of input.recordsFieldValues) {
-      const resolvedFields = FieldKeyResolverService.resolveFieldKeys(
-        input.table,
-        Object.fromEntries(recordFieldValues),
-        input.fieldKeyType
+      const resolvedFields = FieldKeyResolverService.resolveFieldKeysWithContext(
+        fieldKeyResolutionContext,
+        Object.fromEntries(recordFieldValues)
       );
       if (resolvedFields.isErr()) {
         return err(resolvedFields.error);
@@ -244,105 +237,6 @@ export class RecordBatchCreationService {
       resolvedRecordsFieldValues.push(new Map(Object.entries(resolvedFields.value)));
     }
     return ok(resolvedRecordsFieldValues);
-  }
-
-  private async resolveCreatedRecords(
-    context: IExecutionContext,
-    tableId: TableId,
-    records: ReadonlyArray<TableRecord>,
-    mutateSpecs: ReadonlyArray<ICellValueSpec | null>,
-    typecast: boolean
-  ): Promise<Result<ReadonlyArray<TableRecord>, DomainError>> {
-    if (!typecast) {
-      return ok(records);
-    }
-
-    const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
-      context,
-      tableId,
-      mutateSpecs
-    );
-    if (resolveManyResult.isErr()) {
-      return err(resolveManyResult.error);
-    }
-
-    const resolvedRecords: TableRecord[] = [];
-    for (let index = 0; index < records.length; index++) {
-      let record = records[index]!;
-      const mutateSpec = resolveManyResult.value[index] ?? null;
-      if (mutateSpec) {
-        const materialized = materializeRecordSpec({
-          id: record.id(),
-          tableId: record.tableId(),
-          spec: mutateSpec,
-          baseFields: record.fields().entries(),
-        });
-        if (materialized.isErr()) {
-          return err(materialized.error);
-        }
-        record = materialized.value;
-      }
-      resolvedRecords.push(record);
-    }
-
-    return ok(resolvedRecords);
-  }
-
-  private aggregateCreatedEvents(
-    table: Table,
-    mutationResult: BatchRecordMutationResult,
-    rawEvents: ReadonlyArray<IDomainEvent>,
-    orchestration?: IBatchMutationOrchestration
-  ): ReadonlyArray<IDomainEvent> {
-    const recordCreatedEvents: RecordCreated[] = [];
-    const otherEvents: IDomainEvent[] = [];
-
-    for (const event of rawEvents) {
-      if (isRecordCreatedEvent(event)) {
-        const recordId = event.recordId.toString();
-        const recordFieldChanges = new Map<string, unknown>();
-        for (const [fieldId, value] of mutationResult.changedFieldsByRecord?.get(recordId) ?? []) {
-          recordFieldChanges.set(fieldId, value);
-        }
-        for (const [fieldId, value] of mutationResult.computedChangesByRecord?.get(recordId) ??
-          []) {
-          recordFieldChanges.set(fieldId, value);
-        }
-        const mergedRecordFieldChanges =
-          recordFieldChanges.size > 0 ? recordFieldChanges : undefined;
-        recordCreatedEvents.push(
-          RecordCreated.create({
-            tableId: event.tableId,
-            baseId: event.baseId,
-            recordId: event.recordId,
-            fieldValues: mergeRecordFieldValues(event.fieldValues, mergedRecordFieldChanges),
-            source: event.source,
-          })
-        );
-      } else {
-        otherEvents.push(event);
-      }
-    }
-
-    if (recordCreatedEvents.length <= 1) {
-      return [...recordCreatedEvents, ...otherEvents];
-    }
-
-    const source = recordCreatedEvents[0]?.source ?? { type: 'user' };
-    return [
-      RecordsBatchCreated.create({
-        tableId: table.id(),
-        baseId: table.baseId(),
-        records: recordCreatedEvents.map((event) => ({
-          recordId: event.recordId.toString(),
-          fields: event.fieldValues,
-          orders: mutationResult.recordOrders?.get(event.recordId.toString()),
-        })),
-        source,
-        orchestration,
-      }),
-      ...otherEvents,
-    ];
   }
 
   private async buildRecordSnapshots(

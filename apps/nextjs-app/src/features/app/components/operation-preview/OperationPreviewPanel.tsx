@@ -2,6 +2,7 @@ import { Button } from '@teable/ui-lib/shadcn';
 import type { IOperationPreviewDto } from '@teable/v2-contract-http/operationPreview';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { buildPreviewPresentation } from './operationPreviewPresentation';
 import type {
   ConsequenceSummary,
@@ -112,9 +113,18 @@ const BlockerDetails = ({ blockers }: { blockers: PreviewPresentation['blockers'
   );
 };
 
+const consequenceQuantityLabels = {
+  fields: 'affectedFields',
+  views: 'affectedViews',
+  cells: 'affectedCells',
+  linkChanges: 'affectedLinkChanges',
+} as const;
+
 const ConsequenceDetails = ({ consequence }: { consequence: ConsequenceSummary }) => {
   const { t } = useTranslation('common');
-  const hasMeasure = Boolean(consequence.fields || consequence.views);
+  const hasMeasure = Boolean(
+    consequence.fields || consequence.views || consequence.cells || consequence.linkChanges
+  );
   return (
     <li className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-x-4 gap-y-1 py-2">
       <div className="min-w-0 space-y-1">
@@ -124,18 +134,19 @@ const ConsequenceDetails = ({ consequence }: { consequence: ConsequenceSummary }
             {t('operationPreview.inTables', { names: consequence.tables.join(', ') })}
           </p>
         ) : null}
-        {(['fields', 'views'] as const).map((label) => {
+        {(['fields', 'views', 'cells', 'linkChanges'] as const).map((label) => {
           const measure = consequence[label];
           if (
             !measure ||
             (measure.basis === 'exact' &&
+              (label === 'fields' || label === 'views') &&
               consequence.names.length > 0 &&
               measure.value <= consequence.names.length)
           )
             return null;
           return (
             <p key={label} className="text-muted-foreground">
-              {t(`operationPreview.${label === 'fields' ? 'affectedFields' : 'affectedViews'}`)}{' '}
+              {t(`operationPreview.${consequenceQuantityLabels[label]}`)}{' '}
               <span className="tabular-nums">
                 <Quantity measure={measure} />
               </span>
@@ -180,6 +191,17 @@ const ConsequenceGroup = ({
   );
 };
 
+const actionTitleKeys = {
+  'field.delete': 'deleteFieldTitle',
+  'field.convert': 'convertFieldTitle',
+  'table.delete': 'deleteTableTitle',
+  'table.duplicate': 'copyTableTitle',
+  'base.duplicate': 'copyBaseTitle',
+  'records.paste': 'title',
+  'records.bulkUpdate': 'title',
+  'records.bulkDelete': 'title',
+} as const;
+
 const ActionDetails = ({
   summary,
   operation,
@@ -216,20 +238,20 @@ const ActionDetails = ({
       </div>
     );
   }
-  const title =
-    operation === 'field.delete'
-      ? 'deleteFieldTitle'
-      : operation === 'table.delete'
-        ? 'deleteTableTitle'
-        : operation === 'table.duplicate'
-          ? 'copyTableTitle'
-          : operation === 'base.duplicate'
-            ? 'copyBaseTitle'
-            : 'title';
+  const title = actionTitleKeys[operation];
+  const fieldUnchanged = summary.consequences.some(
+    (consequence) => consequence.message === 'fieldUnchanged'
+  );
   return (
     <div className="space-y-1 rounded-md bg-muted/50 p-3">
-      <h3 className="font-semibold">{t(`operationPreview.${title}`)}</h3>
-      {summary.consequences.length === 0 && summary.blockers.length === 0 ? (
+      <h3 className="break-words font-semibold">
+        {operation === 'field.convert' && targetFieldName
+          ? targetFieldName
+          : t(`operationPreview.${title}`)}
+      </h3>
+      {fieldUnchanged ? (
+        <p>{t('operationPreview.messages.fieldUnchanged')}</p>
+      ) : summary.consequences.length === 0 && summary.blockers.length === 0 ? (
         <p className="text-muted-foreground">{t('operationPreview.emptyEffects')}</p>
       ) : null}
     </div>
@@ -292,14 +314,19 @@ const UnknownDetails = ({ summary }: { summary: PreviewPresentation }) => {
 const PreviewDetails = ({
   preview,
   targetFieldName,
+  children,
 }: {
   preview: IOperationPreviewDto;
   targetFieldName?: string;
+  children?: ReactNode;
 }) => {
   const { t } = useTranslation('common');
   const summary = buildPreviewPresentation(preview);
   const changes = summary.consequences.filter(
-    (consequence) => !consequence.preserved && consequence.message !== 'fieldDeleted'
+    (consequence) =>
+      !consequence.preserved &&
+      consequence.message !== 'fieldDeleted' &&
+      consequence.message !== 'fieldUnchanged'
   );
   const preserved = summary.consequences.filter((consequence) => consequence.preserved);
   return (
@@ -313,12 +340,13 @@ const PreviewDetails = ({
       <ActionDetails
         summary={summary}
         operation={preview.operation}
-        targetFieldName={preview.operation === 'field.delete' ? targetFieldName : undefined}
+        targetFieldName={targetFieldName}
       />
       <BlockerDetails blockers={summary.blockers} />
       <ConsequenceGroup consequences={changes} />
       <ConsequenceGroup consequences={preserved} preserved />
       <UnknownDetails summary={summary} />
+      {children}
     </section>
   );
 };
@@ -330,6 +358,7 @@ export interface OperationPreviewPanelProps {
   error?: unknown;
   isLoading: boolean;
   onRetry: () => void;
+  children?: ReactNode;
 }
 
 /** Product consequences only; the canonical DTO retains the machine-readable evidence. */
@@ -339,6 +368,7 @@ export const OperationPreviewPanel = ({
   isLoading,
   onRetry,
   targetFieldName,
+  children,
 }: OperationPreviewPanelProps) => {
   const { t } = useTranslation('common');
   if (isLoading) {
@@ -358,5 +388,9 @@ export const OperationPreviewPanel = ({
       </div>
     );
   }
-  return <PreviewDetails preview={preview} targetFieldName={targetFieldName} />;
+  return (
+    <PreviewDetails preview={preview} targetFieldName={targetFieldName}>
+      {children}
+    </PreviewDetails>
+  );
 };

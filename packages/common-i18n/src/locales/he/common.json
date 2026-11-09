@@ -6,6 +6,7 @@
     "deleteTableTitle": "Delete table",
     "copyTableTitle": "Copy table",
     "copyBaseTitle": "Copy project",
+    "convertFieldTitle": "Change field",
     "changedEffectsTitle": "What else changes",
     "preservedTitle": "Stays connected",
     "loading": "Loading details…",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "execution-time effects",
     "uncertaintyDetail": "other effects",
     "recordCountUnknown": "record count",
+    "affectedCellCountUnknown": "affected-cell count",
     "retentionUnknown": "The Trash retention period is not checked.",
     "storageUnknown": "Storage impact is not checked.",
     "retentionStorageUnknown": "The Trash retention period and storage impact are not checked.",
     "inTables": "In table: {{names}}",
     "affectedFields": "Affected fields:",
     "affectedViews": "Affected views:",
+    "affectedCells": "Affected cells:",
+    "affectedLinkChanges": "Related link changes:",
     "labels": {
       "tables": "Tables",
       "fields": "Fields",
@@ -67,7 +71,12 @@
       "dependentFieldsUpdatedDetail": "Update dependent fields; final values are not specified",
       "alreadyTrashed": "This table is already in Trash.",
       "unknownLinksDetail": "Some linked tables could not be classified; whether their links are kept or converted is unknown.",
-      "truncatedEffectsDetail": "Only part of the affected-resource list is shown."
+      "truncatedEffectsDetail": "Only part of the affected-resource list is shown.",
+      "fieldTypeChanged": "Change the field type",
+      "fieldConfigurationChanged": "Update the field settings",
+      "fieldValuesRewritten": "Rewrite existing field values for the new settings",
+      "fieldUnchanged": "Keep the current field settings",
+      "fieldLinkChanges": "Apply related link changes"
     }
   },
   "actions": {
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "הגדרות",
       "logout": "יציאה",
-      "contactSupport": "פנייה לתמיכה"
+      "contactSupport": "פנייה לתמיכה",
+      "downloadApp": "הורדת האפליקציה"
     },
     "integration": {
       "title": "אינטגרציות",
@@ -1115,7 +1125,6 @@
           "smDesc": "שאילתות פשוטות, תשובות מהירות",
           "readyToUse": "ה-AI מוגדר ומוכן לשימוש!",
           "customProviderHelp": "הוספת ספקי AI משלך (OpenAI, Anthropic, Azure ועוד), והגדרת מפתחות API ומודלים.",
-          "testModelCapabilities": "בדיקת יכולות המודלים",
           "customModelsAutoImported": "המודלים של הספק יובאו אוטומטית למאגר המודלים.",
           "modelsCount": "{{count}} מודלים זמינים",
           "customModelsHint": "לשינוי הגדרות המודלים, יש לחזור לשלב 1 ולערוך את הגדרות הספק.",
@@ -1172,7 +1181,8 @@
       "group": {
         "system": "יסודות",
         "ai": "שירותי AI",
-        "appBuilder": "App Builder"
+        "appBuilder": "App Builder",
+        "security": "אבטחה"
       },
       "copyInstance": "העתקת מזהה",
       "list": {
@@ -1221,7 +1231,23 @@
         "sandboxOpenSandbox": {
           "title": "סביבת ההרצה של צ'אט AI",
           "description": "הגדרת סביבת ההרצה OpenSandbox עבור צ'אט AI, <anchor>מעבר להגדרות</anchor>"
+        },
+        "signupVerification": {
+          "title": "הרשמה פתוחה ללא אימות דוא״ל",
+          "description": "כל אחד יכול להירשם עם כתובת דוא״ל שאינה שלו: לתפוס מראש כתובת של עמית או לקוח, ולהשתלט על החשבון של מי שהוזמן בדוא״ל ועוד לא נרשם, יחד עם ההרשאות שההזמנה העניקה. הפעילו אימות דוא״ל (נדרשת הגדרת שליחת דוא״ל) או כבו את ההרשמה הפתוחה, <anchor>מעבר להגדרות</anchor>"
+        },
+        "secrets": {
+          "title": "סודות שרת",
+          "description": "סודות שלא הוגדרו או שמשתמשים בערך ברירת מחדל ידוע לציבור: {{total}}. הדבר עלול לאפשר לאחרים לזייף אסימוני התחברות או לפענח נתונים שמורים. הגדירו אותם כמשתני סביבה והפעילו מחדש; יומן ההפעלה מסביר כל פריט. במופע שכבר יש בו נתונים, קבעו תחילה את הערכים הנוכחיים ורק אחר כך בצעו רוטציה: החלפה ישירה של מפתח הצפנה הופכת את הנתונים שהוצפנו בו לבלתי קריאים.",
+          "missing": "לא הוגדר",
+          "publicDefault": "ערך ברירת מחדל ציבורי",
+          "docsLink": "מדריך משתני הסביבה",
+          "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
+      },
+      "banner": {
+        "message": "יש פריטי אבטחה שדורשים טיפול בלוח הניהול",
+        "action": "לבדיקה"
       }
     },
     "canary": {
@@ -1602,6 +1628,18 @@
           },
           "connectorDisconnected": {
             "title": "הרוטינה {{name}} הפסיקה לקבל אירועי מחבר"
+          },
+          "handedToYou": {
+            "title": "השגרה {{name}} הועברה אליך",
+            "message": "{{previousOwner}} כבר לא יכול/ה לערוך את השגרה {{name}}, ולכן היא הועברה אליך. מעכשיו היא פועלת בשמך, והתוצאות וההתראות נשלחות אליך. בדוק/י את ההוראות ואת הטריגר, או השהה/י אותה אם אין בה צורך."
+          },
+          "handedAway": {
+            "title": "השגרה שלך {{name}} הועברה אל {{newOwner}}",
+            "message": "כבר אין לך אפשרות לערוך את השגרה {{name}}, ולכן היא הועברה אל {{newOwner}}. מעכשיו היא פועלת בשם {{newOwner}}."
+          },
+          "takenOver": {
+            "title": "השגרה {{name}} פועלת כעת בשם {{newOwner}}",
+            "message": "{{newOwner}} קיבל/ה את השגרה {{name}}. היא פועלת כעת בשם {{newOwner}}, והתוצאות וההתראות נשלחות אל {{newOwner}}."
           }
         },
         "connectorEvent": {
@@ -2065,5 +2103,16 @@
         "description": "עוזרות לנו למדוד את האפקטיביות של הפרסומות והמבצעים שלנו."
       }
     }
+  },
+  "openInApp": {
+    "title": "אפליקציית Teable",
+    "description": "פתחו את הדף הזה באפליקציה לחוויה חלקה יותר",
+    "open": "פתיחה",
+    "dismiss": "סגירה",
+    "notInstalledTitle": "עדיין אין לכם את האפליקציה?",
+    "notInstalledDescription": "התקינו אותה, חזרו לכאן והקישו על פתיחה",
+    "getApp": "להורדת האפליקציה",
+    "inAppBrowserHint": "כדי לעבור לאפליקציה, פתחו את הדף בדפדפן דרך התפריט שבראש המסך",
+    "menuItem": "פתיחה באפליקציית Teable"
   }
 }

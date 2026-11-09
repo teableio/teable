@@ -1334,4 +1334,247 @@ describe('operation preview confirmation', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled();
   });
+  it.each([
+    {
+      language: 'en',
+      name: 'Amount',
+      typeChange: 'Change the field type',
+      rewrite: 'Rewrite existing field values for the new settings',
+      unknownCells: 'Affected cells: Count unavailable',
+      scope: 'Not fully checked: execution-time effects, affected-cell count.',
+      coverageTitle: 'Some impacts are unconfirmed · View scope',
+      unavailable: 'Impact details are unavailable.',
+    },
+    {
+      language: 'zh',
+      name: '金额',
+      typeChange: '更改字段类型',
+      rewrite: '按新的字段设置重写已有值',
+      unknownCells: '受影响单元格数： 数量未知',
+      scope: '尚未完整检查：执行时的其他影响、受影响单元格数量。',
+      coverageTitle: '部分影响尚未确认 · 查看范围',
+      unavailable: '暂时无法获取影响详情。',
+    },
+  ])(
+    'renders the observed conversion facts in $language without calling a successful preview unavailable',
+    (copy) => {
+      locale.language = copy.language;
+      render(
+        <OperationPreviewPanel
+          isLoading={false}
+          onRetry={vi.fn()}
+          targetFieldName={copy.name}
+          preview={previewFixture({
+            operation: 'field.convert',
+            effects: [
+              {
+                code: 'field.conversion.type_change',
+                kind: 'field.conversion',
+                measures: { changedFields: { basis: 'exact', value: 1, unit: 'fields' } },
+              },
+              {
+                code: 'field.conversion.record_rewrite',
+                kind: 'record.rewrite',
+                measures: {
+                  affectedCells: {
+                    basis: 'unknown',
+                    unit: 'cells',
+                    reason: 'filled-cell aggregation did not return evidence for the target field',
+                  },
+                },
+              },
+            ],
+            coverage: {
+              known: [
+                'updateInputValidation',
+                'foreignTableReferences',
+                'updateSpecifications',
+                'conversionClassification',
+                'dataRewriteRequirement',
+                'linkSideEffects',
+              ],
+              unknown: ['fieldOperationPolicies', 'affectedCellCount'],
+            },
+          })}
+        />
+      );
+      expect(screen.getByRole('heading', { name: copy.name })).toBeInTheDocument();
+      expect(screen.getByText(copy.typeChange)).toBeVisible();
+      const rewriteRow = screen.getByText(copy.rewrite).closest('li');
+      expect(rewriteRow).toHaveTextContent(copy.unknownCells);
+      expect(rewriteRow).not.toHaveTextContent(/\b0\b|\b1\b|Number|Text/);
+      expect(screen.queryByText(copy.unavailable)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText(copy.coverageTitle));
+      expect(screen.getByText(copy.scope)).toBeVisible();
+      expect(
+        screen.queryByText(/field\.conversion|filled-cell aggregation|fieldOperationPolicies/)
+      ).not.toBeInTheDocument();
+    }
+  );
+
+  it('shows an established affected-cell count instead of replacing it with an unknown count', () => {
+    render(
+      <OperationPreviewPanel
+        isLoading={false}
+        onRetry={vi.fn()}
+        preview={previewFixture({
+          operation: 'field.convert',
+          effects: [
+            {
+              code: 'field.conversion.record_rewrite',
+              kind: 'record.rewrite',
+              measures: { affectedCells: { basis: 'exact', value: 16, unit: 'cells' } },
+            },
+          ],
+        })}
+      />
+    );
+    const row = screen
+      .getByText('Rewrite existing field values for the new settings')
+      .closest('li');
+    expect(row).toHaveTextContent('Affected cells: 16');
+    expect(row).not.toHaveTextContent('Count unavailable');
+  });
+
+  it('describes metadata-only conversion without claiming a type change or rewriting records', () => {
+    render(
+      <OperationPreviewPanel
+        isLoading={false}
+        onRetry={vi.fn()}
+        targetFieldName="Amount"
+        preview={previewFixture({
+          operation: 'field.convert',
+          effects: [
+            {
+              code: 'field.conversion.metadata_change',
+              kind: 'field.conversion',
+              measures: { changedFields: { basis: 'exact', value: 1, unit: 'fields' } },
+            },
+          ],
+        })}
+      />
+    );
+    expect(screen.getByText('Update the field settings')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Amount' })).toBeVisible();
+    expect(screen.queryByText('Change the field type')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Rewrite existing|Affected cells|Impact details are unavailable/)
+    ).not.toBeInTheDocument();
+  });
+
+  it('reports a canonical no-op as unchanged rather than claiming conversion or unavailable effects', () => {
+    render(
+      <OperationPreviewPanel
+        isLoading={false}
+        onRetry={vi.fn()}
+        targetFieldName="Amount"
+        preview={previewFixture({
+          operation: 'field.convert',
+          outcome: 'incomplete',
+          effects: [
+            {
+              code: 'field.conversion.noop',
+              kind: 'field.conversion',
+              measures: { changedFields: { basis: 'exact', value: 0, unit: 'fields' } },
+            },
+          ],
+          coverage: { known: [], unknown: ['fieldOperationPolicies'] },
+        })}
+      />
+    );
+    expect(screen.getByText('Keep the current field settings')).toBeVisible();
+    expect(
+      screen.queryByText(
+        /Change the field type|Rewrite existing|Impact details are unavailable|What else changes/
+      )
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Affected cells:/)).not.toBeInTheDocument();
+  });
+
+  it('keeps link side-effect specifications distinct from affected-field or record counts', () => {
+    render(
+      <OperationPreviewPanel
+        isLoading={false}
+        onRetry={vi.fn()}
+        preview={previewFixture({
+          operation: 'field.convert',
+          effects: [
+            {
+              code: 'field.conversion.metadata_change',
+              kind: 'field.conversion',
+              measures: { changedFields: { basis: 'exact', value: 1, unit: 'fields' } },
+            },
+            {
+              code: 'field.conversion.link_side_effects',
+              kind: 'dependency.change',
+              measures: { changedDependencies: { basis: 'exact', value: 2, unit: 'fields' } },
+            },
+          ],
+        })}
+      />
+    );
+    const links = screen.getByText('Apply related link changes').closest('li');
+    expect(links).toHaveTextContent('Related link changes: 2');
+    expect(links).not.toHaveTextContent(/Affected fields|Affected cells|records|two-way|Delete/);
+    expect(screen.getByText('Update the field settings')).toBeVisible();
+  });
+
+  it('still reports rewriting for a metadata-classified change when canonical rewrite evidence is present', () => {
+    render(
+      <OperationPreviewPanel
+        isLoading={false}
+        onRetry={vi.fn()}
+        preview={previewFixture({
+          operation: 'field.convert',
+          effects: [
+            {
+              code: 'field.conversion.metadata_change',
+              kind: 'field.conversion',
+              measures: { changedFields: { basis: 'exact', value: 1, unit: 'fields' } },
+            },
+            {
+              code: 'field.conversion.record_rewrite',
+              kind: 'record.rewrite',
+              measures: { affectedCells: { basis: 'exact', value: 7, unit: 'cells' } },
+            },
+          ],
+        })}
+      />
+    );
+    expect(screen.getByText('Update the field settings')).toBeVisible();
+    const rewrite = screen
+      .getByText('Rewrite existing field values for the new settings')
+      .closest('li');
+    expect(rewrite).toHaveTextContent('Affected cells: 7');
+    expect(screen.queryByText('Change the field type')).not.toBeInTheDocument();
+  });
+
+  it('preserves canonical conversion blockers alongside established product consequences', async () => {
+    post.mockResolvedValueOnce(
+      response(
+        previewFixture({
+          operation: 'field.convert',
+          outcome: 'blocked',
+          blockers: [{ code: 'forbidden' }],
+          effects: [
+            {
+              code: 'field.conversion.type_change',
+              kind: 'field.conversion',
+              measures: { changedFields: { basis: 'exact', value: 1, unit: 'fields' } },
+            },
+          ],
+        })
+      )
+    );
+    render(<PendingOperation request={{ operation: 'field.convert', input: {} }} />, {
+      wrapper: wrapper(),
+    });
+    expect(await screen.findByText('Change the field type')).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent('This operation cannot proceed');
+    const confirm = screen.getByRole('button', { name: 'Confirm' });
+    expect(confirm).toBeDisabled();
+    fireEvent.click(confirm);
+    expect(confirm).toBeDisabled();
+    expect(post).toHaveBeenCalledTimes(1);
+  });
 });

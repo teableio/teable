@@ -19,6 +19,7 @@ import {
   type ViewQueryGroupItem,
   type ViewQuerySortItem,
 } from '../views/ViewQueryDefaults';
+import { validateViewSortCollations } from '../views/validateViewSortCollations';
 import type { IViewTypeLiteral } from '../views/ViewType';
 
 export type CreateViewMethodParams = {
@@ -132,6 +133,7 @@ export function createView(
 ): Result<CreateViewMethodResult, DomainError> {
   const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
   return safeTry<CreateViewMethodResult, DomainError>(function* () {
+    yield* validateViewSortCollations(table, input.sort, input.group, input.manualSort);
     const viewId = yield* ViewId.generate();
     const name = yield* ViewName.create(
       uniqueViewName(

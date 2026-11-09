@@ -22,7 +22,14 @@ import {
   type IPlanFieldConvertVo,
   getAggregation,
 } from '@teable/openapi';
-import { useTableId, useView, useFieldOperations, useRowCount } from '@teable/sdk/hooks';
+import {
+  useBase,
+  useBaseId,
+  useTableId,
+  useView,
+  useFieldOperations,
+  useRowCount,
+} from '@teable/sdk/hooks';
 import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable/ui-lib/shadcn/ui/sheet';
@@ -30,7 +37,13 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
+import {
+  OperationPreviewPanel,
+  useOperationPreview,
+} from '@/features/app/components/operation-preview';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { tableConfig } from '@/features/i18n/table.config';
+import { FieldDeleteImpact, useFieldImpactConfirmation } from '@overridable/FieldDeleteImpact';
 import { useBaseNodeContext } from '../../blocks/base/base-node/hooks/useBaseNodeContext';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { ProgressBar } from '../../blocks/graph/ProgressBar';
@@ -158,6 +171,17 @@ export const FieldSetting = (props: IFieldSetting) => {
   const [processVisible, setProcessVisible] = useState<boolean>(false);
   const [loginConvertVisible, setLoginConvertVisible] = useState<boolean>(false);
   const [plan, setPlan] = useState<IPlanFieldConvertVo>();
+  const supportsQueryConfirmation = useFieldImpactConfirmation();
+  const requiresQueryConfirmation = supportsQueryConfirmation && operator === FieldOperator.Edit;
+  const baseId = useBaseId();
+  const base = useBase();
+  const { forceV2All } = useEnv();
+  const unifiedConversion =
+    operator === FieldOperator.Edit &&
+    Boolean(requiresQueryConfirmation || forceV2All || (base.v2Status?.useV2 ?? base.isCanary));
+  const [impactReady, setImpactReady] = useState<{ key: string; ready: boolean }>();
+  const [impactConfirmationContainer, setImpactConfirmationContainer] =
+    useState<HTMLDivElement | null>(null);
   const [fieldRo, setFieldRo] = useState<IFieldRo>();
   const [aiConfirmVisible, setAiConfirmVisible] = useState(false);
   const [aiFieldStats, setAiFieldStats] = useState<{
@@ -178,6 +202,34 @@ export const FieldSetting = (props: IFieldSetting) => {
     const apps = meta?.loginApps?.filter((a) => a.emailFieldId === props.field?.id);
     return apps?.length ? apps : undefined;
   }, [treeItems, tableId, operator, props.field?.id]);
+
+  const preview = useOperationPreview(
+    {
+      operation: 'field.convert',
+      input: {
+        inputFormat: 'field-openapi',
+        baseId,
+        tableId,
+        fieldId: props.field?.id,
+        field: fieldRo,
+      },
+      options: { detail: 'full' },
+    },
+    Boolean(unifiedConversion && graphVisible && props.field?.id && fieldRo)
+  );
+  const impactCandidateKey = JSON.stringify({
+    tableId,
+    fieldId: props.field?.id,
+    fieldRo,
+    updatedAt: preview.dataUpdatedAt,
+  });
+  const canConfirmImpact =
+    (!unifiedConversion || preview.canConfirm) &&
+    (!requiresQueryConfirmation || (impactReady?.key === impactCandidateKey && impactReady.ready));
+  const handleImpactReady = useCallback(
+    (ready: boolean) => setImpactReady({ key: impactCandidateKey, ready }),
+    [impactCandidateKey]
+  );
 
   const getEditFieldId = () => {
     if (operator !== FieldOperator.Edit) {
@@ -358,18 +410,27 @@ export const FieldSetting = (props: IFieldSetting) => {
       }
       return;
     }
+    if (unifiedConversion) {
+      if (!getEditFieldId()) return notifyMissingEditField();
+      setFieldRo(fieldRo);
+      setImpactReady(undefined);
+      setPlan(undefined);
+      setGraphVisible(true);
+      return;
+    }
 
     const plan = await getPlan(fieldRo);
     if (!plan) {
       return;
     }
     setFieldRo(fieldRo);
+    setImpactReady(undefined);
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
     const linkFieldCount = plan?.linkFieldCount || 0;
     const isTypeChanging =
       operator === FieldOperator.Edit && props.field?.type && fieldRo.type !== props.field.type;
-    if (estimateTime > 1000 || linkFieldCount > 0) {
+    if (estimateTime > 1000 || linkFieldCount > 0 || requiresQueryConfirmation) {
       setGraphVisible(true);
       return;
     }
@@ -383,16 +444,33 @@ export const FieldSetting = (props: IFieldSetting) => {
   const handleConfirmWithAutoFill = async (mode: AiAutoFillMode) => {
     if (!fieldRo) return false;
     autoFillModeRef.current = mode;
+    if (unifiedConversion) {
+      if (!getEditFieldId()) {
+        notifyMissingEditField();
+        return false;
+      }
+      setImpactReady(undefined);
+      setPlan(undefined);
+      setGraphVisible(true);
+      return true;
+    }
 
     const plan = await getPlan(fieldRo);
     if (!plan) {
       return false;
     }
     setPlan(plan);
+    setImpactReady(undefined);
     const estimateTime = plan?.estimateTime || 0;
     const linkFieldCount = plan?.linkFieldCount || 0;
-    if (estimateTime > 1000 || linkFieldCount > 0) {
+    const isTypeChanging =
+      operator === FieldOperator.Edit && props.field?.type && fieldRo.type !== props.field.type;
+    if (estimateTime > 1000 || linkFieldCount > 0 || requiresQueryConfirmation) {
       setGraphVisible(true);
+      return true;
+    }
+    if (isTypeChanging && loginAppsForField) {
+      setLoginConvertVisible(true);
       return true;
     }
     await performAction(fieldRo);
@@ -406,24 +484,67 @@ export const FieldSetting = (props: IFieldSetting) => {
         title={t('table:field.editor.confirmFieldChange')}
         open={graphVisible}
         onOpenChange={setGraphVisible}
+        contentClassName="flex max-h-[80vh] flex-col overflow-hidden"
+        confirmDisabled={!canConfirmImpact}
         content={
           <>
-            {loginAppsForField && fieldRo?.type !== props.field?.type && (
-              <div className="mb-2">
-                <LoginAppWarning
-                  message={t('table:field.editor.deleteField.loginEmailFieldConvertWarning')}
-                  apps={loginAppsForField}
-                />
-              </div>
-            )}
-            <DynamicFieldGraph tableId={tableId} fieldId={props.field?.id} fieldRo={fieldRo} />
-            <p className="text-sm">{t('table:field.editor.areYouSurePerformIt')}</p>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+              {loginAppsForField && fieldRo?.type !== props.field?.type && (
+                <div className="mb-2">
+                  <LoginAppWarning
+                    message={t('table:field.editor.deleteField.loginEmailFieldConvertWarning')}
+                    apps={loginAppsForField}
+                  />
+                </div>
+              )}
+              {!unifiedConversion &&
+                ((plan?.estimateTime || 0) > 1000 || (plan?.linkFieldCount || 0) > 0) && (
+                  <DynamicFieldGraph
+                    tableId={tableId}
+                    fieldId={props.field?.id}
+                    fieldRo={fieldRo}
+                  />
+                )}
+              {unifiedConversion && (
+                <OperationPreviewPanel
+                  preview={preview.data}
+                  error={preview.error}
+                  isLoading={preview.isPending || preview.isFetching}
+                  onRetry={() => preview.refetch()}
+                  targetFieldName={props.field?.name}
+                >
+                  {props.field?.id && fieldRo && (
+                    <FieldDeleteImpact
+                      key={impactCandidateKey}
+                      open={graphVisible}
+                      tableId={tableId}
+                      fieldIds={[props.field.id]}
+                      fieldNames={{ [props.field.id]: props.field.name }}
+                      fieldRo={fieldRo}
+                      confirmationContainer={impactConfirmationContainer}
+                      preview={{
+                        data: preview.data,
+                        pending: preview.isPending || preview.isFetching,
+                        error: preview.error,
+                        refetch: preview.refetch,
+                        updatedAt: preview.dataUpdatedAt,
+                      }}
+                      onReadyChange={handleImpactReady}
+                    />
+                  )}
+                </OperationPreviewPanel>
+              )}
+              <p className="text-sm">{t('table:field.editor.areYouSurePerformIt')}</p>
+            </div>
+            <div ref={setImpactConfirmationContainer} className="shrink-0" />
           </>
         }
         cancelText={t('common:actions.cancel')}
         confirmText={t('common:actions.confirm')}
         onCancel={() => setGraphVisible(false)}
-        onConfirm={() => performAction(fieldRo as IFieldRo)}
+        onConfirm={async () => {
+          if (canConfirmImpact) await performAction(fieldRo as IFieldRo);
+        }}
       />
       <ConfirmDialog
         title={t('table:field.editor.confirmFieldChange')}

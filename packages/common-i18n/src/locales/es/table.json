@@ -113,6 +113,16 @@
           "confirmText": "Confirmar salida"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "Ocultar campos",
+      "hiddenCount": "Ocultos ({{count}})",
+      "filter": "Filtrar",
+      "filterCount": "Filtrar ({{count}})",
+      "sort": "Ordenar",
+      "sortCount": "Ordenar ({{count}})",
+      "group": "Agrupar",
+      "groupCount": "Agrupar ({{count}})"
     }
   },
   "welcome": {
@@ -1147,6 +1157,8 @@
   "view": {
     "addRecord": "Agregar registro",
     "searchView": "Vista de búsqueda ...",
+    "starredGroup": "Destacadas",
+    "otherGroup": "Otras vistas",
     "dragToolTip": "La clasificación automática está activada, el arrastre manual no está disponible",
     "insertToolTip": "La clasificación automática se enciende, el inserto con el pedido no está disponible",
     "action": {
@@ -1169,6 +1181,7 @@
       "description": "Esta vista está rota. "
     },
     "addPluginView": "Agregar vista de complemento",
+    "addView": "Crear vista",
     "search": {
       "field_one": "{{name}}",
       "field_many": "campos ({{length}})",
@@ -1680,7 +1693,6 @@
       "share": "Compartir",
       "enableShare": "Activar compartir",
       "copyLink": "Copiar enlace",
-      "rotateLink": "Restablecer enlace",
       "scope": "Quién puede ver",
       "scopePublic": "Cualquiera con el enlace",
       "scopeSpace": "Miembros del espacio",
@@ -1777,7 +1789,8 @@
       "running": "Generando…",
       "waitingInput": "Esperando tu respuesta",
       "failed": "La respuesta falló"
-    }
+    },
+    "routineRunPrompt": "Enviado por la rutina"
   },
   "upload": {
     "panelUploading": "Subiendo {{count}} archivos",

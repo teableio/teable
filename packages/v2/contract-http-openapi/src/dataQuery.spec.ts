@@ -65,6 +65,8 @@ describe('generated data-query OpenAPI contract', () => {
     expect(acceptsRequest({ ...input, parameters: {} })).toBe(false);
     expect(acceptsRequest({ ...input, includeUsage: true })).toBe(true);
     expect(acceptsRequest({ ...input, includeUsage: 'true' })).toBe(false);
+    expect(acceptsRequest({ ...input, includeSchemaSignature: true })).toBe(true);
+    expect(acceptsRequest({ ...input, includeSchemaSignature: 'true' })).toBe(false);
     expect(
       acceptsResponse({
         ok: true,
@@ -279,9 +281,10 @@ describe('opt-in data query Fetch adapter', () => {
     expect(validate).toHaveBeenCalledWith(context, input);
     expect(execute).not.toHaveBeenCalled();
   });
-  it('omits unsolicited usage unless the request explicitly opts in', async () => {
+  it('omits unsolicited usage and signatures unless the request explicitly opts in', async () => {
     const validation = {
       outputs: [],
+      schemaSignature: `sha256:${'a'.repeat(64)}`,
       usage: [
         {
           source: 'root',
@@ -315,7 +318,52 @@ describe('opt-in data query Fetch adapter', () => {
         body: JSON.stringify({ ...input, includeUsage: true }),
       })
     );
-    expect(await usageResponse.json()).toEqual({ ok: true, data: validation });
+    expect(await usageResponse.json()).toEqual({
+      ok: true,
+      data: { outputs: [], usage: validation.usage },
+    });
+
+    const signatureResponse = await responseOf(
+      handler,
+      new Request('https://host/queries/validate', {
+        method: 'POST',
+        body: JSON.stringify({ ...input, includeSchemaSignature: true }),
+      })
+    );
+    expect(await signatureResponse.json()).toEqual({
+      ok: true,
+      data: { outputs: [], schemaSignature: validation.schemaSignature },
+    });
+
+    const bothResponse = await responseOf(
+      handler,
+      new Request('https://host/queries/validate', {
+        method: 'POST',
+        body: JSON.stringify({ ...input, includeUsage: true, includeSchemaSignature: true }),
+      })
+    );
+    expect(await bothResponse.json()).toEqual({ ok: true, data: validation });
+  });
+  it('rejects an unsigned service result when a signature was requested', async () => {
+    const handler = createDataQueryFetchHandler({
+      service: {
+        validate: async () => ok({ outputs: [] }),
+        execute: async () => ok({ rows: [] }),
+      },
+      createExecutionContext: () => context,
+    });
+    const response = await responseOf(
+      handler,
+      new Request('https://host/queries/validate', {
+        method: 'POST',
+        body: JSON.stringify({ ...input, includeSchemaSignature: true }),
+      })
+    );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: { code: 'data_query.invalid_response' },
+    });
   });
   it('rejects an outputs-only service result when usage was requested', async () => {
     const handler = createDataQueryFetchHandler({

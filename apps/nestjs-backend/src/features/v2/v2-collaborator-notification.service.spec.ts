@@ -94,6 +94,12 @@ const createV2ContainerService = () => {
   };
 };
 
+const createCollaboratorService = () => ({
+  getUserCollaboratorsByTableId: vi.fn(
+    async (_tableId: string, query: { containsIn: { values: string[] } }) =>
+      query.containsIn.values.map((id) => ({ id }))
+  ),
+});
 const createDispatcher = (recordTitleFixture?: {
   table: V2Table;
   records: Array<{
@@ -105,6 +111,7 @@ const createDispatcher = (recordTitleFixture?: {
   }>;
 }) => {
   const { db, service: v2ContainerService } = createV2ContainerService();
+  const collaboratorService = createCollaboratorService();
   const notificationService = {
     sendCollaboratorNotify: vi.fn().mockResolvedValue(true),
   };
@@ -137,10 +144,11 @@ const createDispatcher = (recordTitleFixture?: {
       }),
     } as never,
     notificationService as never,
-    { createContext: vi.fn().mockResolvedValue({}) } as never
+    { createContext: vi.fn().mockResolvedValue({}) } as never,
+    collaboratorService as never
   );
 
-  return { db, dispatcher, notificationService };
+  return { db, dispatcher, notificationService, collaboratorService };
 };
 
 describe('V2CollaboratorNotificationDispatcher', () => {
@@ -311,6 +319,57 @@ describe('V2CollaboratorNotificationDispatcher', () => {
 
     expect(result._unsafeUnwrap()).toBeUndefined();
     expect(scheduled).toHaveLength(0);
+    expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
+  });
+
+  it('notifies only recipients that can access the destination table', async () => {
+    const tableId = 'tblNotify00000001';
+    const recordId = 'recNotify00000001';
+    const { dispatcher, notificationService, collaboratorService } = createDispatcher();
+    collaboratorService.getUserCollaboratorsByTableId.mockResolvedValue([
+      { id: 'usrCollaborator00001' },
+    ]);
+
+    await dispatcher.notifyUserFields({
+      actorId: 'usrActor000000001',
+      tableId,
+      records: [
+        {
+          id: recordId,
+          fields: {
+            fldAssignee0000001: [
+              { id: 'usrOutsider00000001', email: 'outsider@example.com' },
+              { id: 'usrCollaborator00001', email: 'member@example.com' },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledTimes(1);
+    expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledWith(
+      expect.objectContaining({ toUserId: 'usrCollaborator00001' })
+    );
+  });
+
+  it('skips the notification run when no recipient can access the destination table', async () => {
+    const tableId = 'tblNotify00000001';
+    const { dispatcher, notificationService, collaboratorService } = createDispatcher();
+    collaboratorService.getUserCollaboratorsByTableId.mockResolvedValue([]);
+
+    await dispatcher.notifyUserFields({
+      actorId: 'usrActor000000001',
+      tableId,
+      records: [
+        {
+          id: 'recNotify00000001',
+          fields: {
+            fldAssignee0000001: { id: 'usrOutsider00000001', email: 'outsider@example.com' },
+          },
+        },
+      ],
+    });
+
     expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
   });
 });

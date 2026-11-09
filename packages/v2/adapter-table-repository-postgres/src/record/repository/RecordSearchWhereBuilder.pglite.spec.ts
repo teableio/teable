@@ -445,6 +445,7 @@ const findMatchingRecordIds = async ({
   visibleFieldIds,
   searchAccessPath,
   fieldMaskSqlMap,
+  requireCompleteFieldScope,
 }: {
   db: Kysely<V1TeableDatabase>;
   table: Table;
@@ -453,6 +454,7 @@ const findMatchingRecordIds = async ({
   visibleFieldIds?: ReadonlyArray<FieldId>;
   searchAccessPath?: IRecordSearchAccessPath;
   fieldMaskSqlMap?: FieldMaskSqlMap;
+  requireCompleteFieldScope?: boolean;
 }) => {
   const whereClause = buildRecordSearchWhereClause(
     table,
@@ -464,6 +466,7 @@ const findMatchingRecordIds = async ({
       tableAlias: 't',
       searchAccessPath,
       fieldMaskSqlMap,
+      requireCompleteFieldScope,
     }
   )._unsafeUnwrap();
 
@@ -914,10 +917,46 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     );
   });
 
-  it('caps unindexed all-field ILIKE search at twenty predicate-producing fields', async () => {
+  it.each([true, false])(
+    'searches outside configured generated-text coverage for complete scope with indexUsable=%s',
+    async (indexUsable) => {
+      const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'complete-partial' });
+      await addGeneratedSearchDocument(fixture, [
+        { column: 'col_name', projection: { kind: 'plain' } },
+      ]);
+      const searchAccessPath: IRecordSearchAccessPath = {
+        kind: 'generated_text',
+        generatedColumnName: indexUsable ? '__tqops_search_document' : '__tqops_missing_document',
+        provider: 'pg_trgm',
+        searchScope: 'all_fields',
+        coveredFieldIds: [fixture.fieldIds.name],
+        indexUsable,
+      };
+      for (const [probe, ordinaryIds] of [
+        ['Alpha', [fixture.recordIds.alpha]],
+        ['Visible Owner', []],
+      ] as const) {
+        const query = {
+          db,
+          table: fixture.table,
+          fullTableName: fixture.fullTableName,
+          search: RecordSearch.fromTuple([probe, '', true]),
+          searchAccessPath,
+        };
+        await expect(findMatchingRecordIds(query)).resolves.toEqual(ordinaryIds);
+        await expect(
+          findMatchingRecordIds({ ...query, requireCompleteFieldScope: true })
+        ).resolves.toEqual([fixture.recordIds.alpha]);
+      }
+    }
+  );
+
+  it('retrieves the twenty-first searchable field only when complete field scope is required', async () => {
     const seed = 'default-field-cap';
+    const schemaName = createId('bse', seed);
+    const fullTableName = `${schemaName}.${createId('tbl', seed)}`;
     const builder = Table.builder()
-      .withBaseId(BaseId.create(createId('bse', seed))._unsafeUnwrap())
+      .withBaseId(BaseId.create(schemaName)._unsafeUnwrap())
       .withId(TableId.create(createId('tbl', seed))._unsafeUnwrap())
       .withName(TableName.create('Default field cap')._unsafeUnwrap());
     const fieldIds: FieldId[] = [];
@@ -956,16 +995,36 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
       .setDbFieldName(DbFieldName.rehydrate('col_ignored_checkbox')._unsafeUnwrap())
       ._unsafeUnwrap();
 
-    const compiled = compileSearchQuery({
+    createdSchemas.push(schemaName);
+    await sql`CREATE SCHEMA ${sql.id(schemaName)}`.execute(db);
+    await sql`
+      CREATE TABLE ${sql.table(fullTableName)} (
+        __id text PRIMARY KEY,
+        __auto_number integer,
+        col_ignored_checkbox boolean,
+        ${sql.join(fieldIds.map((_, index) => sql`${sql.id(`col_search_${index + 1}`)} text`))}
+      )
+    `.execute(db);
+    const twentiethRecordId = createId('rec', 'twentieth');
+    const twentyFirstRecordId = createId('rec', 'twenty-first');
+    await sql`
+      INSERT INTO ${sql.table(fullTableName)}
+        (__id, __auto_number, col_ignored_checkbox, col_search_20, col_search_21)
+      VALUES
+        (${twentiethRecordId}, 1, true, 'boundary marker', NULL),
+        (${twentyFirstRecordId}, 2, true, NULL, 'boundary marker')
+    `.execute(db);
+
+    const query = {
       db,
       table,
-      fullTableName: 'unused.unindexed_table',
-      search: RecordSearch.fromTuple(['needle', '', true]),
-    });
-    const lower = compiled.sql.toLowerCase();
-    expect(lower.match(/ ilike /g)).toHaveLength(20);
-    expect(lower).toContain('"t"."col_search_20"');
-    expect(lower).not.toContain('"t"."col_search_21"');
+      fullTableName,
+      search: RecordSearch.fromTuple(['boundary marker', '', true]),
+    };
+    await expect(findMatchingRecordIds(query)).resolves.toEqual([twentiethRecordId]);
+    await expect(
+      findMatchingRecordIds({ ...query, requireCompleteFieldScope: true })
+    ).resolves.toEqual([twentiethRecordId, twentyFirstRecordId]);
   });
 
   describe.each(['pg_trgm', 'pg_bigm'] as const)('%s scoped date search', (provider) => {
@@ -1625,6 +1684,61 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
       accessPath,
       [fixture.recordIds.bravo]
     );
+  });
+
+  it('retains the generated-text prefilter and exact field recheck for complete covered scope', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'complete-covered' });
+    await addGeneratedSearchDocument(fixture, [
+      { column: 'col_name', projection: { kind: 'plain' } },
+      { column: 'col_owner', projection: { kind: 'structured_title' } },
+      { column: 'col_collaborators', projection: { kind: 'structured_title_list' } },
+      { column: 'col_tags', projection: { kind: 'plain_list' } },
+    ]);
+    const searchAccessPath: IRecordSearchAccessPath = {
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_trgm',
+      searchScope: 'all_fields',
+      coveredFieldIds: [
+        fixture.fieldIds.name,
+        fixture.fieldIds.owner,
+        fixture.fieldIds.collaborators,
+        fixture.fieldIds.tags,
+      ],
+    };
+    // The document joins cells with newlines; this candidate is not a cell match.
+    const crossCellProbe = 'Alpha\nVisible Owner';
+    const candidates = await db
+      .selectFrom(`${fixture.fullTableName} as t`)
+      .select('t.__id as id')
+      .where(sql<SqlBool>`t.__tqops_search_document ILIKE ${`%${crossCellProbe}%`}`)
+      .orderBy('t.__auto_number')
+      .execute();
+    expect(candidates.map((row) => row.id)).toEqual([fixture.recordIds.alpha]);
+
+    for (const [probe, expectedIds] of [
+      ['Alpha', [fixture.recordIds.alpha]],
+      ['Team Visible', [fixture.recordIds.bravo]],
+      [crossCellProbe, []],
+    ] as const) {
+      const search = RecordSearch.fromTuple([probe, '', true]);
+      const plan = buildRecordSearchWherePlan(
+        fixture.table,
+        { search },
+        { tableAlias: 't', searchAccessPath, requireCompleteFieldScope: true }
+      )._unsafeUnwrap();
+      expect(plan.usedAccessPath).toBe('generated_text');
+      await expect(
+        findMatchingRecordIds({
+          db,
+          table: fixture.table,
+          fullTableName: fixture.fullTableName,
+          search,
+          searchAccessPath,
+          requireCompleteFieldScope: true,
+        })
+      ).resolves.toEqual(expectedIds);
+    }
   });
 
   it('compiles field-scoped search to generated tsvector when explicitly requested and covered', async () => {

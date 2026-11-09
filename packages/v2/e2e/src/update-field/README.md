@@ -60,6 +60,40 @@ column types take precedence over stale generated-column metadata, and historica
 snapshot names/IDs use the same fallback as record reads. Creator identity lookup
 stays on the metadata database; tenant data statements only receive resolved values.
 
+## Text-to-user collaborator conversion
+
+Text/long-text conversion resolves only users granted access to the table's base or parent
+space, including granted departments and their descendants. IDs take precedence over emails,
+then names; duplicate names use metadata-database user-ID order. Tokens retain source order
+and repetitions. Unmatched text, including JSON-shaped user snapshots, becomes `NULL`.
+Number-to-user remains an incompatible conversion and clears the values.
+
+The metadata executor captures eligible IDs and profile values in one SQL statement into an
+operation-local metadata temporary table. The adapter then pages that stable capture (128
+profiles at a time) into a separate data temporary mapping and performs token splitting,
+winner selection, aggregation and the final rewrite in data SQL. Source cells and the complete
+eligible set are never materialized in Node. This bounds profile counts per transfer, not bytes
+of an individual profile: production user names/emails have no common schema-backed length
+limit. Large source cells remain database-side work.
+
+Both metadata and data executors must be bound to their schema-update transactions. The
+metadata transaction pins capture creation, paging and cleanup to one connection; the data
+transaction owns mapping creation, transformation, type alteration and rollback. A same-database
+deployment may use one transaction for both executors. Direct low-level consumers must provide
+the same contract: a plain pooled executor does not guarantee session affinity, and the
+metadata capture's `ON COMMIT DROP` is not usable across autocommit statements. Authorization
+and profiles are frozen at capture time. A grant revoked after capture can remain effective
+for that conversion; this is not a real-time revocation guarantee or a commit-time atomic
+authorization check across databases. The adapter adds no early table lock or cross-database
+transaction.
+
+The adapter's `FieldTypeConversionVisitor.pglite.spec.ts` and
+`FieldTypeConversionVisitor.pg.integration.spec.ts` exercise independent metadata/data databases,
+paging, large source cells, duplicate-name/token semantics, cleanup and failure rollback. The
+PostgreSQL suite is opt-in with `TEABLE_V2_RUN_PG_INTEGRATION=1` and an admin-capable test URL;
+it creates and drops isolated databases. These are statement-consumer tests, not a claim of
+whole-service memory or concurrent-write isolation.
+
 ## V1 Parity Gaps
 
 The following features exist in v1 but are **NOT YET IMPLEMENTED** in v2:
@@ -161,17 +195,11 @@ The following features exist in v1 but are **NOT YET IMPLEMENTED** in v2:
 
 ### 8. Text → User Conversion
 
-**V1 behavior**: Text values are matched against collaborator names/emails to find user IDs.
+**Behavior**: Text values are matched by ID, email, or name against users who are collaborators of the table's base or space. Enterprise department collaborators include members of descendant departments. Unmatched values are cleared.
 
-**V2 status**: Not implemented. Text→User conversion not supported.
+V2 resolves user identifiers in the metadata database and updates values in the data database, including when those databases are separate. It does not resolve arbitrary platform users during text-to-user conversion.
 
-**Required implementation**:
-
-- Load table collaborators
-- Build name/email→userId map
-- Match text values to user IDs
-
-**Reference**: `field-converting.service.ts` → `convert2User()` method
+**Coverage**: `to-user-collaborator-scope.pglite.spec.ts` and the conversion visitor's PGlite tests.
 
 ### 9. Computed Field Seeding After Field Update (CRITICAL GAP)
 

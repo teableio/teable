@@ -282,6 +282,35 @@ export class PermissionGuard {
       });
     }
 
+    // A base-scoped internal token (execute-script hands one to user code) carries its
+    // user's real identity, admin flag included, but is confined to tempAuthBaseId.
+    if (this.cls.get('tempAuthBaseId')) {
+      throw new CustomHttpException(
+        `Base-scoped token cannot perform ${action}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+
+    // An AI chat's sandbox token acts as its user, admin flag included, and the agent holding
+    // it can be steered by what it reads: instance administration stays with the admin's own
+    // session. (System skills are managed through SkillsService, not through here.)
+    if (this.cls.get('authSource') === 'sandbox') {
+      throw new CustomHttpException(
+        `Sandbox token cannot perform ${action}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedOperation',
+          },
+        }
+      );
+    }
+
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId) {
       const { scopes } = await this.permissionService.getAccessToken(accessTokenId);

@@ -292,6 +292,7 @@ export class TableIndexService {
     const fieldNamesById = new Map<string, string>([
       ['__id', '__id'],
       ['__created_time', '__created_time'],
+      ['__auto_number', '__auto_number'],
     ]);
     for (const field of fieldsRaw) {
       fieldNamesById.set(field.id, field.dbFieldName);
@@ -363,7 +364,10 @@ export class TableIndexService {
       { type: string; isMultipleCellValue: boolean | null; dbFieldName: string }
     >
   ): void {
-    if (fieldId === '__id' || fieldId === '__created_time') {
+    // `__auto_number` is the stable tie-break every paged record read appends
+    // after a user-field sort, so it must be indexable for that ORDER BY to run
+    // as an ordered scan.
+    if (fieldId === '__id' || fieldId === '__created_time' || fieldId === '__auto_number') {
       return;
     }
     const field = fieldById.get(fieldId);
@@ -630,6 +634,7 @@ export class TableIndexService {
         );
         fieldNames.set('__id', '__id');
         fieldNames.set('__created_time', '__created_time');
+        fieldNames.set('__auto_number', '__auto_number');
         const restoreSqls = removed.map((index) =>
           builder.createQueryIndexSql(table.dbTableName, index, fieldNames, tableId)
         );

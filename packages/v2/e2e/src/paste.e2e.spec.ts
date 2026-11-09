@@ -6074,11 +6074,10 @@ describe('[B10] v2 http paste (e2e)', () => {
         .execute();
     });
 
-    it('writes a copied user object whose member is not a collaborator', async () => {
+    it('canonicalizes a complete identity for an active non-collaborator', async () => {
       const { table, nameFieldId, userFieldId, userFieldIndex } = await createUserTable();
       await ctx.createRecord(table.id, { [nameFieldId]: 'Row 1' });
 
-      // Simulates a cell copied from a user field (structured user object).
       const result = await ctx.paste({
         tableId: table.id,
         viewId: table.views[0].id,
@@ -6086,13 +6085,12 @@ describe('[B10] v2 http paste (e2e)', () => {
           [userFieldIndex, 0],
           [userFieldIndex, 0],
         ],
-        content: [[{ id: outsider.id, title: outsider.name, email: outsider.email }]],
+        content: [[{ id: outsider.id, email: outsider.email }]],
         typecast: true,
         sourceFields: [{ type: 'user', cellValueType: 'string' }],
       });
 
       expect(result.updatedCount).toBe(1);
-
       const records = await ctx.listRecords(table.id);
       expect(records[0]?.fields[userFieldId]).toMatchObject({
         id: outsider.id,

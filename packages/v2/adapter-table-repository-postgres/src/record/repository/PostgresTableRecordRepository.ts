@@ -2588,13 +2588,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         });
 
         yield* mutateSpec.accept(mutateVisitor);
-        const statementsResult = mutateVisitor.build();
-        if (statementsResult.isErr()) {
-          return err(statementsResult.error);
+        const planResult = mutateVisitor.finalize();
+        if (planResult.isErr()) {
+          return err(planResult.error);
         }
 
-        const { setClauses, additionalStatements, changedFieldIds } =
-          mutateVisitor.getSetClausesRaw();
+        const { setClauses, additionalStatements, changedFieldIds } = planResult.value;
         const valueFieldIds: core.FieldId[] = [];
         const linkFieldIds: core.FieldId[] = [];
         for (const fieldId of changedFieldIds) {

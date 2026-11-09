@@ -2,7 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import type { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
@@ -344,8 +344,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: async () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner([
         {
@@ -407,8 +408,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: async () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner([plugin]),
       {
@@ -477,8 +479,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner([plugin]),
       {
@@ -540,8 +543,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
       {
@@ -590,8 +594,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
       {
@@ -657,8 +662,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
       {
@@ -709,8 +715,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
       {
@@ -755,8 +762,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner([
         {
@@ -829,8 +837,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner([
         {
@@ -882,8 +891,9 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(false),
-        resolveAndReplaceMany: async () => ok([]),
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
       {
@@ -974,8 +984,13 @@ describe('ImportRecordsHandler', () => {
       new FakeTableRepository([table]),
       tableRecordRepository,
       {
-        needsResolution: () => ok(true),
-        resolveAndReplaceMany: async () => ok([resolvedSpec]),
+        // Reuse the production reapply path so the record is materialized exactly as in
+        // the handler's default wiring; only the resolver result is stubbed.
+        resolveCreatedRecords: RecordMutationSpecResolverService.prototype.resolveCreatedRecords,
+        // A real resolution yields a replaced spec instance, which is what makes the
+        // shared resolver re-materialize the record.
+        resolveAndReplaceMany: async () =>
+          ok([new SetSingleLineTextValueSpec(textFieldId, CellValue.fromValidated('resolved'))]),
       } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
       {

@@ -87,21 +87,7 @@ export const envValidationSchema = Joi.object({
   // Unset = trust private-network proxies (see parseTrustProxy in bootstrap.config).
   BACKEND_TRUST_PROXY: Joi.string().optional(),
 
-  // cache
-  // Deliberately no Joi default: ConfigModule.forRoot writes validated schema
-  // defaults back into process.env before the registerAs factories run, so a
-  // default here would shadow the URI-aware fallback in cache.config.ts and
-  // pin every deployment that only sets BACKEND_CACHE_REDIS_URI to the wrong
-  // provider. The provider is resolved in cache.config.ts instead.
-  BACKEND_CACHE_PROVIDER: Joi.string().valid('memory', 'sqlite', 'redis').optional(),
-  // cache-sqlite
-  BACKEND_CACHE_SQLITE_URI: Joi.when('BACKEND_CACHE_PROVIDER', {
-    is: 'sqlite',
-    then: Joi.string()
-      .pattern(/^sqlite:\/\//)
-      .message('Cache `sqlite` the URI must start with the protocol `sqlite://`'),
-  }),
-  // cache-redis
+  // cache, queues and realtime pub/sub all run on Redis
   BACKEND_CACHE_REDIS_URI: Joi.string()
     .pattern(/^(redis:\/\/|rediss:\/\/)/)
     .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`')

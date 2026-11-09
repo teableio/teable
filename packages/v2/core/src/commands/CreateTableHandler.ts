@@ -14,6 +14,7 @@ import {
   NullRecordChangedValueDecoratorService,
 } from '../application/services/RecordChangedValueDecoratorService';
 import { aggregateRecordCreatedEvents } from '../application/services/recordEventFieldValues';
+import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import {
@@ -71,6 +72,8 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordMutationSpecResolverService)
+    private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordWritePluginRunner)
     private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
       [],
@@ -240,7 +243,14 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
               const recordSpan = dataTransactionContext.tracer?.startSpan(
                 'teable.CreateTableHandler.createRecords'
               );
-              const { records } = yield* persistedTable.createRecords(recordsFieldValues);
+              const { records: createdRecords, mutateSpecs } =
+                yield* persistedTable.createRecords(recordsFieldValues);
+              const { records } =
+                yield* await handler.recordMutationSpecResolver.resolveCreatedRecords(
+                  dataTransactionContext,
+                  persistedTable.id(),
+                  { records: createdRecords, mutateSpecs }
+                );
               recordSpan?.end();
               yield* await pluginExecution.beforePersist(dataTransactionContext);
               recordMutation = yield* await handler.tableRecordRepository.insertMany(

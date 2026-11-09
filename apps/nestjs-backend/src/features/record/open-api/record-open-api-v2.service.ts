@@ -124,6 +124,7 @@ import {
   type LookupField,
   type PasteStreamResult,
   type PasteLinkAutoResolveService,
+  type DuplicateRecordSourceSnapshot,
   type ResetButtonResult,
   type RecordCreateSource,
   type RecordFilter,
@@ -168,6 +169,7 @@ import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
 import { convertLinkPasteCellValue } from '../paste-link-cell-value';
 import { selectPasteCellValue } from '../select-paste-cell-value';
 import { normalizeEmptyDateComparison } from './record-filter-v2.mapper';
+import { buildRawCopyContent } from '../../selection/raw-copy-content';
 
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
@@ -429,6 +431,7 @@ export class RecordOpenApiV2Service {
     const normalizedSort = sortWithGroupFallback?.map((item) => ({
       fieldId: item.fieldId,
       order: item.order,
+      ...(item.collation !== undefined ? { collation: item.collation } : {}),
     }));
     const normalizedGroupBy = effectiveQuery.groupBy?.map((item) => item.fieldId);
     const recordSearchAccessPath = this.resolveRecordSearchAccessPath(
@@ -1483,43 +1486,39 @@ export class RecordOpenApiV2Service {
     return publicUserFieldTypes.has(this.presentationFieldType(field));
   }
 
+  async hydrateSelectedUserCells<T extends { fields: Record<string, unknown> }>(
+    container: DependencyContainer,
+    records: ReadonlyArray<T>,
+    fieldKeys: ReadonlyArray<string>
+  ): Promise<T[]> {
+    if (!fieldKeys.length || !records.length) return [...records];
+    const userIds = new Set<string>();
+    for (const record of records) {
+      for (const key of fieldKeys) this.collectLegacyUserIds(record.fields[key], userIds);
+    }
+    const resolvedUsers = userIds.size
+      ? await this.resolvePublicUsers(container, userIds)
+      : new Map<string, { id: string; title: string; email?: string }>();
+    return records.map((record) => {
+      const fields = { ...record.fields };
+      for (const key of fieldKeys) {
+        if (key in fields) fields[key] = this.normalizePublicUserValue(fields[key], resolvedUsers);
+      }
+      return { ...record, fields };
+    });
+  }
+
   private async hydrateLegacyUserCells(
     container: DependencyContainer,
     table: Table,
     records: IRecord[],
     fieldKeyType: FieldKeyType
   ): Promise<IRecord[]> {
-    const userFields = table
+    const keys = table
       .getFields()
       .filter((field) => this.isPublicUserValueField(field))
-      .map((field) => ({
-        key: this.resolveResponseFieldKey(table, field.id().toString(), fieldKeyType),
-      }));
-    if (!userFields.length || !records.length) {
-      return records;
-    }
-
-    const userFieldKeys = new Set(userFields.map((field) => field.key));
-
-    const userIds = new Set<string>();
-    for (const record of records) {
-      for (const key of userFieldKeys) {
-        this.collectLegacyUserIds(record.fields[key], userIds);
-      }
-    }
-    const resolvedUsers = userIds.size
-      ? await this.resolvePublicUsers(container, userIds)
-      : new Map<string, { id: string; title: string; email?: string }>();
-
-    return records.map((record) => {
-      const fields = { ...record.fields };
-      for (const field of userFields) {
-        if (field.key in fields) {
-          fields[field.key] = this.normalizePublicUserValue(fields[field.key], resolvedUsers);
-        }
-      }
-      return { ...record, fields };
-    });
+      .map((field) => this.resolveResponseFieldKey(table, field.id().toString(), fieldKeyType));
+    return this.hydrateSelectedUserCells(container, records, keys);
   }
 
   private collectLegacyUserIds(value: unknown, target: Set<string>): void {
@@ -2475,7 +2474,11 @@ export class RecordOpenApiV2Service {
    * Resolve orderBy/groupBy field keys (name / dbFieldName / id) to field ids.
    */
   private resolveSortGroupFieldKeysToIds<
-    T extends { fieldId: string; order?: string } | { fieldId: string; order: string },
+    T extends {
+      fieldId: string;
+      order?: string;
+      collation?: 'zh-pinyin';
+    },
   >(table: Table, items: ReadonlyArray<T> | undefined): T[] | undefined {
     if (!items?.length) {
       return items as T[] | undefined;
@@ -2500,6 +2503,12 @@ export class RecordOpenApiV2Service {
         ? item.fieldId
         : (byName.get(item.fieldId) ?? byDbName.get(item.fieldId));
       if (!fieldId) {
+        if (item.collation !== undefined) {
+          throw new CustomHttpException(
+            `Field ${item.fieldId} not found for collated sort`,
+            HttpErrorCode.VALIDATION_ERROR
+          );
+        }
         continue;
       }
       resolved.push({ ...item, fieldId });
@@ -4028,6 +4037,7 @@ export class RecordOpenApiV2Service {
       sort: sortWithGroupFallback?.map((item) => ({
         fieldId: item.fieldId,
         order: item.order,
+        ...(item.collation !== undefined ? { collation: item.collation } : {}),
       })),
       search: rangeQuery.search,
       groupBy: rangeQuery.groupBy?.map((item) => ({
@@ -4080,6 +4090,7 @@ export class RecordOpenApiV2Service {
       sort: sortWithGroupFallback?.map((item) => ({
         fieldId: item.fieldId,
         order: item.order,
+        ...(item.collation !== undefined ? { collation: item.collation } : {}),
       })),
       search: rangeQuery.search,
       groupBy: rangeQuery.groupBy?.map((item) => ({
@@ -4132,6 +4143,7 @@ export class RecordOpenApiV2Service {
       sort: sortWithGroupFallback?.map((item) => ({
         fieldId: item.fieldId,
         order: item.order,
+        ...(item.collation !== undefined ? { collation: item.collation } : {}),
       })),
       search: rangeQuery.search,
       groupBy: rangeQuery.groupBy?.map((item) => ({
@@ -4367,17 +4379,30 @@ export class RecordOpenApiV2Service {
     groupBy?: IRangesRo['groupBy'],
     orderBy?: IRangesRo['orderBy']
   ): IRangesRo['orderBy'] {
-    const merged = [...(groupBy ?? []), ...(orderBy ?? [])];
+    const merged: NonNullable<IRangesRo['orderBy']> = [...(groupBy ?? []), ...(orderBy ?? [])];
     if (!merged.length) {
       return undefined;
     }
 
-    const deduplicated = merged.filter(
-      (item, index, list) =>
-        list.findIndex((candidate) => candidate.fieldId === item.fieldId) === index
-    );
+    const deduplicated: NonNullable<IRangesRo['orderBy']> = [];
+    const indexesByFieldId = new Map<string, number>();
+    for (const item of merged) {
+      const existingIndex = indexesByFieldId.get(item.fieldId);
+      if (existingIndex === undefined) {
+        indexesByFieldId.set(item.fieldId, deduplicated.length);
+        deduplicated.push(item);
+        continue;
+      }
 
-    return deduplicated.length ? deduplicated : undefined;
+      if (item.collation !== undefined && deduplicated[existingIndex]?.collation === undefined) {
+        deduplicated[existingIndex] = {
+          ...deduplicated[existingIndex]!,
+          collation: item.collation,
+        };
+      }
+    }
+
+    return deduplicated;
   }
 
   private async buildRangeFilter(
@@ -5027,7 +5052,8 @@ export class RecordOpenApiV2Service {
   async duplicateRecord(
     tableId: string,
     recordId: string,
-    order?: IRecordInsertOrderRo
+    order?: IRecordInsertOrderRo,
+    options?: { sourceSnapshot?: DuplicateRecordSourceSnapshot }
   ): Promise<IRecord> {
     await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
@@ -5041,7 +5067,8 @@ export class RecordOpenApiV2Service {
         recordId,
         order,
       },
-      commandBus
+      commandBus,
+      options
     );
 
     if (result.status === 201 && result.body.ok) {
@@ -5087,6 +5114,7 @@ export class RecordOpenApiV2Service {
         sort: sortWithGroupFallback?.map((item) => ({
           fieldId: item.fieldId,
           order: item.order,
+          ...(item.collation !== undefined ? { collation: item.collation } : {}),
         })),
         groupBy: groupBy?.map((item) => item.fieldId),
         search: query.search,
@@ -5233,6 +5261,7 @@ export class RecordOpenApiV2Service {
         return value.value;
       })
     );
-    return { content: stringifyClipboardText(rows), header };
+    const rawContent = buildRawCopyContent(records, header, rows);
+    return { content: stringifyClipboardText(rows), header, ...(rawContent ? { rawContent } : {}) };
   }
 }

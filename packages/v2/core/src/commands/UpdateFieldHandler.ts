@@ -6,7 +6,10 @@ import { FieldConversionPreparationService } from '../application/services/Field
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import { prepareFieldOperationSideEffectPlugins } from '../application/services/FieldOperationSideEffectPluginSupport';
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
-import { FieldUpdateSideEffectService } from '../application/services/FieldUpdateSideEffectService';
+import {
+  FieldUpdateSideEffectService,
+  type FieldUpdateSideEffectResult,
+} from '../application/services/FieldUpdateSideEffectService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import {
   toUndoRedoStackAppendContext,
@@ -172,6 +175,9 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
       yield* await pluginExecution.guard();
       yield* await sideEffectPluginExecution.guard();
 
+      const relatedViewQueryChanges: Array<
+        FieldUpdateSideEffectResult['viewQueryChanges'][number]
+      > = [];
       // 6. Execute update flow with the already-loaded table
       const updateResult = yield* await handler.tableUpdateFlow.execute(
         context,
@@ -240,6 +246,11 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
                       foreignTables,
                     });
                   allEvents.push(...sideEffectResult.events);
+                  relatedViewQueryChanges.push(
+                    ...(sideEffectResult.viewQueryChanges ?? []).filter(
+                      ({ previous }) => previous.tableId !== table.id().toString()
+                    )
+                  );
 
                   return ok({ events: allEvents, table: sideEffectResult.updatedTable });
                 }
@@ -264,6 +275,15 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
               baseId: table.baseId().toString(),
               tableId: table.id().toString(),
               snapshot: oldFieldSnapshot,
+              ...(relatedViewQueryChanges.length
+                ? {
+                    expectedSnapshot: { ...newFieldSnapshot, records: undefined },
+                    relatedViewQueries: relatedViewQueryChanges.map(({ previous, next }) => ({
+                      snapshot: previous,
+                      expected: next,
+                    })),
+                  }
+                : {}),
             }
           ),
           redoCommand: createUndoRedoCommand(
@@ -272,6 +292,15 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
               baseId: updateResult.table.baseId().toString(),
               tableId: updateResult.table.id().toString(),
               snapshot: newFieldSnapshot,
+              ...(relatedViewQueryChanges.length
+                ? {
+                    expectedSnapshot: { ...oldFieldSnapshot, records: undefined },
+                    relatedViewQueries: relatedViewQueryChanges.map(({ previous, next }) => ({
+                      snapshot: next,
+                      expected: previous,
+                    })),
+                  }
+                : {}),
             }
           ),
         }
@@ -280,14 +309,25 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
       const updatedFieldForPlugin = yield* updateResult.table.getField((f) =>
         f.id().equals(command.fieldId)
       );
-      await pluginExecution.afterCommit({
-        ...basePluginContext,
-        table: updateResult.table,
-        result: {
-          updatedField: updatedFieldForPlugin,
-        },
-      });
-      await sideEffectPluginExecution.afterCommit();
+      const notifyAfterCommit = async () => {
+        const committedContext = ExecutionContextPort.withoutTransaction(context);
+        await pluginExecution.afterCommit({
+          ...basePluginContext,
+          executionContext: committedContext,
+          table: updateResult.table,
+          result: {
+            updatedField: updatedFieldForPlugin,
+          },
+        });
+        await sideEffectPluginExecution.afterCommit(committedContext);
+      };
+      const metaTransaction = ExecutionContextPort.getUnitOfWorkTransaction(context, 'meta');
+      const commitContext = metaTransaction
+        ? { ...context, transaction: metaTransaction }
+        : context;
+      if (!ExecutionContextPort.registerAfterCommit(commitContext, notifyAfterCommit)) {
+        await notifyAfterCommit();
+      }
 
       return ok(UpdateFieldResult.create(updateResult.table, updateResult.events));
     });

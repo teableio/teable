@@ -20,7 +20,7 @@ import type {
   OAuth2,
   ValidateFunctionArity2,
 } from 'oauth2orize';
-import oauth2orize, { AuthorizationError } from 'oauth2orize';
+import oauth2orize, { AuthorizationError, TokenError } from 'oauth2orize';
 import { CacheService } from '../../cache/cache.service';
 import type { IOAuthCodeState } from '../../cache/types';
 import { IOAuthConfig, OAuthConfig } from '../../configs/oauth.config';
@@ -33,13 +33,17 @@ import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { DEVICE_CODE_GRANT_TYPE, OAuthDeviceService } from './oauth-device.service';
+import { isOAuthTokenErrorCode, OAuthTokenError } from './oauth-token.error';
 import { OAuthTxStore } from './oauth-tx-store';
 import { PkceService } from './pkce.service';
 import type { IAuthorizeClient, ITokenClient, IOAuth2Server, IAuthorizeRequest } from './types';
 
-/** A malformed OAuth request: the message names the offending parameter. */
+/** A malformed authorize request: the message names the offending parameter. */
 const invalidOAuthRequest = (message: string) =>
   new CustomHttpException(message, HttpErrorCode.VALIDATION_ERROR);
+
+/** Prisma's "record to update not found" (P2025), as opposed to the database failing. */
+const isRecordNotFound = (error: unknown) => (error as { code?: unknown } | null)?.code === 'P2025';
 
 @Injectable()
 export class OAuthServerService {
@@ -120,25 +124,47 @@ export class OAuthServerService {
     if (error instanceof AuthorizationError) {
       return new HttpException(error.message, Number(error.status));
     }
+    // oauth2orize's own token endpoint checks (missing refresh_token, unknown
+    // grant_type) come as TokenError, which nothing else translates: it used to
+    // fall through to the global filter as a 500.
+    if (error instanceof TokenError) {
+      return isOAuthTokenErrorCode(error.code)
+        ? new OAuthTokenError(error.code, error.message)
+        : new OAuthTokenError('invalid_request', error.message);
+    }
     return error;
   }
 
+  /**
+   * Fixed window per (client, user). The refusal is `too_many_requests` with a
+   * `Retry-After` of what is left of the window, so a client that keeps a
+   * schedule can wait it out instead of guessing.
+   */
   private async checkTokenRateLimit(clientId: string, userId: string) {
     const { tokenRateLimit, tokenRateWindow } = this.oauth2Config;
     if (tokenRateLimit <= 0) {
       return;
     }
     const cacheKey = `oauth:token-rate:${clientId}:${userId}` as const;
-    const count = await this.cacheService.incr(cacheKey, second(tokenRateWindow));
-    if (count > tokenRateLimit) {
+    const windowSeconds = second(tokenRateWindow);
+    const count = await this.cacheService.incr(cacheKey, windowSeconds);
+    if (count <= tokenRateLimit) {
+      return;
+    }
+    // A client stuck in a retry loop lands here once a second: one line per
+    // window names it, and each refusal itself is a 4xx the filter keeps out
+    // of the error log.
+    if (count === tokenRateLimit + 1) {
       this.logger.warn(
-        `OAuth token rate limit exceeded for client ${clientId} user ${userId}: ${count}/${tokenRateLimit}`
-      );
-      throw new CustomHttpException(
-        `Token request rate limit exceeded, please try again later`,
-        HttpErrorCode.TOO_MANY_REQUESTS
+        `OAuth token rate limit exceeded for client ${clientId} user ${userId}: more than ${tokenRateLimit} token requests in ${tokenRateWindow}`
       );
     }
+    const ttl = await this.cacheService.ttl(cacheKey);
+    throw new OAuthTokenError(
+      'too_many_requests',
+      'Token request rate limit exceeded, please try again later',
+      { retryAfter: ttl > 0 ? ttl : 1 }
+    );
   }
 
   private validateRedirectUri(
@@ -457,7 +483,7 @@ export class OAuthServerService {
       this.verifyCodeVerifier(client.codeVerifier, state);
     } else if (client.type === 'secret') {
       if (!client.clientSecret) {
-        throw invalidOAuthRequest('client_secret is required');
+        throw new OAuthTokenError('invalid_client', 'client_secret is required');
       }
       // A confidential client that sent code_challenge at authorize proves
       // both (OAuth 2.1 wants PKCE from every client): RFC 7636, once
@@ -466,22 +492,22 @@ export class OAuthServerService {
         this.verifyCodeVerifier(client.codeVerifier, state);
       }
     } else {
-      throw invalidOAuthRequest('Invalid client type');
+      throw new OAuthTokenError('invalid_request', 'Invalid client type');
     }
   }
 
   private verifyCodeVerifier(codeVerifier: string | undefined, state: IOAuthCodeState) {
     if (!codeVerifier) {
-      throw invalidOAuthRequest('code_verifier is required');
+      throw new OAuthTokenError('invalid_request', 'code_verifier is required');
     }
     if (!this.pkceService.isValidCodeVerifier(codeVerifier)) {
-      throw invalidOAuthRequest('Invalid code_verifier format');
+      throw new OAuthTokenError('invalid_request', 'Invalid code_verifier format');
     }
     if (!state.codeChallenge) {
-      throw invalidOAuthRequest('code_challenge is required');
+      throw new OAuthTokenError('invalid_request', 'code_challenge is required');
     }
     if (!state.codeChallengeMethod || state.codeChallengeMethod !== 'S256') {
-      throw invalidOAuthRequest('Invalid code_challenge method');
+      throw new OAuthTokenError('invalid_request', 'Invalid code_challenge method');
     }
     const valid = this.pkceService.validateCodeVerifier(
       state.codeChallenge,
@@ -489,7 +515,8 @@ export class OAuthServerService {
       codeVerifier
     );
     if (!valid) {
-      throw new UnauthorizedException('Invalid code_verifier');
+      // RFC 7636 §4.6: a verifier that does not match is an invalid grant.
+      throw new OAuthTokenError('invalid_grant', 'code_verifier does not match code_challenge');
     }
   }
 
@@ -516,7 +543,7 @@ export class OAuthServerService {
 
     try {
       if (!client) {
-        return next(new UnauthorizedException('Invalid client'));
+        return next(new OAuthTokenError('invalid_client', 'Invalid client'));
       }
       if (!deviceCode) {
         return respond(400, {
@@ -634,18 +661,36 @@ export class OAuthServerService {
         // the entry, so of two concurrent exchanges of one code only one mints
         // a token pair (RFC 6749 §10.5 single use, GHSA-v745-5v6v-f3r8).
         if (!codeState || !(await this.cacheService.del(`oauth:code:${code}`))) {
-          return () => done(new UnauthorizedException('Invalid code'));
+          return () =>
+            done(
+              new OAuthTokenError(
+                'invalid_grant',
+                'Authorization code is invalid, expired or already used'
+              )
+            );
         }
         await this.checkTokenRateLimit(client.clientId, codeState.user.id);
 
         if (codeState.clientId !== client.clientId) {
-          return () => done(new UnauthorizedException('Invalid client'));
+          return () =>
+            done(
+              new OAuthTokenError(
+                'invalid_grant',
+                'Authorization code was issued to another client'
+              )
+            );
         }
         if (!redirectUri) {
-          return () => done(new UnauthorizedException('redirect_uri is required'));
+          return () => done(new OAuthTokenError('invalid_request', 'redirect_uri is required'));
         }
         if (redirectUri !== codeState.redirectUri) {
-          return () => done(new UnauthorizedException('Invalid redirectUri'));
+          return () =>
+            done(
+              new OAuthTokenError(
+                'invalid_grant',
+                'redirect_uri does not match the authorization request'
+              )
+            );
         }
         const tokenClient = client as ITokenClient;
         this.verifyExchangeClient(tokenClient, codeState);
@@ -683,17 +728,26 @@ export class OAuthServerService {
           accessTokenId: string;
           sign: string;
         };
+        // Every refusal below is `invalid_grant` (RFC 6749 §5.2): the refresh
+        // token is expired, revoked, already rotated, or belongs to another
+        // client. That code is what tells an OAuth client to stop retrying it
+        // and send the person back to sign in.
+        const invalidGrant = (description: string) => () =>
+          done(new OAuthTokenError('invalid_grant', description));
         try {
           decoded = await this.jwtService.verifyAsync(refreshToken);
         } catch {
-          // A refresh token that fails verification (unknown signature or expiry)
-          // is a client credential error like every check below; letting the raw
+          // Failing verification (unknown signature or expiry) is a client
+          // credential error like every check below; letting the raw
           // JsonWebTokenError escape answered a client mistake with a 500.
-          return () => done(new UnauthorizedException('Invalid refresh token'));
+          return invalidGrant('Refresh token is invalid or expired');
+        }
+        if (typeof decoded.accessTokenId !== 'string' || typeof decoded.sign !== 'string') {
+          return invalidGrant('Refresh token is malformed');
         }
 
         if (client.clientId !== decoded.clientId) {
-          return () => done(new UnauthorizedException('Invalid client'));
+          return invalidGrant('Refresh token was issued to another client');
         }
         // PKCE tokens carry neither field and must only be honored by a PKCE
         // client (whose clientSecret is undefined), and vice versa.
@@ -702,14 +756,14 @@ export class OAuthServerService {
             ? decoded.secretId === client.secretId
             : decoded.secret === (client as { clientSecret?: string }).clientSecret;
         if (!boundToClient) {
-          return () => done(new UnauthorizedException('Invalid secret'));
+          return invalidGrant('Refresh token was issued under different client credentials');
         }
 
         const oldAccessToken = await this.prismaService.txClient().accessToken.findUnique({
           where: { id: decoded.accessTokenId },
         });
         if (!oldAccessToken) {
-          return () => done(new UnauthorizedException('Invalid access token'));
+          return invalidGrant('Refresh token has been revoked');
         }
         await this.checkTokenRateLimit(client.clientId, oldAccessToken.userId);
 
@@ -723,7 +777,7 @@ export class OAuthServerService {
           },
         });
         if (!authorized) {
-          return () => done(new UnauthorizedException('Invalid authorized'));
+          return invalidGrant('Authorization has been revoked');
         }
 
         const scopes = oldAccessToken.scopes ? JSON.parse(oldAccessToken.scopes) : [];
@@ -748,8 +802,18 @@ export class OAuthServerService {
             },
             select: { refreshTokenSign: true },
           })
-          .catch(() => {
-            throw new UnauthorizedException('Invalid refresh token');
+          .catch((error) => {
+            // No row under this sign: the token was rotated by an earlier
+            // refresh (the client is replaying it) or revoked. Only that is
+            // an invalid grant; a failing database must not tell clients to
+            // throw their tokens away.
+            if (isRecordNotFound(error)) {
+              throw new OAuthTokenError(
+                'invalid_grant',
+                'Refresh token has already been used or revoked'
+              );
+            }
+            throw error;
           });
 
         const newRefreshToken = await this.getRefreshToken(

@@ -1,8 +1,11 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import { FieldId } from '../../domain/table/fields/FieldId';
+import type { Table } from '../../domain/table/Table';
+import type { SortCollation } from '../../domain/table/views/ViewSort';
+import { validateViewSortCollations } from '../../domain/table/views/validateViewSortCollations';
 import type * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
 
 /**
@@ -21,6 +24,7 @@ import type * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQue
 export type SortLike = {
   fieldId: string;
   order: 'asc' | 'desc';
+  collation?: SortCollation;
 };
 
 /**
@@ -28,14 +32,24 @@ export type SortLike = {
  * Invalid field IDs are ignored.
  */
 export const resolveOrderBy = (
-  sort: ReadonlyArray<SortLike> | undefined
+  sort: ReadonlyArray<SortLike> | undefined,
+  table?: Table,
+  group?: ReadonlyArray<SortLike>
 ): Result<ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined, DomainError> => {
+  if (table) {
+    const validationResult = validateViewSortCollations(table, sort, group);
+    if (validationResult.isErr()) return err(validationResult.error);
+  }
   if (!sort || sort.length === 0) return ok(undefined);
   const orderBy: TableRecordQueryRepositoryPort.FieldOrderBy[] = [];
   for (const item of sort) {
     const fieldIdResult = FieldId.create(item.fieldId);
     if (fieldIdResult.isErr()) continue;
-    orderBy.push({ fieldId: fieldIdResult.value, direction: item.order });
+    orderBy.push({
+      fieldId: fieldIdResult.value,
+      direction: item.order,
+      ...(item.collation !== undefined ? { collation: item.collation } : {}),
+    });
   }
   return ok(orderBy.length > 0 ? orderBy : undefined);
 };

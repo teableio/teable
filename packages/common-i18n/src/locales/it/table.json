@@ -113,6 +113,16 @@
           "confirmText": "Conferma uscita"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "Nascondi campi",
+      "hiddenCount": "Nascosti ({{count}})",
+      "filter": "Filtra",
+      "filterCount": "Filtra ({{count}})",
+      "sort": "Ordina",
+      "sortCount": "Ordina ({{count}})",
+      "group": "Raggruppa",
+      "groupCount": "Raggruppa ({{count}})"
     }
   },
   "welcome": {
@@ -1147,6 +1157,8 @@
   "view": {
     "addRecord": "Aggiungi record",
     "searchView": "Cerca vista...",
+    "starredGroup": "Preferite",
+    "otherGroup": "Altre viste",
     "dragToolTip": "L'ordinamento automatico è attivato, il trascinamento manuale non è disponibile",
     "insertToolTip": "L'ordinamento automatico è attivato, l'inserimento con ordine non è disponibile",
     "action": {
@@ -1169,6 +1181,7 @@
       "description": "Questa vista è danneggiata. Se il refresh fallisce ancora, contattaci. support@teable.ai"
     },
     "addPluginView": "Aggiungi Vista Plugin",
+    "addView": "Crea vista",
     "search": {
       "field_one": "{{name}}",
       "field_many": "campi({{length}})",
@@ -1680,7 +1693,6 @@
       "share": "Condividi",
       "enableShare": "Attiva condivisione",
       "copyLink": "Copia link",
-      "rotateLink": "Reimposta link",
       "scope": "Chi può vedere",
       "scopePublic": "Chiunque abbia il link",
       "scopeSpace": "Membri dello spazio",
@@ -1777,7 +1789,8 @@
       "running": "Generazione in corso…",
       "waitingInput": "In attesa della tua risposta",
       "failed": "Risposta non riuscita"
-    }
+    },
+    "routineRunPrompt": "Inviato dalla routine"
   },
   "upload": {
     "panelUploading": "Caricamento di {{count}} file",

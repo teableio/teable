@@ -3,6 +3,7 @@
     "copySource": "Copy from: {{names}}",
     "title": "What will change",
     "deleteFieldTitle": "Delete field",
+    "convertFieldTitle": "Change field",
     "deleteTableTitle": "Delete table",
     "copyTableTitle": "Copy table",
     "copyBaseTitle": "Copy project",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "execution-time effects",
     "uncertaintyDetail": "other effects",
     "recordCountUnknown": "record count",
+    "affectedCellCountUnknown": "affected-cell count",
     "retentionUnknown": "The Trash retention period is not checked.",
     "storageUnknown": "Storage impact is not checked.",
     "retentionStorageUnknown": "The Trash retention period and storage impact are not checked.",
     "inTables": "In table: {{names}}",
     "affectedFields": "Affected fields:",
     "affectedViews": "Affected views:",
+    "affectedCells": "Affected cells:",
+    "affectedLinkChanges": "Related link changes:",
     "labels": {
       "tables": "Tables",
       "fields": "Fields",
@@ -47,6 +51,11 @@
     },
     "messages": {
       "fieldDeleted": "Delete this field and its values in all records",
+      "fieldTypeChanged": "Change the field type",
+      "fieldConfigurationChanged": "Update the field settings",
+      "fieldValuesRewritten": "Rewrite existing field values for the new settings",
+      "fieldUnchanged": "Keep the current field settings",
+      "fieldLinkChanges": "Apply related link changes",
       "symmetricLinkRemovedDetail": "Delete the corresponding two-way link field",
       "fieldDependenciesChangedDetail": "Update dependent fields; final values are not specified",
       "fieldViewsChangedDetail": "Update view settings after deleting the field",
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "Settings",
       "logout": "Log out",
-      "contactSupport": "Contact support"
+      "contactSupport": "Contact support",
+      "downloadApp": "Download app"
     },
     "integration": {
       "title": "Integrations",
@@ -1113,7 +1123,6 @@
           "smDesc": "Simple queries, quick responses",
           "readyToUse": "AI is configured and ready to use!",
           "customProviderHelp": "Add your own AI providers (OpenAI, Anthropic, Azure, etc.), configure API keys and models.",
-          "testModelCapabilities": "Test Model Capabilities",
           "customModelsAutoImported": "Your provider models have been automatically imported to the model pool.",
           "modelsCount": "{{count}} models available",
           "customModelsHint": "To adjust model configurations, go back to Step 1 to modify provider settings.",
@@ -1170,7 +1179,8 @@
       "group": {
         "system": "Basics",
         "ai": "AI Services",
-        "appBuilder": "App Builder"
+        "appBuilder": "App Builder",
+        "security": "Security"
       },
       "copyInstance": "Copy ID",
       "list": {
@@ -1219,7 +1229,23 @@
         "sandboxOpenSandbox": {
           "title": "AI Chat Runtime",
           "description": "Configure the OpenSandbox runtime environment for AI Chat, <anchor>go to setting</anchor>"
+        },
+        "signupVerification": {
+          "title": "Open signup without email verification",
+          "description": "Anyone can sign up with an email address they don't own: they can squat on a colleague's or customer's address, and take over the account of someone invited by email who hasn't signed up yet, together with the access the invitation granted. Turn on email verification (email delivery must be configured), or turn off open signup, <anchor>go to setting</anchor>"
+        },
+        "secrets": {
+          "title": "Server secrets",
+          "description": "Secrets that are unset or still on a publicly known default: {{total}}. They may let others forge sign-in tokens or decrypt stored data. Set them as environment variables and restart; the startup log explains each one. On an instance with existing data, pin the current values first and rotate afterwards: replacing an encryption key outright makes the data stored under it unreadable.",
+          "missing": "Not set",
+          "publicDefault": "Public default",
+          "docsLink": "Environment variable reference",
+          "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
+      },
+      "banner": {
+        "message": "There are security items to handle in the admin panel",
+        "action": "Review"
       }
     },
     "canary": {
@@ -1515,6 +1541,18 @@
           },
           "connectorDisconnected": {
             "title": "Routine {{name}} stopped receiving connector events"
+          },
+          "handedToYou": {
+            "title": "Routine {{name}} has been handed over to you",
+            "message": "{{previousOwner}} can no longer edit the routine {{name}}, so it was handed over to you. It now runs as you, and its results and alerts come to you. Check its instructions and trigger, or pause it if it is not needed."
+          },
+          "handedAway": {
+            "title": "Your routine {{name}} was handed over to {{newOwner}}",
+            "message": "You can no longer edit the routine {{name}}, so it was handed over to {{newOwner}}. It now runs as {{newOwner}}."
+          },
+          "takenOver": {
+            "title": "Routine {{name}} now runs as {{newOwner}}",
+            "message": "{{newOwner}} took over the routine {{name}}. It now runs as {{newOwner}}, and its results and alerts go to {{newOwner}}."
           }
         },
         "billing": {
@@ -2062,5 +2100,16 @@
         "description": "Help us measure how well our ads and promotions work."
       }
     }
+  },
+  "openInApp": {
+    "title": "Teable app",
+    "description": "Open this page in the app for a smoother experience",
+    "open": "Open",
+    "dismiss": "Close",
+    "notInstalledTitle": "Don't have the app yet?",
+    "notInstalledDescription": "Install it, then come back here and tap Open",
+    "getApp": "Get the app",
+    "inAppBrowserHint": "To switch to the app, open this page in your browser from the menu at the top right",
+    "menuItem": "Open in the Teable app"
   }
 }

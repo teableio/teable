@@ -108,6 +108,16 @@
           "confirmText": "Çıkışı onayla"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "Alanları gizle",
+      "hiddenCount": "Gizli ({{count}})",
+      "filter": "Filtrele",
+      "filterCount": "Filtrele ({{count}})",
+      "sort": "Sırala",
+      "sortCount": "Sırala ({{count}})",
+      "group": "Grupla",
+      "groupCount": "Grupla ({{count}})"
     }
   },
   "welcome": {
@@ -1142,6 +1152,8 @@
   "view": {
     "addRecord": "Kayıt ekle",
     "searchView": "Görünüm ara...",
+    "starredGroup": "Yıldızlı",
+    "otherGroup": "Diğer görünümler",
     "dragToolTip": "Otomatik sıralama açık, manuel sürükleme kullanılamaz",
     "insertToolTip": "Otomatik sıralama açık, sırayla ekleme kullanılamaz",
     "action": {
@@ -1164,6 +1176,7 @@
       "description": "Bu görünüm bozuk. Yenileme hala başarısız olursa, lütfen bizimle iletişime geçin. support@teable.ai"
     },
     "addPluginView": "Eklenti Görünümü Ekle",
+    "addView": "Görünüm oluştur",
     "search": {
       "field_one": "{{name}}",
       "field_other": "alan({{length}})"
@@ -1635,7 +1648,6 @@
       "share": "Paylaş",
       "enableShare": "Paylaşımı etkinleştir",
       "copyLink": "Bağlantıyı kopyala",
-      "rotateLink": "Bağlantıyı sıfırla",
       "scope": "Kimler görebilir",
       "scopePublic": "Bağlantıya sahip herkes",
       "scopeSpace": "Alan üyeleri",
@@ -1753,7 +1765,8 @@
       "running": "Oluşturuluyor…",
       "waitingInput": "Yanıtınız bekleniyor",
       "failed": "Yanıt başarısız oldu"
-    }
+    },
+    "routineRunPrompt": "Rutin tarafından gönderildi"
   },
   "upload": {
     "panelUploading": "{{count}} dosya yükleniyor",

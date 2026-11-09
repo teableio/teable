@@ -1,3 +1,4 @@
+import { getRandomString } from '@teable/v2-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
@@ -862,5 +863,291 @@ describe('v2 http updateRecords (e2e)', () => {
     expect(alphaAfter?.fields[statusFieldId]).toBe('Closed');
     expect(betaAfter?.fields[statusFieldId]).toBe('Open');
     expect(betaAfter?.fields[notesFieldId]).toBe('Still open');
+  });
+
+  /**
+   * One explicit batch mixes scalar rows with rows the mutation-spec resolver
+   * must rewrite (link titles, user identifiers). Reusing a row's already
+   * materialized update must still answer with that row's own identity,
+   * untouched cells and explicit nulls.
+   */
+  it('keeps scalar and resolver rows mapped to their own records in one batch', async () => {
+    const suffix = getRandomString(8);
+    const foreignTitleFieldId = `fld${getRandomString(16)}`;
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: `UpdateRecords Mixed Resolver Targets ${suffix}`,
+      fields: [{ id: foreignTitleFieldId, type: 'singleLineText', name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+    const [targetA, targetB] = await ctx.createRecords(foreign.id, [
+      { fields: { [foreignTitleFieldId]: 'Alpha target' } },
+      { fields: { [foreignTitleFieldId]: 'Beta target' } },
+    ]);
+    if (!targetA || !targetB) throw new Error('Missing link targets');
+
+    const linkFieldId = `fld${getRandomString(16)}`;
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: `UpdateRecords Mixed Resolver Sources ${suffix}`,
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'number', name: 'Amount' },
+        { type: 'singleLineText', name: 'Notes' },
+        {
+          id: linkFieldId,
+          type: 'link',
+          name: 'Targets',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignTitleFieldId,
+            isOneWay: true,
+          },
+        },
+        { type: 'user', name: 'Owner', options: { isMultiple: false, shouldNotify: false } },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+    const amountFieldId = table.fields.find((field) => field.name === 'Amount')?.id ?? '';
+    const notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id ?? '';
+    const ownerFieldId = table.fields.find((field) => field.name === 'Owner')?.id ?? '';
+
+    const [rowA, rowB, rowC, rowD] = await ctx.createRecords(table.id, [
+      {
+        fields: {
+          [titleFieldId]: 'Row A',
+          [amountFieldId]: 1,
+          [notesFieldId]: 'note-a',
+          [linkFieldId]: [{ id: targetA.id }],
+        },
+      },
+      {
+        fields: {
+          [titleFieldId]: 'Row B',
+          [amountFieldId]: 2,
+          [notesFieldId]: 'note-b',
+          [linkFieldId]: [{ id: targetA.id }],
+        },
+      },
+      {
+        fields: {
+          [titleFieldId]: 'Row C',
+          [amountFieldId]: 3,
+          [notesFieldId]: 'note-c',
+          [linkFieldId]: [{ id: targetA.id }],
+        },
+      },
+      {
+        fields: {
+          [titleFieldId]: 'Row D',
+          [amountFieldId]: 4,
+          [notesFieldId]: 'note-d',
+          [linkFieldId]: [{ id: targetA.id }],
+        },
+      },
+    ]);
+    if (!rowA || !rowB || !rowC || !rowD) throw new Error('Missing source records');
+
+    const result = await ctx.updateRecords({
+      tableId: table.id,
+      typecast: true,
+      records: [
+        // Scalar row: explicit null, plus omitted title/link/owner.
+        { id: rowA.id, fields: { [amountFieldId]: 11, [notesFieldId]: null } },
+        // Resolver row: link titles are replaced by resolved link ids.
+        { id: rowB.id, fields: { [linkFieldId]: ['Beta target'] } },
+        // Scalar row: omitted amount, title and link must survive.
+        { id: rowC.id, fields: { [notesFieldId]: 'note-c-updated' } },
+        // Resolver row: a user identifier expands into a full user cell.
+        { id: rowD.id, fields: { [ownerFieldId]: ctx.testUser.email } },
+      ],
+    });
+
+    expect(result.updatedCount).toBe(4);
+    const returned = result.records ?? [];
+    expect(returned.map((record) => record.id).sort()).toEqual(
+      [rowA.id, rowB.id, rowC.id, rowD.id].sort()
+    );
+    const returnedById = new Map(returned.map((record) => [record.id, record]));
+    const linkIds = (value: unknown): string[] => {
+      if (!Array.isArray(value)) return [];
+      const ids: string[] = [];
+      for (const item of value) {
+        if (typeof item === 'string') {
+          ids.push(item);
+        } else if (
+          item &&
+          typeof item === 'object' &&
+          'id' in item &&
+          typeof item.id === 'string'
+        ) {
+          ids.push(item.id);
+        }
+      }
+      return ids;
+    };
+
+    const returnedA = returnedById.get(rowA.id);
+    expect(returnedA?.fields[titleFieldId]).toBe('Row A');
+    expect(returnedA?.fields[amountFieldId]).toBe(11);
+    expect(returnedA?.fields[notesFieldId]).toBeNull();
+    expect(linkIds(returnedA?.fields[linkFieldId])).toEqual([targetA.id]);
+    expect(returnedA?.fields[ownerFieldId] ?? null).toBeNull();
+
+    const returnedB = returnedById.get(rowB.id);
+    expect(returnedB?.fields[titleFieldId]).toBe('Row B');
+    expect(returnedB?.fields[amountFieldId]).toBe(2);
+    expect(returnedB?.fields[notesFieldId]).toBe('note-b');
+    expect(linkIds(returnedB?.fields[linkFieldId])).toEqual([targetB.id]);
+    expect(returnedB?.fields[ownerFieldId] ?? null).toBeNull();
+
+    const returnedC = returnedById.get(rowC.id);
+    expect(returnedC?.fields[titleFieldId]).toBe('Row C');
+    expect(returnedC?.fields[amountFieldId]).toBe(3);
+    expect(returnedC?.fields[notesFieldId]).toBe('note-c-updated');
+    expect(linkIds(returnedC?.fields[linkFieldId])).toEqual([targetA.id]);
+    expect(returnedC?.fields[ownerFieldId] ?? null).toBeNull();
+
+    const returnedD = returnedById.get(rowD.id);
+    expect(returnedD?.fields[titleFieldId]).toBe('Row D');
+    expect(returnedD?.fields[amountFieldId]).toBe(4);
+    expect(returnedD?.fields[notesFieldId]).toBe('note-d');
+    expect(linkIds(returnedD?.fields[linkFieldId])).toEqual([targetA.id]);
+    expect(returnedD?.fields[ownerFieldId]).toMatchObject({
+      id: ctx.testUser.id,
+      title: ctx.testUser.name,
+      email: ctx.testUser.email,
+    });
+
+    const storedById = new Map(
+      (await ctx.listRecords(table.id)).map((record) => [record.id, record])
+    );
+    const storedA = storedById.get(rowA.id);
+    expect(storedA?.fields[titleFieldId]).toBe('Row A');
+    expect(storedA?.fields[amountFieldId]).toBe(11);
+    expect(storedA?.fields[notesFieldId]).toBeNull();
+    expect(storedA?.fields[linkFieldId]).toEqual([{ id: targetA.id, title: 'Alpha target' }]);
+    expect(storedA?.fields[ownerFieldId] ?? null).toBeNull();
+
+    const storedB = storedById.get(rowB.id);
+    expect(storedB?.fields[titleFieldId]).toBe('Row B');
+    expect(storedB?.fields[amountFieldId]).toBe(2);
+    expect(storedB?.fields[notesFieldId]).toBe('note-b');
+    expect(storedB?.fields[linkFieldId]).toEqual([{ id: targetB.id, title: 'Beta target' }]);
+    expect(storedB?.fields[ownerFieldId] ?? null).toBeNull();
+
+    const storedC = storedById.get(rowC.id);
+    expect(storedC?.fields[titleFieldId]).toBe('Row C');
+    expect(storedC?.fields[amountFieldId]).toBe(3);
+    expect(storedC?.fields[notesFieldId]).toBe('note-c-updated');
+    expect(storedC?.fields[linkFieldId]).toEqual([{ id: targetA.id, title: 'Alpha target' }]);
+    expect(storedC?.fields[ownerFieldId] ?? null).toBeNull();
+
+    const storedD = storedById.get(rowD.id);
+    expect(storedD?.fields[titleFieldId]).toBe('Row D');
+    expect(storedD?.fields[amountFieldId]).toBe(4);
+    expect(storedD?.fields[notesFieldId]).toBe('note-d');
+    expect(storedD?.fields[linkFieldId]).toEqual([{ id: targetA.id, title: 'Alpha target' }]);
+    expect(storedD?.fields[ownerFieldId]).toMatchObject({
+      id: ctx.testUser.id,
+      title: ctx.testUser.name,
+      email: ctx.testUser.email,
+    });
+  });
+
+  /**
+   * A resolver error in a later row must leave earlier scalar rows unwritten
+   * and must not persist the select option those rows would have created.
+   */
+  it('leaves earlier rows and new select options untouched when a resolver row fails', async () => {
+    const suffix = getRandomString(8);
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: `UpdateRecords Resolver Failure ${suffix}`,
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'number', name: 'Amount' },
+        { type: 'singleSelect', name: 'Status', options: ['Open'] },
+        { type: 'user', name: 'Owner', options: { isMultiple: false, shouldNotify: false } },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+    const amountFieldId = table.fields.find((field) => field.name === 'Amount')?.id ?? '';
+    const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+    const ownerFieldId = table.fields.find((field) => field.name === 'Owner')?.id ?? '';
+
+    const [first, second] = await ctx.createRecords(table.id, [
+      {
+        fields: {
+          [titleFieldId]: 'Row One',
+          [amountFieldId]: 1,
+          [statusFieldId]: 'Open',
+        },
+      },
+      {
+        fields: {
+          [titleFieldId]: 'Row Two',
+          [amountFieldId]: 2,
+          [statusFieldId]: 'Open',
+        },
+      },
+    ]);
+    if (!first || !second) throw new Error('Missing records');
+
+    await expect(
+      ctx.updateRecords({
+        tableId: table.id,
+        typecast: true,
+        records: [
+          {
+            id: first.id,
+            fields: { [amountFieldId]: 50, [statusFieldId]: 'Failing Option' },
+          },
+          {
+            id: second.id,
+            fields: { [ownerFieldId]: { id: ctx.testUser.id, email: 'not-test@e2e.com' } },
+          },
+        ],
+      })
+    ).rejects.toThrow(/user_not_found/);
+
+    const storedById = new Map(
+      (await ctx.listRecords(table.id)).map((record) => [record.id, record])
+    );
+    const firstAfter = storedById.get(first.id);
+    expect(firstAfter?.fields[amountFieldId]).toBe(1);
+    expect(firstAfter?.fields[statusFieldId]).toBe('Open');
+    expect(firstAfter?.fields[ownerFieldId] ?? null).toBeNull();
+
+    const secondAfter = storedById.get(second.id);
+    expect(secondAfter?.fields[amountFieldId]).toBe(2);
+    expect(secondAfter?.fields[statusFieldId]).toBe('Open');
+    expect(secondAfter?.fields[ownerFieldId] ?? null).toBeNull();
+
+    const refreshed = await ctx.getTableById(table.id);
+    const statusField = refreshed.fields.find((field) => field.id === statusFieldId);
+    const choiceNames: string[] = [];
+    const options = statusField?.options;
+    if (
+      options &&
+      typeof options === 'object' &&
+      'choices' in options &&
+      Array.isArray(options.choices)
+    ) {
+      for (const choice of options.choices) {
+        if (
+          choice &&
+          typeof choice === 'object' &&
+          'name' in choice &&
+          typeof choice.name === 'string'
+        ) {
+          choiceNames.push(choice.name);
+        }
+      }
+    }
+    expect(choiceNames).toEqual(['Open']);
   });
 });

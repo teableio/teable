@@ -8,6 +8,8 @@ const TOUCHED_KEYS = [
   'SECRET_KEY',
   'BACKEND_JWT_SECRET',
   'BACKEND_MAIL_ENCRYPTION_KEY',
+  'BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY',
+  'BACKEND_STORAGE_ENCRYPTION_KEY',
   'BACKEND_ENV_VARIABLE_SECRET',
 ] as const;
 
@@ -40,12 +42,31 @@ describe('resolveSecret', () => {
     expect(resolveSecret(SECRET_SPECS.envVariableSecret)).toBe('root');
   });
 
-  it('resolves a missing var to the legacy default, NOT a SECRET_KEY derivation', () => {
-    // A pre-hardening deployment with SECRET_KEY set encrypted its data under
-    // the legacy literal — deriving here would silently strand that data.
-    delete process.env.BACKEND_MAIL_ENCRYPTION_KEY;
-    process.env.SECRET_KEY = 'root';
-    expect(resolveSecret(SECRET_SPECS.mailEncryptionKey)).toBe(
+  it('keeps a spec without a derivePurpose on its legacy default', () => {
+    const spec = { envKey: 'SOME_KEY', usedFor: 'x', legacyDefault: 'old' };
+    expect(resolveSecret(spec, { SECRET_KEY: 'root' })).toBe('old');
+  });
+
+  it('derives the key/iv pairs from SECRET_KEY ahead of the legacy default', () => {
+    // Their consumers decide whether the legacy literals stay decrypt-only
+    // (resolveCipherEntries).
+    const env = { SECRET_KEY: 'root' };
+    const derived = [
+      resolveSecret(SECRET_SPECS.mailEncryptionKey, env),
+      resolveSecret(SECRET_SPECS.mailEncryptionIv, env),
+      resolveSecret(SECRET_SPECS.accessTokenEncryptionKey, env),
+      resolveSecret(SECRET_SPECS.accessTokenEncryptionIv, env),
+      resolveSecret(SECRET_SPECS.storageEncryptionKey, env),
+      resolveSecret(SECRET_SPECS.storageEncryptionIv, env),
+    ];
+    for (const value of derived) {
+      expect(value).toMatch(/^[0-9a-f]{16}$/);
+    }
+    expect(new Set(derived).size).toBe(6);
+    expect(resolveSecret(SECRET_SPECS.mailEncryptionKey, { SECRET_KEY: 'other-root' })).not.toBe(
+      derived[0]
+    );
+    expect(resolveSecret(SECRET_SPECS.mailEncryptionKey, {})).toBe(
       SECRET_SPECS.mailEncryptionKey.legacyDefault
     );
   });

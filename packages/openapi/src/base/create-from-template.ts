@@ -16,7 +16,7 @@ export const createBaseFromTemplateRoSchema = z.object({
   timeZone: timeZoneStringSchema
     .optional()
     .describe(
-      'The IANA time zone of the user; date-related field options in the template will be adapted to it'
+      'The IANA time zone of the user; date field options and included date values are adapted to preserve the template author calendar day and wall-clock time'
     ),
 });
 

@@ -89,12 +89,16 @@ const PRESENCE_CHANNELS: {
 }[] = [
   // live cursors — gated off in shares (isReadOnlyPreview), authenticated app only
   { prefix: getCellCollaboratorsChannel(''), kind: 'table', share: 'none' },
-  // header presence avatars — base share only
-  { prefix: getCollaboratorsChannel(''), kind: 'table', share: 'base' },
+  // header presence avatars — authenticated app only: share pages hide the header actions that
+  // show them, and each entry carries a viewer's name and email, which a share visitor must not
+  // see (the same reason comments are hidden on share links)
+  { prefix: getCollaboratorsChannel(''), kind: 'table', share: 'none' },
   // record/view/table live updates — both share surfaces
   { prefix: getActionTriggerChannel(''), kind: 'tableOrView', share: 'both' },
   { prefix: getBasePermissionUpdateChannel(''), kind: 'base', share: 'base' },
-  { prefix: getTableImportChannel(''), kind: 'table', share: 'none' },
+  // the table header's import spinner, which a base share shows too (an allowEdit share hands a
+  // signed-in visitor table|import); it carries only `{ loading }`
+  { prefix: getTableImportChannel(''), kind: 'table', share: 'base' },
   { prefix: RECORD_COMMENT_PREFIX, kind: 'table', share: 'none' },
   { prefix: getTableCommentChannel(''), kind: 'table', share: 'none' },
   // shared views can run buttons via shareViewButtonClick — both surfaces
@@ -121,6 +125,10 @@ const parsePresenceChannel = (ch: string): IPresenceChannelSpec | undefined => {
 };
 
 const DENIED = new Error('Presence channel access denied');
+const LISTEN_ONLY = new Error('Presence channel is listen-only for this connection');
+
+// What a connection may do on a channel: subscribe and publish, only subscribe, or nothing.
+type IPresenceGrant = 'full' | 'listen' | 'none';
 
 /**
  * Authorize a presence subscribe/submit/request on a non-notification channel. Every presence
@@ -129,6 +137,11 @@ const DENIED = new Error('Presence channel access denied');
  * connections with neither are rejected. Without this, any WebSocket client could subscribe to any
  * tenant's presence channels by id and read real-time record/field/comment/base metadata, or plant
  * fake presence.
+ *
+ * Access that comes only from a share link is listen-only. Share pages never publish presence
+ * (their header avatars and cell cursors are hidden), while what a share visitor could publish
+ * reaches the members who have the same table open: a forged action trigger, say, drops records
+ * from their grid until they reload.
  */
 const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
   const { permissionService, clsService, prismaService: prisma } = deps;
@@ -237,11 +250,11 @@ const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
     return false;
   };
 
-  const authorizeChannel = async (agent: any, ch: string): Promise<Error | undefined> => {
-    if (!permissionService || !clsService || !prisma) return DENIED;
+  const authorizeChannel = async (agent: any, ch: string): Promise<IPresenceGrant> => {
+    if (!permissionService || !clsService || !prisma) return 'none';
     const spec = parsePresenceChannel(ch);
-    if (!spec || spec.kind === 'deny') return DENIED;
-    if (spec.kind === 'authedOnly') return agent.custom?.userId ? undefined : DENIED;
+    if (!spec || spec.kind === 'deny') return 'none';
+    if (spec.kind === 'authedOnly') return agent.custom?.userId ? 'full' : 'none';
 
     // A channel whose resource cannot be resolved — a deleted/nonexistent table or view, or a
     // malformed id — exposes no data: nothing live publishes there. Denying it would only make a
@@ -251,12 +264,12 @@ const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
     // access. (A genuine lookup failure throws out of resolveResource and is caught fail-closed by
     // the receive wrapper, so this branch is reached only for a clean "no such resource".)
     const resource = await resolveResource(spec);
-    if (!resource) return undefined;
+    if (!resource) return 'full';
 
     const userId: string | undefined = agent.custom?.userId;
-    if (userId && (await userCanRead(userId, resource.baseId))) return undefined;
-    if (await shareAllows(agent, spec, resource)) return undefined;
-    return DENIED;
+    if (userId && (await userCanRead(userId, resource.baseId))) return 'full';
+    if (await shareAllows(agent, spec, resource)) return 'listen';
+    return 'none';
   };
 
   return async (
@@ -271,12 +284,16 @@ const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
       return checkNotificationPresence(agent, message);
 
     // One authorization per channel per connection; presence re-sends ('pr') and publishes ('p')
-    // reuse the subscribe verdict.
-    const cache: Map<string, Error | undefined> = (agent.custom.__presenceAuth ??= new Map());
-    if (cache.has(ch)) return cache.get(ch);
-    const verdict = await authorizeChannel(agent, ch);
-    cache.set(ch, verdict);
-    return verdict;
+    // reuse the subscribe grant.
+    const cache: Map<string, IPresenceGrant> = (agent.custom.__presenceAuth ??= new Map());
+    let grant = cache.get(ch);
+    if (grant === undefined) {
+      grant = await authorizeChannel(agent, ch);
+      cache.set(ch, grant);
+    }
+    if (grant === 'none') return DENIED;
+    if (grant === 'listen' && a === PRESENCE_SUBMIT) return LISTEN_ONLY;
+    return undefined;
   };
 };
 

@@ -36,6 +36,7 @@ import {
   isEquivalentFilter,
   syncFilterByFieldChanges,
 } from '../filter-sync';
+import { validateForeignTableCondition } from '../foreignTableConditionValidation';
 import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
@@ -373,6 +374,13 @@ export class LookupField
         domainError.validation({ message: 'Button fields cannot be used as a lookup source' })
       );
     }
+    const conditionValidation = validateForeignTableCondition(
+      this.lookupOptionsValue.condition(),
+      context,
+      foreignTable
+    );
+    if (conditionValidation.isErr()) return err(conditionValidation.error);
+
     if (this.legacyMultiplicityDerivationEnabled) {
       this.deriveMultiplicityOverride(linkField, lookupFieldResult.value);
     }

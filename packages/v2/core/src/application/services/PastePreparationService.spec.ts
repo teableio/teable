@@ -103,6 +103,42 @@ const createService = (table: Table, queryRepository: CapturingRecordQueryReposi
   );
 
 describe('PastePreparationService', () => {
+  it.each(['grouped text', 'unsupported field'] as const)(
+    'rejects pinyin paste ordering for %s',
+    async (scenario) => {
+      const { table, tableId, titleFieldId, statusFieldId, viewId } = buildTable();
+      const repository = new CapturingRecordQueryRepository([]);
+      const command = PasteCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['replacement']],
+        sort: [
+          {
+            fieldId: scenario === 'grouped text' ? titleFieldId : statusFieldId,
+            order: 'asc',
+            collation: 'zh-pinyin',
+          },
+        ],
+        ...(scenario === 'grouped text'
+          ? { groupBy: [{ fieldId: titleFieldId, order: 'asc' as const }] }
+          : {}),
+      })._unsafeUnwrap();
+
+      const result = await createService(table, repository).prepare(context, command, {
+        readAuthorization: 'checked',
+      });
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().code).toBe(
+        scenario === 'grouped text' ? 'sort.collation_group_conflict' : 'sort.unsupported_collation'
+      );
+    }
+  );
+
   it('uses the requested range and search to split selected updates from overflow creates', async () => {
     const { table, tableId, titleFieldId, statusFieldId, viewId } = buildTable();
     const records: TableRecordReadModel[] = [

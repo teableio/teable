@@ -57,9 +57,11 @@ export class FieldOperationSideEffectPluginExecutionSet {
     return ok(undefined);
   }
 
-  async afterCommit(): Promise<void> {
+  async afterCommit(executionContext?: IExecutionContext): Promise<void> {
     for (const entry of this.entries) {
-      await entry.execution.afterCommit(entry.lifecycleContext);
+      await entry.execution.afterCommit(
+        executionContext ? { ...entry.lifecycleContext, executionContext } : entry.lifecycleContext
+      );
     }
   }
 }

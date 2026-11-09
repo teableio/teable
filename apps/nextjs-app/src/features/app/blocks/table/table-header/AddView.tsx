@@ -5,21 +5,69 @@ import { useTablePermission } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { VIEW_ICON_MAP } from '../../view/constant';
 import { useAddView } from '../../view/list/useAddView';
 
 export interface IAddViewProps {
   contentClassName?: string;
-  renderExtraSection?: (close: () => void) => ReactNode;
+  /** `itemClassName` sizes the section's items like the menu's own. */
+  renderExtraSection?: (close: () => void, itemClassName?: string) => ReactNode;
+  /** Replaces the default "+" button. */
+  trigger?: ReactNode;
+  /**
+   * Behaves as a submenu of the menu the trigger sits in: opens on hover to its side, 4px clear of
+   * it, and sizes its items like that menu's (32px rows, 14px text).
+   */
+  submenu?: boolean;
+  /** Called once a choice in the menu is made, after the menu closes. */
+  onDone?: () => void;
 }
 
-export const AddView: React.FC<IAddViewProps> = ({ contentClassName, renderExtraSection }) => {
+export const AddView: React.FC<IAddViewProps> = ({
+  contentClassName,
+  renderExtraSection,
+  trigger,
+  submenu = false,
+  onDone,
+}) => {
   const addView = useAddView();
   const views = useViews();
   const permission = useTablePermission();
   const [isOpen, setOpen] = useState(false);
   const { t } = useTranslation('table');
+  const close = () => {
+    setOpen(false);
+    onDone?.();
+  };
+  // Hover opens the submenu; leaving the trigger or the menu closes it after a moment, long enough
+  // to cross the gap between them. A click (or a tap, which hovers first) opens it too, rather than
+  // toggling shut what the hover just opened.
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  const openSubmenu = () => {
+    clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  const hoverProps = submenu
+    ? {
+        onPointerEnter: openSubmenu,
+        onPointerLeave: () => {
+          closeTimer.current = setTimeout(() => setOpen(false), 150);
+        },
+      }
+    : {};
+  const triggerProps = submenu
+    ? {
+        ...hoverProps,
+        // Radix's trigger toggles unless the click is prevented.
+        onClick: (e: React.MouseEvent) => {
+          e.preventDefault();
+          openSubmenu();
+        },
+      }
+    : {};
+  const itemClassName = submenu ? 'h-8 gap-2 px-2 text-sm' : undefined;
 
   const viewInfoList = [
     {
@@ -55,7 +103,7 @@ export const AddView: React.FC<IAddViewProps> = ({ contentClassName, renderExtra
       views?.map((view) => view.name)
     );
     addView(type, uniqueName);
-    setOpen(false);
+    close();
   };
 
   if (!permission['view|create']) {
@@ -64,12 +112,23 @@ export const AddView: React.FC<IAddViewProps> = ({ contentClassName, renderExtra
 
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button className="shrink-0" size="icon-xs" variant="outline">
-          <Plus className="size-4" />
-        </Button>
+      <PopoverTrigger asChild {...triggerProps}>
+        {trigger ?? (
+          <Button className="shrink-0" size="icon-xs" variant="outline">
+            <Plus className="size-4" />
+          </Button>
+        )}
       </PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className={cn('w-36 p-1', contentClassName)}>
+      <PopoverContent
+        {...hoverProps}
+        side={submenu ? 'right' : 'bottom'}
+        align="start"
+        // As a submenu: 4px clear of the parent menu, whose edge is 5px past the trigger (its 1px
+        // border and 4px padding), with the first item level with the trigger.
+        sideOffset={submenu ? 9 : undefined}
+        alignOffset={submenu ? -5 : undefined}
+        className={cn('w-36 p-1', contentClassName)}
+      >
         {viewInfoList.map((item) => {
           const { name, type, Icon } = item;
           return (
@@ -77,15 +136,15 @@ export const AddView: React.FC<IAddViewProps> = ({ contentClassName, renderExtra
               key={type}
               variant={'ghost'}
               size={'xs'}
-              className="w-full justify-start font-normal"
+              className={cn('w-full justify-start font-normal', itemClassName)}
               onClick={() => onClick(type, name)}
             >
-              <Icon className="pe-1 text-lg" />
+              <Icon className={submenu ? 'size-4 shrink-0' : 'pe-1 text-lg'} />
               {name}
             </Button>
           );
         })}
-        {renderExtraSection?.(() => setOpen(false))}
+        {renderExtraSection?.(close, itemClassName)}
       </PopoverContent>
     </Popover>
   );

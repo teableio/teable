@@ -9,7 +9,15 @@ import type {
   IFilter,
   IPluginViewOptions,
 } from '@teable/core';
-import { Colors, FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
+import {
+  Colors,
+  FieldKeyType,
+  FieldType,
+  Relationship,
+  Role,
+  SortFunc,
+  ViewType,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IBaseJson,
@@ -47,6 +55,8 @@ import {
   BaseNodeResourceType,
   IMPORT_BASE_STREAM,
   createSpace,
+  addSpaceCollaborator,
+  PrincipalType,
   permanentDeleteSpace,
   getV2SchemaIntegrityDecision,
   updateSetting,
@@ -1077,6 +1087,14 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
     const createCanarySpace = async (name: string) => {
       const space = await createSpace({ name });
       canarySpaceId = space.data.id;
+      // The x_20 fixture carries usrTestUserId_1 in user cells. Caller-controlled user
+      // values resolve only inside the destination base/space collaborator scope (T8238),
+      // so the fixture member must be a real collaborator of the space that hosts both
+      // the source base and the imported base.
+      await addSpaceCollaborator(space.data.id, {
+        collaborators: [{ principalId: 'usrTestUserId_1', principalType: PrincipalType.User }],
+        role: Role.Editor,
+      });
 
       await updateSetting({
         [SettingKey.CANARY_CONFIG]: {

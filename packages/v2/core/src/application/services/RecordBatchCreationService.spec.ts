@@ -10,9 +10,10 @@ import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
+import { DbFieldName } from '../../domain/table/fields/DbFieldName';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
+import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
@@ -43,10 +44,9 @@ const noopTableUpdateFlow = {
 } as unknown as TableUpdateFlow;
 
 const noopRecordMutationSpecResolver = {
-  resolveAndReplaceMany: async (
-    _context: IExecutionContext,
-    specs: ReadonlyArray<ICellValueSpec | null>
-  ) => ok(specs),
+  resolveCreatedRecords: async (
+    ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+  ) => ok(input),
 } as unknown as RecordMutationSpecResolverService;
 
 const noopRecordChangedValueDecoratorService = {
@@ -71,6 +71,31 @@ const buildBasicTable = () => {
     .done();
   builder.view().defaultGrid().done();
   return builder.build()._unsafeUnwrap();
+};
+
+const buildNormalizationTable = () => {
+  const builder = Table.builder()
+    .withBaseId(BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap())
+    .withName(TableName.create('Batch Key Normalization')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withName(FieldName.create('Name')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder.field().checkbox().withName(FieldName.create('Checked')._unsafeUnwrap()).done();
+  builder
+    .field()
+    .singleSelect()
+    .withName(FieldName.create('Status')._unsafeUnwrap())
+    .withOptions([SelectOption.create({ name: 'Open', color: 'blue' })._unsafeUnwrap()])
+    .done();
+  builder.view().defaultGrid().done();
+  const table = builder.build()._unsafeUnwrap();
+  for (const [index, field] of table.getFields().entries()) {
+    field.setDbFieldName(DbFieldName.rehydrate(`column_${index}`)._unsafeUnwrap())._unsafeUnwrap();
+  }
+  return table;
 };
 
 class FakeTableRecordRepository implements ITableRecordRepository {
@@ -148,6 +173,121 @@ const toStoredSnapshot = (record: TableRecord): RecordStoredSnapshot => {
 };
 
 describe('RecordBatchCreationService', () => {
+  it.each([FieldKeyType.Id, FieldKeyType.Name, FieldKeyType.DbFieldName])(
+    'resolves every row with %s keys for each table and preserves typecast values',
+    async (fieldKeyType) => {
+      const recordRepository = new FakeTableRecordRepository();
+      const service = new RecordBatchCreationService(
+        recordRepository,
+        noopRecordMutationSpecResolver,
+        noopRecordChangedValueDecoratorService,
+        createRecordWritePluginRunner(),
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        noopTableUpdateFlow
+      );
+
+      // Reuse the service, not the resolution context, across tables with identical keys.
+      for (const table of [buildNormalizationTable(), buildNormalizationTable()]) {
+        const fields = table.getFields();
+        const keys = fields.map((field) =>
+          fieldKeyType === FieldKeyType.Id
+            ? field.id().toString()
+            : fieldKeyType === FieldKeyType.Name
+              ? field.name().toString()
+              : field.dbFieldName()._unsafeUnwrap().value()._unsafeUnwrap()
+        );
+        const result = await service.create(createContext(), {
+          table,
+          recordsFieldValues: [
+            new Map<string, unknown>([
+              [keys[0], 'Alpha'],
+              [keys[1], false],
+              [keys[2], 'New option'],
+            ]),
+            new Map<string, unknown>([
+              [keys[1], null],
+              [keys[2], 'New option'],
+            ]),
+            new Map<string, unknown>([
+              [keys[0], 'Beta'],
+              [keys[1], true],
+              [keys[2], 'Other option'],
+            ]),
+          ],
+          fieldKeyType,
+          typecast: true,
+          isTransactionBound: true,
+        });
+
+        const created = result._unsafeUnwrap();
+        const fieldIds = fields.map((field) => field.id().toString());
+        const snapshots = created.records.map(toStoredSnapshot);
+        expect(snapshots.map((snapshot) => snapshot.fields[fieldIds[1]])).toEqual([
+          null,
+          null,
+          true,
+        ]);
+        expect(snapshots.map((snapshot) => snapshot.fields[fieldIds[2]])).toEqual([
+          'New option',
+          'New option',
+          'Other option',
+        ]);
+        expect(snapshots[0].fields[fieldIds[0]]).toBe('Alpha');
+        expect(snapshots[2].fields[fieldIds[0]]).toBe('Beta');
+        expect(created.fieldKeyMapping.get(fieldIds[2])).toBe(keys[2]);
+      }
+    }
+  );
+
+  it.each([FieldKeyType.Name, FieldKeyType.DbFieldName])(
+    'returns the first unknown %s key in a later row without inserting any rows',
+    async (fieldKeyType) => {
+      const table = buildNormalizationTable();
+      const recordRepository = new FakeTableRecordRepository();
+      const service = new RecordBatchCreationService(
+        recordRepository,
+        noopRecordMutationSpecResolver,
+        noopRecordChangedValueDecoratorService,
+        createRecordWritePluginRunner(),
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        noopTableUpdateFlow
+      );
+      const keys = table
+        .getFields()
+        .map((field) =>
+          fieldKeyType === FieldKeyType.Name
+            ? field.name().toString()
+            : field.dbFieldName()._unsafeUnwrap().value()._unsafeUnwrap()
+        );
+      const result = await service.create(createContext(), {
+        table,
+        recordsFieldValues: [
+          new Map<string, unknown>([
+            [keys[0], 'Valid row'],
+            [keys[2], 'Uncommitted option'],
+          ]),
+          new Map<string, unknown>([
+            ['Missing first', 'First error'],
+            ['Missing second', 'Second error'],
+          ]),
+          new Map([['Missing later', 'Later error']]),
+        ],
+        fieldKeyType,
+        typecast: true,
+        isTransactionBound: true,
+      });
+
+      expect(result._unsafeUnwrapErr()).toMatchObject({
+        code: 'field.key_not_found',
+        message: 'Field "Missing first" does not exist in this table',
+        details: { fieldKeyType, fieldKey: 'Missing first', availableFieldKeys: keys },
+      });
+      expect(recordRepository.insertedRecords).toHaveLength(0);
+    }
+  );
+
   it('creates records and returns batch undo/redo plus deferred afterCommit', async () => {
     const table = buildBasicTable();
     const recordRepository = new FakeTableRecordRepository();

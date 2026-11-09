@@ -137,7 +137,7 @@ export function DefaultModelsStep({
     <div className="space-y-4">
       {/* Quick Setup - only show if no model selected */}
       {recommendedDefault && !chatModel?.lg && (
-        <div className="rounded-lg border bg-muted p-4">
+        <div className="rounded-lg bg-muted/50 p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -180,7 +180,7 @@ export function DefaultModelsStep({
         <RadioGroup
           value={defaultTier}
           onValueChange={(tier) => handleDefaultChange(tier as IModelTierId)}
-          className="flex flex-col gap-4 rounded-md border bg-muted/30 p-4"
+          className="flex flex-col gap-4"
         >
           {MODEL_TIER_IDS.map((tier) => {
             const isMain = tier === DEFAULT_MODEL_TIER;
@@ -236,6 +236,7 @@ export function DefaultModelsStep({
                   onValueChange={(value) => handleTierChange(tier, value)}
                   options={textModels}
                   className="w-full"
+                  groupBySource
                   placeholder={
                     tier === 'xl'
                       ? t('admin.setting.ai.chatModels.notOffered')

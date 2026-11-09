@@ -329,9 +329,14 @@
     "autoSort": "自动排序",
     "selectASCLabel": "选项顺序",
     "selectDESCLabel": "选项倒序",
+    "pinyinASCLabel": "拼音升序",
+    "pinyinDESCLabel": "拼音降序",
+    "pinyinGroupConflict": "已分组的字段无法使用拼音排序。请移除此字段的分组或使用默认排序。",
+    "pinyinGroupRecovered": "个人视图中与分组冲突的拼音排序已重置为默认排序，分组和排序方向均已保留。移除此字段的分组后，可重新启用拼音排序。",
     "orderTitle": "选择排序顺序"
   },
   "group": {
+    "pinyinSortConflict": "此字段使用了拼音排序。请在分组前将其改为默认排序，或选择其他字段。",
     "label": "分组",
     "displayLabel_other": "分组({{count}})",
     "setTips": "分组方式",
@@ -719,8 +724,8 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "以指定的单位返回日期时间之间的差异。默认单位为 \"second\"。\n支持的单位：\"millisecond\" (ms)、\"second\" (s)、\"minute\" (m)、\"hour\" (h)、\"day\" (d)、\"week\" (w)、\"month\" (M)、\"year\" (y)。\nDATETIME_DIFF 始终按第一个参数减去第二个参数（`date1 - date2`）。如果你想计算从开始日期到更晚结束日期的经过时间，请使用 `DATETIME_DIFF(endDate, startDate, unit)`。",
-      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
+      "summary": "以指定的单位返回日期时间之间的差异。默认单位为 \"second\"。\n支持的单位：\"millisecond\" (ms)、\"second\" (s)、\"minute\" (m)、\"hour\" (h)、\"day\" (d)、\"week\" (w)、\"month\" (M)、\"year\" (y)。\nDATETIME_DIFF 始终按第一个参数减去第二个参数（`date1 - date2`）。如果你想计算从开始日期到更晚结束日期的经过时间，请使用 `DATETIME_DIFF(endDate, startDate, unit)`。\n使用 \"day\"/\"days\" 时，按公式时区的本地钟表时间计算完整天数，并向零截断。会补偿夏令时等 UTC 偏移变化：相邻本地零点相差 1 天，即使实际只经过 23 小时或经过了 25 小时。时分秒仍参与计算：中午到次日 11:00 返回 0，而非 1；没有偏移变化时，44 小时返回 1，-44 小时返回 -1。可选的第四个参数传入 TRUE 时，按同一时区校正算法保留小数天数。其它单位保持既有行为。",
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "返回从起始日期开始的工作日，不包括指定的节假日",
@@ -948,7 +953,7 @@
     "conflict": "请求因与当前资源状态冲突而无法完成",
     "unprocessableEntity": "请求体与预期参数不匹配",
     "userLimitExceeded": "已达到在当前实例中创建用户的限制",
-    "tooManyRequests": "已超出当前实例的请求限制",
+    "tooManyRequests": "请求过于频繁，请稍后再试",
     "payloadTooLarge": "请求体过大",
     "internalServerError": "发生意外错误",
     "databaseConnectionUnavailable": "数据库当前不可用",
@@ -1199,6 +1204,7 @@
       "configRequiredToRun": "无法运行没有已保存配置的任务",
       "runAlreadyInFlight": "该任务已有一个正在进行的运行",
       "runNowWhileActiveEvent": "该任务已激活并在接收事件，触发一次事件即可看到运行",
+      "runNowOwnerOnly": "任务开启时，只有运行身份才能立即运行",
       "invalidRunCursor": "无效的运行列表游标",
       "invalidSchedule": "无效的任务运行安排：{{reason}}"
     },
@@ -1699,6 +1705,7 @@
         "loginDisabled": "此应用未开启登录",
         "googleDisabled": "此应用未开启 Google 登录",
         "teableDisabled": "此应用未开启 Teable 登录",
+        "oidcDisabled": "此应用未开启 SSO 登录",
         "userTableMissing": "所选用户表在此项目中不存在",
         "emailFieldMissing": "所选用户表中不存在邮箱字段",
         "emailFieldType": "邮箱字段必须是可写的单行文本字段",

@@ -7,10 +7,10 @@ import { SetCheckboxValueSpec } from '../../records/specs/values/SetCheckboxValu
 import { SetDateValueSpec } from '../../records/specs/values/SetDateValueSpec';
 import { SetLinkValueByTitleSpec } from '../../records/specs/values/SetLinkValueByTitleSpec';
 import { SetLinkValueSpec } from '../../records/specs/values/SetLinkValueSpec';
-import { SetLongTextValueSpec } from '../../records/specs/values/SetLongTextValueSpec';
+import type { SetLongTextValueSpec } from '../../records/specs/values/SetLongTextValueSpec';
+import type { SetMultipleSelectValueSpec } from '../../records/specs/values/SetMultipleSelectValueSpec';
 import { SetNumberValueSpec } from '../../records/specs/values/SetNumberValueSpec';
 import type { SetRatingValueSpec } from '../../records/specs/values/SetRatingValueSpec';
-import { SetMultipleSelectValueSpec } from '../../records/specs/values/SetMultipleSelectValueSpec';
 import { SetSingleLineTextValueSpec } from '../../records/specs/values/SetSingleLineTextValueSpec';
 import type { SetSingleSelectValueSpec } from '../../records/specs/values/SetSingleSelectValueSpec';
 import { SetUserValueByIdentifierSpec } from '../../records/specs/values/SetUserValueByIdentifierSpec';
@@ -230,11 +230,12 @@ describe('FieldToSpecVisitor', () => {
       expect(result._unsafeUnwrap()).toBeInstanceOf(SetUserValueSpec);
     });
 
-    it('accepts user object with id', () => {
+    it('marks caller-controlled user objects as collaborator scoped', () => {
       const visitor = FieldToSpecVisitor.create({ id: 'usr123', title: 'John' }, false);
       const result = field.accept(visitor);
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeInstanceOf(SetUserValueSpec);
+      expect((result._unsafeUnwrap() as SetUserValueSpec).requireCollaborator).toBe(true);
     });
 
     it('normalizes single user field array input to one object', () => {
@@ -243,6 +244,7 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
       const value = (result._unsafeUnwrap() as SetUserValueSpec).value.toValue();
       expect(value).toEqual({ id: 'usr123', title: 'John' });
+      expect((result._unsafeUnwrap() as SetUserValueSpec).requireCollaborator).toBe(true);
     });
 
     it('normalizes multiple user field object input to array', () => {
@@ -251,6 +253,7 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
       const value = (result._unsafeUnwrap() as SetUserValueSpec).value.toValue();
       expect(value).toEqual([{ id: 'usr123', title: 'John' }]);
+      expect((result._unsafeUnwrap() as SetUserValueSpec).requireCollaborator).toBe(true);
     });
 
     it('treats empty string as null in typecast mode', () => {

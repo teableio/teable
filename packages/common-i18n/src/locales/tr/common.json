@@ -6,6 +6,7 @@
     "deleteTableTitle": "Delete table",
     "copyTableTitle": "Copy table",
     "copyBaseTitle": "Copy project",
+    "convertFieldTitle": "Change field",
     "changedEffectsTitle": "What else changes",
     "preservedTitle": "Stays connected",
     "loading": "Loading details…",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "execution-time effects",
     "uncertaintyDetail": "other effects",
     "recordCountUnknown": "record count",
+    "affectedCellCountUnknown": "affected-cell count",
     "retentionUnknown": "The Trash retention period is not checked.",
     "storageUnknown": "Storage impact is not checked.",
     "retentionStorageUnknown": "The Trash retention period and storage impact are not checked.",
     "inTables": "In table: {{names}}",
     "affectedFields": "Affected fields:",
     "affectedViews": "Affected views:",
+    "affectedCells": "Affected cells:",
+    "affectedLinkChanges": "Related link changes:",
     "labels": {
       "tables": "Tables",
       "fields": "Fields",
@@ -67,7 +71,12 @@
       "dependentFieldsUpdatedDetail": "Update dependent fields; final values are not specified",
       "alreadyTrashed": "This table is already in Trash.",
       "unknownLinksDetail": "Some linked tables could not be classified; whether their links are kept or converted is unknown.",
-      "truncatedEffectsDetail": "Only part of the affected-resource list is shown."
+      "truncatedEffectsDetail": "Only part of the affected-resource list is shown.",
+      "fieldTypeChanged": "Change the field type",
+      "fieldConfigurationChanged": "Update the field settings",
+      "fieldValuesRewritten": "Rewrite existing field values for the new settings",
+      "fieldUnchanged": "Keep the current field settings",
+      "fieldLinkChanges": "Apply related link changes"
     }
   },
   "actions": {
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "Ayarlar",
       "logout": "Çıkış yap",
-      "contactSupport": "Destek ile İletişim"
+      "contactSupport": "Destek ile İletişim",
+      "downloadApp": "Uygulamayı indir"
     },
     "integration": {
       "title": "Entegrasyonlar",
@@ -1113,7 +1123,6 @@
           "smDesc": "Basit sorgular, hızlı yanıtlar",
           "readyToUse": "Yapay zekâ yapılandırıldı ve kullanıma hazır!",
           "customProviderHelp": "Kendi yapay zekâ sağlayıcılarınızı (OpenAI, Anthropic, Azure vb.) ekleyin, API anahtarlarını ve modelleri yapılandırın.",
-          "testModelCapabilities": "Model yeteneklerini test et",
           "customModelsAutoImported": "Sağlayıcı modelleriniz otomatik olarak model havuzuna aktarıldı.",
           "modelsCount": "{{count}} model kullanılabilir",
           "customModelsHint": "Model yapılandırmalarını değiştirmek için 1. adıma dönüp sağlayıcı ayarlarını düzenleyin.",
@@ -1170,7 +1179,8 @@
       "group": {
         "system": "Temeller",
         "ai": "Yapay zekâ hizmetleri",
-        "appBuilder": "Uygulama Oluşturucu"
+        "appBuilder": "Uygulama Oluşturucu",
+        "security": "Güvenlik"
       },
       "copyInstance": "ID'yi kopyala",
       "list": {
@@ -1219,7 +1229,23 @@
         "sandboxOpenSandbox": {
           "title": "Yapay zekâ sohbeti çalışma zamanı",
           "description": "Yapay zekâ sohbeti için OpenSandbox çalışma ortamını yapılandırın, <anchor>ayara git</anchor>"
+        },
+        "signupVerification": {
+          "title": "E-posta doğrulaması olmadan açık kayıt",
+          "description": "Herkes kendisine ait olmayan bir e-posta adresiyle kaydolabilir: bir iş arkadaşının veya müşterinin adresini kapabilir, e-postayla davet edilip henüz kaydolmamış birinin hesabını, davetin verdiği erişimle birlikte ele geçirebilir. E-posta doğrulamasını açın (e-posta gönderimi yapılandırılmış olmalı) veya açık kaydı kapatın, <anchor>ayarlara git</anchor>"
+        },
+        "secrets": {
+          "title": "Sunucu gizli anahtarları",
+          "description": "Ayarlanmamış veya herkesçe bilinen varsayılan değeri kullanan gizli anahtarlar: {{total}}. Bu durum başkalarının oturum belirteçlerini taklit etmesine ya da depolanan verilerin şifresini çözmesine olanak verebilir. Bunları ortam değişkeni olarak ayarlayıp yeniden başlatın; başlangıç günlüğü her birini açıklar. Mevcut verisi olan bir örnekte önce mevcut değerleri sabitleyin, ardından döndürün: bir şifreleme anahtarını doğrudan değiştirmek, onunla şifrelenmiş verileri okunamaz hale getirir.",
+          "missing": "Ayarlanmamış",
+          "publicDefault": "Herkesçe bilinen varsayılan değer",
+          "docsLink": "Ortam değişkenleri başvurusu",
+          "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
+      },
+      "banner": {
+        "message": "Yönetim panelinde ele alınması gereken güvenlik maddeleri var",
+        "action": "İncele"
       }
     },
     "canary": {
@@ -1507,6 +1533,18 @@
           },
           "connectorDisconnected": {
             "title": "{{name}} rutini bağlayıcı olaylarını almayı durdurdu"
+          },
+          "handedToYou": {
+            "title": "{{name}} rutini size devredildi",
+            "message": "{{previousOwner}} artık {{name}} rutinini düzenleyemiyor, bu yüzden rutin size devredildi. Artık sizin hesabınızla çalışıyor; sonuçlar ve uyarılar size gelir. Talimatlarını ve tetikleyicisini kontrol edin ya da gerekmiyorsa duraklatın."
+          },
+          "handedAway": {
+            "title": "{{name}} rutininiz {{newOwner}} kullanıcısına devredildi",
+            "message": "Artık {{name}} rutinini düzenleyemiyorsunuz, bu yüzden rutin {{newOwner}} kullanıcısına devredildi. Artık {{newOwner}} hesabıyla çalışıyor."
+          },
+          "takenOver": {
+            "title": "{{name}} rutini artık {{newOwner}} hesabıyla çalışıyor",
+            "message": "{{newOwner}}, {{name}} rutinini devraldı. Rutin artık {{newOwner}} adına çalışıyor; sonuçlar ve uyarılar {{newOwner}} kişisine gidiyor."
           }
         },
         "billing": {
@@ -2062,5 +2100,16 @@
         "description": "Reklamlarımızın ve tanıtımlarımızın ne kadar etkili olduğunu ölçmemize yardımcı olur."
       }
     }
+  },
+  "openInApp": {
+    "title": "Teable uygulaması",
+    "description": "Daha akıcı bir deneyim için bu sayfayı uygulamada açın",
+    "open": "Aç",
+    "dismiss": "Kapat",
+    "notInstalledTitle": "Uygulama henüz yüklü değil mi?",
+    "notInstalledDescription": "Yükleyin, ardından buraya dönüp Aç'a dokunun",
+    "getApp": "Uygulamayı indir",
+    "inAppBrowserHint": "Uygulamaya geçmek için sağ üstteki menüden bu sayfayı tarayıcıda açın",
+    "menuItem": "Teable uygulamasında aç"
   }
 }

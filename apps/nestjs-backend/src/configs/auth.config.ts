@@ -74,6 +74,9 @@ export const authConfig = registerAs('auth', () => ({
         algorithm: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
         keySpec: SECRET_SPECS.accessTokenEncryptionKey,
         ivSpec: SECRET_SPECS.accessTokenEncryptionIv,
+        // A token only wraps its random sign, which validation compares with
+        // the stored one, so the public pair left decrypt-only forges nothing.
+        keepLegacyForDecrypt: true,
       }),
     },
   },

@@ -45,6 +45,22 @@ describe('Table.applyViewManualSort', () => {
     expect(events[1]).toMatchObject({ viewId, sort });
   });
 
+  it('enters manual mode when pinyin sort shares the grouped field', () => {
+    const table = buildTable();
+    const viewId = table.views()[0]!.id();
+    const fieldId = table.getFields()[0]!.id().toString();
+    const group = [{ fieldId, order: 'asc' as const }];
+    const sort = [{ fieldId, order: 'desc' as const, collation: 'zh-pinyin' as const }];
+    const grouped = table.updateViewGroup(viewId, group)._unsafeUnwrap().updateResult!.table;
+
+    const result = grouped.applyViewManualSort(viewId, sort)._unsafeUnwrap();
+
+    expect(result.nextQueryDefaults.group()).toEqual(group);
+    expect(result.nextQueryDefaults.sort()).toEqual(sort);
+    expect(result.nextQueryDefaults.manualSort()).toBe(true);
+    expect(result.rowOrderStorageSpec).toBeInstanceOf(TableEnsureViewRowOrderSpec);
+  });
+
   it('supports empty sort and treats an identical manual state as a no-op', () => {
     const table = buildTable();
     const viewId = table.views()[0]!.id();

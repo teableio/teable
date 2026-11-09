@@ -39,7 +39,11 @@ import {
   type DomainWriteDecision,
   type IDomainWriteTransaction,
 } from '../../ports/DomainWriteTransaction';
-import { getUnitOfWorkTransaction, type IExecutionContext } from '../../ports/ExecutionContext';
+import {
+  getUnitOfWorkTransaction,
+  isUndoRedoReplay,
+  type IExecutionContext,
+} from '../../ports/ExecutionContext';
 import type { ILogger } from '../../ports/Logger';
 import {
   RecordWriteOperationKind,
@@ -137,6 +141,12 @@ type PreparedWriteContext = {
   readonly tableEvents: ReadonlyArray<IDomainEvent>;
   readonly sideEffectUndoRedoPlan: RecordWriteUndoRedoPlan;
 };
+
+/**
+ * Owned top-level response fields. The full TableRecord is materialized once
+ * after storage/readback/decorator precedence has settled inside the transaction.
+ */
+type ResponseFields = Record<string, unknown>;
 
 export interface IRecordBulkUpdateItem {
   readonly recordId: RecordId;
@@ -532,9 +542,12 @@ export class RecordBulkUpdateService {
         ? yield* await service.executeExplicitRecordUpdates(context, input, input.records)
         : yield* await service.executeSelectorBulkUpdate(context, input);
 
+      // A payload that cannot be recorded must not be built. Transaction-bound
+      // callers still receive their commands from updateWithinTransaction.
+      const shouldRecordUndo = Boolean(context.windowId) && !isUndoRedoReplay(context);
       const tableIdText = input.table.id().toString();
       const updateUndoCommands: UndoRedoCommandLeafData[] =
-        executionResult.eventData.length > 0
+        shouldRecordUndo && executionResult.eventData.length > 0
           ? [
               buildUpdateRecordsUndoRedoCommand(
                 tableIdText,
@@ -544,7 +557,7 @@ export class RecordBulkUpdateService {
             ]
           : [];
       const updateRedoCommands: UndoRedoCommandLeafData[] =
-        executionResult.eventData.length > 0
+        shouldRecordUndo && executionResult.eventData.length > 0
           ? [
               buildUpdateRecordsUndoRedoCommand(
                 tableIdText,
@@ -555,11 +568,12 @@ export class RecordBulkUpdateService {
           : [];
 
       if (
-        updateUndoCommands.length > 0 ||
-        executionResult.sideEffectUndoRedoPlan.undoCommands.length > 0 ||
-        executionResult.sideEffectUndoRedoPlan.redoCommands.length > 0 ||
-        executionResult.orderUndoCommands.length > 0 ||
-        executionResult.orderRedoCommands.length > 0
+        shouldRecordUndo &&
+        (updateUndoCommands.length > 0 ||
+          executionResult.sideEffectUndoRedoPlan.undoCommands.length > 0 ||
+          executionResult.sideEffectUndoRedoPlan.redoCommands.length > 0 ||
+          executionResult.orderUndoCommands.length > 0 ||
+          executionResult.orderRedoCommands.length > 0)
       ) {
         yield* await service.undoRedoStackService.appendEntry(
           toUndoRedoStackAppendContext(context),
@@ -738,20 +752,22 @@ export class RecordBulkUpdateService {
 
             let mutateSpec = specBuildResult.mutateSpec;
             let updatedRecord = specBuildResult.record;
-            const needsResolution =
-              yield* service.recordMutationSpecResolver.needsResolution(mutateSpec);
-            if (needsResolution) {
-              mutateSpec = yield* await service.recordMutationSpecResolver.resolveAndReplace(
-                transactionContext,
-                preparedWrite.tableForWrite.id(),
-                mutateSpec
-              );
-              updatedRecord = yield* materializeRecordSpec({
-                id: updatedRecord.id(),
-                tableId: updatedRecord.tableId(),
-                spec: mutateSpec,
-                baseFields: updatedRecord.fields().entries(),
-              });
+            if (!isUndoRedoReplay(transactionContext)) {
+              const needsResolution =
+                yield* service.recordMutationSpecResolver.needsResolution(mutateSpec);
+              if (needsResolution) {
+                mutateSpec = yield* await service.recordMutationSpecResolver.resolveAndReplace(
+                  transactionContext,
+                  preparedWrite.tableForWrite.id(),
+                  mutateSpec
+                );
+                updatedRecord = yield* materializeRecordSpec({
+                  id: updatedRecord.id(),
+                  tableId: updatedRecord.tableId(),
+                  spec: mutateSpec,
+                  baseFields: updatedRecord.fields().entries(),
+                });
+              }
             }
 
             yield* await pluginExecution.beforePersist(transactionContext);
@@ -1050,7 +1066,7 @@ export class RecordBulkUpdateService {
           let updatedCount = reorderResult.updatedCount;
           const pendingEventData: PendingExplicitEventData[] = [];
           const eventData: RecordUpdateDTO[] = [];
-          const updatedRecordMap = new Map<string, TableRecord>();
+          const responseFieldsByRecord = new Map<string, ResponseFields>();
 
           if (fieldUpdateTargets.length > 0) {
             let currentBatchTraceCollector: BulkUpdateBatchTraceCollector | undefined;
@@ -1205,20 +1221,14 @@ export class RecordBulkUpdateService {
                         recordId: recordIdText,
                         changes: item.changes,
                       });
-                      const mergedFields = {
+                      responseFieldsByRecord.set(recordIdText, {
                         ...Object.fromEntries(
                           Object.entries(item.currentFields).filter(
                             ([, value]) => value !== null && value !== undefined
                           )
                         ),
                         ...Object.fromEntries(item.updatedFields),
-                      };
-                      const mergedRecord = yield* TableRecord.fromRawFieldValues({
-                        id: recordIdText,
-                        tableId: input.table.id(),
-                        fields: mergedFields,
                       });
-                      updatedRecordMap.set(recordIdText, mergedRecord);
                     }
 
                     return ok(undefined);
@@ -1385,13 +1395,10 @@ export class RecordBulkUpdateService {
                     const responseFieldEntries = Object.entries(currentRecord.fields).filter(
                       ([, value]) => value !== undefined
                     );
-                    const currentRecordEntity = TableRecord.fromRawFieldValues({
-                      id: currentRecord.id,
-                      tableId: input.table.id(),
-                      fields: Object.fromEntries(responseFieldEntries),
-                    });
-                    if (currentRecordEntity.isErr()) return err(currentRecordEntity.error);
-                    updatedRecordMap.set(pendingEvent.recordId, currentRecordEntity.value);
+                    responseFieldsByRecord.set(
+                      pendingEvent.recordId,
+                      Object.fromEntries(responseFieldEntries)
+                    );
                     // Response decoration uses only the authoritative readback,
                     // never the request or stale pre-read. It creates no event
                     // or undo candidate, and cannot infer a rename from stale A.
@@ -1400,23 +1407,12 @@ export class RecordBulkUpdateService {
                     continue;
                   }
                   const changedFields = snapshot.changedFields;
-                  const updatedRecord = updatedRecordMap.get(pendingEvent.recordId);
-                  if (changedFields?.size && updatedRecord) {
-                    const persistedRecord = TableRecord.fromRawFieldValues({
-                      id: pendingEvent.recordId,
-                      tableId: input.table.id(),
-                      fields: {
-                        ...Object.fromEntries(
-                          updatedRecord
-                            .fields()
-                            .entries()
-                            .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
-                        ),
-                        ...Object.fromEntries(changedFields),
-                      },
+                  const updatedFields = responseFieldsByRecord.get(pendingEvent.recordId);
+                  if (changedFields?.size && updatedFields) {
+                    responseFieldsByRecord.set(pendingEvent.recordId, {
+                      ...updatedFields,
+                      ...Object.fromEntries(changedFields),
                     });
-                    if (persistedRecord.isErr()) return err(persistedRecord.error);
-                    updatedRecordMap.set(pendingEvent.recordId, persistedRecord.value);
                   }
                   const responseReadback = readbackCurrentRecords.get(pendingEvent.recordId);
                   if (readbackRecordIdTexts.has(pendingEvent.recordId) && !responseReadback) {
@@ -1433,13 +1429,10 @@ export class RecordBulkUpdateService {
                     const responseFieldEntries = Object.entries(responseReadback.fields).filter(
                       ([, value]) => value !== undefined
                     );
-                    const responseRecord = TableRecord.fromRawFieldValues({
-                      id: responseReadback.id,
-                      tableId: input.table.id(),
-                      fields: Object.fromEntries(responseFieldEntries),
-                    });
-                    if (responseRecord.isErr()) return err(responseRecord.error);
-                    updatedRecordMap.set(pendingEvent.recordId, responseRecord.value);
+                    responseFieldsByRecord.set(
+                      pendingEvent.recordId,
+                      Object.fromEntries(responseFieldEntries)
+                    );
                     for (const [fieldId, value] of responseFieldEntries) {
                       responseValues.set(fieldId, value);
                     }
@@ -1556,25 +1549,14 @@ export class RecordBulkUpdateService {
                 if (decoratedValuesResult.isErr()) return err(decoratedValuesResult.error);
                 const decoratedValuesByRecord = decoratedValuesResult.value;
                 for (const [recordId, decoratedValues] of decoratedValuesByRecord ?? []) {
-                  const updatedRecord = updatedRecordMap.get(recordId);
-                  if (!decoratedValues.size || !updatedRecord) {
+                  const updatedFields = responseFieldsByRecord.get(recordId);
+                  if (!decoratedValues.size || !updatedFields) {
                     continue;
                   }
-                  const decoratedRecord = TableRecord.fromRawFieldValues({
-                    id: recordId,
-                    tableId: input.table.id(),
-                    fields: {
-                      ...Object.fromEntries(
-                        updatedRecord
-                          .fields()
-                          .entries()
-                          .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
-                      ),
-                      ...Object.fromEntries(decoratedValues),
-                    },
+                  responseFieldsByRecord.set(recordId, {
+                    ...updatedFields,
+                    ...Object.fromEntries(decoratedValues),
                   });
-                  if (decoratedRecord.isErr()) return err(decoratedRecord.error);
-                  updatedRecordMap.set(recordId, decoratedRecord.value);
                 }
                 for (const { pendingEvent, snapshot, changes } of persistedEventCandidates) {
                   const decoratedValues = decoratedValuesByRecord?.get(pendingEvent.recordId);
@@ -1619,13 +1601,19 @@ export class RecordBulkUpdateService {
             'materializeResultRecords',
             {
               ...transactionTraceAttributes,
-              'record.update.updatedRecordMapSize': updatedRecordMap.size,
+              'record.update.responseFieldsByRecordSize': responseFieldsByRecord.size,
             },
             async () =>
               safeTry<void, DomainError>(async function* () {
                 for (const update of authorizedUpdates) {
-                  const updatedRecord = updatedRecordMap.get(update.recordId.toString());
-                  if (updatedRecord) {
+                  const recordId = update.recordId.toString();
+                  const responseFields = responseFieldsByRecord.get(recordId);
+                  if (responseFields) {
+                    const updatedRecord = yield* TableRecord.fromRawFieldValues({
+                      id: recordId,
+                      tableId: input.table.id(),
+                      fields: responseFields,
+                    });
                     materializedRecords.push(updatedRecord);
                     continue;
                   }
@@ -1804,6 +1792,13 @@ export class RecordBulkUpdateService {
     tableId: TableId,
     batch: ReadonlyArray<RecordUpdateResult>
   ): Promise<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
+    // Explicit undo/redo batches contain server-persisted snapshots. Keep them verbatim so
+    // historical users remain restorable after collaborator revocation or account deletion.
+    // Public UpdateRecords calls never receive the replay context created by the stack service.
+    if (isUndoRedoReplay(context)) {
+      return ok(batch);
+    }
+
     const resolveManyResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
       context,
       tableId,
@@ -1817,6 +1812,11 @@ export class RecordBulkUpdateService {
     for (let index = 0; index < batch.length; index++) {
       const updateResult = batch[index]!;
       const mutateSpec = resolveManyResult.value[index] ?? updateResult.mutateSpec;
+      // The original spec already produced this local record before resolution.
+      if (mutateSpec === updateResult.mutateSpec) {
+        resolvedBatch.push(updateResult);
+        continue;
+      }
       const mutateResult = materializeRecordSpec({
         id: updateResult.record.id(),
         tableId: updateResult.record.tableId(),

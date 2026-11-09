@@ -28,6 +28,8 @@ import {
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
+import { fieldPreviewSource } from './v2-field-preview-input';
 import {
   type IV2OperationPreviewAuthorization,
   V2_OPERATION_PREVIEW_AUTHORIZATION,
@@ -156,12 +158,15 @@ const createController = (
   const cls = {
     get: vi.fn((key: string) => (key === 'accessTokenId' ? 'patPreview' : undefined)),
   };
+  const fields = Object.create(FieldOpenApiV2Service.prototype) as FieldOpenApiV2Service;
+  const modules = { get: vi.fn(() => fields) };
   const controller = new V2Controller(
     v2Container as never,
     v2ContextFactory as never,
     permissionService as never,
     cls as never,
-    {} as never
+    {} as never,
+    modules as never
   );
   return {
     controller,
@@ -177,6 +182,54 @@ const createController = (
 };
 
 describe('V2Controller operation preview', () => {
+  it('normalizes only explicit OpenAPI conversion before host admission and retains its captured source', async () => {
+    const authorization = {
+      authorize: vi
+        .fn<IV2OperationPreviewAuthorization['authorize']>()
+        .mockResolvedValue(ok(undefined)),
+      authorizeForeignTables: vi
+        .fn<IV2OperationPreviewAuthorization['authorizeForeignTables']>()
+        .mockResolvedValue(ok(undefined)),
+    };
+    const fixture = createController(tableDeletePreview, authorization);
+    const request = {
+      operation: 'field.convert' as const,
+      input: {
+        inputFormat: 'field-openapi',
+        baseId: fixture.table.baseId().toString(),
+        tableId: fixture.table.id().toString(),
+        fieldId: fixture.table.primaryFieldId().toString(),
+        field: { type: 'singleLineText' as const, name: 'Renamed title' },
+      },
+    };
+    await fixture.controller.operationPreview().callable()(request);
+    const admitted = authorization.authorize.mock.calls.at(-1)![1];
+    const planned = vi.mocked(fixture.service.preview).mock.calls[0][1];
+    expect(admitted.input).toBe(planned.input);
+    expect(planned.input).toMatchObject({
+      field: { name: 'Renamed title', type: 'singleLineText', updateMode: 'full' },
+    });
+    expect(planned.input).not.toHaveProperty('inputFormat');
+    expect(fieldPreviewSource(planned.input)).toBe(fixture.table);
+  });
+
+  it('rejects unknown explicit conversion formats instead of heuristically treating them as native', async () => {
+    const fixture = createController(tableDeletePreview);
+    await expect(
+      fixture.controller.operationPreview().callable()({
+        operation: 'field.convert',
+        input: {
+          inputFormat: 'unknown',
+          tableId: fixture.table.id().toString(),
+          fieldId: fixture.table.primaryFieldId().toString(),
+          field: {},
+        },
+      })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(fixture.service.preview).not.toHaveBeenCalled();
+    expect(fixture.v2Container.getPreviewContainerForTable).not.toHaveBeenCalled();
+  });
+
   it('uses table-delete authorization and preserves redacted incomplete output', async () => {
     const fixture = createController(tableDeletePreview);
     const request = {
@@ -378,6 +431,7 @@ describe('V2Controller operation preview', () => {
 
   it('returns a stable forbidden DTO and does not resolve a planner after host denial', async () => {
     const authorization = {
+      authorizeForeignTables: vi.fn().mockResolvedValue(ok(undefined)),
       authorize: vi.fn().mockResolvedValue(
         err(
           domainError.forbidden({
@@ -438,7 +492,10 @@ describe('V2Controller operation preview', () => {
   });
 
   it('uses host admission instead of the community role check when it is registered', async () => {
-    const authorization = { authorize: vi.fn().mockResolvedValue(ok(undefined)) };
+    const authorization = {
+      authorize: vi.fn().mockResolvedValue(ok(undefined)),
+      authorizeForeignTables: vi.fn().mockResolvedValue(ok(undefined)),
+    };
     const fixture = createController(tableDeletePreview, authorization);
     const request = {
       operation: 'table.delete' as const,
@@ -456,9 +513,15 @@ describe('V2Controller operation preview', () => {
   });
 
   it('rejects unsupported operations before authorization or caller-selected routing', async () => {
-    const warmAuthorization = { authorize: vi.fn().mockResolvedValue(ok(undefined)) };
+    const warmAuthorization = {
+      authorize: vi.fn().mockResolvedValue(ok(undefined)),
+      authorizeForeignTables: vi.fn().mockResolvedValue(ok(undefined)),
+    };
     const warm = createController(tableDeletePreview, warmAuthorization);
-    const coldAuthorization = { authorize: vi.fn().mockResolvedValue(ok(undefined)) };
+    const coldAuthorization = {
+      authorize: vi.fn().mockResolvedValue(ok(undefined)),
+      authorizeForeignTables: vi.fn().mockResolvedValue(ok(undefined)),
+    };
     const cold = createController(tableDeletePreview, coldAuthorization);
     cold.v2Container.getPreviewContainerForTable.mockResolvedValue(null);
 

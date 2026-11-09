@@ -22,6 +22,7 @@ const {
   getViewList,
   getTablePermission,
   getUserLastVisitMap,
+  getUserLastVisitListBaseNode,
   getPublicSetting,
   getAIConfig,
 } = vi.hoisted(() => ({
@@ -31,6 +32,7 @@ const {
   getViewList: vi.fn(),
   getTablePermission: vi.fn(),
   getUserLastVisitMap: vi.fn(),
+  getUserLastVisitListBaseNode: vi.fn(),
   getPublicSetting: vi.fn(),
   getAIConfig: vi.fn(),
 }));
@@ -44,6 +46,7 @@ vi.mock('@teable/openapi', async (importOriginal) => ({
   getViewList,
   getTablePermission,
   getUserLastVisitMap,
+  getUserLastVisitListBaseNode,
   getPublicSetting,
   getAIConfig,
 }));
@@ -94,7 +97,6 @@ const setup = () => {
 
 describe('CommandPalette provider boundaries', () => {
   beforeEach(() => {
-    window.localStorage.clear();
     spaceSearch.mockReset().mockResolvedValue({
       data: {
         list: [
@@ -210,6 +212,7 @@ describe('CommandPalette provider boundaries', () => {
       ],
     });
     getUserLastVisitMap.mockReset().mockResolvedValue({ data: {} });
+    getUserLastVisitListBaseNode.mockReset().mockResolvedValue({ data: { total: 0, list: [] } });
     getPublicSetting.mockReset().mockResolvedValue({ data: {} });
     getAIConfig.mockReset().mockResolvedValue({ data: { disableActions: [] } });
   });

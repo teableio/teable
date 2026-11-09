@@ -444,10 +444,10 @@
     "title": "どのように始めますか？"
   },
   "importBaseDialog": {
-    "title": "プロジェクトをインポート",
-    "fromFile": "ファイルからインポート",
-    "fromFileDesc": ".tea プロジェクトファイルをアップロード",
-    "fromAirtableDesc": "Airtable アカウントを接続",
-    "fromGoogleSheetDesc": "Google Drive のスプレッドシートを選択"
+    "title": "プロジェクトとしてインポート",
+    "fromFile": "{{brand}} ファイル",
+    "fromFileDesc": ".tea ファイルをアップロード",
+    "fromAirtableDesc": "base を選択",
+    "fromGoogleSheetDesc": "スプレッドシートを選択"
   }
 }

@@ -34,7 +34,12 @@ import { AuditScope } from '../audit/audit-scope';
 import { PermissionService } from '../auth/permission.service';
 import { BaseDuplicateV2Service } from '../base/base-duplicate-v2.service';
 import { buildBaseNodeDefaultUrl } from '../base-node/base-node-url.helper';
-import { firstPublishHistory, listedTemplateWhere, templateIdOrSlugWhere } from '../model/template';
+import {
+  firstPublishHistory,
+  listedTemplateWhere,
+  TEMPLATE_CACHE_TTL,
+  templateIdOrSlugWhere,
+} from '../model/template';
 import { ShortLinkService } from '../short-link/short-link.service';
 import { ensureTemplateSlug, slugFromName } from './template-slug';
 import {
@@ -692,7 +697,7 @@ export class TemplateOpenApiService {
   }
 
   @PerformanceCache({
-    ttl: 60 * 60 * 24,
+    ttl: TEMPLATE_CACHE_TTL,
     keyGenerator: generateTemplateCategoryCacheKey,
     statsType: 'template',
   })

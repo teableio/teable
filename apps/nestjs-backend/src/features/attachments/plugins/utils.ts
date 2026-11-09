@@ -80,8 +80,16 @@ const PREVIEW_URL_SHAPE_VERSIONS: Partial<Record<string, number>> = {
  * invalidation always deletes the one and only entry.
  */
 export const getPreviewUrlConfigSig = () => {
-  const { provider, publicUrl, publicBucket, privateBucket, privateBucketEndpoint, s3, minio } =
-    storageConfig();
+  const {
+    provider,
+    publicUrl,
+    publicBucket,
+    privateBucket,
+    privateBucketEndpoint,
+    s3,
+    minio,
+    encryption,
+  } = storageConfig();
   // Secrets participate as digests so rotating only the secret key still
   // changes the fingerprint, without keeping raw key material in the memo.
   const digest = (value?: string) =>
@@ -107,6 +115,12 @@ export const getPreviewUrlConfigSig = () => {
     // Appended last and only when bumped, so unlisted providers hash exactly
     // the same input as before this field existed.
     ...(shapeVersion ? [shapeVersion] : []),
+    // Local read tokens are sealed under the minting (first) storage entry, so
+    // a changed key must re-mint cached urls — they would no longer verify.
+    // Local only, so other providers keep their fingerprint.
+    ...(provider === 'local'
+      ? [digest(`${encryption.entries[0].key}:${encryption.entries[0].iv}`)]
+      : []),
   ]);
   if (previewUrlConfigSigCache?.input !== input) {
     previewUrlConfigSigCache = {

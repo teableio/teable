@@ -6,7 +6,6 @@ import type {
   ILinkCellValue,
   ISelectFieldChoice,
   ISelectFieldOptions,
-  IUserCellValue,
   UserFieldCore,
 } from '@teable/core';
 import {
@@ -18,7 +17,7 @@ import {
   IdPrefix,
   nullsToUndefined,
 } from '@teable/core';
-import type { PrismaService } from '@teable/db-main-prisma';
+import { Prisma, type PrismaService } from '@teable/db-main-prisma';
 import {
   DEFAULT_TABLE_DATA_SAFETY_LIMITS,
   ensureWithinTableDataSafetyLimit,
@@ -371,6 +370,9 @@ export class TypeCastAndValidate {
 
   private async castToUser(cellValues: unknown[]): Promise<unknown[]> {
     const userStrArray = cellValues.map((v) => {
+      if (Array.isArray(v) && v.every((item) => item && typeof item === 'object')) {
+        return v.map((item) => convertUser(item)).filter((item): item is string => Boolean(item));
+      }
       const stringCv = convertUser(v);
       if (!stringCv) {
         return [];
@@ -393,8 +395,72 @@ export class TypeCastAndValidate {
 
     const userMap = keyBy(ctx, 'id');
 
+    // Only actual user objects carry an identity pair. Text (including JSON-looking
+    // text) remains a collaborator-scoped identifier and is never parsed here.
+    const pairs: { id: string; email: string }[] = [];
+    for (const item of cellValues.flatMap((value) => (Array.isArray(value) ? value : [value]))) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+      const { id, email } = item as IObjectType;
+      if (typeof id === 'string' && id.length && typeof email === 'string' && email.length) {
+        pairs.push({ id, email });
+      }
+    }
+    const pairUsers = new Map<string, { id: string; name: string; email: string }>();
+    for (let offset = 0; offset < pairs.length; offset += 10_000) {
+      const batch = pairs.slice(offset, offset + 10_000);
+      const values = Prisma.join(batch.map(({ id, email }) => Prisma.sql`(${id}, ${email})`));
+      const users = await this.services.prismaService.txClient().$queryRaw<
+        { id: string; name: string; email: string }[]
+      >(Prisma.sql`
+        SELECT DISTINCT u.id, u.name, u.email FROM users u
+        JOIN (VALUES ${values}) AS input(id, email)
+          ON u.id COLLATE "C" = input.id COLLATE "C"
+          AND u.email COLLATE "C" = input.email COLLATE "C"
+        WHERE u.deleted_time IS NULL
+      `);
+      for (const user of users) pairUsers.set(user.id, user);
+    }
+
+    const resolveItem = (item: IObjectType) => {
+      const id = item.id;
+      const user =
+        typeof id !== 'string'
+          ? undefined
+          : item.email !== undefined
+            ? pairUsers.get(id)?.email === item.email
+              ? pairUsers.get(id)
+              : undefined
+            : userMap[id];
+      if (!user) {
+        throw new CustomHttpException('User not found', HttpErrorCode.VALIDATION_ERROR, {
+          localization: { i18nKey: 'httpErrors.user.notFound' },
+        });
+      }
+      return UserFieldDto.fullAvatarUrl({ id: user.id, title: user.name, email: user.email });
+    };
+
+    const normalizedValues = cellValues.map((value) => {
+      if (Array.isArray(value) && !this.field.isMultipleCellValue && !this.typecast) return value;
+      const items = Array.isArray(value) ? value : [value];
+      for (const item of items) {
+        if (item && typeof item === 'object' && !Array.isArray(item) && 'id' in item) {
+          resolveItem(item as IObjectType);
+        }
+      }
+      if (
+        !items.length ||
+        !items.every(
+          (item) => item && typeof item === 'object' && !Array.isArray(item) && 'id' in item
+        )
+      )
+        return value;
+      const selected = this.field.isMultipleCellValue ? items : items.slice(0, 1);
+      const resolved = selected.map((item) => resolveItem(item as IObjectType));
+      return this.field.isMultipleCellValue ? resolved : resolved[0];
+    });
+
     return this.mapFieldsCellValuesWithValidate(
-      cellValues,
+      normalizedValues,
       (cellValue: unknown) => {
         const strValue = convertUser(cellValue);
         if (strValue) {
@@ -408,47 +474,7 @@ export class TypeCastAndValidate {
         }
         return null;
       },
-      (validatedCellValue: unknown) => {
-        if (this.field.isMultipleCellValue) {
-          const notInUserMap = (validatedCellValue as IUserCellValue[]).find((v) => !userMap[v.id]);
-          if (notInUserMap) {
-            throw new CustomHttpException(
-              `User(${notInUserMap.id}) not found in table(${this.tableId})`,
-              HttpErrorCode.VALIDATION_ERROR,
-              {
-                localization: {
-                  i18nKey: 'httpErrors.user.notFound',
-                },
-              }
-            );
-          }
-          return (validatedCellValue as IUserCellValue[]).map((v) => {
-            const user = userMap[v.id];
-            return UserFieldDto.fullAvatarUrl({
-              id: user.id,
-              title: user.name,
-              email: user.email,
-            });
-          });
-        }
-        const user = userMap[(validatedCellValue as IUserCellValue).id];
-        if (!user) {
-          throw new CustomHttpException(
-            `User(${(validatedCellValue as IUserCellValue).id}) not found in table(${this.tableId})`,
-            HttpErrorCode.VALIDATION_ERROR,
-            {
-              localization: {
-                i18nKey: 'httpErrors.user.notFound',
-              },
-            }
-          );
-        }
-        return UserFieldDto.fullAvatarUrl({
-          id: user.id,
-          title: user.name,
-          email: user.email,
-        });
-      }
+      (validatedCellValue: unknown) => validatedCellValue
     );
   }
 

@@ -9,6 +9,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { DataQueryService } from './DataQueryService';
 import {
   executeDataQueryRequestSchema,
+  dataQueryCandidateSchema,
   validateDataQueryRequestSchema,
   type DataQueryValidationUsage,
   type ExecuteDataQueryRequest,
@@ -43,11 +44,38 @@ const service = new QueryExecutionService(
 );
 
 describe('inline execution protocol', () => {
+  it('keeps legacy OpenAPI candidates intact and requires explicit native patch semantics', () => {
+    const identity = {
+      operation: 'convert' as const,
+      tableId: definition.tableId,
+      fieldId: `fld${'b'.repeat(16)}`,
+    };
+    const legacy = { ...identity, field: { type: 'number', name: 'Amount' } };
+    expect(dataQueryCandidateSchema.parse(legacy)).toEqual(legacy);
+    expect(
+      dataQueryCandidateSchema.safeParse({ ...identity, field: { name: 'Renamed' } }).success
+    ).toBe(false);
+    const native = {
+      ...identity,
+      inputFormat: 'field-v2',
+      field: { name: 'Renamed', updateMode: 'partial' },
+    };
+    expect(dataQueryCandidateSchema.parse(native)).toEqual(native);
+    expect(dataQueryCandidateSchema.safeParse({ ...native, field: { name: 123 } }).success).toBe(
+      false
+    );
+    expect(dataQueryCandidateSchema.safeParse({ ...native, inputFormat: 'unknown' }).success).toBe(
+      false
+    );
+  });
+
   it('exposes only inline public inputs in the typed API', () => {
     expectTypeOf<keyof ExecuteDataQueryRequest>().toEqualTypeOf<
       'definition' | 'parameters' | 'queryId'
     >();
-    expectTypeOf<keyof ValidateDataQueryRequest>().toEqualTypeOf<'definition' | 'includeUsage'>();
+    expectTypeOf<keyof ValidateDataQueryRequest>().toEqualTypeOf<
+      'definition' | 'includeUsage' | 'includeSchemaSignature' | 'candidate' | 'candidateProof'
+    >();
     expectTypeOf<DataQueryValidationUsage>().toEqualTypeOf<
       ReadonlyArray<{
         readonly source: string;
@@ -64,13 +92,20 @@ describe('inline execution protocol', () => {
     >();
   });
 
-  it('accepts only a boolean usage opt-in on validation requests', () => {
+  it('accepts only boolean usage and signature opt-ins on validation requests', () => {
     expect(validateDataQueryRequestSchema.safeParse({ definition }).success).toBe(true);
     expect(
       validateDataQueryRequestSchema.safeParse({ definition, includeUsage: true }).success
     ).toBe(true);
     expect(
       validateDataQueryRequestSchema.safeParse({ definition, includeUsage: 'true' }).success
+    ).toBe(false);
+    expect(
+      validateDataQueryRequestSchema.safeParse({ definition, includeSchemaSignature: true }).success
+    ).toBe(true);
+    expect(
+      validateDataQueryRequestSchema.safeParse({ definition, includeSchemaSignature: 'true' })
+        .success
     ).toBe(false);
   });
 
