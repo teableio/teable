@@ -329,11 +329,17 @@ describe('interactive record query cancellation (real PostgreSQL / HTTP / ShareD
     await unlock();
     await Promise.all([observer?.end(), locker?.end(), db?.destroy()]);
     if (table) await permanentDeleteTable(baseId, table.id);
-    await app?.close();
+    // Restore the shared-app env BEFORE close(): this spec disables E2E_SHARED_APP
+    // to get a private app, which makes close() actually tear the app down. With a
+    // worker's canonical app already up, that real close leaves the process-global
+    // passport strategy pointing at a dead UserService, so every later auth-guarded
+    // write in the worker (e.g. space.e2e-spec) 401s. Re-enabling sharing first makes
+    // close() the intended no-op; the private app is reclaimed at worker teardown.
     for (const [key, value] of previousEnv) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
+    await app?.close();
   });
 
   function checkRecords(body: any) {
