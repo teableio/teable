@@ -28,13 +28,7 @@ import type { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { GetViewSelectionCopyQuery, type ViewSelectionCopySort } from './GetViewSelectionCopyQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
-import {
-  isRecordFilterCondition,
-  isRecordFilterGroup,
-  isRecordFilterNot,
-  type RecordFilter,
-  type RecordFilterNode,
-} from './RecordFilterDto';
+import { collectFilterFieldIds, type RecordFilter } from './RecordFilterDto';
 import {
   buildSanitizedRecordConditionSpec,
   replaceCurrentUserTagInFilter,
@@ -66,42 +60,21 @@ const mergeSort = (
   return [...merged.values()];
 };
 
-const collectFilterFieldIds = (filter: RecordFilter | undefined, fieldIds: Set<string>): void => {
-  const visit = (node: RecordFilterNode): void => {
-    if (isRecordFilterCondition(node)) {
-      fieldIds.add(node.fieldId);
-      if (
-        node.value &&
-        typeof node.value === 'object' &&
-        'fieldId' in node.value &&
-        typeof node.value.fieldId === 'string'
-      ) {
-        fieldIds.add(node.value.fieldId);
-      }
-      return;
-    }
-    if (isRecordFilterGroup(node)) {
-      node.items.forEach(visit);
-      return;
-    }
-    if (isRecordFilterNot(node)) visit(node.not);
-  };
-  if (filter) visit(filter);
-};
-
 export class GetViewSelectionCopyResult {
   private constructor(
     readonly content: string,
     readonly fields: ReadonlyArray<Field>,
-    readonly primaryFieldId: ReturnType<Table['primaryFieldId']>
+    readonly primaryFieldId: ReturnType<Table['primaryFieldId']>,
+    readonly sourceRecords: ReadonlyArray<TableRecordReadModel> = []
   ) {}
 
   static create(
     content: string,
     fields: ReadonlyArray<Field>,
-    primaryFieldId: ReturnType<Table['primaryFieldId']>
+    primaryFieldId: ReturnType<Table['primaryFieldId']>,
+    sourceRecords: ReadonlyArray<TableRecordReadModel> = []
   ): GetViewSelectionCopyResult {
-    return new GetViewSelectionCopyResult(content, fields, primaryFieldId);
+    return new GetViewSelectionCopyResult(content, fields, primaryFieldId, sourceRecords);
   }
 }
 
@@ -178,7 +151,7 @@ export class GetViewSelectionCopyHandler implements IQueryHandler<
         const effectiveSort = mergeSort(defaults.sort(), defaults.manualSort(), query.orderBy);
         const orderBy = mergeOrderBy(
           yield* resolveGroupByToOrderBy(effectiveGroup),
-          yield* resolveOrderBy(effectiveSort),
+          yield* resolveOrderBy(effectiveSort, table, effectiveGroup),
           query.viewId.toString()
         );
         const search = resolveVisibleRowSearch(
@@ -244,11 +217,9 @@ export class GetViewSelectionCopyHandler implements IQueryHandler<
         for (const record of records) {
           const row: string[] = [];
           for (const field of plan.fields) {
-            row.push(
-              yield* field.accept(
-                new FieldClipboardValueVisitor(record.fields[field.id().toString()])
-              )
-            );
+            const storedValue = record.fields[field.id().toString()];
+            const formattedValue = yield* field.accept(new FieldClipboardValueVisitor(storedValue));
+            row.push(formattedValue);
           }
           rows.push(row);
         }
@@ -256,7 +227,8 @@ export class GetViewSelectionCopyHandler implements IQueryHandler<
           GetViewSelectionCopyResult.create(
             stringifyClipboardRows(rows),
             plan.fields,
-            table.primaryFieldId()
+            table.primaryFieldId(),
+            records
           )
         );
       }.bind(this)

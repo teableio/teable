@@ -82,7 +82,35 @@ export const startTableQueryOpsTaskWorkerIfEnabled = (
   );
   if (!config.enabled) return undefined;
   return startExclusiveInterval(config.intervalMs, () =>
-    runTaskWorkerOnce(container, context, config, resolveExecution)
+    runTaskWorkerOnce(container, context, config, 'all', resolveExecution)
+  );
+};
+
+/** Starts only explicitly admitted admin search jobs, never automatic maintenance sweeps. */
+export const startTableQueryOpsManualSearchTaskWorker = (
+  container: DependencyContainer,
+  context: IExecutionContext,
+  resolveExecution?: TableQueryOpsExecutionResolver
+): TableQueryOpsRunnerHandle => {
+  const workerConfig = container.resolve<TableQueryOpsTaskWorkerConfig>(
+    v2TableOpsTokens.taskWorkerConfig
+  );
+  const config: TableQueryOpsTaskWorkerConfig = {
+    ...workerConfig,
+    enabled: true,
+    // Confirmed one-click jobs must not wait for the slower automatic worker cadence.
+    intervalMs: Math.min(workerConfig.intervalMs, 1_000),
+    workerId: `${workerConfig.workerId}:manual-search`,
+    allowManualIndexExecution: true,
+    allowPolicyIndexExecution: false,
+    allowedKinds: [
+      'create_search_access_path',
+      'rebuild_search_access_path',
+      'drop_search_access_path',
+    ],
+  };
+  return startExclusiveInterval(config.intervalMs, () =>
+    runTaskWorkerOnce(container, context, config, 'manual_search', resolveExecution)
   );
 };
 
@@ -431,19 +459,23 @@ const runTaskWorkerOnce = async (
   container: DependencyContainer,
   context: IExecutionContext,
   config: TableQueryOpsTaskWorkerConfig,
+  scope: 'all' | 'manual_search',
   resolveExecution?: TableQueryOpsExecutionResolver
 ): Promise<void> => {
   const logger = resolveOptionalLogger(container);
-  void runSearchAccessPathRecommendSweepOnce(container, context).catch((error: unknown) => {
-    logger?.warn('Table query ops search access-path sweep failed', {
-      error: error instanceof Error ? error.message : String(error),
+  if (scope === 'all') {
+    void runSearchAccessPathRecommendSweepOnce(container, context).catch((error: unknown) => {
+      logger?.warn('Table query ops search access-path sweep failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
-  });
+  }
   const taskRepository = container.resolve<TableQueryRemediationTaskRepository>(
     v2TableOpsTokens.taskRepository
   );
   const clock = container.resolve<TableQueryOpsClock>(v2TableOpsTokens.clock);
   const claimed = await taskRepository.claimNextAccepted(context, {
+    scope,
     workerId: config.workerId,
     now: clock.now(),
     allowedKinds: config.allowedKinds,

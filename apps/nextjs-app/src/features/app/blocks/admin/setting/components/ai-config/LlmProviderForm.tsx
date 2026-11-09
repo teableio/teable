@@ -58,6 +58,7 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
+import { reconcileMaskedSecret } from '@/features/app/utils/masked-secret';
 import { calculateMultiplier, formatMultiplier } from './ai-model-select/utils';
 import { LLM_PROVIDERS } from './constant';
 import { ModelSearchPopover } from './gateway-models-step/ModelSearchPopover';
@@ -943,6 +944,7 @@ export const LLMProviderForm = ({
   // Progress and pass/fail are derived from modelTestStatuses at render, so
   // they can never drift out of sync with the per-model pills.
   const [modelTestStatuses, setModelTestStatuses] = useState<IModelTestStatus[]>([]);
+  const [apiKeyCleared, setApiKeyCleared] = useState(false);
   const abortRef = useRef(false);
   const isAutoProviderName = providerNameMode === 'auto';
 
@@ -960,6 +962,24 @@ export const LLMProviderForm = ({
     setTestResult(null);
     setModelTestStatuses([]);
   }, [baseUrl, apiKey, models, formType]);
+
+  // A saved key's mask only resolves for the type and base URL it was saved with: once either
+  // moves, clear it so the admin re-enters the key instead of hitting a 400 on Test or Save.
+  const clearStaleApiKey = () => {
+    const { apiKey, baseUrl, type } = form.getValues();
+    const next = reconcileMaskedSecret({
+      secret: apiKey,
+      savedSecret: value?.apiKey,
+      cleared: apiKeyCleared,
+      endpoints: [
+        { savedEndpoint: value?.baseUrl, nextEndpoint: baseUrl, mode: 'orDefault' },
+        { savedEndpoint: value?.type, nextEndpoint: type, mode: 'strict' },
+      ],
+    });
+    if (!next) return;
+    form.setValue('apiKey', next.value, { shouldDirty: true });
+    setApiKeyCleared(next.cleared);
+  };
 
   function onSubmit(data: LLMProvider) {
     onChange ? onChange(data) : onAdd?.(data);
@@ -1253,6 +1273,7 @@ export const LLMProviderForm = ({
                 {...field}
                 onValueChange={(value) => {
                   form.setValue('type', value as unknown as LLMProvider['type']);
+                  clearStaleApiKey();
                 }}
               >
                 <SelectTrigger className="w-[180px]">
@@ -1285,7 +1306,14 @@ export const LLMProviderForm = ({
                   <FormDescription>{t('admin.setting.ai.baseUrlDescription')}</FormDescription>
                 </div>
                 <FormControl>
-                  <Input {...field} placeholder={currentProvider.baseUrlPlaceholder} />
+                  <Input
+                    {...field}
+                    placeholder={currentProvider.baseUrlPlaceholder}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      clearStaleApiKey();
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -1307,6 +1335,13 @@ export const LLMProviderForm = ({
                       placeholder={currentProvider?.apiKeyPlaceholder ?? ''}
                     />
                   </FormControl>
+                  {apiKeyCleared && !field.value && (
+                    <p className="text-xs text-amber-600">
+                      {t('admin.setting.secretEndpointChanged', {
+                        secret: t('admin.setting.ai.apiKey'),
+                      })}
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { HttpException, HttpStatus, Injectable, Optional } from '@nestjs/common';
-import { FieldKeyType, HttpErrorCode } from '@teable/core';
+import { FieldKeyType, HttpErrorCode, type ISortItem } from '@teable/core';
 import type {
   IAggregationRo,
   IAggregationVo,
@@ -209,6 +209,7 @@ export class AggregationOpenApiV2Service {
     const orderBy = (query.orderBy ?? []).map((item) => ({
       fieldId: item.fieldId,
       order: item.order,
+      ...(item.collation !== undefined ? { collation: item.collation } : {}),
     }));
     const result = await this.executeAggregateQuery(prepared, {
       tableId,
@@ -411,10 +412,17 @@ export class AggregationOpenApiV2Service {
     if (requestedProjection && projection) {
       finalProjection = projection.filter((fieldId) => requestedProjection.includes(fieldId));
     }
-    const sort = [...(query.groupBy ?? []), ...(query.orderBy ?? [])].map((item) => ({
-      fieldId: item.fieldId,
-      order: item.order,
-    }));
+    const sort = [
+      ...(query.groupBy ?? []).map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      ...(query.orderBy ?? []).map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+        ...(item.collation !== undefined ? { collation: item.collation } : {}),
+      })),
+    ];
 
     const result = await executeListTableRecordsEndpoint(
       context,
@@ -525,7 +533,7 @@ export class AggregationOpenApiV2Service {
         includeSearchFieldMatches: true,
         searchIndexMode: 'view',
         searchFieldScope: hasProjectionScope ? 'projection' : 'visible',
-        applySearchRowFilter: false,
+        applySearchRowFilter: true,
         recordSearchAccessPath: this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
           table: prepared.table,
           search: query.search,
@@ -710,7 +718,7 @@ export class AggregationOpenApiV2Service {
       // Validated by AggregateTableRecordsQuery.create; v1 ROs type `order`
       // as SortFunc, which the zod schema narrows to 'asc' | 'desc'.
       groupBy?: ReadonlyArray<{ fieldId: string; order: string }>;
-      orderBy?: ReadonlyArray<{ fieldId: string; order: string }>;
+      orderBy?: ReadonlyArray<ISortItem>;
       skip?: number;
       take?: number;
       ignoreViewQuery?: boolean;

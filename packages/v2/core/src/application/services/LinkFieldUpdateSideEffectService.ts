@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { composeAndSpecs } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { Field } from '../../domain/table/fields/Field';
 import { LinkField } from '../../domain/table/fields/types/LinkField';
@@ -11,10 +12,12 @@ import type { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldC
 import { LinkFieldUpdateSideEffectVisitor } from '../../domain/table/fields/visitors/LinkFieldUpdateSideEffectVisitor';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
-import { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
+import type { UndoRedoRelatedViewQuerySnapshot } from '../../ports/UndoRedoStore';
+import { buildUnsupportedViewSortCollationCleanup } from './buildUnsupportedViewSortCollationCleanup';
+import { completeFieldSideEffectUpdate } from './completeFieldSideEffectUpdate';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 export type LinkFieldUpdateSideEffectServiceInput = {
@@ -32,11 +35,18 @@ export type LinkFieldUpdateSideEffectServiceInput = {
   tableState?: ReadonlyMap<string, Table>;
 };
 
+export type LinkFieldViewQuerySnapshotChange = {
+  readonly previous: UndoRedoRelatedViewQuerySnapshot;
+  readonly next: UndoRedoRelatedViewQuerySnapshot;
+};
+
 export type LinkFieldUpdateSideEffectServiceResult = {
   /** Events generated during side effect processing */
   events: ReadonlyArray<IDomainEvent>;
   /** Updated table state (foreign tables may have changed) */
   tableState: ReadonlyMap<string, Table>;
+  /** Foreign view queries changed as a consequence of the reciprocal-field update. */
+  viewQueryChanges: ReadonlyArray<LinkFieldViewQuerySnapshotChange>;
 };
 
 /**
@@ -70,6 +80,7 @@ export class LinkFieldUpdateSideEffectService {
         return ok({
           events: [],
           tableState: input.tableState ?? new Map(foreignTables.map((t) => [t.id().toString(), t])),
+          viewQueryChanges: [],
         });
       }
 
@@ -78,12 +89,19 @@ export class LinkFieldUpdateSideEffectService {
         return ok({
           events: [],
           tableState: input.tableState ?? new Map(foreignTables.map((t) => [t.id().toString(), t])),
+          viewQueryChanges: [],
         });
       }
 
       const foreignTableState = input.tableState
         ? new Map<string, Table>(input.tableState)
         : new Map<string, Table>(foreignTables.map((t) => [t.id().toString(), t]));
+
+      // A self-link's foreign-table snapshot can precede the source mutation.
+      // Its symmetric update must retain the source field's current shape.
+      if (foreignTableState.has(table.id().toString())) {
+        foreignTableState.set(table.id().toString(), table);
+      }
 
       // Check if this update requires symmetric field changes
       const currentConfig = updatedField.config();
@@ -93,13 +111,13 @@ export class LinkFieldUpdateSideEffectService {
           currentConfig
         )
       ) {
-        return ok({ events: [], tableState: foreignTableState });
+        return ok({ events: [], tableState: foreignTableState, viewQueryChanges: [] });
       }
 
       // Create visitor to collect side effects
       const visitor = LinkFieldUpdateSideEffectVisitor.create({
         table,
-        foreignTables,
+        foreignTables: [...foreignTableState.values()],
       });
 
       // Collect side effects
@@ -110,10 +128,11 @@ export class LinkFieldUpdateSideEffectService {
       });
 
       if (sideEffects.length === 0) {
-        return ok({ events: [], tableState: foreignTableState });
+        return ok({ events: [], tableState: foreignTableState, viewQueryChanges: [] });
       }
 
       const events: IDomainEvent[] = [];
+      const viewQueryChanges: LinkFieldViewQuerySnapshotChange[] = [];
 
       // Apply each side effect
       for (const sideEffect of sideEffects) {
@@ -125,18 +144,62 @@ export class LinkFieldUpdateSideEffectService {
         const updateResult = yield* await service.tableUpdateFlow.execute(
           context,
           { table: foreignTable },
-          (candidate) =>
-            sideEffect.mutateSpec
-              .mutate(candidate)
-              .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
+          (candidate) => {
+            const updated = sideEffect.mutateSpec.mutate(candidate);
+            if (updated.isErr()) return err(updated.error);
+            const sortCleanup = buildUnsupportedViewSortCollationCleanup(updated.value);
+            if (sortCleanup.isErr()) return err(sortCleanup.error);
+            const sortCleanupSpec = sortCleanup.value;
+            if (!sortCleanupSpec) {
+              return completeFieldSideEffectUpdate(updated.value, sideEffect.mutateSpec);
+            }
+            return sortCleanupSpec
+              .mutate(updated.value)
+              .andThen((cleaned) =>
+                composeAndSpecs([sideEffect.mutateSpec, sortCleanupSpec]).andThen((spec) =>
+                  completeFieldSideEffectUpdate(cleaned, spec)
+                )
+              );
+          },
           { publishEvents: false }
         );
 
         foreignTableState.set(updateResult.table.id().toString(), updateResult.table);
         events.push(...updateResult.events);
+        viewQueryChanges.push(
+          ...(yield* service.collectViewQueryChanges(foreignTable, updateResult.table))
+        );
       }
 
-      return ok({ events, tableState: foreignTableState });
+      return ok({ events, tableState: foreignTableState, viewQueryChanges });
     });
+  }
+
+  private collectViewQueryChanges(
+    previousTable: Table,
+    nextTable: Table
+  ): Result<ReadonlyArray<LinkFieldViewQuerySnapshotChange>, DomainError> {
+    const changes: LinkFieldViewQuerySnapshotChange[] = [];
+    for (const previousView of previousTable.views()) {
+      const nextViewResult = nextTable.getView(previousView.id());
+      if (nextViewResult.isErr()) continue;
+      const previousQuery = previousView.queryDefaults();
+      if (previousQuery.isErr()) return err(previousQuery.error);
+      const nextQuery = nextViewResult.value.queryDefaults();
+      if (nextQuery.isErr()) return err(nextQuery.error);
+      if (previousQuery.value.equals(nextQuery.value)) continue;
+
+      const toSnapshot = (query: typeof previousQuery.value): UndoRedoRelatedViewQuerySnapshot => ({
+        tableId: previousTable.id().toString(),
+        viewId: previousView.id().toString(),
+        query: query.toDto(),
+        ...(query.sourceFilter() !== undefined ? { sourceFilter: query.sourceFilter() } : {}),
+      });
+      changes.push({
+        previous: toSnapshot(previousQuery.value),
+        next: toSnapshot(nextQuery.value),
+      });
+    }
+    return ok(changes);
   }
 }

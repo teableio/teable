@@ -134,7 +134,7 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
             }
             continue;
           }
-          await client.raw(migration.sql);
+          await client.raw(migration.sql, undefined, { literal: true });
           await this.recordMigration(client, migration, checksum);
           appliedNow.push(migration.id);
         }

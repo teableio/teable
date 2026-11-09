@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
@@ -10,6 +11,7 @@ import type { RecordValuesDTO } from '../domain/table/events/RecordFieldValuesDT
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
 import type { TableRecord } from '../domain/table/records/TableRecord';
+import type { Table } from '../domain/table/Table';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
@@ -42,6 +44,8 @@ export class CreateRecordsStreamHandler implements ICommandHandler<
   constructor(
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
+    @inject(v2CoreTokens.recordMutationSpecResolverService)
+    private readonly recordMutationSpecResolver: RecordMutationSpecResolverService,
     @inject(v2CoreTokens.recordWritePluginRunner)
     private readonly recordWritePluginRunner: RecordWritePluginRunner,
     @inject(v2CoreTokens.tableRecordRepository)
@@ -73,11 +77,7 @@ export class CreateRecordsStreamHandler implements ICommandHandler<
       });
       yield* await pluginExecution.guard();
 
-      // 2. Use streaming generator to create records in batches
-      const batchGenerator = table.createRecordsStream(recordsFieldValues, {
-        batchSize: command.batchSize,
-      });
-
+      // 2. Create and resolve one bounded record batch at a time.
       const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) => {
@@ -97,24 +97,30 @@ export class CreateRecordsStreamHandler implements ICommandHandler<
             const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
               transactionContext,
               table,
-              handler.consumeBatches(batchGenerator, (batch) => {
-                const eventRecords = toStreamCreatedEventRecords(batch);
-                if (eventRecords.length > 0) {
-                  events.push(
-                    RecordsBatchCreated.create({
-                      tableId: table.id(),
-                      baseId: table.baseId(),
-                      records: eventRecords,
-                      orchestration: {
-                        totalRecordCount,
-                        totalChunkCount,
-                        chunkIndex: chunkIndex++,
-                        scope: 'chunk',
-                      },
-                    })
-                  );
+              handler.createBatches(
+                transactionContext,
+                table,
+                recordsFieldValues,
+                effectiveBatchSize,
+                (batch) => {
+                  const eventRecords = toStreamCreatedEventRecords(batch);
+                  if (eventRecords.length > 0) {
+                    events.push(
+                      RecordsBatchCreated.create({
+                        tableId: table.id(),
+                        baseId: table.baseId(),
+                        records: eventRecords,
+                        orchestration: {
+                          totalRecordCount,
+                          totalChunkCount,
+                          chunkIndex: chunkIndex++,
+                          scope: 'chunk',
+                        },
+                      })
+                    );
+                  }
                 }
-              })
+              )
             );
             return ok(domainWrite.fromEvents(insertResult, events, { tables: [table] }));
           });
@@ -127,21 +133,48 @@ export class CreateRecordsStreamHandler implements ICommandHandler<
     });
   }
 
-  /**
-   * Consume the batch generator, unwrapping Results and yielding raw batches.
-   * Throws on first error encountered.
-   */
-  private *consumeBatches(
-    generator: Generator<Result<ReadonlyArray<TableRecord>, DomainError>>,
-    onBatch?: (batch: ReadonlyArray<TableRecord>) => void
-  ): Generator<ReadonlyArray<TableRecord>> {
-    for (const batchResult of generator) {
-      if (batchResult.isErr()) {
-        throw batchResult.error;
-      }
-      onBatch?.(batchResult.value);
-      yield batchResult.value;
+  private async *createBatches(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    recordsFieldValues: Iterable<ReadonlyMap<string, unknown>>,
+    batchSize: number,
+    onBatch: (batch: ReadonlyArray<TableRecord>) => void
+  ): AsyncGenerator<ReadonlyArray<TableRecord>> {
+    let fieldValuesBatch: ReadonlyMap<string, unknown>[] = [];
+
+    for (const fieldValues of recordsFieldValues) {
+      fieldValuesBatch.push(fieldValues);
+      if (fieldValuesBatch.length < batchSize) continue;
+
+      const records = await this.createBatch(context, table, fieldValuesBatch);
+      onBatch(records);
+      yield records;
+      fieldValuesBatch = [];
     }
+
+    if (fieldValuesBatch.length > 0) {
+      const records = await this.createBatch(context, table, fieldValuesBatch);
+      onBatch(records);
+      yield records;
+    }
+  }
+
+  private async createBatch(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    fieldValuesBatch: ReadonlyArray<ReadonlyMap<string, unknown>>
+  ): Promise<ReadonlyArray<TableRecord>> {
+    const createResult = table.createRecords(fieldValuesBatch);
+    if (createResult.isErr()) throw createResult.error;
+
+    const resolveResult = await this.recordMutationSpecResolver.resolveCreatedRecords(
+      context,
+      table.id(),
+      createResult.value
+    );
+    if (resolveResult.isErr()) throw resolveResult.error;
+
+    return resolveResult.value.records;
   }
 }
 

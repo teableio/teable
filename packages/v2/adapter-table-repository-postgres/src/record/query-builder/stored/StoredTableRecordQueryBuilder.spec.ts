@@ -347,6 +347,59 @@ describe('StoredTableRecordQueryBuilder', () => {
       expect(sql).toContain('"t"."col_number" asc nulls first');
     });
 
+    test('propagates zh-pinyin ordering through narrow and outer page queries', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+      const textField = table
+        .getFields()
+        .find((field) => field.type().equals(FieldType.singleLineText()));
+
+      expect(textField).toBeDefined();
+      if (!textField) return;
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql } = compileQuery(
+        db,
+        qb.from(table).orderBy(textField.id(), 'asc', { collation: 'zh-pinyin' }).limit(10)
+      );
+
+      expect(
+        sql.match(/\("t"\."col_single_line_text"\) COLLATE "zh-x-icu" asc nulls first/g)
+      ).toHaveLength(2);
+    });
+
+    test('collates the masked text expression without exposing restricted values', () => {
+      const db = createTestDb();
+      const table = createTableWithAllFields();
+      const textField = table
+        .getFields()
+        .find((field) => field.type().equals(FieldType.singleLineText()));
+
+      expect(textField).toBeDefined();
+      if (!textField) return;
+
+      const qb = new StoredTableRecordQueryBuilder(db);
+      const { sql, parameters } = compileQuery(
+        db,
+        qb
+          .from(table)
+          .fieldMaskSql(
+            new Map([
+              [
+                textField.id().toString(),
+                kyselySql<boolean>`${kyselySql.ref('t.__auto_number')} > ${10}`,
+              ],
+            ])
+          )
+          .orderBy(textField.id(), 'asc', { collation: 'zh-pinyin' })
+      );
+
+      expect(sql).toContain(
+        'order by (CASE WHEN "t"."__auto_number" > $1 THEN "t"."col_single_line_text" ELSE NULL END) COLLATE "zh-x-icu" asc nulls first'
+      );
+      expect(parameters).toEqual([10]);
+    });
+
     test('orders fields through the masked CASE value', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();

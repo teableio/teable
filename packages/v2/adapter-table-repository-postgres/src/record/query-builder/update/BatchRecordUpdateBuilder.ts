@@ -91,16 +91,6 @@ export interface BatchRecordUpdateDataResult {
   recordIds: string[];
 }
 
-/**
- * Internal structure for a single record's mutation processing.
- */
-interface RecordMutationData {
-  recordId: string;
-  setClauses: Record<string, unknown>;
-  additionalStatements: CompiledSqlStatement[];
-  changedFieldIds: FieldId[];
-}
-
 const mergeCollectedLinkChanges = (
   target: CollectedLinkChanges,
   incoming: CollectedLinkChanges
@@ -196,7 +186,6 @@ export class BatchRecordUpdateBuilder {
       }
 
       // Step 1: Process each record's mutation
-      const recordMutations: RecordMutationData[] = [];
       const allAdditionalStatements: CompiledSqlStatement[] = [];
       const attachmentTableReplacements: AttachmentTableReplaceInput[] = [];
       const allChangedFieldIds = new Set<string>();
@@ -240,19 +229,16 @@ export class BatchRecordUpdateBuilder {
         // Accept the mutation spec
         yield* update.mutateSpec.accept(mutateVisitor);
 
-        // Apply tracked field updates (LastModifiedTime, LastModifiedBy)
-        // This is normally done in build(), but we need raw values
-        const statementsResult = mutateVisitor.build();
-        if (statementsResult.isErr()) {
-          return err(statementsResult.error);
+        // Finalize tracked fields and mutation data without compiling a per-record UPDATE.
+        const planResult = mutateVisitor.finalize();
+        if (planResult.isErr()) {
+          return err(planResult.error);
         }
-
-        // Get raw SET clauses before SQL compilation
-        const raw = mutateVisitor.getSetClausesRaw();
+        const plan = planResult.value;
 
         // Store for this record
         const recordSetClauses = new Map<string, unknown>();
-        for (const [columnName, value] of Object.entries(raw.setClauses)) {
+        for (const [columnName, value] of Object.entries(plan.setClauses)) {
           // Skip VERSION_COLUMN as it's handled specially in batch SQL
           if (columnName === '__version') {
             continue;
@@ -266,7 +252,7 @@ export class BatchRecordUpdateBuilder {
         recordUpdateValues.set(recordIdStr, recordSetClauses);
 
         // Collect additional statements (junction tables, FK updates)
-        const { additionalStatements, changedFieldIds } = statementsResult.value;
+        const { additionalStatements, changedFieldIds } = plan;
         for (const stmt of additionalStatements) {
           allAdditionalStatements.push({
             description: `Additional statement for record ${recordIdStr}`,
@@ -299,13 +285,6 @@ export class BatchRecordUpdateBuilder {
         allLinkedRecordLocks.push(
           ...buildLinkedRecordLocksFromLinkChanges(linkChangesResult.value.linkChanges)
         );
-
-        recordMutations.push({
-          recordId: recordIdStr,
-          setClauses: Object.fromEntries(recordSetClauses),
-          additionalStatements: [],
-          changedFieldIds,
-        });
       }
 
       // Step 2: Transpose data structure for batch SQL generation

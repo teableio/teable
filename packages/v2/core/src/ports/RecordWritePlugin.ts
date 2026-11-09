@@ -13,6 +13,7 @@ import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/s
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
+import type { RecordFilterNode } from '../queries/RecordFilterDto';
 import type { IExecutionContext } from './ExecutionContext';
 import type { SourceColumnMap } from './import/IImportSource';
 import type { PluginTraceContext } from './Tracer';
@@ -166,6 +167,10 @@ type RecordWriteUpdateManyPayloadBase = {
 export type RecordWriteUpdateManySelectorPayload = RecordWriteUpdateManyPayloadBase & {
   readonly variant: 'selector';
   readonly fieldValues: RecordWriteFieldValues;
+  /** Predicate evaluated by the write; plugins must authorize its read dependencies. */
+  readonly filter?: RecordFilterNode;
+  /** The caller resolved each record's allowed fields before this selector write. */
+  readonly rowFieldPermissionsResolved?: boolean;
 };
 
 export type RecordWriteUpdateManyExplicitPayload = RecordWriteUpdateManyPayloadBase & {

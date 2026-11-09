@@ -79,7 +79,9 @@ describe('update-field: event shape', () => {
     try {
       await ctx.drainOutbox();
       await ctx.deleteTable(tableId);
-    } catch {}
+    } catch {
+      // Cleanup must not hide the assertion that failed in the test.
+    }
     tableId = undefined;
   });
 
@@ -243,5 +245,59 @@ describe('update-field: event shape', () => {
         expect(event.fieldId).toBeDefined();
       }
     }
+  });
+
+  test('returns view column meta change for the reciprocal field of a converted link', async () => {
+    const target = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: `update-field-event-reciprocal-${Date.now()}`,
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+    });
+    tableId = target.id;
+    const sourceId = createFieldId();
+    const linkId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: { id: sourceId, type: 'singleLineText', name: 'Amount Text' },
+    });
+    const linked = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        id: linkId,
+        type: 'link',
+        name: 'Target',
+        options: {
+          foreignTableId: target.id,
+          lookupFieldId: sourceId,
+          relationship: 'manyMany',
+          isOneWay: true,
+        },
+      },
+    });
+    expect(linked.fields.some((field) => field.id === linkId)).toBe(true);
+
+    const result = await updateFieldRaw({
+      tableId,
+      fieldId: linkId,
+      field: {
+        options: {
+          foreignTableId: target.id,
+          lookupFieldId: sourceId,
+          relationship: 'manyMany',
+          isOneWay: false,
+        },
+      },
+    });
+
+    assertBaseEventShape(result.events);
+    const fresh = await ctx.getTableById(target.id);
+    const reciprocal = fresh.fields.find((field) => field.type === 'link' && field.id !== linkId);
+    expect(reciprocal?.type).toBe('link');
+    const viewMetaUpdates = result.events
+      .filter((event) => event.name === 'ViewColumnMetaUpdated')
+      .map(({ fieldId }) => fieldId);
+    expect(viewMetaUpdates).toEqual([reciprocal!.id]);
   });
 });

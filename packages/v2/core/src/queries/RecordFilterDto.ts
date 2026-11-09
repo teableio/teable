@@ -218,5 +218,31 @@ export const isRecordFilterNot = (node: RecordFilterNode): node is RecordFilterN
   return typeof (node as RecordFilterNot).not === 'object';
 };
 
+export const collectFilterFieldIds = (
+  filter: RecordFilter | undefined,
+  fieldIds: Set<string>
+): void => {
+  const visit = (node: RecordFilterNode): void => {
+    if (isRecordFilterCondition(node)) {
+      fieldIds.add(node.fieldId);
+      if (
+        node.value &&
+        typeof node.value === 'object' &&
+        'fieldId' in node.value &&
+        typeof node.value.fieldId === 'string'
+      ) {
+        fieldIds.add(node.value.fieldId);
+      }
+      return;
+    }
+    if (isRecordFilterGroup(node)) {
+      node.items.forEach(visit);
+      return;
+    }
+    if (isRecordFilterNot(node)) visit(node.not);
+  };
+  if (filter) visit(filter);
+};
+
 export const recordFilterOperatorsExpectingNull = operatorsExpectingNull;
 export const recordFilterOperatorsExpectingArray = operatorsExpectingArray;

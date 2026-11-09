@@ -45,8 +45,6 @@ overrides:
   protobufjs: ^7.5.5
   shell-quote: ^1.11.0
   katex: ^0.18.2
-  sqlite3>tar: ^7.5.22
-  sqlite3>node-gyp: ^12.4.0
   '@storybook/builder-webpack5>webpack-dev-middleware': ^7.4.6
   rollup-plugin-terser>serialize-javascript: ^7.1.4
   rollup-plugin-postcss>cssnano: ^7.1.9
@@ -67,6 +65,10 @@ overrides:
   'undici@8': ^8.12.3
   'fast-uri@3': ^3.1.9
   'fast-uri@4': ^4.2.3
+  'glob@10': ^14.0.4
+  'glob@13': ^14.0.4
+  'minimatch@9': ^11.0.5
+  'minimatch@10': ^11.0.5
   '@nestjs/platform-express>multer': 2.5.0
 
 patchedDependencies:

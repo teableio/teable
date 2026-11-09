@@ -13,6 +13,22 @@ describe('Sort Parse', () => {
 
     expect(parse).toEqual(sort);
   });
+
+  it('should parse zh-pinyin collation', () => {
+    const sort: ISort = {
+      sortObjs: [{ fieldId: 'fldxxxxxx', order: SortFunc.Asc, collation: 'zh-pinyin' }],
+    };
+
+    expect(sortSchema.parse(sort)).toEqual(sort);
+  });
+
+  it('should reject unknown collations', () => {
+    expect(() =>
+      sortSchema.parse({
+        sortObjs: [{ fieldId: 'fldxxxxxx', order: SortFunc.Asc, collation: 'en' }],
+      })
+    ).toThrow();
+  });
 });
 
 describe('Sort mergeWithDefaultSort function test', () => {

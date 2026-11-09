@@ -39,11 +39,12 @@ export class QueryExecutionService {
           );
         const definition = DataQueryDefinition.create(parsed.data.definition);
         if (definition.isErr()) return err(definition.error);
-        return this.dataQueries.validate(
-          context,
-          definition.value,
-          parsed.data.includeUsage === true ? { includeUsage: true } : {}
-        );
+        return this.dataQueries.validate(context, definition.value, {
+          includeUsage: parsed.data.includeUsage,
+          includeSchemaSignature: parsed.data.includeSchemaSignature,
+          candidate: parsed.data.candidate,
+          candidateProof: parsed.data.candidateProof,
+        });
       });
     } catch (cause) {
       return err(

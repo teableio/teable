@@ -20,6 +20,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { reconcileMaskedSecret } from '@/features/app/utils/masked-secret';
 
 /** The admin form stores a plain password, the automation form a secret binding. */
 type IMailConfigFormValue = Omit<IMailTransportConfig, 'auth'> & {
@@ -70,6 +71,33 @@ export const MailConfigForm = <T extends IMailConfigFormValue>(props: {
   }, [defaultValues, reset]);
 
   const [testEmail, setTestEmail] = useState<string | null>(null);
+
+  // A saved password's mask only resolves for the server and user it was saved with. The
+  // value is controlled by the parent, so the endpoint it was opened with is kept here.
+  const [openedValue] = useState(props.value);
+  const [passCleared, setPassCleared] = useState(false);
+  const clearStalePassword = () => {
+    const { host, port, secure, auth } = form.getValues();
+    const next = reconcileMaskedSecret({
+      secret: auth.pass,
+      savedSecret: openedValue?.auth?.pass,
+      cleared: passCleared,
+      endpoints: [
+        { savedEndpoint: openedValue?.host, nextEndpoint: host, mode: 'strict' },
+        { savedEndpoint: openedValue?.port, nextEndpoint: port, mode: 'strict' },
+        { savedEndpoint: openedValue?.auth?.user, nextEndpoint: auth.user, mode: 'strict' },
+        // Turning TLS off may send the password as plain AUTH: the backend binds it too.
+        {
+          savedEndpoint: openedValue?.secure ?? false,
+          nextEndpoint: secure ?? false,
+          mode: 'strict',
+        },
+      ],
+    });
+    if (!next) return;
+    form.setValue('auth.pass', next.value);
+    setPassCleared(next.cleared);
+  };
 
   const { mutateAsync: testEmailConfig, isPending: isTestEmailLoading } = useMutation({
     mutationFn: (ro: ITestMailTransportConfigRo) => testMailTransportConfig(ro),
@@ -124,6 +152,7 @@ export const MailConfigForm = <T extends IMailConfigFormValue>(props: {
                 disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(e.target.value);
+                  clearStalePassword();
                   onSubmit();
                 }}
               />
@@ -145,6 +174,7 @@ export const MailConfigForm = <T extends IMailConfigFormValue>(props: {
                 disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(Number(e.target.value));
+                  clearStalePassword();
                   onSubmit();
                 }}
               />
@@ -165,6 +195,7 @@ export const MailConfigForm = <T extends IMailConfigFormValue>(props: {
                 disabled={props.disabled}
                 onCheckedChange={(checked) => {
                   field.onChange(checked);
+                  clearStalePassword();
                   onSubmit();
                 }}
               />
@@ -185,6 +216,7 @@ export const MailConfigForm = <T extends IMailConfigFormValue>(props: {
                 disabled={props.disabled}
                 onChange={(e) => {
                   field.onChange(e.target.value);
+                  clearStalePassword();
                   onSubmit();
                 }}
               />
@@ -218,6 +250,11 @@ export const MailConfigForm = <T extends IMailConfigFormValue>(props: {
                   }}
                 />
               </FormControl>
+            )}
+            {passCleared && !field.value && (
+              <p className="text-xs text-amber-600">
+                {t('admin.setting.secretEndpointChanged', { secret: t('email.password') })}
+              </p>
             )}
           </FormItem>
         )}

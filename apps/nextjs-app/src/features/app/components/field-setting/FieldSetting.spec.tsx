@@ -22,6 +22,8 @@ const fieldOperationMocks = vi.hoisted(() => ({
 
 const openapiMocks = vi.hoisted(() => ({
   getAggregation: vi.fn(),
+  post: vi.fn(),
+  useV2: false,
 }));
 
 vi.mock('@teable/openapi', async (importOriginal) => {
@@ -29,6 +31,7 @@ vi.mock('@teable/openapi', async (importOriginal) => {
   return {
     ...actual,
     getAggregation: openapiMocks.getAggregation,
+    getAxios: () => ({ post: openapiMocks.post }),
   };
 });
 
@@ -36,12 +39,15 @@ vi.mock('@teable/sdk/hooks', async (importOriginal) => {
   const actual = await importOriginal<typeof SdkHooks>();
   return {
     ...actual,
+    useBaseId: () => 'bseTest0000000001',
+    useBase: () => ({ isCanary: openapiMocks.useV2 }),
     useTableId: () => 'tblTest0000000001',
     useView: () => ({ id: 'viwTest0000000001' }),
     useRowCount: () => 30,
     useFieldOperations: () => fieldOperationMocks,
   };
 });
+vi.mock('@/features/app/hooks/useEnv', () => ({ useEnv: () => ({ forceV2All: false }) }));
 
 vi.mock('./DynamicFieldEditor', () => ({
   DynamicFieldEditor: ({
@@ -133,6 +139,7 @@ const createDeferred = <T,>() => {
 describe('FieldSettingBase', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    openapiMocks.useV2 = false;
   });
 
   it('disables save when editing target field is not available yet', () => {
@@ -427,6 +434,66 @@ describe('FieldSettingBase', () => {
         },
       }),
     });
+  });
+
+  it('uses unified conversion in CE without requiring App acknowledgement or a legacy plan', async () => {
+    openapiMocks.useV2 = true;
+    const field = {
+      id: 'fldTest0000000001',
+      name: 'Reply',
+      type: FieldType.SingleLineText,
+      options: {},
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: false,
+      dbFieldType: DbFieldType.Text,
+      dbFieldName: 'Reply',
+    } as const;
+    fieldOperationMocks.convertField.mockResolvedValue(field);
+    openapiMocks.post.mockImplementation((url: string) => {
+      if (url !== '/v2/operations/preview') throw new Error(`Unexpected endpoint ${url}`);
+      return Promise.resolve({
+        data: {
+          ok: true,
+          data: {
+            operation: 'field.convert',
+            outcome: 'ready',
+            effects: [],
+            blockers: [],
+            warnings: [],
+            coverage: { known: [], unknown: [] },
+            complexity: null,
+            authorization: 'checked',
+            observedAt: '2026-11-04T00:00:00.000Z',
+            consistency: 'best-effort',
+            requestDigest: `sha256:${'a'.repeat(64)}`,
+            implementation: { plannerVersion: 'test', executionPath: 'test' },
+          },
+        },
+      });
+    });
+    render(
+      <TestAnchorProvider>
+        <FieldSetting visible field={field} operator={FieldOperator.Edit} />
+      </TestAnchorProvider>
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Mock polluted user field' }));
+    await userEvent.click(screen.getByRole('button', { name: 'common:actions.save' }));
+    const title = await screen.findByText('table:field.editor.confirmFieldChange');
+    const dialog = title.closest<HTMLElement>('[role="dialog"]')!;
+    const confirm = within(dialog).getByRole('button', { name: 'common:actions.confirm' });
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(within(dialog).queryByRole('checkbox')).toBeNull();
+    await userEvent.click(confirm);
+    await waitFor(() => expect(fieldOperationMocks.convertField).toHaveBeenCalledTimes(1));
+    expect(openapiMocks.post).toHaveBeenCalledTimes(1);
+    expect(openapiMocks.post.mock.calls[0][1].input).toEqual({
+      inputFormat: 'field-openapi',
+      baseId: 'bseTest0000000001',
+      tableId: 'tblTest0000000001',
+      fieldId: field.id,
+      field: fieldOperationMocks.convertField.mock.calls[0][0].fieldRo,
+    });
+    expect(fieldOperationMocks.planFieldConvert).not.toHaveBeenCalled();
   });
 });
 

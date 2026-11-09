@@ -1,3 +1,4 @@
+import type { BulkCopyTableInput } from '@teable/v2-core';
 import type { Knex } from 'knex';
 
 export abstract class DuplicateTableQueryAbstract {
@@ -12,6 +13,7 @@ export abstract class DuplicateTableQueryAbstract {
     range?: {
       minAutoNumberExclusive?: number;
       maxAutoNumberInclusive?: number;
-    }
+    },
+    dateTimeZoneConversions?: BulkCopyTableInput['dateTimeZoneConversions']
   ): Knex.QueryBuilder;
 }

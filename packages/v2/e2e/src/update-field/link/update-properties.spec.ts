@@ -7,6 +7,8 @@
  * - Symmetric link fields (for twoWay links)
  */
 /* eslint-disable @typescript-eslint/naming-convention */
+
+import { ViewColumnMeta } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
@@ -222,6 +224,18 @@ describe('[D01][S01] update-field: link property updates', () => {
     expect(symOptions?.symmetricFieldId).toBe(linkField.id);
 
     expect(await getActiveFieldRowCountFromDb(fieldOptions!.symmetricFieldId!)).toBe(1);
+    const persistedView = await ctx.testContainer.db
+      .selectFrom('view')
+      .select('column_meta')
+      .where('id', '=', foreignTableAfter.views[0].id)
+      .where('table_id', '=', foreignTableId)
+      .executeTakeFirstOrThrow();
+    const persistedColumnMeta = ViewColumnMeta.create(JSON.parse(persistedView.column_meta));
+    expect(persistedColumnMeta.isOk()).toBe(true);
+    if (persistedColumnMeta.isErr()) throw new Error(persistedColumnMeta.error.message);
+    expect(persistedColumnMeta.value.toDto()[fieldOptions!.symmetricFieldId!]?.order).toEqual(
+      expect.any(Number)
+    );
     const junctionTableName = await getJunctionTableNameByFieldId(linkField.id);
     expect(junctionTableName).toBeDefined();
 

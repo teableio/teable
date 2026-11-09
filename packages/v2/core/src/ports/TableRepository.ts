@@ -106,6 +106,16 @@ export interface ITableRepository {
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<TableUpdatePersistResult | void, DomainError>>;
+  /**
+   * Locks and validates selected persisted View versions against a hydrated table snapshot.
+   * Requires a transaction-bound context. Replay code uses it to keep cross-table snapshots
+   * from overwriting a concurrent View update between state validation and mutation.
+   */
+  lockViewVersions?(
+    context: IExecutionContext,
+    table: Table,
+    viewIds: ReadonlyArray<string>
+  ): Promise<Result<void, DomainError>>;
   restore(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
   delete(
     context: IExecutionContext,

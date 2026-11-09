@@ -1,8 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILookupOptionsRo } from '@teable/core';
-import { FieldType, Relationship } from '@teable/core';
+import { FieldType, getRandomString, Relationship, Role } from '@teable/core';
 import type {
   IBaseNodeVo,
+  IBaseShareByNodeIdVo,
   IGetBaseShareVo,
   IGetDashboardListVo,
   ITablePermissionVo,
@@ -28,10 +29,14 @@ import {
   deletePlugin,
   deletePluginPanel,
   deleteSpace,
+  emailBaseInvitation,
   EXPORT_BASE,
+  GET_BASE_NODE,
   GET_BASE_NODE_LIST,
   GET_BASE_NODE_TREE,
+  GET_BASE_LEVEL_SHARE,
   GET_BASE_SHARE,
+  GET_BASE_SHARE_BY_NODE_ID,
   GET_DASHBOARD,
   GET_DASHBOARD_INSTALL_PLUGIN,
   GET_DASHBOARD_LIST,
@@ -43,6 +48,7 @@ import {
   getTableList,
   getBaseLevelShare,
   installPlugin,
+  LIST_BASE_SHARE,
   listBaseShare,
   listPluginPanels,
   moveBaseNode,
@@ -184,6 +190,40 @@ describe('BaseShareController (e2e)', () => {
       expect(res.data.nodeId).toEqual(childTableNodeId);
       // password is returned as boolean
       expect(res.data.password).toBe(true);
+    });
+
+    it('hands the share link and settings only to members who manage shares', async () => {
+      const viewerEmail = `base-share-viewer-${getRandomString(8).toLowerCase()}@example.com`;
+      const viewerAxios = await createNewUserAxios({ email: viewerEmail, password: '12345678' });
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: { emails: [viewerEmail], role: Role.Viewer },
+      });
+      const nodeShare = await createBaseShare(baseId, { nodeId: rootTableNodeId });
+      createdShareIds.push(nodeShare.data.shareId);
+      // An editable share is what turns a leaked link into write access for a read-only member
+      await updateBaseShare(baseId, nodeShare.data.shareId, { allowEdit: true });
+      const wholeBaseShare = await createBaseShare(baseId, {});
+      createdShareIds.push(wholeBaseShare.data.shareId);
+
+      const viewerNodeShare = await viewerAxios
+        .get<IBaseShareByNodeIdVo>(
+          urlBuilder(GET_BASE_SHARE_BY_NODE_ID, { baseId, nodeId: rootTableNodeId })
+        )
+        .then((res) => res.data);
+      expect(viewerNodeShare).toEqual({ baseId, nodeId: rootTableNodeId, enabled: true });
+
+      const viewerWholeBaseShare = await viewerAxios
+        .get<IBaseShareByNodeIdVo>(urlBuilder(GET_BASE_LEVEL_SHARE, { baseId }))
+        .then((res) => res.data);
+      expect(viewerWholeBaseShare).toEqual({ baseId, nodeId: null, enabled: true });
+
+      // The owner, who manages shares, still gets both links and the settings
+      expect((await getBaseShareByNodeId(baseId, rootTableNodeId)).data).toMatchObject({
+        shareId: nodeShare.data.shareId,
+        allowEdit: true,
+      });
+      expect((await getBaseLevelShare(baseId)).data?.shareId).toEqual(wholeBaseShare.data.shareId);
     });
 
     it('should update base share settings', async () => {
@@ -1391,6 +1431,81 @@ describe('BaseShareController (e2e)', () => {
       expect(nodeIds.has(childTableNodeId)).toBe(true);
       // Root table is outside the shared folder, should not be visible
       expect(nodeIds.has(rootTableNodeId)).toBe(false);
+    });
+
+    it('keeps a node share to its nodes when reading one node, and hides emails', async () => {
+      const share = await createBaseShare(baseId, { nodeId: folderNodeId });
+      createdShareIds.push(share.data.shareId);
+      const headers = { [BASE_SHARE_ID_HEADER]: share.data.shareId };
+      const readNode = (nodeId: string) =>
+        anonymousUser.get<IBaseNodeVo>(urlBuilder(GET_BASE_NODE, { baseId, nodeId }), {
+          headers,
+          validateStatus: () => true,
+        });
+
+      const sharedNodes = (
+        await anonymousUser.get<IBaseNodeVo[]>(urlBuilder(GET_BASE_NODE_LIST, { baseId }), {
+          headers,
+        })
+      ).data;
+      const sharedNodeIds = sharedNodes.map((node) => node.id);
+      const folder = await readNode(folderNodeId);
+      const childTable = await readNode(childTableNodeId);
+      expect(folder.status).toEqual(200);
+      expect(childTable.status).toEqual(200);
+      expect(folder.data.children?.map(({ id }) => id)).toContain(childTableNodeId);
+
+      // The root table lies outside the shared folder, by its node id and by its table id alike
+      for (const nodeId of [rootTableNodeId, rootTableId]) {
+        expect((await readNode(nodeId)).status).toEqual(403);
+      }
+
+      // A share hands nobody a collaborator's email
+      for (const node of [...sharedNodes, folder.data, childTable.data]) {
+        expect(sharedNodeIds).toContain(node.id);
+        expect(node.resourceMeta.createdByUser?.name).toBeTruthy();
+        expect(node.resourceMeta.createdByUser).not.toHaveProperty('email');
+      }
+
+      // A member still reads the emails
+      const memberView = (await getBaseNodeList(baseId)).data.find(
+        (node) => node.id === folderNodeId
+      );
+      expect(memberView?.resourceMeta.createdByUser?.email).toBeTruthy();
+    });
+
+    it('tells a node share visitor nothing about shares outside it', async () => {
+      const share = await createBaseShare(baseId, { nodeId: folderNodeId });
+      const outsideShare = await createBaseShare(baseId, { nodeId: rootTableNodeId });
+      const wholeBaseShare = await createBaseShare(baseId, {});
+      createdShareIds.push(
+        share.data.shareId,
+        outsideShare.data.shareId,
+        wholeBaseShare.data.shareId
+      );
+      // A signed-in visitor who is no member of the base reaches these routes through the share
+      const visitor = await createNewUserAxios({
+        email: `base-share-visitor-${getRandomString(8).toLowerCase()}@example.com`,
+        password: '12345678',
+      });
+      const asVisitor = { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } };
+
+      const listed = (
+        await visitor.get<{ nodeId: string | null }[]>(
+          urlBuilder(LIST_BASE_SHARE, { baseId }),
+          asVisitor
+        )
+      ).data.map(({ nodeId }) => nodeId);
+      expect(listed).toEqual([folderNodeId]);
+
+      const readShare = async (url: string) => (await visitor.get(url, asVisitor)).data;
+      expect(
+        await readShare(urlBuilder(GET_BASE_SHARE_BY_NODE_ID, { baseId, nodeId: folderNodeId }))
+      ).toEqual({ baseId, nodeId: folderNodeId, enabled: true });
+      expect(
+        await readShare(urlBuilder(GET_BASE_SHARE_BY_NODE_ID, { baseId, nodeId: rootTableNodeId }))
+      ).toBeFalsy();
+      expect(await readShare(urlBuilder(GET_BASE_LEVEL_SHARE, { baseId }))).toBeFalsy();
     });
   });
 

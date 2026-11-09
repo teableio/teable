@@ -6,6 +6,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { has, intersection, isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { CollaboratorService } from '../../features/collaborator/collaborator.service';
 import {
   maxCollaboratorNotifyRecordTitles,
   NotificationService,
@@ -32,7 +33,8 @@ export class CollaboratorNotificationListener {
     private readonly prismaService: PrismaService,
     private readonly notificationService: NotificationService,
     private readonly recordService: RecordService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
   @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
@@ -82,12 +84,24 @@ export class CollaboratorNotificationListener {
     ) as (IRecord | IChangeRecord)[];
 
     const notificationData = this.extractNotificationData(recordSets, userFieldIds);
+    const candidateUserIds = Object.keys(notificationData);
+    if (!candidateUserIds.length) {
+      return;
+    }
+    const collaborators = await this.collaboratorService.getUserCollaboratorsByTableId(tableId, {
+      containsIn: { keys: ['id'], values: candidateUserIds },
+    });
+    const collaboratorIds = new Set(collaborators.map(({ id }) => id));
+    const recipientIds = candidateUserIds.filter((userId) => collaboratorIds.has(userId));
+    if (!recipientIds.length) {
+      return;
+    }
 
     // Collect record IDs that need titles (limited to maxCollaboratorNotifyRecordTitles per user)
     const recordIdsNeedingTitles = [
       ...new Set(
-        Object.values(notificationData).flatMap((data) =>
-          data.recordIds.slice(0, maxCollaboratorNotifyRecordTitles)
+        recipientIds.flatMap((userId) =>
+          notificationData[userId]!.recordIds.slice(0, maxCollaboratorNotifyRecordTitles)
         )
       ),
     ];
@@ -97,8 +111,8 @@ export class CollaboratorNotificationListener {
         : [];
     const recordTitlesMap = keyBy(recordTitles, 'id');
 
-    for (const userId in notificationData) {
-      const { fieldId, recordIds } = notificationData[userId];
+    for (const userId of recipientIds) {
+      const { fieldId, recordIds } = notificationData[userId]!;
       const field = userFields[fieldId];
       const recordIdsForTitles = recordIds.slice(0, maxCollaboratorNotifyRecordTitles);
 

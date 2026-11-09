@@ -1,3 +1,5 @@
+import type { ISettingVo } from '@teable/openapi';
+import { MASKED_SECRET_PREFIX } from '@teable/openapi';
 import { render, screen, userEvent } from '@/test-utils';
 import { LLMApiConfigStep } from './LLMApiConfigStep';
 
@@ -67,5 +69,78 @@ describe('LLMApiConfigStep', () => {
     expect(
       screen.getByRole('button', { name: 'admin.setting.ai.wizard.saveAndContinue' })
     ).toBeDisabled();
+  });
+
+  describe('gateway URL change', () => {
+    const savedUrl = 'https://gateway.example.com/v1';
+    const savedConfig: NonNullable<ISettingVo['aiConfig']> = {
+      llmProviders: [],
+      aiGatewayApiKey: `${MASKED_SECRET_PREFIX}gateway`,
+      aiGatewayBaseUrl: savedUrl,
+    };
+    const keyHint = 'admin.setting.secretEndpointChanged';
+    const boundKeysWarning = 'admin.setting.ai.wizard.gatewayUrlKeysReenter';
+
+    const renderGateway = (saved: NonNullable<ISettingVo['aiConfig']>) => {
+      render(
+        <LLMApiConfigStep {...baseProps} mode="gateway" aiConfig={saved} savedAiConfig={saved} />
+      );
+      return {
+        key: screen.getByLabelText(/admin\.setting\.app\.aiGatewayApiKey/),
+        url: screen.getByLabelText(/admin\.setting\.app\.aiGatewayBaseUrl/),
+      };
+    };
+
+    it('clears the masked gateway key once the URL moves, and brings it back with the saved URL', async () => {
+      const { key, url } = renderGateway(savedConfig);
+      expect(key).toHaveValue(savedConfig.aiGatewayApiKey);
+
+      await userEvent.type(url, '/extra');
+      expect(key).toHaveValue('');
+      expect(screen.getByText(keyHint)).toBeInTheDocument();
+
+      await userEvent.clear(url);
+      await userEvent.type(url, savedUrl);
+      expect(key).toHaveValue(savedConfig.aiGatewayApiKey);
+      expect(screen.queryByText(keyHint)).not.toBeInTheDocument();
+    });
+
+    it('keeps the masked gateway key when the URL is cleared to the default gateway', async () => {
+      const { key, url } = renderGateway(savedConfig);
+
+      await userEvent.clear(url);
+
+      expect(key).toHaveValue(savedConfig.aiGatewayApiKey);
+      expect(screen.queryByText(keyHint)).not.toBeInTheDocument();
+    });
+
+    it('warns that saved Token Group keys must be re-entered when the URL moves', async () => {
+      const { url } = renderGateway({
+        ...savedConfig,
+        concurrencyGroups: [
+          {
+            id: 'group-1',
+            name: 'Group 1',
+            taskTypes: [],
+            keys: [{ apiKey: `${MASKED_SECRET_PREFIX}pool`, status: 'verified' }],
+          },
+        ],
+      });
+      expect(screen.queryByText(boundKeysWarning)).not.toBeInTheDocument();
+
+      await userEvent.type(url, '/extra');
+      expect(screen.getByText(boundKeysWarning)).toBeInTheDocument();
+
+      await userEvent.clear(url);
+      expect(screen.queryByText(boundKeysWarning)).not.toBeInTheDocument();
+    });
+
+    it('does not warn about other keys when the saved config has none', async () => {
+      const { url } = renderGateway(savedConfig);
+
+      await userEvent.type(url, '/extra');
+
+      expect(screen.queryByText(boundKeysWarning)).not.toBeInTheDocument();
+    });
   });
 });

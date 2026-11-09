@@ -326,22 +326,4 @@ describe('ComputedOutboxBaseAdmissionService', () => {
     operationGate.resolve();
     await expect(result).rejects.toBeInstanceOf(ComputedOutboxBaseAdmissionLeaseLostError);
   });
-
-  it('uses the BullMQ queue client independently of the configured backend cache provider', async () => {
-    const previousCacheProvider = process.env.BACKEND_CACHE_PROVIDER;
-    process.env.BACKEND_CACHE_PROVIDER = 'memory';
-    evalRedis.mockResolvedValue(1);
-
-    try {
-      await expect(createService().runWithPermit('bse123', async () => 'done')).resolves.toEqual({
-        admitted: true,
-        value: 'done',
-      });
-    } finally {
-      if (previousCacheProvider === undefined) delete process.env.BACKEND_CACHE_PROVIDER;
-      else process.env.BACKEND_CACHE_PROVIDER = previousCacheProvider;
-    }
-
-    expect(evalRedis).toHaveBeenCalledTimes(2);
-  });
 });

@@ -22,7 +22,7 @@ import { BannedEmailDomains } from './components/BannedEmailDomains';
 import { Branding } from './components/Branding';
 import { CanarySettings } from './components/canary';
 import type { IList } from './components/ConfigurationList';
-import { ConfigurationList } from './components/ConfigurationList';
+import { ConfigurationList, useSecurityItems } from './components/ConfigurationList';
 import { MailConfigDialog } from './components/mail-config/MailConfig';
 
 import { InviteCodeManage } from './components/waitlist/InviteCodeManage';
@@ -70,10 +70,12 @@ export const SettingPage = (props: ISettingPageProps) => {
   };
 
   const emailRef = useRef<HTMLDivElement>(null);
+  const signupRef = useRef<HTMLDivElement>(null);
   const { publicOrigin, buildVersion } = useEnv();
   const displayBuildVersion = buildVersion ?? process.env.APP_VERSION ?? 'develop';
 
   const isHydrated = useIsHydrated();
+  const securityItems = useSecurityItems(setting, signupRef);
 
   const todoLists = useMemo(
     () => [
@@ -133,8 +135,10 @@ export const SettingPage = (props: ISettingPageProps) => {
         group: 'system' as const,
         path: '/admin/setting?anchor=email',
       },
+      ...securityItems,
     ],
     [
+      securityItems,
       isHydrated,
       publicOrigin,
       setting?.aiConfig,
@@ -148,9 +152,10 @@ export const SettingPage = (props: ISettingPageProps) => {
 
   useEffect(() => {
     const { anchor } = router.query;
-    if (anchor === 'email') {
+    const target = { email: emailRef, signup: signupRef }[String(anchor)];
+    if (target) {
       setTimeout(() => {
-        emailRef.current && scrollToTarget(emailRef.current);
+        target.current && scrollToTarget(target.current);
       }, 500);
     }
   }, [router.query]);
@@ -181,7 +186,7 @@ export const SettingPage = (props: ISettingPageProps) => {
       <div className="relative flex flex-1 flex-col overflow-hidden sm:flex-row">
         <div className="setting-page-left-container flex-1 overflow-y-auto overflow-x-hidden sm:pe-10">
           {/* General Settings Section */}
-          <div className="pb-6">
+          <div className="pb-6" ref={signupRef}>
             <h2 className="mb-4 text-lg font-medium">{t('admin.setting.generalSettings')}</h2>
             <div className="flex w-full flex-col space-y-4">
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm rtl:space-x-reverse">

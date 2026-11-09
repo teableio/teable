@@ -19,7 +19,6 @@
     "composite": false,
     "outDir": "dist",
     "paths": {
-      "@teable/core": ["../../core/src"],
       "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],
       "@teable/v2-container-browser": ["../container-browser/dist/index.d.ts"],
       "@teable/v2-core": ["../core/src"],

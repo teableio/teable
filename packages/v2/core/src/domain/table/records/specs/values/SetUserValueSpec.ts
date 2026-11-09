@@ -26,11 +26,13 @@ export class SetUserValueSpec extends MutateOnlySpec<TableRecord, ICellValueSpec
     readonly fieldId: FieldId,
     readonly value: CellValue<UserItem[]>,
     /**
-     * Strict (non-typecast) writes resolve bare `{ id }` references against the
-     * table's collaborators only, matching v1. Typecast/paste snapshots stay
-     * platform-scoped so a copied cell keeps its original member.
+     * Caller-controlled references resolve in table scope, except an exact
+     * active id/email pair may identify a user outside it. Only server-created
+     * specs for trusted existing values may use the default; never expose this flag in input.
      */
-    readonly requireCollaborator = false
+    readonly requireCollaborator = false,
+    /** Additional input items to validate before selecting a single user. */
+    readonly itemsToValidate?: ReadonlyArray<UserItem>
   ) {
     super();
   }

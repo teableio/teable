@@ -4,6 +4,8 @@ import { LLMProviderType } from '@teable/openapi';
 import { APICallError, generateImage as aiGenerateImage, generateText as aiGenerateText } from 'ai';
 import axios from 'axios';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { verifyTransport } from '../../mail-sender/mail-helpers';
+import { maskSettingSecrets } from '../setting-secrets';
 import { SettingOpenApiService } from './setting-open-api.service';
 
 vi.mock('../../mail-sender/mail-helpers', () => ({
@@ -194,6 +196,36 @@ describe('SettingOpenApiService', () => {
     expect(settingService.updateSetting).not.toHaveBeenCalled();
   });
 
+  it('refuses moving the AI gateway URL while stored gateway keys stay behind', async () => {
+    const stored = {
+      llmProviders: [],
+      aiGatewayApiKey: 'gw-key',
+      aiGatewayBaseUrl: 'https://gateway.example/v1',
+      concurrencyGroups: [{ name: 'g', keys: [{ name: 'k', apiKey: 'group-key' }] }],
+    };
+    const settingService = {
+      getSetting: vi.fn().mockResolvedValue({ aiConfig: stored }),
+      updateSetting: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = createServiceWithSettingService(settingService);
+
+    // The llmApi section re-enters the main key but not the concurrency group keys.
+    await expect(
+      service.updateAiConfig({
+        section: 'llmApi',
+        patch: { aiGatewayApiKey: 'gw-key-new', aiGatewayBaseUrl: 'https://attacker.example/v1' },
+      })
+    ).rejects.toThrow('concurrencyGroups');
+    expect(settingService.updateSetting).not.toHaveBeenCalled();
+
+    // The same URL, or the official default, keeps the stored keys where they were saved for.
+    await service.updateAiConfig({
+      section: 'llmApi',
+      patch: { aiGatewayApiKey: 'gw-key-new', aiGatewayBaseUrl: null },
+    });
+    expect(settingService.updateSetting).toHaveBeenCalledTimes(1);
+  });
+
   it('normalizes a null provider-list patch to an empty list', async () => {
     const settingService = {
       getSetting: vi.fn().mockResolvedValue({
@@ -344,6 +376,84 @@ describe('SettingOpenApiService audit', () => {
     expect(JSON.stringify(audit.emitAtomic.mock.calls)).not.toContain('new-token');
   });
 
+  it('keeps the stored Vercel token when an app config patch writes back its mask', async () => {
+    const appConfig = { vercelToken: 'stored-token', deployProvider: 'vercel' as const };
+    const { service, settingService, audit } = createAuditedService({ appConfig });
+    const masked = maskSettingSecrets('appConfig', appConfig);
+
+    const result = await service.updateAppConfig({
+      section: 'engine',
+      patch: { vercelToken: masked.vercelToken, deployProvider: 'docker-runtime' },
+    });
+
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      appConfig: { vercelToken: 'stored-token', deployProvider: 'docker-runtime' },
+    });
+    expect(result.appConfig.vercelToken).toBe('stored-token');
+    expect(audit.emitAtomic.mock.calls[0][0].params.changedKeys).toEqual(['deployProvider']);
+  });
+
+  it('resolves masked secrets in a whole-setting write before saving it', async () => {
+    const notifyMailTransportConfig = {
+      host: 'smtp.example.com',
+      port: 465,
+      secure: true,
+      sender: 'noreply@example.com',
+      senderName: 'Teable',
+      auth: { user: 'mailer', pass: secretApiKey },
+    };
+    const { service, settingService, audit } = createAuditedService({
+      notifyMailTransportConfig,
+    });
+
+    await service.updateSetting({
+      notifyMailTransportConfig: {
+        ...maskSettingSecrets('notifyMailTransportConfig', notifyMailTransportConfig),
+        senderName: 'Teable Bot',
+      },
+    });
+
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      notifyMailTransportConfig: { ...notifyMailTransportConfig, senderName: 'Teable Bot' },
+    });
+    expect(audit.emitAtomic.mock.calls[0][0].params.changedKeys).toEqual([
+      'notifyMailTransportConfig.senderName',
+    ]);
+  });
+
+  it('resolves a masked provider key for a test only against the same type and base URL', async () => {
+    const provider = {
+      type: LLMProviderType.OPENAI,
+      name: 'teable',
+      models: 'gpt-4o',
+      baseUrl: openAIBaseUrl,
+      apiKey: secretApiKey,
+    };
+    const { service } = createAuditedService({ aiConfig: { llmProviders: [provider] } });
+    const [masked] = maskSettingSecrets('aiConfig', { llmProviders: [provider] }).llmProviders;
+
+    await expect(service.unmaskProviderKeys([masked])).resolves.toEqual([provider]);
+    await expect(
+      service.unmaskProviderKeys([{ ...masked, baseUrl: 'https://attacker.example/v1' }])
+    ).rejects.toThrow('can only be sent to the address it was saved for');
+  });
+
+  it('resolves a masked SMTP password for a test only against the same server and user', async () => {
+    const stored = {
+      host: 'smtp.example.com',
+      port: 465,
+      sender: 'noreply@example.com',
+      auth: { user: 'mailer', pass: secretApiKey },
+    };
+    const { service } = createAuditedService({ notifyMailTransportConfig: stored });
+    const masked = maskSettingSecrets('notifyMailTransportConfig', stored);
+
+    await expect(service.unmaskSmtpPassword(masked)).resolves.toBe(secretApiKey);
+    await expect(
+      service.unmaskSmtpPassword({ ...masked, host: 'smtp.attacker.example' })
+    ).rejects.toThrow('can only be sent to the address it was saved for');
+  });
+
   it('records the changed SMTP fields of a mail transport without the password', async () => {
     const { service, audit } = createAuditedService({
       notifyMailTransportConfig: {
@@ -375,6 +485,41 @@ describe('SettingOpenApiService audit', () => {
       },
     });
     expect(JSON.stringify(audit.emitAtomic.mock.calls)).not.toContain(secretApiKey);
+  });
+
+  it('verifies and saves a mail transport with the stored password behind its mask', async () => {
+    const stored = {
+      host: 'smtp.example.com',
+      port: 465,
+      secure: true,
+      sender: 'noreply@example.com',
+      auth: { user: 'mailer', pass: secretApiKey },
+    };
+    const { service, settingService } = createAuditedService({
+      notifyMailTransportConfig: stored,
+    });
+    const masked = maskSettingSecrets('notifyMailTransportConfig', stored);
+
+    await service.setMailTransportConfig({
+      name: 'notifyMailTransportConfig',
+      transportConfig: { ...masked, sender: 'bot@example.com' },
+    } as never);
+
+    const resolved = { ...stored, sender: 'bot@example.com' };
+    expect(verifyTransport).toHaveBeenCalledWith(resolved);
+    expect(settingService.updateSetting).toHaveBeenCalledWith({
+      notifyMailTransportConfig: resolved,
+    });
+
+    // Pointing the saved password at another server takes it typed again.
+    vi.mocked(verifyTransport).mockClear();
+    await expect(
+      service.setMailTransportConfig({
+        name: 'notifyMailTransportConfig',
+        transportConfig: { ...masked, host: 'smtp.attacker.example' },
+      } as never)
+    ).rejects.toThrow('can only be sent to the address it was saved for');
+    expect(verifyTransport).not.toHaveBeenCalled();
   });
 
   it('records a logo upload as its own row, not as a settings update', async () => {

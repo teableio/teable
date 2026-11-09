@@ -1,3 +1,4 @@
+import { updateFieldInputSchema } from '@teable/v2-core';
 import { z } from 'zod';
 
 import { dataQueryDefinitionInputSchema } from './DataQueryDefinition';
@@ -36,10 +37,42 @@ export const queryExecutionResultSchema = z
 export const queryExecutionJsonSchema = () =>
   z.toJSONSchema(executeDataQueryRequestSchema, { target: 'draft-2020-12', io: 'input' });
 
+/** A command descriptor, never caller-supplied schema. Hosts must authorize its preparation. */
+export const dataQueryCandidateSchema = z.discriminatedUnion('operation', [
+  z
+    .object({
+      operation: z.literal('delete'),
+      tableId: z.string(),
+      fieldIds: z.array(z.string()).min(1),
+    })
+    .strict(),
+  z
+    .object({
+      operation: z.literal('convert'),
+      tableId: z.string(),
+      fieldId: z.string(),
+      inputFormat: z.enum(['field-openapi', 'field-v2']).optional(),
+      field: z.record(z.string(), z.unknown()),
+    })
+    .strict()
+    .superRefine((candidate, context) => {
+      const valid =
+        candidate.inputFormat === 'field-v2'
+          ? updateFieldInputSchema.safeParse(candidate).success
+          : typeof candidate.field.type === 'string';
+      if (!valid)
+        context.addIssue({ code: 'custom', message: 'Invalid field conversion candidate' });
+    }),
+]);
+export type DataQueryCandidate = z.infer<typeof dataQueryCandidateSchema>;
+
 export const validateDataQueryRequestSchema = z
   .object({
     definition: dataQueryDefinitionInputSchema,
     includeUsage: z.boolean().optional(),
+    includeSchemaSignature: z.boolean().optional(),
+    candidate: dataQueryCandidateSchema.optional(),
+    candidateProof: z.string().min(1).optional(),
   })
   .strict();
 export type ValidateDataQueryRequest = z.infer<typeof validateDataQueryRequestSchema>;
@@ -65,6 +98,7 @@ export const dataQueryValidationUsageSchema: z.ZodType<DataQueryValidationUsage>
 export type DataQueryValidationResult = {
   readonly outputs: ReadonlyArray<DataQueryOutput>;
   readonly usage?: DataQueryValidationUsage;
+  readonly schemaSignature?: string;
 };
 
 export const queryValidationResultSchema: z.ZodType<DataQueryValidationResult> = z
@@ -81,5 +115,6 @@ export const queryValidationResultSchema: z.ZodType<DataQueryValidationResult> =
         .strict()
     ),
     usage: dataQueryValidationUsageSchema.optional(),
+    schemaSignature: z.string().optional(),
   })
   .strict();

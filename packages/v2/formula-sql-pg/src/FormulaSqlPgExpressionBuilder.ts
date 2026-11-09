@@ -2002,14 +2002,15 @@ export class FormulaSqlPgExpressionBuilder {
     unit: DatetimeDiffUnit,
     diffSeconds: string,
     diffMonths: string,
-    diffYears: string
+    diffYears: string,
+    diffDays = this.buildDatetimeDiffDaySql(diffSeconds)
   ): string {
     const sqlByUnit: Record<DatetimeDiffUnit, string> = {
       millisecond: this.budget.sql`((${diffSeconds}) * 1000)`,
       second: this.budget.sql`((${diffSeconds}))`,
       minute: this.budget.sql`((${diffSeconds}) / 60)`,
       hour: this.budget.sql`((${diffSeconds}) / 3600)`,
-      day: this.buildDatetimeDiffDaySql(diffSeconds),
+      day: diffDays,
       week: this.budget.sql`((${diffSeconds}) / (86400 * 7))`,
       month: this.budget.sql`${diffMonths}`,
       quarter: this.budget.sql`((${diffMonths}) / 3.0)`,
@@ -2028,7 +2029,8 @@ export class FormulaSqlPgExpressionBuilder {
     unitSql: string,
     diffSeconds: string,
     diffMonths: string,
-    diffYears: string
+    diffYears: string,
+    diffDays = this.buildDatetimeDiffDaySql(diffSeconds)
   ): string {
     return this.budget.sql`(CASE
       WHEN ${unitSql} IN ('millisecond', 'milliseconds', 'ms') THEN ((${diffSeconds}) * 1000)
@@ -2039,7 +2041,7 @@ export class FormulaSqlPgExpressionBuilder {
       WHEN ${unitSql} IN ('month', 'months') THEN ${diffMonths}
       WHEN ${unitSql} IN ('quarter', 'quarters') THEN ((${diffMonths}) / 3.0)
       WHEN ${unitSql} IN ('year', 'years') THEN ${diffYears}
-      WHEN ${unitSql} IN ('day', 'days') THEN ${this.buildDatetimeDiffDaySql(diffSeconds)}
+      WHEN ${unitSql} IN ('day', 'days') THEN ${diffDays}
       ELSE NULL::double precision
     END)`;
   }

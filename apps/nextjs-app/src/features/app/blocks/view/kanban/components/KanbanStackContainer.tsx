@@ -5,13 +5,14 @@ import { CreateRecordModal, generateLocalId } from '@teable/sdk/components';
 import { useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { VirtuosoHandle } from 'react-virtuoso';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import type { IKanbanContext } from '../context';
 import { useInView, useKanban } from '../hooks';
 import { useKanbanStackCollapsedStore } from '../store';
 import type { IStackData } from '../type';
+import { getCellValueByStack } from '../utils';
 import type { ICardMap } from './interface';
 import { KanbanStack } from './KanbanStack';
 import { KanbanStackHeader } from './KanbanStackHeader';
@@ -31,7 +32,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
   const tableId = useTableId();
   const viewId = useViewId();
   const { collapsedStackMap, setCollapsedStackMap } = useKanbanStackCollapsedStore();
-  const { permission } = useKanban() as Required<IKanbanContext>;
+  const { permission, stackField } = useKanban() as Required<IKanbanContext>;
   const [ref, isInView] = useInView();
   const [editMode, setEditMode] = useState(false);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -40,6 +41,12 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
   const { stackDraggable, cardCreatable } = permission;
   const isUncategorized = stackId === UNCATEGORIZED_STACK_ID;
   const draggable = stackDraggable && !disabled && !editMode && !isUncategorized;
+
+  // A record added to a stack starts in it, as one dragged there or inserted beside a card does.
+  const initialFields = useMemo(() => {
+    if (isUncategorized || stackField.isComputed) return undefined;
+    return { [stackField.id]: getCellValueByStack(stack) };
+  }, [isUncategorized, stackField, stack]);
 
   const onAppendCallback = () => {
     setTimeout(() => {
@@ -111,7 +118,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
                   </div>
 
                   {cardCreatable && (
-                    <CreateRecordModal callback={onAppendCallback}>
+                    <CreateRecordModal callback={onAppendCallback} initialFields={initialFields}>
                       <div className="flex items-center justify-center rounded-b-md bg-muted px-3 py-2 dark:bg-muted">
                         <Button variant="outline" size="sm" className="w-full shadow-none">
                           <Plus className="size-5" />

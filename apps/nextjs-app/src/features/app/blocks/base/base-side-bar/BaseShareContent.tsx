@@ -149,17 +149,15 @@ export const BaseShareContent = ({
         </Label>
       </div>
 
-      {isShareEnabled && share && (
+      {/* The link and settings are for those who manage the share; anyone else sees only that it is on */}
+      {isShareEnabled && share && !disabled && (
         <>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5 text-sm">
               <span className="text-muted-foreground">{t('baseShare.linkHolderLabel')}</span>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={disabled}>
-                  <button
-                    disabled={disabled}
-                    className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
+                <DropdownMenuTrigger asChild>
+                  <button className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600">
                     {activePermission?.label}
                     <ChevronDown className="size-3.5" />
                   </button>
@@ -211,7 +209,7 @@ export const BaseShareContent = ({
                       className="shrink-0"
                       aria-label={t('baseShare.refreshLink')}
                       onClick={onRefreshShare}
-                      disabled={isRefreshLoading || disabled}
+                      disabled={isRefreshLoading}
                     >
                       {isRefreshLoading ? (
                         <Spin className="size-4" />
@@ -240,7 +238,6 @@ export const BaseShareContent = ({
                 <Switch
                   id="share-allowCopy"
                   checked={Boolean(share.allowCopy)}
-                  disabled={disabled}
                   onCheckedChange={(checked) => onUpdateSetting({ allowCopy: checked })}
                 />
                 <Label className="text-sm font-normal" htmlFor="share-allowCopy">
@@ -253,14 +250,14 @@ export const BaseShareContent = ({
                   <Switch
                     id="share-password"
                     checked={Boolean(share.password)}
-                    disabled={disabled || isUpdateLoading}
+                    disabled={isUpdateLoading}
                     onCheckedChange={handlePasswordSwitchChange}
                   />
                   <Label className="text-sm font-normal" htmlFor="share-password">
                     {t('baseShare.restrictByPassword')}
                   </Label>
                 </div>
-                {Boolean(share.password) && !disabled && (
+                {Boolean(share.password) && (
                   <SharePasswordReveal
                     shareUrl={shareUrl}
                     password={revealedPassword}

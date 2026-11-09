@@ -118,6 +118,16 @@
           "confirmText": "Підтвердити вихід"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "Приховати поля",
+      "hiddenCount": "Приховано ({{count}})",
+      "filter": "Фільтр",
+      "filterCount": "Фільтр ({{count}})",
+      "sort": "Сортування",
+      "sortCount": "Сортування ({{count}})",
+      "group": "Групування",
+      "groupCount": "Групування ({{count}})"
     }
   },
   "welcome": {
@@ -1152,6 +1162,8 @@
   "view": {
     "addRecord": "Додати запис",
     "searchView": "Поиск вида...",
+    "starredGroup": "Обрані",
+    "otherGroup": "Інші види",
     "dragToolTip": "Включена автоматична сортування, ручне перезавантаження недоступне",
     "insertToolTip": "Включена автоматична сортування, вставка з порядком недоступна",
     "action": {
@@ -1174,6 +1186,7 @@
       "description": "Це вид сломан. Якщо оновлення все ще не допомагає, будь ласка, зв'яжіться з нами. support@teable.ai"
     },
     "addPluginView": "Add Plugin View",
+    "addView": "Створити подання",
     "search": {
       "field_one": "{{name}}",
       "field_few": "fields({{length}})",
@@ -1701,7 +1714,6 @@
       "share": "Поділитися",
       "enableShare": "Увімкнути доступ",
       "copyLink": "Скопіювати посилання",
-      "rotateLink": "Скинути посилання",
       "scope": "Хто може переглядати",
       "scopePublic": "Усі, хто має посилання",
       "scopeSpace": "Учасники простору",
@@ -1801,7 +1813,8 @@
       "running": "Генерація…",
       "waitingInput": "Очікує вашої відповіді",
       "failed": "Відповідь не вдалася"
-    }
+    },
+    "routineRunPrompt": "Надіслано рутиною"
   },
   "upload": {
     "panelUploading": "Завантаження файлів: {{count}}",

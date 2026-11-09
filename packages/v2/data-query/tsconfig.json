@@ -23,7 +23,6 @@
     "paths": {
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"],
-      "@teable/core": ["../../core/src"],
       "@teable/formula": ["../../formula/src"],
       "@teable/i18n-keys": ["../../i18n-keys/src"]
     },

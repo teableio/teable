@@ -3,6 +3,7 @@ import type * as OpenApi from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type * as SdkHooks from '@teable/sdk/hooks';
+import { pick } from 'lodash';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, userEvent, waitFor } from '@/test-utils';
 import type { TreeItemData } from '../base-node/hooks';
@@ -16,13 +17,14 @@ const api = vi.hoisted(() => ({
   refreshBaseShare: vi.fn(),
   deleteBaseShare: vi.fn(),
 }));
+const basePermission = vi.hoisted(() => ({ value: {} as Record<string, boolean> }));
 vi.mock('@teable/openapi', async (importOriginal) => ({
   ...(await importOriginal<typeof OpenApi>()),
   ...api,
 }));
 vi.mock('@teable/sdk/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof SdkHooks>()),
-  useBasePermission: () => ({ 'base|update': true }),
+  useBasePermission: () => basePermission.value,
 }));
 vi.mock('@/features/app/hooks/useShortLink', () => ({
   useShortLink: () => ({ shortUrl: 'https://teable.test/s/fixture', isFallback: false }),
@@ -59,7 +61,10 @@ const node = {
   resourceMeta: { name: 'New folder' },
 } as unknown as TreeItemData;
 
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  basePermission.value = { 'base|update': true };
+});
 
 describe('NodeShareContent create share', () => {
   it('shows the share as enabled as soon as creation succeeds, without allowing a second create', async () => {
@@ -160,6 +165,27 @@ describe('NodeShareContent create share', () => {
       );
       expect(screen.queryByRole('button', { name: 'baseShare.linkHolderCanView' })).toBeNull();
     });
+  });
+
+  it('tells a member who cannot manage the share that it is on, nothing more', async () => {
+    basePermission.value = { 'base|update': false };
+    api.listBaseShare.mockResolvedValue({ data: [share] });
+    // The server leaves the link and settings out for such a member
+    api.getBaseShareByNodeId.mockResolvedValue({
+      data: pick(share, ['baseId', 'nodeId', 'enabled']),
+    });
+    render(<NodeShareContent baseId="bseFixture" nodeId="bnoFolder" node={node} hideHeader />);
+
+    // The switch shows off until the share list and the node's share have loaded
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'baseShare.shareToWeb' })).toBeChecked()
+    );
+    const toggle = screen.getByRole('switch', { name: 'baseShare.shareToWeb' });
+    expect(toggle).toBeDisabled();
+    expect(screen.getAllByRole('switch')).toEqual([toggle]);
+    expect(screen.queryByRole('button', { name: 'baseShare.linkHolderCanView' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'baseShare.advanced' })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('keeps the advanced options collapsed until the toggle is opened', async () => {

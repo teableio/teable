@@ -18,6 +18,7 @@ interface IDraggableSortProps {
   fields: IFieldInstance[];
   sorts: NonNullable<ISort>['sortObjs'];
   selectedFields: string[];
+  enablePinyin?: boolean;
   onChange: (sorts: NonNullable<ISort>['sortObjs']) => void;
 }
 
@@ -29,6 +30,7 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
     onSelect,
     deleteHandler,
     selectedFields,
+    enablePinyin,
     displayDragHandler,
     attributes,
     listeners,
@@ -41,6 +43,7 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
         value={value}
         index={index}
         onSelect={onSelect}
+        enablePinyin={enablePinyin}
         selectedFields={selectedFields}
       />
 
@@ -67,7 +70,7 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
 }
 
 function DraggableSortList(props: Readonly<IDraggableSortProps>) {
-  const { fields, sorts, onChange, selectedFields } = props;
+  const { fields, sorts, onChange, selectedFields, enablePinyin } = props;
   const isHydrated = useIsHydrated();
 
   const deleteHandler = (index: number) => {
@@ -115,6 +118,7 @@ function DraggableSortList(props: Readonly<IDraggableSortProps>) {
                     onSelect={selectHandler}
                     deleteHandler={deleteHandler}
                     selectedFields={selectedFields}
+                    enablePinyin={enablePinyin}
                     displayDragHandler={sorts.length > 1}
                     attributes={attributes}
                     listeners={listeners}

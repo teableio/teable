@@ -1,0 +1,5 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["../../eslint-config-bases/src/bases/v2-import-boundary.json"],
+  "ignorePatterns": [".*", "build", "dist", "storybook-static", "next-env.d.ts"]
+}

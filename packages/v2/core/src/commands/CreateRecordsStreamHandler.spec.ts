@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -14,7 +15,6 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -45,6 +45,13 @@ const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId };
 };
+
+const createRecordMutationSpecResolver = () =>
+  ({
+    resolveCreatedRecords: async (
+      ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+    ) => ok(input),
+  }) as unknown as RecordMutationSpecResolverService;
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'c'.repeat(16)}`)._unsafeUnwrap();
@@ -149,12 +156,12 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async insertManyStream(
     context: IExecutionContext,
     table: Table,
-    batches: Iterable<ReadonlyArray<TableRecord>>
+    batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>
   ): Promise<Result<{ totalInserted: number }, DomainError>> {
     this.lastContext = context;
     this.lastTable = table;
     let totalInserted = 0;
-    for (const batch of batches) {
+    for await (const batch of batches) {
       this.records.push(...batch);
       totalInserted += batch.length;
     }
@@ -273,6 +280,7 @@ describe('CreateRecordsStreamHandler', () => {
 
     const handler = new CreateRecordsStreamHandler(
       new TableQueryService(tableRepository),
+      createRecordMutationSpecResolver(),
       createRecordWritePluginRunner(),
       recordRepository,
       new EventBusDomainWriteTransaction(unitOfWork, eventBus)
@@ -323,6 +331,7 @@ describe('CreateRecordsStreamHandler', () => {
 
     const handler = new CreateRecordsStreamHandler(
       new TableQueryService(tableRepository),
+      createRecordMutationSpecResolver(),
       createRecordWritePluginRunner(),
       recordRepository,
       new EventBusDomainWriteTransaction(unitOfWork, eventBus)
@@ -385,6 +394,7 @@ describe('CreateRecordsStreamHandler', () => {
 
     const handler = new CreateRecordsStreamHandler(
       new TableQueryService(tableRepository),
+      createRecordMutationSpecResolver(),
       createRecordWritePluginRunner([plugin]),
       recordRepository,
       new EventBusDomainWriteTransaction(unitOfWork, eventBus)
@@ -416,6 +426,7 @@ describe('CreateRecordsStreamHandler', () => {
 
     const handler = new CreateRecordsStreamHandler(
       new TableQueryService(tableRepository),
+      createRecordMutationSpecResolver(),
       createRecordWritePluginRunner(),
       recordRepository,
       new EventBusDomainWriteTransaction(unitOfWork, eventBus)
@@ -451,6 +462,7 @@ describe('CreateRecordsStreamHandler', () => {
 
     const handler = new CreateRecordsStreamHandler(
       new TableQueryService(tableRepository),
+      createRecordMutationSpecResolver(),
       createRecordWritePluginRunner(),
       recordRepository,
       new EventBusDomainWriteTransaction(unitOfWork, eventBus)

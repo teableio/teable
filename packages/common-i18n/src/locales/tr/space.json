@@ -444,10 +444,10 @@
     "title": "Nasıl başlamak istersiniz?"
   },
   "importBaseDialog": {
-    "title": "Projeyi içe aktar",
-    "fromFile": "Dosyadan içe aktar",
-    "fromFileDesc": ".tea proje dosyası yükleyin",
-    "fromAirtableDesc": "Airtable hesabınızı bağlayın",
-    "fromGoogleSheetDesc": "Google Drive'ınızdan bir e-tablo seçin"
+    "title": "Proje olarak içe aktar",
+    "fromFile": "{{brand}} dosyası",
+    "fromFileDesc": ".tea dosyası yükleyin",
+    "fromAirtableDesc": "Bir base seçin",
+    "fromGoogleSheetDesc": "Bir e-tablo seçin"
   }
 }

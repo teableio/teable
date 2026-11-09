@@ -98,12 +98,24 @@ export const validateDataQueryEndpoint = async (
   const includeUsage =
     typeof rawInput === 'object' &&
     rawInput !== null &&
-    'includeUsage' in rawInput &&
     Object.hasOwn(rawInput, 'includeUsage') &&
-    rawInput.includeUsage === true;
-  const value = includeUsage ? result.value : { outputs: result.value.outputs };
+    (rawInput as { includeUsage?: unknown }).includeUsage === true;
+  const includeSchemaSignature =
+    typeof rawInput === 'object' &&
+    rawInput !== null &&
+    Object.hasOwn(rawInput, 'includeSchemaSignature') &&
+    (rawInput as { includeSchemaSignature?: unknown }).includeSchemaSignature === true;
+  const value = {
+    outputs: result.value.outputs,
+    ...(includeUsage ? { usage: result.value.usage } : {}),
+    ...(includeSchemaSignature ? { schemaSignature: result.value.schemaSignature } : {}),
+  };
   const parsed = validateDataQueryResponseDtoSchema.safeParse({ ok: true, data: value });
-  if ((includeUsage && result.value.usage === undefined) || !parsed.success) {
+  if (
+    (includeUsage && result.value.usage === undefined) ||
+    (includeSchemaSignature && result.value.schemaSignature === undefined) ||
+    !parsed.success
+  ) {
     const error = domainError.unexpected({
       code: 'data_query.invalid_response',
       message: 'Invalid data query response',

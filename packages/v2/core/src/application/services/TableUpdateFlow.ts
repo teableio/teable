@@ -358,10 +358,11 @@ export class TableUpdateFlow {
             ]
           : [];
       const finalizeReady = async (): Promise<void> => {
+        const committedContext = withoutTransaction(context);
         const readyResult = await completeTableSchemaOperation(
           handler.unitOfWork,
           handler.tableRepository,
-          context,
+          committedContext,
           latestTable,
           { type: 'table.update' }
         );
@@ -370,18 +371,21 @@ export class TableUpdateFlow {
         }
         const readyEvents = provisionReadyEvents();
         if (readyEvents.length > 0) {
-          const publishResult = await handler.eventBus.publishMany(context, readyEvents);
+          const publishResult = await handler.eventBus.publishMany(committedContext, readyEvents);
           if (publishResult.isErr()) {
             throw new Error(publishResult.error.message);
           }
         }
       };
       const metaTransaction = getUnitOfWorkTransaction(context, 'meta');
+      const commitContext = metaTransaction
+        ? { ...context, transaction: metaTransaction }
+        : context;
       const rollbackTransaction = metaTransaction?.afterRollback
         ? metaTransaction
         : context.transaction;
       let readyEventsAfterCommit = false;
-      if (!finalizeWithinTransaction && registerAfterCommit(context, finalizeReady)) {
+      if (!finalizeWithinTransaction && registerAfterCommit(commitContext, finalizeReady)) {
         readyEventsAfterCommit = true;
       } else {
         yield* await completeTableSchemaOperation(
@@ -434,12 +438,27 @@ export class TableUpdateFlow {
       );
 
       if (publishEvents) {
-        // Publish events directly; projections fetch data themselves
-        if (normalizedEvents.length > 0) {
-          yield* await handler.eventBus.publishMany(context, normalizedEvents);
-        }
-        if (postPersistEvents.length > 0) {
-          yield* await handler.eventBus.publishMany(context, postPersistEvents);
+        const publishMutationEvents = async (
+          publishContext: IExecutionContext
+        ): Promise<Result<void, DomainError>> => {
+          if (normalizedEvents.length > 0) {
+            const result = await handler.eventBus.publishMany(publishContext, normalizedEvents);
+            if (result.isErr()) return err(result.error);
+          }
+          if (postPersistEvents.length > 0) {
+            return handler.eventBus.publishMany(publishContext, postPersistEvents);
+          }
+          return ok(undefined);
+        };
+        // A parent metadata transaction still owns these rows and their pending/ready lifecycle.
+        // Its ready callback is registered above; projections must observe committed, ready tables.
+        if (
+          !registerAfterCommit(commitContext, async () => {
+            const result = await publishMutationEvents(withoutTransaction(context));
+            if (result.isErr()) throw new Error(result.error.message);
+          })
+        ) {
+          yield* await publishMutationEvents(context);
         }
       }
       const readyEvents = readyEventsAfterCommit ? [] : provisionReadyEvents();

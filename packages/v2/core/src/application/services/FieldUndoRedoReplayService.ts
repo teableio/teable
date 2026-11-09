@@ -35,6 +35,7 @@ import { TableId } from '../../domain/table/TableId';
 import { TableUpdateResult } from '../../domain/table/TableMutator';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
+import { validateViewSortCollations } from '../../domain/table/views/validateViewSortCollations';
 import * as CommandBusPort from '../../ports/CommandBus';
 import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
@@ -45,8 +46,14 @@ import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TeableSpanAttributes } from '../../ports/Tracer';
 import { TraceSpan } from '../../ports/TraceSpan';
-import type { UndoRedoFieldSnapshot, UndoRedoFieldViewSnapshot } from '../../ports/UndoRedoStore';
+import type {
+  UndoRedoFieldSnapshot,
+  UndoRedoFieldViewSnapshot,
+  UndoRedoRelatedViewQueryReplay,
+} from '../../ports/UndoRedoStore';
+import type { IUnitOfWork } from '../../ports/UnitOfWork';
 import { areRecordFieldValuesEqual } from './RecordFieldValueEquality';
+import { FieldUndoRedoSnapshotService } from './FieldUndoRedoSnapshotService';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 const stripUndefinedDeep = (value: unknown): unknown => {
@@ -67,6 +74,18 @@ const stripUndefinedDeep = (value: unknown): unknown => {
   }
   return result;
 };
+
+/** Field order is represented canonically by orderedFieldIds; persisted numeric gaps are incidental. */
+const normalizeFieldSnapshotForConflict = (
+  snapshot: UndoRedoFieldSnapshot
+): UndoRedoFieldSnapshot => ({
+  ...snapshot,
+  records: undefined,
+  views: snapshot.views.map((view) => {
+    const { order: _order, ...columnMeta } = view.columnMeta ?? {};
+    return { ...view, columnMeta };
+  }),
+});
 
 const toUpdateFieldInput = (
   field: UndoRedoFieldSnapshot['field'],
@@ -146,6 +165,14 @@ type FieldReplayUpdateEvent = {
   changes: ReadonlyArray<RecordFieldChangeDTO>;
 };
 
+type FieldUndoRedoReplayParams = {
+  baseId: string;
+  tableId: string;
+  snapshot: UndoRedoFieldSnapshot;
+  expectedSnapshot?: UndoRedoFieldSnapshot;
+  relatedViewQueries?: ReadonlyArray<UndoRedoRelatedViewQueryReplay>;
+};
+
 @injectable()
 export class FieldUndoRedoReplayService {
   constructor(
@@ -160,7 +187,11 @@ export class FieldUndoRedoReplayService {
     @inject(v2CoreTokens.domainWriteTransaction)
     private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.tableUpdateFlow)
-    private readonly tableUpdateFlow: TableUpdateFlow
+    private readonly tableUpdateFlow: TableUpdateFlow,
+    @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
+    private readonly fieldUndoRedoSnapshotService?: FieldUndoRedoSnapshotService,
+    @inject(v2CoreTokens.unitOfWork)
+    private readonly unitOfWork?: IUnitOfWork
   ) {}
 
   @TraceSpan({
@@ -175,11 +206,52 @@ export class FieldUndoRedoReplayService {
   })
   async replay(
     context: ExecutionContextPort.IExecutionContext,
-    params: {
-      baseId: string;
-      tableId: string;
-      snapshot: UndoRedoFieldSnapshot;
-    }
+    params: FieldUndoRedoReplayParams
+  ): Promise<Result<Table, DomainError>> {
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    return safeTry<Table, DomainError>(async function* () {
+      const requiresGuardedReplay =
+        params.expectedSnapshot !== undefined || Boolean(params.relatedViewQueries?.length);
+      let table: Table;
+      if (requiresGuardedReplay) {
+        if (!service.unitOfWork || !service.fieldUndoRedoSnapshotService) {
+          return err(
+            domainError.infrastructure({
+              message: 'Guarded field undo/redo replay services are not configured',
+            })
+          );
+        }
+        table = yield* await service.unitOfWork.withTransaction(
+          context,
+          async (transactionContext) => {
+            const prepared = await service.prepareGuardedReplay(transactionContext, params);
+            if (prepared.isErr()) return err(prepared.error);
+            return service.replaySnapshot(transactionContext, params);
+          },
+          { scope: 'meta' }
+        );
+      } else {
+        table = yield* await service.replaySnapshot(context, params);
+      }
+
+      if (!params.snapshot.records?.length) return ok(table);
+
+      // Field/view metadata commits together. Record replay retains its existing top-level
+      // DomainWriteTransaction owner, rather than trying to publish data events in a borrowed tx.
+      const fieldId = yield* FieldId.create(params.snapshot.field.id);
+      yield* await service.replayFieldValues(context, {
+        table,
+        fieldId,
+        records: params.snapshot.records,
+      });
+      const latestTable = yield* await service.loadTable(context, params.baseId, params.tableId);
+      return service.applyDeferredConstraints(context, latestTable, fieldId, params.snapshot.field);
+    });
+  }
+
+  private async replaySnapshot(
+    context: ExecutionContextPort.IExecutionContext,
+    params: FieldUndoRedoReplayParams
   ): Promise<Result<Table, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<Table, DomainError>(async function* () {
@@ -215,7 +287,11 @@ export class FieldUndoRedoReplayService {
         yield* await service.executeNested(context, createCommand);
       }
 
-      let latestTable = yield* await service.loadTable(context, params.baseId, params.tableId);
+      // This replay owns the preceding schema mutation. With a parent metadata transaction,
+      // ready is published only after commit; these reads must see our uncommitted metadata.
+      let latestTable = yield* await service.loadTable(context, params.baseId, params.tableId, {
+        state: 'activeWithPending',
+      });
       latestTable = yield* await service.applyViewSnapshots(
         context,
         latestTable,
@@ -229,25 +305,155 @@ export class FieldUndoRedoReplayService {
         params.snapshot.hasError
       );
 
-      if (params.snapshot.records?.length) {
-        yield* await service.replayFieldValues(context, {
-          table: latestTable,
-          fieldId,
-          records: params.snapshot.records,
-        });
-        latestTable = yield* await service.loadTable(context, params.baseId, params.tableId);
-      }
-
-      if (deferConstraintEnforcement) {
-        latestTable = yield* await service.applyDeferredConstraints(
-          context,
-          latestTable,
-          fieldId,
-          params.snapshot.field
-        );
+      if (params.relatedViewQueries?.length) {
+        yield* await service.applyRelatedViewQueries(context, params.relatedViewQueries);
       }
 
       return ok(latestTable);
+    });
+  }
+  private async prepareGuardedReplay(
+    context: ExecutionContextPort.IExecutionContext,
+    params: FieldUndoRedoReplayParams
+  ): Promise<Result<void, DomainError>> {
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    return safeTry<void, DomainError>(async function* () {
+      const tableIds = [
+        params.tableId,
+        ...(params.relatedViewQueries?.map(({ snapshot }) => snapshot.tableId) ?? []),
+      ].filter((tableId, index, all) => all.indexOf(tableId) === index);
+      tableIds.sort((left, right) => Number(left > right) - Number(left < right));
+
+      const tables = new Map<string, Table>();
+      for (const tableId of tableIds) {
+        const parsedTableId = yield* TableId.create(tableId);
+        const spec = yield* TableAggregate.specs().byId(parsedTableId).build();
+        const table = yield* await service.tableRepository.findOne(context, spec, {
+          lock: 'forUpdate',
+        });
+        tables.set(tableId, table);
+      }
+
+      const viewIdsByTable = new Map<string, string[]>();
+      for (const view of params.expectedSnapshot?.views ?? []) {
+        const viewIds = viewIdsByTable.get(params.tableId) ?? [];
+        viewIds.push(view.viewId);
+        viewIdsByTable.set(params.tableId, viewIds);
+      }
+      for (const { expected } of params.relatedViewQueries ?? []) {
+        const viewIds = viewIdsByTable.get(expected.tableId) ?? [];
+        viewIds.push(expected.viewId);
+        viewIdsByTable.set(expected.tableId, viewIds);
+      }
+      if (service.tableRepository.lockViewVersions) {
+        for (const tableId of [...viewIdsByTable.keys()].sort()) {
+          const table = tables.get(tableId);
+          if (!table) continue;
+          yield* await service.tableRepository.lockViewVersions(
+            context,
+            table,
+            viewIdsByTable.get(tableId) ?? []
+          );
+        }
+      }
+
+      if (params.expectedSnapshot) {
+        const sourceTable = tables.get(params.tableId);
+        if (!sourceTable || !service.fieldUndoRedoSnapshotService) {
+          return err(
+            domainError.infrastructure({ message: 'Source table snapshot is unavailable' })
+          );
+        }
+        const fieldId = yield* FieldId.create(params.expectedSnapshot.field.id);
+        const actualSnapshot = yield* await service.fieldUndoRedoSnapshotService.capture(
+          context,
+          sourceTable,
+          fieldId,
+          { includeRecords: false }
+        );
+        const expectedSnapshot = normalizeFieldSnapshotForConflict(params.expectedSnapshot);
+        const normalizedActualSnapshot = normalizeFieldSnapshotForConflict(actualSnapshot);
+        if (
+          JSON.stringify(stripUndefinedDeep(normalizedActualSnapshot)) !==
+          JSON.stringify(stripUndefinedDeep(expectedSnapshot))
+        ) {
+          return err(
+            domainError.conflict({
+              code: 'undo_redo.field_snapshot_conflict',
+              message: 'Field changed after this undo/redo entry was recorded',
+              details: { tableId: params.tableId, fieldId: fieldId.toString() },
+            })
+          );
+        }
+      }
+
+      for (const { expected } of params.relatedViewQueries ?? []) {
+        const table = tables.get(expected.tableId);
+        if (!table) {
+          return err(domainError.notFound({ message: `Table not found: ${expected.tableId}` }));
+        }
+        const view = yield* table.getViewById(expected.viewId);
+        const query = yield* view.queryDefaults();
+        const actual = {
+          tableId: expected.tableId,
+          viewId: expected.viewId,
+          query: query.toDto(),
+          ...(query.sourceFilter() !== undefined ? { sourceFilter: query.sourceFilter() } : {}),
+        };
+        if (
+          JSON.stringify(stripUndefinedDeep(actual)) !==
+          JSON.stringify(stripUndefinedDeep(expected))
+        ) {
+          return err(
+            domainError.conflict({
+              code: 'undo_redo.view_snapshot_conflict',
+              message: 'View query changed after this undo/redo entry was recorded',
+              details: { tableId: expected.tableId, viewId: expected.viewId },
+            })
+          );
+        }
+      }
+
+      return ok(undefined);
+    });
+  }
+
+  private async applyRelatedViewQueries(
+    context: ExecutionContextPort.IExecutionContext,
+    replays: ReadonlyArray<UndoRedoRelatedViewQueryReplay>
+  ): Promise<Result<void, DomainError>> {
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    return safeTry<void, DomainError>(async function* () {
+      const tableIds = [...new Set(replays.map(({ snapshot }) => snapshot.tableId))].sort();
+      for (const tableId of tableIds) {
+        const table = yield* await service.loadTableById(context, tableId);
+        const updates: TableViewQueryDefaultsUpdate[] = [];
+        for (const { snapshot } of replays) {
+          if (snapshot.tableId !== tableId) continue;
+          const view = yield* table.getViewById(snapshot.viewId);
+          const previousQueryDefaults = yield* view.queryDefaults();
+          const queryDefaults = yield* ViewQueryDefaults.rehydrate(snapshot.query, {
+            sourceFilter: snapshot.sourceFilter,
+          });
+          yield* validateViewSortCollations(
+            table,
+            queryDefaults.sort(),
+            queryDefaults.group(),
+            queryDefaults.manualSort()
+          );
+          if (previousQueryDefaults.equals(queryDefaults)) continue;
+          updates.push({ viewId: view.id(), previousQueryDefaults, queryDefaults });
+        }
+        if (updates.length === 0) continue;
+        const spec = TableUpdateViewQueryDefaultsSpec.create(updates);
+        yield* await service.tableUpdateFlow.execute(
+          context,
+          { table },
+          (candidate) => candidate.update((mutator) => mutator.applySpecs([spec])),
+          { publishEvents: true }
+        );
+      }
+      return ok(undefined);
     });
   }
 
@@ -262,10 +468,31 @@ export class FieldUndoRedoReplayService {
     return ok(undefined);
   }
 
+  private async loadTableById(
+    context: ExecutionContextPort.IExecutionContext,
+    tableId: string
+  ): Promise<Result<Table, DomainError>> {
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) return err(tableIdResult.error);
+    const specResult = TableAggregate.specs().byId(tableIdResult.value).build();
+    if (specResult.isErr()) return err(specResult.error);
+    const tableResult = await this.tableRepository.findOne(context, specResult.value, {
+      state: 'activeWithPending',
+    });
+    if (tableResult.isErr()) {
+      if (isNotFoundError(tableResult.error)) {
+        return err(domainError.notFound({ message: 'Table not found' }));
+      }
+      return err(tableResult.error);
+    }
+    return ok(tableResult.value);
+  }
+
   private async loadTable(
     context: ExecutionContextPort.IExecutionContext,
     baseId: string,
-    tableId: string
+    tableId: string,
+    options?: Pick<TableRepositoryPort.TableFindOneOptions, 'state'>
   ): Promise<Result<Table, DomainError>> {
     const baseIdResult = BaseId.create(baseId);
     if (baseIdResult.isErr()) return err(baseIdResult.error);
@@ -280,7 +507,7 @@ export class FieldUndoRedoReplayService {
       return err(tableSpecResult.error);
     }
 
-    const tableResult = await this.tableRepository.findOne(context, tableSpecResult.value);
+    const tableResult = await this.tableRepository.findOne(context, tableSpecResult.value, options);
     if (tableResult.isErr()) {
       if (isNotFoundError(tableResult.error)) {
         return err(domainError.notFound({ message: 'Table not found' }));
@@ -393,6 +620,15 @@ export class FieldUndoRedoReplayService {
       const queryDefaultsResult = ViewQueryDefaults.create(snapshot.query ?? {});
       if (queryDefaultsResult.isErr()) {
         return err(queryDefaultsResult.error);
+      }
+      const sortValidationResult = validateViewSortCollations(
+        table,
+        queryDefaultsResult.value.sort(),
+        queryDefaultsResult.value.group(),
+        queryDefaultsResult.value.manualSort()
+      );
+      if (sortValidationResult.isErr()) {
+        return err(sortValidationResult.error);
       }
       queryDefaultsUpdates.push({
         viewId: view.id(),

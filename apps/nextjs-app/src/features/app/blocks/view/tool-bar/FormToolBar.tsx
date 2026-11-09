@@ -97,7 +97,8 @@ export const FormToolBar: React.FC = () => {
         )}
       </div>
 
-      <FormShareButton disabled={!permission['view|update']} />
+      {/* The share entry hands out the view's link, which only those who manage shares may hold */}
+      <FormShareButton disabled={!permission['view|share']} />
     </div>
   );
 };

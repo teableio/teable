@@ -10,6 +10,7 @@ import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
 import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
+import { useToolbarLabels } from './useToolbarLabels';
 
 export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   // Same footer as the kanban toolbar: rendered inside the shared shell, so it
@@ -18,6 +19,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
   const { disabled } = props;
   const view = useView() as GalleryView | undefined;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const labels = useToolbarLabels();
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
 
@@ -102,7 +104,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.filter(isActive, view?.filter)}
             className={cn(
               'max-w-[200px]',
               isActive &&
@@ -123,7 +125,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.sort(isActive, view?.sort)}
             className={cn(
               'max-w-[200px]',
               isActive &&

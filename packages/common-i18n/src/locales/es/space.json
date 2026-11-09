@@ -444,10 +444,10 @@
     "title": "¿Cómo quieres empezar?"
   },
   "importBaseDialog": {
-    "title": "Importar proyecto",
-    "fromFile": "Importar desde archivo",
-    "fromFileDesc": "Sube un archivo de proyecto .tea",
-    "fromAirtableDesc": "Conecta tu cuenta de Airtable",
-    "fromGoogleSheetDesc": "Elige una hoja de cálculo de tu Google Drive"
+    "title": "Importar como proyecto",
+    "fromFile": "Archivo de {{brand}}",
+    "fromFileDesc": "Sube un archivo .tea",
+    "fromAirtableDesc": "Elige una base",
+    "fromGoogleSheetDesc": "Elige una hoja de cálculo"
   }
 }

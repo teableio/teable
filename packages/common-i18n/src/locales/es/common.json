@@ -6,6 +6,7 @@
     "deleteTableTitle": "Delete table",
     "copyTableTitle": "Copy table",
     "copyBaseTitle": "Copy project",
+    "convertFieldTitle": "Change field",
     "changedEffectsTitle": "What else changes",
     "preservedTitle": "Stays connected",
     "loading": "Loading details…",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "execution-time effects",
     "uncertaintyDetail": "other effects",
     "recordCountUnknown": "record count",
+    "affectedCellCountUnknown": "affected-cell count",
     "retentionUnknown": "The Trash retention period is not checked.",
     "storageUnknown": "Storage impact is not checked.",
     "retentionStorageUnknown": "The Trash retention period and storage impact are not checked.",
     "inTables": "In table: {{names}}",
     "affectedFields": "Affected fields:",
     "affectedViews": "Affected views:",
+    "affectedCells": "Affected cells:",
+    "affectedLinkChanges": "Related link changes:",
     "labels": {
       "tables": "Tables",
       "fields": "Fields",
@@ -67,7 +71,12 @@
       "dependentFieldsUpdatedDetail": "Update dependent fields; final values are not specified",
       "alreadyTrashed": "This table is already in Trash.",
       "unknownLinksDetail": "Some linked tables could not be classified; whether their links are kept or converted is unknown.",
-      "truncatedEffectsDetail": "Only part of the affected-resource list is shown."
+      "truncatedEffectsDetail": "Only part of the affected-resource list is shown.",
+      "fieldTypeChanged": "Change the field type",
+      "fieldConfigurationChanged": "Update the field settings",
+      "fieldValuesRewritten": "Rewrite existing field values for the new settings",
+      "fieldUnchanged": "Keep the current field settings",
+      "fieldLinkChanges": "Apply related link changes"
     }
   },
   "actions": {
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "Configuración",
       "logout": "Cerrar sesión",
-      "contactSupport": "Contactar con soporte"
+      "contactSupport": "Contactar con soporte",
+      "downloadApp": "Descargar la app"
     },
     "integration": {
       "title": "Integraciones",
@@ -782,6 +792,7 @@
       "enableWaitlistDescription": "Habilitar esta opción permitirá que los usuarios se registren solo con un código de invitación.",
       "generalSettings": "Configuración general",
       "aiSettings": "Ajustes de IA",
+      "secretEndpointChanged": "La dirección ha cambiado. Vuelve a introducir {{secret}}.",
       "brandingSettings": {
         "title": "Configuración de marca",
         "description": "Solo disponible en la Edición Enterprise",
@@ -1083,6 +1094,7 @@
           "gatewayErrorForbidden": "Acceso denegado. Comprueba el estado de tu cuenta en el panel de Vercel",
           "gatewayErrorNetwork": "Error de red. Comprueba tu conexión o la configuración del proxy",
           "pleaseTest": "Haz clic en Probar para verificar la clave de API",
+          "gatewayUrlKeysReenter": "La dirección ha cambiado. Primero vuelve a introducir o borra las claves guardadas en la configuración avanzada (grupos de tokens, Vertex AI BYOK); de lo contrario, no se podrá guardar.",
           "test": "Probar",
           "testing": "Probando...",
           "attachmentTest": {
@@ -1115,7 +1127,6 @@
           "smDesc": "Consultas simples, respuestas rápidas",
           "readyToUse": "¡La IA está configurada y lista para usarse!",
           "customProviderHelp": "Añade tus propios proveedores de IA (OpenAI, Anthropic, Azure, etc.) y configura claves de API y modelos.",
-          "testModelCapabilities": "Probar capacidades del modelo",
           "customModelsAutoImported": "Los modelos de tu proveedor se importaron automáticamente al conjunto de modelos.",
           "modelsCount": "{{count}} modelos disponibles",
           "customModelsHint": "Para ajustar la configuración de los modelos, vuelve al paso 1 y modifica los ajustes del proveedor.",
@@ -1172,7 +1183,8 @@
       "group": {
         "system": "Aspectos básicos",
         "ai": "Servicios de IA",
-        "appBuilder": "App Builder"
+        "appBuilder": "App Builder",
+        "security": "Seguridad"
       },
       "copyInstance": "Copiar ID",
       "list": {
@@ -1221,7 +1233,23 @@
         "sandboxOpenSandbox": {
           "title": "Entorno de ejecución del chat de IA",
           "description": "Configura el entorno de ejecución OpenSandbox para el chat de IA, <anchor>ir al ajuste</anchor>"
+        },
+        "signupVerification": {
+          "title": "Registro abierto sin verificación de correo",
+          "description": "Cualquiera puede registrarse con una dirección de correo que no le pertenece: puede apropiarse de la dirección de un compañero o cliente, y tomar la cuenta de alguien invitado por correo que aún no se ha registrado, junto con el acceso que le dio la invitación. Active la verificación de correo (requiere configurar el envío de correo) o desactive el registro abierto, <anchor>ir a configuración</anchor>"
+        },
+        "secrets": {
+          "title": "Secretos del servidor",
+          "description": "Secretos sin configurar o con un valor predeterminado público: {{total}}. Podrían permitir a terceros falsificar tokens de inicio de sesión o descifrar los datos almacenados. Configúrelos como variables de entorno y reinicie; el registro de arranque explica cada uno. En una instancia con datos existentes, fije primero los valores actuales y rótelos después: sustituir directamente una clave de cifrado deja ilegibles los datos cifrados con ella.",
+          "missing": "Sin configurar",
+          "publicDefault": "Valor predeterminado público",
+          "docsLink": "Referencia de variables de entorno",
+          "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
+      },
+      "banner": {
+        "message": "Hay tareas de seguridad pendientes en el panel de administración",
+        "action": "Revisar"
       }
     },
     "canary": {
@@ -1509,6 +1537,18 @@
           },
           "connectorDisconnected": {
             "title": "La rutina {{name}} dejó de recibir eventos del conector"
+          },
+          "handedToYou": {
+            "title": "La rutina {{name}} se te ha transferido",
+            "message": "{{previousOwner}} ya no puede editar la rutina {{name}}, así que se te ha transferido. Ahora se ejecuta con tu cuenta y sus resultados y alertas te llegan a ti. Revisa sus instrucciones y su activador, o páusala si no la necesitas."
+          },
+          "handedAway": {
+            "title": "Tu rutina {{name}} se ha transferido a {{newOwner}}",
+            "message": "Ya no puedes editar la rutina {{name}}, así que se ha transferido a {{newOwner}}. Ahora se ejecuta con la cuenta de {{newOwner}}."
+          },
+          "takenOver": {
+            "title": "La rutina {{name}} ahora se ejecuta con la cuenta de {{newOwner}}",
+            "message": "{{newOwner}} se hizo cargo de la rutina {{name}}. Ahora se ejecuta como {{newOwner}}, y sus resultados y alertas van a {{newOwner}}."
           }
         },
         "billing": {
@@ -2065,5 +2105,16 @@
         "description": "Nos ayudan a medir la eficacia de nuestros anuncios y promociones."
       }
     }
+  },
+  "openInApp": {
+    "title": "App de Teable",
+    "description": "Abre esta página en la app para una experiencia más fluida",
+    "open": "Abrir",
+    "dismiss": "Cerrar",
+    "notInstalledTitle": "¿Aún no tienes la app?",
+    "notInstalledDescription": "Instálala, vuelve aquí y toca Abrir",
+    "getApp": "Obtener la app",
+    "inAppBrowserHint": "Para pasar a la app, abre esta página en tu navegador desde el menú de arriba a la derecha",
+    "menuItem": "Abrir en la app de Teable"
   }
 }

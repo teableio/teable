@@ -36,44 +36,22 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(private readonly cacheManager: Keyv<any>) {}
   private readonly logger = new Logger(CacheService.name);
-  private readonly localLockOperations = new Map<keyof T, Promise<void>>();
-
-  // Non-Redis stores have no distributed CAS. Serialize this process's lock
-  // operations, including acquisition, so an async get/set cannot race a takeover.
-  private async withLocalLock<TResult>(key: keyof T, operation: () => Promise<TResult>) {
-    const previous = this.localLockOperations.get(key);
-    let release!: () => void;
-    const current = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    this.localLockOperations.set(key, current);
-    await previous;
-    try {
-      return await operation();
-    } finally {
-      release();
-      if (this.localLockOperations.get(key) === current) this.localLockOperations.delete(key);
-    }
-  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getKeyv(): Keyv<any> {
     return this.cacheManager;
   }
 
-  /**
-   * Get the underlying Redis client if available
-   * Returns undefined if not using Redis
-   */
-  private getRedisClient(): Redis | undefined {
-    try {
-      // KeyvRedis stores the Redis client in store.redis
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const store = this.cacheManager.opts?.store as any;
-      return store?.redis || store?.client;
-    } catch {
-      return undefined;
+  /** The ioredis client behind the KeyvRedis store. */
+  private getRedisClient(): Redis {
+    // KeyvRedis stores the Redis client in store.redis
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = this.cacheManager.opts?.store as any;
+    const redis = store?.redis || store?.client;
+    if (!redis) {
+      throw new Error('CacheService: the cache store has no Redis client');
     }
+    return redis;
   }
 
   /**
@@ -115,15 +93,6 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
     ttlSeconds: number
   ): Promise<boolean> {
     const redis = this.getRedisClient();
-    if (!redis) {
-      return this.withLocalLock(key, async () => {
-        const existing = await this.get(key);
-        if (existing !== undefined) return false;
-        await this.setDetail(key, value, ttlSeconds);
-        return true;
-      });
-    }
-
     const result = await redis.set(
       this.getRedisKey(key as string),
       this.serializeEnvelope(value, ttlSeconds),
@@ -141,13 +110,6 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
     ttlSeconds: number
   ): Promise<boolean> {
     const redis = this.getRedisClient();
-    if (!redis) {
-      return this.withLocalLock(key, async () => {
-        if ((await this.get(key)) !== token) return false;
-        await this.setDetail(key, token as T[TKey], ttlSeconds);
-        return true;
-      });
-    }
     return (
       (await redis.eval(
         RENEW_LOCK_SCRIPT,
@@ -164,12 +126,6 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   /** Atomically release a string-token lock without deleting a replacement owner's lock. */
   async releaseLock<TKey extends keyof T>(key: TKey, token: string): Promise<boolean> {
     const redis = this.getRedisClient();
-    if (!redis) {
-      return this.withLocalLock(key, async () => {
-        if ((await this.get(key)) !== token) return false;
-        return this.del(key);
-      });
-    }
     return (await redis.eval(RELEASE_LOCK_SCRIPT, 1, this.getRedisKey(key as string), token)) === 1;
   }
 
@@ -186,14 +142,6 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
    */
   async incr<TKey extends keyof T>(key: TKey, ttlSeconds?: number): Promise<number> {
     const redis = this.getRedisClient();
-    if (!redis) {
-      // Fallback for non-Redis: not truly atomic
-      const current = (await this.get(key)) as number | undefined;
-      const newValue = (current || 0) + 1;
-      await this.setDetail(key, newValue as T[TKey], ttlSeconds);
-      return newValue;
-    }
-
     const fullKey = this.getRedisKey(key as string);
     if (!ttlSeconds) {
       return redis.incr(fullKey);
@@ -265,17 +213,17 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   async expire<TKey extends keyof T>(key: TKey, ttl: number | string): Promise<boolean> {
     const ttlSeconds = typeof ttl === 'string' ? second(ttl) : ttl;
     const redis = this.getRedisClient();
-    if (!redis) {
-      // Fallback for non-Redis: get and re-set
-      const value = await this.get(key);
-      if (value !== undefined) {
-        await this.setDetail(key, value, ttlSeconds);
-        return true;
-      }
-      return false;
-    }
-
     const result = await redis.expire(this.getRedisKey(key as string), ttlSeconds);
     return result === 1;
+  }
+
+  /**
+   * Seconds left before `key` expires, as Redis TTL reports it: -1 for a key
+   * without an expiry, -2 for a missing key. What an incr() rate limiter puts
+   * in `Retry-After`.
+   */
+  async ttl<TKey extends keyof T>(key: TKey): Promise<number> {
+    const redis = this.getRedisClient();
+    return redis.ttl(this.getRedisKey(key as string));
   }
 }

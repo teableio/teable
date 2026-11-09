@@ -280,6 +280,22 @@ describe('GlobalExceptionFilter', () => {
     expect(loggerError).toHaveBeenCalledTimes(1);
   });
 
+  it('does not error-log a 429: a rate limit refusing a client is not a fault', () => {
+    const loggerError = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const filter = new GlobalExceptionFilter(configService as never);
+
+    filter.catch(
+      new CustomHttpException('Too many token requests', HttpErrorCode.TOO_MANY_REQUESTS),
+      host as never
+    );
+
+    expect(loggerError).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(429);
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 429, code: HttpErrorCode.TOO_MANY_REQUESTS })
+    );
+  });
+
   it('answers a user SMTP rejection with 424 instead of capturing it', () => {
     const filter = new GlobalExceptionFilter(configService as never);
 

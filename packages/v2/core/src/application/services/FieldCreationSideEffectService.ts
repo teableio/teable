@@ -8,10 +8,10 @@ import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { Field } from '../../domain/table/fields/Field';
 import { FieldCreationSideEffectVisitor } from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
 import type { Table } from '../../domain/table/Table';
-import { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
+import { completeFieldSideEffectUpdate } from './completeFieldSideEffectUpdate';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 export type FieldCreationSideEffectServiceInput = {
@@ -45,15 +45,16 @@ export class FieldCreationSideEffectService {
       : new Map<string, Table>(
           input.foreignTables.map((foreignTable) => [foreignTable.id().toString(), foreignTable])
         );
-    foreignTableState.set(input.table.id().toString(), input.table);
+    const table = input.tableState?.get(input.table.id().toString()) ?? input.table;
+    foreignTableState.set(table.id().toString(), table);
 
     if (input.fields.length === 0) {
       return ok(foreignTableState);
     }
 
     const sideEffectsResult = FieldCreationSideEffectVisitor.collect(input.fields, {
-      table: input.table,
-      foreignTables: input.foreignTables,
+      table,
+      foreignTables: [...foreignTableState.values()],
       domainContext: input.domainContext,
     });
     if (sideEffectsResult.isErr()) {
@@ -93,14 +94,16 @@ export class FieldCreationSideEffectService {
                 foreignTable,
               ])
             );
+        const table = input.tableState?.get(input.table.id().toString()) ?? input.table;
+        foreignTableState.set(table.id().toString(), table);
 
         if (input.fields.length === 0) {
           return ok({ events: [], tableState: foreignTableState });
         }
 
         const sideEffects = yield* FieldCreationSideEffectVisitor.collect(input.fields, {
-          table: input.table,
-          foreignTables: input.foreignTables,
+          table,
+          foreignTables: [...foreignTableState.values()],
           domainContext: input.domainContext,
         });
         if (sideEffects.length === 0) return ok({ events: [], tableState: foreignTableState });
@@ -118,7 +121,9 @@ export class FieldCreationSideEffectService {
             (candidate) =>
               sideEffect.mutateSpec
                 .mutate(candidate)
-                .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
+                .andThen((updated) =>
+                  completeFieldSideEffectUpdate(updated, sideEffect.mutateSpec)
+                ),
             { publishEvents: false }
           );
           foreignTableState.set(updateResult.table.id().toString(), updateResult.table);

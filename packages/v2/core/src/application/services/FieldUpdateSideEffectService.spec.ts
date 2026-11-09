@@ -7,6 +7,7 @@ import { ActorId } from '../../domain/shared/ActorId';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { ViewSortUpdated } from '../../domain/table/events/ViewSortUpdated';
 import { Field } from '../../domain/table/fields/Field';
 import { createNewLinkField } from '../../domain/table/fields/FieldFactory';
 import { FieldId } from '../../domain/table/fields/FieldId';
@@ -226,6 +227,62 @@ const buildConversionScenario = (params: { withFilter: boolean; withStatisticFun
 };
 
 describe('FieldUpdateSideEffectService', () => {
+  it('removes only unsupported collation after text -> number conversion in a sort-only view', async () => {
+    const context = createContext();
+    const repo = new MemoryTableRepository();
+    const flow = buildFlow(repo);
+    const service = new FieldUpdateSideEffectService(
+      flow,
+      repo,
+      new LinkFieldUpdateSideEffectService(flow),
+      new FieldCrossTableUpdateSideEffectService(repo, flow)
+    );
+    const scenario = buildConversionScenario({ withFilter: false, withStatisticFunc: false });
+    const originalSort = [
+      {
+        fieldId: scenario.fieldId.toString(),
+        order: 'desc' as const,
+        collation: 'zh-pinyin' as const,
+      },
+      { fieldId: scenario.table.primaryFieldId().toString(), order: 'asc' as const },
+    ];
+    const initialDefaults = ViewQueryDefaults.create({
+      sort: originalSort,
+      manualSort: true,
+    })._unsafeUnwrap();
+    const tableWithSort = TableUpdateViewQueryDefaultsSpec.create([
+      { viewId: scenario.viewId, queryDefaults: initialDefaults },
+    ])
+      .mutate(scenario.table)
+      ._unsafeUnwrap();
+    const conversion = TableUpdateFieldTypeSpec.create(
+      scenario.updatedField,
+      scenario.updateSpecs[0]!.oldField()
+    );
+    const table = conversion.mutate(tableWithSort)._unsafeUnwrap();
+    await repo.insert(context, table);
+    const result = (
+      await service.execute(context, {
+        table,
+        updatedField: conversion.newField(),
+        previousField: conversion.oldField(),
+        updateSpecs: [conversion],
+        foreignTables: [],
+      })
+    )._unsafeUnwrap();
+    const cleanup = result.specs.find(
+      (spec): spec is TableUpdateViewQueryDefaultsSpec =>
+        spec instanceof TableUpdateViewQueryDefaultsSpec
+    );
+    expect(cleanup?.updates()[0]?.queryDefaults.toDto()).toMatchObject({
+      sort: [{ fieldId: scenario.fieldId.toString(), order: 'desc' }, originalSort[1]],
+      manualSort: true,
+    });
+    expect(cleanup?.updates()[0]?.queryDefaults.sort()?.[0]).not.toHaveProperty('collation');
+    expect(cleanup?.updates()[0]?.previousQueryDefaults?.sort()).toEqual(originalSort);
+    expect(result.events.some((event) => event instanceof ViewSortUpdated)).toBe(true);
+  });
+
   it('prepare skips side effects for one-way link conversion', async () => {
     const context = createContext();
     const repo = new MemoryTableRepository();
@@ -327,6 +384,7 @@ describe('FieldUpdateSideEffectService', () => {
       specs: [],
       updatedTable: table,
       events: [],
+      viewQueryChanges: [],
     });
   });
 

@@ -19,6 +19,7 @@ import { useGridSearchStore } from '../../grid/useGridSearchStore';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
 import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
+import { useToolbarLabels } from './useToolbarLabels';
 import { useToolBarStore } from './useToolBarStore';
 
 export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
@@ -35,6 +36,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     onGroupChange,
   } = useToolbarChange();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const labels = useToolbarLabels();
   const { setFilterRef, setSortRef, setGroupRef } = useToolBarStore();
   const filterRef = useRef<HTMLButtonElement>(null);
   const sortRef = useRef<HTMLButtonElement>(null);
@@ -81,11 +83,11 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           }, 1000);
         }}
       >
-        {(text, isActive) => (
+        {(text, isActive, hiddenCount) => (
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.hidden(hiddenCount)}
             textClassName="@2xl/toolbar:inline"
           >
             <EyeOff className="size-4 text-sm" />
@@ -109,7 +111,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.filter(isActive, view?.filter)}
             ref={filterRef}
             className={cn(
               'max-w-[200px]',
@@ -131,7 +133,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.sort(isActive, view?.sort)}
             ref={sortRef}
             className={cn(
               'max-w-[200px]',
@@ -149,7 +151,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.group(isActive, view?.group)}
             ref={groupRef}
             className={cn(
               'max-w-[200px]',

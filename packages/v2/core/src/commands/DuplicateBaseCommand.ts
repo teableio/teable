@@ -4,7 +4,11 @@ import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
-import type { BulkCopyLinkValueColumn, BulkCopySourceLinkField } from '../ports/BaseDataBulkCopier';
+import type {
+  BulkCopyLinkValueColumn,
+  BulkCopySourceLinkField,
+  BulkCopyTableInput,
+} from '../ports/BaseDataBulkCopier';
 import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
 import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import { MAX_SELECTION_STREAM_BATCH_SIZE } from './shared/streamBatchSize';
@@ -42,6 +46,10 @@ export interface DuplicateBaseSource {
    * title text during the physical copy (cross-base / disconnected links).
    */
   linkValueColumnsByTableId?: Record<string, ReadonlyArray<BulkCopyLinkValueColumn>>;
+  /** Date-column relocation applied by both the physical copier and the source record stream. */
+  dateTimeZoneConversionsByTableId?: Readonly<
+    Record<string, BulkCopyTableInput['dateTimeZoneConversions']>
+  >;
   /**
    * Physical storage info of source (non-lookup) link fields, pre-filtered by
    * the host for cross-base allowance and disconnected links. Drives junction
@@ -83,8 +91,8 @@ export interface DuplicateBaseDoneEvent {
   recordsLength: number;
   /**
    * How records were copied: same-database physical bulk copy, per-record
-   * stream (cross-database), or not at all. The host recomputes persisted
-   * computed columns only after a bulk copy.
+   * stream (cross-database), or not at all. Both record-copy paths complete
+   * native computed fields before this event is emitted.
    */
   recordCopyMode?: 'bulk' | 'stream' | 'none';
 }

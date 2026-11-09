@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { AndSpec } from '../../domain/shared/specification/AndSpec';
+import { materializeRecordSpec } from '../../domain/table/records/RecordSpecMaterializer';
 import type {
   ICellValueSpec,
   ICellValueSpecVisitor,
@@ -15,6 +16,7 @@ import type { SetLinkValueSpec } from '../../domain/table/records/specs/values/S
 import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { SetUserValueByIdentifierSpec } from '../../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
 import { SetUserValueSpec } from '../../domain/table/records/specs/values/SetUserValueSpec';
+import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -241,6 +243,66 @@ export class RecordMutationSpecResolverService {
     }
 
     return ok(resolvedSpecs);
+  }
+
+  async resolveCreatedRecords(
+    context: IExecutionContext,
+    tableId: TableId,
+    input: {
+      records: ReadonlyArray<TableRecord>;
+      mutateSpecs: ReadonlyArray<ICellValueSpec | null>;
+    }
+  ): Promise<
+    Result<
+      {
+        records: ReadonlyArray<TableRecord>;
+        mutateSpecs: ReadonlyArray<ICellValueSpec | null>;
+      },
+      DomainError
+    >
+  > {
+    if (input.records.length !== input.mutateSpecs.length) {
+      return err(
+        domainError.unexpected({
+          message: 'Created records and mutation specs length mismatch',
+          code: 'unexpected.created_record_specs_length_mismatch',
+        })
+      );
+    }
+
+    const resolvedSpecsResult = await this.resolveAndReplaceMany(
+      context,
+      tableId,
+      input.mutateSpecs
+    );
+    if (resolvedSpecsResult.isErr()) {
+      return err(resolvedSpecsResult.error);
+    }
+
+    let materializedRecords: TableRecord[] | undefined;
+    for (let index = 0; index < input.records.length; index += 1) {
+      const resolvedSpec = resolvedSpecsResult.value[index];
+      if (!resolvedSpec || resolvedSpec === input.mutateSpecs[index]) {
+        continue;
+      }
+      const record = input.records[index]!;
+      const recordResult = materializeRecordSpec({
+        id: record.id(),
+        tableId: record.tableId(),
+        spec: resolvedSpec,
+        baseFields: record.fields().entries(),
+      });
+      if (recordResult.isErr()) {
+        return err(recordResult.error);
+      }
+      materializedRecords ??= [...input.records];
+      materializedRecords[index] = recordResult.value;
+    }
+
+    return ok({
+      records: materializedRecords ?? input.records,
+      mutateSpecs: resolvedSpecsResult.value,
+    });
   }
 }
 

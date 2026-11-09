@@ -22,6 +22,12 @@ const viewShareMetaDtoSchema = z.object({
 const viewOrderItemDtoSchema = z.object({
   fieldId: z.string(),
   order: z.enum(['asc', 'desc']),
+  collation: z.literal('zh-pinyin').optional(),
+});
+
+const viewGroupItemDtoSchema = z.object({
+  fieldId: z.string(),
+  order: z.enum(['asc', 'desc']),
 });
 
 export const viewReadDtoSchema: z.ZodType<ViewQueryResultView> = z.object({
@@ -39,7 +45,7 @@ export const viewReadDtoSchema: z.ZodType<ViewQueryResultView> = z.object({
       manualSort: z.boolean().optional(),
     })
     .optional(),
-  group: z.array(viewOrderItemDtoSchema).optional(),
+  group: z.array(viewGroupItemDtoSchema).optional(),
   isLocked: z.boolean().optional(),
   shareId: z.string().optional(),
   enableShare: z.boolean().optional(),

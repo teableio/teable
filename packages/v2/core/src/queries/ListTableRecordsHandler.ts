@@ -364,6 +364,7 @@ const resolveSortValues = (
     resolvedSort.push({
       fieldId: normalizedFieldId,
       order: item.order,
+      ...(item.collation !== undefined ? { collation: item.collation } : {}),
     });
   }
 
@@ -589,7 +590,8 @@ export class ListTableRecordsHandler implements IQueryHandler<
               referencedViewSort.every(
                 (viewItem, index) =>
                   viewItem.fieldId === clientSortOnly[index]?.fieldId &&
-                  viewItem.order === clientSortOnly[index]?.order
+                  viewItem.order === clientSortOnly[index]?.order &&
+                  viewItem.collation === clientSortOnly[index]?.collation
               );
             // Only the complete persisted-view sort echo is server-owned.
             // Masked fields are valid query dependencies; only fields with
@@ -641,7 +643,7 @@ export class ListTableRecordsHandler implements IQueryHandler<
             );
             orderBy = mergeOrderBy(
               yield* resolveGroupByToOrderBy(effectiveGroup),
-              yield* resolveQueryOrderBy(effectiveSort),
+              yield* resolveQueryOrderBy(effectiveSort, table, effectiveGroup),
               query.viewId
             );
             const builtQueryPlan = yield* await buildTableRecordConditionPlan(

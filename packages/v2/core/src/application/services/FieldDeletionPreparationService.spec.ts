@@ -194,6 +194,12 @@ describe('FieldDeletionPreparationService', () => {
     expect(originalDependent.hasError().isError()).toBe(false);
     expect(undoDependent.hasError().isError()).toBe(false);
     expect(undoDependent).not.toBe(originalDependent);
+    const projectedDependent = preparation.projectedTablesById
+      .get(fixture.table.id().toString())!
+      .getField((field) => field.id().equals(fixture.dependentId))
+      ._unsafeUnwrap();
+    expect(projectedDependent.hasError().isError()).toBe(true);
+    expect(projectedDependent).not.toBe(originalDependent);
   });
 
   it('enumerates symmetric link deletion through the execution visitor', async () => {
@@ -244,6 +250,15 @@ describe('FieldDeletionPreparationService', () => {
         fieldId: symmetric.id().toString(),
       }),
     ]);
+    expect(
+      preparation.projectedTablesById
+        .get(foreign.id().toString())!
+        .getField((field) => field.id().equals(symmetric.id()))
+        .isErr()
+    ).toBe(true);
+    expect(foreignWithSymmetric.getField((field) => field.id().equals(symmetric.id())).isOk()).toBe(
+      true
+    );
   });
 
   it('reports missing foreign metadata as unknown instead of zero impact', async () => {
@@ -288,6 +303,65 @@ describe('FieldDeletionPreparationService', () => {
         reason: 'foreign-table-not-loaded',
       },
     ]);
+  });
+
+  it('uses an explicitly empty foreign snapshot without loading unavailable metadata', async () => {
+    const host = buildTable().table;
+    const missingForeignId = tableId('m');
+    const linkId = fieldId('l');
+    const link = createNewLinkField({
+      id: linkId,
+      name: FieldName.create('Unavailable one-way link')._unsafeUnwrap(),
+      config: LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: missingForeignId.toString(),
+        lookupFieldId: fieldId('q').toString(),
+        isOneWay: true,
+      })._unsafeUnwrap(),
+      baseId,
+      hostTableId: host.id(),
+    })._unsafeUnwrap();
+    const source = Table.rehydrate({
+      id: host.id(),
+      baseId: host.baseId(),
+      name: host.name(),
+      fields: [...host.getFields(), link],
+      views: host.views(),
+      primaryFieldId: host.primaryFieldId(),
+    })._unsafeUnwrap();
+    const service = new FieldDeletionPreparationService(
+      {
+        findOne: async () => {
+          throw new Error('Captured source must not be reloaded');
+        },
+        find: async () => ok([source]),
+      },
+      {
+        load: async () => {
+          throw new Error('Foreign metadata is unavailable');
+        },
+      },
+      { prepare: FieldDeletionSideEffectService.prepare },
+      new DefaultTableMapper()
+    );
+    const facts = (
+      await service.prepare(
+        context,
+        { baseId, tableId: source.id(), fieldIds: [linkId] },
+        { table: source, foreignTables: [] }
+      )
+    )._unsafeUnwrap();
+    expect(facts.missingMetadata).toEqual([
+      {
+        kind: 'foreignTable',
+        tableId: missingForeignId.toString(),
+        referencedByFieldId: linkId.toString(),
+        reason: 'foreign-table-not-loaded',
+      },
+    ]);
+    expect(facts.projectedTable.getField((field) => field.id().equals(linkId)).isErr()).toBe(true);
+    expect(source.getField((field) => field.id().equals(linkId)).isOk()).toBe(true);
+    expect(facts.symmetricTargets).toEqual([]);
   });
 
   it('returns the same domain blocker used by detached aggregate removal', async () => {

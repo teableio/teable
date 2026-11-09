@@ -4,13 +4,15 @@ const windowsNewline = '\r\n';
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const parseClipboardText = (content: string) => {
-  const _newline = content.includes(windowsNewline) ? windowsNewline : newline;
-  // remove the last newline or windows newline
-  if (content.endsWith(_newline)) {
-    content = content.slice(0, -1 * _newline.length);
+  // Strip one record terminator, but keep line endings inside quoted cells intact.
+  // A quoted CRLF must not decide how LF-separated records are parsed.
+  if (content.endsWith(windowsNewline)) {
+    content = content.slice(0, -windowsNewline.length);
+  } else if (content.endsWith(newline)) {
+    content = content.slice(0, -newline.length);
   }
   if (!content.includes('"')) {
-    return content.split(_newline).map((row) => row.split(delimiter));
+    return content.split(/\r?\n/).map((row) => row.split(delimiter));
   }
 
   const len = content.length;
@@ -26,9 +28,13 @@ export const parseClipboardText = (content: string) => {
       quoted = true;
     } else if (content[cursor] === delimiter) {
       endOfCell = true;
-    } else if (content[cursor] === _newline) {
+    } else if (
+      content[cursor] === newline ||
+      (content[cursor] === '\r' && content[cursor + 1] === newline)
+    ) {
       endOfCell = true;
       endOfRow = true;
+      if (content[cursor] === '\r') cursor++;
     } else {
       cell += content[cursor];
     }
@@ -45,7 +51,7 @@ export const parseClipboardText = (content: string) => {
         if (content[cursor + 1] === '"') {
           cell += '"';
           cursor++;
-        } else if (cell.includes(delimiter) || cell.includes(_newline)) {
+        } else if (cell.includes(delimiter) || cell.includes(newline)) {
           quoted = false;
         } else {
           cell = `"${cell}"`;
@@ -59,16 +65,16 @@ export const parseClipboardText = (content: string) => {
           break;
         }
       } else if (
-        content[cursor] === _newline ||
-        `${content[cursor]}${content[cursor + 1]}` === _newline
+        content[cursor] === newline ||
+        (content[cursor] === '\r' && content[cursor + 1] === newline)
       ) {
         if (quoted) {
-          cell += _newline;
+          cell += content[cursor] === '\r' ? windowsNewline : newline;
         } else {
           endOfCell = true;
           endOfRow = true;
         }
-        if (`${content[cursor]}${content[cursor + 1]}` === _newline) {
+        if (content[cursor] === '\r') {
           cursor++;
         }
       } else {

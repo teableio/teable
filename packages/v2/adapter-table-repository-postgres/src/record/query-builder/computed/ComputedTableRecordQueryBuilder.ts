@@ -44,6 +44,11 @@ import { match } from 'ts-pattern';
 
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { TableRecordConditionWhereVisitor } from '../../visitors';
+import {
+  applyPinyinCollation,
+  resolvePinyinOrderByKind,
+  type PinyinOrderByKind,
+} from '../fieldOrderByCollation';
 import type {
   DynamicDB,
   IQueryBuilderDeps,
@@ -197,6 +202,7 @@ type ResolvedOrderBy = {
   expression?: RawBuilder<unknown>;
   userLikeMode?: 'single' | 'multiple';
   userLikeSource?: 'field' | 'system';
+  pinyinKind?: PinyinOrderByKind;
 };
 
 const isSimpleConditionalRollupScalar = (value: unknown): value is string | number | boolean =>
@@ -710,7 +716,7 @@ const isSimpleConditionalRollupFilter = (
 
 type ResolvedOrderByColumn = Pick<
   ResolvedOrderBy,
-  'column' | 'expression' | 'userLikeMode' | 'userLikeSource'
+  'column' | 'expression' | 'userLikeMode' | 'userLikeSource' | 'pinyinKind'
 >;
 
 /**
@@ -772,7 +778,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private projection: ReadonlyArray<FieldId> | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
-  private readonly orderByValues: Array<{ column: OrderByColumn; direction: 'asc' | 'desc' }> = [];
+  private readonly orderByValues: Array<{
+    column: OrderByColumn;
+    direction: 'asc' | 'desc';
+    collation?: 'zh-pinyin';
+  }> = [];
   private foreignTables: ReadonlyMap<string, Table>;
   private missingForeignTableIds: ReadonlySet<string> = new Set();
   private readonly whereSpecs: Array<
@@ -841,14 +851,15 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return this;
   }
 
-  // group-identity collation is a stored-mode concern (grouped lists and
-  // range reads always run stored); computed reads keep their own collation
   orderBy(
     column: OrderByColumn,
     direction: 'asc' | 'desc',
-    _options?: { readonly groupIdentityCollation?: boolean }
+    options?: {
+      readonly groupIdentityCollation?: boolean;
+      readonly collation?: 'zh-pinyin';
+    }
   ): this {
-    this.orderByValues.push({ column, direction });
+    this.orderByValues.push({ column, direction, collation: options?.collation });
     return this;
   }
 
@@ -1009,7 +1020,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         // Resolve orderBy columns
         const resolvedOrderBy: ResolvedOrderBy[] = [];
         for (const orderBy of uniqueOrderByEntries(this.orderByValues)) {
-          const columnResult = yield* this.resolveOrderByColumn(table, orderBy.column);
+          const columnResult = yield* this.resolveOrderByColumn(
+            table,
+            orderBy.column,
+            orderBy.collation
+          );
           if (columnResult !== null) {
             resolvedOrderBy.push({
               column: columnResult.column,
@@ -1017,6 +1032,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               expression: columnResult.expression,
               userLikeMode: columnResult.userLikeMode,
               userLikeSource: columnResult.userLikeSource,
+              pinyinKind: columnResult.pinyinKind,
             });
           }
         }
@@ -1053,10 +1069,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               orderBy.column,
               orderBy.direction,
               orderBy.userLikeMode,
-              orderBy.userLikeSource ?? 'field'
+              orderBy.userLikeSource ?? 'field',
+              orderBy.pinyinKind
             );
           } else {
-            const columnRef = orderBy.expression ?? sql`${sql.ref(`${T}.${orderBy.column}`)}`;
+            const baseColumnRef = orderBy.expression ?? sql`${sql.ref(`${T}.${orderBy.column}`)}`;
+            const columnRef =
+              orderBy.pinyinKind === 'text' ? applyPinyinCollation(baseColumnRef) : baseColumnRef;
             if (isNeverNullSystemOrderColumn(orderBy.column)) {
               query = query.orderBy(columnRef, orderBy.direction);
             } else {
@@ -3741,12 +3760,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
    */
   private resolveOrderByColumn(
     table: Table,
-    orderByColumn: OrderByColumn
+    orderByColumn: OrderByColumn,
+    collation?: 'zh-pinyin'
   ): Result<ResolvedOrderByColumn | null, DomainError> {
     // If it's a FieldId, resolve to dbFieldName
     if (orderByColumn instanceof FieldId) {
       return resolveTableField(table, orderByColumn as FieldId, 'resolving order-by field').andThen(
         (field) => {
+          const pinyinKindResult = resolvePinyinOrderByKind(field, collation);
+          if (pinyinKindResult.isErr()) return err(pinyinKindResult.error);
+          const pinyinKind = pinyinKindResult.value;
           const fieldType = field.type();
           const isUserLike =
             fieldType.equals(FieldType.user()) ||
@@ -3754,7 +3777,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             fieldType.equals(FieldType.createdBy()) ||
             fieldType.equals(FieldType.lastModifiedBy());
           if (fieldType.equals(FieldType.createdTime())) {
-            return ok({ column: '__created_time' });
+            return ok({ column: '__created_time', pinyinKind });
           }
           const isTrackAll =
             'isTrackAll' in field && typeof field.isTrackAll === 'function'
@@ -3763,11 +3786,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           if (fieldType.equals(FieldType.lastModifiedTime())) {
             return isPersistedAsGeneratedColumn(field).andThen((generated) =>
               generated
-                ? ok({ column: '__last_modified_time' })
+                ? ok({ column: '__last_modified_time', pinyinKind })
                 : field
                     .dbFieldName()
                     .andThen((dbFieldName) => dbFieldName.value())
-                    .map((column) => ({ column }))
+                    .map((column) => ({ column, pinyinKind }))
             );
           }
           if (fieldType.equals(FieldType.createdBy())) {
@@ -3775,6 +3798,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               column: '__created_by',
               userLikeMode: 'single',
               userLikeSource: 'system',
+              pinyinKind,
             });
           }
           if (fieldType.equals(FieldType.lastModifiedBy()) && isTrackAll) {
@@ -3782,10 +3806,13 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               column: '__last_modified_by',
               userLikeMode: 'single',
               userLikeSource: 'system',
+              pinyinKind,
             });
           }
-          if (fieldType.equals(FieldType.autoNumber())) return ok({ column: '__auto_number' });
-          const multiplicityResult = isUserLike ? field.isMultipleCellValue() : undefined;
+          if (fieldType.equals(FieldType.autoNumber()))
+            return ok({ column: '__auto_number', pinyinKind });
+          const multiplicityResult =
+            isUserLike && pinyinKind !== 'link' ? field.isMultipleCellValue() : undefined;
           if (multiplicityResult?.isErr()) {
             return err(multiplicityResult.error);
           }
@@ -3793,12 +3820,14 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           return field.dbFieldName().andThen((dbFieldName) =>
             dbFieldName.value().map((column) => ({
               column,
+              pinyinKind,
               ...(isUserLike
                 ? {
-                    userLikeMode: (multiplicity?.isMultiple() ? 'multiple' : 'single') as Exclude<
-                      ResolvedOrderBy['userLikeMode'],
-                      undefined
-                    >,
+                    userLikeMode: (pinyinKind === 'link'
+                      ? 'single'
+                      : multiplicity?.isMultiple()
+                        ? 'multiple'
+                        : 'single') as Exclude<ResolvedOrderBy['userLikeMode'], undefined>,
                     userLikeSource: 'field' as const,
                   }
                 : {}),
@@ -3817,7 +3846,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     column: string,
     direction: 'asc' | 'desc',
     mode: 'single' | 'multiple',
-    source: 'field' | 'system'
+    source: 'field' | 'system',
+    pinyinKind?: PinyinOrderByKind
   ): QB {
     const columnRef = sql.ref(`${T}.${column}`);
     const columnJson = source === 'field' ? sql`${columnRef}::jsonb` : sql`to_jsonb(${columnRef})`;
@@ -3839,7 +3869,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           ? sql`${columnJson} ->> 'title'`
           : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;
 
-    return query.orderBy(titleExpr, applyV1NullsOrder(direction));
+    return query.orderBy(
+      pinyinKind === 'link' ? applyPinyinCollation(titleExpr) : titleExpr,
+      applyV1NullsOrder(direction)
+    );
   }
 }
 

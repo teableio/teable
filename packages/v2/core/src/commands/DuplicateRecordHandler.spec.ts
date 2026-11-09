@@ -24,8 +24,8 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -904,5 +904,84 @@ describe('DuplicateRecordHandler', () => {
     const numberFieldIdObj = FieldId.create(numberFieldId)._unsafeUnwrap();
     const numberValue = record.fields().get(numberFieldIdObj);
     expect(numberValue).toBeUndefined();
+  });
+
+  it('copies only fields in the server read projection', async () => {
+    const { table, textFieldId, numberFieldId, dateFieldId } = createTestTable(baseId, tableId);
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    recordQueryRepository.records.set(sourceRecordId, {
+      id: sourceRecordId,
+      fields: { [textFieldId]: 'changed-secret', [numberFieldId]: 99 },
+      version: 2,
+    });
+    const handler = new DuplicateRecordHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      recordQueryRepository,
+      createFakeRecordMutationSpecResolverService(),
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      noopUndoRedoService,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+    );
+
+    const command = DuplicateRecordCommand.create(
+      { tableId, recordId: sourceRecordId },
+      {
+        sourceSnapshot: {
+          tableId,
+          recordId: sourceRecordId,
+          fields: new Map([[textFieldId, 'Visible']]),
+        },
+      }
+    )._unsafeUnwrap();
+    const { record } = (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    expect(record.fields().get(FieldId.create(textFieldId)._unsafeUnwrap())?.toValue()).toBe(
+      'Visible'
+    );
+    expect(record.fields().get(FieldId.create(numberFieldId)._unsafeUnwrap())).toBeUndefined();
+    expect(record.fields().get(FieldId.create(dateFieldId)._unsafeUnwrap())).toBeUndefined();
+  });
+
+  it('treats an empty server read projection as copying nothing', async () => {
+    const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    recordQueryRepository.records.set(sourceRecordId, {
+      id: sourceRecordId,
+      fields: { [textFieldId]: 'Hidden', [numberFieldId]: 42 },
+      version: 1,
+    });
+    const handler = new DuplicateRecordHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      recordQueryRepository,
+      createFakeRecordMutationSpecResolverService(),
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      noopUndoRedoService,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+    );
+
+    const command = DuplicateRecordCommand.create(
+      { tableId, recordId: sourceRecordId },
+      { sourceSnapshot: { tableId, recordId: sourceRecordId, fields: new Map() } }
+    )._unsafeUnwrap();
+    const { record } = (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    expect(record.fields().get(FieldId.create(textFieldId)._unsafeUnwrap())).toBeUndefined();
+    expect(record.fields().get(FieldId.create(numberFieldId)._unsafeUnwrap())).toBeUndefined();
   });
 });

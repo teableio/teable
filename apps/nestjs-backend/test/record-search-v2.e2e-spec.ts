@@ -546,37 +546,80 @@ describe('v2 authed search aggregation APIs (e2e)', () => {
           { recordId: openAlphaId, fieldId: notesFieldId, index: 1 },
         ]),
         scannedRecordCount: 1,
-        nextSkip: 1,
-        hasMore: true,
+        nextSkip: null,
+        hasMore: false,
       });
       expect(result.data.matches).toHaveLength(2);
     });
 
-    it('advances through an empty-hit record page and finds a later View row', async () => {
-      const firstPage = await getSearchMatches(table.id, {
+    it('pages matching rows directly and finds a later View row', async () => {
+      const page = await getSearchMatches(table.id, {
         take: 2,
         viewId,
         search: ['100', nameFieldId, false],
       });
-      expect(firstPage.data).toEqual({
-        matches: [],
-        scannedRecordCount: 2,
-        nextSkip: 2,
+
+      expect(page.data).toEqual({
+        matches: [expect.objectContaining({ fieldId: nameFieldId, index: 3 })],
+        scannedRecordCount: 1,
+        nextSkip: null,
+        hasMore: false,
+      });
+    });
+
+    it('continues matching-row pages without confusing multiple cells with row offsets', async () => {
+      const query = {
+        take: 1,
+        viewId,
+        ignoreViewQuery: true,
+        search: ['alpha', `${nameFieldId},${notesFieldId}`, false] as [string, string, boolean],
+      };
+      const first = await getSearchMatches(table.id, query);
+      expect(first.data).toEqual({
+        matches: [
+          { recordId: openAlphaId, fieldId: nameFieldId, index: 1 },
+          { recordId: openAlphaId, fieldId: notesFieldId, index: 1 },
+        ],
+        scannedRecordCount: 1,
+        nextSkip: 1,
         hasMore: true,
       });
 
-      const secondPage = await getSearchMatches(table.id, {
-        skip: firstPage.data.nextSkip!,
-        take: 1,
-        viewId,
-        search: ['100', nameFieldId, false],
-      });
-      expect(secondPage.data).toEqual({
-        matches: [expect.objectContaining({ fieldId: nameFieldId, index: 3 })],
+      const second = await getSearchMatches(table.id, { ...query, skip: first.data.nextSkip! });
+      expect(second.data).toEqual({
+        matches: [{ recordId: closedAlphaId, fieldId: nameFieldId, index: 3 }],
         scannedRecordCount: 1,
-        nextSkip: 3,
-        hasMore: true,
+        nextSkip: null,
+        hasMore: false,
       });
+    });
+
+    it('returns a late View match without scanning the rows before it', async () => {
+      const rowCount = 130;
+      const lateTable = await createTable(baseId, {
+        name: 'search_v2_late_match_t8327',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: Array.from({ length: rowCount }, (_, index) => ({
+          fields: { Name: index === rowCount - 1 ? 'needle-late' : `row-${index}` },
+        })),
+      });
+      const lateNameFieldId = lateTable.fields.find((field) => field.name === 'Name')!.id;
+
+      try {
+        const result = await getSearchMatches(lateTable.id, {
+          take: 10,
+          search: ['needle-late', lateNameFieldId, false],
+        });
+
+        expect(result.data).toEqual({
+          matches: [expect.objectContaining({ fieldId: lateNameFieldId, index: rowCount })],
+          scannedRecordCount: 1,
+          nextSkip: null,
+          hasMore: false,
+        });
+      } finally {
+        await permanentDeleteTable(baseId, lateTable.id);
+      }
     });
 
     it('scans only explicitly selected records', async () => {
@@ -593,6 +636,54 @@ describe('v2 authed search aggregation APIs (e2e)', () => {
         nextSkip: null,
         hasMore: false,
       });
+    });
+
+    it('accepts a full highlight scope in JSON without dropping the only selected hit', async () => {
+      const selectedRecordIds = [
+        openOtherId,
+        ...Array.from({ length: 999 }, (_, index) => `rec${String(index).padStart(16, '0')}`),
+      ];
+      const result = await getSearchMatches(table.id, {
+        viewId,
+        selectedRecordIds,
+        projection: [nameFieldId],
+        search: ['open-', nameFieldId, false],
+        take: 1000,
+      });
+
+      expect(result.data).toEqual({
+        matches: [{ recordId: openOtherId, fieldId: nameFieldId, index: 1 }],
+        scannedRecordCount: 1,
+        nextSkip: null,
+        hasMore: false,
+      });
+    });
+
+    it('finds every counted cell beyond the ordinary all-field row-search cap', async () => {
+      const wideTable = await createTable(baseId, {
+        name: 'search_v2_full_cell_scope_t8327',
+        fields: Array.from({ length: 21 }, (_, index) => ({
+          name: `Text${index + 1}`,
+          type: FieldType.SingleLineText,
+        })),
+        records: [{ fields: { Text1: 'ordinary', Text21: 'needle-wide' } }],
+      });
+      try {
+        const lastFieldId = wideTable.fields[20].id;
+        const search: [string, string, boolean] = ['needle-wide', '', false];
+        const count = await getSearchCellCount(wideTable.id, { search });
+        expect(count.data).toEqual({ matchedCellCount: 1 });
+
+        const matches = await getSearchMatches(wideTable.id, { search, take: 10 });
+        expect(matches.data).toEqual({
+          matches: [{ recordId: wideTable.records[0].id, fieldId: lastFieldId, index: 1 }],
+          scannedRecordCount: 1,
+          nextSkip: null,
+          hasMore: false,
+        });
+      } finally {
+        await permanentDeleteTable(baseId, wideTable.id);
+      }
     });
 
     it('matches a multi-value cell across its joined display-value boundary', async () => {

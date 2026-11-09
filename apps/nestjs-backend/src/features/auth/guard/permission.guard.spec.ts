@@ -40,12 +40,16 @@ describe('PermissionGuard', () => {
     anyPermissions,
     isAdmin = false,
     userId = 'usrxxxxxxxxxxxx',
+    tempAuthBaseId,
+    authSource,
     validPermissions,
   }: {
     primaryPermissions: Action[];
     anyPermissions?: Action[][];
     isAdmin?: boolean;
     userId?: string;
+    tempAuthBaseId?: string;
+    authSource?: string;
     validPermissions: PermissionService['validPermissions'];
   }) => {
     const reflector = {
@@ -66,6 +70,12 @@ describe('PermissionGuard', () => {
         }
         if (key === 'user.isAdmin') {
           return isAdmin;
+        }
+        if (key === 'tempAuthBaseId') {
+          return tempAuthBaseId;
+        }
+        if (key === 'authSource') {
+          return authSource;
         }
         return undefined;
       }),
@@ -123,6 +133,65 @@ describe('PermissionGuard', () => {
     await expect(guard.canActivate(createContext())).rejects.toThrow(
       `not allowed to operate table|update on ${tableId}`
     );
+  });
+
+  it.each<Action>(['instance|read', 'instance|update'])(
+    "denies an admin's base-scoped internal token the instance permission %s",
+    async (permission) => {
+      const { guard } = createGuard({
+        primaryPermissions: [permission],
+        isAdmin: true,
+        tempAuthBaseId: 'bsexxxxxxxxxxxx',
+        validPermissions: vi.fn(),
+      });
+
+      await expect(guard.canActivate(createContext())).rejects.toThrow(
+        `Base-scoped token cannot perform ${permission}`
+      );
+    }
+  );
+
+  it.each<Action>(['instance|read', 'instance|update'])(
+    "denies an admin's AI sandbox token the instance permission %s",
+    async (permission) => {
+      const { guard } = createGuard({
+        primaryPermissions: [permission],
+        isAdmin: true,
+        authSource: 'sandbox',
+        validPermissions: vi.fn(),
+      });
+
+      await expect(guard.canActivate(createContext())).rejects.toThrow(
+        `Sandbox token cannot perform ${permission}`
+      );
+    }
+  );
+
+  it("keeps an admin's AI sandbox token to the user's own permissions on alternative routes", async () => {
+    const validPermissions = vi
+      .fn()
+      .mockRejectedValue(createForbiddenError(tableUpdatePermissions));
+    const { guard } = createGuard({
+      primaryPermissions: tableUpdatePermissions,
+      anyPermissions: [instanceUpdatePermissions],
+      isAdmin: true,
+      authSource: 'sandbox',
+      validPermissions,
+    });
+
+    await expect(guard.canActivate(createContext())).rejects.toThrow(
+      `not allowed to operate table|update on ${tableId}`
+    );
+  });
+
+  it('allows an admin session the instance permission', async () => {
+    const { guard } = createGuard({
+      primaryPermissions: ['instance|read'],
+      isAdmin: true,
+      validPermissions: vi.fn(),
+    });
+
+    await expect(guard.canActivate(createContext())).resolves.toBe(true);
   });
 
   it('allows a signed-in user the user-level space|create permission', async () => {

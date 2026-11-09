@@ -40,7 +40,7 @@ export const templateQueryRoSchema = z.object({
   sort: z.enum(TemplateListSort).optional().meta({
     example: 'ranking',
     description:
-      "ranking: by this month's usage score, highest first; newest: last published first. Omitted: the admin's order.",
+      "ranking: by installs in the last 30 days, highest first, then this month's usage score and all-time installs; newest: last published first. Omitted: the admin's order.",
   }),
   requires: z.string().optional().meta({
     example: 'slack',

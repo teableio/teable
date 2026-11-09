@@ -5,12 +5,17 @@ import {
 } from '@teable/v2-adapter-repository-postgres';
 import {
   ActorId,
+  AttachmentValueResolverService,
   BaseId,
   DefaultTableMapper,
   FieldId,
   FieldKeyType,
   FieldName,
+  LinkTitleResolverService,
+  NoopTableRecordQueryRepository,
+  NoopTableRepository,
   ok,
+  RecordMutationSpecResolverService,
   RecordWriteOperationKind,
   RecordWritePluginRunner,
   RecordWriteSideEffectService,
@@ -20,6 +25,7 @@ import {
   TableName,
   type RecordWritePluginContextMap,
   type TableRecord,
+  UserValueResolverService,
 } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
 import { RecordBatchCreationService } from '../../../../../packages/v2/core/src/application/services/RecordBatchCreationService';
@@ -143,12 +149,24 @@ describe('LinkTitleRecordCreatePermissionPlugin', () => {
           })
       );
       const tableUpdateFlow = { execute: vi.fn().mockResolvedValue(ok({ events: [] })) };
+      const recordMutationSpecResolver = new RecordMutationSpecResolverService(
+        new LinkTitleResolverService(
+          new NoopTableRepository(),
+          new NoopTableRecordQueryRepository()
+        ),
+        new AttachmentValueResolverService({
+          listAttachmentsByTokens: async () => ok([]),
+          listAttachmentsByAttachmentIds: async () => ok([]),
+        }),
+        new UserValueResolverService({
+          listTableUsersByIdentifiers: async () => ok([]),
+          listUsersByIdentityPairs: async () => ok([]),
+          listUsersByIds: async () => ok([]),
+        })
+      );
       const service = new RecordBatchCreationService(
         { insertMany } as never,
-        {
-          resolveAndReplaceMany: async (_context: unknown, specs: ReadonlyArray<unknown>) =>
-            ok(specs),
-        } as never,
+        recordMutationSpecResolver,
         { decorateChangedFieldsByRecord: async () => ok(undefined) } as never,
         runner,
         sideEffectService,

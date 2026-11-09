@@ -1,5 +1,5 @@
 import { InternalServerErrorException } from '@nestjs/common';
-import type { FieldCore } from '@teable/core';
+import type { FieldCore, ISortItem } from '@teable/core';
 import { SortFunc } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IRecordQuerySortContext } from '../../../features/record/query-builder/record-query-builder.interface';
@@ -14,7 +14,8 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
   constructor(
     protected readonly knex: Knex,
     protected readonly field: FieldCore,
-    protected readonly context?: IRecordQuerySortContext
+    protected readonly context?: IRecordQuerySortContext,
+    protected readonly collation?: ISortItem['collation']
   ) {
     const { dbFieldName, id } = field;
 

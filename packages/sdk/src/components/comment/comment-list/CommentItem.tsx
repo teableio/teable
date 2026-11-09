@@ -13,6 +13,7 @@ import { CommentQuote } from '../comment-editor/CommentQuote';
 import type { IBaseQueryParams } from '../types';
 import { useCommentStore } from '../useCommentStore';
 import { CommentContent } from './CommentContent';
+import { getCommentRelativeTime } from './commentRelativeTime';
 import { CommentListContext } from './context';
 import { Reaction, ReactionPicker } from './reaction';
 
@@ -40,7 +41,7 @@ export const CommentItem = (props: ICommentItemProps) => {
   const dayjs = useLanDayjs();
   const { t } = useTranslation();
   const [emojiPickOpen, setEmojiPickOpen] = useState(false);
-  const relativeTime = dayjs(createdTime).fromNow();
+  const relativeTime = getCommentRelativeTime(dayjs, createdTime);
   const { setQuoteId, setEditingCommentId, editorRef } = useCommentStore();
   const { user } = useSession();
   const { commentWritable, commentManageable } = useCommentPermission();

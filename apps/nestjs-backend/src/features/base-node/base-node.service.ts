@@ -612,7 +612,7 @@ export class BaseNodeService {
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'create',
-        data: { ...vo },
+        data: { id: vo.id },
       });
     });
 
@@ -773,7 +773,7 @@ export class BaseNodeService {
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'create',
-        data: { ...vo },
+        data: { id: vo.id },
       });
     });
     return vo;
@@ -854,7 +854,7 @@ export class BaseNodeService {
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'update',
-        data: { ...vo },
+        data: { id: vo.id },
       });
     });
     return vo;
@@ -1066,7 +1066,7 @@ export class BaseNodeService {
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'update',
-        data: { ...vo },
+        data: { id: vo.id },
       });
     });
 

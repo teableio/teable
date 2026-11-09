@@ -46,6 +46,7 @@ import {
   CopyPlus,
   FileInputIcon,
   FolderInput,
+  AlignLeft,
   Info,
   Pen,
   Star,
@@ -140,7 +141,8 @@ interface IBaseNodeMoreProps {
   onRename?: () => void;
   /**
    * Opens the node's description. The table page passes it where its title block — the
-   * description's usual home — is hidden (the native mobile app), so the menu is the way in.
+   * description's usual home — is hidden (the native mobile app, the chat-first space shell),
+   * so the menu is the way in.
    */
   onDescription?: () => void;
   onDelete?: (permanent: boolean) => Promise<void>;
@@ -217,6 +219,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     open,
     setOpen,
     onRename,
+    onDescription,
     onDuplicate,
     onDelete,
     children,
@@ -321,7 +324,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
   );
 
   // The menu's groups: edit, info, then delete on its own.
-  const hasEditGroup = anyOf(canRename, star, canDuplicate);
+  const hasEditGroup = anyOf(canRename, star, canDuplicate, onDescription);
   const hasInfoGroup = anyOf(shareNodeId, node);
   const hasDeleteGroup = anyOf(canPermanentDelete, canDelete);
   const hasVisibleCommonActions = anyOf(hasEditGroup, hasInfoGroup, hasDeleteGroup);
@@ -357,6 +360,13 @@ const CommonOperation = (props: ICommonOperationProps) => {
             icon={<CopyPlus className="size-4" />}
             label={t('table:import.menu.duplicate')}
             onClick={handleDuplicateClick}
+          />
+        )}
+        {onDescription && (
+          <ListMenuItem
+            icon={<AlignLeft className="size-4" />}
+            label={t('common:resourceDescription.nodeDescription')}
+            onClick={() => onDescription()}
           />
         )}
         {shareNodeId && (
@@ -451,6 +461,12 @@ const CommonOperation = (props: ICommonOperationProps) => {
             <DropdownMenuItem onClick={handleDuplicateClick}>
               <CopyPlus className="me-2 size-4" />
               {t('table:import.menu.duplicate')}
+            </DropdownMenuItem>
+          )}
+          {onDescription && (
+            <DropdownMenuItem onClick={() => onDescription()}>
+              <AlignLeft className="me-2 size-4" />
+              {t('common:resourceDescription.nodeDescription')}
             </DropdownMenuItem>
           )}
           <GroupSeparator above={hasEditGroup} below={hasInfoGroup} />
@@ -950,13 +966,6 @@ export const TableOperation = (props: ITableOperationProps) => {
   if (variant === 'list') {
     return (
       <>
-        {onDescription && (
-          <ListMenuItem
-            icon={<Info className="size-4" />}
-            label={t('common:resourceDescription.nodeDescription')}
-            onClick={() => onDescription()}
-          />
-        )}
         {menuPermission.updateTable && (
           <ListMenuItem
             icon={<Pen className="size-4" />}
@@ -970,6 +979,13 @@ export const TableOperation = (props: ITableOperationProps) => {
             icon={<CopyPlus className="size-4" />}
             label={t('table:import.menu.duplicate')}
             onClick={handleDuplicateClick}
+          />
+        )}
+        {onDescription && (
+          <ListMenuItem
+            icon={<AlignLeft className="size-4" />}
+            label={t('common:resourceDescription.nodeDescription')}
+            onClick={() => onDescription()}
           />
         )}
         {menuPermission.exportTable && (
@@ -1115,12 +1131,6 @@ export const TableOperation = (props: ITableOperationProps) => {
           onClick={(e) => e.stopPropagation()}
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
-          {onDescription && (
-            <DropdownMenuItem onClick={() => onDescription()}>
-              <Info className="me-2 size-4" />
-              {t('common:resourceDescription.nodeDescription')}
-            </DropdownMenuItem>
-          )}
           {menuPermission.updateTable && (
             <DropdownMenuItem onClick={() => onRename?.()}>
               <Pen className="me-2 size-4" />
@@ -1138,6 +1148,12 @@ export const TableOperation = (props: ITableOperationProps) => {
             >
               <CopyPlus className="me-2 size-4" />
               {t('table:import.menu.duplicate')}
+            </DropdownMenuItem>
+          )}
+          {onDescription && (
+            <DropdownMenuItem onClick={() => onDescription()}>
+              <AlignLeft className="me-2 size-4" />
+              {t('common:resourceDescription.nodeDescription')}
             </DropdownMenuItem>
           )}
           <GroupSeparator above={hasEditGroup} below={hasDataGroup} />

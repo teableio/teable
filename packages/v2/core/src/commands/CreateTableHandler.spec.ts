@@ -2,12 +2,16 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
 import type { IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
+import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { UserValueResolverService } from '../application/services/UserValueResolverService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -28,6 +32,7 @@ import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import { NoopTableRecordQueryRepository } from '../ports/defaults/NoopTableRecordQueryRepository';
 import type { IEventBus } from '../ports/EventBus';
 import type {
   IExecutionContext,
@@ -64,6 +69,20 @@ const createTableLimitPluginRunner = (tableRepository: ITableRepository) =>
       createDefaultTableDataSafetyLimitComposer()
     ),
   ]);
+
+const createRecordMutationSpecResolver = (tableRepository: ITableRepository) =>
+  new RecordMutationSpecResolverService(
+    new LinkTitleResolverService(tableRepository, new NoopTableRecordQueryRepository()),
+    new AttachmentValueResolverService({
+      listAttachmentsByTokens: async () => ok([]),
+      listAttachmentsByAttachmentIds: async () => ok([]),
+    }),
+    new UserValueResolverService({
+      listTableUsersByIdentifiers: async () => ok([]),
+      listUsersByIdentityPairs: async () => ok([]),
+      listUsersByIds: async () => ok([]),
+    })
+  );
 
 class FakeTableRepository implements ITableRepository {
   inserted: Table[] = [];
@@ -344,6 +363,7 @@ const createHandlerHarness = (
     new ForeignTableLoaderService(tableRepository),
     eventBus,
     unitOfWork,
+    createRecordMutationSpecResolver(tableRepository),
     undefined,
     createTableLimitPluginRunner(tableRepository),
     undefined,
@@ -405,6 +425,7 @@ describe('CreateTableHandler', () => {
       foreignTableLoaderService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );
@@ -614,6 +635,7 @@ describe('CreateTableHandler', () => {
       new ForeignTableLoaderService(tableRepository),
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );
@@ -663,6 +685,7 @@ describe('CreateTableHandler', () => {
       foreignTableLoaderService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );
@@ -750,6 +773,7 @@ describe('CreateTableHandler', () => {
       foreignTableLoaderService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );
@@ -795,6 +819,7 @@ describe('CreateTableHandler', () => {
       foreignTableLoaderService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );
@@ -849,6 +874,7 @@ describe('CreateTableHandler', () => {
       foreignTableLoaderService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );
@@ -917,6 +943,7 @@ describe('CreateTableHandler', () => {
         foreignTableLoaderService,
         eventBus,
         unitOfWork,
+        createRecordMutationSpecResolver(tableRepository),
         undefined,
         createTableLimitPluginRunner(tableRepository)
       );
@@ -984,6 +1011,7 @@ describe('CreateTableHandler', () => {
         foreignTableLoaderService,
         eventBus,
         unitOfWork,
+        createRecordMutationSpecResolver(tableRepository),
         undefined,
         createTableLimitPluginRunner(tableRepository)
       );

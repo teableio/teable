@@ -335,9 +335,14 @@
     "autoSort": "Ordina automaticamente i record",
     "selectASCLabel": "primo → ultimo",
     "selectDESCLabel": "ultimo → primo",
+    "pinyinASCLabel": "Pinyin: crescente",
+    "pinyinDESCLabel": "Pinyin: decrescente",
+    "pinyinGroupConflict": "L’ordinamento pinyin non è disponibile per un campo raggruppato. Rimuovi il raggruppamento di questo campo o usa l’ordinamento predefinito.",
+    "pinyinGroupRecovered": "L’ordinamento pinyin della vista personale in conflitto è stato reimpostato sull’ordinamento predefinito. I raggruppamenti e le direzioni di ordinamento sono stati mantenuti. Rimuovi il raggruppamento di questo campo per riattivare l’ordinamento pinyin.",
     "orderTitle": "Seleziona ordinamento"
   },
   "group": {
+    "pinyinSortConflict": "Questo campo usa l’ordinamento pinyin. Passa all’ordinamento predefinito prima di raggrupparlo oppure scegli un altro campo.",
     "label": "Gruppo",
     "displayLabel_one": "Raggruppa per {{count}} campo",
     "displayLabel_many": "Raggruppa per {{count}} campi",
@@ -956,7 +961,7 @@
     "conflict": "Conflitto",
     "unprocessableEntity": "Entità non processabile",
     "userLimitExceeded": "Limite utente superato",
-    "tooManyRequests": "Troppi richieste",
+    "tooManyRequests": "Troppe richieste",
     "payloadTooLarge": "Payload troppo grande",
     "internalServerError": "Errore interno del server",
     "databaseConnectionUnavailable": "Connessione al database non disponibile",
@@ -1203,6 +1208,7 @@
       "configRequiredToRun": "Impossibile eseguire una routine senza una configurazione salvata",
       "runAlreadyInFlight": "Un'esecuzione di questa routine è già in corso",
       "runNowWhileActiveEvent": "Questa routine è attiva e riceve già i suoi eventi; attivane uno per vederla in esecuzione",
+      "runNowOwnerOnly": "Mentre la routine è attiva, solo la persona con cui viene eseguita può avviarla subito",
       "invalidRunCursor": "Cursore dell'elenco delle esecuzioni non valido",
       "invalidSchedule": "Pianificazione della routine non valida: {{reason}}"
     },
@@ -1703,6 +1709,7 @@
         "loginDisabled": "L'accesso non è abilitato per questa app",
         "googleDisabled": "L'accesso con Google non è abilitato per questa app",
         "teableDisabled": "L'accesso con Teable non è abilitato per questa app",
+        "oidcDisabled": "L'accesso con SSO non è abilitato per questa app",
         "userTableMissing": "La tabella utenti selezionata non esiste in questo progetto",
         "emailFieldMissing": "La tabella utenti selezionata non ha un campo e-mail",
         "emailFieldType": "Il campo e-mail deve essere un campo di testo a riga singola scrivibile",
@@ -1790,6 +1797,11 @@
     },
     "integrity": {
       "linkTargetTableMissing": "La tabella collegata non esiste più, quindi questo collegamento non può essere riparato automaticamente."
+    },
+    "secret": {
+      "endpointChanged": "Un segreto salvato può essere inviato solo all'indirizzo per cui è stato salvato. Inserisci di nuovo {{field}}.",
+      "reenterForNewAddress": "L'indirizzo è cambiato. Inserisci di nuovo o cancella prima {{fields}}.",
+      "staleMask": "Il {{field}} salvato è cambiato dopo il caricamento della pagina. Inseriscilo di nuovo."
     }
   },
   "usageLimitBanner": {

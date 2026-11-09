@@ -332,9 +332,14 @@
     "autoSort": "Datensätze automatisch sortieren",
     "selectASCLabel": "erste → letzte",
     "selectDESCLabel": "letzte → erste",
+    "pinyinASCLabel": "Pinyin: aufsteigend",
+    "pinyinDESCLabel": "Pinyin: absteigend",
+    "pinyinGroupConflict": "Für ein gruppiertes Feld ist die Pinyin-Sortierung nicht verfügbar. Entferne die Gruppierung dieses Feldes oder verwende die Standardsortierung.",
+    "pinyinGroupRecovered": "Die mit der Gruppierung in Konflikt stehende Pinyin-Sortierung der persönlichen Ansicht wurde auf die Standardsortierung zurückgesetzt. Deine Gruppierungen und Sortierrichtungen wurden beibehalten. Entferne die Gruppierung dieses Feldes, um die Pinyin-Sortierung wieder zu aktivieren.",
     "orderTitle": "Sortierreihenfolge auswählen"
   },
   "group": {
+    "pinyinSortConflict": "Dieses Feld verwendet die Pinyin-Sortierung. Stelle vor dem Gruppieren die Standardsortierung ein oder wähle ein anderes Feld.",
     "label": "Gruppieren",
     "displayLabel_one": "Gruppiere nach {{count}} Feld",
     "displayLabel_other": "Gruppiere nach {{count}} Feldern",
@@ -1199,6 +1204,7 @@
       "configRequiredToRun": "Eine Routine kann nicht ohne gespeicherte Konfiguration ausgeführt werden",
       "runAlreadyInFlight": "Für diese Routine läuft bereits eine Ausführung",
       "runNowWhileActiveEvent": "Diese Routine ist aktiv und empfängt ihre Ereignisse bereits; löse eines aus, um sie laufen zu sehen",
+      "runNowOwnerOnly": "Solange die Routine aktiv ist, kann nur die Person, als die sie läuft, sie sofort ausführen",
       "invalidRunCursor": "Ungültiger Cursor für die Ausführungsliste",
       "invalidSchedule": "Ungültiger Routinenzeitplan: {{reason}}"
     },
@@ -1699,6 +1705,7 @@
         "loginDisabled": "Die Anmeldung ist für diese App nicht aktiviert",
         "googleDisabled": "Die Google-Anmeldung ist für diese App nicht aktiviert",
         "teableDisabled": "Die Teable-Anmeldung ist für diese App nicht aktiviert",
+        "oidcDisabled": "Die SSO-Anmeldung ist für diese App nicht aktiviert",
         "userTableMissing": "Die ausgewählte Benutzertabelle existiert in diesem Projekt nicht",
         "emailFieldMissing": "Die ausgewählte Benutzertabelle enthält kein E-Mail-Feld",
         "emailFieldType": "Das E-Mail-Feld muss ein beschreibbares einzeiliges Textfeld sein",
@@ -1786,6 +1793,11 @@
     },
     "integrity": {
       "linkTargetTableMissing": "Die verknüpfte Tabelle existiert nicht mehr, daher kann diese Verknüpfung nicht automatisch repariert werden."
+    },
+    "secret": {
+      "endpointChanged": "Ein gespeichertes Geheimnis kann nur an die Adresse gesendet werden, für die es gespeichert wurde. Geben Sie {{field}} erneut ein.",
+      "reenterForNewAddress": "Die Adresse wurde geändert. Geben Sie zuerst {{fields}} erneut ein oder leeren Sie die Felder.",
+      "staleMask": "Das gespeicherte {{field}} wurde seit dem Laden der Seite geändert. Geben Sie es erneut ein."
     }
   },
   "usageLimitBanner": {

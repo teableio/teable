@@ -79,6 +79,7 @@ describe('deterministic scalar backfill fusion', () => {
           {} as never,
           db,
           {} as never,
+          {} as never,
           { mode: 'sync', hybridThreshold: 10000 },
           new Pg16TypeValidationStrategy()
         );

@@ -7,11 +7,8 @@ export class SortFunctionPostgres extends AbstractSortFunction {
     if (!this.columnName) {
       return builderClient;
     }
-    const { dbFieldType } = this.field;
 
-    builderClient.orderByRaw(
-      `${dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName} ASC NULLS FIRST`
-    );
+    builderClient.orderByRaw(`${this.getOrderExpression()} ASC NULLS FIRST`);
     return builderClient;
   }
 
@@ -19,11 +16,8 @@ export class SortFunctionPostgres extends AbstractSortFunction {
     if (!this.columnName) {
       return builderClient;
     }
-    const { dbFieldType } = this.field;
 
-    builderClient.orderByRaw(
-      `${dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName} DESC NULLS LAST`
-    );
+    builderClient.orderByRaw(`${this.getOrderExpression()} DESC NULLS LAST`);
     return builderClient;
   }
 
@@ -31,25 +25,25 @@ export class SortFunctionPostgres extends AbstractSortFunction {
     if (!this.columnName) {
       return undefined;
     }
-    const { dbFieldType } = this.field;
 
-    return this.knex
-      .raw(
-        `${dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName} ASC NULLS FIRST`
-      )
-      .toQuery();
+    return this.knex.raw(`${this.getOrderExpression()} ASC NULLS FIRST`).toQuery();
   }
 
   getDescSQL() {
     if (!this.columnName) {
       return undefined;
     }
-    const { dbFieldType } = this.field;
 
-    return this.knex
-      .raw(
-        `${dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName} DESC NULLS LAST`
-      )
-      .toQuery();
+    return this.knex.raw(`${this.getOrderExpression()} DESC NULLS LAST`).toQuery();
+  }
+
+  protected applyCollation(expression: string): string {
+    return this.collation === 'zh-pinyin' ? `(${expression}) COLLATE "zh-x-icu"` : expression;
+  }
+
+  private getOrderExpression(): string {
+    const expression =
+      this.field.dbFieldType === DbFieldType.Json ? `${this.columnName}::text` : this.columnName!;
+    return this.applyCollation(expression);
   }
 }

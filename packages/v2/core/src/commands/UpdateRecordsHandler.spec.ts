@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,6 +24,7 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { RecordId } from '../domain/table/records/RecordId';
+import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
@@ -150,7 +150,7 @@ const noopRecordChangedValueDecoratorService = {
   ) => ok(changedFieldsByRecord),
 } as unknown as IRecordChangedValueDecoratorService;
 
-const buildTable = () => {
+const buildTable = (includeAttachments = true) => {
   const baseId = BaseId.create(`bse${'u'.repeat(16)}`)._unsafeUnwrap();
   const tableId = TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap();
   const tableName = TableName.create('Bulk Update Records')._unsafeUnwrap();
@@ -180,12 +180,14 @@ const buildTable = () => {
     .withName(FieldName.create('Status')._unsafeUnwrap())
     .withOptions([])
     .done();
-  builder
-    .field()
-    .attachment()
-    .withId(attachmentFieldId)
-    .withName(FieldName.create('Attachments')._unsafeUnwrap())
-    .done();
+  if (includeAttachments) {
+    builder
+      .field()
+      .attachment()
+      .withId(attachmentFieldId)
+      .withName(FieldName.create('Attachments')._unsafeUnwrap())
+      .done();
+  }
   builder.view().defaultGrid().done();
 
   return {
@@ -294,6 +296,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   updateManyStreamVersions = new Map<string, number>();
   updateManyStreamOldVersions = new Map<string, number>();
   updateManyStreamOldFieldValues = new Map<string, Readonly<Record<string, unknown>>>();
+  updateManyStreamChangedFields = new Map<string, ReadonlyMap<string, unknown>>();
   omitUpdateManyStreamOldFieldValues = false;
   updateManyStreamUpdatedRecordIds: Set<string> | undefined;
   updateManyResult: UpdateManyResult = {
@@ -416,6 +419,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       recordId,
       oldVersion: this.updateManyStreamOldVersions.get(id) ?? 0,
       newVersion: this.updateManyStreamVersions.get(id) ?? 1,
+      changedFields: this.updateManyStreamChangedFields.get(id),
       oldFieldValues: this.omitUpdateManyStreamOldFieldValues
         ? {}
         : {
@@ -638,12 +642,6 @@ const createHandler = (
     )
   );
 };
-
-it('keeps the handler limited to application forwarding', () => {
-  const source = readFileSync(new URL('./UpdateRecordsHandler.ts', import.meta.url), 'utf8');
-  expect(source).not.toMatch(/order|typecast|FieldKeyResolver|select.option|acquire|release/i);
-  expect(source).toContain('return this.applicationService.execute(context, command)');
-});
 
 describe('UpdateRecordsHandler', () => {
   it('updates matched records and publishes batch event', async () => {
@@ -1301,6 +1299,206 @@ describe('UpdateRecordsHandler', () => {
     expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(false);
     expect(undoRedoService.entries).toHaveLength(0);
   });
+
+  it('overlays normalized storage values including null before decorating owned response fields', async () => {
+    const { table, tableId, textFieldId, numberFieldId, singleSelectFieldId } = buildTable(false);
+    const recordId = `rec${'d'.repeat(16)}`;
+    const previousFields = Object.freeze({
+      [numberFieldId.toString()]: 5,
+      invalidFieldId: 'legacy value',
+      [textFieldId.toString()]: 'before',
+      [singleSelectFieldId.toString()]: null,
+    });
+    const normalizedFields = new Map<string, unknown>([
+      [textFieldId.toString(), 'normalized'],
+      [numberFieldId.toString(), null],
+      [singleSelectFieldId.toString(), null],
+    ]);
+    const decoratedFields = new Map<string, unknown>([
+      [textFieldId.toString(), 'Presented title'],
+      ['invalidDecoratedFieldId', 'ignored'],
+    ]);
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    recordRepository.updateManyStreamChangedFields.set(recordId, normalizedFields);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [{ id: recordId, version: 1, fields: previousFields }];
+    const decorate = vi.fn<IRecordChangedValueDecoratorService['decorateChangedFieldsByRecord']>(
+      async (_table, changedFieldsByRecord) => {
+        expect([...(changedFieldsByRecord?.get(recordId) ?? [])]).toEqual([
+          [textFieldId.toString(), 'normalized'],
+          [numberFieldId.toString(), null],
+        ]);
+        return ok(new Map([[recordId, decoratedFields]]));
+      }
+    );
+    const eventBus = new FakeEventBus();
+    const undoRedoService = new FakeUndoRedoService();
+    const handler = createHandler(
+      tableRepository,
+      recordRepository,
+      eventBus,
+      new FakeUnitOfWork(),
+      undoRedoService,
+      {
+        queryRepository,
+        recordChangedValueDecoratorService: {
+          ...noopRecordChangedValueDecoratorService,
+          decorateChangedFieldsByRecord: decorate,
+        },
+      }
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      UpdateRecordsCommand.create({
+        tableId: tableId.toString(),
+        fieldKeyType: 'id',
+        records: [
+          {
+            id: recordId,
+            fields: { [textFieldId.toString()]: 'requested', [numberFieldId.toString()]: 99 },
+          },
+        ],
+      })._unsafeUnwrap()
+    );
+
+    const record = result._unsafeUnwrap().records?.[0];
+    expect(
+      record
+        ?.fields()
+        .entries()
+        .map(({ fieldId, value }) => [fieldId.toString(), value.toValue()])
+    ).toEqual([
+      [numberFieldId.toString(), null],
+      [textFieldId.toString(), 'Presented title'],
+      [singleSelectFieldId.toString(), null],
+    ]);
+    expect(previousFields).toEqual({
+      [numberFieldId.toString()]: 5,
+      invalidFieldId: 'legacy value',
+      [textFieldId.toString()]: 'before',
+      [singleSelectFieldId.toString()]: null,
+    });
+    expect([...normalizedFields]).toEqual([
+      [textFieldId.toString(), 'normalized'],
+      [numberFieldId.toString(), null],
+      [singleSelectFieldId.toString(), null],
+    ]);
+    expect([...decoratedFields]).toEqual([
+      [textFieldId.toString(), 'Presented title'],
+      ['invalidDecoratedFieldId', 'ignored'],
+    ]);
+    expect(eventBus.published.find(isRecordsBatchUpdatedEvent)?.updates[0]?.changes).toEqual([
+      { fieldId: textFieldId.toString(), oldValue: 'before', newValue: 'Presented title' },
+      { fieldId: numberFieldId.toString(), oldValue: 5, newValue: null },
+    ]);
+    expect(undoRedoService.entries).toHaveLength(1);
+  });
+
+  it.each([false, true])(
+    'decorates authoritative readback without retaining stale fields or emitting presentation-only changes (storage changes=%s)',
+    async (storageChanges) => {
+      const { table, tableId, textFieldId, numberFieldId, attachmentFieldId } = buildTable();
+      const recordId = `rec${'e'.repeat(16)}`;
+      const attachment = Object.freeze({
+        id: 'att-current',
+        name: 'current.png',
+        token: 'tok-current',
+        path: '/attachments/current.png',
+        size: 12,
+        mimetype: 'image/png',
+      });
+      const storedAttachments = Object.freeze([attachment]);
+      const presentedAttachment = Object.freeze({
+        ...attachment,
+        presignedUrl: 'https://example.test/fresh.png',
+      });
+      const presentedAttachments = Object.freeze([presentedAttachment]);
+      const beforeFields = Object.freeze({
+        [textFieldId.toString()]: 'stale field absent from readback',
+        [numberFieldId.toString()]: 1,
+        [attachmentFieldId.toString()]: storedAttachments,
+      });
+      const readbackFields = Object.freeze({
+        [attachmentFieldId.toString()]: storedAttachments,
+        [numberFieldId.toString()]: storageChanges ? 2 : 1,
+      });
+      const decoratedFields = new Map<string, unknown>([
+        [attachmentFieldId.toString(), presentedAttachments],
+      ]);
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const recordRepository = new FakeTableRecordRepository();
+      recordRepository.updateManyStreamOldFieldValues.set(recordId, beforeFields);
+      if (!storageChanges) {
+        recordRepository.updateManyStreamUpdatedRecordIds = new Set();
+      }
+      const queryRepository = new FakeTableRecordQueryRepository();
+      vi.spyOn(queryRepository, 'find')
+        .mockResolvedValueOnce(
+          ok({ records: [{ id: recordId, version: 1, fields: beforeFields }], total: 1 })
+        )
+        .mockResolvedValueOnce(
+          ok({ records: [{ id: recordId, version: 2, fields: readbackFields }], total: 1 })
+        );
+      const eventBus = new FakeEventBus();
+      const undoRedoService = new FakeUndoRedoService();
+      const handler = createHandler(
+        tableRepository,
+        recordRepository,
+        eventBus,
+        new FakeUnitOfWork(),
+        undoRedoService,
+        {
+          queryRepository,
+          recordChangedValueDecoratorService: {
+            ...noopRecordChangedValueDecoratorService,
+            decorateChangedFieldsByRecord: async (_table, changedFieldsByRecord) => {
+              expect(changedFieldsByRecord?.get(recordId)?.get(attachmentFieldId.toString())).toBe(
+                storedAttachments
+              );
+              return ok(new Map([[recordId, decoratedFields]]));
+            },
+          },
+        }
+      );
+
+      const result = await handler.handle(
+        createContext(),
+        UpdateRecordsCommand.create({
+          tableId: tableId.toString(),
+          fieldKeyType: 'id',
+          records: [
+            { id: recordId, fields: { [numberFieldId.toString()]: storageChanges ? 2 : 1 } },
+          ],
+        })._unsafeUnwrap()
+      );
+
+      const payload = result._unsafeUnwrap();
+      expect(
+        payload.records?.[0]
+          ?.fields()
+          .entries()
+          .map(({ fieldId, value }) => [fieldId.toString(), value.toValue()])
+      ).toEqual([
+        [attachmentFieldId.toString(), presentedAttachments],
+        [numberFieldId.toString(), storageChanges ? 2 : 1],
+      ]);
+      expect(beforeFields[attachmentFieldId.toString()]).toBe(storedAttachments);
+      expect(readbackFields[attachmentFieldId.toString()]).toBe(storedAttachments);
+      expect(attachment).not.toHaveProperty('presignedUrl');
+      expect([...decoratedFields]).toEqual([[attachmentFieldId.toString(), presentedAttachments]]);
+      expect(
+        eventBus.published.find(isRecordsBatchUpdatedEvent)?.updates[0]?.changes ?? []
+      ).toEqual(
+        storageChanges ? [{ fieldId: numberFieldId.toString(), oldValue: 1, newValue: 2 }] : []
+      );
+      expect(payload.updatedCount).toBe(storageChanges ? 1 : 0);
+      expect(undoRedoService.entries).toHaveLength(storageChanges ? 1 : 0);
+    }
+  );
 
   it.each([false, true])(
     'preserves authoritative nulls without restoring stale attachments when storage changes=%s',

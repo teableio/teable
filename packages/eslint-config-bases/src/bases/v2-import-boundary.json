@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [
+    {
+      "name": "teable",
+      "specifier": "../plugin/index.js"
+    }
+  ],
+  "rules": {
+    "teable/no-legacy-core-import": "error"
+  }
+}

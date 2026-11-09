@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import { sortCollationSchema } from '../domain/table/views/ViewSort';
 import { recordFilterSchema, type RecordFilter } from '../queries/RecordFilterDto';
 import { RecordSearch, recordSearchInputSchema } from '../queries/RecordSearch';
 import {
@@ -45,6 +46,7 @@ export type ClearNormalizedRanges = [[number, number], [number, number]];
 export const clearSortSchema = z.object({
   fieldId: z.string(),
   order: z.enum(['asc', 'desc']),
+  collation: sortCollationSchema.optional(),
 });
 
 export type ClearSort = z.infer<typeof clearSortSchema>;

@@ -296,9 +296,7 @@ export class OAuthDeviceService {
    * is a read-check-write: two concurrent decisions (double-click, two tabs)
    * would both pass the pending check and the later write would win. The lock
    * serializes them; the loser is told the code was already used, same as a
-   * replay. `runExclusive` skips rather than waits, and degrades to a no-op
-   * without Redis — a single-process deployment, where the window is one
-   * event-loop interleaving.
+   * replay. `runExclusive` skips rather than waits.
    */
   async decide(params: {
     userCode: string;

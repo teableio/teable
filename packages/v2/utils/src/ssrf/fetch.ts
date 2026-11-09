@@ -1,8 +1,9 @@
+import { isIP } from 'node:net';
 import ipaddr from 'ipaddr.js';
 // Bun resolves the bare "undici" specifier to an incomplete builtin whose Agent has no
 // dispatcher methods; the package's explicit entry loads the real module in Node and Bun.
 import { Agent, buildConnector, fetch as undiciFetch, type Dispatcher } from 'undici/index.js';
-import { isCloudMetadataAddress, type ISafeAgentOptions } from './agents';
+import { createRejectingLookup, isCloudMetadataAddress, type ISafeAgentOptions } from './agents';
 
 /**
  * Shared SSRF-safe `fetch` machinery for v2 server hosts: an undici dispatcher
@@ -137,15 +138,31 @@ export function createTrustedUrlPredicate(): (url: string) => boolean {
     isTrustedExactOriginUrl(url, exactOrigins) || isTrustedInternalReadUrl(url, readOrigins);
 }
 
+const ssrfGuardError = (target: string) =>
+  new Error(`SSRF guard: ${target} is not an allowed address`);
+
 /**
- * undici Agent whose connector rejects non-public resolved peer IPs, or with
- * `allowPrivateNetwork` (self-hosted) only the cloud-metadata addresses — the
- * same split as the http.Agent stack in agents.ts.
+ * undici Agent that rejects a refused peer before the socket opens: IP literals
+ * are checked up front (undici skips DNS for them) and hostnames through a
+ * guarded lookup. Without that, the check can only run on the connected peer,
+ * so an unreachable target degrades into a connect timeout instead of a
+ * rejection and a reachable one sees the TCP attempt. With `allowPrivateNetwork`
+ * (self-hosted) only the cloud-metadata addresses are refused — the same split
+ * as the http.Agent stack in agents.ts. The connected peer is re-checked so a
+ * DNS answer that changed after resolution still cannot be reached.
  */
 function createStrictSsrfAgent(allowPrivateNetwork: boolean): Agent {
   const isRejected = allowPrivateNetwork ? isCloudMetadataAddress : isBlockedAddress;
-  const baseConnector = buildConnector({});
+  const baseConnector = buildConnector({
+    lookup: createRejectingLookup(isRejected, (address, hostname) =>
+      ssrfGuardError(`${address} resolved from ${hostname}`)
+    ),
+  });
   const connector: buildConnector.connector = (options, callback) => {
+    if (isIP(options.hostname) && isRejected(options.hostname)) {
+      callback(ssrfGuardError(options.hostname), null);
+      return;
+    }
     baseConnector(options, (err, socket) => {
       if (err || !socket) {
         callback(err ?? new Error('SSRF guard: connection failed'), null);
@@ -154,10 +171,7 @@ function createStrictSsrfAgent(allowPrivateNetwork: boolean): Agent {
       const remote = socket.remoteAddress;
       if (!remote || isRejected(remote)) {
         socket.destroy();
-        callback(
-          new Error(`SSRF guard: ${remote ?? 'unknown host'} is not an allowed address`),
-          null
-        );
+        callback(ssrfGuardError(remote ?? 'unknown host'), null);
         return;
       }
       callback(null, socket);
@@ -200,7 +214,10 @@ function createRoutingDispatcher(allowPrivateNetwork = false): Dispatcher {
   return getStrictSsrfAgent(allowPrivateNetwork).compose((dispatch) => (opts, handler) => {
     let trusted = false;
     try {
-      trusted = createTrustedUrlPredicate()(new URL(opts.path ?? '/', opts.origin).href);
+      // Concatenate rather than resolve the path against the origin: a `//host`
+      // path is a network-path reference, so resolution would swap the authority
+      // being judged while the request still dials `opts.origin`.
+      trusted = createTrustedUrlPredicate()(`${opts.origin}${opts.path ?? '/'}`);
     } catch {
       // no/invalid origin → strict
     }

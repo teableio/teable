@@ -7,6 +7,7 @@ import {
   SelectOptionId,
   domainError,
   ensureWithinTableDataSafetyLimit,
+  generateUuid,
   tableDataSafetyLimitErrors,
 } from '@teable/v2-core';
 import {
@@ -41,11 +42,15 @@ import {
   type IPgTypeValidationStrategy,
 } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { CompiledQuery, Kysely } from 'kysely';
+import type { CompiledQuery, Kysely, QueryResult, RawBuilder } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  buildTableUserScopeSql,
+  hasTableUserDepartmentRelations,
+} from '../../record/query-builder/tableUserScopeSql';
 import { buildUserTitleFromSnapshotSql } from '../../record/query-builder/userSnapshotSql';
 import type { TableSchemaStatementBuilder } from '../rules/core';
 import type { TableIdentifier } from '../rules/helpers';
@@ -245,6 +250,16 @@ type TextUserMapping = {
 type TableSchemaStatementExecuteContext = Parameters<
   NonNullable<TableSchemaStatementBuilder['execute']>
 >[0];
+
+type TextUserProfile = {
+  id: string;
+  name: string;
+  email: string | null;
+};
+
+const TEXT_USER_PROFILE_PAGE_SIZE = 128;
+const textUserTempTableName = (): string =>
+  `tmp_user_conversion_${generateUuid().replaceAll('-', '')}`;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -509,38 +524,25 @@ const buildTextUserPartsSql = (fullTableName: string, col: string): string => `
   CROSS JOIN LATERAL (SELECT trim(raw_parts.part) AS uid) AS parts
   WHERE t.${col} IS NOT NULL AND parts.uid <> ''`;
 
-const fetchTextUserMappings = async (
+const fetchTextUserIdentifiers = async (
   ctx: TableSchemaStatementExecuteContext,
-  fullTableName: string,
-  col: string,
-  identifierSql = buildTextUserPartsSql(fullTableName, col)
-): Promise<ReadonlyArray<TextUserMapping>> => {
+  identifierSql: string
+): Promise<ReadonlyArray<string>> => {
   const identifierRows = await sql<{ uid: string }>`
     ${sql.raw(identifierSql)}
   `.execute(ctx.dataDb);
-  const identifiers = [
-    ...new Set(identifierRows.rows.map((row) => row.uid).filter((uid) => uid.length > 0)),
-  ];
-  if (identifiers.length === 0) {
-    return [];
-  }
+  return [...new Set(identifierRows.rows.map((row) => row.uid).filter((uid) => uid.length > 0))];
+};
 
-  const identifierValues = identifiers
-    .map((identifier) => `(${quoteLiteral(identifier)})`)
-    .join(', ');
-  const userRows = await sql<{ id: string; name: string | null; email: string | null }>`
-    WITH input(uid) AS (VALUES ${sql.raw(identifierValues)})
-    SELECT DISTINCT users.id, users.name, users.email
-    FROM users
-    JOIN input ON users.id = input.uid OR users.email = input.uid OR users.name = input.uid
-    ORDER BY users.id
-  `.execute(ctx.metaDb);
-
+const buildTextUserMappings = (
+  identifiers: ReadonlyArray<string>,
+  users: ReadonlyArray<{ id: string; name: string | null; email: string | null }>
+): ReadonlyArray<TextUserMapping> => {
   const byId = new Map<string, Omit<TextUserMapping, 'lookupValue'>>();
   const byEmail = new Map<string, Omit<TextUserMapping, 'lookupValue'>>();
   const byName = new Map<string, Omit<TextUserMapping, 'lookupValue'>>();
 
-  for (const row of userRows.rows) {
+  for (const row of users) {
     const user = {
       id: row.id,
       title: row.name ?? row.id,
@@ -563,6 +565,173 @@ const fetchTextUserMappings = async (
       return user ? { lookupValue: identifier, ...user } : null;
     })
     .filter((mapping): mapping is TextUserMapping => Boolean(mapping));
+};
+
+const fetchUnscopedTextUserMappings = async (
+  ctx: TableSchemaStatementExecuteContext,
+  fullTableName: string,
+  col: string,
+  identifierSql = buildTextUserPartsSql(fullTableName, col)
+): Promise<ReadonlyArray<TextUserMapping>> => {
+  const identifiers = await fetchTextUserIdentifiers(ctx, identifierSql);
+  if (identifiers.length === 0) {
+    return [];
+  }
+
+  const identifierValues = identifiers
+    .map((identifier) => `(${quoteLiteral(identifier)})`)
+    .join(', ');
+  const userRows = await sql<{ id: string; name: string | null; email: string | null }>`
+    WITH input(uid) AS (VALUES ${sql.raw(identifierValues)})
+    SELECT DISTINCT users.id, users.name, users.email
+    FROM users
+    JOIN input ON users.id = input.uid OR users.email = input.uid OR users.name = input.uid
+    ORDER BY users.id
+  `.execute(ctx.metaDb);
+
+  return buildTextUserMappings(identifiers, userRows.rows);
+};
+
+const resetScopedTextUserProfiles = async (
+  ctx: TableSchemaStatementExecuteContext,
+  tempTable: string
+): Promise<void> => {
+  await sql.raw(`DROP TABLE IF EXISTS pg_temp.${tempTable}`).execute(ctx.dataDb);
+  await sql
+    .raw(
+      `CREATE TEMPORARY TABLE ${tempTable} (
+        id text NOT NULL PRIMARY KEY,
+        name text NOT NULL,
+        email text,
+        meta_order bigint NOT NULL UNIQUE
+      )`
+    )
+    .execute(ctx.dataDb);
+};
+
+const stageScopedTextUserProfiles = async (
+  ctx: TableSchemaStatementExecuteContext,
+  tableId: string,
+  tempTable: string
+): Promise<void> => {
+  await resetScopedTextUserProfiles(ctx, tempTable);
+  const metadataTempTable = `${tempTable}_meta`;
+  try {
+    const includeDepartments = await hasTableUserDepartmentRelations(ctx.metaDb);
+    const scopeCte = buildTableUserScopeSql(tableId, includeDepartments);
+    // TableUpdateFlow binds this executor to the outer metadata transaction.
+    // Capture eligibility and profiles in one statement: READ COMMITTED pages
+    // must not mix grants/revocations or profile changes from different times.
+    // This is a capture-time authorization boundary, not a cross-DB commit lock.
+    await sql`
+      CREATE TEMPORARY TABLE ${sql.raw(metadataTempTable)} ON COMMIT DROP AS
+      WITH ${scopeCte}
+      SELECT u.id, u.name, u.email
+      FROM users u
+      WHERE u.deleted_time IS NULL
+        AND EXISTS (SELECT 1 FROM eligible_users e WHERE e.user_id = u.id)
+    `.execute(ctx.metaDb);
+    await sql`
+      CREATE UNIQUE INDEX ON ${sql.raw(`pg_temp.${metadataTempTable}`)} (id)
+    `.execute(ctx.metaDb);
+    let cursor: string | null = null;
+    let metaOrder = 0;
+
+    for (;;) {
+      const cursorCondition: RawBuilder<unknown> =
+        cursor === null ? sql`` : sql`WHERE u.id > ${cursor}`;
+      const page: QueryResult<TextUserProfile> = await sql<TextUserProfile>`
+        SELECT u.id, u.name, u.email
+        FROM ${sql.raw(`pg_temp.${metadataTempTable}`)} u
+        ${cursorCondition}
+        ORDER BY u.id
+        LIMIT ${TEXT_USER_PROFILE_PAGE_SIZE}
+      `.execute(ctx.metaDb);
+      const { rows } = page;
+
+      if (rows.length === 0) break;
+      const values = rows.map(
+        (profile) => sql`(${profile.id}, ${profile.name}, ${profile.email}, ${++metaOrder})`
+      );
+      await sql`
+        insert into ${sql.raw(`pg_temp.${tempTable}`)} (id, name, email, meta_order)
+        values ${sql.join(values)}
+      `.execute(ctx.dataDb);
+      cursor = rows[rows.length - 1]!.id;
+    }
+  } catch (error) {
+    // A SQL failure aborts the metadata transaction; rollback removes its temp
+    // relation. For pre-query/injected failures, drop it before propagating.
+    await sql
+      .raw(`DROP TABLE IF EXISTS pg_temp.${metadataTempTable}`)
+      .execute(ctx.metaDb)
+      .catch(() => undefined);
+    throw domainError.infrastructure({
+      message: 'Failed to lookup users',
+      details: { error: (error as Error)?.message ?? String(error) },
+    });
+  }
+  await sql.raw(`DROP TABLE IF EXISTS pg_temp.${metadataTempTable}`).execute(ctx.metaDb);
+};
+
+const dropScopedTextUserProfiles = async (
+  ctx: TableSchemaStatementExecuteContext,
+  tempTable: string
+): Promise<void> => {
+  await sql.raw(`DROP TABLE IF EXISTS pg_temp.${tempTable}`).execute(ctx.dataDb);
+};
+
+const buildScopedTextToUserTransformSql = (
+  fullTableName: string,
+  col: string,
+  isMultiple: boolean,
+  tempTable: string
+): string => {
+  const userJsonBuild = (alias: string) =>
+    `jsonb_build_object('id', ${alias}.id, 'title', ${alias}.name, 'email', ${alias}.email)`;
+  const aggregationSql = isMultiple
+    ? `SELECT rid, jsonb_agg(${userJsonBuild('matched_users')} ORDER BY part_idx)::text AS user_json
+       FROM matched_users
+       GROUP BY rid`
+    : `SELECT DISTINCT ON (rid) rid, ${userJsonBuild('matched_users')}::text AS user_json
+       FROM matched_users
+       ORDER BY rid, part_idx`;
+
+  return `WITH user_candidates(uid, id, name, email, priority, meta_order) AS MATERIALIZED (
+      SELECT id, id, name, email, 0, meta_order FROM pg_temp.${tempTable}
+      UNION ALL
+      SELECT email, id, name, email, 1, meta_order FROM pg_temp.${tempTable} WHERE email IS NOT NULL
+      UNION ALL
+      SELECT name, id, name, email, 2, meta_order FROM pg_temp.${tempTable}
+    ),
+    user_mapping AS MATERIALIZED (
+      SELECT DISTINCT ON (uid COLLATE "C") uid, id, name, email
+      FROM user_candidates
+      ORDER BY uid COLLATE "C", priority, meta_order
+    ),
+    text_parts AS (
+      SELECT t.__id AS rid, parts.uid, raw_parts.part_idx::integer AS part_idx
+      FROM ${fullTableName} AS t
+      CROSS JOIN LATERAL regexp_split_to_table(t.${col}, ${quoteLiteral(',')})
+        WITH ORDINALITY AS raw_parts(part, part_idx)
+      CROSS JOIN LATERAL (SELECT trim(raw_parts.part) AS uid) AS parts
+      WHERE t.${col} IS NOT NULL AND parts.uid <> ''
+    ),
+    matched_users AS (
+      SELECT p.rid, p.part_idx, u.id, u.name, u.email
+      FROM text_parts AS p
+      JOIN user_mapping AS u ON u.uid COLLATE "C" = p.uid COLLATE "C"
+    ),
+    aggregated AS (
+      ${aggregationSql}
+    )
+    UPDATE ${fullTableName} AS t
+    SET ${col} = (
+      SELECT aggregated.user_json
+      FROM aggregated
+      WHERE aggregated.rid = t.__id
+    )
+    WHERE t.${col} IS NOT NULL`;
 };
 
 const buildTextToUserTransformSql = (
@@ -593,6 +762,8 @@ const buildTextToUserTransformSql = (
        FROM matched_users
        ORDER BY rid, part_idx`;
 
+  // Update every populated source row. A row without an aggregated match receives NULL rather
+  // than retaining arbitrary text that happens to be valid JSON for the target jsonb column.
   return `WITH user_mapping(uid, id, title, email) AS (
       VALUES ${mappingValues}
     ),
@@ -613,9 +784,12 @@ const buildTextToUserTransformSql = (
       ${aggregationSql}
     )
     UPDATE ${fullTableName} AS t
-    SET ${col} = aggregated.user_json
-    FROM aggregated
-    WHERE t.__id = aggregated.rid`;
+    SET ${col} = (
+      SELECT aggregated.user_json
+      FROM aggregated
+      WHERE aggregated.rid = t.__id
+    )
+    WHERE t.${col} IS NOT NULL`;
 };
 
 const buildSelectOptionsFromValuesStatement = (
@@ -2312,14 +2486,12 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitUserField(
     field: UserField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Text -> User: resolve text parts through the meta DB at execution time, then write only
-    // the resolved snapshots back to the data DB. This keeps data SQL free of meta-table joins
-    // for BYODB while preserving the old "unmatched text becomes NULL" conversion behavior.
-    const { db, dbFieldName } = this.params;
+    // BYODB keeps records and collaborators on different connections. Transfer eligible profiles
+    // in bounded metadata pages, then perform all token matching in the data database.
+    const { db, dbFieldName, tableId } = this.params;
     const fullTableName = this.fullTableName;
     const col = `"${dbFieldName}"`;
     const isMultiple = field.multiplicity().toBoolean();
-    const cleanupSql = `UPDATE ${fullTableName} SET ${col} = NULL WHERE ${col} IS NOT NULL AND left(${col}, 1) NOT IN ('{', '[')`;
     const previewSql =
       buildTextToUserTransformSql(fullTableName, col, isMultiple, [
         {
@@ -2328,32 +2500,31 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
           title: '__preview_user__',
           email: null,
         },
-      ]) ?? cleanupSql;
+      ]) ?? `UPDATE ${fullTableName} SET ${col} = NULL WHERE ${col} IS NOT NULL`;
 
     return ok([
       {
         scope: 'data',
         compile: () => sql.raw(previewSql).compile(db),
         execute: async (ctx) => {
-          const mappings = await fetchTextUserMappings(ctx, fullTableName, col);
-          const transformSql = buildTextToUserTransformSql(
-            fullTableName,
-            col,
-            isMultiple,
-            mappings
-          );
-          if (transformSql) {
-            await sql.raw(transformSql).execute(ctx.dataDb);
+          const tempTable = textUserTempTableName();
+          try {
+            await stageScopedTextUserProfiles(ctx, tableId, tempTable);
+            await sql
+              .raw(buildScopedTextToUserTransformSql(fullTableName, col, isMultiple, tempTable))
+              .execute(ctx.dataDb);
+            await sql`
+              ALTER TABLE ${sql.raw(fullTableName)}
+              ALTER COLUMN ${sql.raw(col)} TYPE jsonb USING ${sql.raw(col)}::jsonb
+            `.execute(ctx.dataDb);
+          } catch (error) {
+            // Production schema updates are data-transaction bound. Preserve the original error;
+            // cleanup succeeds for pre-query failures and otherwise completes with the rollback.
+            await dropScopedTextUserProfiles(ctx, tempTable).catch(() => undefined);
+            throw error;
           }
-          await sql.raw(cleanupSql).execute(ctx.dataDb);
+          await dropScopedTextUserProfiles(ctx, tempTable);
         },
-      },
-      {
-        scope: 'data',
-        compile: () =>
-          sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN ${sql.raw(col)} TYPE jsonb USING ${sql.raw(col)}::jsonb`.compile(
-            db
-          ),
       },
     ]);
   }
@@ -3517,7 +3688,7 @@ export function generateFieldConversionStatements(
               if (physicalType === 'jsonb' || physicalType === 'json') {
                 const snapshot = `to_jsonb(${column})`;
                 const identity = `COALESCE(${snapshot}->>'id', CASE WHEN jsonb_typeof(${snapshot}) = 'string' THEN ${snapshot} #>> '{}' END, ${quoteIdent('__created_by')})`;
-                const mappings = await fetchTextUserMappings(
+                const mappings = await fetchUnscopedTextUserMappings(
                   ctx,
                   table,
                   column,
@@ -3541,7 +3712,7 @@ export function generateFieldConversionStatements(
                   .execute(ctx.dataDb);
               } else {
                 // Resolve identities in the meta DB; tenant data SQL must not join users.
-                const mappings = await fetchTextUserMappings(ctx, table, column);
+                const mappings = await fetchUnscopedTextUserMappings(ctx, table, column);
                 if (mappings.length) {
                   const values = mappings
                     .map((user) => `(${quoteLiteral(user.id)}, ${quoteLiteral(user.title)})`)

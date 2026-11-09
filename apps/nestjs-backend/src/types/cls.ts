@@ -143,6 +143,8 @@ export interface IClsStore extends ClsStore {
   canaryHeader?: string; // x-canary header value for canary release override
   scheduleV2BackgroundTask?: ExecutionContextBackgroundTaskScheduler;
   useV2?: boolean; // Flag to indicate if V2 implementation should be used (set by V2FeatureGuard)
+  /** Scoped host preview work must not initialize schemas or promote background workers. */
+  v2PreviewReadOnly?: boolean;
   interactiveQueryAbort?: AbortSignal;
   v2Reason?: IV2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check

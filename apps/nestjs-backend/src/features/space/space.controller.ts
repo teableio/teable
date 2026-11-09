@@ -79,6 +79,7 @@ import { BasePersonalOrderService } from '../base/base-personal-order.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { LastVisitService } from '../user/last-visit/last-visit.service';
+import { maskAiIntegrationConfig, maskAiIntegrationRow } from './ai-integration-secrets';
 import { DataDbBindingService } from './data-db-binding.service';
 import { DataDbPreflightService } from './data-db-preflight.service';
 import {
@@ -436,7 +437,8 @@ export class SpaceController {
   @Permissions('space|update')
   @Get(':spaceId/integration')
   async getIntegrationList(@Param('spaceId') spaceId: string) {
-    return this.spaceService.getIntegrationList(spaceId);
+    const integrations = await this.spaceService.getIntegrationList(spaceId);
+    return integrations.map((item) => ({ ...item, config: maskAiIntegrationConfig(item.config) }));
   }
 
   @Permissions('space|update')
@@ -446,7 +448,9 @@ export class SpaceController {
     @Body(new ZodValidationPipe(createIntegrationRoSchema))
     addIntegrationRo: ICreateIntegrationRo
   ) {
-    return this.spaceService.createIntegration(spaceId, addIntegrationRo);
+    return maskAiIntegrationRow(
+      await this.spaceService.createIntegration(spaceId, addIntegrationRo)
+    );
   }
 
   @Permissions('space|update')
@@ -457,7 +461,9 @@ export class SpaceController {
     @Body(new ZodValidationPipe(updateIntegrationRoSchema))
     updateIntegrationRo: IUpdateIntegrationRo
   ) {
-    return this.spaceService.updateIntegration(integrationId, updateIntegrationRo, spaceId);
+    return maskAiIntegrationRow(
+      await this.spaceService.updateIntegration(integrationId, updateIntegrationRo, spaceId)
+    );
   }
 
   @Permissions('space|update')
@@ -472,9 +478,9 @@ export class SpaceController {
   @Permissions('space|update')
   @Post(':spaceId/test-llm')
   async testIntegrationLLM(
-    @Param('spaceId') _spaceId: string,
+    @Param('spaceId') spaceId: string,
     @Body(new ZodValidationPipe(testLLMRoSchema)) testLLMRo: ITestLLMRo
   ): Promise<ITestLLMVo> {
-    return await this.spaceService.testIntegrationLLM(testLLMRo);
+    return await this.spaceService.testIntegrationLLM(spaceId, testLLMRo);
   }
 }

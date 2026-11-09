@@ -19,14 +19,15 @@ export const dedupeCipherEntries = (entries: ICipherEntry[]): ICipherEntry[] => 
  * Build the cipher-entry array for one encryption purpose (see Encryptor:
  * entries[0] encrypts, every entry participates in decryption).
  *
- * The primary is EXACTLY what resolveSecret always resolved (dedicated env →
- * legacy public default): deploying the rotation mechanism changes no
- * deployment's encrypting key, so rolling the code back is always safe and
- * self-hosted deployments that never touch `_OLD` behave byte-for-byte as
- * before. SECRET_KEY plays no role for these purposes — their specs all
- * carry a legacyDefault, which resolves ahead of any derivation.
+ * The primary is what resolveSecret resolves: the dedicated pair, else the
+ * pair derived from SECRET_KEY, else the legacy public default. An unset pair
+ * used to encrypt under the legacy literals; consumers whose ciphertext sits
+ * in users' hands pass keepLegacyForDecrypt to keep that pair decrypt-only,
+ * so what was issued before stays readable. Others leave it out, so what the
+ * public pair seals stops verifying. Half a main pair never gets here: the
+ * secrets policy refuses to boot on it (secrets-policy.ts).
  *
- * The only addition is the decrypt-only `_OLD` tail an operator pins during
+ * The decrypt-only `_OLD` tail is what an operator pins during
  * a PLANNED rotation: fresh values in the main vars, the previous pair in
  * `<key envKey>_OLD` / `<iv envKey>_OLD`, kept until no ciphertext under it
  * remains. The pair travels as a group like the main vars: copy the
@@ -42,9 +43,10 @@ export const resolveCipherEntries = (options: {
   algorithm: string;
   keySpec: ISecretSpec;
   ivSpec: ISecretSpec;
+  keepLegacyForDecrypt?: boolean;
   env?: IEnv;
 }): ICipherEntry[] => {
-  const { algorithm, keySpec, ivSpec, env = process.env } = options;
+  const { algorithm, keySpec, ivSpec, keepLegacyForDecrypt = false, env = process.env } = options;
 
   const primary: ICipherEntry = {
     algorithm,
@@ -67,6 +69,16 @@ export const resolveCipherEntries = (options: {
   }
   if (oldKey && oldIv) {
     entries.push({ algorithm, key: oldKey, iv: oldIv });
+  }
+
+  if (
+    keepLegacyForDecrypt &&
+    !env[keySpec.envKey] &&
+    !env[ivSpec.envKey] &&
+    keySpec.legacyDefault &&
+    ivSpec.legacyDefault
+  ) {
+    entries.push({ algorithm, key: keySpec.legacyDefault, iv: ivSpec.legacyDefault });
   }
 
   return dedupeCipherEntries(entries);

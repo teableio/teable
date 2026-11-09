@@ -108,6 +108,16 @@
           "confirmText": "Beenden bestätigen"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "Felder ausblenden",
+      "hiddenCount": "Ausgeblendet ({{count}})",
+      "filter": "Filter",
+      "filterCount": "Filter ({{count}})",
+      "sort": "Sortieren",
+      "sortCount": "Sortieren ({{count}})",
+      "group": "Gruppieren",
+      "groupCount": "Gruppieren ({{count}})"
     }
   },
   "welcome": {
@@ -1142,6 +1152,8 @@
   "view": {
     "addRecord": "Datensatz hinzufügen",
     "searchView": "Ansicht durchsuchen...",
+    "starredGroup": "Markiert",
+    "otherGroup": "Weitere Ansichten",
     "dragToolTip": "Die automatische Sortierung ist eingeschaltet, manuelles Ziehen ist nicht möglich.",
     "insertToolTip": "Automatische Sortierung ist eingeschaltet, Einfügen mit Auftrag ist nicht verfügbar",
     "action": {
@@ -1164,6 +1176,7 @@
       "description": "Diese Ansicht ist defekt. Wenn die Aktualisierung weiterhin fehlschlägt, kontaktieren Sie uns bitte. support@teable.ai"
     },
     "addPluginView": "Ansicht Plugin hinzufügen",
+    "addView": "Ansicht erstellen",
     "search": {
       "field_one": "{{name}}",
       "field_other": "Felder ({{length}})"
@@ -1659,7 +1672,6 @@
       "share": "Teilen",
       "enableShare": "Freigabe aktivieren",
       "copyLink": "Link kopieren",
-      "rotateLink": "Link zurücksetzen",
       "scope": "Wer darf ansehen",
       "scopePublic": "Jeder mit dem Link",
       "scopeSpace": "Space-Mitglieder",
@@ -1753,7 +1765,8 @@
       "running": "Wird generiert …",
       "waitingInput": "Wartet auf Ihre Antwort",
       "failed": "Antwort fehlgeschlagen"
-    }
+    },
+    "routineRunPrompt": "Von der Routine gesendet"
   },
   "upload": {
     "panelUploading": "{{count}} Dateien werden hochgeladen",

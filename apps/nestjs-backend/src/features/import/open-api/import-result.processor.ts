@@ -95,8 +95,7 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
           tableId: table.id,
           toUserId: userId,
           message: {
-            i18nKey:
-              'common.email.templates.notify.import.table.noRecordsProcessed.message' as I18nPath,
+            i18nKey: 'common.email.templates.notify.import.table.noRecordsProcessed.message',
             context: {
               tableName: table.name,
             },
@@ -146,7 +145,7 @@ export class ImportTableResultQueueProcessor extends WorkerHost {
     const hasReport = !!errorReportUrl;
     const suffix = hasReport ? 'message' : 'messageNoReport';
     const base = manifest.successCount === 0 ? 'allFailed' : 'partialSuccess';
-    const i18nKey = `common.email.templates.notify.import.table.${base}.${suffix}` as I18nPath;
+    const i18nKey: I18nPath = `common.email.templates.notify.import.table.${base}.${suffix}`;
 
     const context: Record<string, string> = {
       tableName,

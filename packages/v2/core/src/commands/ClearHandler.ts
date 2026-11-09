@@ -294,6 +294,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         table,
         payload: {
           variant: 'selector',
+          rowFieldPermissionsResolved: true,
           fieldValues: initialClearedFieldValues,
           fieldKeyType: FieldKeyType.Id,
           typecast: false,
@@ -321,6 +322,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
           table,
           payload: {
             variant: 'selector',
+            rowFieldPermissionsResolved: true,
             fieldValues: clearedFieldValues,
             fieldKeyType: FieldKeyType.Id,
             typecast: false,
@@ -338,7 +340,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         ? (command.groupBy ?? undefined)
         : mergedDefaults.group();
       const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
-      const sortOrderBy = yield* resolveOrderBy(effectiveSort);
+      const sortOrderBy = yield* resolveOrderBy(effectiveSort, table, effectiveGroup);
       const orderBy = mergeOrderByWithViewRowTieBreaker(
         groupByOrderBy,
         sortOrderBy,
@@ -419,6 +421,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
           table,
           payload: {
             variant: 'selector',
+            rowFieldPermissionsResolved: true,
             fieldValues: clearedFieldValues,
             fieldKeyType: FieldKeyType.Id,
             typecast: false,
@@ -436,6 +439,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         table,
         payload: {
           variant: 'selector',
+          rowFieldPermissionsResolved: true,
           fieldValues: clearedFieldValues,
           fieldKeyType: FieldKeyType.Id,
           typecast: false,
@@ -635,6 +639,7 @@ export class ClearStreamApplicationService extends ClearHandler {
         },
         payload: {
           variant: 'selector',
+          rowFieldPermissionsResolved: true,
           fieldValues: clearedFieldValues,
           fieldKeyType: FieldKeyType.Id,
           typecast: false,
@@ -729,6 +734,7 @@ export class ClearStreamApplicationService extends ClearHandler {
             },
             payload: {
               variant: 'selector',
+              rowFieldPermissionsResolved: true,
               fieldValues: clearedFieldValues,
               fieldKeyType: FieldKeyType.Id,
               typecast: false,
@@ -1069,7 +1075,7 @@ export class ClearStreamApplicationService extends ClearHandler {
     if (groupByOrderByResult.isErr()) {
       return err(groupByOrderByResult.error);
     }
-    const sortOrderByResult = resolveOrderBy(effectiveSort);
+    const sortOrderByResult = resolveOrderBy(effectiveSort, table, effectiveGroup);
     if (sortOrderByResult.isErr()) {
       return err(sortOrderByResult.error);
     }

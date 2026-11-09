@@ -314,7 +314,11 @@ export class UpdateRecordApplicationService {
           tableId: table.id(),
           fieldValues: [],
         }));
-      if (mutateSpec) {
+      // Undo/redo values come from snapshots persisted by the server before the original
+      // write. Re-resolving them would reject historical user references after membership
+      // revocation (or account deletion) and would overwrite the stored presentation snapshot.
+      // Only the replay service can install this execution context; public writes still resolve.
+      if (mutateSpec && !ExecutionContextPort.isUndoRedoReplay(context)) {
         const needsResolution =
           yield* handler.recordMutationSpecResolver.needsResolution(mutateSpec);
         if (needsResolution) {

@@ -6,6 +6,15 @@ import { registerRoute } from '../../utils';
 import { modelTierIdSchema } from './model-tier';
 import { aiConfigVoSchema, appConfigSchema, canaryConfigSchema, imConfigSchema } from './update';
 
+/**
+ * Admin setting APIs never return a stored secret: each one comes back as this prefix plus
+ * a fingerprint of the secret, and sending it back unchanged keeps the stored secret.
+ */
+export const MASKED_SECRET_PREFIX = 'teable_masked_v1:';
+
+export const isMaskedSecret = (value: unknown): value is string =>
+  typeof value === 'string' && value.startsWith(MASKED_SECRET_PREFIX);
+
 export const settingVoSchema = z.object({
   instanceId: z.string(),
   brandName: z.string().nullable().optional(),
@@ -21,6 +30,14 @@ export const settingVoSchema = z.object({
   aiConfig: aiConfigVoSchema.nullable().optional(),
   /** Read-only, computed by the server: credit ratio of each chat tier against the default tier. */
   aiChatTierCreditRatio: z.partialRecord(modelTierIdSchema, z.number()).optional(),
+  /**
+   * Read-only, computed by the server: secrets this edition reads that are unset
+   * or still on their publicly known default. Env var names only, never values.
+   * Left out while SECRET_ADMIN_TOOLS_ENABLED is off.
+   */
+  insecureSecrets: z
+    .array(z.object({ envKey: z.string(), reason: z.enum(['missing', 'publicDefault']) }))
+    .optional(),
   notifyMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   appConfig: appConfigSchema.nullable().optional(),

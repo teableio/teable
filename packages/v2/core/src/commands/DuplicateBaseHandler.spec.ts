@@ -40,7 +40,7 @@ const createHandler = (
     (overrides.eventBus ?? {}) as never,
     (overrides.unitOfWork ?? {}) as never,
     (overrides.computedFieldBackfillService ?? {
-      executeSyncMany: vi.fn(async () => ok(undefined)),
+      executeSyncTables: vi.fn(async () => ok(undefined)),
     }) as never,
     overrides.tableMapper as never,
     overrides.recordWritePluginRunner as never,
@@ -942,171 +942,87 @@ describe('DuplicateBaseHandler', () => {
     });
   });
 
-  it('backfills computed fields after record and link restore complete', async () => {
-    const operationOrder: string[] = [];
-    const targetTable = fakeTable('tblbbbbbbbbbbbbbbbb', 'People', [{ id: 'fldComputed' }]);
-    const tableRecordRepository = {
-      insertManyStream: vi.fn(async () => {
-        operationOrder.push('insert');
-        return ok({ totalInserted: 1 });
-      }),
-      updateManyStream: vi.fn(async () => {
-        operationOrder.push('linkRestore');
-        return ok({ totalUpdated: 0 });
-      }),
-    };
-    const computedFieldBackfillService = {
-      executeSyncMany: vi.fn(async () => {
-        operationOrder.push('backfill');
-        return ok(undefined);
-      }),
-    };
-    const handler = createHandler({
-      tableRecordRepository,
-      unitOfWork: {
-        withTransaction: vi.fn((_context, callback: (tx: unknown) => Promise<unknown>) =>
-          callback({ tx: true })
-        ),
-      },
-      computedFieldBackfillService,
-    });
-    const sourceTableId = 'tblaaaaaaaaaaaaaaaa';
-    const sourceFieldId = 'fldaaaaaaaaaaaaaaaa';
-    const sourceLinkFieldId = 'fldcccccccccccccccc';
-    const command = DuplicateBaseCommand.createFromSource({
-      baseId,
-      source: {
-        structure: {
-          tables: [
-            {
-              id: sourceTableId,
-              name: 'People',
-              fields: [
-                { id: sourceFieldId, name: 'Name', type: 'singleLineText' },
-                { id: sourceLinkFieldId, name: 'Friend', type: 'link' },
-              ],
-            },
-          ],
+  it.each(['bulk', 'stream'])(
+    'returns an error event when %s computed completion fails',
+    async (copyMode) => {
+      const failure = domainError.infrastructure({
+        message: 'computed backfill failed',
+        code: 'computed.backfill_failed',
+      });
+      const targetTable = {
+        ...fakeTable('tblbbbbbbbbbbbbbbbb', 'People', [{ id: 'fldComputed' }]),
+        dbTableName: () => ok({ value: () => ok('bseTarget.people') }),
+      };
+      const handler = createHandler({
+        tableMapper: { toDTO: () => ok({ fields: [] }) },
+        baseDataBulkCopier: {
+          isSupported: async () => ok(copyMode === 'bulk'),
+          copyBaseData: async () => ok({ recordsLength: 1 }),
         },
-        records: async function* () {
-          yield { fields: { [sourceFieldId]: 'Alice', [sourceLinkFieldId]: [] } };
+        tableRecordRepository: {
+          insertManyStream: vi.fn(async () => ok({ totalInserted: 1 })),
+          updateManyStream: vi.fn(async () => ok({ totalUpdated: 0 })),
         },
-      },
-      withRecords: true,
-    })._unsafeUnwrap();
-
-    vi.spyOn(
-      handler as unknown as { createTables: (...args: unknown[]) => Promise<unknown> },
-      'createTables'
-    ).mockResolvedValue(
-      ok({
-        result: {
-          tableIdMap: { [sourceTableId]: 'tblbbbbbbbbbbbbbbbb' },
-          fieldIdMap: {
-            [sourceFieldId]: 'fldbbbbbbbbbbbbbbbb',
-            [sourceLinkFieldId]: 'flddddddddddddddddd',
+        unitOfWork: {
+          withTransaction: vi.fn((_context, callback: (tx: unknown) => Promise<unknown>) =>
+            callback({ tx: true })
+          ),
+        },
+        computedFieldBackfillService: {
+          executeSyncTables: vi.fn(async () => err(failure)),
+        },
+      });
+      const sourceTableId = 'tblaaaaaaaaaaaaaaaa';
+      const sourceFieldId = 'fldaaaaaaaaaaaaaaaa';
+      const command = DuplicateBaseCommand.createFromSource({
+        baseId,
+        source: {
+          sourceDbTableNameByTableId: { [sourceTableId]: 'bseSource.people' },
+          structure: {
+            tables: [
+              {
+                id: sourceTableId,
+                name: 'People',
+                fields: [{ id: sourceFieldId, name: 'Name', type: 'singleLineText' }],
+              },
+            ],
           },
-          viewIdMap: {},
+          records: async function* () {
+            yield { fields: { [sourceFieldId]: 'Alice' } };
+          },
         },
-        tablesBySourceId: new Map([[sourceTableId, targetTable]]),
-      }) as never
-    );
+        withRecords: true,
+      })._unsafeUnwrap();
 
-    const result = await handler.handle({ requestId: 'ctx' } as never, command);
-    const events = [];
-    for await (const event of result._unsafeUnwrap()) {
-      events.push(event);
-    }
+      vi.spyOn(
+        handler as unknown as { createTables: (...args: unknown[]) => Promise<unknown> },
+        'createTables'
+      ).mockResolvedValue(
+        ok({
+          result: {
+            tableIdMap: { [sourceTableId]: 'tblbbbbbbbbbbbbbbbb' },
+            fieldIdMap: { [sourceFieldId]: 'fldbbbbbbbbbbbbbbbb' },
+            viewIdMap: {},
+          },
+          tablesBySourceId: new Map([[sourceTableId, targetTable]]),
+        }) as never
+      );
 
-    expect(operationOrder).toEqual(['insert', 'linkRestore', 'backfill']);
-    expect(computedFieldBackfillService.executeSyncMany).toHaveBeenCalledWith(
-      expect.objectContaining({ requestId: 'ctx' }),
-      {
-        table: targetTable,
-        fields: targetTable.getFields(),
-        skipDistinctFilter: true,
-        includeOneManyTwoWay: true,
+      const result = await handler.handle({} as never, command);
+      const events = [];
+      for await (const event of result._unsafeUnwrap()) {
+        events.push(event);
       }
-    );
-    expect(events).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: 'done',
-          recordsLength: 1,
-        }),
-      ])
-    );
-  });
 
-  it('returns an error event when duplicate computed backfill fails', async () => {
-    const failure = domainError.infrastructure({
-      message: 'computed backfill failed',
-      code: 'computed.backfill_failed',
-    });
-    const targetTable = fakeTable('tblbbbbbbbbbbbbbbbb', 'People', [{ id: 'fldComputed' }]);
-    const handler = createHandler({
-      tableRecordRepository: {
-        insertManyStream: vi.fn(async () => ok({ totalInserted: 1 })),
-        updateManyStream: vi.fn(async () => ok({ totalUpdated: 0 })),
-      },
-      unitOfWork: {
-        withTransaction: vi.fn((_context, callback: (tx: unknown) => Promise<unknown>) =>
-          callback({ tx: true })
-        ),
-      },
-      computedFieldBackfillService: {
-        executeSyncMany: vi.fn(async () => err(failure)),
-      },
-    });
-    const sourceTableId = 'tblaaaaaaaaaaaaaaaa';
-    const sourceFieldId = 'fldaaaaaaaaaaaaaaaa';
-    const command = DuplicateBaseCommand.createFromSource({
-      baseId,
-      source: {
-        structure: {
-          tables: [
-            {
-              id: sourceTableId,
-              name: 'People',
-              fields: [{ id: sourceFieldId, name: 'Name', type: 'singleLineText' }],
-            },
-          ],
-        },
-        records: async function* () {
-          yield { fields: { [sourceFieldId]: 'Alice' } };
-        },
-      },
-      withRecords: true,
-    })._unsafeUnwrap();
-
-    vi.spyOn(
-      handler as unknown as { createTables: (...args: unknown[]) => Promise<unknown> },
-      'createTables'
-    ).mockResolvedValue(
-      ok({
-        result: {
-          tableIdMap: { [sourceTableId]: 'tblbbbbbbbbbbbbbbbb' },
-          fieldIdMap: { [sourceFieldId]: 'fldbbbbbbbbbbbbbbbb' },
-          viewIdMap: {},
-        },
-        tablesBySourceId: new Map([[sourceTableId, targetTable]]),
-      }) as never
-    );
-
-    const result = await handler.handle({} as never, command);
-    const events = [];
-    for await (const event of result._unsafeUnwrap()) {
-      events.push(event);
+      expect(events).toContainEqual({
+        id: 'error',
+        message: 'computed backfill failed',
+        code: 'computed.backfill_failed',
+        tableIdMap: { [sourceTableId]: 'tblbbbbbbbbbbbbbbbb' },
+      });
+      expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'done' })]));
     }
-
-    expect(events).toContainEqual({
-      id: 'error',
-      message: 'computed backfill failed',
-      code: 'computed.backfill_failed',
-      tableIdMap: { [sourceTableId]: 'tblbbbbbbbbbbbbbbbb' },
-    });
-    expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'done' })]));
-  });
+  );
 
   it('stops before computed backfill when link restore fails', async () => {
     const failure = domainError.infrastructure({
@@ -1119,9 +1035,6 @@ describe('DuplicateBaseHandler', () => {
         yield ok([]);
       }),
     };
-    const computedFieldBackfillService = {
-      executeSyncMany: vi.fn(async () => ok(undefined)),
-    };
     const handler = createHandler({
       tableRecordRepository: {
         insertManyStream: vi.fn(async () => ok({ totalInserted: 1 })),
@@ -1132,7 +1045,6 @@ describe('DuplicateBaseHandler', () => {
           callback({ tx: true })
         ),
       },
-      computedFieldBackfillService,
     });
     const sourceTableId = 'tblaaaaaaaaaaaaaaaa';
     const sourceFieldId = 'fldaaaaaaaaaaaaaaaa';
@@ -1191,7 +1103,6 @@ describe('DuplicateBaseHandler', () => {
       code: 'duplicate_base.link_restore_failed',
       tableIdMap: { [sourceTableId]: 'tblbbbbbbbbbbbbbbbb' },
     });
-    expect(computedFieldBackfillService.executeSyncMany).not.toHaveBeenCalled();
     expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'done' })]));
   });
 
@@ -1267,14 +1178,10 @@ describe('DuplicateBaseHandler', () => {
       insertManyStream: vi.fn(async () => ok({ totalInserted: 0 })),
       updateManyStream: vi.fn(async () => ok({ totalUpdated: 0 })),
     };
-    const computedFieldBackfillService = {
-      executeSyncMany: vi.fn(async () => ok(undefined)),
-    };
     const handler = createHandler({
       tableRecordRepository,
       tableMapper,
       baseDataBulkCopier,
-      computedFieldBackfillService,
     });
     const records = vi.fn(async function* () {
       yield undefined as never;
@@ -1349,7 +1256,6 @@ describe('DuplicateBaseHandler', () => {
     ]);
     expect(tableRecordRepository.insertManyStream).not.toHaveBeenCalled();
     expect(records).not.toHaveBeenCalled();
-    expect(computedFieldBackfillService.executeSyncMany).not.toHaveBeenCalled();
     expect(events).toContainEqual(
       expect.objectContaining({ phase: 'table_data_progress', processedRows: 3, totalRows: 3 })
     );

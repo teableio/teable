@@ -1708,6 +1708,18 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       .sql`EXTRACT(EPOCH FROM (${startDt.valueSql} - ${endDt.valueSql}))`;
     const diffMonths = this.buildMonthDiff(startDt.valueSql, endDt.valueSql);
     const diffYears = this.budget.sql`CAST((${diffMonths}) / 12.0 AS INTEGER)`;
+    // dayjs day diff removes the UTC-offset delta before dividing. Subtracting
+    // local timestamps is equivalent and retains time-of-day (unlike ::date).
+    // FROMNOW/TONOW and non-day units keep their existing elapsed conversions.
+    const startLocal = this.applyFormulaTimeZone(startDt.valueSql);
+    const endLocal = this.applyFormulaTimeZone(endDt.valueSql);
+    const fractionalDays = this.budget
+      .sql`(EXTRACT(EPOCH FROM ((${startLocal}) - (${endLocal}))) / 86400)`;
+    const wholeDays = this.budget.sql`TRUNC(${fractionalDays})`;
+    const diffDays = params[3]
+      ? this.budget
+          .sql`(CASE WHEN ${this.coerceToBoolean(params[3]).valueSql} THEN ${fractionalDays} ELSE ${wholeDays} END)`
+      : wholeDays;
     const unitLiteral = this.getStringLiteralValue(unit);
     const normalizedUnit = this.normalizeUnitLiteral(unitLiteral, DATETIME_DIFF_UNIT_ALIASES);
     if (unitLiteral) {
@@ -1730,7 +1742,8 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
         normalizedUnit,
         diffSeconds,
         diffMonths,
-        diffYears
+        diffYears,
+        diffDays
       );
       return makeExpr(
         guardValueSql(valueSql, errorCondition, this.budget),
@@ -1772,7 +1785,13 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       buildErrorLiteral('ARG', 'invalid_datetime_diff_unit', this.budget),
       this.budget
     );
-    const valueSql = this.buildDatetimeDiffCaseSql(unitSql, diffSeconds, diffMonths, diffYears);
+    const valueSql = this.buildDatetimeDiffCaseSql(
+      unitSql,
+      diffSeconds,
+      diffMonths,
+      diffYears,
+      diffDays
+    );
     return makeExpr(
       guardValueSql(valueSql, errorCondition, this.budget),
       'number',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  collectFilterFieldIds,
   isRecordFilterCondition,
   isRecordFilterDateValue,
   isRecordFilterFieldReferenceValue,
@@ -147,5 +148,33 @@ describe('RecordFilterDto', () => {
 
     expect(isRecordFilterDateValue({ mode: 'today' })).toBe(true);
     expect(isRecordFilterDateValue({})).toBe(false);
+  });
+
+  it('collects every field a predicate reads', () => {
+    const fieldIds = new Set<string>();
+    collectFilterFieldIds(
+      {
+        conjunction: 'and',
+        items: [
+          { fieldId: 'fldLeft', operator: 'is', value: 'x' },
+          {
+            conjunction: 'or',
+            items: [
+              { fieldId: 'fldGrouped', operator: 'isEmpty', value: null },
+              {
+                not: {
+                  fieldId: 'fldNot',
+                  operator: 'is',
+                  value: { type: 'field', fieldId: 'fldReference' },
+                },
+              },
+            ],
+          },
+        ],
+      },
+      fieldIds
+    );
+
+    expect([...fieldIds].sort()).toEqual(['fldGrouped', 'fldLeft', 'fldNot', 'fldReference']);
   });
 });

@@ -12,12 +12,9 @@ import { domainError, isDomainError, type DomainError } from '../domain/shared/D
 import { tableDataSafetyLimitErrors } from '../domain/shared/TableDataSafetyLimits';
 import type { RecordValuesDTO } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
-import { materializeRecordSpec } from '../domain/table/records/RecordSpecMaterializer';
-import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { Table } from '../domain/table/Table';
-import type { TableId } from '../domain/table/TableId';
 import * as DomainWriteTransactionPort from '../ports/DomainWriteTransaction';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { IImportParseResult, SourceColumnMap } from '../ports/import/IImportSource';
@@ -389,17 +386,15 @@ export class ImportRecordsHandler implements ICommandHandler<
         throw createResult.error;
       }
 
-      let records = [...createResult.value.records];
-
-      // Resolve link fields for this batch if typecast enabled
-      if (typecast && createResult.value.mutateSpecs) {
-        records = await this.resolveRecordLinks(
-          context,
-          state.table.id(),
-          records,
-          createResult.value.mutateSpecs
-        );
+      const resolveResult = await this.recordMutationSpecResolver.resolveCreatedRecords(
+        context,
+        state.table.id(),
+        createResult.value
+      );
+      if (resolveResult.isErr()) {
+        throw resolveResult.error;
       }
+      const { records } = resolveResult.value;
 
       const beforePersistResult = await pluginExecution.beforePersist(context);
       if (beforePersistResult.isErr()) {
@@ -519,74 +514,6 @@ export class ImportRecordsHandler implements ICommandHandler<
       return Math.max(parseResult.rows.length - skipFirstNLines, 0);
     }
     return undefined;
-  }
-
-  /**
-   * Resolve link/user/attachment fields for records that need resolution.
-   * Uses batch resolution to avoid N+1 queries.
-   */
-  private async resolveRecordLinks(
-    context: IExecutionContext,
-    tableId: TableId,
-    records: TableRecord[],
-    mutateSpecs: ReadonlyArray<ICellValueSpec | null>
-  ): Promise<TableRecord[]> {
-    // Filter specs that need resolution
-    const specsNeedingResolution: (ICellValueSpec | null)[] = [];
-    const needsResolutionFlags: boolean[] = [];
-
-    for (const mutateSpec of mutateSpecs) {
-      if (mutateSpec) {
-        const needsResolution = this.recordMutationSpecResolver.needsResolution(mutateSpec);
-        if (needsResolution.isOk() && needsResolution.value) {
-          specsNeedingResolution.push(mutateSpec);
-          needsResolutionFlags.push(true);
-          continue;
-        }
-      }
-      specsNeedingResolution.push(null);
-      needsResolutionFlags.push(false);
-    }
-
-    // Check if any specs need resolution
-    const hasAnyResolution = needsResolutionFlags.some(Boolean);
-    if (!hasAnyResolution) {
-      return records;
-    }
-
-    // Batch resolve ALL specs at once (single query per resolver type)
-    const resolveResult = await this.recordMutationSpecResolver.resolveAndReplaceMany(
-      context,
-      tableId,
-      specsNeedingResolution
-    );
-
-    if (resolveResult.isErr()) {
-      throw resolveResult.error;
-    }
-
-    const resolvedSpecs = resolveResult.value;
-
-    // Apply resolved specs to records
-    const resolvedRecords: TableRecord[] = [];
-    for (let i = 0; i < records.length; i++) {
-      let record = records[i]!;
-      const resolvedSpec = resolvedSpecs[i];
-
-      if (resolvedSpec) {
-        const materialized = materializeRecordSpec({
-          id: record.id(),
-          tableId: record.tableId(),
-          spec: resolvedSpec,
-          baseFields: record.fields().entries(),
-        });
-        if (materialized.isErr()) throw materialized.error;
-        record = materialized.value;
-      }
-      resolvedRecords.push(record);
-    }
-
-    return resolvedRecords;
   }
 
   private validateColumnMapping(

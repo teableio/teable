@@ -22,8 +22,13 @@ import type { BoundDataQueryPlan } from './BoundDataQueryPlan';
 import { DataQueryBinding, DataQueryRelationBinding } from './DataQueryBinding';
 import type { DataQueryDefinition } from './DataQueryDefinition';
 import { sortDataQueryFieldUsages } from './DataQueryFieldUsage';
+import { dataQuerySchemaSignature } from './DataQuerySchemaSignature';
 import type { DataQueryRelationPlan, DataQueryResult, IDataQueryExecutor } from './ports';
-import type { DataQueryValidationResult, DataQueryValidationUsage } from './queryExecutionProtocol';
+import type {
+  DataQueryCandidate,
+  DataQueryValidationResult,
+  DataQueryValidationUsage,
+} from './queryExecutionProtocol';
 
 export interface DataQueryExecutionInput {
   readonly parameters?: Readonly<Record<string, unknown>>;
@@ -31,6 +36,9 @@ export interface DataQueryExecutionInput {
 
 export interface DataQueryValidationOptions {
   readonly includeUsage?: boolean;
+  readonly includeSchemaSignature?: boolean;
+  readonly candidate?: DataQueryCandidate;
+  readonly candidateProof?: string;
 }
 
 /** Projects only stable logical identifiers from an already-authorized bound plan. */
@@ -98,8 +106,8 @@ export const hasDataQueryRelations = (definition: DataQueryDefinition): boolean 
   return (snapshot.groupBy ?? []).some((group) => 'source' in group && group.source !== undefined);
 };
 
-/** Loads the root and every declared target table, then validates the relation contract. */
-export const prepareDataQueryRelation = async (
+/** Loads the root and every declared target table without requiring compatible output types. */
+const loadDataQueryRelation = async (
   context: IExecutionContext,
   tableRepository: Pick<ITableRepository, 'findOne'>,
   definition: DataQueryDefinition
@@ -108,7 +116,6 @@ export const prepareDataQueryRelation = async (
     {
       rootTable: Table;
       targetTables: ReadonlyMap<string, Table>;
-      binding: DataQueryRelationBinding;
       attributes: SpanAttributes;
     },
     DomainError
@@ -147,18 +154,29 @@ export const prepareDataQueryRelation = async (
       );
       targetTables.set(alias, target);
     }
+    return ok({ rootTable, targetTables, attributes });
+  });
+};
+
+/** Execution and explain still require the complete, strict relation contract. */
+export const prepareDataQueryRelation = async (
+  context: IExecutionContext,
+  tableRepository: Pick<ITableRepository, 'findOne'>,
+  definition: DataQueryDefinition
+) =>
+  safeTry(async function* () {
+    const loaded = yield* await loadDataQueryRelation(context, tableRepository, definition);
     const binding = yield* await traceDataQueryStage(
       context,
       'schema.compatibility.relations',
-      attributes,
+      loaded.attributes,
       async () =>
-        DataQueryRelationBinding.prepare(definition, rootTable, targetTables, {
+        DataQueryRelationBinding.prepare(definition, loaded.rootTable, loaded.targetTables, {
           deferOperatorRejection: true,
         })
     );
-    return ok({ rootTable, targetTables, binding, attributes });
+    return ok({ ...loaded, binding });
   });
-};
 
 /** Prepares one table's row/field scope and fails closed when a required field is unreadable. */
 export const authorizeDataQueryDependencies = async (
@@ -187,6 +205,13 @@ export const authorizeDataQueryDependencies = async (
   return assertDataQueryAccess(plan, resolvedScope).map(() => resolvedScope);
 };
 
+/** Hosts own descriptor admission; returned models are detached and only used for binding. */
+export type PrepareDataQueryCandidate = (
+  context: IExecutionContext,
+  candidate: DataQueryCandidate,
+  proof?: string
+) => Promise<Result<ReadonlyMap<string, ITableReadModel>, DomainError>>;
+
 /**
  * Reuses table semantics without introducing host or SQL concepts into core.
  * Bindings are transient contracts for live schema validation and authorization.
@@ -195,10 +220,11 @@ export class DataQueryService {
   constructor(
     private readonly tableRepository: Pick<ITableRepository, 'findOne'>,
     private readonly queryPlugins: RecordQueryPluginRunner,
-    private readonly executor: IDataQueryExecutor
+    private readonly executor: IDataQueryExecutor,
+    private readonly prepareCandidate?: PrepareDataQueryCandidate
   ) {}
 
-  private async prepare(context: IExecutionContext, definition: DataQueryDefinition) {
+  private async load(context: IExecutionContext, definition: DataQueryDefinition) {
     return safeTry(
       async function* (this: DataQueryService) {
         const snapshot = definition.snapshot();
@@ -210,13 +236,25 @@ export class DataQueryService {
         const table = yield* await traceDataQueryStage(context, 'schema.load', attributes, () =>
           this.tableRepository.findOne(context, TableByIdSpec.create(tableId))
         );
+        return ok({ table, attributes });
+      }.bind(this)
+    );
+  }
+
+  private async prepare(context: IExecutionContext, definition: DataQueryDefinition) {
+    return safeTry(
+      async function* (this: DataQueryService) {
+        const loaded = yield* await this.load(context, definition);
         const binding = yield* await traceDataQueryStage(
           context,
           'schema.compatibility',
-          attributes,
-          async () => DataQueryBinding.prepare(definition, table, { deferOperatorRejection: true })
+          loaded.attributes,
+          async () =>
+            DataQueryBinding.prepare(definition, loaded.table, {
+              deferOperatorRejection: true,
+            })
         );
-        return ok({ table, binding, attributes });
+        return ok({ ...loaded, binding });
       }.bind(this)
     );
   }
@@ -232,16 +270,45 @@ export class DataQueryService {
       }
       return await safeTry(
         async function* (this: DataQueryService) {
-          const { table, binding, attributes } = yield* await this.prepare(context, definition);
+          const { table, attributes } = yield* await this.load(context, definition);
+          const current = yield* await traceDataQueryStage(
+            context,
+            'schema.compatibility',
+            attributes,
+            async () =>
+              DataQueryBinding.prepareAuthorization(definition, table, {
+                deferOperatorRejection: true,
+              })
+          );
           yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
-            this.authorize(context, table, binding)
+            authorizeDataQueryDependencies(context, this.queryPlugins, table, current.plan)
           );
+          const candidates = yield* await this.candidateTables(context, options);
+          const candidateTable = candidates.get(table.id().toString()) ?? table;
+          const binding = options.candidate
+            ? yield* DataQueryBinding.prepare(definition, candidateTable, {
+                deferOperatorRejection: true,
+              })
+            : yield* current.bind();
+          if (options.candidate) {
+            yield* await this.authorize(context, table, binding);
+          }
           if (binding.deferredFilterError) return err(binding.deferredFilterError);
-          return ok(
-            options.includeUsage === true
-              ? { outputs: binding.outputs, usage: validationUsageFromPlan(binding.plan) }
-              : { outputs: binding.outputs }
-          );
+          const useSignature = options.includeSchemaSignature === true;
+          const includeUsage = options.includeUsage === true;
+          if (!useSignature && !includeUsage) return ok({ outputs: binding.outputs });
+          const schemaSignature = useSignature
+            ? yield* await dataQuerySchemaSignature(
+                binding.plan,
+                new Map([['root', candidateTable]]),
+                binding.outputs
+              )
+            : undefined;
+          return ok({
+            outputs: binding.outputs,
+            ...(includeUsage ? { usage: validationUsageFromPlan(binding.plan) } : {}),
+            ...(schemaSignature !== undefined ? { schemaSignature } : {}),
+          });
         }.bind(this)
       );
     } catch (cause) {
@@ -295,20 +362,29 @@ export class DataQueryService {
     try {
       return await safeTry(
         async function* (this: DataQueryService) {
-          const { rootTable, binding, attributes } = yield* await prepareDataQueryRelation(
+          const { rootTable, targetTables, attributes } = yield* await loadDataQueryRelation(
             context,
             this.tableRepository,
             definition
+          );
+          const current = yield* await traceDataQueryStage(
+            context,
+            'schema.compatibility.relations',
+            attributes,
+            async () =>
+              DataQueryRelationBinding.prepareAuthorization(definition, rootTable, targetTables, {
+                deferOperatorRejection: true,
+              })
           );
           yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
             authorizeDataQueryDependencies(
               context,
               this.queryPlugins,
               rootTable,
-              dataQueryAccessForSource(binding.plan, 'root')
+              dataQueryAccessForSource(current.plan, 'root')
             )
           );
-          for (const source of binding.sources) {
+          for (const source of current.sources) {
             yield* await traceDataQueryStage(
               context,
               'authorize.relation',
@@ -318,16 +394,53 @@ export class DataQueryService {
                   context,
                   this.queryPlugins,
                   source.table,
-                  dataQueryAccessForSource(binding.plan, source.alias)
+                  dataQueryAccessForSource(current.plan, source.alias)
                 )
             );
           }
+          const candidates = yield* await this.candidateTables(context, options);
+          const candidateRoot = candidates.get(rootTable.id().toString()) ?? rootTable;
+          const candidateTargets = new Map<string, ITableReadModel>();
+          for (const [alias, table] of targetTables) {
+            candidateTargets.set(alias, candidates.get(table.id().toString()) ?? table);
+          }
+          const binding = options.candidate
+            ? yield* DataQueryRelationBinding.prepare(definition, candidateRoot, candidateTargets, {
+                deferOperatorRejection: true,
+              })
+            : yield* current.bind();
+          if (options.candidate) {
+            yield* await authorizeDataQueryDependencies(
+              context,
+              this.queryPlugins,
+              rootTable,
+              dataQueryAccessForSource(binding.plan, 'root')
+            );
+            for (const source of binding.sources) {
+              yield* await authorizeDataQueryDependencies(
+                context,
+                this.queryPlugins,
+                targetTables.get(source.alias)!,
+                dataQueryAccessForSource(binding.plan, source.alias)
+              );
+            }
+          }
           if (binding.deferredFilterError) return err(binding.deferredFilterError);
-          return ok(
-            options.includeUsage === true
-              ? { outputs: binding.outputs, usage: validationUsageFromPlan(binding.plan) }
-              : { outputs: binding.outputs }
-          );
+          const useSignature = options.includeSchemaSignature === true;
+          const includeUsage = options.includeUsage === true;
+          if (!useSignature && !includeUsage) return ok({ outputs: binding.outputs });
+          const schemaSignature = useSignature
+            ? yield* await dataQuerySchemaSignature(
+                binding.plan,
+                new Map([['root', candidateRoot], ...candidateTargets]),
+                binding.outputs
+              )
+            : undefined;
+          return ok({
+            outputs: binding.outputs,
+            ...(includeUsage ? { usage: validationUsageFromPlan(binding.plan) } : {}),
+            ...(schemaSignature !== undefined ? { schemaSignature } : {}),
+          });
         }.bind(this)
       );
     } catch (cause) {
@@ -412,6 +525,22 @@ export class DataQueryService {
         })
       );
     }
+  }
+
+  private async candidateTables(
+    context: IExecutionContext,
+    options: DataQueryValidationOptions
+  ): Promise<Result<ReadonlyMap<string, ITableReadModel>, DomainError>> {
+    if (!options.candidate) return ok(new Map());
+    if (!this.prepareCandidate) {
+      return err(
+        domainError.forbidden({
+          code: 'data_query.candidate_forbidden',
+          message: 'Candidate validation requires authorized preparation',
+        })
+      );
+    }
+    return this.prepareCandidate(context, options.candidate, options.candidateProof);
   }
 
   private async authorize(

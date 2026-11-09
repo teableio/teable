@@ -67,6 +67,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     column: OrderByColumn;
     direction: 'asc' | 'desc';
     groupIdentityCollation?: boolean;
+    collation?: 'zh-pinyin';
   }> = [];
   private readonly whereSpecs: Array<
     ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
@@ -123,12 +124,16 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   orderBy(
     column: OrderByColumn,
     direction: 'asc' | 'desc',
-    options?: { readonly groupIdentityCollation?: boolean }
+    options?: {
+      readonly groupIdentityCollation?: boolean;
+      readonly collation?: 'zh-pinyin';
+    }
   ): this {
     this.orderByValues.push({
       column,
       direction,
       groupIdentityCollation: options?.groupIdentityCollation,
+      collation: options?.collation,
     });
     return this;
   }
@@ -204,7 +209,8 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
             table,
             orderBy.column,
             orderBy.direction,
-            orderBy.groupIdentityCollation
+            orderBy.groupIdentityCollation,
+            orderBy.collation
           );
           if (resolved !== null) {
             resolvedOrderBy.push(resolved);
@@ -326,7 +332,8 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
     table: Table,
     orderByColumn: OrderByColumn,
     direction: 'asc' | 'desc',
-    groupIdentityCollation?: boolean
+    groupIdentityCollation?: boolean,
+    collation?: 'zh-pinyin'
   ): Result<ResolvedOrderBy | null, DomainError> {
     if (orderByColumn instanceof FieldId) {
       return table
@@ -360,6 +367,7 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
                     usesErrorFallback
                   ),
                   groupIdentityCollation,
+                  collation,
                 }).map((clauses) => ({
                   column,
                   direction,

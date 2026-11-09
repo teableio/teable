@@ -7,6 +7,7 @@ import {
   TableQueryObservationWindow,
   TableQueryPlanValidation,
   TableQueryRecommendation,
+  TableQueryRemediationTask,
   TableQueryRiskPolicy,
   TableQueryShape,
   TableSearchVectorPlanEvidence,
@@ -48,6 +49,69 @@ const createObservation = () => {
     maxDurationMs: 12_000,
   })._unsafeUnwrap();
 };
+
+describe('TableQueryRemediationTask ownership and cancellation', () => {
+  const now = new Date('2026-11-06T00:00:00.000Z');
+  const queued = () =>
+    TableQueryRemediationTask.createQueued({
+      id: 'tqt_domain',
+      tableId: 'tblDomain',
+      baseId: 'bseDomain',
+      kind: 'create_search_access_path',
+      payload: { trigger: 'admin_search_access_path' },
+      now,
+    })._unsafeUnwrap();
+
+  it('keeps a claim token stable through start and rejects another worker', () => {
+    const reserved = TableQueryRemediationTask.rehydrate({
+      ...queued().snapshot(),
+      lockedAt: now,
+      lockedBy: 'owner',
+    })._unsafeUnwrap();
+    expect(reserved.start('other-worker', now).isErr()).toBe(true);
+    const started = reserved.start('owner', new Date(now.getTime() + 1_000))._unsafeUnwrap();
+    expect(started.snapshot()).toMatchObject({
+      status: 'running',
+      attempts: 1,
+      lockedAt: now,
+      lockedBy: 'owner',
+    });
+    expect(reserved.start('owner', new Date(now.getTime() + 60_001)).isErr()).toBe(true);
+  });
+
+  it('uses the live reservation boundary and preserves history on cancellation', () => {
+    const reserved = TableQueryRemediationTask.rehydrate({
+      ...queued().snapshot(),
+      status: 'failed',
+      attempts: 2,
+      lastError: 'DDL failed',
+      result: { previous: true },
+      lockedAt: now,
+      lockedBy: 'owner',
+    })._unsafeUnwrap();
+    expect(reserved.cancel(new Date(now.getTime() + 60_000)).isErr()).toBe(true);
+    const cancelled = reserved.cancel(new Date(now.getTime() + 60_001))._unsafeUnwrap();
+    expect(cancelled.snapshot()).toMatchObject({
+      status: 'cancelled',
+      attempts: 2,
+      lastError: 'DDL failed',
+      result: { previous: true },
+      payload: reserved.snapshot().payload,
+      lockedAt: undefined,
+      lockedBy: undefined,
+    });
+    expect(cancelled.start('owner', now).isErr()).toBe(true);
+    expect(cancelled.succeed({}, now).isErr()).toBe(true);
+    expect(cancelled.fail('late', now).isErr()).toBe(true);
+  });
+
+  it('rejects cancellation of running and succeeded tasks', () => {
+    const running = queued().start('owner', now)._unsafeUnwrap();
+    expect(running.cancel(new Date(now.getTime() + 120_000)).isErr()).toBe(true);
+    expect(running.succeed({}, now)._unsafeUnwrap().cancel(now).isErr()).toBe(true);
+    expect(queued().cancel(now)._unsafeUnwrap().snapshot().status).toBe('cancelled');
+  });
+});
 
 describe('TableQueryShape', () => {
   it('rejects raw query literals', () => {

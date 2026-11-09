@@ -1758,7 +1758,8 @@ export class FieldOpenApiService {
       await this.fieldViewSyncService.convertDependenciesByFieldIds(tableId, newField, oldField);
       await this.syncConditionalFiltersByFieldChanges(newField, oldField);
       if (supplementChange) {
-        const { newField: sNew, oldField: sOld } = supplementChange;
+        const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
+        await this.fieldViewSyncService.convertDependenciesByFieldIds(sTid, sNew, sOld);
         await this.syncConditionalFiltersByFieldChanges(sNew, sOld);
       }
       await this.fieldConvertingService.deleteOrCreateSupplementLink(

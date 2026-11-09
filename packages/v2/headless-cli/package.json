@@ -37,7 +37,7 @@
     "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
-    "@hono/node-server": "1.19.17",
+    "@hono/node-server": "2.1.6",
     "@teable/v2-adapter-db-postgres-shared": "workspace:*",
     "@teable/v2-headless-http": "workspace:*",
     "@teable/v2-headless-runtime": "workspace:*",

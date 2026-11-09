@@ -3,13 +3,14 @@ import { MoreHorizontal, Plus } from '@teable/icons';
 import { BaseNodeResourceType, getDashboard, renameDashboard } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
-import { Button, Input } from '@teable/ui-lib/shadcn';
+import { Button, cn, Input } from '@teable/ui-lib/shadcn';
 import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { BaseNodeMore } from '../blocks/base/base-side-bar/BaseNodeMore';
 import { useBrand } from '../hooks/useBrand';
+import { useCompactResourceChrome } from '../hooks/useCompactResourceChrome';
 import { AddPluginDialog } from './components/AddPluginDialog';
 
 export const DashboardHeader = (props: { dashboardId: string }) => {
@@ -23,6 +24,8 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const basePermissions = useBasePermission();
   const canManage = basePermissions?.['base|update'];
   const { brandName } = useBrand();
+  // Compact chrome: an 8px right edge, the add button 8px clear of a ghost menu button.
+  const compact = useCompactResourceChrome();
 
   const { data: dashboard } = useQuery({
     queryKey: ReactQueryKeys.getDashboard(dashboardId),
@@ -79,7 +82,12 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   }, [isRenaming]);
 
   return (
-    <div className="flex h-12 shrink-0 items-center justify-between border-b bg-background px-4">
+    <div
+      className={cn(
+        'flex h-12 shrink-0 items-center justify-between border-b bg-background',
+        compact ? 'pe-2 ps-4' : 'px-4'
+      )}
+    >
       <Head>
         <title>{dashboardName ? `${dashboardName} - ${brandName}` : brandName}</title>
       </Head>
@@ -104,10 +112,10 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         </Button>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className={cn('flex items-center', compact ? 'gap-1' : 'gap-2')}>
         {canManage && (
           <AddPluginDialog dashboardId={dashboardId}>
-            <Button variant={'outline'} size={'xs'}>
+            <Button variant={'outline'} size={'xs'} className={cn(compact && 'me-1')}>
               <Plus className="size-4 shrink-0" />
               {t('dashboard:addPlugin')}
             </Button>
@@ -119,7 +127,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
             resourceId={dashboardId}
             onRename={startRename}
           >
-            <Button size="icon-xs" variant="outline">
+            <Button size="icon-xs" variant="ghost">
               <MoreHorizontal className="size-4" />
             </Button>
           </BaseNodeMore>

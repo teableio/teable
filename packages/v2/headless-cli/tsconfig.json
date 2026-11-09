@@ -19,7 +19,6 @@
     "composite": false,
     "outDir": "dist",
     "paths": {
-      "@teable/core": ["../../core/src"],
       "@teable/v2-contract-http-client": ["../contract-http-client/dist/index.d.ts"],
       "@teable/v2-contract-http-hono": ["../contract-http-hono/dist/index.d.ts"],
       "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],

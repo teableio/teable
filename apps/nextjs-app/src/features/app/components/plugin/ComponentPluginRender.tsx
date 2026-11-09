@@ -4,10 +4,24 @@ import type {
   IParentBridgeMethods,
   IUIConfig,
 } from '@teable/sdk/plugin-bridge';
+import { Spin } from '@teable/ui-lib/base';
+import dynamic from 'next/dynamic';
 import { useMemo, useRef } from 'react';
-import { Chart } from '../../blocks/chart/components/Chart';
 import type { IPageParams } from '../../blocks/chart/types';
 import type { IPluginParams } from './types';
+
+// The chart plugin (recharts included) loads when one is shown, not with every table.
+const Chart = dynamic(
+  () => import('../../blocks/chart/components/Chart').then((mod) => mod.Chart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex size-full items-center justify-center">
+        <Spin />
+      </div>
+    ),
+  }
+);
 
 type IBaseProps = {
   uiConfig: IUIConfig;

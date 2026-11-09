@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
   CreateRecordCommand,
+  CreateRecordsCommand,
   v2CoreTokens,
   type CreateRecordResult,
+  type CreateRecordsResult,
+  type IExecutionContext,
   type IUndoRedoStore,
 } from '@teable/v2-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -238,4 +241,104 @@ describe('undo-redo/createRecord (db)', () => {
       anchorB.record.id().toString(),
     ]);
   });
+
+  const ignoredCreateContextVariants: ReadonlyArray<{
+    readonly label: string;
+    readonly buildContext: (base: IExecutionContext) => IExecutionContext;
+  }> = [
+    { label: 'without a window', buildContext: ({ actorId }) => ({ actorId }) },
+    {
+      label: 'during undo replay',
+      buildContext: (base) => ({ ...base, undoRedo: { mode: 'undo' } }),
+    },
+    {
+      label: 'during redo replay',
+      buildContext: (base) => ({ ...base, undoRedo: { mode: 'redo' } }),
+    },
+  ];
+
+  for (const variant of ignoredCreateContextVariants) {
+    it(`creates records ${variant.label} and keeps them out of the window undo stack`, async () => {
+      if (!harness) throw new Error('Missing harness');
+      const activeHarness = harness;
+
+      const table = await createBasicTable(activeHarness, `Undo Create Record ${variant.label}`);
+      const titleField = findField(table, 'Title');
+      const amountField = findField(table, 'Amount');
+      const titleDbName = getFieldDbName(table, 'Title');
+      const amountDbName = getFieldDbName(table, 'Amount');
+
+      const expectRow = async (recordId: string, title: string, amount: number) => {
+        const row = await fetchRowById(activeHarness.db, table, recordId);
+        expect(row?.[titleDbName]).toBe(title);
+        expect(row?.[amountDbName]).toBe(amount);
+      };
+
+      const windowRecord = await activeHarness.execute<CreateRecordCommand, CreateRecordResult>(
+        CreateRecordCommand.create({
+          tableId: table.id().toString(),
+          fields: {
+            [titleField.id().toString()]: 'Window A',
+            [amountField.id().toString()]: 7,
+          },
+        })._unsafeUnwrap()
+      );
+      const windowRecordId = windowRecord.record.id().toString();
+
+      const ignoredResult = await activeHarness.execute<CreateRecordsCommand, CreateRecordsResult>(
+        CreateRecordsCommand.create({
+          tableId: table.id().toString(),
+          records: [
+            {
+              fields: {
+                [titleField.id().toString()]: 'Untracked B',
+                [amountField.id().toString()]: 1,
+              },
+            },
+            {
+              fields: {
+                [titleField.id().toString()]: 'Untracked C',
+                [amountField.id().toString()]: 2,
+              },
+            },
+          ],
+        })._unsafeUnwrap(),
+        variant.buildContext(activeHarness.context)
+      );
+
+      const [untrackedB, untrackedC] = ignoredResult.records;
+      if (!untrackedB || !untrackedC) throw new Error('Missing created records');
+      const untrackedBId = untrackedB.id().toString();
+      const untrackedCId = untrackedC.id().toString();
+
+      const singleResult = await activeHarness.execute<CreateRecordCommand, CreateRecordResult>(
+        CreateRecordCommand.create({
+          tableId: table.id().toString(),
+          fields: {
+            [titleField.id().toString()]: 'Untracked D',
+            [amountField.id().toString()]: 3,
+          },
+        })._unsafeUnwrap(),
+        variant.buildContext(activeHarness.context)
+      );
+      const untrackedDId = singleResult.record.id().toString();
+
+      await expectRow(windowRecordId, 'Window A', 7);
+      await expectRow(untrackedBId, 'Untracked B', 1);
+      await expectRow(untrackedCId, 'Untracked C', 2);
+      await expectRow(untrackedDId, 'Untracked D', 3);
+
+      await activeHarness.undo(table.id().toString());
+      expect(await fetchRowById(activeHarness.db, table, windowRecordId)).toBeUndefined();
+      await expectRow(untrackedBId, 'Untracked B', 1);
+      await expectRow(untrackedCId, 'Untracked C', 2);
+      await expectRow(untrackedDId, 'Untracked D', 3);
+
+      await activeHarness.redo(table.id().toString());
+      await expectRow(windowRecordId, 'Window A', 7);
+      await expectRow(untrackedBId, 'Untracked B', 1);
+      await expectRow(untrackedCId, 'Untracked C', 2);
+      await expectRow(untrackedDId, 'Untracked D', 3);
+    });
+  }
 });

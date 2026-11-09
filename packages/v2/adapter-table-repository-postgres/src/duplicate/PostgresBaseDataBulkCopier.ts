@@ -453,27 +453,32 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
     range?: { minAutoNumberExclusive?: number; maxAutoNumberInclusive?: number }
   ): Promise<void> {
     const newColumnList = newColumns.map(quoteIdentifier).join(', ');
-    const oldColumnList = oldColumns
-      .map((column) => {
-        if (column === '__version') {
-          return '1 AS "__version"';
-        }
-        const isMultipleCellValue = titleDowngradeByColumn.get(column);
-        if (isMultipleCellValue === undefined) {
-          return quoteIdentifier(column);
-        }
-        // Cross-base/disconnected links were downgraded to text fields on the
-        // target: their json cell values degrade to the linked record title.
-        if (!isMultipleCellValue) {
-          return `${quoteIdentifier(column)} ->> 'title' AS ${quoteIdentifier(column)}`;
-        }
-        return `CASE
-          WHEN ${quoteIdentifier(column)} IS NULL THEN NULL
-          ELSE (SELECT string_agg(elem ->> 'title', ', ')
-                FROM json_array_elements(CAST(${quoteIdentifier(column)} AS json)) AS elem)
-        END AS ${quoteIdentifier(column)}`;
-      })
-      .join(', ');
+    const dateConversions = new Map(
+      table.dateTimeZoneConversions?.map((conversion) => [conversion.dbFieldName, conversion])
+    );
+    const oldColumnList = oldColumns.map((column) => {
+      if (column === '__version') {
+        return sql.raw('1 AS "__version"');
+      }
+      const dateConversion = dateConversions.get(column);
+      if (dateConversion) {
+        return sql`timezone(${dateConversion.targetTimeZone}, timezone(${dateConversion.sourceTimeZone}, ${sql.ref(column)}))`;
+      }
+      const isMultipleCellValue = titleDowngradeByColumn.get(column);
+      if (isMultipleCellValue === undefined) {
+        return sql.ref(column);
+      }
+      // Cross-base/disconnected links were downgraded to text fields on the
+      // target: their json cell values degrade to the linked record title.
+      if (!isMultipleCellValue) {
+        return sql.raw(`${quoteIdentifier(column)} ->> 'title' AS ${quoteIdentifier(column)}`);
+      }
+      return sql.raw(`CASE
+        WHEN ${quoteIdentifier(column)} IS NULL THEN NULL
+        ELSE (SELECT string_agg(elem ->> 'title', ', ')
+              FROM json_array_elements(CAST(${quoteIdentifier(column)} AS json)) AS elem)
+      END AS ${quoteIdentifier(column)}`);
+    });
 
     const whereClauses: string[] = [];
     if (range?.minAutoNumberExclusive != null) {
@@ -488,10 +493,9 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
     }
     const whereSql = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
 
-    await sql
-      .raw(
-        `INSERT INTO ${qualifiedTableName(table.targetDbTableName)} (${newColumnList}) SELECT ${oldColumnList} FROM ${qualifiedTableName(table.sourceDbTableName)}${whereSql} ORDER BY ${quoteIdentifier(AUTO_NUMBER_COLUMN)}`
-      )
-      .execute(trx);
+    await sql`INSERT INTO ${sql.raw(qualifiedTableName(table.targetDbTableName))}
+      (${sql.raw(newColumnList)}) SELECT ${sql.join(oldColumnList)}
+      FROM ${sql.raw(qualifiedTableName(table.sourceDbTableName))}${sql.raw(whereSql)}
+      ORDER BY ${sql.ref(AUTO_NUMBER_COLUMN)}`.execute(trx);
   }
 }

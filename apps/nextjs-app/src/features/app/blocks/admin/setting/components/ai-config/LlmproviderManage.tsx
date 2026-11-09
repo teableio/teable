@@ -112,8 +112,10 @@ export const LLMProviderManage = ({
   }
 
   return (
-    <div>
-      <div className="flex w-full flex-col gap-3">
+    <div className="@container/providers">
+      {/* When wide enough, every provider card and model row shares these columns so they line up;
+          narrower, each model wraps its badges onto a second line */}
+      <div className="grid w-full gap-x-2 gap-y-3 @2xl/providers:grid-cols-[fit-content(30%)_max-content_max-content_minmax(0,1fr)_max-content]">
         {value.map((provider, index) => {
           // Get models for this provider
           const models =
@@ -132,13 +134,13 @@ export const LLMProviderManage = ({
 
           return (
             <div
-              className="group rounded-lg border p-4 pe-3 hover:border-primary/50"
+              className="group col-span-full rounded-lg border p-4 pe-3 hover:border-primary/50 @2xl/providers:grid @2xl/providers:grid-cols-subgrid"
               // Cards of one type share the name: only the position tells them apart.
               // eslint-disable-next-line react/no-array-index-key
               key={`${providerKey}#${index}`}
             >
               {/* Provider header */}
-              <div className="flex items-center justify-between">
+              <div className="col-span-full flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">
                     {provider.displayName || provider.name} - {provider.type}
@@ -196,7 +198,7 @@ export const LLMProviderManage = ({
               </div>
 
               {conflict && (
-                <p className="mt-2 text-xs text-destructive">
+                <p className="col-span-full mt-2 text-xs text-destructive">
                   {t('admin.setting.ai.duplicateModel', {
                     model: conflict.model,
                     first: conflict.providers[0],
@@ -207,7 +209,7 @@ export const LLMProviderManage = ({
 
               {/* Model rows - each model on its own line with capabilities */}
               {models.length > 0 && (
-                <div className="mt-3 flex flex-col gap-2">
+                <div className="col-span-full mt-2 divide-y @2xl/providers:grid @2xl/providers:grid-cols-subgrid">
                   {models.map((model) => {
                     const modelKey = `${provider.type}@${model}@${provider.name}`;
                     const testResult =
@@ -248,13 +250,15 @@ export const LLMProviderManage = ({
             </div>
           );
         })}
-        <NewLLMProviderForm
-          onAdd={handleAdd}
-          onTest={onTest}
-          hideModelRates={hideModelRates}
-          onSaveTestResult={onSaveTestResult}
-          providerNameMode={providerNameMode}
-        />
+        <div className="col-span-full">
+          <NewLLMProviderForm
+            onAdd={handleAdd}
+            onTest={onTest}
+            hideModelRates={hideModelRates}
+            onSaveTestResult={onSaveTestResult}
+            providerNameMode={providerNameMode}
+          />
+        </div>
       </div>
     </div>
   );
@@ -353,66 +357,46 @@ const ModelRow = ({
   };
 
   return (
-    <div className="rounded-md border bg-muted p-3">
-      {/* Model header row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {/* Model name with status */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{model}</span>
-            {getStatusIcon()}
-            {status === 'failed' && testResult?.error && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-xs text-red-500">
-                      ({t('admin.setting.ai.testFailed')})
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">{testResult.error}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
+    <div className="col-span-full flex flex-wrap items-center gap-2 py-2.5 last:pb-0 @2xl/providers:grid @2xl/providers:grid-cols-subgrid">
+      <span className="min-w-0 truncate text-sm font-medium" title={model}>
+        {model}
+      </span>
 
-          {/* Test button for single model */}
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() => onTestModel?.()}
-            disabled={isCurrentlyTesting}
-            className="h-5 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-          >
-            {isCurrentlyTesting ? (
-              <Loader2 className="size-3 animate-spin" />
-            ) : (
-              <Play className="size-3" />
-            )}
-            {t('admin.setting.ai.testProvider')}
-          </Button>
-        </div>
-
-        {/* Image model checkbox */}
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id={`image-model-${modelKey}`}
-            checked={isImageModel}
-            onCheckedChange={handleCheckboxChange}
-            className="size-4 border-muted-foreground/50 data-[state=checked]:border-purple-500 data-[state=checked]:bg-purple-500"
-          />
-          <Label
-            htmlFor={`image-model-${modelKey}`}
-            className="cursor-pointer text-xs text-muted-foreground"
-          >
-            {t('admin.setting.ai.imageGenerationModel')}
-          </Label>
-        </div>
+      {/* Test status */}
+      <div className="flex shrink-0 items-center gap-1">
+        {getStatusIcon()}
+        {status === 'failed' && testResult?.error && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs text-red-500">({t('admin.setting.ai.testFailed')})</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{testResult.error}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
 
+      {/* Test button for single model */}
+      <Button
+        size="xs"
+        variant="ghost"
+        onClick={() => onTestModel?.()}
+        disabled={isCurrentlyTesting}
+        className="h-5 shrink-0 gap-1 justify-self-start px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+      >
+        {isCurrentlyTesting ? (
+          <Loader2 className="size-3 animate-spin" />
+        ) : (
+          <Play className="size-3" />
+        )}
+        {t('admin.setting.ai.testProvider')}
+      </Button>
+
       {/* Capability badges */}
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="order-last flex basis-full flex-wrap gap-1.5 @2xl/providers:order-none @2xl/providers:ms-2 @2xl/providers:basis-auto">
         <TooltipProvider>
           {isImageModel
             ? // Image model abilities
@@ -478,6 +462,22 @@ const ModelRow = ({
                 return <div key={abilityType}>{badge}</div>;
               })}
         </TooltipProvider>
+      </div>
+
+      {/* Image model checkbox */}
+      <div className="ms-auto flex shrink-0 items-center gap-2 @2xl/providers:ms-2">
+        <Checkbox
+          id={`image-model-${modelKey}`}
+          checked={isImageModel}
+          onCheckedChange={handleCheckboxChange}
+          className="size-4 border-muted-foreground/50 data-[state=checked]:border-purple-500 data-[state=checked]:bg-purple-500"
+        />
+        <Label
+          htmlFor={`image-model-${modelKey}`}
+          className="cursor-pointer text-xs text-muted-foreground"
+        >
+          {t('admin.setting.ai.imageGenerationModel')}
+        </Label>
       </div>
     </div>
   );

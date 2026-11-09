@@ -46,6 +46,7 @@ export interface IAIModelSelectProps {
   children?: ReactNode;
   onlyImageOutput?: boolean; // if true, only show image output models
   placeholder?: string; // Custom placeholder when no model is selected
+  groupBySource?: boolean; // Two groups by source: Vercel AI Gateway and custom providers
 }
 
 // Categorized model options

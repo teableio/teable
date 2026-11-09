@@ -90,6 +90,7 @@ export type FieldDeletionPreparation = {
   readonly sideEffects: FieldDeletionSideEffectPreparation;
   readonly cleanup: ReadonlyArray<FieldDeletionCleanupPreparation>;
   readonly tablesBeforeDeletionById: ReadonlyMap<string, Table>;
+  readonly projectedTablesById: ReadonlyMap<string, Table>;
 };
 
 type DeletionCleanup = {
@@ -150,7 +151,11 @@ export class FieldDeletionPreparationService {
   async prepare(
     context: IExecutionContext,
     input: FieldDeletionPreparationInput,
-    options?: { readonly table?: Table }
+    options?: {
+      readonly table?: Table;
+      /** Complete supplied metadata set; an empty set must not trigger additional loading. */
+      readonly foreignTables?: ReadonlyArray<Table>;
+    }
   ): Promise<Result<FieldDeletionPreparation, DomainError>> {
     const service = this;
     return safeTry<FieldDeletionPreparation, DomainError>(async function* () {
@@ -171,10 +176,12 @@ export class FieldDeletionPreparationService {
       const targetFields = yield* service.resolveTargetFields(detachedTable, input.fieldIds);
       const referenceVisitor = new LinkForeignTableReferenceVisitor();
       const references = yield* referenceVisitor.collect(targetFields);
-      const foreignTables = yield* await service.foreignTableLoaderService.load(context, {
-        references,
-        allowMissing: true,
-      });
+      const foreignTables =
+        options?.foreignTables ??
+        (yield* await service.foreignTableLoaderService.load(context, {
+          references,
+          allowMissing: true,
+        }));
       const loadedForeignIds = new Set(foreignTables.map((item) => item.id().toString()));
       const missingMetadata: FieldDeletionMissingMetadata[] = [];
       for (const targetField of targetFields) {
@@ -348,6 +355,7 @@ export class FieldDeletionPreparationService {
         sideEffects,
         cleanup,
         tablesBeforeDeletionById,
+        projectedTablesById: tablesById,
       });
     });
   }

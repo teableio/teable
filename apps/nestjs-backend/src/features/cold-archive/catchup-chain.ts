@@ -27,18 +27,12 @@ export const chainCatchupFlush = async (options: {
 }): Promise<void> => {
   const { job, queue, flushJobId, catchupJobIdPrefix, delayMs, maxHops, logger } = options;
   try {
-    // the redis-less fallback queue has no job introspection
-    const introspectable = queue as Queue & {
-      getJobs?: (types: string[]) => Promise<({ id?: string } | undefined)[]>;
-    };
-    if (typeof introspectable.getJobs === 'function') {
-      const existing = (await introspectable.getJobs(['delayed', 'waiting', 'active'])).filter(
-        (other) => other?.id?.startsWith(catchupJobIdPrefix) && other.id !== job.id
-      );
-      if (existing.length > 0) {
-        logger.log('catch-up flush already chained; not starting a second chain');
-        return;
-      }
+    const existing = (await queue.getJobs(['delayed', 'waiting', 'active'])).filter(
+      (other) => other?.id?.startsWith(catchupJobIdPrefix) && other.id !== job.id
+    );
+    if (existing.length > 0) {
+      logger.log('catch-up flush already chained; not starting a second chain');
+      return;
     }
     const hop = ((job.data as { catchupHop?: number } | undefined)?.catchupHop ?? 0) + 1;
     if (maxHops > 0 && hop > maxHops) {

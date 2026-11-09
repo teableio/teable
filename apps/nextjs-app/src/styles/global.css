@@ -141,6 +141,11 @@ body[data-teable-top-banner='visible'] #portal .min-h-screen {
   @apply truncate !important;
 }
 
+/* FullCalendar's own 1px blue event border, which can land after Tailwind's border-none. */
+.fc-h-event {
+  @apply border-none !important;
+}
+
 .fc-event:focus {
   @apply shadow-none !important;
 }

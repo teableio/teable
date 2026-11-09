@@ -64,6 +64,7 @@ import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { TableDomainQueryService } from '../../table-domain';
+import { presentViewSnapshotsShareConfig, presentViewsShareConfig } from '../view-share-config';
 import { ViewService } from '../view.service';
 import { ViewOpenApiV2Service } from './view-open-api-v2.service';
 import { ViewOpenApiService } from './view-open-api.service';
@@ -88,10 +89,10 @@ export class ViewOpenApiController {
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string
   ): Promise<IViewVo> {
-    if (this.cls.get('useV2')) {
-      return await this.viewOpenApiV2Service.getView(tableId, viewId);
-    }
-    return await this.viewService.getViewById(tableId, viewId);
+    const view = this.cls.get('useV2')
+      ? await this.viewOpenApiV2Service.getView(tableId, viewId)
+      : await this.viewService.getViewById(tableId, viewId);
+    return presentViewsShareConfig([view], this.cls.get('permissions'))[0];
   }
 
   @Permissions('view|read')
@@ -100,10 +101,10 @@ export class ViewOpenApiController {
   @UseGuards(V2FeatureGuard)
   @UseInterceptors(V2IndicatorInterceptor)
   async getViews(@Param('tableId') tableId: string): Promise<IViewVo[]> {
-    if (this.cls.get('useV2')) {
-      return await this.viewOpenApiV2Service.getViews(tableId);
-    }
-    return await this.viewService.getViews(tableId);
+    const views = this.cls.get('useV2')
+      ? await this.viewOpenApiV2Service.getViews(tableId)
+      : await this.viewService.getViews(tableId);
+    return presentViewsShareConfig(views, this.cls.get('permissions'));
   }
 
   @Permissions('view|create')
@@ -496,10 +497,10 @@ export class ViewOpenApiController {
   @UseGuards(V2FeatureGuard)
   @UseInterceptors(V2IndicatorInterceptor)
   async getSnapshotBulk(@Param('tableId') tableId: string, @Query('ids') ids: string[]) {
-    if (this.cls.get('useV2')) {
-      return this.viewOpenApiV2Service.getSnapshotBulk(tableId, ids);
-    }
-    return this.viewService.getSnapshotBulk(tableId, ids);
+    const snapshots = this.cls.get('useV2')
+      ? await this.viewOpenApiV2Service.getSnapshotBulk(tableId, ids)
+      : await this.viewService.getSnapshotBulk(tableId, ids);
+    return presentViewSnapshotsShareConfig(snapshots, this.cls.get('permissions'));
   }
 
   @Permissions('view|read')

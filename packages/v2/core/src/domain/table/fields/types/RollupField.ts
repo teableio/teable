@@ -25,6 +25,7 @@ import type { FieldDuplicateParams } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
+import { validateForeignTableCondition } from '../foreignTableConditionValidation';
 import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
@@ -397,6 +398,13 @@ export class RollupField
       .fieldById(this.lookupFieldId())
       .mapErr(() => domainError.validation({ message: 'RollupField lookup field not found' }));
     if (lookupField.isErr()) return err(lookupField.error);
+
+    const conditionValidation = validateForeignTableCondition(
+      this.configValue.condition(),
+      context,
+      foreignTable
+    );
+    if (conditionValidation.isErr()) return err(conditionValidation.error);
 
     const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
     if (valuesTypeResult.isErr()) return err(valuesTypeResult.error);

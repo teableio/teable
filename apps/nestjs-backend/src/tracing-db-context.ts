@@ -1,5 +1,6 @@
 import { context, createContextKey, SpanStatusCode } from '@opentelemetry/api';
 import type { Span } from '@opentelemetry/api';
+import type { PgInstrumentationConfig } from '@opentelemetry/instrumentation-pg';
 import { LRUCache } from 'lru-cache';
 
 type IEnv = Record<string, string | undefined>;
@@ -208,3 +209,22 @@ export const setTeableDbSpanAttributesFromSpan = (
     env
   );
 };
+
+/**
+ * The PgInstrumentation config the backend runs with.
+ *
+ * Bound parameter values (`db.postgresql.values`) are the rows being written: a bulk delete
+ * shipped every record_trash snapshot, megabytes per span, to the trace backend. They stay
+ * out of traces unless OTEL_PG_ENHANCED_DATABASE_REPORTING=true turns them on for local
+ * debugging. SQL text, timing, status and errors are recorded either way.
+ */
+export const createPgInstrumentationConfig = (
+  env: IEnv = process.env
+): PgInstrumentationConfig => ({
+  enhancedDatabaseReporting: env.OTEL_PG_ENHANCED_DATABASE_REPORTING === 'true',
+  requireParentSpan: false, // Create spans even without parent, ensures v2 Kysely queries are traced
+  requestHook: (span, queryInfo) => {
+    setTeableDbSpanAttributes(span, queryInfo.connection, env);
+    redactTeablePgQuerySpan(span);
+  },
+});

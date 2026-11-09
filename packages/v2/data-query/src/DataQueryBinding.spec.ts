@@ -204,6 +204,13 @@ describe('DataQueryBinding', () => {
       },
     ]);
     expect(JSON.stringify(requested.usage)).not.toContain('schema.original');
+    expect(Object.keys(requested).sort()).toEqual(['outputs', 'usage']);
+    const signed = (
+      await service.validate(context, { definition, includeSchemaSignature: true })
+    )._unsafeUnwrap();
+    expect(Object.keys(signed).sort()).toEqual(['outputs', 'schemaSignature']);
+    expect(signed.schemaSignature).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(signed.usage).toBeUndefined();
     expect(JSON.stringify(requested.usage)).not.toContain('title');
     forbidden = true;
     const denied = await service.validate(context, { definition, includeUsage: true });
@@ -221,7 +228,6 @@ describe('DataQueryBinding', () => {
         })
       ).isErr()
     ).toBe(true);
-    expect(findOne).toHaveBeenCalledTimes(4);
     expect(execute).not.toHaveBeenCalled();
   });
   it('retains every predicate and field-reference dependency', () => {

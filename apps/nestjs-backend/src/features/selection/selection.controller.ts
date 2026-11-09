@@ -76,6 +76,7 @@ import { RecordOpenApiService } from '../record/open-api/record-open-api.service
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { ShareViewScopeService } from '../record/share-view-scope.service';
 import { SelectionService } from './selection.service';
+import { buildRawCopyContent } from './raw-copy-content';
 
 @UseGuards(V2FeatureGuard)
 @UseInterceptors(V2IndicatorInterceptor)
@@ -353,9 +354,11 @@ export class SelectionController {
         fieldInstance.cellValue2String(record.fields[fieldInstance.id] as never)
       )
     );
+    const rawContent = buildRawCopyContent(records, fields, rectangleData);
     return {
       content: stringifyClipboardText(rectangleData),
       header: fields,
+      ...(rawContent ? { rawContent } : {}),
     };
   }
 
@@ -443,7 +446,7 @@ export class SelectionController {
     if (this.cls.get('useV2') && query.viewId) {
       return this.copyWithV2(tableId, query);
     }
-    return this.selectionService.copy(tableId, query);
+    return this.selectionService.copy(tableId, query, true);
   }
 
   @UseV2Feature('copy')
@@ -456,7 +459,7 @@ export class SelectionController {
     if (this.cls.get('useV2')) {
       return this.copyByIdWithV2(tableId, copyRo);
     }
-    return this.selectionService.copyById(tableId, copyRo);
+    return this.selectionService.copyById(tableId, copyRo, true);
   }
 
   @UseV2Feature('paste')

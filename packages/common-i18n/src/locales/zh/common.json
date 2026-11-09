@@ -3,6 +3,7 @@
     "copySource": "复制来源：{{names}}",
     "title": "变更内容",
     "deleteFieldTitle": "删除字段",
+    "convertFieldTitle": "修改字段",
     "deleteTableTitle": "删除数据表",
     "copyTableTitle": "复制数据表",
     "copyBaseTitle": "复制项目",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "执行时的其他影响",
     "uncertaintyDetail": "其他影响",
     "recordCountUnknown": "记录数量",
+    "affectedCellCountUnknown": "受影响单元格数量",
     "retentionUnknown": "尚未检查回收站保留期限。",
     "storageUnknown": "尚未检查存储影响。",
     "retentionStorageUnknown": "回收站期限和存储影响未检查。",
     "inTables": "所在数据表：{{names}}",
     "affectedFields": "受影响字段数：",
     "affectedViews": "受影响视图数：",
+    "affectedCells": "受影响单元格数：",
+    "affectedLinkChanges": "关联变更数：",
     "labels": {
       "tables": "数据表",
       "fields": "字段",
@@ -47,6 +51,11 @@
     },
     "messages": {
       "fieldDeleted": "删除该字段及所有记录中的值",
+      "fieldTypeChanged": "更改字段类型",
+      "fieldConfigurationChanged": "更新字段设置",
+      "fieldValuesRewritten": "按新的字段设置重写已有值",
+      "fieldUnchanged": "保留当前字段设置",
+      "fieldLinkChanges": "调整相关关联字段",
       "symmetricLinkRemovedDetail": "同时删除对应的双向关联字段",
       "fieldDependenciesChangedDetail": "更新依赖字段，变化后的值尚未确定",
       "fieldViewsChangedDetail": "删除字段后，更新视图设置",
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "设置",
       "logout": "退出登录",
-      "contactSupport": "联系支持"
+      "contactSupport": "联系支持",
+      "downloadApp": "下载 App"
     },
     "integration": {
       "title": "集成",
@@ -778,6 +788,7 @@
       "enableWaitlistDescription": "启用此选项后，用户需要邀请码才能注册。",
       "generalSettings": "通用配置",
       "aiSettings": "AI 配置",
+      "secretEndpointChanged": "地址已更改，请重新输入 {{secret}}。",
       "brandingSettings": {
         "title": "品牌配置",
         "description": "仅在企业版中可用",
@@ -1079,6 +1090,7 @@
           "gatewayErrorForbidden": "访问被拒绝，请在 Vercel 控制台检查账户状态",
           "gatewayErrorNetwork": "网络错误，请检查网络连接或代理配置",
           "pleaseTest": "请点击测试验证 API 密钥是否有效",
+          "gatewayUrlKeysReenter": "地址已更改，请先在高级配置中重新填写或清空已保存的密钥（Token 分组、Vertex AI BYOK），否则无法保存。",
           "test": "测试",
           "testing": "测试中...",
           "attachmentTest": {
@@ -1111,7 +1123,6 @@
           "smDesc": "简单查询、快速响应",
           "readyToUse": "AI 已配置完成，可以开始使用了！",
           "customProviderHelp": "添加您自己的 AI 服务商（如 OpenAI、Anthropic、Azure 等），配置 API 密钥和模型。",
-          "testModelCapabilities": "测试模型能力",
           "customModelsAutoImported": "您配置的服务商模型已自动导入到可选模型池。",
           "modelsCount": "共 {{count}} 个可选模型",
           "customModelsHint": "如需调整模型配置，请返回步骤 1 修改服务商设置。",
@@ -1168,7 +1179,8 @@
       "group": {
         "system": "基础配置",
         "ai": "AI 服务",
-        "appBuilder": "应用构建器"
+        "appBuilder": "应用构建器",
+        "security": "安全"
       },
       "copyInstance": "复制 ID",
       "list": {
@@ -1217,7 +1229,23 @@
         "sandboxOpenSandbox": {
           "title": "AI 聊天运行环境",
           "description": "配置 AI 聊天的 OpenSandbox 运行环境，<anchor>前往设置</anchor>"
+        },
+        "signupVerification": {
+          "title": "开放注册但未开启邮箱验证",
+          "description": "任何人都能用不属于自己的邮箱注册：可以抢注同事或客户的邮箱；被邮件邀请、还没注册的成员，其账号（已带有邀请授予的权限）也会被抢先注册的人直接接管。建议开启「邮箱验证」（需先配置邮件服务），或关闭开放注册，<anchor>前往设置</anchor>"
+        },
+        "secrets": {
+          "title": "服务端密钥",
+          "description": "有 {{total}} 个密钥未设置或仍在使用公开的默认值，他人可能借此伪造登录凭据或解密已存储的数据。请通过环境变量设置后重启，启动日志中有逐项说明。已有数据的实例请先固定当前值再轮换，直接替换加密密钥会导致已存储的数据无法解密。",
+          "missing": "未设置",
+          "publicDefault": "使用公开默认值",
+          "docsLink": "查看环境变量说明",
+          "href": "https://help.teable.ai/zh/deploy/env#密钥与轮换"
         }
+      },
+      "banner": {
+        "message": "管理后台有待处理的安全事项",
+        "action": "前往处理"
       }
     },
     "canary": {
@@ -1513,6 +1541,18 @@
           },
           "connectorDisconnected": {
             "title": "任务 {{name}} 已停止接收连接器事件"
+          },
+          "handedToYou": {
+            "title": "任务 {{name}} 已转交给你",
+            "message": "{{previousOwner}} 已无法编辑任务 {{name}}，任务已转交给你。之后任务将以你的身份运行，运行结果和告警也会发给你。请检查任务的指令和触发方式，如不需要可以停用。"
+          },
+          "handedAway": {
+            "title": "你的任务 {{name}} 已转交给 {{newOwner}}",
+            "message": "你已无法编辑任务 {{name}}，任务已转交给 {{newOwner}}，之后将以 {{newOwner}} 的身份运行。"
+          },
+          "takenOver": {
+            "title": "任务 {{name}} 已改为以 {{newOwner}} 的身份运行",
+            "message": "{{newOwner}} 接管了任务 {{name}}，之后任务将以 {{newOwner}} 的身份运行，运行结果和告警也会发给 {{newOwner}}。"
           }
         },
         "billing": {
@@ -2059,5 +2099,16 @@
         "description": "帮助我们衡量广告和推广的效果。"
       }
     }
+  },
+  "openInApp": {
+    "title": "Teable App",
+    "description": "在 App 中打开此页面，体验更流畅",
+    "open": "打开",
+    "dismiss": "关闭",
+    "notInstalledTitle": "还没有安装 Teable App？",
+    "notInstalledDescription": "安装后回到这里，再点打开",
+    "getApp": "下载 App",
+    "inAppBrowserHint": "点右上角菜单，在浏览器中打开此页面，即可跳转到 App",
+    "menuItem": "在 Teable App 中打开"
   }
 }

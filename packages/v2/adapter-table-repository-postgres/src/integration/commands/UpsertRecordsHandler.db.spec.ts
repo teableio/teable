@@ -1,16 +1,33 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
+  composeUndoRedoCommands,
   CreateTableCommand,
+  domainError,
+  domainWrite,
   FieldKeyType,
+  RecordId,
+  RecordsBatchUpdated,
+  UpdateRecordsCommand,
   UpsertRecordsCommand,
   v2CoreTokens,
   type CreateTableResult,
+  type DomainError,
+  type IDomainEvent,
+  type IDomainWriteTransaction,
+  type IExecutionContext,
+  type IRecordBulkUpdateTransactionResult,
+  type IRecordChangedValueDecoratorService,
+  type ITableRecordRepository,
   type IUndoRedoStore,
+  type RecordBulkUpdateService,
   type Table,
+  type TableRecord,
+  type UpdateRecordsResult,
   type UpsertRecordsResult,
 } from '@teable/v2-core';
 import { sql } from 'kysely';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { err, ok, type Result } from 'neverthrow';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DomainEventOutboxWorker } from '../../projection/DomainEventOutboxWorker';
 import { v2RecordRepositoryPostgresTokens } from '../../record/di/tokens';
@@ -83,6 +100,90 @@ describe('UpsertRecordsHandler (db)', () => {
 
     return activeHarness.execute<UpsertRecordsCommand, UpsertRecordsResult>(command);
   };
+
+  const listUndoEntries = async (table: Table) => {
+    const activeHarness = requireHarness();
+    const store = activeHarness.container.resolve<IUndoRedoStore>(v2CoreTokens.undoRedoStore);
+    return (
+      await store.list({
+        actorId: activeHarness.context.actorId,
+        tableId: table.id(),
+        windowId: activeHarness.context.windowId!,
+      })
+    )._unsafeUnwrap();
+  };
+
+  const findBatchUpdated = (events: ReadonlyArray<IDomainEvent>): RecordsBatchUpdated => {
+    const event = events.find(
+      (candidate): candidate is RecordsBatchUpdated => candidate instanceof RecordsBatchUpdated
+    );
+    if (!event) throw new Error('Missing RecordsBatchUpdated event');
+    return event;
+  };
+
+  const recordFieldValues = (records: ReadonlyArray<TableRecord> | undefined) =>
+    Object.fromEntries(
+      (records ?? []).flatMap((record) =>
+        record
+          .fields()
+          .entries()
+          .map(({ fieldId, value }) => [fieldId.toString(), value.toValue()] as const)
+      )
+    );
+
+  const runInDataTransaction = async (
+    table: Table,
+    context: IExecutionContext,
+    work: (
+      transactionContext: IExecutionContext
+    ) => Promise<Result<IRecordBulkUpdateTransactionResult, DomainError>>
+  ): Promise<{
+    applied: IRecordBulkUpdateTransactionResult;
+    events: ReadonlyArray<IDomainEvent>;
+  }> => {
+    const activeHarness = requireHarness();
+    const domainWriteTransaction = activeHarness.container.resolve<IDomainWriteTransaction>(
+      v2CoreTokens.domainWriteTransaction
+    );
+    let applied: IRecordBulkUpdateTransactionResult | undefined;
+    const committed = await domainWriteTransaction.execute<IRecordBulkUpdateTransactionResult>(
+      context,
+      async (transactionContext) => {
+        const result = await work(transactionContext);
+        if (result.isErr()) return err(result.error);
+        applied = result.value;
+        return ok(domainWrite.fromEvents(result.value, result.value.events, { tables: [table] }));
+      }
+    );
+    if (committed.isErr()) {
+      throw new Error(`${committed.error.code}: ${committed.error.message}`);
+    }
+    if (!applied) throw new Error('Data transaction did not run updateWithinTransaction');
+    return { applied, events: committed.value.events };
+  };
+
+  const updateAmountWithinTransaction =
+    (table: Table, recordId: string, amount: number) =>
+    (
+      transactionContext: IExecutionContext
+    ): Promise<Result<IRecordBulkUpdateTransactionResult, DomainError>> => {
+      const amountFieldId = findField(table, 'Amount').id().toString();
+      const normalizedRecordId = RecordId.create(recordId)._unsafeUnwrap();
+      return requireHarness()
+        .container.resolve<RecordBulkUpdateService>(v2CoreTokens.recordBulkUpdateService)
+        .updateWithinTransaction(transactionContext, {
+          table,
+          fieldValues: new Map<string, unknown>(),
+          filter: undefined,
+          recordIds: undefined,
+          records: [
+            { recordId: normalizedRecordId, fieldValues: new Map([[amountFieldId, amount]]) },
+          ],
+          typecast: false,
+          fieldKeyType: FieldKeyType.Id,
+          order: undefined,
+        });
+    };
 
   it('creates missing rows and fails the whole batch in error mode when a key exists', async () => {
     const table = await createUpsertTable('Upsert Error Mode');
@@ -168,10 +269,39 @@ describe('UpsertRecordsHandler (db)', () => {
     expect(recordId).toBeTruthy();
 
     const updated = await upsert(table, 'update', [
-      { Key: 'k1', Amount: 42 },
       { Key: 'k1b', Title: 'New row' },
+      { Key: 'k1', Amount: 42 },
     ]);
-    expect(updated.results.map((result) => result.status)).toEqual(['updated', 'created']);
+    expect(updated.results.map((result) => result.status)).toEqual(['created', 'updated']);
+    const keyField = findField(table, 'Key');
+    const titleField = findField(table, 'Title');
+    const amountField = findField(table, 'Amount');
+    expect(
+      updated.results.map((result) => ({
+        index: result.index,
+        id: result.record?.id().toString(),
+        fields: Object.fromEntries(
+          result.record
+            ?.fields()
+            .entries()
+            .map(({ fieldId, value }) => [fieldId.toString(), value.toValue()]) ?? []
+        ),
+      }))
+    ).toMatchObject([
+      {
+        index: 0,
+        fields: { [keyField.id().toString()]: 'k1b', [titleField.id().toString()]: 'New row' },
+      },
+      {
+        index: 1,
+        id: recordId,
+        fields: {
+          [keyField.id().toString()]: 'k1',
+          [titleField.id().toString()]: 'One',
+          [amountField.id().toString()]: 42,
+        },
+      },
+    ]);
     expect(updated.summary).toEqual({
       requested: 2,
       created: 1,
@@ -254,35 +384,82 @@ describe('UpsertRecordsHandler (db)', () => {
     }
   );
 
-  it('records one undo entry and replays delete plus restore', async () => {
+  it('records exactly one extra undo entry for a mixed upsert and replays delete plus restore', async () => {
     const activeHarness = requireHarness();
     const table = await createUpsertTable('Upsert Undo');
     const store = activeHarness.container.resolve<IUndoRedoStore>(v2CoreTokens.undoRedoStore);
+    const undoScope = {
+      actorId: activeHarness.context.actorId,
+      tableId: table.id(),
+      windowId: activeHarness.context.windowId!,
+    };
 
     await upsert(table, 'update', [{ Key: 'k1', Title: 'One', Amount: 1 }]);
     const createdIds = (await listRows(activeHarness.db, table)).map((row) => String(row['__id']));
+    const entriesBefore = (await store.list(undoScope))._unsafeUnwrap();
 
-    await upsert(table, 'update', [
+    const mixed = await upsert(table, 'update', [
       { Key: 'k1', Amount: 5 },
       { Key: 'k2', Title: 'Two' },
     ]);
+    expect(mixed.results.map((result) => result.status)).toEqual(['updated', 'created']);
 
-    const entries = (
-      await store.list({
-        actorId: activeHarness.context.actorId,
-        tableId: table.id(),
-        windowId: activeHarness.context.windowId!,
-      })
-    )._unsafeUnwrap();
+    const rowsAfterMixed = await listRows(activeHarness.db, table);
+    const newRecordIds = rowsAfterMixed
+      .map((row) => String(row['__id']))
+      .filter((recordId) => !createdIds.includes(recordId));
+    expect(newRecordIds).toHaveLength(1);
 
-    const batchEntry = entries.find((candidate) => candidate.undoCommand.type === 'Batch');
-    expect(batchEntry).toBeDefined();
-    if (batchEntry?.undoCommand.type === 'Batch') {
-      expect(batchEntry.undoCommand.payload.map((command) => command.type).sort()).toEqual([
-        'DeleteRecords',
-        'UpdateRecords',
-      ]);
-    }
+    const entriesAfter = (await store.list(undoScope))._unsafeUnwrap();
+    expect(entriesAfter).toHaveLength(entriesBefore.length + 1);
+    expect(entriesAfter.slice(0, -1)).toEqual(entriesBefore);
+
+    const batchEntry = entriesAfter.at(-1);
+    expect(batchEntry?.undoCommand.type).toBe('Batch');
+    expect(batchEntry?.redoCommand.type).toBe('Batch');
+    const undoCommands =
+      batchEntry?.undoCommand.type === 'Batch' ? batchEntry.undoCommand.payload : [];
+    const redoCommands =
+      batchEntry?.redoCommand.type === 'Batch' ? batchEntry.redoCommand.payload : [];
+    // Replay order is the composed order: the batch update is rolled back before
+    // the rows it created are deleted, and redo restores values before rows.
+    expect(undoCommands.map((command) => command.type)).toEqual(['UpdateRecords', 'DeleteRecords']);
+    expect(redoCommands.map((command) => command.type)).toEqual([
+      'UpdateRecords',
+      'RestoreRecords',
+    ]);
+
+    const amountFieldId = findField(table, 'Amount').id().toString();
+    const updatedRecordId = createdIds[0]!;
+    expect(undoCommands[0]).toMatchObject({
+      type: 'UpdateRecords',
+      payload: {
+        tableId: table.id().toString(),
+        fieldKeyType: 'id',
+        typecast: false,
+        records: [{ id: updatedRecordId, fields: { [amountFieldId]: 1 } }],
+      },
+    });
+    expect(redoCommands[0]).toMatchObject({
+      type: 'UpdateRecords',
+      payload: {
+        tableId: table.id().toString(),
+        fieldKeyType: 'id',
+        typecast: false,
+        records: [{ id: updatedRecordId, fields: { [amountFieldId]: 5 } }],
+      },
+    });
+    expect(undoCommands[1]).toMatchObject({
+      type: 'DeleteRecords',
+      payload: { tableId: table.id().toString(), recordIds: newRecordIds },
+    });
+    expect(redoCommands[1]).toMatchObject({
+      type: 'RestoreRecords',
+      payload: {
+        tableId: table.id().toString(),
+        records: [{ recordId: newRecordIds[0] }],
+      },
+    });
 
     await activeHarness.undo(table.id().toString());
     const afterUndo = await listRows(activeHarness.db, table);
@@ -295,6 +472,228 @@ describe('UpsertRecordsHandler (db)', () => {
     const afterRedo = await listRows(activeHarness.db, table);
     expect(afterRedo.find((row) => row[keyDb] === 'k1')?.[amountDb]).toBe(5);
     expect(afterRedo.some((row) => row[keyDb] === 'k2')).toBe(true);
+  });
+
+  const updateUndoVariants: ReadonlyArray<{
+    readonly label: string;
+    readonly buildContext: (base: IExecutionContext) => IExecutionContext;
+    readonly recordsUndoEntry: boolean;
+  }> = [
+    {
+      label: 'without a window',
+      buildContext: ({ actorId }) => ({ actorId }),
+      recordsUndoEntry: false,
+    },
+    {
+      label: 'with an empty window id',
+      buildContext: (base) => ({ ...base, windowId: '' }),
+      recordsUndoEntry: false,
+    },
+    {
+      label: 'during undo replay',
+      buildContext: (base) => ({ ...base, undoRedo: { mode: 'undo', operationId: 'op-undo' } }),
+      recordsUndoEntry: false,
+    },
+    {
+      label: 'during redo replay',
+      buildContext: (base) => ({ ...base, undoRedo: { mode: 'redo', operationId: 'op-redo' } }),
+      recordsUndoEntry: false,
+    },
+    {
+      label: 'with an explicitly normal window',
+      buildContext: (base) => ({ ...base, undoRedo: { mode: 'normal' } }),
+      recordsUndoEntry: true,
+    },
+  ];
+
+  for (const variant of updateUndoVariants) {
+    it(`writes an explicit update ${variant.label} and only records undo for a normal window`, async () => {
+      const activeHarness = requireHarness();
+      const table = await createUpsertTable(`Update Records ${variant.label}`);
+      const created = await upsert(table, 'update', [{ Key: 'k1', Title: 'One', Amount: 1 }]);
+      const recordId = created.results[0]?.recordId;
+      if (!recordId) throw new Error('Missing created record id');
+      const amountFieldId = findField(table, 'Amount').id().toString();
+      const entriesBefore = await listUndoEntries(table);
+
+      const result = await activeHarness.execute<UpdateRecordsCommand, UpdateRecordsResult>(
+        UpdateRecordsCommand.create({
+          tableId: table.id().toString(),
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ id: recordId, fields: { [amountFieldId]: 5 } }],
+        })._unsafeUnwrap(),
+        variant.buildContext(activeHarness.context)
+      );
+
+      expect(result.updatedCount).toBe(1);
+      const batchUpdated = findBatchUpdated(result.events);
+      expect(batchUpdated.updates).toHaveLength(1);
+      expect(batchUpdated.updates[0]).toMatchObject({ recordId, oldVersion: 1, newVersion: 2 });
+      const amountChange = batchUpdated.updates[0]?.changes.find(
+        (change) => change.fieldId === amountFieldId
+      );
+      expect(amountChange?.oldValue).toBe(1);
+      expect(amountChange?.newValue).toBe(5);
+      expect(recordFieldValues(result.records)).toMatchObject({ [amountFieldId]: 5 });
+
+      const rows = await listRows(activeHarness.db, table);
+      const row = rows.find((candidate) => String(candidate['__id']) === recordId);
+      expect(row?.[getFieldDbName(table, 'Amount')]).toBe(5);
+      expect(row?.['__version']).toBe(2);
+
+      const entriesAfter = await listUndoEntries(table);
+      if (!variant.recordsUndoEntry) {
+        // The write is committed while the existing stack is neither extended nor cleared.
+        expect(entriesAfter).toEqual(entriesBefore);
+        return;
+      }
+      expect(entriesAfter).toHaveLength(entriesBefore.length + 1);
+      expect(entriesAfter.slice(0, -1)).toEqual(entriesBefore);
+      const entry = entriesAfter.at(-1);
+      expect(entry?.undoCommand).toMatchObject({
+        type: 'UpdateRecords',
+        payload: {
+          tableId: table.id().toString(),
+          fieldKeyType: 'id',
+          typecast: false,
+          records: [{ id: recordId, fields: { [amountFieldId]: 1 } }],
+        },
+      });
+      expect(entry?.redoCommand).toMatchObject({
+        type: 'UpdateRecords',
+        payload: {
+          tableId: table.id().toString(),
+          fieldKeyType: 'id',
+          typecast: false,
+          records: [{ id: recordId, fields: { [amountFieldId]: 5 } }],
+        },
+      });
+    });
+  }
+
+  const transactionContextVariants: ReadonlyArray<{
+    readonly label: string;
+    readonly buildContext: (base: IExecutionContext) => IExecutionContext;
+  }> = [
+    { label: 'without a window', buildContext: ({ actorId }) => ({ actorId }) },
+    {
+      label: 'during undo replay',
+      buildContext: (base) => ({ ...base, undoRedo: { mode: 'undo', operationId: 'op-undo' } }),
+    },
+    {
+      label: 'during redo replay',
+      buildContext: (base) => ({ ...base, undoRedo: { mode: 'redo', operationId: 'op-redo' } }),
+    },
+  ];
+
+  for (const variant of transactionContextVariants) {
+    it(`returns complete update commands, events and changed ids ${variant.label}`, async () => {
+      const activeHarness = requireHarness();
+      const table = await createUpsertTable(`Upsert Transaction ${variant.label}`);
+      const created = await upsert(table, 'update', [{ Key: 'k1', Title: 'One', Amount: 1 }]);
+      const recordId = created.results[0]?.recordId;
+      if (!recordId) throw new Error('Missing created record id');
+      const amountFieldId = findField(table, 'Amount').id().toString();
+      const entriesBefore = await listUndoEntries(table);
+
+      const { applied, events } = await runInDataTransaction(
+        table,
+        variant.buildContext(activeHarness.context),
+        updateAmountWithinTransaction(table, recordId, 5)
+      );
+
+      expect(applied.updatedCount).toBe(1);
+      expect(applied.changedRecordIds.map((id) => id.toString())).toEqual([recordId]);
+      expect(recordFieldValues(applied.records)).toMatchObject({ [amountFieldId]: 5 });
+      const expectedUndo = {
+        type: 'UpdateRecords',
+        payload: {
+          tableId: table.id().toString(),
+          fieldKeyType: 'id',
+          typecast: false,
+          records: [{ id: recordId, fields: { [amountFieldId]: 1 } }],
+        },
+      };
+      const expectedRedo = {
+        type: 'UpdateRecords',
+        payload: {
+          tableId: table.id().toString(),
+          fieldKeyType: 'id',
+          typecast: false,
+          records: [{ id: recordId, fields: { [amountFieldId]: 5 } }],
+        },
+      };
+      expect(applied.undoCommands).toHaveLength(1);
+      expect(applied.undoCommands[0]).toMatchObject(expectedUndo);
+      expect(applied.redoCommands).toHaveLength(1);
+      expect(applied.redoCommands[0]).toMatchObject(expectedRedo);
+
+      const batchUpdated = findBatchUpdated(applied.events);
+      expect(batchUpdated.updates).toHaveLength(1);
+      expect(batchUpdated.updates[0]).toMatchObject({ recordId, oldVersion: 1, newVersion: 2 });
+      const amountChange = batchUpdated.updates[0]?.changes.find(
+        (change) => change.fieldId === amountFieldId
+      );
+      expect(amountChange?.oldValue).toBe(1);
+      expect(amountChange?.newValue).toBe(5);
+
+      // The caller owns commit, so the events must arrive with the transaction result.
+      expect(events.map((event) => event.name.toString())).toEqual(
+        applied.events.map((event) => event.name.toString())
+      );
+      await applied.afterCommit();
+
+      const row = (await listRows(activeHarness.db, table)).find(
+        (candidate) => String(candidate['__id']) === recordId
+      );
+      expect(row?.[getFieldDbName(table, 'Amount')]).toBe(5);
+      expect(row?.['__version']).toBe(2);
+      // Appending belongs to the caller, regardless of window or replay mode.
+      expect(await listUndoEntries(table)).toEqual(entriesBefore);
+    });
+  }
+
+  it('replays a transaction-bound update through the stack with the returned commands', async () => {
+    const activeHarness = requireHarness();
+    const table = await createUpsertTable('Upsert Transaction Replay');
+    const created = await upsert(table, 'update', [{ Key: 'k1', Title: 'One', Amount: 1 }]);
+    const recordId = created.results[0]?.recordId;
+    if (!recordId) throw new Error('Missing created record id');
+    const amountDb = getFieldDbName(table, 'Amount');
+
+    const { applied } = await runInDataTransaction(
+      table,
+      { actorId: activeHarness.context.actorId },
+      updateAmountWithinTransaction(table, recordId, 5)
+    );
+    await applied.afterCommit();
+    expect(applied.undoCommands).toHaveLength(1);
+    const scope = {
+      actorId: activeHarness.context.actorId,
+      tableId: table.id(),
+      windowId: activeHarness.context.windowId!,
+    };
+    const store = activeHarness.container.resolve<IUndoRedoStore>(v2CoreTokens.undoRedoStore);
+    (
+      await store.append(scope, {
+        scope,
+        undoCommand: composeUndoRedoCommands(applied.undoCommands),
+        redoCommand: composeUndoRedoCommands(applied.redoCommands),
+        createdAt: new Date().toISOString(),
+      })
+    )._unsafeUnwrap();
+
+    await activeHarness.undo(table.id().toString());
+    const undone = (await listRows(activeHarness.db, table)).find(
+      (candidate) => String(candidate['__id']) === recordId
+    );
+    expect(undone?.[amountDb]).toBe(1);
+
+    await activeHarness.redo(table.id().toString());
+    const redone = (await listRows(activeHarness.db, table)).find(
+      (candidate) => String(candidate['__id']) === recordId
+    );
+    expect(redone?.[amountDb]).toBe(5);
   });
 
   it('rolls back earlier updates when a later insert in the same request fails', async () => {
@@ -332,6 +731,73 @@ describe('UpsertRecordsHandler (db)', () => {
     // survive, which only holds when the batch is genuinely atomic.
     expect(rows.find((row) => row[keyDb] === 'k1')?.[amountDb]).toBe(1);
     expect(rows.some((row) => row[keyDb] === 'brand-new')).toBe(false);
+  });
+
+  it.runIf(hasRealPostgres)('rolls back SQL on response decoration failure', async () => {
+    const activeHarness = requireHarness();
+    const table = await createUpsertTable('Upsert Response Decoration Rollback');
+    await upsert(table, 'update', [{ Key: 'k1', Title: 'One', Amount: 1 }]);
+    const store = activeHarness.container.resolve<IUndoRedoStore>(v2CoreTokens.undoRedoStore);
+    const undoScope = {
+      actorId: activeHarness.context.actorId,
+      tableId: table.id(),
+      windowId: activeHarness.context.windowId!,
+    };
+    const rowsBefore = await listRows(activeHarness.db, table);
+    const entriesBefore = (await store.list(undoScope))._unsafeUnwrap();
+    const eventsBefore = [...activeHarness.testContainer.eventBus.events()];
+    const outboxCountQuery = sql<{ count: number }>`
+      select count(*)::int as count from domain_event_outbox
+      where base_id = ${table.baseId().toString()}
+    `;
+    const outboxBefore = (await outboxCountQuery.execute(activeHarness.db)).rows;
+    const repository = activeHarness.container.resolve<ITableRecordRepository>(
+      v2CoreTokens.tableRecordRepository
+    );
+    const updateManyStream = repository.updateManyStream.bind(repository);
+    let persistedVersions: number[][] = [];
+    const persist = vi.spyOn(repository, 'updateManyStream').mockImplementation(async (...args) => {
+      const result = await updateManyStream(...args);
+      persistedVersions =
+        result
+          ._unsafeUnwrap()
+          .updatedRecords?.map((snapshot) => [snapshot.oldVersion, snapshot.newVersion]) ?? [];
+      return result;
+    });
+    const decorator = activeHarness.container.resolve<IRecordChangedValueDecoratorService>(
+      v2CoreTokens.recordChangedValueDecoratorService
+    );
+    const failure = domainError.infrastructure({ message: 'Response decoration failed' });
+    const decorate = vi
+      .spyOn(decorator, 'decorateChangedFieldsByRecord')
+      .mockImplementation(async () => {
+        // This is the real repository's SQL result, not a pre-write rejection.
+        expect(persistedVersions).toEqual([[1, 2]]);
+        return err(failure);
+      });
+
+    try {
+      const keyField = findField(table, 'Key');
+      const amountField = findField(table, 'Amount');
+      const command = UpsertRecordsCommand.create({
+        tableId: table.id().toString(),
+        matchField: keyField.id().toString(),
+        onConflict: 'update',
+        records: [
+          { fields: { [keyField.id().toString()]: 'k1', [amountField.id().toString()]: 99 } },
+        ],
+      })._unsafeUnwrap();
+      const result = await activeHarness.commandBus.execute(activeHarness.context, command);
+      expect(result.isErr() && result.error).toEqual(failure);
+      expect(persistedVersions).toEqual([[1, 2]]);
+      expect(await listRows(activeHarness.db, table)).toEqual(rowsBefore);
+      expect(activeHarness.testContainer.eventBus.events()).toEqual(eventsBefore);
+      expect((await store.list(undoScope))._unsafeUnwrap()).toEqual(entriesBefore);
+      expect((await outboxCountQuery.execute(activeHarness.db)).rows).toEqual(outboxBefore);
+    } finally {
+      decorate.mockRestore();
+      persist.mockRestore();
+    }
   });
 
   it('emits no events and appends no undo entry for skipped or unchanged batches', async () => {

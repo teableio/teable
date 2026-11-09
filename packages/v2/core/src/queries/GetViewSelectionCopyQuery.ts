@@ -7,6 +7,7 @@ import { FieldId } from '../domain/table/fields/FieldId';
 import type { ViewSelectionCopyRangeType } from '../domain/table/methods/createViewSelectionCopyPlan';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import { sortCollationSchema } from '../domain/table/views/ViewSort';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
 import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
 
@@ -14,8 +15,12 @@ const rangeSchema = z.tuple([z.number().int().nonnegative(), z.number().int().no
 const sortSchema = z.object({
   fieldId: z.string().min(1),
   order: z.enum(['asc', 'desc']),
+  collation: sortCollationSchema.optional(),
 });
-const groupSchema = sortSchema;
+const groupSchema = z.object({
+  fieldId: z.string().min(1),
+  order: z.enum(['asc', 'desc']),
+});
 
 const getViewSelectionCopyInputSchema = z.object({
   tableId: z.string(),

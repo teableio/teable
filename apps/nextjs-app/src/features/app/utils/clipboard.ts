@@ -33,15 +33,24 @@ export const serializerHtml = (data: string, headers: IFieldVo[]) => {
   return `<meta charset="utf-8"><table ${teableHtmlMarker}="1" ${teableHeader}="${encodeURIComponent(JSON.stringify(headers))}"><tbody>${bodyContent}</tbody></table>`;
 };
 
-export const serializerCellValueHtml = (data: unknown[][], headers: IFieldVo[]) => {
-  const fields = headers.map((header) => createFieldInstance(header));
+export const serializerCellValueHtml = (
+  data: unknown[][],
+  headers: IFieldVo[],
+  displayContent?: string
+) => {
+  // Async copy may intentionally carry formatted strings instead of raw link/attachment values.
+  // Its existing plain-text payload is the display source, never a value to re-format as an object.
+  const displayRows = displayContent == null ? undefined : parseClipboardText(displayContent);
+  const fields = displayRows ? undefined : headers.map((header) => createFieldInstance(header));
   const bodyContent = data
-    .map((row) => {
+    .map((row, rowIndex) => {
       return `<tr>${row
         .map((cell, index) => {
-          const field = fields[index];
-          const safeHtml = escapeHTML(field.cellValue2String(cell));
-          if (field.type === FieldType.LongText) {
+          const displayValue = displayRows
+            ? (displayRows[rowIndex]?.[index] ?? '')
+            : fields![index].cellValue2String(cell);
+          const safeHtml = escapeHTML(displayValue);
+          if (headers[index].type === FieldType.LongText) {
             return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${safeHtml.replaceAll('\n', lineTag)}</td>`;
           }
           return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${safeHtml}</td>`;
