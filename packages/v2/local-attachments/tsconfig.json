@@ -19,7 +19,6 @@
     "composite": false,
     "outDir": "dist",
     "paths": {
-      "@teable/core": ["../../core/src"],
       "@teable/v2-core": ["../core/src"]
     },
     "types": ["vitest/globals", "node"]

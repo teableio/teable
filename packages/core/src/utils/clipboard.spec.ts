@@ -92,6 +92,54 @@ describe('clipboard', () => {
       expect(parseClipboardText('\ntext1')).toEqual([[''], ['text1']]);
       expect(parseClipboardText('\ntex"t1')).toEqual([[''], ['tex"t1']]);
     });
+
+    it('preserves quoted CRLF cells between LF-separated records', () => {
+      const content = 'Alice\t"first\r\nsecond"\nBob\t"third\r\nfourth"';
+      expect(parseClipboardText(content)).toEqual([
+        ['Alice', 'first\r\nsecond'],
+        ['Bob', 'third\r\nfourth'],
+      ]);
+    });
+
+    it('preserves quoted LF cells between CRLF-separated records', () => {
+      expect(parseClipboardText('Alice\t"first\nsecond"\r\nBob\t"third\nfourth"')).toEqual([
+        ['Alice', 'first\nsecond'],
+        ['Bob', 'third\nfourth'],
+      ]);
+    });
+
+    it('keeps quotes and tabs inside mixed-line-ending cells', () => {
+      const rows = [
+        ['Alice', 'first\r\n"second"\tvalue'],
+        ['Bob', 'third\nfourth'],
+      ];
+      expect(parseClipboardText(stringifyClipboardText(rows))).toEqual(rows);
+    });
+
+    it('recognizes leading and consecutive CRLF boundaries without extra carriage returns', () => {
+      expect(parseClipboardText('\r\n"first"\r\n\r\n"second"')).toEqual([
+        [''],
+        ['"first"'],
+        [''],
+        ['"second"'],
+      ]);
+    });
+
+    it.each(['\n', '\r\n'])(
+      'strips only one terminal %j from plain single-column data',
+      (newline) => {
+        expect(parseClipboardText(`first${newline}`)).toEqual([['first']]);
+        expect(parseClipboardText(`first${newline}${newline}`)).toEqual([['first'], ['']]);
+        expect(parseClipboardText(`"first"${newline}`)).toEqual([['"first"']]);
+      }
+    );
+
+    it('keeps literal carriage returns and simple quotes unchanged', () => {
+      expect(parseClipboardText('first\rvalue\t"second"\nthird\tfourth')).toEqual([
+        ['first\rvalue', '"second"'],
+        ['third', 'fourth'],
+      ]);
+    });
   });
 
   describe('stringify', () => {

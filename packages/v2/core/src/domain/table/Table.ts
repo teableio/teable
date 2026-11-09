@@ -1,4 +1,3 @@
-import type { ITableActionKey } from '@teable/core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
@@ -15,7 +14,10 @@ import { NotSpec } from '../shared/specification/NotSpec';
 
 import { DbTableName } from './DbTableName';
 import type { RecordCreateSource } from './events/RecordFieldValuesDTO';
-import { TableActionTriggerRequested } from './events/TableActionTriggerRequested';
+import {
+  TableActionTriggerRequested,
+  type TableActionKey,
+} from './events/TableActionTriggerRequested';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import { TableRestored } from './events/TableRestored';
@@ -1079,7 +1081,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
   }
 
   requestActionTrigger(params: {
-    actionKey: ITableActionKey;
+    actionKey: TableActionKey;
     payload?: Record<string, unknown>;
     tableId?: TableId;
     baseId?: BaseId;

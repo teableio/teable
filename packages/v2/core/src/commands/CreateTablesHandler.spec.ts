@@ -2,17 +2,24 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
+import type { IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
+import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { UserValueResolverService } from '../application/services/UserValueResolverService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
@@ -25,6 +32,7 @@ import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import { NoopTableRecordQueryRepository } from '../ports/defaults/NoopTableRecordQueryRepository';
 import type { IEventBus } from '../ports/EventBus';
 import type {
   IExecutionContext,
@@ -65,6 +73,20 @@ const createTableLimitPluginRunner = (tableRepository: ITableRepository) =>
       createDefaultTableDataSafetyLimitComposer()
     ),
   ]);
+
+const createRecordMutationSpecResolver = (tableRepository: ITableRepository) =>
+  new RecordMutationSpecResolverService(
+    new LinkTitleResolverService(tableRepository, new NoopTableRecordQueryRepository()),
+    new AttachmentValueResolverService({
+      listAttachmentsByTokens: async () => ok([]),
+      listAttachmentsByAttachmentIds: async () => ok([]),
+    }),
+    new UserValueResolverService({
+      listTableUsersByIdentifiers: async () => ok([]),
+      listUsersByIdentityPairs: async () => ok([]),
+      listUsersByIds: async () => ok([]),
+    })
+  );
 
 const buildTable = (params: {
   baseId: string;
@@ -190,6 +212,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   insertedTableIds: string[] = [];
   insertedRecordsByTable = new Map<string, TableRecord[]>();
   insertOptions: InsertOptions[] = [];
+  insertManyResultFactory?: (
+    table: Table,
+    records: ReadonlyArray<TableRecord>
+  ) => BatchRecordMutationResult;
 
   async insert(
     _context: IExecutionContext,
@@ -213,7 +239,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.insertedCount += records.length;
     const existing = this.insertedRecordsByTable.get(tableId) ?? [];
     this.insertedRecordsByTable.set(tableId, [...existing, ...records]);
-    return ok({});
+    return ok(this.insertManyResultFactory?.(table, records) ?? {});
   }
 
   async insertManyStream(
@@ -374,6 +400,7 @@ describe('CreateTablesHandler', () => {
       tableCreationService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository),
       createFieldOperationPluginRunner([plugin])
@@ -399,23 +426,40 @@ describe('CreateTablesHandler', () => {
     expect(calls.prepare[0]?.table.id().toString()).toBe(tableBId);
   });
 
-  it('creates records for each table', async () => {
+  it('publishes decorated persisted and computed values in per-table creation events', async () => {
     const baseId = `bse${'c'.repeat(16)}`;
+    const firstTableId = `tbl${'c'.repeat(16)}`;
+    const secondTableId = `tbl${'d'.repeat(16)}`;
     const firstFieldId = `fld${'c'.repeat(16)}`;
     const secondFieldId = `fld${'d'.repeat(16)}`;
+    const unchangedFieldId = `fld${'u'.repeat(16)}`;
+    const computedFieldId = `fld${'f'.repeat(16)}`;
 
     const commandResult = CreateTablesCommand.create({
       baseId,
       tables: [
         {
+          tableId: firstTableId,
           name: 'Table One',
-          fields: [{ type: 'singleLineText', id: firstFieldId, name: 'Name', isPrimary: true }],
+          fields: [
+            { type: 'singleLineText', id: firstFieldId, name: 'Name', isPrimary: true },
+            { type: 'singleLineText', id: unchangedFieldId, name: 'Note' },
+          ],
           views: [{ type: 'grid' }],
-          records: [{ fields: { [firstFieldId]: 'Alpha' } }],
+          records: [{ fields: { [firstFieldId]: 'Alpha', [unchangedFieldId]: 'Keep me' } }],
         },
         {
+          tableId: secondTableId,
           name: 'Table Two',
-          fields: [{ type: 'singleLineText', id: secondFieldId, name: 'Name', isPrimary: true }],
+          fields: [
+            { type: 'singleLineText', id: secondFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'formula',
+              id: computedFieldId,
+              name: 'Computed',
+              options: { expression: `{${secondFieldId}}` },
+            },
+          ],
           views: [{ type: 'grid' }],
           records: [
             { fields: { [secondFieldId]: 'Beta' } },
@@ -428,6 +472,50 @@ describe('CreateTablesHandler', () => {
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const recordRepository = new FakeTableRecordRepository();
+    recordRepository.insertManyResultFactory = (table, records) => {
+      const titleFieldId = table.id().toString() === firstTableId ? firstFieldId : secondFieldId;
+      const viewId = table.views()[0]!.id().toString();
+      return {
+        changedFieldsByRecord: new Map(
+          records.map((record, index) => [
+            record.id().toString(),
+            new Map([[titleFieldId, `persisted-${index}`]]),
+          ])
+        ),
+        computedChangesByRecord:
+          table.id().toString() === secondTableId
+            ? new Map(
+                records.map((record, index) => [
+                  record.id().toString(),
+                  new Map([[computedFieldId, index * 2]]),
+                ])
+              )
+            : undefined,
+        recordOrders: new Map(
+          records.map((record, index) => [record.id().toString(), { [viewId]: index + 1 }])
+        ),
+      };
+    };
+    const decorator: IRecordChangedValueDecoratorService = {
+      async decorateChangedFields(_table, changedFields) {
+        return ok(changedFields);
+      },
+      async decorateChangedFieldsByRecord(table, changedFieldsByRecord) {
+        return ok(
+          new Map(
+            [...(changedFieldsByRecord ?? [])].map(([recordId, changedFields]) => [
+              recordId,
+              new Map(
+                [...changedFields].map(([fieldId, value]) => [
+                  fieldId,
+                  `decorated:${table.name().toString()}:${String(value)}`,
+                ])
+              ),
+            ])
+          )
+        );
+      },
+    };
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
@@ -451,12 +539,18 @@ describe('CreateTablesHandler', () => {
       tableCreationService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
-      createTableLimitPluginRunner(tableRepository)
+      createTableLimitPluginRunner(tableRepository),
+      undefined,
+      decorator
     );
 
-    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    result._unsafeUnwrap();
+    const result = await handler.handle(
+      { ...createContext(), requestId: 'initial-records-op' },
+      commandResult._unsafeUnwrap()
+    );
+    const created = result._unsafeUnwrap();
 
     expect(recordRepository.insertedCount).toBe(3);
     expect(recordRepository.insertOptions).toHaveLength(2);
@@ -464,6 +558,49 @@ describe('CreateTablesHandler', () => {
       expect.objectContaining({ allowPendingTableProvisionForComputedUpdates: true }),
       expect.objectContaining({ allowPendingTableProvisionForComputedUpdates: true }),
     ]);
+    const singleEvents = created.events.filter(isRecordCreatedEvent);
+    expect(singleEvents).toHaveLength(1);
+    expect(singleEvents[0]?.tableId.toString()).toBe(firstTableId);
+    expect(singleEvents[0]?.fieldValues).toEqual([
+      { fieldId: firstFieldId, value: 'decorated:Table One:persisted-0' },
+      { fieldId: unchangedFieldId, value: 'Keep me' },
+    ]);
+    expect(singleEvents[0]?.source).toEqual({ type: 'user' });
+
+    const batchEvents = created.events.filter(isRecordsBatchCreatedEvent);
+    const secondTable = created.tables.find((table) => table.id().toString() === secondTableId)!;
+    const viewId = secondTable.views()[0]!.id().toString();
+    expect(batchEvents).toHaveLength(1);
+    expect(batchEvents[0]?.tableId.toString()).toBe(secondTableId);
+    expect(batchEvents[0]?.records).toEqual(
+      recordRepository.insertedRecordsByTable.get(secondTableId)!.map((record, index) => ({
+        recordId: record.id().toString(),
+        fields: [
+          { fieldId: secondFieldId, value: `decorated:Table Two:persisted-${index}` },
+          { fieldId: computedFieldId, value: index * 2 },
+        ],
+        orders: { [viewId]: index + 1 },
+      }))
+    );
+    expect(batchEvents[0]?.source).toEqual({ type: 'user' });
+    expect(batchEvents[0]?.orchestration).toEqual({
+      operationId: 'initial-records-op',
+      groupId: 'initial-records-op',
+      totalRecordCount: 2,
+      totalChunkCount: 1,
+      chunkIndex: 0,
+      scope: 'operation',
+    });
+    const secondTableInsertIndex = recordRepository.insertedTableIds.indexOf(secondTableId);
+    expect(secondTableInsertIndex).toBeGreaterThanOrEqual(0);
+    expect(recordRepository.insertOptions[secondTableInsertIndex]?.orchestration).toEqual(
+      batchEvents[0]?.orchestration
+    );
+    expect(created.events[0]?.name.toString()).toBe('TableCreated');
+    expect(created.events.filter((event) => event.name.toString() === 'TableCreated')).toHaveLength(
+      2
+    );
+    expect(eventBus.published).toEqual(created.events);
   });
 
   it('rejects missing not-null record values before starting table.create_many', async () => {
@@ -513,6 +650,7 @@ describe('CreateTablesHandler', () => {
       tableCreationService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );
@@ -595,6 +733,7 @@ describe('CreateTablesHandler', () => {
       tableCreationService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );
@@ -690,6 +829,7 @@ describe('CreateTablesHandler', () => {
       tableCreationService,
       eventBus,
       unitOfWork,
+      createRecordMutationSpecResolver(tableRepository),
       undefined,
       createTableLimitPluginRunner(tableRepository)
     );

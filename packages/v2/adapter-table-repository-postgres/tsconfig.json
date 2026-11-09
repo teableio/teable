@@ -23,7 +23,6 @@
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-data-query": ["../data-query/src"],
       "@teable/v2-di": ["../di/src"],
-      "@teable/core": ["../../core/src"],
       "@teable/v2-field-dependency-core": ["../field-dependency-core/src"],
       "@teable/v2-formula-sql-pg": ["../formula-sql-pg/src"],
       "@teable/v2-postgres-schema": ["../postgres-schema/src"],

@@ -29,6 +29,7 @@ import {
   viewVoSchema,
   ViewType,
   FieldType,
+  DbFieldType,
   CellValueType,
   HttpErrorCode,
 } from '@teable/core';
@@ -75,6 +76,71 @@ export class ViewService implements IReadonlyAdapterService {
 
   private async assertTableWritable(tableId: string) {
     await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
+
+  async validateSortCollations(tableId: string, sort: ISort | null | undefined): Promise<void> {
+    await this.validateSortCollationPayloads(tableId, [sort]);
+  }
+
+  private async validateSortCollationPayloads(
+    tableId: string,
+    sorts: ReadonlyArray<ISort | null | undefined>
+  ): Promise<void> {
+    const collatedSorts: NonNullable<ISort>['sortObjs'] = [];
+    const fieldIds = new Set<string>();
+    for (const sort of sorts) {
+      for (const sortItem of sort?.sortObjs ?? []) {
+        if (sortItem.collation === undefined) {
+          continue;
+        }
+        collatedSorts.push(sortItem);
+        fieldIds.add(sortItem.fieldId);
+      }
+    }
+    if (collatedSorts.length === 0) {
+      return;
+    }
+
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, id: { in: [...fieldIds] }, deletedTime: null },
+      select: {
+        id: true,
+        type: true,
+        dbFieldType: true,
+        isComputed: true,
+        isMultipleCellValue: true,
+      },
+    });
+    const fieldMap = new Map(fields.map((field) => [field.id, field]));
+    const unsupportedSort = collatedSorts.find(({ fieldId, collation }) => {
+      const field = fieldMap.get(fieldId);
+      if (!field || collation !== 'zh-pinyin') {
+        return true;
+      }
+
+      const isNativeText =
+        (field.type === FieldType.SingleLineText || field.type === FieldType.LongText) &&
+        field.dbFieldType === DbFieldType.Text &&
+        !field.isComputed &&
+        !field.isMultipleCellValue;
+      const isSingleValueLink =
+        field.type === FieldType.Link &&
+        field.dbFieldType === DbFieldType.Json &&
+        !field.isMultipleCellValue;
+
+      return !isNativeText && !isSingleValueLink;
+    });
+    if (unsupportedSort) {
+      throw new CustomHttpException(
+        `Sort field ${unsupportedSort.fieldId} does not support ${unsupportedSort.collation} collation`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.sortUnsupportedFieldType',
+          },
+        }
+      );
+    }
   }
 
   getRowIndexFieldName(viewId: string) {
@@ -307,6 +373,7 @@ export class ViewService implements IReadonlyAdapterService {
     await this.assertTableWritable(tableId);
     await this.viewDataSafetyLimitService.ensureCanCreateView(tableId);
     const createViewRo = await this.viewDataCompensation(tableId, viewRo);
+    await this.validateSortCollations(tableId, createViewRo.sort);
 
     const {
       description,
@@ -468,6 +535,7 @@ export class ViewService implements IReadonlyAdapterService {
   async updateViewSort(tableId: string, viewId: string, sort: ISort) {
     await this.assertTableWritable(tableId);
     this.viewDataSafetyLimitService.ensureSort(sort);
+    await this.validateSortCollations(tableId, sort);
     const viewRaw = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
@@ -535,6 +603,14 @@ export class ViewService implements IReadonlyAdapterService {
       const { property = {}, columnMeta = {} } = viewData ?? {};
       return Object.keys(property).length > 0 || Object.keys(columnMeta).length > 0;
     });
+    const sortsToValidate: ISort[] = [];
+    for (const viewId of updatedViewIds) {
+      const serializedSort = updateViewMap[viewId]?.property?.sort;
+      if (typeof serializedSort === 'string') {
+        sortsToValidate.push(JSON.parse(serializedSort) as ISort);
+      }
+    }
+    await this.validateSortCollationPayloads(tableId, sortsToValidate);
 
     const isColumnMetaUpdated = updateViewKeySet.has('columnMeta');
     const viewRaws = await this.prismaService.txClient().view.findMany({

@@ -30,7 +30,7 @@ export class V2DataQueryController {
     ) {
       throw new ForbiddenException();
     }
-    const result = await this.dataQueries.validate(request);
+    const result = await this.dataQueries.validate(request, httpRequest.headers.authorization);
     response.status(result.status);
     return result.body;
   }

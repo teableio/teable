@@ -10,6 +10,7 @@ import {
   generatePrefixedId,
   hasCode,
   type DomainError,
+  type FieldId,
   type IComputedFieldBackfillService,
   type IExecutionContext,
   type IHasher,
@@ -43,6 +44,8 @@ import {
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
+import { isComputedFieldType } from './ComputedUpdatePlanner';
+import type { ComputedUpdatePlanner } from './ComputedUpdatePlanner';
 import { isPersistedAsGeneratedColumn } from './isPersistedAsGeneratedColumn';
 import { buildFieldBackfillTaskInput } from './outbox/FieldBackfillOutboxPayload';
 import type { IComputedUpdateOutbox } from './outbox/IComputedUpdateOutbox';
@@ -234,6 +237,8 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
     private readonly outbox: IComputedUpdateOutbox,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
+    private readonly computedUpdatePlanner: ComputedUpdatePlanner,
     @inject(v2RecordRepositoryPostgresTokens.fieldBackfillConfig)
     private readonly config: FieldBackfillConfig = defaultFieldBackfillConfig,
     @inject(formulaSqlPgTokens.typeValidationStrategy)
@@ -599,8 +604,79 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
   }
 
   /**
-   * Execute backfill for multiple fields synchronously.
+   * Complete copied tables synchronously in native field dependency order.
    */
+  async executeSyncTables(
+    context: IExecutionContext,
+    input: {
+      tables: ReadonlyArray<Table>;
+      skipDistinctFilter?: boolean;
+      includeOneManyTwoWay?: boolean;
+    }
+  ): Promise<Result<void, DomainError>> {
+    const firstTable = input.tables[0];
+    if (!firstTable) return ok(undefined);
+
+    return safeTry<void, DomainError>(
+      async function* (this: ComputedFieldBackfillService) {
+        const tablesById = new Map(input.tables.map((table) => [table.id().toString(), table]));
+        const changedFieldIds: FieldId[] = [];
+        for (const table of input.tables) {
+          const systemFields: Field[] = [];
+          for (const field of table.getFields()) {
+            changedFieldIds.push(field.id());
+            if (!isComputedFieldType(field.type().toString())) systemFields.push(field);
+          }
+          // System snapshots can be inputs to formulas. Preserve the existing
+          // eligibility/generated-column rules before evaluating their dependents.
+          yield* await this.executeSyncMany(context, {
+            table,
+            fields: systemFields,
+            skipDistinctFilter: input.skipDistinctFilter,
+            includeOneManyTwoWay: input.includeOneManyTwoWay,
+          });
+        }
+
+        // Reuse the native field planner: a valid field DAG can revisit a table
+        // (A -> B -> A), so neither source order nor a table-level sort suffices.
+        const plan = yield* await this.computedUpdatePlanner.planStage(
+          {
+            baseId: firstTable.baseId(),
+            seedTableId: firstTable.id(),
+            seedRecordIds: [],
+            extraSeedRecords: [],
+            changedFieldIds,
+            changeType: 'update',
+            cyclePolicy: 'skip',
+          },
+          context,
+          {
+            includeComputedSeedFields: true,
+            tableProvisionStates: ['ready'],
+            scopedPendingTableIds: input.tables.map((table) => table.id()),
+          }
+        );
+        for (const step of plan.steps) {
+          const table = tablesById.get(step.tableId.toString());
+          // Retained cross-base references are read dependencies, never copy targets.
+          if (!table) continue;
+          const fields: Field[] = [];
+          for (const fieldId of step.fieldIds) {
+            fields.push(yield* table.getField((field) => field.id().equals(fieldId)));
+          }
+          yield* await this.executeSyncMany(context, {
+            table,
+            fields,
+            skipDistinctFilter: input.skipDistinctFilter,
+            includeOneManyTwoWay: input.includeOneManyTwoWay,
+          });
+        }
+        return ok(undefined);
+      }.bind(this)
+    );
+  }
+
+  /** Execute backfill for multiple fields synchronously. */
   async executeSyncMany(
     context: IExecutionContext,
     input: {

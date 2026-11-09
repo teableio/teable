@@ -1,4 +1,4 @@
-import { Copy, HelpCircle, MoreHorizontal, UserPlus } from '@teable/icons';
+import { Copy, HelpCircle, MoreHorizontal, Plus, UserPlus } from '@teable/icons';
 import { BaseNodeResourceType } from '@teable/openapi';
 import {
   useBase,
@@ -41,6 +41,7 @@ import {
 } from '@/features/app/components/ResourceDescription';
 import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
+import { useCompactResourceChrome } from '@/features/app/hooks/useCompactResourceChrome';
 import { useEmbedMode } from '@/features/app/hooks/useEmbedMode';
 import { useIsInIframe } from '@/features/app/hooks/useIsInIframe';
 import { getBaseDisplayName } from '@/features/app/utils/base-name';
@@ -114,15 +115,18 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
   const url = router.asPath;
   // Native mobile app: the title block (emoji, name, description) is hidden, so its two
   // editors reach the menu instead: rename opens a dialog, the description gets a row. Help
-  // and invite are the app's own screens there.
+  // and invite are the app's own screens there. Compact chrome keeps the name but moves the
+  // description to the menu.
   const isEmbed = useEmbedMode();
+  const compact = useCompactResourceChrome();
   const table = useTable();
   const tablePermission = useTablePermission();
   const canUpdateTable = Boolean(tablePermission['table|update']);
   const [renameOpen, setRenameOpen] = useState(false);
   const [descriptionOpen, setDescriptionOpen] = useState(false);
   const showDescription =
-    isEmbed && (canUpdateTable || Boolean(normalizeResourceDescription(table?.description)));
+    (isEmbed || compact) &&
+    (canUpdateTable || Boolean(normalizeResourceDescription(table?.description)));
   const onRename = () => {
     setOpen(false);
     if (isEmbed) setRenameOpen(true);
@@ -262,21 +266,28 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
               enabledAuthority: base.enabledAuthority,
             }}
           >
-            <Button variant="default" className="me-1 px-2 @md/view-header:px-3" size="sm">
+            <Button
+              variant="default"
+              className="me-1 px-2 @md/view-header:px-3"
+              size={compact ? 'xs' : 'sm'}
+            >
               <UserPlus className="size-4" />
               <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
             </Button>
           </ShareBasePopover>
-          <Button asChild variant="ghost" size="icon-xs">
-            <Link
-              href={t('help.mainLink')}
-              title={t('help.title')}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <HelpCircle className="size-4" />
-            </Link>
-          </Button>
+          {/* Compact chrome leaves help out. */}
+          {!compact && (
+            <Button asChild variant="ghost" size="icon-xs">
+              <Link
+                href={t('help.mainLink')}
+                title={t('help.title')}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <HelpCircle className="size-4" />
+              </Link>
+            </Button>
+          )}
           <BaseNodeMore
             resourceType={BaseNodeResourceType.Table}
             resourceId={tableId}
@@ -318,8 +329,10 @@ export const TableHeader: React.FC = () => {
   const isReadOnlyPreview = useIsReadOnlyPreview();
   const template = useTemplate();
   const isInIframe = useIsInIframe();
-  // The native mobile app's header shows the table's name and emoji: no title block there.
+  // The native mobile app's header shows the table's name and emoji: no title block there. A
+  // compact host keeps the name alone, since its tab may be cut off or out of sight.
   const isEmbed = useEmbedMode();
+  const compact = useCompactResourceChrome();
   // Only show PublicOperateButton for real templates, not for share mode
   const isRealTemplate = !!template && !isInIframe;
   const tipVisible = view?.isLocked && visible;
@@ -328,24 +341,53 @@ export const TableHeader: React.FC = () => {
     <Fragment>
       <div
         className={cn(
-          'flex h-12 shrink-0 flex-row items-center gap-2 bg-background ps-4 pe-2 @container/view-header',
+          // The icon's hover area reaches 4px past the icon, so the icon itself still sits 16px in.
+          'flex h-12 shrink-0 flex-row items-center gap-2 bg-background pe-2 ps-3 @container/view-header',
           tipVisible && 'border-b'
         )}
       >
         {!isEmbed && (
           <TableInfo
-            className="shrink-0 grow-0"
+            compact={compact}
+            // Without the description below it the name sits on one line: keep it clear of the
+            // view controls.
+            className={cn('shrink-0 grow-0', compact && 'me-2')}
             isEditing={isEditing}
             setIsEditing={setIsEditing}
           />
         )}
-        <ExpandViewList />
-        <ScrollArea className="h-[42px]" scrollBar="horizontal">
-          <div className="flex h-[42px] items-center gap-2">
-            <ViewList />
-          </div>
-        </ScrollArea>
-        <AddView />
+        {compact ? (
+          // The current view's title opens the list, which switches views.
+          <ExpandViewList
+            trigger={(open) => <ViewList listOpen={open} />}
+            footer={(close) => (
+              <AddView
+                submenu
+                onDone={close}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    // Sized like the list's rows above it.
+                    className="h-8 w-full justify-start gap-2 px-2 text-sm font-normal"
+                  >
+                    <Plus className="size-4" />
+                    {t('table:view.addView')}
+                  </Button>
+                }
+              />
+            )}
+          />
+        ) : (
+          <>
+            <ExpandViewList />
+            <ScrollArea className="h-[42px]" scrollBar="horizontal">
+              <div className="flex h-[42px] items-center gap-2">
+                <ViewList />
+              </div>
+            </ScrollArea>
+            <AddView />
+          </>
+        )}
         <div className="grow basis-0"></div>
         {!isReadOnlyPreview && <RightActions setIsEditing={setIsEditing} />}
         {isRealTemplate && (

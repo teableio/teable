@@ -11,10 +11,10 @@ import {
 } from '../../domain/table/fields/visitors/FieldDeletionSideEffectVisitor';
 import { TableRemoveFieldSpec } from '../../domain/table/specs/TableRemoveFieldSpec';
 import type { Table } from '../../domain/table/Table';
-import { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
+import { completeFieldSideEffectUpdate } from './completeFieldSideEffectUpdate';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 export type FieldDeletionSideEffectServiceInput = {
@@ -114,7 +114,9 @@ export class FieldDeletionSideEffectService {
             (candidate) =>
               sideEffect.mutateSpec
                 .mutate(candidate)
-                .map((updated) => TableUpdateResult.create(updated, sideEffect.mutateSpec)),
+                .andThen((updated) =>
+                  completeFieldSideEffectUpdate(updated, sideEffect.mutateSpec)
+                ),
             { publishEvents: false }
           );
           foreignTableState.set(updateResult.table.id().toString(), updateResult.table);

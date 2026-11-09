@@ -1,10 +1,18 @@
-import type { IFieldVo, IViewVo } from '@teable/core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
 import { FieldType, ViewType } from '@teable/core';
 import type * as OpenApi from '@teable/openapi';
 import { getFields, getRecords, getViewList } from '@teable/openapi';
-import { ReactQueryKeys } from '@teable/sdk';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchTableSeed, resolveSeedVisibleFieldIds } from './use-table-seed';
+import { generateLocalId, ReactQueryKeys, useGridCollapsedGroupStore } from '@teable/sdk';
+import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  fetchTableSeed,
+  resolveSeedVisibleFieldIds,
+  usePrimeTableSeed,
+  useTableSeed,
+} from './use-table-seed';
 
 vi.mock('@teable/openapi', async (importOriginal) => {
   const actual = await importOriginal<typeof OpenApi>();
@@ -118,5 +126,84 @@ describe('seed cache identity', () => {
     expect(collapsed).toEqual(['table-seed', 'tblT', 'viwV', ['grpA']]);
     expect(collapsed).not.toEqual(ReactQueryKeys.tableSeed('tblT', 'viwV'));
     expect(collapsed).not.toEqual(ReactQueryKeys.tableSeed('tblT', 'viwV', ['grpB']));
+  });
+});
+
+describe('usePrimeTableSeed', () => {
+  const records = [{ id: 'recA', fields: {} }] as unknown as IRecord[];
+  const serverData = {
+    fieldServerData: fields,
+    viewServerData: [view],
+    recordsServerData: { records },
+    groupPointsServerDataMap: { viwTarget: null },
+  };
+  let queryClient: QueryClient;
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client: queryClient }, children);
+  const seedOf = (collapsedGroupIds?: readonly string[]) =>
+    queryClient.getQueryData(ReactQueryKeys.tableSeed('tblTarget', 'viwTarget', collapsedGroupIds));
+  // a prime creates its query synchronously, before the data lands
+  const primed = (viewId: string, collapsedGroupIds?: readonly string[]) =>
+    queryClient.getQueryState(ReactQueryKeys.tableSeed('tblTarget', viewId, collapsedGroupIds)) !==
+    undefined;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    queryClient = new QueryClient();
+    useGridCollapsedGroupStore.setState({ collapsedGroupMap: {} });
+  });
+  afterEach(cleanup);
+
+  it("serves the page's snapshot as the seed, so the table fetches nothing", async () => {
+    renderHook(() => usePrimeTableSeed(serverData, 'tblTarget', 'viwTarget', true), { wrapper });
+    await waitFor(() => expect(seedOf()).toBeDefined());
+
+    const { result } = renderHook(() => useTableSeed('tblTarget', 'viwTarget', true), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({
+      fields,
+      views: [view],
+      records: { records },
+      groupPoints: null,
+    });
+    expect(mockedGetFields).not.toHaveBeenCalled();
+    expect(mockedGetViewList).not.toHaveBeenCalled();
+    expect(mockedGetRecords).not.toHaveBeenCalled();
+  });
+
+  it('leaves a locally collapsed view to fetch its own seed', async () => {
+    const key = generateLocalId('tblTarget', 'viwTarget');
+    useGridCollapsedGroupStore.setState({ collapsedGroupMap: { [key]: ['grpA'] } });
+
+    renderHook(() => usePrimeTableSeed(serverData, 'tblTarget', 'viwTarget', true), { wrapper });
+
+    expect(primed('viwTarget', ['grpA'])).toBe(false);
+    expect(primed('viwTarget')).toBe(false);
+  });
+
+  it('describes only the anchor the page loaded on', async () => {
+    const { rerender } = renderHook(
+      ({ viewId, enabled }) => usePrimeTableSeed(serverData, 'tblTarget', viewId, enabled),
+      { wrapper, initialProps: { viewId: 'viwTarget', enabled: false } }
+    );
+    rerender({ viewId: 'viwOther', enabled: true });
+    rerender({ viewId: 'viwTarget', enabled: true });
+
+    expect(primed('viwOther')).toBe(false);
+    expect(primed('viwTarget')).toBe(false);
+  });
+
+  it('seeds once', async () => {
+    const { rerender } = renderHook(
+      ({ data }) => usePrimeTableSeed(data, 'tblTarget', 'viwTarget', true),
+      { wrapper, initialProps: { data: serverData } }
+    );
+    await waitFor(() => expect(seedOf()).toBeDefined());
+    queryClient.clear();
+
+    rerender({ data: { ...serverData, recordsServerData: { records: [] } } });
+
+    expect(primed('viwTarget')).toBe(false);
   });
 });

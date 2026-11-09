@@ -1,13 +1,19 @@
-import type { ISort } from '@teable/core';
+import type { IGroup, ISort } from '@teable/core';
+import { sonner } from '@teable/ui-lib';
 import React, { forwardRef, useImperativeHandle, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
+import { useView } from '../../hooks';
+import { findPinyinSortGroupConflict } from '../../utils/sort';
 import { AdaptivePanel, useIsDrawerPanel } from '../adaptive-panel';
 import { ReadOnlyTip } from '../ReadOnlyTip';
 import { SortConfig } from './SortConfig';
 import { SortContent } from './SortContent';
 
+const { toast } = sonner;
+
 interface ISortBaseProps {
   sorts: ISort | null;
+  group?: IGroup | null;
   manualSortLoading?: boolean;
   onChange: (sort: ISort | null) => void;
   manualSortOnClick?: () => void;
@@ -33,6 +39,8 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
   } = props;
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const view = useView();
+  const currentGroup = props.group === undefined ? view?.group : props.group;
   const isDrawer = useIsDrawerPanel(responsive);
   const { sortObjs, manualSort } = sorts || {};
 
@@ -52,13 +60,17 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
   };
 
   const onSortObjsChange = (sorts?: NonNullable<ISort>['sortObjs']) => {
-    const sortObjs = sorts?.length
+    const nextSort = sorts?.length
       ? {
           sortObjs: sorts,
           manualSort,
         }
       : null;
-    onChange(sortObjs);
+    if (findPinyinSortGroupConflict(nextSort, currentGroup)) {
+      toast.warning(t('sort.pinyinGroupConflict'));
+      return;
+    }
+    onChange(nextSort);
   };
 
   const hasSorts = Boolean(sortObjs?.length);
@@ -81,7 +93,7 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
           {/* The drawer promotes this line to its heading, so rendering it
               again in the body would just repeat the title. */}
           {!isDrawer && <div className="px-4 pt-3 text-[13px]">{t('sort.setTips')}</div>}
-          <SortContent sortValues={sortObjs} onChange={onSortObjsChange} />
+          <SortContent sortValues={sortObjs} onChange={onSortObjsChange} enablePinyin />
         </>
       }
       footer={

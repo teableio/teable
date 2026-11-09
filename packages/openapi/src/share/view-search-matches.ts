@@ -8,7 +8,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_SHARE_VIEW_SEARCH_MATCHES = '/share/{shareId}/view/search-matches';
+export const SHARE_VIEW_SEARCH_MATCHES = '/share/{shareId}/view/search-matches';
 
 export const shareViewSearchMatchesRoSchema = searchMatchesRoSchema.omit({
   viewId: true,
@@ -17,13 +17,16 @@ export const shareViewSearchMatchesRoSchema = searchMatchesRoSchema.omit({
 export type IShareViewSearchMatchesRo = z.infer<typeof shareViewSearchMatchesRoSchema>;
 
 export const GetShareViewSearchMatchesRoute: RouteConfig = registerRoute({
-  method: 'get',
-  path: GET_SHARE_VIEW_SEARCH_MATCHES,
+  method: 'post',
+  path: SHARE_VIEW_SEARCH_MATCHES,
   description:
-    'Scan visible matching cells in a shared show-all view. hideNotMatchRow=true is rejected; use the existing search-index API for hide mode.',
+    'Returns visible matching cells for a shared show-all view. Each page holds up to `take` matching rows (not view rows): `skip` advances over matching rows, and every hit carries its absolute View row index. The read-only query is sent as JSON so selected record IDs and view criteria do not expand the URL. hideNotMatchRow=true is rejected; use the existing search-index API for hide mode.',
   request: {
     params: z.object({ shareId: z.string() }),
-    query: shareViewSearchMatchesRoSchema,
+    body: {
+      required: true,
+      content: { 'application/json': { schema: shareViewSearchMatchesRoSchema } },
+    },
   },
   responses: {
     200: {
@@ -38,12 +41,5 @@ export const getShareViewSearchMatches = async (
   shareId: string,
   query: IShareViewSearchMatchesRo
 ) => {
-  return axios.get<ISearchMatchesVo>(urlBuilder(GET_SHARE_VIEW_SEARCH_MATCHES, { shareId }), {
-    params: {
-      ...query,
-      filter: JSON.stringify(query.filter),
-      orderBy: JSON.stringify(query.orderBy),
-      groupBy: JSON.stringify(query.groupBy),
-    },
-  });
+  return axios.post<ISearchMatchesVo>(urlBuilder(SHARE_VIEW_SEARCH_MATCHES, { shareId }), query);
 };

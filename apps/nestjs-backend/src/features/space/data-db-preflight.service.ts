@@ -14,6 +14,7 @@ import type {
 import { isBlockedAddress } from '@teable/v2-utils';
 import type { Knex } from 'knex';
 import createKnex from 'knex';
+import type { Client } from 'pg';
 import { resolveDataDbInternalSchema } from './data-db-internal-schema';
 import { activeSpaceDataDbMigrationStates } from './space-data-db-migration.constants';
 import { resolveSpaceDataDbRelatedSpaces } from './space-data-db-related-spaces';
@@ -23,7 +24,11 @@ type IPreflightClassification = IDataDbPreflightVo['classification'];
 type IPreflightError = IDataDbPreflightVo['errors'][number];
 
 export interface IDataDbPreflightClient {
-  raw<T = unknown>(sql: string, bindings?: unknown[]): Promise<{ rows?: T[] } | T[]>;
+  raw<T = unknown>(
+    sql: string,
+    bindings?: unknown[],
+    options?: { literal: true }
+  ): Promise<{ rows?: T[] } | T[]>;
   beginTransaction?(config: {
     isolationLevel: 'repeatable read';
     readOnly: boolean;
@@ -307,7 +312,16 @@ export const dataDbKnexClientFactory: IDataDbPreflightClientFactory = (url, pinn
     acquireConnectionTimeout: 60000,
   });
   return {
-    raw: async <T>(sql: string, bindings?: unknown[]) => {
+    raw: async <T>(sql: string, bindings?: unknown[], options?: { literal: true }) => {
+      if (options?.literal) {
+        // Migration files are PostgreSQL programs, not Knex binding templates.
+        const connection = (await client.client.acquireConnection()) as Client;
+        try {
+          return await connection.query<T & Record<string, unknown>>(sql, bindings);
+        } finally {
+          await client.client.releaseConnection(connection);
+        }
+      }
       const result = bindings ? await client.raw(sql, bindings as never[]) : await client.raw(sql);
       return result as { rows?: T[] };
     },

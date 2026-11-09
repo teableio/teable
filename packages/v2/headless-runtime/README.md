@@ -166,8 +166,9 @@ link projections remain PostgreSQL-first; see the adapter e2e skips.
 
 - base/table/field/view/record command and query buses
 - CSV/Excel import registry with per-runtime URL fetch injection; Node defaults
-  to strict SSRF protection, while legacy global safe-fetch users remain
-  supported during migration
+  to strict SSRF protection that refuses a blocked source before any socket
+  opens — loopback, private, link-local and cloud-metadata targets included —
+  while legacy global safe-fetch users remain supported during migration
 - record create/update with `domainWriteTransaction`
 - bounded formula/link/lookup/rollup work attempts with `flushComputed()`; the
   report returns live `pending`, `scheduled`, `processing`, `paused`,

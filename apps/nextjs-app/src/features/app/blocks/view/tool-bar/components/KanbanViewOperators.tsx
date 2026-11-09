@@ -30,6 +30,7 @@ import { useKanbanStackCollapsedStore } from '../../kanban/store';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
 import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
+import { useToolbarLabels } from './useToolbarLabels';
 
 export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   // The footer below is handed to VisibleFields and rendered inside the shared
@@ -42,6 +43,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const allFields = useFields({ withHidden: true, withDenied: true });
   const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const labels = useToolbarLabels();
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
@@ -75,9 +77,17 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
     view?.updateOption({ isEmptyStackHidden: checked });
   };
 
+  // A kanban without a stack field asks for one. Once the field arrives from elsewhere (an AI
+  // update made right after creating the view, a collaborator), the question is answered.
+  const autoOpenedRef = useRef(false);
   useEffect(() => {
-    if (stackFieldId == null && !disabled) {
+    if (disabled) return;
+    if (stackFieldId == null) {
       dialogRef.current?.onOpen();
+      autoOpenedRef.current = true;
+    } else if (autoOpenedRef.current) {
+      dialogRef.current?.onClose();
+      autoOpenedRef.current = false;
     }
   }, [disabled, stackFieldId]);
 
@@ -199,7 +209,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.filter(isActive, view?.filter)}
             className={cn(
               'max-w-[200px]',
               isActive &&
@@ -220,7 +230,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           <ToolBarButton
             disabled={disabled}
             isActive={isActive}
-            text={text}
+            text={labels.sort(isActive, view?.sort)}
             className={cn(
               'max-w-[200px]',
               isActive &&

@@ -56,6 +56,7 @@ import { IORedisInstrumentation } from '@opentelemetry/instrumentation-ioredis';
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { RuntimeNodeInstrumentation } from '@opentelemetry/instrumentation-runtime-node';
+import { UndiciInstrumentation } from '@opentelemetry/instrumentation-undici';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
 import { NoopSpanProcessor } from '@opentelemetry/sdk-trace-base';
@@ -64,8 +65,7 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 import { databaseHealthSpanProcessor } from './observability/database-health/database-health.metrics';
 import {
-  redactTeablePgQuerySpan,
-  setTeableDbSpanAttributes,
+  createPgInstrumentationConfig,
   setTeableDbSpanAttributesFromSpan,
 } from './tracing-db-context';
 import {
@@ -107,6 +107,7 @@ const ENV_DEFAULTS = {
     OTEL_BSP_PRIORITY_SCHEDULE_DELAY: '1000',
     OTEL_BSP_EXPORT_TIMEOUT: '30000',
     OTEL_METRIC_EXPORT_INTERVAL_MS: '10000',
+    OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT: '8192',
   },
   production: {
     OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
@@ -121,6 +122,7 @@ const ENV_DEFAULTS = {
     OTEL_BSP_PRIORITY_SCHEDULE_DELAY: '1000',
     OTEL_BSP_EXPORT_TIMEOUT: '30000',
     OTEL_METRIC_EXPORT_INTERVAL_MS: '60000',
+    OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT: '8192',
   },
 } as const;
 
@@ -189,6 +191,14 @@ const metricExportIntervalMs = Math.max(
   1000,
   parseNumber(getConfig('OTEL_METRIC_EXPORT_INTERVAL_MS'), 60000)
 );
+// Longer span attribute values are truncated. v1 inlines record values into its SQL text, so
+// one bulk write's db.query.text alone reached hundreds of KB, more than the OTLP backend takes.
+const spanAttributeValueLengthLimit = parseIntegerConfig(
+  'OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT',
+  8192,
+  256
+);
+const pgInstrumentationConfig = createPgInstrumentationConfig();
 // Exporters
 const createExporterOptions = (url?: string) => ({
   url,
@@ -384,6 +394,7 @@ const otelSDK = new opentelemetry.NodeSDK({
   spanProcessors,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor({ exporter: logExporter })] : [],
   sampler: new AlwaysOnSampler(),
+  spanLimits: { attributeValueLengthLimit: spanAttributeValueLengthLimit },
   // Sentry 11 keeps its scopes in its own AsyncLocalStorage and no longer wraps the OTEL
   // context manager; instrument.ts links events to the active span instead.
   contextManager: new AsyncLocalStorageContextManager(),
@@ -399,6 +410,7 @@ const otelSDK = new opentelemetry.NodeSDK({
     new HttpInstrumentation({
       ignoreIncomingRequestHook: (req) => ignorePaths.some((path) => req.url?.startsWith(path)),
     }),
+    new UndiciInstrumentation(),
     new ExpressInstrumentation({
       ignoreLayersType: [ExpressLayerType.MIDDLEWARE, ExpressLayerType.REQUEST_HANDLER],
     }),
@@ -411,14 +423,7 @@ const otelSDK = new opentelemetry.NodeSDK({
     // RouteTracingInterceptor, the exception recording by GlobalExceptionFilter.
     // new NestInstrumentation(),
     new PrismaInstrumentation(),
-    new PgInstrumentation({
-      enhancedDatabaseReporting: true, // Records SQL; ensure sensitive data is scrubbed.
-      requireParentSpan: false, // Create spans even without parent, ensures v2 Kysely queries are traced
-      requestHook: (span, queryInfo) => {
-        setTeableDbSpanAttributes(span, queryInfo.connection);
-        redactTeablePgQuerySpan(span);
-      },
-    }),
+    new PgInstrumentation(pgInstrumentationConfig),
     new PinoInstrumentation(),
     new RuntimeNodeInstrumentation(),
     new IORedisInstrumentation({
@@ -439,6 +444,8 @@ otelLogger.log(
     `traceBatch=[queue:${traceBatchMaxQueueSize}, batch:${traceBatchMaxExportBatchSize}, ` +
     `delay:${traceBatchScheduledDelayMillis}ms, timeout:${traceBatchExportTimeoutMillis}ms], ` +
     `metricsInterval=${metricExportIntervalMs}ms, ` +
+    `spanAttributeValueLengthLimit=${spanAttributeValueLengthLimit}, ` +
+    `pgParameterValues=${pgInstrumentationConfig.enhancedDatabaseReporting}, ` +
     `sentry=${hasSentry}${hasSentry ? ' (errors only)' : ''}`
 );
 

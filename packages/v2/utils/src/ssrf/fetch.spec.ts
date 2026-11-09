@@ -1,4 +1,5 @@
 import { createServer, type Server } from 'node:http';
+import net from 'node:net';
 import { Agent } from 'undici/index.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -317,6 +318,81 @@ describe('createSsrfSafeFetch', () => {
         await expect(safeFetch(`http://127.0.0.1:${port}/private/table/a.csv`)).rejects.toThrow();
       } finally {
         await new Promise<void>((resolve) => second.close(() => resolve()));
+      }
+    });
+  });
+
+  describe('pre-connection rejection', () => {
+    const errorChain = (error: unknown): string => {
+      const messages: string[] = [];
+      let current: unknown = error;
+      while (current instanceof Error) {
+        messages.push(current.message);
+        current = 'cause' in current ? current.cause : undefined;
+      }
+      return messages.join(' | ');
+    };
+
+    it.each([
+      'http://169.254.169.254/latest/meta-data/',
+      'http://[fd00:ec2::254]/latest/meta-data/',
+      'http://100.100.100.200/latest/meta-data/',
+      'http://127.0.0.1/',
+      'http://10.0.0.8/',
+    ])('never opens a socket for the blocked literal %s', async (url) => {
+      // Fail fast instead of dialing the target if the guard ever regresses.
+      const connect = vi.spyOn(net, 'connect').mockImplementation(() => {
+        throw new Error('network disabled in test');
+      });
+      try {
+        const failure = await createSsrfSafeFetch()(url).then(
+          () => undefined,
+          (error: unknown) => error
+        );
+        expect(errorChain(failure)).toMatch(/is not an allowed address/);
+        expect(connect).not.toHaveBeenCalled();
+      } finally {
+        connect.mockRestore();
+      }
+    });
+
+    it('still reaches a peer the policy admits', async () => {
+      const server = createServer((_req, res) => {
+        res.writeHead(200);
+        res.end('ok');
+      });
+      const listening = Promise.withResolvers<void>();
+      server.listen(0, '127.0.0.1', listening.resolve);
+      await listening.promise;
+      const port = (server.address() as { port: number }).port;
+      try {
+        const res = await createSsrfSafeFetch({ allowPrivateNetwork: true })(
+          `http://127.0.0.1:${port}/`
+        );
+        expect(res.status).toBe(200);
+      } finally {
+        const closed = Promise.withResolvers<void>();
+        server.close(() => closed.resolve());
+        await closed.promise;
+      }
+    });
+
+    it('does not let a network-path reference borrow a trusted origin', async () => {
+      process.env.PORT = '3000';
+      const connect = vi.spyOn(net, 'connect').mockImplementation(() => {
+        throw new Error('network disabled in test');
+      });
+      try {
+        const failure = await createSsrfSafeFetch()(
+          'http://169.254.169.254//localhost:3000/api/attachments/read/x'
+        ).then(
+          () => undefined,
+          (error: unknown) => error
+        );
+        expect(errorChain(failure)).toMatch(/is not an allowed address/);
+        expect(connect).not.toHaveBeenCalled();
+      } finally {
+        connect.mockRestore();
       }
     });
   });

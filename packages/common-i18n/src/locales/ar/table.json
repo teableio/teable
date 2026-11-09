@@ -128,6 +128,16 @@
           "confirmText": "تأكيد الخروج"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "إخفاء الحقول",
+      "hiddenCount": "مخفية ({{count}})",
+      "filter": "تصفية",
+      "filterCount": "تصفية ({{count}})",
+      "sort": "فرز",
+      "sortCount": "فرز ({{count}})",
+      "group": "تجميع",
+      "groupCount": "تجميع ({{count}})"
     }
   },
   "welcome": {
@@ -1162,6 +1172,8 @@
   "view": {
     "addRecord": "إضافة سجل",
     "searchView": "ابحث في العروض...",
+    "starredGroup": "المميزة بنجمة",
+    "otherGroup": "عروض أخرى",
     "dragToolTip": "الفرز التلقائي مفعّل، والسحب اليدوي غير متاح",
     "insertToolTip": "الفرز التلقائي مفعّل، والإدراج بترتيب غير متاح",
     "action": {
@@ -1184,6 +1196,7 @@
       "description": "هذا العرض معطّل. وإن استمر الفشل بعد التحديث، فيرجى التواصل معنا. support@teable.ai"
     },
     "addPluginView": "إضافة طريقة عرض لمكوّن إضافي",
+    "addView": "إنشاء عرض",
     "search": {
       "field_zero": "حقول ({{length}})",
       "field_one": "{{name}}",
@@ -1831,7 +1844,6 @@
       "share": "مشاركة",
       "enableShare": "تفعيل المشاركة",
       "copyLink": "نسخ الرابط",
-      "rotateLink": "إعادة تعيين الرابط",
       "scope": "من يمكنه العرض",
       "scopePublic": "أي شخص لديه الرابط",
       "scopeSpace": "أعضاء المساحة",
@@ -1849,7 +1861,8 @@
       "running": "جارٍ التوليد…",
       "waitingInput": "بانتظار ردّك",
       "failed": "فشل الرد"
-    }
+    },
+    "routineRunPrompt": "أرسله الروتين"
   },
   "upload": {
     "panelUploading": "جارٍ رفع {{count}} ملف",

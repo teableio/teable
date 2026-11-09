@@ -147,6 +147,76 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
     batchSize: 2,
   });
 
+  it('relocates date columns using PostgreSQL gap and overlap rules without changing the source', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);
+    const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+    const schema = baseId.toString();
+    await sql.raw(`CREATE SCHEMA IF NOT EXISTS ${quoteIdentifier(schema)}`).execute(db);
+    for (const name of ['date_src', 'date_target']) {
+      await sql
+        .raw(`CREATE TABLE ${qualified(`${schema}.${name}`)} (
+        "__id" text PRIMARY KEY, "__auto_number" serial, "__version" integer,
+        "start" timestamptz, "unchanged" timestamptz
+      )`)
+        .execute(db);
+    }
+    await sql
+      .raw(`INSERT INTO ${qualified(`${schema}.date_src`)}
+      ("__id", "__version", "start", "unchanged") VALUES
+      ('recSpring', 1, '2027-03-14T02:30:00Z', '2027-03-14T02:30:00Z'),
+      ('recFall', 1, '2027-11-07T01:30:00Z', '2027-11-07T01:30:00Z'),
+      ('recEmpty', 1, NULL, NULL)`)
+      .execute(db);
+    const plan: BaseDataBulkCopyPlan = {
+      tables: [
+        {
+          sourceTableId: 'tblSource',
+          targetTableId: 'tblTarget',
+          targetTableName: 'Dates',
+          sourceDbTableName: `${schema}.date_src`,
+          targetDbTableName: `${schema}.date_target`,
+          excludedTargetColumns: [],
+          linkValueColumns: [],
+          dateTimeZoneConversions: [
+            {
+              dbFieldName: 'start',
+              sourceTimeZone: 'UTC',
+              targetTimeZone: 'America/Los_Angeles',
+            },
+          ],
+        },
+      ],
+      junctions: [],
+      viewIdMap: {},
+      fieldIdMap: {},
+      batchSize: 2,
+    };
+    const result = await copier.copyBaseData(context, plan);
+    expect(result._unsafeUnwrap().recordsLength).toBe(3);
+    const copied = await sql<{ id: string; start: Date | null; unchanged: Date | null }>`
+      SELECT "__id" AS id, "start", "unchanged"
+      FROM ${sql.raw(qualified(`${schema}.date_target`))} ORDER BY "__auto_number"
+    `.execute(db);
+    expect(
+      copied.rows.map((row) => ({
+        id: row.id,
+        start: row.start?.toISOString() ?? null,
+        unchanged: row.unchanged?.toISOString() ?? null,
+      }))
+    ).toEqual([
+      { id: 'recSpring', start: '2027-03-14T10:30:00.000Z', unchanged: '2027-03-14T02:30:00.000Z' },
+      { id: 'recFall', start: '2027-11-07T09:30:00.000Z', unchanged: '2027-11-07T01:30:00.000Z' },
+      { id: 'recEmpty', start: null, unchanged: null },
+    ]);
+    const source = await sql<{ unchanged: boolean }>`
+      SELECT "start" IS NOT DISTINCT FROM "unchanged" AS unchanged
+      FROM ${sql.raw(qualified(`${schema}.date_src`))}
+    `.execute(db);
+    expect(source.rows.every((row) => row.unchanged)).toBe(true);
+  });
+
   it('copies rows, remapped columns and junctions while preserving same-named foreign keys', async () => {
     const { container, baseId } = getV2NodeTestContainer();
     const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);

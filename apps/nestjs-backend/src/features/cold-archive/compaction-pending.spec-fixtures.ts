@@ -5,7 +5,6 @@ export class FakePendingRedis {
   sets = new Map<string, Set<string>>();
   strings = new Map<string, string>();
   ttls = new Map<string, number>();
-  available = true;
   /** when set, the next matching command throws it (a redis blip) */
   failNext?: { command: FakeCommand; error: Error };
 

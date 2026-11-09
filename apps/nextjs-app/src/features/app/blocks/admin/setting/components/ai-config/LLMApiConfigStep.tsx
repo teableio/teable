@@ -15,13 +15,15 @@ import { Button, Input, Label, cn, Switch } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useId } from 'react';
 import type { Control } from 'react-hook-form';
 import { useEnv } from '@/features/app/hooks/useEnv';
+import { isMaskStillValid, reconcileMaskedSecret } from '@/features/app/utils/masked-secret';
 import { AIProviderCard } from './AIProviderCard';
 import type { LLMApiMode } from './AISetupWizard';
 import { BatchTestModels } from './BatchTestModels';
 import type { IModelTestResult } from './LlmproviderManage';
+import { generateModelKeyList } from './utils';
 
 interface ILLMApiConfigStepProps {
   // Mode selection
@@ -30,6 +32,8 @@ interface ILLMApiConfigStepProps {
 
   // Gateway config (now part of aiConfig)
   aiConfig?: ISettingVo['aiConfig'];
+  /** The aiConfig as loaded from the server: masked keys are bound to its gateway URL. */
+  savedAiConfig?: ISettingVo['aiConfig'];
   onAiConfigChange?: (config: Partial<NonNullable<ISettingVo['aiConfig']>>) => void;
 
   // Custom provider config
@@ -69,6 +73,7 @@ export function LLMApiConfigStep({
   mode,
   onModeChange,
   aiConfig,
+  savedAiConfig,
   onAiConfigChange,
   llmProviders,
   onProvidersChange,
@@ -103,9 +108,11 @@ export function LLMApiConfigStep({
   // Local state for gateway fields — only persisted after a successful test
   const [localGatewayKey, setLocalGatewayKey] = useState(aiConfig?.aiGatewayApiKey || '');
   const [localGatewayBaseUrl, setLocalGatewayBaseUrl] = useState(aiConfig?.aiGatewayBaseUrl || '');
+  const [gatewayKeyCleared, setGatewayKeyCleared] = useState(false);
 
   useEffect(() => {
     setLocalGatewayKey(aiConfig?.aiGatewayApiKey || '');
+    setGatewayKeyCleared(false);
   }, [aiConfig?.aiGatewayApiKey]);
 
   useEffect(() => {
@@ -118,6 +125,20 @@ export function LLMApiConfigStep({
   const savedGatewayBaseUrl = aiConfig?.aiGatewayBaseUrl || '';
   const isCurrentGatewayConfig =
     localGatewayKey === savedGatewayKey && localGatewayBaseUrl === savedGatewayBaseUrl;
+
+  // Moving the gateway URL invalidates every saved gateway-bound key: the masked key here is
+  // cleared on the spot, the ones other sections hold must be re-entered there before saving.
+  const storedGatewayBaseUrl = savedAiConfig?.aiGatewayBaseUrl;
+  const hasStoredGatewayBoundKeys = Boolean(
+    savedAiConfig?.aiGatewayApiKeys?.some(Boolean) ||
+    savedAiConfig?.concurrencyGroups?.some((group) => group.keys?.some((entry) => entry.apiKey)) ||
+    savedAiConfig?.vertexByokCredential?.googleCredentials?.privateKey
+  );
+  const gatewayUrlMoved = !isMaskStillValid({
+    savedEndpoint: storedGatewayBaseUrl,
+    nextEndpoint: localGatewayBaseUrl,
+    mode: 'orDefault',
+  });
 
   const isGatewayKeyVerified =
     testResult === 'success' ||
@@ -231,6 +252,11 @@ export function LLMApiConfigStep({
     return testLLM(data);
   };
 
+  // What each option already has, shown on its tile so the other mode's setup stays visible.
+  const gatewayConfigured = Boolean(aiConfig?.aiGatewayApiKey);
+  const enabledGatewayModels = aiConfig?.gatewayModels?.filter((m) => m.enabled).length ?? 0;
+  const customModelCount = useMemo(() => generateModelKeyList(llmProviders).length, [llmProviders]);
+
   return (
     <div className="space-y-6">
       {/* Mode Selection - using div buttons instead of RadioGroup to avoid double-trigger */}
@@ -274,6 +300,16 @@ export function LLMApiConfigStep({
           <p className="mt-2 text-xs text-muted-foreground">
             {t('admin.setting.ai.wizard.gatewayOption.desc')}
           </p>
+          {gatewayConfigured && (
+            <p className="mt-2 flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+              <Check className="size-3.5 shrink-0" />
+              {enabledGatewayModels > 0
+                ? t('admin.setting.ai.guide.gatewayModelsConfigured', {
+                    count: enabledGatewayModels,
+                  })
+                : t('admin.setting.ai.guide.gatewayKeyConfigured')}
+            </p>
+          )}
         </div>
 
         {/* Custom Provider Option */}
@@ -295,7 +331,7 @@ export function LLMApiConfigStep({
           <div className="flex items-center gap-2">
             <div
               className={cn(
-                'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                'flex size-8 shrink-0 items-center justify-center rounded-lg',
                 mode === 'custom' ? 'bg-primary text-primary-foreground' : 'bg-surface'
               )}
             >
@@ -308,12 +344,20 @@ export function LLMApiConfigStep({
           <p className="mt-2 text-xs text-muted-foreground">
             {t('admin.setting.ai.wizard.customOption.desc')}
           </p>
+          {llmProviders.length > 0 && (
+            <p className="mt-2 flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+              <Check className="size-3.5 shrink-0" />
+              {t('admin.setting.ai.guide.providersConfigured', { count: llmProviders.length })}
+              {' · '}
+              {t('admin.setting.ai.wizard.modelsCount', { count: customModelCount })}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Gateway Configuration */}
       {mode === 'gateway' && (
-        <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
+        <div className="space-y-4">
           {/* Help text */}
           <div className="rounded-md bg-background text-sm text-muted-foreground">
             {t('admin.setting.ai.wizard.gatewayHelp')}{' '}
@@ -388,6 +432,13 @@ export function LLMApiConfigStep({
                 {t('admin.setting.ai.wizard.pleaseTest')}
               </p>
             )}
+            {gatewayKeyCleared && !hasLocalGatewayKey && (
+              <p className="text-xs text-amber-600">
+                {t('admin.setting.secretEndpointChanged', {
+                  secret: t('admin.setting.app.aiGatewayApiKey'),
+                })}
+              </p>
+            )}
 
             {/* Origin Changed Warning */}
             {originChanged && savedAttachmentTest && (
@@ -406,67 +457,13 @@ export function LLMApiConfigStep({
 
             {/* Attachment Transfer Mode Test Results */}
             {effectiveAttachmentTest && !originChanged && (
-              <div className="mt-3 rounded-md border bg-muted p-3">
-                <div className="mb-2 text-sm font-medium">
-                  {t('admin.setting.ai.wizard.attachmentTest.title')}
-                </div>
-                <div className="space-y-2 text-sm">
-                  {/* URL Mode Result */}
-                  <div className="flex items-center gap-2">
-                    {effectiveAttachmentTest.urlMode?.success ? (
-                      <Check className="size-4 text-green-600 dark:text-green-400" />
-                    ) : (
-                      <AlertTriangle className="size-4 text-amber-500" />
-                    )}
-                    <span>
-                      {t('admin.setting.ai.wizard.attachmentTest.urlMode')}:{' '}
-                      {effectiveAttachmentTest.urlMode?.success
-                        ? t('admin.setting.ai.wizard.attachmentTest.accessible')
-                        : t('admin.setting.ai.wizard.attachmentTest.inaccessible')}
-                    </span>
-                  </div>
-                  {/* Base64 Mode Result */}
-                  <div className="flex items-center gap-2">
-                    {effectiveAttachmentTest.base64Mode?.success ? (
-                      <Check className="size-4 text-green-600 dark:text-green-400" />
-                    ) : (
-                      <AlertTriangle className="size-4 text-amber-500" />
-                    )}
-                    <span>
-                      {t('admin.setting.ai.wizard.attachmentTest.base64Mode')}:{' '}
-                      {effectiveAttachmentTest.base64Mode?.success
-                        ? t('admin.setting.ai.wizard.attachmentTest.accessible')
-                        : t('admin.setting.ai.wizard.attachmentTest.inaccessible')}
-                    </span>
-                  </div>
-                  {/* Warning if URL mode failed but Base64 works */}
-                  {!effectiveAttachmentTest.urlMode?.success &&
-                    effectiveAttachmentTest.base64Mode?.success && (
-                      <div className="mt-2 flex items-start gap-2 rounded-md bg-amber-50 p-2 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
-                        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                        <span className="text-xs">
-                          {t('admin.setting.ai.wizard.attachmentTest.urlNotAccessibleWarning')}
-                        </span>
-                      </div>
-                    )}
-                  {/* Mode Switch */}
-                  <div className="mt-3 flex items-center justify-between border-t pt-3">
-                    <div>
-                      <div className="text-sm font-medium">
-                        {t('admin.setting.ai.wizard.attachmentTest.useBase64Mode')}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {t('admin.setting.ai.wizard.attachmentTest.base64ModeDescription')}
-                      </div>
-                    </div>
-                    <Switch
-                      checked={currentTransferMode === 'base64'}
-                      onCheckedChange={handleTransferModeChange}
-                      disabled={isSaving}
-                    />
-                  </div>
-                </div>
-              </div>
+              <AttachmentTestPanel
+                className="mt-3"
+                test={effectiveAttachmentTest}
+                useBase64={currentTransferMode === 'base64'}
+                onUseBase64Change={handleTransferModeChange}
+                disabled={isSaving}
+              />
             )}
           </div>
 
@@ -484,22 +481,97 @@ export function LLMApiConfigStep({
               value={localGatewayBaseUrl}
               placeholder="https://ai-gateway.vercel.sh/v1"
               onChange={(e) => {
-                setLocalGatewayBaseUrl(e.target.value?.trim() || '');
+                const nextUrl = e.target.value?.trim() || '';
+                setLocalGatewayBaseUrl(nextUrl);
                 setTestResult(null);
+                const next = reconcileMaskedSecret({
+                  secret: localGatewayKey,
+                  savedSecret: savedAiConfig?.aiGatewayApiKey,
+                  cleared: gatewayKeyCleared,
+                  endpoints: [
+                    {
+                      savedEndpoint: storedGatewayBaseUrl,
+                      nextEndpoint: nextUrl,
+                      mode: 'orDefault',
+                    },
+                  ],
+                });
+                if (next) {
+                  setLocalGatewayKey(next.value);
+                  setGatewayKeyCleared(next.cleared);
+                }
               }}
             />
+            {gatewayUrlMoved && hasStoredGatewayBoundKeys && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-50 p-2 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <span className="text-xs">
+                  {t('admin.setting.ai.wizard.gatewayUrlKeysReenter')}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Custom Provider Configuration */}
       {mode === 'custom' && (
-        <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
-          <p className="text-sm text-muted-foreground">
-            {t('admin.setting.ai.wizard.customProviderHelp')}
-          </p>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <p className="min-w-0 flex-[1_1_16rem] text-sm text-muted-foreground">
+              {t('admin.setting.ai.wizard.customProviderHelp')}
+            </p>
+            {llmProviders.length > 0 && (
+              <BatchTestModels
+                providers={llmProviders}
+                disabled={!llmProviders?.length}
+                onTest={handleTest}
+                onResultsChange={(results) => {
+                  onModelTestResultsChange(results);
+                  // Check if any model supports URL mode for attachments
+                  const hasUrlSupport = Array.from(results.values()).some((result) => {
+                    if (result.status === 'success' && result.ability?.image) {
+                      // ability.image can be a boolean or an object with url/base64 properties
+                      const imageAbility = result.ability.image;
+                      if (typeof imageAbility === 'object') {
+                        return imageAbility.url === true;
+                      }
+                      // If it's a boolean true, assume URL mode works
+                      return imageAbility === true;
+                    }
+                    return false;
+                  });
+                  // If any model supports URL mode, set global mode to 'url'
+                  // Otherwise, set to 'base64' (safer for internal networks)
+                  if (results.size > 0) {
+                    const recommendedMode = hasUrlSupport ? 'url' : 'base64';
+                    onAiConfigChange?.({
+                      attachmentTransferMode: recommendedMode,
+                      attachmentTest: {
+                        urlMode: { success: hasUrlSupport },
+                        base64Mode: { success: true }, // Base64 always works for custom providers
+                        recommendedMode,
+                        testedOrigin: publicOrigin,
+                        testedAt: new Date().toISOString(),
+                      },
+                    });
+                  }
+                }}
+                onSaveResult={onSaveTestResult}
+                onTestingProvidersChange={onTestingProvidersChange}
+                onTestingModelsChange={onTestingModelsChange}
+                onTestProvider={(callback) => {
+                  testProviderCallbackRef.current = callback;
+                }}
+                onTestModel={(callback) => {
+                  testModelCallbackRef.current = callback;
+                }}
+              />
+            )}
+          </div>
 
           <AIProviderCard
+            variant="plain"
             control={control}
             onChange={onProvidersChange}
             onTest={handleTest}
@@ -514,125 +586,13 @@ export function LLMApiConfigStep({
             onSaveTestResult={onSaveTestResult}
           />
 
-          {/* Test Model Capabilities - moved to bottom */}
-          {llmProviders.length > 0 && (
-            <div className="space-y-3 border-t pt-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">
-                  {t('admin.setting.ai.wizard.testModelCapabilities')}
-                </div>
-                <BatchTestModels
-                  providers={llmProviders}
-                  disabled={!llmProviders?.length}
-                  onTest={handleTest}
-                  onResultsChange={(results) => {
-                    onModelTestResultsChange(results);
-                    // Check if any model supports URL mode for attachments
-                    const hasUrlSupport = Array.from(results.values()).some((result) => {
-                      if (result.status === 'success' && result.ability?.image) {
-                        // ability.image can be a boolean or an object with url/base64 properties
-                        const imageAbility = result.ability.image;
-                        if (typeof imageAbility === 'object') {
-                          return imageAbility.url === true;
-                        }
-                        // If it's a boolean true, assume URL mode works
-                        return imageAbility === true;
-                      }
-                      return false;
-                    });
-                    // If any model supports URL mode, set global mode to 'url'
-                    // Otherwise, set to 'base64' (safer for internal networks)
-                    if (results.size > 0) {
-                      const recommendedMode = hasUrlSupport ? 'url' : 'base64';
-                      onAiConfigChange?.({
-                        attachmentTransferMode: recommendedMode,
-                        attachmentTest: {
-                          urlMode: { success: hasUrlSupport },
-                          base64Mode: { success: true }, // Base64 always works for custom providers
-                          recommendedMode,
-                          testedOrigin: publicOrigin,
-                          testedAt: new Date().toISOString(),
-                        },
-                      });
-                    }
-                  }}
-                  onSaveResult={onSaveTestResult}
-                  onTestingProvidersChange={onTestingProvidersChange}
-                  onTestingModelsChange={onTestingModelsChange}
-                  onTestProvider={(callback) => {
-                    testProviderCallbackRef.current = callback;
-                  }}
-                  onTestModel={(callback) => {
-                    testModelCallbackRef.current = callback;
-                  }}
-                />
-              </div>
-
-              {/* Custom Provider Attachment Test Results (reuse same UI) */}
-              {aiConfig?.attachmentTest && (
-                <div className="rounded-md border bg-background p-3">
-                  <div className="mb-2 text-sm font-medium">
-                    {t('admin.setting.ai.wizard.attachmentTest.title')}
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    {/* URL Mode Result */}
-                    <div className="flex items-center gap-2">
-                      {aiConfig.attachmentTest.urlMode?.success ? (
-                        <Check className="size-4 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <AlertTriangle className="size-4 text-amber-500" />
-                      )}
-                      <span>
-                        {t('admin.setting.ai.wizard.attachmentTest.urlMode')}:{' '}
-                        {aiConfig.attachmentTest.urlMode?.success
-                          ? t('admin.setting.ai.wizard.attachmentTest.accessible')
-                          : t('admin.setting.ai.wizard.attachmentTest.inaccessible')}
-                      </span>
-                    </div>
-                    {/* Base64 Mode Result */}
-                    <div className="flex items-center gap-2">
-                      {aiConfig.attachmentTest.base64Mode?.success ? (
-                        <Check className="size-4 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <AlertTriangle className="size-4 text-amber-500" />
-                      )}
-                      <span>
-                        {t('admin.setting.ai.wizard.attachmentTest.base64Mode')}:{' '}
-                        {aiConfig.attachmentTest.base64Mode?.success
-                          ? t('admin.setting.ai.wizard.attachmentTest.accessible')
-                          : t('admin.setting.ai.wizard.attachmentTest.inaccessible')}
-                      </span>
-                    </div>
-                    {/* Warning if URL mode not supported */}
-                    {!aiConfig.attachmentTest.urlMode?.success &&
-                      aiConfig.attachmentTest.base64Mode?.success && (
-                        <div className="mt-2 flex items-start gap-2 rounded-md bg-amber-50 p-2 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
-                          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                          <span className="text-xs">
-                            {t('admin.setting.ai.wizard.attachmentTest.urlNotAccessibleWarning')}
-                          </span>
-                        </div>
-                      )}
-                    {/* Mode Switch */}
-                    <div className="mt-3 flex items-center justify-between border-t pt-3">
-                      <div>
-                        <div className="text-sm font-medium">
-                          {t('admin.setting.ai.wizard.attachmentTest.useBase64Mode')}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {t('admin.setting.ai.wizard.attachmentTest.base64ModeDescription')}
-                        </div>
-                      </div>
-                      <Switch
-                        checked={currentTransferMode === 'base64'}
-                        onCheckedChange={handleTransferModeChange}
-                        disabled={isSaving}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {llmProviders.length > 0 && aiConfig?.attachmentTest && (
+            <AttachmentTestPanel
+              test={aiConfig.attachmentTest}
+              useBase64={currentTransferMode === 'base64'}
+              onUseBase64Change={handleTransferModeChange}
+              disabled={isSaving}
+            />
           )}
         </div>
       )}
@@ -664,3 +624,81 @@ export function LLMApiConfigStep({
     </div>
   );
 }
+
+interface IAttachmentTestPanelProps {
+  test: Pick<IAttachmentTestResult, 'urlMode' | 'base64Mode'>;
+  useBase64: boolean;
+  onUseBase64Change: (useBase64: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+const AttachmentTestPanel = ({
+  test,
+  useBase64,
+  onUseBase64Change,
+  disabled,
+  className,
+}: IAttachmentTestPanelProps) => {
+  const { t } = useTranslation('common');
+  const switchId = useId();
+  const modes = [
+    {
+      key: 'urlMode',
+      label: t('admin.setting.ai.wizard.attachmentTest.urlMode'),
+      ok: test.urlMode?.success,
+    },
+    {
+      key: 'base64Mode',
+      label: t('admin.setting.ai.wizard.attachmentTest.base64Mode'),
+      ok: test.base64Mode?.success,
+    },
+  ];
+
+  return (
+    <div className={cn('space-y-2 rounded-md bg-muted/50 px-3 py-2.5', className)}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-[1_1_16rem] space-y-1">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span className="font-medium">{t('admin.setting.ai.wizard.attachmentTest.title')}</span>
+            {modes.map(({ key, label, ok }) => (
+              <span key={key} className="flex items-center gap-1 text-muted-foreground">
+                {ok ? (
+                  <Check className="size-3.5 text-green-600 dark:text-green-400" />
+                ) : (
+                  <AlertTriangle className="size-3.5 text-amber-500" />
+                )}
+                {label}:{' '}
+                {ok
+                  ? t('admin.setting.ai.wizard.attachmentTest.accessible')
+                  : t('admin.setting.ai.wizard.attachmentTest.inaccessible')}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t('admin.setting.ai.wizard.attachmentTest.base64ModeDescription')}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Label htmlFor={switchId} className="cursor-pointer text-sm font-normal">
+            {t('admin.setting.ai.wizard.attachmentTest.useBase64Mode')}
+          </Label>
+          <Switch
+            id={switchId}
+            checked={useBase64}
+            onCheckedChange={onUseBase64Change}
+            disabled={disabled}
+          />
+        </div>
+      </div>
+      {!test.urlMode?.success && test.base64Mode?.success && (
+        <div className="flex items-start gap-2 rounded-md bg-amber-50 p-2 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <span className="text-xs">
+            {t('admin.setting.ai.wizard.attachmentTest.urlNotAccessibleWarning')}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};

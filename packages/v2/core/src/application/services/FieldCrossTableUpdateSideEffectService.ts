@@ -29,11 +29,12 @@ import { RollupField } from '../../domain/table/fields/types/RollupField';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
 import { Table } from '../../domain/table/Table';
-import { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
+import type { ITableMapper } from '../../ports/mappers/TableMapper';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
+import { buildUnsupportedViewSortCollationCleanup } from './buildUnsupportedViewSortCollationCleanup';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
 type FieldCrossTableUpdateSideEffectInput = {
@@ -127,7 +128,14 @@ export class FieldCrossTableUpdateSideEffectService {
             (table) => {
               const updatedTable = cleanupSpec.mutate(table);
               if (updatedTable.isErr()) return err(updatedTable.error);
-              return ok(TableUpdateResult.create(updatedTable.value, cleanupSpec));
+              const sortCleanup = buildUnsupportedViewSortCollationCleanup(updatedTable.value);
+              if (sortCleanup.isErr()) return err(sortCleanup.error);
+              return table.update((mutator) =>
+                mutator.applySpecs([
+                  ...flattenedSpecs,
+                  ...(sortCleanup.value ? [sortCleanup.value] : []),
+                ])
+              );
             },
             { publishEvents: false }
           );
@@ -139,6 +147,55 @@ export class FieldCrossTableUpdateSideEffectService {
       }
 
       return ok(events);
+    });
+  }
+
+  /** The same dependency cleanup rules as execution, applied only to detached metadata. */
+  async project(
+    context: ExecutionContextPort.IExecutionContext,
+    input: FieldCrossTableUpdateSideEffectInput,
+    mapper: ITableMapper,
+    projectedTables: ReadonlyMap<string, Table>
+  ): Promise<Result<ReadonlyMap<string, Table>, DomainError>> {
+    const service = this;
+    return safeTry(async function* () {
+      const tables = new Map(projectedTables);
+      const pendingUpdates: CrossTableFieldUpdate[] = [input];
+      const processed = new Set<string>();
+      for (let index = 0; index < pendingUpdates.length; index++) {
+        const pending = pendingUpdates[index]!;
+        const key = service.buildPendingUpdateKey(pending);
+        if (processed.has(key)) continue;
+        processed.add(key);
+        const filterPlan = buildFieldFilterSyncPlan(pending.updatedField, pending.updateSpecs);
+        if (
+          !service.hasTypeConversion(pending.updateSpecs) &&
+          !hasFieldFilterSyncPlanChanges(filterPlan) &&
+          !hasFieldSelectOptionChanges(pending.updatedField, pending.updateSpecs)
+        )
+          continue;
+        const spec = yield* Table.specs(pending.table.baseId())
+          .byIncomingReferenceToTable(pending.table.id())
+          .build();
+        const references = yield* await service.tableRepository.find(context, spec);
+        for (const reference of references) {
+          const current = tables.get(reference.id().toString()) ?? reference;
+          const detached = yield* current.clone(mapper);
+          const cleanup = yield* service.buildCleanupSpecs(
+            detached,
+            pending.table,
+            pending.updatedField,
+            pending.updateSpecs
+          );
+          if (!cleanup) continue;
+          const projected = yield* cleanup.mutate(yield* current.clone(mapper));
+          tables.set(projected.id().toString(), projected);
+          pendingUpdates.push(
+            ...service.collectFollowUpUpdates(projected, flattenAndSpecs(cleanup))
+          );
+        }
+      }
+      return ok(tables);
     });
   }
 

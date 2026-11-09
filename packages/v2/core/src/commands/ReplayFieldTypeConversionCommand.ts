@@ -23,7 +23,11 @@ export class ReplayFieldTypeConversionCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
-    readonly snapshot: z.output<typeof fieldSnapshotSchema>
+    readonly snapshot: z.output<typeof fieldSnapshotSchema>,
+    readonly expectedSnapshot: z.output<typeof fieldSnapshotSchema> | undefined,
+    readonly relatedViewQueries: z.output<
+      typeof replayFieldTypeConversionInputSchema
+    >['relatedViewQueries']
   ) {
     super(baseId, tableId);
   }
@@ -41,7 +45,14 @@ export class ReplayFieldTypeConversionCommand extends TableUpdateCommand {
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(
-        (tableId) => new ReplayFieldTypeConversionCommand(baseId, tableId, parsed.data.snapshot)
+        (tableId) =>
+          new ReplayFieldTypeConversionCommand(
+            baseId,
+            tableId,
+            parsed.data.snapshot,
+            parsed.data.expectedSnapshot,
+            parsed.data.relatedViewQueries
+          )
       )
     );
   }

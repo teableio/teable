@@ -52,6 +52,8 @@ import {
   type IExecutionContext,
   type IQueryBus,
   type ITableRecordRepository,
+  type IUserLookupService,
+  type UserLookupRecord,
   type IUnitOfWork,
   type GetTableByIdResult,
   type ImportDotTeaStructureResult,
@@ -508,6 +510,7 @@ export class BaseImportService {
       v2CoreTokens.tableRecordRepository
     );
     const unitOfWork = container.resolve<IUnitOfWork>(v2CoreTokens.unitOfWork);
+    const userLookupService = container.resolve<IUserLookupService>(v2CoreTokens.userLookupService);
     const db = container.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
     const context = await this.v2ContextFactory.createContext(container);
     const base = await this.createBaseV2(db, spaceId, structure.name, structure.icon || undefined);
@@ -562,6 +565,7 @@ export class BaseImportService {
       commandBus,
       queryBus,
       context,
+      userLookupService,
       onProgress,
       rowBudget
     );
@@ -1647,6 +1651,7 @@ export class BaseImportService {
     commandBus: ICommandBus,
     queryBus: IQueryBus,
     context: IExecutionContext,
+    userLookupService: IUserLookupService,
     onProgress?: BaseImportProgressCallback,
     rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
@@ -1669,6 +1674,7 @@ export class BaseImportService {
           commandBus,
           queryBus,
           context,
+          userLookupService,
           onProgress,
           rowBudget
         );
@@ -1689,6 +1695,7 @@ export class BaseImportService {
     commandBus: ICommandBus,
     queryBus: IQueryBus,
     context: IExecutionContext,
+    userLookupService: IUserLookupService,
     onProgress?: BaseImportProgressCallback,
     rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
@@ -1696,55 +1703,80 @@ export class BaseImportService {
     const tableName = table.name;
     const config = await this.buildTableDataImportConfig(baseId, tableId, queryBus, context);
 
-    const commandResult = RestoreRecordsStreamCommand.create({
-      tableId,
-      records: this.applyRowBudget(
-        this.createTableRestoreRecordStream(entry, config, viewIdMap),
-        rowBudget,
-        table.name
-      ),
-      batchSize: tableDataImportBatchSize,
-      deferComputedUpdates: true,
-      enqueueDeferredComputedUpdates: true,
-    });
-    if (commandResult.isErr()) {
-      throw new Error(
-        formatBaseImportError(commandResult.error, 'Invalid table data import command')
-      );
-    }
+    // Keep CSV processing streaming: only this batch is buffered. Authorization
+    // runs immediately before its restore, at the same timing as normal writes.
+    // Earlier batches/schema remain committed if a later batch fails; a grant
+    // revoked after this batch's lookup has the normal write-path race window.
+    let batch: RestoreRecordInput[] = [];
+    let totalInserted = 0;
+    let batchIndex = 0;
+    const source = this.applyRowBudget(
+      this.createTableRestoreRecordStream(entry, config, viewIdMap),
+      rowBudget,
+      table.name
+    );
 
-    const result = await commandBus.execute<
-      RestoreRecordsStreamCommand,
-      RestoreRecordsStreamResult
-    >(context, commandResult.value);
-    if (result.isErr()) {
-      throw new Error(formatBaseImportError(result.error, 'Failed to import table data'));
-    }
-
-    for await (const event of result.value) {
-      if (event.id === 'progress') {
-        onProgress?.({
-          phase: 'table_data_progress',
-          tableId,
-          tableName,
-          processedRows: event.totalInserted,
-          batchProcessedRows: event.insertedCount,
-          currentBatch: event.batchIndex + 1,
-        });
-        continue;
-      }
-
-      if (event.id === 'error') {
-        throw new Error(formatBaseImportError(event.message, 'Failed to import table data'));
-      }
-
-      onProgress?.({
-        phase: 'table_data_done',
+    const restoreBatch = async () => {
+      if (batch.length === 0) return;
+      const authorized = await this.authorizeImportedUserValues(
+        batch,
+        config,
         tableId,
-        tableName,
-        processedRows: event.restoredCount,
+        userLookupService
+      );
+      const commandResult = RestoreRecordsStreamCommand.create({
+        tableId,
+        records: this.toAsyncIterable(authorized),
+        batchSize: tableDataImportBatchSize,
+        deferComputedUpdates: true,
+        enqueueDeferredComputedUpdates: true,
       });
+      if (commandResult.isErr()) {
+        throw new Error(
+          formatBaseImportError(commandResult.error, 'Invalid table data import command')
+        );
+      }
+
+      const result = await commandBus.execute<
+        RestoreRecordsStreamCommand,
+        RestoreRecordsStreamResult
+      >(context, commandResult.value);
+      if (result.isErr()) {
+        throw new Error(formatBaseImportError(result.error, 'Failed to import table data'));
+      }
+
+      for await (const event of result.value) {
+        if (event.id === 'progress') {
+          onProgress?.({
+            phase: 'table_data_progress',
+            tableId,
+            tableName,
+            processedRows: totalInserted + event.totalInserted,
+            batchProcessedRows: event.insertedCount,
+            currentBatch: batchIndex + 1,
+          });
+          continue;
+        }
+        if (event.id === 'error') {
+          throw new Error(formatBaseImportError(event.message, 'Failed to import table data'));
+        }
+        totalInserted += event.restoredCount;
+      }
+      batchIndex += 1;
+      batch = [];
+    };
+
+    for await (const record of source) {
+      batch.push(record);
+      if (batch.length === tableDataImportBatchSize) await restoreBatch();
     }
+    await restoreBatch();
+    onProgress?.({
+      phase: 'table_data_done',
+      tableId,
+      tableName,
+      processedRows: totalInserted,
+    });
   }
 
   private async buildTableDataImportConfig(
@@ -2097,6 +2129,169 @@ export class BaseImportService {
         : {}),
       ...(Object.keys(extraColumnValues).length ? { extraColumnValues } : {}),
     };
+  }
+
+  private async authorizeImportedUserValues(
+    records: ReadonlyArray<RestoreRecordInput>,
+    config: {
+      fieldsByDbFieldName: ReadonlyMap<
+        string,
+        { type: string; dbFieldName: string; isMultipleCellValue: boolean }
+      >;
+    },
+    tableId: string,
+    userLookupService: IUserLookupService
+  ): Promise<RestoreRecordInput[]> {
+    // The archive is caller-controlled, unlike undo/trash restore snapshots.
+    // Re-evaluate scope for each bounded restore batch; do not cache grants
+    // across batches or claim the whole import is atomic after schema commit.
+    const userFields = [...config.fieldsByDbFieldName.values()].filter(
+      (field) => field.type === FieldType.User
+    );
+    const scopedIds = new Set<string>();
+    const identityPairs: Array<{ id: string; email: string }> = [];
+    const parsedCells = new Map<
+      RestoreRecordInput,
+      Map<string, ReadonlyArray<{ id: string; email?: string }> | null>
+    >();
+
+    for (const record of records) {
+      const cells = new Map<string, ReadonlyArray<{ id: string; email?: string }> | null>();
+      parsedCells.set(record, cells);
+      for (const field of userFields) {
+        const references = this.parseImportedUserReferences(
+          record.extraColumnValues?.[field.dbFieldName],
+          field.isMultipleCellValue
+        );
+        cells.set(field.dbFieldName, references);
+        for (const reference of references ?? []) {
+          if (reference.email !== undefined) {
+            identityPairs.push({ id: reference.id, email: reference.email });
+          } else {
+            scopedIds.add(reference.id);
+          }
+        }
+      }
+    }
+    this.collectImportedAuthorIds(records, scopedIds);
+
+    const { scopedUsersById, pairedUsersById } = await this.lookupImportedUsers(
+      tableId,
+      scopedIds,
+      identityPairs,
+      userLookupService
+    );
+
+    return records.map((record) => {
+      const extraColumnValues = { ...record.extraColumnValues };
+      for (const field of userFields) {
+        const references = parsedCells.get(record)?.get(field.dbFieldName) ?? null;
+        if (!references) {
+          extraColumnValues[field.dbFieldName] = null;
+          continue;
+        }
+        const canonical = references.map((reference) => {
+          const user = (reference.email === undefined ? scopedUsersById : pairedUsersById).get(
+            reference.id
+          )!;
+          return {
+            id: user.id,
+            title: user.name,
+            ...(user.email ? { email: user.email } : {}),
+            ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
+          };
+        });
+        extraColumnValues[field.dbFieldName] = JSON.stringify(
+          field.isMultipleCellValue ? canonical : canonical[0]
+        );
+      }
+      return { ...record, extraColumnValues };
+    });
+  }
+
+  private collectImportedAuthorIds(
+    records: ReadonlyArray<RestoreRecordInput>,
+    scopedIds: Set<string>
+  ): void {
+    // A pair in an editable cell never authorizes a bare archive author id.
+    for (const { createdBy, lastModifiedBy } of records) {
+      if (createdBy) scopedIds.add(createdBy);
+      if (lastModifiedBy) scopedIds.add(lastModifiedBy);
+    }
+  }
+
+  private async lookupImportedUsers(
+    tableId: string,
+    scopedIds: ReadonlySet<string>,
+    identityPairs: ReadonlyArray<{ id: string; email: string }>,
+    userLookupService: IUserLookupService
+  ) {
+    const scopedResult = scopedIds.size
+      ? await userLookupService.listTableUsersByIdentifiers(tableId, [...scopedIds])
+      : ok<ReadonlyArray<UserLookupRecord>, DomainError>([]);
+    const pairedResult = identityPairs.length
+      ? await userLookupService.listUsersByIdentityPairs(identityPairs)
+      : ok<ReadonlyArray<UserLookupRecord>, DomainError>([]);
+    if (scopedResult.isErr() || pairedResult.isErr()) {
+      throw new Error('Failed to validate imported user references');
+    }
+    const scopedUsersById = new Map(scopedResult.value.map((user) => [user.id, user]));
+    const pairedUsersById = new Map(pairedResult.value.map((user) => [user.id, user]));
+    if (
+      [...scopedIds].some((id) => !scopedUsersById.has(id)) ||
+      identityPairs.some((pair) => pairedUsersById.get(pair.id)?.email !== pair.email)
+    ) {
+      throw new CustomHttpException(
+        'The imported archive contains an invalid user reference',
+        HttpErrorCode.VALIDATION_ERROR,
+        { domainCode: 'validation.field.user_not_found' }
+      );
+    }
+    return { scopedUsersById, pairedUsersById };
+  }
+
+  private parseImportedUserReferences(
+    rawValue: unknown,
+    isMultiple: boolean
+  ): ReadonlyArray<{ id: string; email?: string }> | null {
+    if (rawValue == null || rawValue === '') return null;
+    let value = rawValue;
+    if (typeof value === 'string') {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        this.throwInvalidImportedUserValue();
+      }
+    }
+    if (value == null || (isMultiple && Array.isArray(value) && value.length === 0)) return null;
+    const values = isMultiple ? value : [value];
+    if (!Array.isArray(values) || values.length === 0) this.throwInvalidImportedUserValue();
+    return values.map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        this.throwInvalidImportedUserValue();
+      }
+      const id = Reflect.get(item, 'id');
+      if (typeof id !== 'string' || id.length === 0) this.throwInvalidImportedUserValue();
+      const email = Reflect.get(item, 'email');
+      if (email !== undefined && (typeof email !== 'string' || email.length === 0)) {
+        this.throwInvalidImportedUserValue();
+      }
+      return email === undefined ? { id } : { id, email: email as string };
+    });
+  }
+
+  private throwInvalidImportedUserValue(): never {
+    throw new CustomHttpException(
+      'The imported archive contains an invalid user value',
+      HttpErrorCode.VALIDATION_ERROR,
+      { domainCode: 'validation.field.invalid_user_format' }
+    );
+  }
+
+  private async *toAsyncIterable(
+    records: ReadonlyArray<RestoreRecordInput>
+  ): AsyncGenerator<RestoreRecordInput> {
+    yield* records;
   }
 
   private async *createTableLinkFieldUpdateStream(

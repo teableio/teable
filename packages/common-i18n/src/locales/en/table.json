@@ -108,6 +108,16 @@
           "confirmText": "Confirm exit"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "Hide fields",
+      "hiddenCount": "Hidden ({{count}})",
+      "filter": "Filter",
+      "filterCount": "Filter ({{count}})",
+      "sort": "Sort",
+      "sortCount": "Sort ({{count}})",
+      "group": "Group",
+      "groupCount": "Group ({{count}})"
     }
   },
   "welcome": {
@@ -1142,6 +1152,8 @@
   "view": {
     "addRecord": "Add record",
     "searchView": "Search view...",
+    "starredGroup": "Starred",
+    "otherGroup": "Other views",
     "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
     "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
     "action": {
@@ -1164,6 +1176,7 @@
       "description": "This view is broken. If the refresh still fails, please contact us. support@teable.ai"
     },
     "addPluginView": "Add plugin view",
+    "addView": "Create view",
     "search": {
       "field_one": "{{name}}",
       "field_other": "fields({{length}})"
@@ -1735,7 +1748,6 @@
       "share": "Share",
       "enableShare": "Enable sharing",
       "copyLink": "Copy link",
-      "rotateLink": "Reset link",
       "scope": "Who can view",
       "scopePublic": "Anyone with the link",
       "scopeSpace": "Space members",
@@ -1753,7 +1765,8 @@
       "running": "Generating…",
       "waitingInput": "Waiting for your reply",
       "failed": "Reply failed"
-    }
+    },
+    "routineRunPrompt": "Sent by routine"
   },
   "upload": {
     "panelUploading": "Uploading {{count}} files",

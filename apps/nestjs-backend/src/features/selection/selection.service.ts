@@ -71,6 +71,7 @@ import { RecordOpenApiService } from '../record/open-api/record-open-api.service
 import { convertLinkPasteCellValue } from '../record/paste-link-cell-value';
 import { RecordService } from '../record/record.service';
 import { IUpdateRecordsInternalRo } from '../record/type';
+import { buildRawCopyContent } from './raw-copy-content';
 
 const exceedMaxPasteCellsI18nKey = 'httpErrors.selection.exceedMaxPasteCells';
 
@@ -1075,7 +1076,7 @@ export class SelectionService {
     };
   }
 
-  async copy(tableId: string, rangesRo: IRangesRo) {
+  async copy(tableId: string, rangesRo: IRangesRo, includeRawContent = false, shareSource = false) {
     const { cellCount } = await this.parseRange(tableId, rangesRo);
 
     if (cellCount > this.thresholdConfig.maxCopyCells) {
@@ -1091,19 +1092,26 @@ export class SelectionService {
     }
 
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
+    if (shareSource && includeRawContent) {
+      await this.recordService.hydrateSelectedUserCells(records, fields);
+    }
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const rectangleData = records.map((record) =>
       fieldInstances.map((fieldInstance) =>
         fieldInstance.cellValue2String(record.fields[fieldInstance.id] as never)
       )
     );
+    const rawContent = includeRawContent
+      ? buildRawCopyContent(records, fields, rectangleData)
+      : undefined;
     return {
       content: this.stringifyCopyContent(rectangleData),
       header: fields,
+      ...(rawContent ? { rawContent } : {}),
     };
   }
 
-  async copyById(tableId: string, copyRo: ICopyByIdRo) {
+  async copyById(tableId: string, copyRo: ICopyByIdRo, includeRawContent = false) {
     const recordIds = await this.resolveRecordIdsBySelection(tableId, copyRo);
     const fields = await this.resolveFieldsBySelection(tableId, copyRo);
     const cellCount = recordIds.length * fields.length;
@@ -1131,10 +1139,14 @@ export class SelectionService {
         fieldInstance.cellValue2String(record.fields[fieldInstance.id] as never)
       )
     );
+    const rawContent = includeRawContent
+      ? buildRawCopyContent(records, fields, rectangleData)
+      : undefined;
 
     return {
       content: this.stringifyCopyContent(rectangleData),
       header: fields,
+      ...(rawContent ? { rawContent } : {}),
     };
   }
 

@@ -88,16 +88,16 @@ const BaseShareDialogContent = ({
   // Prefer the short URL for display/copy/QR code; only fall back to the long
   // URL when short link creation failed (empty while loading to avoid a flash)
   const { shortUrl, isFallback } = useShortLink(
-    share ? { type: ShortLinkType.BaseShare, resourceId: share.shareId } : undefined
+    share?.shareId ? { type: ShortLinkType.BaseShare, resourceId: share.shareId } : undefined
   );
   const origin = useOrigin();
   const shareUrl = useMemo(() => {
-    if (!share) return '';
+    if (!share?.shareId) return '';
     return shortUrl ?? (isFallback ? getShareUrl(share.shareId, origin) : '');
   }, [share, shortUrl, isFallback, origin]);
   // Embed always uses the long URL: the iframe lives on third-party pages, so
   // there is no reason to go through the short-link redirect
-  const embedUrl = share ? getShareUrl(share.shareId, origin) : '';
+  const embedUrl = share?.shareId ? getShareUrl(share.shareId, origin) : '';
 
   const invalidateShareState = () => {
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseShareList(baseId), exact: true });
@@ -126,7 +126,7 @@ const BaseShareDialogContent = ({
     mutationFn: async (data: IUpdateBaseShareRo) => {
       const currentShare = await getCurrentShare();
       // Settings queued after deletion must not target a removed share.
-      return currentShare ? updateBaseShare(baseId, currentShare.shareId, data) : null;
+      return currentShare?.shareId ? updateBaseShare(baseId, currentShare.shareId, data) : null;
     },
     // The caller's isBaseShared hint can leave the share query disabled, and invalidate skips those
     onSuccess: async (res) => {
@@ -141,7 +141,7 @@ const BaseShareDialogContent = ({
     scope: writeScope,
     mutationFn: async () => {
       const currentShare = await getCurrentShare();
-      if (currentShare) await deleteBaseShare(baseId, currentShare.shareId);
+      if (currentShare?.shareId) await deleteBaseShare(baseId, currentShare.shareId);
     },
     onSuccess: async () => {
       await setShare(null);
@@ -158,7 +158,7 @@ const BaseShareDialogContent = ({
     scope: writeScope,
     mutationFn: async () => {
       const currentShare = await getCurrentShare();
-      return currentShare ? refreshBaseShare(baseId, currentShare.shareId) : null;
+      return currentShare?.shareId ? refreshBaseShare(baseId, currentShare.shareId) : null;
     },
     onSuccess: async (res) => {
       if (!res) return;

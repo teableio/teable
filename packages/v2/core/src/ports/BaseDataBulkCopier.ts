@@ -46,6 +46,12 @@ export interface BulkCopyTableInput {
   excludedTargetColumns: ReadonlyArray<string>;
   /** Link value columns of this source table (empty for ordinary tables). */
   linkValueColumns: ReadonlyArray<BulkCopyLinkValueColumn>;
+  /** Preserve each date cell's local calendar date and wall time when its field zone changes. */
+  dateTimeZoneConversions?: ReadonlyArray<{
+    dbFieldName: string;
+    sourceTimeZone: string;
+    targetTimeZone: string;
+  }>;
 }
 
 export interface BulkCopyJunctionInput {

@@ -113,6 +113,16 @@
           "confirmText": "אישור היציאה"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "הסתרת שדות",
+      "hiddenCount": "מוסתרים ({{count}})",
+      "filter": "סינון",
+      "filterCount": "סינון ({{count}})",
+      "sort": "מיון",
+      "sortCount": "מיון ({{count}})",
+      "group": "קיבוץ",
+      "groupCount": "קיבוץ ({{count}})"
     }
   },
   "welcome": {
@@ -1147,6 +1157,8 @@
   "view": {
     "addRecord": "הוספת רשומה",
     "searchView": "חיפוש תצוגה...",
+    "starredGroup": "מסומנות בכוכב",
+    "otherGroup": "תצוגות אחרות",
     "dragToolTip": "המיון האוטומטי מופעל, ולכן גרירה ידנית אינה זמינה",
     "insertToolTip": "המיון האוטומטי מופעל, ולכן הוספה במיקום מסוים אינה זמינה",
     "action": {
@@ -1169,6 +1181,7 @@
       "description": "התצוגה הזו תקולה. אם הרענון עדיין נכשל, אפשר לפנות אלינו. support@teable.ai"
     },
     "addPluginView": "הוספת תצוגת תוסף",
+    "addView": "צור תצוגה",
     "search": {
       "field_one": "{{name}}",
       "field_two": "שני שדות",
@@ -1759,7 +1772,6 @@
       "share": "שיתוף",
       "enableShare": "הפעלת השיתוף",
       "copyLink": "העתקת הקישור",
-      "rotateLink": "איפוס הקישור",
       "scope": "מי יכול לצפות",
       "scopePublic": "כל בעלי הקישור",
       "scopeSpace": "חברי המרחב",
@@ -1777,7 +1789,8 @@
       "running": "יוצר…",
       "waitingInput": "ממתין לתשובתך",
       "failed": "התשובה נכשלה"
-    }
+    },
+    "routineRunPrompt": "נשלח על ידי השגרה"
   },
   "upload": {
     "panelUploading": "בהעלאת {{count}} קבצים",

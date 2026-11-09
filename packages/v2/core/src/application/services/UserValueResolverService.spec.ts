@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest';
 
 import { ActorId } from '../../domain/shared/ActorId';
 import { FieldId } from '../../domain/table/fields/FieldId';
-import { TableId } from '../../domain/table/TableId';
 import { SetUserValueByIdentifierSpec } from '../../domain/table/records/specs/values/SetUserValueByIdentifierSpec';
 import {
   SetUserValueSpec,
   type UserItem,
 } from '../../domain/table/records/specs/values/SetUserValueSpec';
 import { CellValue } from '../../domain/table/records/values/CellValue';
+import { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { IUserLookupService, UserLookupRecord } from '../../ports/UserLookupService';
 import { UserValueResolverService } from './UserValueResolverService';
@@ -33,6 +33,14 @@ class FakeUserLookupService implements IUserLookupService {
           (identifier) =>
             identifier === user.id || identifier === user.name || identifier === user.email
         )
+      )
+    );
+  }
+
+  async listUsersByIdentityPairs(pairs: ReadonlyArray<{ id: string; email: string }>) {
+    return ok(
+      this.platformUsers.filter((user) =>
+        pairs.some((pair) => pair.id === user.id && pair.email === user.email)
       )
     );
   }
@@ -160,9 +168,10 @@ describe('UserValueResolverService', () => {
     ]);
   });
 
-  it('resolves structured user values without collaborator scoping', async () => {
+  it('preserves server-created trusted user specs without collaborator scoping', async () => {
     const fieldId = FieldId.create(`fld${'g'.repeat(16)}`)._unsafeUnwrap();
     const inputUser: UserItem = { id: 'usr-outsider', title: 'Copied' };
+    // Internal specs preserve trusted existing identities; public visitors set requireCollaborator.
     const spec = new SetUserValueSpec(fieldId, CellValue.fromValidated<UserItem[]>([inputUser]));
 
     const outsider = { id: 'usr-outsider', name: 'Outsider', email: 'outsider@example.com' };
@@ -196,6 +205,35 @@ describe('UserValueResolverService', () => {
     const error = result._unsafeUnwrapErr();
     expect(error.code).toBe('validation.field.user_not_found');
     expect(error.localization).toEqual({ i18nKey: 'httpErrors.user.notFound' });
+  });
+
+  it('verifies each supplied pair without letting one item authorize another', async () => {
+    const fieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+    const outsider = { id: 'usr-outsider', name: 'Outsider', email: 'outside@example.com' };
+    const service = new UserValueResolverService(new FakeUserLookupService([], [outsider]));
+    const valid = { id: outsider.id, email: outsider.email, title: 'forged' };
+    const accepted = await service.resolveSpecs(createContext(), testTableId, [
+      new SetUserValueSpec(fieldId, CellValue.fromValidated<UserItem[]>([valid]), true),
+    ]);
+    expect((accepted._unsafeUnwrap()[0] as SetUserValueSpec).value.toValue()).toMatchObject([
+      { id: outsider.id, email: outsider.email, title: outsider.name },
+    ]);
+
+    for (const invalid of [
+      { id: outsider.id, title: 'No email' },
+      { id: outsider.id, email: 'wrong@example.com', title: 'Wrong email' },
+      { id: outsider.id, email: '', title: 'Empty email' },
+      {
+        id: { toString: () => outsider.id },
+        email: outsider.email,
+        title: 'Coerced',
+      } as unknown as UserItem,
+    ]) {
+      const result = await service.resolveSpecs(createContext(), testTableId, [
+        new SetUserValueSpec(fieldId, CellValue.fromValidated<UserItem[]>([valid, invalid]), true),
+      ]);
+      expect(result._unsafeUnwrapErr().code).toBe('validation.field.user_not_found');
+    }
   });
 
   it('rejects a collaborator-scoped structured user id that is not a collaborator', async () => {

@@ -45,6 +45,8 @@ interface IAIProviderCardProps {
   /** Optional header actions (e.g., BatchTestModels) */
   headerActions?: ReactNode;
   providerNameMode?: ProviderNameMode;
+  /** `plain` drops the card frame when the parent already provides one */
+  variant?: 'card' | 'plain';
 }
 
 export const AIProviderCard = ({
@@ -62,7 +64,39 @@ export const AIProviderCard = ({
   title,
   headerActions,
   providerNameMode,
+  variant = 'card',
 }: IAIProviderCardProps) => {
+  const providers = (
+    <FormField
+      control={control}
+      name="llmProviders"
+      render={({ field }) => (
+        <FormItem className="flex flex-col">
+          <FormControl>
+            <LLMProviderManage
+              {...field}
+              value={field.value ?? []}
+              onChange={(value) => onChange?.(value)}
+              onTest={onTest}
+              modelTestResults={modelTestResults}
+              onToggleImageModel={onToggleImageModel}
+              onTestProvider={onTestProvider}
+              onTestModel={onTestModel}
+              testingProviders={testingProviders}
+              testingModels={testingModels}
+              hideModelRates={hideModelRates}
+              onSaveTestResult={onSaveTestResult}
+              providerNameMode={providerNameMode}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  if (variant === 'plain') return providers;
+
   return (
     <Card className="shadow-sm">
       {(title || headerActions) && (
@@ -71,34 +105,7 @@ export const AIProviderCard = ({
           {headerActions}
         </CardHeader>
       )}
-      <CardContent className="p-4">
-        <FormField
-          control={control}
-          name="llmProviders"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormControl>
-                <LLMProviderManage
-                  {...field}
-                  value={field.value ?? []}
-                  onChange={(value) => onChange?.(value)}
-                  onTest={onTest}
-                  modelTestResults={modelTestResults}
-                  onToggleImageModel={onToggleImageModel}
-                  onTestProvider={onTestProvider}
-                  onTestModel={onTestModel}
-                  testingProviders={testingProviders}
-                  testingModels={testingModels}
-                  hideModelRates={hideModelRates}
-                  onSaveTestResult={onSaveTestResult}
-                  providerNameMode={providerNameMode}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </CardContent>
+      <CardContent className="p-4">{providers}</CardContent>
     </Card>
   );
 };

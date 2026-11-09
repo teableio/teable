@@ -25,7 +25,7 @@ export enum CompactionScanMode {
 export interface ICompactionPendingSet {
   redis: Pick<
     RedisNativeService,
-    'available' | 'sadd' | 'srem' | 'sscan' | 'exists' | 'setex' | 'del' | 'expire'
+    'sadd' | 'srem' | 'sscan' | 'exists' | 'setex' | 'del' | 'expire'
   >;
   key: string;
   /** log prefix naming the subsystem, e.g. `record-history` */
@@ -39,7 +39,7 @@ export interface ICompactionPendingSet {
 
 export interface ICompactionScanResult<TResult> {
   mode: CompactionScanMode;
-  /** members read from the pending set; 0 without redis or when it was unreadable */
+  /** members read from the pending set; 0 when it was unreadable */
   pending: number;
   /** ids the run attempted (a full listing, or the pending members) */
   candidates: number;
@@ -108,7 +108,6 @@ export const markCompactionPending = async (
   options: ICompactionPendingSet & { id: string }
 ): Promise<void> => {
   const { redis, key, subsystem, logger, id } = options;
-  if (!redis.available) return;
   try {
     await addPending(redis, key, id);
   } catch (error) {
@@ -143,7 +142,6 @@ const selectCandidates = async (
     );
     return { mode: CompactionScanMode.Full, pending: members.length, ids, bootstraps };
   };
-  if (!redis.available) return fullScan('redis unavailable', false);
   let members: string[];
   let bootstrapped: boolean;
   let present: boolean;
@@ -187,8 +185,7 @@ const updatePendingSet = async (
   what: string,
   command: () => Promise<unknown>
 ): Promise<boolean> => {
-  const { redis, key, subsystem, logger } = options;
-  if (!redis.available) return false;
+  const { key, subsystem, logger } = options;
   try {
     await command();
     return true;
@@ -202,7 +199,7 @@ const updatePendingSet = async (
 
 /**
  * Compactor side: pick the candidates (pending members, or every id until the
- * set is bootstrapped and its marker not yet expired / without redis), take
+ * set is bootstrapped and its marker not yet expired), take
  * each id out of the set BEFORE
  * compacting it (so a mark the flusher adds meanwhile survives), compact, and
  * put the id back when the merge failed or one of its months is still open.

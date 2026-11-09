@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable, Logger } from '@nestjs/common';
-import type { ILinkFieldOptions } from '@teable/core';
+import type { IDateFieldOptions, ILinkFieldOptions } from '@teable/core';
 import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import {
@@ -17,6 +17,7 @@ import type { HostPreviewConcern, PreviewEffect, PreviewIssue } from '@teable/v2
 import {
   DeleteTableCommand,
   DuplicateBaseCommand,
+  isValidTimeZone,
   TableByIdSpec,
   TableId,
   v2CoreTokens,
@@ -493,7 +494,14 @@ export class BaseDuplicateService {
       // fromBaseId/targetBaseId placeholders before the new base existed; without this,
       // every inner atomic audit row would point at the source base instead of the copy.
       this.audit.setResourceId(base.id);
-      const { base: _base, tableIdMap, fieldIdMap, viewIdMap, ...rest } = duplicated;
+      const {
+        base: _base,
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+        dateTimeZoneConversionsByTableId,
+        ...rest
+      } = duplicated;
 
       const crossBaseLinkFieldTableMap = allowCrossBase
         ? await this.getCrossBaseLinkFieldTableMap(tableIdMap, spaceId)
@@ -534,7 +542,9 @@ export class BaseDuplicateService {
           tableIdMap,
           fieldIdMap,
           viewIdMap,
-          mergedLinkFieldTableMap
+          mergedLinkFieldTableMap,
+          undefined,
+          dateTimeZoneConversionsByTableId
         );
         await this.duplicateAttachments(base.id, tableIdMap, fieldIdMap);
         await this.duplicateLinkJunction(
@@ -651,7 +661,8 @@ export class BaseDuplicateService {
       mergedLinkFieldTableMap,
       sourceDbTableNameByTableId,
       internalLinkRelationTableMap,
-      sourceLinkFields
+      sourceLinkFields,
+      timeZone ? this.dateTimeZoneConversions(rawStructure, timeZone) : {}
     );
 
     const preservedExternal = await this.classifyPreservedExternalLinks(
@@ -930,7 +941,6 @@ export class BaseDuplicateService {
       let fieldIdMap: Record<string, string> = {};
       let viewIdMap: Record<string, string> = {};
       let recordsLength = 0;
-      let recordCopyMode: 'bulk' | 'stream' | 'none' = 'none';
       for await (const event of result.value) {
         if (event.id === 'error') {
           failedTableIds = event.tableIdMap ? Object.values(event.tableIdMap) : undefined;
@@ -946,11 +956,6 @@ export class BaseDuplicateService {
         fieldIdMap = event.fieldIdMap;
         viewIdMap = event.viewIdMap;
         recordsLength = event.recordsLength;
-        recordCopyMode = event.recordCopyMode ?? 'none';
-      }
-
-      if (withRecords && recordCopyMode === 'bulk') {
-        await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
       }
 
       const targetBase = base;
@@ -1287,6 +1292,54 @@ export class BaseDuplicateService {
     };
   }
 
+  private timeZoneIdentity(timeZone: string) {
+    try {
+      return new Intl.DateTimeFormat('en-US', { timeZone }).resolvedOptions().timeZone;
+    } catch {
+      // The accepted IANA list can outpace the runtime's ICU data. If identity cannot
+      // be resolved, retain the original conversion and PostgreSQL's validation.
+      return undefined;
+    }
+  }
+
+  private dateTimeZoneConversions(
+    structure: DuplicateStructureConfig,
+    targetTimeZone: string
+  ): NonNullable<DuplicateBaseSource['dateTimeZoneConversionsByTableId']> {
+    const targetTimeZoneIdentity = this.timeZoneIdentity(targetTimeZone);
+    const sourceTimeZoneIdentities = new Map<string, string | undefined>();
+    return Object.fromEntries(
+      structure.tables.flatMap((table) => {
+        if (!table.id) return [];
+        const conversions = table.fields.flatMap((field) => {
+          if (field.type !== FieldType.Date || field.isLookup || !field.dbFieldName) return [];
+          const sourceTimeZone = (field.options as IDateFieldOptions | undefined)?.formatting
+            ?.timeZone;
+          // Historical fields may have no source zone. Keep their copy semantics without
+          // guessing a zone for value relocation; metadata validation remains unchanged.
+          if (
+            typeof sourceTimeZone !== 'string' ||
+            !isValidTimeZone(sourceTimeZone) ||
+            sourceTimeZone === targetTimeZone
+          ) {
+            return [];
+          }
+          if (targetTimeZoneIdentity) {
+            if (!sourceTimeZoneIdentities.has(sourceTimeZone)) {
+              sourceTimeZoneIdentities.set(sourceTimeZone, this.timeZoneIdentity(sourceTimeZone));
+            }
+            if (sourceTimeZoneIdentities.get(sourceTimeZone) === targetTimeZoneIdentity) {
+              // Equivalent aliases must keep both instants in a repeated local hour distinct.
+              return [];
+            }
+          }
+          return [{ dbFieldName: field.dbFieldName, sourceTimeZone, targetTimeZone }];
+        });
+        return conversions.length ? [[table.id, conversions]] : [];
+      })
+    );
+  }
+
   private createDuplicateBaseSource(
     sourceBaseId: string,
     structure: DuplicateV2StructureConfig,
@@ -1294,19 +1347,22 @@ export class BaseDuplicateService {
     disconnectedLinkFieldTableMap: ILinkFieldTableMap,
     sourceDbTableNameByTableId: Record<string, string> = {},
     internalLinkRelationTableMap: Record<string, V2InternalLinkFieldTableInfo[]> = {},
-    sourceLinkFields: BulkCopySourceLinkField[] = []
+    sourceLinkFields: BulkCopySourceLinkField[] = [],
+    dateTimeZoneConversionsByTableId: DuplicateBaseSource['dateTimeZoneConversionsByTableId'] = {}
   ): DuplicateBaseSource {
     const tableById = new Map(structure.tables.map((table) => [table.id, table]));
     const readRows = (
       sourceDbTableName: string,
       crossBaseLinkInfo: ILinkFieldTableInfo[],
-      internalLinkInfo: V2InternalLinkFieldTableInfo[]
+      internalLinkInfo: V2InternalLinkFieldTableInfo[],
+      conversions: NonNullable<DuplicateBaseSource['dateTimeZoneConversionsByTableId']>[string]
     ) =>
       this.createSourceTableRecordRows(
         sourceBaseId,
         sourceDbTableName,
         crossBaseLinkInfo,
-        internalLinkInfo
+        internalLinkInfo,
+        conversions
       );
     const toRecordInput = (table: DuplicateV2TableConfig, row: Record<string, unknown>) =>
       this.toDuplicateBaseRecordInput(table, row);
@@ -1317,6 +1373,7 @@ export class BaseDuplicateService {
       sourceDbTableNameByTableId,
       linkValueColumnsByTableId: disconnectedLinkFieldTableMap,
       sourceLinkFields,
+      dateTimeZoneConversionsByTableId,
       async *records(tableId: string, options?: DuplicateBaseRecordReadOptions) {
         const table = tableById.get(tableId);
         const sourceDbTableName = sourceDbTableNameByTableId[tableId] ?? table?.dbTableName;
@@ -1328,7 +1385,8 @@ export class BaseDuplicateService {
         for await (const row of readRows(
           sourceDbTableName,
           disconnectedLinkFieldTableMap[tableId] || [],
-          shouldReadInternalLinks ? internalLinkRelationTableMap[tableId] || [] : []
+          shouldReadInternalLinks ? internalLinkRelationTableMap[tableId] || [] : [],
+          dateTimeZoneConversionsByTableId[tableId]
         )) {
           yield toRecordInput(table, row);
         }
@@ -1730,7 +1788,16 @@ export class BaseDuplicateService {
       { useTransaction: true }
     );
 
-    return { base: newBase, tableIdMap, fieldIdMap, viewIdMap, ...rest };
+    return {
+      base: newBase,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      ...rest,
+      dateTimeZoneConversionsByTableId: timeZone
+        ? this.dateTimeZoneConversions(rawStructure, timeZone)
+        : {},
+    };
   }
 
   /**
@@ -2350,7 +2417,10 @@ export class BaseDuplicateService {
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>,
     crossBaseLinkFieldTableMap: ILinkFieldTableMap,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    dateTimeZoneConversionsByTableId: NonNullable<
+      DuplicateBaseSource['dateTimeZoneConversionsByTableId']
+    > = {}
   ): Promise<number> {
     const prisma = this.getDataPrismaExecutor(
       (await this.dataDbClientManager.dataPrismaForBase(targetBaseId, {
@@ -2449,6 +2519,7 @@ export class BaseDuplicateService {
         prisma,
         progressState,
         onProgress,
+        dateTimeZoneConversions: dateTimeZoneConversionsByTableId[tableId],
       });
     }
 
@@ -2521,6 +2592,9 @@ export class BaseDuplicateService {
     prisma: IDataPrismaExecutor;
     progressState: { processedRows: number; totalRows: number };
     onProgress?: BaseImportProgressCallback;
+    dateTimeZoneConversions?: NonNullable<
+      DuplicateBaseSource['dateTimeZoneConversionsByTableId']
+    >[string];
   }) {
     const {
       tableId,
@@ -2533,12 +2607,19 @@ export class BaseDuplicateService {
       prisma,
       progressState,
       onProgress,
+      dateTimeZoneConversions,
     } = params;
     const targetTableId = tableIdMap[tableId];
     const sourceDbTableName = tableId2DbTableNameMap[tableId];
     const targetDbTableName = tableId2DbTableNameMap[targetTableId];
     const tableName = tableId2NameMap[tableId] ?? sourceDbTableName;
     const processedRowsBeforeTable = progressState.processedRows;
+    const progressOptions = this.createDuplicateTableProgressOptions(
+      onProgress,
+      progressState,
+      targetTableId,
+      tableName
+    );
 
     try {
       const tableRows = await this.tableDuplicateService.duplicateTableData(
@@ -2548,12 +2629,9 @@ export class BaseDuplicateService {
         fieldIdMap,
         crossBaseLinkFieldTableMap[tableId] || [],
         prisma,
-        this.createDuplicateTableProgressOptions(
-          onProgress,
-          progressState,
-          targetTableId,
-          tableName
-        )
+        dateTimeZoneConversions?.length
+          ? { ...progressOptions, dateTimeZoneConversions }
+          : progressOptions
       );
       if (onProgress && progressState.processedRows === processedRowsBeforeTable && tableRows > 0) {
         progressState.processedRows += tableRows;
@@ -2634,7 +2712,10 @@ export class BaseDuplicateService {
     sourceBaseId: string,
     sourceDbTableName: string,
     crossBaseLinkInfo: ILinkFieldTableInfo[],
-    internalLinkInfo: V2InternalLinkFieldTableInfo[] = []
+    internalLinkInfo: V2InternalLinkFieldTableInfo[] = [],
+    dateConversions: NonNullable<
+      DuplicateBaseSource['dateTimeZoneConversionsByTableId']
+    >[string] = []
   ): AsyncGenerator<Record<string, unknown>> {
     let lastAutoNumber = 0;
 
@@ -2642,12 +2723,23 @@ export class BaseDuplicateService {
       const { rows, normalizedRows } = await this.dataDbClientManager.withDataKnexConnectionForBase(
         sourceBaseId,
         async (dataKnex, connection) => {
-          const rows = await dataKnex<Record<string, unknown>>(sourceDbTableName)
+          const query = dataKnex<Record<string, unknown>>(sourceDbTableName)
             .connection(connection)
             .select('*')
             .where('__auto_number', '>', lastAutoNumber)
             .orderBy('__auto_number', 'asc')
             .limit(v2DuplicateReadBatchSize);
+          for (const conversion of dateConversions) {
+            query.select(
+              dataKnex.raw('timezone(?, timezone(?, ??)) as ??', [
+                conversion.targetTimeZone,
+                conversion.sourceTimeZone,
+                conversion.dbFieldName,
+                conversion.dbFieldName,
+              ])
+            );
+          }
+          const rows = await query;
           const sourceRecordIds = rows.flatMap((row) =>
             typeof row.__id === 'string' ? [row.__id] : []
           );

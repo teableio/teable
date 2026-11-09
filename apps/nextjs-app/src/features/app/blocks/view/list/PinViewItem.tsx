@@ -7,7 +7,16 @@ import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { usePinMap } from '../../space/usePinMap';
 
-export const PinViewItem = ({ viewId }: { viewId: string }) => {
+export const PinViewItem = ({
+  viewId,
+  Item = ContextMenuItem,
+  className,
+}: {
+  viewId: string;
+  /** The menu's item component: a context menu's by default, a dropdown's in the view list. */
+  Item?: typeof ContextMenuItem;
+  className?: string;
+}) => {
   const queryClient = useQueryClient();
   const pinMap = usePinMap();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -28,7 +37,8 @@ export const PinViewItem = ({ viewId }: { viewId: string }) => {
     },
   });
   return (
-    <ContextMenuItem
+    <Item
+      className={className}
       onClick={() => {
         if (addPinLoading || deletePinLoading) return;
         isPin
@@ -38,6 +48,6 @@ export const PinViewItem = ({ viewId }: { viewId: string }) => {
     >
       <Star className="size-4 shrink-0" />
       {isPin ? t('space:pin.remove') : t('space:pin.add')}
-    </ContextMenuItem>
+    </Item>
   );
 };

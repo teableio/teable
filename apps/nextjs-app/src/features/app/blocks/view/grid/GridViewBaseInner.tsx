@@ -1,13 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { IAttachmentItem, IFieldVo, IGridViewOptions } from '@teable/core';
+import type { IAttachmentItem, IGridViewOptions } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
   RowHeightLevel,
   contractColorForTheme,
-  fieldVoSchema,
   isAiActionWritableField,
-  stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
 import { createRecords, stopFillField, autoFillCell, GroupPointType } from '@teable/openapi';
@@ -129,15 +127,15 @@ import { ResetClickCountButton } from './components/ResetClickCountButton';
 import { GIRD_FIELD_NAME_HEIGHT_DEFINITIONS, GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
-import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
+import { useGridCopy } from './hooks/useGridCopy';
 import { useGridSearchStore } from './useGridSearchStore';
 import {
   buildFillSelectionPaste,
+  canEditViewLayout,
   getEffectRows,
   getGroupValuesByRowIndex,
   shouldUseDeleteSelectionStream,
 } from './utils';
-import { downgradeCrossBaseHeaders, isCrossBaseField } from './utils/crossBaseLink';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 import {
   cancelGridSelectionCapture,
@@ -284,7 +282,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const groupCollection = useGridGroupCollection();
 
-  const { personalViewCommonQuery } = usePersonalView();
+  const { personalViewCommonQuery, isPersonalView } = usePersonalView();
   const { viewQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
     generateLocalId(tableId, activeViewId),
     personalViewCommonQuery
@@ -323,8 +321,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     searchHitIndex,
     allGroupHeaderRefs,
   } = useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData ?? undefined);
-
-  const isSelectionLoaded = useIsSelectionLoaded();
 
   const commentRecordIds = useMemo(
     () =>
@@ -1080,126 +1076,27 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     clear(selection, recordMap);
   };
 
-  const selectionIncludesCrossBaseField = useCallback(
-    (selection: CombinedSelection) => {
-      switch (selection.type) {
-        case SelectionRegionType.Cells: {
-          const [[startCol], [endCol]] = selection.serialize();
-          return fields.slice(startCol, endCol + 1).some((f) => isCrossBaseField(f, baseId));
-        }
-        case SelectionRegionType.Columns: {
-          return selection
-            .serialize()
-            .some(([s, e]) => fields.slice(s, e + 1).some((f) => isCrossBaseField(f, baseId)));
-        }
-        case SelectionRegionType.Rows:
-          return fields.some((f) => isCrossBaseField(f, baseId));
-        default:
-          return false;
-      }
-    },
-    [baseId, fields]
-  );
-
-  // Without a clipboard event (context menu copy) the selection is written via navigator.clipboard.
-  const onCopy = async (selection: CombinedSelection, e?: React.ClipboardEvent) => {
-    if (!canCopy) {
-      sonnerToast.warning(t('table:table.actionTips.copyError.noPermission'));
-      return;
-    }
-
-    // Share view guard: cross-base link fields would otherwise leak foreign-base
-    // record IDs through the clipboard. Confirm and downgrade them to plain text
-    // before the payload leaves the page. Share pages have no AnchorContext
-    // baseId; isCrossBaseField still matches an explicit options.baseId.
-    if (shareId && selectionIncludesCrossBaseField(selection)) {
-      e?.preventDefault();
-      if (
-        !isSelectionLoaded({
-          selection,
-          recordMap,
-          rowCount: realRowCount,
-          loadedFieldsByRecordId,
-          snapshotFieldIds,
-          fields,
-        })
-      ) {
-        sonnerToast.warning(t('table:table.actionTips.crossBaseCopyLoadFirst'));
-        return;
-      }
-      const confirmed = await confirm({
-        title: t('table:table.actionTips.crossBaseCopyTitle'),
-        description: t('table:table.actionTips.crossBaseCopyDescription'),
-        confirmText: t('table:table.actionTips.crossBaseCopyConfirm'),
-        cancelText: t('common:actions.cancel'),
-      });
-      if (!confirmed) return;
-
-      await copy(selection, async () => {
-        const { content, headers } = getSyncCopyData({
-          recordMap,
-          fields,
-          selection,
-          rowCount: realRowCount,
-        });
-        return { content, header: downgradeCrossBaseHeaders(headers, baseId).headers };
-      });
-      return;
-    }
-
-    if (baseId) {
+  const { onCopy, onCopyForSingleRow } = useGridCopy({
+    fields,
+    baseId,
+    shareId,
+    canCopy,
+    recordMap,
+    rowCount: realRowCount,
+    loadedFieldsByRecordId,
+    snapshotFieldIds,
+    copy,
+    syncCopy,
+    captureSelection: (selection) => {
+      if (!baseId) return;
       if (isSingleCellSelection(selection)) {
         cancelGridSelectionCapture(queryClient, baseId);
         queryClient.removeQueries({ queryKey: ReactQueryKeys.gridSelection(baseId), exact: true });
       } else {
         captureSelectionForChat(selection, false);
       }
-    }
-
-    if (
-      e &&
-      isSelectionLoaded({
-        selection,
-        recordMap,
-        rowCount: realRowCount,
-        loadedFieldsByRecordId,
-        snapshotFieldIds,
-        fields,
-      })
-    ) {
-      // sync copy
-      syncCopy(e, { selection, recordMap, rowCount: realRowCount });
-      return;
-    }
-    copy(selection, undefined, recordMap);
-  };
-
-  const onCopyForSingleRow = async (
-    e: React.ClipboardEvent,
-    selection: CombinedSelection,
-    fieldValueMap?: { [fieldId: string]: unknown }
-  ) => {
-    const { type } = selection;
-
-    if (type !== SelectionRegionType.Cells || fieldValueMap == null) return;
-
-    const getCopyData = () => {
-      const [start, end] = selection.serialize();
-      const selectedFields = fields.slice(start[0], end[0] + 1);
-      const filteredPropsFields = selectedFields
-        .map((f) => {
-          const validateField = fieldVoSchema.safeParse(f);
-          return validateField.success ? validateField.data : undefined;
-        })
-        .filter(Boolean) as IFieldVo[];
-      const content = [
-        selectedFields.map((field) => field.cellValue2String(fieldValueMap[field.id] as never)),
-      ];
-      return { content: stringifyClipboardText(content), header: filteredPropsFields };
-    };
-
-    syncCopy(e, { getCopyData });
-  };
+    },
+  });
 
   const onPaste = async (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update']) {
@@ -1504,10 +1401,18 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
   };
 
+  // column order/width/freeze write the shared view layout, which a locked view
+  // keeps read-only unless edited in personal mode
+  const viewLayoutEditable = canEditViewLayout({
+    hasViewUpdatePermission: Boolean(permission['view|update']),
+    isViewLocked: Boolean(view?.isLocked),
+    isPersonalView: Boolean(isPersonalView),
+  });
+
   const draggable = useMemo(() => {
-    if (isAutoSort) return DraggableType.Column;
-    return DraggableType.All;
-  }, [isAutoSort]);
+    if (isAutoSort) return viewLayoutEditable ? DraggableType.Column : DraggableType.None;
+    return viewLayoutEditable ? DraggableType.All : DraggableType.Row;
+  }, [isAutoSort, viewLayoutEditable]);
 
   const onDragStart = useCallback(
     (type: DragRegionType, dragIndexs: number[]) => {
@@ -1803,10 +1708,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onFillSelection={getAuthorizedFunction(onFillSelection, 'record|update')}
         onCellDblClick={onCellDblClick}
         onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
-        onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
-        onColumnFreezeFailed={getAuthorizedFunction(onColumnFreezeFailed, 'view|update')}
-        onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
-        onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
+        onColumnFreeze={viewLayoutEditable ? onColumnFreeze : undefined}
+        onColumnFreezeFailed={viewLayoutEditable ? onColumnFreezeFailed : undefined}
+        onColumnResize={viewLayoutEditable ? onColumnResize : undefined}
+        onColumnOrdered={viewLayoutEditable ? onColumnOrdered : undefined}
         onContextMenu={onContextMenu}
         onGroupHeaderContextMenu={onGroupHeaderContextMenu}
         onColumnHeaderClick={onColumnHeaderClick}

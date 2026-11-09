@@ -1,15 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IFieldVo, IViewVo } from '@teable/core';
 import { FieldKeyType, ViewType } from '@teable/core';
 import type { IRecordsVo } from '@teable/openapi';
 import { getFields, getRecords, getViewList } from '@teable/openapi';
-import { ReactQueryKeys } from '@teable/sdk';
+import { generateLocalId, ReactQueryKeys, useGridCollapsedGroupStore } from '@teable/sdk';
 import {
   buildSubscribeProjection,
   frozenFieldIdsFromView,
 } from '@teable/sdk/utils/column-projection';
 import { INITIAL_LOAD_PAGE_SIZE } from '@teable/sdk/utils/record-window';
 import { sortBy } from 'lodash';
+import { useEffect, useRef } from 'react';
+import type { ITablePageProps } from '../../../base-node/types';
+import { createSsrAnchorState, updateSsrAnchorState } from './ssr-anchor';
 
 type IColumnMetaLike = Record<string, { order?: number; hidden?: boolean } | undefined>;
 
@@ -101,6 +104,24 @@ export const fetchTableSeed = async (
   };
 };
 
+type ITableSeed = Awaited<ReturnType<typeof fetchTableSeed>>;
+
+const tableSeedQueryOptions = (
+  tableId: string,
+  viewId: string,
+  collapsedGroupIds?: readonly string[]
+) => ({
+  queryKey: ReactQueryKeys.tableSeed(tableId, viewId, collapsedGroupIds),
+  // the seed is one-shot bootstrap data: subscriptions own freshness once
+  // live, so background refetches would only be discarded (the reducer
+  // rejects seeds over doc-backed instances). The short gcTime bounds how
+  // stale a cached seed can be when switching back to a recent table.
+  staleTime: Infinity,
+  gcTime: 60 * 1000,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+});
+
 /**
  * Bootstrap data for a client-side table switch.
  *
@@ -118,16 +139,61 @@ export const useTableSeed = (
   collapsedGroupIds?: readonly string[]
 ) => {
   return useQuery({
-    queryKey: ReactQueryKeys.tableSeed(tableId, viewId, collapsedGroupIds),
+    ...tableSeedQueryOptions(tableId, viewId, collapsedGroupIds),
     enabled,
-    // the seed is one-shot bootstrap data: subscriptions own freshness once
-    // live, so background refetches would only be discarded (the reducer
-    // rejects seeds over doc-backed instances). The short gcTime bounds how
-    // stale a cached seed can be when switching back to a recent table.
-    staleTime: Infinity,
-    gcTime: 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
     queryFn: () => fetchTableSeed(tableId, viewId, collapsedGroupIds),
   });
+};
+
+/**
+ * Seeds the query from the page's server snapshot, for a table the page draws
+ * without its props (the chat page's Output pane), so the grid paints once its
+ * chunk loads instead of fetching first. The snapshot is the same data set
+ * `fetchTableSeed` assembles, under the page table's rule: it describes only
+ * the anchor the page loaded on, until that anchor first moves. A local
+ * collapse state, which the server did not see, leaves the table to fetch.
+ */
+export const usePrimeTableSeed = (
+  serverData: ITablePageProps,
+  tableId: string | undefined,
+  viewId: string | undefined,
+  enabled: boolean
+) => {
+  const queryClient = useQueryClient();
+  const anchorRef = useRef(createSsrAnchorState(tableId ?? '', viewId ?? ''));
+  anchorRef.current = updateSsrAnchorState(anchorRef.current, tableId ?? '', viewId ?? '');
+  const fresh = anchorRef.current.fresh;
+  const primedRef = useRef(false);
+  const collapsedGroupIds = useGridCollapsedGroupStore(
+    (state) => state.collapsedGroupMap[generateLocalId(tableId, viewId)]
+  );
+  const { fieldServerData, viewServerData, recordsServerData, groupPointsServerDataMap } =
+    serverData;
+
+  useEffect(() => {
+    if (!enabled || !fresh || !tableId || !viewId || collapsedGroupIds?.length) return;
+    if (primedRef.current || !fieldServerData || !viewServerData || !recordsServerData) return;
+    primedRef.current = true;
+    const seed: ITableSeed = {
+      fields: fieldServerData,
+      views: viewServerData,
+      records: recordsServerData,
+      groupPoints: groupPointsServerDataMap?.[viewId] ?? null,
+    };
+    void queryClient.prefetchQuery({
+      ...tableSeedQueryOptions(tableId, viewId, collapsedGroupIds),
+      queryFn: () => seed,
+    });
+  }, [
+    queryClient,
+    enabled,
+    fresh,
+    tableId,
+    viewId,
+    collapsedGroupIds,
+    fieldServerData,
+    viewServerData,
+    recordsServerData,
+    groupPointsServerDataMap,
+  ]);
 };

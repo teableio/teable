@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import net from 'node:net';
 
 import {
   OPERATION_PREVIEW_CAPABILITIES_PATH,
@@ -148,6 +149,33 @@ describe('createHeadlessHttpApp', () => {
         { fldName: 'Alpha', fldAmount: 12 },
         { fldName: 'Beta', fldAmount: 34 },
       ]);
+
+      // Y3382 step 3: an identical import appends, it never updates or dedupes.
+      const repeated = await app.request('/tables/importRecords', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          tableId: tableBody.data.table.id,
+          fileType: 'csv',
+          csvData: 'Name,Amount\nAlpha,12\nBeta,34\n',
+          sourceColumnMap: { fldName: 0, fldAmount: 1 },
+          options: { skipFirstNLines: 1 },
+        }),
+      });
+      expect(repeated.status).toBe(200);
+      const appended = await app.request(
+        `/tables/listRecords?tableId=${tableBody.data.table.id}&fieldKeyType=id`,
+        { headers }
+      );
+      const appendedBody = (await appended.json()) as {
+        data: { records: Array<{ fields: Record<string, unknown> }> };
+      };
+      expect(appendedBody.data.records.map(({ fields }) => fields)).toEqual([
+        { fldName: 'Alpha', fldAmount: 12 },
+        { fldName: 'Beta', fldAmount: 34 },
+        { fldName: 'Alpha', fldAmount: 12 },
+        { fldName: 'Beta', fldAmount: 34 },
+      ]);
       const background = await app.request('/runtime/flushBackground', {
         method: 'POST',
         headers,
@@ -280,6 +308,70 @@ describe('createHeadlessHttpApp', () => {
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve()))
       );
+    }
+  }, 30_000);
+
+  it('rejects a cloud-metadata CSV URL before opening a socket', async () => {
+    const runtime = await createHeadlessRuntime({
+      backend: { kind: 'pglite', dataDir: 'memory://' },
+    });
+    const app = createHeadlessHttpApp(runtime);
+    const headers = jsonActorHeaders('usr_metadata_ssrf');
+    try {
+      const base = await app.request('/bases/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: 'Metadata base' }),
+      });
+      const baseBody = (await base.json()) as { data: { base: { id: string } } };
+      const table = await app.request('/tables/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          baseId: baseBody.data.base.id,
+          name: 'Metadata table',
+          fields: [{ id: 'fldName', name: 'Name', type: 'singleLineText', isPrimary: true }],
+        }),
+      });
+      const tableBody = (await table.json()) as { data: { table: { id: string } } };
+
+      // Fail fast instead of dialing the metadata endpoint if the guard ever regresses.
+      const connect = vi.spyOn(net, 'connect').mockImplementation(() => {
+        throw new Error('network disabled in test');
+      });
+      try {
+        const imported = await app.request('/tables/importRecords', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            tableId: tableBody.data.table.id,
+            fileType: 'csv',
+            url: 'http://169.254.169.254/latest/meta-data/source.csv',
+            sourceColumnMap: { fldName: 0 },
+            options: { skipFirstNLines: 1 },
+          }),
+        });
+        expect(imported.status).toBe(504);
+        const body = (await imported.json()) as { ok: boolean; error: { code: string } };
+        expect(body.ok).toBe(false);
+        expect(body.error.code).toBe('csv.source_interrupted');
+        const serialized = JSON.stringify(body);
+        expect(serialized).not.toContain('169.254.169.254');
+        expect(serialized).not.toContain('meta-data');
+        expect(serialized).not.toMatch(/ECONN|ENOTFOUND|fetch failed|transport/i);
+        expect(connect).not.toHaveBeenCalled();
+      } finally {
+        connect.mockRestore();
+      }
+
+      const listed = await app.request(
+        `/tables/listRecords?tableId=${tableBody.data.table.id}&fieldKeyType=id`,
+        { headers }
+      );
+      const listedBody = (await listed.json()) as { data: { records: unknown[] } };
+      expect(listedBody.data.records).toEqual([]);
+    } finally {
+      await runtime.close();
     }
   }, 30_000);
 

@@ -62,17 +62,23 @@ type AdditionalMutationStatement = CompiledQuery & {
 };
 
 /**
- * Result of mutation visitor processing.
+ * Finalized mutation data, before a caller chooses its SQL shape.
  */
-export interface MutationStatements {
-  /** The main UPDATE statement for the record table */
-  mainUpdate: CompiledQuery;
+export interface MutationPlan {
   /** Raw SET clauses for rebuilding UPDATE ... RETURNING in repositories */
   setClauses: Record<string, unknown>;
   /** Additional SQL statements (junction table operations, FK updates for link fields) */
   additionalStatements: AdditionalMutationStatement[];
   /** Field IDs that were changed (for computed field propagation) */
   changedFieldIds: FieldId[];
+}
+
+/**
+ * Result of mutation visitor processing for a single-record UPDATE.
+ */
+export interface MutationStatements extends MutationPlan {
+  /** The main UPDATE statement for the record table */
+  mainUpdate: CompiledQuery;
 }
 
 /**
@@ -133,27 +139,37 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   /**
-   * Build the final mutation statements.
+   * Apply tracked-field updates and return the mutation data without compiling SQL.
+   * Batch callers use this to build one set-based statement for many records.
    */
-  build(): Result<MutationStatements, DomainError> {
+  finalize(): Result<MutationPlan, DomainError> {
     const lastModifiedTimeResult = this.applyTrackedLastModifiedTimeUpdates();
     if (lastModifiedTimeResult.isErr()) return err(lastModifiedTimeResult.error);
 
     const lastModifiedByResult = this.applyTrackedLastModifiedByUpdates();
     if (lastModifiedByResult.isErr()) return err(lastModifiedByResult.error);
 
+    return ok({
+      setClauses: { ...this.setClauses },
+      additionalStatements: [...this.additionalStatements],
+      changedFieldIds: [...this.changedFieldIds],
+    });
+  }
+
+  /**
+   * Build the final single-record mutation statements.
+   */
+  build(): Result<MutationStatements, DomainError> {
+    const planResult = this.finalize();
+    if (planResult.isErr()) return err(planResult.error);
+
     const mainUpdate = this.db
       .updateTable(this.tableName)
-      .set(this.setClauses)
+      .set(planResult.value.setClauses)
       .where(RECORD_ID_COLUMN, '=', this.ctx.recordId)
       .compile();
 
-    return ok({
-      mainUpdate,
-      setClauses: { ...this.setClauses },
-      additionalStatements: this.additionalStatements,
-      changedFieldIds: this.changedFieldIds,
-    });
+    return ok({ mainUpdate, ...planResult.value });
   }
 
   private applyTrackedLastModifiedTimeUpdates(): Result<void, DomainError> {
@@ -235,29 +251,6 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
    */
   getChangedFieldIds(): ReadonlyArray<FieldId> {
     return this.changedFieldIds;
-  }
-
-  /**
-   * Get the raw SET clause values for batch operations.
-   * Returns a copy of the SET clauses, additional statements, and changed field IDs.
-   *
-   * This is used by BatchRecordUpdateBuilder to collect update values
-   * across multiple records before generating batch UPDATE SQL.
-   *
-   * Note: This should be called after build() has been called, as build()
-   * applies tracked field updates (LastModifiedTime, LastModifiedBy) to setClauses.
-   */
-  getSetClausesRaw(): {
-    setClauses: Record<string, unknown>;
-    additionalStatements: AdditionalMutationStatement[];
-    changedFieldIds: FieldId[];
-  } {
-    // Return a shallow copy to prevent external modifications
-    return {
-      setClauses: { ...this.setClauses },
-      additionalStatements: [...this.additionalStatements],
-      changedFieldIds: [...this.changedFieldIds],
-    };
   }
 
   getAttachmentTableReplacements(): AttachmentTableReplaceInput[] {

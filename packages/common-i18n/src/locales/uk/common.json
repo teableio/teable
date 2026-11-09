@@ -6,6 +6,7 @@
     "deleteTableTitle": "Delete table",
     "copyTableTitle": "Copy table",
     "copyBaseTitle": "Copy project",
+    "convertFieldTitle": "Change field",
     "changedEffectsTitle": "What else changes",
     "preservedTitle": "Stays connected",
     "loading": "Loading details…",
@@ -25,12 +26,15 @@
     "executionCoverageUnknown": "execution-time effects",
     "uncertaintyDetail": "other effects",
     "recordCountUnknown": "record count",
+    "affectedCellCountUnknown": "affected-cell count",
     "retentionUnknown": "The Trash retention period is not checked.",
     "storageUnknown": "Storage impact is not checked.",
     "retentionStorageUnknown": "The Trash retention period and storage impact are not checked.",
     "inTables": "In table: {{names}}",
     "affectedFields": "Affected fields:",
     "affectedViews": "Affected views:",
+    "affectedCells": "Affected cells:",
+    "affectedLinkChanges": "Related link changes:",
     "labels": {
       "tables": "Tables",
       "fields": "Fields",
@@ -67,7 +71,12 @@
       "dependentFieldsUpdatedDetail": "Update dependent fields; final values are not specified",
       "alreadyTrashed": "This table is already in Trash.",
       "unknownLinksDetail": "Some linked tables could not be classified; whether their links are kept or converted is unknown.",
-      "truncatedEffectsDetail": "Only part of the affected-resource list is shown."
+      "truncatedEffectsDetail": "Only part of the affected-resource list is shown.",
+      "fieldTypeChanged": "Change the field type",
+      "fieldConfigurationChanged": "Update the field settings",
+      "fieldValuesRewritten": "Rewrite existing field values for the new settings",
+      "fieldUnchanged": "Keep the current field settings",
+      "fieldLinkChanges": "Apply related link changes"
     }
   },
   "actions": {
@@ -526,7 +535,8 @@
     "nav": {
       "settings": "Налаштування",
       "logout": "Вийти",
-      "contactSupport": "Зв'язатися з підтримкою"
+      "contactSupport": "Зв'язатися з підтримкою",
+      "downloadApp": "Завантажити застосунок"
     },
     "integration": {
       "title": "Інтеграції",
@@ -784,6 +794,7 @@
       "enableWaitlistDescription": "Увімкнення цієї опції дозволить користувачам зареєструватися лише за допомогою привілей.",
       "generalSettings": "Загальні налаштування",
       "aiSettings": "Налаштування AI",
+      "secretEndpointChanged": "Адресу змінено. Введіть {{secret}} ще раз.",
       "brandingSettings": {
         "title": "Налаштування брендингу",
         "description": "Доступно лише в корпоративній версії",
@@ -1085,6 +1096,7 @@
           "gatewayErrorForbidden": "Доступ заборонено. Перевірте стан облікового запису в панелі Vercel",
           "gatewayErrorNetwork": "Помилка мережі. Перевірте підключення або налаштування проксі",
           "pleaseTest": "Натисніть «Перевірити», щоб перевірити ключ API",
+          "gatewayUrlKeysReenter": "Адресу змінено. Спочатку введіть ще раз або очистьте ключі, збережені в розширеній конфігурації (групи токенів, Vertex AI BYOK), інакше зберегти не вдасться.",
           "test": "Перевірити",
           "testing": "Перевірка...",
           "attachmentTest": {
@@ -1117,7 +1129,6 @@
           "smDesc": "Прості запити, швидкі відповіді",
           "readyToUse": "ШІ налаштовано й готовий до використання!",
           "customProviderHelp": "Додайте власних ШІ-провайдерів (OpenAI, Anthropic, Azure тощо) і налаштуйте ключі API та моделі.",
-          "testModelCapabilities": "Перевірити можливості моделі",
           "customModelsAutoImported": "Моделі вашого провайдера автоматично імпортовано в пул моделей.",
           "modelsCount": "Доступно моделей: {{count}}",
           "customModelsHint": "Щоб змінити конфігурацію моделей, поверніться до кроку 1 та відредагуйте налаштування провайдера.",
@@ -1174,7 +1185,8 @@
       "group": {
         "system": "Основне",
         "ai": "Сервіси ШІ",
-        "appBuilder": "Конструктор застосунків"
+        "appBuilder": "Конструктор застосунків",
+        "security": "Безпека"
       },
       "copyInstance": "Копіювати ID",
       "list": {
@@ -1223,7 +1235,23 @@
         "sandboxOpenSandbox": {
           "title": "Середовище виконання ШІ-чату",
           "description": "Налаштуйте середовище виконання OpenSandbox для ШІ-чату, <anchor>перейти до налаштування</anchor>"
+        },
+        "signupVerification": {
+          "title": "Відкрита реєстрація без підтвердження пошти",
+          "description": "Будь-хто може зареєструватися з чужою поштовою адресою: зайняти адресу колеги чи клієнта й перехопити обліковий запис запрошеного поштою, хто ще не зареєструвався, разом із доступом, наданим запрошенням. Увімкніть підтвердження пошти (потрібне налаштоване надсилання листів) або вимкніть відкриту реєстрацію, <anchor>перейти до налаштувань</anchor>"
+        },
+        "secrets": {
+          "title": "Секрети сервера",
+          "description": "Секрети, що не задані або використовують загальновідоме значення за замовчуванням: {{total}}. Це може дозволити підробити токени входу чи розшифрувати збережені дані. Задайте їх у змінних середовища й перезапустіть; у журналі запуску описано кожен пункт. Якщо в екземплярі вже є дані, спершу зафіксуйте поточні значення, а потім виконайте ротацію: пряма заміна ключа шифрування зробить зашифровані ним дані нечитабельними.",
+          "missing": "Не задано",
+          "publicDefault": "Загальновідоме значення за замовчуванням",
+          "docsLink": "Довідник змінних середовища",
+          "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
+      },
+      "banner": {
+        "message": "У панелі адміністратора є завдання з безпеки",
+        "action": "Перейти"
       }
     },
     "canary": {
@@ -1511,6 +1539,18 @@
           },
           "connectorDisconnected": {
             "title": "Рутина {{name}} перестала отримувати події конектора"
+          },
+          "handedToYou": {
+            "title": "Рутину {{name}} передано вам",
+            "message": "{{previousOwner}} більше не може редагувати рутину {{name}}, тому її передано вам. Тепер вона виконується від вашого імені, а результати й сповіщення надходять вам. Перевірте інструкції та тригер або призупиніть її, якщо вона не потрібна."
+          },
+          "handedAway": {
+            "title": "Вашу рутину {{name}} передано користувачу {{newOwner}}",
+            "message": "Ви більше не можете редагувати рутину {{name}}, тому її передано користувачу {{newOwner}}. Тепер вона виконується від імені {{newOwner}}."
+          },
+          "takenOver": {
+            "title": "Рутина {{name}} тепер виконується від імені {{newOwner}}",
+            "message": "{{newOwner}} перебрав(ла) на себе рутину {{name}}. Тепер вона виконується від імені {{newOwner}}, а результати й сповіщення надходять {{newOwner}}."
           }
         },
         "billing": {
@@ -2068,5 +2108,16 @@
         "description": "Допомагають нам оцінювати ефективність реклами та акцій."
       }
     }
+  },
+  "openInApp": {
+    "title": "Застосунок Teable",
+    "description": "Відкрийте цю сторінку в застосунку, так працювати зручніше",
+    "open": "Відкрити",
+    "dismiss": "Закрити",
+    "notInstalledTitle": "Ще немає застосунку?",
+    "notInstalledDescription": "Установіть його, поверніться сюди й натисніть «Відкрити»",
+    "getApp": "Завантажити застосунок",
+    "inAppBrowserHint": "Щоб перейти в застосунок, відкрийте цю сторінку в браузері через меню у верхньому правому куті",
+    "menuItem": "Відкрити в застосунку Teable"
   }
 }

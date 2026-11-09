@@ -149,6 +149,7 @@ const createService = (config: FieldBackfillConfig = { mode: 'sync', hybridThres
     {
       enqueueFieldBackfill: vi.fn(async () => ok({ taskId: 'cuo_test', merged: false })),
     } as never,
+    {} as never,
     config,
     {} as never
   );

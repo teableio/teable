@@ -7,6 +7,7 @@ import type {
   IPluginViewOptions,
 } from '@teable/core';
 import {
+  Colors,
   DriverClient,
   FieldAIActionType,
   FieldKeyType,
@@ -62,8 +63,11 @@ import {
   updateSetting,
   urlBuilder,
 } from '@teable/openapi';
+import { v2CoreTokens, type IBaseDataBulkCopier } from '@teable/v2-core';
 import type { AxiosInstance } from 'axios';
 import type { Knex } from 'knex';
+import { ok } from 'neverthrow';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   convertField,
@@ -1537,6 +1541,436 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         lookupFieldId: duplicatedScoreField.id,
       });
     });
+
+    it('preserves filtered linked countall rollups when duplicating a base with records through v2', async () => {
+      const parentTable = await createTable(base.id, {
+        name: 'Parents',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Mixed' } }, { fields: { Name: 'Zero matches' } }],
+      });
+      const childTable = await createTable(base.id, {
+        name: 'Children',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Note', type: FieldType.SingleLineText },
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: 'Pending', color: Colors.Yellow },
+                { name: 'Active', color: Colors.Green },
+                { name: 'Removed', color: Colors.Gray },
+              ],
+            },
+          },
+        ],
+        records: [
+          { fields: { Name: 'Mixed pending', Status: 'Pending', Note: null } },
+          { fields: { Name: 'Mixed active', Status: 'Active', Note: 'Nonmatching value' } },
+          { fields: { Name: 'Mixed removed', Status: 'Removed' } },
+          { fields: { Name: 'Zero removed', Status: 'Removed' } },
+        ],
+      });
+      const statusField = childTable.fields.find(({ name }) => name === 'Status')!;
+      const noteField = childTable.fields.find(({ name }) => name === 'Note')!;
+      const statusFormula = (
+        await createField(childTable.id, {
+          name: 'Status text',
+          type: FieldType.Formula,
+          options: { expression: `{${statusField.id}}` },
+        })
+      ).data;
+      const parentLink = (
+        await createField(childTable.id, {
+          name: 'Parent',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: parentTable.id,
+          },
+        })
+      ).data;
+      const childrenLinkId = (parentLink.options as ILinkFieldOptions).symmetricFieldId!;
+      for (const [index, child] of childTable.records.entries()) {
+        await updateRecord(childTable.id, child.id, {
+          record: {
+            fields: {
+              [parentLink.name]: { id: parentTable.records[index === 3 ? 1 : 0].id },
+            },
+          },
+        });
+      }
+
+      const rollupDefinitions: {
+        name: string;
+        fieldId: string;
+        lookupFieldId?: string;
+        operator: 'is' | 'isNot' | 'isAnyOf';
+        value: string | string[];
+      }[] = [
+        { name: 'Pending count', fieldId: statusField.id, operator: 'is', value: 'Pending' },
+        { name: 'Not removed count', fieldId: statusField.id, operator: 'isNot', value: 'Removed' },
+        {
+          name: 'Open count',
+          fieldId: statusField.id,
+          operator: 'isAnyOf',
+          value: ['Pending', 'Active'],
+        },
+        {
+          name: 'Formula pending count',
+          fieldId: statusFormula.id,
+          operator: 'is',
+          value: 'Pending',
+        },
+        {
+          name: 'Nullable pending count',
+          fieldId: statusField.id,
+          lookupFieldId: noteField.id,
+          operator: 'is',
+          value: 'Pending',
+        },
+      ];
+      const rollupFields = [];
+      for (const definition of rollupDefinitions) {
+        rollupFields.push(
+          (
+            await createField(parentTable.id, {
+              name: definition.name,
+              type: FieldType.Rollup,
+              options: { expression: 'countall({values})' },
+              lookupOptions: {
+                foreignTableId: childTable.id,
+                linkFieldId: childrenLinkId,
+                lookupFieldId: definition.lookupFieldId ?? statusField.id,
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: definition.fieldId,
+                      operator: definition.operator,
+                      value: definition.value,
+                    },
+                  ],
+                },
+              },
+            })
+          ).data
+        );
+      }
+
+      const initialCounts = new Map<string, number[]>([
+        ['Mixed', [1, 2, 2, 1, 1]],
+        ['Zero matches', [0, 0, 0, 0, 0]],
+      ]);
+      const expectCounts = async (tableId: string, expected: Map<string, number[]>) => {
+        const fields = (await getFields(tableId)).data;
+        const records = await getRecords(tableId, { fieldKeyType: FieldKeyType.Name });
+        const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+          where: { id: tableId },
+          select: { dbTableName: true },
+        });
+        const rows = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(
+          knex(dbTableName).select('*').toQuery()
+        );
+        expect(records.records).toHaveLength(2);
+        expect(rows).toHaveLength(2);
+        for (const [name, counts] of expected) {
+          const record = records.records.find(({ fields }) => fields.Name === name)!;
+          const countsByName = Object.fromEntries(
+            rollupDefinitions.map(({ name: fieldName }, index) => [fieldName, counts[index]])
+          );
+          expect(record.fields).toMatchObject(countsByName);
+          const row = rows.find(({ __id: recordId }) => recordId === record.id)!;
+          for (const [fieldName, count] of Object.entries(countsByName)) {
+            const field = fields.find(({ name }) => name === fieldName)!;
+            expect(row[field.dbFieldName]).toBe(count);
+          }
+        }
+      };
+      await expectCounts(parentTable.id, initialCounts);
+
+      duplicateBaseId = (
+        await duplicateBase({
+          fromBaseId: base.id,
+          spaceId,
+          name: 'Filtered rollup copy',
+          withRecords: true,
+        })
+      ).data.id;
+      const copiedTables = (await getTableList(duplicateBaseId)).data;
+      const copiedParent = copiedTables.find(({ name }) => name === parentTable.name)!;
+      const copiedChild = copiedTables.find(({ name }) => name === childTable.name)!;
+      const copiedParentFields = (await getFields(copiedParent.id)).data;
+      const copiedChildFields = (await getFields(copiedChild.id)).data;
+      const copiedStatus = copiedChildFields.find(({ name }) => name === statusField.name)!;
+      const copiedFormula = copiedChildFields.find(({ name }) => name === statusFormula.name)!;
+      const copiedParentLink = copiedChildFields.find(({ name }) => name === parentLink.name)!;
+      const copiedChildrenLinkId = (copiedParentLink.options as ILinkFieldOptions)
+        .symmetricFieldId!;
+      expect(copiedStatus.id).not.toBe(statusField.id);
+      expect(copiedStatus.options).toEqual(statusField.options);
+      expect(copiedFormula.options).toMatchObject({ expression: `{${copiedStatus.id}}` });
+      expect(copiedParentLink.options).toMatchObject({
+        relationship: Relationship.ManyOne,
+        foreignTableId: copiedParent.id,
+      });
+      expect(
+        copiedParentFields.find(({ id }) => id === copiedChildrenLinkId)?.options
+      ).toMatchObject({
+        relationship: Relationship.OneMany,
+        foreignTableId: copiedChild.id,
+      });
+      for (const [index, definition] of rollupDefinitions.entries()) {
+        const field = copiedParentFields.find(({ name }) => name === definition.name)!;
+        const sourceLookupField = childTable.fields.find(
+          ({ id }) => id === (definition.lookupFieldId ?? statusField.id)
+        )!;
+        const copiedLookupField = copiedChildFields.find(
+          ({ name }) => name === sourceLookupField.name
+        )!;
+        expect(field.id).not.toBe(rollupFields[index].id);
+        expect(field.lookupOptions).toMatchObject({
+          foreignTableId: copiedChild.id,
+          linkFieldId: copiedChildrenLinkId,
+          lookupFieldId: copiedLookupField.id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: index === 3 ? copiedFormula.id : copiedStatus.id,
+                operator: definition.operator,
+                value: definition.value,
+              },
+            ],
+          },
+        });
+      }
+      await expectCounts(copiedParent.id, initialCounts);
+
+      const copiedChildren = await getRecords(copiedChild.id, { fieldKeyType: FieldKeyType.Name });
+      const copiedPending = copiedChildren.records.find(
+        ({ fields }) => fields.Name === 'Mixed pending'
+      )!;
+      await updateRecord(copiedChild.id, copiedPending.id, {
+        record: { fields: { [copiedStatus.name]: 'Removed' } },
+      });
+      const updatedCounts = new Map<string, number[]>([...initialCounts]);
+      updatedCounts.set('Mixed', [0, 1, 1, 0, 0]);
+      await expectCounts(copiedParent.id, updatedCounts);
+      await expectCounts(parentTable.id, initialCounts);
+      const sourceChildren = await getRecords(childTable.id, { fieldKeyType: FieldKeyType.Name });
+      expect(
+        sourceChildren.records.find(({ id }) => id === childTable.records[0].id)?.fields.Status
+      ).toBe('Pending');
+    });
+
+    it.each(['bulk', 'stream'] as const)(
+      'completes cross-table computed dependencies and inverse links before v2 %s copy returns',
+      async (copyMode) => {
+        // Table creation order deliberately opposes the field dependency order.
+        // The parent total also feeds a child lookup: the table graph is cyclic,
+        // but the field graph (leaf formula -> child rollup/formula -> parent
+        // rollup -> child lookup) is acyclic.
+        const parent = await createTable(base.id, {
+          name: 'Chain parents',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [{ fields: { Name: 'Parent' } }],
+        });
+        const child = await createTable(base.id, {
+          name: 'Chain children',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [{ fields: { Name: 'Child' } }],
+        });
+        const leaf = await createTable(base.id, {
+          name: 'Chain leaves',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Amount', type: FieldType.Number },
+          ],
+          records: [
+            { fields: { Name: 'First', Amount: 2 } },
+            { fields: { Name: 'Second', Amount: 3 } },
+          ],
+        });
+        const amount = leaf.fields.find(({ name }) => name === 'Amount')!;
+        const doubled = (
+          await createField(leaf.id, {
+            name: 'Doubled',
+            type: FieldType.Formula,
+            options: { expression: `{${amount.id}} * 2` },
+          })
+        ).data;
+        const parentLink = (
+          await createField(child.id, {
+            name: 'Parent',
+            type: FieldType.Link,
+            options: { relationship: Relationship.ManyOne, foreignTableId: parent.id },
+          })
+        ).data;
+        const childLink = (
+          await createField(leaf.id, {
+            name: 'Child',
+            type: FieldType.Link,
+            options: { relationship: Relationship.ManyOne, foreignTableId: child.id },
+          })
+        ).data;
+        const childrenLinkId = (parentLink.options as ILinkFieldOptions).symmetricFieldId!;
+        const leavesLinkId = (childLink.options as ILinkFieldOptions).symmetricFieldId!;
+        const childTotal = (
+          await createField(child.id, {
+            name: 'Leaf total',
+            type: FieldType.Rollup,
+            options: { expression: 'sum({values})' },
+            lookupOptions: {
+              foreignTableId: leaf.id,
+              linkFieldId: leavesLinkId,
+              lookupFieldId: doubled.id,
+            },
+          })
+        ).data;
+        const childScore = (
+          await createField(child.id, {
+            name: 'Score',
+            type: FieldType.Formula,
+            options: { expression: `{${childTotal.id}} * 10` },
+          })
+        ).data;
+        const parentTotal = (
+          await createField(parent.id, {
+            name: 'Total score',
+            type: FieldType.Rollup,
+            options: { expression: 'sum({values})' },
+            lookupOptions: {
+              foreignTableId: child.id,
+              linkFieldId: childrenLinkId,
+              lookupFieldId: childScore.id,
+            },
+          })
+        ).data;
+        await createField(parent.id, {
+          name: 'Child scores',
+          type: FieldType.Number,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: child.id,
+            linkFieldId: childrenLinkId,
+            lookupFieldId: childScore.id,
+          },
+        });
+        await createField(child.id, {
+          name: 'Parent total',
+          type: FieldType.Number,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: parent.id,
+            linkFieldId: parentLink.id,
+            lookupFieldId: parentTotal.id,
+          },
+        });
+        await updateRecord(child.id, child.records[0].id, {
+          record: { fields: { [parentLink.name]: { id: parent.records[0].id } } },
+        });
+        for (const record of leaf.records) {
+          await updateRecord(leaf.id, record.id, {
+            record: { fields: { [childLink.name]: { id: child.records[0].id } } },
+          });
+        }
+
+        const expectChain = async (targetBaseId: string, total: number) => {
+          const tables = (await getTableList(targetBaseId)).data;
+          const parentTable = tables.find(({ name }) => name === parent.name)!;
+          const childTable = tables.find(({ name }) => name === child.name)!;
+          const leafTable = tables.find(({ name }) => name === leaf.name)!;
+          const readStored = async (tableId: string) => {
+            const fields = (await getFields(tableId)).data;
+            const records = (await getRecords(tableId, { fieldKeyType: FieldKeyType.Name }))
+              .records;
+            const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+              where: { id: tableId },
+              select: { dbTableName: true },
+            });
+            const rows = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(
+              knex(dbTableName).select('*').toQuery()
+            );
+            const expectValue = (expectedRecordId: string, name: string, value: unknown) => {
+              const field = fields.find((field) => field.name === name)!;
+              expect(records.find(({ id }) => id === expectedRecordId)!.fields[name]).toEqual(
+                value
+              );
+              expect(
+                rows.find(({ __id: recordId }) => recordId === expectedRecordId)![field.dbFieldName]
+              ).toEqual(value);
+            };
+            return { fields, records, expectValue };
+          };
+          const p = await readStored(parentTable.id);
+          const c = await readStored(childTable.id);
+          const l = await readStored(leafTable.id);
+          expect(p.records).toHaveLength(1);
+          expect(c.records).toHaveLength(1);
+          expect(l.records).toHaveLength(2);
+          const parentRecord = p.records[0];
+          const childRecord = c.records[0];
+          p.expectValue(parentRecord.id, 'Total score', total);
+          p.expectValue(parentRecord.id, 'Child scores', [total]);
+          c.expectValue(childRecord.id, 'Leaf total', total / 10);
+          c.expectValue(childRecord.id, 'Score', total);
+          c.expectValue(childRecord.id, 'Parent total', total);
+          c.expectValue(childRecord.id, 'Parent', { id: parentRecord.id, title: 'Parent' });
+          const copiedParentLink = c.fields.find(({ name }) => name === 'Parent')!;
+          const inverseChildren = p.fields.find(
+            ({ id }) => id === (copiedParentLink.options as ILinkFieldOptions).symmetricFieldId
+          )!;
+          expect(inverseChildren.options).toMatchObject({ relationship: Relationship.OneMany });
+          p.expectValue(parentRecord.id, inverseChildren.name, [
+            { id: childRecord.id, title: 'Child' },
+          ]);
+          const copiedChildLink = l.fields.find(({ name }) => name === 'Child')!;
+          const inverseLeaves = c.fields.find(
+            ({ id }) => id === (copiedChildLink.options as ILinkFieldOptions).symmetricFieldId
+          )!;
+          const leaves = l.records.map(({ id, fields }) => ({ id, title: fields.Name }));
+          // Link order is preserved by the copy, but the assertion does not
+          // prescribe the storage order of otherwise unordered inverse links.
+          c.expectValue(childRecord.id, inverseLeaves.name, expect.arrayContaining(leaves));
+          expect(childRecord.fields[inverseLeaves.name]).toHaveLength(2);
+          for (const record of l.records) {
+            l.expectValue(record.id, 'Doubled', Number(record.fields.Amount) * 2);
+            l.expectValue(record.id, 'Child', { id: childRecord.id, title: 'Child' });
+          }
+          return { leafTable, leaves: l.records };
+        };
+        await expectChain(base.id, 100);
+        const container = await app.get(V2ContainerService).getContainerForSpace(spaceId);
+        const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);
+        // Only choose the existing unsupported-bulk branch. Record writes,
+        // relationship restoration and dependency computation all remain real.
+        const supportOverride =
+          copyMode === 'stream'
+            ? vi.spyOn(copier, 'isSupported').mockResolvedValue(ok(false))
+            : undefined;
+        try {
+          duplicateBaseId = (
+            await duplicateBase({
+              fromBaseId: base.id,
+              spaceId,
+              name: `Computed chain ${copyMode}`,
+              withRecords: true,
+            })
+          ).data.id;
+        } finally {
+          supportOverride?.mockRestore();
+        }
+        const copied = await expectChain(duplicateBaseId, 100);
+        const first = copied.leaves.find(({ fields }) => fields.Name === 'First')!;
+        await updateRecord(copied.leafTable.id, first.id, {
+          record: { fields: { Amount: 7 } },
+        });
+        await expectChain(duplicateBaseId, 200);
+        await expectChain(base.id, 100);
+      }
+    );
 
     it('duplicates folders, dashboards, and plugins through v2', async () => {
       const folderNode = await createBaseNode(base.id, {

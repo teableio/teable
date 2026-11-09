@@ -20,6 +20,10 @@ import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachm
 import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
 import { stripInstructionlessComponents } from './utils';
+import {
+  createCanReadViewShareConfig,
+  registerViewShareConfigFilter,
+} from './view-share-config.middleware';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
 const v2ProjectionSubmitSource = '@@v2-projection';
@@ -65,16 +69,11 @@ export class ShareDbService extends ShareDBClass {
       maxSubmitRetries: 3,
     });
 
-    const { provider, redis } = this.cacheConfig;
-    if (provider === 'redis') {
-      if (!redis.uri) {
-        throw new Error('Redis URI is required for Redis cache provider.');
-      }
-      const redisPubsub = new RedisPubSub({ redisURI: redis.uri });
-
-      this.logger.log(`> Detected Redis cache; enabled the Redis pub/sub adapter for ShareDB.`);
-      this.pubsub = redisPubsub;
+    const { redis } = this.cacheConfig;
+    if (!redis.uri) {
+      throw new Error('Redis URI is required for the ShareDB pub/sub adapter.');
     }
+    this.pubsub = new RedisPubSub({ redisURI: redis.uri });
 
     registerQueryCancellation(this);
     authMiddleware(this, {
@@ -83,6 +82,7 @@ export class ShareDbService extends ShareDBClass {
       clsService: this.cls,
       prismaService: this.prismaService,
     });
+    registerViewShareConfigFilter(this, createCanReadViewShareConfig(this.prismaService));
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client

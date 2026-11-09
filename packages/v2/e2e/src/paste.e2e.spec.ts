@@ -1,5 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { RecordFilter } from '@teable/v2-core';
+import {
+  ActorId,
+  PasteStreamCommand,
+  v2CoreTokens,
+  type PasteStreamApplicationService,
+  type PasteStreamEvent,
+  type RecordFilter,
+} from '@teable/v2-core';
 import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
@@ -6074,11 +6081,10 @@ describe('[B10] v2 http paste (e2e)', () => {
         .execute();
     });
 
-    it('writes a copied user object whose member is not a collaborator', async () => {
+    it('canonicalizes a complete identity for an active non-collaborator', async () => {
       const { table, nameFieldId, userFieldId, userFieldIndex } = await createUserTable();
       await ctx.createRecord(table.id, { [nameFieldId]: 'Row 1' });
 
-      // Simulates a cell copied from a user field (structured user object).
       const result = await ctx.paste({
         tableId: table.id,
         viewId: table.views[0].id,
@@ -6086,13 +6092,12 @@ describe('[B10] v2 http paste (e2e)', () => {
           [userFieldIndex, 0],
           [userFieldIndex, 0],
         ],
-        content: [[{ id: outsider.id, title: outsider.name, email: outsider.email }]],
+        content: [[{ id: outsider.id, email: outsider.email }]],
         typecast: true,
         sourceFields: [{ type: 'user', cellValueType: 'string' }],
       });
 
       expect(result.updatedCount).toBe(1);
-
       const records = await ctx.listRecords(table.id);
       expect(records[0]?.fields[userFieldId]).toMatchObject({
         id: outsider.id,
@@ -6151,6 +6156,199 @@ describe('[B10] v2 http paste (e2e)', () => {
         error?: { code?: string; message?: string };
       };
       expect(rawBody.error?.code).toBe('validation.field.user_not_found');
+    });
+  });
+
+  describe('paste keeps ordinary rec-prefixed text (T8420)', () => {
+    // Record-id-like input stays literal in text fields; link fields still resolve IDs.
+    const REC_PREFIXED_TEXT = [
+      'rec_sample_01',
+      'rec-test-02',
+      'rec.alpha.beta',
+      'record123',
+      'recipe_test',
+      'rec sample 09',
+      '  recipe_test  ',
+      'recABCDEFGHIJKLMNOP',
+      'recAlpha,recBeta',
+    ];
+    const REC_PREFIX_LOOKALIKES = ['REC_SAMPLE_06', 'rex_sample_07', 'abc rec_sample_08'];
+
+    const readColumnValues = async (targetTableId: string, fieldId: string) => {
+      const values: unknown[] = [];
+      let offset = 0;
+      for (;;) {
+        const page = await ctx.listRecordsWithPagination(targetTableId, { limit: 100, offset });
+        values.push(...page.records.map((record) => record.fields[fieldId]));
+        if (!page.pagination.hasMore) {
+          return values;
+        }
+        offset += page.records.length;
+      }
+    };
+
+    const createTextTable = async (name: string) => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          { name: 'Notes', type: 'longText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      return { table, nameFieldId: table.fields.find((field) => field.isPrimary)?.id ?? '' };
+    };
+
+    it('keeps rec-prefixed text literal on a range paste that updates and creates rows', async () => {
+      const { table, nameFieldId } = await createTextTable('T8420 Paste Text Prefix Range Table');
+      for (let index = 0; index < 3; index++) {
+        await ctx.createRecord(table.id, { [nameFieldId]: `seed-${index}` });
+      }
+
+      const pasted = [...REC_PREFIXED_TEXT, ...REC_PREFIX_LOOKALIKES];
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 0],
+          [0, pasted.length - 1],
+        ],
+        content: pasted.map((value) => [value]),
+      });
+
+      expect(result.updatedCount).toBe(3);
+      expect(result.createdCount).toBe(pasted.length - 3);
+      expect(await readColumnValues(table.id, nameFieldId)).toEqual(
+        pasted.map((value) => value.trim())
+      );
+    });
+
+    it('keeps rec-prefixed text literal when a single value expands across the column', async () => {
+      const { table, nameFieldId } = await createTextTable(
+        'T8420 Paste Text Prefix Expansion Table'
+      );
+      const rowCount = 4;
+      for (let index = 0; index < rowCount; index++) {
+        await ctx.createRecord(table.id, { [nameFieldId]: `seed-${index}` });
+      }
+
+      const result = await ctx.paste({
+        tableId: table.id,
+        viewId: table.views[0].id,
+        ranges: [[0, 0]],
+        content: [['rec_sample_01']],
+        type: 'columns',
+      });
+
+      expect(result.updatedCount).toBe(rowCount);
+      expect(result.createdCount).toBe(0);
+      expect(await readColumnValues(table.id, nameFieldId)).toEqual(
+        Array.from({ length: rowCount }, () => 'rec_sample_01')
+      );
+    });
+
+    it.each([false, true])(
+      'keeps text literal across streaming batches (explicit target IDs: %s)',
+      async (explicitIds) => {
+        const { table, nameFieldId } = await createTextTable('T8420 Streaming Text');
+        const seeded = await ctx.createRecords(
+          table.id,
+          Array.from({ length: 125 }, (_, index) => ({
+            fields: { [nameFieldId]: `seed-${index}` },
+          }))
+        );
+        const pasted = Array.from({ length: 250 }, (_, index) => `plain-${index}`);
+        for (const index of [0, 99, 100, 124, 125, 199, 200, 249]) {
+          pasted[index] = REC_PREFIXED_TEXT[index % REC_PREFIXED_TEXT.length];
+        }
+        const command = PasteStreamCommand.create({
+          tableId: table.id,
+          viewId: table.views[0].id,
+          ranges: [
+            [0, 0],
+            [0, pasted.length - 1],
+          ],
+          content: pasted.map((value) => [value]),
+          batchSize: 100,
+          ...(explicitIds
+            ? { targetRecordIds: seeded.map((record) => record.id), targetFieldIds: [nameFieldId] }
+            : {}),
+        })._unsafeUnwrap();
+        const service = ctx.testContainer.container.resolve<PasteStreamApplicationService>(
+          v2CoreTokens.pasteStreamApplicationService
+        );
+        const events: PasteStreamEvent[] = [];
+        for await (const event of service.createStream(
+          { actorId: ActorId.create(ctx.testUser.id)._unsafeUnwrap() },
+          command
+        )) {
+          events.push(event);
+        }
+
+        expect(events.filter((event) => event.id === 'error')).toEqual([]);
+        expect(events.at(-1)).toMatchObject({
+          id: 'done',
+          processedCount: 250,
+          updatedCount: 125,
+          createdCount: 125,
+        });
+        expect(await readColumnValues(table.id, nameFieldId)).toEqual(
+          pasted.map((value) => value.trim())
+        );
+      }
+    );
+
+    it('still links a real record id pasted as text into a link field', async () => {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'T8420 Paste Text Prefix Link Foreign',
+        fields: [{ name: 'Name', type: 'singleLineText', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const foreignNameFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const foreignRecord = await ctx.createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'linked-target',
+      });
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'T8420 Paste Text Prefix Link Host',
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Target',
+            type: 'link',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignNameFieldId,
+              isOneWay: true,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const hostNameFieldId = hostTable.fields.find((field) => field.isPrimary)?.id ?? '';
+      const hostLinkFieldId = hostTable.fields.find((field) => field.type === 'link')?.id ?? '';
+
+      await ctx.createRecord(hostTable.id, { [hostNameFieldId]: 'Row 1' });
+
+      const result = await ctx.paste({
+        tableId: hostTable.id,
+        viewId: hostTable.views[0].id,
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [[foreignRecord.id]],
+        typecast: true,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const [row] = await ctx.listRecords(hostTable.id);
+      expect(row.fields[hostLinkFieldId]).toMatchObject({ id: foreignRecord.id });
     });
   });
 });

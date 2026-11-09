@@ -7,6 +7,7 @@ import { isString } from 'lodash';
 import { useParams } from 'next/navigation';
 import { useTranslation } from 'next-i18next';
 import React, { Fragment, useEffect } from 'react';
+import { AdminTodoBanner } from '@/features/app/components/AdminTodoBanner';
 import { LicenseExpiryBanner } from '@/features/app/components/LicenseExpiryBanner';
 import { AppLayout } from '@/features/app/layouts';
 import { SpaceInnerSettingModal } from '@overridable/SpaceInnerSettingModal';
@@ -54,6 +55,7 @@ export const SpaceInnerLayout: React.FC<{
         <SessionProvider user={user}>
           <NotificationProvider>
             <LicenseExpiryBanner />
+            <AdminTodoBanner />
             <div id="portal" className="relative flex h-screen w-full items-start">
               {/* The native mobile shell has its own navigation: no sidebar in embed mode */}
               {!isEmbed && (

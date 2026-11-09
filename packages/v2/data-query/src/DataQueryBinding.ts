@@ -506,6 +506,12 @@ export type DataQueryBindingPrepareOptions = {
   readonly deferOperatorRejection?: boolean;
 };
 
+/** Complete dependency plans can be authorized even when live output semantics are broken. */
+export type DataQueryAuthorizationPreparation<TBinding> = {
+  readonly plan: BoundDataQueryPlan;
+  readonly bind: () => Result<TBinding, DomainError>;
+};
+
 export type DataQueryRelationCardinality = 'one' | 'many';
 
 export type DataQueryRelationLinkStorage =
@@ -771,6 +777,22 @@ export class DataQueryRelationBinding {
     targetTables: ReadonlyMap<string, ITableReadModel>,
     options: DataQueryBindingPrepareOptions = {}
   ): Result<DataQueryRelationBinding, DomainError> {
+    return this.prepareAuthorization(definition, rootTable, targetTables, options).andThen(
+      (prepared) => prepared.bind()
+    );
+  }
+
+  static prepareAuthorization(
+    definition: DataQueryDefinition,
+    rootTable: ITableReadModel,
+    targetTables: ReadonlyMap<string, ITableReadModel>,
+    options: DataQueryBindingPrepareOptions = {}
+  ): Result<
+    DataQueryAuthorizationPreparation<DataQueryRelationBinding> & {
+      readonly sources: ReadonlyArray<DataQueryRelationSourceBinding>;
+    },
+    DomainError
+  > {
     // The generator is a single linear validation sequence: early returns explain each
     // rejected boundary, and splitting it would scatter one contract across helpers.
     // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -1144,155 +1166,172 @@ export class DataQueryRelationBinding {
         });
       }
 
-      const outputs: DataQueryOutput[] = [];
-      if (snapshot.kind === 'records') {
-        for (const projection of snapshot.select) {
-          if ('statisticFunc' in projection) {
-            const info = resolved.get(projection.source);
-            if (!info) {
-              return err(
-                queryError('join_source_unknown', 'A projection references an undeclared source', {
-                  source: projection.source,
-                })
-              );
-            }
-            const dependency =
-              projection.fieldId === undefined
-                ? undefined
-                : targetDependencyMaps.get(projection.source)?.get(projection.fieldId);
-            if (projection.fieldId !== undefined && !dependency) {
-              return err(
-                queryError('field_missing', 'A required related field is missing', {
-                  source: projection.source,
+      const bindOutputs = () =>
+        safeTry(function* () {
+          const outputs: DataQueryOutput[] = [];
+          if (snapshot.kind === 'records') {
+            for (const projection of snapshot.select) {
+              if ('statisticFunc' in projection) {
+                const info = resolved.get(projection.source);
+                if (!info) {
+                  return err(
+                    queryError(
+                      'join_source_unknown',
+                      'A projection references an undeclared source',
+                      {
+                        source: projection.source,
+                      }
+                    )
+                  );
+                }
+                const dependency =
+                  projection.fieldId === undefined
+                    ? undefined
+                    : targetDependencyMaps.get(projection.source)?.get(projection.fieldId);
+                if (projection.fieldId !== undefined && !dependency) {
+                  return err(
+                    queryError('field_missing', 'A required related field is missing', {
+                      source: projection.source,
+                      fieldId: projection.fieldId,
+                    })
+                  );
+                }
+                outputs.push(
+                  yield* relationAggregateOutput(projection, dependency, projection.source)
+                );
+                continue;
+              }
+              if ('system' in projection) {
+                const cellValueTypes = {
+                  id: 'string',
+                  createdTime: 'dateTime',
+                  lastModifiedTime: 'dateTime',
+                  autoNumber: 'number',
+                  version: 'number',
+                };
+                outputs.push({
+                  alias: projection.alias,
+                  wireType:
+                    projection.system === 'autoNumber' || projection.system === 'version'
+                      ? 'numberOrString'
+                      : 'string',
+                  cellValueType: cellValueTypes[projection.system],
+                  isMultipleCellValue: false,
+                  // A LEFT JOIN can miss for any target row, so target system columns are
+                  // always nullable; the root keeps its stored-column invariants.
+                  nullable:
+                    !isRootProjection(projection) || projection.system === 'lastModifiedTime',
+                });
+                continue;
+              }
+              const rawSource = projectionSource(projection);
+              const source = rawSource === 'root' ? undefined : rawSource;
+              const dependency = source
+                ? targetDependencyMaps.get(source)?.get(projection.fieldId)
+                : root.map.get(projection.fieldId);
+              if (!dependency) {
+                return err(
+                  queryError('field_missing', 'A selected field is not part of the query binding', {
+                    ...(source ? { source } : {}),
+                  })
+                );
+              }
+              if (projection.arrayDistinct === true && dependency.isMultipleCellValue !== true) {
+                return err(
+                  queryError(
+                    'array_distinct_incompatible',
+                    'Array-distinct projection requires a multiple-value field'
+                  )
+                );
+              }
+              const bucket = 'bucket' in projection ? projection.bucket : undefined;
+              if (bucket !== undefined) {
+                yield* validateBucketField(bucket, dependency, {
+                  ...(source ? { source } : {}),
                   fieldId: projection.fieldId,
-                })
-              );
+                });
+                outputs.push(bucketOutputType(projection.alias, bucket));
+                continue;
+              }
+              outputs.push({
+                alias: projection.alias,
+                wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
+                cellValueType: dependency.cellValueType,
+                isMultipleCellValue: dependency.isMultipleCellValue,
+                nullable: true,
+              });
             }
-            outputs.push(yield* relationAggregateOutput(projection, dependency, projection.source));
-            continue;
-          }
-          if ('system' in projection) {
-            const cellValueTypes = {
-              id: 'string',
-              createdTime: 'dateTime',
-              lastModifiedTime: 'dateTime',
-              autoNumber: 'number',
-              version: 'number',
-            };
-            outputs.push({
-              alias: projection.alias,
-              wireType:
-                projection.system === 'autoNumber' || projection.system === 'version'
-                  ? 'numberOrString'
-                  : 'string',
-              cellValueType: cellValueTypes[projection.system],
-              isMultipleCellValue: false,
-              // A LEFT JOIN can miss for any target row, so target system columns are
-              // always nullable; the root keeps its stored-column invariants.
-              nullable: !isRootProjection(projection) || projection.system === 'lastModifiedTime',
-            });
-            continue;
-          }
-          const rawSource = projectionSource(projection);
-          const source = rawSource === 'root' ? undefined : rawSource;
-          const dependency = source
-            ? targetDependencyMaps.get(source)?.get(projection.fieldId)
-            : root.map.get(projection.fieldId);
-          if (!dependency) {
-            return err(
-              queryError('field_missing', 'A selected field is not part of the query binding', {
-                ...(source ? { source } : {}),
-              })
-            );
-          }
-          if (projection.arrayDistinct === true && dependency.isMultipleCellValue !== true) {
-            return err(
-              queryError(
-                'array_distinct_incompatible',
-                'Array-distinct projection requires a multiple-value field'
-              )
-            );
-          }
-          const bucket = 'bucket' in projection ? projection.bucket : undefined;
-          if (bucket !== undefined) {
-            yield* validateBucketField(bucket, dependency, {
-              ...(source ? { source } : {}),
-              fieldId: projection.fieldId,
-            });
-            outputs.push(bucketOutputType(projection.alias, bucket));
-            continue;
-          }
-          outputs.push({
-            alias: projection.alias,
-            wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
-            cellValueType: dependency.cellValueType,
-            isMultipleCellValue: dependency.isMultipleCellValue,
-            nullable: true,
-          });
-        }
-      } else {
-        for (const group of snapshot.groupBy ?? []) {
-          const rawSource = projectionSource(group);
-          const source = rawSource === 'root' ? undefined : rawSource;
-          const dependency = source
-            ? targetDependencyMaps.get(source)?.get(group.fieldId)
-            : root.map.get(group.fieldId);
-          if (!dependency) {
-            return err(
-              queryError('field_missing', 'A grouping field is not part of the query binding', {
-                ...(source ? { source } : {}),
-                fieldId: group.fieldId,
-              })
-            );
-          }
-          const bucket = 'bucket' in group ? group.bucket : undefined;
-          if (bucket !== undefined) {
-            yield* validateBucketField(bucket, dependency, {
-              ...(source ? { source } : {}),
-              fieldId: group.fieldId,
-            });
-            outputs.push(bucketOutputType(group.alias, bucket));
-            continue;
-          }
-          outputs.push({
-            alias: group.alias,
-            wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
-            cellValueType: dependency.cellValueType,
-            isMultipleCellValue: dependency.isMultipleCellValue,
-            nullable: true,
-          });
-        }
-        for (const aggregate of snapshot.aggregates) {
-          if ('source' in aggregate) {
-            const info = resolved.get(aggregate.source);
-            if (!info) {
-              return err(
-                queryError('join_source_unknown', 'A projection references an undeclared source', {
-                  source: aggregate.source,
-                })
-              );
+          } else {
+            for (const group of snapshot.groupBy ?? []) {
+              const rawSource = projectionSource(group);
+              const source = rawSource === 'root' ? undefined : rawSource;
+              const dependency = source
+                ? targetDependencyMaps.get(source)?.get(group.fieldId)
+                : root.map.get(group.fieldId);
+              if (!dependency) {
+                return err(
+                  queryError('field_missing', 'A grouping field is not part of the query binding', {
+                    ...(source ? { source } : {}),
+                    fieldId: group.fieldId,
+                  })
+                );
+              }
+              const bucket = 'bucket' in group ? group.bucket : undefined;
+              if (bucket !== undefined) {
+                yield* validateBucketField(bucket, dependency, {
+                  ...(source ? { source } : {}),
+                  fieldId: group.fieldId,
+                });
+                outputs.push(bucketOutputType(group.alias, bucket));
+                continue;
+              }
+              outputs.push({
+                alias: group.alias,
+                wireType: storedFieldWireTypes[dependency.fieldType] ?? 'unknown',
+                cellValueType: dependency.cellValueType,
+                isMultipleCellValue: dependency.isMultipleCellValue,
+                nullable: true,
+              });
             }
-            const dependency =
-              aggregate.fieldId === undefined
-                ? undefined
-                : targetDependencyMaps.get(aggregate.source)?.get(aggregate.fieldId);
-            if (aggregate.fieldId !== undefined && !dependency) {
-              return err(
-                queryError('field_missing', 'A required related field is missing', {
-                  source: aggregate.source,
-                  fieldId: aggregate.fieldId,
-                })
-              );
+            for (const aggregate of snapshot.aggregates) {
+              if ('source' in aggregate) {
+                const info = resolved.get(aggregate.source);
+                if (!info) {
+                  return err(
+                    queryError(
+                      'join_source_unknown',
+                      'A projection references an undeclared source',
+                      {
+                        source: aggregate.source,
+                      }
+                    )
+                  );
+                }
+                const dependency =
+                  aggregate.fieldId === undefined
+                    ? undefined
+                    : targetDependencyMaps.get(aggregate.source)?.get(aggregate.fieldId);
+                if (aggregate.fieldId !== undefined && !dependency) {
+                  return err(
+                    queryError('field_missing', 'A required related field is missing', {
+                      source: aggregate.source,
+                      fieldId: aggregate.fieldId,
+                    })
+                  );
+                }
+                outputs.push(
+                  yield* relationAggregateOutput(aggregate, dependency, aggregate.source)
+                );
+                continue;
+              }
+              const field = yield* rootTable
+                .getField((candidate) => candidate.id().toString() === aggregate.fieldId)
+                .mapErr(() => queryError('field_missing', 'A required query field is missing'));
+              outputs.push(yield* aggregateOutput(aggregate, field));
             }
-            outputs.push(yield* relationAggregateOutput(aggregate, dependency, aggregate.source));
-            continue;
           }
-          const field = yield* rootTable
-            .getField((candidate) => candidate.id().toString() === aggregate.fieldId)
-            .mapErr(() => queryError('field_missing', 'A required query field is missing'));
-          outputs.push(yield* aggregateOutput(aggregate, field));
-        }
-      }
+          return ok(outputs);
+        });
 
       const plan = yield* buildBoundDataQueryPlan({
         definition: snapshot,
@@ -1311,17 +1350,23 @@ export class DataQueryRelationBinding {
         })),
       });
 
-      return ok(
-        new DataQueryRelationBinding(
-          definition,
-          rootTable,
-          root.dependencies,
-          sources,
-          outputs,
-          plan,
-          deferredFilterError
-        )
-      );
+      return ok({
+        plan,
+        sources,
+        bind: () =>
+          bindOutputs().map(
+            (outputs) =>
+              new DataQueryRelationBinding(
+                definition,
+                rootTable,
+                root.dependencies,
+                sources,
+                outputs,
+                plan,
+                deferredFilterError
+              )
+          ),
+      });
     });
   }
 }
@@ -1345,6 +1390,16 @@ export class DataQueryBinding {
     table: ITableReadModel,
     options: DataQueryBindingPrepareOptions = {}
   ): Result<DataQueryBinding, DomainError> {
+    return this.prepareAuthorization(definition, table, options).andThen((prepared) =>
+      prepared.bind()
+    );
+  }
+
+  static prepareAuthorization(
+    definition: DataQueryDefinition,
+    table: ITableReadModel,
+    options: DataQueryBindingPrepareOptions = {}
+  ): Result<DataQueryAuthorizationPreparation<DataQueryBinding>, DomainError> {
     return safeTry(function* () {
       const snapshot = definition.snapshot();
       if (snapshot.tableId !== table.id().toString())
@@ -1387,14 +1442,20 @@ export class DataQueryBinding {
           }
         }
       }
-      const outputs = yield* describeOutputs(snapshot, fields, descriptions);
       const plan = yield* buildBoundDataQueryPlan({
         definition: snapshot,
         rootTable: table,
         rootDependencies: dependencies,
         rootUsage: usages,
       });
-      return ok(new DataQueryBinding(definition, dependencies, outputs, plan, deferredFilterError));
+      return ok({
+        plan,
+        bind: () =>
+          describeOutputs(snapshot, fields, descriptions).map(
+            (outputs) =>
+              new DataQueryBinding(definition, dependencies, outputs, plan, deferredFilterError)
+          ),
+      });
     });
   }
 }

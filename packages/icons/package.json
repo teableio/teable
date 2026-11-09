@@ -11,6 +11,7 @@
     "url": "https://github.com/teableio/teable",
     "directory": "packages/icons"
   },
+  "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

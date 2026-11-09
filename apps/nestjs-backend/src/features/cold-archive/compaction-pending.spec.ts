@@ -61,13 +61,8 @@ describe('markCompactionPending', () => {
     expect(redis.members(KEY)).toEqual(['tblA']);
   });
 
-  it('is a no-op without redis and survives a failing SADD with a warning', async () => {
+  it('survives a failing SADD with a warning', async () => {
     const redis = new FakePendingRedis();
-    redis.available = false;
-    await markCompactionPending({ ...setFor(redis), id: 'tblA' });
-    expect(redis.members(KEY)).toEqual([]);
-
-    redis.available = true;
     redis.failNext = { command: 'sadd', error: new Error('READONLY') };
     const logger = makeLogger();
     await expect(
@@ -242,7 +237,7 @@ describe('runCompactionScan', () => {
 
   it('does not mark the set bootstrapped when the full scan ran without a usable redis', async () => {
     const unavailable = new FakePendingRedis();
-    unavailable.available = false;
+    unavailable.failNext = { command: 'exists', error: new Error('ECONNREFUSED') };
     await runCompactionScan<IScanResult>({
       ...setFor(unavailable),
       listAll,
@@ -323,20 +318,7 @@ describe('runCompactionScan', () => {
     });
   });
 
-  it('falls back to a full scan without redis or when the set cannot be read', async () => {
-    const unavailable = new FakePendingRedis();
-    unavailable.available = false;
-    const offlineLogger = makeLogger();
-    const offline = await runCompactionScan<IScanResult>({
-      ...setFor(unavailable, offlineLogger),
-      listAll,
-      compact: async (id) => [{ id }],
-    });
-    expect(offline).toMatchObject({ mode: CompactionScanMode.Full, candidates: 3 });
-    expect(offlineLogger.lines[0].message).toBe(
-      'test cold compaction: full scan (redis unavailable)'
-    );
-
+  it('falls back to a full scan when the set cannot be read', async () => {
     const flaky = new FakePendingRedis();
     await bootstrapped(flaky);
     await flaky.sadd(KEY, 'tblA');

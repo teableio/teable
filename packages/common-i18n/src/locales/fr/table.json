@@ -113,6 +113,16 @@
           "confirmText": "Confirmer la sortie"
         }
       }
+    },
+    "countLabel": {
+      "hidden": "Masquer des champs",
+      "hiddenCount": "Masqués ({{count}})",
+      "filter": "Filtrer",
+      "filterCount": "Filtrer ({{count}})",
+      "sort": "Trier",
+      "sortCount": "Trier ({{count}})",
+      "group": "Grouper",
+      "groupCount": "Grouper ({{count}})"
     }
   },
   "welcome": {
@@ -1147,6 +1157,8 @@
   "view": {
     "addRecord": "Ajouter un enregistrement",
     "searchView": "Rechercher une vue...",
+    "starredGroup": "Favorites",
+    "otherGroup": "Autres vues",
     "dragToolTip": "Le tri automatique est activé, le glissement manuel n'est pas disponible",
     "insertToolTip": "Le tri automatique est activé, l'insertion avec ordre n'est pas disponible",
     "action": {
@@ -1169,6 +1181,7 @@
       "description": "Cette vue est endommagée. Si le rafraîchissement échoue toujours, veuillez nous contacter à support@teable.ai"
     },
     "addPluginView": "Ajouter une vue plugin",
+    "addView": "Créer une vue",
     "search": {
       "field_one": "{{name}}",
       "field_many": "champs ({{length}})",
@@ -1680,7 +1693,6 @@
       "share": "Partager",
       "enableShare": "Activer le partage",
       "copyLink": "Copier le lien",
-      "rotateLink": "Réinitialiser le lien",
       "scope": "Qui peut voir",
       "scopePublic": "Toute personne avec le lien",
       "scopeSpace": "Membres de l'espace",
@@ -1777,7 +1789,8 @@
       "running": "Génération en cours…",
       "waitingInput": "En attente de votre réponse",
       "failed": "Réponse échouée"
-    }
+    },
+    "routineRunPrompt": "Envoyé par la routine"
   },
   "upload": {
     "panelUploading": "Téléversement de {{count}} fichiers",

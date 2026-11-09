@@ -164,6 +164,18 @@ export class BaseShareService {
     return this.formatBaseShareVo(share);
   }
 
+  /** Every node of the base, with what deciding who may see it takes. */
+  async getNodeVisibilityEntries(baseId: string) {
+    const nodes = await this.prismaService.baseNode.findMany({
+      where: { baseId },
+      select: { id: true, parentId: true, resourceType: true, resourceId: true },
+    });
+    return nodes.map((node) => ({
+      ...node,
+      resourceType: node.resourceType as BaseNodeResourceType,
+    }));
+  }
+
   async getBaseShareByNodeId(baseId: string, nodeId: string): Promise<IBaseShareVo | null> {
     const share = await this.prismaService.baseShare.findFirst({
       where: { baseId, nodeId, enabled: true },

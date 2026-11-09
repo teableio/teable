@@ -16,7 +16,13 @@
   "files": [
     "src"
   ],
+  "scripts": {
+    "lint": "oxlint && oxfmt --check"
+  },
   "devDependencies": {
+    "@teable/eslint-config-bases": "workspace:^",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
     "tsdown": "0.23.1"
   }
 }

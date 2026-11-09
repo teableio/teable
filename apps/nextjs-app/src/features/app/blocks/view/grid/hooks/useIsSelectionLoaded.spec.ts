@@ -35,6 +35,95 @@ const isSelectionLoaded = (args: {
 };
 
 describe('useIsSelectionLoaded', () => {
+  it.each([
+    {
+      name: 'cell rectangle',
+      selection: new CombinedSelection(SelectionRegionType.Cells, [
+        [0, 0],
+        [0, 2],
+      ]),
+      rowCount: 3,
+    },
+    {
+      name: 'row',
+      selection: new CombinedSelection(SelectionRegionType.Rows, [[0, 2]]),
+      rowCount: 3,
+    },
+    {
+      name: 'column',
+      selection: new CombinedSelection(SelectionRegionType.Columns, [[0, 0]]),
+      rowCount: 3,
+    },
+  ])(
+    'treats a $name selection as unloaded when a middle row is missing',
+    ({ selection, rowCount }) => {
+      const sparseRecordMap = {
+        0: { id: 'rec0', fields: {} },
+        2: { id: 'rec2', fields: {} },
+      } as unknown as IRecordIndexMap;
+
+      expect(isSelectionLoaded({ selection, recordMap: sparseRecordMap, rowCount })).toBe(false);
+    }
+  );
+
+  it('stops checking a large selection at the first missing row', () => {
+    const lastRowIndex = 1_000_000;
+    const accessedRows: number[] = [];
+    const sparseRecordMap = new Proxy(
+      {
+        0: { id: 'rec0', fields: {} },
+        [lastRowIndex]: { id: 'recLast', fields: {} },
+      },
+      {
+        get(target, property, receiver) {
+          accessedRows.push(Number(property));
+          return Reflect.get(target, property, receiver);
+        },
+      }
+    ) as unknown as IRecordIndexMap;
+    const selection = new CombinedSelection(SelectionRegionType.Cells, [
+      [0, 0],
+      [0, lastRowIndex],
+    ]);
+
+    expect(
+      isSelectionLoaded({ selection, recordMap: sparseRecordMap, rowCount: lastRowIndex + 1 })
+    ).toBe(false);
+    expect(accessedRows).toEqual([0, 1]);
+  });
+
+  it('treats a covered undefined field value as a loaded blank', () => {
+    const blankRecordMap = {
+      0: { id: 'rec0', docSource: doc, fields: {} },
+    } as unknown as IRecordIndexMap;
+
+    expect(
+      isSelectionLoaded({
+        selection: prefixCells,
+        recordMap: blankRecordMap,
+        rowCount: 1,
+        loadedFieldsByRecordId: loadedByRecord(['fldPrefix']),
+        fields,
+      })
+    ).toBe(true);
+  });
+
+  it('requires field coverage even when an undefined value may be a blank', () => {
+    const blankRecordMap = {
+      0: { id: 'rec0', docSource: doc, fields: {} },
+    } as unknown as IRecordIndexMap;
+
+    expect(
+      isSelectionLoaded({
+        selection: prefixCells,
+        recordMap: blankRecordMap,
+        rowCount: 1,
+        loadedFieldsByRecordId: loadedByRecord([]),
+        fields,
+      })
+    ).toBe(false);
+  });
+
   it('treats a whole-row copy as unloaded when any visible column is missing', () => {
     expect(
       isSelectionLoaded({

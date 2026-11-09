@@ -354,7 +354,7 @@ export class LinkField
   validateForeignTables(context: ForeignTableValidationContext): Result<void, DomainError> {
     const foreignTableResult = this.resolveForeignTable(context.foreignTables);
     if (foreignTableResult.isErr()) return err(foreignTableResult.error);
-    const foreignTable = foreignTableResult.value;
+    const foreignTable = ForeignTable.from(foreignTableResult.value);
 
     const lookupResult = this.lookupField(foreignTable);
     if (lookupResult.isErr()) return err(lookupResult.error);
@@ -362,7 +362,15 @@ export class LinkField
     const visibleResult = this.visibleFields(foreignTable);
     if (visibleResult.isErr()) return err(visibleResult.error);
 
-    return ok(undefined);
+    if (this.relationship().toString() !== 'oneMany' || this.isOneWay()) return ok(undefined);
+
+    return foreignTableResult.value.dbTableName().andThen((foreignTableDbTableName) =>
+      this.ensureDbConfig({
+        baseId: context.hostTable.baseId(),
+        hostTableId: context.hostTable.id(),
+        foreignTableDbTableName,
+      })
+    );
   }
 
   /**
@@ -659,7 +667,24 @@ export class LinkField
 
     if (symmetricFieldIdResult.isErr()) return err(symmetricFieldIdResult.error);
 
-    if (this.configValue.hasDbConfig()) return ok(undefined);
+    if (this.configValue.hasDbConfig()) {
+      const foreignHost = params.foreignTableDbTableName;
+      if (
+        this.relationship().toString() === 'oneMany' &&
+        !this.isOneWay() &&
+        foreignHost &&
+        !this.configValue.fkHostTableName().equals(foreignHost)
+      ) {
+        // A two-way oneMany stores its FK on the actual foreign relation, not
+        // on the table-id fallback chosen before foreign metadata was loaded.
+        this.configValue = this.configValue.replaceDbConfig({
+          fkHostTableName: foreignHost,
+          selfKeyName: this.configValue.selfKeyName(),
+          foreignKeyName: this.configValue.foreignKeyName(),
+        });
+      }
+      return ok(undefined);
+    }
 
     const symmetricFieldId = symmetricFieldIdResult.value;
 
@@ -790,11 +815,9 @@ export class LinkField
     return foreignTable.generateFieldName(baseNameResult.value);
   }
 
-  private resolveForeignTable(
-    foreignTables: ReadonlyArray<Table>
-  ): Result<ForeignTable, DomainError> {
+  private resolveForeignTable(foreignTables: ReadonlyArray<Table>): Result<Table, DomainError> {
     const table = foreignTables.find((candidate) => candidate.id().equals(this.foreignTableId()));
     if (!table) return err(domainError.invariant({ message: 'Foreign table not loaded' }));
-    return ok(ForeignTable.from(table));
+    return ok(table);
   }
 }

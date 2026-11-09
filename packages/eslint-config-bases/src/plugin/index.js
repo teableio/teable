@@ -176,6 +176,7 @@ const noBareBullmqProcessor = {
 };
 
 const { consistentTypeImports, namingConvention } = require('./typescript-eslint');
+const { noLegacyCoreImport } = require('./v2-import-boundary');
 
 module.exports = {
   meta: { name: 'teable' },
@@ -184,6 +185,7 @@ module.exports = {
     'naming-convention': namingConvention,
     'no-bare-bullmq-processor': noBareBullmqProcessor,
     'no-bare-fetch': noBareFetch,
+    'no-legacy-core-import': noLegacyCoreImport,
     'no-query-plugin-table-cast': noQueryPluginTableCast,
     'tailwind-alpha-token-opacity': tailwindAlphaTokenOpacity,
     'tailwind-logical-direction': tailwindLogicalDirection,

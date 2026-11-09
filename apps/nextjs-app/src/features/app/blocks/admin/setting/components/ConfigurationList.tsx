@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Check, AlertCircle } from '@teable/icons';
+import type { ISettingVo } from '@teable/openapi';
 import { cn, Progress } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { useMemo } from 'react';
 import { scrollToTarget } from '../utils';
 
@@ -22,14 +23,109 @@ export interface IList {
     | 'appBuilderEngine'
     | 'appBuilderDomain'
     | 'sandboxVercel'
-    | 'email';
-  anchor?: RefObject<HTMLDivElement>;
+    | 'email'
+    | 'signupVerification'
+    | 'secrets';
+  anchor?: RefObject<HTMLDivElement | null>;
+  /** Replaces the default path/anchor navigation, e.g. to switch a tab on the same page. */
+  onNavigate?: () => void;
   values?: Record<string, string>;
   path: string;
   isComplete: boolean;
   isRequired?: boolean;
-  group?: 'system' | 'ai' | 'appBuilder';
+  /** 'danger' renders an unfinished item as a security warning instead of an empty checkbox. */
+  severity?: 'danger';
+  /** Extra content under an unfinished item, outside its button (may hold its own controls). */
+  details?: ReactNode;
+  group?: 'security' | 'system' | 'ai' | 'appBuilder';
 }
+
+type IInsecureSecret = NonNullable<ISettingVo['insecureSecrets']>[number];
+
+const InsecureSecretsList = ({ secrets }: { secrets: IInsecureSecret[] }) => {
+  const { t } = useTranslation('common');
+  return (
+    <div className="space-y-1.5 pb-2 pe-2 ps-9 text-xs">
+      {(['missing', 'publicDefault'] as const).map((reason) => {
+        const envKeys = secrets.filter((s) => s.reason === reason).map((s) => s.envKey);
+        if (!envKeys.length) return null;
+        return (
+          <div key={reason}>
+            <div className="text-muted-foreground">
+              {t(`admin.configuration.list.secrets.${reason}`)}
+            </div>
+            <ul className="mt-0.5 space-y-0.5">
+              {envKeys.map((envKey) => (
+                <li key={envKey} className="break-all font-mono text-foreground">
+                  {envKey}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+      <a
+        className="inline-block text-blue-500 hover:underline"
+        href={t('admin.configuration.list.secrets.href')}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {t('admin.configuration.list.secrets.docsLink')}
+      </a>
+    </div>
+  );
+};
+
+/**
+ * Checklist entries of the security group, shared by the admin setting pages.
+ * Only risks that are present become entries, so a safe instance shows no
+ * security group at all.
+ * - Open signup without email verification: anyone can register an address
+ *   they do not own, including one that was invited by email, whose
+ *   pre-created account already carries the invited role.
+ * - Server secrets that are unset or still on a public default. The backend
+ *   scopes that check to what this edition reads; an older backend that does
+ *   not report it yields no entry.
+ */
+export const useSecurityItems = (
+  setting: ISettingVo | undefined,
+  signupAnchor?: RefObject<HTMLDivElement | null>
+): IList[] => {
+  const { t } = useTranslation('common');
+  const disallowSignUp = setting?.disallowSignUp;
+  const enableEmailVerification = setting?.enableEmailVerification;
+  const insecureSecrets = setting?.insecureSecrets;
+  return useMemo(() => {
+    if (!setting) return [];
+    const items: IList[] = [];
+    if (!disallowSignUp && !enableEmailVerification) {
+      items.push({
+        title: t('admin.configuration.list.signupVerification.title'),
+        key: 'signupVerification',
+        anchor: signupAnchor,
+        isRequired: true,
+        isComplete: false,
+        severity: 'danger',
+        group: 'security',
+        path: '/admin/setting?anchor=signup',
+      });
+    }
+    if (insecureSecrets?.length) {
+      items.push({
+        title: t('admin.configuration.list.secrets.title'),
+        key: 'secrets',
+        values: { total: String(insecureSecrets.length) },
+        isRequired: true,
+        isComplete: false,
+        severity: 'danger',
+        details: <InsecureSecretsList secrets={insecureSecrets} />,
+        group: 'security',
+        path: '/admin/setting',
+      });
+    }
+    return items;
+  }, [setting, disallowSignUp, enableEmailVerification, insecureSecrets, signupAnchor, t]);
+};
 
 export interface IConfigurationListProps {
   list: IList[];
@@ -49,7 +145,9 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
   const allRequiredComplete = requiredList.length > 0 && requiredComplete === requiredList.length;
 
   const grouped = useMemo(() => {
+    // Security first: its entries only exist while a risk is present.
     const groups: Array<{ key: IList['group']; items: IList[] }> = [
+      { key: 'security', items: [] },
       { key: 'system', items: [] },
       { key: 'ai', items: [] },
       { key: 'appBuilder', items: [] },
@@ -60,8 +158,8 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
 
     for (const item of requiredItems) {
       const g = item.group ?? 'system';
-      const group = groups.find((x) => x.key === g);
-      (group?.items ?? groups[0].items).push(item);
+      const group = groups.find((x) => x.key === g) ?? groups.find((x) => x.key === 'system');
+      group?.items.push(item);
     }
 
     return groups.filter((g) => g.items.length > 0);
@@ -135,6 +233,10 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
                   item.isComplete && 'opacity-80'
                 )}
                 onClick={() => {
+                  if (item.onNavigate) {
+                    item.onNavigate();
+                    return;
+                  }
                   const { path } = item;
                   if (path && !path.includes(router.pathname)) {
                     router.push(path);
@@ -142,25 +244,34 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
                   item.anchor?.current && scrollToTarget(item.anchor.current);
                 }}
               >
-                <div
-                  className={cn(
-                    'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full',
-                    item.isComplete
-                      ? 'bg-green-500 text-white'
-                      : 'border-2 border-muted-foreground/30'
-                  )}
-                >
-                  {item.isComplete ? <Check className="size-3" /> : null}
-                </div>
+                {!item.isComplete && item.severity === 'danger' ? (
+                  <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
+                ) : (
+                  <div
+                    className={cn(
+                      'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full',
+                      item.isComplete
+                        ? 'bg-green-500 text-white'
+                        : 'border-2 border-muted-foreground/30'
+                    )}
+                  >
+                    {item.isComplete ? <Check className="size-3" /> : null}
+                  </div>
+                )}
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium text-foreground">
+                    <span
+                      className={cn(
+                        'truncate text-sm font-medium text-foreground',
+                        !item.isComplete && item.severity === 'danger' && 'text-destructive'
+                      )}
+                    >
                       {item.title}
                     </span>
                   </div>
 
-                  <div className="mt-1 text-xs text-muted-foreground">
+                  <div className="mt-1 break-words text-xs text-muted-foreground">
                     {item.isComplete ? (
                       <span>{t('admin.configuration.completed', '已完成')}</span>
                     ) : (
@@ -174,6 +285,10 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
                               className="cursor-pointer text-blue-500"
                               onClick={(e) => {
                                 e.preventDefault();
+                                if (item.onNavigate) {
+                                  item.onNavigate();
+                                  return;
+                                }
                                 const { path } = item;
                                 if (path && !path.includes(router.pathname)) {
                                   router.push(path);
@@ -184,6 +299,10 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
                               tabIndex={0}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
+                                  if (item.onNavigate) {
+                                    item.onNavigate();
+                                    return;
+                                  }
                                   const { path } = item;
                                   if (path && !path.includes(router.pathname)) {
                                     router.push(path);
@@ -209,6 +328,7 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
                   </div>
                 </div>
               </button>
+              {!item.isComplete && item.details}
             </div>
           ))}
         </div>

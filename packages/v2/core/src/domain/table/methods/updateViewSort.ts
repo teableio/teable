@@ -9,6 +9,7 @@ import type { View } from '../views/View';
 import type { ViewId } from '../views/ViewId';
 import { ViewQueryDefaults } from '../views/ViewQueryDefaults';
 import { ViewSort, viewSortDtoFromQueryDefaults, type ViewSortDTO } from '../views/ViewSort';
+import { validateViewSortCollations } from '../views/validateViewSortCollations';
 
 export type UpdateViewSortMethodResult = {
   readonly view: View;
@@ -59,6 +60,12 @@ export function updateViewSort(
     yield* validateSortFields(table, nextSort);
 
     const previousQueryDefaults = yield* view.queryDefaults();
+    yield* validateViewSortCollations(
+      table,
+      nextSort?.sortObjs,
+      previousQueryDefaults.group(),
+      nextSort?.manualSort
+    );
     const previousSort = viewSortDtoFromQueryDefaults(previousQueryDefaults);
     const {
       sort: _previousSort,

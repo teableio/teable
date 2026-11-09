@@ -4,6 +4,11 @@ import { sql, type RawBuilder } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
 import { buildDateLikeGroupExpression } from '../dateLikeOrderBy';
+import {
+  applyPinyinCollation,
+  resolvePinyinOrderByKind,
+  type FieldOrderByCollation,
+} from '../fieldOrderByCollation';
 import { applyV1NullsOrder } from '../systemOrderColumns';
 import {
   buildUserGroupIdentityExpr,
@@ -154,8 +159,13 @@ export const buildStoredFieldOrderByClauses = (
     readonly columnExpression?: RawBuilder<unknown>;
     /** Keep group buckets with equal display titles contiguous by identity. */
     readonly groupIdentityCollation?: boolean;
+    /** Explicit lexical collation; unsupported field shapes fail validation. */
+    readonly collation?: FieldOrderByCollation;
   }
 ): Result<ReadonlyArray<StoredFieldOrderByClause>, DomainError> => {
+  const pinyinKindResult = resolvePinyinOrderByKind(field, options?.collation);
+  if (pinyinKindResult.isErr()) return err(pinyinKindResult.error);
+  const pinyinKind = pinyinKindResult.value;
   const columnExpression = options?.columnExpression;
   const fieldType = field.type();
   const columnRef = columnExpression ?? sql.ref(`${tableAlias}.${column}`);
@@ -228,9 +238,12 @@ export const buildStoredFieldOrderByClauses = (
     fieldType.equals(FieldType.createdBy()) ||
     fieldType.equals(FieldType.lastModifiedBy());
   if (isUserLike) {
-    const multiplicityResult = field.isMultipleCellValue();
-    if (multiplicityResult.isErr()) return err(multiplicityResult.error);
-
+    let isMultiple = false;
+    if (pinyinKind !== 'link') {
+      const multiplicityResult = field.isMultipleCellValue();
+      if (multiplicityResult.isErr()) return err(multiplicityResult.error);
+      isMultiple = multiplicityResult.value.isMultiple();
+    }
     const source =
       fieldType.equals(FieldType.createdBy()) || fieldType.equals(FieldType.lastModifiedBy())
         ? 'system'
@@ -249,15 +262,15 @@ export const buildStoredFieldOrderByClauses = (
             WHEN jsonb_typeof(${columnJson}) = 'array' THEN ${columnJson}
             ELSE '[]'::jsonb
           END`;
-    const titleExpression = multiplicityResult.value.isMultiple()
+    const titleExpression = isMultiple
       ? sql`jsonb_path_query_array(${arrayLikeColumnJson}, '$[*].title')::text`
       : source === 'field'
         ? sql`${columnJson} ->> 'title'`
         : sql`coalesce(${columnJson} ->> 'title', ${columnJson} ->> 'name', ${columnJson} #>> '{}')`;
+    const baseOrderExpression =
+      isLinkLookup && isMultiple ? sql`NULLIF(${titleExpression}, '[]')` : titleExpression;
     const orderExpression =
-      isLinkLookup && multiplicityResult.value.isMultiple()
-        ? sql`NULLIF(${titleExpression}, '[]')`
-        : titleExpression;
+      pinyinKind === 'link' ? applyPinyinCollation(baseOrderExpression) : baseOrderExpression;
     const clauses = withNullOrdering(orderExpression, direction);
     // Equal titles still belong to distinct link buckets. Keep those buckets
     // contiguous, but leave ordinary sort ties to the existing row order.
@@ -276,5 +289,11 @@ export const buildStoredFieldOrderByClauses = (
     !columnExpression && options?.groupIdentityCollation
       ? buildDateLikeGroupExpression(field, tableAlias, column)
       : null;
-  return ok(withNullOrdering(groupBucketExpression ?? columnRef, direction));
+  const orderExpression = groupBucketExpression ?? columnRef;
+  return ok(
+    withNullOrdering(
+      pinyinKind === 'text' ? applyPinyinCollation(orderExpression) : orderExpression,
+      direction
+    )
+  );
 };

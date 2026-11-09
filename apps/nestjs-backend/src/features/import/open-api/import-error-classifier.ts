@@ -35,7 +35,7 @@ const errorMatchers: IErrorMatcher[] = [
   {
     type: ImportErrorType.DateOutOfRange,
     pattern: /time zone displacement out of range|date\/time field value out of range/i,
-    i18nKey: 'common.import.error.dateOutOfRange' as I18nPath,
+    i18nKey: 'common.import.error.dateOutOfRange',
     extractContext: (_match, raw) => {
       const valueMatch = /"([^"]+)"/.exec(raw);
       return { value: valueMatch?.[1] ?? '' };
@@ -44,13 +44,13 @@ const errorMatchers: IErrorMatcher[] = [
   {
     type: ImportErrorType.PlanRowLimit,
     pattern: /upgrade your plan to import more records/i,
-    i18nKey: 'common.import.error.planRowLimit' as I18nPath,
+    i18nKey: 'common.import.error.planRowLimit',
     extractContext: () => ({}),
   },
   {
     type: ImportErrorType.NotNullValidation,
     pattern: /Fields?\s+(\w+(?:\s*,\s*\w+)*)\s+not null validation failed/i,
-    i18nKey: 'common.import.error.notNullValidation' as I18nPath,
+    i18nKey: 'common.import.error.notNullValidation',
     extractContext: (match) => ({
       fieldIds: match[1]?.trim() ?? '',
     }),
@@ -58,7 +58,7 @@ const errorMatchers: IErrorMatcher[] = [
   {
     type: ImportErrorType.UniqueValidation,
     pattern: /Fields?\s+(\w+(?:\s*,\s*\w+)*)\s+unique validation failed/i,
-    i18nKey: 'common.import.error.uniqueValidation' as I18nPath,
+    i18nKey: 'common.import.error.uniqueValidation',
     extractContext: (match) => ({
       fieldIds: match[1]?.trim() ?? '',
     }),
@@ -66,13 +66,13 @@ const errorMatchers: IErrorMatcher[] = [
   {
     type: ImportErrorType.RequestTimeout,
     pattern: /request timeout/i,
-    i18nKey: 'common.import.error.requestTimeout' as I18nPath,
+    i18nKey: 'common.import.error.requestTimeout',
     extractContext: () => ({}),
   },
   {
     type: ImportErrorType.ChunkProcessingFailed,
     pattern: /^Chunk processing failed:/i,
-    i18nKey: 'common.import.error.chunkProcessingFailed' as I18nPath,
+    i18nKey: 'common.import.error.chunkProcessingFailed',
     extractContext: (_match, raw) => ({
       reason: raw.replace(/^Chunk processing failed:\s*/i, ''),
     }),
@@ -93,7 +93,7 @@ export function classifyImportError(rawMessage: string): IClassifiedError {
   }
   return {
     type: ImportErrorType.Unknown,
-    i18nKey: 'common.import.error.unknown' as I18nPath,
+    i18nKey: 'common.import.error.unknown',
     context: { message: rawMessage },
     rawMessage,
   };

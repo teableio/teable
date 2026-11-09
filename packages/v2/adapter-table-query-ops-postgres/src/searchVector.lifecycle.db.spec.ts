@@ -38,12 +38,13 @@ import {
   type TableSearchVectorReconciler,
   type TableSearchVectorStatusReader,
 } from '@teable/v2-table-query-ops';
-import { sql, type Kysely } from 'kysely';
+import { PostgresQueryCompiler, sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { getTablePhysicalName, quoteIdentifier } from './helpers';
 import { registerV2TableOpsPostgresAdapter } from './register';
 import type { TableQueryOpsDatabase } from './schema';
+import { PostgresTableSearchVectorReconciler } from './searchVector';
 import { PostgresTableSearchAccessPathMetadataPublisher } from './searchVectorMetadata';
 import type { UnknownPostgresDatabase } from './types';
 
@@ -130,6 +131,165 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
   afterAll(async () => {
     await testContainer?.dispose();
   });
+
+  it('samples a single field rather than a cross-field document prefix', async () => {
+    const { table } = await createTable();
+    const title = fieldByName(table, 'Title');
+    const score = fieldByName(table, 'Score');
+    (
+      await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+        context,
+        CreateRecordCommand.create({
+          tableId: table.id().toString(),
+          fields: { [title.id().toString()]: 'abc', [score.id().toString()]: 'xyz' },
+        })._unsafeUnwrap()
+      )
+    )._unsafeUnwrap();
+    const statements: { sql: string; parameters: readonly unknown[] }[] = [];
+    const observedDb = db.withPlugin({
+      transformQuery(args) {
+        const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+        statements.push({ sql: compiled.sql, parameters: compiled.parameters });
+        return args.node;
+      },
+      async transformResult(args) {
+        return args.result;
+      },
+    });
+    const observedReconciler = new PostgresTableSearchVectorReconciler(
+      testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>,
+      observedDb
+    );
+    const result = (
+      await observedReconciler.reconcile(context, {
+        table,
+        mode: 'create',
+        provider: 'pg_trgm',
+        validationMode: 'real_ddl',
+        requirePlanImprovement: false,
+        allowLargeTableRewrite: true,
+      })
+    )._unsafeUnwrap();
+    const baseline = statements.find(
+      (statement) =>
+        statement.sql.includes('EXPLAIN (FORMAT JSON)') && statement.sql.includes('ILIKE')
+    );
+    const pattern = baseline?.parameters.find((value) => typeof value === 'string');
+    expect(pattern).toMatch(/^%(abc|xyz)%$/);
+    const physical = getTablePhysicalName(table)._unsafeUnwrap();
+    const tableSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+    const titleSql = quoteIdentifier(title.dbFieldName()._unsafeUnwrap().value()._unsafeUnwrap());
+    const scoreSql = quoteIdentifier(score.dbFieldName()._unsafeUnwrap().value()._unsafeUnwrap());
+    const matches = await sql<{ count: number }>`
+      SELECT count(*)::int AS count FROM ${sql.raw(tableSql)}
+      WHERE ${sql.raw(titleSql)} ILIKE ${String(pattern)}
+         OR ${sql.raw(scoreSql)} ILIKE ${String(pattern)}
+    `.execute(db);
+    expect(matches.rows[0]?.count).toBe(1);
+    expect(result).toMatchObject({
+      status: 'ready',
+      planEvidence: { explainMethod: 'real_index', semanticsCompatible: true },
+    });
+  }, 120_000);
+
+  it('validates omitted probes with real DDL without returning sampled content', async () => {
+    const { table } = await createTable();
+    const title = fieldByName(table, 'Title');
+    const score = fieldByName(table, 'Score');
+    await createSemanticRecords(table, title.id().toString(), score.id().toString());
+    const input = {
+      table,
+      mode: 'create' as const,
+      provider: 'pg_trgm' as const,
+      validationMode: 'real_ddl' as const,
+      requirePlanImprovement: false,
+      allowLargeTableRewrite: true,
+    };
+
+    const result = (await reconciler.reconcile(context, input))._unsafeUnwrap();
+
+    expect(result).toMatchObject({
+      status: 'ready',
+      planEvidence: {
+        explainStatus: 'validated',
+        explainMethod: 'real_index',
+        semanticsCompatible: true,
+      },
+    });
+    expect(input).not.toHaveProperty('searchProbe');
+    expect(JSON.stringify(result)).not.toContain('lifecycleunique');
+    await expectReadyConfig(table);
+  }, 120_000);
+
+  it.each(['empty', 'blank'] as const)(
+    'keeps real-DDL exact validation for %s search documents without claiming performance',
+    async (state) => {
+      const { table } = await createTable();
+      const title = fieldByName(table, 'Title');
+      if (state === 'blank') {
+        (
+          await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+            context,
+            CreateRecordCommand.create({
+              tableId: table.id().toString(),
+              fields: { [title.id().toString()]: '' },
+            })._unsafeUnwrap()
+          )
+        )._unsafeUnwrap();
+      }
+
+      const result = (
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          allowLargeTableRewrite: true,
+        })
+      )._unsafeUnwrap();
+
+      expect(result).toMatchObject({
+        status: 'ready',
+        planEvidence: {
+          explainStatus: 'validated',
+          explainMethod: 'real_index',
+          explainReason: 'real_ddl_empty_search_exact_results_validated_performance_not_measured',
+          semanticsCompatible: true,
+        },
+      });
+      await expectReadyConfig(table);
+    },
+    120_000
+  );
+
+  it('does not publish a plan-only path when nonblank text cannot supply a valid probe', async () => {
+    const { table } = await createTable();
+    const title = fieldByName(table, 'Title');
+    (
+      await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+        context,
+        CreateRecordCommand.create({
+          tableId: table.id().toString(),
+          fields: { [title.id().toString()]: 'ab' },
+        })._unsafeUnwrap()
+      )
+    )._unsafeUnwrap();
+    const result = await reconciler.reconcile(context, {
+      table,
+      fieldIds: [title.id().toString()],
+      mode: 'create',
+      provider: 'pg_trgm',
+      validationMode: 'real_ddl',
+      allowLargeTableRewrite: true,
+    });
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error.message).toContain('No validation sample meets');
+    expect(
+      (await statusReader.read(context, table.id().toString()))._unsafeUnwrap()
+    ).not.toMatchObject({
+      state: 'ready',
+    });
+  }, 120_000);
 
   it('keeps the configured search field contract until an explicit rebuild', async () => {
     const created = await createTable();
@@ -713,6 +873,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
 
   const runPendingMaintenance = async (): Promise<void> => {
     const claimed = await taskRepository.claimNextAccepted(context, {
+      scope: 'all',
       workerId: 'search-vector-lifecycle-e2e-worker',
       now: new Date(),
       allowedKinds: ['rebuild_search_access_path'],

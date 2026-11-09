@@ -247,6 +247,54 @@ describe('BaseNodeService', () => {
     });
   });
 
+  describe('node channel', () => {
+    it('tells the base which node changed and nothing about it', async () => {
+      const nodeId = 'bnoRenamed';
+      const vo = {
+        id: nodeId,
+        resourceType: BaseNodeResourceType.Table,
+        resourceMeta: {
+          name: 'Secret plans',
+          createdByUser: { id: 'usr1', name: 'Owner', email: 'owner@example.com' },
+        },
+      };
+      const channelService = new BaseNodeService(
+        {} as never,
+        {} as never,
+        { baseNode: { findFirstOrThrow: vi.fn().mockResolvedValue({ id: nodeId }) } } as never,
+        {} as never,
+        {} as never,
+        { get: vi.fn(), set: vi.fn() } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+      const submit = vi.fn();
+      const internals = channelService as unknown as {
+        updateResource: () => Promise<void>;
+        entry2vo: () => Promise<typeof vo>;
+        presenceHandler: (
+          baseId: string,
+          handler: (presence: { submit: typeof submit }) => void
+        ) => void;
+      };
+      vi.spyOn(internals, 'updateResource').mockResolvedValue(undefined);
+      vi.spyOn(internals, 'entry2vo').mockResolvedValue(vo);
+      vi.spyOn(internals, 'presenceHandler').mockImplementation((_baseId, handler) =>
+        handler({ submit })
+      );
+
+      // The caller who renamed it gets the node back
+      expect(await channelService.update(baseId, nodeId, { name: 'Secret plans' })).toBe(vo);
+      // Everyone else on the channel, share visitors included, only hears that it changed
+      expect(submit).toHaveBeenCalledWith({ event: 'update', data: { id: nodeId } });
+    });
+  });
+
   describe('getCreateTableV2Decision', () => {
     it('uses the base v2 marker when deciding table creation routing', async () => {
       const canaryService = {

@@ -21,7 +21,6 @@
     "rootDir": "../../",
     "outDir": "dist",
     "paths": {
-      "@teable/core": ["../../core/src"],
       "@teable/formula": ["../../formula/src"],
       "@teable/i18n-keys": ["../../i18n-keys/src"],
       "@teable/v2-contract-http": ["../contract-http/src"],

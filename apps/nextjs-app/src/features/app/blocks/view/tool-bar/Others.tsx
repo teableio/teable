@@ -56,7 +56,8 @@ const ShareButton = ({
             text={text}
             textClassName={textClassName}
             className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
-            disabled={!permission['view|update']}
+            // The share entry hands out the view's link, which only those who manage shares may hold
+            disabled={!permission['view|share']}
           >
             <Share2 className="size-4 shrink-0" />
           </ToolBarButton>

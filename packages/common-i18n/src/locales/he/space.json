@@ -444,10 +444,10 @@
     "title": "איך להתחיל?"
   },
   "importBaseDialog": {
-    "title": "ייבוא פרויקט",
-    "fromFile": "ייבוא מקובץ",
-    "fromFileDesc": "העלאת קובץ פרויקט מסוג .tea",
-    "fromAirtableDesc": "חיבור חשבון ה-Airtable שלך",
-    "fromGoogleSheetDesc": "בחירת גיליון מתוך Google Drive שלך"
+    "title": "ייבוא כפרויקט",
+    "fromFile": "קובץ {{brand}}",
+    "fromFileDesc": "העלאת קובץ ‎.tea",
+    "fromAirtableDesc": "בחירת base",
+    "fromGoogleSheetDesc": "בחירת גיליון"
   }
 }

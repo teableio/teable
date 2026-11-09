@@ -1,5 +1,5 @@
 import type { IGatewayApiModel, LLMProvider } from '@teable/openapi';
-import { getAiProxyGatewayModels, LLMProviderType } from '@teable/openapi';
+import { getAiProxyGatewayModels, LLMProviderType, MASKED_SECRET_PREFIX } from '@teable/openapi';
 import { render, screen, userEvent, waitFor, within } from '@/test-utils';
 import { LLM_PROVIDERS } from './constant';
 import { LLMProviderForm } from './LlmProviderForm';
@@ -132,6 +132,72 @@ describe('LLMProviderForm', () => {
     expect(screen.queryByText('model@version')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'admin.setting.ai.addModelFill' })).toBeDisabled();
     expect(screen.getByText('admin.setting.ai.modelIdReservedAt')).toBeInTheDocument();
+  });
+
+  describe('masked API key', () => {
+    const savedBaseUrl = 'https://api.openai.com/v1';
+    const savedProvider: LLMProvider = {
+      type: LLMProviderType.OPENAI,
+      name: 'teable',
+      displayName: 'OpenAI',
+      apiKey: `${MASKED_SECRET_PREFIX}saved`,
+      baseUrl: savedBaseUrl,
+      models: 'gpt-4o',
+      modelConfigs: {},
+    };
+    const hint = 'admin.setting.secretEndpointChanged';
+
+    const renderSaved = () => {
+      render(<LLMProviderForm value={savedProvider} onChange={vi.fn()} onTest={vi.fn()} />);
+      return {
+        baseUrl: screen.getByLabelText('admin.setting.ai.baseUrl'),
+        apiKey: () => screen.getByLabelText('admin.setting.ai.apiKey'),
+      };
+    };
+
+    it('clears the key once the base URL moves and brings it back when the URL is typed back', async () => {
+      const { baseUrl, apiKey } = renderSaved();
+      expect(apiKey()).toHaveValue(savedProvider.apiKey);
+
+      await userEvent.type(baseUrl, '/extra');
+      expect(apiKey()).toHaveValue('');
+      expect(screen.getByText(hint)).toBeInTheDocument();
+
+      await userEvent.clear(baseUrl);
+      await userEvent.type(baseUrl, savedBaseUrl);
+      expect(apiKey()).toHaveValue(savedProvider.apiKey);
+      expect(screen.queryByText(hint)).not.toBeInTheDocument();
+    });
+
+    it('keeps a key typed after the clearing when the URL is typed back', async () => {
+      const { baseUrl, apiKey } = renderSaved();
+
+      await userEvent.type(baseUrl, '/extra');
+      await userEvent.type(apiKey(), 'sk-new');
+      await userEvent.clear(baseUrl);
+      await userEvent.type(baseUrl, savedBaseUrl);
+
+      expect(apiKey()).toHaveValue('sk-new');
+    });
+
+    it('keeps the key when the base URL is cleared to the official default', async () => {
+      const { baseUrl, apiKey } = renderSaved();
+
+      await userEvent.clear(baseUrl);
+
+      expect(apiKey()).toHaveValue(savedProvider.apiKey);
+      expect(screen.queryByText(hint)).not.toBeInTheDocument();
+    });
+
+    it('clears the key when the provider type changes', async () => {
+      const { apiKey } = renderSaved();
+
+      await userEvent.click(screen.getByRole('combobox'));
+      await userEvent.click(await screen.findByRole('option', { name: /Anthropic/ }));
+
+      expect(apiKey()).toHaveValue('');
+      expect(screen.getByText(hint)).toBeInTheDocument();
+    });
   });
 
   describe('per-model settings editor', () => {

@@ -47,12 +47,14 @@ export const GET_BASE_SHARE_BY_NODE_ID = '/base/{baseId}/share/node/{nodeId}';
 
 export const baseShareByNodeIdVoSchema = z.object({
   baseId: z.string(),
-  shareId: z.string(),
-  password: z.boolean(), // Only indicates if password is set, not the actual value
+  // The share link and settings are only returned to members who can manage shares
+  // (base|update); everyone else learns whether the node is shared, nothing more.
+  shareId: z.string().optional(),
+  password: z.boolean().optional(), // Only indicates if password is set, not the actual value
   nodeId: z.string().nullable(),
-  allowSave: z.boolean().nullable(),
-  allowCopy: z.boolean().nullable(),
-  allowEdit: z.boolean().nullable(),
+  allowSave: z.boolean().nullable().optional(),
+  allowCopy: z.boolean().nullable().optional(),
+  allowEdit: z.boolean().nullable().optional(),
   enabled: z.boolean(),
 });
 
@@ -62,7 +64,8 @@ export const GetBaseShareByNodeIdRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_SHARE_BY_NODE_ID,
   title: 'Get project share by node',
-  description: 'Retrieve the share link settings for a node in a project.',
+  description:
+    'Retrieve the share link and settings for a node in a project. Callers who cannot manage shares (base|update) only learn whether the node is shared.',
   request: {
     params: z.object({
       baseId: z.string(),

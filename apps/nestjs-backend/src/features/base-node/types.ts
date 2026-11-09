@@ -14,3 +14,15 @@ export type IBaseNodePermissionContext = {
   workflowPermissionMap?: Record<string, AutomationAction[]>;
   routinePermissionMap?: Record<string, RoutineAction[]>;
 };
+
+/** What decides which nodes the caller sees: in the node tree, and in what is said about them. */
+export type IBaseNodeVisibilityContext = IBaseNodePermissionContext & {
+  /** Set inside a node share: only the shared node and what lies under it is visible. */
+  shareNodeId?: string;
+  /**
+   * Hide the folders the member cannot access, as the nodes they cannot read already are. A folder
+   * has no permission of its own: for a member the authority matrix restricts, it is accessible
+   * only through something readable inside it.
+   */
+  hideInaccessibleFolders?: boolean;
+};

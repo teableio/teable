@@ -333,9 +333,14 @@
     "autoSort": "Automatically sort records",
     "selectASCLabel": "first → last",
     "selectDESCLabel": "last → first",
+    "pinyinASCLabel": "Pinyin: ascending",
+    "pinyinDESCLabel": "Pinyin: descending",
+    "pinyinGroupConflict": "Pinyin sorting is unavailable for a grouped field. Remove this field’s group or use default sorting.",
+    "pinyinGroupRecovered": "Conflicting personal-view pinyin sorting was reset to default ordering. Your groups and sort directions were kept. Remove this field’s group to enable pinyin again.",
     "orderTitle": "Select sort order"
   },
   "group": {
+    "pinyinSortConflict": "This field uses pinyin sorting. Change its sort to default ordering before grouping, or choose another field.",
     "label": "Group",
     "displayLabel_one": "Group by {{count}} fields",
     "displayLabel_other": "Group by {{count}} fields",
@@ -724,8 +729,8 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Returns the difference between datetimes in specified units. Default unit is \"second\".\nSupported units: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nDATETIME_DIFF always subtracts the second argument from the first (`date1 - date2`). If you want elapsed time from a start date to a later end date, call `DATETIME_DIFF(endDate, startDate, unit)`.",
-      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
+      "summary": "Returns the difference between datetimes in specified units. Default unit is \"second\".\nSupported units: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nDATETIME_DIFF always subtracts the second argument from the first (`date1 - date2`). If you want elapsed time from a start date to a later end date, call `DATETIME_DIFF(endDate, startDate, unit)`.\nFor \"day\"/\"days\", counts complete wall-clock days in the formula's timezone, truncating toward zero. UTC-offset changes such as daylight saving time are compensated: consecutive local midnights count as 1 day even when 23 or 25 hours elapse. Time-of-day still matters: noon to 11:00 the next day returns 0, not 1. Without an offset change, 44 hours returns 1 and -44 hours returns -1. Pass TRUE as the optional fourth argument to retain fractional days using the same timezone-adjusted calculation. Other units retain their existing behavior.",
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "Returns the workday to the start date, excluding the specified holidays",
@@ -1204,6 +1209,7 @@
       "configRequiredToRun": "Cannot run a routine without a saved config",
       "runAlreadyInFlight": "A run of this routine is already in flight",
       "runNowWhileActiveEvent": "This routine is active and already receives its events; trigger one to see it run",
+      "runNowOwnerOnly": "While the routine is active, only the person it runs as can run it now",
       "invalidRunCursor": "Invalid run list cursor",
       "invalidSchedule": "Invalid routine schedule: {{reason}}"
     },
@@ -1704,6 +1710,7 @@
         "loginDisabled": "Login is not enabled for this app",
         "googleDisabled": "Google sign-in is not enabled for this app",
         "teableDisabled": "Teable sign-in is not enabled for this app",
+        "oidcDisabled": "SSO sign-in is not enabled for this app",
         "userTableMissing": "The selected user table does not exist in this project",
         "emailFieldMissing": "The selected user table has no email field",
         "emailFieldType": "The email field must be a writable single line text field",
@@ -1787,6 +1794,11 @@
     },
     "integrity": {
       "linkTargetTableMissing": "The linked table no longer exists, so this link cannot be repaired automatically."
+    },
+    "secret": {
+      "endpointChanged": "A saved secret can only be sent to the address it was saved for. Enter {{field}} again.",
+      "reenterForNewAddress": "The address changed. Enter or clear {{fields}} first.",
+      "staleMask": "The saved {{field}} changed since this page was loaded. Enter it again."
     }
   },
   "usageLimitBanner": {

@@ -67,7 +67,7 @@ export const duplicateBaseRoSchema = z.object({
   }),
   timeZone: timeZoneStringSchema.optional().meta({
     description:
-      'The IANA time zone to adapt date-related field options (and date filters) to during duplication. Mainly used when applying a template so dates follow the current user environment.',
+      'The IANA time zone to adapt date-related field options and included date values to during template duplication; omitted timeZone preserves the original instants and metadata.',
   }),
 });
 

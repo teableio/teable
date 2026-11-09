@@ -337,10 +337,11 @@ export class ShareController {
   @UseV2Feature('getSharedViewSearchIndex', { always: true })
   @UseGuards(V2FeatureGuard, ShareAuthGuard)
   @UseInterceptors(V2IndicatorInterceptor)
-  @Get('/:shareId/view/search-matches')
+  @Post('/:shareId/view/search-matches')
+  @HttpCode(200)
   async getSearchMatches(
     @Request() req: any,
-    @Query(new ZodValidationPipe(shareViewSearchMatchesRoSchema))
+    @Body(new ZodValidationPipe(shareViewSearchMatchesRoSchema))
     queryRo: IShareViewSearchMatchesRo
   ): Promise<ISearchMatchesVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;

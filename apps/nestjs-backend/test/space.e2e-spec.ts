@@ -200,8 +200,13 @@ describe('OpenAPI SpaceController (e2e)', () => {
   });
 
   describe('Space Invitation and operator collaborators', () => {
-    const newUserEmail = 'newuser@example.com';
-    const newUser3Email = 'newuser2@example.com';
+    // Per-run unique: 'newuser@example.com' / 'newuser2@example.com' are shared by
+    // base/invitation/share specs too. Under the community (OSS) shard layout these
+    // land in one shard and race on the shared user — a deleted-mid-flight session
+    // then 401s this suite's setup. Unique addresses decouple it.
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const newUserEmail = `space-newuser-${suffix}@example.com`;
+    const newUser3Email = `space-newuser2-${suffix}@example.com`;
 
     let userRequest: AxiosInstance;
     let userRequestId: string;

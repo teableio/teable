@@ -42,6 +42,8 @@ import {
   GetViewCollaboratorsQuery,
   type GetViewCollaboratorsResult,
   GetViewSelectionCopyQuery,
+  FieldClipboardValueVisitor,
+  stringifyClipboardRows,
   type GetViewSelectionCopyResult,
   type AttachmentValueDecoratorService,
   type CountTableRecordsResult,
@@ -65,6 +67,8 @@ import {
   mapGroupPointsResult,
   normalizeLegacyFilterViaQueryBus,
 } from '../aggregation/open-api/aggregation-v2-result.mapper';
+import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
+import { buildRawCopyContent } from '../selection/raw-copy-content';
 import { TableQuerySearchVectorRuntimeService } from '../v2/table-query-search-vector-runtime.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
@@ -78,6 +82,7 @@ export class SharedViewRecordQueryV2Service {
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cacheService: CacheService<ICacheStore>,
+    private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
     @Optional()
     private readonly tableQuerySearchVectorRuntimeService?: TableQuerySearchVectorRuntimeService
   ) {}
@@ -356,7 +361,26 @@ export class SharedViewRecordQueryV2Service {
       if (fieldDto.isErr()) this.throwDomainError(fieldDto.error);
       return fieldDto.value as IFieldVo;
     });
-    return { content: result.value.content, header };
+    const userFields = result.value.fields.filter((field) => field.type().toString() === 'user');
+    if (!userFields.length || !result.value.sourceRecords.length) {
+      return { content: result.value.content, header };
+    }
+    const records = await this.recordOpenApiV2Service.hydrateSelectedUserCells(
+      container,
+      result.value.sourceRecords,
+      userFields.map((field) => field.id().toString())
+    );
+    const rows = records.map((record) =>
+      result.value.fields.map((field) => {
+        const formatted = field.accept(
+          new FieldClipboardValueVisitor(record.fields[field.id().toString()])
+        );
+        if (formatted.isErr()) this.throwDomainError(formatted.error);
+        return formatted.value;
+      })
+    );
+    const rawContent = buildRawCopyContent(records, header, rows);
+    return { content: stringifyClipboardRows(rows), header, ...(rawContent ? { rawContent } : {}) };
   }
 
   private async resolveCopyCollapsedGroupIds(
@@ -480,10 +504,7 @@ export class SharedViewRecordQueryV2Service {
       context,
       table
     );
-    const sort = [...(query.groupBy ?? []), ...(query.orderBy ?? [])].map((item) => ({
-      fieldId: item.fieldId,
-      order: item.order,
-    }));
+    const sort = this.mergeGroupByIntoSort(query.groupBy, query.orderBy);
     const listQuery = ListTableRecordsQuery.create(
       {
         tableId,
@@ -495,7 +516,7 @@ export class SharedViewRecordQueryV2Service {
         viewId,
         ignoreViewQuery: isLinkSelectionQuery || undefined,
         filter,
-        sort: sort.length ? sort : undefined,
+        sort,
         groupBy: query.groupBy?.map((item) => item.fieldId),
         projection: query.projection,
         filterLinkCellSelected: query.filterLinkCellSelected,
@@ -585,7 +606,7 @@ export class SharedViewRecordQueryV2Service {
         includeSearchFieldMatches: true,
         searchIndexMode: 'view',
         searchFieldScope: 'projection',
-        applySearchRowFilter: false,
+        applySearchRowFilter: true,
         searchFieldIds: finalProjection,
         table,
         recordSearchAccessPath: this.tableQuerySearchVectorRuntimeService?.resolveForRecordSearch({
@@ -662,6 +683,41 @@ export class SharedViewRecordQueryV2Service {
       });
     }
     return query.search;
+  }
+
+  /**
+   * Group order stays authoritative, but explicit sort metadata must survive
+   * deduplication so core can reject unsupported grouped collations.
+   */
+  private mergeGroupByIntoSort(
+    groupBy: ISearchIndexByQueryRo['groupBy'],
+    orderBy: ISearchIndexByQueryRo['orderBy']
+  ): ISearchIndexByQueryRo['orderBy'] {
+    const merged: NonNullable<ISearchIndexByQueryRo['orderBy']> = [
+      ...(groupBy ?? []),
+      ...(orderBy ?? []),
+    ];
+    if (!merged.length) return undefined;
+
+    const deduplicated: NonNullable<ISearchIndexByQueryRo['orderBy']> = [];
+    const indexesByFieldId = new Map<string, number>();
+    for (const item of merged) {
+      const existingIndex = indexesByFieldId.get(item.fieldId);
+      if (existingIndex === undefined) {
+        indexesByFieldId.set(item.fieldId, deduplicated.length);
+        deduplicated.push(item);
+        continue;
+      }
+
+      if (item.collation !== undefined && deduplicated[existingIndex]?.collation === undefined) {
+        deduplicated[existingIndex] = {
+          ...deduplicated[existingIndex]!,
+          collation: item.collation,
+        };
+      }
+    }
+
+    return deduplicated;
   }
 
   private mapSearchIndexResult(matches: ListTableRecordsResult['searchMatches']): ISearchIndexVo {

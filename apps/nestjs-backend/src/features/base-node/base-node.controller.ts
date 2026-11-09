@@ -31,6 +31,7 @@ import {
   type V2Feature,
 } from '@teable/openapi';
 import type { Response } from 'express';
+import { omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import { CustomHttpException } from '../../custom.exception';
@@ -49,9 +50,22 @@ import {
   X_TEABLE_V2_REASON_HEADER,
 } from '../canary/interceptors/v2-indicator.interceptor';
 import { BaseNodeMoveService } from './base-node-move.service';
-import { checkBaseNodePermission } from './base-node.permission.helper';
+import { filterVisibleNodes } from './base-node.permission.helper';
 import { BaseNodeService } from './base-node.service';
-import { BaseNodeAction } from './types';
+import { BaseNodeAction, type IBaseNodeVisibilityContext } from './types';
+
+const omitCollaboratorEmails = <T extends IBaseNodeVo>(node: T): T => {
+  if (!node.resourceMeta) return node;
+  const { createdByUser, lastModifiedByUser } = node.resourceMeta;
+  return {
+    ...node,
+    resourceMeta: {
+      ...node.resourceMeta,
+      ...(createdByUser && { createdByUser: omit(createdByUser, 'email') }),
+      ...(lastModifiedByUser && { lastModifiedByUser: omit(lastModifiedByUser, 'email') }),
+    },
+  };
+};
 
 // A blank name gets through the body pipe so `update` can answer a table node with its
 // localized reason; every other node keeps the schema's own rejection.
@@ -88,73 +102,28 @@ export class BaseNodeController {
 
   private async getVisibleNodes(baseId: string, nodes: IBaseNodeVo[]): Promise<IBaseNodeVo[]> {
     const permissionContext = await this.getPermissionContext(baseId);
-    const allowedNodeIds = this.getAllowedNodeIds(nodes, permissionContext.shareNodeId);
-    return this.pruneDanglingReferences(
-      nodes.filter((node) => this.filterNode(node, permissionContext, allowedNodeIds))
-    );
+    return this.presentNodes(filterVisibleNodes(nodes, permissionContext));
   }
 
-  /** Must stay pure: the node list comes from a cache shared by every caller of this base. */
-  private pruneDanglingReferences(nodes: IBaseNodeVo[]): IBaseNodeVo[] {
-    const visibleNodeIds = new Set(nodes.map((node) => node.id));
-    return nodes.map((node) => ({
-      ...node,
-      parentId: node.parentId && visibleNodeIds.has(node.parentId) ? node.parentId : null,
-      parent: node.parent && visibleNodeIds.has(node.parent.id) ? node.parent : null,
-      children: node.children?.filter((child) => visibleNodeIds.has(child.id)),
-    }));
-  }
-
-  private filterNode(
-    node: IBaseNodeVo,
-    permissionContext: { permissionSet: Set<string>; shareNodeId?: string },
-    allowedNodeIds?: Set<string>
-  ): boolean {
-    if (allowedNodeIds && !allowedNodeIds.has(node.id)) {
-      return false;
-    }
-
-    // Then check standard permissions
-    return checkBaseNodePermission(
-      { resourceType: node.resourceType, resourceId: node.resourceId },
-      BaseNodeAction.Read,
-      permissionContext
-    );
-  }
-
-  protected getAllowedNodeIds(nodes: IBaseNodeVo[], shareNodeId?: string) {
-    if (!shareNodeId) {
-      return undefined;
-    }
-    const nodeIds = new Set(nodes.map((node) => node.id));
-    if (!nodeIds.has(shareNodeId)) {
-      return new Set<string>();
-    }
-    const childrenByParent = new Map<string, string[]>();
-    for (const node of nodes) {
-      if (!node.parentId) {
-        continue;
-      }
-      const current = childrenByParent.get(node.parentId) ?? [];
-      current.push(node.id);
-      childrenByParent.set(node.parentId, current);
-    }
-    const allowed = new Set<string>();
-    const queue = [shareNodeId];
-    while (queue.length) {
-      const current = queue.shift();
-      if (!current || allowed.has(current)) {
-        continue;
-      }
-      allowed.add(current);
-      const children = childrenByParent.get(current) ?? [];
-      for (const childId of children) {
-        if (!allowed.has(childId)) {
-          queue.push(childId);
-        }
-      }
-    }
-    return allowed;
+  /**
+   * What the caller is shown of these nodes: no reference to a node outside `visibleNodeIds`, and
+   * for a share visitor no collaborator's email, which a share hands nobody. Must stay pure: the
+   * node list comes from a cache shared by every caller of this base.
+   */
+  private presentNodes(
+    nodes: IBaseNodeVo[],
+    visibleNodeIds = new Set(nodes.map((node) => node.id))
+  ): IBaseNodeVo[] {
+    const hideEmails = Boolean(this.cls.get('baseShare'));
+    return nodes.map((node) => {
+      const presented = {
+        ...node,
+        parentId: node.parentId && visibleNodeIds.has(node.parentId) ? node.parentId : null,
+        parent: node.parent && visibleNodeIds.has(node.parent.id) ? node.parent : null,
+        children: node.children?.filter((child) => visibleNodeIds.has(child.id)),
+      };
+      return hideEmails ? omitCollaboratorEmails(presented) : presented;
+    });
   }
 
   @Get(':nodeId')
@@ -164,7 +133,25 @@ export class BaseNodeController {
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string
   ): Promise<IBaseNodeVo> {
-    return this.baseNodeService.getNodeVo(baseId, nodeId);
+    // Reading a node is reading it out of the caller's tree: one their roles, the matrix or their
+    // share keep from the tree is not theirs to read here either, by whichever id it is asked for
+    const visibleNodes = await this.getVisibleNodes(
+      baseId,
+      await this.baseNodeService.getList(baseId)
+    );
+    const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+    if (!visibleNodeIds.has(nodeId)) {
+      throw new CustomHttpException(
+        `No permission to read project node ${nodeId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        { localization: { i18nKey: 'httpErrors.permission.notAllowedOperation' } }
+      );
+    }
+    const [node] = this.presentNodes(
+      [await this.baseNodeService.getNodeVo(baseId, nodeId)],
+      visibleNodeIds
+    );
+    return node;
   }
 
   @Post()
@@ -361,7 +348,7 @@ export class BaseNodeController {
     response.setHeader(X_TEABLE_V2_REASON_HEADER, decision.reason);
   }
 
-  protected async getPermissionContext(_baseId: string) {
+  protected async getPermissionContext(_baseId: string): Promise<IBaseNodeVisibilityContext> {
     const permissions = this.cls.get('permissions');
     const permissionSet = new Set(permissions);
     const baseShare = this.cls.get('baseShare');

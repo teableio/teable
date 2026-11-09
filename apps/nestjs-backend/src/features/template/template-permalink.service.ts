@@ -5,6 +5,7 @@ import type { ITemplatePermalinkVo } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateTemplatePermalinkCacheKey } from '../../performance-cache/generate-keys';
+import { TEMPLATE_CACHE_TTL } from '../model/template';
 import { resolveTemplateRedirectUrl } from './template-permalink.helper';
 
 @Injectable()
@@ -17,7 +18,7 @@ export class TemplatePermalinkService {
   ) {}
 
   @PerformanceCache({
-    ttl: 86400, // 1 day (24 hours)
+    ttl: TEMPLATE_CACHE_TTL,
     keyGenerator: (identifier: string) => generateTemplatePermalinkCacheKey(identifier),
   })
   async resolvePermalink(identifier: string): Promise<ITemplatePermalinkVo> {

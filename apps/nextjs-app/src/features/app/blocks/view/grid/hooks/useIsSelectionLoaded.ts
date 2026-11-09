@@ -1,71 +1,80 @@
-import { SelectionRegionType, type CombinedSelection, type IRecordIndexMap } from '@teable/sdk';
+import {
+  SelectionRegionType,
+  type CombinedSelection,
+  type IRange,
+  type IRecordIndexMap,
+} from '@teable/sdk';
 import type { ILoadedRecordFields } from '@teable/sdk/utils/column-projection';
 import { useCallback } from 'react';
 
-const selectionFieldIds = (selection: CombinedSelection, fields: { id: string }[]): string[] => {
-  const ranges = selection.serialize();
+const areFieldRangeLoaded = (
+  fields: { id: string }[],
+  loadedFieldIds: ReadonlySet<string>,
+  start: number,
+  end: number
+): boolean => {
+  for (let index = start; index <= end; index++) {
+    const field = fields[index];
+    if (field && !loadedFieldIds.has(field.id)) return false;
+  }
+  return true;
+};
+
+const areSelectionFieldsLoaded = (
+  selection: CombinedSelection,
+  ranges: IRange[],
+  fields: { id: string }[],
+  loadedFieldIds: ReadonlySet<string>
+): boolean => {
   switch (selection.type) {
     case SelectionRegionType.Rows:
-      return fields.map((field) => field.id);
-    case SelectionRegionType.Columns: {
-      const ids: string[] = [];
-      for (const [startColIndex, endColIndex] of ranges) {
-        for (let columnIndex = startColIndex; columnIndex <= endColIndex; columnIndex++) {
-          const fieldId = fields[columnIndex]?.id;
-          if (fieldId) {
-            ids.push(fieldId);
-          }
-        }
-      }
-      return ids;
-    }
+      return fields.every((field) => loadedFieldIds.has(field.id));
+    case SelectionRegionType.Columns:
+      return ranges.every(([start, end]) =>
+        areFieldRangeLoaded(fields, loadedFieldIds, start, end)
+      );
     case SelectionRegionType.Cells: {
-      const [[startColIndex], [endColIndex]] = ranges;
-      return fields.slice(startColIndex, endColIndex + 1).map((field) => field.id);
+      const [[start], [end]] = ranges;
+      return areFieldRangeLoaded(fields, loadedFieldIds, start, end);
     }
     default:
-      return [];
+      return false;
   }
 };
 
-const selectionRecords = (
+const isSelectedRowLoaded = (
+  rowIndex: number,
   selection: CombinedSelection,
+  ranges: IRange[],
   recordMap: IRecordIndexMap,
-  rowCount: number
-) => {
-  const ranges = selection.serialize();
-  const records: { id: string; docSource?: object }[] = [];
-  const pushRow = (rowIndex: number) => {
-    const record = recordMap[rowIndex] as { id: string; docSource?: object } | undefined;
-    if (record) {
-      records.push(record);
-    }
-  };
-  switch (selection.type) {
-    case SelectionRegionType.Rows: {
-      for (const [startRowIndex, endRowIndex] of ranges) {
-        for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
-          pushRow(rowIndex);
-        }
-      }
-      return records;
-    }
-    case SelectionRegionType.Columns: {
-      for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-        pushRow(rowIndex);
-      }
-      return records;
-    }
-    case SelectionRegionType.Cells: {
-      const [[, startRowIndex], [, endRowIndex]] = ranges;
-      for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
-        pushRow(rowIndex);
-      }
-      return records;
-    }
-    default:
-      return records;
+  loadedFieldsByRecordId?: ReadonlyMap<string, ILoadedRecordFields>,
+  snapshotFieldIds?: ReadonlySet<string>,
+  fields?: { id: string }[]
+): boolean => {
+  const record = recordMap[rowIndex] as { id: string; docSource?: object } | undefined;
+  if (!record) {
+    return false;
   }
+  if (!fields || (!loadedFieldsByRecordId && !snapshotFieldIds)) {
+    return true;
+  }
+  const entry = loadedFieldsByRecordId?.get(record.id);
+  const loadedFieldIds =
+    entry && entry.source === record.docSource ? entry.fields : snapshotFieldIds;
+  return Boolean(
+    loadedFieldIds && areSelectionFieldsLoaded(selection, ranges, fields, loadedFieldIds)
+  );
+};
+
+const areRowsLoaded = (
+  start: number,
+  end: number,
+  isLoaded: (index: number) => boolean
+): boolean => {
+  for (let index = start; index <= end; index++) {
+    if (!isLoaded(index)) return false;
+  }
+  return true;
 };
 
 export const useIsSelectionLoaded = () => {
@@ -89,40 +98,28 @@ export const useIsSelectionLoaded = () => {
       if (ranges.length === 0) {
         return false;
       }
-      let rowsLoaded = false;
+      const isLoaded = (index: number) =>
+        isSelectedRowLoaded(
+          index,
+          selection,
+          ranges,
+          recordMap,
+          loadedFieldsByRecordId,
+          snapshotFieldIds,
+          fields
+        );
       switch (selection.type) {
-        case SelectionRegionType.Rows: {
-          const start = ranges[0][0];
-          const end = ranges[ranges.length - 1][1];
-          rowsLoaded = Boolean(recordMap[start] && recordMap[end]);
-          break;
-        }
+        case SelectionRegionType.Rows:
+          return ranges.every(([start, end]) => areRowsLoaded(start, end, isLoaded));
         case SelectionRegionType.Columns:
-          rowsLoaded = Boolean(recordMap[0] && recordMap[rowCount - 1]);
-          break;
+          return rowCount !== 0 && areRowsLoaded(0, rowCount - 1, isLoaded);
         case SelectionRegionType.Cells: {
-          const [[, startRowIndex], [, endRowIndex]] = ranges;
-          rowsLoaded = Boolean(recordMap[startRowIndex] && recordMap[endRowIndex]);
-          break;
+          const [[, start], [, end]] = ranges;
+          return areRowsLoaded(start, end, isLoaded);
         }
         default:
           return false;
       }
-      if (!rowsLoaded) {
-        return false;
-      }
-      if (!fields) {
-        return true;
-      }
-      if (!loadedFieldsByRecordId && !snapshotFieldIds) {
-        return true;
-      }
-      const fieldIds = selectionFieldIds(selection, fields);
-      return selectionRecords(selection, recordMap, rowCount).every((record) => {
-        const entry = loadedFieldsByRecordId?.get(record.id);
-        const loaded = entry && entry.source === record.docSource ? entry.fields : snapshotFieldIds;
-        return Boolean(loaded && fieldIds.every((fieldId) => loaded.has(fieldId)));
-      });
     },
     []
   );

@@ -8,3 +8,4 @@ export * from './types';
 export * from './oauth';
 export * from './automation-robot';
 export * from './app-robot';
+export * from './access-token-scope';

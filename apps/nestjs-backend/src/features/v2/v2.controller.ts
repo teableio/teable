@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { Controller, HttpException } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { Implement, implement, ORPCError } from '@orpc/nest';
-import type { Action } from '@teable/core';
+import { convertFieldRoSchema, type Action } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IComplexityService,
@@ -51,8 +52,14 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { PermissionService } from '../auth/permission.service';
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
+import {
+  captureFieldPreviewSource,
+  captureFieldPreviewRoute,
+  fieldPreviewRoute,
+} from './v2-field-preview-input';
 import {
   authorizeFieldConversionForeignTables,
   type IV2OperationPreviewAuthorization,
@@ -101,7 +108,8 @@ export class V2Controller {
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly permissionService: PermissionService,
     private readonly cls: ClsService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly moduleRef?: ModuleRef
   ) {}
 
   private async previewContainerFor(request: IOperationPreviewRequestDto) {
@@ -202,20 +210,96 @@ export class V2Controller {
     return this.assertCommunityPreviewAuthorization(request, container);
   }
 
+  private async normalizeFieldPreview(
+    request: IOperationPreviewRequestDto,
+    authorizationContainer: DependencyContainer
+  ) {
+    const raw = request.input;
+    if (
+      request.operation !== 'field.convert' ||
+      typeof raw !== 'object' ||
+      raw === null ||
+      !('inputFormat' in raw)
+    )
+      return request;
+    if (raw.inputFormat !== 'field-openapi') {
+      this.throwPreviewDomainError(
+        domainError.validation({ message: 'Unsupported field preview input format' })
+      );
+    }
+    const identity = UpdateFieldCommand.create(
+      { tableId: raw.tableId, fieldId: raw.fieldId, field: {} },
+      { allowNoop: true }
+    );
+    if (identity.isErr()) this.throwPreviewDomainError(identity.error);
+    const field = convertFieldRoSchema.safeParse(raw.field);
+    if (!field.success)
+      this.throwPreviewDomainError(
+        domainError.validation({ message: 'Invalid OpenAPI field conversion input' })
+      );
+    if (authorizationContainer.isRegistered(V2_OPERATION_PREVIEW_AUTHORIZATION)) {
+      const admissionContext = await this.v2ContextFactory.createContext(authorizationContainer);
+      const sourceAdmission = await authorizationContainer
+        .resolve<IV2OperationPreviewAuthorization>(V2_OPERATION_PREVIEW_AUTHORIZATION)
+        .authorize(
+          admissionContext,
+          {
+            operation: 'field.convert',
+            input: { tableId: raw.tableId, fieldId: raw.fieldId, field: {} },
+          },
+          authorizationContainer
+        );
+      if (sourceAdmission.isErr()) this.throwPreviewDomainError(sourceAdmission.error);
+    } else {
+      await this.assertCommunityPreviewPermissions(raw.tableId, ['field|update']);
+    }
+    const container = await this.previewContainerFor(request);
+    if (!container)
+      this.throwPreviewDomainError(
+        domainError.infrastructure({
+          code: 'preview.routing.not_ready',
+          message: 'A current read-only data route is unavailable for this preview.',
+        })
+      );
+    const context = await this.v2ContextFactory.createContext(container);
+    const table = await container
+      .resolve<TableQueryService>(v2CoreTokens.tableQueryService)
+      .getById(context, identity.value.tableId);
+    if (table.isErr()) this.throwPreviewDomainError(table.error);
+    if (raw.baseId !== undefined && raw.baseId !== table.value.baseId().toString()) {
+      this.throwPreviewDomainError(
+        domainError.validation({ message: 'Field conversion base does not match the source table' })
+      );
+    }
+    const fields = this.moduleRef?.get(FieldOpenApiV2Service, { strict: false });
+    if (!fields)
+      this.throwPreviewDomainError(
+        domainError.infrastructure({ message: 'Field conversion normalization is unavailable' })
+      );
+    const normalized = fields.prepareConvertFieldInput(table.value, raw.fieldId, field.data);
+    if (normalized.isErr()) this.throwPreviewDomainError(normalized.error);
+    captureFieldPreviewSource(normalized.value, table.value);
+    captureFieldPreviewRoute(normalized.value, { container, context });
+    return { ...request, input: normalized.value };
+  }
+
   @Implement(v2Contract.operations.preview)
   @TokenAccess()
   operationPreview() {
     return implement(v2Contract.operations.preview).handler(async ({ input }) => {
       const authorizationContainer = await this.v2Container.getContainer();
       this.assertPreviewOperationSupported(input.operation, authorizationContainer);
+      input = await this.normalizeFieldPreview(input, authorizationContainer);
       const authorizationContext = await this.assertPreviewAuthorization(
         input,
         authorizationContainer
       );
+      const capturedRoute = fieldPreviewRoute(input.input);
       const container =
-        input.operation === 'base.duplicate'
+        capturedRoute?.container ??
+        (input.operation === 'base.duplicate'
           ? authorizationContainer
-          : await this.previewContainerFor(input);
+          : await this.previewContainerFor(input));
       if (!container) {
         this.throwPreviewDomainError(
           domainError.infrastructure({
@@ -225,9 +309,10 @@ export class V2Controller {
         );
       }
       const context =
-        container === authorizationContainer && authorizationContext
+        capturedRoute?.context ??
+        (container === authorizationContainer && authorizationContext
           ? authorizationContext
-          : await this.v2ContextFactory.createContext(container);
+          : await this.v2ContextFactory.createContext(container));
       const service = container.resolve<IOperationPreviewService>(
         v2CommandExplainTokens.operationPreviewService
       );

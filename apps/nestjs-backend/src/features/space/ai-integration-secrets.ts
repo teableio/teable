@@ -6,7 +6,13 @@ import {
   encryptThirdPartyCredential,
   mapSecretPaths,
 } from '../../utils/third-party-credential-encryption';
-import { APP_CONFIG_SECRET_PATHS } from '../setting/setting-secrets';
+import type { ISecretSlot } from '../setting/secret-binding';
+import { maskSecrets, unmaskSecrets } from '../setting/secret-binding';
+import {
+  AI_CONFIG_SECRET_SLOTS,
+  APP_CONFIG_SECRET_PATHS,
+  APP_CONFIG_SECRET_SLOTS,
+} from '../setting/setting-secrets';
 
 /**
  * A space AI integration config embeds an appConfig. Its secrets use the
@@ -31,3 +37,33 @@ export const decryptAiIntegrationConfig = <T>(config: T, logLabel = 'integration
   mapAiIntegrationAppConfigSecrets(decryptAiConfigSecrets(config, logLabel), (value) =>
     decryptThirdPartyCredential(value, logLabel)
   );
+
+/**
+ * Every secret of a space AI integration config, under the instance settings' rules: the AI
+ * slots as setting.aiConfig, the embedded appConfig as setting.appConfig.
+ */
+export const AI_INTEGRATION_SECRET_SLOTS: readonly ISecretSlot[] = [
+  ...AI_CONFIG_SECRET_SLOTS,
+  ...APP_CONFIG_SECRET_SLOTS.map((slot) => ({
+    ...slot,
+    anchor: ['appConfig', ...(slot.anchor ?? [])],
+  })),
+];
+
+/** A space AI integration config as the API returns it: each secret masked. */
+export const maskAiIntegrationConfig = <T>(config: T): T =>
+  maskSecrets(config, AI_INTEGRATION_SECRET_SLOTS);
+
+/**
+ * An incoming config with each mask resolved against `stored` (secret-binding): a saved secret
+ * only resolves while the endpoint it goes to is unchanged. The config is replaced whole, so a
+ * secret the client leaves out is dropped, never carried to a new endpoint.
+ */
+export const unmaskAiIntegrationConfig = <T>(config: T, stored: unknown): T =>
+  unmaskSecrets(config, stored ? [stored] : [], AI_INTEGRATION_SECRET_SLOTS);
+
+/** An integration row as the API returns it: the secret slots of its JSON config masked. */
+export const maskAiIntegrationRow = <T extends { config: string }>(row: T): T => ({
+  ...row,
+  config: JSON.stringify(maskAiIntegrationConfig(JSON.parse(row.config))),
+});

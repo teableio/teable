@@ -7,22 +7,16 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { TableId } from '../domain/table/TableId';
 import type { ViewQueryDefaultsDTO } from '../domain/table/views/ViewQueryDefaults';
+import { viewSortItemSchema } from '../domain/table/views/ViewSort';
 import { recordFilterSchema } from '../queries/RecordFilterDto';
 import { tableFieldInputSchema } from '../schemas/field';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
 import { TableUpdateCommand } from './TableUpdateCommand';
 
-const viewQueryDefaultsSnapshotSchema: z.ZodType<ViewQueryDefaultsDTO> = z
+export const viewQueryDefaultsSnapshotSchema: z.ZodType<ViewQueryDefaultsDTO> = z
   .object({
     filter: recordFilterSchema.optional().nullable(),
-    sort: z
-      .array(
-        z.object({
-          fieldId: z.string().min(1),
-          order: z.enum(['asc', 'desc']),
-        })
-      )
-      .optional(),
+    sort: z.array(viewSortItemSchema).optional(),
     group: z
       .array(
         z.object({
@@ -56,10 +50,24 @@ export const fieldSnapshotSchema = z.object({
     .optional(),
 });
 
+const relatedViewQuerySnapshotSchema = z.object({
+  tableId: z.string(),
+  viewId: z.string(),
+  query: viewQueryDefaultsSnapshotSchema,
+  sourceFilter: z.unknown().optional(),
+});
+
+const relatedViewQueryReplaySchema = z.object({
+  snapshot: relatedViewQuerySnapshotSchema,
+  expected: relatedViewQuerySnapshotSchema,
+});
+
 export const applyFieldSnapshotInputSchema = z.object({
   baseId: z.string(),
   tableId: z.string(),
   snapshot: fieldSnapshotSchema,
+  expectedSnapshot: fieldSnapshotSchema.optional(),
+  relatedViewQueries: z.array(relatedViewQueryReplaySchema).optional(),
 });
 
 export type IApplyFieldSnapshotCommandInput = z.input<typeof applyFieldSnapshotInputSchema>;
@@ -88,7 +96,9 @@ export class ApplyFieldSnapshotCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
-    readonly snapshot: z.output<typeof fieldSnapshotSchema>
+    readonly snapshot: z.output<typeof fieldSnapshotSchema>,
+    readonly expectedSnapshot: z.output<typeof fieldSnapshotSchema> | undefined,
+    readonly relatedViewQueries: z.output<typeof relatedViewQueryReplaySchema>[] | undefined
   ) {
     super(baseId, tableId);
   }
@@ -106,7 +116,14 @@ export class ApplyFieldSnapshotCommand extends TableUpdateCommand {
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(
-        (tableId) => new ApplyFieldSnapshotCommand(baseId, tableId, parsed.data.snapshot)
+        (tableId) =>
+          new ApplyFieldSnapshotCommand(
+            baseId,
+            tableId,
+            parsed.data.snapshot,
+            parsed.data.expectedSnapshot,
+            parsed.data.relatedViewQueries
+          )
       )
     );
   }

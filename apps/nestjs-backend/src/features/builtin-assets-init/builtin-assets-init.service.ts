@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { join, resolve, extname } from 'node:path';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { AUTOMATION_ROBOT_ID, APP_ROBOT_ID, ANONYMOUS_USER_ID } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
@@ -9,7 +8,6 @@ import { createReadStream, stat } from 'fs-extra';
 import mime from 'mime-types';
 import sharp from 'sharp';
 import { CacheService } from '../../cache/cache.service';
-import type { ICacheConfig } from '../../configs/cache.config';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 
@@ -56,7 +54,6 @@ export const EMAIL_LOGO_TOKEN = 'email-logo';
  *
  * Unified service for initializing built-in assets (logos, avatars, etc.)
  * - Acquires Redis lock to ensure only one instance runs initialization
- * - Falls back to running without lock if Redis is not available
  * - Designed to be extended by EE version for additional assets
  *
  * This service consolidates all built-in asset uploads from:
@@ -71,8 +68,7 @@ export class BuiltinAssetsInitService implements OnModuleInit {
   constructor(
     protected readonly prismaService: PrismaService,
     @InjectStorageAdapter() protected readonly storageAdapter: StorageAdapter,
-    protected readonly cacheService: CacheService,
-    protected readonly configService: ConfigService
+    protected readonly cacheService: CacheService
   ) {
     // Generate unique lock value per instance
     this.lockValue = `${process.pid}-${randomUUID()}`;
@@ -119,17 +115,9 @@ export class BuiltinAssetsInitService implements OnModuleInit {
 
   /**
    * Try to acquire a distributed lock using Redis
-   * Returns true if lock acquired or Redis is not available (fallback to run)
+   * Returns true if lock acquired or Redis errored (proceed without the lock)
    */
   protected async tryAcquireLock(): Promise<boolean> {
-    const cacheProvider = this.configService.get<ICacheConfig>('cache')?.provider;
-
-    // If not using Redis, skip lock and allow execution
-    if (cacheProvider !== 'redis') {
-      this.logger.debug('Redis not available, proceeding without distributed lock');
-      return true;
-    }
-
     try {
       // Use atomic setnx operation to acquire lock
       const acquired = await this.cacheService.setnx(LOCK_KEY, this.lockValue, LOCK_TTL);
@@ -151,12 +139,6 @@ export class BuiltinAssetsInitService implements OnModuleInit {
    * Release the distributed lock
    */
   protected async releaseLock(): Promise<void> {
-    const cacheProvider = this.configService.get<ICacheConfig>('cache')?.provider;
-
-    if (cacheProvider !== 'redis') {
-      return;
-    }
-
     try {
       // Only delete if we own the lock
       const currentLock = await this.cacheService.get(LOCK_KEY);

@@ -58,9 +58,8 @@ const linkItemSchema = z
   .transform(({ id, title }) => (title == null ? { id } : { id, title }));
 
 // User item schema
-// `title` is optional: a bare `{ id }` reference is accepted and resolved at
-// write time. Strict writes keep it inside the table's collaborator scope,
-// while typecast/paste snapshots may reference any platform member.
+// Bare `{ id }` references resolve in table scope. Complete id/email pairs are
+// verified against the same active user before they can cross that scope.
 const userItemSchema = z.object({
   id: z.string(),
   title: z.string().nullish(),

@@ -127,14 +127,19 @@ export type IBaseNodePresenceDeletePayload = {
   data: Pick<IBaseNodeVo, 'id'>;
 };
 
+/**
+ * A change on the base's node channel carries the node's id and nothing else. Everyone in the base
+ * hears it, and so does whoever holds any of its share links, so it must not say what the node is:
+ * a listener refetches the tree, which hands each caller only the nodes they may see.
+ */
 export type IBaseNodePresenceCreatePayload = {
   event: 'create';
-  data: IBaseNodeVo;
+  data: Pick<IBaseNodeVo, 'id'>;
 };
 
 export type IBaseNodePresenceUpdatePayload = {
   event: 'update';
-  data: IBaseNodeVo;
+  data: Pick<IBaseNodeVo, 'id'>;
 };
 
 export type IBaseNodePresenceFlushPayload = {

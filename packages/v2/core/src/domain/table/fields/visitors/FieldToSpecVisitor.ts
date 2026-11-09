@@ -477,10 +477,14 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
           ? null
           : parsed.items
         : (parsed.items[0] ?? null);
+      // Caller-controlled objects retain their supplied identity pair for verification;
+      // incomplete references remain restricted to the table's collaborators.
       return ok(
         new SetUserValueSpec(
           field.id(),
-          CellValue.fromValidated(normalizedValue as UserItem[] | null)
+          CellValue.fromValidated(normalizedValue as UserItem[] | null),
+          true,
+          !field.multiplicity().toBoolean() && parsed.items.length > 1 ? parsed.items : undefined
         )
       );
     }

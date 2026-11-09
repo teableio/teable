@@ -69,6 +69,7 @@ import {
   buildStoredFieldValueExpression,
   buildStoredFieldOrderByClauses,
   FieldOutputColumnVisitor,
+  resolvePinyinOrderByKind,
   type DynamicDB,
   type FieldOutputColumn,
   type StoredFieldOrderByClause,
@@ -104,6 +105,7 @@ import {
   buildRecordSearchFieldMatches,
   buildRecordSearchWhereClause,
   buildRecordSearchWherePlan,
+  buildSearchDocumentPrefilter,
   type RecordSearchFieldMatch,
   type RecordSearchWherePlan,
 } from './RecordSearchWhereBuilder';
@@ -118,6 +120,9 @@ const TABLE_ALIAS = 't';
 const GROUP_RESULT_ALIAS = 'g';
 const ORDER_COLUMN_CACHE_TTL_MS = 5_000;
 const TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY = Symbol.for('teable.v2.tableOps.sqlDiagnostics');
+// Document recheck reads a whole wide document per candidate row, so the cell
+// count only keeps an index prefilter while its candidates stay under this cap.
+const CELL_MATCH_PREFILTER_CANDIDATE_LIMIT = 2_000;
 
 // Single policy for which group expressions get identity-normalized: plain
 // user fields and lookups whose presentation type is user. Returns null for
@@ -863,6 +868,47 @@ export class PostgresTableRecordQueryRepository
     }
   }
 
+  /**
+   * Whether the document prefilter still removes most of the rows the cell count
+   * would evaluate. The probe stops at the candidate cap, so it costs one bounded
+   * index scan instead of the scan the count would have run anyway; a failed probe
+   * answers false and leaves the exact predicates as the only filter.
+   */
+  private async searchDocumentPrefilterStaysSelective(
+    context: IExecutionContext,
+    db: Kysely<DynamicDB>,
+    readQuerySource: IRecordReadQuerySource | undefined,
+    sourceTableName: string,
+    whereClause: Expression<SqlBool> | null,
+    prefilter: Expression<SqlBool>
+  ): Promise<Result<boolean, DomainError>> {
+    const candidateRows = db
+      .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
+      .select(sql<number>`1`.as('one'))
+      .$if(whereClause !== null, (qb) => qb.where(whereClause as Expression<SqlBool>))
+      .where(prefilter)
+      .limit(CELL_MATCH_PREFILTER_CANDIDATE_LIMIT + 1);
+    const probeCompiled = this.withRecordReadQuerySource(
+      db
+        .selectFrom(candidateRows.as('c'))
+        .select(sql<string>`count(*)`.as('candidates'))
+        .compile(),
+      readQuerySource
+    );
+
+    try {
+      const probe = await this.executeQueryWithBudget<{ candidates: string }>(
+        context,
+        db,
+        probeCompiled
+      );
+      const candidates = Number.parseInt(probe.rows[0]?.candidates ?? '0', 10);
+      return ok(Number.isFinite(candidates) && candidates <= CELL_MATCH_PREFILTER_CANDIDATE_LIMIT);
+    } catch {
+      return ok(false);
+    }
+  }
+
   async countSearchMatches(
     context: IExecutionContext,
     table: Table,
@@ -894,6 +940,34 @@ export class PostgresTableRecordQueryRepository
             fieldMaskSqlMap,
           });
           if (!fieldMatches.length) return ok(0);
+          // Rows whose searched fields all miss contribute 0 cells, so the exact
+          // per-field predicates stay the answer oracle while the generated search
+          // document can remove candidate rows before they are evaluated. The helper
+          // refuses any coverage or probe shape it cannot prove monotone, which
+          // keeps the previous full scan in those cases.
+          const prefilterCondition = yield* buildSearchDocumentPrefilter(
+            table,
+            options.search,
+            options.searchAccessPath,
+            { tableAlias: TABLE_ALIAS }
+          );
+          // A document `LIKE` is only worth an index scan while the candidates stay
+          // few: on a wide table the index recheck reads the whole document for every
+          // candidate, which costs more than the plain scan once most rows match. The
+          // bounded probe answers that with real rows instead of a guess, so common
+          // words keep the previous plan and rare words get the index.
+          const cellPrefilter =
+            prefilterCondition !== null &&
+            (yield* await this.searchDocumentPrefilterStaysSelective(
+              context,
+              dynamicDb,
+              readQuerySource,
+              sourceTableName,
+              whereClause.value,
+              prefilterCondition
+            ))
+              ? prefilterCondition
+              : null;
 
           const matchedCellExpression = fieldMatches.reduce<Expression<number>>(
             (count, match) =>
@@ -907,6 +981,7 @@ export class PostgresTableRecordQueryRepository
               .$if(whereClause.value !== null, (qb) =>
                 qb.where(whereClause.value as Expression<SqlBool>)
               )
+              .$if(cellPrefilter !== null, (qb) => qb.where(cellPrefilter as Expression<SqlBool>))
               .compile(),
             readQuerySource
           );
@@ -943,14 +1018,22 @@ export class PostgresTableRecordQueryRepository
         async function* (this: PostgresTableRecordQueryRepository) {
           if (options?.recordIndexId !== undefined) {
             const recordId = options.recordIndexId;
-            const indexes = yield* await this.loadViewIndexes(
-              context,
-              table,
-              spec,
-              options,
-              [recordId],
-              options.search
-            );
+            let indexesResult: Result<ReadonlyMap<string, number>, DomainError>;
+            try {
+              indexesResult = await this.loadViewIndexes(
+                context,
+                table,
+                spec,
+                options,
+                [recordId],
+                options.search
+              );
+            } catch (error) {
+              const queryError = buildUnexpectedQueryError('Failed to load table records', error);
+              if (queryError.code === 'db.missing_collation') return err(queryError);
+              throw error;
+            }
+            const indexes = yield* indexesResult;
             const index = indexes.get(recordId);
             return ok({ records: [], total: 0, recordIndex: index == null ? null : index - 1 });
           }
@@ -1090,6 +1173,8 @@ export class PostgresTableRecordQueryRepository
             tableAlias: TABLE_ALIAS,
             searchAccessPath: options?.searchAccessPath,
             fieldMaskSqlMap,
+            requireCompleteFieldScope:
+              options?.includeSearchFieldMatches === true && options.searchIndexMode === 'view',
           });
           if (searchWherePlan.isErr()) {
             searchWhereSpan?.end();
@@ -1970,16 +2055,25 @@ export class PostgresTableRecordQueryRepository
     const keys: CursorSeekKey[] = [];
     for (const sort of orderBy) {
       if (isFieldOrderBy(sort)) {
-        // A masked field is ordered by its mask expression rather than by its column, so
-        // a token carrying the column value could not express a position in that order.
-        if (fieldMaskSqlMap?.has(sort.fieldId.toString())) {
-          return ok(null);
-        }
         const fieldResult = table.getField((field) => field.id().equals(sort.fieldId));
         if (fieldResult.isErr()) {
           return err(fieldResult.error);
         }
         const field = fieldResult.value;
+        // Pinyin ordering compares an expression under a named ICU collation,
+        // while value cursors seek raw physical columns. Validate the requested
+        // field contract, then keep supported shapes on the safe offset path so
+        // default-collation tokens cannot cross sort rules.
+        if (sort.collation === 'zh-pinyin') {
+          const pinyinKind = resolvePinyinOrderByKind(field, sort.collation);
+          if (pinyinKind.isErr()) return err(pinyinKind.error);
+          return ok(null);
+        }
+        // A masked field is ordered by its mask expression rather than by its column, so
+        // a token carrying the column value could not express a position in that order.
+        if (fieldMaskSqlMap?.has(sort.fieldId.toString())) {
+          return ok(null);
+        }
         if (!isRawColumnCursorField(field)) {
           return ok(null);
         }
@@ -2059,6 +2153,7 @@ export class PostgresTableRecordQueryRepository
       if (isFieldOrderBy(sort)) {
         queryBuilder.orderBy(sort.fieldId, sort.direction, {
           groupIdentityCollation: sort.groupIdentityCollation,
+          collation: sort.collation,
         });
         continue;
       }
@@ -2314,14 +2409,22 @@ const extractDatabaseErrorDetails = (
 };
 
 /**
- * `57014` means the server cancelled a statement that outran its budget: the
- * database did not answer in time, which is infrastructure - not a defect in the
- * generated SQL (`db.undefined_column`) and not an unclassified failure.
+ * Known database capability/runtime failures keep explicit codes. `42704` for
+ * the requested ICU collation means the data database cannot honor pinyin
+ * ordering; `57014` means the server cancelled a statement that outran its
+ * budget. Other errors retain the existing unexpected-query classification.
  */
 const buildUnexpectedQueryError = (prefix: string, error: unknown): DomainError => {
   const details = extractDatabaseErrorDetails(error);
   const pgCode = details?.pgCode;
   const message = `${prefix}: ${describeError(error)}`;
+  if (pgCode === '42704' && /collation .*zh-x-icu.*does not exist/i.test(message)) {
+    return domainError.infrastructure({
+      code: 'db.missing_collation',
+      ...(details ? { details } : {}),
+      message,
+    });
+  }
 
   if (pgCode === '57014') {
     return domainError.infrastructure({

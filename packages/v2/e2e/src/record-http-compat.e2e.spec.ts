@@ -653,10 +653,10 @@ describe('v2 http record compatibility (P0)', () => {
       );
 
       // @ts-expect-error infer error type
-      expect(error.message).toContain('User(not-in-table) not found');
+      expect(error.message).toContain('User not found');
     });
 
-    it('ignores wrong user name/email on input', async () => {
+    it('rejects mismatched email even for a collaborator', async () => {
       const table = await createTable({
         baseId: ctx.baseId,
         name: uniqueTableName('user-sanitize'),
@@ -673,25 +673,23 @@ describe('v2 http record compatibility (P0)', () => {
       });
       const userFieldId = table.fields.find((field) => field.name === 'user')?.id ?? '';
 
-      await createRecords(table.id, [
-        {
-          fields: {
-            [userFieldId]: {
-              id: ctx.testUser.id,
-              title: '11111',
-              email: '11111',
+      const error = await createRecords(
+        table.id,
+        [
+          {
+            fields: {
+              [userFieldId]: {
+                id: ctx.testUser.id,
+                title: '11111',
+                email: '11111',
+              },
             },
           },
-        },
-      ]);
-
-      const records = await listRecords(table.id, FieldKeyType.Name);
-      expect(records[0]?.fields.user).toEqual({
-        id: ctx.testUser.id,
-        title: ctx.testUser.name,
-        email: ctx.testUser.email,
-        avatarUrl: expect.any(String),
-      });
+        ],
+        400
+      );
+      // @ts-expect-error infer error type
+      expect(error.message).toContain('User not found');
     });
 
     it('prefills attachment field with stored attachment metadata', async () => {
@@ -901,6 +899,27 @@ describe('v2 http record compatibility (P0)', () => {
       ]);
 
       expect(res3.fields[dateField.id]).toBeDefined();
+
+      const bulk = await ctx.updateRecords({
+        tableId: table.id,
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [{ id: created.id, fields: { [singleUserField.id]: ctx.testUser.email } }],
+      });
+      expect(bulk.records).toHaveLength(1);
+      expect(bulk.records?.[0]).toMatchObject({
+        id: created.id,
+        fields: {
+          [table.fields[0].id]: 'init',
+          [singleUserField.id]: {
+            id: ctx.testUser.id,
+            email: ctx.testUser.email,
+            title: ctx.testUser.name,
+          },
+          [multiUserField.id]: res2.fields[multiUserField.id],
+          [dateField.id]: res3.fields[dateField.id],
+        },
+      });
     });
   });
 

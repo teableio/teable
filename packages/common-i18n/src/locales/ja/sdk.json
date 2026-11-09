@@ -329,9 +329,14 @@
     "autoSort": "レコードを自動的に並べ替える",
     "selectASCLabel": "最初 → 最後",
     "selectDESCLabel": "最後 → 最初",
+    "pinyinASCLabel": "ピンイン順（昇順）",
+    "pinyinDESCLabel": "ピンイン順（降順）",
+    "pinyinGroupConflict": "グループ化されたフィールドではピンイン順を使用できません。このフィールドのグループ化を解除するか、デフォルトの並べ替えを使用してください。",
+    "pinyinGroupRecovered": "グループ化と競合していた個人ビューのピンイン順をデフォルトの並べ替えにリセットしました。グループと並べ替えの方向は保持されています。ピンイン順を再び有効にするには、このフィールドのグループ化を解除してください。",
     "orderTitle": "並べ替え順を選択"
   },
   "group": {
+    "pinyinSortConflict": "このフィールドはピンイン順で並べ替えられています。グループ化する前にデフォルトの並べ替えに変更するか、別のフィールドを選択してください。",
     "label": "グループ",
     "displayLabel_other": "{{count}}フィールドでグループ化",
     "setTips": "グループ化",
@@ -1195,6 +1200,7 @@
       "configRequiredToRun": "保存された設定がないルーティンは実行できません",
       "runAlreadyInFlight": "このルーティンはすでに実行中です",
       "runNowWhileActiveEvent": "このルーチンは有効でイベントを受信しています。イベントを発生させると実行されます",
+      "runNowOwnerOnly": "ルーティンが有効な間は、実行ユーザーのみが今すぐ実行できます",
       "invalidRunCursor": "実行履歴の無効なカーソルです",
       "invalidSchedule": "無効なルーティンのスケジュールです: {{reason}}"
     },
@@ -1695,6 +1701,7 @@
         "loginDisabled": "このアプリではログインが有効になっていません",
         "googleDisabled": "このアプリでは Google ログインが有効になっていません",
         "teableDisabled": "このアプリでは Teable ログインが有効になっていません",
+        "oidcDisabled": "このアプリでは SSO ログインが有効になっていません",
         "userTableMissing": "選択したユーザーテーブルはこのプロジェクトに存在しません",
         "emailFieldMissing": "選択したユーザーテーブルにメールフィールドがありません",
         "emailFieldType": "メールフィールドは書き込み可能な1行テキストフィールドである必要があります",
@@ -1782,6 +1789,11 @@
     },
     "integrity": {
       "linkTargetTableMissing": "リンク先のテーブルが既に存在しないため、このリンクを自動修復できません。"
+    },
+    "secret": {
+      "endpointChanged": "保存済みのシークレットは保存時のアドレスにのみ送信できます。{{field}} を再入力してください。",
+      "reenterForNewAddress": "アドレスが変更されました。先に {{fields}} を再入力するか、クリアしてください。",
+      "staleMask": "保存済みの {{field}} はページの読み込み後に変更されました。再入力してください。"
     }
   },
   "usageLimitBanner": {

@@ -723,6 +723,36 @@ class FakeRecordMutationSpecResolverService {
   ): Promise<Result<ReadonlyArray<ICellValueSpec | null>, DomainError>> {
     return ok(specs);
   }
+
+  async resolveCreatedRecords(
+    context: IExecutionContext,
+    tableId: TableId,
+    input: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>[2]
+  ): Promise<
+    Result<
+      {
+        records: ReadonlyArray<TableRecord>;
+        mutateSpecs: ReadonlyArray<ICellValueSpec | null>;
+      },
+      DomainError
+    >
+  > {
+    const resolvedSpecs = await this.resolveAndReplaceMany(context, tableId, input.mutateSpecs);
+    if (resolvedSpecs.isErr()) return err(resolvedSpecs.error);
+
+    const records: TableRecord[] = [];
+    for (const [index, record] of input.records.entries()) {
+      const spec = resolvedSpecs.value[index];
+      if (!spec) {
+        records.push(record);
+        continue;
+      }
+      const resolvedRecord = spec.mutate(record);
+      if (resolvedRecord.isErr()) return err(resolvedRecord.error);
+      records.push(resolvedRecord.value);
+    }
+    return ok({ records, mutateSpecs: resolvedSpecs.value });
+  }
 }
 
 class CountingRecordMutationSpecResolverService extends FakeRecordMutationSpecResolverService {

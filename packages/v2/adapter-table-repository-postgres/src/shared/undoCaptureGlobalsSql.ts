@@ -42,6 +42,11 @@ export const undoCaptureGlobalStatements = [
     BEGIN
       batch_id := current_setting('teable.undo_batch_id', true);
 
+      IF batch_id IS NULL OR batch_id = '' THEN
+        -- For AFTER triggers, the return value is ignored; RETURN NULL is idiomatic.
+        RETURN NULL;
+      END IF;
+
       IF TG_OP = 'INSERT' THEN
         captured_record_id := COALESCE(NEW."__id"::text, '');
         captured_new_row := to_jsonb(NEW);
@@ -52,11 +57,6 @@ export const undoCaptureGlobalStatements = [
       ELSIF TG_OP = 'DELETE' THEN
         captured_record_id := COALESCE(OLD."__id"::text, '');
         captured_old_row := to_jsonb(OLD);
-      END IF;
-
-      IF batch_id IS NULL OR batch_id = '' THEN
-        -- For AFTER triggers, the return value is ignored; RETURN NULL is idiomatic.
-        RETURN NULL;
       END IF;
 
       IF TG_OP IN ('UPDATE', 'DELETE') THEN

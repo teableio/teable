@@ -160,6 +160,26 @@ describe('preview cache config fingerprint', () => {
     expect(getPreviewUrlConfigSig()).not.toBe(endpointSig);
   });
 
+  it('follows the local read-token minting key, on the local provider only', () => {
+    vi.stubEnv('BACKEND_STORAGE_PROVIDER', 'local');
+    vi.stubEnv('BACKEND_STORAGE_ENCRYPTION_KEY', 'k'.repeat(16));
+    vi.stubEnv('BACKEND_STORAGE_ENCRYPTION_IV', 'v'.repeat(16));
+    const localSig = getPreviewUrlConfigSig();
+
+    // a pinned _OLD pair only verifies: urls minted under the current key stay valid
+    vi.stubEnv('BACKEND_STORAGE_ENCRYPTION_KEY_OLD', 'o'.repeat(16));
+    vi.stubEnv('BACKEND_STORAGE_ENCRYPTION_IV_OLD', 'p'.repeat(16));
+    expect(getPreviewUrlConfigSig()).toBe(localSig);
+
+    vi.stubEnv('BACKEND_STORAGE_ENCRYPTION_KEY', 'K'.repeat(16));
+    expect(getPreviewUrlConfigSig()).not.toBe(localSig);
+
+    vi.stubEnv('BACKEND_STORAGE_PROVIDER', 's3');
+    const s3Sig = getPreviewUrlConfigSig();
+    vi.stubEnv('BACKEND_STORAGE_ENCRYPTION_KEY', 'x'.repeat(16));
+    expect(getPreviewUrlConfigSig()).toBe(s3Sig);
+  });
+
   it('treats entries from another config or without fingerprint as stale', () => {
     const sig = getPreviewUrlConfigSig();
     expect(getFreshPreviewCacheUrl({ url: 'https://a/b', expiresIn: 60, configSig: sig })).toBe(

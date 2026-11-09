@@ -4,6 +4,7 @@ export * from './systemOrderColumns';
 
 // Shared utilities
 export * from './FieldOutputColumnVisitor';
+export * from './fieldOrderByCollation';
 
 // Query builder manager (strategy pattern)
 export * from './TableRecordQueryBuilderManager';

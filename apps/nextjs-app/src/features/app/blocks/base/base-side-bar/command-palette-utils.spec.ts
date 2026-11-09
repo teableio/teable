@@ -7,9 +7,9 @@ import {
 } from './command-palette-utils';
 
 describe('palette matching', () => {
-  it('orders exact, prefix, word-prefix, substring, initials and pinyin matches ahead of frequency', () => {
+  it('orders exact, prefix, word-prefix, substring, initials and pinyin matches ahead of recent use', () => {
     const index = createPaletteSearchIndex([
-      { id: 'substring', label: 'mycustomers', lastVisited: 100, visitCount: 100 },
+      { id: 'substring', label: 'mycustomers', lastVisited: 100 },
       { id: 'word', label: 'New customers' },
       { id: 'prefix', label: 'Customers archive' },
       { id: 'exact', label: 'Customers' },
@@ -26,9 +26,9 @@ describe('palette matching', () => {
     expect(searchPaletteEntries(chinese, 'unrelated')).toEqual([]);
   });
 
-  it('ranks Chinese word starts above substrings even when the substring is visited more', () => {
+  it('ranks Chinese word starts above substrings even when the substring was visited just now', () => {
     const index = createPaletteSearchIndex([
-      { id: 'substring', label: '项目标题', lastVisited: 100, visitCount: 100 },
+      { id: 'substring', label: '项目标题', lastVisited: 100 },
       { id: 'word', label: '季度目标' },
     ]);
     expect(searchPaletteEntries(index, '目标', 100).map(({ id }) => id)).toEqual([
@@ -45,8 +45,8 @@ describe('palette matching', () => {
 
   it('breaks equal textual matches by recent use and deduplicates the same destination', () => {
     const index = createPaletteSearchIndex([
-      { id: 'old', label: 'Customers', href: '/old', lastVisited: 1, visitCount: 1 },
-      { id: 'new', label: 'Customers', href: '/new', lastVisited: 86400001, visitCount: 2 },
+      { id: 'old', label: 'Customers', href: '/old', lastVisited: 1 },
+      { id: 'new', label: 'Customers', href: '/new', lastVisited: 86400001 },
       { id: 'duplicate', label: 'Customers', href: '/new' },
     ]);
     expect(searchPaletteEntries(index, 'customers', 86400001).map(({ id }) => id)).toEqual([

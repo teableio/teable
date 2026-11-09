@@ -6,6 +6,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { TableCreateViewInput } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { viewRecordFilterSchema } from '../domain/table/views/ViewQueryDefaults';
+import { viewSortItemSchema } from '../domain/table/views/ViewSort';
 import { ViewSourceFilter, viewSourceFilterSchema } from '../domain/table/views/ViewSourceFilter';
 import { PublicCommand } from './PublicCommand';
 
@@ -26,9 +27,7 @@ const createViewConfigSchema = z.object({
   options: z.unknown().optional(),
   filter: viewRecordFilterSchema.optional().nullable(),
   sourceFilter: viewSourceFilterSchema.optional(),
-  sort: z
-    .array(z.object({ fieldId: z.string().min(1), order: z.enum(['asc', 'desc']) }))
-    .optional(),
+  sort: z.array(viewSortItemSchema).optional(),
   group: z
     .array(z.object({ fieldId: z.string().min(1), order: z.enum(['asc', 'desc']) }))
     .optional(),

@@ -369,7 +369,8 @@ export const ShareViewContent: React.FC = () => {
           {t('table:toolbar.others.share.statusLabel')}
         </Label>
       </div>
-      {enableShare ? (
+      {/* The link and settings are for those who manage the share; anyone else sees only that it is on */}
+      {enableShare && canManageShare ? (
         <>
           <div className="flex flex-col gap-2">
             {needConfigAllowEdit && activePermission && (
@@ -378,11 +379,8 @@ export const ShareViewContent: React.FC = () => {
                   {t('table:baseShare.linkHolderLabel')}
                 </span>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={!canManageShare}>
-                    <button
-                      disabled={!canManageShare}
-                      className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-0.5 font-medium text-blue-500 hover:text-blue-600">
                       {activePermission.label}
                       <ChevronDown className="size-3.5" />
                     </button>
@@ -439,7 +437,6 @@ export const ShareViewContent: React.FC = () => {
                       variant="outline"
                       size="icon-sm"
                       className="shrink-0"
-                      disabled={!canManageShare}
                       onClick={() => view.setRefreshLink()}
                     >
                       <RefreshCcw className="size-4 shrink-0" />
@@ -462,7 +459,6 @@ export const ShareViewContent: React.FC = () => {
                 <Switch
                   id="share-view-allowCopy"
                   checked={shareMeta?.allowCopy}
-                  disabled={!canManageShare}
                   onCheckedChange={(checked) => setShareMeta({ allowCopy: checked })}
                 />
                 <Label className="text-sm font-normal" htmlFor="share-view-allowCopy">
@@ -475,7 +471,6 @@ export const ShareViewContent: React.FC = () => {
                 <Switch
                   id="share-view-includeHiddenField"
                   checked={shareMeta?.includeHiddenField}
-                  disabled={!canManageShare}
                   onCheckedChange={(checked) => setShareMeta({ includeHiddenField: checked })}
                 />
                 <Label className="text-sm font-normal" htmlFor="share-view-includeHiddenField">
@@ -488,14 +483,14 @@ export const ShareViewContent: React.FC = () => {
                 <Switch
                   id="share-view-password"
                   checked={Boolean(shareMeta?.password)}
-                  disabled={!canManageShare || isSavingPassword}
+                  disabled={isSavingPassword}
                   onCheckedChange={onPasswordSwitchChange}
                 />
                 <Label className="text-sm font-normal" htmlFor="share-view-password">
                   {t('table:toolbar.others.share.restrict')}
                 </Label>
               </div>
-              {Boolean(shareMeta?.password) && canManageShare && (
+              {Boolean(shareMeta?.password) && (
                 <SharePasswordReveal
                   shareUrl={displayShareUrl}
                   password={revealedPassword}
@@ -508,7 +503,6 @@ export const ShareViewContent: React.FC = () => {
                 <Switch
                   id="share-view-required-login"
                   checked={Boolean(shareMeta?.submit?.requireLogin)}
-                  disabled={!canManageShare}
                   onCheckedChange={onSubmitRequireLoginChange}
                 />
                 <Label className="text-sm font-normal" htmlFor="share-view-required-login">

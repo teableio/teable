@@ -6,10 +6,14 @@ import { create } from 'zustand';
  * unregistration deletes by id, so two owners sharing one would evict each other.
  */
 export enum TopBannerId {
+  /** Enterprise: the viewer has secrets that were exposed and still need replacing. */
+  ExposedSecrets = 'exposed-secrets',
   LicenseExpiry = 'license-expiry',
+  AdminTodo = 'admin-todo',
   Announcement = 'announcement',
   /** Claims no slot; exists so the preview cannot unregister the real banner. */
   AnnouncementPreview = 'announcement-preview',
+  OpenInApp = 'open-in-app',
 }
 
 interface ITopBannerEntry {

@@ -85,7 +85,6 @@ export class ComputedReliabilityReconciliationService
     deadline = Date.now() + 5000
   ) {
     // Keep the pacing key until TTL expiry: releasing it would allow staggered pods to repeat work.
-    // With an in-memory cache this only paces one process; the database lock still prevents overlap.
     let shouldMaintain: boolean;
     let shouldSample = false;
     try {

@@ -6,6 +6,7 @@ import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
+  axios,
   CREATE_FIELD,
   CREATE_RECORD,
   emailBaseInvitation,
@@ -15,6 +16,7 @@ import {
   uploadAttachment,
   urlBuilder,
   USER_ME,
+  X_CANARY_HEADER,
   type ITableFullVo,
   type IUserMeVo,
 } from '@teable/openapi';
@@ -41,8 +43,12 @@ describe('Record Typecast', () => {
 
   let baseId: string;
   let spaceId: string;
+  const previousForceV2All = process.env.FORCE_V2_ALL;
+  const previousEnableCanaryFeature = process.env.ENABLE_CANARY_FEATURE;
 
   beforeAll(async () => {
+    process.env.FORCE_V2_ALL = 'false';
+    process.env.ENABLE_CANARY_FEATURE = 'true';
     const appCtx = await initApp();
     app = appCtx.app;
     const space = await createSpace({
@@ -57,9 +63,16 @@ describe('Record Typecast', () => {
   });
 
   afterAll(async () => {
-    await permanentDeleteBase(baseId);
-    await permanentDeleteSpace(spaceId);
-    await app.close();
+    try {
+      await permanentDeleteBase(baseId);
+      await permanentDeleteSpace(spaceId);
+      await app.close();
+    } finally {
+      if (previousForceV2All == null) delete process.env.FORCE_V2_ALL;
+      else process.env.FORCE_V2_ALL = previousForceV2All;
+      if (previousEnableCanaryFeature == null) delete process.env.ENABLE_CANARY_FEATURE;
+      else process.env.ENABLE_CANARY_FEATURE = previousEnableCanaryFeature;
+    }
   });
 
   describe('user fields', () => {
@@ -128,34 +141,209 @@ describe('Record Typecast', () => {
         });
       });
       expect(error?.status).toBe(400);
-      // T6661 dropped the "in table" suffix when structured ids moved to a
-      // platform lookup; assert the stable prefix instead.
-      expect(error?.message).toContain('User(not-in-table) not found');
+      expect(error?.message).toContain('User not found');
+    });
+  });
+
+  describe('user identity objects over record HTTP', () => {
+    const routes = [
+      { version: 'v1', canary: 'false', responseV2: 'false' },
+      { version: 'v2', canary: 'true', responseV2: 'true' },
+    ] as const;
+    const cases = routes.flatMap((route) =>
+      [false, true].flatMap((isMultiple) =>
+        [false, true].map((typecast) => ({ route, isMultiple, typecast }))
+      )
+    );
+    let outsider: IUserMeVo;
+    let secondCollaborator: IUserMeVo;
+    let contractBaseId: string;
+
+    beforeAll(async () => {
+      const contractBase = await createBase({
+        name: 'user identity HTTP routing',
+        spaceId,
+      });
+      contractBaseId = contractBase.id;
+      await app.get(PrismaService).base.update({
+        where: { id: contractBaseId },
+        data: { v2Enabled: false },
+      });
+      const outsiderClient = await createNewUserAxios({
+        email: `record-typecast-outsider-${Date.now()}@test.com`,
+        password: '12345678',
+      });
+      outsider = (await outsiderClient.get<IUserMeVo>(USER_ME)).data;
+      const collaboratorClient = await createNewUserAxios({
+        email: `record-typecast-collaborator-${Date.now()}@test.com`,
+        password: '12345678',
+      });
+      secondCollaborator = (await collaboratorClient.get<IUserMeVo>(USER_ME)).data;
+      await emailBaseInvitation({
+        baseId: contractBaseId,
+        emailBaseInvitationRo: { emails: [secondCollaborator.email], role: Role.Editor },
+      });
     });
 
-    it('error name and email', async () => {
-      await createRecords(table.id, {
-        records: [
-          {
-            fields: {
-              [table.fields[1].id]: {
-                id: userId,
-                title: '11111',
-                email: '11111',
-              },
+    afterAll(async () => {
+      await permanentDeleteBase(contractBaseId);
+    });
+
+    it.each(routes)(
+      '$version validates every single-user array collaborator independent of other rows',
+      async (route) => {
+        const table = await createTable(contractBaseId, {
+          name: `single-user-array-${route.version}`,
+          fields: [
+            { name: 'title', type: FieldType.SingleLineText },
+            {
+              name: 'user',
+              type: FieldType.User,
+              options: { isMultiple: false, shouldNotify: false },
             },
-          },
-        ],
-      });
+          ],
+          records: [],
+        });
+        try {
+          const userFieldId = table.fields[1].id;
+          const response = await axios.post(
+            urlBuilder(CREATE_RECORD, { tableId: table.id }),
+            {
+              fieldKeyType: FieldKeyType.Id,
+              typecast: true,
+              records: [
+                {
+                  fields: {
+                    [userFieldId]: [
+                      { id: globalThis.testConfig.userId },
+                      { id: secondCollaborator.id },
+                    ],
+                  },
+                },
+              ],
+            },
+            { headers: { [X_CANARY_HEADER]: route.canary }, validateStatus: () => true }
+          );
+          expect(response.headers['x-teable-v2']).toBe(route.responseV2);
+          expect(response.status, JSON.stringify(response.data)).toBe(201);
+          const { records } = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+          expect(records[0].fields[userFieldId]).toMatchObject({
+            id: globalThis.testConfig.userId,
+          });
+          const rejected = await axios.post(
+            urlBuilder(CREATE_RECORD, { tableId: table.id }),
+            {
+              fieldKeyType: FieldKeyType.Id,
+              typecast: true,
+              records: [
+                {
+                  fields: {
+                    [userFieldId]: [{ id: globalThis.testConfig.userId }, { id: outsider.id }],
+                  },
+                },
+                { fields: { [userFieldId]: { id: outsider.id, email: outsider.email } } },
+              ],
+            },
+            { headers: { [X_CANARY_HEADER]: route.canary }, validateStatus: () => true }
+          );
+          expect(rejected.headers['x-teable-v2']).toBe(route.responseV2);
+          expect(rejected.status).toBe(400);
+          expect((await getRecords(table.id)).records).toHaveLength(1);
+        } finally {
+          await permanentDeleteTable(contractBaseId, table.id);
+        }
+      }
+    );
 
-      const { records } = await getRecords(table.id);
-      expect(records[0].fields.user).toEqual({
-        id: userId,
-        title: userName,
-        email: userEmail,
-        avatarUrl: expect.any(String),
-      });
-    });
+    it.each(cases)(
+      '$route.version accepts complete outsider identity and rejects ambiguous identities (multiple=$isMultiple, typecast=$typecast)',
+      async ({ route, isMultiple, typecast }) => {
+        const table = await createTable(contractBaseId, {
+          name: `user-identity-${route.version}-${isMultiple}-${typecast}`,
+          fields: [
+            { name: 'title', type: FieldType.SingleLineText },
+            {
+              name: 'user',
+              type: FieldType.User,
+              options: { isMultiple, shouldNotify: false },
+            },
+          ],
+          records: [],
+        });
+        const userFieldId = table.fields[1].id;
+        const routeHeaders = { [X_CANARY_HEADER]: route.canary };
+        const asCellValue = (value: unknown) => (isMultiple ? [value] : value);
+        const postRecord = async (value: unknown) => {
+          const response = await axios.post(
+            urlBuilder(CREATE_RECORD, { tableId: table.id }),
+            {
+              fieldKeyType: FieldKeyType.Id,
+              typecast,
+              records: [{ fields: { [userFieldId]: asCellValue(value) } }],
+            },
+            { headers: routeHeaders, validateStatus: () => true }
+          );
+          expect(response.headers['x-teable-v2']).toBe(route.responseV2);
+          return response;
+        };
+
+        try {
+          const accepted = await postRecord({ id: outsider.id, email: outsider.email });
+          expect(accepted.status, JSON.stringify(accepted.data)).toBe(201);
+
+          const mismatched = await postRecord({
+            id: globalThis.testConfig.userId,
+            email: outsider.email,
+          });
+          expect(mismatched.status, JSON.stringify(mismatched.data)).toBe(400);
+          expect(mismatched.data).toMatchObject({
+            data: { localization: { i18nKey: 'httpErrors.user.notFound' } },
+          });
+
+          const idOnly = await postRecord({ id: outsider.id });
+          expect(idOnly.status, JSON.stringify(idOnly.data)).toBe(400);
+          expect(idOnly.data).toMatchObject({
+            data: { localization: { i18nKey: 'httpErrors.user.notFound' } },
+          });
+
+          const wrongCase = await postRecord({
+            id: outsider.id,
+            email: outsider.email.toUpperCase(),
+          });
+          expect(wrongCase.status).toBe(400);
+          if (isMultiple) {
+            const mixed = await axios.post(
+              urlBuilder(CREATE_RECORD, { tableId: table.id }),
+              {
+                fieldKeyType: FieldKeyType.Id,
+                typecast,
+                records: [
+                  {
+                    fields: {
+                      [userFieldId]: [
+                        { id: outsider.id, email: outsider.email },
+                        { id: outsider.id, email: 'incorrect@example.invalid' },
+                      ],
+                    },
+                  },
+                ],
+              },
+              { headers: routeHeaders, validateStatus: () => true }
+            );
+            expect(mixed.headers['x-teable-v2']).toBe(route.responseV2);
+            expect(mixed.status).toBe(400);
+          }
+
+          const { records } = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+          expect(records).toHaveLength(1);
+          const stored = records[0].fields[userFieldId];
+          const storedOutsider = isMultiple ? (stored as unknown[])[0] : stored;
+          expect(storedOutsider).toMatchObject({ id: outsider.id, email: outsider.email });
+        } finally {
+          await permanentDeleteTable(contractBaseId, table.id);
+        }
+      }
+    );
   });
 
   describe('attachment field', () => {

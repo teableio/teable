@@ -13,6 +13,8 @@ import {
 import type { ITableRecordDto } from './recordDto';
 import { tableRecordDtoSchema } from './recordDto';
 
+export { recordFilterNodeSchema } from '@teable/v2-core';
+
 export type IUpdateRecordsRequestDto = IUpdateRecordsCommandInput;
 
 export interface IUpdateRecordsResponseDataDto {
