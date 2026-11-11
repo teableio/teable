@@ -6,6 +6,7 @@ import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { Timing } from '../../../utils/timing';
@@ -22,6 +23,7 @@ import { IUpdateRecordsInternalRo } from '../type';
 import { RecordModifySharedService } from './record-modify.shared.service';
 
 @Injectable()
+@V1EngineService(['updateRecords', 'simpleUpdateRecords'])
 export class RecordUpdateService {
   constructor(
     private readonly prismaService: PrismaService,

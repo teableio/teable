@@ -72,6 +72,7 @@ import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { extractFieldReferences } from '../../../utils';
 import {
   majorFieldKeysChanged,
@@ -97,6 +98,23 @@ type ILinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
     Partial<Pick<ILinkFieldOptions, 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'>>;
 };
 
+// Shared cross-space policy/accessors, formatting/schema normalization and
+// getFieldReferenceIds are host/pure helpers, not legacy execution boundaries.
+@V1EngineService([
+  'generateNewLinkOptionsVo',
+  'generateUpdatedLinkOptionsVo',
+  'prepareCreateField',
+  'prepareCreateFields',
+  'prepareUpdateField',
+  'uniqFieldName',
+  'generateSymmetricField',
+  'cleanForeignKey',
+  'createReference',
+  'deleteReference',
+  'deleteLookupFieldReference',
+  'createFieldTaskReference',
+  'createFieldTaskReferences',
+])
 @Injectable()
 export class FieldSupplementService {
   private readonly logger = new Logger(FieldSupplementService.name);

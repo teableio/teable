@@ -14,6 +14,7 @@ import {
   FieldType,
   FieldId,
   TableId,
+  domainError,
 } from '@teable/v2-core';
 import type { Kysely } from 'kysely';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -103,6 +104,19 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
       let planningMs = 0;
       let sqlExplainMs = 0;
 
+      // This diagnostic path has no predicate-aware read authorization adapter.
+      // Never resolve filter-selected IDs or expose their cardinality through explain.
+      const recordIds = command.recordIds;
+      if (command.filter || !recordIds) {
+        return err(
+          domainError.validation({
+            code: 'explain.deleteRecords.filter_unsupported',
+            message:
+              'Filter delete explain is unavailable without predicate-aware read authorization.',
+          })
+        );
+      }
+
       // 1. Get table information
       const table = yield* await analyzer.tableQueryService.getById(context, command.tableId);
       const dbTableNameResult = table.dbTableName();
@@ -120,7 +134,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
         type: 'DeleteRecords',
         tableId: command.tableId.toString(),
         tableName: table.name().toString(),
-        recordIds: command.recordIds.map((id) => id.toString()),
+        recordIds: recordIds.map((id) => id.toString()),
         changeType: 'delete',
       };
 
@@ -142,7 +156,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
       plan = yield* await analyzer.planner.plan({
         table,
         changedFieldIds: linkFieldIds,
-        changedRecordIds: command.recordIds,
+        changedRecordIds: recordIds,
         changeType: 'delete',
         cyclePolicy: 'skip',
       });
@@ -177,8 +191,7 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
       const sqlExplains: SqlExplainInfo[] = [];
 
       if (mergedOptions.includeSql) {
-        // Generate DELETE statement with real record IDs
-        const recordIdList = command.recordIds.map((id) => `'${id.toString()}'`).join(', ');
+        const recordIdList = recordIds.map((id) => `'${id.toString()}'`).join(', ');
         const quotedTableName = analyzer.quoteTableName(tableName);
         const deleteSql = `DELETE FROM ${quotedTableName} WHERE "__id" IN (${recordIdList})`;
 
@@ -226,11 +239,8 @@ export class DeleteRecordsAnalyzer implements ICommandAnalyzer<DeleteRecordsComm
           };
         };
 
-        const cleanupStatementsResult = analyzer.buildLinkCleanupStatements(
-          table,
-          command.recordIds
-        );
-        const deleteStepDescription = `Delete ${command.recordIds.length} record(s) from ${table
+        const cleanupStatementsResult = analyzer.buildLinkCleanupStatements(table, recordIds);
+        const deleteStepDescription = `Delete ${recordIds.length} record(s) from ${table
           .name()
           .toString()}`;
 

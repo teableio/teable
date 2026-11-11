@@ -111,6 +111,7 @@ describe('usePaletteNavigation with sidebar providers and no ViewProvider', () =
       label: 'View of tblOne',
       description: 'Current table',
       href: '/base/bseOne/table/tblOne/viw-tblOne',
+      category: 'table',
     });
     expect(queryClient.getQueryData(ReactQueryKeys.viewList('tblOne'))).toEqual([
       makeView('viw-tblOne', 'View of tblOne'),

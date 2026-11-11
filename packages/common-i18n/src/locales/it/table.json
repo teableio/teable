@@ -367,7 +367,9 @@
         "title": "Elimina campo",
         "simpleConfirm": "Sei sicuro di voler eliminare il campo <b>{{fieldName}}</b>?",
         "withDependencies": "L'eliminazione del campo <b>{{fieldName}}</b> influenzerà i seguenti campi:",
-        "deleteCount": "Elimina {{count}} campi",
+        "deleteCount_one": "Elimina {{count}} campi",
+        "deleteCount_many": "Elimina {{count}} campi",
+        "deleteCount_other": "Elimina {{count}} campi",
         "riskIdentified": "Rischio identificato({{count}})",
         "noDependencies": "Nessuna dipendenza({{count}})",
         "noReferencesFound": "In questo controllo non sono state trovate referenze. Altri effetti possono comunque verificarsi.",
@@ -562,11 +564,17 @@
         "deleting": "Deleting records",
         "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
         "completedWithIssues": "Deletion completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issues",
+        "issuesBadge_many": "{{count}} issues",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
-        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_one": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_many": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_other": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} rows",
+        "rowsLabel_many": "{{count}} rows",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -580,11 +588,15 @@
         "duplicating": "Duplicazione dei record",
         "descriptionWithIssues": "Alcuni blocchi di duplicazione non sono riusciti. Consulta i dettagli qui sotto.",
         "completedWithIssues": "Duplicazione completata con problemi",
-        "issuesBadge": "{{count}} problemi",
+        "issuesBadge_one": "{{count}} problemi",
+        "issuesBadge_many": "{{count}} problemi",
+        "issuesBadge_other": "{{count}} problemi",
         "chunkFailureTitle": "Dettagli dell’errore del blocco",
         "chunkFailureSummary": "{{count}} blocco/blocchi hanno segnalato un errore mentre lo stream continuava.",
         "chunkLabel": "Blocco {{index}}",
-        "rowsLabel": "{{count}} righe",
+        "rowsLabel_one": "{{count}} righe",
+        "rowsLabel_many": "{{count}} righe",
+        "rowsLabel_other": "{{count}} righe",
         "phaseLabel": {
           "preparing": "Preparazione",
           "guarding": "Controllo",
@@ -598,11 +610,15 @@
         "pasting": "Incollaggio dei record",
         "descriptionWithIssues": "Alcuni blocchi di incollaggio non sono riusciti. Consulta i dettagli qui sotto.",
         "completedWithIssues": "Incollaggio completato con problemi",
-        "issuesBadge": "{{count}} problemi",
+        "issuesBadge_one": "{{count}} problemi",
+        "issuesBadge_many": "{{count}} problemi",
+        "issuesBadge_other": "{{count}} problemi",
         "chunkFailureTitle": "Dettagli dell’errore del blocco",
         "chunkFailureSummary": "{{count}} blocco/blocchi hanno segnalato un errore mentre lo stream continuava.",
         "chunkLabel": "Blocco {{index}}",
-        "rowsLabel": "{{count}} righe",
+        "rowsLabel_one": "{{count}} righe",
+        "rowsLabel_many": "{{count}} righe",
+        "rowsLabel_other": "{{count}} righe",
         "phaseLabel": {
           "preparing": "Preparazione",
           "guarding": "Controllo",
@@ -617,11 +633,15 @@
         "clearing": "Cancellazione dei record",
         "descriptionWithIssues": "Alcuni blocchi di cancellazione non sono riusciti. Consulta i dettagli qui sotto.",
         "completedWithIssues": "Cancellazione completata con problemi",
-        "issuesBadge": "{{count}} problemi",
+        "issuesBadge_one": "{{count}} problemi",
+        "issuesBadge_many": "{{count}} problemi",
+        "issuesBadge_other": "{{count}} problemi",
         "chunkFailureTitle": "Dettagli dell’errore del blocco",
         "chunkFailureSummary": "{{count}} blocco/blocchi hanno segnalato un errore mentre lo stream continuava.",
         "chunkLabel": "Blocco {{index}}",
-        "rowsLabel": "{{count}} righe",
+        "rowsLabel_one": "{{count}} righe",
+        "rowsLabel_many": "{{count}} righe",
+        "rowsLabel_other": "{{count}} righe",
         "phaseLabel": {
           "preparing": "Preparazione",
           "guarding": "Controllo",
@@ -639,11 +659,15 @@
         "restoreFailed": "Ripristino non riuscito",
         "descriptionWithIssues": "Alcuni blocchi di ripristino non sono riusciti. Consulta i dettagli qui sotto.",
         "completedWithIssues": "Ripristino completato con problemi",
-        "issuesBadge": "{{count}} problemi",
+        "issuesBadge_one": "{{count}} problemi",
+        "issuesBadge_many": "{{count}} problemi",
+        "issuesBadge_other": "{{count}} problemi",
         "chunkFailureTitle": "Dettagli dell’errore del blocco",
         "chunkFailureSummary": "{{count}} blocco/blocchi hanno segnalato un errore mentre lo stream continuava.",
         "chunkLabel": "Blocco {{index}}",
-        "rowsLabel": "{{count}} righe",
+        "rowsLabel_one": "{{count}} righe",
+        "rowsLabel_many": "{{count}} righe",
+        "rowsLabel_other": "{{count}} righe",
         "phaseLabel": {
           "preparing": "Preparazione",
           "guarding": "Controllo",
@@ -688,7 +712,9 @@
         "repairUnavailable": "Questa regola non può essere riparata automaticamente",
         "manual": "Manuale",
         "manualRepairNotice": "Questo problema richiede una riparazione manuale",
-        "manualRepairNoticeWithCount": "{{count}} problemi richiedono una riparazione manuale. Usa l'azione \"Manuale\" a destra di ogni regola per aprire la finestra di riparazione.",
+        "manualRepairNoticeWithCount_one": "{{count}} problemi richiedono una riparazione manuale. Usa l'azione \"Manuale\" a destra di ogni regola per aprire la finestra di riparazione.",
+        "manualRepairNoticeWithCount_many": "{{count}} problemi richiedono una riparazione manuale. Usa l'azione \"Manuale\" a destra di ogni regola per aprire la finestra di riparazione.",
+        "manualRepairNoticeWithCount_other": "{{count}} problemi richiedono una riparazione manuale. Usa l'azione \"Manuale\" a destra di ogni regola per aprire la finestra di riparazione.",
         "manualRepairDialogTitle": "Riparazione manuale richiesta",
         "manualRepairDialogDescription": "Questo problema non può essere riparato automaticamente. Consulta le indicazioni qui sotto e scegli come correggerlo.",
         "manualRepairDialogReason": "Perché è necessaria una riparazione manuale",
@@ -717,7 +743,9 @@
         "systemColumns": "Colonne di sistema",
         "general": "Generale",
         "optional": "Opzionale",
-        "statementCount": "{{count}} istruzioni",
+        "statementCount_one": "{{count}} istruzioni",
+        "statementCount_many": "{{count}} istruzioni",
+        "statementCount_other": "{{count}} istruzioni",
         "detailsMissing": "Mancanti: {{details}}",
         "detailsExtra": "Extra: {{details}}",
         "message": {
@@ -885,14 +913,22 @@
           "repair": "Risultati della riparazione"
         },
         "summary": {
-          "checks": "{{count}} controlli",
+          "checks_one": "{{count}} controlli",
+          "checks_many": "{{count}} controlli",
+          "checks_other": "{{count}} controlli",
           "success": "{{count}} riusciti",
-          "warn": "{{count}} avvisi",
-          "error": "{{count}} errori",
+          "warn_one": "{{count}} avvisi",
+          "warn_many": "{{count}} avvisi",
+          "warn_other": "{{count}} avvisi",
+          "error_one": "{{count}} errori",
+          "error_many": "{{count}} errori",
+          "error_other": "{{count}} errori",
           "skipped": "{{count}} saltati",
           "repaired": "{{count}} riparati",
           "manual": "{{count}} manuali",
-          "problems": "{{count}} problemi"
+          "problems_one": "{{count}} problemi",
+          "problems_many": "{{count}} problemi",
+          "problems_other": "{{count}} problemi"
         },
         "status": {
           "success": "Riuscito",
@@ -947,6 +983,10 @@
       "title": "La tabella che hai aperto è stata eliminata",
       "description": "Passaggio a \"{{tableName}}\"",
       "descriptionEmpty": "Ritorno alla pagina del progetto"
+    },
+    "unavailableRecovered": {
+      "title": "La tabella che hai aperto non è disponibile",
+      "description": "Potrebbe essere stata eliminata, oppure non hai accesso"
     }
   },
   "import": {
@@ -1122,7 +1162,9 @@
       "addDateField": "Aggiungi campi data",
       "content": "Crea una pianificazione della vista calendario, e la tabella deve avere due campi data: data di inizio e data di fine"
     },
-    "moreLinkText": "Mostra tutti i {{count}} record"
+    "moreLinkText_one": "Mostra tutti i {{count}} record",
+    "moreLinkText_many": "Mostra tutti i {{count}} record",
+    "moreLinkText_other": "Mostra tutti i {{count}} record"
   },
   "menu": {
     "insertRecordAbove": "Inserisci <input /> record sopra",
@@ -1200,7 +1242,9 @@
   "lastModify": "Ultima modifica: ",
   "pasteNewRecords": {
     "title": "Vuoi aggiungere più record?",
-    "description": "I {{count}} record saranno aggiunti alla tabella."
+    "description_one": "I {{count}} record saranno aggiunti alla tabella.",
+    "description_many": "I {{count}} record saranno aggiunti alla tabella.",
+    "description_other": "I {{count}} record saranno aggiunti alla tabella."
   },
   "tableArchive": {
     "title": "Archivio della tabella",
@@ -1214,7 +1258,9 @@
     "searchPlaceholder": "Cerca record archiviati",
     "clearFilter": "Cancella filtri",
     "export": "Esporta CSV",
-    "exporting": "Esportazione… {{count}} righe",
+    "exporting_one": "Esportazione… {{count}} righe",
+    "exporting_many": "Esportazione… {{count}} righe",
+    "exporting_other": "Esportazione… {{count}} righe",
     "exportSucceed": "Esportazione completata, download in corso",
     "restoreSelected": "Ripristina ({{count}})",
     "permanentDeleteSelected": "Elimina definitivamente ({{count}})",
@@ -1291,7 +1337,9 @@
     "viewLinkHolderCanViewDesc": "Chiunque abbia il link può visualizzare i dati di questa vista",
     "viewLinkHolderCanEditDesc": "Gli utenti registrati possono modificare i dati nell'ambito della vista",
     "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
-    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_one": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_many": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_other": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
     "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
     "restrictScope": "Restrict scope",
     "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
@@ -1346,7 +1394,9 @@
       "notConnected": "Google Sheets non è ancora connesso. Connettilo nell'app, poi riprova.",
       "backToChat": "Ora puoi tornare alla chat.",
       "status": {
-        "picked": "{{count}} fogli di calcolo autorizzati",
+        "picked_one": "{{count}} fogli di calcolo autorizzati",
+        "picked_many": "{{count}} fogli di calcolo autorizzati",
+        "picked_other": "{{count}} fogli di calcolo autorizzati",
         "cancelled": "Saltato",
         "failed": "Non riuscito"
       },
@@ -1422,7 +1472,9 @@
         "copy": "Copia",
         "copied": "Copiato!",
         "collapse": "Comprimi",
-        "linesHidden": "{{count}} righe nascoste: fai clic per espandere"
+        "linesHidden_one": "{{count}} righe nascoste: fai clic per espandere",
+        "linesHidden_many": "{{count}} righe nascoste: fai clic per espandere",
+        "linesHidden_other": "{{count}} righe nascoste: fai clic per espandere"
       }
     },
     "tool": {
@@ -1605,8 +1657,12 @@
       "selectionColumns": "Col {{start}}-{{end}}",
       "selectionColumnsNamed": "{{names}} +{{count}}",
       "selectionUnnamed": "Record senza nome",
-      "selectionRecords": "{{count}} record",
-      "selectionCellCount": "{{count}} celle",
+      "selectionRecords_one": "{{count}} record",
+      "selectionRecords_many": "{{count}} record",
+      "selectionRecords_other": "{{count}} record",
+      "selectionCellCount_one": "{{count}} celle",
+      "selectionCellCount_many": "{{count}} celle",
+      "selectionCellCount_other": "{{count}} celle",
       "selectionRecordType": "Riferimento a record",
       "selectionCellType": "Riferimento a celle",
       "selectionDimensions": "{{rows}} righe × {{columns}} col",
@@ -1621,7 +1677,9 @@
       "selectionOpenRecord": "Apri il record {{name}}",
       "selectionPrevious": "Precedente",
       "selectionNext": "Successivo",
-      "selectionPage": "{{start}}–{{end}} di {{count}} record"
+      "selectionPage_one": "{{start}}–{{end}} di {{count}} record",
+      "selectionPage_many": "{{start}}–{{end}} di {{count}} record",
+      "selectionPage_other": "{{start}}–{{end}} di {{count}} record"
     },
     "mention": {
       "tables": "Tabelle",
@@ -1650,7 +1708,9 @@
     },
     "attachment": {
       "pastedTextFileName": "Testo incollato",
-      "tooManyFiles": "Puoi allegare al massimo {{count}} file per messaggio"
+      "tooManyFiles_one": "Puoi allegare al massimo {{count}} file per messaggio",
+      "tooManyFiles_many": "Puoi allegare al massimo {{count}} file per messaggio",
+      "tooManyFiles_other": "Puoi allegare al massimo {{count}} file per messaggio"
     },
     "suggestions": {
       "title": "Come posso aiutarti?",
@@ -1668,7 +1728,9 @@
     },
     "buildApp": {
       "task": {
-        "foundResults": "Trovati {{count}} risultati"
+        "foundResults_one": "Trovati {{count}} risultati",
+        "foundResults_many": "Trovati {{count}} risultati",
+        "foundResults_other": "Trovati {{count}} risultati"
       }
     },
     "scriptPreview": {
@@ -1728,8 +1790,12 @@
       "ls": "Elenca directory",
       "webSearch": "Cerca sul web",
       "skill": "Caricamento abilità",
-      "foundFiles": "Trovati {{count}} file",
-      "listedEntries": "{{count}} voci",
+      "foundFiles_one": "Trovati {{count}} file",
+      "foundFiles_many": "Trovati {{count}} file",
+      "foundFiles_other": "Trovati {{count}} file",
+      "listedEntries_one": "{{count}} voci",
+      "listedEntries_many": "{{count}} voci",
+      "listedEntries_other": "{{count}} voci",
       "ranCommands_one": "Eseguito {{count}} comando",
       "ranCommands_many": "Eseguiti {{count}} comandi",
       "ranCommands_other": "Eseguiti {{count}} comandi",
@@ -1790,12 +1856,19 @@
       "waitingInput": "In attesa della tua risposta",
       "failed": "Risposta non riuscita"
     },
-    "routineRunPrompt": "Inviato dalla routine"
+    "routineRunPrompt": "Inviato dalla routine",
+    "backToLatest": "Torna ai messaggi più recenti"
   },
   "upload": {
-    "panelUploading": "Caricamento di {{count}} file",
-    "panelFailed": "{{count}} file non riusciti",
-    "panelCompleted": "{{count}} file completati",
+    "panelUploading_one": "Caricamento di {{count}} file",
+    "panelUploading_many": "Caricamento di {{count}} file",
+    "panelUploading_other": "Caricamento di {{count}} file",
+    "panelFailed_one": "{{count}} file non riusciti",
+    "panelFailed_many": "{{count}} file non riusciti",
+    "panelFailed_other": "{{count}} file non riusciti",
+    "panelCompleted_one": "{{count}} file completati",
+    "panelCompleted_many": "{{count}} file completati",
+    "panelCompleted_other": "{{count}} file completati",
     "statusFailed": "Non riuscito",
     "statusCompleted": "Completato",
     "statusCancel": "Annulla caricamento",

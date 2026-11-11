@@ -114,6 +114,7 @@ import {
   type IQueryBus,
   type IRecordReadQuerySource,
   type IRecordSearchAccessPath,
+  type ISubmitRecordCommandOptions,
   type ITableRepository,
   type ITableRecordGroup,
   type IUserLookupService,
@@ -159,6 +160,7 @@ import { PermissionService } from '../../auth/permission.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByVo } from '../../field/model/factory';
+import { buildRawCopyContent } from '../../selection/raw-copy-content';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { buildUndoRedoEnginePreferenceKey } from '../../undo-redo/open-api/undo-redo-engine-preference';
 import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
@@ -169,7 +171,6 @@ import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
 import { convertLinkPasteCellValue } from '../paste-link-cell-value';
 import { selectPasteCellValue } from '../select-paste-cell-value';
 import { normalizeEmptyDateComparison } from './record-filter-v2.mapper';
-import { buildRawCopyContent } from '../../selection/raw-copy-content';
 
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
@@ -1164,6 +1165,8 @@ export class RecordOpenApiV2Service {
       cellFormat?: CellFormat;
       fieldKeyType: FieldKeyType;
       keepPrimaryKey: boolean;
+      /** Post-write response: mask by read policy, never reject on read admission. */
+      writeResponse?: boolean;
       throwOnMissing?: boolean;
       includeEmptyCells?: boolean;
     }
@@ -1179,7 +1182,8 @@ export class RecordOpenApiV2Service {
       recordIds,
       projectionFieldIds: options.projection,
       ignoreViewQuery: true,
-      keepPrimaryKey: options.keepPrimaryKey,
+      keepPrimaryKey: options.keepPrimaryKey || Boolean(options.writeResponse),
+      ...(options.writeResponse ? { writeResponse: true } : {}),
     });
     const recordById = new Map<string, IRecord>();
     const versionByRecordId = new Map<string, number>();
@@ -2101,6 +2105,7 @@ export class RecordOpenApiV2Service {
           ignoreViewQuery?: boolean;
           projectionFieldIds?: ReadonlyArray<string>;
           keepPrimaryKey?: boolean;
+          writeResponse?: boolean;
         }
   ): Promise<RecordQueryPluginScope | undefined> {
     if (!container.isRegistered(v2CoreTokens.recordQueryPluginRunner)) {
@@ -2132,6 +2137,7 @@ export class RecordOpenApiV2Service {
                 ignoreViewQuery: payload.ignoreViewQuery,
                 projectionFieldIds: payload.projectionFieldIds,
                 keepPrimaryKey: payload.keepPrimaryKey,
+                ...(payload.writeResponse ? { writeResponse: true } : {}),
               },
             })
           : await runner.prepare({
@@ -2655,6 +2661,25 @@ export class RecordOpenApiV2Service {
 
       await this.clearUndoRedoEnginePreference(tableId);
 
+      if (!hasFields) {
+        // The legacy order-only PATCH returns a full, permission-masked snapshot,
+        // including record metadata and hydrated attachment/user cells. Keep the
+        // row identity after a write without imposing the read route's row filter.
+        const { recordById } = await this.loadRecordsByIds(tableId, [recordId], {
+          fieldKeyType: updateRecordRo.fieldKeyType ?? FieldKeyType.Name,
+          cellFormat: CellFormat.Json,
+          keepPrimaryKey: true,
+          writeResponse: true,
+        });
+        const record = recordById.get(recordId);
+        if (!record) {
+          throw new CustomHttpException('update record failed', HttpErrorCode.VALIDATION_ERROR, {
+            localization: { i18nKey: 'httpErrors.record.updateFailed' },
+          });
+        }
+        return record;
+      }
+
       return result.body.data.record;
     }
     throw new CustomHttpException('No fields to update', HttpErrorCode.VALIDATION_ERROR);
@@ -3032,7 +3057,11 @@ export class RecordOpenApiV2Service {
     };
   }
 
-  async formSubmit(tableId: string, formSubmitRo: IFormSubmitRo): Promise<IRecord> {
+  async formSubmit(
+    tableId: string,
+    formSubmitRo: IFormSubmitRo,
+    options?: ISubmitRecordCommandOptions
+  ): Promise<IRecord> {
     await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -3046,11 +3075,27 @@ export class RecordOpenApiV2Service {
         fields: formSubmitRo.fields,
         typecast: formSubmitRo.typecast ?? false,
       },
-      commandBus
+      commandBus,
+      options
     );
 
     if (result.status === 201 && result.body.ok) {
       await this.clearUndoRedoEnginePreference(tableId);
+      if (options?.shareId) {
+        // This share route previously returned a complete legacy create snapshot.
+        // Reuse native presentation/masking without adding post-write read admission.
+        const { recordById } = await this.loadRecordsByIds(tableId, [result.body.data.record.id], {
+          fieldKeyType: FieldKeyType.Id,
+          cellFormat: CellFormat.Json,
+          keepPrimaryKey: true,
+          writeResponse: true,
+        });
+        const record = recordById.get(result.body.data.record.id);
+        if (!record) {
+          throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return record;
+      }
       return result.body.data.record as IRecord;
     }
 

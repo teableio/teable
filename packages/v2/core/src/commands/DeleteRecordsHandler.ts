@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 import {
   loadBulkRecordExplicitScope,
   prepareBulkRecordExplicitScope,
+  prepareBulkRecordSelector,
 } from '../application/services/BulkRecordPreparationService';
 import { requireStoredRecordSnapshots } from '../application/services/RecordMutationSnapshotContract';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
@@ -19,7 +20,6 @@ import { generateUuid } from '../domain/shared/IdGenerator';
 import type { IDeletedRecordSnapshot } from '../domain/table/events/RecordsDeleted';
 import { RecordsDeleted } from '../domain/table/events/RecordsDeleted';
 import { RecordId } from '../domain/table/records/RecordId';
-import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import {
   domainWrite,
   type IDomainWriteTransaction,
@@ -35,7 +35,6 @@ import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteRecordsCommand } from './DeleteRecordsCommand';
 import { buildDeletedRecordSnapshot } from './shared/buildDeletedRecordSnapshot';
 import { persistDeletedTrashMarkers } from './shared/persistDeletedTrashMarkers';
-import { composeRecordConditionSpecs } from './shared/recordWriteScope';
 
 export class DeleteRecordsResult {
   private constructor(
@@ -83,43 +82,50 @@ export class DeleteRecordsHandler implements ICommandHandler<
         table,
         payload: {
           recordIds: command.recordIds,
-          recordCount: command.recordIds.length,
+          recordCount: command.recordIds?.length,
+          filter: command.filter,
         },
         isTransactionBound: false,
       });
       yield* await pluginExecution.guard();
       const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
 
-      const scopedSnapshots = yield* await loadBulkRecordExplicitScope(
-        context,
+      let expectedSnapshotCount: number | undefined;
+      if (command.recordIds) {
+        const scopedSnapshots = yield* await loadBulkRecordExplicitScope(
+          context,
+          table,
+          command.recordIds,
+          handler.tableRecordQueryRepository
+        );
+        const preparedScope = yield* prepareBulkRecordExplicitScope(
+          table,
+          command.recordIds.map((recordId) => ({ recordId, fieldValues: new Map() })),
+          scopedSnapshots,
+          pluginRecordSpec
+        );
+
+        if (preparedScope.pluginFilteredRecordIds.length > 0) {
+          return err(
+            domainError.forbidden({
+              code: 'record_write_plugin.scope_forbidden',
+              message: 'Record write target includes rows outside the allowed scope.',
+              details: {
+                operation: RecordWriteOperationKind.deleteMany,
+                tableId: table.id().toString(),
+                requestedRecordCount: scopedSnapshots.records.length,
+                authorizedRecordCount: preparedScope.authorizedUpdates.length,
+              },
+            })
+          );
+        }
+        expectedSnapshotCount = pluginRecordSpec ? scopedSnapshots.records.length : undefined;
+      }
+      const { scopedSpec: scopedDeleteSpec } = yield* prepareBulkRecordSelector(
         table,
-        command.recordIds,
-        handler.tableRecordQueryRepository
-      );
-      const preparedScope = yield* prepareBulkRecordExplicitScope(
-        table,
-        command.recordIds.map((recordId) => ({ recordId, fieldValues: new Map() })),
-        scopedSnapshots,
+        { recordIds: command.recordIds, filter: command.filter },
         pluginRecordSpec
       );
-
-      if (preparedScope.pluginFilteredRecordIds.length > 0) {
-        return err(
-          domainError.forbidden({
-            code: 'record_write_plugin.scope_forbidden',
-            message: 'Record write target includes rows outside the allowed scope.',
-            details: {
-              operation: RecordWriteOperationKind.deleteMany,
-              tableId: table.id().toString(),
-              requestedRecordCount: scopedSnapshots.records.length,
-              authorizedRecordCount: preparedScope.authorizedUpdates.length,
-            },
-          })
-        );
-      }
-      const deleteSpec = RecordByIdsSpec.create(command.recordIds);
-      const scopedDeleteSpec =
-        composeRecordConditionSpecs(deleteSpec, pluginRecordSpec) ?? deleteSpec;
       let deleteReportedNotFound = false;
       const operationId = context.requestId ?? generateUuid();
 
@@ -145,6 +151,9 @@ export class DeleteRecordsHandler implements ICommandHandler<
               }
               return err(deleteResult.error);
             }
+            if (command.filter && deleteResult.value.deletedCount === 0) {
+              return ok(domainWrite.unchanged(deleteResult.value));
+            }
 
             const deletedRecordIds = deleteResult.value.deletedRecords?.map(
               (record) => record.recordId
@@ -166,25 +175,26 @@ export class DeleteRecordsHandler implements ICommandHandler<
               }
             }
 
-            const expectedSnapshotCount = pluginRecordSpec
-              ? scopedSnapshots.records.length
-              : undefined;
             const persistedDeletedSnapshots = deleteResult.value.deletedRecords;
             if (expectedSnapshotCount === 0 && !persistedDeletedSnapshots) {
               return ok(domainWrite.unchanged(deleteResult.value));
             }
 
+            const requiredSnapshotCount = command.filter
+              ? deleteResult.value.deletedCount
+              : expectedSnapshotCount;
             const storedSnapshotsResult = requireStoredRecordSnapshots(
               {
                 operation: 'delete',
                 tableId: table.id().toString(),
-                ...(expectedSnapshotCount !== undefined
-                  ? { expectedCount: expectedSnapshotCount }
+                ...(requiredSnapshotCount !== undefined
+                  ? { expectedCount: requiredSnapshotCount }
                   : {}),
               },
               persistedDeletedSnapshots
             );
             if (storedSnapshotsResult.isErr()) {
+              if (command.filter) return err(storedSnapshotsResult.error);
               return ok(domainWrite.unchanged(deleteResult.value));
             }
 
@@ -218,9 +228,12 @@ export class DeleteRecordsHandler implements ICommandHandler<
         );
 
       const deleteResult = committed.value;
-      const expectedSnapshotCount = pluginRecordSpec ? scopedSnapshots.records.length : undefined;
       const persistedDeletedSnapshots = deleteResult.deletedRecords;
-      if (deleteReportedNotFound || (expectedSnapshotCount === 0 && !persistedDeletedSnapshots)) {
+      if (
+        deleteReportedNotFound ||
+        (command.filter && deleteResult.deletedCount === 0) ||
+        (expectedSnapshotCount === 0 && !persistedDeletedSnapshots)
+      ) {
         await pluginExecution.afterCommit();
         return ok(DeleteRecordsResult.create([], []));
       }
@@ -228,7 +241,8 @@ export class DeleteRecordsHandler implements ICommandHandler<
       const events = committed.events;
       const deletedRecordIds =
         persistedDeletedSnapshots?.map((snapshot) => snapshot.recordId) ??
-        command.recordIds.map((recordId) => recordId.toString());
+        command.recordIds?.map((recordId) => recordId.toString()) ??
+        [];
       const recordSnapshots: IDeletedRecordSnapshot[] =
         persistedDeletedSnapshots?.map((snapshot) => buildDeletedRecordSnapshot(table, snapshot)) ??
         [];

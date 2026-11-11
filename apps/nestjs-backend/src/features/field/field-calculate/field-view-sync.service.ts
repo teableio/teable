@@ -22,6 +22,7 @@ import type {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { isEqual, differenceBy, find, isEmpty } from 'lodash';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
@@ -33,6 +34,18 @@ import { FieldDeletingService } from './field-deleting.service';
  * such as filter, group, sort, columnMeta, etc.
  */
 @Injectable()
+@V1EngineService([
+  'deleteDependenciesByFieldIds',
+  'deleteLinkOptionsDependenciesByFieldIds',
+  'deleteLinkOptionsDependenciesByViewId',
+  'convertDependenciesByFieldIds',
+  'convertLinkLookupFieldId',
+  'convertLinkOptionsDependenciesByFieldIds',
+  'convertViewDependenciesByFieldIds',
+  'getLinkForeignFields',
+  'getNewFilterByFieldChanges',
+  'getFilterBySelectTypeChanges',
+])
 export class FieldViewSyncService {
   private readonly logger = new Logger(FieldViewSyncService.name);
 

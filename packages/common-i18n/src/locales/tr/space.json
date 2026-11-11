@@ -142,12 +142,15 @@
       "linkFieldsData": "Bağlı kayıt verileri",
       "linkFieldsProgress": "Bağlı kayıt verileri geri yükleniyor",
       "linkFieldsDone": "Bağlı kayıt verileri geri yüklendi",
-      "tableDataRowsProgress": "{{count}} satır içe aktarıldı",
-      "tableDataRowsDone": "{{count}} satır içe aktarıldı",
+      "tableDataRowsProgress_one": "{{count}} satır içe aktarıldı",
+      "tableDataRowsProgress_other": "{{count}} satır içe aktarıldı",
+      "tableDataRowsDone_one": "{{count}} satır içe aktarıldı",
+      "tableDataRowsDone_other": "{{count}} satır içe aktarıldı",
       "tableDataRowsTotalProgress": "{{count}}/{{total}} satır işlendi",
       "tableDataRowsTotalDone": "{{count}}/{{total}} satır işlendi",
       "tableDataBatch": "toplu iş {{batch}}",
-      "tableDataBatchRows": "Bu toplu işte {{count}} satır",
+      "tableDataBatchRows_one": "Bu toplu işte {{count}} satır",
+      "tableDataBatchRows_other": "Bu toplu işte {{count}} satır",
       "tableDataEmpty": "İçe aktarılacak tablo verisi yok",
       "done": "Import completed",
       "clickToView": "Görüntülemek için tıklayın"
@@ -168,7 +171,8 @@
       "exportingAppFiles": "Uygulama dosyaları dışa aktarılıyor",
       "uploadingArchive": "Dışa aktarma dosyası yükleniyor",
       "generatingDownloadUrl": "İndirme bağlantısı oluşturuluyor",
-      "rowsProgress": "{{count}} satır dışa aktarıldı",
+      "rowsProgress_one": "{{count}} satır dışa aktarıldı",
+      "rowsProgress_other": "{{count}} satır dışa aktarıldı",
       "done": "Dışa aktarma tamamlandı"
     }
   },
@@ -365,13 +369,15 @@
     "done": "İçe aktarma tamamlandı",
     "failed": "İçe aktarma başarısız",
     "openBase": "Projeyi aç",
-    "issuesSummary": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
+    "issuesSummary_one": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
+    "issuesSummary_other": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
     "issuesMore": "+{{count}} öğe daha",
     "issue": {
       "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
       "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) atlandı: {{reason}}",
       "viewSkipped": "{{tableName}} / \"{{viewName}}\" görünümü ({{fromType}}) atlandı",
-      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
+      "valuesDropped_one": "{{tableName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
+      "valuesDropped_other": "{{tableName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
       "viewConfigDegraded": "{{tableName}} / görünüm \"{{viewName}}\": {{reason}}"
     },
     "phase": {
@@ -420,14 +426,19 @@
     "done": "İçe aktarma tamamlandı",
     "failed": "İçe aktarma başarısız",
     "openBase": "Projeyi aç",
-    "issuesSummary": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
+    "issuesSummary_one": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
+    "issuesSummary_other": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
     "issuesMore": "+{{count}} öğe daha",
-    "recordsImported": "{{tableName}}: {{count}} kayıt içe aktarıldı",
-    "partialImported": "Hatadan önce {{count}} tablo tamamen içe aktarıldı ve korundu",
+    "recordsImported_one": "{{tableName}}: {{count}} kayıt içe aktarıldı",
+    "recordsImported_other": "{{tableName}}: {{count}} kayıt içe aktarıldı",
+    "partialImported_one": "Hatadan önce {{count}} tablo tamamen içe aktarıldı ve korundu",
+    "partialImported_other": "Hatadan önce {{count}} tablo tamamen içe aktarıldı ve korundu",
     "issue": {
-      "valuesDropped": "{{sheetName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
+      "valuesDropped_one": "{{sheetName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
+      "valuesDropped_other": "{{sheetName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
       "sheetSkipped": "\"{{sheetName}}\" sayfası atlandı: {{reason}}",
-      "columnsTruncated": "{{sheetName}}: Sütun sınırını aşan {{count}} sütun içe aktarılmadı"
+      "columnsTruncated_one": "{{sheetName}}: Sütun sınırını aşan {{count}} sütun içe aktarılmadı",
+      "columnsTruncated_other": "{{sheetName}}: Sütun sınırını aşan {{count}} sütun içe aktarılmadı"
     },
     "phase": {
       "fetchingSchema": "E-tablo yapısı okunuyor",

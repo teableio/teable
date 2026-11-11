@@ -12,21 +12,21 @@
     "done": "Done",
     "create": "Create",
     "search": {
-      "placeholder": "Search...",
+      "placeholder": "Search…",
       "empty": "No results found"
     },
     "readOnlyTip": "This view is locked. You can enable<button>personal mode</button>to edit view options, and the changes will only take effect for yourself.",
-    "selectPlaceHolder": "Select...",
-    "loading": "Loading...",
+    "selectPlaceHolder": "Select…",
+    "loading": "Loading…",
     "loadMore": "Load more",
     "uploadFailed": "Upload failed",
     "rowCount": "{{count}} records",
     "summary": "Summary",
-    "summaryTip": "Hover to select summary",
+    "summaryTip": "Click to select a summary",
     "actions": "Actions",
     "remove": "Remove",
     "runStatus": {
-      "success": "{{name}} success",
+      "success": "{{name}} succeeded",
       "failed": "{{name}} failed",
       "running": "{{name}} running"
     },
@@ -34,14 +34,14 @@
     "click": "Click",
     "clickedCount": "{{label}}: Clicked {{text}} times",
     "close": "Close",
-    "atLeastOne": "At least reserve a {{noun}}",
+    "atLeastOne": "Keep at least one {{noun}}",
     "selectField": "Select field"
   },
   "notification": {
     "title": "Notification"
   },
   "aiError": {
-    "title": "AI Generation Failed",
+    "title": "AI generation failed",
     "retry": "Retry",
     "dismiss": "Dismiss"
   },
@@ -59,10 +59,10 @@
     "redoFailed": "Redo failed",
     "nothingToUndo": "Nothing to undo",
     "nothingToRedo": "Nothing to redo",
-    "undoSucceed": "Undo succeed",
-    "redoSucceed": "Redo succeed",
-    "undoing": "Undoing...",
-    "redoing": "Redoing..."
+    "undoSucceed": "Undo successful",
+    "redoSucceed": "Redo successful",
+    "undoing": "Undoing…",
+    "redoing": "Redoing…"
   },
   "editor": {
     "attachment": {
@@ -74,7 +74,7 @@
       "downloadAll": "Download all",
       "downloadSuccess": "Download completed",
       "downloadFailed": "Download failed",
-      "downloadCancelled": "Download cancelled",
+      "downloadCancelled": "Download canceled",
       "requireHttps": "Bulk download requires HTTPS. Please access via HTTPS or localhost"
     },
     "date": {
@@ -91,17 +91,17 @@
       "guideSyntax": "Syntax",
       "guideExample": "Example",
       "helperExample": "Example: ",
-      "fieldValue": "Returns the value to the cells of the {{fieldName}} field.",
+      "fieldValue": "Returns the value of the {{fieldName}} field.",
       "placeholder": "Enter an expression",
       "placeholderForAIPrompt": "Describe the formula you want to generate",
       "editExpression": "Edit formula",
       "generateExpressionByAI": "Generate formula by AI",
       "inputPrompt": "Input instruction",
       "generateExpression": "Generated formula",
-      "generatingByAI": "Generating formula by AI...",
+      "generatingByAI": "Generating formula by AI…",
       "generatedExpressionTips": "After generating, click apply to quickly insert the formula",
       "action": {
-        "generating": "Generating...",
+        "generating": "Generating…",
         "generate": "Generate",
         "apply": "Apply"
       },
@@ -112,7 +112,7 @@
       "searchPlaceholder": "Search records",
       "globalSearch": "Global search",
       "fieldSearch": "Search field",
-      "maxFieldTips": "Exceeded the maximum {{count}} number of fields, extra fields will be ignored",
+      "maxFieldTips": "Up to {{count}} fields are supported; extra fields will be ignored",
       "create": "Add record",
       "selectRecord": "Select record",
       "all": "All",
@@ -130,11 +130,11 @@
     },
     "select": {
       "addOption": "Add an option '{{option}}'",
-      "choicesNameRequired": "Choice name is not empty"
+      "choicesNameRequired": "Choice name cannot be empty"
     },
     "lookup": {
       "lookupFieldIdRequired": "Lookup field is required",
-      "lookupOptionsNotAllowed": "Lookup options are not allowed when isLookup attribute is true or field type is rollup.",
+      "lookupOptionsNotAllowed": "Lookup options can only be set on lookup or rollup fields.",
       "lookupOptionsRequired": "Lookup options are required"
     },
     "rollup": {
@@ -155,7 +155,7 @@
     },
     "error": {
       "refineOptionsError": "Parse field options error {{message}}",
-      "optionsRequired": "Field options is required"
+      "optionsRequired": "Field options are required"
     }
   },
   "filter": {
@@ -180,7 +180,7 @@
       "or": "or",
       "where": "where",
       "meetingAll": "Meeting all conditions",
-      "meetingAny": "Meeting any conditions"
+      "meetingAny": "Meeting any condition"
     },
     "operator": {
       "is": "is",
@@ -190,16 +190,16 @@
       "isEmpty": "is empty",
       "isNotEmpty": "is not empty",
       "isGreater": "is greater than",
-      "isGreaterEqual": "is greater equal",
+      "isGreaterEqual": "is greater than or equal to",
       "isLess": "is less than",
-      "isLessEqual": "is less equal",
+      "isLessEqual": "is less than or equal to",
       "isAnyOf": "is any of",
       "isNoneOf": "is not any of",
       "hasAnyOf": "has any of",
       "hasAllOf": "has all of",
       "hasNoneOf": "has none of",
       "isExactly": "is exactly",
-      "isWithIn": "is with in",
+      "isWithIn": "is within",
       "isBefore": "is before",
       "isAfter": "is after",
       "isOnOrBefore": "is on or before",
@@ -212,7 +212,7 @@
         "hasAnyOf": "has any of",
         "hasAllOf": "has all of",
         "isExactly": "is exactly",
-        "isNotExactly": "is not",
+        "isNotExactly": "is not exactly",
         "hasNoneOf": "has none of"
       },
       "number": {
@@ -278,7 +278,7 @@
     "title": "Row height"
   },
   "fieldNameConfig": {
-    "title": "Field name",
+    "title": "Field name lines",
     "displayLines": "{{count}} lines"
   },
   "share": {},
@@ -297,7 +297,7 @@
     "previousRecord": "Previous",
     "nextRecord": "Next",
     "duplicateRecord": "Duplicate record",
-    "addToChat": "Add to Chat",
+    "addToChat": "Add to chat",
     "copyRecordUrl": "Copy record URL",
     "copyLink": "Copy link",
     "history": "History",
@@ -342,7 +342,7 @@
   "group": {
     "pinyinSortConflict": "This field uses pinyin sorting. Change its sort to default ordering before grouping, or choose another field.",
     "label": "Group",
-    "displayLabel_one": "Group by {{count}} fields",
+    "displayLabel_one": "Group by {{count}} field",
     "displayLabel_other": "Group by {{count}} fields",
     "setTips": "Group by",
     "addButton": "Add subgroup",
@@ -388,7 +388,7 @@
       "checkbox": "Toggle a simple yes or no.",
       "rollup": "Summarize linked records with formulas.",
       "conditionalRollup": "Summarize data from conditions.",
-      "user": "Assign records to workspace members.",
+      "user": "Assign records to space members.",
       "rating": "Score items with configurable icons.",
       "autoNumber": "Give each record a unique sequence.",
       "lookup": "Display values from linked records.",
@@ -517,27 +517,27 @@
       "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
     },
     "ROUNDUP": {
-      "summary": "Rounds the value to the number of decimal places given by \"precision\" always rounding up, i.e., away from zero. (You must give a value for the precision or the function will not work.)",
+      "summary": "Rounds the value up (away from zero) to the number of decimal places given by \"precision\". If precision is omitted, it defaults to 0.",
       "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
     },
     "ROUNDDOWN": {
-      "summary": "Rounds the value to the number of decimal places given by \"precision\" always rounding down, i.e., toward zero. (You must give a value for the precision or the function will not work.)",
+      "summary": "Rounds the value down (toward zero) to the number of decimal places given by \"precision\". If precision is omitted, it defaults to 0.",
       "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "Returns the nearest integer multiple of significance that is greater than or equal to the value. If no significance is provided, a significance of 1 is assumed.",
+      "summary": "Rounds the value up to the given number of decimal places (default 0). Negative places round up to tens, hundreds, etc.",
       "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "Returns the nearest integer multiple of significance that is less than or equal to the value. If no significance is provided, a significance of 1 is assumed.",
+      "summary": "Rounds the value down to the given number of decimal places (default 0). Negative places round down to tens, hundreds, etc.",
       "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "Returns the smallest even integer that is greater than or equal to the specified value.",
+      "summary": "Rounds positive values up and negative values down to the nearest even integer.",
       "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
-      "summary": "Rounds positive value up the nearest odd number and negative value down to the nearest odd number.",
+      "summary": "Rounds positive values up to the nearest odd number and negative values down to the nearest odd number.",
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
@@ -554,7 +554,7 @@
     },
     "POWER": {
       "summary": "Computes the specified base to the specified power.",
-      "example": "POWER(2) => 4"
+      "example": "POWER(2, 2) => 4"
     },
     "EXP": {
       "summary": "Computes Euler number (e) to the specified power.",
@@ -593,7 +593,7 @@
       "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
     },
     "RIGHT": {
-      "summary": "Extract howMany characters from the ending of the string.",
+      "summary": "Extract howMany characters from the end of the string.",
       "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
     },
     "REPLACE": {
@@ -626,14 +626,14 @@
     },
     "REPT": {
       "summary": "Repeats string by the specified number of times.",
-      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+      "example": "REPT(\"Hello!\", 3) => \"Hello!Hello!Hello!\""
     },
     "TRIM": {
       "summary": "Removes whitespace at the beginning and end of string.",
       "example": "TRIM(\" Hello \") => \"Hello\""
     },
     "LEN": {
-      "summary": "Extract howMany characters from the beginning of the string.",
+      "summary": "Returns the length of a string.",
       "example": "LEN(\"Hello\") => 5"
     },
     "T": {
@@ -721,11 +721,11 @@
       "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
     },
     "FROMNOW": {
-      "summary": "Calculates the number of days between the current date and another date.",
+      "summary": "Calculates the difference between the current date and another date in the specified unit.",
       "example": "FROMNOW({Date}, \"day\") => 25"
     },
     "TONOW": {
-      "summary": "Calculates the number of days between the current date and another date.",
+      "summary": "Calculates the difference between another date and the current date in the specified unit.",
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
@@ -733,7 +733,7 @@
       "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
-      "summary": "Returns the workday to the start date, excluding the specified holidays",
+      "summary": "Returns the date that is the given number of working days from the start date, excluding weekends and the specified holidays",
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
@@ -762,14 +762,14 @@
     },
     "TIMESTR": {
       "summary": "Formats a datetime into a time-only string (HH:mm:ss).",
-      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+      "example": "TIMESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
       "summary": "Formats a datetime into a specified string. Supported specifiers: YY, YYYY, M, MM, MMM, MMMM, D, DD, d, dd, ddd, dddd, H, HH, h, hh, m, mm, s, ss, SSS, Z, ZZ, A, a, LT, LTS, L, LL, LLL, LLLL, l, ll, lll, llll.",
       "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
     },
     "DATETIME_PARSE": {
-      "summary": "Interprets a text string as a structured date, with optional input format and locale parameters. The output format will always be formatted \"M/D/YYYY h:mm a\".",
+      "summary": "Interprets a text string as a structured date, with optional input format and locale parameters.",
       "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
     },
     "CREATED_TIME": {
@@ -910,14 +910,14 @@
   },
   "comment": {
     "title": "Comment",
-    "placeholder": "Leave a comment...",
+    "placeholder": "Leave a comment…",
     "emptyComment": "Start a conversation",
     "deletedComment": "Deleted comment",
     "tip": {
-      "editing": "Editing...",
+      "editing": "Editing…",
       "edited": "(Edited)",
-      "notifyAll": "Notify all comments",
-      "notifyRelatedToMe": "Notify comments related to me",
+      "notifyAll": "Notify me of all comments",
+      "notifyRelatedToMe": "Notify me of comments related to me",
       "all": "All",
       "relatedToMe": "Related to me",
       "reactionUserSuffix": "reacted with {{emoji}} emoji",
@@ -938,8 +938,8 @@
   },
   "memberSelector": {
     "title": "Select members",
-    "memberSelectorSearchPlaceholder": "Search members...",
-    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "memberSelectorSearchPlaceholder": "Search members…",
+    "departmentSelectorSearchPlaceholder": "Search departments…",
     "selected": "Selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
@@ -968,7 +968,7 @@
     "requestTimeout": "Request timeout",
     "failedDependency": "Failed dependency",
     "automationNodeParseError": "Automation node parse error",
-    "automationNodeNeedTest": "Automation node need test",
+    "automationNodeNeedTest": "Automation node needs to be tested",
     "automationNodeTestOutdated": "Automation node test outdated",
     "invalidToken": "Invalid token",
     "limit": {
@@ -1068,12 +1068,13 @@
       "passwordAlreadyExists": "Password has already been set for this account",
       "verificationCodeInvalid": "The verification code is invalid or has expired",
       "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "newPasswordSameAsCurrent": "The new password must be different from the current one",
       "emailAlreadyRegistered": "This email address is already registered",
       "waitlistNotEnabled": "The waitlist feature is not enabled",
       "emailOrPasswordIncorrect": "Email or password is incorrect",
       "accountDeactivated": "This account has been deactivated by the administrator",
-      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
-      "passwordLoginDisabled": "Password login is disabled",
+      "accountLockedOut": "Your account has been locked after too many failed sign-in attempts. Please try again later.",
+      "passwordLoginDisabled": "Password sign-in is disabled",
       "captchaFailed": "Human verification failed. Please refresh and try again.",
       "captchaServiceUnavailable": "Verification service is temporarily unavailable. Please try again.",
       "mobileExchangeInvalid": "The sign-in request is invalid or has expired. Please sign in from the app again."
@@ -1083,7 +1084,7 @@
       "notEnabled": "Connector events are not enabled on this deployment"
     },
     "automation": {
-      "buttonClickTriggerDuplicated": "This button field is already bound to {{name}}[{{id}}] this automation process, please select another button field",
+      "buttonClickTriggerDuplicated": "This button field is already bound to the automation {{name}}[{{id}}]. Please select another button field.",
       "triggerNotFound": "Automation must have a trigger node",
       "nodeNotFound": "{{nodeId}} node not found",
       "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
@@ -1100,11 +1101,11 @@
       "anchorNotFound": "Anchor automation not found",
       "validationError": "Automation configuration validation error",
       "tableNotInBase": "You can only subscribe to a table within your project",
-      "alreadyActiveAndNotDraft": "Automation already active and not draft",
+      "alreadyActiveAndNotDraft": "Automation is already active and not a draft",
       "noActiveSnapshot": "Automation has no active snapshot",
       "onlyFailedRunsCanRerun": "Only failed runs can be rerun",
-      "workflowMustBeActiveToRerun": "Workflow must be active to rerun",
-      "snapshotChangedOnlyFullRerun": "Workflow has been modified since this run. Only full rerun is allowed.",
+      "workflowMustBeActiveToRerun": "Automation must be active to rerun",
+      "snapshotChangedOnlyFullRerun": "Automation has been modified since this run. Only full rerun is allowed.",
       "runPayloadColdTruncated": "Parts of this run were truncated during cold archiving; rerun from it is not available",
       "runListOffsetTooDeep": "This page is too far into the run history for offset paging; continue with the cursor returned by the previous page.",
       "controlStepsMissingOnlyFullRerun": "Control node data is missing for this run. Only full rerun is supported.",
@@ -1117,7 +1118,7 @@
       "groupEndNotFound": "GroupEnd not found for logic",
       "insertNodeError": "Insert node error",
       "actionNotFound": "Automation action node not found",
-      "unSupportDuplicateWorkflowNodeType": "UnSupport duplicate automation node type",
+      "unSupportDuplicateWorkflowNodeType": "This automation node type cannot be duplicated",
       "controlNodeNotBeTested": "Control node should not be tested",
       "invalidNodeType": "Invalid node type",
       "unsupportedCategory": "Unsupported category",
@@ -1161,9 +1162,9 @@
       "cannotChangeOnlyOwnerRole": "Cannot change the role of the only owner of the space",
       "cannotDeleteOnlyOwner": "Cannot delete the only owner of the space",
       "deleted": "Space has been deleted",
-      "cannotOperate": "Can't operate on a space, please verify that there are organization members in the space and they are owners",
-      "notBelongToOrg": "This space not belong to the organization",
-      "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}",
+      "cannotOperate": "Can't perform this action on the space. Make sure the space has organization members who are owners.",
+      "notBelongToOrg": "This space does not belong to the organization",
+      "invalidSpaceIds": "Invalid space IDs: {{spaceIds}}",
       "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
       "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}}).",
       "dataDbTargetError": "Target database error: {{detail}}",
@@ -1176,7 +1177,7 @@
       "baseAndSpaceMismatch": "Project {{baseId}} and space {{spaceId}} mismatch",
       "templateNotFound": "Template {{templateId}} not found",
       "crossDataDbDuplicateUnsupported": "Duplicating records across different space data databases is not supported yet",
-      "moveJobNotCancellable": "Move job cannot be cancelled in state {{state}}"
+      "moveJobNotCancellable": "Move job cannot be canceled in state {{state}}"
     },
     "baseNode": {
       "baseIdIsRequired": "Project ID is required",
@@ -1186,7 +1187,7 @@
       "parentMustBeFolder": "Parent must be a folder",
       "cannotDuplicateFolder": "Cannot duplicate folder",
       "cannotDeleteEmptyFolder": "Cannot delete folder because it is not empty",
-      "onlyOneOfParentIdOrAnchorIdRequired": "Only one of parentId or anchorId must be provided",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Provide either parentId or anchorId, not both",
       "cannotMoveToItself": "Cannot move node to itself",
       "cannotMoveToCircularReference": "Cannot move node to its own child (circular reference)",
       "anchorIdOrParentIdRequired": "At least one of parentId or anchorId must be provided",
@@ -1323,10 +1324,10 @@
     },
     "selection": {
       "invalidReturnType": "Invalid return type",
-      "exceedMaxReadRows": "Exceed max read rows limit",
+      "exceedMaxReadRows": "Exceeded the maximum number of rows that can be read",
       "invalidCellValueType": "Invalid cell value type",
-      "exceedMaxCopyCells": "Exceed max copy cells limit",
-      "exceedMaxPasteCells": "Exceed max paste cells limit",
+      "exceedMaxCopyCells": "Exceeded the maximum number of cells that can be copied",
+      "exceedMaxPasteCells": "Exceeded the maximum number of cells that can be pasted",
       "linkAutoCreateSelfLinkUnsupported": "Cannot auto-create linked records from paste for a link field that links to its own table. Paste titles of existing records instead.",
       "linkAutoCreateRequiresPrimaryLookup": "Cannot auto-create linked records from paste because this link field displays a non-primary field of the linked table.",
       "linkAutoCreateRequiresTextPrimary": "Cannot auto-create linked records from paste because the primary field of the linked table is not a single text value.",
@@ -1357,7 +1358,7 @@
       "cycleDetectedCreateField": "Cycle detected, cannot create field {{name}}[{{id}}]",
       "cycleDetectedCreateFieldGeneric": "Cycle detected, cannot create field",
       "recordMapNotFound": "Record not found in table {{tableName}} for field {{fieldName}}",
-      "forbidDeletePrimaryField": "Forbid delete primary field",
+      "forbidDeletePrimaryField": "The primary field cannot be deleted",
       "foreignTableIdInvalid": "Foreign table {{foreignTableId}} invalid",
       "crossSpaceLinkForbidden": "Cross-space references are not supported. Please pick a table in the same space (target {{foreignTableId}} is in a different space).",
       "relationshipInvalid": "Relationship {{relationship}} invalid",
@@ -1420,11 +1421,11 @@
       "defaultViewNotFound": "Default view not found",
       "propertyParseError": "Failed to parse view property",
       "primaryFieldCannotBeHidden": "Primary field cannot be hidden",
-      "filterUnsupportedFieldType": "Filter unsupported field type",
+      "filterUnsupportedFieldType": "This field type does not support filtering",
       "filterInvalidOperator": "Filter has invalid operator for this field type",
       "filterInvalidOperatorMode": "Filter has invalid operator and mode combination",
-      "sortUnsupportedFieldType": "Sort unsupported field type",
-      "groupUnsupportedFieldType": "Group unsupported field type",
+      "sortUnsupportedFieldType": "This field type does not support sorting",
+      "groupUnsupportedFieldType": "This field type does not support grouping",
       "anchorNotFound": "Anchor view not found",
       "notEnoughGapToShuffleRow": "Not enough gap to shuffle the row",
       "shareNotEnabled": "View sharing is not enabled",
@@ -1465,10 +1466,10 @@
       "filterLinkCellQueryConflict": "filterLinkCellSelected and filterLinkCellCandidate cannot be set at the same time"
     },
     "ai": {
-      "chatModelLgNotSet": "AI chat model lg is not set",
+      "chatModelLgNotSet": "Advanced chat model is not set",
       "chatModelLgProviderNotSet": "AI chat model lg provider is not set",
-      "chatModelSmNotSet": "AI chat model sm is not set",
-      "chatModelMdNotSet": "AI chat model md is not set",
+      "chatModelSmNotSet": "Light-task model is not set",
+      "chatModelMdNotSet": "Medium-task model is not set",
       "configurationNotSet": "AI configuration is not set",
       "unsupportedProvider": "Unsupported AI provider {{type}}",
       "providerConfigurationNotSet": "AI provider configuration is not set",
@@ -1531,16 +1532,16 @@
       "notFound": "Role not found"
     },
     "collaborator": {
-      "alreadyExisted": "Collaborator has already existed",
+      "alreadyExisted": "Collaborator already exists",
       "notFound": "Collaborator not found",
       "userNotFoundInCollaborator": "User not found in collaborator",
       "noPermissionToDelete": "You do not have permission to delete this collaborator",
       "noPermissionToUpdate": "You do not have permission to update this collaborator",
       "noPermissionToOperateRole": "You do not have permission to operate this role",
-      "alreadyExistedInBase": "Collaborator has already existed in project",
+      "alreadyExistedInBase": "Collaborator already exists in this project",
       "userNotFound": "User not found: {{userIds}}",
       "baseNotFound": "Project not found",
-      "noPermissionToAddRole": "You do not have permission to add this role collaborator",
+      "noPermissionToAddRole": "You do not have permission to add collaborators with this role",
       "departmentNotFound": "Department not found"
     },
     "table": {
@@ -1564,7 +1565,7 @@
       "exceedMaxFieldsLength": "The number of fields in the table cannot exceed {{maxFieldsLength}}, current is {{length}}",
       "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later.",
       "failed": "Import failed: {{detail}}",
-      "noImportableData": "No importable data found in the selected tabs",
+      "noImportableData": "No importable data found in the selected sheets",
       "csvParseError": "CSV parse error at row {{row}}: {{detail}}",
       "csvNoColumns": "The CSV file has no columns to import",
       "excelSheetNoColumns": "The worksheet has no columns to import",
@@ -1636,7 +1637,7 @@
       "cannotDeleteSelf": "Cannot delete yourself",
       "alreadyInDepartment": "User {{userId}} already in target department",
       "emailsNotFound": "Emails {{emails}} are not found",
-      "deleted": "User{{userId}} is deleted",
+      "deleted": "User {{userId}} has been deleted",
       "alreadyInOrg": "User {{userId}} is already in the organization",
       "notInOrg": "User {{userId}} is not in the organization"
     },
@@ -1645,7 +1646,7 @@
       "deletedIdsNotFound": "Some records to be deleted cannot be found",
       "updateFailed": "Failed to update record",
       "noFileOrUrlProvided": "No file or URL provided",
-      "createRecordsEmpty": "Create records cannot be empty",
+      "createRecordsEmpty": "Records to create cannot be empty",
       "duplicateFailed": "Failed to duplicate record",
       "linkedRecordNotExist": "Cannot save: a linked record no longer exists. Please refresh and try again.",
       "fieldValueInvalid": "Invalid value for field \"{{fieldName}}\""
@@ -1654,7 +1655,7 @@
       "cellValueValidationFailed": "Cell value validation failed"
     },
     "workflow": {
-      "notActive": "Workflow is not active"
+      "notActive": "Automation is not active"
     },
     "lastVisit": {
       "invalidResourceType": "Invalid resource type"
@@ -1668,7 +1669,7 @@
       "categoryLimitReached": "Template category limit reached (max {{maxCount}})",
       "categoryHasChildren": "This industry still has sub-industries; delete them first",
       "categoryDepthExceeded": "A sub-industry cannot have sub-industries of its own",
-      "teamIsFlat": "A team has neither a parent nor sub-categories",
+      "teamIsFlat": "A team cannot have a parent or sub-categories",
       "categoryKeyTaken": "This URL key is already used by another category",
       "slugTaken": "This URL slug is already used by another template"
     },
@@ -1707,7 +1708,7 @@
       "auth": {
         "smtpNotConfigured": "Email service is not configured, so a code cannot be sent",
         "googleNotConfigured": "Google sign-in credentials are not configured",
-        "loginDisabled": "Login is not enabled for this app",
+        "loginDisabled": "Sign-in is not enabled for this app",
         "googleDisabled": "Google sign-in is not enabled for this app",
         "teableDisabled": "Teable sign-in is not enabled for this app",
         "oidcDisabled": "SSO sign-in is not enabled for this app",
@@ -1815,7 +1816,7 @@
       "unit": "credits"
     },
     "attachments": {
-      "unit": "Attachments"
+      "unit": "attachments"
     },
     "generic": {
       "description": "Upgrade your plan to lift this limit."

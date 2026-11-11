@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../base/BaseId';
@@ -7,6 +9,7 @@ import { Table } from '../Table';
 import { TableId } from '../TableId';
 import { TableName } from '../TableName';
 import { ViewColumnMeta } from '../views/ViewColumnMeta';
+import { ViewProperties, type ViewPropertiesValue } from '../views/ViewProperties';
 import { ViewType } from '../views/ViewType';
 import { CloneViewVisitor } from '../views/visitors/CloneViewVisitor';
 
@@ -94,7 +97,135 @@ const withFormRequiredFields = (
   })._unsafeUnwrap();
 };
 
+const withSharedForm = (
+  table: Table,
+  formViewId: string,
+  properties: ViewPropertiesValue,
+  columnMeta: Record<string, { visible?: boolean; required?: boolean }> = {}
+): Table => {
+  const views = table.views().map((view) => {
+    if (view.id().toString() !== formViewId) return view;
+    const clone = view
+      .accept(
+        new CloneViewVisitor({ properties: ViewProperties.create(properties)._unsafeUnwrap() })
+      )
+      ._unsafeUnwrap();
+    clone
+      .setColumnMeta(
+        ViewColumnMeta.create({
+          ...view.columnMeta()._unsafeUnwrap().toDto(),
+          ...columnMeta,
+        })._unsafeUnwrap()
+      )
+      ._unsafeUnwrap();
+    clone.setQueryDefaults(view.queryDefaults()._unsafeUnwrap())._unsafeUnwrap();
+    return clone;
+  });
+  return Table.rehydrate({
+    id: table.id(),
+    baseId: table.baseId(),
+    name: table.name(),
+    fields: table.getFields(),
+    views,
+    primaryFieldId: table.primaryFieldId(),
+  })._unsafeUnwrap();
+};
+
 describe('Table.validateFormSubmission', () => {
+  it('accepts hidden fields only for the matching enabled share with stored permission', () => {
+    const { table, formViewId, hiddenFieldId } = createTestTable();
+    const shareId = randomUUID();
+    const shared = withSharedForm(table, formViewId, {
+      enableShare: true,
+      shareId,
+      shareMeta: { includeHiddenField: true },
+    });
+    const fields = new Map([[hiddenFieldId, 'shared input']]);
+
+    expect(shared.validateFormSubmission(formViewId, fields, shareId).isOk()).toBe(true);
+    expect(shared.validateFormSubmission(formViewId, fields)._unsafeUnwrapErr().code).toBe(
+      'view.hidden_fields_submission_not_allowed'
+    );
+    expect(
+      shared.validateFormSubmission(formViewId, fields, randomUUID())._unsafeUnwrapErr().code
+    ).toBe('view.hidden_fields_submission_not_allowed');
+  });
+
+  it.each([
+    { enableShare: false, shareMeta: { includeHiddenField: true } },
+    { shareMeta: { includeHiddenField: true } },
+    { enableShare: true, shareMeta: { includeHiddenField: false } },
+    { enableShare: true, shareMeta: {} },
+    { enableShare: true },
+  ])('does not expand hidden access for share state %j', (properties) => {
+    const { table, formViewId, hiddenFieldId } = createTestTable();
+    const shareId = randomUUID();
+    const shared = withSharedForm(table, formViewId, { ...properties, shareId });
+
+    const result = shared.validateFormSubmission(
+      formViewId,
+      new Map([[hiddenFieldId, 'blocked']]),
+      shareId
+    );
+
+    expect(result._unsafeUnwrapErr().code).toBe('view.hidden_fields_submission_not_allowed');
+  });
+
+  it('rejects hidden input when the persisted share identity is missing', () => {
+    const { table, formViewId, hiddenFieldId } = createTestTable();
+    const shared = withSharedForm(table, formViewId, {
+      enableShare: true,
+      shareMeta: { includeHiddenField: true },
+    });
+
+    const result = shared.validateFormSubmission(
+      formViewId,
+      new Map([[hiddenFieldId, 'blocked']]),
+      randomUUID()
+    );
+
+    expect(result._unsafeUnwrapErr().code).toBe('view.hidden_fields_submission_not_allowed');
+  });
+
+  it('rejects unknown field IDs even for an authorized share', () => {
+    const { table, formViewId } = createTestTable();
+    const shareId = randomUUID();
+    const shared = withSharedForm(table, formViewId, {
+      enableShare: true,
+      shareId,
+      shareMeta: { includeHiddenField: true },
+    });
+
+    const result = shared.validateFormSubmission(
+      formViewId,
+      new Map([[`fld${'z'.repeat(16)}`, 'unknown']]),
+      shareId
+    );
+
+    expect(result._unsafeUnwrapErr().code).toBe('view.hidden_fields_submission_not_allowed');
+  });
+
+  it('keeps required validation visible-only when hidden fields are authorized', () => {
+    const { table, formViewId, textFieldId, hiddenFieldId } = createTestTable();
+    const shareId = randomUUID();
+    const required = withFormRequiredFields(table, formViewId, [textFieldId]);
+    const shared = withSharedForm(
+      required,
+      formViewId,
+      { enableShare: true, shareId, shareMeta: { includeHiddenField: true } },
+      { [hiddenFieldId]: { visible: false, required: true } }
+    );
+
+    expect(
+      shared
+        .validateFormSubmission(formViewId, new Map([[textFieldId, 'provided']]), shareId)
+        .isOk()
+    ).toBe(true);
+    expect(
+      shared.validateFormSubmission(formViewId, new Map(), shareId)._unsafeUnwrapErr().details
+    ).toEqual({ missingFieldIds: [textFieldId] });
+  });
+
   it('passes for form view with visible fields only', () => {
     const { table, textFieldId, formViewId } = createTestTable();
 

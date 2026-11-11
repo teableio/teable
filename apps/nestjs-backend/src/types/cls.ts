@@ -20,6 +20,7 @@ export type IV2Reason =
   | 'header_override'
   | 'space_feature'
   | 'unsupported_feature'
+  | 'undo_redo_engine'
   | 'disabled'
   | 'feature_not_enabled'
   | 'no_feature';

@@ -2,9 +2,18 @@ import { Injectable } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IFieldInstance } from '../model/factory';
 
 @Injectable()
+@V1EngineService([
+  'getTableNameMapForLinkFields',
+  'getTableNameMapForTable',
+  'getTableIdFromDbTableName',
+  'getDbTableNameFromTableId',
+  'hasLinkFields',
+  'getForeignTableIds',
+])
 export class LinkFieldQueryService {
   constructor(private readonly prismaService: PrismaService) {}
 

@@ -5,6 +5,7 @@ import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { isUserOrLink } from '../../../utils/is-user-or-link';
 import { ID_FIELD_NAME, preservedDbFieldNames } from '../../field/constant';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
@@ -24,6 +25,7 @@ import { getOrderedFieldsByProjection, getTableAliasFromTable } from './record-q
 import { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
 @Injectable()
+@V1EngineService(['prepareView', 'createRecordQueryBuilder', 'createRecordAggregateBuilder'])
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
   private readonly logger = new Logger(RecordQueryBuilderService.name);
   constructor(

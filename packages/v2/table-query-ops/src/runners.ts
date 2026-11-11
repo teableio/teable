@@ -28,6 +28,7 @@ import type {
   TableQueryOpsClock,
   TableQueryOpsLeaseRepository,
   TableQueryOpsTaskWorkerConfig,
+  TableQueryOpsTaskWorkerScope,
   TableQueryRemediationTaskRepository,
   TableQuerySearchHeatByTable,
   TableSearchAccessPathReclaimCandidate,
@@ -82,7 +83,7 @@ export const startTableQueryOpsTaskWorkerIfEnabled = (
   );
   if (!config.enabled) return undefined;
   return startExclusiveInterval(config.intervalMs, () =>
-    runTaskWorkerOnce(container, context, config, 'all', resolveExecution)
+    runTaskWorkerOnce(container, context, config, config.scope ?? 'all', resolveExecution)
   );
 };
 
@@ -459,7 +460,7 @@ const runTaskWorkerOnce = async (
   container: DependencyContainer,
   context: IExecutionContext,
   config: TableQueryOpsTaskWorkerConfig,
-  scope: 'all' | 'manual_search',
+  scope: TableQueryOpsTaskWorkerScope,
   resolveExecution?: TableQueryOpsExecutionResolver
 ): Promise<void> => {
   const logger = resolveOptionalLogger(container);

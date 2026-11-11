@@ -78,6 +78,7 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import type { IDataDbRoutingOptions } from '../../global/data-db-client-manager.service';
+import { V1Engine } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -397,6 +398,7 @@ export class BaseImportService {
     };
   }
 
+  @V1Engine()
   @Audit({
     rootAction: CreateRecordAction.BaseImport,
     resourceId: (ro: ImportBaseRo) => ro.spaceId,
@@ -2684,6 +2686,7 @@ export class BaseImportService {
     return logId;
   }
 
+  @V1Engine()
   async createBaseStructure(
     spaceId: string,
     structure: IBaseJson,

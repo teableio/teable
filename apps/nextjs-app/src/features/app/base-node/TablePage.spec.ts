@@ -97,3 +97,37 @@ describe('getTableServerSideProps recordId handling', () => {
     ).rejects.toBe(boom);
   });
 });
+
+// The visible table list cannot tell a deleted table from one the role hides: either way the
+// page falls back, and the marker lets it say that the linked table did not open.
+describe('getTableServerSideProps unreadable table anchor', () => {
+  it('falls back to a visible table and marks the dropped one', async () => {
+    const ssrApi = createSsrApi({
+      getTables: vi.fn().mockResolvedValue([{ id: 'tblB' }]),
+      getUserLastVisitBaseNode: vi.fn().mockResolvedValue(undefined),
+      getBaseNodeList: vi
+        .fn()
+        .mockResolvedValue([{ resourceType: BaseNodeResourceType.Table, resourceId: 'tblB' }]),
+      getUserLastVisit: vi.fn().mockResolvedValue(undefined),
+      getViewList: vi.fn().mockResolvedValue([{ id: 'viwB', type: ViewType.Grid }]),
+    });
+    const result = await getTableServerSideProps(createCtx(ssrApi), parsed);
+
+    expect(result).toEqual({
+      redirect: { destination: '/base/bseA/table/tblB/viwB?staleTableId=tblA', permanent: false },
+    });
+  });
+
+  it('returns to the project page, marked, when the reader can see no table or node', async () => {
+    const ssrApi = createSsrApi({
+      getTables: vi.fn().mockResolvedValue([]),
+      getUserLastVisitBaseNode: vi.fn().mockResolvedValue(undefined),
+      getBaseNodeList: vi.fn().mockResolvedValue([]),
+    });
+    const result = await getTableServerSideProps(createCtx(ssrApi), parsed);
+
+    expect(result).toEqual({
+      redirect: { destination: '/base/bseA?staleTableId=tblA', permanent: false },
+    });
+  });
+});

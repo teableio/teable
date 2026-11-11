@@ -80,6 +80,7 @@ export const usePaletteNavigation = ({
             href,
             icon: icon ? <Emoji emoji={icon} size="1rem" /> : <Icon className="size-4" />,
             lastVisited: lastVisited.get(node.resourceId),
+            category: node.resourceType,
           },
         ];
       })
@@ -100,6 +101,7 @@ export const usePaletteNavigation = ({
           viewId: view.id,
         })?.pathname ?? undefined,
       icon: <Icon className="size-4" />,
+      category: BaseNodeResourceType.Table,
     };
   };
   const views =

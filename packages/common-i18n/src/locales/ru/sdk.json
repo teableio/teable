@@ -1075,6 +1075,7 @@
       "passwordAlreadyExists": "Для этого аккаунта пароль уже задан",
       "verificationCodeInvalid": "Код подтверждения недействителен или истёк",
       "newEmailSameAsCurrentEmail": "Новый адрес электронной почты совпадает с текущим",
+      "newPasswordSameAsCurrent": "Новый пароль должен отличаться от текущего",
       "emailAlreadyRegistered": "Этот адрес электронной почты уже зарегистрирован",
       "waitlistNotEnabled": "Функция списка ожидания не включена",
       "emailOrPasswordIncorrect": "Неверный адрес электронной почты или пароль",

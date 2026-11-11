@@ -70,6 +70,8 @@ export type UndoRedoRestoreRecordsPayload = {
 export type UndoRedoApplyRecordOrdersPayload = {
   readonly tableId: string;
   readonly viewId: string;
+  /** Record-update orders retain their write semantics; absent means a view reorder. */
+  readonly source?: 'recordUpdate';
   readonly records: ReadonlyArray<{
     readonly recordId: string;
     readonly order?: number | null;

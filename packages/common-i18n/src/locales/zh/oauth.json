@@ -3,24 +3,24 @@
   "title": {
     "add": "新增 OAuth 应用",
     "edit": "编辑 OAuth 应用",
-    "description": "Teable 应用可以代表自身行事，直接通过 API 执行操作，而无需模拟用户。请参阅我们的<a>帮助文档</a>了解更多信息。"
+    "description": "OAuth 应用让第三方服务在用户授权后，以该用户的身份、在你设定的权限范围内访问 Teable。详见<a>帮助文档</a>。"
   },
   "form": {
     "name": {
       "label": "OAuth 应用名称",
-      "description": "您的 OAuth 应用的名称。"
+      "description": "你的 OAuth 应用的名称。"
     },
     "description": {
       "label": "描述"
     },
     "homePageUrl": {
       "label": "主页 URL",
-      "description": "您的 OAuth 应用网站的完整 URL。"
+      "description": "你的 OAuth 应用网站的完整 URL。"
     },
     "logo": {
       "label": "标志",
       "description": "建议使用正方形图像。",
-      "placeholder": "将文件拖放到此处或点击、粘贴进行上传",
+      "placeholder": "将标志拖放到此处或点击上传",
       "button": "上传标志",
       "clear": "清除",
       "lengthError": "仅允许一个文件。",
@@ -28,18 +28,18 @@
     },
     "callbackUrl": {
       "label": "回调 URL",
-      "description": "用户授权您的集成后要重定向的完整 URL。",
+      "description": "用户授权你的应用后跳转到的完整 URL。",
       "add": "添加回调 URL"
     },
     "deviceFlow": {
       "label": "启用设备授权流程",
-      "description": "允许此应用通过在浏览器中输入一次性代码来登录（适用于 CLI 及无浏览器的设备）。任何知道 client ID 的人都能以此应用的名义发起该流程，请仅在应用确实需要时启用。"
+      "description": "允许此应用让用户在浏览器中输入一次性代码完成登录（适用于 CLI 及无浏览器的设备）。任何知道 client ID 的人都能以此应用的名义发起该流程，请仅在应用确实需要时启用。"
     },
     "secret": {
       "label": "客户端密钥",
       "add": "生成一个新的客户端密钥",
-      "newDescription": "请务必立即复制您的新客户端密钥。您将无法再次看到它。",
-      "empty": "您需要一个客户端密钥来验证应用程序对 API 的身份。",
+      "newDescription": "请务必立即复制你的新客户端密钥。你将无法再次看到它。",
+      "empty": "生成客户端密钥后，应用才能用授权码换取访问令牌。",
       "lastUsed": "上次使用时间 {{date}}",
       "tag": "客户端密钥",
       "neverUsed": "从未使用"
@@ -55,8 +55,8 @@
     "clientInfo": "客户端信息"
   },
   "decision": {
-    "title": "{{name}} 正在请求访问您的帐户",
-    "scopes": "此应用程序将能够获取以下权限范围：",
+    "title": "{{name}} 正在请求访问你的账号",
+    "scopes": "此应用将获得以下权限：",
     "redirectDescription": "授权将重定向到",
     "authorize": "授权"
   },
@@ -81,7 +81,7 @@
     "codeLabel": "授权码",
     "confirmCode": "请确认它和终端里显示的一致。",
     "securityTitle": "安全警告",
-    "phishingHint": "设备验证码是常见的网络钓鱼攻击目标，可被用于登录你的账户。切勿分享此验证码。仅当你本人发起登录时才可继续操作。",
+    "phishingHint": "设备验证码是常见的网络钓鱼攻击目标，可被用于登录你的账号。切勿分享此验证码。仅当你本人发起登录时才可继续操作。",
     "phishingHintStrong": "如果你并非有意访问此页面，或此链接来自他人，请关闭此标签页。",
     "approvedTitle": "设备已连接",
     "approvedDescription": "可以关闭本页面，回到终端继续。",
@@ -94,6 +94,6 @@
   },
   "deleteConfirm": {
     "title": "删除 OAuth 应用",
-    "description": "您确定要删除 {{name}} OAuth 应用吗？此操作无法撤销。"
+    "description": "你确定要删除 {{name}} OAuth 应用吗？此操作无法撤销。"
   }
 }

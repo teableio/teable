@@ -1071,6 +1071,7 @@
       "passwordAlreadyExists": "Un mot de passe a déjà été défini pour ce compte",
       "verificationCodeInvalid": "Le code de vérification n'est pas valide ou a expiré",
       "newEmailSameAsCurrentEmail": "La nouvelle adresse e-mail est identique à l'adresse actuelle",
+      "newPasswordSameAsCurrent": "Le nouveau mot de passe doit être différent de l'actuel",
       "emailAlreadyRegistered": "Cette adresse e-mail est déjà enregistrée",
       "waitlistNotEnabled": "La liste d'attente n'est pas activée",
       "emailOrPasswordIncorrect": "L'adresse e-mail ou le mot de passe est incorrect",

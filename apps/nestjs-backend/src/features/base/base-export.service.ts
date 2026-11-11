@@ -33,6 +33,7 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { V1Engine } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
 import { baseDisplayName } from '../../utils/base-name';
@@ -172,6 +173,7 @@ export class BaseExportService {
     }
   }
 
+  @V1Engine()
   async exportBaseZip(
     baseId: string,
     includeData = true,
@@ -303,6 +305,7 @@ export class BaseExportService {
     }
   }
 
+  @V1Engine()
   async pipeArchive(
     archive: archiver.Archiver,
     baseId: string,

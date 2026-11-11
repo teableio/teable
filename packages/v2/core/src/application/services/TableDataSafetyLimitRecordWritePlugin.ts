@@ -70,10 +70,12 @@ const recordCountFromContext = (context: RecordWritePluginContext): number => {
     case RecordWriteOperationKind.createStream:
     case RecordWriteOperationKind.duplicateStream:
     case RecordWriteOperationKind.importAppend:
-    case RecordWriteOperationKind.deleteMany:
-    case RecordWriteOperationKind.archiveMany:
     case RecordWriteOperationKind.restoreMany:
       return context.payload.recordCount;
+    case RecordWriteOperationKind.deleteMany:
+    case RecordWriteOperationKind.archiveMany:
+      // Removal operations do not write field values and are excluded by supports().
+      return 0;
     case RecordWriteOperationKind.updateMany:
       return context.payload.recordCount ?? recordsFromContext(context).length;
     case RecordWriteOperationKind.paste:

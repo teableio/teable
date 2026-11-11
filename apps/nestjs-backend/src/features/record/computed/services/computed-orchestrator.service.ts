@@ -6,6 +6,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../../../global/database-router.service';
+import { V1EngineService } from '../../../../tracing/decorators/v1-engine';
 import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
@@ -18,6 +19,13 @@ import { ComputedEvaluatorService } from './computed-evaluator.service';
 import { buildResultImpact } from './computed-utils';
 
 @Injectable()
+@V1EngineService([
+  'computeCellChangesForRecords',
+  'computeCellChangesForRecordsMulti',
+  'computeCellChangesForFields',
+  'computeCellChangesForFieldsBeforeDelete',
+  'computeCellChangesForFieldsAfterCreate',
+])
 export class ComputedOrchestratorService {
   constructor(
     private readonly collector: ComputedDependencyCollectorService,

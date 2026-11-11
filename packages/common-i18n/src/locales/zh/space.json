@@ -9,7 +9,7 @@
     "forceRemove": "强制移除空间",
     "forceRemoveTitle": "强制移除“{{name}}”？",
     "forceRemoveLabel": "我已了解上述风险，选择强制移除。",
-    "forceRemoveWarning": "强制移除不会连接外部数据库，将永久移除空间元数据和 {{brandName}} 管理的相关资源。外部数据库中的物理数据可能残留，需要您自行清理。此操作不可撤销。",
+    "forceRemoveWarning": "强制移除不会连接外部数据库，将永久移除空间元数据和 {{brandName}} 管理的相关资源。外部数据库中的物理数据可能残留，需要你自行清理。此操作不可撤销。",
     "forceRemoveSuccess": "空间已强制移除"
   },
   "initialSpaceName": "{{name}}的空间",
@@ -21,18 +21,18 @@
   },
   "allSpaces": "所有空间",
   "emptySpaceTitle": "此空间暂无项目",
-  "spaceIsEmpty": "创建您的第一个项目开始使用",
+  "spaceIsEmpty": "创建你的第一个项目开始使用",
   "baseModal": {
     "copy": "副本",
     "duplicate": "复制 \"{{baseName}}\"",
     "createBaseFromTemplate": "从模板创建项目",
     "duplicateRecords": "复制记录",
-    "duplicateRecordsTip": "您的记录修改历史和协作者不会被复制",
+    "duplicateRecordsTip": "你的记录修改历史和协作者不会被复制",
     "toSpace": "选择空间",
     "copyToSpace": "复制到空间",
-    "duplicateBase": "复制",
+    "duplicateBase": "复制项目",
     "missTargetTip": "请选择要复制到的空间",
-    "copying": "复制中，请稍作等待...",
+    "copying": "复制中，请稍作等待…",
     "howToCreate": "如何创建一个项目?",
     "fromScratch": "空白项目",
     "fromTemplate": "从模板创建",
@@ -42,9 +42,9 @@
   },
   "spaceSetting": {
     "title": "设置",
-    "general": "概览",
+    "general": "通用",
     "collaborators": "协作者",
-    "generalDescription": "您可以在此处更改当前空间的设置",
+    "generalDescription": "你可以在此处更改当前空间的设置",
     "spaceName": "空间名称",
     "spaceId": "空间 ID",
     "importBase": "导入"
@@ -55,28 +55,28 @@
     "add": "添加到收藏",
     "remove": "取消收藏",
     "pin": "收藏",
-    "empty": "您收藏的项目和空间将显示在这里"
+    "empty": "你收藏的项目和空间将显示在这里"
   },
   "tooltip": {
-    "noPermissionToCreateBase": "您没有权限创建项目"
+    "noPermissionToCreateBase": "你没有权限创建项目"
   },
   "tip": {
     "delete": "确定要删除 \"<0/>\" 空间吗？",
     "exportTips2": "你可以在空间 -> 更多 -> 导入，导入 .tea 文件",
     "exportTips3": "跨项目关联字段将会被转换成单行文本。",
     "exportIncludeDataLabel": "包含记录",
-    "exportIncludeDataDescription": "关闭开关时仅导出结构和配置。",
+    "exportIncludeDataDescription": "关闭时仅导出结构和配置。",
     "exportTitle": "导出",
     "exportDescription": "将当前项目导出成 .tea 文件，这可能需要一定的时间。",
     "exportStartButton": "开始导出",
-    "exportSlowTip": "数据量较大，导出可能需要较长时间，您可以暂时离开。",
+    "exportSlowTip": "数据量较大，导出可能需要较长时间，你可以暂时离开。",
     "exportReadyDescription": "请下载 .tea 文件，{{importHint}}",
     "moveBaseSuccessTitle": "移动成功",
     "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}",
     "moveBaseCrossSpaceTitle": "温馨提示",
     "moveBaseCrossSpaceDataLossWarning": "不支持跨空间关联，相关字段会被转化成文本字段。此操作不可撤销。",
     "moveBaseCrossDataDbTitle": "跨数据库移动",
-    "moveBaseCrossDataDbWarning": "源空间与目标空间使用不同的数据数据库。移动将复制项目数据到目标库，可能需要一段时间。迁移期间会暂停对该项目的写入。",
+    "moveBaseCrossDataDbWarning": "源空间与目标空间使用不同的数据库。移动将复制项目数据到目标库，可能需要一段时间。迁移期间会暂停对该项目的写入。",
     "moveBaseProgressTitle": "正在移动项目…",
     "moveBaseProgressPhase": "阶段：{{phase}}",
     "moveBaseProgressPercent": "{{percent}}%",
@@ -92,7 +92,7 @@
   },
   "sharedBase": {
     "title": "分享给我的",
-    "description": "所有邀请我加入的项目",
+    "description": "他人邀请你加入的所有项目",
     "empty": "暂无分享给我的项目"
   },
   "quickSearch": {
@@ -127,7 +127,7 @@
       "creatingTableViews": "正在为 {{table}} 创建视图：{{fields}}",
       "creatingPlugins": "正在创建插件",
       "creatingFolders": "正在创建目录",
-      "creatingWorkflows": "正在创建工作流",
+      "creatingWorkflows": "正在创建自动化",
       "creatingApps": "正在创建应用",
       "creatingAuthorityMatrix": "正在创建权限矩阵",
       "restoringBaseNodes": "正在恢复目录层级",
@@ -183,11 +183,11 @@
   },
   "noBases": {
     "title": "Hi {{userName}}！",
-    "description": "创建您的第一个项目，开始让数据变简单"
+    "description": "创建你的第一个项目，开始管理你的工作"
   },
   "noSpaces": {
     "title": "Hi {{userName}}！",
-    "description": "创建您的第一个空间，开始您的数据协作之旅"
+    "description": "创建你的第一个空间，开始你的数据协作之旅"
   },
   "baseList": {
     "allBases": "所有项目",
@@ -242,10 +242,10 @@
         "trial": "试运行"
       },
       "checkMessage": {
-        "connectors": "这里接不了：{{providers}}",
-        "privacy": "带了记录，请检查其中是否有个人信息",
+        "connectors": "以下连接暂不支持：{{providers}}",
+        "privacy": "模板包含记录，请检查其中是否有个人信息",
         "estimate": "每月约 {{runs}} 次，超过免费版的 {{free}} 次",
-        "trial": "自动化不需要任何账号，请确认不接账号也能跑"
+        "trial": "请确认自动化或任务无需连接账号也能运行"
       },
       "withdraw": "撤回",
       "withdrawn": "已撤回提交。",
@@ -258,23 +258,23 @@
     "unPublishConfirmDescription": "下架后其他人无法在目录中找到或安装；已安装的副本不受影响，之后可重新提交上架。",
     "uploadCover": "上传封面",
     "changeCover": "更换封面",
-    "uploading": "图片上传中...",
+    "uploading": "图片上传中…",
     "uploadSuccess": "图片上传成功",
     "uploadFailed": "上传失败",
     "invalidImageType": "请选择图片文件",
     "tips": {
-      "publishValidation": "标题和描述不能为空",
-      "atLeastOneNode": "至少选择一个节点发布"
+      "publishValidation": "名称和详细介绍不能为空",
+      "atLeastOneNode": "请至少选择一项包含的内容"
     },
     "urlCopied": "链接已复制到剪贴板！",
     "urlCopiedForDiscord": "链接已复制到剪贴板！你可以在 Discord 中粘贴。",
     "featuredLabel": "精选",
     "featuredTip": "已入选官方精选，你的模板将获得更多曝光与推荐。",
-    "publishSuccessDescription": "分享你的作品到世界",
+    "publishSuccessDescription": "把你的作品分享给更多人",
     "shareWith": "分享到",
     "unpublishedApps": {
       "title": "检测到未发布的应用",
-      "description": "未发布的应用可能导致模板预览失败，建议先发布后继续。",
+      "description": "未发布的应用可能导致模板预览失败。可以先发布，也可以直接继续。",
       "publishAll": "全部发布",
       "publish": "发布",
       "published": "已发布",
@@ -292,15 +292,15 @@
   },
   "dataDb": {
     "create": {
-      "title": "数据数据库",
+      "title": "数据库",
       "description": "选择此空间的项目结构和记录存储位置。",
       "defaultHint": "适用于大多数空间。",
       "byodbOption": "使用我的 PostgreSQL 数据库",
-      "byodbHint": "在客户自管数据库中使用 Teable 内部 Schema 初始化此空间。",
+      "byodbHint": "在你自己的 PostgreSQL 数据库中使用 Teable 内部 Schema 初始化此空间。",
       "urlLabel": "PostgreSQL 连接 URL",
       "sslHint": "请使用 PostgreSQL 服务要求的 SSL 参数。测试后不会显示密码。",
       "testConnection": "测试连接",
-      "testing": "测试中...",
+      "testing": "测试中…",
       "retestRequired": "URL 修改后需要重新测试。",
       "databaseLabel": "数据库",
       "databasePlaceholder": "选择数据库",
@@ -338,7 +338,7 @@
         },
         "INCOMPATIBLE_TEABLE_DATABASE": {
           "message": "此数据库包含不完整或不兼容的 Teable 数据对象。",
-          "remediation": "请使用空数据库，或使用兼容的 Teable 数据数据库迁移/接管流程。"
+          "remediation": "请使用空数据库，或使用兼容的 Teable 数据库迁移/接管流程。"
         }
       }
     },
@@ -370,7 +370,7 @@
     "issue": {
       "fieldDegraded": "{{tableName}} / {{fieldName}}：{{fromType}} → {{toType}}",
       "fieldSkipped": "{{tableName}} / {{fieldName}}（{{fromType}}）已跳过：{{reason}}",
-      "viewSkipped": "{{tableName}} / 视图“{{viewName}}”（{{fromType}}）已跳过",
+      "viewSkipped": "{{tableName}} / 视图「{{viewName}}」（{{fromType}}）已跳过",
       "valuesDropped": "{{tableName}} / {{fieldName}}：丢弃了 {{count}} 个值（{{reason}}）",
       "viewConfigDegraded": "{{tableName}} / 视图「{{viewName}}」：{{reason}}"
     },
@@ -389,7 +389,7 @@
     "waitingOAuth": "请在弹窗中完成授权…",
     "connectedAs": "已连接：{{account}}",
     "permission": {
-      "create": "创建者",
+      "create": "可创建",
       "edit": "可编辑",
       "comment": "可评论",
       "read": "只读"

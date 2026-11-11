@@ -590,12 +590,31 @@ export class LocalAuthService {
     const user = await this.getUserByIdOrThrow(userId);
 
     const { password: currentHashPassword, salt } = user;
+    // A social-only account has no hash or salt to compare against: it sets one with add-password.
+    if (!currentHashPassword || !salt) {
+      throw new CustomHttpException(`Password is not set`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.passwordNotSet',
+        },
+      });
+    }
     if (!(await this.comparePassword(password, currentHashPassword, salt))) {
       throw new CustomHttpException(`Password is incorrect`, HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.auth.passwordIncorrect',
         },
       });
+    }
+    if (newPassword === password) {
+      throw new CustomHttpException(
+        'New password must differ from the current one',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.auth.newPasswordSameAsCurrent',
+          },
+        }
+      );
     }
     const { salt: newSalt, hashPassword: newHashPassword } = await this.encodePassword(newPassword);
     await this.prismaService.txClient().user.update({

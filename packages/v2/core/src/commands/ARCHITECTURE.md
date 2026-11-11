@@ -85,6 +85,14 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableFieldSpecs.ts` - Role: parsing helpers; Purpose: shared field input schema + spec builders.
 - `UpdateRecordCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for updating a record.
 - `UpdateRecordHandler.ts` - Role: command handler; Purpose: update record, persist, publish. A field-only request containing exclusively known computed fields returns the unchanged record after write-scope checks, without persistence, events, or undo history; unknown fields still fail validation.
+- `ApplyRecordOrdersHandler.ts` - Role: order replay; Purpose: apply persisted row-order values.
+  Orders saved by a fieldless record update carry `source: 'recordUpdate'` and re-check the current
+  record-write plugin scope before any write. Source-less view-order history keeps its existing
+  view-operation semantics; mixed field/order updates keep their pre-existing command payloads.
+- `SubmitRecordCommand.ts` / `SubmitRecordHandler.ts` - Role: form submission; Purpose: validate
+  the current Form and run native record creation. Authenticated share identity is an internal
+  factory option, never a public input field. Hidden input requires matching enabled share state
+  with `includeHiddenField`; visible required checks remain independent of hidden-field allowance.
 
 ## Examples
 

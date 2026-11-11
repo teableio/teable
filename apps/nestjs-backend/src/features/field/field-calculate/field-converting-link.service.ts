@@ -16,6 +16,7 @@ import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { DropColumnOperationType } from '../../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
 import { DatabaseRouter } from '../../../global/database-router.service';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
@@ -34,6 +35,16 @@ const isLink = (field: IFieldInstance): field is LinkFieldDto =>
   !field.isLookup && field.type === FieldType.Link;
 
 @Injectable()
+@V1EngineService([
+  'deleteOrCreateSupplementLink',
+  'analysisReference',
+  'analysisSupplementLink',
+  'oneWayToTwoWay',
+  'modifyLinkOptions',
+  'convertLink',
+  'convertLinkOnlyRelationship',
+  'planResetLinkFieldLookupFieldId',
+])
 export class FieldConvertingLinkService {
   constructor(
     private readonly prismaService: PrismaService,

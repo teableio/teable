@@ -163,6 +163,67 @@ describe('getV2UndoRedoRequiredActions', () => {
     );
   });
 
+  it.each(['undo', 'redo'] as const)(
+    'keeps record-update order %s under record|update, without view|update',
+    (mode) => {
+      const orders = createUndoRedoCommand('ApplyRecordOrders', {
+        tableId,
+        viewId,
+        source: 'recordUpdate',
+        records: [{ recordId: 'recxxxxxxxxxxxxxxxx', order: 2 }],
+      });
+      const entry = { undoCommand: orders, redoCommand: orders };
+      expect(getV2UndoRedoRequiredActions(entry, mode)).toEqual(['record|update']);
+    }
+  );
+
+  it('keeps source-less stored orders under view|update in both directions', () => {
+    const orders = createUndoRedoCommand('ApplyRecordOrders', {
+      tableId,
+      viewId,
+      records: [{ recordId: 'recxxxxxxxxxxxxxxxx', order: 2 }],
+    });
+    const entry = { undoCommand: orders, redoCommand: orders };
+    expect(getV2UndoRedoRequiredActions(entry, 'undo')).toEqual(['view|update']);
+    expect(getV2UndoRedoRequiredActions(entry, 'redo')).toEqual(['view|update']);
+  });
+
+  it('does not replace a view reorder grant with a record-update grant in mixed batches', () => {
+    const viewOrders = createUndoRedoCommand('ApplyRecordOrders', {
+      tableId,
+      viewId,
+      records: [],
+    });
+    const recordOrders = createUndoRedoCommand('ApplyRecordOrders', {
+      tableId,
+      viewId,
+      source: 'recordUpdate',
+      records: [],
+    });
+    const batch = createUndoRedoCommand('Batch', [recordOrders, viewOrders]);
+    expect(
+      getV2UndoRedoRequiredActions({ undoCommand: batch, redoCommand: batch }, 'undo')
+    ).toEqual(['record|update', 'view|update']);
+  });
+
+  it('keeps a mixed field-and-order write needing both record|update and view|update', () => {
+    const updateRecords = createUndoRedoCommand('UpdateRecords', {
+      tableId,
+      records: [],
+      fieldKeyType: 'id',
+      typecast: false,
+    });
+    const orderWithoutSource = createUndoRedoCommand('ApplyRecordOrders', {
+      tableId,
+      viewId,
+      records: [],
+    });
+    const batch = createUndoRedoCommand('Batch', [updateRecords, orderWithoutSource]);
+    expect(
+      getV2UndoRedoRequiredActions({ undoCommand: batch, redoCommand: batch }, 'undo')
+    ).toEqual(['record|update', 'view|update']);
+  });
+
   it('unions the actions of every leaf in a batch, without duplicates', () => {
     const batch = createUndoRedoCommand('Batch', [restoreRecords, updateRecord, fieldSnapshot]);
     const opposite = createUndoRedoCommand('Batch', [deleteRecords, updateRecord, deleteField]);

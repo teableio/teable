@@ -937,6 +937,10 @@
       "title": "開こうとしたテーブルは削除されています",
       "description": "「{{tableName}}」に切り替えました",
       "descriptionEmpty": "プロジェクトページに戻りました"
+    },
+    "unavailableRecovered": {
+      "title": "開いたテーブルは利用できません",
+      "description": "削除されたか、アクセス権がない可能性があります"
     }
   },
   "import": {
@@ -1742,7 +1746,8 @@
       "waitingInput": "あなたの返信を待っています",
       "failed": "返信に失敗しました"
     },
-    "routineRunPrompt": "ルーティンが自動送信"
+    "routineRunPrompt": "ルーティンが自動送信",
+    "backToLatest": "最新のメッセージへ"
   },
   "upload": {
     "panelUploading": "{{count}} 件のファイルをアップロード中",

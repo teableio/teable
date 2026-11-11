@@ -5,6 +5,7 @@ import { HttpError, IdPrefix } from '@teable/core';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import dynamic from 'next/dynamic';
+import { withStaleTableParam } from '@/features/app/blocks/table/hooks/stale-table-fallback';
 import { STALE_VIEW_PARAM } from '@/features/app/blocks/table/hooks/stale-view-fallback';
 import { TableSkeleton } from '@/features/app/blocks/table/TableSkeleton';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
@@ -78,7 +79,7 @@ export const getTableServerSideProps = async (
     const nonTableUrl = await getDefaultNodeUrl(ctx, {
       filterNode: (node) => node.resourceType !== BaseNodeResourceType.Table,
     });
-    return redirect(nonTableUrl ?? `/base/${baseId}`);
+    return redirect(withStaleTableParam(nonTableUrl ?? `/base/${baseId}`, tableId));
   }
 
   // If table doesn't exist, redirect to default node
@@ -92,7 +93,10 @@ export const getTableServerSideProps = async (
   });
 
   if (validationResult) {
-    return validationResult;
+    // The fallback lands elsewhere: leave the marker so the page can say the table did not open.
+    return 'redirect' in validationResult
+      ? redirect(withStaleTableParam(validationResult.redirect.destination, tableId))
+      : validationResult;
   }
 
   // Table exists, now handle viewId

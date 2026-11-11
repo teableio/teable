@@ -284,6 +284,50 @@ describe('table-scoped task routing', () => {
       handle?.stop();
     }
   });
+  it('claims the configured search maintenance scope without reading observations', async () => {
+    const claimNextAccepted = vi.fn().mockResolvedValue(ok(null));
+    const values = new Map<symbol, unknown>([
+      [
+        v2TableOpsTokens.taskWorkerConfig,
+        {
+          enabled: true,
+          intervalMs: 60_000,
+          workerId: 'maintenance-test',
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+          allowedKinds: [
+            'create_search_access_path',
+            'rebuild_search_access_path',
+            'drop_search_access_path',
+          ],
+          scope: 'search_maintenance',
+        },
+      ],
+      [v2TableOpsTokens.clock, { now: () => NOW }],
+      [v2TableOpsTokens.taskRepository, { claimNextAccepted }],
+    ]);
+    const resolved: symbol[] = [];
+    const container = {
+      isRegistered: () => false,
+      resolve: (token: symbol) => {
+        resolved.push(token);
+        if (!values.has(token)) throw new Error(`Unexpected token: ${String(token)}`);
+        return values.get(token);
+      },
+    } as unknown as DependencyContainer;
+    const handle = startTableQueryOpsTaskWorkerIfEnabled(container, {} as IExecutionContext);
+    try {
+      await vi.waitFor(() =>
+        expect(claimNextAccepted).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ scope: 'search_maintenance', workerId: 'maintenance-test' })
+        )
+      );
+      expect(resolved).not.toContain(v2TableOpsTokens.observationReader);
+    } finally {
+      handle?.stop();
+    }
+  });
 });
 
 describe('startTableQueryOpsManualSearchTaskWorker', () => {

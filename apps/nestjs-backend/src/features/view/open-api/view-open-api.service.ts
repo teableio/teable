@@ -56,6 +56,7 @@ import { Events } from '../../../event-emitter/events';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
@@ -73,6 +74,34 @@ import { createViewInstanceByRaw } from '../model/factory';
 import { ViewService } from '../view.service';
 
 @Injectable()
+// Untraced host: pluginInstall — Host plugin installation and metadata orchestration.
+// Untraced host: updatePluginStorage — Host plugin storage mutation.
+// Untraced host: getPluginInstall — Host plugin installation lookup.
+@V1EngineService([
+  'createView',
+  'deleteView',
+  'manualSort',
+  'updateViewColumnMeta',
+  'updateShareMeta',
+  'validateFilter',
+  'validateSort',
+  'validateGroup',
+  'setViewProperty',
+  'updateViewByOps',
+  'patchViewOptions',
+  'shuffle',
+  'updateViewOrder',
+  'shuffleRecords',
+  'updateRecordOrdersInner',
+  'updateRecordIndexes',
+  'updateRecordOrders',
+  'refreshShareId',
+  'enableShare',
+  'disableShare',
+  'getFilterLinkRecords',
+  'getFilterLinkRecordsByTable',
+  'duplicateView',
+])
 export class ViewOpenApiService {
   private readonly logger = new Logger(ViewOpenApiService.name);
 

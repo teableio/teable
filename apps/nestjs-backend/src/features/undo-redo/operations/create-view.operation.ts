@@ -1,6 +1,7 @@
 import type { IViewRo, IViewVo } from '@teable/core';
 import type { ICreateViewOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import type { ViewService } from '../../view/view.service';
 
@@ -10,6 +11,8 @@ export interface ICreateViewPayload {
   resolveData: IViewVo;
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class CreateViewOperation {
   constructor(
     private readonly viewOpenApiService: ViewOpenApiService,

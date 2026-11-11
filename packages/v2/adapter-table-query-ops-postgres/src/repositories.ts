@@ -9,6 +9,7 @@ import {
   TableQueryShape,
   type ExecutablePhase1RemediationKind,
   type TableQueryObservationBatchSink,
+  type TableQueryOpsTaskWorkerScope,
   type TableQuerySearchHeatByTable,
   type TableQuerySqlDiagnostic,
 } from '@teable/v2-table-query-ops';
@@ -871,7 +872,7 @@ export class PostgresTableQueryRemediationTaskRepository {
   async claimNextAccepted(
     _context: IExecutionContext,
     input: {
-      readonly scope: 'all' | 'manual_search';
+      readonly scope: TableQueryOpsTaskWorkerScope;
       readonly workerId: string;
       readonly now: Date;
       readonly allowedKinds: ReadonlyArray<ExecutablePhase1RemediationKind>;
@@ -893,11 +894,20 @@ export class PostgresTableQueryRemediationTaskRepository {
           SELECT id
           FROM table_query_remediation_task
           WHERE status IN ('queued', 'failed')
-            AND (${input.scope === 'all'} OR (
-              payload ->> 'trigger' = 'admin_search_access_path'
-              AND payload ->> 'executionMode' = 'manual'
-              AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'drop_search_access_path')
-            ))
+            AND (
+              ${input.scope === 'all'}
+              OR (
+                ${input.scope === 'manual_search'}
+                AND payload ->> 'trigger' = 'admin_search_access_path'
+                AND payload ->> 'executionMode' = 'manual'
+                AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'drop_search_access_path')
+              )
+              OR (
+                ${input.scope === 'search_maintenance'}
+                AND payload ->> 'trigger' IN ('schema_change', 'reclaim')
+                AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'drop_search_access_path')
+              )
+            )
             AND NOT EXISTS (
               SELECT 1 FROM table_query_remediation_task AS active
               WHERE active.table_id = table_query_remediation_task.table_id

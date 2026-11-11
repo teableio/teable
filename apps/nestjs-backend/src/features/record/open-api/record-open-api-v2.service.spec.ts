@@ -3415,37 +3415,4 @@ describe('RecordOpenApiV2Service', () => {
       `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
     );
   });
-
-  it('routes reorder-only single-record updates through native v2 updateRecord without reloading snapshots', async () => {
-    commandExecute.mockResolvedValueOnce({
-      isErr: () => false,
-      value: createUpdateRecordResult({
-        recordId: 'rec1111111111111111',
-        tableId: `tbl${'c'.repeat(16)}`,
-        fields: { [statusFieldId]: 'Done' },
-        fieldKeyMapping: new Map([[statusFieldId, 'status']]),
-      }),
-    });
-
-    const result = await service.updateRecord(`tbl${'c'.repeat(16)}`, 'rec1111111111111111', {
-      fieldKeyType: FieldKeyType.Name,
-      record: {
-        fields: {},
-      },
-      order: {
-        viewId: `viw${'c'.repeat(16)}`,
-        anchorId: 'rec1111111111111111',
-        position: 'after',
-      },
-    });
-
-    expect(result).toEqual({
-      id: 'rec1111111111111111',
-      fields: { status: 'Done' },
-    });
-    expect(commandExecute).toHaveBeenCalledTimes(1);
-    expect(commandExecute.mock.calls[0]?.[1].fieldValues.size).toBe(0);
-    expect(commandExecute.mock.calls[0]?.[1].order?.viewId.toString()).toBe(`viw${'c'.repeat(16)}`);
-    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
-  });
 });

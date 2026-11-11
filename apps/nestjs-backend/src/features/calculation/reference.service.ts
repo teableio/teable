@@ -7,6 +7,7 @@ import { difference } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { filterDirectedGraph } from './utils/dfs';
@@ -56,6 +57,13 @@ export interface ITopoLinkOrder {
 }
 
 @Injectable()
+@V1EngineService([
+  'createAuxiliaryData',
+  'recordRaw2Record',
+  'getFieldGraphItems',
+  'flatGraph',
+  'getRelatedTableIdsByFieldIds',
+])
 export class ReferenceService {
   constructor(
     private readonly prismaService: PrismaService,

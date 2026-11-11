@@ -1,0 +1,4706 @@
+[
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/open-api/aggregation-open-api.module.ts",
+    "symbol": "AggregationOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/open-api/aggregation-open-api.module.ts",
+    "symbol": "AggregationOpenApiModule",
+    "kind": "provider",
+    "owner": "AppModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/open-api/aggregation-open-api.module.ts",
+    "symbol": "AggregationOpenApiModule",
+    "kind": "provider",
+    "owner": "appModules:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "AppModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "appModules:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.module.ts",
+    "symbol": "SelectionModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.module.ts",
+    "symbol": "SelectionModule",
+    "kind": "provider",
+    "owner": "AppModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.module.ts",
+    "symbol": "SelectionModule",
+    "kind": "provider",
+    "owner": "appModules:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/undo-redo/open-api/undo-redo.module.ts",
+    "symbol": "UndoRedoModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/undo-redo/open-api/undo-redo.module.ts",
+    "symbol": "UndoRedoModule",
+    "kind": "provider",
+    "owner": "AppModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/undo-redo/open-api/undo-redo.module.ts",
+    "symbol": "UndoRedoModule",
+    "kind": "provider",
+    "owner": "appModules:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/event-emitter/event-emitter.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/event-emitter/event-emitter.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "EventEmitterModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/event-emitter/listeners/collaborator-notification.listener.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/event-emitter/listeners/collaborator-notification.listener.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "CollaboratorNotificationListener"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "AirtableImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "AirtableImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "AirtableImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "AirtableImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/airtable-import/airtable-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "injection",
+    "owner": "AirtableImportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node-move.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-move.service.ts",
+    "symbol": "TableMoveService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node-move.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-move.service.ts",
+    "symbol": "TableMoveService",
+    "kind": "injection",
+    "owner": "BaseNodeMoveService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.module.ts",
+    "symbol": "FieldDuplicateModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.module.ts",
+    "symbol": "FieldDuplicateModule",
+    "kind": "provider",
+    "owner": "BaseNodeModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseNodeModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseNodeModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "provider",
+    "owner": "BaseNodeModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "BaseNodeService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-node/base-node.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "injection",
+    "owner": "BaseNodeService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-share/base-share-open.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-share/base-share-open.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseShareOpenController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-share/base-share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-share/base-share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "BaseShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-share/base-share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base-share/base-share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "BaseShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate-preview.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate-preview.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseDuplicatePreviewPlanner"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate-preview.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseDuplicatePreviewRegistrar"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "injection",
+    "owner": "BaseDuplicateService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "injection",
+    "owner": "BaseDuplicateService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/services/persisted-computed-backfill.service.ts",
+    "symbol": "PersistedComputedBackfillService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/services/persisted-computed-backfill.service.ts",
+    "symbol": "PersistedComputedBackfillService",
+    "kind": "injection",
+    "owner": "BaseDuplicateService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "injection",
+    "owner": "BaseDuplicateService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import-processor/base-import-csv.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import-processor/base-import-csv.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "provider",
+    "owner": "BaseImportCsvModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import-processor/base-import-csv.processor.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/services/persisted-computed-backfill.service.ts",
+    "symbol": "PersistedComputedBackfillService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import-processor/base-import-csv.processor.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/services/persisted-computed-backfill.service.ts",
+    "symbol": "PersistedComputedBackfillService",
+    "kind": "injection",
+    "owner": "BaseImportCsvQueueProcessor"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import-processor/base-import-junction-csv.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import-processor/base-import-junction-csv.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "provider",
+    "owner": "BaseImportJunctionCsvModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import-processor/base-import-junction.processor.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/services/persisted-computed-backfill.service.ts",
+    "symbol": "PersistedComputedBackfillService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import-processor/base-import-junction.processor.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/services/persisted-computed-backfill.service.ts",
+    "symbol": "PersistedComputedBackfillService",
+    "kind": "injection",
+    "owner": "BaseImportJunctionCsvQueueProcessor"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.service.ts",
+    "symbol": "FieldDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.service.ts",
+    "symbol": "FieldDuplicateService",
+    "kind": "injection",
+    "owner": "BaseImportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.service.ts",
+    "symbol": "TableService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.service.ts",
+    "symbol": "TableService",
+    "kind": "injection",
+    "owner": "BaseImportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "injection",
+    "owner": "BaseImportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-query/base-query.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-query/base-query.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "BaseQueryService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-query/base-query.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base-query/base-query.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "BaseQueryService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "injection",
+    "owner": "BaseController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "injection",
+    "owner": "BaseController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "provider",
+    "owner": "BaseModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "provider",
+    "owner": "BaseModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "provider",
+    "owner": "BaseModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "provider",
+    "owner": "BaseModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "provider",
+    "owner": "BaseModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "provider",
+    "owner": "BaseModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.module.ts",
+    "symbol": "FieldDuplicateModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.module.ts",
+    "symbol": "FieldDuplicateModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/graph/graph.module.ts",
+    "symbol": "GraphModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/graph/graph.module.ts",
+    "symbol": "GraphModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "provider",
+    "owner": "BaseModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "BaseService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/graph/graph.service.ts",
+    "symbol": "GraphService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/graph/graph.service.ts",
+    "symbol": "GraphService",
+    "kind": "injection",
+    "owner": "BaseService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "BaseService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/comment-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/comment-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "CommentOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/comment-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/comment-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "CommentOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/comment-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/comment-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "CommentOpenApiService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/record-comment-cleanup.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/record-comment-cleanup.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "RecordCommentCleanupModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/record-comment-cleanup.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/comment/record-comment-cleanup.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "RecordCommentCleanupService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/dashboard/dashboard.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/dashboard/dashboard.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "injection",
+    "owner": "DashboardService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/calculation.module.ts",
+    "symbol": "CalculationModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/calculation.module.ts",
+    "symbol": "CalculationModule",
+    "kind": "provider",
+    "owner": "DatabaseViewModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/query-builder/record-query-builder.module.ts",
+    "symbol": "RecordQueryBuilderModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/query-builder/record-query-builder.module.ts",
+    "symbol": "RecordQueryBuilderModule",
+    "kind": "provider",
+    "owner": "DatabaseViewModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "provider",
+    "owner": "DatabaseViewModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/reference.service.ts",
+    "symbol": "ReferenceService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/reference.service.ts",
+    "symbol": "ReferenceService",
+    "kind": "injection",
+    "owner": "DatabaseViewService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/query-builder/record-query-builder.interface.ts",
+    "symbol": "IRecordQueryBuilder",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/query-builder/record-query-builder.interface.ts",
+    "symbol": "IRecordQueryBuilder",
+    "kind": "injection",
+    "owner": "DatabaseViewService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/query-builder/record-query-builder.provider.ts",
+    "symbol": "InjectRecordQueryBuilder",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/database-view/database-view.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/query-builder/record-query-builder.provider.ts",
+    "symbol": "InjectRecordQueryBuilder",
+    "kind": "injection",
+    "owner": "DatabaseViewService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "ExportOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "ExportOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "ExportOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "ExportOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "ExportOpenApiService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "ExportOpenApiService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/google-sheet-import/google-sheet-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/google-sheet-import/google-sheet-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "GoogleSheetImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/google-sheet-import/google-sheet-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/google-sheet-import/google-sheet-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "GoogleSheetImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-csv-chunk.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-csv-chunk.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "ImportCsvChunkModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-csv.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-csv.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "ImportCsvModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-csv.processor.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-csv.processor.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "ImportTableCsvQueueProcessor"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "ImportOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "ImportOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "ImportOpenApiModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "ImportOpenApiService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "ImportOpenApiService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/import/open-api/import-open-api.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "ImportOpenApiService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/integrity.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/integrity.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "IntegrityModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/integrity.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/integrity.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "IntegrityModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/integrity.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/integrity.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "provider",
+    "owner": "IntegrityModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/link-field-query.service.ts",
+    "symbol": "LinkFieldQueryService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/link-field-query.service.ts",
+    "symbol": "LinkFieldQueryService",
+    "kind": "injection",
+    "owner": "LinkIntegrityService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "LinkIntegrityService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "LinkIntegrityService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.service.ts",
+    "symbol": "TableDomainQueryService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.service.ts",
+    "symbol": "TableDomainQueryService",
+    "kind": "injection",
+    "owner": "LinkIntegrityService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/unique-index.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/integrity/unique-index.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "UniqueIndexService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/plugin-panel/plugin-panel.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/plugin-panel/plugin-panel.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "injection",
+    "owner": "PluginPanelService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/record/cross-base-link-access.field-operation.plugin.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/record/cross-base-link-access.field-operation.plugin.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "injection",
+    "owner": "CrossBaseLinkAccessFieldOperationPlugin"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/record/cross-base-link-access.plugin-registrar.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/record/cross-base-link-access.plugin-registrar.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "injection",
+    "owner": "CrossBaseLinkAccessPluginRegistrar"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/record/share-view-scope.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/record/share-view-scope.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "ShareViewScopeService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share-socket.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share-socket.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "ShareSocketService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share-socket.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share-socket.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "ShareSocketService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share-socket.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share-socket.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "injection",
+    "owner": "ShareSocketService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/aggregation.module.ts",
+    "symbol": "AggregationModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/aggregation.module.ts",
+    "symbol": "AggregationModule",
+    "kind": "provider",
+    "owner": "ShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "ShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "ShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "ShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "ShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.module.ts",
+    "symbol": "SelectionModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.module.ts",
+    "symbol": "SelectionModule",
+    "kind": "provider",
+    "owner": "ShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "ShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "ShareModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/aggregation.service.interface.ts",
+    "symbol": "IAggregationService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/aggregation.service.interface.ts",
+    "symbol": "IAggregationService",
+    "kind": "injection",
+    "owner": "ShareService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/aggregation.service.provider.ts",
+    "symbol": "InjectAggregationService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/aggregation.service.provider.ts",
+    "symbol": "InjectAggregationService",
+    "kind": "injection",
+    "owner": "ShareService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "ShareService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "ShareService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "ShareService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.service.ts",
+    "symbol": "SelectionService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/share/share.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.service.ts",
+    "symbol": "SelectionService",
+    "kind": "injection",
+    "owner": "ShareService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-restore.service.ts",
+    "symbol": "RecordRestoreService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-restore.service.ts",
+    "symbol": "RecordRestoreService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/share-db/share-db.adapter.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/share-db/share-db.adapter.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "ShareDbAdapter"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/share-db/share-db.adapter.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.service.ts",
+    "symbol": "TableService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/share-db/share-db.adapter.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.service.ts",
+    "symbol": "TableService",
+    "kind": "injection",
+    "owner": "ShareDbAdapter"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/share-db/share-db.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/share-db/share-db.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "ShareDbModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/share-db/share-db.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "community/apps/nestjs-backend/src/share-db/share-db.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "provider",
+    "owner": "ShareDbModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app-auth.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app-auth.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "AppAuthService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "AppModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "AppModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "AppModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "AppModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "AppService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/app/app.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "AppService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive-export.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive-export.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "ArchiveExportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive-export.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive-export.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "ArchiveExportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "ArchiveModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "ArchiveModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "ArchiveModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "provider",
+    "owner": "ArchiveModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "ArchiveService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-restore.service.ts",
+    "symbol": "RecordRestoreService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-restore.service.ts",
+    "symbol": "RecordRestoreService",
+    "kind": "injection",
+    "owner": "ArchiveService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "ArchiveService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.service.ts",
+    "symbol": "TableDomainQueryService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/archive/archive.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.service.ts",
+    "symbol": "TableDomainQueryService",
+    "kind": "injection",
+    "owner": "ArchiveService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/authority-matrix.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record-modify/record-modify.module.ts",
+    "symbol": "RecordModifyModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/authority-matrix.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record-modify/record-modify.module.ts",
+    "symbol": "RecordModifyModule",
+    "kind": "provider",
+    "owner": "AuthorityMatrixModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/authority-matrix.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/authority-matrix.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "AuthorityMatrixModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/authority-matrix.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/authority-matrix.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "injection",
+    "owner": "AuthorityMatrixService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/permission/record-permission.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/permission/record-permission.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "RecordPermissionService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/permission/table-permission.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/permission/table-permission.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "TablePermissionService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/agent.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/agent.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "AgentModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/agent.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/agent.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "AgentModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/agent.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/agent.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "AgentModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/agent.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/agent.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "AgentModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/robot-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/robot-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "RobotAgentService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/robot-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/robot-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "RobotAgentService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/robot-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/robot-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "RobotAgentService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/robot-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/agent/robot-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "injection",
+    "owner": "RobotAgentService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/workflow/trigger/workflow-trigger.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/workflow/trigger/workflow-trigger.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "WorkflowTriggerModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/workflow/trigger/workflow-trigger.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/workflow/trigger/workflow-trigger.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "WorkflowTriggerService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/workflow/workflow.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/workflow/workflow.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "injection",
+    "owner": "WorkflowController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/workflow/workflow.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/automation/workflow/workflow.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "WorkflowModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node-move.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-move.service.ts",
+    "symbol": "TableMoveService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node-move.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-move.service.ts",
+    "symbol": "TableMoveService",
+    "kind": "injection",
+    "owner": "BaseNodeMoveService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.module.ts",
+    "symbol": "FieldDuplicateModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.module.ts",
+    "symbol": "FieldDuplicateModule",
+    "kind": "provider",
+    "owner": "BaseNodeModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseNodeModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseNodeModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "provider",
+    "owner": "BaseNodeModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "BaseNodeService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/base-node/base-node.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "injection",
+    "owner": "BaseNodeService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "MetaModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "MetaModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "MetaModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "MetaModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/meta.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "injection",
+    "owner": "MetaService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/sql-query.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/chat/meta/sql-query.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "ChatSqlQueryService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate-preview.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate-preview.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseDuplicatePreviewEeRegistrar"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseDuplicateModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "provider",
+    "owner": "BaseDuplicateModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "provider",
+    "owner": "BaseDuplicateModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "provider",
+    "owner": "BaseDuplicateModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "provider",
+    "owner": "BaseDuplicateModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseDuplicateModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "provider",
+    "owner": "BaseDuplicateModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "provider",
+    "owner": "BaseDuplicateModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/services/persisted-computed-backfill.service.ts",
+    "symbol": "PersistedComputedBackfillService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/services/persisted-computed-backfill.service.ts",
+    "symbol": "PersistedComputedBackfillService",
+    "kind": "injection",
+    "owner": "BaseDuplicateService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "injection",
+    "owner": "BaseDuplicateService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "injection",
+    "owner": "BaseDuplicateService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "injection",
+    "owner": "BaseDuplicateService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-export.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-export.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "provider",
+    "owner": "BaseExportModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-export.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "provider",
+    "owner": "BaseExportModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-calculate.module.ts",
+    "symbol": "FieldCalculateModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-calculate.module.ts",
+    "symbol": "FieldCalculateModule",
+    "kind": "provider",
+    "owner": "BaseImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.module.ts",
+    "symbol": "FieldDuplicateModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.module.ts",
+    "symbol": "FieldDuplicateModule",
+    "kind": "provider",
+    "owner": "BaseImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.service.ts",
+    "symbol": "FieldDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.service.ts",
+    "symbol": "FieldDuplicateService",
+    "kind": "provider",
+    "owner": "BaseImportModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.service.ts",
+    "symbol": "FieldDuplicateService",
+    "kind": "provider",
+    "owner": "BaseImportModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "provider",
+    "owner": "BaseImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "provider",
+    "owner": "BaseImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "provider",
+    "owner": "BaseImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseImportModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "provider",
+    "owner": "BaseImportModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "provider",
+    "owner": "BaseImportModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.service.ts",
+    "symbol": "FieldDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-duplicate/field-duplicate.service.ts",
+    "symbol": "FieldDuplicateService",
+    "kind": "injection",
+    "owner": "BaseImportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.service.ts",
+    "symbol": "TableService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.service.ts",
+    "symbol": "TableService",
+    "kind": "injection",
+    "owner": "BaseImportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "injection",
+    "owner": "BaseImportService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/graph/graph.module.ts",
+    "symbol": "GraphModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/graph/graph.module.ts",
+    "symbol": "GraphModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/computed/computed.module.ts",
+    "symbol": "ComputedModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "provider",
+    "owner": "BaseModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "provider",
+    "owner": "BaseModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "BaseModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "provider",
+    "owner": "BaseModule:exports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.module.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "provider",
+    "owner": "BaseModule:providers"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "BaseService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/graph/graph.service.ts",
+    "symbol": "GraphService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/graph/graph.service.ts",
+    "symbol": "GraphService",
+    "kind": "injection",
+    "owner": "BaseService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "BaseService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/base.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/template-open.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/community/base/template-open.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "TemplateOpenApiService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-calculate.module.ts",
+    "symbol": "FieldCalculateModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-calculate.module.ts",
+    "symbol": "FieldCalculateModule",
+    "kind": "provider",
+    "owner": "FieldEnhanceModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "FieldEnhanceModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "FieldEnhanceModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "FieldEnhanceModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "injection",
+    "owner": "FieldEnhanceService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-view-sync.service.ts",
+    "symbol": "FieldViewSyncService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-view-sync.service.ts",
+    "symbol": "FieldViewSyncService",
+    "kind": "injection",
+    "owner": "FieldEnhanceService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "FieldEnhanceService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "FieldEnhanceService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "injection",
+    "owner": "FieldEnhanceService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/aggregation.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/open-api/aggregation-open-api.service.ts",
+    "symbol": "AggregationOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/aggregation.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/open-api/aggregation-open-api.service.ts",
+    "symbol": "AggregationOpenApiService",
+    "kind": "injection",
+    "owner": "AggregationController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/base-share-open.controller.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/base-share-open.controller.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseShareOpenController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/base.controller.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/base.controller.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/base.controller.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/base.controller.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "injection",
+    "owner": "BaseController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/base.controller.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/base.controller.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-import.service.ts",
+    "symbol": "BaseImportService",
+    "kind": "injection",
+    "owner": "BaseController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/field.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/field.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
+    "symbol": "FieldService",
+    "kind": "injection",
+    "owner": "FieldController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/field.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/field.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "FieldController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/record.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/record.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "RecordController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/record.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/record.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "RecordController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/selection.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/selection.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "SelectionController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/selection.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.service.ts",
+    "symbol": "SelectionService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/selection.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.service.ts",
+    "symbol": "SelectionService",
+    "kind": "injection",
+    "owner": "SelectionController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/table.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/table.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "TableController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/table.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/table.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "injection",
+    "owner": "TableController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/table.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-permission.service.ts",
+    "symbol": "TablePermissionService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/table.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-permission.service.ts",
+    "symbol": "TablePermissionService",
+    "kind": "injection",
+    "owner": "TableController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/table.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.service.ts",
+    "symbol": "TableService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/table.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.service.ts",
+    "symbol": "TableService",
+    "kind": "injection",
+    "owner": "TableController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/view.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.service.ts",
+    "symbol": "TableDomainQueryService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/view.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.service.ts",
+    "symbol": "TableDomainQueryService",
+    "kind": "injection",
+    "owner": "ViewController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/view.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/view.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
+    "symbol": "ViewOpenApiService",
+    "kind": "injection",
+    "owner": "ViewController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/view.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/controller/view.controller.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "injection",
+    "owner": "ViewController"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/open-api/aggregation-open-api.module.ts",
+    "symbol": "AggregationOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/aggregation/open-api/aggregation-open-api.module.ts",
+    "symbol": "AggregationOpenApiModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
+    "symbol": "FieldModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.module.ts",
+    "symbol": "SelectionModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/selection/selection.module.ts",
+    "symbol": "SelectionModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
+    "symbol": "TableDomainQueryModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table.module.ts",
+    "symbol": "TableModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
+    "symbol": "ViewOpenApiModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/override/override.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "OverrideModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/agent/task-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/agent/task-agent.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "TaskAgentService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/task-ai/task-ai.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/task-ai/task-ai.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "TaskAIService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/task.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/task.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "TaskModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/task.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/task.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "TaskModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/task.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/task/task.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "TaskService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/template/template-install.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/template/template-install.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "TemplateInstallService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.module.ts",
+    "symbol": "RecordOpenApiModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
+    "symbol": "TableOpenApiModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "TrashModule:imports"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
+    "symbol": "FieldOpenApiService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api.service.ts",
+    "symbol": "RecordOpenApiService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-restore.service.ts",
+    "symbol": "RecordRestoreService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/open-api/record-restore.service.ts",
+    "symbol": "RecordRestoreService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
+    "symbol": "RecordService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts",
+    "symbol": "TableOpenApiService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/trash/trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
+    "symbol": "ViewService",
+    "kind": "injection",
+    "owner": "TrashService"
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/user-data-export/user-data-export.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "external-consumer",
+    "source": "enterprise/backend-ee/src/features/user-data-export/user-data-export.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "injection",
+    "owner": "UserDataExportService"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/base/base-duplicate-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/base/base-duplicate.service.ts",
+    "symbol": "BaseDuplicateService",
+    "kind": "injection",
+    "owner": "BaseDuplicateV2Service"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/utils/compose-maps.ts",
+    "symbol": "IOpsMap",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "injection",
+    "owner": "FieldOpenApiV2Service"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
+    "symbol": "FieldSupplementService",
+    "kind": "property-injection",
+    "owner": "RecordOpenApiV2Service"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/model/factory.ts",
+    "symbol": "createFieldInstanceByVo",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/model/factory.ts",
+    "symbol": "IFieldInstance",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/paste-link-cell-value.ts",
+    "symbol": "convertLinkPasteCellValue",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/select-paste-cell-value.ts",
+    "symbol": "selectPasteCellValue",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api-v2.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
+    "symbol": "TableDuplicateService",
+    "kind": "injection",
+    "owner": "TableOpenApiV2Service"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/trash/v2-record-trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/undo-redo/operations/delete-records.operation.ts",
+    "symbol": "IDeleteRecordsPayload",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/trash/v2-table-trash.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/undo-redo/operations/delete-records.operation.ts",
+    "symbol": "IDeleteRecordsPayload",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/undo-redo/operations/convert-field-v2.operation.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/utils/compose-maps.ts",
+    "symbol": "IOpsMap",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2-data-query-candidate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2-data-query-candidate.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
+    "symbol": "FieldOpenApiModule",
+    "kind": "provider",
+    "owner": "V2DataQueryCandidateModule:imports"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2-field-delete-compat.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/utils/derive-frozen-fields.ts",
+    "symbol": "adjustFrozenField",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2-view-compat.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/batch.service.ts",
+    "symbol": "BatchService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2-view-compat.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/batch.service.ts",
+    "symbol": "BatchService",
+    "kind": "injection",
+    "owner": "V2ViewCompatService"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/calculation.module.ts",
+    "symbol": "CalculationModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/calculation/calculation.module.ts",
+    "symbol": "CalculationModule",
+    "kind": "provider",
+    "owner": "V2Module:imports"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
+    "symbol": "RecordModule",
+    "kind": "provider",
+    "owner": "V2Module:imports"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/undo-redo/stack/undo-redo-stack.service.ts",
+    "symbol": "UndoRedoStackService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/undo-redo/stack/undo-redo-stack.service.ts",
+    "symbol": "UndoRedoStackService",
+    "kind": "provider",
+    "owner": "V2Module:providers"
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "community/apps/nestjs-backend/src/features/v2/v2.module.ts",
+    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
+    "symbol": "ViewModule",
+    "kind": "provider",
+    "owner": "V2Module:imports"
+  },
+  {
+    "scope": "v2-host",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/v2-authority-matrix-plugin-registrar.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/symmetric-field-target-schema-capability.service.ts",
+    "symbol": "SymmetricFieldTargetSchemaCapabilityProvider",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "enterprise/backend-ee/src/features/authority-matrix/v2-authority-matrix-plugin-registrar.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/record/symmetric-field-target-schema-capability.service.ts",
+    "symbol": "SymmetricFieldTargetSchemaCapabilityProvider",
+    "kind": "injection",
+    "owner": "V2AuthorityMatrixPluginRegistrar"
+  },
+  {
+    "scope": "v2-host",
+    "source": "enterprise/backend-ee/src/features/community/base/base-export-v2.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "import",
+    "owner": ""
+  },
+  {
+    "scope": "v2-host",
+    "source": "enterprise/backend-ee/src/features/community/base/base-export-v2.service.ts",
+    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
+    "symbol": "BaseExportService",
+    "kind": "injection",
+    "owner": "BaseExportV2Service"
+  },
+  {
+    "scope": "v2-host",
+    "source": "enterprise/backend-ee/src/features/task/v2-task.service.ts",
+    "target": "community/apps/nestjs-backend/src/features/field/model/factory.ts",
+    "symbol": "createFieldInstanceByVo",
+    "kind": "import",
+    "owner": ""
+  }
+]

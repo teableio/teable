@@ -1,5 +1,6 @@
 import type { IUpdateRecordsOrderOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 
 export interface IUpdateRecordsOrderPayload {
@@ -12,6 +13,8 @@ export interface IUpdateRecordsOrderPayload {
   orderIndexesAfter?: Record<string, number>[];
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class UpdateRecordsOrderOperation {
   constructor(private readonly viewOpenApiService: ViewOpenApiService) {}
 

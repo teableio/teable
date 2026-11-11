@@ -17,6 +17,7 @@ export type IDeleteRecordsRequestDto = IDeleteRecordsCommandInput;
 
 export interface IDeleteRecordsResponseDataDto {
   deletedRecordIds: Array<string>;
+  deletedCount: number;
   events: Array<IDomainEventDto>;
 }
 
@@ -31,6 +32,7 @@ export type IDeleteRecordsEndpointResult =
 
 export const deleteRecordsResponseDataSchema = z.object({
   deletedRecordIds: z.array(z.string()),
+  deletedCount: z.number().int().nonnegative(),
   events: z.array(domainEventDtoSchema),
 });
 
@@ -45,6 +47,7 @@ export const mapDeleteRecordsResultToDto = (
 ): Result<IDeleteRecordsResponseDataDto, DomainError> => {
   return ok({
     deletedRecordIds: [...result.deletedRecordIds],
+    deletedCount: result.deletedRecordIds.length,
     events: result.events.map(mapDomainEventToDto),
   });
 };

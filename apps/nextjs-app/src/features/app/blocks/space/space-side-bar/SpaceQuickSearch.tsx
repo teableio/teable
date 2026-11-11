@@ -12,6 +12,7 @@ import { useRef, useState, type FC } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { spaceConfig } from '@/features/i18n/space.config';
+import type { UsePaletteExtraResults } from '../../base/base-side-bar/palette-types';
 // The palette and its search (pinyin matching included) load on first open.
 const CommandPalette = dynamic(
   () => import('../../base/base-side-bar/CommandPalette').then((mod) => mod.CommandPalette),
@@ -22,9 +23,10 @@ interface Props {
   /** The space searched beyond the current project; none where the reader has no space. */
   spaceId?: string;
   onAskAI?: (prompt: string, files?: File[]) => void;
+  useExtraResults?: UsePaletteExtraResults;
 }
 
-export const SpaceQuickSearch: FC<Props> = ({ spaceId, onAskAI }) => {
+export const SpaceQuickSearch: FC<Props> = ({ spaceId, onAskAI, useExtraResults }) => {
   const [open, setOpen] = useState(false);
   // Kept mounted once opened, so closing still animates and returns focus.
   const [opened, setOpened] = useState(false);
@@ -73,6 +75,7 @@ export const SpaceQuickSearch: FC<Props> = ({ spaceId, onAskAI }) => {
           onOpenChange={setOpen}
           spaceId={spaceId}
           onAskAI={onAskAI}
+          useExtraResults={useExtraResults}
           triggerRef={triggerRef}
         />
       )}

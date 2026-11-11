@@ -61,6 +61,7 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../../global/database-router.service';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { baseDisplayName } from '../../../utils/base-name';
 import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
@@ -121,6 +122,30 @@ type CreateFieldsOptions = {
 };
 
 @Injectable()
+@V1EngineService([
+  'planField',
+  'planFieldCreate',
+  'planFieldConvert',
+  'planDeleteField',
+  'getDeleteFieldReferences',
+  'getFields',
+  'restoreReference',
+  'createFields',
+  'createFieldsByRo',
+  'captureDeleteFieldsLegacyPayload',
+  'createField',
+  'deleteFields',
+  'deleteField',
+  'updateField',
+  'performConvertField',
+  'convertField',
+  'convertCrossSpaceLinkToText',
+  'cleanOrphanCrossSpaceLinkStorage',
+  'getFilterLinkRecords',
+  'duplicateField',
+  'duplicateFieldData',
+  'getFieldUniqueKeyName',
+])
 export class FieldOpenApiService {
   private readonly logger = new Logger(FieldOpenApiService.name);
   constructor(

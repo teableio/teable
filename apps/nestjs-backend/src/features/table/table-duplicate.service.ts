@@ -27,6 +27,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { Events } from '../../event-emitter/events';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { CUSTOM_KNEX, DATA_KNEX } from '../../global/knex/knex.module';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
@@ -79,6 +80,14 @@ const unsharedViewState = {
 const autoNumberFieldName = '__auto_number';
 
 @Injectable()
+@V1EngineService([
+  'duplicateTable',
+  'duplicateTableData',
+  'previewFieldDuplicateCrossSpace',
+  'previewCrossSpaceAffectedFields',
+  'duplicateAttachments',
+  'duplicateLinkJunction',
+])
 export class TableDuplicateService {
   private readonly logger = new Logger(TableDuplicateService.name);
 

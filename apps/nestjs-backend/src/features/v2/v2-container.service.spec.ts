@@ -617,6 +617,69 @@ describe('V2ContainerService', () => {
     expect(tableQueryOps).not.toHaveProperty('observationDb');
   });
 
+  it('runs search access path maintenance alone when the full feature stays off', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService, tableQueryObservationRuntime } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED') return 'false';
+      if (key === 'V2_TABLE_QUERY_OPS_AUTO_ACCEPT') return 'auto';
+      if (key === 'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED') return 'true';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(tableQueryObservationRuntime.get).not.toHaveBeenCalled();
+    const tableQueryOps = mocks.createV2NodePgContainer.mock.calls[0]?.[0].tableQueryOps;
+    expect(tableQueryOps).toMatchObject({
+      observationDisabled: true,
+      skipRecordQueryObservation: true,
+      decisionPolicyConfig: { autoAcceptMode: 'off' },
+      analyzerConfig: expect.objectContaining({ enabled: false }),
+      taskWorkerConfig: expect.objectContaining({
+        enabled: true,
+        scope: 'search_maintenance',
+        allowManualIndexExecution: false,
+        allowPolicyIndexExecution: false,
+        allowedKinds: [
+          'create_search_access_path',
+          'rebuild_search_access_path',
+          'drop_search_access_path',
+        ],
+      }),
+    });
+    expect(tableQueryOps).not.toHaveProperty('observationDb');
+    expect(tableQueryOps).not.toHaveProperty('observationPublisher');
+  });
+
+  it('keeps the full feature behavior when both table query ops switches are enabled', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_AUTO_ACCEPT') return 'auto';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    const tableQueryOps = mocks.createV2NodePgContainer.mock.calls[0]?.[0].tableQueryOps;
+    expect(tableQueryOps).toMatchObject({
+      decisionPolicyConfig: { autoAcceptMode: 'auto' },
+      taskWorkerConfig: expect.objectContaining({
+        enabled: true,
+        allowPolicyIndexExecution: true,
+      }),
+    });
+    expect(tableQueryOps?.taskWorkerConfig).not.toHaveProperty('scope');
+  });
+
   it('enables the task worker and index execution when auto acceptance is enabled', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);

@@ -35,7 +35,7 @@ type DeleteTarget = {
   readonly rangeSelectedCount: number | undefined;
 };
 
-/** The actual non-streaming delete write contracts; filters belong to range deletion. */
+/** Distinguish native selectors from positional range deletion without discarding either contract. */
 export const parseBulkDeletePreviewInput = (
   input: unknown
 ): Result<BulkDeletePreviewInput, DomainError> => {
@@ -56,18 +56,24 @@ export const parseBulkDeletePreviewInput = (
       })
     );
   }
-  if ('recordIds' in input) {
-    if ('filter' in input || 'ranges' in input || 'viewId' in input) {
+  if (input instanceof DeleteRecordsCommand || input instanceof DeleteByRangeCommand) {
+    return ok(input);
+  }
+  const hasRangeSelection = 'ranges' in input || 'viewId' in input;
+  if ('recordIds' in input && input.recordIds !== undefined) {
+    if (('filter' in input && input.filter !== undefined) || hasRangeSelection) {
       return err(
         domainError.validation({
           code: 'preview.records.bulkDelete.ambiguous_contract',
-          message: 'Explicit-id deletion cannot be combined with range selection parameters.',
+          message:
+            'Explicit-id deletion cannot be combined with filter or range selection parameters.',
         })
       );
     }
     return DeleteRecordsCommand.create(input);
   }
-  return DeleteByRangeCommand.create(input);
+  if (hasRangeSelection) return DeleteByRangeCommand.create(input);
+  return DeleteRecordsCommand.create(input);
 };
 
 const rowMeasure = (value: number | null, reason: string): PreviewMeasure => {
@@ -131,11 +137,11 @@ const rowsEffect = (
   },
   measures: {
     requestedRows:
-      command instanceof DeleteByRangeCommand
+      command instanceof DeleteByRangeCommand || !command.recordIds
         ? {
             basis: 'unknown',
             unit: 'rows',
-            reason: 'Range selection is positional, not an explicit-id request.',
+            reason: 'Filter or range selection is not an explicit-id request.',
           }
         : { basis: 'exact', value: command.recordIds.length, unit: 'rows' },
     loadedRows: { basis: 'exact', value: facts.loadedCount, unit: 'rows' },
@@ -290,6 +296,17 @@ export class BulkDeletePreviewPlanner implements IPreviewPlanner<BulkDeletePrevi
       const { table, recordIds } = rangePlan.value;
       return ok({ table, recordIds, rangeSelectedCount: recordIds.length });
     }
+    if (command.filter || !command.recordIds) {
+      // No predicate-aware read authorization adapter exists on this diagnostic path.
+      // Refuse before any selection query rather than leaking hidden predicate matches.
+      return err(
+        domainError.validation({
+          code: 'preview.records.bulkDelete.filter_unsupported',
+          message:
+            'Filter delete preview is unavailable without predicate-aware read authorization.',
+        })
+      );
+    }
     const tableResult = await this.tableQueryService.getById(context, command.tableId);
     if (tableResult.isErr()) return err(tableResult.error);
     return ok({
@@ -336,6 +353,7 @@ export const createBulkDeletePreviewRegistration = (
     limitations: [
       'Streaming delete is excluded because its plugin policy is prepared per chunk.',
       'Authorization is unknown unless an explicitly read-only record-write policy adapter is registered.',
+      'Filter delete preview is unsupported because predicate-aware read authorization is unavailable.',
       'Host trash retention and usage effects require a host preview adapter.',
     ],
   },

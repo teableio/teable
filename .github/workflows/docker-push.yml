@@ -171,6 +171,7 @@ jobs:
           images: ghcr.io/teableio/${{ matrix.image }}
           tags: |
             type=raw,value=beta
+            type=raw,value=latest
             type=raw,value=${{ needs.prepare-release.outputs.release_id }}
             type=raw,value=${{ github.sha }}
 
@@ -225,7 +226,7 @@ jobs:
         env:
           SRC_CREDS: ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}
           DST_CREDS: ${{ secrets.DOCKER_HUB_NAME }}:${{ secrets.DOCKER_HUB_AK }}
-          TAGS: beta,${{ needs.prepare-release.outputs.release_id }},${{ github.sha }}
+          TAGS: beta,latest,${{ needs.prepare-release.outputs.release_id }},${{ github.sha }}
         run: |
           set -euo pipefail
 
@@ -258,7 +259,7 @@ jobs:
         env:
           SRC_CREDS: ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}
           DST_CREDS: ${{ secrets.ALI_DOCKER_USERNAME }}:${{ secrets.ALI_DOCKER_PASSWORD }}
-          TAGS: beta,${{ needs.prepare-release.outputs.release_id }},${{ github.sha }}
+          TAGS: beta,latest,${{ needs.prepare-release.outputs.release_id }},${{ github.sha }}
         run: |
           set -euo pipefail
 

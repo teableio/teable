@@ -10,7 +10,8 @@ const isMissingRequiredValue = (value: unknown): boolean => value === null || va
 export function validateFormSubmission(
   this: Table,
   formId: string,
-  fieldValues: ReadonlyMap<string, unknown>
+  fieldValues: ReadonlyMap<string, unknown>,
+  shareId?: string
 ): Result<void, DomainError> {
   const formViewResult = this.getViewById(formId);
   if (formViewResult.isErr()) return err(formViewResult.error);
@@ -29,10 +30,18 @@ export function validateFormSubmission(
   if (visibleFieldIdsResult.isErr()) return err(visibleFieldIdsResult.error);
 
   const visibleFieldIds = visibleFieldIdsResult.value;
-  const visibleFieldIdSet = new Set(visibleFieldIds.map((fieldId) => fieldId.toString()));
+  const fieldById = new Map(this.getFields().map((field) => [field.id().toString(), field]));
+  const canSubmitHiddenFields =
+    shareId !== undefined &&
+    formView.enableShare() === true &&
+    formView.shareId() === shareId &&
+    formView.shareMeta()?.includeHiddenField === true;
+  const allowedFieldIds = canSubmitHiddenFields
+    ? fieldById
+    : new Set(visibleFieldIds.map((fieldId) => fieldId.toString()));
 
   for (const fieldId of fieldValues.keys()) {
-    if (!visibleFieldIdSet.has(fieldId)) {
+    if (!allowedFieldIds.has(fieldId)) {
       return err(
         domainError.forbidden({
           code: 'view.hidden_fields_submission_not_allowed',
@@ -45,7 +54,6 @@ export function validateFormSubmission(
   const columnMetaResult = formView.columnMeta();
   if (columnMetaResult.isErr()) return err(columnMetaResult.error);
   const columnMeta = columnMetaResult.value.toDto();
-  const fieldById = new Map(this.getFields().map((field) => [field.id().toString(), field]));
 
   const missingRequiredFieldIds: string[] = [];
   for (const visibleFieldId of visibleFieldIds) {

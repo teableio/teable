@@ -2,7 +2,7 @@
   "notBaseId": "Missing baseId",
   "notPositionId": "Missing positionId",
   "notPluginInstallId": "Missing pluginInstallId",
-  "initBridge": "Bridge initializing...",
+  "initBridge": "Bridge initializing…",
   "actions": {
     "cancel": "Cancel",
     "save": "Save"
@@ -64,14 +64,14 @@
       },
       "displayType": "Display type"
     },
-    "typeError": "Form: Not supported type of chart",
+    "typeError": "Form: Unsupported chart type",
     "updateQuery": "Update",
     "queryError": "Query error",
-    "querySuccess": "Query has configured",
+    "querySuccess": "Query configured",
     "decimal": "Decimal",
     "prefix": "Prefix",
     "suffix": "Suffix",
-    "showLabel": "Show values label on chart",
+    "showLabel": "Show value labels on chart",
     "showLegend": "Show legend",
     "value": "Value",
     "label": "Label",

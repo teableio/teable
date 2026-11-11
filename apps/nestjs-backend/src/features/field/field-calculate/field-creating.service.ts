@@ -3,6 +3,7 @@ import type { IColumn, IColumnMeta } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
@@ -10,6 +11,13 @@ import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { FieldSupplementService } from './field-supplement.service';
 
 @Injectable()
+@V1EngineService([
+  'createFieldItem',
+  'createFields',
+  'alterCreateFieldsInExistingTable',
+  'alterCreateField',
+  'alterCreateFields',
+])
 export class FieldCreatingService {
   private readonly logger = new Logger(FieldCreatingService.name);
 

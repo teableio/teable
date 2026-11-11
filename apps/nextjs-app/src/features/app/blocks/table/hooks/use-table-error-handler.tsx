@@ -12,21 +12,26 @@ import { tableConfig } from '@/features/i18n/table.config';
 import {
   isStaleTableAnchor,
   locallyDeletedRemainingMs,
+  STALE_TABLE_PARAM,
   unmarkTableDeletedLocally,
   wasTableDeletedLocally,
 } from './stale-table-fallback';
 
-/** List omission alone is insufficient: provisioning and transport failures remain retryable. */
-const confirmTableInaccessible = async (baseId: string, tableId: string): Promise<boolean> => {
+/**
+ * List omission alone is insufficient: provisioning and transport failures remain retryable.
+ * Resolves to the refusal's status (404 deleted, 403 no longer readable), or undefined while the
+ * table may still be reachable.
+ */
+const confirmTableInaccessible = async (
+  baseId: string,
+  tableId: string
+): Promise<403 | 404 | undefined> => {
   try {
     await getTableById(baseId, tableId);
-    return false;
+    return undefined;
   } catch (error) {
-    return (
-      !isTableProvisionPending(error) &&
-      error instanceof HttpError &&
-      [403, 404].includes(error.status)
-    );
+    if (isTableProvisionPending(error) || !(error instanceof HttpError)) return undefined;
+    return error.status === 403 || error.status === 404 ? error.status : undefined;
   }
 };
 
@@ -150,11 +155,14 @@ const useConfirmedTableRedirect = () => {
         if (tableList.some((table) => table.id === suspectTableId)) return;
         // Ready-only list/snapshot projections may omit a provisioning table.
         // Confirm the resource itself before treating list absence as deletion.
-        if (!(await confirmTableInaccessible(baseId, suspectTableId))) return;
+        const refusal = await confirmTableInaccessible(baseId, suspectTableId);
+        if (!refusal) return;
         // the user navigated away while we confirmed — don't compete
         if (!router.asPath.includes(`/table/${suspectTableId}`)) return;
         const targetTable = tableList[0];
-        notifyStaleTable({ key, landedTableName: targetTable?.name });
+        // A table the reader's role now hides still exists: calling it deleted would be false,
+        // and the refused request has already said access is restricted.
+        if (refusal === 404) notifyStaleTable({ key, landedTableName: targetTable?.name });
         // replace, not push: Back must not step into the deleted table again.
         // Non-shallow on purpose — the target URL carries no view segment, so
         // getServerSideProps must resolve the default view (and, when no
@@ -172,6 +180,45 @@ const useConfirmedTableRedirect = () => {
     },
     [router, notifyStaleTable, isReadOnlyPreview, shareUrlPrefix]
   );
+};
+
+/**
+ * Announce a table anchor that getServerSideProps dropped: the URL named a table the reader
+ * cannot open and the page fell back elsewhere. The visible table list cannot tell a deleted
+ * table from one the role hides, and saying which would reveal that a hidden table exists, so
+ * one message covers both. Mounted by the base layouts: the fallback may land on another
+ * table, a non-table node or the project page. Read on the first render, because the chat
+ * shell's pane may rewrite the address right after hydration; the param is stripped so a
+ * copied URL cannot replay the message.
+ */
+export const StaleTableNotice = () => {
+  const router = useRouter();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const staleTableId = router.query[STALE_TABLE_PARAM];
+
+  useEffect(() => {
+    if (typeof staleTableId !== 'string' || !staleTableId) return;
+    // The app's Toaster renders after the page and subscribes in its own mount effect, which
+    // runs after this one on a fresh load, and a toast raised before it subscribes is dropped.
+    // Raise it a tick later. No cleanup: stripping the param below re-runs this effect, and
+    // clearing the timer then would drop the toast just the same.
+    setTimeout(() => {
+      toast.info(t('table:table.unavailableRecovered.title'), {
+        id: 'stale-table-recovery',
+        description: t('table:table.unavailableRecovered.description'),
+      });
+    }, 0);
+    const [path, search] = router.asPath.split('?');
+    const params = new URLSearchParams(search ?? '');
+    if (!params.has(STALE_TABLE_PARAM)) return;
+    params.delete(STALE_TABLE_PARAM);
+    const rest = params.toString();
+    router.replace(rest ? `${path}?${rest}` : path, undefined, { shallow: true });
+    // Once per arrival: the router object changes on the replace itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staleTableId]);
+
+  return null;
 };
 
 /**

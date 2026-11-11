@@ -16,15 +16,28 @@ export const submitRecordInputSchema = z.object({
 
 export type ISubmitRecordCommandInput = z.input<typeof submitRecordInputSchema>;
 
+export interface ISubmitRecordCommandOptions {
+  /** Authenticated share identity supplied by the host, never by the public input. */
+  shareId: string;
+}
+
 export class SubmitRecordCommand {
+  readonly shareId?: string;
+
   private constructor(
     readonly tableId: TableId,
     readonly formId: ViewId,
     readonly fieldValues: RecordFieldValues,
-    readonly typecast: boolean
-  ) {}
+    readonly typecast: boolean,
+    options?: ISubmitRecordCommandOptions
+  ) {
+    this.shareId = options?.shareId;
+  }
 
-  static create(raw: unknown): Result<SubmitRecordCommand, DomainError> {
+  static create(
+    raw: unknown,
+    options?: ISubmitRecordCommandOptions
+  ): Result<SubmitRecordCommand, DomainError> {
     const parsed = submitRecordInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -38,7 +51,7 @@ export class SubmitRecordCommand {
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
       ViewId.create(parsed.data.formId).map((formId) => {
         const fieldValues = new Map(Object.entries(parsed.data.fields));
-        return new SubmitRecordCommand(tableId, formId, fieldValues, parsed.data.typecast);
+        return new SubmitRecordCommand(tableId, formId, fieldValues, parsed.data.typecast, options);
       })
     );
   }

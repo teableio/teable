@@ -48,6 +48,7 @@ import { DatabaseRouter } from '../../global/database-router.service';
 import { CUSTOM_KNEX, DATA_KNEX } from '../../global/knex/knex.module';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { BatchService } from '../calculation/batch.service';
@@ -60,6 +61,40 @@ import { ViewDataSafetyLimitService } from './view-data-safety-limit.service';
 type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
 @Injectable()
+@V1EngineService([
+  'validateSortCollations',
+  'getRowIndexFieldName',
+  'getRowIndexFieldIndexName',
+  'existIndex',
+  'createViewIndexField',
+  'getOrCreateViewIndexField',
+  'getOrCreateViewIndexFieldForTable',
+  'restoreView',
+  'createDbView',
+  'getViewById',
+  'getViews',
+  'createView',
+  'deleteView',
+  'updateViewSort',
+  'updateViewByOps',
+  'batchUpdateViewByOps',
+  'create',
+  'del',
+  'getColumnsMetaMap',
+  'getUpdateViewContext',
+  'getBatchUpdateViewContext',
+  'mergeUpdatedViewColumnMeta',
+  'mergeUpdatedViewColumnMetaByOpContexts',
+  'mergeSetViewPropertyByOpContexts',
+  'batchUpdateDB',
+  'getSnapshotBulk',
+  'getDocIdsByQuery',
+  'generateViewOrderColumnMeta',
+  'initViewColumnMeta',
+  'deleteViewRelativeByFields',
+  'getDeleteFilterByFieldIdOps',
+  'getDeletedFilterByFieldId',
+])
 export class ViewService implements IReadonlyAdapterService {
   constructor(
     private readonly cls: ClsService<IClsStore>,

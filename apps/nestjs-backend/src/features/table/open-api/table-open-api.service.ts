@@ -47,6 +47,7 @@ import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manag
 import { handleBestEffortDataDbDropError } from '../../../global/data-db-runtime-error';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { RawOpType } from '../../../share-db/interface';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { baseDisplayName } from '../../../utils/base-name';
 import { getMaxLevelRole } from '../../../utils/get-max-level-role';
@@ -71,6 +72,32 @@ import { TABLE_PERMANENT_DELETE_ACTION } from './table-audit.constants';
 import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidator';
 
 @Injectable()
+// Untraced host: cleanupColdHistoryPrefixes — Host cold-history object-storage cleanup.
+// Untraced host: getPermission — Host role and permission resolution.
+// Untraced host: getPermissionByRole — Host role-to-permission mapping.
+@V1EngineService([
+  'createTable',
+  'duplicateTable',
+  'createTableMeta',
+  'getTable',
+  'getTables',
+  'getDeleteTableReferences',
+  'detachLink',
+  'permanentDeleteTables',
+  'dropTables',
+  'cleanTaskRelatedData',
+  'cleanReferenceFieldIds',
+  'cleanTablesRelatedData',
+  'deleteTable',
+  'restoreTable',
+  'sqlQuery',
+  'updateName',
+  'updateIcon',
+  'updateDescription',
+  'updateDbTableName',
+  'shuffle',
+  'updateOrder',
+])
 export class TableOpenApiService {
   private readonly logger = new Logger(TableOpenApiService.name);
   constructor(

@@ -27,6 +27,7 @@ import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsService } from '../../attachments/attachments.service';
@@ -86,6 +87,23 @@ const collectLinkStates = (historyList: IRecordHistoryItemVo[]): ILinkStateRef[]
   return linkStates;
 };
 
+// getRecordHistory is retained host history, not table-engine execution.
+@V1EngineService([
+  'multipleCreateRecords',
+  'createRecordsOnlySql',
+  'createRecords',
+  'updateRecords',
+  'simpleUpdateRecords',
+  'updateRecord',
+  'deleteRecord',
+  'deleteRecords',
+  'uploadAttachment',
+  'insertAttachment',
+  'duplicateRecord',
+  'buttonClick',
+  'resetButton',
+  'formSubmit',
+])
 @Injectable()
 export class RecordOpenApiService {
   private readonly logger = new Logger(RecordOpenApiService.name);

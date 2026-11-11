@@ -1,6 +1,7 @@
 import { FieldKeyType } from '@teable/core';
 import type { ICreateRecordsRo, IRecordsVo } from '@teable/openapi';
 import { OperationName, type ICreateRecordsOperation } from '../../../cache/types';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { RecordService } from '../../record/record.service';
 import type { TableDomainQueryService } from '../../table-domain';
@@ -11,6 +12,8 @@ export interface ICreateRecordsPayload {
   resolveData: IRecordsVo;
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class CreateRecordsOperation {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,

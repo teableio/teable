@@ -1071,6 +1071,7 @@
       "passwordAlreadyExists": "כבר הוגדרה סיסמה לחשבון הזה",
       "verificationCodeInvalid": "קוד האימות אינו חוקי או שתוקפו פג",
       "newEmailSameAsCurrentEmail": "כתובת האימייל החדשה זהה לנוכחית",
+      "newPasswordSameAsCurrent": "הסיסמה החדשה חייבת להיות שונה מהנוכחית",
       "emailAlreadyRegistered": "כתובת האימייל הזו כבר רשומה",
       "waitlistNotEnabled": "רשימת ההמתנה אינה מופעלת",
       "emailOrPasswordIncorrect": "האימייל או הסיסמה שגויים",

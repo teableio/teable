@@ -1086,6 +1086,7 @@
       "passwordAlreadyExists": "تم تعيين كلمة مرور لهذا الحساب بالفعل",
       "verificationCodeInvalid": "رمز التحقق غير صالح أو انتهت صلاحيته",
       "newEmailSameAsCurrentEmail": "البريد الإلكتروني الجديد مطابق للحالي",
+      "newPasswordSameAsCurrent": "يجب أن تختلف كلمة المرور الجديدة عن الحالية",
       "emailAlreadyRegistered": "عنوان البريد الإلكتروني هذا مُسجَّل بالفعل",
       "waitlistNotEnabled": "ميزة قائمة الانتظار غير مفعّلة",
       "emailOrPasswordIncorrect": "البريد الإلكتروني أو كلمة المرور غير صحيحة",

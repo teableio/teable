@@ -6,6 +6,7 @@ import type { IDeleteRecordsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import type { IThresholdConfig } from '../../../configs/threshold.config';
 import type { DataDbClientManager } from '../../../global/data-db-client-manager.service';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { RecordRemovalTombstoneService } from '../../record-removal-cold/record-removal-tombstone.service';
 
@@ -21,6 +22,8 @@ export interface IDeleteRecordsPayload {
   removalReason?: IRecordRemovalReason;
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class DeleteRecordsOperation {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,

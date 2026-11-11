@@ -142,12 +142,15 @@
       "linkFieldsData": "Daten verknüpfter Datensätze",
       "linkFieldsProgress": "Verknüpfte Datensätze werden wiederhergestellt",
       "linkFieldsDone": "Verknüpfte Datensätze wiederhergestellt",
-      "tableDataRowsProgress": "{{count}} Zeilen importiert",
-      "tableDataRowsDone": "{{count}} Zeilen importiert",
+      "tableDataRowsProgress_one": "{{count}} Zeilen importiert",
+      "tableDataRowsProgress_other": "{{count}} Zeilen importiert",
+      "tableDataRowsDone_one": "{{count}} Zeilen importiert",
+      "tableDataRowsDone_other": "{{count}} Zeilen importiert",
       "tableDataRowsTotalProgress": "{{count}}/{{total}} Zeilen verarbeitet",
       "tableDataRowsTotalDone": "{{count}}/{{total}} Zeilen verarbeitet",
       "tableDataBatch": "Batch {{batch}}",
-      "tableDataBatchRows": "{{count}} Zeilen in diesem Batch",
+      "tableDataBatchRows_one": "{{count}} Zeilen in diesem Batch",
+      "tableDataBatchRows_other": "{{count}} Zeilen in diesem Batch",
       "tableDataEmpty": "Keine Tabellendaten zum Importieren",
       "done": "Import completed",
       "clickToView": "Klicken zum Anzeigen"
@@ -168,7 +171,8 @@
       "exportingAppFiles": "App-Dateien werden exportiert",
       "uploadingArchive": "Exportdatei wird hochgeladen",
       "generatingDownloadUrl": "Download-Link wird erstellt",
-      "rowsProgress": "{{count}} Zeilen exportiert",
+      "rowsProgress_one": "{{count}} Zeilen exportiert",
+      "rowsProgress_other": "{{count}} Zeilen exportiert",
       "done": "Export abgeschlossen"
     }
   },
@@ -365,13 +369,15 @@
     "done": "Import abgeschlossen",
     "failed": "Import fehlgeschlagen",
     "openBase": "Projekt öffnen",
-    "issuesSummary": "{{count}} Elemente wurden beim Import angepasst:",
+    "issuesSummary_one": "{{count}} Elemente wurden beim Import angepasst:",
+    "issuesSummary_other": "{{count}} Elemente wurden beim Import angepasst:",
     "issuesMore": "+{{count}} weitere",
     "issue": {
       "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
       "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) übersprungen: {{reason}}",
       "viewSkipped": "{{tableName}} / Ansicht \"{{viewName}}\" ({{fromType}}) übersprungen",
-      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
+      "valuesDropped_one": "{{tableName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
+      "valuesDropped_other": "{{tableName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
       "viewConfigDegraded": "{{tableName}} / Ansicht \"{{viewName}}\": {{reason}}"
     },
     "phase": {
@@ -420,14 +426,19 @@
     "done": "Import abgeschlossen",
     "failed": "Import fehlgeschlagen",
     "openBase": "Projekt öffnen",
-    "issuesSummary": "{{count}} Elemente wurden beim Import angepasst:",
+    "issuesSummary_one": "{{count}} Elemente wurden beim Import angepasst:",
+    "issuesSummary_other": "{{count}} Elemente wurden beim Import angepasst:",
     "issuesMore": "+{{count}} weitere",
-    "recordsImported": "{{tableName}}: {{count}} Datensätze importiert",
-    "partialImported": "{{count}} Tabellen wurden vor dem Fehler vollständig importiert und bleiben erhalten",
+    "recordsImported_one": "{{tableName}}: {{count}} Datensätze importiert",
+    "recordsImported_other": "{{tableName}}: {{count}} Datensätze importiert",
+    "partialImported_one": "{{count}} Tabellen wurden vor dem Fehler vollständig importiert und bleiben erhalten",
+    "partialImported_other": "{{count}} Tabellen wurden vor dem Fehler vollständig importiert und bleiben erhalten",
     "issue": {
-      "valuesDropped": "{{sheetName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
+      "valuesDropped_one": "{{sheetName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
+      "valuesDropped_other": "{{sheetName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
       "sheetSkipped": "Tabellenblatt \"{{sheetName}}\" übersprungen: {{reason}}",
-      "columnsTruncated": "{{sheetName}}: {{count}} Spalten über dem Spaltenlimit wurden nicht importiert"
+      "columnsTruncated_one": "{{sheetName}}: {{count}} Spalten über dem Spaltenlimit wurden nicht importiert",
+      "columnsTruncated_other": "{{sheetName}}: {{count}} Spalten über dem Spaltenlimit wurden nicht importiert"
     },
     "phase": {
       "fetchingSchema": "Struktur der Tabelle wird gelesen",

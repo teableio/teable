@@ -1,6 +1,6 @@
 {
   "auth": {
-    "title": "输入您的密码查看此页面",
+    "title": "此分享已设置密码，请输入密码查看",
     "submit": "提交",
     "password": "密码",
     "passwordTooShort": "密码长度至少为3个字符"
@@ -10,11 +10,11 @@
     "login": "登录"
   },
   "toolbar": {
-    "filterLinkSelectPlaceholder": "请选择..."
+    "filterLinkSelectPlaceholder": "请选择…"
   },
   "view": {
     "signInToEdit": "<a>登录</a>可编辑"
   },
-  "openOnNewPage": "在新页面查看",
+  "openOnNewPage": "在新标签页打开",
   "errorTips": "分享来源已启用权限矩阵，无法查看"
 }

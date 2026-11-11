@@ -645,9 +645,10 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
 
   validateFormSubmission(
     formId: string,
-    fieldValues: ReadonlyMap<string, unknown>
+    fieldValues: ReadonlyMap<string, unknown>,
+    shareId?: string
   ): Result<void, DomainError> {
-    return validateFormSubmissionMethod.call(this, formId, fieldValues);
+    return validateFormSubmissionMethod.call(this, formId, fieldValues, shareId);
   }
 
   fieldsByDependencies(): {

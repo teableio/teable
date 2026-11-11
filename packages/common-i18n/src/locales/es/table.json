@@ -367,7 +367,9 @@
         "title": "Eliminar campo",
         "simpleConfirm": "¿Está seguro de que desea eliminar el campo <b>{{fieldName}}</b>?",
         "withDependencies": "Eliminar el campo <b>{{fieldName}}</b> afectará a los siguientes campos:",
-        "deleteCount": "Eliminar {{count}} campos",
+        "deleteCount_one": "Eliminar {{count}} campos",
+        "deleteCount_many": "Eliminar {{count}} campos",
+        "deleteCount_other": "Eliminar {{count}} campos",
         "riskIdentified": "Riesgo identificado({{count}})",
         "noDependencies": "Sin dependencias({{count}})",
         "noReferencesFound": "No se encontraron referencias en esta comprobación. Aun así pueden producirse otros efectos.",
@@ -562,11 +564,17 @@
         "deleting": "Deleting records",
         "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
         "completedWithIssues": "Deletion completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issues",
+        "issuesBadge_many": "{{count}} issues",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
-        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_one": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_many": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_other": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} rows",
+        "rowsLabel_many": "{{count}} rows",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -580,11 +588,15 @@
         "duplicating": "Duplicando registros",
         "descriptionWithIssues": "Algunos bloques de duplicación fallaron. Consulta los detalles abajo.",
         "completedWithIssues": "Duplicación completada con problemas",
-        "issuesBadge": "{{count}} problemas",
+        "issuesBadge_one": "{{count}} problemas",
+        "issuesBadge_many": "{{count}} problemas",
+        "issuesBadge_other": "{{count}} problemas",
         "chunkFailureTitle": "Detalles del fallo del bloque",
         "chunkFailureSummary": "{{count}} bloque(s) informaron un error mientras el flujo seguía ejecutándose.",
         "chunkLabel": "Bloque {{index}}",
-        "rowsLabel": "{{count}} filas",
+        "rowsLabel_one": "{{count}} filas",
+        "rowsLabel_many": "{{count}} filas",
+        "rowsLabel_other": "{{count}} filas",
         "phaseLabel": {
           "preparing": "Preparando",
           "guarding": "Comprobando",
@@ -598,11 +610,15 @@
         "pasting": "Pegando registros",
         "descriptionWithIssues": "Algunos bloques de pegado fallaron. Consulta los detalles abajo.",
         "completedWithIssues": "Pegado completado con problemas",
-        "issuesBadge": "{{count}} problemas",
+        "issuesBadge_one": "{{count}} problemas",
+        "issuesBadge_many": "{{count}} problemas",
+        "issuesBadge_other": "{{count}} problemas",
         "chunkFailureTitle": "Detalles del fallo del bloque",
         "chunkFailureSummary": "{{count}} bloque(s) informaron un error mientras el flujo seguía ejecutándose.",
         "chunkLabel": "Bloque {{index}}",
-        "rowsLabel": "{{count}} filas",
+        "rowsLabel_one": "{{count}} filas",
+        "rowsLabel_many": "{{count}} filas",
+        "rowsLabel_other": "{{count}} filas",
         "phaseLabel": {
           "preparing": "Preparando",
           "guarding": "Comprobando",
@@ -617,11 +633,15 @@
         "clearing": "Borrando registros",
         "descriptionWithIssues": "Algunos bloques de borrado fallaron. Consulta los detalles abajo.",
         "completedWithIssues": "Borrado completado con problemas",
-        "issuesBadge": "{{count}} problemas",
+        "issuesBadge_one": "{{count}} problemas",
+        "issuesBadge_many": "{{count}} problemas",
+        "issuesBadge_other": "{{count}} problemas",
         "chunkFailureTitle": "Detalles del fallo del bloque",
         "chunkFailureSummary": "{{count}} bloque(s) informaron un error mientras el flujo seguía ejecutándose.",
         "chunkLabel": "Bloque {{index}}",
-        "rowsLabel": "{{count}} filas",
+        "rowsLabel_one": "{{count}} filas",
+        "rowsLabel_many": "{{count}} filas",
+        "rowsLabel_other": "{{count}} filas",
         "phaseLabel": {
           "preparing": "Preparando",
           "guarding": "Comprobando",
@@ -639,11 +659,15 @@
         "restoreFailed": "Error al restaurar",
         "descriptionWithIssues": "Algunos bloques de restauración fallaron. Consulta los detalles abajo.",
         "completedWithIssues": "Restauración completada con problemas",
-        "issuesBadge": "{{count}} problemas",
+        "issuesBadge_one": "{{count}} problemas",
+        "issuesBadge_many": "{{count}} problemas",
+        "issuesBadge_other": "{{count}} problemas",
         "chunkFailureTitle": "Detalles del fallo del bloque",
         "chunkFailureSummary": "{{count}} bloque(s) informaron un error mientras el flujo seguía ejecutándose.",
         "chunkLabel": "Bloque {{index}}",
-        "rowsLabel": "{{count}} filas",
+        "rowsLabel_one": "{{count}} filas",
+        "rowsLabel_many": "{{count}} filas",
+        "rowsLabel_other": "{{count}} filas",
         "phaseLabel": {
           "preparing": "Preparando",
           "guarding": "Comprobando",
@@ -688,7 +712,9 @@
         "repairUnavailable": "Esta regla no se puede reparar automáticamente",
         "manual": "Manual",
         "manualRepairNotice": "Este problema requiere reparación manual",
-        "manualRepairNoticeWithCount": "{{count}} problemas requieren reparación manual. Usa la acción «Manual» a la derecha de cada regla para abrir el diálogo de reparación.",
+        "manualRepairNoticeWithCount_one": "{{count}} problemas requieren reparación manual. Usa la acción «Manual» a la derecha de cada regla para abrir el diálogo de reparación.",
+        "manualRepairNoticeWithCount_many": "{{count}} problemas requieren reparación manual. Usa la acción «Manual» a la derecha de cada regla para abrir el diálogo de reparación.",
+        "manualRepairNoticeWithCount_other": "{{count}} problemas requieren reparación manual. Usa la acción «Manual» a la derecha de cada regla para abrir el diálogo de reparación.",
         "manualRepairDialogTitle": "Se requiere reparación manual",
         "manualRepairDialogDescription": "Este problema no se puede reparar automáticamente. Revisa la guía de abajo y elige cómo corregirlo.",
         "manualRepairDialogReason": "Por qué se requiere reparación manual",
@@ -717,7 +743,9 @@
         "systemColumns": "Columnas del sistema",
         "general": "General",
         "optional": "Opcional",
-        "statementCount": "{{count}} sentencias",
+        "statementCount_one": "{{count}} sentencias",
+        "statementCount_many": "{{count}} sentencias",
+        "statementCount_other": "{{count}} sentencias",
         "detailsMissing": "Faltan: {{details}}",
         "detailsExtra": "Extra: {{details}}",
         "message": {
@@ -885,14 +913,22 @@
           "repair": "Resultados de reparación"
         },
         "summary": {
-          "checks": "{{count}} comprobaciones",
+          "checks_one": "{{count}} comprobaciones",
+          "checks_many": "{{count}} comprobaciones",
+          "checks_other": "{{count}} comprobaciones",
           "success": "{{count}} correctas",
-          "warn": "{{count}} advertencias",
-          "error": "{{count}} errores",
+          "warn_one": "{{count}} advertencias",
+          "warn_many": "{{count}} advertencias",
+          "warn_other": "{{count}} advertencias",
+          "error_one": "{{count}} errores",
+          "error_many": "{{count}} errores",
+          "error_other": "{{count}} errores",
           "skipped": "{{count}} omitidas",
           "repaired": "{{count}} reparadas",
           "manual": "{{count}} manuales",
-          "problems": "{{count}} problemas"
+          "problems_one": "{{count}} problemas",
+          "problems_many": "{{count}} problemas",
+          "problems_other": "{{count}} problemas"
         },
         "status": {
           "success": "Correcto",
@@ -947,6 +983,10 @@
       "title": "La tabla que abriste ha sido eliminada",
       "description": "Se cambió a \"{{tableName}}\"",
       "descriptionEmpty": "Se volvió a la página del proyecto"
+    },
+    "unavailableRecovered": {
+      "title": "La tabla que abriste no está disponible",
+      "description": "Es posible que se haya eliminado o que no tengas acceso a ella"
     }
   },
   "import": {
@@ -1122,7 +1162,9 @@
       "addDateField": "Agregar campos de fecha",
       "content": "Cree un horario de vista de calendario, y la tabla debe tener dos campos de fecha: fecha de inicio y fecha de finalización"
     },
-    "moreLinkText": "Mostrar los {{count}} registros"
+    "moreLinkText_one": "Mostrar los {{count}} registros",
+    "moreLinkText_many": "Mostrar los {{count}} registros",
+    "moreLinkText_other": "Mostrar los {{count}} registros"
   },
   "menu": {
     "insertRecordAbove": "Insertar <input /> registro arriba",
@@ -1200,7 +1242,9 @@
   "lastModify": "Última modificación:",
   "pasteNewRecords": {
     "title": "¿Quieres agregar múltiples registros?",
-    "description": "Los {{count}} registros se añadirán a la tabla."
+    "description_one": "Los {{count}} registros se añadirán a la tabla.",
+    "description_many": "Los {{count}} registros se añadirán a la tabla.",
+    "description_other": "Los {{count}} registros se añadirán a la tabla."
   },
   "tableArchive": {
     "title": "Archivo de la tabla",
@@ -1214,7 +1258,9 @@
     "searchPlaceholder": "Buscar registros archivados",
     "clearFilter": "Borrar filtros",
     "export": "Exportar CSV",
-    "exporting": "Exportando… {{count}} filas",
+    "exporting_one": "Exportando… {{count}} filas",
+    "exporting_many": "Exportando… {{count}} filas",
+    "exporting_other": "Exportando… {{count}} filas",
     "exportSucceed": "Exportación completada, iniciando descarga",
     "restoreSelected": "Restaurar ({{count}})",
     "permanentDeleteSelected": "Eliminar permanentemente ({{count}})",
@@ -1291,7 +1337,9 @@
     "viewLinkHolderCanViewDesc": "Cualquiera con el enlace puede ver los datos de esta vista",
     "viewLinkHolderCanEditDesc": "Los usuarios con sesión iniciada pueden editar datos dentro del alcance de la vista",
     "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
-    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_one": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_many": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_other": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
     "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
     "restrictScope": "Restrict scope",
     "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
@@ -1346,7 +1394,9 @@
       "notConnected": "Google Sheets aún no está conectado. Conéctalo en la app e inténtalo de nuevo.",
       "backToChat": "Ya puedes volver al chat.",
       "status": {
-        "picked": "{{count}} hojas de cálculo autorizadas",
+        "picked_one": "{{count}} hojas de cálculo autorizadas",
+        "picked_many": "{{count}} hojas de cálculo autorizadas",
+        "picked_other": "{{count}} hojas de cálculo autorizadas",
         "cancelled": "Omitido",
         "failed": "Error"
       },
@@ -1422,7 +1472,9 @@
         "copy": "Copiar",
         "copied": "¡Copiado!",
         "collapse": "Contraer",
-        "linesHidden": "{{count}} líneas ocultas: haz clic para expandir"
+        "linesHidden_one": "{{count}} líneas ocultas: haz clic para expandir",
+        "linesHidden_many": "{{count}} líneas ocultas: haz clic para expandir",
+        "linesHidden_other": "{{count}} líneas ocultas: haz clic para expandir"
       }
     },
     "tool": {
@@ -1605,8 +1657,12 @@
       "selectionColumns": "Col {{start}}-{{end}}",
       "selectionColumnsNamed": "{{names}} +{{count}}",
       "selectionUnnamed": "Registro sin nombre",
-      "selectionRecords": "{{count}} registros",
-      "selectionCellCount": "{{count}} celdas",
+      "selectionRecords_one": "{{count}} registros",
+      "selectionRecords_many": "{{count}} registros",
+      "selectionRecords_other": "{{count}} registros",
+      "selectionCellCount_one": "{{count}} celdas",
+      "selectionCellCount_many": "{{count}} celdas",
+      "selectionCellCount_other": "{{count}} celdas",
       "selectionRecordType": "Referencia de registros",
       "selectionCellType": "Referencia de celdas",
       "selectionDimensions": "{{rows}} filas × {{columns}} columnas",
@@ -1621,7 +1677,9 @@
       "selectionOpenRecord": "Abrir el registro {{name}}",
       "selectionPrevious": "Anterior",
       "selectionNext": "Siguiente",
-      "selectionPage": "{{start}}–{{end}} de {{count}} registros"
+      "selectionPage_one": "{{start}}–{{end}} de {{count}} registros",
+      "selectionPage_many": "{{start}}–{{end}} de {{count}} registros",
+      "selectionPage_other": "{{start}}–{{end}} de {{count}} registros"
     },
     "mention": {
       "tables": "Tablas",
@@ -1650,7 +1708,9 @@
     },
     "attachment": {
       "pastedTextFileName": "Texto pegado",
-      "tooManyFiles": "Puedes adjuntar como máximo {{count}} archivos por mensaje"
+      "tooManyFiles_one": "Puedes adjuntar como máximo {{count}} archivos por mensaje",
+      "tooManyFiles_many": "Puedes adjuntar como máximo {{count}} archivos por mensaje",
+      "tooManyFiles_other": "Puedes adjuntar como máximo {{count}} archivos por mensaje"
     },
     "suggestions": {
       "title": "¿En qué puedo ayudarle?",
@@ -1668,7 +1728,9 @@
     },
     "buildApp": {
       "task": {
-        "foundResults": "Se encontraron {{count}} resultados"
+        "foundResults_one": "Se encontraron {{count}} resultados",
+        "foundResults_many": "Se encontraron {{count}} resultados",
+        "foundResults_other": "Se encontraron {{count}} resultados"
       }
     },
     "scriptPreview": {
@@ -1728,8 +1790,12 @@
       "ls": "Listar directorio",
       "webSearch": "Buscar en la web",
       "skill": "Cargando habilidad",
-      "foundFiles": "Se encontraron {{count}} archivos",
-      "listedEntries": "{{count}} entradas",
+      "foundFiles_one": "Se encontraron {{count}} archivos",
+      "foundFiles_many": "Se encontraron {{count}} archivos",
+      "foundFiles_other": "Se encontraron {{count}} archivos",
+      "listedEntries_one": "{{count}} entradas",
+      "listedEntries_many": "{{count}} entradas",
+      "listedEntries_other": "{{count}} entradas",
       "ranCommands_one": "Ha ejecutado {{count}} comando",
       "ranCommands_many": "Ha ejecutado {{count}} comandos",
       "ranCommands_other": "Ha ejecutado {{count}} comandos",
@@ -1790,12 +1856,19 @@
       "waitingInput": "Esperando tu respuesta",
       "failed": "La respuesta falló"
     },
-    "routineRunPrompt": "Enviado por la rutina"
+    "routineRunPrompt": "Enviado por la rutina",
+    "backToLatest": "Volver a lo más reciente"
   },
   "upload": {
-    "panelUploading": "Subiendo {{count}} archivos",
-    "panelFailed": "{{count}} archivos fallaron",
-    "panelCompleted": "{{count}} archivos completados",
+    "panelUploading_one": "Subiendo {{count}} archivos",
+    "panelUploading_many": "Subiendo {{count}} archivos",
+    "panelUploading_other": "Subiendo {{count}} archivos",
+    "panelFailed_one": "{{count}} archivos fallaron",
+    "panelFailed_many": "{{count}} archivos fallaron",
+    "panelFailed_other": "{{count}} archivos fallaron",
+    "panelCompleted_one": "{{count}} archivos completados",
+    "panelCompleted_many": "{{count}} archivos completados",
+    "panelCompleted_other": "{{count}} archivos completados",
     "statusFailed": "Fallido",
     "statusCompleted": "Completado",
     "statusCancel": "Cancelar subida",

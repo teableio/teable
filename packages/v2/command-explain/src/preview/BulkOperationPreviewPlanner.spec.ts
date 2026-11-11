@@ -216,6 +216,33 @@ describe('bulk operation preview planners', () => {
     expect(deletePreparation).not.toHaveBeenCalled();
   });
 
+  it('refuses filter deletion before any diagnostic read without a predicate policy', async () => {
+    const { table, tableId, fieldId } = buildTable();
+    const getById = vi.fn(async () => ok(table));
+    const deletePreparation = vi.fn();
+    const planner = new BulkDeletePreviewPlanner(
+      { getById } as unknown as TableQueryService,
+      {} as DeleteByRangeApplicationService,
+      { delete: deletePreparation } as unknown as BulkRecordPreparationService
+    );
+    const command = parseBulkDeletePreviewInput({
+      tableId: tableId.toString(),
+      filter: { fieldId: fieldId.toString(), operator: 'is', value: 'visible' },
+    })._unsafeUnwrap();
+
+    const result = await planner.preview(context, command, {
+      detail: 'summary',
+      includeComplexity: false,
+      maxItems: 100,
+    });
+
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'preview.records.bulkDelete.filter_unsupported',
+    });
+    expect(getById).not.toHaveBeenCalled();
+    expect(deletePreparation).not.toHaveBeenCalled();
+  });
+
   it('blocks forbidden explicit deletes and reports missing ids separately', async () => {
     const { table, tableId } = buildTable();
     const prepare = vi.fn(async () => ok({}));

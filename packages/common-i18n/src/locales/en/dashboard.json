@@ -10,9 +10,9 @@
     "title": "Create new dashboard",
     "placeholder": "Enter dashboard name"
   },
-  "findDashboard": "Find a dashboard...",
+  "findDashboard": "Find a dashboard…",
   "deprecation": {
-    "title": "Dashboard node feature will be discontinued",
-    "description": "To bring you a smarter and more efficient experience, we will discontinue support for the dashboard node feature. You can easily create new dashboards through AI in the AI-generated application for a smoother experience."
+    "title": "Dashboards will be discontinued",
+    "description": "To bring you a smarter and more efficient experience, we will discontinue dashboards. You can ask AI to build a dashboard as an app instead for a smoother experience."
   }
 }

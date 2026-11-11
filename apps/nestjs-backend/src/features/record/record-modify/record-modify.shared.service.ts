@@ -19,6 +19,7 @@ import { isEqual, forEach, keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { type IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
@@ -35,6 +36,18 @@ import { RecordService } from '../record.service';
 import { TypeCastAndValidate } from '../typecast.validate';
 
 @Injectable()
+// Untraced host: getUserInfoFromDatabase — Host user-directory lookup.
+// Untraced host: fillUserInfo — Host user-profile enrichment, independent of record mutation.
+@V1EngineService([
+  'compressAndFilterChanges',
+  'validateFieldsAndTypecast',
+  'generateCellContexts',
+  'getRecordOrderIndexes',
+  'appendRecordOrderIndexes',
+  'getDefaultValue',
+  'ensureReferencedBaseFieldsForNewRecords',
+  'appendDefaultValue',
+])
 export class RecordModifySharedService {
   constructor(
     private readonly prismaService: PrismaService,

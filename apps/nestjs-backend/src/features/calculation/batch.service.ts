@@ -17,6 +17,7 @@ import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { Timing } from '../../utils/timing';
@@ -36,6 +37,7 @@ export interface IOpsData {
 }
 
 @Injectable()
+@V1EngineService(['updateRecords', 'batchUpdateDB', 'saveRawOps'])
 export class BatchService {
   private readonly logger = new Logger(BatchService.name);
   constructor(

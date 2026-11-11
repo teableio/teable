@@ -6,15 +6,15 @@
   "fieldKeyType": "字段 key 类型",
   "chooseSource": "选择数据源",
   "action": {
-    "selectBase": "选择一个项目...",
-    "selectTable": "选择一个表..."
+    "selectBase": "选择一个项目…",
+    "selectTable": "选择一个表…"
   },
   "pickParams": "选择需要的参数进行配置",
   "buildResult": "构造结果",
   "buildResultEmpty": "请先选择一个表",
   "previewReturnValue": "返回值预览",
-  "replaceToken": "替换 Token",
-  "createNewToken": "创建新 Token",
+  "replaceToken": "替换令牌",
+  "createNewToken": "创建新令牌",
   "showPagination": "分页参数在 JSON 模式下显示",
   "addSort": "添加一个排序",
   "tabs": {

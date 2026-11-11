@@ -15,6 +15,7 @@ export const v2ReasonSchema = z.enum([
   'header_override',
   'space_feature',
   'unsupported_feature',
+  'undo_redo_engine',
   'disabled',
   'feature_not_enabled',
   'no_feature',

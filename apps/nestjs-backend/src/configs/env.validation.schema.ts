@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { executablePhase1RemediationKindValues } from '@teable/v2-table-query-ops';
 import Joi from 'joi';
 
 import { resolveBoolean } from '../features/v2/v2-config-parsers';
@@ -30,6 +31,29 @@ const appleClientSchema = Joi.string()
     'string.pattern.base':
       'The `BACKEND_APPLE_CLIENT` must be `<Services ID>:<Team ID>:<Key ID>`, e.g. `ai.example.signin:ABCDE12345:FGHIJ67890`',
   });
+
+// Feature flags below are read straight from `ConfigService`, so they must accept exactly the
+// spellings the runtime parsers accept, and stay optional: an absent key means "use the code
+// default", which differs per key. Joi schemas are immutable, so the keys share one instance.
+const envBooleanSchema = Joi.alternatives().try(
+  Joi.boolean(),
+  Joi.string()
+    .trim()
+    .lowercase()
+    .pattern(/^(1|0|true|false|yes|no|on|off)$/)
+    .custom((value) => resolveBoolean(value))
+);
+
+// `auto` enables the search access path; every other accepted spelling resolves to `off`.
+const envSearchRuntimeModeSchema = Joi.alternatives().try(
+  Joi.boolean(),
+  Joi.string()
+    .trim()
+    .lowercase()
+    .valid('auto', 'off', 'on', 'enabled', 'disabled', 'true', 'false', 'yes', 'no', '1', '0')
+);
+
+const envIntegerSchema = Joi.number().integer().min(0);
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('test', 'development', 'production').default('development'),
@@ -115,6 +139,62 @@ export const envValidationSchema = Joi.object({
         .custom((value) => resolveBoolean(value))
     )
     .default(false),
+
+  // Table Query Ops (search access path and index advisor) is configured per deployment and read
+  // when a v2 container is created, so an invalid value used to fall back to the code default
+  // silently. Values are validated below; absence stays meaningful and gets no default.
+  V2_TABLE_QUERY_OPS_ENABLED: envBooleanSchema,
+  // Runs search access path maintenance tasks (table-write and reclaim triggers) without the
+  // observation, analyzer or auto-accept stack.
+  V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED: envBooleanSchema,
+  V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME: envSearchRuntimeModeSchema,
+  V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME: envSearchRuntimeModeSchema,
+  V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED: envBooleanSchema,
+  V2_TABLE_QUERY_OPS_TASK_WORKER_INTERVAL_MS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_ANALYZER_ENABLED: envBooleanSchema,
+  V2_TABLE_QUERY_OPS_ANALYZER_INTERVAL_MS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_ANALYZER_LOOKBACK_MS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_ANALYZER_BATCH_SIZE: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_AUTO_ACCEPT: Joi.string()
+    .trim()
+    .lowercase()
+    .valid('off', 'shadow', 'auto')
+    .messages({
+      'any.only': 'The `V2_TABLE_QUERY_OPS_AUTO_ACCEPT` must be one of `off`, `shadow` or `auto`',
+    }),
+  V2_TABLE_QUERY_OPS_ALLOW_MANUAL_INDEX_EXECUTION: envBooleanSchema,
+  V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS: Joi.string()
+    .trim()
+    .custom((value: string, helpers) => {
+      const invalid = value
+        .split(',')
+        .map((kind) => kind.trim())
+        .filter(
+          (kind) =>
+            kind.length > 0 &&
+            !executablePhase1RemediationKindValues.includes(
+              kind as (typeof executablePhase1RemediationKindValues)[number]
+            )
+        );
+      return invalid.length === 0 ? value : helpers.error('any.invalid');
+    })
+    .messages({
+      'any.invalid': `The \`V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS\` accepts only: ${executablePhase1RemediationKindValues.join(', ')}`,
+    }),
+  V2_TABLE_QUERY_OPS_ENSURE_SCHEMA: envBooleanSchema,
+  V2_TABLE_QUERY_OPS_WORKER_ID: Joi.string().trim(),
+  V2_TABLE_QUERY_OPS_CAPTURE_SQL_SAMPLE: envBooleanSchema,
+  V2_TABLE_QUERY_OPS_SQL_SAMPLE_MAX_LENGTH: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_SQL_DIAGNOSTICS_MAX_PER_OBSERVATION: envIntegerSchema,
+  // 0 means "no timeout" and resolves to the code default, so the floor is 0 here.
+  V2_TABLE_QUERY_OPS_POOL_CONNECTION_TIMEOUT_MS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_LOCK_TIMEOUT_MS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_STATEMENT_TIMEOUT_MS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_FLUSH_INTERVAL_MS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_MAX_PENDING_KEYS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_BATCH_SIZE: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_MIN_WINDOW_REQUESTS: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_RETENTION_DAYS: envIntegerSchema,
 
   V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED: Joi.boolean().optional(),
   V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED: Joi.boolean().optional(),

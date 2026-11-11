@@ -12,6 +12,7 @@ import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
 import { QuickAction } from '../blocks/base/base-side-bar/QuickAction';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
+import { StaleTableNotice } from '../blocks/table/hooks/use-table-error-handler';
 import { UsageLimitModal } from '../components/billing/UsageLimitModal';
 import { ExpandRecordAddToChatProvider } from '../components/expand-record-container/ExpandRecordAddToChatProvider';
 import { ExpandRecordNavigationProvider } from '../components/ExpandRecordNavigationProvider';
@@ -96,6 +97,7 @@ export const BaseLayout: React.FC<{
                 <BaseProvider>
                   <BaseNodeProvider>
                     <BasePermissionListener />
+                    <StaleTableNotice />
                     <TableProvider serverData={tableServerData}>
                       <BaseLayoutInner>{children}</BaseLayoutInner>
                     </TableProvider>

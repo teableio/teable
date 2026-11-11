@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
 import { SubmitRecordCommand } from './SubmitRecordCommand';
@@ -6,6 +8,29 @@ const tableId = `tbl${'a'.repeat(16)}`;
 const formId = `viw${'b'.repeat(16)}`;
 
 describe('SubmitRecordCommand', () => {
+  it('does not accept share authority from public input', () => {
+    const shareId = randomUUID();
+    const command = SubmitRecordCommand.create({
+      tableId,
+      formId,
+      shareId,
+      includeHiddenField: true,
+      options: { shareId },
+    })._unsafeUnwrap();
+
+    expect(command.shareId).toBeUndefined();
+  });
+
+  it('accepts share identity only from server options', () => {
+    const shareId = randomUUID();
+    const command = SubmitRecordCommand.create(
+      { tableId, formId, shareId: randomUUID() },
+      { shareId }
+    )._unsafeUnwrap();
+
+    expect(command.shareId).toBe(shareId);
+  });
+
   it('creates command with valid input', () => {
     const commandResult = SubmitRecordCommand.create({
       tableId,

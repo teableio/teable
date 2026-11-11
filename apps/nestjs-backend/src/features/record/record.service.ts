@@ -70,6 +70,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { RawOpType } from '../../share-db/interface';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
@@ -143,6 +144,47 @@ export interface IRecordQueryInternalOptions {
 }
 
 @Injectable()
+// Untraced host: hydrateSelectedUserCells — Host user-profile hydration, independent of the record engine.
+// Untraced host: creditCheck — Host row-credit policy; counts are annotated downstream.
+// Untraced host: invalidateAttachmentPresignedUrlCache — Host attachment URL cache invalidation.
+// Untraced host: getAttachmentPresignedCellValue — Host attachment URL signing and preview enrichment.
+@V1EngineService([
+  'getAllRecordCount',
+  'getDbValueMatrix',
+  'getDbTableName',
+  'buildLinkSelectedQuery',
+  'buildLinkCandidateQuery',
+  'parseSearch',
+  'prepareQuery',
+  'getBasicOrderIndexField',
+  'buildFilterSortQuery',
+  'convertProjection',
+  'getRecordsById',
+  'getRecords',
+  'getRecord',
+  'getCellValue',
+  'getMaxRecordOrder',
+  'getExistingRecordIds',
+  'batchDeleteRecords',
+  'getRecordIndexes',
+  'updateRecordIndexes',
+  'batchCreateRecords',
+  'createRecordsOnlySql',
+  'getFieldsByProjection',
+  'getSnapshotBulkWithPermission',
+  'getSnapshotBulk',
+  'getDocIdsByQuery',
+  'getSearchFields',
+  'getRecordsFields',
+  'getRecordsHeadWithTitles',
+  'getRecordsHeadWithIds',
+  'filterRecordIdsByFilter',
+  'getDiffIdsByIdAndFilter',
+  'getRowCountByFilter',
+  'getGroupRelatedData',
+  'getRecordStatus',
+  'getRecordsCollaborators',
+])
 export class RecordService {
   private readonly logger = new Logger(RecordService.name);
 
@@ -318,7 +360,10 @@ export class RecordService {
     const userFieldIds = fields
       .filter((field) => field.type === FieldType.User && !field.isLookup)
       .map((field) => field.id);
-    await this.hydrateUnresolvedUserValues(records.map((record) => record.fields), userFieldIds);
+    await this.hydrateUnresolvedUserValues(
+      records.map((record) => record.fields),
+      userFieldIds
+    );
   }
 
   private async hydrateUnresolvedUserValues(

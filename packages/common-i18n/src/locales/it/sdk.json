@@ -1071,6 +1071,7 @@
       "passwordAlreadyExists": "Per questo account è già stata impostata una password",
       "verificationCodeInvalid": "Il codice di verifica non è valido o è scaduto",
       "newEmailSameAsCurrentEmail": "Il nuovo indirizzo e-mail è uguale a quello attuale",
+      "newPasswordSameAsCurrent": "La nuova password deve essere diversa da quella attuale",
       "emailAlreadyRegistered": "Questo indirizzo e-mail è già registrato",
       "waitlistNotEnabled": "La funzione lista d'attesa non è abilitata",
       "emailOrPasswordIncorrect": "E-mail o password non corretta",

@@ -35,7 +35,7 @@
     "duplicateFieldTitle": "温馨提示",
     "duplicateFieldDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
     "duplicateTableTitle": "温馨提示",
-    "duplicateTableDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
+    "duplicateTableDescription": "不支持跨空间引用，复制后下列字段将转换为单行文本字段。",
     "convertAndDuplicate": "转换并复制"
   },
   "toolbar": {
@@ -51,7 +51,7 @@
         "allowEdit": "允许登录用户编辑视图内可见数据",
         "showAllFields": "显示展开记录中的所有字段",
         "restrict": "设置访问密码",
-        "tips": "开启后将获取一个链接，此链接仅允许访问当前视图。",
+        "tips": "获得链接的人可以查看此视图。",
         "passwordTitle": "设置访问密码",
         "passwordTips": "链接仅在正确密码输入后可访问",
         "embed": "嵌入",
@@ -59,10 +59,10 @@
         "copyCode": "复制代码",
         "hideToolbar": "隐藏工具栏",
         "URLSetting": "链接参数设置",
-        "URLSettingDescription": "通过链接参数来控制显示样式，调整以下设置不会影响已分享出去的链接，您需要复制带上新参数的链接以使其生效",
+        "URLSettingDescription": "通过链接参数来控制显示样式，调整以下设置不会影响已分享出去的链接，你需要复制带上新参数的链接以使其生效",
         "cancel": "取消",
         "save": "保存",
-        "requireLogin": "需要登录提交"
+        "requireLogin": "需登录后才能提交"
       },
       "api": {
         "title": "API 访问",
@@ -71,19 +71,19 @@
         "recommended": "推荐",
         "apiDocGroupTitle": "API 上下文",
         "apiDocGroupDescription": "复制下方文档给 AI，它会获得当前表结构、字段和 API 示例，用于按你的要求读取、创建、更新或删除记录。",
-        "generatingToken": "生成中...",
+        "generatingToken": "生成中…",
         "generateToken": "生成令牌",
-        "confirmTitle": "创建 API Token",
-        "confirmDescription": "这将为此项目创建一个具有以下权限的新 API Token：",
+        "confirmTitle": "创建 API 令牌",
+        "confirmDescription": "这将为此项目创建一个具有以下权限的新 API 令牌：",
         "scopeTableRead": "读取表信息",
         "scopeFieldRead": "读取字段",
         "scopeRead": "读取记录",
         "scopeCreate": "创建记录",
         "scopeUpdate": "更新记录",
         "scopeDelete": "删除记录",
-        "confirmExpiry": "Token 有效期为 1 年。",
+        "confirmExpiry": "令牌有效期为 1 年。",
         "confirmButton": "确认创建",
-        "tokenInfo": "Token 过期时间：{{expiry}}",
+        "tokenInfo": "令牌过期时间：{{expiry}}",
         "copied": "已复制！",
         "copyAIDoc": "复制文档",
         "aiDocPreview": "上下文预览",
@@ -98,7 +98,7 @@
         "tip": "启用后，视图配置仅对你本人生效",
         "dialog": {
           "title": "退出个人模式",
-          "description": "个人视图配置将恢复为实时协作状态，您也可以保存个人视图设置并同步给所有人。",
+          "description": "个人视图配置将恢复为实时协作状态，你也可以保存个人视图设置并同步给所有人。",
           "cancelText": "退出并同步",
           "confirmText": "确认退出"
         }
@@ -116,8 +116,8 @@
     }
   },
   "welcome": {
-    "title": "开始",
-    "emptyTitle": "开始构建您的项目",
+    "title": "欢迎",
+    "emptyTitle": "开始构建你的项目",
     "description": "点击侧边栏中的“+”按钮添加资源",
     "help": "访问 <HelpCenter /> 获取更多信息",
     "helpCenter": "帮助中心"
@@ -245,14 +245,14 @@
         },
         "funcDesc": {
           "and": "如果所有值都为真，则返回真",
-          "arrayCompact": "去除数组中的空值",
+          "arrayCompact": "去除数组中的空字符串和空值，保留 false 以及包含空白字符的字符串。",
           "arrayJoin": "将所有值连接为一个逗号分隔的字符串",
           "arrayUnique": "去除数组中的重复值",
           "average": "计算所有值的平均值",
           "concatenate": "将所有值连接为一个字符串",
-          "count": "计算所有数字类型值的数量",
+          "count": "仅统计非空的数字值。如需统计所有记录，请使用 COUNTALL。",
           "countA": "计算所有非空值的数量",
-          "countAll": "计算所有值的数量",
+          "countAll": "计算所有值的数量，包括空值。",
           "max": "计算所有值的最大值",
           "min": "计算所有值的最小值",
           "or": "如果有一个值为真，则返回真",
@@ -295,40 +295,40 @@
       "showNumber": "显示数值",
       "autoFillDate": "自动填充当前日期",
       "createSymmetricLink": "双向关联",
-      "allowLinkMultipleRecords": "允许多选",
-      "allowLinkToDuplicateRecords": "允许重复值",
-      "allowSymmetricFieldLinkMultipleRecords": "允许重复值",
+      "allowLinkMultipleRecords": "允许关联多条记录",
+      "allowLinkToDuplicateRecords": "允许同一记录被多次关联",
+      "allowSymmetricFieldLinkMultipleRecords": "允许同一记录被多次关联",
       "oneToOne": "一对一",
       "oneToMany": "一对多",
       "manyToOne": "多对一",
       "manyToMany": "多对多",
       "self": "本表",
-      "selectTable": "选择一张表...",
-      "selectBase": "选择一个项目...",
+      "selectTable": "选择一张表…",
+      "selectBase": "选择一个项目…",
       "linkFromAnotherBase": "从其他项目关联",
       "inSelfLink": "自关联",
       "betweenTwoTables": "关联",
       "tips": "提示",
-      "linkTipMessage": "此配置表示<b>{{relationship}}</b>的<span>{{linkType}}</span>关系 ",
+      "linkTipMessage": "此配置表示<br></br><b>{{relationship}}</b>的<span>{{linkType}}</span>关系",
       "style": "样式",
       "maximum": "最大值",
       "addOption": "添加选项",
       "allowMultiUsers": "允许添加多个用户",
       "notifyUsers": "用户被选择后发送通知",
-      "searchTable": "搜索表...",
-      "calculating": "计算中...",
-      "doSaveChanges": "您要保存所做的更改吗？",
-      "linkFieldToLookup": "用于查找的已链接记录字段",
+      "searchTable": "搜索表…",
+      "calculating": "计算中…",
+      "doSaveChanges": "你要保存所做的更改吗？",
+      "linkFieldToLookup": "用于查找的关联字段",
       "lookupToTable": "从<bold>{{tableName}}</bold>表中选择要进行查找的字段",
       "rollupToTable": "从<bold>{{tableName}}</bold>表中选择要进行汇总的字段",
-      "selectField": "选择一个字段...",
+      "selectField": "选择一个字段…",
       "lastModifiedScope": "追踪范围",
       "lastModifiedAll": "所有可编辑字段",
       "lastModifiedSpecific": "指定字段",
       "lastModifiedSelect": "选择追踪字段",
       "noEditableFields": "暂无可编辑字段",
       "conditionalLookup": {
-        "sortLimitToggleLabel": "对引用字段进行排序和限制引用数量",
+        "sortLimitToggleLabel": "对匹配记录排序并限制数量",
         "sortLabel": "排序结果",
         "limitLabel": "显示的最大记录数",
         "limitPlaceholder": "留空表示显示全部匹配项",
@@ -338,8 +338,8 @@
       },
       "linkTable": "进行关联的表",
       "linkBase": "进行关联的项目",
-      "tableNoPermission": "无权限表格",
-      "baseNoPermission": "无权限项目",
+      "tableNoPermission": "无权访问此表",
+      "baseNoPermission": "无权访问此项目",
       "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。",
       "fieldValidationRules": "字段值验证规则",
       "enableValidateFieldUnique": "禁止重复值",
@@ -418,7 +418,7 @@
         "sourceFieldForClassify": "选择一个字段，为其匹配已创建的分类",
         "attachPrompt": "附加要求",
         "prompt": "自定义提示",
-        "sourceFieldForAttachment": "提示词来源字段",
+        "sourceFieldForAttachment": "来源附件字段",
         "imageSize": "图片尺寸",
         "imageQuality": "图片质量",
         "imageCount": "图片数量",
@@ -429,14 +429,14 @@
       "placeholder": {
         "summarize": "总结内容的关键点",
         "translate": "翻译简洁易懂，语气轻松",
-        "extractInfo": "提取邮箱，电话，姓名，地址...",
+        "extractInfo": "提取邮箱，电话，姓名，地址…",
         "extractDate": "提取开始时间",
-        "improveText": "语气正式，友好，幽默...",
+        "improveText": "语气正式，友好，幽默…",
         "attachPromptForTag": "不允许超过三个标签",
         "attachPromptForClassify": "将\"正在进行中\"的分类为\"无风险\"",
         "prompt": "输入 / 选择引用的字段",
         "type": "选择 AI 动作",
-        "targetLanguage": "英文，中文，法语...",
+        "targetLanguage": "英文，中文，法语…",
         "imageSize": "请输入图片尺寸",
         "imageQuality": "请输入图片质量",
         "aspectRatio": "选择宽高比",
@@ -451,11 +451,11 @@
       },
       "hint": {
         "imageInputSupported": "💡 该模型支持图片输入，可以选择附件字段作为参考图片进行生成",
-        "attachmentNotSupported": "💡 当前模型不支持传入附件，仅 Gemini 模型支持图生图",
+        "attachmentNotSupported": "💡 当前模型不支持传入附件，如需参考图片请选择支持图片输入的模型",
         "singleImageOnly": "该模型每次只能生成一张图片"
       },
       "tip": {
-        "gptImageResolution": "受总像素上限限制，4K 模式会使用当前可生成的最大合规尺寸"
+        "gptImageResolution": "4K 仍受总像素上限限制，部分宽高比会使用最大合规尺寸，而非完整的 3840px 边长。"
       },
       "auto": "自动",
       "resolution": {
@@ -511,37 +511,37 @@
     "actionTips": {
       "copyAndPasteEnvironment": "复制和粘贴功能仅在 HTTPS 或 localhost 环境下可用",
       "copyAndPasteBrowser": "当前浏览器不支持复制和粘贴功能",
-      "copying": "正在复制...",
+      "copying": "正在复制…",
       "copySuccessful": "复制成功",
       "copyFailed": "复制失败",
-      "pasting": "正在粘贴...",
+      "pasting": "正在粘贴…",
       "pasteSuccessful": "粘贴成功",
       "pasteFailed": "粘贴失败",
       "pasteNoEditableFields": "所选字段为只读字段，无法粘贴。",
-      "filling": "正在填充...",
+      "filling": "正在填充…",
       "fillSuccessful": "填充成功",
       "fillFailed": "填充失败",
-      "clearing": "正在清除...",
+      "clearing": "正在清除…",
       "clearSuccessful": "清除成功",
       "clearFailed": "清除失败",
       "clearConfirmTitle": "清除数据",
-      "clearConfirmDescription": "此操作将清除 {{cellCount}} 个单元格，{{rowCount}} 条记录。确定要继续吗？",
+      "clearConfirmDescription": "此操作将清除 {{rowCount}} 条记录中的 {{cellCount}} 个单元格。确定要继续吗？",
       "archiveRecordConfirmTitle": "归档记录",
       "archiveRecordConfirmDescription": "此操作将归档 {{recordCount}} 条记录。归档后可在表格归档区查看和恢复。",
       "archiveRecord": "归档",
-      "archiving": "正在归档...",
+      "archiving": "正在归档…",
       "archiveSuccessful": "归档成功",
       "deleteRecordConfirmTitle": "删除记录",
       "deleteRecordConfirmDescription": "此操作将删除 {{recordCount}} 条记录。确定要继续吗？",
       "duplicateRecordsConfirmTitle": "复制记录",
       "duplicateRecordsConfirmDescription": "此操作将复制 {{recordCount}} 条记录。确定要继续吗？",
       "pasteConfirmTitle": "执行粘贴",
-      "pasteConfirmDescription": "您粘贴的数据将影响 {{recordCount}} 条记录。确定要继续吗？",
+      "pasteConfirmDescription": "你粘贴的数据将影响 {{recordCount}} 条记录。确定要继续吗？",
       "paste": "粘贴",
       "deleteRecord": "删除",
       "clear": "清除",
-      "deleting": "正在删除...",
-      "duplicating": "正在复制...",
+      "deleting": "正在删除…",
+      "duplicating": "正在复制…",
       "deleteFailed": "删除失败",
       "deleteSuccessful": "删除成功",
       "duplicateFailed": "复制失败",
@@ -554,14 +554,14 @@
         "completedWithIssues": "删除已完成，但存在问题",
         "issuesBadge": "{{count}} 个问题",
         "chunkFailureTitle": "分片失败详情",
-        "chunkFailureSummary": "共有 {{count}} 个分片报错，但流式删除仍继续执行。",
+        "chunkFailureSummary": "有 {{count}} 批处理失败，其余部分已继续执行。",
         "chunkLabel": "分片 {{index}}",
         "rowsLabel": "{{count}} 行",
         "phaseLabel": {
           "preparing": "准备中",
           "guarding": "检查中",
           "deleting": "删除中",
-          "publishing": "发布中",
+          "publishing": "同步中",
           "finalizing": "收尾中"
         }
       },
@@ -579,7 +579,7 @@
           "preparing": "准备中",
           "guarding": "检查中",
           "processing": "复制中",
-          "publishing": "发布中",
+          "publishing": "同步中",
           "finalizing": "收尾中"
         }
       },
@@ -597,7 +597,7 @@
           "preparing": "准备中",
           "guarding": "检查中",
           "processing": "粘贴中",
-          "publishing": "发布中",
+          "publishing": "同步中",
           "finalizing": "收尾中"
         }
       },
@@ -616,7 +616,7 @@
           "preparing": "准备中",
           "guarding": "检查中",
           "processing": "清除中",
-          "publishing": "发布中",
+          "publishing": "同步中",
           "finalizing": "收尾中"
         }
       },
@@ -624,7 +624,7 @@
         "confirmTitle": "恢复字段",
         "confirmDescription": "此操作将恢复已删除字段及其记录值。",
         "preparing": "正在准备字段恢复",
-        "restoring": "正在恢复字段...",
+        "restoring": "正在恢复字段…",
         "restoringRecords": "正在恢复记录值",
         "restoreFailed": "恢复失败",
         "descriptionWithIssues": "部分恢复分片失败，请查看下方详情。",
@@ -638,14 +638,14 @@
           "preparing": "准备中",
           "guarding": "检查中",
           "processing": "恢复中",
-          "publishing": "发布中",
+          "publishing": "同步中",
           "finalizing": "收尾中"
         }
       },
       "pasteFileFailed": "文件只能粘贴到附件字段中",
       "copyError": {
         "noFocus": "请保持页面激活，不要切换窗口",
-        "noPermission": "您没有权限复制记录"
+        "noPermission": "你没有权限复制记录"
       },
       "crossBaseCopyTitle": "以纯文本形式复制？",
       "crossBaseCopyDescription": "所选内容包含跨项目关联字段。为防止数据离开原始项目，该字段将以纯文本形式复制，不保留关联关系。",
@@ -655,12 +655,12 @@
     "graph": {
       "effectCells": "影响单元格数",
       "estimatedTime": "预计完成",
-      "linkFieldCount": "影响关联字段的个数"
+      "linkFieldCount": "受影响的关联字段数"
     },
     "integrity": {
       "check": "检查",
       "title": "检查完整性",
-      "loading": "检查完整性...",
+      "loading": "正在检查完整性…",
       "allGood": "一切正常！",
       "fixIssues": "修复问题",
       "type": "类型",
@@ -682,7 +682,7 @@
         "manualRepairDialogTitle": "需要手动修复",
         "manualRepairDialogDescription": "这个问题无法自动修复。请先阅读下面的说明，再选择合适的处理方式。",
         "manualRepairDialogReason": "为什么需要手动修复",
-        "manualRepairDialogHint": "当前弹窗先承载规则要求的修复说明和配置项，后续可以在这个契约上继续补真正的执行动作。",
+        "manualRepairDialogHint": "请阅读下方说明，选择这个问题的修复方式。",
         "manualRepairDialogClose": "关闭",
         "repairPreviewTitle": "确认修复内容",
         "repairPreviewDescription": "下面是 dry-run 返回的修复说明和将要执行的 SQL。确认后才会真正执行修复。",
@@ -698,8 +698,8 @@
         "repairPreviewCannotConfirm": "dry-run 返回了 SQL，但该规则当前不支持自动修复确认，只能查看修复计划。",
         "repairPreviewParameters": "参数",
         "repairPreviewConfirm": "确认执行修复",
-        "checking": "正在检查 schema...",
-        "repairing": "正在修复 schema...",
+        "checking": "正在检查 schema…",
+        "repairing": "正在修复 schema…",
         "streamError": "Schema 完整性流式请求失败。",
         "noTableSelected": "请先选择一张表再运行 v2 schema 检查。",
         "noResults": "暂无 schema 结果。",
@@ -714,7 +714,7 @@
           "schemaValid": "Schema 正常",
           "schemaValidationFailed": "Schema 校验失败",
           "schemaElementMissing": "Schema 元素缺失",
-          "schemaAlreadyValid": "Schema 已经是最新状态",
+          "schemaAlreadyValid": "Schema 已正常，无需修复",
           "schemaRepaired": "Schema 修复成功",
           "manualRepair": "该规则需要手动修复",
           "noRepairStatements": "没有可执行的修复语句",
@@ -906,7 +906,7 @@
         "SymmetricFieldNotFound": "对称字段不存在",
         "MissingRecordReference": "关联记录不存在",
         "InvalidLinkReference": "无效的关联字段",
-        "ForeignKeyHostTableNotFound": "主键关联表不存在",
+        "ForeignKeyHostTableNotFound": "外键所在表不存在",
         "ReferenceFieldNotFound": "引用字段不存在",
         "UniqueIndexNotFound": "唯一索引不存在",
         "EmptyString": "存在空字符串单元格",
@@ -920,7 +920,7 @@
       "description": "索引可以显著提升搜索性能，特别是当数据量较大(超过 {{rowCount}} 行)，缺点是写入操作略微变慢，如果经常进行搜索操作或数据量较大，建议开启索引",
       "repair": "更新索引",
       "repairTip": "检测到索引异常，可能导致搜索性能下降，建议点击更新索引按钮更新索引",
-      "enableIndexTip": "您正在创建索引，创建索引的时间取决于表的大小，创建过程中，表的读写性能可能会受到一定影响，请耐心等待",
+      "enableIndexTip": "你正在创建索引，创建索引的时间取决于表的大小，创建过程中，表的读写性能可能会受到一定影响，请耐心等待",
       "fieldSearchTip_limited": "关闭时对所有字段模糊搜索，不支持日期、勾选和按钮字段，最多支持 {{count}} 个字段",
       "fieldSearchTip_infinity": "关闭时对所有字段模糊搜索，不支持日期、勾选和按钮字段",
       "globalSearchFieldTip": "当前是全局搜索模式，对所有字段模糊搜索，不支持日期、勾选和按钮字段",
@@ -937,6 +937,10 @@
       "title": "你访问的表格已被删除",
       "description": "已切换到「{{tableName}}」",
       "descriptionEmpty": "已返回项目页面"
+    },
+    "unavailableRecovered": {
+      "title": "你访问的表格无法打开",
+      "description": "它可能已被删除，或你没有访问权限"
     }
   },
   "import": {
@@ -948,13 +952,13 @@
       "import": "导入",
       "localFile": "本地文件",
       "linkUrl": "在线链接(URL)",
-      "linkUrlInputTitle": "从URl下载文件",
+      "linkUrlInputTitle": "从 URL 添加文件",
       "importTitle": "创建一个新表格",
       "incrementImportTitle": "导入到 — ",
       "optionsTitle": "导入选项",
       "primitiveFields": "原表字段",
       "importFields": "导入的字段",
-      "primaryField": "主键",
+      "primaryField": "主字段",
       "tipsTitle": "温馨提示",
       "confirm": "确认并继续"
     },
@@ -970,20 +974,20 @@
       "downAsCsv": "下载 CSV",
       "importData": "导入数据",
       "duplicate": "复制",
-      "duplicating": "复制中...",
+      "duplicating": "复制中…",
       "duplicateSuccess": "复制成功",
       "duplicateFailed": "复制失败",
       "includeRecords": "包含记录"
     },
     "tips": {
       "importWayTip": "点击或者拖拽到此区域上传",
-      "fileExceedSizeTip": "该类型文件限制文件大小为",
+      "fileExceedSizeTip": "该类型文件不能超过",
       "analyzing": "分析中",
       "importing": "导入中",
       "importingRows": "正在导入 {{processed}} / {{total}} 行",
       "importingRowsUnknown": "已导入 {{processed}} 行",
       "importingSheet": "工作表 {{current}} / {{total}}：{{name}}",
-      "preparingImport": "正在准备导入...",
+      "preparingImport": "正在准备导入…",
       "importFinished": "导入完成",
       "importFinishedPartial": "导入完成（部分表达到行数上限）",
       "importFinishedWithErrors": "导入完成（部分表导入失败）",
@@ -994,15 +998,15 @@
       "importDone": "完成",
       "notSupportFieldType": "字段类型不支持",
       "resultEmpty": "未查询到结果",
-      "searchPlaceholder": "搜索...",
-      "importAlert": "一旦导入，不能中止，直到导入成功或失败中止，表格右上角会显示导入状态，导入结果将会在推送到通知栏。导入期间，最好不要编辑字段，可能会引起错误。",
+      "searchPlaceholder": "搜索…",
+      "importAlert": "导入开始后无法中止，直到成功或失败。表格右上角会显示导入状态，导入结果将推送到通知栏。导入期间请勿编辑字段，以免出错。",
       "noTips": "我已知晓，不再提示"
     },
     "options": {
       "autoSelectFieldOptionName": "自动预测类型",
-      "useFirstRowAsHeaderOptionName": "使用第一行作为行头",
+      "useFirstRowAsHeaderOptionName": "使用第一行作为表头",
       "importDataOptionName": "导入数据",
-      "sheetKey": "表名：",
+      "sheetKey": "工作表名：",
       "excludeFirstRow": "忽略首行"
     },
     "form": {
@@ -1027,7 +1031,7 @@
       "totalAttachments": "附件数",
       "totalSize": "总大小",
       "cancel": "取消",
-      "downloading": "下载中...",
+      "downloading": "下载中…",
       "completed": "下载完成",
       "cancelled": "下载已取消",
       "noAttachments": "没有可下载的附件",
@@ -1066,7 +1070,7 @@
       "customizeCards": "卡片配置",
       "stackedBy": "分组依据 <0/>",
       "chooseStackingField": "选择分组依据",
-      "chooseStackingFieldDescription": "您希望使用哪个字段来设置看板？您的记录将根据这个字段来进行分组。",
+      "chooseStackingFieldDescription": "你希望使用哪个字段来设置看板？你的记录将根据这个字段来进行分组。",
       "hideEmptyStack": "隐藏空的分组",
       "imageSetting": "封面设置",
       "fit": "适应",
@@ -1146,7 +1150,7 @@
   },
   "view": {
     "addRecord": "添加记录",
-    "searchView": "搜索视图...",
+    "searchView": "搜索视图…",
     "starredGroup": "已收藏",
     "otherGroup": "其他视图",
     "dragToolTip": "自动排序已经打开，无法进行手动拖拽排序",
@@ -1170,7 +1174,7 @@
       "title": "页面崩溃!",
       "description": "当前页面意外崩溃，请刷新重试，如果持续出现问题请咨询 support@teable.ai 获取帮助"
     },
-    "addPluginView": "视图插件",
+    "addPluginView": "添加插件视图",
     "addView": "创建视图",
     "search": {
       "field_other": "字段({{length}})"
@@ -1292,7 +1296,7 @@
     "editRequiresLogin": "登录后即可编辑记录",
     "enterPassword": "输入密码",
     "allowCopyData": "允许查看者复制数据",
-    "sharedNode": "已分享节点",
+    "sharedNode": "已分享资源",
     "restrictByPassword": "需要密码访问",
     "advanced": "高级选项",
     "embedConfig": "嵌入配置",
@@ -1310,7 +1314,7 @@
     "integrationConnect": {
       "title": "连接 {{provider}}",
       "reconnectTitle": "重新连接 {{provider}}",
-      "defaultReason": "智能体需要访问你的 {{provider}} 账户才能继续。",
+      "defaultReason": "智能体需要访问你的 {{provider}} 账号才能继续。",
       "connect": "连接",
       "connecting": "连接中…",
       "giveUp": "放弃",
@@ -1379,7 +1383,7 @@
         "model": "模型",
         "contextWindow": "上下文窗口",
         "contextTooltip": "AI 的工作记忆用量。接近上限时，AI 会自动总结之前的对话以释放空间。",
-        "contextTipNewChat": "讨论新话题建议开启新对话，可显著减少 Credit 消耗。",
+        "contextTipNewChat": "讨论新话题建议开启新对话，可显著减少算力消耗。",
         "contextTipMemory": "对 AI 说「记住 XXX」可存入长期记忆，跨对话保留。"
       },
       "messageActions": {
@@ -1412,7 +1416,7 @@
       }
     },
     "tool": {
-      "retrying": "重试中 ({{attempt}}/{{maxRetries}})...",
+      "retrying": "重试中 ({{attempt}}/{{maxRetries}})…",
       "showLess": "收起",
       "generateApp": {
         "creatingApp": "创建应用",
@@ -1524,21 +1528,21 @@
       "xhigh": "超高"
     },
     "sandboxExpiry": {
-      "expiresIn": "智能体的计算机将在 {{time}} 后到期",
+      "expiresIn": "智能体电脑将在 {{time}} 后到期",
       "reset": "续期",
-      "resetTitle": "续期智能体的计算机",
+      "resetTitle": "续期智能体电脑",
       "runningTasks_other": "当前有 {{count}} 个正在运行的任务，续期将中断这些任务。",
       "noRunningTasks": "当前没有正在运行的任务。",
       "newSandboxHint": "续期后即可继续正常使用。",
       "cancel": "取消",
       "confirmReset": "续期",
       "confirmResetWithTasks": "仍然续期",
-      "expiresSoon": "智能计算机即将超时",
-      "resetFailed": "续期失败"
+      "expiresSoon": "智能体电脑即将到期",
+      "resetFailed": "智能体电脑续期失败"
     },
     "addAttachment": "添加附件",
-    "noHistory": "暂无聊天记录",
-    "noFoundHistory": "没有找到匹配的聊天记录，请开始新的对话",
+    "noHistory": "暂无对话记录",
+    "noFoundHistory": "没有找到匹配的对话记录，请开始新的对话",
     "pin": "置顶",
     "unpin": "取消置顶",
     "markRead": "标为已读",
@@ -1593,7 +1597,7 @@
       "skills": "技能",
       "searchEmpty": "未找到结果"
     },
-    "inputPlaceholder": "@添加节点，/使用 skill",
+    "inputPlaceholder": "@添加节点 /使用技能",
     "inputPlaceholderFiles": "粘贴或拖入文件",
     "thought": "思考中",
     "stage": {
@@ -1611,7 +1615,7 @@
       "tooManyFiles": "每条消息最多添加 {{count}} 个文件"
     },
     "suggestions": {
-      "title": "有什么可以帮您？",
+      "title": "有什么可以帮你？",
       "whatCanIDo": "我能做什么？",
       "createOrModifyDatabase": "创建或修改项目",
       "buildAutomations": "构建自动化",
@@ -1638,7 +1642,7 @@
       "nQueued": "{{count}} 条排队中",
       "edit": "编辑消息",
       "steerNow": "引导对话，不中断模型运行",
-      "steer": "调整方向",
+      "steer": "引导",
       "conversationInputMarker": "已引导对话",
       "removeFromQueue": "移除",
       "paused": "由于你中断了当前响应，队列已暂停",
@@ -1682,7 +1686,7 @@
       "maxAttemptsReached": "自动重试未成功，请手动刷新页面。"
     },
     "app": {
-      "loadingChatHistory": "加载对话历史...",
+      "loadingChatHistory": "加载对话历史…",
       "generatorTitle": "AI 应用生成器",
       "generatorDesc": "描述你想构建的应用"
     },
@@ -1692,8 +1696,8 @@
       "accept": "结束语音输入",
       "cancel": "丢弃本次语音输入",
       "permissionTip": "允许使用麦克风。",
-      "recording": "录音中...",
-      "transcribing": "识别中...",
+      "recording": "录音中…",
+      "transcribing": "识别中…",
       "error": {
         "microphoneDenied": "麦克风权限已关闭。",
         "microphoneUnavailable": "没有可用麦克风。",
@@ -1703,7 +1707,7 @@
         "unauthenticated": "请重新登录。",
         "rateLimited": "尝试太频繁，稍后再试。",
         "upstreamAuthFailed": "转写 API Key 无效。",
-        "upstreamBadRequest": "语音 endpoint 无效。",
+        "upstreamBadRequest": "语音服务地址无效。",
         "upstreamUnavailable": "语音服务不可用。"
       }
     },
@@ -1715,7 +1719,7 @@
       "fullscreen": "全屏",
       "exitFullscreen": "退出全屏",
       "delete": "删除",
-      "deleteConfirm": "删除该 Artifact？聊天中的卡片将显示为已删除。",
+      "deleteConfirm": "删除该 Artifact？对话中的卡片将显示为已删除。",
       "deleted": "该 Artifact 已被删除",
       "runtimeError": "Artifact 运行报错",
       "loadFailed": "Artifact 加载失败",
@@ -1733,7 +1737,7 @@
       "passwordIncorrect": "密码错误",
       "passwordSubmit": "确认",
       "shareNotFound": "该分享的 Artifact 不可用",
-      "gallery": "我的 Artifacts",
+      "gallery": "我的 Artifact",
       "fixWithAi": "让 AI 修复",
       "noPermission": "你无权访问该 Artifact"
     },
@@ -1742,7 +1746,8 @@
       "waitingInput": "等待你回复",
       "failed": "回复失败"
     },
-    "routineRunPrompt": "任务自动发送"
+    "routineRunPrompt": "任务自动发送",
+    "backToLatest": "回到最新消息"
   },
   "upload": {
     "panelUploading": "正在上传 {{count}} 个文件",
@@ -1755,7 +1760,7 @@
   },
   "baseNode": {
     "info": {
-      "menu": "节点信息",
+      "menu": "详细信息",
       "createdBy": "创建人",
       "createdTime": "创建时间",
       "lastModifiedBy": "修改人",
@@ -1780,37 +1785,37 @@
       "confirm": "移动",
       "targetLabel": "目标项目",
       "targetPlaceholder": "选择项目",
-      "noTarget": "该空间内没有其他项目可以接收此节点。",
+      "noTarget": "该空间内没有其他项目可以接收此资源。",
       "checking": "正在检查此次移动的影响…",
       "blockers": {
-        "same_base": "该节点已在此项目中。",
+        "same_base": "该资源已在此项目中。",
         "target_not_found": "目标项目已不存在。",
-        "different_space": "节点只能在同一空间的项目之间移动。",
+        "different_space": "资源只能在同一空间的项目之间移动。",
         "v2_mismatch": "两个项目使用的存储引擎版本不同。",
-        "source_not_writable": "当前项目目前为只读状态。",
+        "source_not_writable": "当前项目处于只读状态。",
         "target_not_writable": "目标项目目前为只读状态。",
-        "no_source_permission": "没有权限将此节点从当前项目中移出。",
-        "no_target_permission": "没有权限在目标项目中创建此类节点。",
+        "no_source_permission": "没有权限将此资源从当前项目中移出。",
+        "no_target_permission": "没有权限在目标项目中创建此类资源。",
         "folder_name_conflict": "目标项目中已存在同名目录。",
-        "unsupported_resource": "此类节点暂不支持移动。",
+        "unsupported_resource": "此类资源暂不支持移动。",
         "pending_computed_tasks": "该表仍有计算任务在运行，请稍后重试。",
         "unknown": "不允许执行此次移动。"
       },
-      "movingCount": "共移动 {{count}} 个节点",
+      "movingCount": "共移动 {{count}} 个资源",
       "moveClosure": "移动所有相关引用",
-      "moveClosureHint": "只移动被引用的节点。关联表不会移动，它们与被移动表的关联会变成跨项目关联，但仍可正常使用。",
-      "breakingCount": "{{count}} 个节点移动后可能无法使用",
+      "moveClosureHint": "只移动被引用的资源。关联表不会移动，它们与被移动表的关联会变成跨项目关联，但仍可正常使用。",
+      "breakingCount": "{{count}} 个资源移动后可能无法使用",
       "referencesLabel": "引用",
       "appEmbeddedId": "{{count}} 个应用的代码中写有旧项目 ID，需自行更新",
       "appEmbeddedIdDetail": "{{apps}}。这些应用的代码不会被修改；移动后请逐个打开更新，否则它们会继续读取原项目的数据。",
       "occurrences": "{{count}} 处",
       "uninspectableTitle": "{{count}} 个应用无法检查，移动后请自行确认",
       "droppedRules": "{{count}} 条权限规则将被移除，且无法恢复",
-      "droppedRulesDetail": "权限规则绑定的角色属于当前项目，无法随节点一起移动。移动后这些节点改为适用目标项目的权限设置；如需相同限制，请在目标项目重新配置。",
+      "droppedRulesDetail": "权限规则绑定的角色属于当前项目，无法随资源一起移动。移动后这些资源改为适用目标项目的权限设置；如需相同限制，请在目标项目重新配置。",
       "successTitle": "已移动",
       "open": "打开",
       "linkedAcrossProjects": "{{count}} 个表将变成跨项目关联",
-      "successDescription": "<b>{{count}}</b> 个节点已移动到 <b>{{baseName}}</b>"
+      "successDescription": "<b>{{count}}</b> 个资源已移动到 <b>{{baseName}}</b>"
     }
   }
 }

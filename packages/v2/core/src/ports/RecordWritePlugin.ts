@@ -186,8 +186,10 @@ export type RecordWriteUpdateManyPayload =
   | RecordWriteUpdateManyExplicitPayload;
 
 export type RecordWriteDeleteManyPayload = {
-  readonly recordIds: ReadonlyArray<RecordId>;
-  readonly recordCount: number;
+  readonly recordIds?: ReadonlyArray<RecordId>;
+  readonly recordCount?: number;
+  /** Predicate evaluated by the delete; plugins must authorize its read dependencies. */
+  readonly filter?: RecordFilterNode;
   // Archive rides the delete pipeline (same scope and limits) but plugins authorize
   // it as its own action; absent means a plain delete.
   readonly removalReason?: IRecordRemovalReason;
