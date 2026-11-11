@@ -8,7 +8,6 @@ import type {
   ILinkFieldOptions,
   FieldCore,
 } from '@teable/core';
-import { stripLookupFormulaExecutableOptions } from '@teable/v2-core';
 import {
   ColorUtils,
   DbFieldType,
@@ -23,12 +22,14 @@ import {
   RecordOpBuilder,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { stripLookupFormulaExecutableOptions } from '@teable/v2-core';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../custom.exception';
-import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { DatabaseRouter } from '../../../global/database-router.service';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { handleDBValidationErrors } from '../../../utils/db-validation-error';
 import {
   majorFieldKeysChanged,
@@ -62,6 +63,17 @@ import { FieldConvertingLinkService } from './field-converting-link.service';
 import { FieldSupplementService } from './field-supplement.service';
 
 @Injectable()
+@V1EngineService([
+  'updateReference',
+  'needCalculate',
+  'deleteOrCreateSupplementLink',
+  'alterFieldConstraint',
+  'closeConstraint',
+  'stageAnalysis',
+  'updateAiConfigReference',
+  'stageAlter',
+  'stageCalculate',
+])
 export class FieldConvertingService {
   private readonly logger = new Logger(FieldConvertingService.name);
 

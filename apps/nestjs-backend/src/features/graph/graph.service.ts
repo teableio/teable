@@ -19,6 +19,7 @@ import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import { baseDisplayName } from '../../utils/base-name';
 import { majorFieldKeysChanged } from '../../utils/major-field-keys-changed';
 import { Timing } from '../../utils/timing';
@@ -57,6 +58,13 @@ interface IAffectedCountQuery {
 }
 
 @Injectable()
+@V1EngineService([
+  'planFieldCreate',
+  'planFieldConvert',
+  'planDeleteField',
+  'planField',
+  'generateBaseErd',
+])
 export class GraphService {
   private readonly logger = new Logger(GraphService.name);
 

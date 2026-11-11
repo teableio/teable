@@ -80,6 +80,27 @@ The `FieldSchemaRulesFactory` uses the visitor pattern to map each field type to
 - **LinkField**: `LinkValueColumnRule` + `ReferenceRule` + (junction table OR FK columns + indexes + constraints)
 - **CreatedTimeField**: `GeneratedColumnRule`
 
+### Shared physical column ownership
+
+Legacy metadata can contain several live fields pointing to one physical column.
+For field deletion, `TableSchemaUpdateVisitor` sets `preserveSharedColumn` when
+another field in the remaining table still owns that column. Both `ColumnExistsRule`
+and `LinkValueColumnRule` must honor it: keeping a shared value column does not skip
+the removed field's reference, FK, or junction cleanup. Once the last owner is
+deleted, the value column is dropped normally.
+
+For link fields, the JSONB value column is a cache, not the source relation. Schema
+repair recreates a missing cache column but does not rebuild its values; recovery
+must separately backfill from the surviving FK or junction storage. Renaming a
+shared column is not a safe way to split duplicate field mappings because it moves
+the column away from the other owners.
+
+Known limits of this contract: ownership is read from the hydrated table
+aggregate, so a projected or still-pending aggregate can miss an owner;
+`GeneratedColumnRule` and the field-conversion visitor do not honor
+`preserveSharedColumn` yet. Those paths keep their previous behavior and need
+their own coverage before being extended.
+
 ## Usage
 
 ```typescript

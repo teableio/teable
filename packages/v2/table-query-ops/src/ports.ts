@@ -223,6 +223,16 @@ export interface TableSearchAccessPathReclaimSource {
   ): Promise<Result<void, DomainError>>;
 }
 
+/**
+ * Which queued tasks a worker may claim.
+ *
+ * - `all`: every admitted kind, subject to the execution flags.
+ * - `manual_search`: only admin one-click search access path jobs.
+ * - `search_maintenance`: only search access path work a table write enqueued (`schema_change`)
+ *   or an idle-path reclaim enqueued, so index maintenance can run without the advisor stack.
+ */
+export type TableQueryOpsTaskWorkerScope = 'all' | 'manual_search' | 'search_maintenance';
+
 export interface TableQueryRemediationTaskRepository {
   findById(
     context: IExecutionContext,
@@ -247,7 +257,7 @@ export interface TableQueryRemediationTaskRepository {
   claimNextAccepted(
     context: IExecutionContext,
     input: {
-      readonly scope: 'all' | 'manual_search';
+      readonly scope: TableQueryOpsTaskWorkerScope;
       readonly workerId: string;
       readonly now: Date;
       readonly allowedKinds: ReadonlyArray<ExecutablePhase1RemediationKind>;
@@ -432,6 +442,8 @@ export interface TableQueryOpsTaskWorkerConfig {
   readonly allowManualIndexExecution: boolean;
   readonly allowPolicyIndexExecution: boolean;
   readonly allowedKinds: ReadonlyArray<ExecutablePhase1RemediationKind>;
+  /** Claim scope; omitted means `all`. */
+  readonly scope?: TableQueryOpsTaskWorkerScope;
 }
 
 export interface TableQueryShapeExtractor {

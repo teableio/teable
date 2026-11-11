@@ -71,7 +71,11 @@ export class SubmitRecordHandler implements ICommandHandler<
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<SubmitRecordResult, DomainError>(async function* () {
-      yield* table.validateFormSubmission(command.formId.toString(), command.fieldValues);
+      yield* table.validateFormSubmission(
+        command.formId.toString(),
+        command.fieldValues,
+        command.shareId
+      );
 
       const createResult = yield* await handler.recordCreationService.create(context, {
         table,

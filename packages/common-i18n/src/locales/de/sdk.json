@@ -1067,6 +1067,7 @@
       "passwordAlreadyExists": "Für dieses Konto wurde bereits ein Passwort festgelegt",
       "verificationCodeInvalid": "Der Bestätigungscode ist ungültig oder abgelaufen",
       "newEmailSameAsCurrentEmail": "Die neue E-Mail-Adresse ist mit der aktuellen identisch",
+      "newPasswordSameAsCurrent": "Das neue Passwort muss sich vom aktuellen unterscheiden",
       "emailAlreadyRegistered": "Diese E-Mail-Adresse ist bereits registriert",
       "waitlistNotEnabled": "Die Warteliste ist nicht aktiviert",
       "emailOrPasswordIncorrect": "E-Mail-Adresse oder Passwort ist falsch",

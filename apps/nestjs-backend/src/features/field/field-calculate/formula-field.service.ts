@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 
 @Injectable()
+@V1EngineService(['getDependentFormulaFieldsInOrder', 'getDependentFormulaFieldsInOrderMulti'])
 export class FormulaFieldService {
   constructor(private readonly prismaService: PrismaService) {}
 

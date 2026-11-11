@@ -3,11 +3,13 @@ import { FieldKeyType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecordInsertOrderRo, IRecord } from '@teable/openapi';
 import { CustomHttpException } from '../../../custom.exception';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { TableDomainQueryService } from '../../table-domain';
 import { RecordService } from '../record.service';
 import { RecordCreateService } from './record-create.service';
 
 @Injectable()
+@V1EngineService(['duplicateRecord'])
 export class RecordDuplicateService {
   constructor(
     private readonly prismaService: PrismaService,

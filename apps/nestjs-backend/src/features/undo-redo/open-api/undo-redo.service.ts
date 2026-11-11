@@ -63,6 +63,9 @@ const describeV2Entry = (entry: UndoEntry, mode: UndoRedoReplayMode): string => 
 const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
 
 export type IUndoRedoEngine = 'v1' | 'v2';
+// Legacy replay is terminal-only; this admission notification lets SSE open
+// before the operation finishes. V2 selection is reported by progress events.
+export type IUndoRedoReplaySelected = (engine: IUndoRedoEngine) => void;
 
 type IUndoRedoResponse<T extends IUndoVo | IRedoVo> = {
   body: T;
@@ -229,16 +232,24 @@ export class UndoRedoService {
     return this.executeV1Redo(tableId, windowId);
   }
 
-  async *undoStream(tableId: string, windowId: string): AsyncIterable<IUndoRedoStreamEvent> {
+  async *undoStream(
+    tableId: string,
+    windowId: string,
+    onReplaySelected?: IUndoRedoReplaySelected
+  ): AsyncIterable<IUndoRedoStreamEvent> {
     await this.assertTableWritable(tableId);
 
-    yield* this.executeUndoRedoStream(tableId, windowId, 'undo');
+    yield* this.executeUndoRedoStream(tableId, windowId, 'undo', onReplaySelected);
   }
 
-  async *redoStream(tableId: string, windowId: string): AsyncIterable<IUndoRedoStreamEvent> {
+  async *redoStream(
+    tableId: string,
+    windowId: string,
+    onReplaySelected?: IUndoRedoReplaySelected
+  ): AsyncIterable<IUndoRedoStreamEvent> {
     await this.assertTableWritable(tableId);
 
-    yield* this.executeUndoRedoStream(tableId, windowId, 'redo');
+    yield* this.executeUndoRedoStream(tableId, windowId, 'redo', onReplaySelected);
   }
 
   private async assertTableWritable(tableId: string) {
@@ -248,15 +259,16 @@ export class UndoRedoService {
   private async *executeUndoRedoStream(
     tableId: string,
     windowId: string,
-    mode: IUndoRedoMode
+    mode: IUndoRedoMode,
+    onReplaySelected?: IUndoRedoReplaySelected
   ): AsyncIterable<IUndoRedoStreamEvent> {
     const preferredEngine = await this.getPreferredEngine(tableId, windowId);
 
     if (preferredEngine === 'v1') {
       const v1Result =
         mode === 'undo'
-          ? await this.executeV1Undo(tableId, windowId)
-          : await this.executeV1Redo(tableId, windowId);
+          ? await this.executeV1Undo(tableId, windowId, onReplaySelected)
+          : await this.executeV1Redo(tableId, windowId, onReplaySelected);
       if (v1Result.body.status !== 'empty') {
         yield this.toStreamTerminalEvent(mode, v1Result);
         return;
@@ -269,8 +281,8 @@ export class UndoRedoService {
       if (event.id === 'done' && event.status === 'empty') {
         const v1Result =
           mode === 'undo'
-            ? await this.executeV1Undo(tableId, windowId)
-            : await this.executeV1Redo(tableId, windowId);
+            ? await this.executeV1Undo(tableId, windowId, onReplaySelected)
+            : await this.executeV1Redo(tableId, windowId, onReplaySelected);
         yield this.toStreamTerminalEvent(mode, v1Result);
         return;
       }
@@ -302,7 +314,8 @@ export class UndoRedoService {
 
   private async executeV1Undo(
     tableId: string,
-    windowId: string
+    windowId: string,
+    onReplaySelected?: IUndoRedoReplaySelected
   ): Promise<IUndoRedoResponse<IUndoVo>> {
     const { operation, push } = await this.undoRedoStackService.popUndo(tableId, windowId);
 
@@ -323,6 +336,10 @@ export class UndoRedoService {
       getV1UndoRedoRequiredActions(operation, 'undo'),
       operation.name
     );
+
+    // Only a nonempty, admitted replay may commit streaming attribution/headers.
+    // Notify before awaiting the legacy operation so slow replay keeps SSE alive.
+    onReplaySelected?.('v1');
 
     try {
       const newOperation = await this.undoRedoOperationService.undo(operation);
@@ -355,7 +372,8 @@ export class UndoRedoService {
 
   private async executeV1Redo(
     tableId: string,
-    windowId: string
+    windowId: string,
+    onReplaySelected?: IUndoRedoReplaySelected
   ): Promise<IUndoRedoResponse<IRedoVo>> {
     const { operation, push } = await this.undoRedoStackService.popRedo(tableId, windowId);
     if (!operation) {
@@ -373,6 +391,8 @@ export class UndoRedoService {
       getV1UndoRedoRequiredActions(operation, 'redo'),
       operation.name
     );
+
+    onReplaySelected?.('v1');
 
     try {
       const newOperation = await this.undoRedoOperationService.redo(operation);

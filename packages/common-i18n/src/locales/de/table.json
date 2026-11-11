@@ -362,7 +362,8 @@
         "title": "Feld löschen",
         "simpleConfirm": "Sind Sie sicher, dass Sie das Feld <b>{{fieldName}}</b> löschen möchten?",
         "withDependencies": "Das Löschen des Felds <b>{{fieldName}}</b> wirkt sich auf die folgenden Felder aus:",
-        "deleteCount": "{{count}} Felder löschen",
+        "deleteCount_one": "{{count}} Felder löschen",
+        "deleteCount_other": "{{count}} Felder löschen",
         "riskIdentified": "Risiko identifiziert({{count}})",
         "noDependencies": "Keine Abhängigkeiten({{count}})",
         "noReferencesFound": "Bei dieser Prüfung wurden keine Referenzen gefunden. Andere Auswirkungen sind weiterhin möglich.",
@@ -557,11 +558,14 @@
         "deleting": "Deleting records",
         "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
         "completedWithIssues": "Deletion completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issues",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
-        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_one": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_other": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} rows",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -575,11 +579,13 @@
         "duplicating": "Datensätze werden dupliziert",
         "descriptionWithIssues": "Einige Duplizierungsblöcke sind fehlgeschlagen. Details siehe unten.",
         "completedWithIssues": "Duplizieren mit Problemen abgeschlossen",
-        "issuesBadge": "{{count}} Probleme",
+        "issuesBadge_one": "{{count}} Probleme",
+        "issuesBadge_other": "{{count}} Probleme",
         "chunkFailureTitle": "Details zu fehlgeschlagenen Blöcken",
         "chunkFailureSummary": "{{count}} Block/Blöcke meldeten einen Fehler, während der Stream weiterlief.",
         "chunkLabel": "Block {{index}}",
-        "rowsLabel": "{{count}} Zeilen",
+        "rowsLabel_one": "{{count}} Zeilen",
+        "rowsLabel_other": "{{count}} Zeilen",
         "phaseLabel": {
           "preparing": "Vorbereitung",
           "guarding": "Prüfung",
@@ -593,11 +599,13 @@
         "pasting": "Datensätze werden eingefügt",
         "descriptionWithIssues": "Einige Einfügeblöcke sind fehlgeschlagen. Details siehe unten.",
         "completedWithIssues": "Einfügen mit Problemen abgeschlossen",
-        "issuesBadge": "{{count}} Probleme",
+        "issuesBadge_one": "{{count}} Probleme",
+        "issuesBadge_other": "{{count}} Probleme",
         "chunkFailureTitle": "Details zu fehlgeschlagenen Blöcken",
         "chunkFailureSummary": "{{count}} Block/Blöcke meldeten einen Fehler, während der Stream weiterlief.",
         "chunkLabel": "Block {{index}}",
-        "rowsLabel": "{{count}} Zeilen",
+        "rowsLabel_one": "{{count}} Zeilen",
+        "rowsLabel_other": "{{count}} Zeilen",
         "phaseLabel": {
           "preparing": "Vorbereitung",
           "guarding": "Prüfung",
@@ -612,11 +620,13 @@
         "clearing": "Datensätze werden geleert",
         "descriptionWithIssues": "Einige Leerungsblöcke sind fehlgeschlagen. Details siehe unten.",
         "completedWithIssues": "Leeren mit Problemen abgeschlossen",
-        "issuesBadge": "{{count}} Probleme",
+        "issuesBadge_one": "{{count}} Probleme",
+        "issuesBadge_other": "{{count}} Probleme",
         "chunkFailureTitle": "Details zu fehlgeschlagenen Blöcken",
         "chunkFailureSummary": "{{count}} Block/Blöcke meldeten einen Fehler, während der Stream weiterlief.",
         "chunkLabel": "Block {{index}}",
-        "rowsLabel": "{{count}} Zeilen",
+        "rowsLabel_one": "{{count}} Zeilen",
+        "rowsLabel_other": "{{count}} Zeilen",
         "phaseLabel": {
           "preparing": "Vorbereitung",
           "guarding": "Prüfung",
@@ -634,11 +644,13 @@
         "restoreFailed": "Wiederherstellung fehlgeschlagen",
         "descriptionWithIssues": "Einige Wiederherstellungsblöcke sind fehlgeschlagen. Details siehe unten.",
         "completedWithIssues": "Wiederherstellung mit Problemen abgeschlossen",
-        "issuesBadge": "{{count}} Probleme",
+        "issuesBadge_one": "{{count}} Probleme",
+        "issuesBadge_other": "{{count}} Probleme",
         "chunkFailureTitle": "Details zu fehlgeschlagenen Blöcken",
         "chunkFailureSummary": "{{count}} Block/Blöcke meldeten einen Fehler, während der Stream weiterlief.",
         "chunkLabel": "Block {{index}}",
-        "rowsLabel": "{{count}} Zeilen",
+        "rowsLabel_one": "{{count}} Zeilen",
+        "rowsLabel_other": "{{count}} Zeilen",
         "phaseLabel": {
           "preparing": "Vorbereitung",
           "guarding": "Prüfung",
@@ -683,7 +695,8 @@
         "repairUnavailable": "Diese Regel kann nicht automatisch repariert werden",
         "manual": "Manuell",
         "manualRepairNotice": "Dieses Problem muss manuell repariert werden",
-        "manualRepairNoticeWithCount": "{{count}} Probleme müssen manuell repariert werden. Klicken Sie rechts an der jeweiligen Regel auf „Manuell“, um den Reparaturdialog zu öffnen.",
+        "manualRepairNoticeWithCount_one": "{{count}} Probleme müssen manuell repariert werden. Klicken Sie rechts an der jeweiligen Regel auf „Manuell“, um den Reparaturdialog zu öffnen.",
+        "manualRepairNoticeWithCount_other": "{{count}} Probleme müssen manuell repariert werden. Klicken Sie rechts an der jeweiligen Regel auf „Manuell“, um den Reparaturdialog zu öffnen.",
         "manualRepairDialogTitle": "Manuelle Reparatur erforderlich",
         "manualRepairDialogDescription": "Dieses Problem kann nicht automatisch repariert werden. Prüfen Sie die Hinweise unten und wählen Sie, wie es behoben werden soll.",
         "manualRepairDialogReason": "Warum eine manuelle Reparatur erforderlich ist",
@@ -712,7 +725,8 @@
         "systemColumns": "Systemspalten",
         "general": "Allgemein",
         "optional": "Optional",
-        "statementCount": "{{count}} Anweisungen",
+        "statementCount_one": "{{count}} Anweisungen",
+        "statementCount_other": "{{count}} Anweisungen",
         "detailsMissing": "Fehlend: {{details}}",
         "detailsExtra": "Zusätzlich: {{details}}",
         "message": {
@@ -880,14 +894,18 @@
           "repair": "Reparaturergebnisse"
         },
         "summary": {
-          "checks": "{{count}} Prüfungen",
+          "checks_one": "{{count}} Prüfungen",
+          "checks_other": "{{count}} Prüfungen",
           "success": "{{count}} bestanden",
-          "warn": "{{count}} Warnungen",
-          "error": "{{count}} Fehler",
+          "warn_one": "{{count}} Warnungen",
+          "warn_other": "{{count}} Warnungen",
+          "error_one": "{{count}} Fehler",
+          "error_other": "{{count}} Fehler",
           "skipped": "{{count}} übersprungen",
           "repaired": "{{count}} repariert",
           "manual": "{{count}} manuell",
-          "problems": "{{count}} Probleme"
+          "problems_one": "{{count}} Probleme",
+          "problems_other": "{{count}} Probleme"
         },
         "status": {
           "success": "Bestanden",
@@ -942,6 +960,10 @@
       "title": "Die aufgerufene Tabelle wurde gelöscht",
       "description": "Zu „{{tableName}}“ gewechselt",
       "descriptionEmpty": "Zur Projekt-Seite zurückgekehrt"
+    },
+    "unavailableRecovered": {
+      "title": "Die geöffnete Tabelle ist nicht verfügbar",
+      "description": "Sie wurde möglicherweise gelöscht, oder Sie haben keinen Zugriff darauf"
     }
   },
   "import": {
@@ -1117,7 +1139,8 @@
       "addDateField": "Datumsfelder hinzufügen",
       "content": "Erstellen Sie einen Zeitplan in der Kalenderansicht. Die Tabelle muss zwei Datumsfelder enthalten: Startdatum und Enddatum"
     },
-    "moreLinkText": "Zeige alle {{count}} Datensätze"
+    "moreLinkText_one": "Zeige alle {{count}} Datensätze",
+    "moreLinkText_other": "Zeige alle {{count}} Datensätze"
   },
   "menu": {
     "insertRecordAbove": "Datensatz <input /> oberhalb einfügen",
@@ -1194,7 +1217,8 @@
   "lastModify": "Letzte Änderung: ",
   "pasteNewRecords": {
     "title": "Möchten Sie mehrere Datensätze hinzufügen?",
-    "description": "Die {{count}} Datensätze werden der Tabelle hinzugefügt."
+    "description_one": "Die {{count}} Datensätze werden der Tabelle hinzugefügt.",
+    "description_other": "Die {{count}} Datensätze werden der Tabelle hinzugefügt."
   },
   "tableArchive": {
     "title": "Tabellenarchiv",
@@ -1208,7 +1232,8 @@
     "searchPlaceholder": "Archivierte Datensätze durchsuchen",
     "clearFilter": "Filter zurücksetzen",
     "export": "CSV exportieren",
-    "exporting": "Exportiere… {{count}} Zeilen",
+    "exporting_one": "Exportiere… {{count}} Zeilen",
+    "exporting_other": "Exportiere… {{count}} Zeilen",
     "exportSucceed": "Export abgeschlossen, Download startet",
     "restoreSelected": "Wiederherstellen ({{count}})",
     "permanentDeleteSelected": "Endgültig löschen ({{count}})",
@@ -1285,7 +1310,8 @@
     "viewLinkHolderCanViewDesc": "Personen mit dem Link können die Daten dieser Ansicht ansehen",
     "viewLinkHolderCanEditDesc": "Angemeldete Benutzer können Daten im Rahmen der Ansicht bearbeiten",
     "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
-    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_one": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_other": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
     "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
     "restrictScope": "Restrict scope",
     "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
@@ -1340,7 +1366,8 @@
       "notConnected": "Google Sheets ist noch nicht verbunden. Verbinde es in der App und versuche es dann erneut.",
       "backToChat": "Du kannst jetzt zum Chat zurückkehren.",
       "status": {
-        "picked": "{{count}} Tabellen freigegeben",
+        "picked_one": "{{count}} Tabellen freigegeben",
+        "picked_other": "{{count}} Tabellen freigegeben",
         "cancelled": "Übersprungen",
         "failed": "Fehlgeschlagen"
       },
@@ -1415,7 +1442,8 @@
         "copy": "Kopieren",
         "copied": "Kopiert!",
         "collapse": "Einklappen",
-        "linesHidden": "{{count}} Zeilen ausgeblendet – zum Aufklappen klicken"
+        "linesHidden_one": "{{count}} Zeilen ausgeblendet – zum Aufklappen klicken",
+        "linesHidden_other": "{{count}} Zeilen ausgeblendet – zum Aufklappen klicken"
       }
     },
     "tool": {
@@ -1584,8 +1612,10 @@
       "selectionColumns": "Col {{start}}-{{end}}",
       "selectionColumnsNamed": "{{names}} +{{count}}",
       "selectionUnnamed": "Unbenannter Datensatz",
-      "selectionRecords": "{{count}} Datensätze",
-      "selectionCellCount": "{{count}} Zellen",
+      "selectionRecords_one": "{{count}} Datensätze",
+      "selectionRecords_other": "{{count}} Datensätze",
+      "selectionCellCount_one": "{{count}} Zellen",
+      "selectionCellCount_other": "{{count}} Zellen",
       "selectionRecordType": "Datensatzbezug",
       "selectionCellType": "Zellbezug",
       "selectionDimensions": "{{rows}} Zeilen × {{columns}} Spalten",
@@ -1600,7 +1630,8 @@
       "selectionOpenRecord": "Datensatz {{name}} öffnen",
       "selectionPrevious": "Zurück",
       "selectionNext": "Weiter",
-      "selectionPage": "{{start}}–{{end}} von {{count}} Datensätzen"
+      "selectionPage_one": "{{start}}–{{end}} von {{count}} Datensätzen",
+      "selectionPage_other": "{{start}}–{{end}} von {{count}} Datensätzen"
     },
     "mention": {
       "tables": "Tabellen",
@@ -1629,7 +1660,8 @@
     },
     "attachment": {
       "pastedTextFileName": "Eingefügter Text",
-      "tooManyFiles": "Sie können pro Nachricht höchstens {{count}} Dateien anhängen"
+      "tooManyFiles_one": "Sie können pro Nachricht höchstens {{count}} Dateien anhängen",
+      "tooManyFiles_other": "Sie können pro Nachricht höchstens {{count}} Dateien anhängen"
     },
     "suggestions": {
       "title": "Wie kann ich helfen?",
@@ -1647,7 +1679,8 @@
     },
     "buildApp": {
       "task": {
-        "foundResults": "{{count}} Ergebnisse gefunden"
+        "foundResults_one": "{{count}} Ergebnisse gefunden",
+        "foundResults_other": "{{count}} Ergebnisse gefunden"
       }
     },
     "scriptPreview": {
@@ -1707,8 +1740,10 @@
       "ls": "Verzeichnis auflisten",
       "webSearch": "Web durchsuchen",
       "skill": "Skill wird geladen",
-      "foundFiles": "{{count}} Dateien gefunden",
-      "listedEntries": "{{count}} Einträge",
+      "foundFiles_one": "{{count}} Dateien gefunden",
+      "foundFiles_other": "{{count}} Dateien gefunden",
+      "listedEntries_one": "{{count}} Einträge",
+      "listedEntries_other": "{{count}} Einträge",
       "ranCommands_one": "{{count}} Befehl ausgeführt",
       "ranCommands_other": "{{count}} Befehle ausgeführt",
       "moreItems": "+{{count}} weitere",
@@ -1766,12 +1801,16 @@
       "waitingInput": "Wartet auf Ihre Antwort",
       "failed": "Antwort fehlgeschlagen"
     },
-    "routineRunPrompt": "Von der Routine gesendet"
+    "routineRunPrompt": "Von der Routine gesendet",
+    "backToLatest": "Zur neuesten Nachricht"
   },
   "upload": {
-    "panelUploading": "{{count}} Dateien werden hochgeladen",
-    "panelFailed": "{{count}} Dateien fehlgeschlagen",
-    "panelCompleted": "{{count}} Dateien abgeschlossen",
+    "panelUploading_one": "{{count}} Dateien werden hochgeladen",
+    "panelUploading_other": "{{count}} Dateien werden hochgeladen",
+    "panelFailed_one": "{{count}} Dateien fehlgeschlagen",
+    "panelFailed_other": "{{count}} Dateien fehlgeschlagen",
+    "panelCompleted_one": "{{count}} Dateien abgeschlossen",
+    "panelCompleted_other": "{{count}} Dateien abgeschlossen",
     "statusFailed": "Fehlgeschlagen",
     "statusCompleted": "Abgeschlossen",
     "statusCancel": "Upload abbrechen",

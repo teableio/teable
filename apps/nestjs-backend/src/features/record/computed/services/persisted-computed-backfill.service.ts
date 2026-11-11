@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
+import { V1EngineService } from '../../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../../types/cls';
 import { ComputedOrchestratorService } from './computed-orchestrator.service';
 
 @Injectable()
+@V1EngineService(['recomputeForTables'])
 export class PersistedComputedBackfillService {
   constructor(
     private readonly prismaService: PrismaService,

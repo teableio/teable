@@ -1,8 +1,9 @@
 import type { IColumnMeta, IFieldVo } from '@teable/core';
 import type { ICreateFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
-import { restoreFieldRecordValues } from '../../field/restore-field-record-values';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
+import { restoreFieldRecordValues } from '../../field/restore-field-record-values';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 
 export interface ICreateFieldsPayload {
@@ -16,6 +17,8 @@ export interface ICreateFieldsPayload {
   }[];
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class CreateFieldsOperation {
   constructor(
     private readonly fieldOpenApiService: FieldOpenApiService,

@@ -61,10 +61,10 @@ interface SheetContentProps
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
-  SheetContentProps & { closeable?: boolean }
->(({ side = 'right', className, children, closeable = true, ...props }, ref) => (
+  SheetContentProps & { closeable?: boolean; overlayStyle?: React.CSSProperties }
+>(({ side = 'right', className, children, closeable = true, overlayStyle, ...props }, ref) => (
   <SheetPortal>
-    <SheetOverlay />
+    <SheetOverlay style={overlayStyle} />
     <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
       {children}
       <SheetPrimitive.Close className="absolute end-4 top-4 rounded-sm opacity ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">

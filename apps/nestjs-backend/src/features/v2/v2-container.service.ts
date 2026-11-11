@@ -135,6 +135,18 @@ const executablePhase1RemediationKinds = [
   ...executablePhase1RemediationKindValues,
 ] as const satisfies ReadonlyArray<ExecutablePhase1RemediationKind>;
 
+export const tableQueryOpsSearchMaintenanceEnv = 'V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED';
+
+/**
+ * Search access path work a table write or an idle-path reclaim enqueues. Executing only these
+ * keeps a configured search document from going stale when the advisor stack stays off.
+ */
+const searchAccessPathMaintenanceKinds = [
+  'create_search_access_path',
+  'rebuild_search_access_path',
+  'drop_search_access_path',
+] as const satisfies ReadonlyArray<ExecutablePhase1RemediationKind>;
+
 const defaultAllowedRemediationKinds = (input: {
   readonly allowIndexExecution: boolean;
   readonly searchVectorRuntimeEnabled: boolean;
@@ -174,6 +186,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     DependencyContainer,
     ReadonlyArray<TableQueryOpsRunnerHandle>
   >();
+  private tableQueryOpsMaintenanceOverridesWarned = false;
   private readonly poolLeases = new WeakMap<DependencyContainer, ReadonlyArray<IPgPoolLease>>();
   private readonly claimConcurrencyUnregisters = new WeakMap<DependencyContainer, () => void>();
   private readonly containerRouteSignatures = new WeakMap<DependencyContainer, string>();
@@ -618,8 +631,20 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   private async resolveContainerTableQueryOpsOptions(options: {
     previewReadOnly?: boolean;
   }): Promise<IV2NodePgContainerOptions['tableQueryOps']> {
-    const config = this.resolveTableQueryOpsOptions();
-    if (!config) return undefined;
+    const resolved = this.resolveTableQueryOpsOptions();
+    if (!resolved) return undefined;
+    const { options: config, searchMaintenanceOnly } = resolved;
+    if (searchMaintenanceOnly) {
+      // Search access path maintenance owns no observation pipeline: no runtime connection,
+      // no per-query observation shaping, no analyzer.
+      return {
+        ...config,
+        ensureSchema: options.previewReadOnly ? false : config.ensureSchema,
+        ensureObservationSchema: false,
+        observationDisabled: true,
+        skipRecordQueryObservation: true,
+      };
+    }
     const observationRuntime = options.previewReadOnly
       ? undefined
       : await this.tableQueryObservationRuntime.get();
@@ -648,11 +673,79 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     this.startTableQueryOpsRunners(container);
   }
 
-  private resolveTableQueryOpsOptions(): IV2NodePgContainerOptions['tableQueryOps'] | undefined {
-    if (!resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ENABLED'), false)) {
+  private warnIgnoredTableQueryOpsOverrides(searchMaintenanceOnly: boolean): void {
+    if (!searchMaintenanceOnly || this.tableQueryOpsMaintenanceOverridesWarned) return;
+    const ignored = [
+      'V2_TABLE_QUERY_OPS_AUTO_ACCEPT',
+      'V2_TABLE_QUERY_OPS_ANALYZER_ENABLED',
+      'V2_TABLE_QUERY_OPS_ALLOW_MANUAL_INDEX_EXECUTION',
+      'V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS',
+    ].filter((key) => this.configService.get(key));
+    if (ignored.length === 0) return;
+    this.tableQueryOpsMaintenanceOverridesWarned = true;
+    this.logger.warn(
+      `${tableQueryOpsSearchMaintenanceEnv} runs search access path maintenance only; ` +
+        `${ignored.join(', ')} are ignored until V2_TABLE_QUERY_OPS_ENABLED is enabled`
+    );
+  }
+
+  private resolveTableQueryOpsOptions():
+    | {
+        readonly options: NonNullable<IV2NodePgContainerOptions['tableQueryOps']>;
+        readonly searchMaintenanceOnly: boolean;
+      }
+    | undefined {
+    const opsEnabled = resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_ENABLED'), false);
+    if (opsEnabled) {
+      return { searchMaintenanceOnly: false, options: this.resolveFullTableQueryOpsOptions() };
+    }
+    if (!resolveBoolean(this.configService.get(tableQueryOpsSearchMaintenanceEnv), false)) {
       return undefined;
     }
+    // Without the full feature the deployment only executes search access path maintenance
+    // tasks, so observation, analyzer, auto-accept and index execution stay off.
+    this.warnIgnoredTableQueryOpsOverrides(true);
+    return {
+      searchMaintenanceOnly: true,
+      options: this.resolveSearchMaintenanceOnlyOptions(),
+    };
+  }
 
+  private resolveSearchMaintenanceOnlyOptions(): NonNullable<
+    IV2NodePgContainerOptions['tableQueryOps']
+  > {
+    const workerId = resolveTableQueryOpsWorkerId(
+      this.configService.get('V2_TABLE_QUERY_OPS_WORKER_ID')
+    );
+    const taskWorkerIntervalMs = resolvePositiveInteger(
+      this.configService.get('V2_TABLE_QUERY_OPS_TASK_WORKER_INTERVAL_MS')
+    );
+    return {
+      ensureSchema: resolveBoolean(
+        this.configService.get('V2_TABLE_QUERY_OPS_ENSURE_SCHEMA'),
+        true
+      ),
+      decisionPolicyConfig: { autoAcceptMode: 'off' },
+      analyzerConfig: {
+        enabled: false,
+        workerId: `${workerId}:analyzer`,
+        intervalMs: 5 * 60 * 1000,
+      },
+      taskWorkerConfig: {
+        enabled: true,
+        scope: 'search_maintenance',
+        workerId: `${workerId}:task-worker`,
+        allowManualIndexExecution: false,
+        allowPolicyIndexExecution: false,
+        allowedKinds: searchAccessPathMaintenanceKinds,
+        ...(taskWorkerIntervalMs ? { intervalMs: taskWorkerIntervalMs } : {}),
+      },
+    };
+  }
+
+  private resolveFullTableQueryOpsOptions(): NonNullable<
+    IV2NodePgContainerOptions['tableQueryOps']
+  > {
     const workerId = resolveTableQueryOpsWorkerId(
       this.configService.get('V2_TABLE_QUERY_OPS_WORKER_ID')
     );
@@ -669,11 +762,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME') ??
           this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME')
       ) === 'auto';
-    const configuredAllowedKinds =
+    const allowedKinds =
       parseAllowedRemediationKinds(
         this.configService.get('V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS')
       ) ?? defaultAllowedRemediationKinds({ allowIndexExecution, searchVectorRuntimeEnabled });
-    const allowedKinds = configuredAllowedKinds;
     const analyzerIntervalMs = resolvePositiveInteger(
       this.configService.get('V2_TABLE_QUERY_OPS_ANALYZER_INTERVAL_MS')
     );

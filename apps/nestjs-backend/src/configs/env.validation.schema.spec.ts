@@ -68,6 +68,55 @@ describe('envValidationSchema', () => {
     expect(error).toBeDefined();
   });
 
+  it('accepts the table query ops settings a deployment can combine', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED: ' true ',
+        V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME: ' AUTO ',
+        V2_TABLE_QUERY_OPS_AUTO_ACCEPT: 'SHADOW',
+        V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS:
+          'rebuild_search_access_path, drop_search_access_path',
+        V2_TABLE_QUERY_OPS_STATEMENT_TIMEOUT_MS: '0',
+        V2_TABLE_QUERY_OPS_ANALYZER_BATCH_SIZE: '50',
+      })
+    );
+    expect(error).toBeUndefined();
+    expect(value.V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED).toBe(true);
+    expect(value.V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME).toBe('auto');
+    expect(value.V2_TABLE_QUERY_OPS_AUTO_ACCEPT).toBe('shadow');
+    expect(value.V2_TABLE_QUERY_OPS_STATEMENT_TIMEOUT_MS).toBe(0);
+    expect(value.V2_TABLE_QUERY_OPS_ANALYZER_BATCH_SIZE).toBe(50);
+  });
+
+  it('keeps an unset table query ops switch unset', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({ PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable' })
+    );
+    expect(error).toBeUndefined();
+    expect(value.V2_TABLE_QUERY_OPS_ENABLED).toBeUndefined();
+    expect(value.V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED).toBeUndefined();
+    expect(value.V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED).toBeUndefined();
+  });
+
+  it.each([
+    ['V2_TABLE_QUERY_OPS_ENABLED', 'sometimes'],
+    ['V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED', 'enabled'],
+    ['V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME', 'maybe'],
+    ['V2_TABLE_QUERY_OPS_AUTO_ACCEPT', 'automatic'],
+    ['V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS', 'rebuild_search_access_path,index_everything'],
+    ['V2_TABLE_QUERY_OPS_ANALYZER_BATCH_SIZE', 'many'],
+    ['V2_TABLE_QUERY_OPS_TASK_WORKER_INTERVAL_MS', '-1'],
+  ])('rejects an invalid table query ops %s', (key, invalid) => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        [key]: invalid,
+      })
+    );
+    expect(error).toBeDefined();
+  });
+
   it('defaults computed concurrency to two before config factories read validated env', () => {
     const { error, value } = envValidationSchema.validate(
       createEnv({

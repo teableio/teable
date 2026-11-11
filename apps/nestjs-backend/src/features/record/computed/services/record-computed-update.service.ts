@@ -8,6 +8,7 @@ import { match } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../../../global/database-router.service';
+import { V1EngineService } from '../../../../tracing/decorators/v1-engine';
 import { retryOnDeadlock } from '../../../../utils/retry-decorator';
 import { Timing } from '../../../../utils/timing';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
@@ -15,6 +16,7 @@ import type { IFieldInstance } from '../../../field/model/factory';
 import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-field.dto';
 
 @Injectable()
+@V1EngineService(['updateFromSelect'])
 export class RecordComputedUpdateService {
   private readonly logger = new Logger(RecordComputedUpdateService.name);
 

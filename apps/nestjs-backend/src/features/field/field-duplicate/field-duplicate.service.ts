@@ -28,6 +28,7 @@ import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { extractFieldReferences } from '../../../utils';
 import { DEFAULT_EXPRESSION } from '../../base/constant';
 import { replaceStringByMap } from '../../base/utils';
@@ -42,6 +43,26 @@ type FieldDuplicateCreateOptions = {
 };
 
 @Injectable()
+@V1EngineService([
+  'createCommonFields',
+  'createButtonFields',
+  'createTmpPrimaryFormulaFields',
+  'repairPrimaryFormulaFields',
+  'repairFormulaReference',
+  'createLinkFields',
+  'createSelfLinkFields',
+  'createCommonLinkFields',
+  'repairSymmetricField',
+  'repairFieldOptions',
+  'createDependencyFields',
+  'bootstrapPrimaryDependencyFields',
+  'duplicateSingleDependField',
+  'duplicateLookupField',
+  'duplicateRollupField',
+  'duplicateConditionalRollupField',
+  'duplicateFormulaField',
+  'replenishmentConstraint',
+])
 export class FieldDuplicateService {
   private readonly logger = new Logger(FieldDuplicateService.name);
 

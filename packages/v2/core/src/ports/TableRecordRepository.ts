@@ -313,6 +313,8 @@ export interface DeleteManyStreamResult {
 }
 
 export interface DeleteManyResult {
+  /** Actual deleted row count when supplied by persistence, independent of snapshot capture. */
+  deletedCount?: number;
   /** Stored snapshots captured before deletion. */
   deletedRecords?: ReadonlyArray<RecordStoredSnapshot>;
 }

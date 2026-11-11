@@ -601,6 +601,7 @@ export class UpdateRecordApplicationService {
               createUndoRedoCommand('ApplyRecordOrders', {
                 tableId: table.id().toString(),
                 viewId: command.order.viewId.toString(),
+                ...(isOrderOnly ? { source: 'recordUpdate' as const } : {}),
                 records: [
                   {
                     recordId: command.recordId.toString(),
@@ -618,6 +619,7 @@ export class UpdateRecordApplicationService {
               createUndoRedoCommand('ApplyRecordOrders', {
                 tableId: table.id().toString(),
                 viewId: command.order.viewId.toString(),
+                ...(isOrderOnly ? { source: 'recordUpdate' as const } : {}),
                 records: [
                   {
                     recordId: command.recordId.toString(),

@@ -150,6 +150,12 @@ export type RecordQueryGetByIdsPayload = {
    * allow-lists and non-primary conditional masks.
    */
   readonly keepPrimaryKey?: boolean;
+  /**
+   * Host-controlled response for a just-authorized write. Read policy still
+   * masks fields, but a missing table-level read grant must not reject the
+   * response after the write committed. Implies keepPrimaryKey.
+   */
+  readonly writeResponse?: boolean;
 };
 
 export type RecordQueryPluginContextMap = {

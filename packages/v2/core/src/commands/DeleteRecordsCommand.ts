@@ -6,11 +6,23 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IRecordRemovalReason } from '../domain/table/events/RecordsDeleted';
 import { RecordId } from '../domain/table/records/RecordId';
 import { TableId } from '../domain/table/TableId';
+import { recordFilterNodeSchema, type RecordFilterNode } from '../queries/RecordFilterDto';
 
-export const deleteRecordsInputSchema = z.object({
-  tableId: z.string(),
-  recordIds: z.array(z.string()).min(1, 'At least one recordId is required'),
-});
+export const deleteRecordsInputSchema = z
+  .object({
+    tableId: z.string(),
+    recordIds: z.array(z.string()).min(1, 'At least one recordId is required').optional(),
+    filter: recordFilterNodeSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if ((value.recordIds !== undefined) === (value.filter !== undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['filter'],
+        message: 'Provide either filter or recordIds, not both or neither',
+      });
+    }
+  });
 
 export type IDeleteRecordsCommandInput = z.input<typeof deleteRecordsInputSchema>;
 
@@ -19,7 +31,8 @@ export type { IRecordRemovalReason };
 export class DeleteRecordsCommand {
   private constructor(
     readonly tableId: TableId,
-    readonly recordIds: ReadonlyArray<RecordId>
+    readonly recordIds: ReadonlyArray<RecordId> | undefined,
+    readonly filter: RecordFilterNode | undefined
   ) {}
 
   static create(raw: unknown): Result<DeleteRecordsCommand, DomainError> {
@@ -35,15 +48,16 @@ export class DeleteRecordsCommand {
 
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
       parseRecordIds(parsed.data.recordIds).map(
-        (recordIds) => new DeleteRecordsCommand(tableId, recordIds)
+        (recordIds) => new DeleteRecordsCommand(tableId, recordIds, parsed.data.filter)
       )
     );
   }
 }
 
 const parseRecordIds = (
-  recordIds: ReadonlyArray<string>
-): Result<ReadonlyArray<RecordId>, DomainError> => {
+  recordIds: ReadonlyArray<string> | undefined
+): Result<ReadonlyArray<RecordId> | undefined, DomainError> => {
+  if (!recordIds) return ok(undefined);
   const parsed: RecordId[] = [];
 
   for (const rawId of recordIds) {

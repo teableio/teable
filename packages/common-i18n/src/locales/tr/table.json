@@ -362,7 +362,8 @@
         "title": "Alanı Sil",
         "simpleConfirm": "<b>{{fieldName}}</b> alanını silmek istediğinizden emin misiniz?",
         "withDependencies": "<b>{{fieldName}}</b> alanını silmek aşağıdaki alanları etkileyecektir:",
-        "deleteCount": "{{count}} alanı sil",
+        "deleteCount_one": "{{count}} alanı sil",
+        "deleteCount_other": "{{count}} alanı sil",
         "riskIdentified": "Risk tespit edildi({{count}})",
         "noDependencies": "Bağımlılık yok({{count}})",
         "noReferencesFound": "Bu kontrolde hiçbir başvuru bulunamadı. Yine de başka etkiler ortaya çıkabilir.",
@@ -557,11 +558,14 @@
         "deleting": "Deleting records",
         "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
         "completedWithIssues": "Deletion completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issues",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
-        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_one": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_other": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} rows",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -575,11 +579,13 @@
         "duplicating": "Kayıtlar çoğaltılıyor",
         "descriptionWithIssues": "Bazı çoğaltma parçaları başarısız oldu. Ayrıntıları aşağıda inceleyin.",
         "completedWithIssues": "Çoğaltma sorunlarla tamamlandı",
-        "issuesBadge": "{{count}} sorun",
+        "issuesBadge_one": "{{count}} sorun",
+        "issuesBadge_other": "{{count}} sorun",
         "chunkFailureTitle": "Parça hatası ayrıntıları",
         "chunkFailureSummary": "Akış çalışmaya devam ederken {{count}} parça hata bildirdi.",
         "chunkLabel": "Parça {{index}}",
-        "rowsLabel": "{{count}} satır",
+        "rowsLabel_one": "{{count}} satır",
+        "rowsLabel_other": "{{count}} satır",
         "phaseLabel": {
           "preparing": "Hazırlanıyor",
           "guarding": "Denetleniyor",
@@ -593,11 +599,13 @@
         "pasting": "Kayıtlar yapıştırılıyor",
         "descriptionWithIssues": "Bazı yapıştırma parçaları başarısız oldu. Ayrıntıları aşağıda inceleyin.",
         "completedWithIssues": "Yapıştırma sorunlarla tamamlandı",
-        "issuesBadge": "{{count}} sorun",
+        "issuesBadge_one": "{{count}} sorun",
+        "issuesBadge_other": "{{count}} sorun",
         "chunkFailureTitle": "Parça hatası ayrıntıları",
         "chunkFailureSummary": "Akış çalışmaya devam ederken {{count}} parça hata bildirdi.",
         "chunkLabel": "Parça {{index}}",
-        "rowsLabel": "{{count}} satır",
+        "rowsLabel_one": "{{count}} satır",
+        "rowsLabel_other": "{{count}} satır",
         "phaseLabel": {
           "preparing": "Hazırlanıyor",
           "guarding": "Denetleniyor",
@@ -612,11 +620,13 @@
         "clearing": "Kayıtlar temizleniyor",
         "descriptionWithIssues": "Bazı temizleme parçaları başarısız oldu. Ayrıntıları aşağıda inceleyin.",
         "completedWithIssues": "Temizleme sorunlarla tamamlandı",
-        "issuesBadge": "{{count}} sorun",
+        "issuesBadge_one": "{{count}} sorun",
+        "issuesBadge_other": "{{count}} sorun",
         "chunkFailureTitle": "Parça hatası ayrıntıları",
         "chunkFailureSummary": "Akış çalışmaya devam ederken {{count}} parça hata bildirdi.",
         "chunkLabel": "Parça {{index}}",
-        "rowsLabel": "{{count}} satır",
+        "rowsLabel_one": "{{count}} satır",
+        "rowsLabel_other": "{{count}} satır",
         "phaseLabel": {
           "preparing": "Hazırlanıyor",
           "guarding": "Denetleniyor",
@@ -634,11 +644,13 @@
         "restoreFailed": "Geri yükleme başarısız",
         "descriptionWithIssues": "Bazı geri yükleme parçaları başarısız oldu. Ayrıntıları aşağıda inceleyin.",
         "completedWithIssues": "Geri yükleme sorunlarla tamamlandı",
-        "issuesBadge": "{{count}} sorun",
+        "issuesBadge_one": "{{count}} sorun",
+        "issuesBadge_other": "{{count}} sorun",
         "chunkFailureTitle": "Parça hatası ayrıntıları",
         "chunkFailureSummary": "Akış çalışmaya devam ederken {{count}} parça hata bildirdi.",
         "chunkLabel": "Parça {{index}}",
-        "rowsLabel": "{{count}} satır",
+        "rowsLabel_one": "{{count}} satır",
+        "rowsLabel_other": "{{count}} satır",
         "phaseLabel": {
           "preparing": "Hazırlanıyor",
           "guarding": "Denetleniyor",
@@ -683,7 +695,8 @@
         "repairUnavailable": "Bu kural otomatik olarak onarılamaz",
         "manual": "Manuel",
         "manualRepairNotice": "Bu sorun manuel onarım gerektiriyor",
-        "manualRepairNoticeWithCount": "{{count}} sorun manuel onarım gerektiriyor. Onarım penceresini açmak için her kuralın sağındaki \"Manuel\" eylemini kullanın.",
+        "manualRepairNoticeWithCount_one": "{{count}} sorun manuel onarım gerektiriyor. Onarım penceresini açmak için her kuralın sağındaki \"Manuel\" eylemini kullanın.",
+        "manualRepairNoticeWithCount_other": "{{count}} sorun manuel onarım gerektiriyor. Onarım penceresini açmak için her kuralın sağındaki \"Manuel\" eylemini kullanın.",
         "manualRepairDialogTitle": "Manuel onarım gerekli",
         "manualRepairDialogDescription": "Bu sorun otomatik olarak onarılamaz. Aşağıdaki yönlendirmeyi inceleyin ve nasıl düzeltileceğini seçin.",
         "manualRepairDialogReason": "Neden manuel onarım gerekiyor",
@@ -712,7 +725,8 @@
         "systemColumns": "Sistem sütunları",
         "general": "Genel",
         "optional": "İsteğe bağlı",
-        "statementCount": "{{count}} komut",
+        "statementCount_one": "{{count}} komut",
+        "statementCount_other": "{{count}} komut",
         "detailsMissing": "Eksik: {{details}}",
         "detailsExtra": "Fazladan: {{details}}",
         "message": {
@@ -880,14 +894,18 @@
           "repair": "Onarım sonuçları"
         },
         "summary": {
-          "checks": "{{count}} kontrol",
+          "checks_one": "{{count}} kontrol",
+          "checks_other": "{{count}} kontrol",
           "success": "{{count}} başarılı",
-          "warn": "{{count}} uyarı",
-          "error": "{{count}} hata",
+          "warn_one": "{{count}} uyarı",
+          "warn_other": "{{count}} uyarı",
+          "error_one": "{{count}} hata",
+          "error_other": "{{count}} hata",
           "skipped": "{{count}} atlandı",
           "repaired": "{{count}} onarıldı",
           "manual": "{{count}} manuel",
-          "problems": "{{count}} sorun"
+          "problems_one": "{{count}} sorun",
+          "problems_other": "{{count}} sorun"
         },
         "status": {
           "success": "Başarılı",
@@ -942,6 +960,10 @@
       "title": "Açtığınız tablo silindi",
       "description": "\"{{tableName}}\" tablosuna geçildi",
       "descriptionEmpty": "Proje sayfasına dönüldü"
+    },
+    "unavailableRecovered": {
+      "title": "Açtığınız tablo kullanılamıyor",
+      "description": "Silinmiş olabilir veya erişim izniniz olmayabilir"
     }
   },
   "import": {
@@ -1117,7 +1139,8 @@
       "addDateField": "Tarih alanları ekle",
       "content": "Takvim görünümü programı oluşturmak için tablonun iki tarih alanına ihtiyacı var: başlangıç tarihi ve bitiş tarihi"
     },
-    "moreLinkText": "Tüm {{count}} kaydı göster"
+    "moreLinkText_one": "Tüm {{count}} kaydı göster",
+    "moreLinkText_other": "Tüm {{count}} kaydı göster"
   },
   "menu": {
     "insertRecordAbove": "Üste <input /> kayıt ekle",
@@ -1194,7 +1217,8 @@
   "lastModify": "Son değişiklik: ",
   "pasteNewRecords": {
     "title": "Birden fazla kayıt eklemek istiyor musunuz?",
-    "description": "{{count}} kayıt tabloya eklenecek."
+    "description_one": "{{count}} kayıt tabloya eklenecek.",
+    "description_other": "{{count}} kayıt tabloya eklenecek."
   },
   "tableArchive": {
     "title": "Tablo arşivi",
@@ -1208,7 +1232,8 @@
     "searchPlaceholder": "Arşivlenmiş kayıtları ara",
     "clearFilter": "Filtreyi temizle",
     "export": "CSV olarak dışa aktar",
-    "exporting": "Dışa aktarılıyor… {{count}} satır",
+    "exporting_one": "Dışa aktarılıyor… {{count}} satır",
+    "exporting_other": "Dışa aktarılıyor… {{count}} satır",
     "exportSucceed": "Dışa aktarma tamamlandı, indirme başlıyor",
     "restoreSelected": "Geri yükle ({{count}})",
     "permanentDeleteSelected": "Kalıcı olarak sil ({{count}})",
@@ -1285,7 +1310,8 @@
     "viewLinkHolderCanViewDesc": "Bağlantıya sahip herkes bu görünümün verilerini görüntüleyebilir",
     "viewLinkHolderCanEditDesc": "Oturum açmış kullanıcılar görünüm kapsamında veri düzenleyebilir",
     "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
-    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_one": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_other": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
     "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
     "restrictScope": "Restrict scope",
     "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
@@ -1340,7 +1366,8 @@
       "notConnected": "Google Sheets henüz bağlanmadı. Uygulamada bağlayıp tekrar dene.",
       "backToChat": "Artık sohbete dönebilirsin.",
       "status": {
-        "picked": "{{count}} e-tabloya izin verildi",
+        "picked_one": "{{count}} e-tabloya izin verildi",
+        "picked_other": "{{count}} e-tabloya izin verildi",
         "cancelled": "Atlandı",
         "failed": "Başarısız"
       },
@@ -1415,7 +1442,8 @@
         "copy": "Kopyala",
         "copied": "Kopyalandı!",
         "collapse": "Daralt",
-        "linesHidden": "{{count}} satır gizli - genişletmek için tıklayın"
+        "linesHidden_one": "{{count}} satır gizli - genişletmek için tıklayın",
+        "linesHidden_other": "{{count}} satır gizli - genişletmek için tıklayın"
       }
     },
     "tool": {
@@ -1584,8 +1612,10 @@
       "selectionColumns": "Sütun {{start}}-{{end}}",
       "selectionColumnsNamed": "{{names}} +{{count}}",
       "selectionUnnamed": "Adsız kayıt",
-      "selectionRecords": "{{count}} kayıt",
-      "selectionCellCount": "{{count}} hücre",
+      "selectionRecords_one": "{{count}} kayıt",
+      "selectionRecords_other": "{{count}} kayıt",
+      "selectionCellCount_one": "{{count}} hücre",
+      "selectionCellCount_other": "{{count}} hücre",
       "selectionRecordType": "Kayıt referansı",
       "selectionCellType": "Hücre referansı",
       "selectionDimensions": "{{rows}} satır × {{columns}} sütun",
@@ -1600,7 +1630,8 @@
       "selectionOpenRecord": "Kaydı aç: {{name}}",
       "selectionPrevious": "Önceki",
       "selectionNext": "Sonraki",
-      "selectionPage": "{{count}} kayıttan {{start}}–{{end}}"
+      "selectionPage_one": "{{count}} kayıttan {{start}}–{{end}}",
+      "selectionPage_other": "{{count}} kayıttan {{start}}–{{end}}"
     },
     "mention": {
       "tables": "Tablolar",
@@ -1629,7 +1660,8 @@
     },
     "attachment": {
       "pastedTextFileName": "Yapıştırılan metin",
-      "tooManyFiles": "Mesaj başına en fazla {{count}} dosya ekleyebilirsiniz"
+      "tooManyFiles_one": "Mesaj başına en fazla {{count}} dosya ekleyebilirsiniz",
+      "tooManyFiles_other": "Mesaj başına en fazla {{count}} dosya ekleyebilirsiniz"
     },
     "artifact": {
       "view": "Görüntüle",
@@ -1677,7 +1709,8 @@
     },
     "buildApp": {
       "task": {
-        "foundResults": "{{count}} sonuç bulundu"
+        "foundResults_one": "{{count}} sonuç bulundu",
+        "foundResults_other": "{{count}} sonuç bulundu"
       }
     },
     "scriptPreview": {
@@ -1707,8 +1740,10 @@
       "ls": "Dizini listele",
       "webSearch": "Web'de ara",
       "skill": "Beceri yükleniyor",
-      "foundFiles": "{{count}} dosya bulundu",
-      "listedEntries": "{{count}} girdi",
+      "foundFiles_one": "{{count}} dosya bulundu",
+      "foundFiles_other": "{{count}} dosya bulundu",
+      "listedEntries_one": "{{count}} girdi",
+      "listedEntries_other": "{{count}} girdi",
       "ranCommands_one": "{{count}} komut çalıştırıldı",
       "ranCommands_other": "{{count}} komut çalıştırıldı",
       "moreItems": "+{{count}} daha",
@@ -1766,12 +1801,16 @@
       "waitingInput": "Yanıtınız bekleniyor",
       "failed": "Yanıt başarısız oldu"
     },
-    "routineRunPrompt": "Rutin tarafından gönderildi"
+    "routineRunPrompt": "Rutin tarafından gönderildi",
+    "backToLatest": "En son mesajlara dön"
   },
   "upload": {
-    "panelUploading": "{{count}} dosya yükleniyor",
-    "panelFailed": "{{count}} dosya başarısız",
-    "panelCompleted": "{{count}} dosya tamamlandı",
+    "panelUploading_one": "{{count}} dosya yükleniyor",
+    "panelUploading_other": "{{count}} dosya yükleniyor",
+    "panelFailed_one": "{{count}} dosya başarısız",
+    "panelFailed_other": "{{count}} dosya başarısız",
+    "panelCompleted_one": "{{count}} dosya tamamlandı",
+    "panelCompleted_other": "{{count}} dosya tamamlandı",
     "statusFailed": "Başarısız",
     "statusCompleted": "Tamamlandı",
     "statusCancel": "Yüklemeyi iptal et",

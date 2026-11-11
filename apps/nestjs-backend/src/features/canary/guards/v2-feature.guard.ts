@@ -89,13 +89,6 @@ export class V2FeatureGuard implements CanActivate {
       return true;
     }
 
-    if (this.isUnsupportedV2Payload(req.body, feature)) {
-      this.cls.set('useV2', false);
-      this.cls.set('v2Feature', feature);
-      this.cls.set('v2Reason', 'unsupported_feature');
-      return true;
-    }
-
     // 2. Resolve base context when possible. Marked new bases are V2-first and bypass rollout config.
     const base = await this.getBaseV2DecisionContext(context);
     const decision = await this.canaryService.shouldUseV2ForBaseWithReason(base, feature);
@@ -109,23 +102,6 @@ export class V2FeatureGuard implements CanActivate {
     });
 
     return true;
-  }
-
-  private isUnsupportedV2Payload(body: unknown, feature: V2Feature): boolean {
-    if (feature !== 'updateRecord') {
-      return false;
-    }
-
-    const updateRecordBody = body as
-      | {
-          record?: { fields?: Record<string, unknown> | null } | null;
-          order?: unknown;
-        }
-      | undefined;
-    const fields = updateRecordBody?.record?.fields ?? {};
-
-    // V2 does not yet support updateRecord calls that only reorder a record.
-    return Boolean(updateRecordBody?.order) && Object.keys(fields).length === 0;
   }
 
   /**

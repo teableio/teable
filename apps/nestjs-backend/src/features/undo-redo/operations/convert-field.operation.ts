@@ -4,6 +4,7 @@ import type { PrismaService } from '@teable/db-main-prisma';
 import type { IConvertFieldOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import type { IThresholdConfig } from '../../../configs/threshold.config';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
@@ -23,6 +24,8 @@ export interface IConvertFieldPayload {
   };
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class ConvertFieldOperation {
   constructor(
     private readonly fieldOpenApiService: FieldOpenApiService,

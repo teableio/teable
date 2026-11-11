@@ -305,6 +305,121 @@ describe('CommandPalette provider boundaries', () => {
     expect(screen.queryByRole('option', { name: /Sales forecast/ })).toBeNull();
   });
 
+  it("searches one kind in its tab, showing the kind's mixed results until it answers", async () => {
+    const user = userEvent.setup();
+    const { wrapper } = setup();
+    const item = (id: string, name: string, type: string) => ({
+      id,
+      name,
+      type,
+      baseId: 'bseSales',
+      baseName: 'Sales project',
+    });
+    spaceSearch.mockResolvedValue({
+      data: {
+        list: [
+          item('tblSales', 'Sales forecast', 'table'),
+          item('dshSales', 'Sales board', 'dashboard'),
+        ],
+        nextCursor: 'more',
+      },
+    });
+    const chats = {
+      id: 'chat',
+      heading: 'Chats',
+      entries: [],
+      scopeEntries: [],
+      isLoading: false,
+      error: false,
+      retry: vi.fn(),
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+    };
+    render(
+      <CommandPalette
+        open
+        onOpenChange={vi.fn()}
+        spaceId="spcOne"
+        useExtraResults={(query) => (query ? chats : undefined)}
+      />,
+      { wrapper }
+    );
+    await user.type(screen.getByRole('combobox'), 'Sales');
+    await screen.findByRole('option', { name: /Sales board/ });
+
+    const pending = Promise.withResolvers<unknown>();
+    spaceSearch.mockImplementationOnce(() => pending.promise);
+    await user.click(screen.getByRole('tab', { name: 'noun.dashboard' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      expect.stringContaining('Sales board'),
+    ]);
+    await waitFor(() =>
+      expect(spaceSearch).toHaveBeenLastCalledWith(
+        'spcOne',
+        { search: 'Sales', type: 'dashboard', pageSize: 20, cursor: undefined },
+        expect.any(AbortSignal)
+      )
+    );
+    await act(async () =>
+      pending.resolve({
+        data: {
+          list: [
+            item('dshSales', 'Sales board', 'dashboard'),
+            item('dshOld', 'Old sales board', 'dashboard'),
+          ],
+          nextCursor: null,
+        },
+      })
+    );
+    await screen.findByRole('option', { name: /Old sales board/ });
+    expect(screen.getByRole('tab', { name: 'noun.table' })).toBeInTheDocument();
+  });
+
+  it('keeps matching commands in the all scope, without a tab of their own', async () => {
+    const user = userEvent.setup();
+    const { wrapper } = setup();
+    spaceSearch.mockResolvedValue({
+      data: {
+        list: [
+          {
+            id: 'tblSettings',
+            name: 'Settings log',
+            type: 'table',
+            baseId: 'bseSales',
+            baseName: 'Sales project',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+    const chats = {
+      id: 'chat',
+      heading: 'Chats',
+      entries: [],
+      scopeEntries: [],
+      isLoading: false,
+      error: false,
+      retry: vi.fn(),
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+    };
+    render(
+      <CommandPalette
+        open
+        onOpenChange={vi.fn()}
+        spaceId="spcOne"
+        useExtraResults={(query) => (query ? chats : undefined)}
+      />,
+      { wrapper }
+    );
+    await user.type(screen.getByRole('combobox'), 'setting');
+    await screen.findByText('Sales project');
+    expect(screen.getByRole('group', { name: 'commandPalette.commands' })).toHaveTextContent(
+      'settings.allSetting'
+    );
+    expect(screen.queryByRole('tab', { name: 'commandPalette.commands' })).toBeNull();
+  });
+
   it('loads and opens an exact view from the base sidebar without a ViewProvider', async () => {
     const user = userEvent.setup();
     const { wrapper, router } = setup();

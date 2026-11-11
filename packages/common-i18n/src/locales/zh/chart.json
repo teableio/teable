@@ -2,7 +2,7 @@
   "notBaseId": "缺少 baseId",
   "notPositionId": "缺少 positionId",
   "notPluginInstallId": "缺少 pluginInstallId",
-  "initBridge": "桥初始化中...",
+  "initBridge": "桥初始化中…",
   "actions": {
     "cancel": "取消",
     "save": "保存"
@@ -13,7 +13,7 @@
     "bar": "柱状图",
     "line": "折线图",
     "pie": "饼图",
-    "area": "区域图",
+    "area": "面积图",
     "table": "表格"
   },
   "form": {
@@ -40,7 +40,7 @@
       "yDisplay": {
         "label": "Y轴显示"
       },
-      "addXAxis": "添加系列分解",
+      "addXAxis": "添加系列拆分",
       "addYAxis": "添加另一个系列",
       "stack": "堆叠",
       "position": {

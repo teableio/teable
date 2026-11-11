@@ -12,6 +12,7 @@ import { ViewId as TableViewId } from '../domain/table/views/ViewId';
 export const applyRecordOrdersInputSchema = z.object({
   tableId: z.string(),
   viewId: z.string(),
+  source: z.literal('recordUpdate').optional(),
   records: z.array(
     z.object({
       recordId: z.string(),
@@ -31,7 +32,8 @@ export class ApplyRecordOrdersCommand {
   private constructor(
     readonly tableId: TableId,
     readonly viewId: ViewId,
-    readonly records: ReadonlyArray<ApplyRecordOrderItem>
+    readonly records: ReadonlyArray<ApplyRecordOrderItem>,
+    readonly source?: 'recordUpdate'
   ) {}
 
   static create(raw: unknown): Result<ApplyRecordOrdersCommand, DomainError> {
@@ -60,7 +62,7 @@ export class ApplyRecordOrdersCommand {
           });
         }
 
-        return ok(new ApplyRecordOrdersCommand(tableId, viewId, records));
+        return ok(new ApplyRecordOrdersCommand(tableId, viewId, records, parsed.data.source));
       })
     );
   }

@@ -279,61 +279,18 @@ const createRepository = (
   );
 };
 
-const composeRowProviders =
-  (...providers: RowProvider[]): RowProvider =>
-  (compiledQuery) => {
-    for (const provider of providers) {
-      const rows = provider(compiledQuery);
-      if (rows.length > 0) {
-        return rows;
-      }
-    }
-    return [];
-  };
-
-const createRecordIdRowProvider = (tableName: string, recordIds: string[]): RowProvider => {
-  const target = `from ${tableName}`;
-  return (compiledQuery) => {
-    if (compiledQuery.sql.includes('select *') && compiledQuery.sql.includes(target)) {
-      return recordIds.map((recordId) => ({
-        __id: recordId,
-        record_id: recordId,
-      }));
-    }
-    if (
-      compiledQuery.sql.includes('select "__id" as "record_id"') &&
-      compiledQuery.sql.includes(target)
-    ) {
-      return recordIds.map((recordId) => ({ record_id: recordId }));
-    }
-    return [];
-  };
-};
-
-const createUndoLogRowProvider = (
-  rows: ReadonlyArray<{
-    record_id: string;
-    operation?: string;
-    old_row: Record<string, unknown>;
-    new_row?: Record<string, unknown> | null;
-  }>
-): RowProvider => {
-  return (compiledQuery) => {
-    if (compiledQuery.sql.includes('FROM "__undo_log"')) {
-      return [...rows];
-    }
-    return [];
-  };
-};
-
 const createSnapshotRowProvider = (
   tableName: string,
-  rows: ReadonlyArray<Record<string, unknown>>
+  rows: ReadonlyArray<Record<string, unknown>>,
+  deletedRecordIds: ReadonlyArray<string> = rows.map((row) => row.__id as string)
 ): RowProvider => {
   const target = `from ${tableName}`;
   return (compiledQuery) => {
-    if (compiledQuery.sql.includes(target) && compiledQuery.sql.includes('select "__id"')) {
-      return [...rows];
+    if (compiledQuery.sql.startsWith('select ') && compiledQuery.sql.includes(target)) {
+      return rows.map((row) => ({ ...row, record_id: row.__id }));
+    }
+    if (compiledQuery.sql.startsWith('delete ') && compiledQuery.sql.includes(target)) {
+      return deletedRecordIds.map((recordId) => ({ __id: recordId }));
     }
     return [];
   };
@@ -417,7 +374,8 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     const { db } = createRecordingDb(
       createSnapshotRowProvider(tableName, [
         {
-          record_id: recordId.toString(),
+          __id: recordId.toString(),
+          col_name: 'Alice',
           [`old_${nameFieldId.toString()}`]: 'Alice',
         },
       ])
@@ -439,7 +397,7 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     vi.useRealTimers();
   });
 
-  it('returns deleted record snapshots captured from the undo log', async () => {
+  it('returns complete original snapshots from the locked rows', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -475,38 +433,63 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
 
     const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
     const { db } = createRecordingDb(
-      composeRowProviders(
-        createRecordIdRowProvider(tableName, [recordId.toString()]),
-        createUndoLogRowProvider([
-          {
-            record_id: recordId.toString(),
-            old_row: {
-              __id: recordId.toString(),
-              col_name: 'Alice',
-            },
-          },
-        ])
-      )
+      createSnapshotRowProvider(tableName, [
+        {
+          __id: recordId.toString(),
+          col_name: 'Alice',
+          __version: 7,
+          __created_by: 'usr_creator',
+          __created_time: new Date('2024-12-01T00:00:00.000Z'),
+          __last_modified_by: 'usr_editor',
+          __last_modified_time: new Date('2024-12-02T00:00:00.000Z'),
+          __auto_number: 42,
+          [table.views()[0].id().toRowOrderColumnName()]: 3,
+        },
+      ])
     );
     const repo = createRepository(db, table);
 
     const result = await repo.deleteMany({ actorId }, table, deleteSpec);
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toEqual({
+      deletedCount: 1,
       deletedRecords: [
-        expect.objectContaining({
+        {
           recordId: recordId.toString(),
           fields: {
             [NAME_FIELD_ID]: 'Alice',
           },
-        }),
+          version: 7,
+          createdBy: 'usr_creator',
+          createdTime: '2024-12-01T00:00:00.000Z',
+          lastModifiedBy: 'usr_editor',
+          lastModifiedTime: '2024-12-02T00:00:00.000Z',
+          autoNumber: 42,
+          orders: { [table.views()[0].id().toString()]: 3 },
+        },
       ],
     });
 
     vi.useRealTimers();
   });
 
-  it('keeps delete successful when undo snapshot capture is incomplete', async () => {
+  it.each([
+    {
+      name: 'returns original snapshots only for rows actually deleted',
+      returnedIds: [`rec${'z'.repeat(16)}`],
+      expectedError: false,
+    },
+    {
+      name: 'rejects a deleted row without a locked original snapshot',
+      returnedIds: [`rec${'x'.repeat(16)}`],
+      expectedError: true,
+    },
+    {
+      name: 'rejects duplicate deleted IDs rather than duplicating undo snapshots',
+      returnedIds: [RECORD_ID, RECORD_ID],
+      expectedError: true,
+    },
+  ])('$name', async ({ returnedIds, expectedError }) => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -544,31 +527,37 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
 
     const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
     const { db } = createRecordingDb(
-      composeRowProviders(
-        createRecordIdRowProvider(tableName, [recordId.toString(), recordIdB.toString()]),
-        createUndoLogRowProvider([
-          {
-            record_id: recordId.toString(),
-            old_row: {
-              __id: recordId.toString(),
-              col_name: 'Alice',
-            },
-          },
-        ])
+      createSnapshotRowProvider(
+        tableName,
+        [
+          { __id: recordId.toString(), col_name: 'Alice' },
+          { __id: recordIdB.toString(), col_name: 'Bob' },
+        ],
+        returnedIds
       )
     );
     const repo = createRepository(db, table);
 
     const result = await repo.deleteMany({ actorId }, table, deleteSpec);
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap().deletedRecords).toEqual([
-      expect.objectContaining({
-        recordId: recordId.toString(),
-        fields: {
-          [NAME_FIELD_ID]: 'Alice',
-        },
-      }),
-    ]);
+    if (expectedError) {
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error.code).toBe('record.snapshot.delete_capture_incomplete');
+      }
+    } else {
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        deletedCount: 1,
+        deletedRecords: [
+          expect.objectContaining({
+            recordId: recordIdB.toString(),
+            fields: {
+              [NAME_FIELD_ID]: 'Bob',
+            },
+          }),
+        ],
+      });
+    }
 
     vi.useRealTimers();
   });

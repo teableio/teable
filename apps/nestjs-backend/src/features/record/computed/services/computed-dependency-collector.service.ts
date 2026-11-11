@@ -22,6 +22,7 @@ import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../../../global/database-router.service';
 import { CUSTOM_KNEX, DATA_KNEX } from '../../../../global/knex/knex.module';
+import { V1EngineService } from '../../../../tracing/decorators/v1-engine';
 import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
@@ -72,6 +73,7 @@ const ALL_RECORDS = Symbol('ALL_RECORDS');
 const MAX_CONDITIONAL_ROLLUP_SAMPLE = 10_000;
 
 @Injectable()
+@V1EngineService(['getConditionalSortDependents', 'collectForFieldChanges', 'collect'])
 export class ComputedDependencyCollectorService {
   private readonly logger = new Logger(ComputedDependencyCollectorService.name);
   constructor(

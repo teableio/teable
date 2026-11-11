@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
+
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type {
   IRecordCreationInput,
@@ -12,7 +14,6 @@ import type { TableQueryService } from '../application/services/TableQueryServic
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
-import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
@@ -20,15 +21,10 @@ import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
+import { ViewProperties, type ViewPropertiesValue } from '../domain/table/views/ViewProperties';
 import { CloneViewVisitor } from '../domain/table/views/visitors/CloneViewVisitor';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { RecordWriteOperationKind, type IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import type { ITableSchemaCoordination } from '../ports/TableSchemaCoordination';
-import {
-  createRecordWritePluginRunner,
-  createTrackedRecordWritePlugin,
-  expectRecordWritePluginToBeSkipped,
-} from './recordWritePluginRunnerTestUtils';
 import { SubmitRecordCommand } from './SubmitRecordCommand';
 import { SubmitRecordHandler } from './SubmitRecordHandler';
 
@@ -121,197 +117,125 @@ const withFormRequiredFields = (
   })._unsafeUnwrap();
 };
 
-const createRunnerBackedRecordCreationService = (
+const withSharedForm = (
   table: Table,
-  plugins: ReadonlyArray<IRecordWritePlugin>
-) => {
-  const runner = createRecordWritePluginRunner([...plugins]);
-  const service = {
-    create: async (context: IExecutionContext, input: IRecordCreationInput) => {
-      const executionResult = await runner.prepare({
-        kind: input.operationKind,
-        executionContext: context,
-        table: input.table,
-        payload: {
-          fieldValues: input.fieldValues,
-          fieldKeyType: input.fieldKeyType,
-          typecast: input.typecast,
-          source: input.source,
-          order: input.order,
-          recordCount: 1 as const,
-        },
-        isTransactionBound: false,
-      });
-      if (executionResult.isErr()) return err(executionResult.error);
-
-      const execution = executionResult.value;
-      const guardResult = await execution.guard();
-      if (guardResult.isErr()) return err(guardResult.error);
-
-      const beforePersistResult = await execution.beforePersist(context);
-      if (beforePersistResult.isErr()) return err(beforePersistResult.error);
-
-      const createResult = table.createRecord(input.fieldValues, {
-        typecast: input.typecast,
-        source: input.source,
-      });
-      if (createResult.isErr()) {
-        return err(createResult.error);
-      }
-
-      await execution.afterCommit();
-
-      return ok({
-        record: createResult.value.record,
-        events: [],
-        fieldKeyMapping: new Map(),
-      } satisfies IRecordCreationResult);
-    },
-  } as unknown as RecordCreationService;
-
-  return { service };
-};
-
-const createPluginAwareRecordCreationService = (
-  table: Table,
-  supportedOperations: ReadonlyArray<RecordWriteOperationKind>
-) => {
-  const { plugin, calls } = createTrackedRecordWritePlugin(supportedOperations);
-  const { service } = createRunnerBackedRecordCreationService(table, [plugin]);
-
-  return { service, calls };
+  formViewId: string,
+  hiddenFieldId: string,
+  properties: ViewPropertiesValue
+): Table => {
+  const views = table.views().map((view) => {
+    if (view.id().toString() !== formViewId) return view;
+    const clone = view
+      .accept(
+        new CloneViewVisitor({ properties: ViewProperties.create(properties)._unsafeUnwrap() })
+      )
+      ._unsafeUnwrap();
+    clone
+      .setColumnMeta(
+        ViewColumnMeta.create({
+          ...view.columnMeta()._unsafeUnwrap().toDto(),
+          [hiddenFieldId]: { visible: false, required: true },
+        })._unsafeUnwrap()
+      )
+      ._unsafeUnwrap();
+    clone.setQueryDefaults(view.queryDefaults()._unsafeUnwrap())._unsafeUnwrap();
+    return clone;
+  });
+  return Table.rehydrate({
+    id: table.id(),
+    baseId: table.baseId(),
+    name: table.name(),
+    fields: table.getFields(),
+    views,
+    primaryFieldId: table.primaryFieldId(),
+  })._unsafeUnwrap();
 };
 
 describe('SubmitRecordHandler', () => {
-  it('creates record from form with visible fields and propagates form source', async () => {
-    const { table, textFieldId, formViewId } = createTestTable();
+  it.each(['ordinary', 'spoofed', 'disabled', 'permission-off', 'rotated', 'unknown'] as const)(
+    'never creates a record for invalid %s hidden submission',
+    async (mode) => {
+      const fixture = createTestTable();
+      const shareId = randomUUID();
+      const table = withSharedForm(fixture.table, fixture.formViewId, fixture.selectFieldId, {
+        enableShare: mode !== 'disabled',
+        shareId: mode === 'rotated' ? randomUUID() : shareId,
+        shareMeta: { includeHiddenField: mode !== 'permission-off' },
+      });
+      const create = vi.fn();
+      const handler = new SubmitRecordHandler(
+        { getById: async () => ok(table) } as unknown as TableQueryService,
+        { create } as unknown as RecordCreationService,
+        new RecordWriteSideEffectService()
+      );
+      const command = SubmitRecordCommand.create(
+        {
+          tableId: table.id().toString(),
+          formId: fixture.formViewId,
+          fields: { [mode === 'unknown' ? `fld${'z'.repeat(16)}` : fixture.selectFieldId]: 'Open' },
+          ...(mode === 'spoofed'
+            ? { shareId, includeHiddenField: true, options: { shareId } }
+            : {}),
+        },
+        mode === 'ordinary' || mode === 'spoofed' ? undefined : { shareId }
+      )._unsafeUnwrap();
 
-    let receivedCreateSource:
-      | {
-          type: 'user';
-        }
-      | {
-          type: 'form';
-          formId: string;
-        }
-      | undefined;
+      const result = await handler.handle(createContext(), command);
 
-    const tableQueryService = {
-      getById: async () => ok(table),
-    } as unknown as TableQueryService;
+      expect(result._unsafeUnwrapErr().code).toBe('view.hidden_fields_submission_not_allowed');
+      expect(create).not.toHaveBeenCalled();
+    }
+  );
 
-    const recordCreationService = {
-      create: async (_context: IExecutionContext, input: IRecordCreationInput) => {
-        receivedCreateSource = input.source;
-        const createResult = table.createRecord(input.fieldValues, {
-          typecast: input.typecast,
-          source: input.source,
-        });
-        if (createResult.isErr()) {
-          return err(createResult.error);
-        }
-        const events = table.pullDomainEvents();
-        return ok({
-          record: createResult.value.record,
-          events,
-          fieldKeyMapping: new Map(),
-        } satisfies IRecordCreationResult);
-      },
-    } as unknown as RecordCreationService;
-
-    const handler = new SubmitRecordHandler(
-      tableQueryService,
-      recordCreationService,
-      new RecordWriteSideEffectService()
-    );
-    const command = SubmitRecordCommand.create({
-      tableId: table.id().toString(),
-      formId: formViewId,
-      fields: {
-        [textFieldId]: 'submitted from form',
-      },
-      typecast: false,
-    })._unsafeUnwrap();
-
-    const result = await handler.handle(createContext(), command);
-    const value = result._unsafeUnwrap();
-
-    expect(receivedCreateSource).toEqual({
-      type: 'form',
-      formId: formViewId,
+  it('rechecks share permission on the table reloaded for exclusive coordination', async () => {
+    const fixture = createTestTable();
+    const shareId = randomUUID();
+    const initial = withSharedForm(fixture.table, fixture.formViewId, fixture.selectFieldId, {
+      enableShare: true,
+      shareId,
+      shareMeta: { includeHiddenField: true },
     });
-
-    const createdEvent = value.events.find(isRecordCreatedEvent);
-    expect(createdEvent).toBeDefined();
-    expect(createdEvent?.source).toEqual({ type: 'form', formId: formViewId });
-  });
-
-  it('skips plugins that do not support submit', async () => {
-    const { table, textFieldId, formViewId } = createTestTable();
-
-    const tableQueryService = {
-      getById: async () => ok(table),
-    } as unknown as TableQueryService;
-    const { service, calls } = createPluginAwareRecordCreationService(table, [
-      RecordWriteOperationKind.createOne,
-    ]);
-
-    const handler = new SubmitRecordHandler(
-      tableQueryService,
-      service,
-      new RecordWriteSideEffectService()
-    );
-    const command = SubmitRecordCommand.create({
-      tableId: table.id().toString(),
-      formId: formViewId,
-      fields: {
-        [textFieldId]: 'submitted from form',
-      },
-      typecast: false,
-    })._unsafeUnwrap();
-
-    const result = await handler.handle(createContext(), command);
-    result._unsafeUnwrap();
-
-    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.submit);
-  });
-
-  it('rejects when a plugin blocks submit', async () => {
-    const { table, textFieldId, formViewId } = createTestTable();
-
-    const tableQueryService = {
-      getById: async () => ok(table),
-    } as unknown as TableQueryService;
-    const blockingError = domainError.forbidden({
-      code: 'plugin.submit_blocked',
-      message: 'blocked submit',
+    const reloaded = withSharedForm(initial, fixture.formViewId, fixture.selectFieldId, {
+      enableShare: true,
+      shareId: randomUUID(),
+      shareMeta: { includeHiddenField: true },
     });
-    const { service } = createRunnerBackedRecordCreationService(table, [
+    const getById = vi.fn().mockResolvedValueOnce(ok(initial)).mockResolvedValueOnce(ok(reloaded));
+    const create = vi.fn();
+    const events: string[] = [];
+    const handler = new SubmitRecordHandler(
+      { getById } as unknown as TableQueryService,
+      { create } as unknown as RecordCreationService,
+      new RecordWriteSideEffectService(),
       {
-        name: 'submit-blocker',
-        supports: (operation) => operation === RecordWriteOperationKind.submit,
-        guard: async () => err(blockingError),
-      },
-    ]);
-
-    const handler = new SubmitRecordHandler(
-      tableQueryService,
-      service,
-      new RecordWriteSideEffectService()
+        acquire: async (_context, tableIds, mode) => {
+          events.push(mode);
+          return ok({
+            mode,
+            tableIds,
+            release: async () => {
+              events.push(`release-${mode}`);
+            },
+          });
+        },
+      }
     );
-    const command = SubmitRecordCommand.create({
-      tableId: table.id().toString(),
-      formId: formViewId,
-      fields: {
-        [textFieldId]: 'submitted from form',
+    const command = SubmitRecordCommand.create(
+      {
+        tableId: initial.id().toString(),
+        formId: fixture.formViewId,
+        fields: { [fixture.selectFieldId]: 'New option' },
+        typecast: true,
       },
-      typecast: false,
-    })._unsafeUnwrap();
+      { shareId }
+    )._unsafeUnwrap();
 
     const result = await handler.handle(createContext(), command);
 
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().code).toBe('plugin.submit_blocked');
+    expect(result._unsafeUnwrapErr().code).toBe('view.hidden_fields_submission_not_allowed');
+    expect(getById).toHaveBeenCalledTimes(2);
+    expect(create).not.toHaveBeenCalled();
+    expect(events).toEqual(['shared', 'release-shared', 'exclusive', 'release-exclusive']);
   });
 
   it('rejects when view is not a form', async () => {

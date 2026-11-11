@@ -163,6 +163,11 @@ export interface IV2NodePgContainerOptions {
       | 'observationWriterId'
     > & {
       ensureSchema?: boolean;
+      /**
+       * Maintenance-only deployments execute remediation tasks but keep no observation
+       * pipeline, so the record query repository is not wrapped with observation shaping.
+       */
+      skipRecordQueryObservation?: boolean;
     };
 }
 
@@ -273,7 +278,9 @@ const registerTableQueryOpsDependencies = async (
     ensureObservationSchema: tableQueryOps.ensureObservationSchema,
     ensureSchema: tableQueryOps.ensureSchema ?? ensureSchema,
   });
-  decorateV2TableRecordQueryRepositoryWithTableOps(c);
+  if (!tableQueryOps.skipRecordQueryObservation) {
+    decorateV2TableRecordQueryRepositoryWithTableOps(c);
+  }
 };
 
 const registerSchemaCoordination = (

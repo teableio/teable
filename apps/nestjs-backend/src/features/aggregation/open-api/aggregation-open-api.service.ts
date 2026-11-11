@@ -18,12 +18,23 @@ import type {
 } from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';
 import { CustomHttpException } from '../../../custom.exception';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { RecordService } from '../../record/record.service';
 import { IAggregationService } from '../aggregation.service.interface';
 import type { IWithView } from '../aggregation.service.interface';
 import { InjectAggregationService } from '../aggregation.service.provider';
 
 @Injectable()
+@V1EngineService([
+  'getAggregation',
+  'getRowCount',
+  'getGroupPoints',
+  'getCalendarDailyCollection',
+  'getRecordIndex',
+  'getSearchCount',
+  'getRecordIndexBySearchOrder',
+  'getSelectionAggregation',
+])
 export class AggregationOpenApiService {
   constructor(
     @InjectAggregationService() private readonly aggregationService: IAggregationService,

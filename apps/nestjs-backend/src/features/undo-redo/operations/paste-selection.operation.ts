@@ -3,6 +3,7 @@ import { FieldKeyType } from '@teable/core';
 import { keyBy } from 'lodash';
 import { OperationName } from '../../../cache/types';
 import type { IPasteSelectionOperation } from '../../../cache/types';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { ICellContext } from '../../calculation/utils/changes';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -20,6 +21,8 @@ export interface IPasteSelectionPayload {
   newRecords?: (IRecord & { order?: Record<string, number> })[];
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class PasteSelectionOperation {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,

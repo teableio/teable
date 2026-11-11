@@ -1063,6 +1063,7 @@
       "passwordAlreadyExists": "このアカウントにはすでにパスワードが設定されています",
       "verificationCodeInvalid": "認証コードが無効か、有効期限が切れています",
       "newEmailSameAsCurrentEmail": "新しいメールアドレスが現在のものと同じです",
+      "newPasswordSameAsCurrent": "新しいパスワードは現在のパスワードと異なる必要があります",
       "emailAlreadyRegistered": "このメールアドレスはすでに登録されています",
       "waitlistNotEnabled": "待機リスト機能は有効になっていません",
       "emailOrPasswordIncorrect": "メールアドレスまたはパスワードが正しくありません",

@@ -1067,6 +1067,7 @@
       "passwordAlreadyExists": "Bu hesap için parola zaten belirlenmiş",
       "verificationCodeInvalid": "Doğrulama kodu geçersiz veya süresi dolmuş",
       "newEmailSameAsCurrentEmail": "Yeni e-posta adresi mevcut adresle aynı",
+      "newPasswordSameAsCurrent": "Yeni şifre mevcut şifreden farklı olmalıdır",
       "emailAlreadyRegistered": "Bu e-posta adresi zaten kayıtlı",
       "waitlistNotEnabled": "Bekleme listesi özelliği etkin değil",
       "emailOrPasswordIncorrect": "E-posta veya parola yanlış",

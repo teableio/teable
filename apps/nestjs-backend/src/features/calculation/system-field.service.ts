@@ -9,11 +9,13 @@ import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
 import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
 
 @Injectable()
+@V1EngineService(['getModifiedSystemOpsMap'])
 export class SystemFieldService {
   constructor(
     private readonly cls: ClsService<IClsStore>,

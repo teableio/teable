@@ -4,6 +4,7 @@ import { CellFormat, FieldKeyType, FieldType, HttpErrorCode, generateRecordId } 
 import type { ICreateRecordsRo, ICreateRecordsVo } from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/utils/changes';
@@ -14,6 +15,7 @@ import { RecordService } from '../record.service';
 import { RecordModifySharedService } from './record-modify.shared.service';
 
 @Injectable()
+@V1EngineService(['multipleCreateRecords', 'createRecords', 'createRecordsOnlySql'])
 export class RecordCreateService {
   constructor(
     private readonly recordService: RecordService,

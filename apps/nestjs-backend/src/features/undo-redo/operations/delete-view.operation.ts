@@ -2,6 +2,7 @@ import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IDeleteViewOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import type { DataDbClientManager } from '../../../global/data-db-client-manager.service';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import type { ViewService } from '../../view/view.service';
 
@@ -17,6 +18,8 @@ type IScopedDataPrismaService = DataPrismaService & {
   txClient?: () => DataPrismaService;
 };
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class DeleteViewOperation {
   constructor(
     private readonly viewOpenApiService: ViewOpenApiService,

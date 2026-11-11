@@ -42,6 +42,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IDataPrismaQueryExecutor } from '../../global/database-router.service';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../field/model/factory';
@@ -72,6 +73,17 @@ type IStatisticsData = {
  * All methods currently throw NotImplementedException
  */
 @Injectable()
+@V1EngineService([
+  'performAggregation',
+  'performGroupedAggregation',
+  'performRowCount',
+  'getFieldsData',
+  'getGroupPoints',
+  'getSearchCount',
+  'getRecordIndexBySearchOrder',
+  'getRecordIndex',
+  'getCalendarDailyCollection',
+])
 export class AggregationService implements IAggregationService {
   private readonly logger = new Logger(AggregationService.name);
   constructor(

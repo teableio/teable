@@ -47,6 +47,9 @@ export const ExpandRecordWrap: FC<
         className="h-[92dvh] overflow-hidden rounded-t-lg p-0"
         side="bottom"
         closeable={false}
+        // The overlay stops below the banners above the app, so a tap on one reaches it
+        // instead of closing the record.
+        overlayStyle={{ top: 'var(--teable-top-banner-height, 0px)' }}
         ref={sheetRef}
       >
         <ModalContext.Provider value={{ ref: sheetRef }}>

@@ -493,15 +493,12 @@ export class ShareService {
     const formSubmitRo = { viewId: view.id, fields, typecast };
     const includeHiddenField = Boolean(view.shareMeta?.includeHiddenField);
 
-    // V2 form validation rejects hidden fields. Until SubmitRecord supports
-    // share includeHiddenField, keep the V1 path so existing share semantics hold.
-    if (this.cls.get('useV2') && includeHiddenField) {
-      this.cls.set('useV2', false);
-      this.cls.set('v2Reason', 'unsupported_feature');
-    }
-
     if (this.cls.get('useV2')) {
-      return this.recordOpenApiV2Service.formSubmit(tableId, formSubmitRo);
+      return this.recordOpenApiV2Service.formSubmit(
+        tableId,
+        formSubmitRo,
+        includeHiddenField ? { shareId: shareInfo.shareId } : undefined
+      );
     }
 
     return this.recordOpenApiService.formSubmit(tableId, formSubmitRo, { includeHiddenField });

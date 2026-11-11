@@ -74,7 +74,11 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
   };
 
   const disableSubmitBtn =
-    !currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword;
+    !currentPassword ||
+    !newPassword ||
+    !confirmPassword ||
+    newPassword !== confirmPassword ||
+    newPassword === currentPassword;
 
   const handleSubmit = async () => {
     const valid = changePasswordRoSchema.safeParse({ password: currentPassword, newPassword });

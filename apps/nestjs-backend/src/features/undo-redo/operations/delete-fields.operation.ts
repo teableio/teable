@@ -2,6 +2,7 @@ import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IDeleteFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import type { DataDbClientManager } from '../../../global/data-db-client-manager.service';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { restoreFieldRecordValues } from '../../field/restore-field-record-values';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -13,6 +14,8 @@ type IScopedDataPrismaService = DataPrismaService & {
   txClient?: () => DataPrismaService;
 };
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class DeleteFieldsOperation {
   constructor(
     private readonly fieldOpenApiService: FieldOpenApiService,

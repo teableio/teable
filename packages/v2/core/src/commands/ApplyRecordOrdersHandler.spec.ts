@@ -9,35 +9,34 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldName } from '../domain/table/fields/FieldName';
-import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
-import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
-import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
-import type { TableRecord } from '../domain/table/records/TableRecord';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import type {
+  ITableRecordQueryRepository,
+  ITableRecordQueryResult,
+} from '../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
   RecordMutationResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
-import type {
-  ITableRecordQueryRepository,
-  ITableRecordQueryResult,
-} from '../ports/TableRecordQueryRepository';
-import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ApplyRecordOrdersCommand } from './ApplyRecordOrdersCommand';
 import { ApplyRecordOrdersHandler } from './ApplyRecordOrdersHandler';
+import { createRecordWritePluginRunner } from './recordWritePluginRunnerTestUtils';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -65,12 +64,14 @@ const buildTable = () => {
 const createCommand = (
   tableId: string,
   viewId: string,
-  records: Array<{ recordId: string; order?: number | null }>
+  records: Array<{ recordId: string; order?: number | null }>,
+  source?: 'recordUpdate'
 ) =>
   ApplyRecordOrdersCommand.create({
     tableId,
     viewId,
     records,
+    source,
   })._unsafeUnwrap();
 
 class FakeTableRepository implements ITableRepository {
@@ -175,7 +176,13 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   }
 
   async *findStream(): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
-    return;
+    if (this.result.isErr()) {
+      yield err(this.result.error);
+      return;
+    }
+    for (const record of this.result.value.records) {
+      yield ok(record);
+    }
   }
 }
 
@@ -227,7 +234,8 @@ describe('ApplyRecordOrdersHandler', () => {
           total: 2,
         })
       ),
-      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus),
+      createRecordWritePluginRunner()
     );
 
     const result = await handler.handle(
@@ -255,7 +263,8 @@ describe('ApplyRecordOrdersHandler', () => {
       new TableQueryService(new FakeTableRepository([table])),
       tableRecordRepository,
       new FakeTableRecordQueryRepository(ok({ records: [], total: 0 })),
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      createRecordWritePluginRunner()
     );
 
     const result = await handler.handle(
@@ -289,7 +298,8 @@ describe('ApplyRecordOrdersHandler', () => {
           })
         )
       ),
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      createRecordWritePluginRunner()
     );
 
     const result = await handler.handle(
@@ -312,7 +322,8 @@ describe('ApplyRecordOrdersHandler', () => {
       new TableQueryService(new FakeTableRepository([table])),
       new FakeTableRecordRepository(),
       new FakeTableRecordQueryRepository(ok({ records: [], total: 0 })),
-      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+      createRecordWritePluginRunner()
     );
 
     const result = await handler.handle(
@@ -325,4 +336,113 @@ describe('ApplyRecordOrdersHandler', () => {
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('view.not_found');
   });
+
+  it.each([undefined, 'recordUpdate'] as const)(
+    'enforces record-update guards only for source %s',
+    async (source) => {
+      const { table, viewId } = buildTable();
+      const recordId = `rec${'s'.repeat(16)}`;
+      const tableRecordRepository = new FakeTableRecordRepository();
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const handler = new ApplyRecordOrdersHandler(
+        new TableQueryService(new FakeTableRepository([table])),
+        tableRecordRepository,
+        new FakeTableRecordQueryRepository(
+          ok({
+            records: [{ id: recordId, fields: {}, version: 1, orders: { [viewId.toString()]: 1 } }],
+            total: 1,
+          })
+        ),
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+        createRecordWritePluginRunner([
+          {
+            name: 'deny-record-updates',
+            supports: (kind) => kind === RecordWriteOperationKind.updateMany,
+            guard: () =>
+              err(domainError.forbidden({ code: 'test.update_denied', message: 'Denied' })),
+          },
+        ])
+      );
+
+      const result = await handler.handle(
+        createContext(),
+        createCommand(table.id().toString(), viewId.toString(), [{ recordId, order: 2 }], source)
+      );
+
+      if (source === 'recordUpdate') {
+        expect(result.isErr()).toBe(true);
+        expect(result._unsafeUnwrapErr().code).toBe('test.update_denied');
+        expect(tableRecordRepository.updateBatches).toHaveLength(0);
+        expect(unitOfWork.transactions).toHaveLength(0);
+        expect(eventBus.publishedMany).toHaveLength(0);
+      } else {
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap().updatedRecordIds).toEqual([recordId]);
+        expect(tableRecordRepository.updateBatches[0]).toHaveLength(1);
+        expect(eventBus.publishedMany).toHaveLength(1);
+      }
+    }
+  );
+
+  it.each([1, 2])(
+    'atomically checks every record-update order against the current row scope (%s allowed)',
+    async (allowedCount) => {
+      const { table, viewId } = buildTable();
+      const recordIds = [`rec${'t'.repeat(16)}`, `rec${'u'.repeat(16)}`];
+      const command = createCommand(
+        table.id().toString(),
+        viewId.toString(),
+        recordIds.map((recordId, index) => ({ recordId, order: index + 10 })),
+        'recordUpdate'
+      );
+      const tableRecordRepository = new FakeTableRecordRepository();
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const handler = new ApplyRecordOrdersHandler(
+        new TableQueryService(new FakeTableRepository([table])),
+        tableRecordRepository,
+        new FakeTableRecordQueryRepository(
+          ok({
+            records: recordIds.map((id, index) => ({
+              id,
+              fields: {},
+              version: 1,
+              orders: { [viewId.toString()]: index + 1 },
+            })),
+            total: recordIds.length,
+          })
+        ),
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+        createRecordWritePluginRunner([
+          {
+            name: 'current-update-row-scope',
+            supports: (kind) => kind === RecordWriteOperationKind.updateMany,
+            scope: () =>
+              ok({
+                recordSpec: RecordByIdsSpec.create(
+                  command.records.slice(0, allowedCount).map((item) => item.recordId)
+                ),
+              }),
+          },
+        ])
+      );
+
+      const result = await handler.handle(createContext(), command);
+
+      if (allowedCount < recordIds.length) {
+        expect(result.isErr()).toBe(true);
+        expect(result._unsafeUnwrapErr().code).toBe('record_write_plugin.scope_forbidden');
+        expect(tableRecordRepository.updateBatches).toHaveLength(0);
+        expect(unitOfWork.transactions).toHaveLength(0);
+        expect(eventBus.publishedMany).toHaveLength(0);
+      } else {
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap().updatedRecordIds).toEqual(recordIds);
+        expect(tableRecordRepository.updateBatches[0]).toHaveLength(recordIds.length);
+        expect(unitOfWork.transactions).toHaveLength(1);
+        expect(eventBus.publishedMany).toHaveLength(1);
+      }
+    }
+  );
 });

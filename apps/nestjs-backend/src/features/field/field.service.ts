@@ -36,6 +36,7 @@ import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
@@ -60,6 +61,32 @@ import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 type IOpContext = ISetFieldPropertyOpContext;
 
 @Injectable()
+@V1EngineService([
+  'generateDbFieldName',
+  'generateDbFieldNames',
+  'dbCreateMultipleField',
+  'dbCreateMultipleFields',
+  'alterTableDeleteField',
+  'findUniqueIndexesForField',
+  'getDropUniqueIndexSqls',
+  'getField',
+  'getFieldsByQuery',
+  'getFieldInstances',
+  'getDbTableName',
+  'resolvePending',
+  'markError',
+  'recreateDependentFormulaColumns',
+  'batchUpdateFields',
+  'batchDeleteFields',
+  'batchCreateFields',
+  'batchCreateFieldsAtOnce',
+  'create',
+  'del',
+  'update',
+  'getSnapshotBulk',
+  'getDocIdsByQuery',
+  'getFieldUniqueKeyName',
+])
 export class FieldService implements IReadonlyAdapterService {
   private readonly logger = new Logger(FieldService.name);
   constructor(

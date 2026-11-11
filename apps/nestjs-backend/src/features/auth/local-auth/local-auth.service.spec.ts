@@ -6,8 +6,9 @@ const USER_ID = 'usrAda';
 const EMAIL = 'ada@example.com';
 
 const createFixture = async ({ password = 'old-password' }: { password?: string | null } = {}) => {
-  const salt = await bcrypt.genSalt(4);
-  const stored = password == null ? null : await bcrypt.hash(password, salt);
+  // An account without a password has no salt either.
+  const salt = password == null ? null : await bcrypt.genSalt(4);
+  const stored = salt == null ? null : await bcrypt.hash(password ?? '', salt);
   const user = { id: USER_ID, email: EMAIL, password: stored, salt, accounts: [] };
   const update = vi.fn().mockResolvedValue(undefined);
   const prismaService = { txClient: () => ({ user: { update } }) };
@@ -69,6 +70,27 @@ describe('LocalAuthService password audit', () => {
       fixture.service.changePassword({ password: 'guess', newPassword: 'new-pass1' })
     ).rejects.toThrow('Password is incorrect');
     expect(fixture.update).not.toHaveBeenCalled();
+    expect(fixture.audit.emitAtomic).not.toHaveBeenCalled();
+  });
+
+  it('tells an account without a password that none is set, instead of failing the compare', async () => {
+    const fixture = await createFixture({ password: null });
+
+    await expect(
+      fixture.service.changePassword({ password: 'anything1', newPassword: 'new-pass1' })
+    ).rejects.toMatchObject({ message: 'Password is not set', status: 400 });
+    expect(fixture.update).not.toHaveBeenCalled();
+    expect(fixture.audit.emitAtomic).not.toHaveBeenCalled();
+  });
+
+  it('rejects a new password equal to the current one and keeps the sessions', async () => {
+    const fixture = await createFixture();
+
+    await expect(
+      fixture.service.changePassword({ password: 'old-password', newPassword: 'old-password' })
+    ).rejects.toThrow('New password must differ from the current one');
+    expect(fixture.update).not.toHaveBeenCalled();
+    expect(fixture.sessionStoreService.clearByUserId).not.toHaveBeenCalled();
     expect(fixture.audit.emitAtomic).not.toHaveBeenCalled();
   });
 

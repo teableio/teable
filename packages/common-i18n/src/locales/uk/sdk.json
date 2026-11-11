@@ -1075,6 +1075,7 @@
       "passwordAlreadyExists": "Для цього облікового запису пароль уже встановлено",
       "verificationCodeInvalid": "Код підтвердження недійсний або його термін дії минув",
       "newEmailSameAsCurrentEmail": "Нова адреса електронної пошти збігається з поточною",
+      "newPasswordSameAsCurrent": "Новий пароль має відрізнятися від поточного",
       "emailAlreadyRegistered": "Цю адресу електронної пошти вже зареєстровано",
       "waitlistNotEnabled": "Функцію списку очікування не ввімкнено",
       "emailOrPasswordIncorrect": "Неправильна електронна пошта або пароль",

@@ -10,7 +10,11 @@ import {
   ViewName,
   type DomainError,
 } from '@teable/v2-core';
-import { TableQueryRemediationTask } from '@teable/v2-table-query-ops';
+import {
+  TableQueryRemediationTask,
+  type ExecutablePhase1RemediationKind,
+  type TableQueryOpsTaskWorkerScope,
+} from '@teable/v2-table-query-ops';
 import { sql, type Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -150,12 +154,17 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
     ).toMatchObject({ status: 'failed', lastError: 'Real DDL error', attempts: 1 });
   });
 
-  const claim = (workerId: string, now = new Date(), scope: 'all' | 'manual_search' = 'all') =>
+  const claim = (
+    workerId: string,
+    now = new Date(),
+    scope: TableQueryOpsTaskWorkerScope = 'all',
+    allowedKinds: ReadonlyArray<ExecutablePhase1RemediationKind> = []
+  ) =>
     repository.claimNextAccepted(context, {
       workerId,
       now,
       scope,
-      allowedKinds: [],
+      allowedKinds,
       allowManualIndexExecution: false,
       allowPolicyIndexExecution: false,
     });
@@ -193,6 +202,64 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
     ).toBe('tqt_manual');
     expect((await claim('manual-2', new Date(), 'manual_search'))._unsafeUnwrap()).toBeUndefined();
     expect((await claim('general'))._unsafeUnwrap()?.snapshot().id).not.toBe('tqt_manual');
+  });
+
+  it('claims write-triggered search maintenance work in the search maintenance scope', async () => {
+    const kinds = [
+      'create_search_access_path',
+      'rebuild_search_access_path',
+      'drop_search_access_path',
+    ] as const;
+    await repository.save(
+      context,
+      queued(
+        'tqt_schema_rebuild',
+        'tblMaintenanceSchema',
+        { trigger: 'schema_change' },
+        'rebuild_search_access_path'
+      )
+    );
+    await repository.save(
+      context,
+      queued(
+        'tqt_reclaim_drop',
+        'tblMaintenanceReclaim',
+        { trigger: 'reclaim' },
+        'drop_search_access_path'
+      )
+    );
+    const claimed = await Promise.all([
+      claim('maintenance', new Date(), 'search_maintenance', kinds),
+      claim('maintenance-2', new Date(), 'search_maintenance', kinds),
+    ]);
+    expect(claimed.map((result) => result._unsafeUnwrap()?.snapshot().id).sort()).toEqual([
+      'tqt_reclaim_drop',
+      'tqt_schema_rebuild',
+    ]);
+  });
+
+  it('leaves admin search and index work to their own scopes', async () => {
+    const kinds = [
+      'create_search_access_path',
+      'rebuild_search_access_path',
+      'drop_search_access_path',
+    ] as const;
+    await repository.save(context, queued('tqt_admin_search', 'tblAdminSearch'));
+    await repository.save(
+      context,
+      queued(
+        'tqt_admin_index',
+        'tblAdminIndex',
+        { trigger: 'admin_index', executionMode: 'manual' },
+        'create_filter_index'
+      )
+    );
+    expect(
+      (await claim('maintenance', new Date(), 'search_maintenance', kinds))._unsafeUnwrap()
+    ).toBeUndefined();
+    expect(
+      (await claim('manual', new Date(), 'manual_search', kinds))._unsafeUnwrap()?.snapshot().id
+    ).toBe('tqt_admin_search');
   });
 
   it('preserves cancelled history and rejects a delayed unreserved start', async () => {

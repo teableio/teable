@@ -6,7 +6,7 @@
   },
   "pluginUser": {
     "name": "插件用户",
-    "description": "插件用户是系统自动生成的插件"
+    "description": "系统为插件自动生成的用户"
   },
   "secret": "密钥",
   "regenerateSecret": "重新生成密钥",
@@ -50,7 +50,7 @@
     },
     "autoCreateMember": {
       "label": "自动创建成员",
-      "description": "自动创建成员用于插件"
+      "description": "自动为插件创建成员"
     },
     "config": {
       "label": "配置",

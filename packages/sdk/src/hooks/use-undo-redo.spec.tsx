@@ -63,7 +63,7 @@ describe('useUndoRedo', () => {
 
     await result.current.undo();
 
-    expect(mockToast.loading).toHaveBeenCalledWith('Undoing...', { duration: Infinity });
+    expect(mockToast.loading).toHaveBeenCalledWith('Undoing…', { duration: Infinity });
     expect(mockToast.dismiss).toHaveBeenCalledWith('loading-toast-id');
     expect(mockToast).toHaveBeenCalledWith('Nothing to undo', { duration: 1500 });
     expect(mockToast.dismiss.mock.invocationCallOrder[0]).toBeLessThan(
@@ -78,7 +78,7 @@ describe('useUndoRedo', () => {
 
     await result.current.redo();
 
-    expect(mockToast.loading).toHaveBeenCalledWith('Redoing...', { duration: Infinity });
+    expect(mockToast.loading).toHaveBeenCalledWith('Redoing…', { duration: Infinity });
     expect(mockToast.dismiss).toHaveBeenCalledWith('loading-toast-id');
     expect(mockToast).toHaveBeenCalledWith('Nothing to redo', { duration: 1500 });
     expect(mockToast.dismiss.mock.invocationCallOrder[0]).toBeLessThan(

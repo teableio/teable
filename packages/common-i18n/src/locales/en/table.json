@@ -40,7 +40,7 @@
     "duplicateFieldTitle": "Notice",
     "duplicateFieldDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
     "duplicateTableTitle": "Notice",
-    "duplicateTableDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
+    "duplicateTableDescription": "Cross-space references are not supported. In the duplicate, the fields below will be converted to single line text fields.",
     "convertAndDuplicate": "Convert & duplicate"
   },
   "toolbar": {
@@ -58,7 +58,7 @@
         "restrict": "Restrict by password",
         "tips": "People who have the link can see the view.",
         "passwordTitle": "Enter a password",
-        "passwordTips": "Password restrictions for accessing shared views",
+        "passwordTips": "Only people who enter the correct password can open the link",
         "embed": "Embed",
         "embedPreview": "Preview",
         "copyCode": "Copy code",
@@ -67,18 +67,18 @@
         "URLSettingDescription": "Adjusting the following settings will not affect the embed code. You need to copy the code with new parameters to make it take effect",
         "cancel": "Cancel",
         "save": "Save",
-        "requireLogin": "Require login submit"
+        "requireLogin": "Require sign-in to submit"
       },
       "api": {
-        "title": "API Access",
+        "title": "API access",
         "aiContext": "AI Connect",
         "advanced": "Advanced",
         "recommended": "Recommended",
         "apiDocGroupTitle": "API context",
         "apiDocGroupDescription": "Copy the document below to AI so it can understand the current table schema, fields, and API examples, then read, create, update, or delete records as requested.",
-        "generatingToken": "Generating...",
+        "generatingToken": "Generating…",
         "generateToken": "Generate token",
-        "confirmTitle": "Create API Token",
+        "confirmTitle": "Create API token",
         "confirmDescription": "This will create a new API token with the following permissions for this project:",
         "scopeTableRead": "Read table info",
         "scopeFieldRead": "Read fields",
@@ -87,16 +87,16 @@
         "scopeUpdate": "Update records",
         "scopeDelete": "Delete records",
         "confirmExpiry": "The token will be valid for 1 year.",
-        "confirmButton": "Confirm & Create",
+        "confirmButton": "Confirm & create",
         "tokenInfo": "Token expires: {{expiry}}",
         "copied": "Copied!",
         "copyAIDoc": "Copy doc",
         "aiDocPreview": "Context preview",
         "manageToken": "Manage token",
-        "openInNewTab": "Open in New Tab",
-        "queryBuilderTitle": "API Query Builder",
+        "openInNewTab": "Open in new tab",
+        "queryBuilderTitle": "API query builder",
         "queryBuilderDesc": "Visually configure filters, sorting, and other parameters to generate ready-to-run API request code.",
-        "viewApiDocs": "View Full API Docs"
+        "viewApiDocs": "View full API docs"
       },
       "personalView": {
         "personal": "Personal",
@@ -129,7 +129,7 @@
   },
   "field": {
     "advancedProps": "Advanced properties",
-    "hide": "hide",
+    "hide": "Hide",
     "default": {
       "singleLineText": {
         "title": "Label"
@@ -231,7 +231,7 @@
       "rollup": {
         "title": "{{lookupFieldName}} Rollup (from {{linkFieldName}})",
         "rollup": "Rollup",
-        "selectAnRollupFunction": "Select an rollup function",
+        "selectAnRollupFunction": "Select a rollup function",
         "func": {
           "and": "AND",
           "arrayCompact": "ARRAYCOMPACT",
@@ -257,12 +257,12 @@
           "concatenate": "Joins together the text values into a single text value.",
           "count": "Count only non-empty numeric values. If you want to count all records, use COUNTALL.",
           "countA": "Count the number of non-empty values. This function counts both numeric and text values.",
-          "countAll": "counts all values including blank records.",
+          "countAll": "Counts all values, including blank ones.",
           "max": "Returns the largest of the given numbers.",
           "min": "Returns the smallest of the given numbers.",
           "or": "Returns true if any one of the values is true.",
           "sum": "Sum together the values.",
-          "xor": "Returns true if and only if odd number of values are true."
+          "xor": "Returns true if and only if an odd number of values are true."
         }
       },
       "conditionalRollup": {
@@ -279,7 +279,7 @@
       "fieldUpdated": "Field has been updated",
       "fieldCreated": "Field has been created",
       "fieldUnavailable": "This field is unavailable. Refresh the table and try again.",
-      "confirmFieldChange": "Confirm Field Change",
+      "confirmFieldChange": "Confirm field change",
       "areYouSurePerformIt": "Are you sure you want to perform it?",
       "addDescription": "Add description",
       "dbFieldName": "DB field name",
@@ -300,7 +300,7 @@
       "showNumber": "Show number",
       "autoFillDate": "Auto fill with current date",
       "createSymmetricLink": "Create a back link field in the link table",
-      "allowLinkMultipleRecords": "Allow multiple select",
+      "allowLinkMultipleRecords": "Allow linking to multiple records",
       "allowLinkToDuplicateRecords": "Allows records to be selected more than once",
       "allowSymmetricFieldLinkMultipleRecords": "Allows records to be selected more than once",
       "oneToOne": "one-to-one",
@@ -308,8 +308,8 @@
       "manyToOne": "many-to-one",
       "manyToMany": "many-to-many",
       "self": "Self",
-      "selectTable": "Select table...",
-      "selectBase": "Select a project...",
+      "selectTable": "Select table…",
+      "selectBase": "Select a project…",
       "linkFromAnotherBase": "Link from another project",
       "inSelfLink": "in self-link",
       "betweenTwoTables": "between two tables",
@@ -320,20 +320,20 @@
       "addOption": "Add option",
       "allowMultiUsers": "Allow adding multiple users",
       "notifyUsers": "Notify users once they're selected",
-      "searchTable": "Search table...",
-      "calculating": "Calculating...",
+      "searchTable": "Search table…",
+      "calculating": "Calculating…",
       "doSaveChanges": "Do you want to save the changes you made?",
       "linkFieldToLookup": "Linked record field to use for lookup",
       "lookupToTable": "Field from <bold>{{tableName}}</bold> you want to look up",
       "rollupToTable": "Field from <bold>{{tableName}}</bold> you want to roll up",
-      "selectField": "Select a field...",
+      "selectField": "Select a field…",
       "lastModifiedScope": "Fields",
       "lastModifiedAll": "All editable fields",
       "lastModifiedSpecific": "Specific fields",
       "lastModifiedSelect": "Tracked fields",
       "noEditableFields": "No editable fields available",
       "conditionalLookup": {
-        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLimitToggleLabel": "Sort matching records and limit the number of matches",
         "sortLabel": "Sort results",
         "limitLabel": "Maximum records to include",
         "limitPlaceholder": "Leave blank to include all matches",
@@ -343,13 +343,13 @@
       },
       "linkTable": "Link table",
       "linkBase": "Link project",
-      "tableNoPermission": "No permission table",
-      "baseNoPermission": "No permission project",
-      "noLinkTip": "No linked records to look up. Add a Link to another record field, then try to configure your lookup again.",
+      "tableNoPermission": "No access to this table",
+      "baseNoPermission": "No access to this project",
+      "noLinkTip": "No link fields to look up. Add a link field, then try to configure your lookup again.",
       "fieldValidationRules": "Field value validation rules",
       "enableValidateFieldUnique": "Unique values only",
       "enableValidateFieldNotNull": "Required",
-      "knowMore": "know more",
+      "knowMore": "Learn more",
       "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "Show records by field",
       "filterByView": "Filter records by view",
@@ -362,16 +362,17 @@
         "title": "Delete field",
         "simpleConfirm": "Are you sure you want to delete the field <b>{{fieldName}}</b>?",
         "withDependencies": "Deleting the field <b>{{fieldName}}</b> will affect the following items:",
-        "deleteCount": "Delete {{count}} fields",
+        "deleteCount_one": "Delete {{count}} field",
+        "deleteCount_other": "Delete {{count}} fields",
         "riskIdentified": "Risk identified({{count}})",
         "noDependencies": "No references found ({{count}})",
         "noReferencesFound": "No references were found in this check. Other effects may still occur.",
         "referencesFailed": "Unable to load field references. Retry before deleting.",
-        "affectedItems": "Affected Items",
+        "affectedItems": "Affected items",
         "type": "Type",
         "source": "Source",
-        "loginEmailFieldWarning": "This field is used as the login email identifier. Deleting it will break login for the following apps:",
-        "loginEmailFieldConvertWarning": "This field is used as the login email field for apps. Changing its type will break login for the following apps:"
+        "loginEmailFieldWarning": "This field is used as the sign-in email. Deleting it will break sign-in for the following apps:",
+        "loginEmailFieldConvertWarning": "This field is used as the sign-in email for apps. Changing its type will break sign-in for the following apps:"
       }
     },
     "subTitle": {
@@ -382,7 +383,7 @@
       "checkbox": "Check or uncheck to indicate status.",
       "multipleSelect": "Select one or more predefined options in a list.",
       "singleSelect": "Select one predefined option from a list, or prefill each new cell with a default option.",
-      "user": "Add an user to a record.",
+      "user": "Add a user to a record.",
       "date": "Enter a date (e.g. 11/12/2023) or choose one from a calendar.",
       "number": "Enter a number, or prefill each new cell with a default value.",
       "rating": "Add a rating on a predefined scale.",
@@ -433,15 +434,15 @@
       },
       "placeholder": {
         "summarize": "Summary of the content",
-        "translate": "Translation concise and easy to understand, light-hearted",
-        "extractInfo": "Extract email, phone, name, address...",
+        "translate": "Keep the translation concise, easy to understand, and light-hearted",
+        "extractInfo": "Extract email, phone, name, address…",
         "extractDate": "Extract start time",
-        "improveText": "Formal, friendly, humorous...",
-        "attachPromptForTag": "Not allowed to exceed three tags",
+        "improveText": "Formal, friendly, humorous…",
+        "attachPromptForTag": "No more than three tags",
         "attachPromptForClassify": "Classify \"In Progress\" as \"No Risk\"",
         "prompt": "Enter / select the referenced field",
         "type": "Select AI action",
-        "targetLanguage": "English, Chinese, French...",
+        "targetLanguage": "English, Chinese, French…",
         "imageSize": "Please enter the image size",
         "imageQuality": "Please enter the image quality",
         "aspectRatio": "Select aspect ratio",
@@ -456,7 +457,7 @@
       },
       "hint": {
         "imageInputSupported": "💡 This model supports image input. You can select an attachment field to use images as reference for generation.",
-        "attachmentNotSupported": "💡 This model does not support attachment input. Only Gemini models support image-to-image generation.",
+        "attachmentNotSupported": "💡 This model does not support attachment input. Choose a model that supports image input to use reference images.",
         "singleImageOnly": "This model can only generate one image at a time"
       },
       "tip": {
@@ -464,7 +465,7 @@
       },
       "auto": "Auto",
       "resolution": {
-        "1K": "1K (Standard)",
+        "1K": "1K (standard)",
         "2K": "2K (HD)",
         "4K": "4K (Ultra HD)"
       },
@@ -473,12 +474,12 @@
         "tip": "After enabling, the current field will be updated synchronously with the content changes of the AI configuration"
       },
       "autoFillFieldDialog": {
-        "title": "Regenerate AI Field",
-        "description": "Will generate for {{count}} rows in the current view. Task will run in the background."
+        "title": "Regenerate AI field",
+        "description": "This will generate values for {{count}} rows in the current view. The task runs in the background."
       },
       "autoFillConfirm": {
-        "title": "Apply AI Field Configuration",
-        "description": "Will generate for {{count}} rows in the current view. Task will run in the background.",
+        "title": "Apply AI field configuration",
+        "description": "This will generate values for {{count}} rows in the current view. The task runs in the background.",
         "emptyOnlyMode": "Fill empty cells only",
         "emptyOnlyModeDesc": "Only generate for empty cells, existing content will not be overwritten",
         "allMode": "Generate entire column",
@@ -489,7 +490,7 @@
         "fillEmptyCells": "Fill empty cells",
         "generateAll": "Generate all",
         "recommended": "Recommended",
-        "generateFailed": "Generate failed",
+        "generateFailed": "Generation failed",
         "limitWarning": "Due to the 1,000 row limit per task, only the first 1,000 rows will be processed. You can run the task again to process remaining rows."
       }
     }
@@ -497,36 +498,36 @@
   "table": {
     "newTableLabel": "New table",
     "rename": "Rename",
-    "tableRecordHistory": "Record History",
-    "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
+    "tableRecordHistory": "Record history",
+    "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\"?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
     "baseInfo": "Project info",
-    "loginUserTable": "App Login",
+    "loginUserTable": "App sign-in",
     "linkedApps": "Linked apps",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
     "deleteTip1": "Link fields linked with this table in other tables will be converted to text.",
     "deleteWithDependencies": "Deleting table <b>{{tableName}}</b> will affect the following fields:",
-    "loginDeleteWarning": "This table is used as a user table by the following apps. Deleting it will break their login functionality.",
+    "loginDeleteWarning": "This table is used as a user table by the following apps. Deleting it will break sign-in for them.",
     "operator": {
       "createBlank": "New table"
     },
     "actionTips": {
       "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
       "copyAndPasteBrowser": "Copy and paste not supported in this browser",
-      "copying": "Copying...",
+      "copying": "Copying…",
       "copySuccessful": "Copy successful",
       "copyFailed": "Copy failed",
-      "pasting": "Pasting...",
+      "pasting": "Pasting…",
       "pasteSuccessful": "Paste successful",
       "pasteFailed": "Paste failed",
       "pasteNoEditableFields": "The selected fields are read-only and cannot be pasted into.",
-      "filling": "Filling...",
+      "filling": "Filling…",
       "fillSuccessful": "Fill successful",
       "fillFailed": "Fill failed",
-      "clearing": "Clearing...",
+      "clearing": "Clearing…",
       "clearSuccessful": "Clear successful",
       "clearFailed": "Clear failed",
       "clearConfirmTitle": "Clear data",
@@ -534,7 +535,7 @@
       "archiveRecordConfirmTitle": "Archive records",
       "archiveRecordConfirmDescription": "This action will archive {{recordCount}} records. Archived records can be viewed and restored from the table archive.",
       "archiveRecord": "Archive",
-      "archiving": "Archiving...",
+      "archiving": "Archiving…",
       "archiveSuccessful": "Archive successful",
       "deleteRecordConfirmTitle": "Delete records",
       "deleteRecordConfirmDescription": "This action will delete {{recordCount}} records. Are you sure you want to continue?",
@@ -545,8 +546,8 @@
       "paste": "Paste",
       "deleteRecord": "Delete",
       "clear": "Clear",
-      "deleting": "Deleting...",
-      "duplicating": "Duplicating...",
+      "deleting": "Deleting…",
+      "duplicating": "Duplicating…",
       "deleteFailed": "Delete failed",
       "deleteSuccessful": "Delete successful",
       "duplicateFailed": "Duplicate failed",
@@ -557,16 +558,19 @@
         "deleting": "Deleting records",
         "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
         "completedWithIssues": "Deletion completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issue",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
-        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkFailureSummary_one": "{{count}} batch failed; the rest of the operation continued.",
+        "chunkFailureSummary_other": "{{count}} batches failed; the rest of the operation continued.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} row",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
           "deleting": "Deleting",
-          "publishing": "Publishing",
+          "publishing": "Syncing",
           "finalizing": "Finalizing"
         }
       },
@@ -575,16 +579,18 @@
         "duplicating": "Duplicating records",
         "descriptionWithIssues": "Some duplicate chunks failed. Review the details below.",
         "completedWithIssues": "Duplication completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issue",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} row",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
           "processing": "Duplicating",
-          "publishing": "Publishing",
+          "publishing": "Syncing",
           "finalizing": "Finalizing"
         }
       },
@@ -593,16 +599,18 @@
         "pasting": "Pasting records",
         "descriptionWithIssues": "Some paste chunks failed. Review the details below.",
         "completedWithIssues": "Paste completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issue",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} row",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
           "processing": "Pasting",
-          "publishing": "Publishing",
+          "publishing": "Syncing",
           "finalizing": "Finalizing"
         }
       },
@@ -612,16 +620,18 @@
         "clearing": "Clearing records",
         "descriptionWithIssues": "Some clear chunks failed. Review the details below.",
         "completedWithIssues": "Clear completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issue",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} row",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
           "processing": "Clearing",
-          "publishing": "Publishing",
+          "publishing": "Syncing",
           "finalizing": "Finalizing"
         }
       },
@@ -629,21 +639,23 @@
         "confirmTitle": "Restore fields",
         "confirmDescription": "This action will restore deleted fields and their record values.",
         "preparing": "Preparing field restore",
-        "restoring": "Restoring fields...",
+        "restoring": "Restoring fields…",
         "restoringRecords": "Restoring record values",
         "restoreFailed": "Restore failed",
         "descriptionWithIssues": "Some restore chunks failed. Review the details below.",
         "completedWithIssues": "Restore completed with issues",
-        "issuesBadge": "{{count}} issues",
+        "issuesBadge_one": "{{count}} issue",
+        "issuesBadge_other": "{{count}} issues",
         "chunkFailureTitle": "Chunk failure details",
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
-        "rowsLabel": "{{count}} rows",
+        "rowsLabel_one": "{{count}} row",
+        "rowsLabel_other": "{{count}} rows",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
           "processing": "Restoring",
-          "publishing": "Publishing",
+          "publishing": "Syncing",
           "finalizing": "Finalizing"
         }
       },
@@ -658,23 +670,23 @@
       "crossBaseCopyLoadFirst": "Please scroll to load all selected rows before copying cross-project fields."
     },
     "graph": {
-      "effectCells": "May effect cells",
+      "effectCells": "Affected cells",
       "estimatedTime": "Estimated time",
-      "linkFieldCount": "Affects the number of linked fields"
+      "linkFieldCount": "Affected link fields"
     },
     "integrity": {
       "check": "Check",
       "title": "Integrity check",
-      "loading": "Checking integrity...",
+      "loading": "Checking integrity…",
       "allGood": "All good!",
       "fixIssues": "Fix issues",
       "type": "Type",
       "message": "Error message",
       "v2": {
-        "dialogTitle": "Schema Integrity",
+        "dialogTitle": "Schema integrity",
         "dialogDescription": "Run the v2 schema checker and repair flow for {{tableName}}.",
         "dialogDescriptionNoTable": "Run the v2 schema checker and repair flow for the current project.",
-        "runCheck": "Run Check",
+        "runCheck": "Run check",
         "recheck": "Re-check",
         "repair": "Repair",
         "repairWarnings": "Repair warnings only",
@@ -683,14 +695,15 @@
         "repairUnavailable": "This rule cannot be repaired automatically",
         "manual": "Manual",
         "manualRepairNotice": "This issue needs manual repair",
-        "manualRepairNoticeWithCount": "{{count}} issues need manual repair. Use the \"Manual\" action on the right side of each rule to open the repair dialog.",
+        "manualRepairNoticeWithCount_one": "{{count}} issue needs manual repair. Use the \"Manual\" action on the right side of each rule to open the repair dialog.",
+        "manualRepairNoticeWithCount_other": "{{count}} issues need manual repair. Use the \"Manual\" action on the right side of each rule to open the repair dialog.",
         "manualRepairDialogTitle": "Manual repair required",
         "manualRepairDialogDescription": "This issue cannot be repaired automatically. Review the guidance below and choose how it should be fixed.",
         "manualRepairDialogReason": "Why manual repair is needed",
-        "manualRepairDialogHint": "This dialog currently guides the user through the repair choices required by the rule. Execution can be added on top of this contract later.",
+        "manualRepairDialogHint": "Review the guidance below and choose how this issue should be repaired.",
         "manualRepairDialogClose": "Close",
         "repairPreviewTitle": "Confirm repair details",
-        "repairPreviewDescription": "These details come from the repair dry run. The repair will only execute after you confirm.",
+        "repairPreviewDescription": "These details, including the SQL to run, come from the repair dry run. The repair will only execute after you confirm.",
         "repairPreviewTooltip": "Open the dry-run repair plan. The dialog will show the returned SQL, or clearly say when no SQL is available.",
         "repairPreviewMissingTable": "This check result does not include a table, so the dry-run repair target cannot be resolved.",
         "repairPreviewUnavailableStatus": "This status does not need repair, so a dry-run repair plan cannot be generated.",
@@ -703,8 +716,8 @@
         "repairPreviewCannotConfirm": "The dry run returned SQL, but this rule cannot be confirmed for automatic repair right now. You can still review the repair plan.",
         "repairPreviewParameters": "Parameters",
         "repairPreviewConfirm": "Run repair",
-        "checking": "Checking schema...",
-        "repairing": "Repairing schema...",
+        "checking": "Checking schema…",
+        "repairing": "Repairing schema…",
         "streamError": "Failed to stream schema integrity results.",
         "noTableSelected": "Select a table first to run the v2 schema checker.",
         "noResults": "No schema results yet.",
@@ -712,7 +725,8 @@
         "systemColumns": "System columns",
         "general": "General",
         "optional": "Optional",
-        "statementCount": "{{count}} statements",
+        "statementCount_one": "{{count}} statement",
+        "statementCount_other": "{{count}} statements",
         "detailsMissing": "Missing: {{details}}",
         "detailsExtra": "Extra: {{details}}",
         "message": {
@@ -880,14 +894,18 @@
           "repair": "Repair results"
         },
         "summary": {
-          "checks": "{{count}} checks",
+          "checks_one": "{{count}} check",
+          "checks_other": "{{count}} checks",
           "success": "{{count}} passed",
-          "warn": "{{count}} warnings",
-          "error": "{{count}} errors",
+          "warn_one": "{{count}} warning",
+          "warn_other": "{{count}} warnings",
+          "error_one": "{{count}} error",
+          "error_other": "{{count}} errors",
           "skipped": "{{count}} skipped",
           "repaired": "{{count}} repaired",
           "manual": "{{count}} manual",
-          "problems": "{{count}} problems"
+          "problems_one": "{{count}} problem",
+          "problems_other": "{{count}} problems"
         },
         "status": {
           "success": "Pass",
@@ -905,17 +923,17 @@
         }
       },
       "errorType": {
-        "ForeignTableNotFound": "ForeignTableNotFound",
-        "ForeignKeyNotFound": "ForeignKeyNotFound",
-        "SelfKeyNotFound": "SelfKeyNotFound",
-        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
-        "MissingRecordReference": "MissingRecordReference",
-        "InvalidLinkReference": "InvalidLinkReference",
-        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
-        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
-        "UniqueIndexNotFound": "UniqueIndexNotFound",
-        "EmptyString": "EmptyString",
-        "InvalidFilterOperator": "InvalidFilterOperator",
+        "ForeignTableNotFound": "Linked table not found",
+        "ForeignKeyNotFound": "Foreign key not found",
+        "SelfKeyNotFound": "Self key not found",
+        "SymmetricFieldNotFound": "Symmetric field not found",
+        "MissingRecordReference": "Linked record not found",
+        "InvalidLinkReference": "Invalid link reference",
+        "ForeignKeyHostTableNotFound": "Foreign key host table not found",
+        "ReferenceFieldNotFound": "Referenced field not found",
+        "UniqueIndexNotFound": "Unique index not found",
+        "EmptyString": "Cells contain empty strings",
+        "InvalidFilterOperator": "Invalid filter operator",
         "InvalidPrimaryLookup": "Primary field misconfigured as lookup",
         "InvalidPrimaryType": "Primary field has unsupported type",
         "MissingPrimary": "Table has no primary field"
@@ -931,17 +949,21 @@
       "globalSearchFieldTip": "Global search mode is active. Fuzzy search runs across all fields. Date, checkbox, and button fields are not supported",
       "hideNotMatchRowTip": "When off, show all rows",
       "autoIndexTip": "Your table has exceeded {{rowCount}} rows. We recommend enabling indexes to improve search performance. Enabling indexes may slightly reduce write speed. During index creation, table read/write performance may be affected. Please be patient",
-      "enableIndex": "enable",
-      "keepAsIs": "keep as it",
-      "ignoreIndexError": "ignore"
+      "enableIndex": "Enable",
+      "keepAsIs": "Keep as is",
+      "ignoreIndexError": "Ignore"
     },
     "searchTips": {
-      "maxFieldTips_limited": "Exceeded the maximum {{count}} number of fields, extra fields will be ignored"
+      "maxFieldTips_limited": "Up to {{count}} fields are supported. Extra fields will be ignored."
     },
     "deletedRecovered": {
       "title": "The table you opened has been deleted",
       "description": "Switched to \"{{tableName}}\"",
       "descriptionEmpty": "Returned to the project page"
+    },
+    "unavailableRecovered": {
+      "title": "The table you opened is unavailable",
+      "description": "It may have been deleted, or you don't have access to it"
     }
   },
   "import": {
@@ -956,9 +978,9 @@
       "linkUrlInputTitle": "Add file from URL",
       "importTitle": "Create a new table",
       "incrementImportTitle": "Import into — ",
-      "optionsTitle": "Import option",
-      "primitiveFields": "Primitive fields",
-      "importFields": "Import field",
+      "optionsTitle": "Import options",
+      "primitiveFields": "Table fields",
+      "importFields": "Imported fields",
       "primaryField": "Primary field",
       "tipsTitle": "Tips",
       "confirm": "Confirm and continue"
@@ -975,20 +997,20 @@
       "downAsCsv": "Download CSV",
       "importData": "Import data",
       "duplicate": "Duplicate",
-      "duplicating": "Duplicating...",
+      "duplicating": "Duplicating…",
       "duplicateSuccess": "Duplicated successfully",
       "duplicateFailed": "Failed to duplicate",
       "includeRecords": "Include records"
     },
     "tips": {
       "importWayTip": "Click or drag file to this area to upload",
-      "fileExceedSizeTip": "This type file size exceeds the limit of",
-      "analyzing": "analyzing",
+      "fileExceedSizeTip": "Files of this type can't exceed",
+      "analyzing": "Analyzing",
       "importing": "Importing",
       "importingRows": "Importing {{processed}} of {{total}} rows",
       "importingRowsUnknown": "Imported {{processed}} rows",
       "importingSheet": "Sheet {{current}} of {{total}}: {{name}}",
-      "preparingImport": "Preparing import...",
+      "preparingImport": "Preparing import…",
       "importFinished": "Import finished",
       "importFinishedPartial": "Import finished with row limits",
       "importFinishedWithErrors": "Import finished, some sheets failed",
@@ -999,15 +1021,15 @@
       "importDone": "Done",
       "notSupportFieldType": "Field type is not supported",
       "resultEmpty": "No results found.",
-      "searchPlaceholder": "Search...",
-      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The import status is displayed in the upper right corner of the table. The results of import process will be notified to you once completed. You should not update the field during the import as it may cause errors.",
-      "noTips": "I know that, don't show again"
+      "searchPlaceholder": "Search…",
+      "importAlert": "Once the import starts, it can't be stopped until it completes or fails. Import status appears in the upper-right corner of the table, and you'll be notified when it finishes. Avoid editing fields during the import, as this may cause errors.",
+      "noTips": "Got it, don't show again"
     },
     "options": {
       "autoSelectFieldOptionName": "Auto-select field types",
       "useFirstRowAsHeaderOptionName": "Use first row as header",
       "importDataOptionName": "Import data",
-      "sheetKey": "SheetName: ",
+      "sheetKey": "Sheet name: ",
       "excludeFirstRow": "Exclude first row in import"
     },
     "form": {
@@ -1017,7 +1039,7 @@
         "errorFileFormat": "File format is incorrect!",
         "uniqueFieldName": "Field name should be unique!",
         "fieldNameEmpty": "Field name should not be empty!",
-        "atLeastAImportField": "Please set a import field at least",
+        "atLeastAImportField": "Please set at least one field to import",
         "urlValidateTip": "Couldn't parse URL. Try a different URL!"
       },
       "option": {
@@ -1027,14 +1049,14 @@
   },
   "download": {
     "allAttachments": {
-      "title": "Download All Attachments",
+      "title": "Download all attachments",
       "rowsWithAttachments": "Attachment rows",
       "totalAttachments": "Attachments",
       "totalSize": "Total size",
       "cancel": "Cancel",
-      "downloading": "Downloading...",
+      "downloading": "Downloading…",
       "completed": "Download completed",
-      "cancelled": "Download cancelled",
+      "cancelled": "Download canceled",
       "noAttachments": "No attachments to download",
       "error": "Download failed",
       "errorPartial": "{{failedCount}} files failed to download",
@@ -1059,9 +1081,9 @@
     "removeAll": "Hide all",
     "createField": "Create field",
     "hideFieldTip": "Drag field here to hide from form",
-    "unableAddFieldTip": "Unable to add this type field",
+    "unableAddFieldTip": "This field type can't be added",
     "removeFromFormTip": "Hide from the form",
-    "descriptionPlaceholder": "Enter from description",
+    "descriptionPlaceholder": "Enter form description",
     "dragToFormTip": "Drag field here to show in form",
     "protectedFieldTip": "This field has been set as a \"required\" field, and cannot be removed in the form view. Please modify it in the field settings."
   },
@@ -1113,11 +1135,12 @@
     "dialog": {
       "startDate": "Start date",
       "endDate": "End date",
-      "notAdd": "Not add",
+      "notAdd": "Not now",
       "addDateField": "Add date fields",
-      "content": "Create a calendar view schedule, and the table needs to have two date fields: start date and end date"
+      "content": "To show events in a calendar view, the table needs two date fields: a start date and an end date."
     },
-    "moreLinkText": "Show all {{count}} records"
+    "moreLinkText_one": "Show all {{count}} record",
+    "moreLinkText_other": "Show all {{count}} records"
   },
   "menu": {
     "insertRecordAbove": "Insert <input /> record above",
@@ -1147,11 +1170,11 @@
     "collapseGroup": "Collapse this group and its sub-groups",
     "expandAllGroups": "Expand all groups",
     "collapseAllGroups": "Collapse all groups",
-    "addToChat": "Add to Chat"
+    "addToChat": "Add to chat"
   },
   "view": {
     "addRecord": "Add record",
-    "searchView": "Search view...",
+    "searchView": "Search view…",
     "starredGroup": "Starred",
     "otherGroup": "Other views",
     "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
@@ -1173,7 +1196,7 @@
     },
     "crash": {
       "title": "Crash!",
-      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.ai"
+      "description": "This view crashed. Refresh to try again. If the problem persists, contact support@teable.ai."
     },
     "addPluginView": "Add plugin view",
     "addView": "Create view",
@@ -1194,7 +1217,8 @@
   "lastModify": "Last modify: ",
   "pasteNewRecords": {
     "title": "Do you want to add multiple records?",
-    "description": "The {{count}} records will be added to the table."
+    "description_one": "{{count}} record will be added to the table.",
+    "description_other": "{{count}} records will be added to the table."
   },
   "tableArchive": {
     "title": "Table archive",
@@ -1208,7 +1232,8 @@
     "searchPlaceholder": "Search archived records",
     "clearFilter": "Clear filter",
     "export": "Export CSV",
-    "exporting": "Exporting... {{count}} rows",
+    "exporting_one": "Exporting… {{count}} row",
+    "exporting_other": "Exporting… {{count}} rows",
     "exportSucceed": "Export complete, downloading",
     "restoreSelected": "Restore ({{count}})",
     "permanentDeleteSelected": "Permanently delete ({{count}})",
@@ -1267,8 +1292,8 @@
   "baseShare": {
     "shareTitle": "Share",
     "shareToWeb": "Share to web",
-    "refreshLink": "Regenerate Link",
-    "deleteConfirmTitle": "Delete Share Link",
+    "refreshLink": "Regenerate link",
+    "deleteConfirmTitle": "Delete share link",
     "deleteConfirmDescription": "This action cannot be undone. People with this link will no longer be able to access the shared project.",
     "createSuccess": "Share link created",
     "createFailed": "Failed to create share link",
@@ -1277,7 +1302,7 @@
     "deleteFailed": "Failed to delete share link",
     "refreshSuccess": "Share link regenerated",
     "refreshFailed": "Failed to regenerate share link",
-    "linkHolderLabel": "The person who obtained the link",
+    "linkHolderLabel": "People with the link",
     "linkHolderCanView": "Can view",
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Can edit",
@@ -1285,7 +1310,8 @@
     "viewLinkHolderCanViewDesc": "Anyone with the link can view this view's data",
     "viewLinkHolderCanEditDesc": "Signed-in users can edit data within the view's scope",
     "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
-    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeMany_one": "Visitors can see data from \"{{name}}\" ({{count}} table in total)",
+    "linkExposureNoticeMany_other": "Visitors can see data from \"{{name}}\" and other tables ({{count}} in total)",
     "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
     "restrictScope": "Restrict scope",
     "linkScopeDesc": "Restrict which records and fields are selectable in this view's link fields. The setting applies to the field itself and affects every view that uses it.",
@@ -1298,7 +1324,7 @@
     "editRequiresLogin": "Sign in to edit records",
     "enterPassword": "Enter password",
     "allowCopyData": "Allow viewers to copy data",
-    "sharedNode": "Shared node",
+    "sharedNode": "Shared resource",
     "restrictByPassword": "Restrict by password",
     "advanced": "Advanced",
     "embedConfig": "Embed config",
@@ -1340,14 +1366,15 @@
       "notConnected": "Google Sheets isn't connected yet. Connect it in the app, then try again.",
       "backToChat": "You can go back to the chat now.",
       "status": {
-        "picked": "{{count}} spreadsheets granted",
+        "picked_one": "{{count}} spreadsheet granted",
+        "picked_other": "{{count}} spreadsheets granted",
         "cancelled": "Skipped",
         "failed": "Failed"
       },
       "chooseAccount": "Which Google account should the spreadsheets come from?"
     },
     "templateOffer": {
-      "title": "Templates offered",
+      "title": "Suggested templates",
       "details": "Details",
       "found_one": "Found a ready-made template",
       "found_other": "Found {{count}} ready-made templates",
@@ -1373,7 +1400,7 @@
         "notSelected": "Not selected",
         "timedOut": "Timed out",
         "timedOutWithDuration": "Timed out ({{duration}})",
-        "cancelled": "Cancelled",
+        "cancelled": "Canceled",
         "previousQuestion": "Previous question",
         "nextQuestion": "Next question"
       },
@@ -1384,7 +1411,7 @@
         "stopped": "You stopped this reply",
         "noDetails": "No details available",
         "model": "Model",
-        "contextWindow": "Context Window",
+        "contextWindow": "Context window",
         "contextTooltip": "Agent's working memory usage. When approaching the limit, the agent will automatically summarize earlier conversation to free up space.",
         "contextTipNewChat": "Start a new chat for different topics to significantly reduce Credit usage.",
         "contextTipMemory": "Say \"remember something\" to save to long-term memory, accessible across chats."
@@ -1405,7 +1432,7 @@
         "failed": "Context compaction failed"
       },
       "taskProgress": {
-        "title": "Task Progress",
+        "title": "Task progress",
         "fromBefore": "{{count}} from before",
         "continued": "Continued",
         "interrupted": "Interrupted",
@@ -1415,16 +1442,17 @@
         "copy": "Copy",
         "copied": "Copied!",
         "collapse": "Collapse",
-        "linesHidden": "{{count}} lines hidden - click to expand"
+        "linesHidden_one": "{{count}} line hidden - click to expand",
+        "linesHidden_other": "{{count}} lines hidden - click to expand"
       }
     },
     "tool": {
-      "retrying": "Retrying ({{attempt}}/{{maxRetries}})...",
-      "showLess": "Show Less",
+      "retrying": "Retrying ({{attempt}}/{{maxRetries}})…",
+      "showLess": "Show less",
       "generateApp": {
         "creatingApp": "Creating app",
         "updatingApp": "Updating app",
-        "viewProgress": "View Progress"
+        "viewProgress": "View progress"
       },
       "htmlPreview": {
         "preview": "Preview",
@@ -1434,8 +1462,8 @@
         "copy": "Copy",
         "copied": "Copied!",
         "fullscreen": "Fullscreen",
-        "exitFullscreen": "Exit Fullscreen",
-        "iframeTitle": "HTML Preview"
+        "exitFullscreen": "Exit fullscreen",
+        "iframeTitle": "HTML preview"
       }
     },
     "action": {
@@ -1526,11 +1554,11 @@
     "newChat": "New chat",
     "alreadyInNewChat": "You're already in a new chat",
     "initChatFailed": "Failed to initialize chat",
-    "clearChat": "Clear Chat",
+    "clearChat": "Clear chat",
     "expand": "Expand",
     "history": "History",
     "close": "Collapse",
-    "clearChatConfirmTitle": "Confirm Clear Chat",
+    "clearChatConfirmTitle": "Confirm clear chat",
     "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
     "clearChatHint": "Deletes the chat history and starts a new chat. The app itself is unaffected.",
     "dontShowAgain": "Don't show again",
@@ -1541,7 +1569,7 @@
       "low": "Low",
       "medium": "Medium",
       "high": "High",
-      "xhigh": "Extra High"
+      "xhigh": "Extra high"
     },
     "sandboxExpiry": {
       "expiresIn": "Agent Computer expires in {{time}}",
@@ -1553,7 +1581,7 @@
       "newSandboxHint": "You can continue using it normally after renewal.",
       "cancel": "Cancel",
       "confirmReset": "Renew",
-      "confirmResetWithTasks": "Renew Anyway",
+      "confirmResetWithTasks": "Renew anyway",
       "expiresSoon": "Agent Computer expiring soon",
       "resetFailed": "Failed to renew Agent Computer"
     },
@@ -1571,9 +1599,9 @@
     "timeGroup": {
       "pinned": "Pinned",
       "today": "Today",
-      "oneWeek": "One week",
-      "twoWeek": "Two week",
-      "oneMonth": "One month",
+      "oneWeek": "Past week",
+      "twoWeek": "Past 2 weeks",
+      "oneMonth": "Past month",
       "other": "Other"
     },
     "context": {
@@ -1584,8 +1612,10 @@
       "selectionColumns": "Col {{start}}-{{end}}",
       "selectionColumnsNamed": "{{names}} +{{count}}",
       "selectionUnnamed": "Unnamed record",
-      "selectionRecords": "{{count}} records",
-      "selectionCellCount": "{{count}} cells",
+      "selectionRecords_one": "{{count}} record",
+      "selectionRecords_other": "{{count}} records",
+      "selectionCellCount_one": "{{count}} cell",
+      "selectionCellCount_other": "{{count}} cells",
       "selectionRecordType": "Record reference",
       "selectionCellType": "Cell reference",
       "selectionDimensions": "{{rows}} rows × {{columns}} cols",
@@ -1600,7 +1630,8 @@
       "selectionOpenRecord": "Open record {{name}}",
       "selectionPrevious": "Previous",
       "selectionNext": "Next",
-      "selectionPage": "{{start}}–{{end}} of {{count}} records"
+      "selectionPage_one": "{{start}}–{{end}} of {{count}} record",
+      "selectionPage_other": "{{start}}–{{end}} of {{count}} records"
     },
     "mention": {
       "tables": "Tables",
@@ -1614,7 +1645,7 @@
       "skills": "Skills",
       "searchEmpty": "No results found"
     },
-    "inputPlaceholder": "@ Adds Nodes, / Runs Skills",
+    "inputPlaceholder": "@ adds nodes / runs skills",
     "inputPlaceholderFiles": "Paste or drop files here",
     "thought": "Thinking",
     "stage": {
@@ -1629,7 +1660,8 @@
     },
     "attachment": {
       "pastedTextFileName": "Pasted text",
-      "tooManyFiles": "You can attach at most {{count}} files per message"
+      "tooManyFiles_one": "You can attach at most {{count}} file per message",
+      "tooManyFiles_other": "You can attach at most {{count}} files per message"
     },
     "suggestions": {
       "title": "How can I help?",
@@ -1640,14 +1672,15 @@
       "buildMeCRM": "Build me a CRM",
       "addAIField": "Add an AI field to analyze each customer",
       "createDataAnalysis": "Create me a data analysis report",
-      "emailWhenRecordCreated": "Email me when record created",
+      "emailWhenRecordCreated": "Email me when a record is created",
       "syncStatusToSlack": "Sync status updates to Slack",
       "buildDashboard": "Build a dashboard from this table",
       "buildLeadCapture": "Build me a lead capture landing page"
     },
     "buildApp": {
       "task": {
-        "foundResults": "Found {{count}} results"
+        "foundResults_one": "Found {{count}} result",
+        "foundResults_other": "Found {{count}} results"
       }
     },
     "scriptPreview": {
@@ -1677,8 +1710,10 @@
       "ls": "List directory",
       "webSearch": "Search web",
       "skill": "Loading skill",
-      "foundFiles": "Found {{count}} files",
-      "listedEntries": "{{count}} entries",
+      "foundFiles_one": "Found {{count}} file",
+      "foundFiles_other": "Found {{count}} files",
+      "listedEntries_one": "{{count}} entry",
+      "listedEntries_other": "{{count}} entries",
       "ranCommands_one": "Ran {{count}} command",
       "ranCommands_other": "Ran {{count}} commands",
       "moreItems": "+{{count}} more",
@@ -1706,8 +1741,8 @@
       "maxAttemptsReached": "Couldn't reconnect automatically. Please refresh the page manually."
     },
     "app": {
-      "loadingChatHistory": "Loading chat history...",
-      "generatorTitle": "AI App Generator",
+      "loadingChatHistory": "Loading chat history…",
+      "generatorTitle": "AI app generator",
       "generatorDesc": "Describe what you want to build"
     },
     "voice": {
@@ -1716,8 +1751,8 @@
       "accept": "Finish voice input",
       "cancel": "Discard voice input",
       "permissionTip": "Allow microphone access.",
-      "recording": "Recording...",
-      "transcribing": "Transcribing...",
+      "recording": "Recording…",
+      "transcribing": "Transcribing…",
       "error": {
         "microphoneDenied": "Microphone access is blocked.",
         "microphoneUnavailable": "No microphone found.",
@@ -1739,7 +1774,7 @@
       "fullscreen": "Fullscreen",
       "exitFullscreen": "Exit fullscreen",
       "delete": "Delete",
-      "deleteConfirm": "Delete this artifact? Chat cards will become a deleted placeholder.",
+      "deleteConfirm": "Delete this artifact? Its cards in chats will show as deleted.",
       "deleted": "This artifact has been deleted",
       "runtimeError": "Artifact error",
       "loadFailed": "Artifact failed to load",
@@ -1757,7 +1792,7 @@
       "passwordIncorrect": "Incorrect password",
       "passwordSubmit": "Confirm",
       "shareNotFound": "This shared artifact is unavailable",
-      "gallery": "My Artifacts",
+      "gallery": "My artifacts",
       "fixWithAi": "Fix with AI",
       "noPermission": "You do not have access to this artifact"
     },
@@ -1766,12 +1801,16 @@
       "waitingInput": "Waiting for your reply",
       "failed": "Reply failed"
     },
-    "routineRunPrompt": "Sent by routine"
+    "routineRunPrompt": "Sent by routine",
+    "backToLatest": "Back to latest"
   },
   "upload": {
-    "panelUploading": "Uploading {{count}} files",
-    "panelFailed": "{{count}} files failed",
-    "panelCompleted": "{{count}} files completed",
+    "panelUploading_one": "Uploading {{count}} file",
+    "panelUploading_other": "Uploading {{count}} files",
+    "panelFailed_one": "{{count}} file failed",
+    "panelFailed_other": "{{count}} files failed",
+    "panelCompleted_one": "{{count}} file completed",
+    "panelCompleted_other": "{{count}} files completed",
     "statusFailed": "Failed",
     "statusCompleted": "Completed",
     "statusCancel": "Cancel upload",
@@ -1779,7 +1818,7 @@
   },
   "baseNode": {
     "info": {
-      "menu": "Node info",
+      "menu": "Details",
       "createdBy": "Created by",
       "createdTime": "Created time",
       "lastModifiedBy": "Modified by",
@@ -1804,38 +1843,38 @@
       "confirm": "Move",
       "targetLabel": "Target project",
       "targetPlaceholder": "Select a project",
-      "noTarget": "No other project in this space accepts this node.",
+      "noTarget": "No other project in this space accepts this resource.",
       "checking": "Checking what this move affects…",
       "blockers": {
-        "same_base": "The node is already in this project.",
+        "same_base": "The resource is already in this project.",
         "target_not_found": "The target project no longer exists.",
-        "different_space": "Nodes can only move between projects of the same space.",
+        "different_space": "Resources can only move between projects of the same space.",
         "v2_mismatch": "The two projects run different storage engine versions.",
         "source_not_writable": "This project is read-only right now.",
         "target_not_writable": "The target project is read-only right now.",
-        "no_source_permission": "You cannot remove this node from the current project.",
-        "no_target_permission": "You cannot create this kind of node in the target project.",
+        "no_source_permission": "You cannot remove this resource from the current project.",
+        "no_target_permission": "You cannot create this kind of resource in the target project.",
         "folder_name_conflict": "A folder with the same name already exists in the target project.",
-        "unsupported_resource": "This kind of node cannot be moved yet.",
+        "unsupported_resource": "This kind of resource cannot be moved yet.",
         "pending_computed_tasks": "Calculations are still running on this table. Try again in a moment.",
         "unknown": "This move is not allowed."
       },
-      "movingCount": "{{count}} node(s) will move",
+      "movingCount": "{{count}} resource(s) will move",
       "moveClosure": "Move everything referenced",
-      "moveClosureHint": "Only referenced nodes travel. Linked tables stay where they are; their links simply span two projects afterwards and keep working.",
-      "breakingCount": "{{count}} node(s) may stop working after the move",
+      "moveClosureHint": "Only referenced resources travel. Linked tables stay where they are; their links simply span two projects afterwards and keep working.",
+      "breakingCount": "{{count}} resource(s) may stop working after the move",
       "referencesLabel": "References",
       "appEmbeddedId": "{{count}} app(s) name the old project in their code; update them yourself",
       "appEmbeddedIdDetail": "{{apps}}. Their code is left exactly as written; open each one after the move and update it, or it will keep reading the project it left.",
       "occurrences": "{{count}} place(s)",
       "uninspectableTitle": "{{count}} app(s) could not be checked; confirm them after the move",
       "droppedRules": "{{count}} permission rule(s) will be removed and cannot be restored",
-      "droppedRulesDetail": "A permission rule is bound to a role that belongs to this project, so it cannot travel with the node. The moved nodes fall under the target project's permission settings instead; set the same restrictions up again there if you need them.",
+      "droppedRulesDetail": "A permission rule is bound to a role that belongs to this project, so it cannot travel with the resource. The moved resources fall under the target project's permission settings instead; set the same restrictions up again there if you need them.",
       "successTitle": "Moved",
       "open": "Open",
       "linkedAcrossProjects": "{{count}} table(s) will be linked across projects",
-      "successDescription_one": "<b>{{count}}</b> node moved to <b>{{baseName}}</b>",
-      "successDescription_other": "<b>{{count}}</b> nodes moved to <b>{{baseName}}</b>"
+      "successDescription_one": "<b>{{count}}</b> resource moved to <b>{{baseName}}</b>",
+      "successDescription_other": "<b>{{count}}</b> resources moved to <b>{{baseName}}</b>"
     }
   }
 }

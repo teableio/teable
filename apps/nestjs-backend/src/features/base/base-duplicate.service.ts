@@ -13,6 +13,11 @@ import {
   type IDuplicateBaseRo,
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  PostgresTableRepository,
+  v2PostgresStateTokens,
+  type V1TeableDatabase,
+} from '@teable/v2-adapter-repository-postgres';
 import type { HostPreviewConcern, PreviewEffect, PreviewIssue } from '@teable/v2-command-explain';
 import {
   DeleteTableCommand,
@@ -49,6 +54,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { toPostgresFkDeleteAction } from '../../db-provider/postgres-fk-delete-action';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { V1Engine } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { baseDisplayName } from '../../utils/base-name';
 import { AuditScope } from '../audit/audit-scope';
@@ -462,6 +468,7 @@ export class BaseDuplicateService {
     return prisma.txClient?.() ?? prisma;
   }
 
+  @V1Engine()
   async duplicateBase(
     duplicateBaseRo: IDuplicateBaseRo,
     allowCrossBase: boolean = true,
@@ -643,6 +650,13 @@ export class BaseDuplicateService {
         readOnly: options.readOnly !== false,
         // Existing target schemas may already contain the source physical names.
         keepDbTableNames: !duplicateBaseRo.baseId,
+        normalizeBlankDateTimeZones: rawStructure.tables.some((table) =>
+          table.fields.some(
+            (field) =>
+              field.type === FieldType.Date &&
+              (field.options as IDateFieldOptions | undefined)?.formatting?.timeZone === ''
+          )
+        ),
       }
     );
     const sourceLinkFields = withRecords
@@ -895,6 +909,12 @@ export class BaseDuplicateService {
         { includeRowCount: false, readOnly: false }
       );
       const { structure, source } = preparation.execution;
+      // Installing a template adds resources to a project the user already owns, so the target
+      // keeps its own name and icon; template apply keeps its historical identity overwrite.
+      const overwriteExistingBaseIdentity =
+        applyToExistingBase && duplicateMode === BaseDuplicateMode.ApplyTemplate;
+      const existingIdentityPatch: { name?: string; icon?: string | null } =
+        overwriteExistingBaseIdentity ? { name: structure.name, icon: structure.icon ?? null } : {};
       const container = await this.v2ContainerService.getContainerForSpace(spaceId);
       const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
       const db = container.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
@@ -980,7 +1000,9 @@ export class BaseDuplicateService {
           await this.duplicateAttachments(targetBase.id, tableIdMap, fieldIdMap);
         }
         const duplicate = {
-          base: applyToExistingBase ? { ...targetBase, name: structure.name } : targetBase,
+          base: overwriteExistingBaseIdentity
+            ? { ...targetBase, name: structure.name }
+            : targetBase,
           tableIdMap,
           fieldIdMap,
           viewIdMap,
@@ -995,7 +1017,7 @@ export class BaseDuplicateService {
             where: { id: targetBase.id },
             data: {
               ...(applyToExistingBase
-                ? { name: structure.name, icon: structure.icon ?? null }
+                ? existingIdentityPatch
                 : { provisionState: ProvisionState.ready }),
               lastModifiedBy: userId,
             },
@@ -1525,7 +1547,11 @@ export class BaseDuplicateService {
     sourceBaseId: string,
     structure: DuplicateV2StructureConfig,
     timeZone?: string,
-    options: { readonly readOnly?: boolean; readonly keepDbTableNames?: boolean } = {}
+    options: {
+      readonly readOnly?: boolean;
+      readonly keepDbTableNames?: boolean;
+      readonly normalizeBlankDateTimeZones?: boolean;
+    } = {}
   ): Promise<ReadonlyMap<string, ITablePersistenceDTO>> {
     const { readOnly = false, keepDbTableNames = false } = options;
     const firstTable = structure.tables[0];
@@ -1539,8 +1565,33 @@ export class BaseDuplicateService {
     if (!sourceContainer) {
       throw new Error('Native duplicate source route is unavailable for read-only preview');
     }
-    const tableRepository = sourceContainer.resolve<ITableRepository>(v2CoreTokens.tableRepository);
     const tableMapper = sourceContainer.resolve<ITableMapper>(v2CoreTokens.tableMapper);
+    // Historical blank zones have no source-zone relocation. Normalize only the
+    // read-side domain input; raw source options still govern record relocation.
+    const tableRepository = options.normalizeBlankDateTimeZones
+      ? new PostgresTableRepository(
+          sourceContainer.resolve<Kysely<V1TeableDatabase>>(v2PostgresStateTokens.db),
+          {
+            toDTO: (table) => tableMapper.toDTO(table),
+            toViewDTO: (view) => tableMapper.toViewDTO(view),
+            toDomain: (dto) =>
+              tableMapper.toDomain({
+                ...dto,
+                fields: dto.fields.map((field) =>
+                  field.type === FieldType.Date && field.options?.formatting?.timeZone === ''
+                    ? {
+                        ...field,
+                        options: {
+                          ...field.options,
+                          formatting: { ...field.options.formatting, timeZone: 'utc' },
+                        },
+                      }
+                    : field
+                ),
+              }),
+          }
+        )
+      : sourceContainer.resolve<ITableRepository>(v2CoreTokens.tableRepository);
     const context = await this.v2ContextFactory.createContext(sourceContainer);
     const sourceSnapshots = new Map<string, ITablePersistenceDTO>();
 

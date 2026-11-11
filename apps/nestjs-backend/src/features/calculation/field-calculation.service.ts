@@ -7,6 +7,7 @@ import { concatMap, lastValueFrom, map, range, toArray } from 'rxjs';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
@@ -31,6 +32,7 @@ export interface ITopoOrdersContext {
 }
 
 @Injectable()
+@V1EngineService(['getTopoOrdersContext', 'getRecordsBatchByFields', 'getRowCount'])
 export class FieldCalculationService {
   constructor(
     private readonly prismaService: PrismaService,

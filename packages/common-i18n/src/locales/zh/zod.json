@@ -5,7 +5,7 @@
     "invalid_type_received_null": "必填",
     "invalid_literal": "错误的字面量值，请输入 {{expected}}",
     "unrecognized_keys": "对象中的键无法识别: {{- keys}}",
-    "invalid_union": "不满足联合类型中的选项",
+    "invalid_union": "输入无效",
     "invalid_union_discriminator": "标识值无法被区分。请输入 {{- options}}",
     "invalid_enum_value": "错误的枚举值 '{{received}}'。请输入 {{- options}}",
     "invalid_arguments": "错误的函数参数格式",
@@ -48,8 +48,8 @@
       },
       "date": {
         "exact": "日期必须为 {{- minimum, datetime}}",
-        "inclusive": "日期不得晚于 {{- minimum, datetime}}",
-        "not_inclusive": "日期必须早于 {{- minimum, datetime}}"
+        "inclusive": "日期不得早于 {{- minimum, datetime}}",
+        "not_inclusive": "日期必须晚于 {{- minimum, datetime}}"
       }
     },
     "too_big": {
@@ -75,8 +75,8 @@
       },
       "date": {
         "exact": "日期必须为 {{- maximum, datetime}}",
-        "inclusive": "日期不得早于 {{- maximum, datetime}}",
-        "not_inclusive": "日期必须晚于 {{- maximum, datetime}}"
+        "inclusive": "日期不得晚于 {{- maximum, datetime}}",
+        "not_inclusive": "日期必须早于 {{- maximum, datetime}}"
       }
     }
   },
@@ -100,7 +100,7 @@
     "bigint": "大整数",
     "undefined": "未定义",
     "symbol": "符号",
-    "null": "空对象",
+    "null": "空值",
     "array": "数组",
     "object": "对象",
     "unknown": "未知",

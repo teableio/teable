@@ -1180,6 +1180,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       },
       spaceDataDbMigrationJob: {
         findUnique: vi.fn().mockResolvedValue(migrationJob),
+        findFirst: vi.fn().mockResolvedValue({ id: jobId, spaceId, state: 'copying' }),
         update: vi.fn().mockResolvedValue(undefined),
       },
     };
@@ -1771,6 +1772,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       },
       spaceDataDbMigrationJob: {
         findUnique: vi.fn().mockResolvedValue(migrationJob),
+        findFirst: vi.fn().mockResolvedValue({ id: mismatchJobId, spaceId, state: 'copying' }),
         update: vi.fn().mockResolvedValue(undefined),
       },
     };

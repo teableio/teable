@@ -24,6 +24,7 @@ import { DataDbClientManager } from '../../global/data-db-client-manager.service
 import { DATA_KNEX } from '../../global/knex';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
@@ -38,6 +39,19 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 };
 
 @Injectable()
+@V1EngineService([
+  'generateValidName',
+  'getTableDefaultViewId',
+  'getTableMeta',
+  'getDefaultViewId',
+  'createTable',
+  'deleteTable',
+  'restoreTable',
+  'updateTable',
+  'create',
+  'getSnapshotBulk',
+  'getDocIdsByQuery',
+])
 export class TableService implements IReadonlyAdapterService {
   private readonly logger = new Logger(TableService.name);
 

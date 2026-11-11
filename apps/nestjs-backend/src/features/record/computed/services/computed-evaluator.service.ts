@@ -6,6 +6,7 @@ import { FieldType, IdPrefix, RecordOpBuilder, Tables } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import { RawOpType } from '../../../../share-db/interface';
+import { V1EngineService } from '../../../../tracing/decorators/v1-engine';
 import { Timing } from '../../../../utils/timing';
 import { BatchService } from '../../../calculation/batch.service';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
@@ -25,6 +26,7 @@ const recordIdBatchSize = 10_000;
 const cursorBatchSize = 10_000;
 
 @Injectable()
+@V1EngineService(['evaluate'])
 export class ComputedEvaluatorService {
   private readonly paginationStrategies: IRecordPaginationStrategy[] = [
     new RecordIdBatchStrategy(),

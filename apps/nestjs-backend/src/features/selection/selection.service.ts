@@ -57,6 +57,7 @@ import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { IAggregationService } from '../aggregation/aggregation.service.interface';
 import { InjectAggregationService } from '../aggregation/aggregation.service.provider';
@@ -85,6 +86,20 @@ export type SelectionRecordLoader = (
   fieldIds: string[]
 ) => Promise<Array<{ id: string; fields: IRecord['fields'] }>>;
 
+// Shared payload/snapshot/result builders and injected-writer *ById dispatch
+// stay unlabelled; their actual legacy reads/writes/field expansion are traced.
+@V1EngineService([
+  'getIdsFromRanges',
+  'resolveRecordIdsBySelection',
+  'resolveFieldsBySelection',
+  'getRecordsByIdsForFields',
+  'copy',
+  'copyById',
+  'temporaryPaste',
+  'paste',
+  'clear',
+  'delete',
+])
 @Injectable()
 export class SelectionService {
   constructor(

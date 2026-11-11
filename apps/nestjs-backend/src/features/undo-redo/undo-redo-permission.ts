@@ -136,7 +136,7 @@ const v2LeafActions = (
     case 'RestoreArchivedRecords':
       return ['record|archive'];
     case 'ApplyRecordOrders':
-      return ['view|update'];
+      return [leaf.payload.source === 'recordUpdate' ? 'record|update' : 'view|update'];
     case 'DeleteField':
       return ['field|delete'];
     case 'ApplyFieldSnapshot':

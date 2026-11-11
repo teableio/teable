@@ -67,3 +67,15 @@ export const isStaleTableAnchor = (props: {
   if (tables.some((table) => table.baseId !== baseId)) return false;
   return !tables.some((table) => table.id === tableId);
 };
+
+/**
+ * Query param that getServerSideProps sets when the URL names a table the reader cannot open
+ * (deleted, or hidden by their role: the visible table list cannot tell these apart) and it
+ * falls back to another node or the project page. Without it the landing page looks healthy
+ * while showing something other than what the link asked for. Its value is the dropped
+ * table's id; StaleTableNotice reads it, says so once, and strips it.
+ */
+export const STALE_TABLE_PARAM = 'staleTableId';
+
+export const withStaleTableParam = (url: string, tableId: string) =>
+  `${url}${url.includes('?') ? '&' : '?'}${STALE_TABLE_PARAM}=${encodeURIComponent(tableId)}`;

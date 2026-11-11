@@ -4,6 +4,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { LinkService } from '../../calculation/link.service';
 import { TableDomainQueryService } from '../../table-domain';
@@ -11,6 +12,7 @@ import { ComputedOrchestratorService } from '../computed/services/computed-orche
 import { RecordService } from '../record.service';
 
 @Injectable()
+@V1EngineService(['deleteRecord', 'deleteRecords'])
 export class RecordDeleteService {
   constructor(
     private readonly prismaService: PrismaService,

@@ -367,7 +367,9 @@
         "title": "מחיקת שדה",
         "simpleConfirm": "למחוק את השדה <b>{{fieldName}}</b>?",
         "withDependencies": "מחיקת השדה <b>{{fieldName}}</b> תשפיע על השדות הבאים:",
-        "deleteCount": "מחיקת {{count}} שדות",
+        "deleteCount_one": "מחיקת {{count}} שדות",
+        "deleteCount_two": "מחיקת {{count}} שדות",
+        "deleteCount_other": "מחיקת {{count}} שדות",
         "riskIdentified": "זוהה סיכון({{count}})",
         "noDependencies": "ללא הפניות({{count}})",
         "noReferencesFound": "לא נמצאו הפניות בבדיקה זו. ייתכנו עדיין השפעות אחרות.",
@@ -562,11 +564,17 @@
         "deleting": "במחיקת הרשומות",
         "descriptionWithIssues": "חלק ממקטעי המחיקה נכשלו. יש לעיין בפרטים שלהלן.",
         "completedWithIssues": "המחיקה הושלמה עם תקלות",
-        "issuesBadge": "{{count}} תקלות",
+        "issuesBadge_one": "{{count}} תקלות",
+        "issuesBadge_two": "{{count}} תקלות",
+        "issuesBadge_other": "{{count}} תקלות",
         "chunkFailureTitle": "פרטי הכשל במקטעים",
-        "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהזרם המשיך לפעול.",
+        "chunkFailureSummary_one": "{{count}} מקטעים דיווחו על שגיאה בזמן שהזרם המשיך לפעול.",
+        "chunkFailureSummary_two": "{{count}} מקטעים דיווחו על שגיאה בזמן שהזרם המשיך לפעול.",
+        "chunkFailureSummary_other": "{{count}} מקטעים דיווחו על שגיאה בזמן שהזרם המשיך לפעול.",
         "chunkLabel": "מקטע {{index}}",
-        "rowsLabel": "{{count}} שורות",
+        "rowsLabel_one": "{{count}} שורות",
+        "rowsLabel_two": "{{count}} שורות",
+        "rowsLabel_other": "{{count}} שורות",
         "phaseLabel": {
           "preparing": "בהכנה",
           "guarding": "בבדיקה",
@@ -580,11 +588,15 @@
         "duplicating": "בשכפול הרשומות",
         "descriptionWithIssues": "חלק ממקטעי השכפול נכשלו. יש לעיין בפרטים שלהלן.",
         "completedWithIssues": "השכפול הושלם עם תקלות",
-        "issuesBadge": "{{count}} תקלות",
+        "issuesBadge_one": "{{count}} תקלות",
+        "issuesBadge_two": "{{count}} תקלות",
+        "issuesBadge_other": "{{count}} תקלות",
         "chunkFailureTitle": "פרטי הכשל במקטעים",
         "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהתהליך המשיך לפעול.",
         "chunkLabel": "מקטע {{index}}",
-        "rowsLabel": "{{count}} שורות",
+        "rowsLabel_one": "{{count}} שורות",
+        "rowsLabel_two": "{{count}} שורות",
+        "rowsLabel_other": "{{count}} שורות",
         "phaseLabel": {
           "preparing": "בהכנה",
           "guarding": "בבדיקה",
@@ -598,11 +610,15 @@
         "pasting": "בהדבקת רשומות",
         "descriptionWithIssues": "חלק ממקטעי ההדבקה נכשלו. יש לעיין בפרטים שלהלן.",
         "completedWithIssues": "ההדבקה הושלמה עם בעיות",
-        "issuesBadge": "{{count}} בעיות",
+        "issuesBadge_one": "{{count}} בעיות",
+        "issuesBadge_two": "{{count}} בעיות",
+        "issuesBadge_other": "{{count}} בעיות",
         "chunkFailureTitle": "פרטי הכשל במקטעים",
         "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהתהליך המשיך לפעול.",
         "chunkLabel": "מקטע {{index}}",
-        "rowsLabel": "{{count}} שורות",
+        "rowsLabel_one": "{{count}} שורות",
+        "rowsLabel_two": "{{count}} שורות",
+        "rowsLabel_other": "{{count}} שורות",
         "phaseLabel": {
           "preparing": "בהכנה",
           "guarding": "בבדיקה",
@@ -617,11 +633,15 @@
         "clearing": "בניקוי רשומות",
         "descriptionWithIssues": "חלק ממקטעי הניקוי נכשלו. יש לעיין בפרטים שלהלן.",
         "completedWithIssues": "הניקוי הושלם עם בעיות",
-        "issuesBadge": "{{count}} בעיות",
+        "issuesBadge_one": "{{count}} בעיות",
+        "issuesBadge_two": "{{count}} בעיות",
+        "issuesBadge_other": "{{count}} בעיות",
         "chunkFailureTitle": "פרטי הכשל במקטעים",
         "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהתהליך המשיך לפעול.",
         "chunkLabel": "מקטע {{index}}",
-        "rowsLabel": "{{count}} שורות",
+        "rowsLabel_one": "{{count}} שורות",
+        "rowsLabel_two": "{{count}} שורות",
+        "rowsLabel_other": "{{count}} שורות",
         "phaseLabel": {
           "preparing": "בהכנה",
           "guarding": "בבדיקה",
@@ -639,11 +659,15 @@
         "restoreFailed": "השחזור נכשל",
         "descriptionWithIssues": "חלק ממקטעי השחזור נכשלו. יש לעיין בפרטים שלהלן.",
         "completedWithIssues": "השחזור הושלם עם בעיות",
-        "issuesBadge": "{{count}} בעיות",
+        "issuesBadge_one": "{{count}} בעיות",
+        "issuesBadge_two": "{{count}} בעיות",
+        "issuesBadge_other": "{{count}} בעיות",
         "chunkFailureTitle": "פרטי הכשל במקטעים",
         "chunkFailureSummary": "{{count}} מקטעים דיווחו על שגיאה בזמן שהתהליך המשיך לפעול.",
         "chunkLabel": "מקטע {{index}}",
-        "rowsLabel": "{{count}} שורות",
+        "rowsLabel_one": "{{count}} שורות",
+        "rowsLabel_two": "{{count}} שורות",
+        "rowsLabel_other": "{{count}} שורות",
         "phaseLabel": {
           "preparing": "בהכנה",
           "guarding": "בבדיקה",
@@ -688,7 +712,9 @@
         "repairUnavailable": "לא ניתן לתקן כלל זה באופן אוטומטי",
         "manual": "ידני",
         "manualRepairNotice": "בעיה זו דורשת תיקון ידני",
-        "manualRepairNoticeWithCount": "{{count}} בעיות דורשות תיקון ידני. לפתיחת חלון התיקון יש להשתמש בפעולה \"ידני\" שליד כל כלל.",
+        "manualRepairNoticeWithCount_one": "{{count}} בעיות דורשות תיקון ידני. לפתיחת חלון התיקון יש להשתמש בפעולה \"ידני\" שליד כל כלל.",
+        "manualRepairNoticeWithCount_two": "{{count}} בעיות דורשות תיקון ידני. לפתיחת חלון התיקון יש להשתמש בפעולה \"ידני\" שליד כל כלל.",
+        "manualRepairNoticeWithCount_other": "{{count}} בעיות דורשות תיקון ידני. לפתיחת חלון התיקון יש להשתמש בפעולה \"ידני\" שליד כל כלל.",
         "manualRepairDialogTitle": "נדרש תיקון ידני",
         "manualRepairDialogDescription": "לא ניתן לתקן בעיה זו באופן אוטומטי. יש לעיין בהנחיות שלהלן ולבחור כיצד לתקן אותה.",
         "manualRepairDialogReason": "מדוע נדרש תיקון ידני",
@@ -717,7 +743,9 @@
         "systemColumns": "עמודות מערכת",
         "general": "כללי",
         "optional": "אופציונלי",
-        "statementCount": "{{count}} פקודות",
+        "statementCount_one": "{{count}} פקודות",
+        "statementCount_two": "{{count}} פקודות",
+        "statementCount_other": "{{count}} פקודות",
         "detailsMissing": "חסר: {{details}}",
         "detailsExtra": "מיותר: {{details}}",
         "message": {
@@ -885,14 +913,22 @@
           "repair": "תוצאות התיקון"
         },
         "summary": {
-          "checks": "{{count}} בדיקות",
+          "checks_one": "{{count}} בדיקות",
+          "checks_two": "{{count}} בדיקות",
+          "checks_other": "{{count}} בדיקות",
           "success": "{{count}} עברו",
-          "warn": "{{count}} אזהרות",
-          "error": "{{count}} שגיאות",
+          "warn_one": "{{count}} אזהרות",
+          "warn_two": "{{count}} אזהרות",
+          "warn_other": "{{count}} אזהרות",
+          "error_one": "{{count}} שגיאות",
+          "error_two": "{{count}} שגיאות",
+          "error_other": "{{count}} שגיאות",
           "skipped": "{{count}} דולגו",
           "repaired": "{{count}} תוקנו",
           "manual": "{{count}} ידניים",
-          "problems": "{{count}} בעיות"
+          "problems_one": "{{count}} בעיות",
+          "problems_two": "{{count}} בעיות",
+          "problems_other": "{{count}} בעיות"
         },
         "status": {
           "success": "עבר",
@@ -947,6 +983,10 @@
       "title": "הטבלה שנפתחה נמחקה",
       "description": "מוצגת כעת \"{{tableName}}\"",
       "descriptionEmpty": "חזרה לדף הפרויקט"
+    },
+    "unavailableRecovered": {
+      "title": "הטבלה שפתחת אינה זמינה",
+      "description": "ייתכן שהיא נמחקה, או שאין לך גישה אליה"
     }
   },
   "import": {
@@ -1122,7 +1162,9 @@
       "addDateField": "הוספת שדות תאריך",
       "content": "כדי ליצור לוח זמנים בתצוגת לוח שנה, הטבלה צריכה לכלול שני שדות תאריך: תאריך התחלה ותאריך סיום"
     },
-    "moreLinkText": "הצגת כל {{count}} הרשומות"
+    "moreLinkText_one": "הצגת כל {{count}} הרשומות",
+    "moreLinkText_two": "הצגת כל {{count}} הרשומות",
+    "moreLinkText_other": "הצגת כל {{count}} הרשומות"
   },
   "menu": {
     "insertRecordAbove": "הוספת <input /> רשומות מעל",
@@ -1200,7 +1242,9 @@
   "lastModify": "שינוי אחרון: ",
   "pasteNewRecords": {
     "title": "להוסיף מספר רשומות?",
-    "description": "{{count}} הרשומות יתווספו לטבלה."
+    "description_one": "{{count}} הרשומות יתווספו לטבלה.",
+    "description_two": "{{count}} הרשומות יתווספו לטבלה.",
+    "description_other": "{{count}} הרשומות יתווספו לטבלה."
   },
   "tableArchive": {
     "title": "ארכיון הטבלה",
@@ -1214,7 +1258,9 @@
     "searchPlaceholder": "חיפוש רשומות בארכיון",
     "clearFilter": "ניקוי המסנן",
     "export": "ייצוא CSV",
-    "exporting": "בייצוא... {{count}} שורות",
+    "exporting_one": "בייצוא... {{count}} שורות",
+    "exporting_two": "בייצוא... {{count}} שורות",
+    "exporting_other": "בייצוא... {{count}} שורות",
     "exportSucceed": "הייצוא הושלם, ההורדה מתחילה",
     "restoreSelected": "שחזור ({{count}})",
     "permanentDeleteSelected": "מחיקה לצמיתות ({{count}})",
@@ -1291,7 +1337,9 @@
     "viewLinkHolderCanViewDesc": "כל בעלי הקישור יכולים לצפות בנתוני התצוגה הזו",
     "viewLinkHolderCanEditDesc": "משתמשים מחוברים יכולים לערוך נתונים בתחום התצוגה",
     "linkExposureNoticeOne": "מבקרים יוכלו לראות נתונים מתוך \"{{name}}\"",
-    "linkExposureNoticeMany": "מבקרים יוכלו לראות נתונים מתוך \"{{name}}\" ומתוך {{count}} טבלאות בסך הכול",
+    "linkExposureNoticeMany_one": "מבקרים יוכלו לראות נתונים מתוך \"{{name}}\" ומתוך {{count}} טבלאות בסך הכול",
+    "linkExposureNoticeMany_two": "מבקרים יוכלו לראות נתונים מתוך \"{{name}}\" ומתוך {{count}} טבלאות בסך הכול",
+    "linkExposureNoticeMany_other": "מבקרים יוכלו לראות נתונים מתוך \"{{name}}\" ומתוך {{count}} טבלאות בסך הכול",
     "linkExposureNoticeGeneric": "מבקרים יוכלו לראות נתונים מטבלאות מקושרות",
     "restrictScope": "הגבלת ההיקף",
     "linkScopeDesc": "הגבלת הרשומות והשדות שניתן לבחור בשדות הקישור של התצוגה הזו. ההגדרה חלה על השדה עצמו ומשפיעה על כל תצוגה שמשתמשת בו.",
@@ -1346,7 +1394,9 @@
       "notConnected": "Google Sheets עדיין לא מחובר. יש לחבר אותו באפליקציה ולנסות שוב.",
       "backToChat": "אפשר לחזור עכשיו לצ'אט.",
       "status": {
-        "picked": "הוענקה גישה ל-{{count}} גיליונות",
+        "picked_one": "הוענקה גישה ל-{{count}} גיליונות",
+        "picked_two": "הוענקה גישה ל-{{count}} גיליונות",
+        "picked_other": "הוענקה גישה ל-{{count}} גיליונות",
         "cancelled": "דולג",
         "failed": "נכשל"
       },
@@ -1422,7 +1472,9 @@
         "copy": "העתקה",
         "copied": "הועתק!",
         "collapse": "כיווץ",
-        "linesHidden": "{{count}} שורות מוסתרות - לחיצה להרחבה"
+        "linesHidden_one": "{{count}} שורות מוסתרות - לחיצה להרחבה",
+        "linesHidden_two": "{{count}} שורות מוסתרות - לחיצה להרחבה",
+        "linesHidden_other": "{{count}} שורות מוסתרות - לחיצה להרחבה"
       }
     },
     "tool": {
@@ -1605,8 +1657,12 @@
       "selectionColumns": "עמודות {{start}}-{{end}}",
       "selectionColumnsNamed": "{{names}} +{{count}}",
       "selectionUnnamed": "רשומה ללא שם",
-      "selectionRecords": "{{count}} רשומות",
-      "selectionCellCount": "{{count}} תאים",
+      "selectionRecords_one": "{{count}} רשומות",
+      "selectionRecords_two": "{{count}} רשומות",
+      "selectionRecords_other": "{{count}} רשומות",
+      "selectionCellCount_one": "{{count}} תאים",
+      "selectionCellCount_two": "{{count}} תאים",
+      "selectionCellCount_other": "{{count}} תאים",
       "selectionRecordType": "הפניה לרשומות",
       "selectionCellType": "הפניה לתאים",
       "selectionDimensions": "{{rows}} שורות × {{columns}} עמודות",
@@ -1621,7 +1677,9 @@
       "selectionOpenRecord": "פתיחת הרשומה {{name}}",
       "selectionPrevious": "הקודם",
       "selectionNext": "הבא",
-      "selectionPage": "{{start}}–{{end}} מתוך {{count}} רשומות"
+      "selectionPage_one": "{{start}}–{{end}} מתוך {{count}} רשומות",
+      "selectionPage_two": "{{start}}–{{end}} מתוך {{count}} רשומות",
+      "selectionPage_other": "{{start}}–{{end}} מתוך {{count}} רשומות"
     },
     "mention": {
       "tables": "טבלאות",
@@ -1650,7 +1708,9 @@
     },
     "attachment": {
       "pastedTextFileName": "טקסט שהודבק",
-      "tooManyFiles": "ניתן לצרף עד {{count}} קבצים בהודעה אחת"
+      "tooManyFiles_one": "ניתן לצרף עד {{count}} קבצים בהודעה אחת",
+      "tooManyFiles_two": "ניתן לצרף עד {{count}} קבצים בהודעה אחת",
+      "tooManyFiles_other": "ניתן לצרף עד {{count}} קבצים בהודעה אחת"
     },
     "suggestions": {
       "title": "איך אפשר לעזור?",
@@ -1668,7 +1728,9 @@
     },
     "buildApp": {
       "task": {
-        "foundResults": "נמצאו {{count}} תוצאות"
+        "foundResults_one": "נמצאו {{count}} תוצאות",
+        "foundResults_two": "נמצאו {{count}} תוצאות",
+        "foundResults_other": "נמצאו {{count}} תוצאות"
       }
     },
     "scriptPreview": {
@@ -1698,8 +1760,12 @@
       "ls": "הצגת תוכן התיקייה",
       "webSearch": "חיפוש באינטרנט",
       "skill": "בטעינת מיומנות",
-      "foundFiles": "נמצאו {{count}} קבצים",
-      "listedEntries": "{{count}} פריטים",
+      "foundFiles_one": "נמצאו {{count}} קבצים",
+      "foundFiles_two": "נמצאו {{count}} קבצים",
+      "foundFiles_other": "נמצאו {{count}} קבצים",
+      "listedEntries_one": "{{count}} פריטים",
+      "listedEntries_two": "{{count}} פריטים",
+      "listedEntries_other": "{{count}} פריטים",
       "ranCommands_one": "הורצה פקודה אחת",
       "ranCommands_two": "הורצו שתי פקודות",
       "ranCommands_other": "הורצו {{count}} פקודות",
@@ -1790,12 +1856,19 @@
       "waitingInput": "ממתין לתשובתך",
       "failed": "התשובה נכשלה"
     },
-    "routineRunPrompt": "נשלח על ידי השגרה"
+    "routineRunPrompt": "נשלח על ידי השגרה",
+    "backToLatest": "חזרה להודעות האחרונות"
   },
   "upload": {
-    "panelUploading": "בהעלאת {{count}} קבצים",
-    "panelFailed": "{{count}} קבצים נכשלו",
-    "panelCompleted": "{{count}} קבצים הושלמו",
+    "panelUploading_one": "בהעלאת {{count}} קבצים",
+    "panelUploading_two": "בהעלאת {{count}} קבצים",
+    "panelUploading_other": "בהעלאת {{count}} קבצים",
+    "panelFailed_one": "{{count}} קבצים נכשלו",
+    "panelFailed_two": "{{count}} קבצים נכשלו",
+    "panelFailed_other": "{{count}} קבצים נכשלו",
+    "panelCompleted_one": "{{count}} קבצים הושלמו",
+    "panelCompleted_two": "{{count}} קבצים הושלמו",
+    "panelCompleted_other": "{{count}} קבצים הושלמו",
     "statusFailed": "נכשל",
     "statusCompleted": "הושלם",
     "statusCancel": "ביטול ההעלאה",

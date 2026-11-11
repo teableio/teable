@@ -202,7 +202,14 @@
     "toggle": "パレットを開く／閉じる",
     "aiMode": "AI",
     "space": "スペース",
-    "project": "プロジェクト"
+    "project": "プロジェクト",
+    "all": "すべて",
+    "searchMore": "{{scope}} でさらに検索",
+    "showAll": "すべて表示",
+    "loadOlder": "以前の結果を読み込む",
+    "chats": "チャット",
+    "locateMessage": "メッセージへ移動",
+    "matchCount": "{{matches}} 件一致"
   },
   "password": {
     "setInvalid": "パスワードが無効です。少なくとも8文字で、少なくとも1つの文字と1つの数字を含める必要があります。"

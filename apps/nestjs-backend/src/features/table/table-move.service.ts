@@ -12,6 +12,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IDataPrismaQueryExecutor } from '../../global/database-router.service';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { RawOpType } from '../../share-db/interface';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import { BatchService } from '../calculation/batch.service';
 import { TableMutationCacheInvalidator } from './open-api/table-mutation-cache-invalidator';
 import { TableService } from './table.service';
@@ -73,6 +74,15 @@ const COMPUTED_STATUS_PENDING = ['pending', 'processing'];
  * caller rolls the physical phase back (same shape as `updateDbTableName`).
  */
 @Injectable()
+// Untraced guard: countPendingComputedTasks — Reads the v2 computed outbox, not legacy execution.
+// Untraced host: afterMoveCommitted — Host cache invalidation after a cross-project move.
+@V1EngineService([
+  'collectCrossBaseLinks',
+  'prepareMove',
+  'applyPhysicalMove',
+  'rollbackPhysicalMove',
+  'applyMetaMove',
+])
 export class TableMoveService {
   private readonly logger = new Logger(TableMoveService.name);
 

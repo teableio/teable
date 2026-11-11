@@ -3,6 +3,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TableDomain, type IRecord } from '@teable/core';
 import { DatabaseRouter } from '../../global/database-router.service';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { fieldCore2FieldInstance } from '../field/model/factory';
@@ -13,6 +14,7 @@ import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
  * This service is separated from RecordService to avoid circular dependencies
  */
 @Injectable()
+@V1EngineService(['getSnapshotBulk'])
 export class RecordQueryService {
   private readonly logger = new Logger(RecordQueryService.name);
 

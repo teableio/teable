@@ -1,9 +1,9 @@
 {
-  "add": "New OAuth Apps",
+  "add": "New OAuth app",
   "title": {
-    "add": "New OAuth Apps",
-    "edit": "Edit OAuth Apps",
-    "description": "Teable Apps can act on their own behalf, directly performing operations through the API, without impersonating a user. See our <a>Help documentation</a> for more information."
+    "add": "New OAuth app",
+    "edit": "Edit OAuth app",
+    "description": "OAuth apps let other services access Teable on behalf of the users who authorize them, limited to the scopes you choose. See our <a>Help documentation</a> for more information."
   },
   "form": {
     "name": {
@@ -28,8 +28,8 @@
     },
     "callbackUrl": {
       "label": "Callback URL",
-      "description": "The full URL to redirect to after a user authorizing your integration.",
-      "add": "Add Callback URL"
+      "description": "The full URL to redirect to after a user authorizes your app.",
+      "add": "Add callback URL"
     },
     "deviceFlow": {
       "label": "Enable device flow",
@@ -39,7 +39,7 @@
       "label": "Client secrets",
       "add": "Generate a new client secret",
       "newDescription": "Make sure to copy your new client secret now. You won’t be able to see it again.",
-      "empty": "You need a client secret to authenticate as the application to the API.",
+      "empty": "Generate a client secret so your app can exchange authorization codes for access tokens.",
       "lastUsed": "Last used at {{date}}",
       "tag": "Client secret",
       "neverUsed": "Never used"
@@ -56,7 +56,7 @@
   },
   "decision": {
     "title": "{{name}} is requesting access to your account",
-    "scopes": "This application will be able to get the following scopes:",
+    "scopes": "This app will be granted the following permissions:",
     "redirectDescription": "Authorizing will redirect to",
     "authorize": "Authorize"
   },
@@ -93,7 +93,7 @@
     "title": "Learn more"
   },
   "deleteConfirm": {
-    "title": "Delete OAuth App",
+    "title": "Delete OAuth app",
     "description": "Are you sure you want to delete the {{name}} OAuth App? This action cannot be undone."
   }
 }

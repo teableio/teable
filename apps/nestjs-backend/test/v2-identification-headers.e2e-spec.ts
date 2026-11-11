@@ -3,7 +3,6 @@ import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, getRandomString } from '@teable/core';
 import {
   axios,
-  ensureUndoRedoWindowIdHeader,
   getTaskStatusCollection,
   getRecords,
   OPERATION_REDO_STREAM,
@@ -16,13 +15,14 @@ import {
 import type { ITableFullVo, IUndoRedoStreamDoneEvent, IUndoRedoStreamEvent } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+
 import {
   X_TEABLE_V2_FEATURE_HEADER,
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { X_TEABLE_UNDO_REDO_ENGINE_HEADER } from '../src/features/undo-redo/open-api/undo-redo.service';
-import { createEventPromise } from './utils/event-promise';
+
 import { createTable, initApp, permanentDeleteTable, updateRecordByApi } from './utils/init-app';
 
 /**
@@ -92,6 +92,7 @@ const postSseStream = async (
       [X_TEABLE_V2_HEADER]: response.headers.get(X_TEABLE_V2_HEADER),
       [X_TEABLE_V2_REASON_HEADER]: response.headers.get(X_TEABLE_V2_REASON_HEADER),
       [X_TEABLE_V2_FEATURE_HEADER]: response.headers.get(X_TEABLE_V2_FEATURE_HEADER),
+      [X_TEABLE_UNDO_REDO_ENGINE_HEADER]: response.headers.get(X_TEABLE_UNDO_REDO_ENGINE_HEADER),
     },
     events,
   };
@@ -102,7 +103,9 @@ describe('V2 identification headers for task-status-collection and undo/redo (T7
   let cookie: string;
   let table: ITableFullVo;
   let windowId: string;
+  let previousWindowId: (typeof axios.defaults.headers.common)[string];
   let eventEmitterService: EventEmitterService;
+
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
@@ -110,11 +113,6 @@ describe('V2 identification headers for task-status-collection and undo/redo (T7
     app = appContext.app;
     cookie = appContext.cookie;
     eventEmitterService = app.get(EventEmitterService);
-    // Spec files share one axios instance per worker (E2E_SHARED_APP), and
-    // ensureUndoRedoWindowIdHeader keeps the window id a previous file already
-    // installed. Adopt whatever it returns so the write and the streams below
-    // address the same undo/redo window.
-    windowId = ensureUndoRedoWindowIdHeader(`win${getRandomString(8)}`);
   });
 
   afterAll(async () => {
@@ -122,11 +120,22 @@ describe('V2 identification headers for task-status-collection and undo/redo (T7
   });
 
   beforeEach(async () => {
+    previousWindowId = axios.defaults.headers.common[windowIdHeader];
+    windowId = `win${getRandomString(8)}`;
+    axios.defaults.headers.common[windowIdHeader] = windowId;
     table = await createTable(baseId, { name: `v2_headers_${getRandomString(4)}` });
   });
 
   afterEach(async () => {
-    await permanentDeleteTable(baseId, table.id);
+    try {
+      await permanentDeleteTable(baseId, table.id);
+    } finally {
+      if (previousWindowId === undefined) {
+        delete axios.defaults.headers.common[windowIdHeader];
+      } else {
+        axios.defaults.headers.common[windowIdHeader] = previousWindowId;
+      }
+    }
   });
 
   it('aggregation/task-status-collection identifies as V2 like its aggregation siblings (T7804)', async () => {
@@ -151,7 +160,7 @@ describe('V2 identification headers for task-status-collection and undo/redo (T7
     const undoStream = await postSseStream(OPERATION_UNDO_STREAM, table.id, cookie, windowId);
     expect(undoStream.status).toBe(200);
     expect(undoStream.headers[X_TEABLE_V2_HEADER]).toBe('true');
-    expect(undoStream.headers[X_TEABLE_V2_REASON_HEADER]).toBe('env_force_v2_all');
+    expect(undoStream.headers[X_TEABLE_V2_REASON_HEADER]).toBe('undo_redo_engine');
     expect(undoStream.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('undoRedo');
     const undoDone = undoStream.events.find((event) => event.id === 'done') as
       | IUndoRedoStreamDoneEvent
@@ -162,7 +171,7 @@ describe('V2 identification headers for task-status-collection and undo/redo (T7
     const redoStream = await postSseStream(OPERATION_REDO_STREAM, table.id, cookie, windowId);
     expect(redoStream.status).toBe(200);
     expect(redoStream.headers[X_TEABLE_V2_HEADER]).toBe('true');
-    expect(redoStream.headers[X_TEABLE_V2_REASON_HEADER]).toBe('env_force_v2_all');
+    expect(redoStream.headers[X_TEABLE_V2_REASON_HEADER]).toBe('undo_redo_engine');
     expect(redoStream.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('undoRedo');
     const redoDone = redoStream.events.find((event) => event.id === 'done') as
       | IUndoRedoStreamDoneEvent
@@ -171,13 +180,9 @@ describe('V2 identification headers for task-status-collection and undo/redo (T7
     expect(redoDone?.engine).toBe('v2');
   });
 
-  it('reports the v1 engine instead of claiming v2 when the replay falls back (T7805)', async () => {
+  it('records order-only updates and their replay on the v2 engine (T8437)', async () => {
     const [firstRecord, secondRecord] = table.records;
 
-    // A PATCH carrying only `order` is classified `unsupported_feature` by
-    // V2FeatureGuard, so this write is captured by the v1 pipeline and lands on the
-    // v1 undo stack (the v1 stack is filled from the OPERATION_* events, asynchronously).
-    const v1StackPush = createEventPromise(eventEmitterService, Events.OPERATION_PUSH);
     const writeResponse = await updateRecord(table.id, firstRecord.id, {
       fieldKeyType: FieldKeyType.Id,
       record: { fields: {} },
@@ -187,30 +192,112 @@ describe('V2 identification headers for task-status-collection and undo/redo (T7
         position: 'after',
       },
     });
-    expect(writeResponse.headers[X_TEABLE_V2_HEADER]).toBe('false');
-    expect(writeResponse.headers[X_TEABLE_V2_REASON_HEADER]).toBe('unsupported_feature');
-    await v1StackPush;
+    expect(writeResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+    expect(writeResponse.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('updateRecord');
+    expect(writeResponse.headers[X_TEABLE_V2_REASON_HEADER]).not.toBe('unsupported_feature');
 
-    // The v2 stack has nothing for this window, so the service replays through the
-    // v1 engine: the response must not claim v2 even though the canary routed the
-    // route itself to v2.
+    const undoResponse = await undo(table.id);
+    expect(undoResponse.data.status).toBe('fulfilled');
+    expect(undoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect(undoResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+    const redoResponse = await redo(table.id);
+    expect(redoResponse.data.status).toBe('fulfilled');
+    expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+    expect(redoResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+  });
+
+  it('attributes historical v1 undo and redo to v1 even on a v2-routed request', async () => {
+    const recordId = table.records[0].id;
+    const fieldId = table.fields[0].id;
+    const originalValue = table.records[0].fields[fieldId];
+    const forceV2All = process.env.FORCE_V2_ALL;
+    const enableCanary = process.env.ENABLE_CANARY_FEATURE;
+
+    // A real v1-mode write seeds historical replay without relying on an
+    // unsupported payload or replacing either engine's history.
+    process.env.FORCE_V2_ALL = 'false';
+    process.env.ENABLE_CANARY_FEATURE = 'false';
+    let releasePush: (() => void) | undefined;
+    try {
+      // The v1 stack is filled asynchronously: `UndoRedoStackService.push` emits
+      // OPERATION_PUSH only after the entry is persisted, so subscribe before the
+      // PATCH and wait for that push before replaying. The wait is bounded and
+      // explicitly disposed so a failed v1 persistence cannot strand the shared app.
+      const v1StackPush = new Promise<boolean>((resolve) => {
+        const emitter = eventEmitterService.eventEmitter;
+        const onPush = () => {
+          clearTimeout(timer);
+          emitter.off(Events.OPERATION_PUSH, onPush);
+          resolve(true);
+        };
+        const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+          emitter.off(Events.OPERATION_PUSH, onPush);
+          resolve(false);
+        }, 5000);
+        releasePush = () => {
+          clearTimeout(timer);
+          emitter.off(Events.OPERATION_PUSH, onPush);
+        };
+        emitter.once(Events.OPERATION_PUSH, onPush);
+      });
+      const writeResponse = await updateRecord(table.id, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [fieldId]: 'historical v1 value' } },
+      });
+      expect(writeResponse.headers[X_TEABLE_V2_HEADER]).toBe('false');
+      expect(writeResponse.headers[X_TEABLE_V2_REASON_HEADER]).toBe('disabled');
+      // Checked after the header assertions so a routing regression fails fast
+      // instead of waiting on an event the v2 pipeline never emits.
+      expect(await v1StackPush, 'v1 history push was not observed within five seconds').toBe(true);
+    } finally {
+      releasePush?.();
+      if (forceV2All === undefined) delete process.env.FORCE_V2_ALL;
+      else process.env.FORCE_V2_ALL = forceV2All;
+      if (enableCanary === undefined) delete process.env.ENABLE_CANARY_FEATURE;
+      else process.env.ENABLE_CANARY_FEATURE = enableCanary;
+    }
+
+    // The v2 stack has nothing for this window, so the service replays the
+    // legacy stack: the response reports that stack, not the canary decision.
     const undoResponse = await undo(table.id);
     expect(undoResponse.data.status).toBe('fulfilled');
     expect(undoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
     expect(undoResponse.headers[X_TEABLE_V2_HEADER]).toBe('false');
-    expect(undoResponse.headers[X_TEABLE_V2_REASON_HEADER]).toBe('unsupported_feature');
+    expect(undoResponse.headers[X_TEABLE_V2_REASON_HEADER]).toBe('undo_redo_engine');
+    expect(undoResponse.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('undoRedo');
+    const undoneRecords = (await getRecords(table.id, { fieldKeyType: FieldKeyType.Id })).data;
+    expect(undoneRecords.records.find(({ id }) => id === recordId)?.fields[fieldId]).toEqual(
+      originalValue
+    );
 
-    // Nothing left to replay: no engine ran, so the canary stamp stays (the same
-    // request cannot be corrected on the stream routes either).
+    // Nothing left to replay: no stack replayed, so the canary stamp stays.
     const emptyUndoResponse = await undo(table.id);
     expect(emptyUndoResponse.data.status).toBe('empty');
-    expect(emptyUndoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
     expect(emptyUndoResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
 
     const redoResponse = await redo(table.id);
     expect(redoResponse.data.status).toBe('fulfilled');
     expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
     expect(redoResponse.headers[X_TEABLE_V2_HEADER]).toBe('false');
-    expect(redoResponse.headers[X_TEABLE_V2_REASON_HEADER]).toBe('unsupported_feature');
+    expect(redoResponse.headers[X_TEABLE_V2_REASON_HEADER]).toBe('undo_redo_engine');
+    expect(redoResponse.headers[X_TEABLE_V2_FEATURE_HEADER]).toBe('undoRedo');
+    const redoneRecords = (await getRecords(table.id, { fieldKeyType: FieldKeyType.Id })).data;
+    expect(redoneRecords.records.find(({ id }) => id === recordId)?.fields[fieldId]).toBe(
+      'historical v1 value'
+    );
+
+    const undoStream = await postSseStream(OPERATION_UNDO_STREAM, table.id, cookie, windowId);
+    expect(undoStream.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
+    expect(undoStream.headers[X_TEABLE_V2_HEADER]).toBe('false');
+    expect(undoStream.headers[X_TEABLE_V2_REASON_HEADER]).toBe('undo_redo_engine');
+    expect(undoStream.events).toContainEqual(
+      expect.objectContaining({ id: 'done', engine: 'v1', status: 'fulfilled' })
+    );
+
+    const redoStream = await postSseStream(OPERATION_REDO_STREAM, table.id, cookie, windowId);
+    expect(redoStream.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
+    expect(redoStream.headers[X_TEABLE_V2_HEADER]).toBe('false');
+    expect(redoStream.headers[X_TEABLE_V2_REASON_HEADER]).toBe('undo_redo_engine');
   });
 });

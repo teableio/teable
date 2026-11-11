@@ -2,6 +2,7 @@ import { FieldKeyType } from '@teable/core';
 import { keyBy } from 'lodash';
 import type { IUpdateRecordsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { ICellContext } from '../../calculation/utils/changes';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { RecordService } from '../../record/record.service';
@@ -17,6 +18,8 @@ export interface IUpdateRecordsPayload {
   orderIndexesAfter?: Record<string, number>[];
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class UpdateRecordsOperation {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,

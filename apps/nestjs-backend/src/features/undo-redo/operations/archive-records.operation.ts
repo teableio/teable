@@ -28,6 +28,7 @@ export interface IArchiveRecordsPayload {
   recordIds: string[];
 }
 
+// No v1 label: ArchiveService routes archive replay to either the v1 or the v2 record engine.
 export class ArchiveRecordsOperation {
   constructor(private readonly archiveService?: IArchiveUndoService) {}
 

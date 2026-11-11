@@ -103,14 +103,14 @@
     "remove": "Remove",
     "removeConfig": "Remove config",
     "retry": "Retry",
-    "saveSucceed": "Save succeed!",
-    "submitSucceed": "Submit succeed!",
+    "saveSucceed": "Saved",
+    "submitSucceed": "Submitted",
     "editSucceed": "Edit succeed!",
-    "updateSucceed": "Update succeed!",
-    "deleteSucceed": "Delete succeed!",
-    "resetSucceed": "Empty trash succeed!",
-    "restoreSucceed": "Restored succeed!",
-    "loading": "Loading...",
+    "updateSucceed": "Updated",
+    "deleteSucceed": "Deleted",
+    "resetSucceed": "Trash emptied",
+    "restoreSucceed": "Restored",
+    "loading": "Loading…",
     "refreshPage": "Refresh page",
     "yesDelete": "Yes, delete",
     "rename": "Rename",
@@ -124,12 +124,12 @@
     "loadMore": "Load more",
     "collapseSidebar": "Collapse sidebar",
     "restore": "Restore",
-    "permanentDelete": "Permanent delete",
+    "permanentDelete": "Delete permanently",
     "globalSearch": "Global search",
-    "fieldSearch": "Search field",
+    "fieldSearch": "Search specific fields",
     "tableIndex": "Index",
     "showAllRow": "Display all rows",
-    "hideNotMatchRow": "Hide not match row",
+    "hideNotMatchRow": "Hide non-matching rows",
     "more": "More",
     "expand": "Expand",
     "view": "View",
@@ -143,7 +143,7 @@
     "previous": "Previous",
     "select": "Select",
     "refresh": "Refresh",
-    "login": "Login",
+    "login": "Sign in",
     "useTemplate": "Install template",
     "copyLink": "Copy link",
     "openLink": "Open link",
@@ -157,7 +157,7 @@
   },
   "quickAction": {
     "title": "Quick actions",
-    "placeHolder": "Type a command or search..."
+    "placeHolder": "Type a command or search…"
   },
   "commandPalette": {
     "title": "Command palette",
@@ -192,7 +192,7 @@
     "createDashboard": "New dashboard",
     "createApp": "New app",
     "createWorkflow": "New automation",
-    "createRoutine": "New scheduled task",
+    "createRoutine": "New routine",
     "createFolder": "New folder",
     "createView": "New {{name}}",
     "invite": "Invite collaborators",
@@ -202,10 +202,17 @@
     "toggle": "Open or close the palette",
     "aiMode": "AI",
     "space": "Space",
-    "project": "Project"
+    "project": "Project",
+    "all": "All",
+    "searchMore": "Search more in {{scope}}",
+    "showAll": "Show all",
+    "loadOlder": "Load older results",
+    "chats": "Chats",
+    "locateMessage": "Go to message",
+    "matchCount": "{{matches}} matches"
   },
   "password": {
-    "setInvalid": "The password is invalid, at least 8 characters, and must contain at least one letter and one number."
+    "setInvalid": "Password must be at least 8 characters and include at least one letter and one number."
   },
   "template": {
     "non": {
@@ -225,7 +232,7 @@
     "allTemplatesLoaded": "All templates loaded",
     "createTemplate": "Create template",
     "promptBox": {
-      "start": "Start it"
+      "start": "Start"
     },
     "useTemplateDialog": {
       "title": "Select space",
@@ -256,14 +263,14 @@
     "shareTitle": "Share",
     "shareToWeb": "Share to web",
     "noPermissionTip": "You don't have permission to manage share settings",
-    "linkHolderLabel": "The person who obtained the link",
+    "linkHolderLabel": "Anyone with the link",
     "linkHolderCanView": "Can view",
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
     "linkHolderCanEdit": "Can edit",
     "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
     "linkHolderCanCopyAndSave": "Can save as copy",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
-    "refreshLink": "Regenerate Link",
+    "refreshLink": "Regenerate link",
     "advanced": "Advanced",
     "allowCopyData": "Allow viewers to copy data",
     "restrictByPassword": "Restrict by password",
@@ -271,11 +278,11 @@
     "embedPreview": "Preview",
     "copyCode": "Copy code",
     "enterPassword": "Enter password",
-    "passwordTitle": "Set Password",
+    "passwordTitle": "Set password",
     "copyLinkAndPassword": "Copy link and password",
     "linkAndPasswordText": "{{brand}} link: {{url}} Password: {{password}}",
     "generatePassword": "Generate random password",
-    "deleteConfirmTitle": "Delete Share Link",
+    "deleteConfirmTitle": "Delete share link",
     "deleteConfirmDescription": "This action cannot be undone. People with this link will no longer be able to access the shared project.",
     "createSuccess": "Share link created",
     "createFailed": "Failed to create share link",
@@ -312,7 +319,7 @@
     "templateAdmin": {
       "title": "Template admin",
       "noData": "No data",
-      "importing": "Importing...",
+      "importing": "Importing…",
       "usageCount": "Usage count: {{count}}",
       "useTemplate": "Install this template",
       "createdBy": "by {{user}}",
@@ -326,16 +333,16 @@
         "addCategoryTips": "Enter an industry name first.",
         "categoryNamePlaceholder": "Industry name",
         "subCategoryNamePlaceholder": "Sub-industry name",
-        "noSubCategory": "No sub-industries yet. Click the industry on the left to tag it.",
+        "noSubCategory": "No sub-industries yet. Select an industry on the left to add one.",
         "duplicateCategoryName": "Industry name already exists",
         "teamNamePlaceholder": "Team name",
         "addTeamTips": "Enter a team name first.",
         "keyPlaceholder": "URL key, e.g. yoga",
-        "invalidKey": "A key is lowercase letters, digits and hyphens"
+        "invalidKey": "Only lowercase letters, digits, and hyphens are allowed"
       },
       "category": {
         "menu": {
-          "getStarted": "Get Started",
+          "getStarted": "Get started",
           "recommended": "Recommended",
           "all": "All",
           "browseByCategory": "Browse by category",
@@ -351,14 +358,14 @@
         "isSystem": "System",
         "source": "Source",
         "status": "Published",
-        "publishSnapshot": "Publish Snapshot",
-        "snapshotTime": "Snapshot Time",
+        "publishSnapshot": "Publish snapshot",
+        "snapshotTime": "Snapshot time",
         "actions": "Actions",
         "featured": "Featured",
         "createdBy": "Created by",
-        "userNonExistent": "User non-existent",
+        "userNonExistent": "User not found",
         "preview": "Preview",
-        "usage": "Usage",
+        "usage": "Installs",
         "visit": "Visit",
         "requirements": "Integrations",
         "slug": "URL slug"
@@ -370,7 +377,7 @@
         "duplicate": "Duplicate",
         "preview": "Preview",
         "use": "Use",
-        "pinTop": "Pin top",
+        "pinTop": "Pin to top",
         "addCategory": "New industry",
         "addSubCategory": "New sub-industry",
         "addSubCategoryUnder": "New sub-industry under {{name}}",
@@ -381,13 +388,13 @@
         "viewTemplate": "View template",
         "manageCategory": "Manage industries and teams"
       },
-      "relatedTemplates": "Related Templates",
+      "relatedTemplates": "Related templates",
       "noImage": "No image",
       "baseSelectPanel": {
         "title": "Select template source",
         "description": "Select a project to be the template",
         "confirm": "Confirm",
-        "search": "Search...",
+        "search": "Search…",
         "cancel": "Cancel",
         "selectBase": "Select project",
         "createTemplate": "Create template",
@@ -407,7 +414,7 @@
       "dataTitle": "Data and account",
       "email": "Email",
       "password": "Password",
-      "passwordDesc": "Set a permanent password to login to your account.",
+      "passwordDesc": "Set a permanent password to sign in to your account.",
       "changePassword": {
         "title": "Change password",
         "desc": "Please enter your current password and set a new one",
@@ -416,18 +423,18 @@
         "confirm": "Confirm new password"
       },
       "changePasswordError": {
-        "disMatch": "Your new password does not match.",
+        "disMatch": "The new passwords don't match.",
         "equal": "Your new password must be different from your current password.",
         "invalid": "Your current password is invalid."
       },
       "changePasswordSuccess": {
-        "title": "🎉 Change password successfully.",
-        "desc": "You will be redirected to the login page in 2 seconds."
+        "title": "🎉 Password changed",
+        "desc": "You will be redirected to the sign-in page in 2 seconds."
       },
       "manageToken": "Access token",
       "addPassword": {
         "title": "Add password",
-        "desc": "Set a permanent password to login to your account.",
+        "desc": "Set a permanent password to sign in to your account.",
         "password": "Enter your password",
         "confirm": "Confirm your password"
       },
@@ -435,7 +442,7 @@
         "disMatch": "Your password does not match."
       },
       "addPasswordSuccess": {
-        "title": "🎉 Add password successfully."
+        "title": "🎉 Password added"
       },
       "changeEmail": {
         "title": "Change email address",
@@ -452,8 +459,8 @@
           "sendMailRateLimit": "Please wait {{seconds}} seconds before sending a new email"
         },
         "success": {
-          "title": "🎉 Change email successfully.",
-          "desc": "You will be redirected to the login page in 2 seconds.",
+          "title": "🎉 Email changed",
+          "desc": "You will be redirected to the sign-in page in 2 seconds.",
           "sendSuccess": "Verification code sent successfully."
         }
       },
@@ -481,12 +488,12 @@
     "notify": {
       "title": "Notifications",
       "label": "Activity in your space",
-      "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
+      "desc": "Receive emails when you get comments, mentions, space and project invites, user field assignments, and export results."
     },
     "setting": {
       "title": "Preferences",
       "interfaceTitle": "Interface",
-      "theme": "Intertace theme",
+      "theme": "Interface theme",
       "themeDesc": "Select your interface color scheme",
       "dark": "Dark",
       "light": "Light",
@@ -495,46 +502,46 @@
       "infraVersion": "Infra version",
       "language": "Language",
       "interactionMode": "Interaction mode",
-      "mouseMode": "Cursor mode",
+      "mouseMode": "Mouse mode",
       "touchMode": "Touch mode",
       "systemMode": "Follow system",
       "buySelfHostedLicense": "Buy self-hosted license",
-      "teableSkill": "Teable skill"
+      "teableSkill": "Teable Skill"
     },
     "teableSkill": {
-      "intro": "Let your AI Agent connect to your Project to query data, manage tables, fields, and views, import or update records, and create automations and apps.",
+      "intro": "Let your AI agent connect to your project to query data, manage tables, fields, and views, import or update records, and create automations and apps.",
       "worksWith": "Works with all mainstream agents",
       "more": "+ more",
       "copy": "Copy",
-      "installPromptLabel": "Skill install prompt",
-      "installCommandLabel": "Skill install command",
+      "installPromptLabel": "Install prompt",
+      "installCommandLabel": "Install command",
       "installPrompt": "Please read https://github.com/teableio/agent-skills, follow the guide to help me install the Teable agent skill, and complete Teable CLI authentication. My Teable instance is {{origin}}; authenticate against it with `teable auth login --endpoint {{origin}}`.",
-      "step1Title": "Install Skill",
-      "step1Description": "Copy this prompt into your AI Agent. It will install the Teable skill and open the browser to complete Teable CLI authentication.",
-      "step3Title": "Try using Teable skill",
-      "step3Description": "After the skill is installed, try these prompts.",
+      "step1Title": "Install Teable Skill",
+      "step1Description": "Copy this prompt into your AI Agent. It will install Teable Skill and open the browser to complete Teable CLI authentication.",
+      "step3Title": "Try Teable Skill",
+      "step3Description": "After Teable Skill is installed, try these prompts.",
       "tryPrompts": {
         "schema": {
           "prompt": "Create a simple CRM table in this project.",
-          "note": "Simple Starter Prompts"
+          "note": "Simple starter prompts"
         },
         "template": {
           "prompt": "Upload all invoices in this local folder to <Receipt Table> {paste table URL} and extract key fields.",
-          "note": "Local Files → Teable"
+          "note": "Local files → Teable"
         },
         "validate": {
           "prompt": "Import new GitHub issues into <Bug Tracker> {paste table URL}.",
-          "note": "Cross-Platform Data → Teable"
+          "note": "Cross-platform data → Teable"
         },
         "trace": {
           "prompt": "Check <Task Table> {paste table URL} and mark overdue tasks.",
-          "note": "Clean Or Organize Teable Data"
+          "note": "Clean or organize Teable data"
         }
       }
     },
     "nav": {
       "settings": "Settings",
-      "logout": "Log out",
+      "logout": "Sign out",
       "contactSupport": "Contact support",
       "downloadApp": "Download app"
     },
@@ -542,14 +549,15 @@
       "title": "Integrations",
       "thirdPartyIntegrations": {
         "title": "Third-party integrations",
-        "description": "You have granted {{count}} applications access to your account.",
+        "description_one": "You have granted {{count}} application access to your account.",
+        "description_other": "You have granted {{count}} applications access to your account.",
         "lastUsed": "Last used at {{date}}",
         "revoke": "Revoke",
-        "owner": "Owner by {{user}}",
+        "owner": "Owned by {{user}}",
         "revokeTitle": "Are you sure you want to revoke authorization?",
         "revokeDesc": "{{name}} will no longer be able to access the Teable API. You cannot undo this action.",
         "scopeTitle": "Permissions",
-        "scopeDesc": "This application will be able to get the following scopes:",
+        "scopeDesc": "This application will have the following permissions:",
         "notifications": "Notifications",
         "notificationsDesc": "Let {{name}} send you notifications"
       },
@@ -625,7 +633,7 @@
     "enterprise": "Enterprise"
   },
   "noResult": "No Result.",
-  "allNodes": "All Nodes",
+  "allNodes": "All nodes",
   "noDescription": "No description",
   "untitled": "Untitled",
   "untitledBase": "Untitled project",
@@ -633,7 +641,7 @@
   "description": "Description",
   "required": "Required",
   "characters": "characters",
-  "atLeastOne": "At least reserve a {{noun}}",
+  "atLeastOne": "Keep at least one {{noun}}",
   "guide": {
     "prev": "Prev",
     "next": "Next",
@@ -642,19 +650,19 @@
     "createSpaceTooltipTitle": "Create a space",
     "createSpaceTooltipContent": "Create a space to collaborate with your team.",
     "createBaseTooltipTitle": "Create a project",
-    "createBaseTooltipContent": "A project stores your data and provides access to automation and apps dashboard.",
+    "createBaseTooltipContent": "A project stores your data and holds your automations, apps, and dashboards.",
     "createTableTooltipTitle": "Create a table",
     "createTableTooltipContent": "Create a new table or import an existing one here.",
     "createViewTooltipTitle": "Create a view",
-    "createViewTooltipContent": "Create Grid, Gallery, Kanban, and Form views. Calendar views coming soon. <br></br>Choose the best view for your data management needs.",
+    "createViewTooltipContent": "Create Grid, Gallery, Kanban, Calendar, and Form views.<br></br>Choose the view that fits how you work with the data.",
     "viewFilteringTooltipTitle": "Filtering records",
     "viewFilteringTooltipContent": "Filter records by setting conditions. Filtered records are hidden, not deleted. <br></br>This only affects the current view, not your actual data.",
     "viewSortingTooltipTitle": "Sorting records",
     "viewSortingTooltipContent": "Sort records by field values to organize them in your preferred order. <br></br>Sorting only affects the current view, not other views of the same table.",
     "viewGroupingTooltipTitle": "Grouping records",
-    "viewGroupingTooltipContent": "Group records by conditions to categorize and organize your dataset within a view.",
+    "viewGroupingTooltipContent": "Group records by one or more fields to organize them within a view.",
     "apiButtonTooltipTitle": "API",
-    "apiButtonTooltipContent": "Access Teable's powerful API with nearly all product features using an <a>Token</a>."
+    "apiButtonTooltipContent": "Access Teable's powerful API, which covers nearly all product features, using an <a>access token</a>."
   },
   "token": "Token",
   "poweredBy": "Powered by <0></0>",
@@ -664,7 +672,7 @@
       "desc_one": "This space has <b>{{count}} collaborator</b>. Adding a space collaborator will give them access to all projects within this space.",
       "desc_other": "This space has <b>{{count}} collaborators</b>. Adding a space collaborator will give them access to all projects within this space.",
       "tabEmail": "Invite by email",
-      "emailPlaceholder": "Enter email addresses, separated by 'Enter' key",
+      "emailPlaceholder": "Enter email addresses, pressing Enter after each one",
       "tabLink": "Invite by link",
       "linkPlaceholder": "Create an invite link that grants <0/> access to anyone who opens it.",
       "emailSend": "Send invite",
@@ -706,7 +714,7 @@
       "collaborator": "Collaborator",
       "accessPermission": "Access permission",
       "joinAt": "Joined at",
-      "lastLogin": "Last login",
+      "lastLogin": "Last sign-in",
       "expandPermissions": "Expand permissions for {{name}}",
       "collapsePermissions": "Collapse permissions for {{name}}",
       "basePermissionsOnly": "Has access to selected projects only",
@@ -714,11 +722,11 @@
     },
     "authority": {
       "title": "Authority matrix is enabled",
-      "description": "Collaborators’ s effective access permission is affected by the roles assigned to them, Unassigned user using the default role",
+      "description": "A collaborator's effective access depends on the roles assigned to them. Unassigned users get the default role.",
       "viewDetail": "View detail"
     },
     "app": {
-      "previewAppError": "App Error"
+      "previewAppError": "App error"
     }
   },
   "help": {
@@ -727,12 +735,12 @@
     "mainLink": "https://help.teable.ai",
     "apiLink": "https://help.teable.ai/en/api-doc/token"
   },
-  "pagePermissionChangeTip": "Page permissions have been updated. Refresh required.",
+  "pagePermissionChangeTip": "Your permissions have been updated. Refresh the page.",
   "listEmptyTips": "The list is empty",
   "billing": {
     "overLimits": "Over limits",
     "overLimitsDescription": "Your current subscription has exceeded its usage limit. Please upgrade your plan to continue using this feature without interruption.",
-    "userLimitExceededDescription": "The current instance have reached the maximum number of users allowed by your license. Please deactivate some users or upgrade the license.",
+    "userLimitExceededDescription": "This instance has reached the maximum number of users allowed by your license. Please deactivate some users or upgrade the license.",
     "unavailableInPlanTips": "The current subscription plan does not support this feature",
     "levelTips": "This space is currently on the {{level}} plan",
     "enterpriseFeature": "Enterprise feature",
@@ -776,18 +784,18 @@
       "instanceTitle": "Instance settings",
       "description": "Change the settings for your current instance",
       "allowSignUp": "Allow creating new accounts",
-      "allowSignUpDescription": "Disabling this option will prohibit new user registrations, and the register button will no longer appear on the login page.",
+      "allowSignUpDescription": "Turning this off stops new users from signing up, and removes the sign-up button from the sign-in page.",
       "bannedEmailDomains": "Banned email domains",
       "bannedEmailDomainsDescription": "Email addresses from these domains cannot sign up, and no invitation emails involving them will be sent. Type a domain and press Enter to add it.",
       "bannedEmailDomainsInvalid": "Enter a valid domain, e.g. example.com",
       "allowSpaceInvitation": "Allow sending space invitations",
-      "allowSpaceInvitationDescription": "When turned off, only system admins can invite others to join spaces. When turned on, new users invited via email can complete registration by clicking the invitation link in the email, but shared invitation links will not work.",
+      "allowSpaceInvitationDescription": "When turned off, only system admins can invite others to join spaces. When turned on, new users invited via email can sign up by clicking the invitation link in the email, but shared invitation links will not work.",
       "allowSpaceCreation": "Allow everyone to create new spaces",
       "allowSpaceCreationDescription": "When turned off, only system admins can create new spaces.",
       "enableEmailVerification": "Enable email verification",
       "enableEmailVerificationDescription": "Enabling this option will require users to verify their email address when creating a new account.",
       "enableWaitlist": "Enable waitlist",
-      "enableWaitlistDescription": "Enabling this option will allow users to register only with an invitation code.",
+      "enableWaitlistDescription": "Turning this on lets users sign up only with an invitation code.",
       "generalSettings": "General settings",
       "aiSettings": "AI settings",
       "secretEndpointChanged": "The address changed. Enter {{secret}} again.",
@@ -814,7 +822,8 @@
         "apiKeyDescription": "The API key of the LLM provider",
         "models": "Models",
         "modelsDescription": "The models supported by the LLM provider",
-        "modelsSelectedCount": "{{count}} models selected",
+        "modelsSelectedCount_one": "{{count}} model selected",
+        "modelsSelectedCount_other": "{{count}} models selected",
         "clearAllModels": "Clear all models",
         "customModelPlaceholder": "Enter a custom model name",
         "addModelFill": "Add",
@@ -831,7 +840,7 @@
         "translationModel": "Translation model",
         "translationModelDescription": "The translation model to use",
         "chatModel": "Chat model",
-        "chatModelDescription": "The chat model to use, Tips: tool calling is required for teable ai features",
+        "chatModelDescription": "The chat model to use, Tips: tool calling is required for Teable AI features",
         "chatModels": {
           "lg": "Advanced chat model",
           "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5",
@@ -853,9 +862,9 @@
           "smBackground": "also runs light background tasks such as chat titles"
         },
         "actions": {
-          "title": "AI Capabilities",
+          "title": "AI capabilities",
           "aiField": {
-            "title": "AI Field",
+            "title": "AI field",
             "description": "AI field capabilities including auto-fill and AI configuration in field settings"
           },
           "aiChat": {
@@ -864,7 +873,7 @@
             "sandboxWarning": "AI Chat runtime must be configured below before use"
           },
           "modelSelection": {
-            "title": "Allow Model Selection",
+            "title": "Allow model selection",
             "description": "Allow users to choose a model in AI Chat and App Builder"
           }
         },
@@ -878,35 +887,35 @@
           "cancel": "Cancel",
           "missingCapabilitiesWarning": "This model does not support image or PDF processing, which may cause some features to be unavailable.",
           "modelNotSuitable": "This model may not be suitable for advanced AI features:",
-          "enableAITitle": "Enable Custom Model",
+          "enableAITitle": "Enable custom model",
           "enableAIDescription": "Model test completed. Custom model is not currently enabled. Do you want to enable custom model to use these model capabilities?",
-          "enableAI": "Enable Custom Model",
+          "enableAI": "Enable custom model",
           "skipTest": "Skip"
         },
         "chatModelAbility": {
           "image": "Image",
           "pdf": "PDF",
           "webSearch": "Web search",
-          "toolCall": "Tool Call",
+          "toolCall": "Tool call",
           "reasoning": "Reasoning",
-          "imageGeneration": "Image Generation",
+          "imageGeneration": "Image generation",
           "disabledWebSearch": "Disabled web search",
-          "lgModelAbility": "Model Capabilities",
+          "lgModelAbility": "Model capabilities",
           "missingVision": "Does not support image or PDF processing",
           "missingToolCall": "Does not support tool/function calling",
           "notTested": "Model capabilities not tested yet. Please test the model in provider settings first",
           "supportedFormats": "Supported formats"
         },
         "imageModelAbility": {
-          "generation": "Text to Image",
-          "imageToImage": "Image to Image"
+          "generation": "Text to image",
+          "imageToImage": "Image to image"
         },
         "configUpdated": "AI config updated",
         "noModelFound": "No model found.",
-        "searchModel": "Search model...",
-        "selectModel": "Select model...",
+        "searchModel": "Search model…",
+        "selectModel": "Select model…",
         "defaultModel": "{{name}} (Default)",
-        "moreModels": "More Models",
+        "moreModels": "More models",
         "agentModelWarningConfirm": "Got it",
         "recommendedModelNudge": {
           "title": "Try {{model}}",
@@ -926,40 +935,41 @@
         "supportVideoTip": "This model supports video input",
         "supportDeepThinkTip": "This model supports deep thinking",
         "testConnection": "Test",
-        "testing": "Testing...",
+        "testing": "Testing…",
         "testSuccess": "Test successful",
         "testCompleteWithCount": "Test complete: {{success}}/{{total}} models passed",
         "allTestsFailed": "All model tests failed",
         "testFailed": "Test failed",
-        "batchTest": "Test Model Capabilities",
+        "batchTest": "Test model capabilities",
         "test": "Test",
         "testProvider": "Test",
-        "testProviderTooltip": "Test all {{count}} models under this provider",
-        "batchTesting": "Testing all models...",
+        "testProviderTooltip_one": "Test {{count}} model under this provider",
+        "testProviderTooltip_other": "Test all {{count}} models under this provider",
+        "batchTesting": "Testing all models…",
         "batchTestComplete": "Batch test completed",
-        "batchTestResults": "Batch Test Results",
+        "batchTestResults": "Batch test results",
         "batchTestResultsSummary": "Tested {{tested}} of {{total}} models: {{success}} passed, {{failed}} failed",
         "batchTestNoModels": "No models configured to test",
-        "modelStatus": "Model Status",
-        "imageSupport": "Image Support",
-        "basicGeneration": "Basic Generation",
+        "modelStatus": "Model status",
+        "imageSupport": "Image support",
+        "basicGeneration": "Basic generation",
         "supported": "Supported",
-        "notSupported": "Not Supported",
-        "partialSupport": "Partial Support",
+        "notSupported": "Not supported",
+        "partialSupport": "Partial support",
         "urlSupport": "URL",
         "base64Support": "Base64",
         "closeResults": "Close",
-        "retryFailed": "Retry Failed",
+        "retryFailed": "Retry failed",
         "stopTest": "Stop",
         "pending": "Pending",
-        "configuredModels": "Configured Models",
+        "configuredModels": "Configured models",
         "fillRequiredFields": "Please fill in all required fields",
         "modelsRequired": "Please fill in at least one model",
         "noValidModel": "No valid model found",
         "addCustomModel": "Add custom model",
         "isOpenRouter": "OpenRouter",
-        "modelRates": "Model Pricing",
-        "modelSettings": "Model Settings",
+        "modelRates": "Model pricing",
+        "modelSettings": "Model settings",
         "duplicateModel": "Model {{model}} is listed under both \"{{first}}\" and \"{{second}}\"; a model may appear in only one provider of a type.",
         "model": "Model",
         "inputRate": "Input USD/token",
@@ -974,18 +984,18 @@
         "advancedRatesDescription": "These advanced prices are generated from AI Gateway Reference with the configured multiplier. They are shown for review and saved with the model pricing.",
         "cacheRead": "Cache↓",
         "cacheWrite": "Cache↑",
-        "reasoning": "Reason",
+        "reasoning": "Reasoning",
         "perImage": "Image",
         "cacheReadRateTip": "USD per cached input token if this provider charges cached input separately",
         "cacheWriteRateTip": "USD per cache write token if this provider charges cache writes separately",
         "reasoningRateTip": "USD per reasoning token if this provider charges reasoning tokens separately",
         "imageRateTip": "USD per generated image if this provider charges per image",
-        "imageModel": "Image Model",
-        "imageGeneration": "Image Generation",
+        "imageModel": "Image model",
+        "imageGeneration": "Image generation",
         "imageToImage": "Image-to-Image",
         "clickToToggleImageModel": "💡 Click to mark as image generation model",
         "markAsImageModel": "Mark as image generation model",
-        "imageGenerationModel": "Image Generation Model",
+        "imageGenerationModel": "Image generation model",
         "markedAsImageModel": "Marked as image generation model. Will test text-to-image and image-to-image capabilities.",
         "markedAsTextModel": "Marked as text model. Will test vision (image input) capability.",
         "fetchPricingError": "Failed to fetch pricing",
@@ -993,7 +1003,8 @@
         "notFound": "Not found",
         "applyPricing": "Apply ({{count}})",
         "pricingApplied": "Pricing applied",
-        "pricingAppliedCount": "Updated pricing for {{count}} models",
+        "pricingAppliedCount_one": "Updated pricing for {{count}} model",
+        "pricingAppliedCount_other": "Updated pricing for {{count}} models",
         "relativeRatio": "Ratio",
         "webSearch": "Web",
         "referencePricingTip": "Reference price fetched from the AI Gateway model catalog",
@@ -1021,54 +1032,56 @@
         },
         "recommended": "Recommended",
         "enabled": "Enabled",
-        "gatewayModels": "AI Gateway Models",
+        "gatewayModels": "AI Gateway models",
         "gatewayModelsDescription": "Configure recommended models via Vercel AI Gateway for optimal AI SDK support",
         "gatewayDescription": "Use AI Gateway for best compatibility and reliability. Configure API key in the App section below.",
         "providerDescription": "Advanced: Configure custom AI providers for specific use cases or self-hosted models.",
         "noGatewayModels": "No gateway models configured. Add models to get started.",
-        "addModel": "Add Model",
-        "addGatewayModel": "Add Gateway Model",
-        "popularModels": "Popular Models",
+        "addModel": "Add model",
+        "addGatewayModel": "Add Gateway model",
+        "popularModels": "Popular models",
         "modelId": "Model ID",
         "modelIdHint": "The model identifier used by AI Gateway (e.g., anthropic/claude-sonnet-4)",
-        "searchModelPlaceholder": "Type to search models...",
+        "searchModelPlaceholder": "Type to search models…",
         "noMatchingModels": "No matching models found",
         "typeToSearch": "Type keywords to search available models",
         "modelNotFound": "This model ID was not found in available list, please verify spelling",
-        "testModel": "Test Model",
+        "testModel": "Test model",
         "testModelSuccess": "Model test successful! API responded correctly",
         "testModelImageSuccess": "Image model confirmed to exist in API",
         "testModelNotFound": "Model not found in API list",
-        "displayLabel": "Display Label",
+        "displayLabel": "Display label",
         "isImageModel": "This is an image generation model",
         "capabilities": "Capabilities",
         "setAsDefault": "Set as default chat model",
         "quickAdd": "Quick add popular models:",
         "guide": {
-          "configStatus": "Configuration Status",
+          "configStatus": "Configuration status",
           "ready": "Ready",
-          "needsAttention": "Needs Attention",
+          "needsAttention": "Needs attention",
           "incomplete": "Incomplete",
-          "aiEnabled": "AI Enabled",
+          "aiEnabled": "AI enabled",
           "aiEnabledDesc": "Custom models are enabled for this instance",
           "aiDisabledDesc": "Enable to use custom AI models",
-          "gatewayKey": "Gateway API Key",
+          "gatewayKey": "Gateway API key",
           "gatewayKeyConfigured": "AI Gateway key is configured",
           "gatewayKeyMissing": "Configure AI Gateway API key for recommended setup",
           "gatewayKeyRequired": "Please configure AI Gateway API key first in the App section below",
-          "gatewayModels": "Gateway Models",
-          "gatewayModelsConfigured": "{{count}} models enabled",
+          "gatewayModels": "Gateway models",
+          "gatewayModelsConfigured_one": "{{count}} model enabled",
+          "gatewayModelsConfigured_other": "{{count}} models enabled",
           "gatewayModelsEmpty": "Add gateway models for user selection",
-          "providers": "Custom Providers",
-          "providersConfigured": "{{count}} providers configured",
+          "providers": "Custom providers",
+          "providersConfigured_one": "{{count}} provider configured",
+          "providersConfigured_other": "{{count}} providers configured",
           "providersEmpty": "No custom providers configured",
-          "chatModel": "Default Chat Model",
+          "chatModel": "Default chat model",
           "chatModelGateway": "Using gateway model",
           "chatModelProvider": "Using custom provider model",
           "chatModelMissing": "Select a default chat model"
         },
         "enableCard": {
-          "title": "AI Services",
+          "title": "AI services",
           "ready": "Configured and ready to use",
           "needsConfig": "Enabled, but needs configuration below",
           "disabled": "AI features are currently disabled",
@@ -1076,7 +1089,7 @@
           "allConfigured": "All configurations complete"
         },
         "wizard": {
-          "setupProgress": "Setup Progress",
+          "setupProgress": "Setup progress",
           "checklist": "Checklist",
           "allComplete": "All required settings complete! AI is ready to use.",
           "nextStep": "Next: {{step}}",
@@ -1084,7 +1097,7 @@
           "optional": "Optional",
           "gatewayHelp": "AI Gateway: One API key for hundreds of models; first-time use requires adding a credit card in Vercel;",
           "gatewayByok": "supported (bring your own provider keys)",
-          "getApiKey": "Get API Key",
+          "getApiKey": "Get API key",
           "keyInvalid": "Invalid API key, please check and try again",
           "gatewayErrorUnauthorized": "Invalid API key. Please check if it was copied correctly",
           "gatewayErrorNeedCreditCard": "Credit card required to use AI Gateway. Please add one in the Vercel dashboard",
@@ -1094,69 +1107,70 @@
           "pleaseTest": "Please click Test to verify the API key",
           "gatewayUrlKeysReenter": "The address changed. Enter or clear the keys saved in Advanced Configuration (Token Groups, Vertex AI BYOK) first, or saving will fail.",
           "test": "Test",
-          "testing": "Testing...",
+          "testing": "Testing…",
           "attachmentTest": {
-            "title": "Attachment Transfer Mode",
-            "urlMode": "URL Mode",
-            "base64Mode": "Base64 Mode",
+            "title": "Attachment transfer mode",
+            "urlMode": "URL mode",
+            "base64Mode": "Base64 mode",
             "accessible": "Available",
             "inaccessible": "Unavailable",
             "urlNotAccessibleWarning": "AI service cannot access attachment URLs. This is common for intranet deployments. Base64 mode has been auto-enabled.",
-            "useBase64Mode": "Use Base64 Mode",
+            "useBase64Mode": "Use Base64 mode",
             "base64ModeDescription": "Convert attachments to Base64 before sending (Teable cannot be accessed from the public network)",
             "originChanged": "PUBLIC_ORIGIN has changed",
             "originChangedDesc": "The server address has changed since the last test. Please re-test to verify attachment accessibility."
           },
-          "saveAndContinue": "Save & Continue",
+          "saveAndContinue": "Save & continue",
           "completeStep1First": "Please complete Step 1: Configure LLM API first",
           "completeStep2First": "Please complete Step 2: Add at least one model first",
-          "addCustom": "Custom...",
-          "enabledModels": "Enabled Models",
-          "chatDefault": "Chat Default",
+          "addCustom": "Custom…",
+          "enabledModels": "Enabled models",
+          "chatDefault": "Chat default",
           "noModelsAvailable": "No models available, please add models in Step 2 first",
-          "quickSetup": "Quick Setup",
-          "useRecommended": "Use Recommended",
+          "quickSetup": "Quick setup",
+          "useRecommended": "Use recommended",
           "useRecommendedDesc": "Set {{model}} as default for all chat scenarios with one click",
           "chatModels": "Chat model tiers",
           "chatModelTip": "Smart is the main model: AI fields, background tasks and tiers without their own model use it. The default tier is what chat users land on.",
-          "selectChatModel": "Select chat model...",
+          "selectChatModel": "Select chat model…",
           "lgDesc": "Complex tasks, deep analysis",
           "mdDesc": "Daily conversations, general tasks",
           "smDesc": "Simple queries, quick responses",
           "readyToUse": "AI is configured and ready to use!",
           "customProviderHelp": "Add your own AI providers (OpenAI, Anthropic, Azure, etc.), configure API keys and models.",
           "customModelsAutoImported": "Your provider models have been automatically imported to the model pool.",
-          "modelsCount": "{{count}} models available",
+          "modelsCount_one": "{{count}} model available",
+          "modelsCount_other": "{{count}} models available",
           "customModelsHint": "To adjust model configurations, go back to Step 1 to modify provider settings.",
           "gatewayOption": {
-            "title": "AI Gateway (Recommended)",
+            "title": "AI Gateway (recommended)",
             "desc": "Access hundreds of models via Vercel AI Gateway with best compatibility and reliability"
           },
           "customOption": {
-            "title": "Custom Provider",
+            "title": "Custom provider",
             "desc": "Connect to self-hosted/private models, supports multiple providers"
           },
           "step": {
             "llmApi": "Configure LLM API",
             "llmApiDesc": "Choose AI Gateway or configure custom providers",
-            "modelPool": "Configure Recommended Models",
+            "modelPool": "Configure recommended models",
             "modelPoolDesc": "Recommended models for users to select in AI fields & automation",
-            "chatModel": "Set Chat Model",
+            "chatModel": "Set chat model",
             "chatModelDesc": "Model for sidebar AI chat (select from recommended models)",
-            "providers": "Configure Providers",
+            "providers": "Configure providers",
             "providersDesc": "Add and manage AI providers"
           }
         }
       },
       "app": {
         "domain": "Domain",
-        "customDomain": "Custom Domain (Optional)",
+        "customDomain": "Custom domain (optional)",
         "customDomainDescription": "Set your custom domain for app deployment, access <a>Vercel domain</a> to get custom domain",
-        "vercelToken": "Vercel API Token",
-        "vercelTokenDescription": "Access <a>Vercel settings</a> to get API token",
+        "vercelToken": "Vercel API token",
+        "vercelTokenDescription": "Set a Vercel API token to deploy apps on custom domains. Get one from <a>Vercel settings</a>.",
         "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "Configure Vercel AI Gateway to access hundreds of models through a single endpoint. Access <a>AI Gateway settings</a> to get API key",
-        "aiGatewayApiKey": "AI Gateway API Key",
+        "aiGatewayApiKey": "AI Gateway API key",
         "aiGatewayKeyConfigured": "API key configured",
         "aiGatewayBaseUrl": "Custom Gateway URL"
       }
@@ -1166,13 +1180,13 @@
       "goToConfiguration": "Go to configuration"
     },
     "tips": {
-      "thankYouForUsingTeable": "Thank you for using teable",
-      "pleaseGoToConfiguration": "Please go to the settings page to complete some initial configurations to enjoy the full functionality and a better user experience of teable",
+      "thankYouForUsingTeable": "Thank you for using Teable",
+      "pleaseGoToConfiguration": "Go to Settings and complete the initial setup to get the full Teable experience.",
       "pleaseContactAdmin": "Contact a space owner."
     },
     "configuration": {
       "title": "Pending configuration",
-      "description": "Complete those configuration to get full features",
+      "description": "Complete these settings to unlock all features",
       "progressTitle": "Setup progress",
       "allComplete": "All configurations completed",
       "incomplete": "Some configurations are incomplete",
@@ -1180,7 +1194,7 @@
       "completed": "Completed",
       "group": {
         "system": "Basics",
-        "ai": "AI Services",
+        "ai": "AI services",
         "appBuilder": "App Builder",
         "security": "Security"
       },
@@ -1188,19 +1202,19 @@
       "list": {
         "publicOrigin": {
           "title": "PUBLIC_ORIGIN environment variable",
-          "description": "Your <strong>{{envPublicOrigin}}</strong> environment variable configuration does not match the current access address <underline>{{currentPublicOrigin}}</underline>, import xlsx, csv, and attachment field functions may not work normally, it is recommended to set it to <underline>{{envPublicOrigin}}</underline>"
+          "description": "The <strong>{{envPublicOrigin}}</strong> environment variable does not match the current address <underline>{{currentPublicOrigin}}</underline>. Importing xlsx/csv files and attachment fields may not work. Set it to <underline>{{currentPublicOrigin}}</underline>."
         },
         "https": {
           "title": "Enable https",
-          "description": "You have not enabled HTTPS, the large-scale copy (300 lines or more) feature will not be available, and it is recommended to enable it."
+          "description": "HTTPS is not enabled, so copying 300 or more rows at once is unavailable. We recommend enabling it."
         },
         "llmApi": {
           "title": "LLM API",
-          "description": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable, <anchor>go to setting</anchor>",
+          "description": "The AI LLM API is not configured, so AI Chat and AI automations are unavailable. <anchor>Go to settings</anchor>",
           "errorTips": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable"
         },
         "aiEnable": {
-          "title": "AI Services (Chat / AI Field)",
+          "title": "AI services (AI Chat / AI field)",
           "description": "Enable to use AI Chat, AI Fields, and automations, <anchor>go to setting</anchor>"
         },
         "aiLlmApi": {
@@ -1225,16 +1239,16 @@
         },
         "email": {
           "title": "Email",
-          "description": "No email configured, self-service password recovery, and email notification function will not be available, <anchor>go to setting</anchor>",
+          "description": "Email is not configured, so self-service password recovery and email notifications are unavailable. <anchor>Go to settings</anchor>",
           "errorTips": "No email configured, self-service password recovery, and email validation / notification function will not be available"
         },
         "sandboxOpenSandbox": {
-          "title": "AI Chat Runtime",
+          "title": "AI Chat runtime",
           "description": "Configure the OpenSandbox runtime environment for AI Chat, <anchor>go to setting</anchor>"
         },
         "signupVerification": {
-          "title": "Open signup without email verification",
-          "description": "Anyone can sign up with an email address they don't own: they can squat on a colleague's or customer's address, and take over the account of someone invited by email who hasn't signed up yet, together with the access the invitation granted. Turn on email verification (email delivery must be configured), or turn off open signup, <anchor>go to setting</anchor>"
+          "title": "Open sign-up without email verification",
+          "description": "Anyone can sign up with an email address they don't own: they can squat on a colleague's or customer's address, and take over the account of someone invited by email who hasn't signed up yet, together with the access the invitation granted. Turn on email verification (email delivery must be configured), or turn off open sign-up, <anchor>go to setting</anchor>"
         },
         "secrets": {
           "title": "Server secrets",
@@ -1251,16 +1265,18 @@
       }
     },
     "canary": {
-      "title": "Canary Release",
+      "title": "Canary release",
       "enable": "Enable canary",
       "enableDescription": "When enabled, selected spaces will have canary features activated",
       "spaces": "Canary spaces",
-      "spacesDescription": "{{count}} spaces configured",
+      "spacesDescription_one": "{{count}} space configured",
+      "spacesDescription_other": "{{count}} spaces configured",
       "configure": "Configure",
       "spaceIds": "Space IDs",
       "spaceIdsDescription": "Enter space IDs, one per line or separated by commas/spaces",
       "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
-      "preview": "Preview ({{count}} IDs)",
+      "preview_one": "Preview ({{count}} ID)",
+      "preview_other": "Preview ({{count}} IDs)",
       "noSpaceIds": "No space IDs entered"
     }
   },
@@ -1273,8 +1289,8 @@
     "noUnread": "No {{status}} notifications",
     "noAttention": "No notifications need attention",
     "noSeverity": "No {{severity}} notifications",
-    "changeSetting": "Change page notification settings",
-    "new": "new {{count}}",
+    "changeSetting": "Change notification settings",
+    "new": "{{count}} new",
     "showMore": "Show more",
     "sections": {
       "needsAction": "Important",
@@ -1290,8 +1306,8 @@
       "failedText": "Export failed, please retry"
     },
     "importantNotice": {
-      "title": "Important Notice",
-      "acknowledge": "I Understand"
+      "title": "Important notice",
+      "acknowledge": "I understand"
     },
     "oauthApp": {
       "message": "From {{app}}: {{text}}"
@@ -1310,7 +1326,7 @@
       "creator": "Can fully configure projects, apps, automation, and authority matrices",
       "editor": "Can edit records and views, but cannot configure tables or fields",
       "commenter": "Can comment on records",
-      "viewer": "Cannot edit or comment"
+      "viewer": "Can view records, but cannot edit or comment"
     }
   },
   "trash": {
@@ -1322,20 +1338,20 @@
     "fromSpace": "From \"{{name}}\" space",
     "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Are you sure you want to empty the trash?",
-    "addToTrash": "Move to Trash",
-    "description": "Data in the trash still occupies record usage and attachment usage.",
+    "addToTrash": "Move to trash",
+    "description": "Items in the trash still count toward record and attachment usage.",
     "spaceDescription": "Restore spaces deleted within the past {{retentionDays}} days",
     "spaceInnerDescription": "Restore projects deleted from this space within the past {{retentionDays}} days",
     "baseDescription": "Restore resources deleted from this project within the past {{retentionDays}} days"
   },
   "pluginCenter": {
-    "pluginUrlEmpty": "Plugin Not Setting url",
+    "pluginUrlEmpty": "Plugin URL is not set",
     "install": "Install",
     "publisher": "Publisher",
-    "lastUpdated": "Last Updated",
-    "pluginNotFound": "Plugin Not Found",
+    "lastUpdated": "Last updated",
+    "pluginNotFound": "Plugin not found",
     "pluginEmpty": {
-      "title": "No Plugins Yet"
+      "title": "No plugins yet"
     }
   },
   "automation": {
@@ -1348,7 +1364,7 @@
     "customConfig": "Custom email server",
     "notify": "Notify email",
     "automation": "Automation email",
-    "customNotifyConfig": "Custom notify email config",
+    "customNotifyConfig": "Custom notification email",
     "customAutomationConfig": "Custom automation email config",
     "addConfig": "Add config",
     "editConfig": "Edit config",
@@ -1375,12 +1391,12 @@
     "unsubscribeTime": "Unsubscribe time",
     "source": "Source",
     "sourceAutomationDeleted": "Automation or node deleted",
-    "sourceApiSend": "API send email",
-    "processing": "Processing...",
+    "sourceApiSend": "Sent via API",
+    "processing": "Processing…",
     "unsubscribeH1": "Confirm unsubscribe?",
     "unsubscribeH2": "You're about to unsubscribe from future Teable promotions and product updates. Are you sure you want to unsubscribe?",
     "subscribeH1": "Confirm subscribe?",
-    "subscribeH2": "You're about to subscribe from future Teable promotions and product updates. Are you sure you want to subscribe?",
+    "subscribeH2": "You're about to subscribe to future Teable promotions and product updates. Are you sure you want to subscribe?",
     "unsubscribeListTip": "The following users in the current project have unsubscribed, you will no longer be able to send them emails. When importing emails, please place the email addresses in the first column, and name the header \"email\".",
     "templates": {
       "resetPassword": {
@@ -1391,8 +1407,8 @@
       },
       "emailVerifyCode": {
         "signupVerification": {
-          "subject": "Signup Verification - {{brandName}}",
-          "title": "Signup verification",
+          "subject": "Sign-up verification - {{brandName}}",
+          "title": "Sign-up verification",
           "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
         },
         "signinVerification": {
@@ -1431,12 +1447,12 @@
       "waitlistInvite": {
         "subject": "Welcome - {{brandName}}",
         "title": "Welcome",
-        "message": "You've successfully joined the waitlist of {{brandName}}, please use the following invite code to register: {{code}}, it can be used {{times}} times.",
-        "buttonText": "Register"
+        "message": "You've joined the {{brandName}} waitlist. Use this invite code to sign up: {{code}}. It can be used {{times}} times.",
+        "buttonText": "Sign up"
       },
       "test": {
         "subject": "Test Email - {{brandName}}",
-        "title": "Test Email",
+        "title": "Test email",
         "message": "This is a test email, please ignore."
       },
       "notify": {
@@ -1474,7 +1490,7 @@
             },
             "success": {
               "message": "🎉 {{tableName}} imported successfully.",
-              "inplace": "🎉 {{tableName}} inplace imported successfully."
+              "inplace": "🎉 Data imported into {{tableName}} successfully."
             },
             "partialSuccess": {
               "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download Error Report</a>",
@@ -1599,7 +1615,7 @@
               },
               "burst": {
                 "title": "Space {{spaceName}} automation run burst detected",
-                "message": "Space {{spaceName}} detected {{recentValue}} automation runs in the last {{windowMinutes}} minutes, which is {{multiplier}}x the historical hourly P95 ({{hourlyP95}}). This may indicate a loop or misconfiguration. Top contributors: {{topContributors}}"
+                "message": "{{recentValue}} automation runs were detected in space {{spaceName}} in the last {{windowMinutes}} minutes, {{multiplier}}x the historical hourly P95 ({{hourlyP95}}). This may indicate a loop or misconfiguration. Top contributors: {{topContributors}}"
               }
             }
           },
@@ -1617,10 +1633,10 @@
         "exportBase": {
           "title": "Export project result notification",
           "success": {
-            "message": "{{baseName}} Export successfully: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+            "message": "{{baseName}} exported successfully: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
           },
           "failed": {
-            "message": "❌ {{baseName}} exported failed: {{errorMessage}}"
+            "message": "❌ {{baseName}} export failed: {{errorMessage}}"
           }
         },
         "userDataExport": {
@@ -1654,25 +1670,25 @@
               "message": "AI task failed for field \"{{fieldName}}\" in table \"{{tableName}}\": {{errorMsg}}"
             },
             "cancelled": {
-              "title": "AI task cancelled",
-              "rateLimit": "AI task for table \"{{tableName}}\" was cancelled due to rate limiting (429). Please try again later.",
-              "creditExhausted": "AI task for table \"{{tableName}}\" was cancelled because credits have been exhausted. Please upgrade your subscription or wait for credits to refresh.",
-              "providerBilling": "AI task for table \"{{tableName}}\" was cancelled because the model provider rejected the request for billing reasons. Please check the balance and billing status of the account behind the API key configured for this model. Error: {{errorMessage}}",
-              "authFailed": "AI task for table \"{{tableName}}\" was cancelled due to authentication failure. Please check your API key configuration.",
-              "serviceUnavailable": "AI task for table \"{{tableName}}\" was cancelled because the AI service is temporarily unavailable. Please try again later.",
-              "unknown": "AI task for table \"{{tableName}}\" was cancelled. Error: {{errorMessage}}"
+              "title": "AI task canceled",
+              "rateLimit": "AI task for table \"{{tableName}}\" was canceled due to rate limiting (429). Please try again later.",
+              "creditExhausted": "AI task for table \"{{tableName}}\" was canceled because credits have been exhausted. Please upgrade your subscription or wait for credits to refresh.",
+              "providerBilling": "AI task for table \"{{tableName}}\" was canceled because the model provider rejected the request for billing reasons. Please check the balance and billing status of the account behind the API key configured for this model. Error: {{errorMessage}}",
+              "authFailed": "AI task for table \"{{tableName}}\" was canceled due to authentication failure. Please check your API key configuration.",
+              "serviceUnavailable": "AI task for table \"{{tableName}}\" was canceled because the AI service is temporarily unavailable. Please try again later.",
+              "unknown": "AI task for table \"{{tableName}}\" was canceled. Error: {{errorMessage}}"
             }
           }
         },
         "rewardRejected": {
-          "title": "Reward Claim Rejected",
-          "message": "Your <a href=\"{{spaceUrl}}\">{{spaceName}}</a> reward claim has been rejected for the following reason(s): {{errorMessages}}, Please review and submit again.",
-          "buttonText": "View Space"
+          "title": "Reward claim rejected",
+          "message": "Your <a href=\"{{spaceUrl}}\">{{spaceName}}</a> reward claim has been rejected for the following reason(s): {{errorMessages}}. Please review and submit again.",
+          "buttonText": "View space"
         },
         "rewardApproved": {
-          "title": "Reward Claim Approved",
+          "title": "Reward claim approved",
           "message": "Congratulations! Your <a href=\"{{spaceUrl}}\">{{spaceName}}</a> reward claim has been approved. {{amount}} credits have been added, valid for {{expiredDays}} days.",
-          "buttonText": "View Space"
+          "buttonText": "View space"
         },
         "chatUnread": {
           "done": {
@@ -1701,14 +1717,14 @@
     "title": "Waitlist",
     "email": "Email",
     "joinTitle": "We're scaling fast to meet demand.",
-    "joinDesc": "Join wait list — we'll ping you the moment we're ready.",
-    "emailPlaceholder": "Enter your email...",
+    "joinDesc": "Join waitlist — we'll ping you the moment we're ready.",
+    "emailPlaceholder": "Enter your email…",
     "youAreOnTheList": "You're on the list!",
     "thanksForJoining": "Thanks for joining our waitlist. We'll notify you as soon as we have updates.",
     "back": "Back",
     "inviteCodePlaceholder": "Enter your invite code",
-    "join": "Join wait list",
-    "joining": "Joining...",
+    "join": "Join waitlist",
+    "joining": "Joining…",
     "invite": "Invite",
     "inviteTime": "Invite time",
     "createdTime": "Join time",
@@ -1719,7 +1735,7 @@
     "times": "Times",
     "generate": "Generate",
     "code": "Invite code",
-    "inviteSuccess": "Invite successfully"
+    "inviteSuccess": "Invitation sent"
   },
   "noPermissionToCreateBase": "No permission to create project in any space",
   "base": {
@@ -1737,7 +1753,7 @@
       "freeCredits": "1000 free credits",
       "guidelinesTitle": "Sharing checklist",
       "tagTeableio": "Tag <bold>@teableio</bold>",
-      "minCharacters": "Write  <bold>80+</bold> characters review",
+      "minCharacters": "Write a review of <bold>80+</bold> characters",
       "minFollowers": "Have <bold>10+</bold> followers",
       "limitPerWeek": "500 credits per post, up to 2 posts weekly (X + LinkedIn)",
       "postOnX": "Post on X",
@@ -1748,14 +1764,14 @@
       "postUrlLabel": "Post URL (X or LinkedIn)",
       "postUrlPlaceholder": "Paste the link to your post here",
       "invalidUrl": "Please enter a valid X or LinkedIn post URL",
-      "claiming": "Claiming...",
+      "claiming": "Claiming…",
       "claimCredits": "Claim credits",
       "congratulations": "Congratulations!",
       "claimSuccess": "You have claimed 500 credits!",
-      "verifying": "Verifying your post...",
+      "verifying": "Verifying your post…",
       "verifyingDescription": "We're checking your post content, this usually takes a few seconds",
       "verifyFailed": "Verification failed",
-      "tryAgain": "Try Again"
+      "tryAgain": "Try again"
     },
     "error": {
       "verificationFailed": "Verification failed"
@@ -1773,47 +1789,49 @@
     "maxClaimsReached": "You have reached the maximum reward claims (2) for this week",
     "postTooOld": "Post must be published within the last {{hours}} hour(s)",
     "manage": {
-      "title": "Reward Management",
+      "title": "Reward management",
       "description": "View and manage reward records across all spaces",
       "overview": "Overview",
       "records": "Records",
-      "searchSpace": "Search space...",
-      "searchRecords": "Search postUrl/userId...",
+      "searchSpace": "Search space…",
+      "searchRecords": "Search postUrl/userId…",
       "dateRange": "Select date range",
       "from": "From",
       "to": "To",
-      "totalSpaces": "Total: {{count}} spaces",
-      "totalRecords": "Total: {{count}} records",
+      "totalSpaces_one": "Total: {{count}} space",
+      "totalSpaces_other": "Total: {{count}} spaces",
+      "totalRecords_one": "Total: {{count}} record",
+      "totalRecords_other": "Total: {{count}} records",
       "space": "Space",
-      "allSpaces": "All Spaces",
+      "allSpaces": "All spaces",
       "user": "User",
       "creator": "Creator",
-      "sourceType": "Source Type",
+      "sourceType": "Source type",
       "platform": "Platform",
-      "allStatuses": "All Statuses",
-      "allSourceTypes": "All Source Types",
-      "allPlatforms": "All Platforms",
-      "pendingCount": "Pending Count",
-      "approvedCount": "Approved Count",
-      "rejectedCount": "Rejected Count",
-      "approvedAmount": "Approved Amount",
-      "consumedAmount": "Consumed Amount",
-      "availableAmount": "Available Amount",
+      "allStatuses": "All statuses",
+      "allSourceTypes": "All source types",
+      "allPlatforms": "All platforms",
+      "pendingCount": "Pending count",
+      "approvedCount": "Approved count",
+      "rejectedCount": "Rejected count",
+      "approvedAmount": "Approved amount",
+      "consumedAmount": "Consumed amount",
+      "availableAmount": "Available amount",
       "expiringSoonAmount": "Expiring Soon Amount (7d)",
       "amount": "Amount",
-      "remainingAmount": "Remaining Amount",
-      "createdTime": "Created Time",
-      "rewardTime": "Rewarded Time",
-      "expiredTime": "Expired Time",
-      "lastModified": "Last Modified",
-      "viewDetails": "View Details",
-      "details": "Reward Details",
-      "basicInfo": "Basic Info",
-      "amountInfo": "Amount Info",
-      "timeInfo": "Time Info",
-      "socialInfo": "Social Info",
-      "verifyResult": "Verification Result",
-      "uniqueKey": "Unique Key",
+      "remainingAmount": "Remaining amount",
+      "createdTime": "Created time",
+      "rewardTime": "Rewarded time",
+      "expiredTime": "Expired time",
+      "lastModified": "Last modified",
+      "viewDetails": "View details",
+      "details": "Reward details",
+      "basicInfo": "Basic info",
+      "amountInfo": "Amount info",
+      "timeInfo": "Time info",
+      "socialInfo": "Social info",
+      "verifyResult": "Verification result",
+      "uniqueKey": "Unique key",
       "verify": "Verify",
       "valid": "Valid",
       "invalid": "Invalid",
@@ -1840,7 +1858,7 @@
     "byokModelNotSupported": "Your custom model is not compatible with agent mode. Please switch to GPT-6 Astra for the best experience.",
     "modelServiceUnavailable": "The model service is temporarily unavailable. Please try again later.",
     "providerInsufficientBalance": "The model provider account is out of balance. Ask your admin to check the account behind this API key.",
-    "imageProcessingFailed": "Image Processing Failed",
+    "imageProcessingFailed": "Image processing failed",
     "imageProcessingFailedDescription": "The image could not be processed by the AI model. Please try re-sending or continue without it.",
     "sandboxActiveRunBusy": "Cuppy is still working. Please wait before sending again.",
     "sandboxCapacityFull": "Concurrent conversation limit ({{max}}) reached. Please wait for one to finish.",
@@ -1933,10 +1951,10 @@
   "skills": {
     "title": "Skills",
     "tabs": {
-      "mySkills": "My Skills"
+      "mySkills": "My skills"
     },
     "actions": {
-      "import": "Import Skill",
+      "import": "Import skill",
       "sync": "Sync",
       "delete": "Delete",
       "enable": "Enable",
@@ -1946,24 +1964,24 @@
       "replace": "Replace",
       "download": "Download",
       "uninstall": "Uninstall",
-      "copyToBase": "Copy to Project",
-      "copyToSpace": "Copy to Space",
+      "copyToBase": "Copy to project",
+      "copyToSpace": "Copy to space",
       "copyToPersonal": "Copy to personal",
       "copyToApp": "Copy to app",
       "copyToRoutine": "Copy to routine"
     },
     "import": {
-      "title": "Import Skill",
+      "title": "Import skill",
       "description": "Import a skill from a GitHub repository or a ZIP file",
       "githubTab": "GitHub URL",
-      "fileTab": "ZIP / Skill File",
+      "fileTab": "ZIP / skill file",
       "githubTitle": "Import a skill from GitHub",
       "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
       "fileHint": "Upload a .zip or .skill file containing SKILL.md",
       "or": "or",
       "selectFile": "Choose file",
       "replaceWarning": "If a skill with the same name already exists in this scope, importing will replace it.",
-      "importing": "Importing...",
+      "importing": "Importing…",
       "submit": "Import",
       "success": "Skill imported successfully",
       "error": "Failed to import skill"
@@ -1975,7 +1993,7 @@
       "source": "Source",
       "addedBy": "Added by",
       "skillLabel": "Skill",
-      "syncStatus": "Sync Status",
+      "syncStatus": "Sync status",
       "preview": "SKILL.md Preview"
     },
     "scope": {
@@ -1997,41 +2015,41 @@
     },
     "source": {
       "github": "GitHub",
-      "file": "File Upload",
+      "file": "File upload",
       "manual": "Manual"
     },
     "status": {
       "enabled": "Enabled",
       "disabled": "Disabled",
       "synced": "Synced",
-      "failed": "Sync Failed"
+      "failed": "Sync failed"
     },
     "confirm": {
-      "deleteTitle": "Delete Skill",
+      "deleteTitle": "Delete skill",
       "deleteDescription": "Are you sure you want to delete this skill? This action cannot be undone.",
       "copyTitle": "Copy skill",
       "copyDescription": "The skill files will be copied to the target scope. The original skill stays unchanged.",
       "copyOverwriteWarning": "If a skill with the same name already exists in the target scope, it will be replaced."
     },
     "toast": {
-      "syncing": "Syncing skill...",
+      "syncing": "Syncing skill…",
       "syncSuccess": "Skill synced successfully",
       "syncError": "Failed to sync skill",
-      "deleting": "Deleting skill...",
+      "deleting": "Deleting skill…",
       "deleteSuccess": "Skill deleted successfully",
       "deleteError": "Failed to delete skill",
       "updateSuccess": "Skill updated successfully",
-      "copying": "Copying...",
+      "copying": "Copying…",
       "copySuccess": "Copied",
       "copyError": "Copy failed"
     }
   },
   "resourceDescription": {
     "addDescription": "Add description",
-    "nodeDescription": "Node description",
-    "descriptionSaving": "Saving...",
+    "nodeDescription": "Description",
+    "descriptionSaving": "Saving…",
     "descriptionSaveFailed": "Failed to save description, please try again",
-    "descriptionPlaceholder": "Add a description for this node"
+    "descriptionPlaceholder": "Add a description for this resource"
   },
   "announcement": {
     "viewDetail": "View details",
@@ -2074,7 +2092,7 @@
       "skippedNoCredit": "Skipped this time: no AI credits left.",
       "autoDeactivated": "Turned off after five failed runs in a row.",
       "summaryTitle": "Teable",
-      "summary": "{{count}} conversations have news."
+      "summary": "New results in {{count}} conversations"
     }
   },
   "cookieConsent": {
@@ -2082,7 +2100,7 @@
     "body": "We use cookies and similar technologies to understand how Teable is used, improve your experience and measure our marketing.",
     "accept": "Accept all",
     "reject": "Reject all",
-    "policy": "Cookie Policy",
+    "policy": "Cookie policy",
     "settings": "Cookie settings",
     "customize": "Customize",
     "customBody": "Choose which cookies Teable may use. You can change your choice at any time in Cookie settings.",

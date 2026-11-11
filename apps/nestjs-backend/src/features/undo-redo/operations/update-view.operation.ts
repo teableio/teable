@@ -2,6 +2,7 @@ import type { IOtOperation, IViewPropertyKeys } from '@teable/core';
 import Sharedb from 'sharedb';
 import type { IUpdateViewOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 
 export interface IUpdateViewPayload {
@@ -17,6 +18,8 @@ export interface IUpdateViewPayload {
   byOps?: IOtOperation[];
 }
 
+// Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
+@V1EngineService(['undo', 'redo'])
 export class UpdateViewOperation {
   constructor(private readonly viewOpenApiService: ViewOpenApiService) {}
 

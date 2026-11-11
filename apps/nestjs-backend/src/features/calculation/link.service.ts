@@ -13,6 +13,7 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
+import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -56,6 +57,14 @@ export interface ILinkCellContext {
 }
 
 @Injectable()
+@V1EngineService([
+  'getAllForeignKeys',
+  'getDerivateByLink',
+  'planDerivateByLink',
+  'commitForeignKeyChanges',
+  'getRelatedLinkFieldRaws',
+  'getDeleteRecordUpdateContext',
+])
 export class LinkService {
   private readonly logger = new Logger(LinkService.name);
   constructor(

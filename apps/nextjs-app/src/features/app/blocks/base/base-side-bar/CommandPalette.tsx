@@ -1,6 +1,8 @@
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
+import type { InfiniteData } from '@tanstack/react-query';
 import { LayoutGrid } from '@teable/icons';
-import { spaceSearch } from '@teable/openapi';
+import { ResourceType, spaceSearch } from '@teable/openapi';
+import type { ISpaceSearchVo } from '@teable/openapi';
 import { useBase, useBaseId, useTableId } from '@teable/sdk/hooks';
 import { Command, Dialog, DialogContent, DialogTitle } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -9,15 +11,18 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType, KeyboardEvent, RefObject } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
+import { useIsCommunity } from '@/features/app/hooks/useIsCommunity';
+import { useSetting } from '@/features/app/hooks/useSetting';
 import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { useBaseList } from '../../space/useBaseList';
 import { BaseNodeResourceIconMap, getNodeUrl } from '../base-node/hooks';
 import { useLastVisitBase } from '../hooks';
 import { parsePaletteQuery } from './command-palette-utils';
-import type { PaletteEntry } from './palette-types';
-import { PaletteHeader, PaletteResults, PaletteFooter } from './PaletteContentView';
+import type { PaletteEntry, UsePaletteExtraResults } from './palette-types';
+import { PaletteHeader, PaletteResults, PaletteFooter, PaletteScopes } from './PaletteContentView';
 import type { PalettePage } from './PaletteContentView';
-import { usePaletteEntries } from './usePaletteEntries';
+import { ALL_SCOPE, usePaletteEntries } from './usePaletteEntries';
 import { usePaletteNavigation } from './usePaletteNavigation';
 import { usePaletteProjectActions } from './usePaletteProjectActions';
 
@@ -28,6 +33,8 @@ export interface CommandPaletteProps {
   /** `files` hands a clipboard attachment to the conversation instead of sending text. */
   onAskAI?: (prompt: string, files?: File[]) => void;
   triggerRef?: RefObject<HTMLButtonElement | null>;
+  /** An edition's results beside the resources, searched across the space. */
+  useExtraResults?: UsePaletteExtraResults;
 }
 
 interface PaletteSurfaceProps extends CommandPaletteProps {
@@ -45,13 +52,78 @@ interface PaletteSurfaceProps extends CommandPaletteProps {
   fetchNextPage?: () => void;
   makeCreateTable?: (name: string) => PaletteEntry;
   makeSearchTable?: (query: string) => PaletteEntry;
+  /** The kinds the search found, when `resources` are one kind's only. */
+  categories?: string[];
+  onScopeChange?: (scope: string) => void;
 }
 
 const EMPTY_ENTRIES: PaletteEntry[] = [];
+const noExtraResults: UsePaletteExtraResults = () => undefined;
 const resourceIcons: Record<
   string,
   ComponentType<{ className?: string }>
 > = BaseNodeResourceIconMap;
+
+const RESOURCE_TYPES = Object.values(ResourceType);
+
+/** The kinds the palette offers a tab for, each while its feature is on; projects only space-wide. */
+const usePaletteKinds = (spaceWide: boolean) => {
+  const isCommunity = useIsCommunity();
+  const { disallowDashboard } = useSetting();
+  const { aiChat } = useDisableAIAction();
+  return useMemo(
+    () => [
+      ...(spaceWide ? [ResourceType.Base] : []),
+      ResourceType.Table,
+      ...(disallowDashboard ? [] : [ResourceType.Dashboard]),
+      ...(isCommunity
+        ? []
+        : [ResourceType.Workflow, ...(aiChat ? [ResourceType.App] : []), ResourceType.Routine]),
+    ],
+    [spaceWide, disallowDashboard, isCommunity, aiChat]
+  );
+};
+
+/** The space's resources named like `search`, of one type when `type` is given. */
+const useSpaceSearch = (
+  spaceId: string | undefined,
+  search: string,
+  enabled: boolean,
+  type?: ResourceType
+) =>
+  useInfiniteQuery({
+    queryKey: ['space-search', spaceId, search, type],
+    queryFn: ({ pageParam, signal }) =>
+      spaceSearch(spaceId!, { search, type, pageSize: 20, cursor: pageParam }, signal).then(
+        (response) => response.data
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    enabled: enabled && Boolean(spaceId && search),
+    // A type's search starts empty: the previous type's rows are no placeholder for it.
+    placeholderData: type ? undefined : keepPreviousData,
+  });
+
+const toEntries = (data?: InfiniteData<ISpaceSearchVo>) =>
+  (data?.pages.flatMap((page) => page.list) ?? []).flatMap((item): PaletteEntry[] => {
+    const href = getNodeUrl({
+      baseId: item.baseId,
+      resourceType: item.type,
+      resourceId: item.id,
+    })?.pathname;
+    if (!href) return [];
+    const Icon = resourceIcons[item.type] ?? LayoutGrid;
+    return [
+      {
+        id: `resource:${item.type}:${item.id}`,
+        label: item.name,
+        description: item.baseName,
+        href,
+        icon: item.icon ? <Emoji emoji={item.icon} size="1em" /> : <Icon className="size-4" />,
+        category: item.type,
+      },
+    ];
+  });
 
 /** Base-only hooks stay below this branch: the space sidebar has no TableProvider. */
 export const CommandPalette = (props: CommandPaletteProps) => {
@@ -76,6 +148,7 @@ const ProjectPalette = ({ baseId, ...props }: CommandPaletteProps & { baseId: st
     [router]
   );
   const actions = usePaletteProjectActions({ baseId, tableId, onNavigate });
+  const categories = usePaletteKinds(false);
   const resources = useMemo(
     () => [...navigation.resources, ...navigation.views],
     [navigation.resources, navigation.views]
@@ -89,6 +162,7 @@ const ProjectPalette = ({ baseId, ...props }: CommandPaletteProps & { baseId: st
         resources={resources}
         recent={navigation.recent}
         commands={actions.commands}
+        categories={categories}
         isLoading={navigation.isLoading}
         makeCreateTable={actions.makeCreateTable}
         makeSearchTable={actions.makeSearchTable}
@@ -113,19 +187,13 @@ const SpacePalette = (props: CommandPaletteProps) => {
   useEffect(() => {
     if (!props.open) setSearch('');
   }, [props.open]);
-  const query = useInfiniteQuery({
-    queryKey: ['space-search', props.spaceId, debounced],
-    queryFn: ({ pageParam, signal }) =>
-      spaceSearch(
-        props.spaceId!,
-        { search: debounced, pageSize: 20, cursor: pageParam },
-        signal
-      ).then((response) => response.data),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
-    enabled: props.open && Boolean(props.spaceId && debounced),
-    placeholderData: keepPreviousData,
-  });
+  const [scope, setScope] = useState(ALL_SCOPE);
+  const type = RESOURCE_TYPES.find((item) => item === scope);
+  const all = useSpaceSearch(props.spaceId, debounced, props.open);
+  const typed = useSpaceSearch(props.spaceId, debounced, props.open && Boolean(type), type);
+  // A kind's scope shows the kind's rows the mixed search found until its own search answers.
+  const own = type && typed.data ? typed : undefined;
+  const query = type ? typed : all;
   const { list: lastVisitBases } = useLastVisitBase(props.open && Boolean(props.spaceId));
   const baseList = useBaseList(props.open && Boolean(props.spaceId));
   const recent = useMemo(() => {
@@ -153,42 +221,26 @@ const SpacePalette = (props: CommandPaletteProps) => {
       ];
     });
   }, [baseList, lastVisitBases, props.spaceId, t]);
-  const resources = useMemo(
-    () =>
-      (query.data?.pages.flatMap((page) => page.list) ?? []).flatMap((item): PaletteEntry[] => {
-        const href = getNodeUrl({
-          baseId: item.baseId,
-          resourceType: item.type,
-          resourceId: item.id,
-        })?.pathname;
-        if (!href) return [];
-        const Icon = resourceIcons[item.type] ?? LayoutGrid;
-        return [
-          {
-            id: `resource:${item.type}:${item.id}`,
-            label: item.name,
-            description: item.baseName,
-            href,
-            icon: item.icon ? <Emoji emoji={item.icon} size="1em" /> : <Icon className="size-4" />,
-          },
-        ];
-      }),
-    [query.data]
-  );
+  const allResources = useMemo(() => toEntries(all.data), [all.data]);
+  const typedResources = useMemo(() => toEntries(typed.data), [typed.data]);
+  const categories = usePaletteKinds(true);
+  const resources = own ? typedResources : allResources;
   return (
     <PaletteSurface
       {...props}
       resources={search ? resources : EMPTY_ENTRIES}
       recent={recent}
       commands={EMPTY_ENTRIES}
+      categories={categories}
       onSearchChange={setSearch}
+      onScopeChange={setScope}
       isLoading={Boolean(search) && (search !== debounced || query.isFetching)}
-      preserveResourceResults={search !== debounced || query.isPlaceholderData}
+      preserveResourceResults={search !== debounced || (!own && all.isPlaceholderData)}
       error={query.isError}
       retry={() => {
         void query.refetch();
       }}
-      hasNextPage={query.hasNextPage}
+      hasNextPage={type ? Boolean(own?.hasNextPage) : all.hasNextPage}
       fetchNextPage={() => {
         if (!query.isFetching && !query.isPlaceholderData) void query.fetchNextPage();
       }}
@@ -237,34 +289,54 @@ const PaletteContent = (props: PaletteContentProps) => {
   const router = useRouter();
   const [raw, setRaw] = useState('');
   const [page, setPage] = useState<PalettePage>(null);
+  const [scope, setScope] = useState(ALL_SCOPE);
   const [selection, setSelection] = useState('');
   const composing = useRef(false);
   const executing = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const openedAt = useRef(Date.now());
   const trackedQuery = useRef('');
-  const model = usePaletteEntries(props, raw, page);
+  const parsed = parsePaletteQuery(raw);
+  // Set once per mount by the host, so the hook called here is always the same one.
+  const useExtraResults = props.useExtraResults ?? noExtraResults;
+  const extra = useExtraResults(parsed.commandMode || page ? '' : parsed.query, props.spaceId);
+  const model = usePaletteEntries({ ...props, extra }, raw, page, scope);
   const { commandMode, query, noMatches, resultEntries } = model;
+  const extraLoading = Boolean(model.groups && extra?.isLoading);
   const selected = resultEntries.find((entry) => entry.id === selection) ?? resultEntries[0];
+  const { onScopeChange } = props;
+  useEffect(() => {
+    onScopeChange?.(scope);
+  }, [onScopeChange, scope]);
+  // A kind's tab leaves with its feature, e.g. apps once the AI settings arrive with AI chat off.
+  const scopeGone = Boolean(model.scopes?.every((item) => item.id !== scope));
+  useEffect(() => {
+    if (scopeGone) setScope(ALL_SCOPE);
+  }, [scopeGone]);
 
   useEffect(() => {
     setSelection('');
-  }, [raw, page]);
+  }, [raw, page, scope]);
+  const extraId = model.groups ? extra?.id : undefined;
+  const extraCount = extra?.entries.length ?? 0;
   useEffect(() => {
-    if (!query || props.isLoading || trackedQuery.current === query) return;
+    if (!query || props.isLoading || extraLoading || trackedQuery.current === query) return;
     const timer = setTimeout(() => {
       trackedQuery.current = query;
       window.posthog?.capture('command_palette_search', {
         entry: props.projectName ? 'project' : 'space',
         zero_result: noMatches,
         query_length: query.length,
+        ...(extraId ? { [`${extraId}_results`]: extraCount } : {}),
       });
     }, 300);
     return () => clearTimeout(timer);
-  }, [noMatches, props.isLoading, props.projectName, query]);
+  }, [extraCount, extraId, extraLoading, noMatches, props.isLoading, props.projectName, query]);
 
+  const inScope = scope !== ALL_SCOPE && Boolean(model.scopes);
   const goBack = () => {
     if (page) setPage(null);
+    else if (inScope) setScope(ALL_SCOPE);
     else setRaw('');
     input.current?.focus();
   };
@@ -272,6 +344,11 @@ const PaletteContent = (props: PaletteContentProps) => {
     if (composing.current || executing.current) return;
     if (entry.page) {
       setPage(entry.page);
+      input.current?.focus();
+      return;
+    }
+    if (entry.scope) {
+      setScope(entry.scope);
       input.current?.focus();
       return;
     }
@@ -286,6 +363,7 @@ const PaletteContent = (props: PaletteContentProps) => {
       kind: entry.href ? 'navigation' : entry.id.startsWith('ask-cuppy') ? 'ai' : 'command',
       time_to_select: Date.now() - openedAt.current,
       command: entry.href ? undefined : entry.id,
+      ...entry.analytics,
     });
     props.onHandoff();
     // A real click/key gesture is required for opening a new tab; do not defer this branch.
@@ -350,7 +428,7 @@ const PaletteContent = (props: PaletteContentProps) => {
           event.preventDefault();
           return;
         }
-        if (page || commandMode) {
+        if (page || commandMode || inScope) {
           event.preventDefault();
           goBack();
         }
@@ -390,6 +468,7 @@ const PaletteContent = (props: PaletteContentProps) => {
               return;
             }
             setRaw(value);
+            if (!value) setScope(ALL_SCOPE);
             if (!composing.current) {
               const parsed = parsePaletteQuery(value);
               props.onSearchChange?.(parsed.commandMode ? '' : parsed.query);
@@ -404,6 +483,14 @@ const PaletteContent = (props: PaletteContentProps) => {
             props.onSearchChange?.(parsed.commandMode ? '' : parsed.query);
           }}
         />
+        <PaletteScopes
+          model={model}
+          scope={scope}
+          onScopeChange={(next) => {
+            setScope(next);
+            input.current?.focus();
+          }}
+        />
         <PaletteResults
           model={model}
           page={page}
@@ -416,7 +503,7 @@ const PaletteContent = (props: PaletteContentProps) => {
         />
         <PaletteFooter
           selected={selected}
-          canGoBack={Boolean(page || commandMode)}
+          canGoBack={Boolean(page || commandMode || inScope)}
           onCommands={() => {
             setRaw('>');
             props.onSearchChange?.('');

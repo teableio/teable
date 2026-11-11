@@ -743,40 +743,6 @@ const buildStoredRecordSnapshotsFromCurrentUndoRows = (
   });
 };
 
-const buildStoredRecordSnapshotsFromDeletedUndoRows = (
-  table: core.Table,
-  rows: ReadonlyArray<UndoLogRow>,
-  recordIds: ReadonlyArray<string>
-): Result<ReadonlyArray<core.RecordStoredSnapshot>, DomainError> => {
-  if (recordIds.length === 0) {
-    return ok([]);
-  }
-
-  return safeTry(function* () {
-    const groupedRows = groupUndoLogRowsByRecordId(rows, recordIds);
-    const deletedRows: Record<string, unknown>[] = [];
-    for (const recordId of recordIds) {
-      const recordRows = groupedRows.get(recordId) ?? [];
-      for (let index = recordRows.length - 1; index >= 0; index -= 1) {
-        const recordRow = recordRows[index];
-        if (
-          recordRow?.operation !== 'DELETE' &&
-          !(recordRow?.old_row != null && recordRow?.new_row == null)
-        ) {
-          continue;
-        }
-        const deletedRow = toStoredRowObject(recordRow.old_row);
-        if (deletedRow) {
-          deletedRows.push(deletedRow);
-          break;
-        }
-      }
-    }
-    const snapshots = yield* buildStoredRecordSnapshotsByRows(table, deletedRows);
-    return ok(snapshots);
-  });
-};
-
 const buildRecordUpdateSnapshotFromUndoRows = (
   table: core.Table,
   rows: ReadonlyArray<UndoLogRow>,
@@ -3884,8 +3850,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           deleteChangedFieldIds,
           'delete'
         );
+        // Capture full originals under the selection lock, before self-link cleanup
+        // can null their foreign keys and stored link cells.
         const recordRows = await db
           .selectFrom(tableName)
+          .selectAll()
           .select([
             sql.ref(RECORD_ID_COLUMN).as('record_id'),
             ...beforeImageCapturePlan.trackedFields.map(({ dbFieldName, oldValueAlias }) =>
@@ -3893,11 +3862,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ),
           ])
           .where(whereExpression)
+          .forUpdate()
           .execute();
 
         const recordIds: core.RecordId[] = [];
         const recordIdStrings: string[] = [];
         const beforeImageRecords: ComputedBeforeImageRecord[] = [];
+        const originalSnapshotsById = new Map<string, core.RecordStoredSnapshot>();
         for (const row of recordRows as BeforeImageTrackedRow[]) {
           const rawId = row.record_id;
           if (!rawId || typeof rawId !== 'string') {
@@ -3907,6 +3878,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           if (recordIdResult.isErr()) return err(recordIdResult.error);
           recordIds.push(recordIdResult.value);
           recordIdStrings.push(rawId);
+          const originalSnapshot = yield* buildStoredRecordSnapshotFromRow(table, row);
+          originalSnapshotsById.set(rawId, originalSnapshot);
           if (!beforeImageCapturePlan.needsBeforeImage) {
             continue;
           }
@@ -4054,46 +4027,65 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           );
           const deletedRows = (await db
             .deleteFrom(tableName)
-            .where(whereExpression)
-            .returningAll()
+            // Link cleanup can change predicate fields. Delete the locked selection,
+            // not a second evaluation of the caller's condition after those effects.
+            .where(sql<SqlBool>`${sql.ref(RECORD_ID_COLUMN)} = ANY(${recordIdStrings}::text[])`)
+            .returning(RECORD_ID_COLUMN)
             .execute()) as Record<string, unknown>[];
-          const mutationRows = yield* await snapshotCaptureSession.finish();
-          const undoSnapshots = yield* buildStoredRecordSnapshotsFromDeletedUndoRows(
-            table,
-            mutationRows,
-            recordIdStrings
-          );
-          const returningSnapshots = yield* buildStoredRecordSnapshotsByRows(table, deletedRows);
-          const deletedSnapshots =
-            returningSnapshots.length === recordIds.length
-              ? returningSnapshots
-              : undoSnapshots.length === recordIds.length
-                ? undoSnapshots
-                : returningSnapshots.length > 0
-                  ? returningSnapshots
-                  : undoSnapshots;
-          if (deletedSnapshots.length !== recordIds.length) {
+          // Finish even though DELETE trigger rows are post-cleanup images: the
+          // session must still clear its trigger log and restore the capture batch.
+          yield* await snapshotCaptureSession.finish();
+          const deletedSnapshots: core.RecordStoredSnapshot[] = [];
+          const deletedRecordIdSet = new Set<string>();
+          for (const row of deletedRows) {
+            const recordId = row[RECORD_ID_COLUMN];
+            if (typeof recordId !== 'string' || deletedRecordIdSet.has(recordId)) {
+              continue;
+            }
+            const snapshot = originalSnapshotsById.get(recordId);
+            if (!snapshot) continue;
+            deletedRecordIdSet.add(recordId);
+            deletedSnapshots.push(snapshot);
+          }
+          if (deletedSnapshots.length !== deletedRows.length) {
             this.logger.warn('record:snapshot:missing', {
               operation: 'delete',
               tableId: table.id().toString(),
               recordIds: recordIdStrings,
-              expectedCount: recordIds.length,
+              expectedCount: deletedRows.length,
               actualCount: deletedSnapshots.length,
             });
+            return err(
+              buildMissingSnapshotError(
+                'delete',
+                table.id().toString(),
+                deletedRows.length,
+                deletedSnapshots.length
+              )
+            );
           }
 
+          const allSelectedDeleted = deletedSnapshots.length === recordIds.length;
+          const deletedRecordIds = allSelectedDeleted
+            ? recordIds
+            : recordIds.filter((recordId) => deletedRecordIdSet.has(recordId.toString()));
+          const deletedBeforeImageRecords = allSelectedDeleted
+            ? beforeImageRecords
+            : beforeImageRecords.filter((record) =>
+                deletedRecordIdSet.has(record.recordId.toString())
+              );
           const computedResult = await this.runComputedDeleteUpdateMany(
             context,
             table,
-            recordIds,
+            deletedRecordIds,
             finalizeExtraSeedRecords(extraSeedMap),
-            beforeImageRecords
+            deletedBeforeImageRecords
           );
           if (computedResult.isErr()) {
             return err(computedResult.error);
           }
           await this.touchTableMeta(context, table.id().toString(), actorId);
-          return ok({ deletedRecords: deletedSnapshots });
+          return ok({ deletedCount: deletedRows.length, deletedRecords: deletedSnapshots });
         } catch (error) {
           await snapshotCaptureSession?.abort();
           if (isForeignKeyViolation(error)) {
@@ -5373,7 +5365,7 @@ const executeOutgoingLinkDeleteOp = async (
     if (operation.type === 'junction-delete') {
       await db
         .deleteFrom(operation.tableName)
-        .where(operation.selfKeyName, 'in', recordIds as string[])
+        .where(sql<SqlBool>`${sql.ref(operation.selfKeyName)} = ANY(${recordIds}::text[])`)
         .execute();
     } else if (operation.type === 'fk-nullify') {
       const updateValues: Record<string, null> = {
@@ -5385,7 +5377,7 @@ const executeOutgoingLinkDeleteOp = async (
       await db
         .updateTable(operation.tableName)
         .set(updateValues)
-        .where(operation.selfKeyName, 'in', recordIds as string[])
+        .where(sql<SqlBool>`${sql.ref(operation.selfKeyName)} = ANY(${recordIds}::text[])`)
         .execute();
     }
     return ok(undefined);
@@ -5440,7 +5432,7 @@ const loadOutgoingLinkSeedIds = async (
       .selectFrom(operation.tableName)
       .select(sql.ref(linkedKeyName).as('linked_id'))
       .distinct()
-      .where(operation.selfKeyName, 'in', recordIds as string[])
+      .where(sql<SqlBool>`${sql.ref(operation.selfKeyName)} = ANY(${recordIds}::text[])`)
       .where(linkedKeyName, 'is not', null)
       .execute();
     return ok(
@@ -7181,7 +7173,7 @@ const executeIncomingLinkCleanup = async (
             let blockingQuery = db
               .selectFrom(`${fkHostTableName} as d`)
               .select(sql.ref(`d.${selfKeyName}`).as('host_id'))
-              .where(`d.${foreignKeyName}`, 'in', recordIds as string[])
+              .where(sql<SqlBool>`${sql.ref(`d.${foreignKeyName}`)} = ANY(${recordIds}::text[])`)
               .where((eb) =>
                 eb.not(
                   eb.exists(
@@ -7189,16 +7181,16 @@ const executeIncomingLinkCleanup = async (
                       .selectFrom(`${fkHostTableName} as s`)
                       .select(sql`1`.as('one'))
                       .whereRef(`s.${selfKeyName}`, '=', `d.${selfKeyName}`)
-                      .where(`s.${foreignKeyName}`, 'not in', recordIds as string[])
+                      .where(
+                        sql<SqlBool>`${sql.ref(`s.${foreignKeyName}`)} <> ALL(${recordIds}::text[])`
+                      )
                   )
                 )
               )
               .limit(1);
             if (isSelfReferential) {
               blockingQuery = blockingQuery.where(
-                `d.${selfKeyName}`,
-                'not in',
-                recordIds as string[]
+                sql<SqlBool>`${sql.ref(`d.${selfKeyName}`)} <> ALL(${recordIds}::text[])`
               );
             }
             const blockingRow = await blockingQuery.executeTakeFirst();
@@ -7210,7 +7202,7 @@ const executeIncomingLinkCleanup = async (
               .with('deleted_link_rows', (qb) =>
                 qb
                   .deleteFrom(fkHostTableName)
-                  .where(foreignKeyName, 'in', recordIds as string[])
+                  .where(sql<SqlBool>`${sql.ref(foreignKeyName)} = ANY(${recordIds}::text[])`)
                   .returning(sql.ref(selfKeyName).as('source_id'))
               )
               .selectFrom('deleted_link_rows')
@@ -7220,7 +7212,7 @@ const executeIncomingLinkCleanup = async (
           } else {
             await db
               .deleteFrom(fkHostTableName)
-              .where(foreignKeyName, 'in', recordIds as string[])
+              .where(sql<SqlBool>`${sql.ref(foreignKeyName)} = ANY(${recordIds}::text[])`)
               .execute();
           }
         } else if (
@@ -7235,10 +7227,12 @@ const executeIncomingLinkCleanup = async (
             let blockingQuery = db
               .selectFrom(fkHostTableName)
               .select('__id')
-              .where(foreignKeyName, 'in', recordIds as string[])
+              .where(sql<SqlBool>`${sql.ref(foreignKeyName)} = ANY(${recordIds}::text[])`)
               .limit(1);
             if (isSelfReferential) {
-              blockingQuery = blockingQuery.where('__id', 'not in', recordIds as string[]);
+              blockingQuery = blockingQuery.where(
+                sql<SqlBool>`${sql.ref('__id')} <> ALL(${recordIds}::text[])`
+              );
             }
             const blockingRow = await blockingQuery.executeTakeFirst();
             if (blockingRow) return err(requiredIncomingLinkViolationError(field));
@@ -7259,7 +7253,7 @@ const executeIncomingLinkCleanup = async (
           const updateQuery = db
             .updateTable(fkHostTableName)
             .set(updateValues)
-            .where(foreignKeyName, 'in', recordIds as string[]);
+            .where(sql<SqlBool>`${sql.ref(foreignKeyName)} = ANY(${recordIds}::text[])`);
           if (returningFieldIds.has(field.fieldId)) {
             seedRows = await updateQuery.returning(sql.ref('__id').as('source_id')).execute();
           } else {
@@ -7275,7 +7269,7 @@ const executeIncomingLinkCleanup = async (
             let blockingQuery = db
               .selectFrom(`${fkHostTableName} as d`)
               .select(sql.ref(`d.${selfKeyName}`).as('host_id'))
-              .where('d.__id', 'in', recordIds as string[])
+              .where(sql<SqlBool>`${sql.ref('d.__id')} = ANY(${recordIds}::text[])`)
               .where(`d.${selfKeyName}`, 'is not', null)
               .where((eb) =>
                 eb.not(
@@ -7284,16 +7278,14 @@ const executeIncomingLinkCleanup = async (
                       .selectFrom(`${fkHostTableName} as s`)
                       .select(sql`1`.as('one'))
                       .whereRef(`s.${selfKeyName}`, '=', `d.${selfKeyName}`)
-                      .where('s.__id', 'not in', recordIds as string[])
+                      .where(sql<SqlBool>`${sql.ref('s.__id')} <> ALL(${recordIds}::text[])`)
                   )
                 )
               )
               .limit(1);
             if (isSelfReferential) {
               blockingQuery = blockingQuery.where(
-                `d.${selfKeyName}`,
-                'not in',
-                recordIds as string[]
+                sql<SqlBool>`${sql.ref(`d.${selfKeyName}`)} <> ALL(${recordIds}::text[])`
               );
             }
             const blockingRow = await blockingQuery.executeTakeFirst();
@@ -7391,7 +7383,7 @@ const collectIncomingLinkExtraSeedRecords = async (
           .selectFrom(fkHostTableName)
           .select(sql.ref(sourceKeyName).as('source_id'))
           .distinct()
-          .where(targetKeyName, 'in', recordIds as string[])
+          .where(sql<SqlBool>`${sql.ref(targetKeyName)} = ANY(${recordIds}::text[])`)
           .where(sourceKeyName, 'is not', null)
           .execute();
         const sourceRecordIds = rows

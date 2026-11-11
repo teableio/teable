@@ -7,6 +7,7 @@ import type {
   ICreateRecordsVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
+import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { TableDomainQueryService } from '../../table-domain';
 import type { IRecordInnerRo } from '../record.service';
@@ -17,6 +18,16 @@ import { RecordDuplicateService } from './record-duplicate.service';
 import { RecordUpdateService } from './record-update.service';
 
 @Injectable()
+@V1EngineService([
+  'updateRecords',
+  'simpleUpdateRecords',
+  'multipleCreateRecords',
+  'createRecords',
+  'createRecordsOnlySql',
+  'deleteRecord',
+  'deleteRecords',
+  'duplicateRecord',
+])
 export class RecordModifyService {
   constructor(
     private readonly createService: RecordCreateService,
