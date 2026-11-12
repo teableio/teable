@@ -4,8 +4,10 @@ import type { IHttpError } from '@teable/core';
 import { getUniqName } from '@teable/core';
 import { FileCsv, FileExcel, History, Code2, Download, Share2 } from '@teable/icons';
 import type {
+  IBaseNodeAppResourceMeta,
   IBaseNodeVo,
   IBaseNodeTableResourceMeta,
+  IDeleteBaseNodeProgress,
   IDuplicateBaseNodeRo,
   IDuplicateTableCheckVo,
 } from '@teable/openapi';
@@ -58,6 +60,8 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { FolderDeleteConfirmDialog } from '@/features/app/components/folder-delete-confirm-dialog';
+import { LoginAppWarning } from '@/features/app/components/LoginAppWarning';
 import { OperationPreviewPanel } from '@/features/app/components/operation-preview';
 import type { OperationPreviewPanelProps } from '@/features/app/components/operation-preview/OperationPreviewPanel';
 import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
@@ -80,7 +84,12 @@ import { TableTrash } from '../../trash/components/TableTrash';
 import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
 import { APIDialog } from '../../view/tool-bar/APIDialog';
 import type { TreeItemData } from '../base-node/hooks';
-import { findAdjacentNonFolderNode, getNodeUrl, useBaseNodeCrud } from '../base-node/hooks';
+import {
+  findAdjacentNonFolderNode,
+  getNodeUrl,
+  isResourceInSubtree,
+  useBaseNodeCrud,
+} from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeInfoDialog } from './BaseNodeInfoDialog';
 import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
@@ -145,7 +154,11 @@ interface IBaseNodeMoreProps {
    * so the menu is the way in.
    */
   onDescription?: () => void;
-  onDelete?: (permanent: boolean) => Promise<void>;
+  /** `onProgress`, when given, hears how far a folder delete is as it goes. */
+  onDelete?: (
+    permanent: boolean,
+    onProgress?: (progress: IDeleteBaseNodeProgress) => void
+  ) => Promise<void>;
   onDuplicate?: (ro?: IDuplicateBaseNodeRo) => Promise<void>;
 
   // Success callbacks for customizing behavior after operations
@@ -180,6 +193,17 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
   /** defaults to whatever allows removing the node from this project */
   canMoveToBase?: boolean;
   nodeTypeLabel: string;
+  /** Replaces the plain delete confirm, e.g. with a preview of what goes with the node. */
+  renderDeleteDialog?: (dialog: {
+    permanent: boolean;
+    isDeleting: boolean;
+    /** How far the delete is, once it has said; it stays after a delete that stopped part way. */
+    progress?: IDeleteBaseNodeProgress;
+    onClose: () => void;
+    onConfirm: () => void;
+  }) => ReactNode;
+  /** Shown in the plain delete confirm under its question. */
+  deleteWarning?: ReactNode;
 }
 
 /** Whether any of a menu group's entries shows. */
@@ -234,12 +258,15 @@ const CommonOperation = (props: ICommonOperationProps) => {
     nodeTypeLabel,
     extraActions = [],
     star,
+    renderDeleteDialog,
+    deleteWarning,
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [deletePermanent, setDeletePermanent] = useState<boolean | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState<IDeleteBaseNodeProgress>();
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
   const [moveToBaseOpen, setMoveToBaseOpen] = useState(false);
@@ -267,9 +294,12 @@ const CommonOperation = (props: ICommonOperationProps) => {
     if (deletePermanent == null || isDeleting) return;
 
     setIsDeleting(true);
+    setDeleteProgress(undefined);
     try {
-      await onDelete?.(deletePermanent);
+      // Only a dialog of its own (a folder's) has somewhere to show the progress.
+      await onDelete?.(deletePermanent, renderDeleteDialog ? setDeleteProgress : undefined);
       setDeletePermanent(null);
+      setDeleteProgress(undefined);
     } catch {
       // The underlying mutation reports the error globally; keep the dialog open for retry.
     } finally {
@@ -307,21 +337,33 @@ const CommonOperation = (props: ICommonOperationProps) => {
     />
   );
 
-  const deleteDialog = deletePermanent != null && (
-    <ConfirmDialog
-      open
-      onOpenChange={(open) => !open && setDeletePermanent(null)}
-      title={`${t('common:actions.delete')} ${nodeTypeLabel.toLowerCase()}`}
-      description={t('common:actions.deleteTip', { name: nodeName })}
-      cancelText={t('common:actions.cancel')}
-      confirmText={deletePermanent ? t('common:actions.delete') : t('common:trash.addToTrash')}
-      confirmLoading={isDeleting}
-      confirmDisabled={isDeleting}
-      confirmButtonVariant={deletePermanent ? 'destructive' : 'default'}
-      onCancel={() => setDeletePermanent(null)}
-      onConfirm={handleDelete}
-    />
-  );
+  const deleteDialog =
+    deletePermanent != null &&
+    (renderDeleteDialog?.({
+      permanent: deletePermanent,
+      isDeleting,
+      progress: deleteProgress,
+      onClose: () => {
+        setDeletePermanent(null);
+        setDeleteProgress(undefined);
+      },
+      onConfirm: handleDelete,
+    }) ?? (
+      <ConfirmDialog
+        open
+        onOpenChange={(open) => !open && setDeletePermanent(null)}
+        title={`${t('common:actions.delete')} ${nodeTypeLabel.toLowerCase()}`}
+        description={t('common:actions.deleteTip', { name: nodeName })}
+        content={deleteWarning}
+        cancelText={t('common:actions.cancel')}
+        confirmText={deletePermanent ? t('common:actions.delete') : t('common:trash.addToTrash')}
+        confirmLoading={isDeleting}
+        confirmDisabled={isDeleting}
+        confirmButtonVariant={deletePermanent ? 'destructive' : 'default'}
+        onCancel={() => setDeletePermanent(null)}
+        onConfirm={handleDelete}
+      />
+    ));
 
   // The menu's groups: edit, info, then delete on its own.
   const hasEditGroup = anyOf(canRename, star, canDuplicate, onDescription);
@@ -537,8 +579,8 @@ export const DashboardOperation = (props: IBaseNodeMoreProps) => {
   const permission = useBasePermission();
   const { disallowDashboard } = useSetting();
   const canRename = Boolean(permission?.['base|update']);
-  const canDelete = false;
-  const canPermanentDelete = Boolean(permission?.['base|delete']);
+  const canDelete = Boolean(permission?.['base|update']);
+  const canPermanentDelete = false;
   const canDuplicate = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canShare = Boolean(permission?.['base|update']);
 
@@ -602,6 +644,11 @@ export const RoutineOperation = (props: IBaseNodeMoreProps) => {
 export const AppOperation = (props: IBaseNodeMoreProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const permission = useBasePermission();
+  const node = useNode(props.resourceId);
+  // A published app goes offline the moment it is deleted, and restoring it does not republish it.
+  const published = Boolean(
+    (node?.resourceMeta as IBaseNodeAppResourceMeta | undefined)?.publicUrl
+  );
 
   const canRename = Boolean(permission?.['app|update']);
   const canDelete = Boolean(permission?.['app|delete']);
@@ -618,6 +665,11 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
       canShare={canShare}
+      deleteWarning={
+        published ? (
+          <LoginAppWarning message={t('common:appDelete.offlineWarning')} apps={[]} />
+        ) : undefined
+      }
     />
   );
 };
@@ -632,11 +684,13 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
   );
   const permission = useBasePermission();
   const canRename = Boolean(permission?.['base|update']);
-  const canDelete = false;
-  const canPermanentDelete = !node?.children?.length && Boolean(permission?.['base|update']);
+  // A folder goes to the trash with everything in it; there is no permanent delete here.
+  const canDelete = Boolean(permission?.['base|update']);
+  const canPermanentDelete = false;
   const canDuplicate = false;
   const canShare = Boolean(permission?.['base|update']);
   const canMoveToBase = Boolean(permission?.['base|update']);
+  const hasContents = Boolean(node?.children?.length);
 
   return (
     <CommonOperation
@@ -648,6 +702,21 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
       canDuplicate={canDuplicate}
       canShare={canShare}
       canMoveToBase={canMoveToBase}
+      renderDeleteDialog={
+        hasContents && node
+          ? ({ isDeleting, progress, onClose, onConfirm }) => (
+              <FolderDeleteConfirmDialog
+                open
+                nodeId={node.id}
+                folderName={node.resourceMeta?.name ?? ''}
+                isDeleting={isDeleting}
+                progress={progress}
+                onOpenChange={(open) => !open && onClose()}
+                onConfirm={onConfirm}
+              />
+            )
+          : undefined
+      }
     />
   );
 };
@@ -1429,13 +1498,18 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
 
   const deleteSuccessCallback = useCallback(
     (nodeId: string) => {
-      if (resourceId !== currentResourceId) {
+      // A deleted folder takes the open resource with it when that resource is inside.
+      const isFolder = resourceType === BaseNodeResourceType.Folder;
+      const removesCurrent = isFolder
+        ? Boolean(currentResourceId) && isResourceInSubtree(treeItems, nodeId, currentResourceId!)
+        : resourceId === currentResourceId;
+      if (!removesCurrent) {
         return;
       }
 
       // replace, not push: the deleted node's URL must not stay in history
       // as the next Back target.
-      const adjacentNode = findAdjacentNonFolderNode(treeItems, nodeId);
+      const adjacentNode = findAdjacentNonFolderNode(treeItems, nodeId, { skipSubtree: isFolder });
       if (!adjacentNode) {
         router.replace(`/base/${baseId}`, undefined, { shallow: true });
         return;
@@ -1466,7 +1540,16 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
         });
       }
     },
-    [resourceId, currentResourceId, treeItems, baseId, router, tableHrefMap, tableViewIdsMap]
+    [
+      resourceType,
+      resourceId,
+      currentResourceId,
+      treeItems,
+      baseId,
+      router,
+      tableHrefMap,
+      tableViewIdsMap,
+    ]
   );
 
   const updateSuccefulyCallback = useCallback(
@@ -1507,10 +1590,10 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
     resourceId,
     onDelete:
       onDelete ??
-      (async (permanent: boolean) => {
+      (async (permanent, onProgress) => {
         const node = getNode(treeItems, resourceId);
         if (!node) return;
-        await curdHooks.deleteNode(node.id, permanent);
+        await curdHooks.deleteNode(node.id, permanent, onProgress);
       }),
     onDuplicate:
       onDuplicate ??

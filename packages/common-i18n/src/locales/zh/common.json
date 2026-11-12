@@ -483,7 +483,10 @@
           "placeholder": "DELETE"
         },
         "loading": "正在删除…"
-      }
+      },
+      "description": "你的个人资料、登录方式和数据。",
+      "yourDataTitle": "你的数据",
+      "nameDesc": "其他成员看到的你的名字。"
     },
     "notify": {
       "title": "通知",
@@ -506,7 +509,10 @@
       "touchMode": "触控模式",
       "systemMode": "跟随系统",
       "buySelfHostedLicense": "购买私有化部署许可证",
-      "teableSkill": "Teable Skill"
+      "teableSkill": "Teable Skill",
+      "description": "外观、语言和通知。",
+      "languageDesc": "Teable 界面显示的语言。",
+      "interactionModeDesc": "表格、菜单和编辑器按触屏还是按鼠标的方式操作。"
     },
     "teableSkill": {
       "intro": "让 AI 智能体连接你的项目，帮你查询数据、管理表格/字段/视图、导入或更新记录，创建自动化和应用。",
@@ -586,7 +592,8 @@
     },
     "developerTools": {
       "title": "开发者工具"
-    }
+    },
+    "dangerZone": "危险操作"
   },
   "noun": {
     "table": "数据表",
@@ -1331,7 +1338,10 @@
     "description": "回收站中的数据依然会占用记录用量和附件用量。",
     "spaceDescription": "恢复过去{{retentionDays}}天内删除的空间",
     "spaceInnerDescription": "恢复过去{{retentionDays}}天内从该空间中删除的项目",
-    "baseDescription": "恢复过去{{retentionDays}}天内从该项目中删除的资源"
+    "baseDescription": "恢复过去{{retentionDays}}天内从该项目中删除的资源",
+    "restoredInactive": "恢复后为未启用：{{names}}。",
+    "restoredUnpublished": "需要重新发布：{{names}}。",
+    "emptyFolder": "空文件夹"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "插件未设置 URL",
@@ -2117,5 +2127,42 @@
     "getApp": "下载 App",
     "inAppBrowserHint": "点右上角菜单，在浏览器中打开此页面，即可跳转到 App",
     "menuItem": "在 Teable App 中打开"
+  },
+  "appDelete": {
+    "offlineWarning": "此应用已发布，删除后立即下线：公开访问链接失效，自定义域名被释放，登录配置被删除。恢复后需要重新发布。"
+  },
+  "folderDelete": {
+    "title": "你确定要删除文件夹 \"{{name}}\" 吗？",
+    "summary": "文件夹连同其中的内容移至回收站，保留期间可以恢复；恢复时保持文件夹结构。",
+    "progress": "正在删除… {{done}}/{{total}}",
+    "stopped": "删除中途停止。已删除的内容已各自单独进入回收站；下面是文件夹里还剩下的内容。",
+    "continue": "继续删除",
+    "blocked": "文件夹中有无法删除的内容，此操作不会删除任何东西：",
+    "loginTable": "「{{table}}」被以下应用作为用户表使用，删除后应用的登录功能将失效。",
+    "outsideReferences": "文件夹外的以下内容引用了文件夹里的表，删除后会出错：",
+    "possibleReference": "（可能引用）",
+    "shares": "分享链接将被永久删除，恢复后不会回来：{{count}} 个",
+    "unreadApps": "以下应用的源码无法检查是否引用了被删除的表：",
+    "hiddenItem": "隐藏内容",
+    "badge": {
+      "blocked": "已阻断",
+      "offline": "将下线",
+      "permanent": "永久删除",
+      "impacts": "{{count}} 处影响",
+      "impactsAtLeast": "至少 {{count}} 处影响",
+      "none": "无影响",
+      "trash": "回收站"
+    },
+    "detail": {
+      "trash": "移至回收站，保留期间可以恢复。",
+      "permanent": "永久删除，不能恢复。"
+    },
+    "appOffline": {
+      "title": "此应用已发布，删除后立即下线：",
+      "publicLink": "公开访问链接失效",
+      "customDomain": "自定义域名 {{domain}} 被释放",
+      "loginConfig": "登录配置被删除",
+      "afterRestore": "恢复后需要重新发布、重新绑定域名和配置登录。"
+    }
   }
 }

@@ -483,7 +483,10 @@
           "placeholder": "DELETE"
         },
         "loading": "Wird gelöscht …"
-      }
+      },
+      "description": "Dein Profil, wie du dich anmeldest, und deine Daten.",
+      "nameDesc": "So sehen dich andere in Teable.",
+      "yourDataTitle": "Deine Daten"
     },
     "notify": {
       "title": "Benachrichtigungen",
@@ -506,7 +509,10 @@
       "touchMode": "Touch-Modus",
       "systemMode": "Systemeinstellung folgen",
       "buySelfHostedLicense": "Self-Hosted-Lizenz kaufen",
-      "teableSkill": "Teable-Fähigkeit"
+      "teableSkill": "Teable-Fähigkeit",
+      "description": "Darstellung, Sprache und Benachrichtigungen.",
+      "interactionModeDesc": "Ob Tabellen, Menüs und Editoren für Touch oder Maus ausgelegt sind.",
+      "languageDesc": "Die Sprache, in der Teable seine Oberfläche anzeigt."
     },
     "teableSkill": {
       "intro": "Lass deinen AI Agent eine Verbindung zu deinem Projekt herstellen, um Daten abzufragen, Tabellen, Felder und Ansichten zu verwalten, Datensätze zu importieren oder zu aktualisieren sowie Automationen und Apps zu erstellen.",
@@ -587,7 +593,8 @@
     },
     "developerTools": {
       "title": "Entwicklertools"
-    }
+    },
+    "dangerZone": "Gefahrenzone"
   },
   "noun": {
     "table": "Tabelle",
@@ -1342,7 +1349,10 @@
     "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge.",
     "spaceDescription": "Stellen Sie Spaces wieder her, die in den letzten {{retentionDays}} Tagen gelöscht wurden",
     "spaceInnerDescription": "Stellen Sie Projekte wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
-    "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Projekt gelöscht wurden"
+    "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Projekt gelöscht wurden",
+    "restoredInactive": "Inaktiv zurück: {{names}}.",
+    "restoredUnpublished": "Müssen neu veröffentlicht werden: {{names}}.",
+    "emptyFolder": "Leerer Ordner"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin hat keine Url",
@@ -2131,5 +2141,42 @@
     "getApp": "App laden",
     "inAppBrowserHint": "Öffnen Sie diese Seite über das Menü oben rechts im Browser, um zur App zu wechseln",
     "menuItem": "In der Teable-App öffnen"
+  },
+  "appDelete": {
+    "offlineWarning": "Diese App ist veröffentlicht. Beim Löschen geht sie sofort offline: Ihr öffentlicher Link funktioniert nicht mehr, eine eigene Domain wird freigegeben und ihre Anmeldeeinstellungen werden gelöscht. Nach dem Wiederherstellen muss sie neu veröffentlicht werden."
+  },
+  "folderDelete": {
+    "title": "Möchten Sie den Ordner „{{name}}“ wirklich löschen?",
+    "summary": "Wird mit seinem gesamten Inhalt in den Papierkorb verschoben und kann dort wiederhergestellt werden; die Ordnerstruktur bleibt dabei erhalten.",
+    "progress": "Wird gelöscht… {{done}} von {{total}}",
+    "stopped": "Das Löschen wurde unterbrochen. Bereits Gelöschtes liegt einzeln im Papierkorb; unten steht, was noch im Ordner ist.",
+    "continue": "Löschen fortsetzen",
+    "blocked": "Einige Elemente in diesem Ordner können Sie nicht löschen, daher wird nichts gelöscht:",
+    "loginTable": "„{{table}}“ ist die Benutzertabelle dieser Apps. Nach dem Löschen ist die Anmeldung bei ihnen nicht mehr möglich.",
+    "outsideReferences": "Diese Elemente außerhalb des Ordners verweisen auf seine Tabellen und werden Fehler verursachen:",
+    "possibleReference": "(möglicher Verweis)",
+    "shares": "Freigabelinks werden endgültig gelöscht und beim Wiederherstellen nicht zurückgeholt: {{count}}",
+    "unreadApps": "Der Quellcode dieser Apps konnte nicht auf Verweise auf die gelöschten Tabellen geprüft werden:",
+    "hiddenItem": "Verborgenes Element",
+    "badge": {
+      "blocked": "Blockiert",
+      "offline": "Geht offline",
+      "permanent": "Endgültig gelöscht",
+      "impacts": "Auswirkungen: {{count}}",
+      "impactsAtLeast": "Auswirkungen: {{count}}+",
+      "none": "Keine Auswirkung",
+      "trash": "Papierkorb"
+    },
+    "detail": {
+      "trash": "Wird in den Papierkorb verschoben und kann dort wiederhergestellt werden.",
+      "permanent": "Wird endgültig gelöscht und kann nicht wiederhergestellt werden."
+    },
+    "appOffline": {
+      "title": "Diese App ist veröffentlicht und geht beim Löschen sofort offline:",
+      "publicLink": "Ihr öffentlicher Link funktioniert nicht mehr",
+      "customDomain": "Die eigene Domain {{domain}} wird freigegeben",
+      "loginConfig": "Ihre Anmeldeeinstellungen werden gelöscht",
+      "afterRestore": "Nach dem Wiederherstellen muss sie neu veröffentlicht, die Domain neu verknüpft und die Anmeldung neu eingerichtet werden."
+    }
   }
 }

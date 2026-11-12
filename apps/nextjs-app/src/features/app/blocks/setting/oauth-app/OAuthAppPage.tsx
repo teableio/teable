@@ -108,7 +108,7 @@ export const OAuthAppPage = () => {
         ) : undefined
       }
     >
-      <div className="space-y-1">{FormPage}</div>
+      <div className="max-w-5xl">{FormPage}</div>
     </SettingRight>
   );
 };

@@ -2,12 +2,15 @@ import type { DomainError } from '@teable/v2-core';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { DATA_QUERY_ARTIFACT_GENERATOR_VERSION } from './DataQueryArtifactProvenance';
+import { dataQueryCapabilities } from './DataQueryCapabilities';
 import {
   DataQueryDefinition,
   dataQueryDefinitionInputSchema,
   dataQueryNameSchema,
   dataQueryParameterDefinitionSchema,
   freezeQueryValue,
+  guardDataQueryPlainInput,
   isPlainData,
   queryError,
   validateDataQueryParameterDefaults,
@@ -263,10 +266,13 @@ const validateFallbackSemantics = (
 ) => {
   const definition = query.definition;
   if (!query.fallback || !definition) return;
+  // V3 fallbacks are frozen compatibility metadata, not an expression execution path.
+  // Keep the v1/v2 admission contract unchanged without inventing new v3 SQL parity rules.
+  if (definition.version === 3) return;
   const hasOptionalFilter = (node: NonNullable<typeof definition.filter>): boolean => {
     if ('items' in node) return node.items.some(hasOptionalFilter);
     if ('not' in node) return hasOptionalFilter(node.not);
-    return node.optional === true;
+    return 'optional' in node && node.optional === true;
   };
   const unsupported =
     definition.page?.includeTotal === true ||
@@ -301,16 +307,18 @@ const validateManifestQuery = (
   validateFallbackSemantics(queryId, query, context);
 };
 
-export const dataQueryManifestSchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    queries: z.record(dataQueryIdSchema, dataQueryManifestQuerySchema),
-  })
-  .strict()
-  .superRefine((manifest, context) => {
-    for (const [queryId, query] of Object.entries(manifest.queries))
-      validateManifestQuery(queryId, query, context);
-  });
+export const dataQueryManifestSchema = guardDataQueryPlainInput(
+  z
+    .object({
+      schemaVersion: z.literal(1),
+      queries: z.record(dataQueryIdSchema, dataQueryManifestQuerySchema),
+    })
+    .strict()
+    .superRefine((manifest, context) => {
+      for (const [queryId, query] of Object.entries(manifest.queries))
+        validateManifestQuery(queryId, query, context);
+    })
+).meta({ 'x-teable-data-query-capabilities': dataQueryCapabilities });
 
 export type DataQueryManifest = z.infer<typeof dataQueryManifestSchema>;
 
@@ -325,8 +333,10 @@ const illegalQueryName = (value: unknown): string | undefined => {
   return undefined;
 };
 
-export const dataQueryManifestJsonSchema = () =>
-  z.toJSONSchema(dataQueryManifestSchema, { target: 'draft-2020-12', io: 'input' });
+export const dataQueryManifestJsonSchema = () => ({
+  ...z.toJSONSchema(dataQueryManifestSchema, { target: 'draft-2020-12', io: 'input' }),
+  'x-teable-query-generator-version': DATA_QUERY_ARTIFACT_GENERATOR_VERSION,
+});
 
 export const parseDataQueryManifest = (value: unknown): Result<DataQueryManifest, DomainError> => {
   try {

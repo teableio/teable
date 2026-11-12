@@ -39,9 +39,10 @@ export class BaseNodeFolderService {
     const { name } = body;
 
     return this.prismaService.$tx(async (prisma) => {
-      // The route only authorizes `baseId`; a folder id from another base must not match.
+      // The route only authorizes `baseId`; a folder id from another base must not match. One in
+      // the trash is renamed only as it comes back.
       const folder = await prisma.baseNodeFolder.findFirst({
-        where: { id: folderId, baseId },
+        where: { id: folderId, baseId, deletedTime: null },
         select: { id: true },
       });
       if (!folder) {
@@ -52,8 +53,9 @@ export class BaseNodeFolderService {
         });
       }
 
+      // A folder in the trash holds no name.
       const find = await prisma.baseNodeFolder.findFirst({
-        where: { baseId, name, id: { not: folderId } },
+        where: { baseId, name, id: { not: folderId }, deletedTime: null },
       });
       if (find) {
         throw new CustomHttpException(
@@ -68,7 +70,7 @@ export class BaseNodeFolderService {
       }
 
       return prisma.baseNodeFolder.update({
-        where: { id: folderId, baseId },
+        where: { id: folderId, baseId, deletedTime: null },
         data: { name, lastModifiedBy: this.userId },
         select: {
           id: true,
@@ -86,7 +88,7 @@ export class BaseNodeFolderService {
 
   private async getUniqueName(baseId: string, name: string) {
     const list = await this.prismaService.baseNodeFolder.findMany({
-      where: { baseId },
+      where: { baseId, deletedTime: null },
       select: { name: true },
     });
     const names = list.map((item) => item.name);

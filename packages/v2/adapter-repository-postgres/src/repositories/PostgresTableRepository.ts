@@ -1673,14 +1673,12 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       // Commit the recycle-bin row with deleted_time. TableTrashed is
       // fire-and-forget, so callers that list trash immediately after DELETE
-      // 200 (e2e-lab T4324) otherwise race the projection.
+      // 200 (e2e-lab T4324) otherwise race the projection. A row already
+      // there keeps its parent: a folder delete writes its tables' rows under
+      // the folder before deleting them.
       if (await relationExists(db, 'public.trash')) {
         const trashId = crypto.randomUUID();
         const baseId = table.baseId().toString();
-        await sql`
-          DELETE FROM "trash"
-          WHERE "resource_id" = ${tableId} AND "resource_type" = 'table'
-        `.execute(db);
         await sql`
           INSERT INTO "trash" (
             "id",
@@ -1698,6 +1696,8 @@ export class PostgresTableRepository implements core.ITableRepository {
             ${now},
             ${actorId}
           )
+          ON CONFLICT ("resource_type", "resource_id")
+          DO UPDATE SET "deleted_time" = EXCLUDED."deleted_time", "deleted_by" = EXCLUDED."deleted_by"
         `.execute(db);
       }
 

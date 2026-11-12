@@ -47,7 +47,13 @@
     "generalDescription": "Modifiez ici les paramètres de votre espace actuel",
     "spaceName": "Nom de l'espace",
     "spaceId": "ID de l'espace",
-    "importBase": "Importer"
+    "importBase": "Importer",
+    "deleteSpaceDescription": "Déplace l'espace et tous ses projets dans la corbeille. Annulez d'abord tout abonnement actif.",
+    "icon": "Icône",
+    "iconDescription": "Affichée dans la liste des espaces et dans la barre latérale.",
+    "profile": "Profil de l'espace",
+    "spaceIdDescription": "À utiliser avec l'API et la CLI.",
+    "spaceNameDescription": "Tous les membres de cet espace voient ce nom."
   },
   "collaborators": "Collaborateurs",
   "more": "Plus",
@@ -107,6 +113,12 @@
     "importing": "Importation en cours",
     "baseImportTips": "Cliquez ou glissez-déposez le fichier .tea dans cette zone pour télécharger",
     "confirm": "Confirmer et continuer",
+    "preview": {
+      "analyzing": "Analyse du contenu du fichier…",
+      "total": "Total des éléments : {{count}}",
+      "invalid": "Ce fichier n’est pas un fichier .tea valide et ne peut pas être importé.",
+      "failed": "Impossible d’analyser ce fichier. Vous pouvez tout de même poursuivre l’importation."
+    },
     "phase": {
       "importingV2": "Importation",
       "parsingStructure": "Parsing structure",

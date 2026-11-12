@@ -6,6 +6,7 @@ import type {
   SpaceDeleteEvent,
   BaseDeleteEvent,
   TableDeleteEvent,
+  DashboardDeleteEvent,
   AppDeleteEvent,
   WorkflowDeleteEvent,
   RoutineDeleteEvent,
@@ -32,6 +33,7 @@ export class TrashListener {
   @OnEvent(Events.SPACE_DELETE, { async: true })
   @OnEvent(Events.BASE_DELETE, { async: true })
   @OnEvent(Events.TABLE_DELETE, { async: true })
+  @OnEvent(Events.DASHBOARD_DELETE, { async: true })
   @OnEvent(Events.APP_DELETE, { async: true })
   @OnEvent(Events.WORKFLOW_DELETE, { async: true })
   @OnEvent(Events.ROUTINE_DELETE, { async: true })
@@ -40,6 +42,7 @@ export class TrashListener {
       | SpaceDeleteEvent
       | BaseDeleteEvent
       | TableDeleteEvent
+      | DashboardDeleteEvent
       | AppDeleteEvent
       | WorkflowDeleteEvent
       | RoutineDeleteEvent
@@ -86,6 +89,17 @@ export class TrashListener {
         });
         deletedTime = table?.deletedTime;
         parentId = table?.baseId;
+        break;
+      }
+      case Events.DASHBOARD_DELETE: {
+        resourceId = payload.dashboardId;
+        resourceType = ResourceType.Dashboard;
+        const dashboard = await this.prismaService.dashboard.findUnique({
+          where: { id: resourceId },
+          select: { id: true, baseId: true, deletedTime: true },
+        });
+        deletedTime = dashboard?.deletedTime;
+        parentId = dashboard?.baseId;
         break;
       }
       case Events.APP_DELETE: {

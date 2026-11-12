@@ -3,9 +3,11 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DeleteTableCommand, DeleteTableMode } from '../../commands/DeleteTableCommand';
+import type { BaseId } from '../../domain/base/BaseId';
 import { domainError, isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
+import type { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -83,6 +85,54 @@ export class TableDeletionPreparationService implements ITableDeletionPreparatio
         sideEffects,
         blockers: [],
       });
+    });
+  }
+
+  /**
+   * Prepares moving several tables of one base to the trash with two metadata reads: the tables,
+   * and every table linking to any of them. Each preparation is what `prepare` gives for that
+   * table deleted on its own, so links between the tables are reported too. Tables that are not
+   * active are left out.
+   */
+  async prepareSoftDeleteMany(
+    context: IExecutionContext,
+    baseId: BaseId,
+    tableIds: ReadonlyArray<TableId>
+  ): Promise<Result<ReadonlyArray<TableDeletionPreparation>, DomainError>> {
+    const service = this;
+    return safeTry<ReadonlyArray<TableDeletionPreparation>, DomainError>(async function* () {
+      if (tableIds.length === 0) return ok([]);
+      const tablesSpec = yield* TableAggregate.specs(baseId).byIds(tableIds).build();
+      const tables = yield* await service.tableRepository.find(context, tablesSpec, {
+        state: 'activeAnyProvision',
+      });
+      const linkingSpec = yield* TableAggregate.specs()
+        .orGroup((builder) =>
+          tableIds.reduce((group, tableId) => group.byIncomingReferenceToTable(tableId), builder)
+        )
+        .build();
+      const linkingTables = yield* await service.tableRepository.find(context, linkingSpec);
+
+      const preparations: TableDeletionPreparation[] = [];
+      for (const table of tables) {
+        const linksToTable = TableAggregate.specs().byIncomingReferenceToTable(table.id()).build();
+        if (linksToTable.isErr()) return err(linksToTable.error);
+        const sideEffects = yield* await service.tableDeletionSideEffectService.prepare(context, {
+          table,
+          candidateTables: linkingTables.filter(
+            (candidate) =>
+              !candidate.id().equals(table.id()) && linksToTable.value.isSatisfiedBy(candidate)
+          ),
+        });
+        preparations.push({
+          table,
+          mode: 'soft',
+          sourceState: 'active',
+          sideEffects,
+          blockers: [],
+        });
+      }
+      return ok(preparations);
     });
   }
 }

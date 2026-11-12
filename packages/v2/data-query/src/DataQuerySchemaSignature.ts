@@ -86,7 +86,19 @@ export const dataQuerySchemaSignature = async (
         ...semantics,
       });
     }
-    return ok(canonical({ version: 1, fields, outputs }));
+    return ok(
+      canonical({
+        version: 1,
+        ...(plan.definitionVersion === 3
+          ? {
+              definitionVersion: plan.definitionVersion,
+              formulaLanguage: plan.formulaLanguage,
+            }
+          : {}),
+        fields,
+        outputs,
+      })
+    );
   });
   if (contract.isErr()) return err(contract.error);
   const digest = await globalThis.crypto.subtle.digest(

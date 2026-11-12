@@ -44,24 +44,26 @@ export const CallbackEditor = (props: ICallbackEditorProps) => {
   return (
     <>
       {callbackURLs.map((callbackURL, index) => (
-        <div key={index} className="flex items-center gap-4">
+        <div key={index} className="flex items-center gap-1">
           <Input
             type="text"
             value={callbackURL}
             onChange={(e) => updateCallbackURL(index, e.target.value)}
           />
-          <Button variant={'destructive'} size={'icon-xs'} onClick={() => deleteCallbackURL(index)}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 text-muted-foreground"
+            aria-label={t('common:actions.delete')}
+            onClick={() => deleteCallbackURL(index)}
+          >
             <Trash2 className="size-4 shrink-0" />
           </Button>
         </div>
       ))}
-      <Button
-        className="h-6 gap-0.5 text-[11px]"
-        size={'xs'}
-        variant={'ghost'}
-        onClick={() => addCallbackURL()}
-      >
-        <Plus className="size-4 shrink-0" /> {t('oauth:form.callbackUrl.add')}
+      <Button className="self-start" size="sm" variant="outline" onClick={() => addCallbackURL()}>
+        <Plus className="size-4 shrink-0" />
+        {t('oauth:form.callbackUrl.add')}
       </Button>
     </>
   );

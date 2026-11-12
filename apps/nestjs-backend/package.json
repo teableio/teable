@@ -201,6 +201,7 @@
     "@teable/v2-core": "workspace:*",
     "@teable/v2-data-query": "workspace:*",
     "@teable/v2-di": "workspace:*",
+    "@teable/v2-formula-sql-pg": "workspace:*",
     "@teable/v2-dottea": "workspace:*",
     "@teable/v2-import": "workspace:*",
     "@teable/v2-table-query-ops": "workspace:*",

@@ -335,6 +335,19 @@ export type TableSearchVectorStatus = {
   readonly tableId: string;
   readonly state: TableSearchVectorStatusState;
   readonly configured: boolean;
+  /**
+   * A published snapshot is present, usable and built for this physical table, so record reads can
+   * serve searches through it. A configured row alone does not imply this.
+   */
+  readonly serving: boolean;
+  readonly coveredFieldIds: readonly string[];
+  readonly searchScope?: 'all_fields' | 'selected_fields';
+  /**
+   * Searchable fields the *published* coverage does not include. Only meaningful while `serving`
+   * and only for an `all_fields` document: unselected fields and a non-serving table are excluded
+   * by design or still found by the fallback, so a host must omit the list instead of guessing.
+   */
+  readonly uncoveredFieldIds?: readonly string[];
   readonly languageConfig?: string;
   readonly semantics?: 'substring' | 'lexical';
   readonly provider?: 'pg_trgm' | 'pg_bigm' | 'tsvector';

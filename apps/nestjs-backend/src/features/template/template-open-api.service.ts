@@ -33,6 +33,7 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { PermissionService } from '../auth/permission.service';
 import { BaseDuplicateV2Service } from '../base/base-duplicate-v2.service';
+import type { IDuplicateBaseV2Result } from '../base/base-duplicate.service';
 import { buildBaseNodeDefaultUrl } from '../base-node/base-node-url.helper';
 import {
   firstPublishHistory,
@@ -474,6 +475,18 @@ export class TemplateOpenApiService {
     );
   }
 
+  /**
+   * The publishInfo that goes with a snapshot replacing the current one. Whatever in it names
+   * the previous snapshot's resources by id is rebuilt from the copy's source-to-snapshot maps
+   * or left out here: carried over as it is, it would point into a base that is being retired.
+   */
+  protected async rebindPublishInfo(
+    publishInfo: Prisma.JsonObject,
+    _copy: IDuplicateBaseV2Result
+  ): Promise<Prisma.JsonObject> {
+    return publishInfo;
+  }
+
   private async snapshotTemplate(templateId: string) {
     const prisma = this.prismaService.txClient();
     const templateRaw = await prisma.template.findUniqueOrThrow({
@@ -505,10 +518,7 @@ export class TemplateOpenApiService {
       },
     });
 
-    const {
-      base: { id, spaceId, name },
-      nodeIdMap,
-    } = await this.baseDuplicateV2Service.duplicateBase(
+    const copy = await this.baseDuplicateV2Service.duplicateBase(
       {
         fromBaseId: sourceBaseId,
         spaceId: templateSpaceId.id,
@@ -518,6 +528,10 @@ export class TemplateOpenApiService {
       false,
       BaseDuplicateMode.CreateTemplate
     );
+    const {
+      base: { id, spaceId, name },
+      nodeIdMap,
+    } = copy;
     return withStagedTemplateSnapshot(
       this.prismaService,
       sourceBaseId,
@@ -533,6 +547,7 @@ export class TemplateOpenApiService {
             : undefined;
         const snapshotActiveNodeId = activeNodeId ? (nodeIdMap[activeNodeId] ?? null) : null;
         const defaultUrl = await buildBaseNodeDefaultUrl(prisma, id, snapshotActiveNodeId);
+        const rebound = hasPublishInfo ? await this.rebindPublishInfo(publishInfo, copy) : null;
         let oldSnapshotBaseId: string | undefined;
         const result = await this.prismaService.$tx(
           async (prisma) => {
@@ -558,8 +573,8 @@ export class TemplateOpenApiService {
                   spaceId,
                   name,
                 }),
-                ...(hasPublishInfo
-                  ? { publishInfo: { ...publishInfo, snapshotActiveNodeId, defaultUrl } }
+                ...(rebound
+                  ? { publishInfo: { ...rebound, snapshotActiveNodeId, defaultUrl } }
                   : {}),
                 lastModifiedBy: this.cls.get('user.id'),
               },

@@ -11,9 +11,14 @@ describe('TrashService audit rows', () => {
   const txClient = {
     trash: {
       findUniqueOrThrow: vi.fn(),
-      deleteMany: vi.fn(),
+      deleteMany: vi.fn(async () => ({ count: 1 })),
     },
     space: { update: vi.fn() },
+    // What a trash row names is deleted here: no resource is found in use.
+    tableMeta: { findUnique: vi.fn(async () => null), findMany: vi.fn(async () => []) },
+    dashboard: { findUnique: vi.fn(async () => null), findMany: vi.fn(async () => []) },
+    baseNodeFolder: { findUnique: vi.fn(async () => null), findMany: vi.fn(async () => []) },
+    baseNode: { findMany: vi.fn(async () => []) },
   };
   const prismaService = {
     $tx: vi.fn(async (fn: (client: typeof txClient) => Promise<unknown>) => fn(txClient)),
@@ -23,9 +28,11 @@ describe('TrashService audit rows', () => {
       findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       findMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
     space: { findUnique: vi.fn() },
     base: { findUnique: vi.fn() },
+    baseNodeFolder: { findMany: vi.fn(async () => []) },
   };
   const spaceService = { permanentDeleteSpace: vi.fn() };
   const baseService = { permanentDeleteBase: vi.fn() };
@@ -145,6 +152,11 @@ describe('TrashService audit rows', () => {
   });
 
   describe('permanent delete', () => {
+    // The purge reads its row again under the project's lock.
+    beforeEach(() => {
+      prismaService.trash.findUnique.mockResolvedValue({ id: 'trh1' });
+    });
+
     it('writes base.permanent-delete with the name read before the purge', async () => {
       prismaService.trash.findUniqueOrThrow.mockResolvedValue({
         id: 'trh1',
@@ -265,6 +277,30 @@ describe('TrashService audit rows', () => {
           counts: { table: 2, app: 1 },
         },
       });
+    });
+
+    it('counts what the trashed folders hold, as the reset purges it too', async () => {
+      prismaService.baseNodeFolder.findMany.mockResolvedValue([{ id: 'bnf1' }] as never);
+      prismaService.trash.findMany.mockResolvedValue([
+        { resourceType: TrashType.Folder },
+        { resourceType: TrashType.Dashboard },
+        { resourceType: TrashType.Table },
+      ]);
+      const service = createService();
+      vi.spyOn(service as any, 'resetBaseTrashResource').mockResolvedValue(undefined);
+
+      await service.resetTrashItems({ resourceType: TrashType.Base, resourceId: 'bse1' });
+
+      expect(prismaService.trash.findMany).toHaveBeenCalledWith({
+        where: { parentId: { in: ['bse1', 'bnf1'] } },
+        select: { resourceType: true },
+      });
+      expect(audit.emitAtomic).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'trash.reset',
+          params: expect.objectContaining({ counts: { folder: 1, dashboard: 1, table: 1 } }),
+        })
+      );
     });
 
     it('writes nothing when the base trash was already empty', async () => {

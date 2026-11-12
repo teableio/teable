@@ -1195,6 +1195,10 @@
       "circularReference": "Referencia circular detectada",
       "folderDepthLimitExceeded": "Límite de profundidad de carpeta excedido",
       "folderNotFound": "Carpeta no encontrada",
+      "folderDeleteForbidden": "No tienes permiso para eliminar algunos elementos de esta carpeta",
+      "folderDeleteInProgress": "Esta carpeta se está eliminando, inténtalo de nuevo más tarde",
+      "folderDeletePartial": "La carpeta solo se eliminó en parte: {{count}} de sus elementos están en la papelera por separado. Vuelve a eliminar la carpeta para terminar",
+      "projectBusy": "Hay una eliminación de carpeta, un movimiento o una operación de la papelera en curso en este proyecto, inténtalo de nuevo más tarde",
       "anchorNotFound": "Nodo ancla no encontrado",
       "nameAlreadyExists": "El nombre ya existe",
       "targetBaseRequired": "El proyecto de destino es obligatorio",
@@ -1592,7 +1596,8 @@
       "parentBaseTrashed": "No se puede restaurar este elemento porque su proyecto principal también está en la papelera",
       "parentNotFound": "Recurso principal no encontrado",
       "tableNotFound": "Elemento de papelera de tabla no encontrado",
-      "restoreFieldInvalidSnapshot": "La configuración del campo eliminado no es válida y no se puede restaurar."
+      "restoreFieldInvalidSnapshot": "La configuración del campo eliminado no es válida y no se puede restaurar.",
+      "folderRestorePartial": "La carpeta solo se restauró en parte: {{count}} de sus tablas volvieron a la raíz del proyecto. Vuelve a restaurar la carpeta para terminar"
     },
     "license": {
       "invalid": "La licencia no es válida",

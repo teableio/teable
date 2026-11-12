@@ -80,13 +80,13 @@ export const PersonalAccessTokenSection = () => {
       actions={
         !formType ? (
           <>
-            <Button size="xs" variant="ghost" asChild>
-              <Link href="/developer/tool/query-builder" target="_blank" className="gap-1">
+            <Button size="sm" variant="ghost" asChild>
+              <Link href="/developer/tool/query-builder" target="_blank">
                 <ArrowUpRight className="size-4" />
                 {t('developer:apiQueryBuilder')}
               </Link>
             </Button>
-            <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
+            <Button size="sm" onClick={() => setViewState({ formType: 'new' })}>
               <Plus className="size-4 shrink-0" />
               {t('token:new.button')}
             </Button>
@@ -96,7 +96,7 @@ export const PersonalAccessTokenSection = () => {
       mobileNavigation={!formType}
       grouped={!formType}
     >
-      <div className="flex-1">
+      <div>
         {formType ? (
           <PersonAccessTokenForm
             formType={formType}
@@ -109,6 +109,7 @@ export const PersonalAccessTokenSection = () => {
           <AccessTokenList
             newToken={newTokenRef.current}
             onEdit={(id) => setViewState({ formType: 'edit', accessTokenId: id })}
+            onCreate={() => setViewState({ formType: 'new' })}
           />
         )}
       </div>

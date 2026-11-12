@@ -26,6 +26,7 @@ import type {
   ICreateBaseVo,
   IBaseJson,
   IFieldWithTableIdJson,
+  IImportBasePreviewVo,
   IImportBaseVo,
 } from '@teable/openapi';
 import {
@@ -69,8 +70,6 @@ import * as csvParser from 'csv-parser';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { ClsService } from 'nestjs-cls';
-import { parserStream } from 'stream-json';
-import { streamValues } from 'stream-json/streamers/stream-values.js';
 import * as unzipper from 'unzipper';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -91,8 +90,14 @@ import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
 import { auditBaseCreated } from './base-create-audit';
+import {
+  buildImportBasePreview,
+  toImportPreviewResources,
+  type IImportPreviewResources,
+} from './base-import-preview';
 import { BaseImportAttachmentsQueueProcessor } from './base-import-processor/base-import-attachments.processor';
 import { BaseImportCsvQueueProcessor } from './base-import-processor/base-import-csv.processor';
+import { DotTeaStructureError, readDotTeaStructureJson } from './dottea-structure-reader';
 import { replaceStringByMap } from './utils';
 
 export interface IBaseImportProgress {
@@ -396,6 +401,40 @@ export class BaseImportService {
       name: base.name,
       spaceId: base.spaceId,
     };
+  }
+
+  /**
+   * Resources an import of this structure would create, by node type. The
+   * enterprise edition extends this with its own resource types.
+   */
+  protected collectImportPreviewResources(structure: IBaseJson): IImportPreviewResources[] {
+    return [
+      toImportPreviewResources(BaseNodeResourceType.Table, structure.tables),
+      toImportPreviewResources(
+        BaseNodeResourceType.Dashboard,
+        structure.plugins?.[PluginPosition.Dashboard]
+      ),
+      toImportPreviewResources(BaseNodeResourceType.Folder, structure.folders),
+    ];
+  }
+
+  /**
+   * Read-only look at an uploaded .tea file before the user confirms the import.
+   * A file the import itself would reject is a validation error; a storage
+   * failure is not, so the caller can tell "bad file" from "preview unavailable".
+   */
+  async previewImportBase(importBaseRo: ImportBaseRo): Promise<IImportBasePreviewVo> {
+    const {
+      notify: { path },
+    } = importBaseRo;
+    const zipStream = await this.storageAdapter.downloadFile(
+      StorageAdapter.getBucket(UploadType.Import),
+      path
+    );
+    const structure = await this.readDotTeaStructure(zipStream);
+    this.validateStructureDbIdentifiers(structure);
+
+    return buildImportBasePreview(structure, this.collectImportPreviewResources(structure));
   }
 
   @V1Engine()
@@ -774,7 +813,7 @@ export class BaseImportService {
     const existingNames: string[] = [];
     if (copyToExistingBase) {
       const existingFolders = await sql<{ name: string }>`
-        select "name" from "base_node_folder" where "base_id" = ${baseId}
+        select "name" from "base_node_folder" where "base_id" = ${baseId} and "deleted_time" is null
       `.execute(db);
       existingNames.push(...existingFolders.rows.map((row) => row.name));
     }
@@ -2547,31 +2586,34 @@ export class BaseImportService {
     }
   }
 
+  /**
+   * Read and take ownership of a structure stream: only structure.json is
+   * needed, so the stream is destroyed once it is read and the table data and
+   * attachments behind it are never pulled from storage. A file the import
+   * cannot use is a validation error; a storage failure keeps its own error.
+   */
   private async readDotTeaStructure(zipStream: Readable): Promise<IBaseJson> {
-    const zipParser = unzipper.Parse();
-    zipStream.pipe(zipParser);
-
-    return new Promise((resolve, reject) => {
-      zipParser.on('entry', (entry) => {
-        if (entry.path !== 'structure.json') {
-          entry.autodrain();
-          return;
-        }
-
-        const parser = parserStream();
-        const pipeline = entry.pipe(parser).pipe(streamValues.asStream());
-
-        pipeline
-          .on('data', (data: { key: number; value: IBaseJson }) => {
-            resolve(data.value);
-          })
-          .on('error', (err: Error) => reject(err));
-      });
-      zipParser.on('error', (err) => reject(err));
-      zipParser.on('finish', () => {
-        reject(new Error('structure.json not found in dottea file'));
-      });
-    });
+    let structure: unknown;
+    try {
+      structure = await readDotTeaStructureJson(zipStream);
+    } catch (error) {
+      if (error instanceof DotTeaStructureError) {
+        throw new CustomHttpException(
+          `Invalid .tea file: ${error.message}`,
+          HttpErrorCode.VALIDATION_ERROR
+        );
+      }
+      throw error;
+    } finally {
+      zipStream.destroy();
+    }
+    if (!structure || typeof structure !== 'object' || Array.isArray(structure)) {
+      throw new CustomHttpException(
+        'Invalid .tea file: structure.json is not an object',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    return structure as IBaseJson;
   }
 
   private async processStructure(
@@ -2587,50 +2629,17 @@ export class BaseImportService {
     structure: IBaseJson;
   }> {
     const { spaceId } = importBaseRo;
-    const parser = unzipper.Parse();
-    zipStream.pipe(parser);
-    return new Promise((resolve, reject) => {
-      parser.on('entry', (entry) => {
-        const filePath = entry.path;
-        if (filePath === 'structure.json') {
-          const parser = parserStream();
-          const pipeline = entry.pipe(parser).pipe(streamValues.asStream());
-
-          let structureObject: IBaseJson | null = null;
-          pipeline
-            .on('data', (data: { key: number; value: IBaseJson }) => {
-              structureObject = data.value;
-            })
-            .on('end', async () => {
-              if (!structureObject) {
-                reject(new Error('import project structure.json resolve error'));
-              }
-
-              try {
-                this.validateStructureDbIdentifiers(structureObject!);
-                const result = await this.createBaseStructure(
-                  spaceId,
-                  structureObject!,
-                  undefined,
-                  undefined,
-                  undefined,
-                  onProgress,
-                  { useTransaction: true }
-                );
-                resolve(result);
-              } catch (error) {
-                reject(error);
-              }
-            })
-            .on('error', (err: Error) => {
-              parser.destroy(new Error(`resolve structure.json error: ${err.message}`));
-              reject(new Error(`resolve structure.json error: ${err.message}`));
-            });
-        } else {
-          entry.autodrain();
-        }
-      });
-    });
+    const structure = await this.readDotTeaStructure(zipStream);
+    this.validateStructureDbIdentifiers(structure);
+    return await this.createBaseStructure(
+      spaceId,
+      structure,
+      undefined,
+      undefined,
+      undefined,
+      onProgress,
+      { useTransaction: true }
+    );
   }
 
   private async uploadAttachments(path: string) {
@@ -3081,7 +3090,7 @@ export class BaseImportService {
     const existingNames: string[] = [];
     if (copyToExistingBase) {
       const existingFolders = await prisma.baseNodeFolder.findMany({
-        where: { baseId },
+        where: { baseId, deletedTime: null },
         select: { name: true },
       });
       existingNames.push(...existingFolders.map((f) => f.name));

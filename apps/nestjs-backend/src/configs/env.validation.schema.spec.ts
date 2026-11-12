@@ -89,6 +89,26 @@ describe('envValidationSchema', () => {
     expect(value.V2_TABLE_QUERY_OPS_ANALYZER_BATCH_SIZE).toBe(50);
   });
 
+  it.each([
+    'V2_TABLE_QUERY_OPS_ENABLED',
+    'V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED',
+    'V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME',
+    'V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED',
+    'V2_TABLE_QUERY_OPS_AUTO_ACCEPT',
+    'V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS',
+    'V2_TABLE_QUERY_OPS_WORKER_ID',
+    'V2_TABLE_QUERY_OPS_ANALYZER_BATCH_SIZE',
+  ])('treats an empty %s as unset instead of failing startup', (key) => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        [key]: '',
+      })
+    );
+    expect(error).toBeUndefined();
+    expect(value[key]).toBeUndefined();
+  });
+
   it('keeps an unset table query ops switch unset', () => {
     const { error, value } = envValidationSchema.validate(
       createEnv({ PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable' })

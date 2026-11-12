@@ -1,5 +1,9 @@
 import { oc } from '@orpc/contract';
-import { executeDataQueryRequestSchema, queryExplainResultSchema } from '@teable/v2-data-query';
+import {
+  dataQueryCapabilities,
+  executeDataQueryRequestSchema,
+  queryExplainResultSchema,
+} from '@teable/v2-data-query';
 import { z } from 'zod';
 
 import { apiErrorResponseDtoSchema, apiOkResponseDtoSchema } from './shared/http';
@@ -27,8 +31,12 @@ export const dataQueryExplainContract = {
       path: DATA_QUERY_EXPLAIN_PATH,
       summary: 'Explain an inline structured data query without reading records',
       description:
-        'Runs admission, schema compatibility, parameter binding, authorization and routing, then returns caller-scoped SQL and an allow-listed plan summary. Never executes the business SELECT. Requires V2_DATA_QUERY_ENABLED.',
+        'Runs admission, schema compatibility, parameter binding, authorization and routing, then returns caller-scoped SQL and an allow-listed plan summary. Never executes the business SELECT. Requires V2_DATA_QUERY_ENABLED or V2_DATA_QUERY_EXECUTE_ENABLED. Supports the advertised definition versions; unsupported expressions fail closed without SQL fallback.',
       tags: ['Data Query'],
+      spec: (operation) => ({
+        ...operation,
+        'x-teable-data-query-capabilities': dataQueryCapabilities,
+      }),
     })
     .input(executeDataQueryRequestSchema)
     .output(explainDataQueryOkResponseDtoSchema),

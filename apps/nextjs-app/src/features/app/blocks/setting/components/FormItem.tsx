@@ -1,5 +1,4 @@
 import { Error } from '@teable/ui-lib/base';
-import { Label } from '@teable/ui-lib/shadcn';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { z } from 'zod';
 import { RequireCom } from './RequireCom';
@@ -41,18 +40,22 @@ export const FormItem = forwardRef<IFormItemRef, IFormItemProps>((props, ref) =>
     },
   }));
 
+  // A settings row: label and description on the left, the field (and its error) on the right.
   return (
-    <div ref={containerRef}>
-      <div className="space-y-2">
-        <Label>
+    <div
+      ref={containerRef}
+      className="flex flex-col items-stretch gap-3 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
+    >
+      <div className="flex min-w-0 flex-col gap-0.5 sm:pt-2">
+        <div className="text-sm font-medium">
           {title} {required && <RequireCom />} {titleExtra}
-          {description && (
-            <div className="text-xs font-normal text-muted-foreground">{description}</div>
-          )}
-        </Label>
-        {children}
+        </div>
+        {description && <div className="text-xs text-muted-foreground">{description}</div>}
       </div>
-      <Error className="text-xs" error={error} />
+      <div className="flex w-full shrink-0 flex-col gap-2 sm:w-64">
+        {children}
+        <Error className="text-xs" error={error} />
+      </div>
     </div>
   );
 });

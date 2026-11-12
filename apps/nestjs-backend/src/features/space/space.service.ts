@@ -460,7 +460,7 @@ export class SpaceService {
     return {
       [ResourceType.Base]: { table: 'base', hasDeletedTime: true, hasIcon: true },
       [ResourceType.Table]: { table: 'table_meta', hasDeletedTime: true, hasIcon: true },
-      [ResourceType.Dashboard]: { table: 'dashboard', hasDeletedTime: false, hasIcon: false },
+      [ResourceType.Dashboard]: { table: 'dashboard', hasDeletedTime: true, hasIcon: false },
     };
   }
 

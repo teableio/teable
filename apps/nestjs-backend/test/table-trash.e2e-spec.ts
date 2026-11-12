@@ -805,6 +805,7 @@ describe('Trash (e2e)', () => {
       const restored = await restoreTrash(result.data.trashItems[0].id, tableId);
 
       expect(restored.status).toEqual(201);
+      expect(restored.data).toEqual({ restored: [] });
     });
 
     it('should restore formula fields successfully', async () => {

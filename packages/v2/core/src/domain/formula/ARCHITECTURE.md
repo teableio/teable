@@ -6,6 +6,14 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Formula parsing/type inference helpers used by domain value objects.
 - Provide function registry metadata for return type inference (no evaluation).
+- Public consumers use `FormulaExpression`, not the internal parser/type visitor. Its
+  `getReferencedIdentifiers()` preserves exact reference aliases, while
+  `getReferencedFieldIds()` additionally validates stored field identities.
+- `FormulaExpression.getParsedValueType()` accepts `FieldId` or string dependency
+  keys with domain `CellValueType` and `CellValueMultiplicity` metadata. Both paths
+  share private parsing, source-budget enforcement, function aliases and inference.
+- Pass the execution-context source budget when admitting an expression; omitted
+  budgets remain reserved for retained definitions.
 
 ## Files
 

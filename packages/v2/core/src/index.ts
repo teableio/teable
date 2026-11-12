@@ -330,7 +330,7 @@ export * from './domain/table/records/TableRecordCalendarDailyCollection';
 export { getValidRecordAggregationFunctions } from './domain/table/methods/createRecordAggregation';
 export * from './domain/table/methods/createViewSelectionCopyPlan';
 export * from './domain/table/methods/createCollapsedGroupExclusionFilter';
-export * from './domain/table/fields/visitors/FieldClipboardValueVisitor';
+export * from './application/formatting/FieldClipboardValueVisitor';
 export * from './queries/ListTablesQuery';
 export * from './queries/ListTablesHandler';
 export * from './queries/QueryHandler';

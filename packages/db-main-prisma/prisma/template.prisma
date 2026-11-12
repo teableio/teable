@@ -1062,6 +1062,7 @@ model Dashboard {
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
+  deletedTime      DateTime? @map("deleted_time")
 
   @@index([baseId])
   @@map("dashboard")
@@ -1312,9 +1313,11 @@ model BaseNodeFolder {
   createdBy         String     @map("created_by")
   lastModifiedTime  DateTime?  @updatedAt      @map("last_modified_time")
   lastModifiedBy    String?    @map("last_modified_by")
+  deletedTime       DateTime?  @map("deleted_time")
 
-  @@unique([baseId, name])
-
+  // Names are unique among the folders not in the trash: a partial unique index, which Prisma
+  // cannot declare (migration 20261109000000_base_node_folder_live_name_unique).
+  @@index([baseId])
   @@map("base_node_folder")
 }
 

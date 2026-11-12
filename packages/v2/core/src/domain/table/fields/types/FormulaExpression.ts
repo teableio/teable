@@ -54,10 +54,10 @@ class FormulaSourceBudgetExceeded extends Error {
   }
 }
 
-class FormulaErrorCollector implements ANTLRErrorListener<Token> {
+class FormulaErrorCollector implements ANTLRErrorListener<Token | number> {
   private readonly errors: string[] = [];
 
-  syntaxError<T extends Token>(
+  syntaxError<T extends Token | number>(
     _recognizer: Recognizer<T, ATNSimulator>,
     _offendingSymbol: T | undefined,
     _line: number,
@@ -115,15 +115,20 @@ export class FormulaExpression extends ValueObject {
     return this.value === other.value;
   }
 
-  getReferencedFieldIds(): Result<ReadonlyArray<FieldId>, DomainError> {
+  getReferencedIdentifiers(): Result<ReadonlyArray<string>, DomainError> {
     const parseResult = this.parseTree();
     if (parseResult.isErr()) return err(parseResult.error);
     const visitor = new FieldReferenceVisitor();
-    const rawRefs = Array.from(new Set(visitor.visit(parseResult.value))).map(String);
+    return ok(Array.from(new Set(visitor.visit(parseResult.value))).map(String));
+  }
+
+  getReferencedFieldIds(): Result<ReadonlyArray<FieldId>, DomainError> {
+    const referencesResult = this.getReferencedIdentifiers();
+    if (referencesResult.isErr()) return err(referencesResult.error);
     const invalidRefs: string[] = [];
     const ids: FieldId[] = [];
 
-    for (const ref of rawRefs) {
+    for (const ref of referencesResult.value) {
       const idResult = FieldId.create(ref);
       if (idResult.isErr()) {
         invalidRefs.push(ref);
@@ -154,7 +159,7 @@ export class FormulaExpression extends ValueObject {
   }
 
   getParsedValueType(
-    fieldValueTypes: ReadonlyArray<{ id: FieldId; valueType: FieldValueType }>
+    fieldValueTypes: ReadonlyArray<{ id: FieldId | string; valueType: FieldValueType }>
   ): Result<
     { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity },
     DomainError
@@ -162,7 +167,7 @@ export class FormulaExpression extends ValueObject {
     const parseResult = this.parseTree();
     if (parseResult.isErr()) return err(parseResult.error);
 
-    const dependencies: Record<string, FormulaFieldReference> = {};
+    const dependencies: Record<string, FormulaFieldReference> = Object.create(null);
     for (const entry of fieldValueTypes) {
       const typeKey = entry.id.toString();
       dependencies[typeKey] = {
@@ -194,10 +199,12 @@ export class FormulaExpression extends ValueObject {
   private parseTree(): Result<ExprContext, DomainError> {
     const inputStream = CharStreams.fromString(this.value);
     const lexer = new FormulaLexer(inputStream);
+    const errorCollector = new FormulaErrorCollector();
+    lexer.removeErrorListeners();
+    lexer.addErrorListener(errorCollector);
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new Formula(tokenStream);
     parser.removeErrorListeners();
-    const errorCollector = new FormulaErrorCollector();
     parser.addErrorListener(errorCollector);
     const tree = parser.root();
     const error = errorCollector.firstError();

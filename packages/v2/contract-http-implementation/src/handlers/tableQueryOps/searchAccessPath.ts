@@ -63,7 +63,22 @@ export const executeGetSearchAccessPathStatusEndpoint = async (
 
   const statusResult = await statusReader.read(context, input.tableId);
   if (statusResult.isErr()) return errorResult(statusResult.error);
-  return { status: 200, body: { ok: true, data: { status: statusResult.value } } };
+  // The contract lists are mutable arrays; the port keeps them readonly, so drop the optional
+  // list from the spread and add a mutable copy only when it is present.
+  const { uncoveredFieldIds, ...status } = statusResult.value;
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      data: {
+        status: {
+          ...status,
+          coveredFieldIds: [...status.coveredFieldIds],
+          ...(uncoveredFieldIds ? { uncoveredFieldIds: [...uncoveredFieldIds] } : {}),
+        },
+      },
+    },
+  };
 };
 
 export const executeGetSearchAccessPathCapabilitiesEndpoint = async (

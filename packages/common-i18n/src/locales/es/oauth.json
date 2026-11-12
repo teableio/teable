@@ -45,7 +45,8 @@
       "neverUsed": "Nunca usado"
     },
     "clientId": {
-      "label": "Client ID: "
+      "label": "Client ID: ",
+      "description": "Identifica esta app cuando pide a los usuarios que la autoricen."
     }
   },
   "formType": {
@@ -95,5 +96,6 @@
   "deleteConfirm": {
     "title": "Eliminar app de OAuth",
     "description": "¿Seguro que quieres eliminar la app de OAuth {{name}}? Esta acción no se puede deshacer."
-  }
+  },
+  "empty": "Aún no hay apps OAuth."
 }

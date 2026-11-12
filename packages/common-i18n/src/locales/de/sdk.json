@@ -1191,6 +1191,10 @@
       "circularReference": "Zirkelverweis erkannt",
       "folderDepthLimitExceeded": "Ordnertiefenlimit überschritten",
       "folderNotFound": "Ordner nicht gefunden",
+      "folderDeleteForbidden": "Sie haben keine Berechtigung, einige Elemente in diesem Ordner zu löschen",
+      "folderDeleteInProgress": "Dieser Ordner wird gerade gelöscht, versuchen Sie es später erneut",
+      "folderDeletePartial": "Der Ordner wurde nur teilweise gelöscht: {{count}} seiner Elemente liegen einzeln im Papierkorb. Löschen Sie den Ordner erneut, um den Vorgang abzuschließen",
+      "projectBusy": "In diesem Projekt läuft gerade das Löschen eines Ordners, ein Verschieben oder ein Papierkorbvorgang, versuchen Sie es später erneut",
       "anchorNotFound": "Ankerknoten nicht gefunden",
       "nameAlreadyExists": "Name existiert bereits",
       "targetBaseRequired": "Zielprojekt ist erforderlich",
@@ -1588,7 +1592,8 @@
       "parentBaseTrashed": "Dieses Element kann nicht wiederhergestellt werden, da sein übergeordnetes Projekt ebenfalls im Papierkorb ist",
       "parentNotFound": "Übergeordnete Ressource nicht gefunden",
       "tableNotFound": "Tabellen-Papierkorb-Element nicht gefunden",
-      "restoreFieldInvalidSnapshot": "Die Konfiguration des gelöschten Felds ist ungültig und kann nicht wiederhergestellt werden."
+      "restoreFieldInvalidSnapshot": "Die Konfiguration des gelöschten Felds ist ungültig und kann nicht wiederhergestellt werden.",
+      "folderRestorePartial": "Der Ordner wurde nur teilweise wiederhergestellt: {{count}} seiner Tabellen sind wieder im Stammverzeichnis des Projekts. Stellen Sie den Ordner erneut wieder her, um den Vorgang abzuschließen"
     },
     "license": {
       "invalid": "Die Lizenz ist ungültig",

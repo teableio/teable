@@ -5,6 +5,7 @@ import type {
   TableRecordAggregationFunction,
 } from '@teable/v2-core';
 import type { DataQueryDefinition } from './DataQueryDefinition';
+import type { DataQueryExpressionProjection, DataQueryPredicateV3 } from './DataQueryExpression';
 
 export type DataQueryParameterReference = { type: 'parameter'; name: string };
 export type DataQueryParameterDefinition = {
@@ -171,25 +172,43 @@ export type DataQueryRecordsProjection =
   | DataQueryFieldProjectionV2
   | DataQuerySystemProjectionV2
   | DataQueryRelationAggregate;
-export type DataQueryDefinitionInput = (
-  | (DataQueryDefinitionBase & { version: 1 })
-  | (DataQueryDefinitionBase & {
-      version: 2;
-      relations?: Record<string, DataQueryRelation>;
-    })
-) &
-  (
-    | {
-        kind: 'records';
-        recordId?: string | DataQueryParameterReference;
-        select: [DataQueryRecordsProjection, ...DataQueryRecordsProjection[]];
-      }
-    | {
-        kind: 'aggregate';
-        aggregates: [DataQueryAggregateEntry, ...DataQueryAggregateEntry[]];
-        groupBy?: (DataQueryFieldProjection | DataQueryFieldProjectionV2)[];
-      }
-  );
+export type DataQueryRelationV3 = Omit<DataQueryRelation, 'filter'> & {
+  filter?: DataQueryPredicateV3;
+};
+type DataQueryDefinitionBody =
+  | {
+      kind: 'records';
+      recordId?: string | DataQueryParameterReference;
+      select: [DataQueryRecordsProjection, ...DataQueryRecordsProjection[]];
+    }
+  | {
+      kind: 'aggregate';
+      aggregates: [DataQueryAggregateEntry, ...DataQueryAggregateEntry[]];
+      groupBy?: (DataQueryFieldProjection | DataQueryFieldProjectionV2)[];
+    };
+export type DataQueryDefinitionInput =
+  | ((DataQueryDefinitionBase &
+      ({ version: 1 } | { version: 2; relations?: Record<string, DataQueryRelation> })) &
+      DataQueryDefinitionBody)
+  | (Omit<DataQueryDefinitionBase, 'filter'> & {
+      version: 3;
+      filter?: DataQueryPredicateV3;
+      relations?: Record<string, DataQueryRelationV3>;
+    } & (
+        | {
+            kind: 'records';
+            recordId?: string | DataQueryParameterReference;
+            select: [
+              DataQueryRecordsProjection | DataQueryExpressionProjection,
+              ...(DataQueryRecordsProjection | DataQueryExpressionProjection)[],
+            ];
+          }
+        | {
+            kind: 'aggregate';
+            aggregates: [DataQueryAggregateEntry, ...DataQueryAggregateEntry[]];
+            groupBy?: (DataQueryFieldProjection | DataQueryFieldProjectionV2)[];
+          }
+      ));
 /**
  * A grouped report combines root-field statistics with to-many relation metrics.
  * A relation metric uses the records projection shape, so one parser validates
@@ -201,6 +220,7 @@ export type BoundDataQuery = {
   readonly filter?: RecordFilter;
   /** Resolved relation filters, keyed by relation alias. */
   readonly relationFilters?: Readonly<Record<string, RecordFilter>>;
+  readonly expressionParameters?: Readonly<Record<string, RecordFilterValue>>;
   readonly recordId?: string;
   readonly limit: number;
   readonly offset: number;

@@ -3,9 +3,17 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { streamSSE } from '../utils/sse';
 import { z } from '../zod';
+import { TrashType } from './types';
 
 export const RESTORE_TRASH = '/trash/restore/{trashId}';
 export const RESTORE_FIELD_TRASH_STREAM = '/trash/restore-field/{trashId}/stream';
+
+export const restoreTrashVoSchema = z.object({
+  /** What the restore brought back: the entry's resource and, for a folder, what was in it. */
+  restored: z.array(z.object({ resourceType: z.enum(TrashType), resourceId: z.string() })),
+});
+
+export type IRestoreTrashVo = z.infer<typeof restoreTrashVoSchema>;
 
 export const restoreFieldTrashStreamProgressEventSchema = z.object({
   id: z.literal('progress'),
@@ -65,6 +73,11 @@ export const RestoreTrashRoute: RouteConfig = registerRoute({
   responses: {
     201: {
       description: 'Restored successfully',
+      content: {
+        'application/json': {
+          schema: restoreTrashVoSchema,
+        },
+      },
     },
   },
   tags: ['space'],
@@ -92,7 +105,7 @@ export const RestoreFieldTrashStreamRoute: RouteConfig = registerRoute({
 });
 
 export const restoreTrash = async (trashId: string, tableId?: string) => {
-  return axios.post(
+  return axios.post<IRestoreTrashVo>(
     urlBuilder(RESTORE_TRASH, {
       trashId,
     }),

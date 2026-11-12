@@ -86,6 +86,7 @@ const setup = (validation: boolean) => {
     return container;
   });
   const dataContainer = {
+    isRegistered: vi.fn(() => false),
     resolve: vi.fn((token: symbol) => {
       if (token !== v2DataDbTokens.db) throw new Error('Expected data database');
       return {};

@@ -12,7 +12,7 @@ import {
   MessageSquareDot,
 } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
-import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
+import { createRecords, deleteRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
 import { useFieldStaticGetter, useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
@@ -31,6 +31,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { CardCarousel } from '../../gallery/components';
 import { useAddToChat } from '../../hooks/useAddToChat';
 import { useContextMenu } from '../../hooks/useContextMenu';
+import { useDuplicateRecord } from '../../hooks/useDuplicateRecord';
 import type { IKanbanContext } from '../context';
 import { useKanban } from '../hooks';
 import type { IStackData } from '../type';
@@ -61,6 +62,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
   } = useKanban() as Required<IKanbanContext>;
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
   const { chatEnabled, addToChat } = useAddToChat();
+  const duplicateRecord = useDuplicateRecord();
 
   const { cardCreatable, cardDeletable, cardEditable, cardCommentReadable, cardCommentCreatable } =
     permission;
@@ -90,7 +92,11 @@ export const KanbanCard = (props: IKanbanCardProps) => {
 
   const onDuplicate = () => {
     if (tableId == null || viewId == null) return;
-    duplicateRecord(tableId, card.id, { viewId, anchorId: card.id, position: 'after' });
+    void duplicateRecord({
+      tableId,
+      recordId: card.id,
+      order: { viewId, anchorId: card.id, position: 'after' },
+    });
   };
 
   const onInsert = async (position: IRecordInsertOrderRo['position']) => {

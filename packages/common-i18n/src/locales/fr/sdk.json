@@ -1195,6 +1195,10 @@
       "circularReference": "Référence circulaire détectée",
       "folderDepthLimitExceeded": "Limite de profondeur de dossier dépassée",
       "folderNotFound": "Dossier non trouvé",
+      "folderDeleteForbidden": "Vous n'avez pas l'autorisation de supprimer certains éléments de ce dossier",
+      "folderDeleteInProgress": "Ce dossier est en cours de suppression, réessayez plus tard",
+      "folderDeletePartial": "Le dossier n’a été supprimé qu’en partie : {{count}} de ses éléments sont dans la corbeille séparément. Supprimez à nouveau le dossier pour terminer",
+      "projectBusy": "Une suppression de dossier, un déplacement ou une opération de corbeille est en cours dans ce projet, réessayez plus tard",
       "anchorNotFound": "Nœud d'ancrage non trouvé",
       "nameAlreadyExists": "Le nom existe déjà",
       "targetBaseRequired": "Le projet cible est requis",
@@ -1592,7 +1596,8 @@
       "parentBaseTrashed": "Impossible de restaurer cet élément car son projet parent est également dans la corbeille",
       "parentNotFound": "Ressource parente non trouvée",
       "tableNotFound": "Élément de corbeille de table introuvable",
-      "restoreFieldInvalidSnapshot": "La configuration du champ supprimé n'est pas valide et ne peut pas être restaurée."
+      "restoreFieldInvalidSnapshot": "La configuration du champ supprimé n'est pas valide et ne peut pas être restaurée.",
+      "folderRestorePartial": "Le dossier n’a été restauré qu’en partie : {{count}} de ses tables sont revenues à la racine du projet. Restaurez à nouveau le dossier pour terminer"
     },
     "license": {
       "invalid": "La licence n'est pas valide",

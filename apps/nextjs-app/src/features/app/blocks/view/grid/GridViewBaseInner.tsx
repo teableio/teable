@@ -109,6 +109,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { useContextMenu } from '../hooks/useContextMenu';
+import { useDuplicateRecord } from '../hooks/useDuplicateRecord';
 import type { IAiAutoFillDialogContainerRef } from './components';
 import {
   AiAutoFillDialogContainer,
@@ -123,6 +124,7 @@ import {
 } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
+import { GuideSpotlight } from './components/GuideSpotlight';
 import { ResetClickCountButton } from './components/ResetClickCountButton';
 import { GIRD_FIELD_NAME_HEIGHT_DEFINITIONS, GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
@@ -163,7 +165,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { groupPointsServerData, onRowExpand } = props;
   const { t, i18n } = useTranslation(tableConfig.i18nNamespaces);
   const queryClient = useQueryClient();
-  const { updateRecord, duplicateRecord } = useRecordOperations();
+  const { updateRecord } = useRecordOperations();
+  const duplicateRecord = useDuplicateRecord();
   const router = useRouter();
   const baseId = useBaseId();
   const tableId = useTableId() as string;
@@ -270,6 +273,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     onScrollHandler: () => void;
   }>(null);
   const resetClickCountButtonRef = useRef<{
+    onScrollHandler: () => void;
+  }>(null);
+  const guideSpotlightRef = useRef<{
     onScrollHandler: () => void;
   }>(null);
 
@@ -1439,6 +1445,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     prefillingGridRef.current?.scrollTo(sl, undefined);
     aiGenerateButtonRef.current?.onScrollHandler();
     resetClickCountButtonRef.current?.onScrollHandler();
+    guideSpotlightRef.current?.onScrollHandler();
   }, []);
 
   const onPrefillingGridScrollChanged = useCallback((sl?: number, _st?: number) => {
@@ -1757,6 +1764,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           recordMap={recordMap}
         />
       )}
+      <GuideSpotlight
+        ref={guideSpotlightRef}
+        gridRef={gridRef}
+        tableId={tableId}
+        fieldsTableId={allFields[0]?.tableId}
+        columns={columns}
+        hasFirstRecord={recordMap[0] != null}
+      />
       <SelectionStatistic
         recordMap={recordMap}
         columns={columns}

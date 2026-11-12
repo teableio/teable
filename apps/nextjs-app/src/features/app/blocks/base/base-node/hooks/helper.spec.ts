@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import {
   filterAutoHiddenFolders,
   findAdjacentNonFolderNode,
+  isResourceInSubtree,
   ROOT_ID,
   searchTreeItems,
 } from './helper';
@@ -568,6 +569,50 @@ describe('findAdjacentNonFolderNode', () => {
     });
   });
 });
+describe('findAdjacentNonFolderNode with skipSubtree', () => {
+  /**
+   * root
+   *   ├── before
+   *   ├── folder (deleted)
+   *   │   ├── inside1
+   *   │   └── inside2
+   *   └── after
+   */
+  const treeItems: Record<string, TreeItemData> = {
+    [ROOT_ID]: createRootNode(['before', 'folder', 'after']),
+    before: createNode('before', BaseNodeResourceType.Table),
+    folder: createNode('folder', BaseNodeResourceType.Folder, ['inside1', 'inside2']),
+    inside1: createNode('inside1', BaseNodeResourceType.Table, [], 'folder'),
+    inside2: createNode('inside2', BaseNodeResourceType.Table, [], 'folder'),
+    after: createNode('after', BaseNodeResourceType.Table),
+  };
+
+  it('jumps over the deleted folder, looking below first', () => {
+    expect(findAdjacentNonFolderNode(treeItems, 'folder', { skipSubtree: true })?.id).toBe('after');
+  });
+
+  it('falls back to the node above when nothing follows the folder', () => {
+    const { after: _after, ...rest } = treeItems;
+    const items = { ...rest, [ROOT_ID]: createRootNode(['before', 'folder']) };
+    expect(findAdjacentNonFolderNode(items, 'folder', { skipSubtree: true })?.id).toBe('before');
+  });
+
+  it('finds nothing when the folder held everything', () => {
+    const items: Record<string, TreeItemData> = {
+      [ROOT_ID]: createRootNode(['folder']),
+      folder: treeItems.folder,
+      inside1: treeItems.inside1,
+      inside2: treeItems.inside2,
+    };
+    expect(findAdjacentNonFolderNode(items, 'folder', { skipSubtree: true })).toBeNull();
+  });
+
+  it('tells whether a resource sits under the folder', () => {
+    expect(isResourceInSubtree(treeItems, 'folder', 'inside2')).toBe(true);
+    expect(isResourceInSubtree(treeItems, 'folder', 'after')).toBe(false);
+  });
+});
+
 describe('filterAutoHiddenFolders', () => {
   const node = (
     id: string,

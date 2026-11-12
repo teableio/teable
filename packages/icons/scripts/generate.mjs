@@ -148,6 +148,8 @@ const genIndexContent = () => {
 
     indexContent += componentExport;
   });
+  // The brand marks are added by hand in `src/brands`, which this script leaves alone.
+  indexContent += "export * from './brands';\n";
 
   // Write the content to file system
   fs.writeFileSync(indexPath, indexContent);

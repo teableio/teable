@@ -30,6 +30,8 @@ import { TableUpdateFlow } from './TableUpdateFlow';
 
 export type TableDeletionSideEffectServiceInput = {
   table: Table;
+  /** Tables linking to `table`, when the caller already loaded them for several deletions. */
+  candidateTables?: ReadonlyArray<Table>;
 };
 
 export type TableDeletionSideEffectServiceResult = {
@@ -121,7 +123,8 @@ export class TableDeletionSideEffectService {
   ): Promise<Result<TableDeletionSideEffectPreparation, DomainError>> {
     const service = this;
     return safeTry<TableDeletionSideEffectPreparation, DomainError>(async function* () {
-      const candidateTables = yield* await service.loadCandidateTables(context, input.table);
+      const candidateTables =
+        input.candidateTables ?? (yield* await service.loadCandidateTables(context, input.table));
       const deletedTable = yield* input.table.clone(service.tableMapper);
       const candidatePlans: PreparedCandidateTableReaction[] = [];
       const reactionEffects: TableDeletionReactionEffect[] = [];

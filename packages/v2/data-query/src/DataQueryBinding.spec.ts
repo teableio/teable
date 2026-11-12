@@ -265,6 +265,51 @@ describe('DataQueryBinding', () => {
     ).toBe(true);
   });
 
+  it.each([1, 2])('locates a deleted projection field in a version %s binding', (version) => {
+    const definition = DataQueryDefinition.create({
+      ...records,
+      version,
+      select: [{ fieldId: numberId, alias: 'amount' }],
+    })._unsafeUnwrap();
+    const dto = tableDto();
+    dto.fields = dto.fields.filter((field) => field.id !== numberId);
+    const error = DataQueryBinding.prepare(
+      definition,
+      mapper.toDomain(dto)._unsafeUnwrap()
+    )._unsafeUnwrapErr();
+
+    expect(error).toMatchObject({
+      code: 'data_query.field_missing',
+      message: 'A required query field is missing',
+      tags: ['validation'],
+    });
+    expect(error.details).toEqual({ fieldId: numberId });
+    expect(JSON.stringify(error)).not.toMatch(/schema\.original|dbFieldName|fieldType|operator/);
+  });
+
+  it.each([1, 2])('locates a deleted filter-only field in a version %s binding', (version) => {
+    const definition = DataQueryDefinition.create({
+      ...records,
+      version,
+      filter: {
+        conjunction: 'and',
+        items: [{ not: { fieldId: numberId, operator: 'isGreater', value: 0 } }],
+      },
+    })._unsafeUnwrap();
+    const dto = tableDto();
+    dto.fields = dto.fields.filter((field) => field.id !== numberId);
+    const error = DataQueryBinding.prepare(
+      definition,
+      mapper.toDomain(dto)._unsafeUnwrap()
+    )._unsafeUnwrapErr();
+
+    expect(error.code).toBe('data_query.field_missing');
+    expect(error.details).toEqual({ fieldId: numberId, operator: 'isGreater' });
+    expect(JSON.stringify(error)).not.toMatch(
+      /schema\.original|dbFieldName|fieldType|supportedOperators/
+    );
+  });
+
   it('rejects invalid field operators, types and incomplete UI null filters instead of dropping them', () => {
     const table = mapper.toDomain(tableDto())._unsafeUnwrap();
     for (const filter of [
@@ -443,6 +488,7 @@ describe('DataQueryBinding', () => {
     ).toMatchObject({
       code: 'data_query.field_missing',
       message: 'A required filter field is missing',
+      details: { fieldId: `fld${'z'.repeat(16)}`, operator: 'is' },
     });
     expect(
       validateDataQueryFilter(table, {

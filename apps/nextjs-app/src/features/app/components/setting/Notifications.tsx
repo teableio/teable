@@ -2,7 +2,7 @@ import { updateUserNotifyMeta } from '@teable/openapi';
 import { useSession } from '@teable/sdk';
 import { Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { SettingGroup, SettingRow } from './SettingGroup';
+import { SettingItem, SettingSection } from './SettingSection';
 
 /** The notifications group of the preferences page. */
 export const Notifications: React.FC = () => {
@@ -13,8 +13,9 @@ export const Notifications: React.FC = () => {
   };
 
   return (
-    <SettingGroup title={t('settings.notify.title')}>
-      <SettingRow
+    <SettingSection title={t('settings.notify.title')}>
+      <SettingItem
+        inline
         label={t('settings.notify.label')}
         htmlFor="notify-meta-email"
         description={t('settings.notify.desc')}
@@ -26,6 +27,6 @@ export const Notifications: React.FC = () => {
           />
         }
       />
-    </SettingGroup>
+    </SettingSection>
   );
 };

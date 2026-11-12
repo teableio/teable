@@ -12,7 +12,7 @@ import {
   MessageSquareDot,
 } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
-import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
+import { createRecords, deleteRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
 import { useFieldStaticGetter, useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
@@ -29,6 +29,7 @@ import { Fragment, useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useAddToChat } from '../../hooks/useAddToChat';
 import { useContextMenu } from '../../hooks/useContextMenu';
+import { useDuplicateRecord } from '../../hooks/useDuplicateRecord';
 import { useGallery } from '../hooks';
 import { CARD_COVER_HEIGHT, CARD_STYLE } from '../utils';
 import { CardCarousel } from './CardCarousel';
@@ -54,6 +55,7 @@ export const Card = (props: IKanbanCardProps) => {
   } = useGallery();
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
   const { chatEnabled, addToChat } = useAddToChat();
+  const duplicateRecord = useDuplicateRecord();
 
   const { cardCreatable, cardDeletable, cardEditable, cardCommentReadable, cardCommentCreatable } =
     permission;
@@ -82,7 +84,11 @@ export const Card = (props: IKanbanCardProps) => {
 
   const onDuplicate = () => {
     if (tableId == null || viewId == null) return;
-    duplicateRecord(tableId, card.id, { viewId, anchorId: card.id, position: 'after' });
+    void duplicateRecord({
+      tableId,
+      recordId: card.id,
+      order: { viewId, anchorId: card.id, position: 'after' },
+    });
   };
 
   const onInsert = async (position: IRecordInsertOrderRo['position']) => {

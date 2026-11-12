@@ -3,6 +3,15 @@
 import { isRecordFilterFieldReferenceValue } from '@teable/v2-core';
 import { stringify as stringifyYaml } from 'yaml';
 
+import {
+  mapDataQueryPredicateV3,
+  mapDataQueryFormulaExpression,
+  walkDataQueryPredicateExpressions,
+  walkDataQueryFormulaExpression,
+  type DataQueryExpressionProjection,
+  type DataQueryPredicateV3,
+  type DataQueryExpressionNode,
+} from './DataQueryExpression';
 import type { DataQueryManifest } from './DataQueryManifest';
 import type {
   DataQueryManifestRepairDependencies,
@@ -88,6 +97,7 @@ export type DataQueryRepairReason =
   | 'table_deleted'
   | 'definition_empty'
   | 'dependency_evidence_unavailable'
+  | 'expression_semantics_changed'
   | 'dependency_not_editable';
 
 export type DataQueryRepairAction =
@@ -222,20 +232,17 @@ export const sqlMentionsIdentifier = (sql: string, identifier: string | undefine
 const sourceOf = (item: object): string =>
   'source' in item && typeof item.source === 'string' ? item.source : 'root';
 
-type Relations = NonNullable<Extract<MutableDefinition, { version: 2 }>['relations']>;
+type Relations = NonNullable<Extract<MutableDefinition, { version: 2 | 3 }>['relations']>;
 
-/** `relations` only exists on version 2; callers must not cast the definition. */
 const relationsOf = (definition: MutableDefinition): Relations =>
-  definition.version === 2
-    ? ((definition as Extract<MutableDefinition, { version: 2 }>).relations ?? {})
-    : {};
+  definition.version !== 1 ? (definition.relations ?? {}) : {};
 
 const tableOfSource = (definition: MutableDefinition, source: string): string | undefined =>
   source === 'root' ? definition.tableId : relationsOf(definition)[source]?.tableId;
 
 const linkHostTable = (
   definition: MutableDefinition,
-  relation: DataQueryRelation
+  relation: Pick<DataQueryRelation, 'via'>
 ): string | undefined =>
   relation.via ? tableOfSource(definition, relation.via) : definition.tableId;
 
@@ -283,11 +290,11 @@ const leafTouchesField = (
   return qualified === target.tableId && value.fieldId === target.fieldId;
 };
 
-type FilterRemoval = { node?: DataQueryFilter; removed: number };
+type FilterRemoval = { node?: DataQueryPredicateV3; removed: number };
 
 /** Remove leaves that read the changed field; unwrap emptied groups and `not`. */
 const removeFilterLeaves = (
-  node: DataQueryFilter,
+  node: DataQueryPredicateV3,
   definition: MutableDefinition,
   source: string,
   target: ChangeTarget
@@ -306,7 +313,56 @@ const removeFilterLeaves = (
       ? { node: { not: inner.node }, removed: inner.removed }
       : { removed: inner.removed };
   }
-  return leafTouchesField(node, definition, source, target) ? { removed: 1 } : { node, removed: 0 };
+  return 'fieldId' in node && leafTouchesField(node, definition, source, target)
+    ? { removed: 1 }
+    : { node, removed: 0 };
+};
+/** A formula and its declared references are indivisible: never prune formula operands. */
+const expressionTouchesChange = (
+  definition: MutableDefinition,
+  target: ChangeTarget,
+  kind: DataQuerySchemaChange['kind']
+): boolean => {
+  if (definition.version !== 3) return false;
+  const relations = relationsOf(definition);
+  const sourceRemoved = (source: string): boolean => {
+    let alias = source;
+    while (alias !== 'root') {
+      const relation = relations[alias];
+      if (!relation) return false;
+      if (kind === 'table_deleted' && relation.tableId === target.tableId) return true;
+      if (
+        kind === 'field_deleted' &&
+        relation.linkFieldId === target.fieldId &&
+        linkHostTable(definition, relation) === target.tableId
+      )
+        return true;
+      alias = relation.via ?? 'root';
+    }
+    return false;
+  };
+  let touched = false;
+  const visitor = (defaultSource: string) => (expression: DataQueryExpressionNode) => {
+    if (expression.type !== 'field' && expression.type !== 'system') return;
+    const source = expression.source ?? defaultSource;
+    if (sourceRemoved(source)) touched = true;
+    if (
+      expression.type === 'field' &&
+      expression.fieldId === target.fieldId &&
+      tableOfSource(definition, source) === target.tableId
+    )
+      touched = true;
+  };
+  if (definition.kind === 'records') {
+    for (const projection of definition.select) {
+      if ('expr' in projection) walkDataQueryFormulaExpression(projection.expr, visitor('root'));
+    }
+  }
+  if (definition.filter) walkDataQueryPredicateExpressions(definition.filter, visitor('root'));
+  for (const [alias, relation] of Object.entries(relations)) {
+    if (relation.filter) walkDataQueryPredicateExpressions(relation.filter, visitor(alias));
+  }
+  return touched;
 };
 
 /**
@@ -323,6 +379,19 @@ const rewriteFieldReferences = (
     if (tableId !== target.tableId || fieldId !== target.fieldId) return fieldId;
     return toFieldId;
   };
+  const rewriteExpression =
+    (source: string, usage: DataQueryFieldUsage) =>
+    (expression: DataQueryExpressionNode): DataQueryExpressionNode => {
+      if (expression.type !== 'field') return expression;
+      const fieldId = rewrite(
+        tableOfSource(definition, expression.source ?? source),
+        expression.fieldId
+      );
+      if (fieldId === expression.fieldId) return expression;
+      usages.add(usage);
+      usages.add('reference');
+      return { ...expression, fieldId };
+    };
 
   for (const relation of Object.values(relationsOf(definition))) {
     if (linkHostTable(definition, relation) !== target.tableId) continue;
@@ -333,6 +402,13 @@ const rewriteFieldReferences = (
 
   if (definition.kind === 'records') {
     for (const projection of definition.select) {
+      if ('expr' in projection) {
+        projection.expr = mapDataQueryFormulaExpression(
+          projection.expr,
+          rewriteExpression('root', 'projection')
+        );
+        continue;
+      }
       if (!('fieldId' in projection) || typeof projection.fieldId !== 'string') continue;
       const before = projection.fieldId;
       projection.fieldId = rewrite(tableOfSource(definition, sourceOf(projection)), before);
@@ -373,11 +449,14 @@ const rewriteFieldReferences = (
     return { ...item, allowed };
   });
 
-  const rewriteFilter = (node: DataQueryFilter, source: string): DataQueryFilter => {
+  const rewriteFilter = (node: DataQueryPredicateV3, source: string): DataQueryPredicateV3 => {
     if ('items' in node) {
       return { ...node, items: node.items.map((item) => rewriteFilter(item, source)) };
     }
     if ('not' in node) return { not: rewriteFilter(node.not, source) };
+    if (!('fieldId' in node)) {
+      return mapDataQueryPredicateV3(node, rewriteExpression(source, 'filter'));
+    }
     const tableId = tableOfSource(definition, source);
     const fieldId = rewrite(tableId, node.fieldId);
     if (fieldId !== node.fieldId) usages.add('filter');
@@ -471,6 +550,16 @@ const planQuery = (
     return outcome('manual');
   }
 
+  if (
+    (kind === 'field_deleted' ||
+      kind === 'table_deleted' ||
+      (kind === 'field_updated' && target.typeChanged)) &&
+    expressionTouchesChange(definition, target, kind)
+  ) {
+    reasons.add('expression_semantics_changed');
+    return outcome('manual');
+  }
+
   if (kind === 'field_updated') {
     if (target.typeChanged && target.outputCompatible !== true) {
       reasons.add('type_change_affects_output');
@@ -541,9 +630,7 @@ const planQuery = (
       record.add({ kind: 'remove_relation', alias }, 'relation_removed');
       affected = true;
     }
-    if (!Object.keys(relations).length) {
-      delete (definition as Extract<MutableDefinition, { version: 2 }>).relations;
-    }
+    if (!Object.keys(relations).length && definition.version !== 1) delete definition.relations;
   }
   for (const relation of dependency.relations ?? []) {
     if (!droppedRelations.has(relation.alias)) continue;
@@ -555,7 +642,7 @@ const planQuery = (
   // Dependants of a dropped relation cannot stay: a join edge that no longer
   // exists would fail admission.
   if (definition.kind === 'records') {
-    const kept: DataQueryRecordsProjection[] = [];
+    const kept: (DataQueryRecordsProjection | DataQueryExpressionProjection)[] = [];
     for (const projection of definition.select) {
       if (droppedRelations.has(sourceOf(projection))) {
         affected = true;
@@ -581,7 +668,7 @@ const planQuery = (
       }
       kept.push(projection);
     }
-    definition.select = kept as [DataQueryRecordsProjection, ...DataQueryRecordsProjection[]];
+    definition.select = kept as typeof definition.select;
   } else {
     definition.aggregates = definition.aggregates.filter((aggregate) => {
       if (
@@ -719,7 +806,7 @@ const planQuery = (
       ? definition.select.length === 0
       : definition.aggregates.length === 0;
   if (empty) {
-    if (query.mode === 'auto' && query.fallback) {
+    if (definition.version !== 3 && query.mode === 'auto' && query.fallback) {
       // Promotion makes the fallback executable. If it names the deleted field,
       // activating it is not an automatic repair.
       if (sqlMentionsIdentifier(query.fallback.sql, target.sqlIdentifier)) {

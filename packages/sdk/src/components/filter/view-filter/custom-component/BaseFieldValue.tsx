@@ -492,7 +492,9 @@ export function BaseFieldValue(props: Readonly<IBaseFieldValue>) {
         <RatingEditor
           value={value as number}
           options={field.options}
-          onChange={onSelect as (value?: number) => void}
+          // clicking the selected star clears to undefined, but the filter schema
+          // only accepts null for "no value yet"
+          onChange={(rating?: number) => onSelect(rating ?? null)}
           className={cn('h-8 rounded-md border px-2', controlWidth)}
           iconClassName="w-4 h-4 me-1"
         />

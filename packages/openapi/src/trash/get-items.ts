@@ -19,7 +19,8 @@ export const tableTrashResourceTypesQuerySchema = createStringOrArrayQuerySchema
 
 export const trashItemsRoSchema = z.object({
   resourceId: z.string(),
-  resourceType: z.enum([TrashType.Base, TrashType.Table]),
+  // Folder lists what a trashed folder holds, one level at a time.
+  resourceType: z.enum([TrashType.Base, TrashType.Table, TrashType.Folder]),
   cursor: z.string().nullish(),
   pageSize: z.coerce.number().int().min(1).max(20).default(20).optional(),
   // Filters below only apply to resourceType=Table; the Base branch ignores them.
@@ -39,7 +40,7 @@ export type ITableTrashItemsFilter = Pick<
 export const GetTrashItemsRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_TRASH_ITEMS,
-  description: 'Get trash items for project or table',
+  description: 'Get trash items for a project, a table, or a folder in the trash',
   request: {
     query: trashItemsRoSchema,
   },

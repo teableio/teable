@@ -47,6 +47,15 @@ export interface ITemplateSubmissionHost {
   withdraw: (templateId: string) => Promise<void>;
   /** Under the live status of a listing (EE: a nudge to set up payouts). */
   renderStatusExtra?: (template: ITemplateVo) => React.ReactNode;
+  /**
+   * A row in the publish form (EE: the post-install guide, drafted and edited in the project).
+   * `close` shuts the dialog so the author can work in the project.
+   */
+  renderGuideRow?: (args: {
+    baseId: string;
+    includeData: boolean;
+    close: () => void;
+  }) => React.ReactNode;
 }
 
 /**

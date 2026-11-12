@@ -4,6 +4,7 @@ import type {
   IDeleteTrashQuery,
   IGetTrashItemRecordsVo,
   IRestoreFieldTrashStreamEvent,
+  IRestoreTrashVo,
   ITrashVo,
   V2Feature,
 } from '@teable/openapi';
@@ -69,11 +70,12 @@ export class TrashController {
     @Param('trashId') trashId: string,
     @Query('tableId') tableId: string | undefined,
     @Res({ passthrough: true }) response: Response
-  ): Promise<void> {
+  ): Promise<IRestoreTrashVo> {
     await this.prepareRestoreTableCanary(trashId, tableId, response);
     if (this.cls.get('useV2')) {
       if (trashId.startsWith(IdPrefix.Operation)) {
-        return await this.trashService.restoreTableResourceV2(trashId, tableId);
+        await this.trashService.restoreTableResourceV2(trashId, tableId);
+        return { restored: [] };
       }
       return await this.trashService.restoreTrashV2(trashId);
     }

@@ -35,25 +35,30 @@ const appleClientSchema = Joi.string()
 // Feature flags below are read straight from `ConfigService`, so they must accept exactly the
 // spellings the runtime parsers accept, and stay optional: an absent key means "use the code
 // default", which differs per key. Joi schemas are immutable, so the keys share one instance.
-const envBooleanSchema = Joi.alternatives().try(
-  Joi.boolean(),
-  Joi.string()
-    .trim()
-    .lowercase()
-    .pattern(/^(1|0|true|false|yes|no|on|off)$/)
-    .custom((value) => resolveBoolean(value))
-);
+const envBooleanSchema = Joi.alternatives()
+  .try(
+    Joi.boolean(),
+    Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^(1|0|true|false|yes|no|on|off)$/)
+      .custom((value) => resolveBoolean(value))
+  )
+  // `KEY=` in a deployment file means "unset"; it must not fail startup.
+  .empty('');
 
 // `auto` enables the search access path; every other accepted spelling resolves to `off`.
-const envSearchRuntimeModeSchema = Joi.alternatives().try(
-  Joi.boolean(),
-  Joi.string()
-    .trim()
-    .lowercase()
-    .valid('auto', 'off', 'on', 'enabled', 'disabled', 'true', 'false', 'yes', 'no', '1', '0')
-);
+const envSearchRuntimeModeSchema = Joi.alternatives()
+  .try(
+    Joi.boolean(),
+    Joi.string()
+      .trim()
+      .lowercase()
+      .valid('auto', 'off', 'on', 'enabled', 'disabled', 'true', 'false', 'yes', 'no', '1', '0')
+  )
+  .empty('');
 
-const envIntegerSchema = Joi.number().integer().min(0);
+const envIntegerSchema = Joi.number().integer().min(0).empty('');
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('test', 'development', 'production').default('development'),
@@ -101,6 +106,8 @@ export const envValidationSchema = Joi.object({
   BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: Joi.string().optional(),
   BACKEND_DATA_DB_URL_ENCRYPTION_KEY: Joi.string().optional(),
   BACKEND_DATA_DB_URL_ENCRYPTION_IV: Joi.string().optional(),
+  BACKEND_DATA_DB_URL_ENCRYPTION_SECRET: Joi.string().optional(),
+  BACKEND_DATA_DB_URL_ENCRYPTION_SECRET_OLD: Joi.string().optional(),
   BACKEND_MAIL_ENCRYPTION_KEY: Joi.string().optional(),
   BACKEND_MAIL_ENCRYPTION_IV: Joi.string().optional(),
   BACKEND_STORAGE_ENCRYPTION_KEY: Joi.string().optional(),
@@ -158,6 +165,7 @@ export const envValidationSchema = Joi.object({
   V2_TABLE_QUERY_OPS_AUTO_ACCEPT: Joi.string()
     .trim()
     .lowercase()
+    .empty('')
     .valid('off', 'shadow', 'auto')
     .messages({
       'any.only': 'The `V2_TABLE_QUERY_OPS_AUTO_ACCEPT` must be one of `off`, `shadow` or `auto`',
@@ -165,6 +173,7 @@ export const envValidationSchema = Joi.object({
   V2_TABLE_QUERY_OPS_ALLOW_MANUAL_INDEX_EXECUTION: envBooleanSchema,
   V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS: Joi.string()
     .trim()
+    .empty('')
     .custom((value: string, helpers) => {
       const invalid = value
         .split(',')
@@ -182,7 +191,7 @@ export const envValidationSchema = Joi.object({
       'any.invalid': `The \`V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS\` accepts only: ${executablePhase1RemediationKindValues.join(', ')}`,
     }),
   V2_TABLE_QUERY_OPS_ENSURE_SCHEMA: envBooleanSchema,
-  V2_TABLE_QUERY_OPS_WORKER_ID: Joi.string().trim(),
+  V2_TABLE_QUERY_OPS_WORKER_ID: Joi.string().trim().empty(''),
   V2_TABLE_QUERY_OPS_CAPTURE_SQL_SAMPLE: envBooleanSchema,
   V2_TABLE_QUERY_OPS_SQL_SAMPLE_MAX_LENGTH: envIntegerSchema,
   V2_TABLE_QUERY_OPS_SQL_DIAGNOSTICS_MAX_PER_OBSERVATION: envIntegerSchema,

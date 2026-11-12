@@ -1,7 +1,6 @@
 /* eslint-disable jsx-a11y/no-autofocus */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { Edit } from '@teable/icons';
 import {
   deleteSpace,
   getSpaceById,
@@ -11,11 +10,12 @@ import {
   SPACE_NAME_MAX_LENGTH,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { Button, Input } from '@teable/ui-lib/shadcn';
+import { Button, cn, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import { SettingItem, SettingSection } from '@/features/app/components/setting/SettingSection';
 import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceConfirm';
 import { SpaceAvatar } from '@/features/app/components/space/SpaceAvatar';
 import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
@@ -28,6 +28,7 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
   const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
@@ -61,6 +62,7 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
       return;
     }
     updateSpaceAvatarMutator(file);
+    e.target.value = '';
   };
 
   const { mutate: deleteSpaceMutator } = useMutation({
@@ -103,6 +105,8 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
     }
   };
 
+  const canUpdate = !!space && hasPermission(space.role, 'space|update');
+
   return (
     <>
       <SpaceSettingContainer
@@ -110,86 +114,101 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
         description={t('space:spaceSetting.generalDescription')}
       >
         {!!space && (
-          <div className="flex min-h-0 flex-1 flex-col justify-between">
-            <div className="flex flex-col gap-y-4">
-              {/* Avatar */}
-              <div className="group relative size-14">
-                <SpaceAvatar
-                  name={space.name}
-                  avatar={space.avatar}
-                  className="size-14 rounded-md text-2xl"
-                />
-                {hasPermission(space.role, 'space|update') && (
-                  <div
-                    className="absolute inset-0 flex items-center justify-center rounded-md bg-black/60 opacity-0 group-hover:opacity-100"
-                    title={t('common:settings.account.updatePhoto')}
-                  >
-                    <Edit className="size-5 text-white" />
-                    <input
-                      type="file"
-                      className="absolute inset-0 size-full cursor-pointer opacity-0"
-                      accept="image/*"
-                      onChange={uploadAvatar}
+          <>
+            <SettingSection title={t('space:spaceSetting.profile')}>
+              <SettingItem
+                label={t('space:spaceSetting.icon')}
+                description={t('space:spaceSetting.iconDescription')}
+                inline
+                action={
+                  <>
+                    <SpaceAvatar
+                      name={space.name}
+                      avatar={space.avatar}
+                      className="size-10 rounded-md border text-lg"
                     />
-                  </div>
-                )}
-              </div>
+                    {canUpdate && (
+                      <>
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={uploadAvatar}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => avatarInputRef.current?.click()}
+                        >
+                          {t('common:actions.change')}
+                        </Button>
+                      </>
+                    )}
+                  </>
+                }
+              />
+              <SettingItem
+                label={t('space:spaceSetting.spaceName')}
+                description={t('space:spaceSetting.spaceNameDescription')}
+                htmlFor="space-setting-name"
+                action={
+                  isEditing ? (
+                    <Input
+                      id="space-setting-name"
+                      defaultValue={space.name}
+                      maxLength={SPACE_NAME_MAX_LENGTH}
+                      onBlur={onBlur}
+                      onKeyDown={onKeydown}
+                      autoFocus
+                      className="w-full sm:w-64"
+                    />
+                  ) : (
+                    <Input
+                      id="space-setting-name"
+                      value={space.name}
+                      readOnly
+                      onClick={() => canUpdate && setIsEditing(true)}
+                      className={cn(
+                        'w-full sm:w-64',
+                        canUpdate ? 'cursor-pointer' : 'cursor-default'
+                      )}
+                    />
+                  )
+                }
+              />
+              <SettingItem
+                label={t('space:spaceSetting.spaceId')}
+                description={t('space:spaceSetting.spaceIdDescription')}
+                action={
+                  // Read-only: shown as text with a copy button, never as a field to click into
+                  <>
+                    <span className="select-all font-mono text-sm">{spaceId}</span>
+                    <CopyButton variant="ghost" size="icon-sm" text={spaceId} />
+                  </>
+                }
+              />
+            </SettingSection>
 
-              {/* Space name */}
-              <div className="flex w-full flex-col gap-y-2 overflow-visible sm:max-w-sm">
-                <label className="text-sm font-medium">{t('space:spaceSetting.spaceName')}</label>
-                {isEditing ? (
-                  <Input
-                    defaultValue={space.name}
-                    maxLength={SPACE_NAME_MAX_LENGTH}
-                    onBlur={onBlur}
-                    onKeyDown={onKeydown}
-                    autoFocus
-                    className="px-3"
-                  />
-                ) : (
-                  <Input
-                    value={space.name}
-                    readOnly
-                    onClick={() => hasPermission(space.role, 'space|update') && setIsEditing(true)}
-                    className={`px-3 ${hasPermission(space.role, 'space|update') ? 'cursor-pointer' : 'cursor-default'}`}
-                  />
-                )}
-              </div>
-
-              {/* Space ID */}
-              <div className="flex w-full flex-col gap-y-2 sm:max-w-sm">
-                <label className="text-sm font-medium">{t('space:spaceSetting.spaceId')}</label>
-                <div className="relative">
-                  <Input
-                    value={spaceId}
-                    readOnly
-                    tabIndex={-1}
-                    className="cursor-default px-3 pe-10"
-                  />
-                  <CopyButton
-                    variant="ghost"
-                    text={spaceId}
-                    size="xs"
-                    iconClassName="size-4"
-                    className="absolute end-1 top-1/2 -translate-y-1/2"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Delete space button */}
             {hasPermission(space.role, 'space|delete') && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-fit text-destructive hover:text-destructive/80"
-                onClick={() => setDeleteConfirm(true)}
-              >
-                {t('space:deleteSpaceModal.title')}
-              </Button>
+              <SettingSection title={t('common:settings.dangerZone')} danger>
+                <SettingItem
+                  label={t('space:deleteSpaceModal.title')}
+                  description={t('space:spaceSetting.deleteSpaceDescription')}
+                  action={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setDeleteConfirm(true)}
+                    >
+                      {t('space:deleteSpaceModal.title')}
+                    </Button>
+                  }
+                />
+              </SettingSection>
             )}
-          </div>
+          </>
         )}
       </SpaceSettingContainer>
 

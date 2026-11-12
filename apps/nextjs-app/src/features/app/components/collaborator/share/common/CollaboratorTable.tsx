@@ -8,6 +8,10 @@ import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
   cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Table,
   TableBody,
   TableCell,
@@ -19,7 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { ChevronDown, ChevronRight, Loader, LogOut, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader, LogOut, MoreHorizontal, X } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useState } from 'react';
 import { BaseCountBadge } from '../../../collaborator-manage/components/BaseCountBadge';
@@ -60,6 +64,8 @@ interface ICollaboratorTableProps {
   groupByPrincipal?: boolean;
   // Remove every base grant of a base-only principal in one action
   onDeletePrincipal?: (item: UniqueCollaboratorItem) => void;
+  /** Puts the remove actions in a "⋯" menu, as settings lists do, instead of icon buttons. */
+  rowActionsAsMenu?: boolean;
 }
 
 interface IPrincipalPermissionRowsProps {
@@ -152,6 +158,7 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
     getFilteredRoleStatic,
     groupByPrincipal = false,
     onDeletePrincipal,
+    rowActionsAsMenu = false,
   } = props;
   const { t } = useTranslation('common');
   const roleStatic = useRoleStatic();
@@ -185,6 +192,38 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
     );
   };
 
+  const renderActionMenu = (
+    label: string,
+    icon: React.ReactNode,
+    onSelect: () => void,
+    disabled: boolean
+  ) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground"
+          aria-label={t('actions.more')}
+          disabled={deleteLoading}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {deleteLoading ? <Spin className="size-4" /> : <MoreHorizontal className="size-4" />}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          disabled={disabled}
+          onSelect={onSelect}
+        >
+          {icon}
+          {label}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   const renderDelete = (item: CollaboratorItem) => {
     const { canDelete, showDelete } = getPermissions(item);
     if (!showDelete) return null;
@@ -192,6 +231,15 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
     const label = t(
       isBasePermission ? 'invite.dialog.basePermissionRemove' : 'invite.dialog.collaboratorRemove'
     );
+
+    if (rowActionsAsMenu) {
+      return renderActionMenu(
+        label,
+        isBasePermission ? <X className="size-4" /> : <LogOut className="size-4" />,
+        () => onDelete(item),
+        !canDelete
+      );
+    }
 
     return (
       <TooltipProvider>
@@ -227,6 +275,14 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
     const { canDelete, showDelete } = getPermissions(uniqueCollaboratorToSpaceItem(item));
     if (!showDelete) return null;
     const label = t('invite.dialog.collaboratorRemove');
+    if (rowActionsAsMenu) {
+      return renderActionMenu(
+        label,
+        <LogOut className="size-4" />,
+        () => onDeletePrincipal(item),
+        !canDelete
+      );
+    }
     return (
       <TooltipProvider>
         <Tooltip>
@@ -267,7 +323,12 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-4', className)}>
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border">
+      <div
+        className={cn(
+          'min-h-0 flex-1 overflow-auto border',
+          rowActionsAsMenu ? 'rounded-lg' : 'rounded-md'
+        )}
+      >
         <Table className={cn('table-fixed', groupByPrincipal && 'min-w-[700px]')}>
           <TableHeader className="sticky top-0 z-10 bg-background [&_th]:shadow-[inset_0_-1px_0_hsl(var(--border))] [&_tr]:border-0">
             <TableRow className="hover:bg-background">

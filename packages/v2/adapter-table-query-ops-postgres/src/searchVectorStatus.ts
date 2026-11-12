@@ -1,4 +1,9 @@
-import { FieldId, type IExecutionContext, type IRecordSearchAccessPath } from '@teable/v2-core';
+import {
+  FieldId,
+  isTableSearchIndex,
+  type IExecutionContext,
+  type IRecordSearchAccessPath,
+} from '@teable/v2-core';
 import {
   type TableSearchVectorStatus,
   type TableSearchVectorStatusReader,
@@ -18,6 +23,8 @@ type SearchVectorStatusRow = {
   readonly provider: string;
   readonly language_config: string | null;
   readonly field_ids: unknown;
+  readonly table_name: string | null;
+  readonly search_index: unknown;
 };
 
 const knownStates = new Set<TableSearchVectorStatusState>(['ready', 'rebuild_pending', 'stale']);
@@ -27,14 +34,27 @@ const parseState = (value: string): TableSearchVectorStatusState =>
     ? (value as TableSearchVectorStatusState)
     : 'unknown';
 
-const fieldCount = (value: unknown): number => (Array.isArray(value) ? value.length : 0);
-
 const disabledStatus = (tableId: string): TableSearchVectorStatus => ({
   tableId,
   state: 'disabled',
   configured: false,
+  serving: false,
+  coveredFieldIds: [],
   coveredFieldCount: 0,
 });
+
+/** A published snapshot serves reads only while it is usable and bound to this physical table. */
+export const isServingSearchSnapshot = (
+  searchIndex: unknown,
+  tableName: string | null
+): boolean => {
+  if (!isTableSearchIndex(searchIndex) || !tableName) return false;
+  return (
+    searchIndex.indexUsable === true &&
+    searchIndex.dbTableName === tableName &&
+    searchIndex.fields.length > 0
+  );
+};
 
 export type SearchAccessPathConfigRow = {
   readonly generatedColumnName: string;
@@ -125,27 +145,46 @@ export class PostgresTableSearchVectorStatusReader implements TableSearchVectorS
       if (!relation.rows[0]?.relation_name) return ok(disabledStatus(tableId));
 
       const result = await sql<SearchVectorStatusRow>`
-        SELECT status, semantics, access_path, provider, language_config, field_ids
-        FROM table_query_search_vector_config
-        WHERE table_id = ${tableId}
-          AND status IN ('ready', 'rebuild_pending', 'stale')
-        ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
+        SELECT config.status, config.semantics, config.access_path, config.provider,
+               config.language_config, config.field_ids,
+               table_meta.db_table_name AS table_name,
+               table_meta.search_index AS search_index
+        FROM table_query_search_vector_config AS config
+        LEFT JOIN table_meta ON table_meta.id = config.table_id
+        WHERE config.table_id = ${tableId}
+          AND config.status IN ('ready', 'rebuild_pending', 'stale')
+        -- A rebuild marks the previous row stale inside the same transaction, so both carry the
+        -- same last_modified_time and a re-used older row would win on created_time alone.
+        ORDER BY (config.status = 'ready') DESC, config.last_modified_time DESC NULLS LAST,
+                 config.created_time DESC
         LIMIT 1
       `.execute(this.metaDb);
       const row = result.rows[0];
       if (!row) return ok(disabledStatus(tableId));
 
       const state = parseState(row.status);
+      const serving = isServingSearchSnapshot(row.search_index, row.table_name);
+      const snapshot = isTableSearchIndex(row.search_index) ? row.search_index : undefined;
+      // While a snapshot serves, its fields are the coverage reads actually use.
+      const coveredFieldIds = (
+        serving && snapshot
+          ? snapshot.fields.map((field) => field.fieldId)
+          : parseFieldIds(row.field_ids).map((fieldId) => fieldId.toString())
+      ).map(String);
+      const searchScope = snapshot?.searchScope;
       return ok({
         tableId,
         state,
         configured: true,
+        serving,
+        coveredFieldIds,
+        ...(searchScope ? { searchScope } : {}),
         ...(row.language_config ? { languageConfig: row.language_config } : {}),
         semantics: row.semantics === 'substring' ? 'substring' : 'lexical',
         provider:
           row.provider === 'pg_bigm' || row.provider === 'pg_trgm' ? row.provider : 'tsvector',
         accessPath: row.access_path === 'generated_text' ? 'generated_text' : 'generated_tsvector',
-        coveredFieldCount: fieldCount(row.field_ids),
+        coveredFieldCount: coveredFieldIds.length,
       } satisfies TableSearchVectorStatus);
     } catch (error) {
       return err(toInfrastructureError(error, 'Failed to read table search vector status'));

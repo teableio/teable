@@ -333,7 +333,7 @@ export class BaseDependencyGraphService {
     if (tableIds.length === 0) return [];
     const prisma = this.prismaService.txClient();
     const dashboards = await prisma.dashboard.findMany({
-      where: { baseId },
+      where: { baseId, deletedTime: null },
       select: { id: true },
     });
     if (dashboards.length === 0) return [];

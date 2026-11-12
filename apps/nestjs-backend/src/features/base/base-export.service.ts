@@ -1442,6 +1442,7 @@ export class BaseExportService {
     const folderRaws = await prisma.baseNodeFolder.findMany({
       where: {
         baseId,
+        deletedTime: null,
         ...(includedFolderIds && includedFolderIds.length > 0
           ? { id: { in: includedFolderIds } }
           : {}),
@@ -1669,6 +1670,7 @@ export class BaseExportService {
     const dashboardRaws = await prisma.dashboard.findMany({
       where: {
         baseId,
+        deletedTime: null,
         ...(includedDashboardIds && includedDashboardIds.length > 0
           ? { id: { in: includedDashboardIds } }
           : {}),

@@ -1,32 +1,41 @@
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone.js';
+import utc from 'dayjs/plugin/utc.js';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { DomainError } from '../../../shared/DomainError';
-import type { AttachmentField } from '../types/AttachmentField';
-import type { AutoNumberField } from '../types/AutoNumberField';
-import type { ButtonField } from '../types/ButtonField';
-import type { CheckboxField } from '../types/CheckboxField';
-import type { ConditionalLookupField } from '../types/ConditionalLookupField';
-import type { ConditionalRollupField } from '../types/ConditionalRollupField';
-import type { CreatedByField } from '../types/CreatedByField';
-import type { CreatedTimeField } from '../types/CreatedTimeField';
-import type { DateField } from '../types/DateField';
-import { DateTimeFormatting } from '../types/DateTimeFormatting';
-import type { FormulaField } from '../types/FormulaField';
-import type { LastModifiedByField } from '../types/LastModifiedByField';
-import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
-import type { LinkField } from '../types/LinkField';
-import type { LongTextField } from '../types/LongTextField';
-import type { LookupField } from '../types/LookupField';
-import type { MultipleSelectField } from '../types/MultipleSelectField';
-import type { NumberField } from '../types/NumberField';
-import { NumberFormatting, NumberFormattingType } from '../types/NumberFormatting';
-import type { RatingField } from '../types/RatingField';
-import type { RollupField } from '../types/RollupField';
-import type { SingleLineTextField } from '../types/SingleLineTextField';
-import type { SingleSelectField } from '../types/SingleSelectField';
-import type { UserField } from '../types/UserField';
-import { AbstractFieldVisitor } from './AbstractFieldVisitor';
+import type { DomainError } from '../../domain/shared/DomainError';
+import type { AttachmentField } from '../../domain/table/fields/types/AttachmentField';
+import type { AutoNumberField } from '../../domain/table/fields/types/AutoNumberField';
+import type { ButtonField } from '../../domain/table/fields/types/ButtonField';
+import type { CheckboxField } from '../../domain/table/fields/types/CheckboxField';
+import type { ConditionalLookupField } from '../../domain/table/fields/types/ConditionalLookupField';
+import type { ConditionalRollupField } from '../../domain/table/fields/types/ConditionalRollupField';
+import type { CreatedByField } from '../../domain/table/fields/types/CreatedByField';
+import type { CreatedTimeField } from '../../domain/table/fields/types/CreatedTimeField';
+import type { DateField } from '../../domain/table/fields/types/DateField';
+import { DateTimeFormatting } from '../../domain/table/fields/types/DateTimeFormatting';
+import type { FormulaField } from '../../domain/table/fields/types/FormulaField';
+import type { LastModifiedByField } from '../../domain/table/fields/types/LastModifiedByField';
+import type { LastModifiedTimeField } from '../../domain/table/fields/types/LastModifiedTimeField';
+import type { LinkField } from '../../domain/table/fields/types/LinkField';
+import type { LongTextField } from '../../domain/table/fields/types/LongTextField';
+import type { LookupField } from '../../domain/table/fields/types/LookupField';
+import type { MultipleSelectField } from '../../domain/table/fields/types/MultipleSelectField';
+import type { NumberField } from '../../domain/table/fields/types/NumberField';
+import {
+  NumberFormatting,
+  NumberFormattingType,
+} from '../../domain/table/fields/types/NumberFormatting';
+import type { RatingField } from '../../domain/table/fields/types/RatingField';
+import type { RollupField } from '../../domain/table/fields/types/RollupField';
+import type { SingleLineTextField } from '../../domain/table/fields/types/SingleLineTextField';
+import type { SingleSelectField } from '../../domain/table/fields/types/SingleSelectField';
+import type { UserField } from '../../domain/table/fields/types/UserField';
+import { AbstractFieldVisitor } from '../../domain/table/fields/visitors/AbstractFieldVisitor';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const asArray = (value: unknown): ReadonlyArray<unknown> =>
   Array.isArray(value) ? value : [value];
@@ -71,38 +80,13 @@ const formatNumber = (value: unknown, formatting: NumberFormatting): string => {
 
 const formatDate = (value: unknown, formatting: DateTimeFormatting): string => {
   if (value == null) return '';
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) return String(value);
+  const text = String(value);
+  const date = dayjs(text);
+  if (!date.isValid()) return text;
 
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: formatting.timeZone().toString(),
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  })
-    .formatToParts(date)
-    .reduce<Record<string, string>>((result, part) => {
-      if (part.type !== 'literal') result[part.type] = part.value;
-      return result;
-    }, {});
-  const hour24 = Number(parts.hour ?? '0');
-  const replacements: Record<string, string> = {
-    YYYY: parts.year ?? '',
-    MM: parts.month ?? '',
-    M: String(Number(parts.month ?? '0')),
-    DD: parts.day ?? '',
-    D: String(Number(parts.day ?? '0')),
-    HH: String(hour24).padStart(2, '0'),
-    hh: String(hour24 % 12 || 12).padStart(2, '0'),
-    mm: parts.minute ?? '',
-    A: hour24 >= 12 ? 'PM' : 'AM',
-  };
   const pattern =
     formatting.time() === 'None' ? formatting.date() : `${formatting.date()} ${formatting.time()}`;
-  return pattern.replace(/YYYY|MM|DD|HH|hh|mm|[MDA]/g, (token) => replacements[token] ?? token);
+  return date.tz(formatting.timeZone().toString()).format(pattern);
 };
 
 const formatWithMultiplicity = (

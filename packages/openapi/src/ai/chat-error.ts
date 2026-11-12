@@ -13,6 +13,8 @@ export enum ChatErrorCode {
   SANDBOX_PROVIDER_ERROR = 'sandbox_provider_error',
   /** The runtime is not configured or an admin put it into maintenance; the turn never started. */
   SANDBOX_UNAVAILABLE = 'sandbox_unavailable',
+  /** We shut the sandbox down on purpose (account deactivated, reset) while a reply ran on it. */
+  SANDBOX_DESTROYED = 'sandbox_destroyed',
 
   // Model errors
   MODEL_NOT_SUPPORTED = 'model_not_supported',

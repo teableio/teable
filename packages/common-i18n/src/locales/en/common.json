@@ -483,7 +483,10 @@
           "placeholder": "DELETE"
         },
         "loading": "Deleting…"
-      }
+      },
+      "description": "Your profile, how you sign in, and your data.",
+      "yourDataTitle": "Your data",
+      "nameDesc": "How others see you in Teable."
     },
     "notify": {
       "title": "Notifications",
@@ -506,7 +509,10 @@
       "touchMode": "Touch mode",
       "systemMode": "Follow system",
       "buySelfHostedLicense": "Buy self-hosted license",
-      "teableSkill": "Teable Skill"
+      "teableSkill": "Teable Skill",
+      "description": "Appearance, language and notifications.",
+      "languageDesc": "The language Teable shows its interface in.",
+      "interactionModeDesc": "Whether tables, menus and editors work for touch or for a mouse."
     },
     "teableSkill": {
       "intro": "Let your AI agent connect to your project to query data, manage tables, fields, and views, import or update records, and create automations and apps.",
@@ -587,7 +593,8 @@
     },
     "developerTools": {
       "title": "Developer tools"
-    }
+    },
+    "dangerZone": "Danger zone"
   },
   "noun": {
     "table": "Table",
@@ -1342,7 +1349,10 @@
     "description": "Items in the trash still count toward record and attachment usage.",
     "spaceDescription": "Restore spaces deleted within the past {{retentionDays}} days",
     "spaceInnerDescription": "Restore projects deleted from this space within the past {{retentionDays}} days",
-    "baseDescription": "Restore resources deleted from this project within the past {{retentionDays}} days"
+    "baseDescription": "Restore resources deleted from this project within the past {{retentionDays}} days",
+    "restoredInactive": "Back inactive: {{names}}.",
+    "restoredUnpublished": "Need to be published again: {{names}}.",
+    "emptyFolder": "Empty folder"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin URL is not set",
@@ -2131,5 +2141,42 @@
     "getApp": "Get the app",
     "inAppBrowserHint": "To switch to the app, open this page in your browser from the menu at the top right",
     "menuItem": "Open in the Teable app"
+  },
+  "appDelete": {
+    "offlineWarning": "This app is published. Deleting it takes it offline at once: its public link stops working, any custom domain is released and its sign-in settings are deleted. After restoring it, publish it again."
+  },
+  "folderDelete": {
+    "title": "Are you sure you want to delete the folder \"{{name}}\"?",
+    "summary": "Moves to the trash with everything in it and can be restored while kept there; restoring keeps the folder structure.",
+    "progress": "Deleting… {{done}} of {{total}}",
+    "stopped": "The delete stopped part way. What was deleted is in the trash, each item on its own; below is what is still in the folder.",
+    "continue": "Continue deleting",
+    "blocked": "You cannot delete some items in this folder, so nothing will be deleted:",
+    "loginTable": "\"{{table}}\" is the user table of these apps. Once it is deleted, signing in to them stops working.",
+    "outsideReferences": "These items outside the folder reference its tables and will run into errors:",
+    "possibleReference": "(possible reference)",
+    "shares": "Share links deleted permanently, not brought back by restoring: {{count}}",
+    "unreadApps": "The source of these apps could not be checked for references to the deleted tables:",
+    "hiddenItem": "Hidden item",
+    "badge": {
+      "blocked": "Blocked",
+      "offline": "Goes offline",
+      "permanent": "Deleted permanently",
+      "impacts": "Impacts: {{count}}",
+      "impactsAtLeast": "Impacts: {{count}}+",
+      "none": "No impact",
+      "trash": "To trash"
+    },
+    "detail": {
+      "trash": "Moves to the trash and can be restored while kept there.",
+      "permanent": "Deleted permanently and cannot be restored."
+    },
+    "appOffline": {
+      "title": "This app is published and goes offline as soon as it is deleted:",
+      "publicLink": "Its public link stops working",
+      "customDomain": "The custom domain {{domain}} is released",
+      "loginConfig": "Its sign-in settings are deleted",
+      "afterRestore": "After restoring it, publish it again, bind the domain again and set up sign-in again."
+    }
   }
 }

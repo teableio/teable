@@ -68,6 +68,7 @@ import { FieldSupplementService } from '../field/field-calculate/field-supplemen
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { convertLinkPasteCellValue } from '../record/paste-link-cell-value';
 import { RecordService } from '../record/record.service';
@@ -110,6 +111,7 @@ export class SelectionService {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
+    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
@@ -585,26 +587,7 @@ export class SelectionService {
       createPayload ?? { fieldKeyType: FieldKeyType.Id, typecast: true, records: [] },
       newFields
     );
-    if (newFields.length) {
-      const views = await this.prismaService.txClient().view.findMany({
-        where: { tableId, deletedTime: null },
-        select: { id: true, columnMeta: true },
-      });
-      const viewOrders = views.map((view) => {
-        const columnMeta: Record<string, { order: number }> = JSON.parse(view.columnMeta);
-        const orders = Object.values(columnMeta).map(({ order }) => order);
-        return { id: view.id, order: orders.length ? Math.max(...orders) : -1 };
-      });
-      await this.fieldCreatingService.alterCreateFieldsInExistingTable(
-        tableId,
-        newFields.map((field, index) => ({
-          field: createFieldInstanceByVo(field),
-          columnMeta: Object.fromEntries(
-            viewOrders.map((view) => [view.id, { order: view.order + index + 1 }])
-          ),
-        }))
-      );
-    }
+    await this.createPasteByIdFields(tableId, newFields);
 
     return {
       fieldIds,
@@ -617,6 +600,41 @@ export class SelectionService {
         [Math.max(fields.length - 1, 0), Math.max(tableData.length - 1, 0)],
       ] as IPasteVo['ranges'],
     };
+  }
+
+  private async createPasteByIdFields(tableId: string, newFields: IFieldVo[]): Promise<void> {
+    if (!newFields.length) return;
+
+    const views = await this.prismaService.txClient().view.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, columnMeta: true },
+    });
+    const viewOrders = views.map((view) => {
+      const columnMeta: Record<string, { order: number }> = JSON.parse(view.columnMeta);
+      const orders = Object.values(columnMeta).map(({ order }) => order);
+      return { id: view.id, order: orders.length ? Math.max(...orders) : -1 };
+    });
+    const columnMeta = Object.fromEntries(
+      newFields.map((field, index) => [
+        field.id,
+        Object.fromEntries(viewOrders.map((view) => [view.id, { order: view.order + index + 1 }])),
+      ])
+    );
+    if (this.cls.get('useV2')) {
+      await this.fieldOpenApiV2Service.createFields(tableId, newFields, {
+        columnMeta,
+        // Expansion historically left field creation out of paste undo history.
+        recordUndo: false,
+      });
+    } else {
+      await this.fieldCreatingService.alterCreateFieldsInExistingTable(
+        tableId,
+        newFields.map((field) => ({
+          field: createFieldInstanceByVo(field),
+          columnMeta: columnMeta[field.id],
+        }))
+      );
+    }
   }
 
   async createPasteByIdMutationSnapshot(

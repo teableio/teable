@@ -24,6 +24,7 @@ describe('FormulaExpression source budget', () => {
     const source = Array.from({ length: 128 }, () => '1').join('+');
     const expression = FormulaExpression.create(source, sourceBudget)._unsafeUnwrap();
     for (const result of [
+      expression.getReferencedIdentifiers(),
       expression.getReferencedFieldIds(),
       expression.hasLastModifiedTimeParams(),
       expression.getParsedValueType([]),
@@ -38,6 +39,7 @@ describe('FormulaExpression source budget', () => {
     const source = Array.from({ length: 128 }, () => '1').join('+');
     const retained = FormulaExpression.create(source)._unsafeUnwrap();
     expect(retained.getReferencedFieldIds()._unsafeUnwrap()).toEqual([]);
+    expect(retained.getReferencedIdentifiers()._unsafeUnwrap()).toEqual([]);
     expect(retained.getParsedValueType([])._unsafeUnwrap().cellValueType.toString()).toBe('number');
     expect(retained.toString()).toBe(source);
   });
@@ -79,6 +81,39 @@ describe('FormulaExpression source budget', () => {
     expect(expression.getParsedValueType([])._unsafeUnwrapErr().code).toBe(
       'validation.limit.formula_compile_depth_max'
     );
+  });
+
+  it('applies the configured policy to deferred alias extraction and inference', () => {
+    const source = Array.from({ length: 16 }, () => '{value}').join('+');
+    const expression = FormulaExpression.create(source, {
+      ...sourceBudget,
+      policyVersion: 7,
+      check: (metric, attempted) =>
+        metric === 'astDepth' && attempted > 8 ? { max: 8 } : undefined,
+    })._unsafeUnwrap();
+    const dependencies = [
+      {
+        id: 'value',
+        valueType: {
+          cellValueType: CellValueType.number(),
+          isMultipleCellValue: CellValueMultiplicity.single(),
+        },
+      },
+    ];
+
+    for (const result of [
+      expression.getReferencedIdentifiers(),
+      expression.getParsedValueType(dependencies),
+    ]) {
+      const error = result._unsafeUnwrapErr();
+      expect(error.code).toBe('validation.limit.formula_compile_depth_max');
+      expect(error.details).toEqual({
+        metric: 'astDepth',
+        attempted: 9,
+        max: 8,
+        policyVersion: 7,
+      });
+    }
   });
 
   it('reports shallow node exhaustion separately from depth', () => {

@@ -3,11 +3,22 @@ import {
   LookupField,
   type DomainError,
   type Field,
+  type FormulaSourceBudget,
   type ITableReadModel,
 } from '@teable/v2-core';
-import { ok, safeTry, type Result } from 'neverthrow';
+import { err, ok, safeTry, type Result } from 'neverthrow';
 
+import type {
+  BoundDataQueryFormulaExpression,
+  BoundDataQueryPredicate,
+} from './BoundDataQueryExpression';
 import { freezeQueryValue, queryError } from './DataQueryDefinition';
+import {
+  bindDataQueryFormulaExpression,
+  bindDataQueryExpressionPredicate,
+  type DataQueryExpressionBindingContext,
+} from './DataQueryExpressionBinding';
+import { dataQueryExpressionFieldType } from './DataQueryExpressionFieldType';
 import type {
   DataQueryAggregate,
   DataQueryBucket,
@@ -66,6 +77,11 @@ export type BoundDataQueryPlanSource = {
 };
 
 export type BoundDataQueryPlanProjection =
+  | {
+      readonly kind: 'expression';
+      readonly alias: string;
+      readonly expression: BoundDataQueryFormulaExpression;
+    }
   | {
       readonly kind: 'field';
       readonly source: string;
@@ -161,7 +177,13 @@ export type BoundDataQueryPlanUsage = {
 };
 
 export type BoundDataQueryPlan = {
-  readonly definitionVersion: 1 | 2;
+  readonly definitionVersion: 1 | 2 | 3;
+  readonly formulaLanguage?: 'teable-formula';
+  readonly predicate?: BoundDataQueryPredicate;
+  readonly relationPredicates?: readonly {
+    readonly source: string;
+    readonly predicate: BoundDataQueryPredicate;
+  }[];
   readonly kind: 'records' | 'aggregate';
   readonly tableId: string;
   readonly root: BoundDataQueryPlanSource;
@@ -200,6 +222,7 @@ export type BuildBoundDataQueryPlanInput = {
   readonly rootTable: ITableReadModel;
   readonly rootDependencies: ReadonlyArray<DataQueryFieldDependency>;
   readonly rootUsage: ReadonlyMap<string, ReadonlyArray<DataQueryFieldUsage>>;
+  readonly formulaSourceBudget: FormulaSourceBudget;
   readonly relations?: ReadonlyArray<BoundDataQueryPlanRelationInput>;
 };
 
@@ -403,11 +426,51 @@ export const buildBoundDataQueryPlan = (
     }
     const sources = new Map<string, BoundDataQueryPlanSource>([['root', root]]);
     for (const source of relationSources) sources.set(source.alias, source);
+    const expressionContext: DataQueryExpressionBindingContext = {
+      parameters: definition.parameters,
+      formulaSourceBudget: input.formulaSourceBudget,
+      resolveSource: (alias) => {
+        const source = sources.get(alias);
+        return source
+          ? ok({ nullable: alias !== 'root', cardinality: source.cardinality })
+          : err(
+              queryError(
+                'unsupported_expression_source',
+                'Expression references an undeclared source'
+              )
+            );
+      },
+      resolveField: (alias, fieldId) => {
+        const table =
+          alias === 'root'
+            ? input.rootTable
+            : input.relations?.find((relation) => relation.alias === alias)?.table;
+        if (!table)
+          return err(
+            queryError(
+              'unsupported_expression_source',
+              'Expression references an undeclared source'
+            )
+          );
+        return table
+          .getField((field) => field.id().toString() === fieldId)
+          .mapErr(() => queryError('field_missing', 'An expression field is missing'))
+          .andThen((field) => dataQueryExpressionFieldType(field));
+      },
+    };
 
     const projections: BoundDataQueryPlanProjection[] = [];
     const aggregates: BoundDataQueryPlanAggregate[] = [];
     if (definition.kind === 'records') {
       for (const projection of definition.select) {
+        if ('expr' in projection) {
+          const expression = yield* bindDataQueryFormulaExpression(
+            projection.expr,
+            expressionContext
+          );
+          projections.push({ kind: 'expression', alias: projection.alias, expression });
+          continue;
+        }
         const source = sourceAlias('source' in projection ? projection.source : undefined);
         if ('statisticFunc' in projection) {
           projections.push({
@@ -469,9 +532,34 @@ export const buildBoundDataQueryPlan = (
         usage.push({ source: relation.alias, fieldId, usages: fieldUsages });
       }
     }
+    const predicate =
+      definition.version === 3 && definition.filter
+        ? yield* bindDataQueryExpressionPredicate(definition.filter, {
+            ...expressionContext,
+            localSource: 'root',
+          })
+        : undefined;
+    const relationPredicates: { source: string; predicate: BoundDataQueryPredicate }[] = [];
+    if (definition.version === 3)
+      for (const [source, relation] of Object.entries(definition.relations ?? {}))
+        if (relation.filter)
+          relationPredicates.push({
+            source,
+            predicate: yield* bindDataQueryExpressionPredicate(relation.filter, {
+              ...expressionContext,
+              localSource: source,
+            }),
+          });
 
     const plan: BoundDataQueryPlan = {
       definitionVersion: definition.version,
+      ...(definition.version === 3
+        ? {
+            formulaLanguage: 'teable-formula' as const,
+            ...(predicate ? { predicate } : {}),
+            relationPredicates,
+          }
+        : {}),
       kind: definition.kind,
       tableId: definition.tableId,
       root,
@@ -505,7 +593,7 @@ export const buildBoundDataQueryPlan = (
         nullable: parameter.nullable === true,
         hasDefault: parameter.default !== undefined,
       })),
-      ...(definition.filter ? { filter: definition.filter } : {}),
+      ...(definition.version !== 3 && definition.filter ? { filter: definition.filter } : {}),
       relationFilters: relationFilters(definition.version === 2 ? definition.relations : undefined),
       usage,
     };

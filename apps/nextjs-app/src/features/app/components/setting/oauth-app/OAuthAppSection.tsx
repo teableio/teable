@@ -69,7 +69,7 @@ export const OAuthAppSection = () => {
       }
       actions={
         !formType ? (
-          <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
+          <Button size="sm" onClick={() => setViewState({ formType: 'new' })}>
             <Plus className="size-4 shrink-0" />
             {t('oauth:add')}
           </Button>
@@ -78,7 +78,7 @@ export const OAuthAppSection = () => {
       mobileNavigation={!formType}
       grouped={!formType}
     >
-      <div className="flex-1">
+      <div>
         {formType === 'new' && <OAuthAppNew onBack={onBack} />}
         {formType === 'edit' && clientId && <OAuthAppEdit clientId={clientId} onBack={onBack} />}
         {!formType && (

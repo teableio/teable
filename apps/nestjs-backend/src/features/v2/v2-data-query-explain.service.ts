@@ -30,6 +30,7 @@ import { withPgParameterRedaction } from '../../tracing-db-context';
 import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';
 import { admitDataQueryResource, type IDataQueryAdmissionDb } from './v2-data-query-admission';
+import { resolveDataQueryFormulaSqlOptions } from './v2-data-query-formula-sql';
 import { dataQueryHostError } from './v2-data-query-http';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 
@@ -76,8 +77,10 @@ export class V2DataQueryExplainService {
               async () => ok(await this.containers.getContainerForRoutingSnapshot(snapshot))
             );
             if (route.isErr()) return err(route.error);
+            const dataContainer = route.value;
             return await new PostgresDataQueryExplainer(
-              route.value.resolve(v2DataDbTokens.db)
+              dataContainer.resolve(v2DataDbTokens.db),
+              resolveDataQueryFormulaSqlOptions(dataContainer)
             ).explain(executionContext, table, query, scope, binding);
           } catch (error) {
             return err(dataQueryHostError(error));
@@ -94,8 +97,10 @@ export class V2DataQueryExplainService {
               async () => ok(await this.containers.getContainerForRoutingSnapshot(snapshot))
             );
             if (route.isErr()) return err(route.error);
+            const dataContainer = route.value;
             return await new PostgresDataQueryExplainer(
-              route.value.resolve(v2DataDbTokens.db)
+              dataContainer.resolve(v2DataDbTokens.db),
+              resolveDataQueryFormulaSqlOptions(dataContainer)
             ).explainRelation(executionContext, plan);
           } catch (error) {
             return err(dataQueryHostError(error));

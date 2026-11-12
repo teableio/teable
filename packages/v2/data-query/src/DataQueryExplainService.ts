@@ -1,10 +1,10 @@
 import {
   domainError,
+  getFormulaSourceBudget,
   TableByIdSpec,
   TableId,
   type DomainError,
   type IExecutionContext,
-  type ITableReadModel,
   type ITableRepository,
   type RecordQueryPluginRunner,
   type RecordQueryPluginScope,
@@ -12,14 +12,15 @@ import {
 } from '@teable/v2-core';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
-import { dataQueryAccessForSource } from './assertDataQueryAccess';
-import { DataQueryBinding } from './DataQueryBinding';
+import { assertDataQueryAccess, dataQueryAccessForSource } from './assertDataQueryAccess';
+import { DataQueryBinding, DataQueryRelationBinding } from './DataQueryBinding';
 import type { DataQueryDefinition } from './DataQueryDefinition';
 import type { DataQueryExplainResult } from './DataQueryExplain';
 import {
   authorizeDataQueryDependencies,
+  authorizeDataQueryExpressionDependencies,
   hasDataQueryRelations,
-  prepareDataQueryRelation,
+  loadDataQueryRelation,
   traceDataQueryStage,
 } from './DataQueryService';
 import type { DataQueryRelationPlan } from './ports';
@@ -68,94 +69,13 @@ export class DataQueryExplainService {
       return await safeTry(
         async function* (this: DataQueryExplainService) {
           const snapshot = definition.snapshot();
+          const expressionQuery =
+            snapshot.version === 3 ? yield* definition.bind(input.parameters ?? {}) : undefined;
           const tableId = yield* TableId.create(snapshot.tableId);
-          const attributes = {
-            'teable.table_id': tableId.toString(),
-            'teable.data_query.kind': snapshot.kind,
-          };
-
           if (hasDataQueryRelations(definition)) {
-            const explainRelation = this.explainer.explainRelation?.bind(this.explainer);
-            if (!explainRelation) {
-              return err(
-                domainError.validation({
-                  code: 'data_query.join_unsupported',
-                  message: 'The configured explainer does not support relation queries',
-                })
-              );
-            }
-            const relation = yield* await prepareDataQueryRelation(
-              context,
-              this.tableRepository,
-              definition
-            );
-            const query = yield* definition.bind(input.parameters ?? {});
-            const rootScope = yield* await traceDataQueryStage(
-              context,
-              'authorize',
-              relation.attributes,
-              () =>
-                authorizeDataQueryDependencies(
-                  context,
-                  this.queryPlugins,
-                  relation.rootTable,
-                  dataQueryAccessForSource(relation.binding.plan, 'root'),
-                  { limit: query.limit, offset: query.offset }
-                )
-            );
-            const scopes = new Map<string, RecordQueryPluginScope>();
-            for (const source of relation.binding.sources) {
-              const scope = yield* await traceDataQueryStage(
-                context,
-                'authorize.relation',
-                {
-                  ...relation.attributes,
-                  'teable.data_query.relation': source.alias,
-                },
-                () =>
-                  authorizeDataQueryDependencies(
-                    context,
-                    this.queryPlugins,
-                    source.table,
-                    dataQueryAccessForSource(relation.binding.plan, source.alias)
-                  )
-              );
-              scopes.set(source.alias, scope);
-            }
-            if (relation.binding.deferredFilterError) {
-              return err(relation.binding.deferredFilterError);
-            }
-            const plan: DataQueryRelationPlan = {
-              query,
-              rootTable: relation.rootTable,
-              rootScope,
-              sources: relation.binding.sources.map((source) => ({
-                alias: source.alias,
-                table: relation.targetTables.get(source.alias)!,
-                linkFieldId: source.linkFieldId,
-                scope: scopes.get(source.alias)!,
-              })),
-              plan: relation.binding.plan,
-            };
-            return ok(yield* await explainRelation(context, plan));
+            return this.explainRelations(context, definition, input, expressionQuery);
           }
-          const table = yield* await traceDataQueryStage(context, 'schema.load', attributes, () =>
-            this.tableRepository.findOne(context, TableByIdSpec.create(tableId))
-          );
-          const binding = yield* await traceDataQueryStage(
-            context,
-            'schema.compatibility',
-            attributes,
-            async () =>
-              DataQueryBinding.prepare(definition, table, { deferOperatorRejection: true })
-          );
-          const query = yield* definition.bind(input.parameters ?? {});
-          const scope = yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
-            this.authorize(context, table, binding, query)
-          );
-          if (binding.deferredFilterError) return err(binding.deferredFilterError);
-          const result = yield* await this.explainer.explain(context, table, query, scope, binding);
-          return ok(result);
+          return this.explainRoot(context, definition, tableId, input, expressionQuery);
         }.bind(this)
       );
     } catch (cause) {
@@ -169,18 +89,163 @@ export class DataQueryExplainService {
     }
   }
 
-  private async authorize(
+  private async explainRoot(
     context: IExecutionContext,
-    table: ITableReadModel,
-    binding: DataQueryBinding,
-    pagination: { readonly limit: number; readonly offset: number }
-  ): Promise<Result<RecordQueryPluginScope, DomainError>> {
-    return authorizeDataQueryDependencies(
-      context,
-      this.queryPlugins,
-      table,
-      binding.plan,
-      pagination
+    definition: DataQueryDefinition,
+    tableId: TableId,
+    input: DataQueryExplainInput,
+    expressionQuery: BoundDataQuery | undefined
+  ): Promise<Result<DataQueryExplainResult, DomainError>> {
+    return safeTry(
+      async function* (this: DataQueryExplainService) {
+        const attributes = {
+          'teable.table_id': tableId.toString(),
+          'teable.data_query.kind': definition.snapshot().kind,
+        };
+        const table = yield* await traceDataQueryStage(context, 'schema.load', attributes, () =>
+          this.tableRepository.findOne(context, TableByIdSpec.create(tableId))
+        );
+        const authorizedScopes = yield* await authorizeDataQueryExpressionDependencies(
+          context,
+          this.queryPlugins,
+          definition,
+          table,
+          undefined,
+          expressionQuery
+            ? { limit: expressionQuery.limit, offset: expressionQuery.offset }
+            : undefined
+        );
+        const binding = yield* await traceDataQueryStage(
+          context,
+          'schema.compatibility',
+          attributes,
+          async () =>
+            DataQueryBinding.prepare(definition, table, {
+              deferOperatorRejection: true,
+              formulaSourceBudget: getFormulaSourceBudget(context),
+            })
+        );
+        const query = expressionQuery ?? (yield* definition.bind(input.parameters ?? {}));
+        let scope: RecordQueryPluginScope;
+        if (authorizedScopes) {
+          scope = authorizedScopes.get('root')!;
+          yield* assertDataQueryAccess(binding.plan, scope);
+        } else {
+          scope = yield* await traceDataQueryStage(context, 'authorize', attributes, () =>
+            authorizeDataQueryDependencies(context, this.queryPlugins, table, binding.plan, {
+              limit: query.limit,
+              offset: query.offset,
+            })
+          );
+        }
+        if (binding.deferredFilterError) return err(binding.deferredFilterError);
+        return ok(yield* await this.explainer.explain(context, table, query, scope, binding));
+      }.bind(this)
+    );
+  }
+
+  private async explainRelations(
+    context: IExecutionContext,
+    definition: DataQueryDefinition,
+    input: DataQueryExplainInput,
+    expressionQuery: BoundDataQuery | undefined
+  ): Promise<Result<DataQueryExplainResult, DomainError>> {
+    return safeTry(
+      async function* (this: DataQueryExplainService) {
+        const explainRelation = this.explainer.explainRelation?.bind(this.explainer);
+        if (!explainRelation) {
+          return err(
+            domainError.validation({
+              code: 'data_query.join_unsupported',
+              message: 'The configured explainer does not support relation queries',
+            })
+          );
+        }
+        const loaded = yield* await loadDataQueryRelation(
+          context,
+          this.tableRepository,
+          definition
+        );
+        const authorizedScopes = yield* await authorizeDataQueryExpressionDependencies(
+          context,
+          this.queryPlugins,
+          definition,
+          loaded.rootTable,
+          loaded.targetTables,
+          expressionQuery
+            ? { limit: expressionQuery.limit, offset: expressionQuery.offset }
+            : undefined
+        );
+        const binding = yield* await traceDataQueryStage(
+          context,
+          'schema.compatibility.relations',
+          loaded.attributes,
+          async () =>
+            DataQueryRelationBinding.prepare(definition, loaded.rootTable, loaded.targetTables, {
+              deferOperatorRejection: true,
+              formulaSourceBudget: getFormulaSourceBudget(context),
+            })
+        );
+        const query = expressionQuery ?? (yield* definition.bind(input.parameters ?? {}));
+        let rootScope: RecordQueryPluginScope;
+        if (authorizedScopes) {
+          rootScope = authorizedScopes.get('root')!;
+          yield* assertDataQueryAccess(dataQueryAccessForSource(binding.plan, 'root'), rootScope);
+        } else {
+          rootScope = yield* await traceDataQueryStage(
+            context,
+            'authorize',
+            loaded.attributes,
+            () =>
+              authorizeDataQueryDependencies(
+                context,
+                this.queryPlugins,
+                loaded.rootTable,
+                dataQueryAccessForSource(binding.plan, 'root'),
+                { limit: query.limit, offset: query.offset }
+              )
+          );
+        }
+        const scopes = new Map<string, RecordQueryPluginScope>();
+        for (const source of binding.sources) {
+          let scope: RecordQueryPluginScope;
+          if (authorizedScopes) {
+            scope = authorizedScopes.get(source.alias)!;
+            yield* assertDataQueryAccess(
+              dataQueryAccessForSource(binding.plan, source.alias),
+              scope
+            );
+          } else {
+            scope = yield* await traceDataQueryStage(
+              context,
+              'authorize.relation',
+              { ...loaded.attributes, 'teable.data_query.relation': source.alias },
+              () =>
+                authorizeDataQueryDependencies(
+                  context,
+                  this.queryPlugins,
+                  source.table,
+                  dataQueryAccessForSource(binding.plan, source.alias)
+                )
+            );
+          }
+          scopes.set(source.alias, scope);
+        }
+        if (binding.deferredFilterError) return err(binding.deferredFilterError);
+        const plan: DataQueryRelationPlan = {
+          query,
+          rootTable: loaded.rootTable,
+          rootScope,
+          sources: binding.sources.map((source) => ({
+            alias: source.alias,
+            table: loaded.targetTables.get(source.alias)!,
+            linkFieldId: source.linkFieldId,
+            scope: scopes.get(source.alias)!,
+          })),
+          plan: binding.plan,
+        };
+        return ok(yield* await explainRelation(context, plan));
+      }.bind(this)
     );
   }
 }

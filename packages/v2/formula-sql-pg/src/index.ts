@@ -1,5 +1,11 @@
 export { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
-export type { FormulaSqlPgTranslatorOptions, FieldSqlResolver } from './FormulaSqlPgTranslator';
+export { finalizeFormulaOutputSql } from './FormulaOutputSql';
+export { buildUserSnapshotObjectSql, buildUserTitleFromSnapshotSql } from './UserSnapshotSql';
+export type {
+  FormulaSqlPgTranslatorOptions,
+  FormulaSqlPgReference,
+  FieldSqlResolver,
+} from './FormulaSqlPgTranslator';
 export type { FormulaExpressionNode } from './FormulaExpressionGraph';
 export { FormulaSqlPgVisitor } from './FormulaSqlPgVisitor';
 export { buildFieldSqlMetadata, type FieldSqlMetadata } from './FieldSqlCoercionVisitor';

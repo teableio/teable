@@ -15,6 +15,7 @@ export const previewOperationValues = [
   'records.bulkUpdate',
   'records.bulkDelete',
   'base.duplicate',
+  'folder.delete',
 ] as const;
 
 export type PreviewOperation = (typeof previewOperationValues)[number];

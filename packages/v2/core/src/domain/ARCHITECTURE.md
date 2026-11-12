@@ -5,7 +5,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Responsibilities
 
 - Domain model core: aggregates, entities, value objects, specs, domain events.
-- Depends only on TS/JS, neverthrow, zod, nanoid, ts-pattern.
+- Depends only on TS/JS, neverthrow, zod, nanoid, ts-pattern, and pure `@teable/formula` helpers.
+- Defines field formatting options, but not clipboard serialization. Application output formatters
+  depend on domain Field definitions; domain code must not import application formatters or Day.js.
 - Repository-driven persistence lifecycle details belong behind ports/adapters; application code should
   observe aggregates and domain events, not drive adapter-private post-persist steps.
 - Record materialization preserves the mutation-spec tree for persistence and deferred resolution,

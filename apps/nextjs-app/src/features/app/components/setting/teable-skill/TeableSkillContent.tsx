@@ -123,7 +123,10 @@ const StepSection = ({
   );
 };
 
-export const TeableSkillContent = ({ showTitle = true }: { showTitle?: boolean } = {}) => {
+export const TeableSkillContent = ({
+  showTitle = true,
+  showIntro = true,
+}: { showTitle?: boolean; showIntro?: boolean } = {}) => {
   const { t } = useTranslation('common');
   const origin = useOrigin();
   const copy = {
@@ -161,12 +164,16 @@ export const TeableSkillContent = ({ showTitle = true }: { showTitle?: boolean }
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          {showTitle && (
-            <h1 className="text-lg font-semibold leading-7 text-foreground">{copy.title}</h1>
-          )}
-          <p className="max-w-4xl text-sm leading-6 text-muted-foreground">{copy.intro}</p>
-        </div>
+        {(showTitle || showIntro) && (
+          <div className="flex flex-col gap-1.5">
+            {showTitle && (
+              <h1 className="text-lg font-semibold leading-7 text-foreground">{copy.title}</h1>
+            )}
+            {showIntro && (
+              <p className="max-w-4xl text-sm leading-6 text-muted-foreground">{copy.intro}</p>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted px-4 py-2 text-sm text-muted-foreground dark:bg-surface">
           <span className="me-1">{copy.worksWith}</span>
           <div className="flex min-w-0 flex-wrap items-center gap-2">

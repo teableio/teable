@@ -21,7 +21,8 @@ export class DistributedLockService {
   /**
    * Run `task` while holding the lock named `name`, so only one instance runs
    * it at a time. If another instance holds the lock, `task` is skipped. The
-   * lock is released afterwards and also auto-expires after `ttlSeconds`.
+   * lock is renewed while `task` runs and released afterwards; an instance
+   * that dies holding it loses it within `ttlSeconds`.
    *
    * @returns `true` if `task` ran, `false` if it was skipped.
    */
@@ -37,9 +38,11 @@ export class DistributedLockService {
       return false;
     }
 
+    const renewal = setInterval(() => void this.renew(key, ttlSeconds), (ttlSeconds * 1000) / 3);
     try {
       await task();
     } finally {
+      clearInterval(renewal);
       await this.release(key);
     }
     return true;
@@ -51,6 +54,14 @@ export class DistributedLockService {
     } catch (error) {
       this.logger.warn(`Failed to acquire lock "${key}", proceeding anyway`, error);
       return true;
+    }
+  }
+
+  private async renew(key: `lock:${string}`, ttlSeconds: number): Promise<void> {
+    try {
+      await this.cacheService.renewLock(key, this.owner, ttlSeconds);
+    } catch (error) {
+      this.logger.warn(`Failed to renew lock "${key}"`, error);
     }
   }
 

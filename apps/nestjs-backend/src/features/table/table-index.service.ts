@@ -19,8 +19,19 @@ import type {
   ITableSearchVectorStatusVo,
   IToggleIndexRo,
 } from '@teable/openapi';
-import type { TableSearchVectorStatusReader } from '@teable/v2-table-query-ops';
-import { v2TableOpsTokens } from '@teable/v2-table-query-ops';
+import {
+  TableByIdSpec,
+  TableId,
+  v2CoreTokens,
+  type IExecutionContext,
+  type ITableRepository,
+} from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
+import {
+  resolveTableSearchDocumentCoverage,
+  v2TableOpsTokens,
+  type TableSearchVectorStatusReader,
+} from '@teable/v2-table-query-ops';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -80,7 +91,9 @@ export class TableIndexService {
       tableId,
       state: 'disabled',
       configured: false,
+      serving: false,
       active: false,
+      coveredFieldIds: [],
       coveredFieldCount: 0,
     };
     if (!this.v2ContainerService || !this.v2ExecutionContextFactory) return disabled;
@@ -100,12 +113,56 @@ export class TableIndexService {
         HttpErrorCode.INTERNAL_SERVER_ERROR
       );
     }
+    const status = result.value;
+    const coverage = await this.resolveSearchCoverageFields(container, context, tableId, status);
     return {
-      ...result.value,
+      tableId: status.tableId,
+      state: status.state,
+      configured: status.configured,
+      serving: status.serving,
+      coveredFieldIds: coverage.coveredFieldIds,
+      ...(coverage.uncoveredFieldIds ? { uncoveredFieldIds: coverage.uncoveredFieldIds } : {}),
+      ...(status.languageConfig ? { languageConfig: status.languageConfig } : {}),
+      ...(status.searchScope ? { searchScope: status.searchScope } : {}),
+      coveredFieldCount: status.coveredFieldCount,
       active:
-        result.value.state === 'ready' &&
+        status.state === 'ready' &&
         this.v2ContainerService.isTableQuerySearchVectorRuntimeEnabled() &&
         (await this.isV2RecordReadEnabled(tableId)),
+    };
+  }
+
+  /**
+   * Reconciles the published coverage with the current schema. Covered ids the table no longer has
+   * are dropped, and fields that are searchable but not published are reported — but only while a
+   * snapshot actually serves and only for an `all_fields` document: unselected fields are excluded
+   * on purpose, and without a serving snapshot the fallback still finds them, so the list would lie.
+   * When the table cannot be loaded the lists are left out instead of claiming full coverage.
+   */
+  private async resolveSearchCoverageFields(
+    container: DependencyContainer,
+    context: IExecutionContext,
+    tableId: string,
+    status: {
+      readonly serving: boolean;
+      readonly searchScope?: 'all_fields' | 'selected_fields';
+      readonly coveredFieldIds: readonly string[];
+    }
+  ): Promise<{ coveredFieldIds: string[]; uncoveredFieldIds?: string[] }> {
+    const published = { coveredFieldIds: [...status.coveredFieldIds] };
+    const tableIdResult = TableId.create(tableId);
+    if (tableIdResult.isErr()) return published;
+    const table = await container
+      .resolve<ITableRepository>(v2CoreTokens.tableRepository)
+      .findOne(context, TableByIdSpec.create(tableIdResult.value));
+    if (table.isErr()) return published;
+    const coverage = resolveTableSearchDocumentCoverage(table.value, status.coveredFieldIds);
+    if (coverage.isErr()) return published;
+    return {
+      coveredFieldIds: [...coverage.value.coveredFieldIds],
+      ...(status.serving && status.searchScope === 'all_fields'
+        ? { uncoveredFieldIds: [...coverage.value.uncoveredFieldIds] }
+        : {}),
     };
   }
 

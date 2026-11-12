@@ -3,10 +3,14 @@ import type { Result } from 'neverthrow';
 
 import type { IDomainContext } from '../../domain/shared/DomainContext';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
+import { flattenAndSpecs } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { Field } from '../../domain/table/fields/Field';
 import { LinkField } from '../../domain/table/fields/types/LinkField';
-import { FieldCreationSideEffectVisitor } from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
+import {
+  FieldCreationSideEffectVisitor,
+  type FieldCreationSideEffectContext,
+} from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
 import { FieldDeletionSideEffectVisitor } from '../../domain/table/fields/visitors/FieldDeletionSideEffectVisitor';
 import { LinkFieldUpdateSideEffectVisitor } from '../../domain/table/fields/visitors/LinkFieldUpdateSideEffectVisitor';
 import { RemoveSymmetricLinkFieldSpec } from '../../domain/table/specs/field-updates/RemoveSymmetricLinkFieldSpec';
@@ -97,8 +101,14 @@ const buildContexts = (
   if (updatedTableResult.isErr()) return err(updatedTableResult.error);
   const updatedTable = updatedTableResult.value;
 
-  if (sideEffect.mutateSpec instanceof TableAddFieldSpec) {
-    const createdField = sideEffect.mutateSpec.field();
+  const addFieldSpec =
+    sideEffect.mutateSpec instanceof TableAddFieldSpec
+      ? sideEffect.mutateSpec
+      : flattenAndSpecs(sideEffect.mutateSpec).find(
+          (spec): spec is TableAddFieldSpec => spec instanceof TableAddFieldSpec
+        );
+  if (addFieldSpec) {
+    const createdField = addFieldSpec.field();
     const context: FieldOperationPluginContext = {
       kind: FieldOperationKind.create,
       executionContext: input.executionContext,
@@ -228,12 +238,14 @@ export const collectFieldCreationSideEffects = (
   table: Table,
   fields: ReadonlyArray<Field>,
   foreignTables: ReadonlyArray<Table>,
-  domainContext?: IDomainContext
+  domainContext?: IDomainContext,
+  newFieldColumnMeta?: FieldCreationSideEffectContext['newFieldColumnMeta']
 ): Result<ReadonlyArray<FieldOperationSideEffect>, DomainError> =>
   FieldCreationSideEffectVisitor.collect(fields, {
     table,
     foreignTables,
     domainContext,
+    newFieldColumnMeta,
   });
 
 export const collectFieldDeletionSideEffects = (

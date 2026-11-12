@@ -30,6 +30,7 @@ export const previewOperationValues = [
   'records.bulkUpdate',
   'records.bulkDelete',
   'base.duplicate',
+  'folder.delete',
 ] as const;
 
 export const previewOperationSchema = z.enum(previewOperationValues);

@@ -6,8 +6,11 @@ export const TeableSkillSection = () => {
   const { t } = useTranslation('common');
 
   return (
-    <SettingTabShell title={t('settings.setting.teableSkill')}>
-      <TeableSkillContent showTitle={false} />
+    <SettingTabShell
+      title={t('settings.setting.teableSkill')}
+      description={t('settings.teableSkill.intro')}
+    >
+      <TeableSkillContent showTitle={false} showIntro={false} />
     </SettingTabShell>
   );
 };

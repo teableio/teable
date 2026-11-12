@@ -1,5 +1,6 @@
 import {
   domainError,
+  getFormulaSourceBudget,
   type DomainError,
   type IExecutionContext,
   type RecordQueryPluginScope,
@@ -14,6 +15,10 @@ import {
   type DataQueryRelationPlan,
   type IDataQueryExplainer,
 } from '@teable/v2-data-query';
+import type {
+  FormulaCompileBudgetConfig,
+  IPgTypeValidationStrategy,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type CompiledQuery, type Kysely } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
@@ -54,10 +59,16 @@ const sqlState = (error: unknown): string | undefined => {
  */
 export class PostgresDataQueryExplainer implements IDataQueryExplainer {
   private readonly statementTimeoutMs: number;
+  private readonly typeValidationStrategy?: IPgTypeValidationStrategy;
+  private readonly formulaCompileBudget?: FormulaCompileBudgetConfig;
 
   constructor(
     private readonly db: Kysely<V1TeableDatabase>,
-    options: { statementTimeoutMs?: number } = {}
+    options: {
+      statementTimeoutMs?: number;
+      typeValidationStrategy?: IPgTypeValidationStrategy;
+      formulaCompileBudget?: FormulaCompileBudgetConfig;
+    } = {}
   ) {
     const timeout = options.statementTimeoutMs ?? 4000;
     if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 60_000) {
@@ -66,6 +77,8 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
       );
     }
     this.statementTimeoutMs = Math.ceil(timeout);
+    this.typeValidationStrategy = options.typeValidationStrategy;
+    this.formulaCompileBudget = options.formulaCompileBudget;
   }
 
   async explain(
@@ -80,10 +93,14 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
     // compilations still use the same live schema and dependency plan.
     const prepared = binding
       ? ok(binding)
-      : DataQueryBinding.prepare(query.validatedDefinition, table);
+      : DataQueryBinding.prepare(query.validatedDefinition, table, {
+          formulaSourceBudget: getFormulaSourceBudget(context),
+        });
     if (prepared.isErr()) return err(prepared.error);
     const compiler = new PostgresDataQueryExecutor(this.db, {
       statementTimeoutMs: this.statementTimeoutMs,
+      typeValidationStrategy: this.typeValidationStrategy,
+      formulaCompileBudget: this.formulaCompileBudget,
     });
     const full = compiler.compile(context, table, query, scope, prepared.value);
     if (full.isErr()) return err(full.error);
@@ -138,6 +155,8 @@ export class PostgresDataQueryExplainer implements IDataQueryExplainer {
     const startedAt = performance.now();
     const compiler = new PostgresDataQueryExecutor(this.db, {
       statementTimeoutMs: this.statementTimeoutMs,
+      typeValidationStrategy: this.typeValidationStrategy,
+      formulaCompileBudget: this.formulaCompileBudget,
     });
     const full = await compiler.compileRelation(context, plan);
     if (full.isErr()) return err(full.error);

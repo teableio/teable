@@ -8,6 +8,7 @@ export * from './create';
 export * from './duplicate';
 export * from './update';
 export * from './delete';
+export * from './delete-stream';
 export * from './permanent-delete';
 
 export * from './folder/create';

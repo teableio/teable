@@ -1195,6 +1195,10 @@
       "circularReference": "Riferimento circolare rilevato",
       "folderDepthLimitExceeded": "Limite di profondità della cartella superato",
       "folderNotFound": "Cartella non trovata",
+      "folderDeleteForbidden": "Non hai l'autorizzazione per eliminare alcuni elementi in questa cartella",
+      "folderDeleteInProgress": "Questa cartella è in fase di eliminazione, riprova più tardi",
+      "folderDeletePartial": "La cartella è stata eliminata solo in parte: {{count}} dei suoi elementi sono nel cestino singolarmente. Elimina di nuovo la cartella per completare",
+      "projectBusy": "Un'eliminazione di cartella, uno spostamento o un'operazione sul cestino è in corso in questo progetto, riprova più tardi",
       "anchorNotFound": "Nodo di ancoraggio non trovato",
       "nameAlreadyExists": "Il nome esiste già",
       "targetBaseRequired": "Il progetto di destinazione è obbligatorio",
@@ -1592,7 +1596,8 @@
       "parentBaseTrashed": "Impossibile ripristinare questo elemento perché il suo progetto padre è anche nel cestino",
       "parentNotFound": "Risorsa padre non trovata",
       "tableNotFound": "Elemento del cestino della tabella non trovato",
-      "restoreFieldInvalidSnapshot": "La configurazione del campo eliminato non è valida e non può essere ripristinata."
+      "restoreFieldInvalidSnapshot": "La configurazione del campo eliminato non è valida e non può essere ripristinata.",
+      "folderRestorePartial": "La cartella è stata ripristinata solo in parte: {{count}} delle sue tabelle sono tornate alla radice del progetto. Ripristina di nuovo la cartella per completare"
     },
     "license": {
       "invalid": "La licenza non è valida",

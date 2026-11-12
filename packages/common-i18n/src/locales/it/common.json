@@ -483,7 +483,10 @@
           "placeholder": "DELETE"
         },
         "loading": "Eliminazione…"
-      }
+      },
+      "description": "Il tuo profilo, come accedi e i tuoi dati.",
+      "nameDesc": "Come ti vedono gli altri in Teable.",
+      "yourDataTitle": "I tuoi dati"
     },
     "notify": {
       "title": "Notifiche",
@@ -506,7 +509,10 @@
       "touchMode": "Modalità touch",
       "systemMode": "Segui le impostazioni di sistema",
       "buySelfHostedLicense": "Acquista licenza self-hosted",
-      "teableSkill": "Competenza Teable"
+      "teableSkill": "Competenza Teable",
+      "description": "Aspetto, lingua e notifiche.",
+      "interactionModeDesc": "Se tabelle, menu ed editor funzionano al tocco o con il mouse.",
+      "languageDesc": "La lingua in cui Teable mostra l'interfaccia."
     },
     "teableSkill": {
       "intro": "Consenti al tuo AI Agent di connettersi al tuo Progetto per interrogare dati, gestire tabelle, campi e viste, importare o aggiornare record e creare automazioni e app.",
@@ -588,7 +594,8 @@
     },
     "developerTools": {
       "title": "Strumenti per sviluppatori"
-    }
+    },
+    "dangerZone": "Zona pericolosa"
   },
   "noun": {
     "table": "Tabella",
@@ -1353,7 +1360,10 @@
     "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati.",
     "spaceDescription": "Ripristina gli spazi eliminati negli ultimi {{retentionDays}} giorni",
     "spaceInnerDescription": "Ripristina i progetti eliminati da questo spazio negli ultimi {{retentionDays}} giorni",
-    "baseDescription": "Ripristina le risorse eliminate da questo progetto negli ultimi {{retentionDays}} giorni"
+    "baseDescription": "Ripristina le risorse eliminate da questo progetto negli ultimi {{retentionDays}} giorni",
+    "restoredInactive": "Tornano inattivi: {{names}}.",
+    "restoredUnpublished": "Da pubblicare di nuovo: {{names}}.",
+    "emptyFolder": "Cartella vuota"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin non impostato URL",
@@ -2145,5 +2155,42 @@
     "getApp": "Scarica l'app",
     "inAppBrowserHint": "Per passare all'app, apri questa pagina nel browser dal menu in alto a destra",
     "menuItem": "Apri nell'app Teable"
+  },
+  "appDelete": {
+    "offlineWarning": "Questa app è pubblicata. Eliminarla la porta subito offline: il suo link pubblico smette di funzionare, l’eventuale dominio personalizzato viene rilasciato e le impostazioni di accesso vengono eliminate. Dopo il ripristino, pubblicala di nuovo."
+  },
+  "folderDelete": {
+    "title": "Vuoi davvero eliminare la cartella «{{name}}»?",
+    "summary": "Viene spostata nel cestino con tutto il contenuto e può essere ripristinata finché vi resta; il ripristino mantiene la struttura delle cartelle.",
+    "progress": "Eliminazione… {{done}} di {{total}}",
+    "stopped": "L’eliminazione si è interrotta a metà. Ciò che è stato eliminato è nel cestino, elemento per elemento; qui sotto ciò che resta nella cartella.",
+    "continue": "Continua a eliminare",
+    "blocked": "Non puoi eliminare alcuni elementi di questa cartella, quindi non verrà eliminato nulla:",
+    "loginTable": "«{{table}}» è la tabella utenti di queste app. Una volta eliminata, l’accesso a esse non funziona più.",
+    "outsideReferences": "Questi elementi fuori dalla cartella fanno riferimento alle sue tabelle e andranno in errore:",
+    "possibleReference": "(possibile riferimento)",
+    "shares": "Link di condivisione eliminati definitivamente, non tornano con il ripristino: {{count}}",
+    "unreadApps": "Non è stato possibile verificare nel codice di queste app i riferimenti alle tabelle eliminate:",
+    "hiddenItem": "Elemento nascosto",
+    "badge": {
+      "blocked": "Bloccato",
+      "offline": "Va offline",
+      "permanent": "Eliminato definitivamente",
+      "impacts": "Impatti: {{count}}",
+      "impactsAtLeast": "Impatti: {{count}}+",
+      "none": "Nessun impatto",
+      "trash": "Cestino"
+    },
+    "detail": {
+      "trash": "Viene spostato nel cestino e può essere ripristinato finché vi resta.",
+      "permanent": "Viene eliminato definitivamente e non può essere ripristinato."
+    },
+    "appOffline": {
+      "title": "Questa app è pubblicata e va offline appena viene eliminata:",
+      "publicLink": "Il suo link pubblico smette di funzionare",
+      "customDomain": "Il dominio personalizzato {{domain}} viene rilasciato",
+      "loginConfig": "Le sue impostazioni di accesso vengono eliminate",
+      "afterRestore": "Dopo il ripristino, pubblicala di nuovo, ricollega il dominio e configura di nuovo l’accesso."
+    }
   }
 }

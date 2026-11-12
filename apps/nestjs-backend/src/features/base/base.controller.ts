@@ -64,6 +64,7 @@ import type {
   IMoveBaseCheckVo,
   IMoveBaseVo,
   IGetSharedBaseVo,
+  IImportBasePreviewVo,
   IImportBaseVo,
   IListBaseCollaboratorUserVo,
   IUpdateBaseVo,
@@ -134,6 +135,16 @@ export class BaseController {
       return await this.baseImportService.importBaseV2(importBaseRo);
     }
     return await this.baseImportService.importBase(importBaseRo);
+  }
+
+  @Post('import-preview')
+  @Permissions('base|create')
+  @ResourceMeta('spaceId', 'body')
+  async previewImportBase(
+    @Body(new ZodValidationPipe(importBaseRoSchema))
+    importBaseRo: ImportBaseRo
+  ): Promise<IImportBasePreviewVo> {
+    return await this.baseImportService.previewImportBase(importBaseRo);
   }
 
   @Post('import-stream')

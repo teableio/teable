@@ -483,7 +483,10 @@
           "placeholder": "DELETE"
         },
         "loading": "削除中…"
-      }
+      },
+      "description": "プロフィール、サインイン方法、データ。",
+      "nameDesc": "Teable で他のメンバーに表示される名前です。",
+      "yourDataTitle": "あなたのデータ"
     },
     "notify": {
       "title": "通知",
@@ -506,7 +509,10 @@
       "touchMode": "タッチモード",
       "systemMode": "システム設定に従う",
       "buySelfHostedLicense": "セルフホスト版ライセンスを購入",
-      "teableSkill": "Teable スキル"
+      "teableSkill": "Teable スキル",
+      "description": "外観、言語、通知。",
+      "interactionModeDesc": "テーブル、メニュー、エディターをタッチ操作向けにするかマウス操作向けにするか。",
+      "languageDesc": "Teable のインターフェースの表示言語です。"
     },
     "teableSkill": {
       "intro": "AI Agent をプロジェクトに接続し、データの検索、テーブル・フィールド・ビューの管理、レコードのインポートや更新、自動化やアプリの作成を支援します。",
@@ -586,7 +592,8 @@
     },
     "developerTools": {
       "title": "開発者ツール"
-    }
+    },
+    "dangerZone": "危険な操作"
   },
   "noun": {
     "table": "テーブル",
@@ -1331,7 +1338,10 @@
     "description": "ゴミ箱のデータは依然としてレコード使用量と添付ファイル使用量を占めています。",
     "spaceDescription": "過去{{retentionDays}}日以内に削除されたスペースを復元",
     "spaceInnerDescription": "過去{{retentionDays}}日以内にこのスペースから削除されたプロジェクトを復元",
-    "baseDescription": "過去{{retentionDays}}日以内にこのプロジェクトから削除されたリソースを復元"
+    "baseDescription": "過去{{retentionDays}}日以内にこのプロジェクトから削除されたリソースを復元",
+    "restoredInactive": "無効の状態で戻ります：{{names}}。",
+    "restoredUnpublished": "再公開が必要です：{{names}}。",
+    "emptyFolder": "空のフォルダー"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "プラグインにURLがありません",
@@ -2117,5 +2127,42 @@
     "getApp": "アプリを入手",
     "inAppBrowserHint": "右上のメニューからこのページをブラウザで開くと、アプリに切り替えられます",
     "menuItem": "Teable アプリで開く"
+  },
+  "appDelete": {
+    "offlineWarning": "このアプリは公開中です。削除するとすぐにオフラインになり、公開リンクは無効になり、カスタムドメインは解放され、ログイン設定は削除されます。復元後は再公開が必要です。"
+  },
+  "folderDelete": {
+    "title": "フォルダー「{{name}}」を削除してもよろしいですか？",
+    "summary": "中身ごとゴミ箱に移動し、保持期間中は復元できます。復元時はフォルダー構造が保たれます。",
+    "progress": "削除中… {{done}}/{{total}}",
+    "stopped": "削除が途中で止まりました。削除済みの項目はそれぞれゴミ箱に入っています。以下はフォルダに残っている内容です。",
+    "continue": "削除を続ける",
+    "blocked": "このフォルダーには削除できない項目があるため、何も削除されません：",
+    "loginTable": "「{{table}}」は次のアプリのユーザーテーブルです。削除するとこれらのアプリにログインできなくなります。",
+    "outsideReferences": "フォルダー外の次の項目がフォルダー内のテーブルを参照しており、削除後にエラーになります：",
+    "possibleReference": "（参照の可能性あり）",
+    "shares": "共有リンクは完全に削除され、復元しても戻りません：{{count}} 件",
+    "unreadApps": "次のアプリのソースは、削除されるテーブルへの参照を確認できませんでした：",
+    "hiddenItem": "非表示の項目",
+    "badge": {
+      "blocked": "ブロック",
+      "offline": "オフラインになる",
+      "permanent": "完全に削除",
+      "impacts": "影響 {{count}} 件",
+      "impactsAtLeast": "影響 {{count}} 件以上",
+      "none": "影響なし",
+      "trash": "ゴミ箱"
+    },
+    "detail": {
+      "trash": "ゴミ箱に移動し、保持期間中は復元できます。",
+      "permanent": "完全に削除され、復元できません。"
+    },
+    "appOffline": {
+      "title": "このアプリは公開中で、削除するとすぐにオフラインになります：",
+      "publicLink": "公開リンクが無効になります",
+      "customDomain": "カスタムドメイン {{domain}} が解放されます",
+      "loginConfig": "ログイン設定が削除されます",
+      "afterRestore": "復元後は再公開、ドメインの再設定、ログインの再設定が必要です。"
+    }
   }
 }

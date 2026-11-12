@@ -483,7 +483,10 @@
           "placeholder": "DELETE"
         },
         "loading": "Eliminando…"
-      }
+      },
+      "description": "Tu perfil, cómo inicias sesión y tus datos.",
+      "nameDesc": "Cómo te ven los demás en Teable.",
+      "yourDataTitle": "Tus datos"
     },
     "notify": {
       "title": "Notificaciones",
@@ -506,7 +509,10 @@
       "touchMode": "Modo táctil",
       "systemMode": "Seguir configuración del sistema",
       "buySelfHostedLicense": "Comprar licencia autoalojada",
-      "teableSkill": "Habilidad de Teable"
+      "teableSkill": "Habilidad de Teable",
+      "description": "Apariencia, idioma y notificaciones.",
+      "interactionModeDesc": "Si las tablas, menús y editores funcionan para pantalla táctil o para ratón.",
+      "languageDesc": "El idioma en que Teable muestra su interfaz."
     },
     "teableSkill": {
       "intro": "Permite que tu AI Agent se conecte a tu Proyecto para consultar datos, gestionar tablas, campos y vistas, importar o actualizar registros, y crear automatizaciones y apps.",
@@ -588,7 +594,8 @@
     },
     "developerTools": {
       "title": "Herramientas para desarrolladores"
-    }
+    },
+    "dangerZone": "Zona de peligro"
   },
   "noun": {
     "table": "Tabla",
@@ -1353,7 +1360,10 @@
     "description": "Los datos en la papelera aún ocupan espacio de uso de registros y uso de archivos adjuntos.",
     "spaceDescription": "Restaurar espacios eliminados en los últimos {{retentionDays}} días",
     "spaceInnerDescription": "Restaurar proyectos eliminados de este espacio en los últimos {{retentionDays}} días",
-    "baseDescription": "Restaurar recursos eliminados de este proyecto en los últimos {{retentionDays}} días"
+    "baseDescription": "Restaurar recursos eliminados de este proyecto en los últimos {{retentionDays}} días",
+    "restoredInactive": "Vuelven inactivos: {{names}}.",
+    "restoredUnpublished": "Hay que volver a publicar: {{names}}.",
+    "emptyFolder": "Carpeta vacía"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Complemento no configurando URL",
@@ -2145,5 +2155,42 @@
     "getApp": "Obtener la app",
     "inAppBrowserHint": "Para pasar a la app, abre esta página en tu navegador desde el menú de arriba a la derecha",
     "menuItem": "Abrir en la app de Teable"
+  },
+  "appDelete": {
+    "offlineWarning": "Esta aplicación está publicada. Al eliminarla se desconecta de inmediato: su enlace público deja de funcionar, se libera cualquier dominio personalizado y se eliminan sus ajustes de inicio de sesión. Tras restaurarla, vuelve a publicarla."
+  },
+  "folderDelete": {
+    "title": "¿Seguro que quieres eliminar la carpeta «{{name}}»?",
+    "summary": "Se mueve a la papelera con todo su contenido y se puede restaurar mientras se conserve allí; al restaurarla se mantiene la estructura de carpetas.",
+    "progress": "Eliminando… {{done}} de {{total}}",
+    "stopped": "La eliminación se detuvo a mitad. Lo eliminado está en la papelera, cada elemento por separado; abajo está lo que sigue en la carpeta.",
+    "continue": "Continuar eliminando",
+    "blocked": "No puedes eliminar algunos elementos de esta carpeta, así que no se eliminará nada:",
+    "loginTable": "«{{table}}» es la tabla de usuarios de estas aplicaciones. Al eliminarla, dejará de funcionar el inicio de sesión en ellas.",
+    "outsideReferences": "Estos elementos fuera de la carpeta hacen referencia a sus tablas y darán errores:",
+    "possibleReference": "(posible referencia)",
+    "shares": "Enlaces compartidos eliminados de forma permanente, no vuelven al restaurar: {{count}}",
+    "unreadApps": "No se pudo comprobar en el código de estas aplicaciones si hacen referencia a las tablas eliminadas:",
+    "hiddenItem": "Elemento oculto",
+    "badge": {
+      "blocked": "Bloqueado",
+      "offline": "Se desconecta",
+      "permanent": "Eliminado para siempre",
+      "impacts": "Impactos: {{count}}",
+      "impactsAtLeast": "Impactos: {{count}}+",
+      "none": "Sin impacto",
+      "trash": "Papelera"
+    },
+    "detail": {
+      "trash": "Se mueve a la papelera y se puede restaurar mientras se conserve allí.",
+      "permanent": "Se elimina de forma permanente y no se puede restaurar."
+    },
+    "appOffline": {
+      "title": "Esta aplicación está publicada y se desconecta en cuanto se elimina:",
+      "publicLink": "Su enlace público deja de funcionar",
+      "customDomain": "Se libera el dominio personalizado {{domain}}",
+      "loginConfig": "Se eliminan sus ajustes de inicio de sesión",
+      "afterRestore": "Tras restaurarla, vuelve a publicarla, vuelve a vincular el dominio y configura de nuevo el inicio de sesión."
+    }
   }
 }

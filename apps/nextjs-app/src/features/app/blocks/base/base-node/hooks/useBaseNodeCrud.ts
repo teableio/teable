@@ -6,12 +6,14 @@ import type {
   IDuplicateBaseNodeRo,
   IUpdateBaseNodeRo,
   IBaseNodeVo,
+  IDeleteBaseNodeProgress,
 } from '@teable/openapi';
 import {
   BaseNodeResourceType,
   moveBaseNode,
   createBaseNode,
   deleteBaseNode,
+  deleteBaseNodeStream,
   duplicateBaseNode,
   updateBaseNode,
   permanentDeleteBaseNode,
@@ -42,6 +44,9 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   // Pins carry the node's name and vanish with it.
   const invalidatePins = () =>
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.pinList() });
+  // What a delete sends to the trash shows up on an open trash page.
+  const invalidateTrash = () =>
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId) });
   // The node's own page caches its name too.
   const invalidateNodeDetail = ({ resourceType, resourceId }: IBaseNodeVo) => {
     switch (resourceType) {
@@ -105,12 +110,31 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   });
 
   const { mutateAsync: deleteNodeFn } = useMutation({
-    mutationFn: ({ nodeId, permanent }: { nodeId: string; permanent?: boolean }) =>
-      permanent ? permanentDeleteBaseNode(baseId, nodeId) : deleteBaseNode(baseId, nodeId),
+    mutationFn: async ({
+      nodeId,
+      permanent,
+      onProgress,
+    }: {
+      nodeId: string;
+      permanent?: boolean;
+      onProgress?: (progress: IDeleteBaseNodeProgress) => void;
+    }) => {
+      if (permanent) return (await permanentDeleteBaseNode(baseId, nodeId)).data;
+      // Asked for progress: the streamed delete, which reports a folder's as it goes.
+      if (onProgress) return deleteBaseNodeStream(baseId, nodeId, { onProgress });
+      return (await deleteBaseNode(baseId, nodeId)).data;
+    },
     onSuccess: (_, { nodeId }) => {
       props?.onDeleteSuccess?.(nodeId);
       invalidateMenu();
       invalidatePins();
+      invalidateTrash();
+    },
+    // A folder delete that stopped part way has still deleted some of what was in it.
+    onError: () => {
+      invalidateMenu();
+      invalidatePins();
+      invalidateTrash();
     },
   });
 
@@ -141,8 +165,12 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
       updateNode: async (nodeId: string, ro: IUpdateBaseNodeRo) => {
         return updateNodeFn({ nodeId, ro });
       },
-      deleteNode: async (nodeId: string, permanent?: boolean) => {
-        return deleteNodeFn({ nodeId, permanent });
+      deleteNode: async (
+        nodeId: string,
+        permanent?: boolean,
+        onProgress?: (progress: IDeleteBaseNodeProgress) => void
+      ) => {
+        return deleteNodeFn({ nodeId, permanent, onProgress });
       },
       moveNode: async (nodeId: string, ro: IMoveBaseNodeRo) => {
         return moveNodeFn({ nodeId, ro });

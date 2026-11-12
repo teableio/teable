@@ -47,7 +47,13 @@
     "generalDescription": "你可以在此处更改当前空间的设置",
     "spaceName": "空间名称",
     "spaceId": "空间 ID",
-    "importBase": "导入"
+    "importBase": "导入",
+    "profile": "空间资料",
+    "icon": "图标",
+    "iconDescription": "显示在空间列表和侧边栏中。",
+    "spaceIdDescription": "在 API 和 CLI 中使用。",
+    "deleteSpaceDescription": "将空间及其所有项目移入回收站。如有生效中的订阅，请先取消。",
+    "spaceNameDescription": "空间内的所有成员都会看到这个名称。"
   },
   "collaborators": "协作者",
   "more": "更多",
@@ -107,6 +113,12 @@
     "importing": "导入中",
     "baseImportTips": "点击或者拖拽 .tea 文件到此区域上传",
     "confirm": "确认并继续",
+    "preview": {
+      "analyzing": "正在分析文件内容…",
+      "total": "共 {{count}} 项",
+      "invalid": "该文件不是有效的 .tea 文件，无法导入。",
+      "failed": "无法分析此文件，仍可继续导入。"
+    },
     "phase": {
       "importingV2": "正在导入",
       "parsingStructure": "正在解析结构",

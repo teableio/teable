@@ -29,11 +29,16 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `CreateTablesHandler.ts` - Role: command handler; Purpose: create multiple tables in one unit of work.
 - `CreateFieldCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for adding a field.
 - `CreateFieldHandler.ts` - Role: command handler; Purpose: update table meta/schema and publish events.
+- `CreateFieldsCommand.ts` - Role: batch field command; Purpose: validate field inputs and optional
+  internal order-only column metadata, kept separate from the public transport schema.
 - `CreateFieldsHandler.ts` - Role: batch field command handler; Purpose: resolve same-batch
   dependencies through one operation-local field appender, so deferred candidates reserve no name,
   order or view state; then capture undo snapshots once with `captureMany` in creation order and
   append one undo/redo entry. Undo deletes in reverse creation order; redo restores snapshots in
-  creation order.
+  creation order. Internal explicit column metadata must cover every source field and live View;
+  it is composed in the same aggregate update before persistence. Source fields retain input
+  placement, and reciprocal fields append afterward without inheriting visibility. Ordinary
+  native callers keep their existing append defaults.
 - `CreateRecordCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for creating a record.
 - `CreateRecordHandler.ts` - Role: command handler; Purpose: create record, persist, publish.
 - `CreateRecordsCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for batch record creation.

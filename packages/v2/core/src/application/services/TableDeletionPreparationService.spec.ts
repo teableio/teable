@@ -6,10 +6,14 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
+import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import { LinkRelationship } from '../../domain/table/fields/types/LinkRelationship';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
+import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -214,5 +218,86 @@ describe('TableDeletionPreparationService', () => {
     expect(result._unsafeUnwrapErr().code).toBe('table.not_found');
     expect(sideEffects.prepareCalls).toBe(0);
     expect(repository.deleteCalls).toBe(0);
+  });
+});
+
+describe('TableDeletionPreparationService.prepareSoftDeleteMany', () => {
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableIdOf = (char: string) => TableId.create(`tbl${char.repeat(16)}`)._unsafeUnwrap();
+  const primaryOf = (char: string) => FieldId.create(`fld${char.repeat(16)}`)._unsafeUnwrap();
+
+  /** A table, optionally with a link field to `linksTo`. */
+  const tableOf = (char: string, linksTo?: string) => {
+    const builder = TableAggregate.builder()
+      .withId(tableIdOf(char))
+      .withBaseId(baseId)
+      .withName(TableName.create(`Table ${char}`)._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryOf(char))
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    if (linksTo) {
+      builder
+        .field()
+        .link()
+        .withId(FieldId.create(`fld${char.repeat(15)}l`)._unsafeUnwrap())
+        .withName(FieldName.create('Link')._unsafeUnwrap())
+        .withConfig(
+          LinkFieldConfig.create({
+            relationship: LinkRelationship.manyOne().toString(),
+            foreignTableId: tableIdOf(linksTo).toString(),
+            lookupFieldId: primaryOf(linksTo).toString(),
+          })._unsafeUnwrap()
+        )
+        .done();
+    }
+    builder.view().defaultGrid().done();
+    return builder.build()._unsafeUnwrap();
+  };
+
+  it('reads the tables and every table linking to them once, then prepares each alone', async () => {
+    const target = tableOf('a');
+    const linkedTarget = tableOf('b', 'a');
+    const outside = tableOf('c', 'a');
+    const all = [target, linkedTarget, outside];
+    let findCalls = 0;
+    const repository = {
+      find: async (_: IExecutionContext, spec: ISpecification<Table, ITableSpecVisitor>) => {
+        findCalls += 1;
+        return ok(all.filter((table) => spec.isSatisfiedBy(table)));
+      },
+    };
+    const candidatesByTable = new Map<string, string[]>();
+    const sideEffects = {
+      prepare: async (
+        _: IExecutionContext,
+        input: { table: Table; candidateTables?: ReadonlyArray<Table> }
+      ) => {
+        candidatesByTable.set(
+          input.table.id().toString(),
+          (input.candidateTables ?? []).map((table) => table.id().toString())
+        );
+        return new FakeSideEffectPreparationService().prepare(_, input);
+      },
+    };
+    const service = new TableDeletionPreparationService(repository as never, sideEffects as never);
+
+    const preparations = (
+      await service.prepareSoftDeleteMany(context, baseId, [target.id(), linkedTarget.id()])
+    )._unsafeUnwrap();
+
+    expect(findCalls).toBe(2);
+    expect(preparations.map((p) => [p.table.id().toString(), p.mode, p.sourceState])).toEqual([
+      [target.id().toString(), 'soft', 'active'],
+      [linkedTarget.id().toString(), 'soft', 'active'],
+    ]);
+    expect(candidatesByTable.get(target.id().toString())).toEqual([
+      linkedTarget.id().toString(),
+      outside.id().toString(),
+    ]);
+    expect(candidatesByTable.get(linkedTarget.id().toString())).toEqual([]);
   });
 });

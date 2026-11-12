@@ -1,4 +1,4 @@
-import type { Readable } from 'stream';
+import { PassThrough, Readable } from 'stream';
 import { DbFieldType, FieldType, HttpErrorCode } from '@teable/core';
 import { BaseDuplicateMode, type IBaseJson, type ImportBaseRo } from '@teable/openapi';
 import type { RestoreRecordInput } from '@teable/v2-core';
@@ -38,6 +38,11 @@ interface IProcessStructureService {
     onProgress?: (...args: unknown[]) => void
   ): Promise<unknown>;
   createBaseStructure: ReturnType<typeof vi.fn>;
+}
+
+interface IPreviewImportBaseService {
+  previewImportBase(importBaseRo: Pick<ImportBaseRo, 'spaceId' | 'notify'>): Promise<unknown>;
+  storageAdapter: unknown;
 }
 
 interface IImportBaseV2Service {
@@ -245,6 +250,61 @@ describe('BaseImportService', () => {
       expect(service.createBaseStructure).not.toHaveBeenCalled();
     });
 
+    it.each([
+      ['malformed JSON', '{ "name": "Broken", tables: oops }'],
+      ['JSON cut off mid-way', '{ "name": "Broken", "tables": [{ "id": "tblA"'],
+    ])(
+      'rejects a structure.json holding %s as an invalid file before any structure is created',
+      async (_case, json) => {
+        const service = Object.create(BaseImportService.prototype) as IProcessStructureService;
+        service.createBaseStructure = vi.fn();
+        const archive = archiver('zip', { zlib: { level: 0 } });
+        archive.append(json, { name: 'structure.json' });
+        void archive.finalize();
+
+        await expect(
+          service.processStructure(archive, { spaceId: 'spcImport' })
+        ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
+        expect(service.createBaseStructure).not.toHaveBeenCalled();
+        expect(archive.destroyed).toBe(true);
+      }
+    );
+
+    it('rejects an archive without structure.json instead of waiting forever', async () => {
+      const service = Object.create(BaseImportService.prototype) as IProcessStructureService;
+      service.createBaseStructure = vi.fn();
+      const archive = archiver('zip', { zlib: { level: 0 } });
+      archive.append('id,name\n', { name: 'tables/tblA.csv' });
+      void archive.finalize();
+
+      await expect(
+        service.processStructure(archive, { spaceId: 'spcImport' })
+      ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
+      expect(service.createBaseStructure).not.toHaveBeenCalled();
+    }, 5_000);
+
+    it('releases the structure stream once the structure is read', async () => {
+      // structure.json is followed by table data that never finishes arriving.
+      const service = Object.create(BaseImportService.prototype) as IProcessStructureService;
+      const structure = {
+        id: 'bseSource',
+        name: 'Source base',
+        tables: [],
+      } as unknown as IBaseJson;
+      service.createBaseStructure = vi.fn().mockResolvedValue({ base: { id: 'bseImported' } });
+      const archive = archiver('zip', { zlib: { level: 0 } });
+      archive.append(JSON.stringify(structure), { name: 'structure.json' });
+      const endlessTableData = new PassThrough();
+      endlessTableData.write('id,name\n');
+      archive.append(endlessTableData, { name: 'tables/tblA.csv' });
+
+      await expect(service.processStructure(archive, { spaceId: 'spcImport' })).resolves.toEqual({
+        base: { id: 'bseImported' },
+      });
+      expect(archive.destroyed).toBe(true);
+      endlessTableData.destroy();
+    }, 5_000);
+
     it('creates imported base schemas through the space routed data client', async () => {
       const createdBase = {
         id: 'bseImported',
@@ -312,6 +372,216 @@ describe('BaseImportService', () => {
       });
       expect(routedExecute).toHaveBeenCalledWith('CREATE SCHEMA "bseImported"');
       expect(fallbackExecute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('previewImportBase', () => {
+    const previewRo = {
+      spaceId: 'spcImport',
+      notify: { path: 'import/preview.tea' },
+    } as Pick<ImportBaseRo, 'spaceId' | 'notify'>;
+
+    const createPreviewService = (zipStream: Readable) => {
+      const service = Object.create(BaseImportService.prototype) as IPreviewImportBaseService;
+      service.storageAdapter = { downloadFile: vi.fn().mockResolvedValue(zipStream) };
+      return service;
+    };
+
+    const previewStructure = {
+      id: 'bseSource',
+      name: 'Source base',
+      tables: [
+        { id: 'tblA', name: 'Orders', dbTableName: 'orders', fields: [], views: [] },
+        { id: 'tblB', name: 'Customers', dbTableName: 'customers', fields: [], views: [] },
+      ],
+      plugins: { dashboard: [{ id: 'dsh1', name: 'Sales board' }], panel: [], view: [] },
+      folders: [{ id: 'bnf1', name: 'Archive' }],
+      nodes: [
+        { id: 'bnoArchive', parentId: null, resourceId: 'bnf1', resourceType: 'folder', order: 2 },
+        {
+          id: 'bnoOrders',
+          parentId: 'bnoArchive',
+          resourceId: 'tblA',
+          resourceType: 'table',
+          order: 1,
+        },
+        { id: 'bnoBoard', parentId: null, resourceId: 'dsh1', resourceType: 'dashboard', order: 1 },
+      ],
+    } as unknown as IBaseJson;
+
+    it('counts the nodes by type and lays them out in their folders', async () => {
+      const zipStream = createZipStream(previewStructure);
+      const service = createPreviewService(zipStream);
+
+      await expect(service.previewImportBase(previewRo)).resolves.toEqual({
+        name: 'Source base',
+        groups: [
+          { type: 'table', count: 2 },
+          { type: 'dashboard', count: 1 },
+          { type: 'folder', count: 1 },
+        ],
+        // Siblings follow their node order; Customers has no node and lands at the root.
+        nodes: [
+          { id: 'bnoOrders', parentId: 'bnoArchive', type: 'table', name: 'Orders' },
+          { id: 'bnoBoard', parentId: null, type: 'dashboard', name: 'Sales board' },
+          { id: 'bnoArchive', parentId: null, type: 'folder', name: 'Archive' },
+          { id: 'table:tblB', parentId: null, type: 'table', name: 'Customers' },
+        ],
+      });
+      expect(zipStream.destroyed).toBe(true);
+    });
+
+    it('stops reading once structure.json is parsed instead of draining the archive', async () => {
+      // structure.json is followed by table data that never finishes arriving;
+      // the preview must settle without waiting for the end of the archive.
+      const archive = archiver('zip', { zlib: { level: 0 } });
+      archive.append(JSON.stringify(previewStructure), { name: 'structure.json' });
+      const endlessTableData = new PassThrough();
+      endlessTableData.write('id,name\n');
+      archive.append(endlessTableData, { name: 'tables/tblA.csv' });
+      const service = createPreviewService(archive);
+
+      await expect(service.previewImportBase(previewRo)).resolves.toMatchObject({
+        name: 'Source base',
+      });
+      expect(archive.destroyed).toBe(true);
+      endlessTableData.destroy();
+    });
+
+    it('treats a legacy structure without folders or plugins as having none', async () => {
+      const structure = {
+        id: 'bseSource',
+        name: 'Legacy base',
+        tables: [{ id: 'tblA', name: 'Orders', fields: [], views: [] }],
+      } as unknown as IBaseJson;
+      const service = createPreviewService(createZipStream(structure));
+
+      await expect(service.previewImportBase(previewRo)).resolves.toEqual({
+        name: 'Legacy base',
+        groups: [{ type: 'table', count: 1 }],
+        nodes: [{ id: 'table:tblA', parentId: null, type: 'table', name: 'Orders' }],
+      });
+    });
+
+    it('moves nodes with a missing or cyclic parent to the root and skips unknown resources', async () => {
+      const structure = {
+        ...previewStructure,
+        folders: [
+          { id: 'bnf1', name: 'Loop A' },
+          { id: 'bnf2', name: 'Loop B' },
+        ],
+        nodes: [
+          { id: 'bnoA', parentId: 'bnoB', resourceId: 'bnf1', resourceType: 'folder', order: 1 },
+          { id: 'bnoB', parentId: 'bnoA', resourceId: 'bnf2', resourceType: 'folder', order: 2 },
+          {
+            id: 'bnoOrders',
+            parentId: 'bnoGone',
+            resourceId: 'tblA',
+            resourceType: 'table',
+            order: 3,
+          },
+          { id: 'bnoFlow', parentId: null, resourceId: 'wflX', resourceType: 'workflow', order: 4 },
+        ],
+      } as unknown as IBaseJson;
+      const service = createPreviewService(createZipStream(structure));
+
+      const preview = (await service.previewImportBase(previewRo)) as {
+        nodes: { id: string; parentId: string | null }[];
+      };
+      const parentOf = Object.fromEntries(preview.nodes.map((node) => [node.id, node.parentId]));
+
+      // The import cannot place a folder inside itself; exactly one link of the loop is cut.
+      expect([parentOf.bnoA, parentOf.bnoB].filter((parentId) => parentId === null)).toHaveLength(
+        1
+      );
+      expect(parentOf.bnoOrders).toBeNull();
+      expect(parentOf).not.toHaveProperty('bnoFlow');
+    });
+
+    it('reports a file that is not a zip archive as a validation error', async () => {
+      const service = createPreviewService(Readable.from([Buffer.from('this is not a tea file')]));
+
+      await expect(service.previewImportBase(previewRo)).rejects.toMatchObject({
+        code: HttpErrorCode.VALIDATION_ERROR,
+      });
+    });
+
+    it('reports an archive without structure.json as a validation error', async () => {
+      const archive = archiver('zip', { zlib: { level: 0 } });
+      archive.append('id,name\n', { name: 'tables/tblA.csv' });
+      void archive.finalize();
+      const service = createPreviewService(archive);
+
+      await expect(service.previewImportBase(previewRo)).rejects.toMatchObject({
+        code: HttpErrorCode.VALIDATION_ERROR,
+      });
+    });
+
+    const createRawStructureZip = (structureJson: string, trailing?: Readable) => {
+      const archive = archiver('zip', { zlib: { level: 0 } });
+      archive.append(structureJson, { name: 'structure.json' });
+      if (trailing) archive.append(trailing, { name: 'tables/tblA.csv' });
+      else void archive.finalize();
+      return archive;
+    };
+
+    it.each([
+      ['malformed JSON', '{ "name": "Broken", tables: oops }'],
+      ['JSON cut off mid-way', '{ "name": "Broken", "tables": [{ "id": "tblA"'],
+      ['an empty file', ''],
+    ])('reports a structure.json holding %s as a validation error', async (_case, json) => {
+      const zipStream = createRawStructureZip(json);
+      const service = createPreviewService(zipStream);
+
+      const error = await service.previewImportBase(previewRo).then(
+        () => undefined,
+        (reason: { code?: string; message?: string }) => reason
+      );
+
+      expect(error?.code).toBe(HttpErrorCode.VALIDATION_ERROR);
+      // The file has a structure.json; blaming a missing one would send the user the wrong way.
+      expect(error?.message).not.toContain('not found');
+      expect(zipStream.destroyed).toBe(true);
+    });
+
+    it('fails a malformed structure.json at once instead of waiting for the rest of the archive', async () => {
+      // The broken structure.json is followed by table data that never finishes arriving.
+      const endlessTableData = new PassThrough();
+      endlessTableData.write('id,name\n');
+      const zipStream = createRawStructureZip(
+        '{ "name": "Broken", tables: oops }',
+        endlessTableData
+      );
+      const service = createPreviewService(zipStream);
+
+      await expect(service.previewImportBase(previewRo)).rejects.toMatchObject({
+        code: HttpErrorCode.VALIDATION_ERROR,
+      });
+      expect(zipStream.destroyed).toBe(true);
+      endlessTableData.destroy();
+    }, 5_000);
+
+    it('reports a hand-edited dbTableName the import would reject as a validation error', async () => {
+      const structure = {
+        ...previewStructure,
+        tables: [{ id: 'tblA', name: 'Orders', dbTableName: 'tbl"; DROP TABLE x; --', fields: [] }],
+      } as unknown as IBaseJson;
+      const service = createPreviewService(createZipStream(structure));
+
+      await expect(service.previewImportBase(previewRo)).rejects.toMatchObject({
+        code: HttpErrorCode.VALIDATION_ERROR,
+      });
+    });
+
+    it('keeps a storage failure distinct from an invalid file', async () => {
+      const failingStream = new PassThrough();
+      const service = createPreviewService(failingStream);
+      const storageError = new Error('storage connection reset');
+
+      const preview = service.previewImportBase(previewRo);
+      setImmediate(() => failingStream.destroy(storageError));
+
+      await expect(preview).rejects.toBe(storageError);
     });
   });
 

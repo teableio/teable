@@ -212,15 +212,21 @@ export const buildTreeItems = (nodes: IBaseNodeVo[]): Record<string, TreeItemDat
  * - getItemBelow: first child > next sibling > parent's next sibling
  * - getItemAbove: previous sibling's last descendant > parent
  *
+ * With `skipSubtree`, nothing under the current node is a candidate: a deleted folder takes
+ * its contents with it.
+ *
  * Note: Assumes treeItems is already validated by buildTreeItems/cleanNodes.
  */
 export const findAdjacentNonFolderNode = (
   treeItems: Record<string, TreeItemData>,
-  currentNodeId: string
+  currentNodeId: string,
+  options: { skipSubtree?: boolean } = {}
   // eslint-disable-next-line sonarjs/cognitive-complexity
 ): TreeItemData | null => {
   const isFolder = (nodeId: string) =>
     treeItems[nodeId]?.resourceType === BaseNodeResourceType.Folder;
+  const childrenOf = (node: TreeItemData) =>
+    options.skipSubtree && node.id === currentNodeId ? [] : node.children;
 
   /**
    * Get the next node in depth-first (visual) order
@@ -231,7 +237,7 @@ export const findAdjacentNonFolderNode = (
     if (!node) return null;
 
     // 1. If has children, return first child
-    if (node.children.length > 0) {
+    if (childrenOf(node).length > 0) {
       return node.children[0];
     }
 
@@ -434,4 +440,24 @@ export const getChildrenNodes = (parentId: string, nodes: IBaseNodeVo[]): IBaseN
     children.push(childNode);
   }
   return children;
+};
+
+/** Whether a resource sits anywhere under a node of the tree. */
+export const isResourceInSubtree = (
+  treeItems: Record<string, TreeItemData>,
+  nodeId: string,
+  resourceId: string
+): boolean => {
+  const queue = [nodeId];
+  const seen = new Set<string>();
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const node = treeItems[id];
+    if (!node) continue;
+    if (node.resourceId === resourceId) return true;
+    queue.push(...node.children);
+  }
+  return false;
 };

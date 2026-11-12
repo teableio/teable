@@ -28,6 +28,8 @@ export enum UploadType {
   UserDataExport = 21,
   // An artifact's cover, written by the backend and shown in galleries through read urls.
   ArtifactThumbnail = 22,
+  // Public files of the MCP servers users add, by kind: `mcp/icon/<server id>`, …
+  Mcp = 23,
 }
 
 export const signatureRoSchema = z.object({

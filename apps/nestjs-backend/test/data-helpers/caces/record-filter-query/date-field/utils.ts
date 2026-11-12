@@ -1,12 +1,15 @@
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import updateLocale from 'dayjs/plugin/updateLocale';
 import { x_20 } from '../../../20x';
 import { DEFAULT_LINK_VALUE_INDEXS } from '../../../20x-link';
+
+dayjs.extend(updateLocale);
 
 export const getDates = () => {
   const tz = 'Asia/Singapore';
   const dateFieldName = x_20.fields[3].name;
-  dayjs.locale(dayjs.locale(), {
+  dayjs.updateLocale(dayjs.locale(), {
     weekStart: 1,
   });
   const dates = x_20.records

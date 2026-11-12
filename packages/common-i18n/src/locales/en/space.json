@@ -47,7 +47,13 @@
     "generalDescription": "Change the settings for your current space here",
     "spaceName": "Space name",
     "spaceId": "Space ID",
-    "importBase": "Import"
+    "importBase": "Import",
+    "profile": "Space profile",
+    "icon": "Icon",
+    "iconDescription": "Shown in the space list and sidebar.",
+    "spaceIdDescription": "Use it with the API and the CLI.",
+    "deleteSpaceDescription": "Moves the space and all its projects to trash. Cancel any active subscription first.",
+    "spaceNameDescription": "Everyone in this space sees this name."
   },
   "collaborators": "Collaborators",
   "more": "More",
@@ -108,6 +114,12 @@
     "importing": "Importing",
     "baseImportTips": "Click or drag and drop .tea file to upload in this area",
     "confirm": "Confirm and continue",
+    "preview": {
+      "analyzing": "Analyzing file contents…",
+      "total": "Total items: {{count}}",
+      "invalid": "This file is not a valid .tea file and cannot be imported.",
+      "failed": "Could not analyze this file. You can still continue with the import."
+    },
     "phase": {
       "importingV2": "Importing",
       "parsingStructure": "Parsing structure",

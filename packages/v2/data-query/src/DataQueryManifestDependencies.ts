@@ -2,6 +2,9 @@ import { collectDataQuerySourceFieldUsages, sortDataQueryFieldUsages } from './D
 import type { DataQueryManifest } from './DataQueryManifest';
 import type { DataQueryFieldUsage } from './types';
 
+/** Bump when declared dependency traversal changes so persisted indexes are rebuilt. */
+export const DATA_QUERY_DEPENDENCY_ANALYZER_VERSION = 8;
+
 const compareText = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;
 
@@ -26,10 +29,11 @@ export type DataQueryManifestQueryDependency = {
    */
   readonly tableId: string | null;
   readonly fields: ReadonlyArray<DataQueryManifestQueryFieldDependency>;
-  /** Declared v2 targets; root fields remain in `fields`. */
+  /** Declared v2/v3 targets; root fields remain in `fields`. */
   readonly relations?: ReadonlyArray<DataQueryManifestQueryRelationDependency>;
   /**
-   * Every field this query *declares* is listed. False only when a SQL path
+   * Every field this query *declares*, including unused formula references, is listed.
+   * False only when a SQL path
    * actually runs: `mode: sql-query` has no structured definition. A `fallback`
    * on `mode: auto` or on a structured query is retained for compatibility but
    * is not executed automatically (C1 decision, 2026-11-02), so it no longer
@@ -97,7 +101,7 @@ const queryDependency = (
       .sort((left, right) => compareText(left.fieldId, right.fieldId));
   const fields = fieldsFrom('root');
   const relations =
-    definition?.version === 2
+    definition && definition.version !== 1
       ? Object.entries(definition.relations ?? {}).map(([alias, relation]) => ({
           alias,
           tableId: relation.tableId,

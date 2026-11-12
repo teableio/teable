@@ -730,21 +730,24 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(error?.status).toBeGreaterThanOrEqual(400);
     });
 
-    it('should fail when delete folder node with children', async () => {
+    it('should delete a folder node together with its children', async () => {
       const folder = await createBaseNode(baseId, {
         resourceType: BaseNodeResourceType.Folder,
         name: 'Folder',
       }).then((res) => res.data);
 
-      await createBaseNode(baseId, {
+      const childId = await createBaseNode(baseId, {
         resourceType: BaseNodeResourceType.Folder,
         name: 'Child',
         parentId: folder.id,
       }).then((res) => res.data.id);
 
-      // Verify it's deleted
-      const error = await getError(() => deleteBaseNode(baseId, folder.id));
-      expect(error?.status).toBeGreaterThanOrEqual(400);
+      await deleteBaseNode(baseId, folder.id);
+
+      for (const nodeId of [folder.id, childId]) {
+        const error = await getError(() => getBaseNode(baseId, nodeId));
+        expect(error?.status).toBeGreaterThanOrEqual(400);
+      }
     });
 
     it('should expose delete-table canary headers when deleting a table node', async () => {
