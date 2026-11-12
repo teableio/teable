@@ -1343,6 +1343,18 @@ export class RecordOpenApiV2Service {
     }
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, queryRo);
+    const recordIds = await this.resolveRecordIdsForQuery(tableId, rangeQuery);
+    const excludedIds = new Set(selection.excludeRecordIds ?? []);
+    return recordIds.filter((recordId) => !excludedIds.has(recordId));
+  }
+
+  private async resolveRecordIdsForQuery(
+    tableId: string,
+    rangeQuery: Pick<
+      IGetRecordsRo,
+      'viewId' | 'ignoreViewQuery' | 'filter' | 'orderBy' | 'groupBy' | 'search'
+    >
+  ): Promise<string[]> {
     // Only record ids are needed here: load the table aggregate once and page
     // with an empty projection so no user-field cells are read or mapped.
     const container = await this.v2ContainerService.getContainerForTable(tableId);
@@ -1391,8 +1403,7 @@ export class RecordOpenApiV2Service {
       hasMore = result.records.length === pageSize;
       skip += pageSize;
     }
-    const excludedIds = new Set(selection.excludeRecordIds ?? []);
-    return recordIds.filter((recordId) => !excludedIds.has(recordId));
+    return recordIds;
   }
 
   private async withTableDataClient<T>(tableId: string, fn: () => Promise<T>): Promise<T> {
@@ -4033,7 +4044,10 @@ export class RecordOpenApiV2Service {
       ...rangesRo,
       selection: {},
     });
+    return this.sliceRecordIdsByRanges(recordIds, rangesRo);
+  }
 
+  private sliceRecordIdsByRanges(recordIds: string[], rangesRo: IRangesRo): string[] {
     if (rangesRo.type === RangeType.Columns) {
       return recordIds;
     }
@@ -4453,7 +4467,7 @@ export class RecordOpenApiV2Service {
   private async buildRangeFilter(
     tableId: string,
     query: {
-      viewId: string;
+      viewId?: string;
       filter?: IFilter | null;
       search?: IRangesRo['search'];
       groupBy?: IRangesRo['groupBy'];
@@ -5254,15 +5268,101 @@ export class RecordOpenApiV2Service {
     );
   }
 
+  private async getViewlessCopyRecordIds(
+    tableId: string,
+    copyRo: IRangesRo,
+    fieldCount: number
+  ): Promise<string[]> {
+    const hasNegativeRow = copyRo.ranges.some(([start, end]) =>
+      copyRo.type === RangeType.Rows
+        ? start < 0 || end < 0
+        : copyRo.type !== RangeType.Columns && end < 0
+    );
+    if (hasNegativeRow) {
+      throw new CustomHttpException(
+        'Row coordinates must be non-negative',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+
+    // Legacy limits count requested coordinates, even when a range exceeds
+    // the available rows or columns. Reject before reading cells.
+    if (copyRo.type === RangeType.Rows) {
+      const rowCount = copyRo.ranges.reduce((count, [start, end]) => count + end - start + 1, 0);
+      this.assertCopyCellCount(rowCount, fieldCount);
+    } else if (copyRo.type !== RangeType.Columns) {
+      const [start, end] = copyRo.ranges;
+      this.assertCopyCellCount(end[1] - start[1] + 1, end[0] - start[0] + 1);
+    }
+
+    // Unlike mutations, viewless copy must not normalize to the default view.
+    // Explicit grouping/collapse still applies to table-level row coordinates.
+    const filter = await this.buildRangeFilter(tableId, copyRo);
+    const recordIds = await this.resolveRecordIdsForQuery(tableId, { ...copyRo, filter });
+    return this.sliceRecordIdsByRanges(recordIds, copyRo);
+  }
+
   async copy(tableId: string, copyRo: IRangesRo): Promise<ICopyVo> {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const context = await this.v2ContextFactory.createContext(container);
     const table = await this.loadV2Table(context, container, tableId);
-    const orderedReadableIds = await this.getOrderedReadableFieldIds(tableId, {
-      viewId: copyRo.viewId,
-      projection: copyRo.projection,
-      ignoreViewQuery: copyRo.ignoreViewQuery,
-    });
+    let orderedReadableIds: string[];
+    if (copyRo.viewId) {
+      orderedReadableIds = await this.getOrderedReadableFieldIds(tableId, {
+        viewId: copyRo.viewId,
+        projection: copyRo.projection,
+        ignoreViewQuery: copyRo.ignoreViewQuery,
+      });
+    } else {
+      const queryScope = await this.prepareRecordQueryScope(context, container, table, {
+        kind: RecordQueryOperationKind.list,
+        ignoreViewQuery: copyRo.ignoreViewQuery,
+      });
+      if (copyRo.type === RangeType.Columns) {
+        // Legacy column limits count filtered/searched rows before collapse.
+        const countQuery = CountTableRecordsQuery.create(
+          {
+            tableId,
+            ignoreViewQuery: copyRo.ignoreViewQuery,
+            filter: this.normalizeFilterForV2FromTable(table, copyRo.filter) ?? undefined,
+            search: copyRo.search,
+            fieldKeyType: FieldKeyType.Id,
+          },
+          { table, queryScope }
+        );
+        if (countQuery.isErr()) {
+          throwV2Error(
+            mapDomainErrorToHttpError(countQuery.error),
+            mapDomainErrorToHttpStatus(countQuery.error)
+          );
+        }
+        const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+        const countResult = await queryBus.execute<CountTableRecordsQuery, CountTableRecordsResult>(
+          context,
+          countQuery.value
+        );
+        if (countResult.isErr()) {
+          throwV2Error(
+            mapDomainErrorToHttpError(countResult.error),
+            mapDomainErrorToHttpStatus(countResult.error)
+          );
+        }
+        const columnCount = copyRo.ranges.reduce(
+          (count, [start, end]) => count + end - start + 1,
+          0
+        );
+        this.assertCopyCellCount(countResult.value.count, columnCount);
+      }
+      // The repository hydrates fieldIds in primary/order/createdTime order.
+      // Explicit projection order/subset wins over presentation, not permission.
+      orderedReadableIds =
+        copyRo.projection ?? table.fieldIds().map((fieldId) => fieldId.toString());
+      if (queryScope?.readableFieldIds != null) {
+        orderedReadableIds = orderedReadableIds.filter((fieldId) =>
+          queryScope.readableFieldIds!.has(fieldId)
+        );
+      }
+    }
     const availableFields: V2Field[] = orderedReadableIds.flatMap((fieldId) => {
       const field = table.getField((candidate) => candidate.id().toString() === fieldId);
       return field.isOk() ? [field.value] : [];
@@ -5286,7 +5386,9 @@ export class RecordOpenApiV2Service {
       }
       return fieldDto.value as IFieldVo;
     });
-    const recordIds = await this.getRecordIdsFromRanges(tableId, copyRo);
+    const recordIds = copyRo.viewId
+      ? await this.getRecordIdsFromRanges(tableId, copyRo)
+      : await this.getViewlessCopyRecordIds(tableId, copyRo, availableFields.length);
     this.assertCopyCellCount(recordIds.length, header.length);
     const records = await this.getRecordsByIds(tableId, recordIds, {
       projection: header.map((field) => field.id),

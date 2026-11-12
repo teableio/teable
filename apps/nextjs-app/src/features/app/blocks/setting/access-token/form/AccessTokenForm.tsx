@@ -18,9 +18,15 @@ import {
 } from '@teable/openapi';
 import { useSession, useOrganization } from '@teable/sdk/hooks';
 import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
-import { Button, Input, Label, Separator, cn } from '@teable/ui-lib/shadcn';
+import { Button, Input, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import {
+  SettingItem,
+  SettingSearchInput,
+  SettingSection,
+  SettingStack,
+} from '@/features/app/components/setting/SettingSection';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
 import { RequireCom } from '../../components/RequireCom';
 import { AccessSelect } from './AccessSelect';
@@ -161,93 +167,115 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   };
 
   return (
-    <div className="w-full max-w-5xl space-y-3 pb-2">
+    <SettingStack>
       {type === 'new' && (
-        <>
+        <div className="flex flex-col gap-1 text-sm">
           <p>{t('token:new.title')}</p>
           <p className="text-xs text-muted-foreground">{t('token:new.description')}</p>
-        </>
-      )}
-      <div className="space-y-2">
-        <Label>
-          {t('token:name')} <RequireCom />
-          <div className="text-xs font-normal text-muted-foreground">
-            {t('token:formLabelTips.name')}
-          </div>
-        </Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="space-y-2">
-        <Label>
-          {t('token:description')}
-          <div className="text-xs font-normal text-muted-foreground">
-            {t('token:formLabelTips.description')}
-          </div>
-        </Label>
-        <Input value={description} onChange={(e) => setDescription(e.target.value)}></Input>
-      </div>
-      {type === 'new' && (
-        <div className="space-y-2">
-          <Label>
-            {t('token:expiration')} <RequireCom />
-          </Label>
-          <ExpirationSelect onChange={setExpiredTime} />
         </div>
       )}
-      <div className="space-y-2">
-        <Label>
-          {t('token:permission.title')} <RequireCom />
-          <div className="text-xs font-normal text-muted-foreground">
-            {t('token:permission.tip')}
-          </div>
-        </Label>
-        <ScopePresets
-          value={preset}
-          onChange={(value) => setScopes(getAccessTokenPresetScopes(value, scopes))}
-        />
-        {!preset && (
-          <div className="rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-            {t('token:permission.customHint')}
-          </div>
-        )}
-        <div className="flex items-center justify-between gap-3 pt-1">
-          <button
-            type="button"
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            onClick={() => setCustomOpen((open) => !open)}
-          >
-            <ChevronRight
-              className={cn('size-4 shrink-0 transition-transform', customOpen && 'rotate-90')}
+      <SettingSection title={t('token:form.basics')}>
+        <SettingItem
+          htmlFor="access-token-name"
+          label={
+            <>
+              {t('token:name')} <RequireCom />
+            </>
+          }
+          description={t('token:formLabelTips.name')}
+          action={
+            <Input
+              id="access-token-name"
+              className="w-full sm:w-64"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
-            {t('token:permission.customize')}
-          </button>
-          <Input
-            className="h-8 w-80 text-sm"
-            value={scopeQuery}
-            placeholder={t('token:permission.searchPlaceholder')}
-            onChange={(e) => setScopeQuery(e.target.value)}
-          />
-        </div>
-        <ScopeGroups
-          scopes={scopes}
-          groups={scopeGroups}
-          onChange={setScopes}
-          query={scopeQuery}
-          showGroups={customOpen || Boolean(scopeQuery.trim())}
+          }
         />
-        <div className="text-xs text-muted-foreground">
-          {t('token:permission.summary', { count: scopes.length })}
-        </div>
-      </div>
-      <Separator className="y-2" />
-      <div className="space-y-2">
-        <Label aria-required>
-          {t('token:access')}
-          <div className="text-xs font-normal text-muted-foreground">
-            {t('token:formLabelTips.access')}
+        <SettingItem
+          htmlFor="access-token-description"
+          label={t('token:description')}
+          description={t('token:formLabelTips.description')}
+          action={
+            <Input
+              id="access-token-description"
+              className="w-full sm:w-64"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          }
+        />
+        {type === 'new' && (
+          <SettingItem
+            label={
+              <>
+                {t('token:expiration')} <RequireCom />
+              </>
+            }
+            description={t('token:form.expirationDescription')}
+            action={<ExpirationSelect onChange={setExpiredTime} />}
+          />
+        )}
+      </SettingSection>
+      <SettingSection
+        title={
+          <>
+            {t('token:permission.title')} <RequireCom />
+          </>
+        }
+        description={t('token:permission.tip')}
+        bare
+      >
+        <div className="flex flex-col gap-3 pt-1.5">
+          <ScopePresets
+            value={preset}
+            onChange={(value) => setScopes(getAccessTokenPresetScopes(value, scopes))}
+          />
+          {!preset && (
+            <div className="rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+              {t('token:permission.customHint')}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ms-3 text-muted-foreground"
+              onClick={() => setCustomOpen((open) => !open)}
+            >
+              <ChevronRight
+                className={cn('size-4 shrink-0 transition-transform', customOpen && 'rotate-90')}
+              />
+              {t('token:permission.customize')}
+            </Button>
+            <SettingSearchInput
+              value={scopeQuery}
+              placeholder={t('token:permission.searchPlaceholder')}
+              onChange={(e) => setScopeQuery(e.target.value)}
+            />
           </div>
-        </Label>
-        <div>
+          <ScopeGroups
+            scopes={scopes}
+            groups={scopeGroups}
+            onChange={setScopes}
+            query={scopeQuery}
+            showGroups={customOpen || Boolean(scopeQuery.trim())}
+          />
+          <div className="text-xs text-muted-foreground">
+            {t('token:permission.summary', { count: scopes.length })}
+          </div>
+        </div>
+      </SettingSection>
+      <SettingSection
+        title={
+          <>
+            {t('token:access')} <RequireCom />
+          </>
+        }
+        description={t('token:formLabelTips.access')}
+        bare
+      >
+        <div className="pt-1.5">
           <AccessSelect
             value={{ spaceIds: spaceIds || [], baseIds: baseIds || [], hasFullAccess }}
             onChange={({ spaceIds, baseIds, hasFullAccess }) => {
@@ -257,14 +285,13 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
             }}
           />
         </div>
-      </div>
-      <Separator />
-      <div className="space-x-3 text-end rtl:space-x-reverse">
+      </SettingSection>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {id && <RefreshToken accessTokenId={id} onRefresh={onRefresh} />}
-        <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
+        <Button size="sm" variant="outline" onClick={onCancel}>
           {t('common:actions.cancel')}
         </Button>
-        <Button size={'sm'} onClick={handleSubmit} disabled={disableSubmit || isLoading}>
+        <Button size="sm" onClick={handleSubmit} disabled={disableSubmit || isLoading}>
           {isLoading && <Spin />}
           {t('common:actions.submit')}
         </Button>
@@ -283,6 +310,6 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
           onSubmitInner();
         }}
       />
-    </div>
+    </SettingStack>
   );
 };

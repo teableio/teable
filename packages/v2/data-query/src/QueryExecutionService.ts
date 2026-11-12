@@ -1,23 +1,14 @@
 import { domainError, type DomainError, type IExecutionContext } from '@teable/v2-core';
 import { err, type Result } from 'neverthrow';
-import { z } from 'zod';
 
 import { DataQueryDefinition } from './DataQueryDefinition';
 import { traceDataQueryStage, type DataQueryService } from './DataQueryService';
 import type { DataQueryResult } from './ports';
 import {
-  executeDataQueryRequestSchema,
-  validateDataQueryRequestSchema,
+  executeDataQueryEnvelopeSchema,
+  validateDataQueryEnvelopeSchema,
   type DataQueryValidationResult,
 } from './queryExecutionProtocol';
-
-// Validate the envelope here; DataQueryDefinition.create owns definition parsing and construction.
-const executionEnvelopeSchema = executeDataQueryRequestSchema.extend({
-  definition: z.unknown().refine((value) => value !== undefined),
-});
-const validationEnvelopeSchema = validateDataQueryRequestSchema.extend({
-  definition: z.unknown().refine((value) => value !== undefined),
-});
 
 /** The server boundary for untrusted inline query requests, independent of transport. */
 export class QueryExecutionService {
@@ -29,7 +20,7 @@ export class QueryExecutionService {
   ): Promise<Result<DataQueryValidationResult, DomainError>> {
     try {
       return await traceDataQueryStage(context, 'validate', {}, async () => {
-        const parsed = validationEnvelopeSchema.safeParse(raw);
+        const parsed = validateDataQueryEnvelopeSchema.safeParse(raw);
         if (!parsed.success)
           return err(
             domainError.validation({
@@ -67,7 +58,7 @@ export class QueryExecutionService {
         'execute',
         { 'teable.data_query.mode': 'inline' },
         async () => {
-          const parsed = executionEnvelopeSchema.safeParse(raw);
+          const parsed = executeDataQueryEnvelopeSchema.safeParse(raw);
           if (!parsed.success)
             return err(
               domainError.validation({

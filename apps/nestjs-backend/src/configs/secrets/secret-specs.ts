@@ -200,6 +200,19 @@ export const SECRET_SPECS = {
     pinInstruction:
       "previous effective value: your BACKEND_ACCESS_TOKEN_ENCRYPTION_IV if it was set; with SECRET_KEY set, compute `node -e \"console.log(require('crypto').createHash('sha256').update(process.env.SECRET_KEY).digest('hex').slice(0,16))\"` (key and iv share one derivation input — a historical quirk); with neither, the same command with 'teable-data-db-url-secret-iv' in place of process.env.SECRET_KEY. New deployments: `openssl rand -hex 8`.",
   },
+  // HKDF root of the authenticated BYODB URL format (AES-256-GCM, see
+  // data-db-url-secret.ts). It resolves like the other roots, but only the
+  // dedicated var switches new writes to that format: the fallbacks serve
+  // decryption alone, so every replica, and every environment sharing the
+  // database, can read the format before any of them writes it. Unset, the
+  // legacy pair above keeps writing, hence in scope only once it is set.
+  dataDbUrlEncryptionSecret: {
+    envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET',
+    fallbackEnvKeys: ['SECRET_KEY'],
+    usedFor: 'encrypting BYODB database URLs in the authenticated format (HKDF root)',
+    legacyDefault: 'defaultSecretKey',
+    requiredWhen: (env) => Boolean(env.BACKEND_DATA_DB_URL_ENCRYPTION_SECRET),
+  },
   // Read straight from env by the EE automation script runner; the sandbox
   // service falls back to the same public value, so the pair keeps working.
   sandboxJwtSecret: {

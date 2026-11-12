@@ -9,7 +9,8 @@ export const DeleteBaseNodeFolderRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_BASE_NODE_FOLDER,
   title: 'Delete project folder',
-  description: 'Delete a folder from a project and move its children to the parent.',
+  description:
+    'Move a folder and everything in it to the trash, the same as deleting its node. The folder ID or its node ID works.',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -18,7 +19,7 @@ export const DeleteBaseNodeFolderRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Deleted folder node (for client side cleanup)',
+      description: 'The deleted folder node (for client side cleanup)',
     },
   },
   tags: ['base node'],

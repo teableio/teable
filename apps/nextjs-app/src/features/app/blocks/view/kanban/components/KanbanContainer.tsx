@@ -26,6 +26,7 @@ export const KanbanContainer = () => {
 
   const [cardMap, setCardMap] = useState<ICardMap>({});
   const [stackIds, setStackIds] = useState(stackCollection.map(({ id }) => id));
+  const [isDragging, setIsDragging] = useState(false);
 
   const localId = generateLocalId(tableId, viewId);
   const { stackCreatable } = permission;
@@ -48,6 +49,7 @@ export const KanbanContainer = () => {
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onDragEnd = (result: DropResult) => {
+    setIsDragging(false);
     const { source, destination } = result;
 
     if (!destination) return;
@@ -157,7 +159,8 @@ export const KanbanContainer = () => {
 
     const { sourceList, targetList } = moveTo({
       source: sourceCards,
-      target: targetCards,
+      // a stack dropped on before it ever loaded (e.g. still out of view) has no cards yet
+      target: targetCards ?? EMPTY_LIST,
       sourceIndex,
       targetIndex,
     });
@@ -169,7 +172,7 @@ export const KanbanContainer = () => {
   };
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
+    <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
       <div className="flex h-full">
         <Droppable droppableId={viewId!} direction="horizontal" type="column">
           {(provided) => {
@@ -190,6 +193,7 @@ export const KanbanContainer = () => {
                       setCardMap={setCardMapInner}
                       disabled={!isSingleSelectField}
                       isCollapsed={isCollapsed}
+                      isBoardDragging={isDragging}
                     />
                   );
                 })}

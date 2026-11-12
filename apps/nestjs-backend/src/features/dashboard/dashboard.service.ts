@@ -72,6 +72,7 @@ export class DashboardService {
     const visibleIds = await this.getShareVisibleDashboardIds(baseId);
     return this.prismaService.dashboard.findMany({
       where: {
+        deletedTime: null,
         baseId,
         ...(visibleIds ? { id: { in: [...visibleIds] } } : {}),
       },
@@ -90,6 +91,7 @@ export class DashboardService {
     const dashboard = await this.prismaService.dashboard
       .findFirstOrThrow({
         where: {
+          deletedTime: null,
           id,
           baseId,
         },
@@ -163,6 +165,7 @@ export class DashboardService {
       .txClient()
       .dashboard.update({
         where: {
+          deletedTime: null,
           baseId,
           id,
         },
@@ -187,6 +190,7 @@ export class DashboardService {
     const ro = await this.prismaService.dashboard
       .update({
         where: {
+          deletedTime: null,
           baseId,
           id,
         },
@@ -212,22 +216,23 @@ export class DashboardService {
     };
   }
 
-  async deleteDashboard(baseId: string, id: string) {
-    await this.prismaService
-      .txClient()
-      .dashboard.delete({
-        where: {
-          baseId,
-          id,
-        },
-      })
-      .catch(() => {
-        throw new CustomHttpException('Dashboard not found', HttpErrorCode.NOT_FOUND, {
-          localization: {
-            i18nKey: 'httpErrors.dashboard.notFound',
-          },
+  /** Moves the dashboard to the trash; `permanent` deletes it for good, from the trash too. */
+  async deleteDashboard(baseId: string, id: string, permanent?: boolean) {
+    const prisma = this.prismaService.txClient();
+    const where = { baseId, id };
+    const { count } = permanent
+      ? await prisma.dashboard.deleteMany({ where })
+      : await prisma.dashboard.updateMany({
+          where: { ...where, deletedTime: null },
+          data: { deletedTime: new Date(), lastModifiedBy: this.cls.get('user.id') },
         });
+    if (count === 0) {
+      throw new CustomHttpException('Dashboard not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.dashboard.notFound',
+        },
       });
+    }
   }
 
   /**
@@ -239,7 +244,7 @@ export class DashboardService {
   async moveDashboardToBase(sourceBaseId: string, targetBaseId: string, id: string) {
     const prisma = this.prismaService.txClient();
     const updated = await prisma.dashboard.updateMany({
-      where: { id, baseId: sourceBaseId },
+      where: { id, baseId: sourceBaseId, deletedTime: null },
       data: { baseId: targetBaseId, lastModifiedBy: this.cls.get('user.id') },
     });
     if (updated.count === 0) {
@@ -308,6 +313,7 @@ export class DashboardService {
 
       const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
         where: {
+          deletedTime: null,
           id,
           baseId,
         },
@@ -325,6 +331,7 @@ export class DashboardService {
       });
       await this.prismaService.txClient().dashboard.update({
         where: {
+          deletedTime: null,
           id,
         },
         data: {
@@ -358,6 +365,7 @@ export class DashboardService {
       .txClient()
       .dashboard.findFirstOrThrow({
         where: {
+          deletedTime: null,
           baseId,
           id: dashboardId,
         },
@@ -393,6 +401,7 @@ export class DashboardService {
         });
       const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
         where: {
+          deletedTime: null,
           id: dashboardId,
           baseId,
         },
@@ -406,6 +415,7 @@ export class DashboardService {
         layout.splice(index, 1);
         await this.prismaService.txClient().dashboard.update({
           where: {
+            deletedTime: null,
             id: dashboardId,
           },
           data: {
@@ -433,6 +443,7 @@ export class DashboardService {
     dashboardId: string,
     pluginInstallId: string
   ) {
+    await this.validateDashboard(baseId, dashboardId);
     return this.prismaService
       .txClient()
       .pluginInstall.findFirstOrThrow({
@@ -519,6 +530,7 @@ export class DashboardService {
     const { name } = duplicateDashboardRo;
     const dashboard = (await this.prismaService.txClient().dashboard.findFirstOrThrow({
       where: {
+        deletedTime: null,
         baseId,
         id: dashboardId,
       },
@@ -555,6 +567,7 @@ export class DashboardService {
 
     const dashboardList = await this.prismaService.txClient().dashboard.findMany({
       where: {
+        deletedTime: null,
         baseId,
       },
       select: {
@@ -628,6 +641,7 @@ export class DashboardService {
 
       const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
         where: {
+          deletedTime: null,
           baseId,
           id: dashboardId,
         },
@@ -648,6 +662,7 @@ export class DashboardService {
 
       await this.prismaService.txClient().dashboard.update({
         where: {
+          deletedTime: null,
           id: dashboardId,
         },
         data: {

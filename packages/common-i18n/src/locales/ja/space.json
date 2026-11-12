@@ -47,7 +47,13 @@
     "generalDescription": "現在のスペースの設定をここで変更",
     "spaceName": "スペース名",
     "spaceId": "スペースID",
-    "importBase": "インポート"
+    "importBase": "インポート",
+    "deleteSpaceDescription": "スペースとそのすべてのプロジェクトをゴミ箱に移動します。有効なサブスクリプションがある場合は先に解約してください。",
+    "icon": "アイコン",
+    "iconDescription": "スペース一覧とサイドバーに表示されます。",
+    "profile": "スペースのプロフィール",
+    "spaceIdDescription": "API と CLI で使用します。",
+    "spaceNameDescription": "このスペースのメンバー全員にこの名前が表示されます。"
   },
   "collaborators": "コラボレーター",
   "more": "その他",
@@ -107,6 +113,12 @@
     "importing": "インポート中",
     "baseImportTips": "クリックするか、.teaファイルをこの領域にドラッグ＆ドロップしてアップロードします",
     "confirm": "確認して続行",
+    "preview": {
+      "analyzing": "ファイルの内容を分析中…",
+      "total": "合計項目数: {{count}}",
+      "invalid": "このファイルは有効な .tea ファイルではないため、インポートできません。",
+      "failed": "このファイルを分析できませんでした。このままインポートを続行できます。"
+    },
     "phase": {
       "importingV2": "インポート中",
       "parsingStructure": "Parsing structure",

@@ -111,24 +111,12 @@ describe('EventMiddleware', () => {
       params: { baseId },
       resolveData: folder,
     });
-    const deleted = run({
-      declaredEvent: Events.BASE_FOLDER_DELETE,
-      params: { baseId, folderId: folder.id },
-      resolveData: undefined,
-    });
 
     expect(created).toHaveBeenCalledWith(
       Events.BASE_FOLDER_CREATE,
       expect.objectContaining({
         name: Events.BASE_FOLDER_CREATE,
         payload: { baseId, folder },
-      })
-    );
-    expect(deleted).toHaveBeenCalledWith(
-      Events.BASE_FOLDER_DELETE,
-      expect.objectContaining({
-        name: Events.BASE_FOLDER_DELETE,
-        payload: { baseId, folderId: folder.id },
       })
     );
   });

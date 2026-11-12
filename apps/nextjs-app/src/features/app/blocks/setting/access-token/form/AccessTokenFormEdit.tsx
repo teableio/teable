@@ -17,7 +17,7 @@ export const AccessTokenFormEdit = (props: IAccessTokenFormEditProps) => {
   });
   if (isLoading) {
     return (
-      <div className="max-w-5xl space-y-3">
+      <div className="flex flex-col gap-3">
         <Skeleton className="h-8 w-full" />
         <Skeleton className="h-8 w-full" />
         <Skeleton className="h-8 w-full" />

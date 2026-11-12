@@ -1,10 +1,12 @@
 import {
   buildRecordConditionSpec,
   domainError,
+  getFormulaSourceBudget,
   replaceCurrentUserTagInFilter,
   type DomainError,
   type Field,
   type IExecutionContext,
+  type LastModifiedByField,
   type ITableReadModel,
   type RecordQueryPluginScope,
   type Table,
@@ -12,6 +14,7 @@ import {
 import {
   assertDataQueryAccess,
   dataQueryAccessForSource,
+  bindDataQueryExpressionLegacyFilter,
   DataQueryBinding,
   isBoundDataQuery,
   traceDataQueryStage,
@@ -25,6 +28,12 @@ import {
   type DataQuerySystemField,
   type IDataQueryExecutor,
 } from '@teable/v2-data-query';
+import {
+  Pg16TypeValidationStrategy,
+  defaultFormulaCompileBudgetConfig,
+  type FormulaCompileBudgetConfig,
+  type IPgTypeValidationStrategy,
+} from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
   sql,
@@ -47,6 +56,12 @@ import {
 import { buildFieldMaskSqlMap } from '../repository/buildFieldMaskSql';
 import { buildRecordWhereClause } from '../repository/buildRecordWhereClause';
 import { buildTableRecordAggregationExpression } from '../repository/TableRecordAggregationSql';
+import {
+  compileDataQueryPredicate,
+  compileDataQueryFormulaExpression,
+  type DataQueryExpressionSqlContext,
+} from './compileDataQueryExpression';
+import { dataQueryExecutionError } from './dataQueryExecutionError';
 import { normalizeDataQueryValue } from './normalizeDataQueryValue';
 
 type Row = Record<string, unknown>;
@@ -61,6 +76,88 @@ const systemColumns: Readonly<Record<DataQuerySystemField, string>> = {
 
 const failure = (code: string, message: string): DomainError =>
   domainError.validation({ code: `data_query.${code}`, message });
+
+type ExpressionSqlSource = {
+  readonly table: ITableReadModel;
+  readonly scope: RecordQueryPluginScope;
+  readonly sqlAlias: string;
+  readonly fields: ReadonlyMap<string, Field>;
+  readonly values: ReadonlyMap<string, RawBuilder<unknown>>;
+  readonly masks?: ReadonlyMap<string, Expression<SqlBool>>;
+};
+
+const expressionSqlContext = (
+  context: IExecutionContext,
+  query: BoundDataQuery,
+  sources: ReadonlyMap<string, ExpressionSqlSource>,
+  typeValidationStrategy: IPgTypeValidationStrategy,
+  formulaCompileBudget: FormulaCompileBudgetConfig
+): DataQueryExpressionSqlContext => ({
+  typeValidationStrategy,
+  formulaCompileBudget,
+  resolveFormulaField: (source, fieldId) => {
+    const binding = sources.get(source);
+    const value = binding?.values.get(fieldId);
+    const field = binding?.fields.get(fieldId);
+    if (!binding || !value || !field)
+      return err(failure('expression_compile', 'A formula field reference is not bound'));
+    const mask = binding.masks?.get(fieldId);
+    const type = field.type().toString();
+    const actorColumn =
+      type === 'createdBy'
+        ? '__created_by'
+        : type === 'lastModifiedBy' && (field as LastModifiedByField).isTrackAll()
+          ? '__last_modified_by'
+          : undefined;
+    const actorFallback = actorColumn ? sql`${sql.id(binding.sqlAlias, actorColumn)}` : undefined;
+    return ok({
+      field,
+      value,
+      ...(actorFallback
+        ? { actorIdFallback: mask ? maskValueExpression(mask, actorFallback) : actorFallback }
+        : {}),
+    });
+  },
+  resolveRowAlias: (source) => {
+    const binding = sources.get(source);
+    return binding
+      ? ok(binding.sqlAlias)
+      : err(failure('expression_compile', 'An expression source is not bound'));
+  },
+  resolveSystem: (source, system) => {
+    const binding = sources.get(source);
+    return binding
+      ? ok(sql`${sql.id(binding.sqlAlias, systemColumns[system])}`)
+      : err(failure('expression_compile', 'An expression source is not bound'));
+  },
+  resolveParameter: (name) =>
+    query.expressionParameters && Object.hasOwn(query.expressionParameters, name)
+      ? ok(query.expressionParameters[name])
+      : err(failure('missing_parameter', 'An expression parameter is missing')),
+  compileLegacyFilter: (source, filter) =>
+    safeTry(function* () {
+      const binding = sources.get(source);
+      if (!binding) return err(failure('expression_compile', 'An expression source is not bound'));
+      const bound = yield* bindDataQueryExpressionLegacyFilter(
+        filter,
+        query.expressionParameters ?? {}
+      );
+      const resolved = replaceCurrentUserTagInFilter(
+        binding.table,
+        bound,
+        context.actorId.toString()
+      );
+      yield* validateDataQueryFilter(binding.table, resolved);
+      if (resolved == null) return ok(undefined);
+      const condition = yield* buildRecordConditionSpec(
+        binding.table,
+        resolved,
+        binding.scope.fieldMasks
+      );
+      const where = yield* buildRecordWhereClause(condition, { tableAlias: binding.sqlAlias });
+      return ok(where ? sql`${where}` : undefined);
+    }),
+});
 /**
  * Compile one of the controlled bucket shapes. Labels are bound values, never
  * interpolated SQL; the stored expression is already masked before it arrives.
@@ -142,10 +239,16 @@ const parseTotal = (value: unknown): number | undefined => {
 /** Compiles stored-value reads only. No query plans, scopes or caller values are cached. */
 export class PostgresDataQueryExecutor implements IDataQueryExecutor {
   private readonly statementTimeoutMs: number;
+  private readonly typeValidationStrategy: IPgTypeValidationStrategy;
+  private readonly formulaCompileBudget: FormulaCompileBudgetConfig;
 
   constructor(
     private readonly db: Kysely<V1TeableDatabase>,
-    options: { statementTimeoutMs?: number } = {}
+    options: {
+      statementTimeoutMs?: number;
+      typeValidationStrategy?: IPgTypeValidationStrategy;
+      formulaCompileBudget?: FormulaCompileBudgetConfig;
+    } = {}
   ) {
     const timeout = options.statementTimeoutMs ?? 4000;
     if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 60_000) {
@@ -154,14 +257,22 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       );
     }
     this.statementTimeoutMs = Math.ceil(timeout);
+    this.typeValidationStrategy =
+      options.typeValidationStrategy ?? new Pg16TypeValidationStrategy();
+    this.formulaCompileBudget = options.formulaCompileBudget ?? defaultFormulaCompileBudgetConfig;
   }
 
   private prepareBinding(
+    context: IExecutionContext,
     table: ITableReadModel,
     query: BoundDataQuery,
     binding?: DataQueryBinding
   ): Result<DataQueryBinding, DomainError> {
-    return binding ? ok(binding) : DataQueryBinding.prepare(query.validatedDefinition, table);
+    return binding
+      ? ok(binding)
+      : DataQueryBinding.prepare(query.validatedDefinition, table, {
+          formulaSourceBudget: getFormulaSourceBudget(context),
+        });
   }
 
   /** Diagnostic output only: execute never accepts a compiled statement. */
@@ -172,7 +283,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     scope: RecordQueryPluginScope,
     binding?: DataQueryBinding
   ): Result<CompiledQuery<Row>, DomainError> {
-    const prepared = this.prepareBinding(table, query, binding);
+    const prepared = this.prepareBinding(context, table, query, binding);
     if (prepared.isErr()) return err(prepared.error);
     return this.buildQueries(context, table, query, scope, prepared.value).map(
       (queries) => queries.rows
@@ -195,6 +306,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
   > {
     try {
       const db = this.db;
+      const typeValidationStrategy = this.typeValidationStrategy;
+      const formulaCompileBudget = this.formulaCompileBudget;
       return safeTry(function* () {
         if (!isBoundDataQuery(query)) {
           return err(failure('invalid_bound_query', 'Query must be bound by DataQueryDefinition'));
@@ -241,20 +354,21 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           query.filter,
           context.actorId.toString()
         );
-        if (filter != null) {
+        if (plan.definitionVersion !== 3 && filter != null) {
           const condition = yield* buildRecordConditionSpec(table, filter, scope.fieldMasks);
           const where = yield* buildRecordWhereClause(condition, { tableAlias: 't' });
           if (where) predicates.push(sql`${where}`);
         }
         // A direct adapter caller cannot use skipRecordSpec to remove an already-merged scope.
+        let expressionScope: RawBuilder<unknown> | undefined;
         if (scope.recordSpec) {
           const where = yield* buildRecordWhereClause(scope.recordSpec, { tableAlias: 't' });
+          if (where) expressionScope = sql`${where}`;
           if (where) predicates.push(sql`${where}`);
         }
         const from = tableName.schema
           ? sql`${sql.id(tableName.schema, tableName.tableName)} as ${sql.id('t')}`
           : sql`${sql.id(tableName.tableName)} as ${sql.id('t')}`;
-        const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
         const visitor = new StoredFieldSelectVisitor('t');
         const values = new Map<string, RawBuilder<unknown>>();
         for (const [id, field] of fields) {
@@ -263,6 +377,23 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           const mask = masks?.get(id);
           values.set(id, mask ? maskValueExpression(mask, expression) : expression);
         }
+        const expressionContext = expressionSqlContext(
+          context,
+          query,
+          new Map([['root', { table, scope, sqlAlias: 't', fields, values, masks }]]),
+          typeValidationStrategy,
+          formulaCompileBudget
+        );
+        if (plan.predicate) {
+          const predicate = yield* compileDataQueryPredicate(plan.predicate, expressionContext);
+          if (predicate)
+            predicates.push(
+              expressionScope
+                ? sql`(case when ${expressionScope} then ${predicate} else false end)`
+                : predicate
+            );
+        }
+        const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
         const orders: RawBuilder<unknown>[] = [];
         const addOrder = (
           expression: RawBuilder<unknown>,
@@ -292,9 +423,24 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               failure('join_version', 'Relation aggregates require a relation execution plan')
             );
           }
-          const selections = plan.projections.map((projection) => {
+          // Keep native outputs for DATE ordering; other aliases sort by their
+          // selected labels without expanding expensive expressions a second time.
+          const outputValues = new Map<string, RawBuilder<unknown>>();
+          for (const projection of plan.projections) {
+            if (projection.kind === 'expression') {
+              outputValues.set(
+                projection.alias,
+                yield* compileDataQueryFormulaExpression(
+                  projection.expression,
+                  expressionContext,
+                  'display'
+                )
+              );
+              continue;
+            }
             if (projection.kind === 'system') {
-              return sql`${sql.id('t', projection.column)} as ${sql.id(projection.alias)}`;
+              outputValues.set(projection.alias, sql.id('t', projection.column));
+              continue;
             }
             if (projection.kind !== 'field' || projection.column === null)
               throw new Error('Missing field projection');
@@ -305,13 +451,26 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                   // when the view formats it as a date; convert through the declared zone.
                   buildBucketExpression(stored, projection.bucket)
                 : stored;
-            return sql`${
+            outputValues.set(
+              projection.alias,
               projection.arrayDistinct === true
                 ? buildArrayDistinctExpression(expression)
                 : expression
-            } as ${sql.id(projection.alias)}`;
+            );
+          }
+          const selections = plan.projections.map((projection) => {
+            const value = outputValues.get(projection.alias)!;
+            return sql`${value} as ${sql.id(projection.alias)}`;
           });
           for (const sort of query.sort) {
+            if ('alias' in sort) {
+              const value = outputValues.get(sort.alias);
+              if (!value) {
+                return err(failure('invalid_sort', 'A sort alias is not a selected query output'));
+              }
+              addOrder(sql.id(sort.alias), sort.order, true, sort.nulls);
+              continue;
+            }
             if ('system' in sort) {
               addOrder(sql.id('t', systemColumns[sort.system]), sort.order, true, sort.nulls);
               continue;
@@ -545,6 +704,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
   > {
     try {
       const db = this.db;
+      const typeValidationStrategy = this.typeValidationStrategy;
+      const formulaCompileBudget = this.formulaCompileBudget;
       return safeTry(function* () {
         if (!isBoundDataQuery(plan.query)) {
           return err(failure('invalid_bound_query', 'Query must be bound by DataQueryDefinition'));
@@ -606,6 +767,22 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           const mask = rootMasks?.get(id);
           rootValues.set(id, mask ? maskValueExpression(mask, expression) : expression);
         }
+        const expressionSources = new Map<string, ExpressionSqlSource>();
+        expressionSources.set('root', {
+          table: plan.rootTable,
+          scope: plan.rootScope,
+          sqlAlias: rootAlias,
+          fields: rootFields,
+          values: rootValues,
+          masks: rootMasks,
+        });
+        const expressionContext = expressionSqlContext(
+          context,
+          plan.query,
+          expressionSources,
+          typeValidationStrategy,
+          formulaCompileBudget
+        );
 
         type BoundMetric = {
           readonly source: string;
@@ -683,6 +860,20 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             const mask = masks?.get(id);
             values.set(id, mask ? maskValueExpression(mask, expression) : expression);
           }
+          expressionSources.set(source.alias, {
+            table: sourcePlan.table,
+            scope: sourcePlan.scope,
+            sqlAlias,
+            fields,
+            values,
+            masks,
+          });
+          const expressionPredicate = boundPlan.relationPredicates?.find(
+            (predicate) => predicate.source === source.alias
+          )?.predicate;
+          const expressionRestriction = expressionPredicate
+            ? yield* compileDataQueryPredicate(expressionPredicate, expressionContext)
+            : undefined;
           const relationFilter = replaceCurrentUserTagInFilter(
             sourcePlan.table,
             plan.query.relationFilters?.[source.alias],
@@ -691,16 +882,17 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           // Representative/default values were checked at prepare; bound values
           // (notably isNot + dateRange) must satisfy the same contract here.
           yield* validateDataQueryFilter(sourcePlan.table, relationFilter);
-          const filterRestriction = relationFilter
-            ? yield* buildRecordWhereClause(
-                yield* buildRecordConditionSpec(
-                  sourcePlan.table,
-                  relationFilter,
-                  sourcePlan.scope.fieldMasks
-                ),
-                { tableAlias: sqlAlias }
-              )
-            : undefined;
+          const filterRestriction =
+            boundPlan.definitionVersion !== 3 && relationFilter
+              ? yield* buildRecordWhereClause(
+                  yield* buildRecordConditionSpec(
+                    sourcePlan.table,
+                    relationFilter,
+                    sourcePlan.scope.fieldMasks
+                  ),
+                  { tableAlias: sqlAlias }
+                )
+              : undefined;
           const restriction = sourcePlan.scope.recordSpec
             ? yield* buildRecordWhereClause(sourcePlan.scope.recordSpec, {
                 tableAlias: sqlAlias,
@@ -724,6 +916,12 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           if (linkMask) restrictions.push(sql`${linkMask}`);
           if (filterRestriction) restrictions.push(sql`${filterRestriction}`);
           if (restriction) restrictions.push(sql`${restriction}`);
+          if (expressionRestriction)
+            restrictions.push(
+              restrictions.length
+                ? sql`(case when ${sql.join(restrictions, sql` and `)} then ${expressionRestriction} else false end)`
+                : expressionRestriction
+            );
           sqlSources.push({
             alias: source.alias,
             cardinality: source.cardinality,
@@ -911,7 +1109,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           plan.query.filter,
           context.actorId.toString()
         );
-        if (filter != null) {
+        if (boundPlan.definitionVersion !== 3 && filter != null) {
           const condition = yield* buildRecordConditionSpec(
             plan.rootTable,
             filter,
@@ -920,11 +1118,27 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           const where = yield* buildRecordWhereClause(condition, { tableAlias: rootAlias });
           if (where) predicates.push(sql`${where}`);
         }
+        let expressionScope: RawBuilder<unknown> | undefined;
         if (plan.rootScope.recordSpec) {
-          const where = yield* buildRecordWhereClause(plan.rootScope.recordSpec, {
+          const scoped = yield* buildRecordWhereClause(plan.rootScope.recordSpec, {
             tableAlias: rootAlias,
           });
-          if (where) predicates.push(sql`${where}`);
+          if (scoped) {
+            expressionScope = sql`${scoped}`;
+            predicates.push(expressionScope);
+          }
+        }
+        if (boundPlan.predicate) {
+          const predicate = yield* compileDataQueryPredicate(
+            boundPlan.predicate,
+            expressionContext
+          );
+          if (predicate)
+            predicates.push(
+              expressionScope
+                ? sql`(case when ${expressionScope} then ${predicate} else false end)`
+                : predicate
+            );
         }
         const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
 
@@ -1181,7 +1395,23 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           return ok({ rows, count });
         }
 
+        const expressionSelections = new Map<string, RawBuilder<unknown>>();
+        for (const projection of boundPlan.projections) {
+          if (projection.kind !== 'expression') continue;
+          expressionSelections.set(
+            projection.alias,
+            yield* compileDataQueryFormulaExpression(
+              projection.expression,
+              expressionContext,
+              'display'
+            )
+          );
+        }
         const selections = boundPlan.projections.map((projection) => {
+          if (projection.kind === 'expression') {
+            const value = expressionSelections.get(projection.alias)!;
+            return sql`${value} as ${sql.id(projection.alias)}`;
+          }
           if (projection.kind === 'aggregate') {
             const aggregateAlias = aggregateAliases.get(projection.source);
             if (!aggregateAlias) throw new Error('Missing relation aggregate source');
@@ -1283,7 +1513,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             continue;
           }
           if ('alias' in sort) {
-            addOrder(sql.id(sort.alias), sort.order, false, sort.nulls);
+            addOrder(sql.id(sort.alias), sort.order, boundPlan.definitionVersion === 3, sort.nulls);
             continue;
           }
           if ('system' in sort) {
@@ -1375,24 +1605,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               })
             );
           } catch (error) {
-            const state =
-              typeof error === 'object' &&
-              error !== null &&
-              'code' in error &&
-              typeof error.code === 'string' &&
-              /^[0-9A-Z]{5}$/.test(error.code)
-                ? error.code
-                : undefined;
-            return err(
-              domainError.infrastructure({
-                code: state === '57014' ? 'data_query.timeout' : 'data_query.execution_failed',
-                message:
-                  state === '57014'
-                    ? 'Data query exceeded its statement timeout'
-                    : 'Unable to execute data query',
-                ...(state ? { details: { sqlState: state } } : {}),
-              })
-            );
+            return err(dataQueryExecutionError(error, plan.plan.definitionVersion === 3));
           }
         }
       );
@@ -1446,7 +1659,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     scope: RecordQueryPluginScope,
     binding?: DataQueryBinding
   ): Promise<Result<DataQueryResult, DomainError>> {
-    const prepared = this.prepareBinding(table, query, binding);
+    const prepared = this.prepareBinding(context, table, query, binding);
     if (prepared.isErr()) return err(prepared.error);
     const bound = prepared.value;
     const compiled = await traceDataQueryStage(
@@ -1496,24 +1709,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               })
             );
           } catch (error) {
-            const state =
-              typeof error === 'object' &&
-              error !== null &&
-              'code' in error &&
-              typeof error.code === 'string' &&
-              /^[0-9A-Z]{5}$/.test(error.code)
-                ? error.code
-                : undefined;
-            return err(
-              domainError.infrastructure({
-                code: state === '57014' ? 'data_query.timeout' : 'data_query.execution_failed',
-                message:
-                  state === '57014'
-                    ? 'Data query exceeded its statement timeout'
-                    : 'Unable to execute data query',
-                ...(state ? { details: { sqlState: state } } : {}),
-              })
-            );
+            return err(dataQueryExecutionError(error, bound.plan.definitionVersion === 3));
           }
         }
       );

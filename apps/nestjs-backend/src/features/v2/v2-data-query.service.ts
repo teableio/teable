@@ -32,6 +32,7 @@ import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';
 import { admitDataQueryResource, type IDataQueryAdmissionDb } from './v2-data-query-admission';
 import { V2DataQueryCandidateService } from './v2-data-query-candidate.service';
+import { resolveDataQueryFormulaSqlOptions } from './v2-data-query-formula-sql';
 import { dataQueryErrorResponse, dataQueryHostError } from './v2-data-query-http';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 
@@ -83,7 +84,7 @@ export class V2DataQueryService {
       const metaDb = metadataContainer.resolve<Kysely<IDataQueryAdmissionDb>>(v2MetaDbTokens.db);
       let routingSnapshot: IDataDbRoutingSnapshot | undefined;
       const executor: IDataQueryExecutor = {
-        execute: async (executionContext, table, query, scope) => {
+        execute: async (executionContext, table, query, scope, binding) => {
           try {
             if (!routingSnapshot) throw new Error('Query resource has not been admitted');
             const snapshot = routingSnapshot;
@@ -96,9 +97,10 @@ export class V2DataQueryService {
             if (route.isErr()) return err(route.error);
             const dataContainer = route.value;
             const postgres = new PostgresDataQueryExecutor(
-              dataContainer.resolve(v2DataDbTokens.db)
+              dataContainer.resolve(v2DataDbTokens.db),
+              resolveDataQueryFormulaSqlOptions(dataContainer)
             );
-            return await postgres.execute(executionContext, table, query, scope);
+            return await postgres.execute(executionContext, table, query, scope, binding);
           } catch (error) {
             return err(dataQueryHostError(error));
           }
@@ -116,7 +118,8 @@ export class V2DataQueryService {
             if (route.isErr()) return err(route.error);
             const dataContainer = route.value;
             const postgres = new PostgresDataQueryExecutor(
-              dataContainer.resolve(v2DataDbTokens.db)
+              dataContainer.resolve(v2DataDbTokens.db),
+              resolveDataQueryFormulaSqlOptions(dataContainer)
             );
             return await postgres.executeRelation(executionContext, plan);
           } catch (error) {

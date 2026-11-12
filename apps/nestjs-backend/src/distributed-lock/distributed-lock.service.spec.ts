@@ -3,11 +3,12 @@ import type { CacheService } from '../cache/cache.service';
 import { DistributedLockService } from './distributed-lock.service';
 
 describe('DistributedLockService', () => {
-  const cache = { setnx: vi.fn(), get: vi.fn(), del: vi.fn() };
+  const cache = { setnx: vi.fn(), get: vi.fn(), del: vi.fn(), renewLock: vi.fn() };
   const newService = () => new DistributedLockService(cache as unknown as CacheService);
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   it('runs the task when the lock is acquired', async () => {
@@ -57,6 +58,29 @@ describe('DistributedLockService', () => {
     await newService().runExclusive('seed', 60, vi.fn().mockResolvedValue(undefined));
 
     expect(cache.del).not.toHaveBeenCalled();
+  });
+
+  it('renews the lock while the task runs, and no longer once it is done', async () => {
+    vi.useFakeTimers();
+    cache.setnx.mockResolvedValue(true);
+    cache.renewLock.mockResolvedValue(true);
+    let finish!: () => void;
+    const running = newService().runExclusive(
+      'seed',
+      60,
+      () => new Promise<void>((resolve) => (finish = resolve))
+    );
+    await vi.advanceTimersByTimeAsync(0);
+
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(cache.renewLock).toHaveBeenCalledWith('lock:seed', cache.setnx.mock.calls[0]?.[1], 60);
+    await vi.advanceTimersByTimeAsync(40_000);
+    expect(cache.renewLock).toHaveBeenCalledTimes(3);
+
+    finish();
+    await running;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(cache.renewLock).toHaveBeenCalledTimes(3);
   });
 
   it('runs the task anyway when acquiring the lock errors', async () => {

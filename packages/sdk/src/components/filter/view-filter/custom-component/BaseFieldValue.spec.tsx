@@ -1,4 +1,4 @@
-import { CellValueType, FieldType } from '@teable/core';
+import { CellValueType, Colors, FieldType, RatingIcon } from '@teable/core';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -39,6 +39,30 @@ describe('BaseFieldValue AutoNumber', () => {
   it('renders a numeric filter value in NumberEditor', () => {
     const { container } = renderAutoNumberFilter(50);
     expect((container.querySelector('input') as HTMLInputElement).value).toBe('50');
+  });
+});
+
+describe('BaseFieldValue Rating', () => {
+  it('selects null when the selected star is clicked again to clear the value', () => {
+    const ratingField = {
+      id: 'fldRating00000001',
+      name: 'Rating',
+      type: FieldType.Rating,
+      cellValueType: CellValueType.Number,
+      isMultipleCellValue: false,
+      options: { icon: RatingIcon.Star, color: Colors.YellowBright, max: 5 },
+    } as IFieldInstance;
+    const onSelect = vi.fn();
+    const { container } = render(
+      <BaseFieldValue field={ratingField} operator="is" value={3} onSelect={onSelect} />,
+      { wrapper }
+    );
+
+    // RatingEditor clears to undefined, which the filter schema rejects (a share
+    // view crashed on it during render)
+    fireEvent.click(container.querySelectorAll('svg')[2]);
+
+    expect(onSelect).toHaveBeenCalledWith(null);
   });
 });
 

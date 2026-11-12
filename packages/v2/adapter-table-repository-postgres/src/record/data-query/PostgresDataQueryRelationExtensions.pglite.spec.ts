@@ -222,7 +222,9 @@ describe('Postgres relation aggregates and buckets on PGlite', () => {
       ['tags', target],
       ['department', department],
     ]);
-    const binding = DataQueryRelationBinding.prepare(definition, root, targets)._unsafeUnwrap();
+    const prepared = DataQueryRelationBinding.prepare(definition, root, targets);
+    if (prepared.isErr()) throw new Error(`Relation binding: ${JSON.stringify(prepared.error)}`);
+    const binding = prepared.value;
     return {
       query: definition.bind({})._unsafeUnwrap(),
       rootTable: root,
@@ -236,6 +238,138 @@ describe('Postgres relation aggregates and buckets on PGlite', () => {
       plan: binding.plan,
     };
   };
+
+  it.each([
+    '{date} > DATETIME_PARSE("2026-02-01")',
+    'IS_AFTER({date}, DATETIME_PARSE("2026-02-01"))',
+    'IS_SAME({date}, DATETIME_PARSE("2026-02-15"), "day")',
+  ])('complements blank to-one formula predicates under NOT: %s', async (text) => {
+    const references = { date: { type: 'field', source: 'owner', fieldId: targetDueId } } as const;
+    const visibleWhen = buildRecordConditionSpec(target, {
+      fieldId: targetNameId,
+      operator: 'is',
+      value: 'Alpha',
+    })._unsafeUnwrap();
+    for (const masked of [false, true]) {
+      const scopes = masked
+        ? new Map([['owner', { fieldMasks: [{ fieldId: targetDueId, visibleWhen }] }]])
+        : new Map<string, RecordQueryPluginScope>();
+      for (const filter of [
+        { not: { type: 'formula', formula: text, references } },
+        { type: 'formula', formula: `NOT(${text})`, references },
+      ]) {
+        const definition = DataQueryDefinition.create({
+          version: 3,
+          kind: 'records',
+          tableId: rootTableId,
+          relations: { owner: { linkFieldId: ownerId, tableId: targetTableId, filter } },
+          select: [
+            { system: 'id', alias: 'id' },
+            { source: 'owner', system: 'id', alias: 'owner' },
+          ],
+          page: { limit: 10, includeTotal: true },
+        });
+        if (definition.isErr())
+          throw new Error(`Relation definition: ${JSON.stringify(definition.error)}`);
+        const executed = await executor.executeRelation(
+          context,
+          planFor(definition.value, {}, scopes)
+        );
+        if (executed.isErr()) throw new Error(`${text}: ${JSON.stringify(executed.error)}`);
+        const result = executed.value;
+        expect(result.rows).toEqual([
+          { id: 'recR1', owner: 'recT1' },
+          { id: 'recR2', owner: masked ? 'recT2' : null },
+          { id: 'recR3', owner: null },
+        ]);
+        expect(result.page?.total).toBe(3);
+      }
+    }
+  });
+
+  it.each(['expression', 'stored', 'system', 'bucket'] as const)(
+    'keeps scalar null placement for relation selected alias: %s',
+    async (kind) => {
+      const selection =
+        kind === 'expression'
+          ? {
+              expr: {
+                type: 'formula',
+                formula: '{date}',
+                references: { date: { type: 'field', source: 'owner', fieldId: targetDueId } },
+              },
+              alias: 'value',
+            }
+          : kind === 'system'
+            ? { source: 'owner', system: 'createdTime', alias: 'value' }
+            : kind === 'bucket'
+              ? {
+                  source: 'owner',
+                  fieldId: targetDueId,
+                  alias: 'value',
+                  bucket: { kind: 'dateTrunc', unit: 'day', timeZone: 'UTC' },
+                }
+              : { source: 'owner', fieldId: targetDueId, alias: 'value' };
+      for (const order of ['asc', 'desc'] as const) {
+        for (const nulls of [undefined, 'first', 'last'] as const) {
+          const definition = DataQueryDefinition.create({
+            version: 3,
+            kind: 'records',
+            tableId: rootTableId,
+            relations: { owner: { linkFieldId: ownerId, tableId: targetTableId } },
+            select: [{ system: 'id', alias: 'id' }, selection],
+            sort: [{ alias: 'value', order, ...(nulls === undefined ? {} : { nulls }) }],
+          })._unsafeUnwrap();
+          const result = (
+            await executor.executeRelation(context, planFor(definition))
+          )._unsafeUnwrap();
+          const nonNullIds =
+            order === 'asc' || kind === 'system' ? ['recR1', 'recR2'] : ['recR2', 'recR1'];
+          expect(
+            result.rows.map((row) => row.id),
+            `${order} nulls ${nulls ?? 'implicit'}`
+          ).toEqual(
+            (nulls ?? (order === 'asc' ? 'first' : 'last')) === 'first'
+              ? ['recR3', ...nonNullIds]
+              : [...nonNullIds, 'recR3']
+          );
+        }
+      }
+    }
+  );
+
+  it('preserves v2 relation alias default null ordering and explicit overrides', async () => {
+    for (const order of ['asc', 'desc'] as const) {
+      for (const nulls of [undefined, 'first', 'last'] as const) {
+        const definition = DataQueryDefinition.create({
+          version: 2,
+          kind: 'records',
+          tableId: rootTableId,
+          relations: { items: { linkFieldId: itemsId, tableId: targetTableId } },
+          select: [
+            { system: 'id', alias: 'id' },
+            { source: 'items', fieldId: amountId, statisticFunc: 'sum', alias: 'value' },
+          ],
+          sort: [{ alias: 'value', order, ...(nulls === undefined ? {} : { nulls }) }],
+        });
+        if (definition.isErr())
+          throw new Error(`V2 alias definition: ${JSON.stringify(definition.error)}`);
+        const executed = await executor.executeRelation(context, planFor(definition.value));
+        if (executed.isErr())
+          throw new Error(`V2 alias execution: ${JSON.stringify(executed.error)}`);
+        const result = executed.value;
+        const nonNullIds = order === 'asc' ? ['recR2', 'recR1'] : ['recR1', 'recR2'];
+        expect(
+          result.rows.map((row) => row.id),
+          `${order} nulls ${nulls ?? 'implicit'}`
+        ).toEqual(
+          (nulls ?? (order === 'asc' ? 'last' : 'first')) === 'first'
+            ? ['recR3', ...nonNullIds]
+            : [...nonNullIds, 'recR3']
+        );
+      }
+    }
+  });
 
   it('pre-aggregates one-many sources per root, keeping count zero and sum null', async () => {
     const definition = DataQueryDefinition.create({

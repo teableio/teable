@@ -171,7 +171,7 @@ export class BaseNodeEventFactory {
           case BaseNodeResourceType.Dashboard:
             return DashboardEventFactory.create(
               Events.DASHBOARD_DELETE,
-              { baseId, dashboardId: resourceId },
+              { baseId, dashboardId: resourceId, permanent },
               context
             );
           case BaseNodeResourceType.Workflow:

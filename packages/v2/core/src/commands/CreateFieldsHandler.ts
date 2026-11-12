@@ -21,9 +21,14 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
+import {
+  TableUpdateViewColumnMetaSpec,
+  type TableViewColumnMetaUpdate,
+} from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import type { Table } from '../domain/table/Table';
 import type { TableFieldAppender } from '../domain/table/TableFieldAppender';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
+import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { v2CoreTokens } from '../ports/tokens';
@@ -128,9 +133,10 @@ export class CreateFieldsHandler implements ICommandHandler<
 
               const plannedSideEffects = collectFieldCreationSideEffects(
                 updatedTable,
-                createdFieldsInCreationOrder,
+                command.columnMeta ? createdFieldsInInputOrder : createdFieldsInCreationOrder,
                 foreignTables,
-                domainContext
+                domainContext,
+                command.columnMeta ? {} : undefined
               );
               if (plannedSideEffects.isErr()) return err(plannedSideEffects.error);
               const executionResult = await prepareFieldOperationSideEffectPlugins({
@@ -152,9 +158,12 @@ export class CreateFieldsHandler implements ICommandHandler<
 
               const previewResult = await handler.fieldCreationSideEffectService.preview({
                 table: updatedTable,
-                fields: createdFieldsInCreationOrder,
+                fields: command.columnMeta
+                  ? createdFieldsInInputOrder
+                  : createdFieldsInCreationOrder,
                 foreignTables,
                 domainContext,
+                newFieldColumnMeta: command.columnMeta ? {} : undefined,
               });
 
               return previewResult.map(() => []);
@@ -168,9 +177,12 @@ export class CreateFieldsHandler implements ICommandHandler<
                 const sideEffectResult =
                   yield* await handler.fieldCreationSideEffectService.execute(transactionContext, {
                     table: updatedTable,
-                    fields: createdFieldsInCreationOrder,
+                    fields: command.columnMeta
+                      ? createdFieldsInInputOrder
+                      : createdFieldsInCreationOrder,
                     foreignTables,
                     domainContext,
+                    newFieldColumnMeta: command.columnMeta ? {} : undefined,
                   });
 
                 return ok(sideEffectResult.events);
@@ -242,14 +254,16 @@ export class CreateFieldsHandler implements ICommandHandler<
       return err(plannedFieldsResult.error);
     }
 
+    const columnMetaSpecResult = this.buildColumnMetaSpec(table, command);
+    if (columnMetaSpecResult.isErr()) return err(columnMetaSpecResult.error);
+
     const updateResult = table.update((mutator) =>
-      mutator.addFields(
-        plannedFieldsResult.value.map((plannedField) => plannedField.field),
-        {
-          foreignTables,
-          domainContext,
-        }
-      )
+      mutator
+        .addFields(
+          plannedFieldsResult.value.map((plannedField) => plannedField.field),
+          { foreignTables, domainContext }
+        )
+        .applySpecs(columnMetaSpecResult.value ? [columnMetaSpecResult.value] : [])
     );
     if (updateResult.isErr()) {
       return err(updateResult.error);
@@ -262,6 +276,55 @@ export class CreateFieldsHandler implements ICommandHandler<
         createdFieldsInInputOrder: inputOrder,
       })
     );
+  }
+
+  private buildColumnMetaSpec(
+    table: Table,
+    command: CreateFieldsCommand
+  ): Result<TableUpdateViewColumnMetaSpec | undefined, DomainError> {
+    const explicitColumnMeta = command.columnMeta;
+    if (!explicitColumnMeta) return ok(undefined);
+
+    return safeTry(function* () {
+      const views = table.views();
+      const viewIds = new Set(views.map((view) => view.id().toString()));
+      const fieldIds = yield* command.explicitFieldIds();
+      if (
+        fieldIds.length !== command.fields.length ||
+        Object.keys(explicitColumnMeta).length !== fieldIds.length
+      ) {
+        return err(
+          domainError.validation({ message: 'Column metadata must cover every batch field' })
+        );
+      }
+      for (const fieldId of fieldIds) {
+        const entries = explicitColumnMeta[fieldId.toString()];
+        if (
+          !entries ||
+          Object.keys(entries).length !== viewIds.size ||
+          Object.keys(entries).some((viewId) => !viewIds.has(viewId))
+        ) {
+          return err(
+            domainError.validation({ message: 'Column metadata must cover every table view' })
+          );
+        }
+      }
+
+      const updates: TableViewColumnMetaUpdate[] = [];
+      for (const view of views) {
+        // Replace entries, rather than merging native inherited visibility. Starting
+        // from the original view also leaves unrelated sparse metadata untouched.
+        const raw = (yield* view.columnMeta()).toDto();
+        for (const fieldId of fieldIds) {
+          raw[fieldId.toString()] = explicitColumnMeta[fieldId.toString()]![view.id().toString()]!;
+        }
+        const columnMeta = yield* ViewColumnMeta.create(raw);
+        for (const fieldId of fieldIds) {
+          updates.push({ viewId: view.id(), fieldId, columnMeta });
+        }
+      }
+      return ok(TableUpdateViewColumnMetaSpec.create(table, updates));
+    });
   }
 
   private planFields(

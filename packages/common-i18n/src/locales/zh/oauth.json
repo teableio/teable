@@ -45,7 +45,8 @@
       "neverUsed": "从未使用"
     },
     "clientId": {
-      "label": "客户端 ID："
+      "label": "客户端 ID：",
+      "description": "应用请求用户授权时用它来识别自己。"
     }
   },
   "formType": {
@@ -95,5 +96,6 @@
   "deleteConfirm": {
     "title": "删除 OAuth 应用",
     "description": "你确定要删除 {{name}} OAuth 应用吗？此操作无法撤销。"
-  }
+  },
+  "empty": "还没有 OAuth 应用。"
 }

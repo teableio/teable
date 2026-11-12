@@ -1195,6 +1195,10 @@
       "circularReference": "זוהתה הפניה מעגלית",
       "folderDepthLimitExceeded": "חריגה ממגבלת עומק התיקיות",
       "folderNotFound": "התיקייה לא נמצאה",
+      "folderDeleteForbidden": "אין לך הרשאה למחוק חלק מהפריטים בתיקייה זו",
+      "folderDeleteInProgress": "התיקייה נמחקת כעת, נסה שוב מאוחר יותר",
+      "folderDeletePartial": "התיקייה נמחקה רק בחלקה: {{count}} מהפריטים שלה נמצאים בסל המחזור כפריטים נפרדים. מחק את התיקייה שוב כדי לסיים",
+      "projectBusy": "מחיקת תיקייה, העברה או פעולת סל מחזור מתבצעת כעת בפרויקט הזה, נסה שוב מאוחר יותר",
       "anchorNotFound": "פריט העוגן לא נמצא",
       "nameAlreadyExists": "השם כבר קיים",
       "targetBaseRequired": "נדרש פרויקט יעד",
@@ -1592,7 +1596,8 @@
       "parentBaseTrashed": "לא ניתן לשחזר את הפריט הזה מכיוון שגם הפרויקט שמכיל אותו נמצא באשפה",
       "parentNotFound": "משאב האב לא נמצא",
       "tableNotFound": "פריט הטבלה לא נמצא באשפה",
-      "restoreFieldInvalidSnapshot": "התצורה של השדה שנמחק אינה חוקית, ולכן לא ניתן לשחזר אותו."
+      "restoreFieldInvalidSnapshot": "התצורה של השדה שנמחק אינה חוקית, ולכן לא ניתן לשחזר אותו.",
+      "folderRestorePartial": "התיקייה שוחזרה רק בחלקה: {{count}} מהטבלאות שלה חזרו לשורש הפרויקט. שחזר את התיקייה שוב כדי לסיים"
     },
     "license": {
       "invalid": "הרישיון אינו חוקי",

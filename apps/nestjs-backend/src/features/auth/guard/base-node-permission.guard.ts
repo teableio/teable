@@ -11,6 +11,7 @@ import {
   checkBaseNodePermission,
   checkBaseNodePermissionCreate,
 } from '../../base-node/base-node.permission.helper';
+import { createMissingFolderNodes } from '../../base-node/missing-folder-nodes';
 import type { IBaseNodePermissionContext } from '../../base-node/types';
 import { BaseNodeAction } from '../../base-node/types';
 import { BASE_NODE_PERMISSIONS_KEY } from '../decorators/base-node-permissions.decorator';
@@ -161,8 +162,10 @@ export class BaseNodePermissionGuard extends PermissionGuard {
       return;
     }
 
+    const ids = [...new Set(resourceIds)];
+    await createMissingFolderNodes(this.prismaService, baseId, ids, this.clsInner.get('user.id'));
     const nodes = await this.prismaService.baseNode.findMany({
-      where: { baseId, resourceId: { in: [...new Set(resourceIds)] } },
+      where: { baseId, resourceId: { in: ids } },
       select: { id: true, resourceId: true },
     });
     const resolved = new Map(nodes.map((n) => [n.resourceId, n.id]));

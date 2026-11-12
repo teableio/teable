@@ -100,6 +100,17 @@ const hostTableDeleteRegistration = (
   };
 };
 
+const tableDeleteAuthorizations = new WeakMap<
+  DependencyContainer,
+  { readonly priority: number; readonly authorization: ITableDeletePreviewAuthorization }
+>();
+
+/** The highest-ranked table delete authorization registered on a container. */
+export const getTableDeletePreviewAuthorization = (
+  container: DependencyContainer
+): ITableDeletePreviewAuthorization | undefined =>
+  tableDeleteAuthorizations.get(container)?.authorization;
+
 /**
  * Replaces only the two core delete planners on the existing registry. The registry instance is
  * already retained by OperationPreviewService, so ranked host registration is the late-binding
@@ -136,6 +147,10 @@ export const registerDeletePreviewResourceAuthorization = (
     )
   );
   if (tableResult.isErr()) throw new Error(tableResult.error.message);
+  const current = tableDeleteAuthorizations.get(container);
+  if (!current || current.priority <= options.priority) {
+    tableDeleteAuthorizations.set(container, { priority: options.priority, authorization });
+  }
 };
 
 class CommunityDeletePreviewResourceAuthorization

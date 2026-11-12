@@ -1,5 +1,5 @@
 import { MessageSquareDot, Trash } from '@teable/icons';
-import { deleteRecord, duplicateRecord } from '@teable/openapi';
+import { deleteRecord } from '@teable/openapi';
 import { useTableId, useView } from '@teable/sdk/hooks';
 import {
   cn,
@@ -18,6 +18,7 @@ import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useAddToChat } from '../../hooks/useAddToChat';
+import { useDuplicateRecord } from '../../hooks/useDuplicateRecord';
 import { useEventMenuStore } from '../hooks';
 
 export interface IMenuItemProps<T> {
@@ -45,6 +46,7 @@ export const EventMenu = () => {
   const viewId = view?.id;
   const recordMenuRef = useRef<HTMLDivElement>(null);
   const { chatEnabled, addToChat } = useAddToChat();
+  const duplicateRecord = useDuplicateRecord();
 
   const { eventId } = eventMenu ?? {};
 
@@ -72,10 +74,10 @@ export const EventMenu = () => {
         hidden: !permission.eventCreatable,
         onClick: async () => {
           if (!tableId || !viewId) return;
-          await duplicateRecord(tableId, eventId, {
-            viewId,
-            position: 'after',
-            anchorId: eventId,
+          await duplicateRecord({
+            tableId,
+            recordId: eventId,
+            order: { viewId, position: 'after', anchorId: eventId },
           });
         },
       },

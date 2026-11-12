@@ -29,6 +29,7 @@ import type {
 } from '@teable/v2-core';
 import {
   buildErrorLiteral,
+  buildUserTitleFromSnapshotSql,
   makeExpr,
   type SqlExpr,
   type SqlStorageKind,
@@ -38,7 +39,6 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
-import { buildUserTitleFromSnapshotSql } from '../userSnapshotSql';
 import type { ILateralContext, LinkOrderBy } from './ComputedFieldSelectExpressionVisitor';
 
 /**

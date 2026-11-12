@@ -1,13 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Settings, Trash2 } from '@teable/icons';
+import { MoreHorizontal, Pencil, Settings, Trash2 } from '@teable/icons';
 import type { OAuthGetListVo } from '@teable/openapi';
 import { oauthGetList, oauthDelete } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
-import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
+import {
+  SettingEmpty,
+  SettingItemIcon,
+  SettingListItem,
+  SettingSection,
+} from '@/features/app/components/setting/SettingSection';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
 
@@ -47,55 +60,66 @@ export const OAuthAppList = (props: IOAuthAppListProps) => {
 
   return (
     <div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3">
-        {oauthApps?.map((app) => (
-          <Card key={app.clientId} className="group shadow-none hover:shadow-md">
-            <CardContent className="relative flex size-full items-center gap-5 px-2 py-3">
-              <div className="relative size-16 overflow-hidden rounded-sm">
-                {app.logo ? (
-                  <img
-                    src={getPreviewUrl(app.logo)}
-                    alt={app.name}
-                    className="absolute inset-0 size-full object-contain"
-                  />
-                ) : (
-                  <TeableLogo className="size-16" />
-                )}
-              </div>
-              <div className="h-full flex-1 overflow-hidden">
-                <div className="line-clamp-2 break-words text-sm">{app.name}</div>
-                <div
-                  className="line-clamp-3 break-words text-xs text-muted-foreground"
-                  title={app.description}
-                >
-                  {app.description}
-                </div>
-              </div>
-              <div className="absolute end-2 top-2 flex items-center gap-2">
-                <Button
-                  className="h-5 p-0.5 text-destructive hover:text-destructive"
-                  variant={'ghost'}
-                  onClick={() => {
-                    setSelectedApp(app);
-                    setShowDeleteModal(true);
-                  }}
-                >
-                  <Trash2 className="size-4 shrink-0" />
-                </Button>
-                <Button
-                  className="h-5 p-0.5"
-                  variant={'ghost'}
-                  onClick={() => {
-                    onEdit(app.clientId);
-                  }}
-                >
-                  <Settings className="size-4 shrink-0" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {oauthApps && !oauthApps.length ? (
+        <SettingEmpty icon={<Settings />}>{t('oauth:empty')}</SettingEmpty>
+      ) : (
+        <SettingSection variant="list">
+          {oauthApps?.map((app) => (
+            <SettingListItem
+              key={app.clientId}
+              onClick={() => onEdit(app.clientId)}
+              media={
+                <SettingItemIcon className="relative">
+                  {app.logo ? (
+                    <img
+                      src={getPreviewUrl(app.logo)}
+                      alt={app.name}
+                      className="absolute inset-0 size-full object-contain"
+                    />
+                  ) : (
+                    <TeableLogo className="size-6" />
+                  )}
+                </SettingItemIcon>
+              }
+              title={<span className="truncate">{app.name}</span>}
+              description={
+                app.description ? (
+                  <span className="line-clamp-2 break-words" title={app.description}>
+                    {app.description}
+                  </span>
+                ) : undefined
+              }
+              meta={<span className="truncate">{app.homepage}</span>}
+              actions={
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="icon-sm" variant="ghost" aria-label={t('common:actions.more')}>
+                      <MoreHorizontal className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onEdit(app.clientId)}>
+                      <Pencil className="size-4" />
+                      {t('common:actions.edit')}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => {
+                        setSelectedApp(app);
+                        setShowDeleteModal(true);
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                      {t('common:actions.delete')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              }
+            />
+          ))}
+        </SettingSection>
+      )}
       <ConfirmDialog
         open={showDeleteModal}
         onOpenChange={setShowDeleteModal}

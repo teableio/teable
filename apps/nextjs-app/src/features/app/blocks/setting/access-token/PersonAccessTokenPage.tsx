@@ -106,7 +106,7 @@ export const PersonAccessTokenPage = () => {
         ) : undefined
       }
     >
-      <div className="flex-1 py-4">
+      <div className="max-w-5xl flex-1 py-4">
         {formType ? (
           <PersonAccessTokenForm
             accessTokenId={accessTokenId}

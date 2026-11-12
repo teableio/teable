@@ -1187,6 +1187,10 @@
       "circularReference": "循環参照が検出されました",
       "folderDepthLimitExceeded": "フォルダーの深さ制限を超えました",
       "folderNotFound": "フォルダーが見つかりません",
+      "folderDeleteForbidden": "このフォルダー内の一部の項目を削除する権限がありません",
+      "folderDeleteInProgress": "このフォルダーは削除中です。しばらくしてから再試行してください",
+      "folderDeletePartial": "フォルダの削除は途中で止まりました：{{count}} 件の項目がそれぞれゴミ箱に移動されています。フォルダをもう一度削除して完了してください",
+      "projectBusy": "このプロジェクトではフォルダーの削除、移動、またはゴミ箱の操作が進行中です。しばらくしてから再試行してください",
       "anchorNotFound": "アンカーノードが見つかりません",
       "nameAlreadyExists": "名前がすでに存在します",
       "targetBaseRequired": "移動先のプロジェクトは必須です",
@@ -1584,7 +1588,8 @@
       "parentBaseTrashed": "親プロジェクトもゴミ箱にあるため、このアイテムを復元できません",
       "parentNotFound": "親リソースが見つかりません",
       "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません",
-      "restoreFieldInvalidSnapshot": "削除されたフィールドの設定が無効なため、復元できません。"
+      "restoreFieldInvalidSnapshot": "削除されたフィールドの設定が無効なため、復元できません。",
+      "folderRestorePartial": "フォルダの復元は途中で止まりました：{{count}} 件のテーブルがプロジェクトのルートに戻っています。フォルダをもう一度復元して完了してください"
     },
     "license": {
       "invalid": "ライセンスが無効です",

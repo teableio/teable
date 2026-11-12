@@ -7,15 +7,21 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Application services that orchestrate domain behavior and coordinate ports.
 - Own cross-aggregate workflows, transactions, and event publishing boundaries.
 - Must not contain domain rules; delegate those to domain services/entities/visitors.
+- Own application/query output serialization separately from domain invariants; clipboard formatting
+  consumes domain Field definitions and initializes its date-formatting library at this layer.
 
 ## Subfolders
 
 - `projections/` - Projection types and handler decorator alias (EventHandler-based).
 - `services/` - Application service implementations (orchestration only).
+- `formatting/` - Application output serializers, including clipboard value and row formatting.
 
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe application layer scope.
+- `formatting/FieldClipboardValueVisitor.ts` - Role: output serializer; Purpose: format stored Field
+  values for clipboard/query results, including Day.js timezone/custom-pattern formatting, without
+  delegating to legacy Field instances or routing presentation dependencies through formula parsing.
 - `services/FieldCreationSideEffectService.ts` - Role: application service; Purpose: apply cross-table side effects for field creation.
 - `services/FieldDeletionSideEffectService.ts` - Role: application service; Purpose: apply cross-table side effects for field deletion.
 - `services/DeleteByRangeApplicationService.ts` - Role: application service; Purpose: share range-based delete planning, persistence, undo/redo, and progress streaming for delete-by-range handlers.

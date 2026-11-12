@@ -42,12 +42,15 @@ import type {
 } from '@teable/core';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import updateLocale from 'dayjs/plugin/updateLocale';
 import type { Knex } from 'knex';
 import { CustomHttpException } from '../../custom.exception';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
 import { escapeLikeWildcards } from '../../utils/sql-like-escape';
 import type { IDbProvider } from '../db.provider.interface';
 import type { ICellValueFilterInterface } from './cell-value-filter.interface';
+
+dayjs.extend(updateLocale);
 
 export class FieldReferenceCompatibilityException extends CustomHttpException {
   static readonly CODE = 'FIELD_REFERENCE_INCOMPATIBLE';
@@ -511,7 +514,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       mode: 'current' | 'next' | 'last',
       unit: 'week' | 'month' | 'year'
     ): [Dayjs, Dayjs] => {
-      dayjs.locale(dayjs.locale(), {
+      dayjs.updateLocale(dayjs.locale(), {
         weekStart: 1,
       });
       let cursorDate;

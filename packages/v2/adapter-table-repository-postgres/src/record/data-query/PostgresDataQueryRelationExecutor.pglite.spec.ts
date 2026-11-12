@@ -9,6 +9,8 @@ import {
 import {
   DataQueryDefinition,
   DataQueryRelationBinding,
+  type DataQueryFormulaExpression,
+  type DataQueryFormulaReference,
   type DataQueryRelationPlan,
 } from '@teable/v2-data-query';
 import { sql } from 'kysely';
@@ -35,6 +37,19 @@ const rootPhysical = 'pglite_relation_root';
 const targetPhysical = 'pglite_relation_target';
 const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
 const mapper = new DefaultTableMapper();
+const reference = (fieldId: string, source?: string): DataQueryFormulaReference => ({
+  type: 'field',
+  fieldId,
+  ...(source === undefined ? {} : { source }),
+});
+const formula = (
+  text: string,
+  references: Record<string, DataQueryFormulaReference>
+): DataQueryFormulaExpression => ({
+  type: 'formula',
+  formula: text,
+  references,
+});
 
 const rootDto = (): ITablePersistenceDTO => ({
   id: rootTableId,
@@ -195,6 +210,197 @@ describe('Postgres relation data query on PGlite', () => {
 
   afterEach(async () => {
     await database.db.destroy();
+  });
+
+  const executeExpressions = async (
+    input: unknown,
+    targetScope: RecordQueryPluginScope = {},
+    rootScope: RecordQueryPluginScope = {}
+  ) => {
+    const parsed = DataQueryDefinition.create(input);
+    if (parsed.isErr()) throw new Error(`Expression definition: ${JSON.stringify(parsed.error)}`);
+    const definition = parsed.value;
+    const prepared = DataQueryRelationBinding.prepare(
+      definition,
+      root,
+      new Map([['owner', target]])
+    );
+    if (prepared.isErr())
+      throw new Error(`Expression relation binding: ${JSON.stringify(prepared.error)}`);
+    const binding = prepared.value;
+    const bound = definition.bind({});
+    if (bound.isErr()) throw new Error(`Expression parameters: ${JSON.stringify(bound.error)}`);
+    return executor.executeRelation(context, {
+      query: bound.value,
+      rootTable: root,
+      rootScope,
+      sources: binding.sources.map((source) => ({
+        alias: source.alias,
+        table: target,
+        linkFieldId: source.linkFieldId,
+        scope: targetScope,
+      })),
+      plan: binding.plan,
+    });
+  };
+
+  it('keeps expression relation predicates in ON and combines masked to-one operands', async () => {
+    const result = await executeExpressions(
+      {
+        version: 3,
+        kind: 'records',
+        tableId: rootTableId,
+        relations: {
+          owner: {
+            linkFieldId: linkId,
+            tableId: targetTableId,
+            filter: formula('LOWER({name}) = "one"', {
+              name: reference(targetNameId, 'owner'),
+            }),
+          },
+        },
+        select: [
+          { system: 'id', alias: 'id' },
+          {
+            expr: formula('CONCATENATE({title}, ":", {secret})', {
+              title: reference(titleId),
+              secret: reference(targetSecretId, 'owner'),
+            }),
+            alias: 'display',
+          },
+        ],
+        sort: [{ alias: 'display', order: 'asc' }],
+        page: { limit: 10, includeTotal: true },
+      },
+      {
+        fieldMasks: [
+          {
+            fieldId: targetSecretId,
+            visibleWhen: buildRecordConditionSpec(target, {
+              fieldId: targetNameId,
+              operator: 'is',
+              value: 'Two',
+            })._unsafeUnwrap(),
+          },
+        ],
+      }
+    );
+    expect(result._unsafeUnwrap()).toEqual({
+      rows: [
+        { id: 'recA', display: 'Alpha:' },
+        { id: 'recB', display: 'Beta:' },
+        { id: 'recD', display: 'Delta:' },
+        { id: 'recC', display: 'Gamma:' },
+      ],
+      page: { limit: 10, offset: 0, total: 4 },
+    });
+  });
+
+  it('preserves mixed relation OR and prunes missing legacy optional leaves in place', async () => {
+    const result = await executeExpressions({
+      version: 3,
+      kind: 'records',
+      tableId: rootTableId,
+      parameters: { optionalName: { type: 'string' } },
+      relations: {
+        owner: {
+          linkFieldId: linkId,
+          tableId: targetTableId,
+          filter: {
+            conjunction: 'or',
+            items: [
+              {
+                fieldId: targetNameId,
+                operator: 'is',
+                value: { type: 'parameter', name: 'optionalName' },
+                optional: true,
+              },
+              formula('{name} = "Two"', { name: reference(targetNameId, 'owner') }),
+            ],
+          },
+        },
+      },
+      select: [
+        { system: 'id', alias: 'id' },
+        { expr: formula('{name}', { name: reference(targetNameId, 'owner') }), alias: 'name' },
+      ],
+      page: { limit: 10, includeTotal: true },
+    });
+    expect(result._unsafeUnwrap()).toEqual({
+      rows: [
+        { id: 'recA', name: null },
+        { id: 'recB', name: 'Two' },
+        { id: 'recC', name: null },
+        { id: 'recD', name: null },
+      ],
+      page: { limit: 10, offset: 0, total: 4 },
+    });
+  });
+
+  it('applies root expression WHERE before relation aggregate grouping', async () => {
+    const result = await executeExpressions({
+      version: 3,
+      kind: 'aggregate',
+      tableId: rootTableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      filter: formula('LOWER({title}) = "alpha"', { title: reference(titleId) }),
+      groupBy: [{ source: 'owner', fieldId: targetNameId, alias: 'name' }],
+      aggregates: [{ fieldId: titleId, statisticFunc: 'count', alias: 'count' }],
+      page: { limit: 10, includeTotal: true },
+    });
+    expect(result._unsafeUnwrap()).toEqual({
+      rows: [{ name: 'One', count: 1 }],
+      page: { limit: 10, offset: 0, total: 1 },
+    });
+  });
+
+  it('rejects a masked relation edge and evaluates the same predicate without the mask', async () => {
+    const input = {
+      version: 3,
+      kind: 'records',
+      tableId: rootTableId,
+      relations: {
+        owner: {
+          linkFieldId: linkId,
+          tableId: targetTableId,
+          filter: formula('LOWER({secret}) = "s1"', {
+            secret: reference(targetSecretId, 'owner'),
+          }),
+        },
+      },
+      select: [
+        { system: 'id', alias: 'id' },
+        { expr: formula('{name}', { name: reference(targetNameId, 'owner') }), alias: 'name' },
+      ],
+    };
+    const masked = await executeExpressions(
+      input,
+      {},
+      {
+        fieldMasks: [
+          {
+            fieldId: linkId,
+            visibleWhen: buildRecordConditionSpec(root, {
+              fieldId: titleId,
+              operator: 'is',
+              value: 'nobody',
+            })._unsafeUnwrap(),
+          },
+        ],
+      }
+    );
+    if (masked.isOk()) throw new Error('Expected masked relation-edge authorization failure');
+    // Existing relation admission rejects conditional link masks; it must not be
+    // relaxed to a nullable join or evaluate data-dependent target expressions first.
+    expect(masked.error).toMatchObject({ code: 'data_query.field_forbidden' });
+    // Without the mask the same ON predicate evaluates per joined target row.
+    const readable = await executeExpressions(input);
+    expect(readable._unsafeUnwrap().rows).toEqual([
+      { id: 'recA', name: 'One' },
+      { id: 'recB', name: null },
+      { id: 'recC', name: null },
+      { id: 'recD', name: null },
+    ]);
   });
 
   it('left joins a many-one link, keeps unmatched nulls, and counts roots once', async () => {
@@ -855,6 +1061,37 @@ describe('Postgres relation data query on PGlite', () => {
     const result = await executor.executeRelation(context, plan);
 
     expect(result._unsafeUnwrapErr().code).toBe('data_query.filter_operator');
+  });
+
+  it('evaluates zero-reference RECORD_ID() against the relation record row', async () => {
+    const definition = DataQueryDefinition.create({
+      version: 3,
+      kind: 'records',
+      tableId: rootTableId,
+      relations: {
+        owner: {
+          linkFieldId: linkId,
+          tableId: targetTableId,
+          filter: formula('RECORD_ID() = "recT1"', {}),
+        },
+      },
+      page: { limit: 10 },
+      select: [
+        { system: 'id', alias: 'id' },
+        { source: 'owner', fieldId: targetNameId, alias: 'ownerName' },
+      ],
+    })._unsafeUnwrap();
+    const result = await executor.executeRelation(
+      context,
+      planFor(definition, new Map([['owner', target]]), {}, new Map([['owner', {}]]))
+    );
+    if (result.isErr()) throw new Error(`Relation RECORD_ID: ${JSON.stringify(result.error)}`);
+    expect(result.value.rows).toEqual([
+      { id: 'recA', ownerName: 'One' },
+      { id: 'recB', ownerName: null },
+      { id: 'recC', ownerName: null },
+      { id: 'recD', ownerName: null },
+    ]);
   });
 
   it('keeps v1 null ordering for a nullable root field with and without relations', async () => {

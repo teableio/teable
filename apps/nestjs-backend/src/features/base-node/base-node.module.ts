@@ -17,6 +17,7 @@ import { BaseNodeController } from './base-node.controller';
 import { BaseNodeListener } from './base-node.listener';
 import { BaseNodeService } from './base-node.service';
 import { BaseNodeFolderModule } from './folder/base-node-folder.module';
+import { FolderDeletePreviewRegistrar } from './folder-delete-preview.service';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { BaseNodeFolderModule } from './folder/base-node-folder.module';
     BaseNodeMoveService,
     BaseDependencyGraphService,
     BaseNodeListener,
+    FolderDeletePreviewRegistrar,
   ],
   exports: [
     BaseNodePermissionGuard,

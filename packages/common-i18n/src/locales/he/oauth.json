@@ -45,7 +45,8 @@
       "neverUsed": "לא היה בשימוש"
     },
     "clientId": {
-      "label": "Client ID: "
+      "label": "Client ID: ",
+      "description": "מזהה את האפליקציה כשהיא מבקשת ממשתמשים לאשר אותה."
     }
   },
   "formType": {
@@ -95,5 +96,6 @@
   "deleteConfirm": {
     "title": "מחיקת אפליקציית OAuth",
     "description": "האם למחוק את אפליקציית ה-OAuth {{name}}? לא ניתן לבטל את הפעולה."
-  }
+  },
+  "empty": "אין עדיין אפליקציות OAuth."
 }

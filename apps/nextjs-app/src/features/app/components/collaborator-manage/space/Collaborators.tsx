@@ -19,7 +19,6 @@ import {
 import { ReactQueryKeys, useSession } from '@teable/sdk';
 import {
   Button,
-  Input,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -32,6 +31,11 @@ import type { FC, PropsWithChildren } from 'react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSeatConfirm } from '../../../hooks/useSeatConfirm';
 import { CollaboratorTable } from '../../collaborator/share/common/CollaboratorTable';
+import {
+  SettingSearchInput,
+  SettingToolbar,
+  SettingToolbarSpacer,
+} from '../../setting/SettingSection';
 import { useFilteredRoleStatic as useFilteredBaseRoleStatic } from '../base/useFilteredRoleStatic';
 import { useFilteredRoleStatic } from './useFilteredRoleStatic';
 
@@ -281,19 +285,25 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   );
 
   return (
-    <div className="flex size-full flex-col">
-      <div className="mb-4 flex w-full items-center gap-x-4">
-        <Input
+    <div className="flex flex-col gap-3">
+      <SettingToolbar>
+        <SettingSearchInput
           type="search"
+          className="sm:w-80"
           placeholder={t('invite.dialog.collaboratorSearchPlaceholder')}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
         />
-        {children}
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col">
+        {children && (
+          <>
+            <SettingToolbarSpacer />
+            {children}
+          </>
+        )}
+      </SettingToolbar>
+      <div className="flex flex-col">
         <CollaboratorTable
           groupByPrincipal
           uniqueList={collaborators}
@@ -310,6 +320,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
           onDelete={handleDelete}
           onDeletePrincipal={handleDeletePrincipal}
           renderTips={renderTips}
+          rowActionsAsMenu
         />
       </div>
     </div>

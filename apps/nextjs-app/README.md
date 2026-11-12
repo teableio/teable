@@ -112,3 +112,16 @@ icon (or a generic resource icon) beside its name.
 
 Focused coverage lives in `src/features/app/blocks/base/base-side-bar/CommandPalette*.spec.tsx`,
 `usePalette*.spec.tsx`, `command-palette-utils.spec.ts`, and `palette-recent.spec.ts`.
+
+## Table chart field values
+
+Dashboard and table-panel table charts request JSON cell values. Their query response carries
+plain field metadata; `ChartTable` hydrates it with the SDK field factory once per column before
+rendering `CellValue`. Text, multi-value URL lists and string formulas retain the SDK formatting
+and link detection, while aggregate columns without field metadata render their result directly.
+
+Run the focused component integration coverage with:
+
+```sh
+pnpm --filter @teable/app exec vitest run src/features/app/blocks/chart/components/chart/chart-show/table/ChartTable.spec.tsx
+```

@@ -2,6 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  FieldClipboardValueVisitor,
+  stringifyClipboardRows,
+} from '../application/formatting/FieldClipboardValueVisitor';
 import { mergeOrderBy, resolveGroupByToOrderBy, resolveOrderBy } from '../commands/shared/orderBy';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
@@ -9,10 +13,6 @@ import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { Field } from '../domain/table/fields/Field';
-import {
-  FieldClipboardValueVisitor,
-  stringifyClipboardRows,
-} from '../domain/table/fields/visitors/FieldClipboardValueVisitor';
 import type { ViewSelectionCopyPlan } from '../domain/table/methods/createViewSelectionCopyPlan';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';

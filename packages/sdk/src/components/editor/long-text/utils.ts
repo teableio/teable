@@ -1,5 +1,6 @@
 import type { Editor } from '@milkdown/core';
-import { editorViewCtx, serializerCtx } from '@milkdown/core';
+import { editorViewCtx, parserCtx, serializerCtx } from '@milkdown/core';
+import type { Node as ProseNode } from '@milkdown/prose/model';
 import removeMd from 'remove-markdown';
 
 const escapedAutolinkRegExp = /\\<(https?\\?:\/\/[^>]+)>/g;
@@ -48,17 +49,32 @@ export const stripMarkdown = (text: string, options?: { keepLines?: boolean }): 
   return removeMd(normalized).replace(/\n+/g, ' ').trim();
 };
 
+const parsesTo = (doc: ProseNode, parse: () => ProseNode): boolean => {
+  try {
+    return doc.eq(parse());
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Synchronously read current markdown from a milkdown editor instance,
  * bypassing the debounced listener. Returns `undefined` if the editor
  * is not ready.
+ *
+ * The serializer rewrites equivalent markdown (`-` bullets become `*`, blank
+ * lines appear before lists, ...). Pass the text the editor was loaded with as
+ * `original`: when the document still parses to the same content, that text is
+ * returned as is, so merely focusing and leaving the editor saves nothing (T5237).
  */
-export const getEditorMarkdown = (editor: Editor): string | undefined => {
+export const getEditorMarkdown = (editor: Editor, original?: string): string | undefined => {
   try {
     return editor.action((ctx) => {
-      const serializer = ctx.get(serializerCtx);
-      const view = ctx.get(editorViewCtx);
-      return sanitizeMarkdownBreaks(serializer(view.state.doc));
+      const doc = ctx.get(editorViewCtx).state.doc;
+      if (original != null && parsesTo(doc, () => ctx.get(parserCtx)(original))) {
+        return original;
+      }
+      return sanitizeMarkdownBreaks(ctx.get(serializerCtx)(doc));
     });
   } catch {
     return undefined;

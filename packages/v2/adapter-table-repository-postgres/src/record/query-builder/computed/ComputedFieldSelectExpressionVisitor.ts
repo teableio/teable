@@ -1,6 +1,5 @@
 import { inspectFormulaStructure } from '@teable/formula';
 import {
-  CellValueType,
   FieldType,
   FieldValueTypeVisitor,
   type AttachmentField,
@@ -34,18 +33,15 @@ import {
   type UserField,
 } from '@teable/v2-core';
 import {
-  extractJsonScalarText,
-  normalizeToJsonArrayWithStrategy,
   FormulaSqlPgTranslator,
   FormulaCompileBudget,
   defaultFormulaCompileBudgetConfig,
   resolveFormulaCompileBudget,
   type FormulaCompileBudgetConfig,
   isFormulaCompileBudgetError,
-  guardFormulaValueSql,
+  finalizeFormulaOutputSql,
   type IPgTypeValidationStrategy,
   type SqlExpr,
-  type SqlValueType,
 } from '@teable/v2-formula-sql-pg';
 import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
@@ -141,30 +137,6 @@ const normalizeComputedNullCastType = (value: string): string => {
     default:
       return normalized.toLowerCase();
   }
-};
-
-const extractFirstKnownJsonScalarText = (
-  valueSql: string,
-  budget: FormulaCompileBudget
-): string => {
-  const normalizedJson = budget.sql`(SELECT CASE
-    WHEN _arr.v IS NULL THEN '[]'::jsonb
-    WHEN jsonb_typeof(_arr.v) = 'null' THEN '[]'::jsonb
-    WHEN jsonb_typeof(_arr.v) = 'array' THEN _arr.v
-    ELSE jsonb_build_array(_arr.v)
-  END
-  FROM (
-    SELECT CASE
-      WHEN (${valueSql}) IS NULL THEN NULL::jsonb
-      ELSE (${valueSql})::jsonb
-    END AS v
-  ) AS _arr)`;
-
-  return budget.sql`(SELECT CASE
-    WHEN _elem.v IS NULL OR jsonb_typeof(_elem.v) = 'null' THEN NULL
-    ELSE ${extractJsonScalarText('_elem.v', budget)}
-  END
-  FROM (SELECT (${normalizedJson} -> 0) AS v) AS _elem)`;
 };
 
 export interface ComputedFieldSelectExpressionVisitorOptions {
@@ -444,64 +416,19 @@ export class ComputedFieldSelectExpressionVisitor implements IFieldVisitor<
             }
             const expr = translated.value;
 
-            const isMultipleResult = field
-              .isMultipleCellValue()
-              .map((multiplicity) => multiplicity.isMultiple());
-            if (isMultipleResult.isErr()) {
-              return this.typedNullColumn(field, colAlias);
-            }
-            const formulaIsMultiple = isMultipleResult.value;
-
-            const typedSql = translator.renderExpression(expr, (expr, budget) => {
-              // Note: Formula fields can be scalar or array (jsonb) depending on their inferred result type.
-              // Only unwrap arrays when the formula field itself is scalar.
-              let finalValueSql: string;
-
-              if (expr.storageKind === 'json' && this.shouldExtractJsonDisplay(expr)) {
-                if (formulaIsMultiple) {
-                  finalValueSql = this.extractJsonArrayToTextJsonb(expr.valueSql, budget);
-                } else if (expr.isArray) {
-                  finalValueSql = this.unwrapFormulaArrayToScalar(
-                    expr.valueSql,
-                    expr.valueType,
-                    budget
-                  );
-                } else {
-                  finalValueSql = extractJsonScalarText(
-                    budget.sql`(${expr.valueSql})::jsonb`,
-                    budget
-                  );
-                }
-              } else if (expr.isArray && !formulaIsMultiple) {
-                finalValueSql = this.unwrapFormulaArrayToScalar(
-                  expr.valueSql,
-                  expr.valueType,
-                  budget
-                );
-              } else if (expr.storageKind === 'json' && !formulaIsMultiple) {
-                finalValueSql = this.unwrapFormulaJsonScalar(expr.valueSql, expr.valueType, budget);
-              } else {
-                finalValueSql = expr.valueSql;
-              }
-
-              const fieldValueTypeResult = field.accept(new FieldValueTypeVisitor());
-              if (
-                fieldValueTypeResult.isOk() &&
-                !formulaIsMultiple &&
-                fieldValueTypeResult.value.cellValueType.equals(CellValueType.number())
-              ) {
-                finalValueSql = budget.sql`NULLIF(BTRIM((${finalValueSql})::text), '')::double precision`;
-              }
-
-              return guardFormulaValueSql(
-                finalValueSql,
-                expr,
-                fieldValueTypeResult.isOk() &&
-                  !formulaIsMultiple &&
-                  fieldValueTypeResult.value.cellValueType.equals(CellValueType.string()),
+            const outputType = field.accept(new FieldValueTypeVisitor());
+            if (outputType.isErr()) return this.typedNullColumn(field, colAlias);
+            const typedSql = translator.renderExpression(expr, (value, budget) =>
+              finalizeFormulaOutputSql(
+                value,
+                {
+                  valueType: outputType.value.cellValueType,
+                  multiplicity: outputType.value.isMultipleCellValue,
+                },
+                this.typeValidationStrategy,
                 budget
-              );
-            });
+              )
+            );
             return typedSql.map((value) => sql.raw(value).as(colAlias));
           })
         )
@@ -513,76 +440,6 @@ export class ComputedFieldSelectExpressionVisitor implements IFieldVisitor<
     if (!this.preferStoredLastModifiedFormula) return false;
     const hasParams = field.expression().hasLastModifiedTimeParams();
     return hasParams.isOk() && hasParams.value;
-  }
-
-  /**
-   * Unwrap a jsonb array formula result to a scalar value.
-   * Extracts the first element and casts to the appropriate type.
-   */
-  private unwrapFormulaArrayToScalar(
-    valueSql: string,
-    valueType: SqlValueType,
-    budget: FormulaCompileBudget
-  ): string {
-    // Formula array results are already emitted as JSON/jsonb expressions by the translator.
-    // Keep the unwrap path lightweight and only add a typed NULL/jsonb guard here.
-    const firstElemText = extractFirstKnownJsonScalarText(valueSql, budget);
-
-    switch (valueType) {
-      case 'number':
-        // Cast to numeric, handle empty string as NULL
-        return budget.sql`NULLIF(${firstElemText}, '')::double precision`;
-      case 'boolean':
-        return budget.sql`(${firstElemText})::boolean`;
-      case 'datetime':
-        return budget.sql`(${firstElemText})::timestamptz`;
-      case 'string':
-      default:
-        return firstElemText;
-    }
-  }
-  private unwrapFormulaJsonScalar(
-    valueSql: string,
-    valueType: SqlValueType,
-    budget: FormulaCompileBudget
-  ): string {
-    const scalarText = extractJsonScalarText(budget.sql`(${valueSql})::jsonb`, budget);
-
-    switch (valueType) {
-      case 'number':
-        return budget.sql`NULLIF(${scalarText}, '')::double precision`;
-      case 'boolean':
-        return budget.sql`(${scalarText})::boolean`;
-      case 'datetime':
-        return budget.sql`(${scalarText})::timestamptz`;
-      case 'string':
-      default:
-        return scalarText;
-    }
-  }
-
-  private shouldExtractJsonDisplay(expr: SqlExpr): boolean {
-    const referenced = expr.field;
-    if (!referenced) return false;
-
-    const type = referenced.type();
-    return (
-      type.equals(FieldType.link()) ||
-      type.equals(FieldType.button()) ||
-      type.equals(FieldType.user())
-    );
-  }
-
-  private extractJsonArrayToTextJsonb(valueSql: string, budget: FormulaCompileBudget): string {
-    const normalized = normalizeToJsonArrayWithStrategy(
-      valueSql,
-      this.typeValidationStrategy,
-      budget
-    );
-    return budget.sql`(
-      SELECT jsonb_agg(to_jsonb(${extractJsonScalarText('elem', budget)}) ORDER BY ord)
-      FROM jsonb_array_elements(${normalized}) WITH ORDINALITY AS _jae(elem, ord)
-    )`;
   }
 
   // Link-based fields - need lateral join

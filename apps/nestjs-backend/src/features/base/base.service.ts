@@ -1077,6 +1077,22 @@ export class BaseService {
     await prisma.baseNode.deleteMany({
       where: { baseId },
     });
+    const folders = await prisma.baseNodeFolder.findMany({
+      where: { baseId, deletedTime: { not: null } },
+      select: { id: true },
+    });
+    if (folders.length) {
+      const folderIds = folders.map(({ id }) => id);
+      // The items inside them too: the retention sweep leaves those to their folder's entry.
+      await prisma.trash.deleteMany({
+        where: {
+          OR: [
+            { resourceType: ResourceType.Folder, resourceId: { in: folderIds } },
+            { parentId: { in: folderIds } },
+          ],
+        },
+      });
+    }
     await prisma.baseNodeFolder.deleteMany({
       where: { baseId },
     });
@@ -1716,6 +1732,12 @@ export class BaseService {
     const {
       base: { id, spaceId, name },
       nodeIdMap,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      appIdMap,
+      workflowIdMap,
+      dashboardIdMap,
     } = await this.baseDuplicateV2Service.duplicateBase(
       {
         fromBaseId: baseId,
@@ -1734,6 +1756,8 @@ export class BaseService {
       spaceId,
       name: baseDisplayName(name),
       nodeIdMap,
+      // Source-to-snapshot ids, for submission data that names resources of the project.
+      idMaps: { tableIdMap, fieldIdMap, viewIdMap, appIdMap, workflowIdMap, dashboardIdMap },
     };
   }
 

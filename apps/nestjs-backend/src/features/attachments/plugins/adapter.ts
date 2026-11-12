@@ -40,6 +40,7 @@ export default abstract class StorageAdapter {
       case UploadType.Template:
       case UploadType.ChatDataVisualizationCode:
       case UploadType.SpaceAvatar:
+      case UploadType.Mcp:
         return storageConfig().publicBucket;
       default:
         throw new CustomHttpException('Invalid upload type', HttpErrorCode.VALIDATION_ERROR, {
@@ -96,6 +97,8 @@ export default abstract class StorageAdapter {
         return 'artifact-thumbnail';
       case UploadType.UserDataExport:
         return 'user-data-export';
+      case UploadType.Mcp:
+        return 'mcp';
       default:
         throw new CustomHttpException('Invalid upload type', HttpErrorCode.VALIDATION_ERROR, {
           localization: {
@@ -139,6 +142,7 @@ export default abstract class StorageAdapter {
       // max-age, so keep it short.
       case UploadType.Avatar:
       case UploadType.SpaceAvatar:
+      case UploadType.Mcp:
       case UploadType.Logo:
       case UploadType.Plugin:
         return 'public, max-age=3600';

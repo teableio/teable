@@ -7,11 +7,11 @@ import { useMemo } from 'react';
 import { LanguagePicker } from '../LanguagePicker';
 import { InteractionSelect } from './InteractionSelect';
 import { Notifications } from './Notifications';
-import { SettingGroup, SettingRow } from './SettingGroup';
+import { SettingItem, SettingSection, SettingStack } from './SettingSection';
 import { SettingTabShell } from './SettingTabShell';
 
 // One width for every select on the page, so they line up down the right edge
-const SELECT_CLASS_NAME = 'w-full sm:w-48';
+const SELECT_CLASS_NAME = 'w-full sm:w-64';
 
 export const System: React.FC = () => {
   const { t } = useTranslation('common');
@@ -35,11 +35,15 @@ export const System: React.FC = () => {
   ];
 
   return (
-    <SettingTabShell title={t('settings.setting.title')}>
-      <div className="flex max-w-3xl flex-col gap-8">
-        <SettingGroup title={t('settings.setting.interfaceTitle')}>
-          <SettingRow
+    <SettingTabShell
+      title={t('settings.setting.title')}
+      description={t('settings.setting.description')}
+    >
+      <SettingStack>
+        <SettingSection title={t('settings.setting.interfaceTitle')}>
+          <SettingItem
             label={t('settings.setting.theme')}
+            description={t('settings.setting.themeDesc')}
             action={
               // Manual activation: a tab only switches on click or Enter. Selecting on focus would
               // switch again right after the click, and arrowing across would repaint each theme
@@ -60,19 +64,21 @@ export const System: React.FC = () => {
               </Tabs>
             }
           />
-          <SettingRow
+          <SettingItem
             label={t('settings.setting.language')}
+            description={t('settings.setting.languageDesc')}
             action={<LanguagePicker className={SELECT_CLASS_NAME} />}
           />
           {isSupportsMultiplePointers && (
-            <SettingRow
+            <SettingItem
               label={t('settings.setting.interactionMode')}
+              description={t('settings.setting.interactionModeDesc')}
               action={<InteractionSelect className={SELECT_CLASS_NAME} />}
             />
           )}
-        </SettingGroup>
+        </SettingSection>
         <Notifications />
-      </div>
+      </SettingStack>
     </SettingTabShell>
   );
 };

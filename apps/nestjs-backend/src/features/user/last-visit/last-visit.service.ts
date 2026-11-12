@@ -494,6 +494,7 @@ export class LastVisitService {
       .where('ulv.resource_type', LastVisitResourceType.Dashboard)
       .where('ulv.parent_resource_id', parentResourceId)
       .whereNotNull('v.id')
+      .whereNull('v.deleted_time')
       .orderBy('ulv.last_visit_time', 'desc')
       .limit(1);
 
@@ -515,6 +516,7 @@ export class LastVisitService {
       },
       where: {
         baseId: parentResourceId,
+        deletedTime: null,
       },
     });
 

@@ -3,6 +3,7 @@ import type { DomainError } from '@teable/v2-core';
 import type { IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import dayjs, { type Dayjs, type ManipulateType } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone.js';
+import updateLocale from 'dayjs/plugin/updateLocale.js';
 import utc from 'dayjs/plugin/utc.js';
 import { sql, type RawBuilder } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
@@ -11,6 +12,7 @@ import { match } from 'ts-pattern';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+dayjs.extend(updateLocale);
 
 type Primitive = string | number | boolean;
 
@@ -761,7 +763,7 @@ const resolveDateRange = (
       relativeMode: 'current' | 'next' | 'last',
       unit: 'week' | 'month' | 'year'
     ): [Dayjs, Dayjs] => {
-      dayjs.locale(dayjs.locale(), {
+      dayjs.updateLocale(dayjs.locale(), {
         weekStart: 1,
       });
       const cursorDate = match(relativeMode)

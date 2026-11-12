@@ -1,5 +1,5 @@
 import { FieldType, type DomainError, type Field } from '@teable/v2-core';
-import { sqlText, type FormulaCompileBudget } from '@teable/v2-formula-sql-pg';
+import { buildUserSnapshotObjectSql } from '@teable/v2-formula-sql-pg';
 import { sql, type RawBuilder } from 'kysely';
 import { ok, type Result } from 'neverthrow';
 
@@ -38,31 +38,6 @@ export interface UserSnapshotActorFallback {
   actorName?: string | null;
   actorEmail?: string | null;
 }
-
-const scalarTextFromJsonSql = (jsonExpr: string, budget?: FormulaCompileBudget): string =>
-  (budget?.sql ?? sqlText)`(${jsonExpr} #>> '{}')`;
-
-const buildUserSnapshotObjectSql = (snapshotRef: string, budget?: FormulaCompileBudget): string => {
-  const text = budget?.sql ?? sqlText;
-  const snapshotJson = text`to_jsonb(${snapshotRef})`;
-  const scalarText = scalarTextFromJsonSql(snapshotJson, budget);
-  return text`(CASE
-    WHEN ${snapshotRef} IS NULL THEN NULL::jsonb
-    WHEN jsonb_typeof(${snapshotJson}) = 'object' THEN ${snapshotJson}
-    ELSE jsonb_build_object('id', ${scalarText}, 'title', ${scalarText})
-  END)`;
-};
-
-export const buildUserTitleFromSnapshotSql = (
-  snapshotRef: string,
-  idFallbackRef?: string,
-  budget?: FormulaCompileBudget
-): string => {
-  const text = budget?.sql ?? sqlText;
-  const snapshotObject = buildUserSnapshotObjectSql(snapshotRef, budget);
-  const fallback = idFallbackRef ?? text`${snapshotObject}->>'id'`;
-  return text`COALESCE(${snapshotObject}->>'title', ${snapshotObject}->>'name', ${snapshotObject}->>'id', ${fallback})`;
-};
 
 export const buildUserJsonObjectFromSnapshotSql = (
   snapshotRef: string,

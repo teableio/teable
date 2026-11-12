@@ -1191,6 +1191,10 @@
       "circularReference": "Döngüsel referans algılandı",
       "folderDepthLimitExceeded": "Klasör derinlik sınırı aşıldı",
       "folderNotFound": "Klasör bulunamadı",
+      "folderDeleteForbidden": "Bu klasördeki bazı öğeleri silme izniniz yok",
+      "folderDeleteInProgress": "Bu klasör siliniyor, daha sonra tekrar deneyin",
+      "folderDeletePartial": "Klasör yalnızca kısmen silindi: öğelerinden {{count}} tanesi çöp kutusunda ayrı ayrı duruyor. Tamamlamak için klasörü yeniden silin",
+      "projectBusy": "Bu projede bir klasör silme, taşıma veya çöp kutusu işlemi sürüyor, daha sonra tekrar deneyin",
       "anchorNotFound": "Bağlantı düğümü bulunamadı",
       "nameAlreadyExists": "İsim zaten mevcut",
       "targetBaseRequired": "Hedef proje gereklidir",
@@ -1588,7 +1592,8 @@
       "parentBaseTrashed": "Üst proje de çöp kutusunda olduğu için bu öğe geri yüklenemiyor",
       "parentNotFound": "Üst kaynak bulunamadı",
       "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı",
-      "restoreFieldInvalidSnapshot": "Silinen alanın yapılandırması geçersiz olduğundan alan geri yüklenemez."
+      "restoreFieldInvalidSnapshot": "Silinen alanın yapılandırması geçersiz olduğundan alan geri yüklenemez.",
+      "folderRestorePartial": "Klasör yalnızca kısmen geri yüklendi: tablolarından {{count}} tanesi projenin kök dizinine döndü. Tamamlamak için klasörü yeniden geri yükleyin"
     },
     "license": {
       "invalid": "Lisans geçersiz",

@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAccessTokenPreset } from '@teable/core';
-import { ArrowDown, ArrowUp, ArrowUpDown } from '@teable/icons';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from '@teable/icons';
 import { deleteAccessToken, listAccessToken } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
@@ -11,14 +19,19 @@ import {
   TableHead,
   TableBody,
   TableCell,
-  TableCaption,
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Input,
   cn,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import { SettingEmpty } from '@/features/app/components/setting/SettingSection';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
 
 export const PersonAccessTokenListQueryKey = 'person-access-token-list';
@@ -35,10 +48,12 @@ const isNeverExpires = (expiredTime: string) =>
 interface IAccessTokenListProps {
   newToken?: string;
   onEdit: (id: string) => void;
+  /** Shown as the empty state's action. */
+  onCreate?: () => void;
 }
 
 export const AccessTokenList = (props: IAccessTokenListProps) => {
-  const { newToken: defaultNewToken, onEdit } = props;
+  const { newToken: defaultNewToken, onEdit, onCreate } = props;
   const newTokenRef = useRef<string | undefined>(defaultNewToken);
   const newToken = newTokenRef.current;
   const [sort, setSort] = useState<{ key: ISortKey; desc: boolean }>();
@@ -137,105 +152,139 @@ export const AccessTokenList = (props: IAccessTokenListProps) => {
   };
 
   return (
-    <>
+    <div className="flex flex-col gap-4">
       {newToken && (
-        <div className="rounded border border-green-300 bg-green-300/20 p-3 text-sm dark:border-green-700 dark:bg-green-700/20">
-          <div>{t('token:new.success.title')}</div>
-          <div className="mb-4 mt-2">{t('token:new.success.description')}</div>
-          <div className="flex items-center gap-3">
-            <Input className="w-[26rem] text-muted-foreground" readOnly value={newToken} />
+        <div className="rounded-lg border border-green-300 bg-green-300/20 p-4 text-sm dark:border-green-700 dark:bg-green-700/20">
+          <div className="font-medium">{t('token:new.success.title')}</div>
+          <div className="mb-3 mt-1 text-muted-foreground">
+            {t('token:new.success.description')}
+          </div>
+          <div className="flex items-center gap-2">
+            <Input className="w-full text-muted-foreground sm:w-96" readOnly value={newToken} />
             <CopyButton variant="outline" text={newToken} size="xs" iconClassName="size-4" />
           </div>
         </div>
       )}
-      <Table>
-        {!listResult?.length && (
-          <TableCaption className="text-center">{t('token:empty.list')}</TableCaption>
-        )}
-        <TableHeader className="sticky top-0 z-10 bg-background">
-          <TableRow className="bg-muted hover:bg-muted">
-            <TableHead>{t('token:name')}</TableHead>
-            <TableHead>{t('token:access')}</TableHead>
-            <TableHead>{t('token:permission.title')}</TableHead>
-            <TableHead>{t('token:createdTime')}</TableHead>
-            {sortableHead('expiredTime', t('token:expiration'))}
-            {sortableHead('lastUsedTime', t('token:lastUse'))}
-            <TableHead></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedList?.map(
-            ({
-              id,
-              name,
-              baseIds,
-              spaceIds,
-              hasFullAccess,
-              scopes,
-              expiredTime,
-              lastUsedTime,
-              createdTime,
-            }) => {
-              const accessArr: string[] = [];
-              if (hasFullAccess) {
-                accessArr.push(t('token:accessScope.all'));
-              } else {
-                if (baseIds?.length) {
-                  accessArr.push(`${baseIds.length} ${t('common:noun.base')}`);
+      {listResult && !listResult.length ? (
+        <SettingEmpty
+          action={
+            onCreate && (
+              <Button size="sm" variant="outline" onClick={onCreate}>
+                <Plus className="size-4 shrink-0" />
+                {t('token:new.button')}
+              </Button>
+            )
+          }
+        >
+          {t('token:empty.list')}
+        </SettingEmpty>
+      ) : (
+        // Scrolls sideways when the column is narrower than the table; cells keep to one line.
+        <div className="overflow-x-auto rounded-lg border">
+          <Table className="[&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+            <TableHeader>
+              <TableRow className="bg-muted hover:bg-muted">
+                <TableHead>{t('token:name')}</TableHead>
+                <TableHead>{t('token:access')}</TableHead>
+                <TableHead>{t('token:permission.title')}</TableHead>
+                <TableHead>{t('token:createdTime')}</TableHead>
+                {sortableHead('expiredTime', t('token:expiration'))}
+                {sortableHead('lastUsedTime', t('token:lastUse'))}
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedList?.map(
+                ({
+                  id,
+                  name,
+                  baseIds,
+                  spaceIds,
+                  hasFullAccess,
+                  scopes,
+                  expiredTime,
+                  lastUsedTime,
+                  createdTime,
+                }) => {
+                  const accessArr: string[] = [];
+                  if (hasFullAccess) {
+                    accessArr.push(t('token:accessScope.all'));
+                  } else {
+                    if (baseIds?.length) {
+                      accessArr.push(`${baseIds.length} ${t('common:noun.base')}`);
+                    }
+                    if (spaceIds?.length) {
+                      accessArr.push(`${spaceIds.length} ${t('common:noun.space')}`);
+                    }
+                  }
+                  const preset = getAccessTokenPreset(scopes);
+                  return (
+                    <TableRow key={id}>
+                      <TableCell>
+                        <Button
+                          className="h-auto p-0 font-medium text-foreground"
+                          variant="link"
+                          size="sm"
+                          onClick={() => onEdit(id)}
+                        >
+                          {name}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        {accessArr.length ? accessArr.join(', ') : t('token:empty.access')}
+                      </TableCell>
+                      <TableCell title={scopes.join('; ')}>
+                        <span
+                          className={cn(
+                            'whitespace-nowrap rounded-full border px-2 py-0.5 text-xs',
+                            !preset && 'border-amber-500/40 text-amber-600'
+                          )}
+                        >
+                          {preset
+                            ? t(`token:permission.presets.${preset}.name`)
+                            : t('token:permission.custom')}
+                        </span>
+                      </TableCell>
+                      <TableCell>{new Date(createdTime).toLocaleDateString()}</TableCell>
+                      <TableCell>{renderExpiration(expiredTime)}</TableCell>
+                      <TableCell>
+                        {lastUsedTime ? new Date(lastUsedTime).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell className="text-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              aria-label={t('common:actions.more')}
+                            >
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => onEdit(id)}>
+                              <Pencil className="size-4" />
+                              {t('common:actions.edit')}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteId(id)}
+                            >
+                              <Trash2 className="size-4" />
+                              {t('common:actions.delete')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
                 }
-                if (spaceIds?.length) {
-                  accessArr.push(`${spaceIds.length} ${t('common:noun.space')}`);
-                }
-              }
-              const preset = getAccessTokenPreset(scopes);
-              return (
-                <TableRow key={id}>
-                  <TableCell>
-                    <Button
-                      className="underline"
-                      variant={'link'}
-                      size={'sm'}
-                      onClick={() => onEdit(id)}
-                    >
-                      {name}
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    {accessArr.length ? accessArr.join(', ') : t('token:empty.access')}
-                  </TableCell>
-                  <TableCell title={scopes.join('; ')}>
-                    <span
-                      className={cn(
-                        'whitespace-nowrap rounded-full border px-2 py-0.5 text-xs',
-                        !preset && 'border-amber-500/40 text-amber-600'
-                      )}
-                    >
-                      {preset
-                        ? t(`token:permission.presets.${preset}.name`)
-                        : t('token:permission.custom')}
-                    </span>
-                  </TableCell>
-                  <TableCell>{new Date(createdTime).toLocaleDateString()}</TableCell>
-                  <TableCell>{renderExpiration(expiredTime)}</TableCell>
-                  <TableCell>
-                    {lastUsedTime ? new Date(lastUsedTime).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size={'sm'}
-                      variant="outline"
-                      className="h-7 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                      onClick={() => setDeleteId(id)}
-                    >
-                      {t('common:actions.delete')}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            }
-          )}
-        </TableBody>
-      </Table>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
       <ConfirmDialog
         open={Boolean(deleteId)}
         closeable={true}
@@ -252,6 +301,6 @@ export const AccessTokenList = (props: IAccessTokenListProps) => {
         confirmLoading={deleteLoading}
         onConfirm={onDelete}
       />
-    </>
+    </div>
   );
 };

@@ -47,7 +47,13 @@
     "generalDescription": "Mevcut alanınızın ayarlarını buradan değiştirin",
     "spaceName": "Alan Adı",
     "spaceId": "Alan Kimliği",
-    "importBase": "İçe aktar"
+    "importBase": "İçe aktar",
+    "deleteSpaceDescription": "Alanı ve tüm projelerini çöp kutusuna taşır. Önce etkin abonelikleri iptal edin.",
+    "icon": "Simge",
+    "iconDescription": "Alan listesinde ve kenar çubuğunda gösterilir.",
+    "profile": "Alan profili",
+    "spaceIdDescription": "API ve CLI ile kullanın.",
+    "spaceNameDescription": "Bu alandaki herkes bu adı görür."
   },
   "collaborators": "İş birlikçiler",
   "more": "Daha fazla",
@@ -107,6 +113,12 @@
     "importing": "İçe aktarılıyor",
     "baseImportTips": "Yüklemek için .tea dosyasını bu alana tıklayın veya sürükleyip bırakın",
     "confirm": "Onayla ve devam et",
+    "preview": {
+      "analyzing": "Dosya içeriği analiz ediliyor…",
+      "total": "Toplam öğe: {{count}}",
+      "invalid": "Bu dosya geçerli bir .tea dosyası değil ve içe aktarılamaz.",
+      "failed": "Bu dosya analiz edilemedi. İçe aktarmaya yine de devam edebilirsiniz."
+    },
     "phase": {
       "importingV2": "İçe aktarılıyor",
       "parsingStructure": "Parsing structure",

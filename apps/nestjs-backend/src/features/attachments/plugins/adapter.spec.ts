@@ -12,6 +12,7 @@ describe('StorageAdapter.getCacheControl', () => {
     [UploadType.ChatDataVisualizationCode, immutable],
     [UploadType.Avatar, oneHour],
     [UploadType.SpaceAvatar, oneHour],
+    [UploadType.Mcp, oneHour],
     [UploadType.Logo, oneHour],
     [UploadType.Plugin, oneHour],
   ])('public type %s gets %s', (type, expected) => {

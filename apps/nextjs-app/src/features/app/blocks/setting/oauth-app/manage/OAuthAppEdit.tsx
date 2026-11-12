@@ -1,18 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Check, Key } from '@teable/icons';
+import { AlertTriangle, Key, Plus } from '@teable/icons';
 import type { GenerateOAuthSecretVo, OAuthUpdateRo } from '@teable/openapi';
 import { deleteOAuthSecret, generateOAuthSecret, oauthGet, oauthUpdate } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
-import { Badge, Button, Separator, cn } from '@teable/ui-lib/shadcn';
+import { Badge, Button, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import {
+  SettingEmpty,
+  SettingItem,
+  SettingListItem,
+  SettingSection,
+} from '@/features/app/components/setting/SettingSection';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
-import { FormPageLayout } from '../../components/FormPageLayout';
 import type { IOAuthAppFormRef } from './OAuthAppForm';
 import { OAuthAppForm } from './OAuthAppForm';
+import { OAuthFormLayout } from './OAuthFormLayout';
 
 interface IOAuthAppEditProps {
   onBack: () => void;
@@ -57,7 +63,7 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
   });
 
   return (
-    <FormPageLayout
+    <OAuthFormLayout
       onCancel={onBack}
       loading={isLoading}
       onSubmit={() => {
@@ -67,92 +73,88 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
         updatedForm && formRef.current?.validate() && updateMutate(updatedForm);
       }}
     >
-      <div>
-        <div className="space-y-2">
-          <div className="space-y-1">
-            <h3 className="font-semibold">{t('oauth:formType.clientInfo')}</h3>
-            <Separator />
-          </div>
-          <div className="text-sm">
-            <strong>{t('oauth:form.clientId.label')}</strong>
-            {oauthApp?.clientId}
-          </div>
-        </div>
-        <div className="space-y-4 pt-10">
-          <div className="flex items-center justify-between">
-            <strong>{t('oauth:form.secret.label')}</strong>
-            <Button
-              variant={'outline'}
-              size={'xs'}
-              disabled={generateSecretLoading}
-              onClick={() => generateSecretMutate(clientId)}
-            >
-              {generateSecretLoading && <Spin />}
-              {t('oauth:form.secret.add')}
-            </Button>
-          </div>
-          {!oauthApp?.secrets?.length && (
-            <div className="text-sm">{t('oauth:form.secret.empty')}</div>
-          )}
-          <div className="rounded-lg border">
-            {oauthApp?.secrets?.map((secret, index) => {
-              const isNewSecret = newSecret?.id === secret.id;
-              return (
-                <div
-                  key={secret.id}
-                  className={cn('flex items-center gap-4 p-4', {
-                    'bg-green-300/20 p-3 text-sm dark:bg-green-700/20': isNewSecret,
-                    'border-t': index !== 0,
-                  })}
-                >
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div>
-                      <Key className="size-8" />
-                    </div>
-                    <Badge variant="outline">{t('oauth:form.secret.tag')}</Badge>
-                  </div>
-                  <div className="flex-1 text-xs">
-                    <div
-                      className={cn({
-                        'flex items-center gap-2': isNewSecret,
-                      })}
-                    >
-                      {isNewSecret && <Check className="text-green-400 dark:text-green-600" />}
+      <SettingSection title={t('oauth:formType.clientInfo')}>
+        <SettingItem
+          label={t('oauth:form.clientId.label').replace(/[:：]\s*$/, '')}
+          description={t('oauth:form.clientId.description')}
+          action={
+            oauthApp?.clientId && (
+              <>
+                <span className="font-mono text-sm">{oauthApp.clientId}</span>
+                <CopyButton variant="ghost" size="icon-sm" text={oauthApp.clientId} />
+              </>
+            )
+          }
+        />
+      </SettingSection>
+      <SettingSection
+        variant="list"
+        title={t('oauth:form.secret.label')}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={generateSecretLoading}
+            onClick={() => generateSecretMutate(clientId)}
+          >
+            {generateSecretLoading ? <Spin /> : <Plus className="size-4 shrink-0" />}
+            {t('oauth:form.secret.add')}
+          </Button>
+        }
+        bare={!oauthApp?.secrets?.length}
+      >
+        {!oauthApp?.secrets?.length ? (
+          <SettingEmpty icon={<Key />}>{t('oauth:form.secret.empty')}</SettingEmpty>
+        ) : (
+          oauthApp.secrets.map((secret) => {
+            const isNewSecret = newSecret?.id === secret.id;
+            return (
+              <SettingListItem
+                key={secret.id}
+                className={cn(isNewSecret && 'bg-green-300/20 dark:bg-green-700/20')}
+                icon={<Key />}
+                title={
+                  <>
+                    <span className="break-all font-mono">
                       {isNewSecret ? newSecret?.secret : secret.secret}
-                      {isNewSecret && (
-                        <CopyButton className="h-6 p-0" variant={'link'} text={newSecret.secret} />
-                      )}
-                    </div>
+                    </span>
                     {isNewSecret && (
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="text-warning" />
-                        {t('oauth:form.secret.newDescription')}
-                      </div>
+                      <CopyButton variant="ghost" size="icon-xs" text={newSecret.secret} />
                     )}
-                    <div className="text-muted-foreground">
-                      {secret.lastUsedTime
-                        ? t('oauth:form.secret.lastUsed', {
-                            date: dayjs(secret.lastUsedTime).fromNow(),
-                          })
-                        : t('oauth:form.secret.neverUsed')}
-                    </div>
-                  </div>
+                    <Badge variant="outline">{t('oauth:form.secret.tag')}</Badge>
+                  </>
+                }
+                description={
+                  isNewSecret ? (
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle className="size-4 shrink-0 text-warning" />
+                      {t('oauth:form.secret.newDescription')}
+                    </span>
+                  ) : undefined
+                }
+                meta={
+                  secret.lastUsedTime
+                    ? t('oauth:form.secret.lastUsed', {
+                        date: dayjs(secret.lastUsedTime).fromNow(),
+                      })
+                    : t('oauth:form.secret.neverUsed')
+                }
+                actions={
                   <Button
-                    size={'xs'}
-                    variant={'destructive'}
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
                     onClick={() => deleteSecretMutate(secret.id)}
                   >
                     {t('common:actions.delete')}
                   </Button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      {!queryLoading && (
-        <OAuthAppForm ref={formRef} showBasicTitle value={oauthApp} onChange={setUpdatedForm} />
-      )}
-    </FormPageLayout>
+                }
+              />
+            );
+          })
+        )}
+      </SettingSection>
+      {!queryLoading && <OAuthAppForm ref={formRef} value={oauthApp} onChange={setUpdatedForm} />}
+    </OAuthFormLayout>
   );
 };

@@ -35,6 +35,7 @@
     "@teable/formula": "workspace:*",
     "@teable/i18n-keys": "workspace:*",
     "@teable/v2-di": "workspace:*",
+    "dayjs": "1.11.10",
     "nanoid": "6.0.2",
     "neverthrow": "8.2.0",
     "ts-pattern": "5.0.8",

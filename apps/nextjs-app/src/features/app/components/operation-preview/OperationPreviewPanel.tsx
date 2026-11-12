@@ -200,6 +200,7 @@ const actionTitleKeys = {
   'records.paste': 'title',
   'records.bulkUpdate': 'title',
   'records.bulkDelete': 'title',
+  'folder.delete': 'title',
 } as const;
 
 const ActionDetails = ({

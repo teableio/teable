@@ -807,6 +807,66 @@ describe('PostgresTableRepository (pg)', () => {
     }
   });
 
+  it('keeps the parent of a trash row written before the soft delete', async () => {
+    const c = createRepositoryContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const folderId = `bnf${getRandomString(16)}`;
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Folder Trash Space', created_by: actorId.toString() })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Folder Trash Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Folder Trash Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = (await repo.insert(context, builder.build()._unsafeUnwrap()))._unsafeUnwrap();
+      // A folder delete writes its tables' rows under the folder before deleting them.
+      await sql`
+        INSERT INTO trash (id, resource_type, resource_id, parent_id, deleted_by)
+        VALUES (${getRandomString(16)}, 'table', ${table.id().toString()}, ${folderId}, 'folder')
+      `.execute(db);
+
+      (await repo.delete(context, table))._unsafeUnwrap();
+
+      const trashRows = await sql<{ parent_id: string; deleted_by: string }>`
+        SELECT parent_id, deleted_by FROM trash WHERE resource_id = ${table.id().toString()}
+      `.execute(db);
+
+      expect(trashRows.rows).toEqual([{ parent_id: folderId, deleted_by: actorId.toString() }]);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('waits for a pending table to become ready instead of reporting not found', async () => {
     const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());

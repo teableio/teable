@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Encryptor } from '../../utils/encryptor';
-import { buildDataDbUrlCipherEntries } from './data-db-url-secret';
+import { isEncryptedSecretValue, SECRET_CIPHER_PREFIX } from '../../utils/secret-value-codec';
+import { buildDataDbUrlCipher, buildDataDbUrlCipherEntries } from './data-db-url-secret';
 
 const ALGORITHM = 'aes-128-cbc';
 const URL = 'postgresql://u:p@h:5432/db';
@@ -122,5 +123,117 @@ describe('buildDataDbUrlCipherEntries', () => {
       BACKEND_ACCESS_TOKEN_ENCRYPTION_IV_OLD: 'old-pat-iv000000',
     };
     expect(open(after, oldCipher)).toEqual({ url: URL });
+  });
+});
+
+describe('buildDataDbUrlCipher', () => {
+  const ROOT = 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET';
+  const LEGACY_ENV = {
+    BACKEND_DATA_DB_URL_ENCRYPTION_KEY: 'legacy-key-16chr',
+    BACKEND_DATA_DB_URL_ENCRYPTION_IV: 'legacy-iv-16chr0',
+  };
+  const SWITCHED_ENV = { ...LEGACY_ENV, [ROOT]: 'byodb-root' };
+
+  it('keeps writing the legacy format until the root is set', () => {
+    const cipher = buildDataDbUrlCipher(LEGACY_ENV);
+    const stored = cipher.encrypt(URL);
+
+    expect(cipher.authenticated).toBe(false);
+    expect(isEncryptedSecretValue(stored)).toBe(false);
+    expect(open(LEGACY_ENV, stored)).toEqual({ url: URL });
+    expect(cipher.decrypt(stored)).toBe(URL);
+    expect(cipher.isCurrent(stored)).toBe(true);
+  });
+
+  it('zero config still opens the pre-rotation ciphertext', () => {
+    expect(buildDataDbUrlCipher({}).decrypt(LITERAL_CIPHER)).toBe(URL);
+  });
+
+  it('writes the authenticated format once the root is set, with a fresh nonce per write', () => {
+    const cipher = buildDataDbUrlCipher(SWITCHED_ENV);
+    const first = cipher.encrypt(URL);
+    const second = cipher.encrypt(URL);
+
+    expect(cipher.authenticated).toBe(true);
+    expect(isEncryptedSecretValue(first)).toBe(true);
+    expect(first).not.toBe(second);
+    expect(cipher.decrypt(first)).toBe(URL);
+    expect(cipher.decrypt(second)).toBe(URL);
+    expect(cipher.isCurrent(first)).toBe(true);
+  });
+
+  it('refuses a value whose nonce, auth tag or ciphertext was altered', () => {
+    const cipher = buildDataDbUrlCipher(SWITCHED_ENV);
+    const raw = Buffer.from(cipher.encrypt(URL).slice(SECRET_CIPHER_PREFIX.length), 'base64');
+    const flipped = (index: number) => {
+      const copy = Buffer.from(raw);
+      copy[index] ^= 1;
+      return SECRET_CIPHER_PREFIX + copy.toString('base64');
+    };
+
+    // layout: 12-byte nonce, 16-byte tag, ciphertext
+    for (const index of [0, 12, raw.length - 1]) {
+      expect(() => cipher.decrypt(flipped(index))).toThrow('BYODB URL decryption failed');
+    }
+  });
+
+  it('still opens legacy ciphertext after the switch, and reports it as not current', () => {
+    const legacyStored = buildDataDbUrlCipher(LEGACY_ENV).encrypt(URL);
+    const cipher = buildDataDbUrlCipher(SWITCHED_ENV);
+
+    expect(cipher.decrypt(legacyStored)).toBe(URL);
+    expect(cipher.isCurrent(legacyStored)).toBe(false);
+  });
+
+  it('a reader holding the root only as _OLD opens the new format and keeps writing the legacy one', () => {
+    const written = buildDataDbUrlCipher(SWITCHED_ENV).encrypt(URL);
+    const reader = buildDataDbUrlCipher({ ...LEGACY_ENV, [`${ROOT}_OLD`]: 'byodb-root' });
+
+    expect(reader.decrypt(written)).toBe(URL);
+    expect(reader.authenticated).toBe(false);
+    expect(isEncryptedSecretValue(reader.encrypt(URL))).toBe(false);
+    expect(reader.isCurrent(written)).toBe(false);
+  });
+
+  it('a reader without the root cannot open the new format', () => {
+    const written = buildDataDbUrlCipher(SWITCHED_ENV).encrypt(URL);
+
+    expect(() => buildDataDbUrlCipher(LEGACY_ENV).decrypt(written)).toThrow(
+      'BYODB URL decryption failed'
+    );
+  });
+
+  it('a reader whose root falls back to SECRET_KEY opens what that root wrote', () => {
+    const written = buildDataDbUrlCipher({
+      SECRET_KEY: 'instance-secret',
+      [ROOT]: 'instance-secret',
+    }).encrypt(URL);
+
+    expect(buildDataDbUrlCipher({ SECRET_KEY: 'instance-secret' }).decrypt(written)).toBe(URL);
+  });
+
+  it('rotates the root via _OLD', () => {
+    const before = buildDataDbUrlCipher({ [ROOT]: 'old-root' }).encrypt(URL);
+    const after = buildDataDbUrlCipher({ [ROOT]: 'new-root', [`${ROOT}_OLD`]: 'old-root' });
+
+    expect(after.decrypt(before)).toBe(URL);
+    expect(after.isCurrent(before)).toBe(false);
+    expect(buildDataDbUrlCipher({ [ROOT]: 'new-root' }).decrypt(after.encrypt(URL))).toBe(URL);
+  });
+
+  it('does not store a value that already carries the cipher prefix', () => {
+    const cipher = buildDataDbUrlCipher(SWITCHED_ENV);
+
+    expect(() => cipher.encrypt(cipher.encrypt(URL))).toThrow('Encryption failed');
+  });
+
+  it.each([
+    ['nothing is configured', {}, true],
+    ['SECRET_KEY is its public default', { SECRET_KEY: 'defaultSecretKey' }, true],
+    ['a private legacy pair is set', LEGACY_ENV, false],
+    ['the root is the public default', { ...LEGACY_ENV, [ROOT]: 'defaultSecretKey' }, true],
+    ['a private root is set over a public legacy pair', { [ROOT]: 'byodb-root' }, false],
+  ])('usesPublicKey follows the key new URLs are written under: %s', (_case, env, expected) => {
+    expect(buildDataDbUrlCipher(env).usesPublicKey).toBe(expected);
   });
 });

@@ -6,6 +6,7 @@ import { err, ok, type Result } from 'neverthrow';
 import { isAlias, isMap, isScalar, isSeq, parseDocument, type YAMLMap } from 'yaml';
 import { z } from 'zod';
 
+import { DATA_QUERY_ARTIFACT_GENERATOR_COMMENT } from './DataQueryArtifactProvenance';
 import { dataQueryOptionalParameters, queryError } from './DataQueryDefinition';
 import {
   dataQueryIdSchema,
@@ -298,7 +299,7 @@ export function generateAppQueryArtifacts(
   const definitions = Object.fromEntries(
     ids.map((id) => {
       const definition = manifest.queries[id].definition;
-      if (definition?.version === 2 && definition.relations) {
+      if (definition && definition.version !== 1 && definition.relations) {
         orderedRelations.add(definition.relations);
       }
       return [id, definition ?? null];
@@ -349,7 +350,8 @@ export function generateAppQueryArtifacts(
       query.fallback &&
       Object.values(query.fallback.parameters ?? {}).some((parameter) => parameter.type === 'date')
   );
-  const body = `import 'server-only';
+  const body = `${DATA_QUERY_ARTIFACT_GENERATOR_COMMENT}
+import 'server-only';
 import { getConfig, request } from './request';
 
 export type QueryId = ${ids.length ? ids.map((id) => JSON.stringify(id)).join(' | ') : 'never'};

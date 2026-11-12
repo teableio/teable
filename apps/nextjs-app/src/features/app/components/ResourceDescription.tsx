@@ -112,7 +112,7 @@ export const ResourceDescriptionDialog = ({
 
   const saveCurrentValue = useCallback(async () => {
     const editor = getEditorRef.current?.();
-    const markdown = editor ? getEditorMarkdown(editor) : undefined;
+    const markdown = editor ? getEditorMarkdown(editor, savedValueRef.current ?? '') : undefined;
     const nextValue = normalizeResourceDescription(markdown ?? value);
 
     await saveDescription(nextValue);

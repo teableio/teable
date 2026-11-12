@@ -36,6 +36,7 @@ import {
   installViewPlugin,
   exportBase,
   importBase,
+  previewImportBase,
   getTableList,
   createBase,
   createDashboard,
@@ -2308,6 +2309,25 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         }
       );
 
+      // The pre-import preview reads the same uploaded file; the import below
+      // must still work on it afterwards.
+      const preview = (await previewImportBase({ notify: notify as unknown as INotifyVo, spaceId }))
+        .data;
+      expect(preview.name).toBe('node_hierarchy_source');
+      expect([...preview.groups].sort((a, b) => a.type.localeCompare(b.type))).toEqual([
+        { type: BaseNodeResourceType.Dashboard, count: 2 },
+        { type: BaseNodeResourceType.Folder, count: 2 },
+        { type: BaseNodeResourceType.Table, count: 2 },
+      ]);
+      // The tree mirrors the source hierarchy: Table 1 in Folder 1, Dashboard 1 in Folder 2.
+      const previewNodeByName = Object.fromEntries(preview.nodes.map((node) => [node.name, node]));
+      expect(preview.nodes).toHaveLength(6);
+      expect(previewNodeByName['Table 1'].parentId).toBe(previewNodeByName['Folder 1'].id);
+      expect(previewNodeByName['Dashboard 1'].parentId).toBe(previewNodeByName['Folder 2'].id);
+      for (const name of ['Folder 1', 'Folder 2', 'Table 2', 'Dashboard 2']) {
+        expect(previewNodeByName[name].parentId).toBeNull();
+      }
+
       const { base: importedBase } = (
         await importBase({
           notify: notify as unknown as INotifyVo,
@@ -2607,6 +2627,25 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       );
       return importBase({ notify: notify as unknown as INotifyVo, spaceId });
     };
+
+    it('previews a file that is not a .tea archive as a validation error', async () => {
+      const notTea = Buffer.from('this is not a tea file');
+      const notify = await app.get(ClsService).runWith<Promise<IAttachmentItem>>(
+        {
+          user: { id: userId, name: 'Test', email: 'test@example.com', isAdmin: null },
+        } as unknown as ClsStore,
+        async () =>
+          getAttachmentService(app).uploadFromStream(Readable.from(notTea), {
+            filename: 'not-a.tea',
+            contentType: 'application/zip',
+            contentLength: notTea.length,
+          })
+      );
+      const error = await getError(() =>
+        previewImportBase({ notify: notify as unknown as INotifyVo, spaceId })
+      );
+      expect(error?.status).toBe(400);
+    });
 
     it('rejects a dbFieldName that is not a plain SQL identifier', async () => {
       const error = await getError(() =>

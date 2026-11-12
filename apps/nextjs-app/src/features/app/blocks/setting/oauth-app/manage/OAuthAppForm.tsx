@@ -8,10 +8,11 @@ import {
   type OAuthUpdateRo,
 } from '@teable/openapi';
 import { FileZone } from '@teable/sdk/components/FileZone';
-import { Button, Input, Separator, Switch, Textarea } from '@teable/ui-lib/shadcn';
+import { Button, Input, Switch, Textarea } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { SettingItem, SettingSection } from '@/features/app/components/setting/SettingSection';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
@@ -24,7 +25,6 @@ import { CallbackEditor } from './CallbackEditor';
 interface IOAuthAppFormProps {
   value?: OAuthCreateRo | OAuthUpdateRo;
   onChange?: (value: OAuthCreateRo | OAuthUpdateRo) => void;
-  showBasicTitle?: boolean;
 }
 
 export interface IOAuthAppFormRef {
@@ -32,7 +32,7 @@ export interface IOAuthAppFormRef {
 }
 
 export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((props, ref) => {
-  const { showBasicTitle, value, onChange } = props;
+  const { value, onChange } = props;
 
   const validateRefs = useRef<Partial<{ [key in keyof OAuthCreateRo]: IFormItemRef | null }>>({});
   const errorRef = useRef<IFormItemRef | null>(undefined);
@@ -92,13 +92,7 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
 
   return (
     <>
-      <div className="space-y-4">
-        {showBasicTitle && (
-          <div className="space-y-1">
-            <h3 className="font-semibold">{t('oauth:formType.basic')}</h3>
-            <Separator />
-          </div>
-        )}
+      <SettingSection title={t('oauth:formType.basic')}>
         <FormItem
           validateSchema={oauthCreateRoSchema.shape.name}
           ref={(el) => {
@@ -114,10 +108,9 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
             onChange={(e) => updateForm('name', e.target.value)}
           />
         </FormItem>
-
         <FormItem title={t('oauth:form.description.label')}>
           <Textarea
-            className="h-32"
+            className="h-24"
             value={form.description}
             onChange={(e) => updateForm('description', e.target.value)}
           />
@@ -138,34 +131,8 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
           />
         </FormItem>
         <FormItem title={t('oauth:form.logo.label')} description={t('oauth:form.logo.description')}>
-          <div className="flex items-center gap-3">
-            <Button
-              variant={'outline'}
-              size={'xs'}
-              className="m-1 gap-2 font-normal"
-              onClick={() => fileInput.current?.click()}
-            >
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*,"
-                ref={fileInput}
-                onChange={(e) => logoChange(Array.from(e.target.files || []))}
-              />
-              {t('oauth:form.logo.button')}
-            </Button>
-            {form.logo && (
-              <Button
-                size={'xs'}
-                variant={'destructive'}
-                onClick={() => updateForm('logo', undefined)}
-              >
-                {t('oauth:form.logo.clear')}
-              </Button>
-            )}
-          </div>
           <FileZone
-            className="size-52"
+            className="size-32"
             fileInputProps={{
               accept: 'image/*,',
               multiple: false,
@@ -185,69 +152,85 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
               </div>
             )}
           </FileZone>
-        </FormItem>
-      </div>
-      <div className="space-y-2">
-        <div className="space-y-1">
-          <h3 className="font-semibold">{t('oauth:formType.identify')}</h3>
-          <Separator />
-        </div>
-        <div className="space-y-2">
-          <FormItem
-            title={t('oauth:form.callbackUrl.label')}
-            titleExtra={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => fileInput.current?.click()}>
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*,"
+                ref={fileInput}
+                onChange={(e) => logoChange(Array.from(e.target.files || []))}
+              />
+              {t('oauth:form.logo.button')}
+            </Button>
+            {form.logo && (
               <Button
-                className="inline-flex h-auto gap-1 p-0 align-baseline text-xs"
-                size="xs"
-                variant="link"
-                asChild
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={() => updateForm('logo', undefined)}
               >
-                <a href={t('oauth:help.link')} target="_blank" rel="noreferrer">
-                  {t('oauth:help.title')}
-                  <ArrowUpRight className="size-3" />
-                </a>
+                {t('oauth:form.logo.clear')}
               </Button>
-            }
-            description={t('oauth:form.callbackUrl.description')}
-            validateSchema={oauthCreateRoSchema.shape.redirectUris}
-            ref={(el) => {
-              validateRefs.current['redirectUris'] = el;
-            }}
-            required
-          >
-            <CallbackEditor
-              value={form.redirectUris}
-              onChange={(value) => updateForm('redirectUris', value ?? [])}
-            />
-          </FormItem>
-          <FormItem
-            title={t('oauth:form.deviceFlow.label')}
-            description={t('oauth:form.deviceFlow.description')}
-          >
+            )}
+          </div>
+        </FormItem>
+      </SettingSection>
+      <SettingSection title={t('oauth:formType.identify')}>
+        <FormItem
+          title={t('oauth:form.callbackUrl.label')}
+          titleExtra={
+            <Button
+              className="inline-flex h-auto gap-1 p-0 align-baseline text-xs"
+              size="xs"
+              variant="link"
+              asChild
+            >
+              <a href={t('oauth:help.link')} target="_blank" rel="noreferrer">
+                {t('oauth:help.title')}
+                <ArrowUpRight className="size-3" />
+              </a>
+            </Button>
+          }
+          description={t('oauth:form.callbackUrl.description')}
+          validateSchema={oauthCreateRoSchema.shape.redirectUris}
+          ref={(el) => {
+            validateRefs.current['redirectUris'] = el;
+          }}
+          required
+        >
+          <CallbackEditor
+            value={form.redirectUris}
+            onChange={(value) => updateForm('redirectUris', value ?? [])}
+          />
+        </FormItem>
+        <SettingItem
+          inline
+          label={t('oauth:form.deviceFlow.label')}
+          description={t('oauth:form.deviceFlow.description')}
+          action={
             <Switch
               checked={Boolean(form.allowDeviceFlow)}
               onCheckedChange={(checked) => updateForm('allowDeviceFlow', checked)}
             />
-          </FormItem>
-        </div>
-      </div>
-      <div className="space-y-4">
-        <div className="space-y-1">
-          <h3 className="font-semibold">{t('oauth:formType.scopes')}</h3>
-          <Separator />
-        </div>
-        <ScopesSelect
-          actionsPrefixes={OAuthActionsPrefixes}
-          allowedActions={OAUTH_ACTIONS}
-          initValue={form.scopes as Action[]}
-          onChange={(value) =>
-            updateForm(
-              'scopes',
-              value.filter((v) => OAUTH_ACTIONS.includes(v as (typeof OAUTH_ACTIONS)[number]))
-            )
           }
         />
-      </div>
+      </SettingSection>
+      <SettingSection title={t('oauth:formType.scopes')} bare>
+        <div className="pt-1.5">
+          <ScopesSelect
+            actionsPrefixes={OAuthActionsPrefixes}
+            allowedActions={OAUTH_ACTIONS}
+            initValue={form.scopes as Action[]}
+            onChange={(value) =>
+              updateForm(
+                'scopes',
+                value.filter((v) => OAUTH_ACTIONS.includes(v as (typeof OAUTH_ACTIONS)[number]))
+              )
+            }
+          />
+        </div>
+      </SettingSection>
     </>
   );
 });

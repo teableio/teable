@@ -45,7 +45,7 @@ const ExpandedEditorInner = ({
 
   const commit = useCallback(() => {
     if (!loading) {
-      const markdown = getEditorMarkdown(getEditor());
+      const markdown = getEditorMarkdown(getEditor(), initialValueRef.current);
       if (markdown !== undefined) {
         latestValueRef.current = markdown;
       }

@@ -150,6 +150,43 @@ describe('generated data-query OpenAPI contract', () => {
     };
     expect(acceptsRequest(inline)).toBe(true);
     expect(acceptsRequest(input)).toBe(true);
+    const expression = {
+      definition: {
+        version: 3,
+        kind: 'records',
+        tableId: input.definition.tableId,
+        parameters: { suffix: { type: 'string' } },
+        select: [
+          {
+            alias: 'label',
+            expr: {
+              type: 'formula',
+              formula: 'CONCATENATE({title}, {suffix})',
+              references: {
+                title: { type: 'field', fieldId: `fld${'b'.repeat(16)}` },
+                suffix: { type: 'parameter', name: 'suffix' },
+              },
+            },
+          },
+        ],
+        filter: {
+          type: 'formula',
+          formula: 'LEN({title}) > 2',
+          references: { title: { type: 'field', fieldId: `fld${'b'.repeat(16)}` } },
+        },
+        sort: [{ alias: 'label', order: 'asc' }],
+      },
+      parameters: { suffix: '!' },
+    };
+    expect(acceptsRequest(expression)).toBe(true);
+    for (const version of [1, 2, 4]) {
+      expect(
+        acceptsRequest({
+          ...expression,
+          definition: { ...expression.definition, version },
+        })
+      ).toBe(false);
+    }
     for (const invalid of [
       {},
       { ...inline, reference: { libraryId: 'removed' } },

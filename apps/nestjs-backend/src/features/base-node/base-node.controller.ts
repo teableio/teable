@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Headers,
+  HttpException,
   Param,
   Post,
   Put,
@@ -27,6 +28,7 @@ import {
   IUpdateBaseNodeRo,
   type IBaseNodeTreeVo,
   type IBaseNodeVo,
+  type IDeleteBaseNodeStreamEvent,
   type IDeleteBaseNodeVo,
   type V2Feature,
 } from '@teable/openapi';
@@ -49,9 +51,11 @@ import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../canary/interceptors/v2-indicator.interceptor';
+import { getErrorLocalization } from '../v2/v2-http-error';
 import { BaseNodeMoveService } from './base-node-move.service';
-import { filterVisibleNodes } from './base-node.permission.helper';
+import { checkBaseNodePermission, filterVisibleNodes } from './base-node.permission.helper';
 import { BaseNodeService } from './base-node.service';
+import type { IFolderSubtreeNode } from './base-node.service';
 import { BaseNodeAction, type IBaseNodeVisibilityContext } from './types';
 
 const omitCollaboratorEmails = <T extends IBaseNodeVo>(node: T): T => {
@@ -244,7 +248,84 @@ export class BaseNodeController {
     @Res({ passthrough: true }) response: Response
   ): Promise<IDeleteBaseNodeVo> {
     await this.prepareDeleteTableCanary(baseId, nodeId, response, windowId);
-    return this.baseNodeService.delete(baseId, nodeId);
+    return this.baseNodeService.delete(baseId, nodeId, false, {
+      assertSubtree: (subtree) => this.assertFolderContentsDeletable(baseId, subtree),
+    });
+  }
+
+  /**
+   * The delete above with its progress as server-sent events: a `progress` event as a folder
+   * delete deletes each resource in it, then `done` with the deleted node, or `error`. Closing the
+   * stream does not stop the delete.
+   */
+  @Delete(':nodeId/stream')
+  @Permissions('base|read')
+  @BaseNodePermissions(BaseNodeAction.Delete)
+  async deleteStream(
+    @Param('baseId') baseId: string,
+    @Param('nodeId') nodeId: string,
+    @Headers('x-window-id') windowId: string | undefined,
+    @Res() response: Response
+  ): Promise<void> {
+    await this.prepareDeleteTableCanary(baseId, nodeId, response, windowId);
+    response.setHeader('Content-Type', 'text/event-stream');
+    response.setHeader('Cache-Control', 'no-cache, no-transform');
+    response.setHeader('Connection', 'keep-alive');
+    response.setHeader('X-Accel-Buffering', 'no');
+    response.flushHeaders();
+    const send = (event: IDeleteBaseNodeStreamEvent) => {
+      if (response.writableEnded || response.destroyed) return;
+      response.write(`data: ${JSON.stringify(event)}\n\n`);
+      (response as Response & { flush?: () => void }).flush?.();
+    };
+    const heartbeat = setInterval(() => {
+      if (response.writableEnded || response.destroyed) return;
+      response.write(': ping\n\n');
+      (response as Response & { flush?: () => void }).flush?.();
+    }, 15_000);
+    response.on('close', () => clearInterval(heartbeat));
+
+    try {
+      const node = await this.baseNodeService.delete(baseId, nodeId, false, {
+        assertSubtree: (subtree) => this.assertFolderContentsDeletable(baseId, subtree),
+        onProgress: (progress) => send({ id: 'progress', ...progress }),
+      });
+      // What EmitControllerEvent raises for the route above; a streamed response bypasses it.
+      await this.baseNodeService.emitDeleteEvent(baseId, node);
+      send({ id: 'done', data: node });
+    } catch (error) {
+      const localization = getErrorLocalization(error);
+      send({
+        id: 'error',
+        message: error instanceof Error ? error.message : String(error),
+        status: error instanceof HttpException ? error.getStatus() : 500,
+        ...(error instanceof CustomHttpException ? { code: error.code } : {}),
+        ...(localization ? { localization } : {}),
+      });
+    } finally {
+      clearInterval(heartbeat);
+      response.end();
+    }
+  }
+
+  /** The folder route's delete: the node delete above, for a folder only. */
+  @Delete('folder/:nodeId')
+  @Permissions('base|read')
+  @BaseNodePermissions(BaseNodeAction.Delete)
+  @EmitControllerEvent(Events.BASE_NODE_DELETE)
+  async deleteFolder(
+    @Param('baseId') baseId: string,
+    @Param('nodeId') nodeId: string,
+    @Headers('x-window-id') windowId: string | undefined,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<IDeleteBaseNodeVo> {
+    const node = await this.baseNodeService.getNode(baseId, nodeId);
+    if (node.resourceType !== BaseNodeResourceType.Folder) {
+      throw new CustomHttpException('Folder not found', HttpErrorCode.NOT_FOUND, {
+        localization: { i18nKey: 'httpErrors.baseNode.notFound' },
+      });
+    }
+    return this.delete(baseId, nodeId, windowId, response);
   }
 
   @Delete(':nodeId/permanent')
@@ -258,8 +339,33 @@ export class BaseNodeController {
     @Res({ passthrough: true }) response: Response
   ): Promise<IDeleteBaseNodeVo> {
     await this.prepareDeleteTableCanary(baseId, nodeId, response, windowId);
-    const result = await this.baseNodeService.delete(baseId, nodeId, true);
+    const result = await this.baseNodeService.delete(baseId, nodeId, true, {
+      assertSubtree: (subtree) => this.assertFolderContentsDeletable(baseId, subtree),
+    });
     return { ...result, permanent: true };
+  }
+
+  /**
+   * The guard checks the folder alone. Deleting it deletes everything inside, so each of
+   * those must be deletable too, hidden ones included. Run on the subtree the delete then
+   * deletes, under its lock.
+   */
+  protected async assertFolderContentsDeletable(
+    baseId: string,
+    subtree: IFolderSubtreeNode[]
+  ): Promise<void> {
+    const permissionContext = await this.getPermissionContext(baseId);
+    const denied = subtree.some(
+      (child) => !checkBaseNodePermission(child, BaseNodeAction.Delete, permissionContext)
+    );
+    // Not which one: the caller may not be allowed to read it either.
+    if (denied) {
+      throw new CustomHttpException(
+        'No permission to delete some items in this folder',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        { localization: { i18nKey: 'httpErrors.baseNode.folderDeleteForbidden' } }
+      );
+    }
   }
 
   protected async prepareDeleteTableCanary(
@@ -326,7 +432,11 @@ export class BaseNodeController {
     }
 
     const node = await this.baseNodeService.getNode(baseId, nodeId);
-    if (node.resourceType !== BaseNodeResourceType.Table) {
+    // A folder delete deletes its tables, under the same project-wide decision.
+    const isFolderDelete =
+      node.resourceType === BaseNodeResourceType.Folder &&
+      feature === BaseNodeController.deleteTableV2Feature;
+    if (node.resourceType !== BaseNodeResourceType.Table && !isFolderDelete) {
       return;
     }
 

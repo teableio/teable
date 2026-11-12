@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Inject, Injectable, Optional, ServiceUnavailableException } from '@nestjs/common';
-import type { FieldType, IFieldVo, IRecord } from '@teable/core';
-import { HttpErrorCode, IdPrefix, Role } from '@teable/core';
+import { Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
+import type { Action, FieldType, IFieldVo, IRecord } from '@teable/core';
+import { generateBaseNodeId, getUniqName, HttpErrorCode, IdPrefix, Role } from '@teable/core';
 import type { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -10,6 +10,7 @@ import type {
   IGetTrashItemRecordsVo,
   IRestoreFieldTrashStreamEvent,
   IResetTrashItemsRo,
+  IRestoreTrashVo,
   IResourceMapVo,
   ITrashItemRecordVo,
   ITrashItemsRo,
@@ -18,7 +19,13 @@ import type {
   ITrashVo,
   V2Feature,
 } from '@teable/openapi';
-import { CollaboratorType, ResourceType, TableTrashType, TrashType } from '@teable/openapi';
+import {
+  CollaboratorType,
+  ResourceType,
+  ShortLinkType,
+  TableTrashType,
+  TrashType,
+} from '@teable/openapi';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { deleteAttachmentTableRefsByFieldIds } from '@teable/v2-adapter-table-repository-postgres';
 import {
@@ -44,17 +51,22 @@ import { ClsService } from 'nestjs-cls';
 import type { ICreateFieldsOperation } from '../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
+import { DistributedLockService } from '../../distributed-lock/distributed-lock.service';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { META_KNEX } from '../../global/knex';
 import type { IPerformanceCacheStore } from '../../performance-cache';
 import { PerformanceCacheService } from '../../performance-cache';
-import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
+import {
+  generateBaseNodeListCacheKey,
+  generateBaseShareListCacheKey,
+} from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { baseDisplayName } from '../../utils/base-name';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
+import { PROJECT_NODE_LOCK_TTL_SECONDS, projectNodeLockName } from '../base-node/project-node-lock';
 import { CanaryService, type IV2Decision } from '../canary/canary.service';
 import { RecordCommentCleanupService } from '../comment/record-comment-cleanup.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -78,6 +90,7 @@ import {
   isTombstonedAt,
   RecordRemovalTombstoneService,
 } from '../record-removal-cold/record-removal-tombstone.service';
+import { ShortLinkService } from '../short-link/short-link.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { SpaceService } from '../space/space.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
@@ -141,6 +154,8 @@ type ITrashRecordHotRow = {
   recordLastModifiedTime: Date | null;
   recordLastModifiedBy: string | null;
 };
+
+const idSet = (rows: { id: string }[]) => new Set(rows.map(({ id }) => id));
 
 const maxDefinedDate = (a?: Date, b?: Date): Date | undefined => {
   if (!a) return b;
@@ -275,10 +290,41 @@ export type ITrashAuditItem = {
   parentId?: string | null;
 };
 
+/** A project's own resources, each with a node in its tree. */
+const NODE_TRASH_TYPES: ReadonlySet<string> = new Set([
+  TrashType.Table,
+  TrashType.Dashboard,
+  TrashType.App,
+  TrashType.Workflow,
+  TrashType.Routine,
+]);
+
+/** The scope a purge of each kind of trashed resource takes. */
+const TRASH_PURGE_SCOPES: Partial<Record<string, Action>> = {
+  [TrashType.Table]: 'table|delete',
+  [TrashType.Dashboard]: 'base|update',
+  [TrashType.App]: 'app|delete',
+  [TrashType.Workflow]: 'automation|delete',
+  [TrashType.Routine]: 'routine|delete',
+};
+
+/** The scope a restore of each kind of trashed resource in a project takes (a table's, on it). */
+const TRASH_RESTORE_SCOPES: Partial<Record<string, Action>> = {
+  [TrashType.Dashboard]: 'base|update',
+  [TrashType.App]: 'app|create',
+  [TrashType.Workflow]: 'automation|create',
+  [TrashType.Routine]: 'routine|create',
+};
+
 @Injectable()
 export class TrashService {
+  private readonly logger = new Logger(TrashService.name);
   // Property-injected: the EE subclass forwards the constructor arguments positionally.
   @Inject(AuditScope) protected readonly audit!: AuditScope;
+  @Optional()
+  @Inject(DistributedLockService)
+  private readonly distributedLockService?: DistributedLockService;
+  @Inject(ShortLinkService) private readonly shortLinkService!: ShortLinkService;
 
   constructor(
     protected readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
@@ -323,6 +369,85 @@ export class TrashService {
     await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
   }
 
+  /**
+   * The project a trash row belongs to. A resource trashed with its folder names the folder
+   * as its parent, not the project.
+   */
+  protected async resolveTrashBaseId(parentId: string | null | undefined) {
+    if (!parentId?.startsWith(IdPrefix.BaseNodeFolder)) return parentId ?? null;
+    const folder = await this.prismaService.txClient().baseNodeFolder.findUnique({
+      where: { id: parentId },
+      select: { baseId: true },
+    });
+    return folder?.baseId ?? null;
+  }
+
+  /**
+   * Whether the resource a trash row names is in use, not deleted: the row is then stale (its
+   * resource restored meanwhile, or a folder delete stopped before deleting it). What a resource
+   * itself says wins over its row: such a resource is never purged, and its row just goes.
+   */
+  protected async isTrashResourceLive(trash: { resourceType: string; resourceId: string }) {
+    const live = await this.liveTrashResourceIds(trash.resourceType, [trash.resourceId]);
+    return live.has(trash.resourceId);
+  }
+
+  /** isTrashResourceLive for many resources of one type, in one query. */
+  protected async liveTrashResourceIds(
+    resourceType: string,
+    resourceIds: string[]
+  ): Promise<Set<string>> {
+    const prisma = this.prismaService.txClient();
+    const where = { id: { in: resourceIds }, deletedTime: null };
+    const select = { id: true };
+    switch (resourceType) {
+      case TrashType.Table:
+        return idSet(await prisma.tableMeta.findMany({ where, select }));
+      case TrashType.Dashboard:
+        return idSet(await prisma.dashboard.findMany({ where, select }));
+      case TrashType.Folder:
+        return idSet(await prisma.baseNodeFolder.findMany({ where, select }));
+      default:
+        return new Set();
+    }
+  }
+
+  /**
+   * Restoring or purging what a project's trash holds takes the lock its folder deletes run under
+   * (BaseNodeService.withFolderDeleteLock): neither lands in the middle of a folder delete, and a
+   * restore and a purge of the same rows do not run into each other.
+   */
+  private async withProjectTrashLock<T>(
+    trash: { resourceType: string; parentId: string | null } | null,
+    task: () => Promise<T>
+  ): Promise<T> {
+    const baseId =
+      !trash || trash.resourceType === TrashType.Space || trash.resourceType === TrashType.Base
+        ? null
+        : await this.resolveTrashBaseId(trash.parentId);
+    return this.withProjectLock(baseId, task);
+  }
+
+  private async withProjectLock<T>(baseId: string | null, task: () => Promise<T>): Promise<T> {
+    if (!baseId || !this.distributedLockService) return task();
+    let result!: T;
+    const ran = await this.distributedLockService.runExclusive(
+      projectNodeLockName(baseId),
+      PROJECT_NODE_LOCK_TTL_SECONDS,
+      async () => {
+        result = await task();
+      }
+    );
+    if (!ran) {
+      throw new CustomHttpException(
+        `A folder delete or another trash operation in project ${baseId} is in progress`,
+        HttpErrorCode.CONFLICT,
+        { localization: { i18nKey: 'httpErrors.baseNode.projectBusy' } }
+      );
+    }
+    return result;
+  }
+
   private async assertTrashResourceWritable(
     resourceType: TrashType,
     resourceId: string,
@@ -333,11 +458,32 @@ export class TrashService {
         return await this.assertSpaceWritable(resourceId);
       case TrashType.Base:
         return await this.assertBaseWritable(resourceId);
-      case TrashType.Table:
-        return parentId
-          ? await this.assertBaseWritable(parentId)
+      case TrashType.Table: {
+        const baseId = await this.resolveTrashBaseId(parentId);
+        return baseId
+          ? await this.assertBaseWritable(baseId)
           : await this.assertTableWritable(resourceId);
+      }
+      case TrashType.Folder: {
+        const baseId = await this.resolveTrashBaseId(resourceId);
+        if (baseId) await this.assertBaseWritable(baseId);
+        return;
+      }
+      case TrashType.Dashboard: {
+        const baseId =
+          (await this.resolveTrashBaseId(parentId)) ?? (await this.findDashboardBaseId(resourceId));
+        if (baseId) await this.assertBaseWritable(baseId);
+        return;
+      }
     }
+  }
+
+  private async findDashboardBaseId(dashboardId: string) {
+    const dashboard = await this.prismaService.txClient().dashboard.findUnique({
+      where: { id: dashboardId },
+      select: { baseId: true },
+    });
+    return dashboard?.baseId ?? null;
   }
 
   private getTrashDataPrismaExecutor(prisma: IScopedTrashDataPrisma): ITrashDataPrisma {
@@ -574,6 +720,8 @@ export class TrashService {
         return await this.getBaseTrashItems(trashItemsRo);
       case TrashType.Table:
         return await this.getTableTrashItems(trashItemsRo, options);
+      case TrashType.Folder:
+        return await this.getFolderTrashItems(trashItemsRo);
       default:
         throw new CustomHttpException(
           `Invalid resource type ${resourceType}`,
@@ -1333,21 +1481,48 @@ export class TrashService {
     return { ...record, fields };
   }
 
-  protected async getBaseTrashResourceList(baseId: string) {
-    return await this.prismaService.tableMeta.findMany({
-      where: {
-        baseId,
-        deletedTime: { not: null },
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-    });
+  protected async getBaseTrashResourceList(
+    baseId: string
+  ): Promise<{ id: string; name: string }[]> {
+    const [tables, dashboards, folders] = await Promise.all([
+      this.prismaService.tableMeta.findMany({
+        where: { baseId, deletedTime: { not: null } },
+        select: { id: true, name: true },
+      }),
+      this.prismaService.dashboard.findMany({
+        where: { baseId, deletedTime: { not: null } },
+        select: { id: true, name: true },
+      }),
+      this.prismaService.baseNodeFolder.findMany({
+        where: { baseId, deletedTime: { not: null } },
+        select: { id: true, name: true },
+      }),
+    ]);
+    return [...tables, ...dashboards, ...folders];
   }
 
   async getBaseTrashItems(trashItemsRo: ITrashItemsRo): Promise<ITrashVo> {
-    const { resourceId: baseId, cursor, pageSize = 20 } = trashItemsRo;
+    return this.listTrashItemsUnder(trashItemsRo.resourceId, trashItemsRo);
+  }
+
+  /** What a trashed folder holds, one level down. */
+  async getFolderTrashItems(trashItemsRo: ITrashItemsRo): Promise<ITrashVo> {
+    const baseId = await this.resolveTrashBaseId(trashItemsRo.resourceId);
+    if (!baseId) {
+      throw new CustomHttpException(
+        `The folder ${trashItemsRo.resourceId} not found`,
+        HttpErrorCode.NOT_FOUND,
+        { localization: { i18nKey: 'httpErrors.trash.notFound' } }
+      );
+    }
+    return this.listTrashItemsUnder(baseId, trashItemsRo);
+  }
+
+  private async listTrashItemsUnder(
+    baseId: string,
+    trashItemsRo: ITrashItemsRo
+  ): Promise<ITrashVo> {
+    const { resourceId: parentId, cursor, pageSize = 20 } = trashItemsRo;
     let nextCursor: string | null | undefined = undefined;
 
     const accessTokenId = this.cls.get('accessTokenId');
@@ -1365,11 +1540,12 @@ export class TrashService {
 
     const list = await this.prismaService.trash.findMany({
       where: {
-        parentId: baseId,
+        parentId,
       },
       take: pageSize + 1,
       cursor: cursor ? { id: cursor } : undefined,
-      orderBy: { deletedTime: 'desc' },
+      // A folder delete gives all its rows one time: the id keeps pages from repeating them.
+      orderBy: [{ deletedTime: 'desc' }, { id: 'desc' }],
     });
 
     if (list.length > pageSize) {
@@ -1379,6 +1555,9 @@ export class TrashService {
 
     list.forEach((item) => {
       const { id, resourceId, resourceType, deletedTime, deletedBy } = item;
+      // The map holds the project's deleted resources: a row naming one still in use is stale
+      // (a folder delete stopped before deleting it), and restoring or purging it would only drop it.
+      if (!resourceMap[resourceId]) return;
 
       trashItems.push({
         id,
@@ -1483,6 +1662,35 @@ export class TrashService {
     }
   }
 
+  private async restoreDashboard(dashboardId: string) {
+    const baseId = await this.findDashboardBaseId(dashboardId);
+    if (!baseId) {
+      throw new CustomHttpException(
+        `The dashboard ${dashboardId} not found`,
+        HttpErrorCode.NOT_FOUND,
+        { localization: { i18nKey: 'httpErrors.dashboard.notFound' } }
+      );
+    }
+    const accessTokenId = this.cls.get('accessTokenId');
+    await this.permissionService.validPermissions(baseId, ['base|update'], accessTokenId, true);
+    await this.prismaService.txClient().dashboard.update({
+      where: { id: dashboardId },
+      data: { deletedTime: null },
+    });
+    this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
+  }
+
+  /** Purges dashboards with their trash entries, as a table purge takes its own. */
+  private async purgeDashboards(dashboardIds: string[]) {
+    if (!dashboardIds.length) return;
+    await this.prismaService.$tx(async (prisma) => {
+      await prisma.dashboard.deleteMany({ where: { id: { in: dashboardIds } } });
+      await prisma.trash.deleteMany({
+        where: { resourceType: TrashType.Dashboard, resourceId: { in: dashboardIds } },
+      });
+    });
+  }
+
   private async restoreTable(tableId: string) {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(tableId, ['table|create'], accessTokenId, true);
@@ -1520,11 +1728,14 @@ export class TrashService {
       },
     });
 
-    if (!trash || trash.resourceType !== TrashType.Table) {
+    if (!trash || ![TrashType.Table, TrashType.Folder].includes(trash.resourceType as TrashType)) {
       return undefined;
     }
 
-    const baseId = trash.parentId;
+    // A folder restores its tables under the project-wide decision.
+    const baseId = await this.resolveTrashBaseId(
+      trash.resourceType === TrashType.Folder ? trash.resourceId : trash.parentId
+    );
     if (!baseId) {
       return { useV2: false, reason: 'disabled', baseId: '', tableId: trash.resourceId };
     }
@@ -1637,14 +1848,45 @@ export class TrashService {
       });
     }
 
+    const trash = await this.prismaService.txClient().trash.findUnique({
+      where: { id: trashId },
+      select: { resourceType: true },
+    });
+    // A folder brings back several kinds of resource; the v2 decision is in the context
+    // for its tables.
+    if (trash?.resourceType === TrashType.Folder) {
+      return this.restoreTrash(trashId);
+    }
+
     await this.assertBaseWritable(decision.baseId);
-    await this.assertParentNotTrashed(decision.baseId);
-    await this.restoreTableV2(decision.baseId, decision.tableId);
+    return this.withProjectLock(decision.baseId, async (): Promise<IRestoreTrashVo> => {
+      // Read again under the lock: the entry may have gone meanwhile (restored, or restored
+      // with its folder and deleted again, under a new entry this request did not see).
+      const current = await this.prismaService.txClient().trash.findUnique({
+        where: { id: trashId },
+        select: { resourceId: true, parentId: true },
+      });
+      if (current?.resourceId !== decision.tableId) {
+        throw new CustomHttpException(`The trash ${trashId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: { i18nKey: 'httpErrors.trash.notFound' },
+        });
+      }
+      // A stale row restores nothing: its table is already in use.
+      const live = { resourceType: TrashType.Table, resourceId: decision.tableId };
+      if (await this.isTrashResourceLive(live)) {
+        await this.prismaService.trash.deleteMany({ where: { id: trashId } });
+        return { restored: [] };
+      }
+      await this.assertRestorableParent(current.parentId ?? decision.baseId);
+      await this.restoreTableV2(decision.baseId, decision.tableId);
+      return { restored: [live] };
+    });
   }
 
   private async restoreTableV2(baseId: string, tableId: string) {
     const accessTokenId = this.cls.get('accessTokenId');
     await this.permissionService.validPermissions(tableId, ['table|create'], accessTokenId, true);
+    await this.dropStaleNode(baseId, { resourceType: TrashType.Table, resourceId: tableId });
     await this.tableOpenApiV2Service.restoreTable(baseId, tableId);
     this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
   }
@@ -2100,6 +2342,10 @@ export class TrashService {
         return this.restoreBase(resourceId);
       case TrashType.Table:
         return this.restoreTable(resourceId);
+      case TrashType.Dashboard:
+        return this.restoreDashboard(resourceId);
+      case TrashType.Folder:
+        return this.restoreFolder(resourceId);
       default:
         throw new CustomHttpException(
           `Invalid resource type ${resourceType}`,
@@ -2111,6 +2357,322 @@ export class TrashService {
           }
         );
     }
+  }
+
+  /**
+   * Anything in the trash can be restored on its own, a resource or folder trashed with its
+   * folder included. Only the project above has to be out of the trash.
+   */
+  private async assertRestorableParent(parentId: string | null) {
+    return this.assertParentNotTrashed(await this.resolveTrashBaseId(parentId));
+  }
+
+  /** The rows under a trashed folder its restore brings back: those whose resource is deleted. */
+  private async restorableFolderTrash(
+    folderId: string,
+    rows?: Awaited<ReturnType<TrashService['collectFolderTrash']>>
+  ) {
+    rows ??= await this.collectFolderTrash(folderId);
+    const restorable: (typeof rows)[number][] = [];
+    for (const row of rows) {
+      if (!(await this.isTrashResourceLive(row))) restorable.push(row);
+    }
+    return restorable.map((row) => ({ ...row, resourceType: row.resourceType as TrashType }));
+  }
+
+  /** Every trash row under a trashed folder, a level at a time, so parents come first. */
+  private async collectFolderTrash(folderId: string) {
+    const rows: { id: string; resourceType: string; resourceId: string; parentId: string }[] = [];
+    let frontier = [folderId];
+    while (frontier.length > 0) {
+      const level = await this.prismaService.txClient().trash.findMany({
+        where: { parentId: { in: frontier } },
+        select: { id: true, resourceType: true, resourceId: true, parentId: true },
+        orderBy: { id: 'asc' },
+      });
+      rows.push(...level.map((row) => ({ ...row, parentId: row.parentId! })));
+      frontier = level
+        .filter((row) => row.resourceType === TrashType.Folder)
+        .map((row) => row.resourceId);
+    }
+    return rows;
+  }
+
+  /**
+   * Restores a folder with whatever of it is still in the trash, to the end of the project's
+   * root, the structure inside kept. Contents restored or purged on their own are not here.
+   */
+  private async restoreFolder(folderId: string) {
+    const prisma = this.prismaService.txClient();
+    const folder = await prisma.baseNodeFolder.findUnique({
+      where: { id: folderId },
+      select: { baseId: true },
+    });
+    if (!folder) {
+      throw new CustomHttpException(`The folder ${folderId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: { i18nKey: 'httpErrors.trash.notFound' },
+      });
+    }
+    const { baseId } = folder;
+    const accessTokenId = this.cls.get('accessTokenId');
+    await this.permissionService.validPermissions(baseId, ['base|update'], accessTokenId, true);
+
+    const allRows = await this.collectFolderTrash(folderId);
+    // Rows of resources already in use are stale: they go, the resource stays where it is.
+    const rows = await this.restorableFolderTrash(folderId, allRows);
+    await this.assertFolderRestorePermitted(baseId, rows);
+    // A v2 table is restored on its own connection, outside this transaction. If anything after
+    // it fails, it is not deleted again (that would not undo all its restore did): it stays
+    // restored, at the root, and restoring the folder again brings back the rest.
+    let restoredOnTheirOwn = 0;
+    try {
+      for (const row of rows) {
+        if (row.resourceType === TrashType.Folder) continue;
+        await this.restoreFolderItem(baseId, row);
+        if (row.resourceType === TrashType.Table && this.cls.get('useV2')) restoredOnTheirOwn++;
+      }
+      const nodeIdByFolderId = await this.rebuildFolderNodes(baseId, folderId, rows);
+      await prisma.trash.deleteMany({ where: { id: { in: allRows.map(({ id }) => id) } } });
+      await this.onFolderRestored(baseId, nodeIdByFolderId);
+    } catch (error) {
+      if (!restoredOnTheirOwn) throw error;
+      this.logger.error(
+        `Folder restore in project ${baseId} stopped after ${restoredOnTheirOwn} tables`,
+        error instanceof Error ? error.stack : error
+      );
+      throw new CustomHttpException(
+        `The folder was only partly restored: ${restoredOnTheirOwn} of its tables are back at the project root. Restore the folder again to finish.`,
+        HttpErrorCode.INTERNAL_SERVER_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.trash.folderRestorePartial',
+            context: { count: restoredOnTheirOwn },
+          },
+        }
+      );
+    }
+    this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
+    return rows;
+  }
+
+  /** Restores a resource of a trashed folder. */
+  private async restoreFolderItem(
+    baseId: string,
+    row: { resourceType: TrashType; resourceId: string }
+  ) {
+    if (row.resourceType === TrashType.Table && this.cls.get('useV2')) {
+      return this.restoreTableV2(baseId, row.resourceId);
+    }
+    await this.restoreResource({ resourceType: row.resourceType, resourceId: row.resourceId });
+  }
+
+  /**
+   * Gives the restored folders and resources their nodes, nested as they were. A node the
+   * tree already made for a restored resource (it puts restored ones at the root) is moved.
+   */
+  private async rebuildFolderNodes(
+    baseId: string,
+    rootFolderId: string,
+    rows: { resourceType: string; resourceId: string; parentId: string }[]
+  ) {
+    const prisma = this.prismaService.txClient();
+    const folderIds = [
+      rootFolderId,
+      ...rows.filter((r) => r.resourceType === TrashType.Folder).map((r) => r.resourceId),
+    ];
+    await this.renameClashingFolders(baseId, folderIds);
+    await prisma.baseNodeFolder.updateMany({
+      where: { id: { in: folderIds } },
+      data: { deletedTime: null },
+    });
+    const ensureNode = async (
+      resourceType: string,
+      resourceId: string,
+      parentId: string | null,
+      order: number
+    ) => {
+      const existing = await prisma.baseNode.findUnique({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        where: { baseId_resourceType_resourceId: { baseId, resourceType, resourceId } },
+        select: { id: true },
+      });
+      if (existing) {
+        await prisma.baseNode.update({ where: { id: existing.id }, data: { parentId, order } });
+        return existing.id;
+      }
+      const id = generateBaseNodeId();
+      await prisma.baseNode.create({
+        data: {
+          id,
+          baseId,
+          resourceType,
+          resourceId,
+          parentId,
+          order,
+          createdBy: this.cls.get('user.id'),
+        },
+      });
+      return id;
+    };
+
+    const { _max } = await prisma.baseNode.aggregate({
+      where: { baseId, parentId: null },
+      _max: { order: true },
+    });
+    const nodeIdByFolderId = new Map<string, string>();
+    nodeIdByFolderId.set(
+      rootFolderId,
+      await ensureNode(TrashType.Folder, rootFolderId, null, (_max.order ?? 0) + 1)
+    );
+    const nextOrder = new Map<string, number>();
+    for (const row of rows) {
+      const parentNodeId = nodeIdByFolderId.get(row.parentId);
+      if (!parentNodeId) continue;
+      const order = nextOrder.get(parentNodeId) ?? 0;
+      nextOrder.set(parentNodeId, order + 1);
+      const nodeId = await ensureNode(row.resourceType, row.resourceId, parentNodeId, order);
+      if (row.resourceType === TrashType.Folder) nodeIdByFolderId.set(row.resourceId, nodeId);
+    }
+    return nodeIdByFolderId;
+  }
+
+  /**
+   * A folder in the trash holds no name: one restored where another folder has taken its name
+   * meanwhile gets a new one, as a folder created with that name would.
+   */
+  private async renameClashingFolders(baseId: string, folderIds: string[]) {
+    const prisma = this.prismaService.txClient();
+    const [restoring, live] = await Promise.all([
+      prisma.baseNodeFolder.findMany({
+        where: { id: { in: folderIds } },
+        select: { id: true, name: true },
+        orderBy: { createdTime: 'asc' },
+      }),
+      prisma.baseNodeFolder.findMany({
+        where: { baseId, deletedTime: null },
+        select: { name: true },
+      }),
+    ]);
+    const names = live.map(({ name }) => name);
+    for (const folder of restoring) {
+      const name = getUniqName(folder.name, names);
+      names.push(name);
+      if (name === folder.name) continue;
+      await prisma.baseNodeFolder.update({ where: { id: folder.id }, data: { name } });
+    }
+  }
+
+  /** Lets the edition repoint what refers to a restored folder by its node, which is new. */
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  protected async onFolderRestored(_baseId: string, _nodeIdByFolderId: Map<string, string>) {}
+
+  /** Purges a trashed folder: what it still holds, then the folders themselves. */
+  private async permanentDeleteFolder(folderId: string, ignorePermissionCheck: boolean) {
+    const baseId = await this.resolveTrashBaseId(folderId);
+    if (!baseId) {
+      await this.prismaService.trash.deleteMany({
+        where: { resourceType: TrashType.Folder, resourceId: folderId },
+      });
+      return;
+    }
+    const rows = await this.collectFolderTrash(folderId);
+    if (!ignorePermissionCheck) await this.assertFolderPurgePermitted(baseId, rows);
+    for (const row of rows) {
+      if (row.resourceType === TrashType.Folder) continue;
+      await this.purgeFolderTrashRow(
+        { ...row, resourceType: row.resourceType as TrashType },
+        ignorePermissionCheck
+      );
+    }
+    const folders = rows
+      .filter((r) => r.resourceType === TrashType.Folder)
+      .map((row) => ({ ...row, resourceType: TrashType.Folder }));
+    const described = ignorePermissionCheck
+      ? []
+      : await Promise.all(folders.map((folder) => this.describeTrashItemSafely(folder)));
+    await this.purgeTrashedFolders(baseId, [folderId, ...folders.map((r) => r.resourceId)]);
+    if (ignorePermissionCheck) return;
+    for (const [index, folder] of folders.entries()) {
+      await this.auditTrashPermanentDelete(folder, described[index]);
+    }
+  }
+
+  /**
+   * All a folder brings back is checked before the first restore, as each restore checks it: a
+   * v2 table restored before a later check failed would stay restored.
+   */
+  private async assertFolderRestorePermitted(
+    baseId: string,
+    rows: { resourceType: string; resourceId: string }[]
+  ) {
+    const accessTokenId = this.cls.get('accessTokenId');
+    const scopes = new Set<Action>();
+    for (const row of rows) {
+      if (row.resourceType === TrashType.Table) {
+        await this.permissionService.validPermissions(
+          row.resourceId,
+          ['table|create'],
+          accessTokenId,
+          true
+        );
+        continue;
+      }
+      const scope = TRASH_RESTORE_SCOPES[row.resourceType];
+      if (scope) scopes.add(scope);
+    }
+    if (scopes.size === 0) return;
+    await this.permissionService.validPermissions(baseId, [...scopes], accessTokenId, true);
+  }
+
+  /** All a folder holds is checked before the first purge, not one at a time as it goes. */
+  private async assertFolderPurgePermitted(baseId: string, rows: { resourceType: string }[]) {
+    const scopes = new Set<Action>(['base|update']);
+    for (const row of rows) {
+      const scope = TRASH_PURGE_SCOPES[row.resourceType];
+      if (scope) scopes.add(scope);
+    }
+    const accessTokenId = this.cls.get('accessTokenId');
+    await this.permissionService.validPermissions(baseId, [...scopes], accessTokenId, true);
+  }
+
+  /** Purges an item of a trashed folder, written as its own entry's purge would be. */
+  private async purgeFolderTrashRow(item: ITrashAuditItem & { id: string }, ignore: boolean) {
+    if (await this.isTrashResourceLive(item)) {
+      await this.prismaService.trash.deleteMany({ where: { id: item.id } });
+      return;
+    }
+    // The retention sweep (ignore) has no user to attribute the purge to.
+    const described = ignore ? undefined : await this.describeTrashItemSafely(item);
+    await this.deleteResource(item, ignore);
+    if (!ignore) await this.auditTrashPermanentDelete(item, described);
+  }
+
+  /**
+   * A resource deleted through its own route leaves its node, with the node's shares, for the
+   * tree to drop later. Both go as the resource comes back (in its restore's transaction, if it
+   * has one), as a delete through the node takes them: a restore never reopens a share link.
+   */
+  private async dropStaleNode(baseId: string, item: { resourceType: string; resourceId: string }) {
+    const prisma = this.prismaService.txClient();
+    const nodes = await prisma.baseNode.findMany({
+      where: { baseId, resourceType: item.resourceType, resourceId: item.resourceId },
+      select: { id: true },
+    });
+    if (!nodes.length) return;
+    const nodeIds = nodes.map(({ id }) => id);
+    const shares = await prisma.baseShare.findMany({
+      where: { baseId, nodeId: { in: nodeIds } },
+      select: { shareId: true },
+    });
+    await prisma.baseShare.deleteMany({ where: { baseId, nodeId: { in: nodeIds } } });
+    await prisma.baseNode.deleteMany({ where: { id: { in: nodeIds } } });
+    for (const { shareId } of shares) {
+      await this.shortLinkService.markDeletedByResource(ShortLinkType.BaseShare, shareId);
+    }
+    if (shares.length) {
+      await this.performanceCacheService.del(generateBaseShareListCacheKey(baseId));
+    }
+    this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
   }
 
   async restoreTableResource(trashId: string, routedTableId?: string) {
@@ -2268,48 +2830,79 @@ export class TrashService {
     return rows[0]?.resourceType ?? null;
   }
 
-  async restoreTrash(trashId: string, tableId?: string) {
+  async restoreTrash(trashId: string, tableId?: string): Promise<IRestoreTrashVo> {
     if (trashId.startsWith(IdPrefix.Operation)) {
-      return await this.restoreTableResource(trashId, tableId);
+      await this.restoreTableResource(trashId, tableId);
+      return { restored: [] };
     }
 
-    const restored = await this.prismaService.$tx(async (prisma) => {
-      const trash = await prisma.trash
-        .findUniqueOrThrow({
-          where: { id: trashId },
-          select: {
-            id: true,
-            resourceId: true,
-            resourceType: true,
-            parentId: true,
-          },
-        })
-        .catch(() => {
-          throw new CustomHttpException(`The trash ${trashId} not found`, HttpErrorCode.NOT_FOUND, {
-            localization: {
-              i18nKey: 'httpErrors.trash.notFound',
-            },
-          });
-        });
-
-      await this.assertParentNotTrashed(trash.parentId);
-      await this.assertTrashResourceWritable(
-        trash.resourceType as TrashType,
-        trash.resourceId,
-        trash.parentId
-      );
-
-      await this.restoreResource({
-        resourceType: trash.resourceType as TrashType,
-        resourceId: trash.resourceId,
-      });
-
-      await prisma.trash.deleteMany({
-        where: { id: trashId },
-      });
-      return { ...trash, resourceType: trash.resourceType as TrashType };
+    const row = await this.prismaService.trash.findUnique({
+      where: { id: trashId },
+      select: { resourceType: true, parentId: true },
     });
-    await this.auditTrashRestore(restored, await this.describeTrashItemSafely(restored));
+    const restored = await this.withProjectTrashLock(row, () =>
+      this.prismaService.$tx(async (prisma) => {
+        const trash = await prisma.trash
+          .findUniqueOrThrow({
+            where: { id: trashId },
+            select: {
+              id: true,
+              resourceId: true,
+              resourceType: true,
+              parentId: true,
+            },
+          })
+          .catch(() => {
+            throw new CustomHttpException(
+              `The trash ${trashId} not found`,
+              HttpErrorCode.NOT_FOUND,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.trash.notFound',
+                },
+              }
+            );
+          });
+
+        // A stale row restores nothing: its resource is already in use.
+        if (await this.isTrashResourceLive(trash)) {
+          await prisma.trash.deleteMany({ where: { id: trashId } });
+          return undefined;
+        }
+        await this.assertRestorableParent(trash.parentId);
+        await this.assertTrashResourceWritable(
+          trash.resourceType as TrashType,
+          trash.resourceId,
+          trash.parentId
+        );
+        const item = {
+          id: trash.id,
+          resourceType: trash.resourceType as TrashType,
+          resourceId: trash.resourceId,
+          parentId: trash.parentId,
+        };
+        // What a folder brings back, each written as its own restore would be.
+        const contents =
+          item.resourceType === TrashType.Folder
+            ? await this.restoreFolder(item.resourceId)
+            : (await this.restoreResource(item), []);
+        if (NODE_TRASH_TYPES.has(item.resourceType)) {
+          const baseId = await this.resolveTrashBaseId(item.parentId);
+          if (baseId) await this.dropStaleNode(baseId, item);
+        }
+
+        await prisma.trash.deleteMany({ where: { id: trashId } });
+        return { trash: item, contents };
+      })
+    );
+    if (!restored) return { restored: [] };
+    const items = [restored.trash, ...restored.contents];
+    for (const item of items) {
+      await this.auditTrashRestore(item, await this.describeTrashItemSafely(item));
+    }
+    return {
+      restored: items.map(({ resourceType, resourceId }) => ({ resourceType, resourceId })),
+    };
   }
 
   // Audit lookups never fail the operation they describe.
@@ -2344,15 +2937,29 @@ export class TrashService {
           name: base ? baseDisplayName(base.name) : undefined,
         };
       }
+      case TrashType.Folder: {
+        const folder = await this.prismaService.baseNodeFolder.findUnique({
+          where: { id: trash.resourceId },
+          select: { name: true, baseId: true },
+        });
+        return { baseId: folder?.baseId, name: folder?.name };
+      }
+      case TrashType.Dashboard: {
+        const dashboard = await this.prismaService.dashboard.findUnique({
+          where: { id: trash.resourceId },
+          select: { name: true, baseId: true },
+        });
+        return { baseId: dashboard?.baseId, dashboardId: trash.resourceId, name: dashboard?.name };
+      }
       default:
         return undefined;
     }
   }
 
   /**
-   * A space or base restore is a bare column update that emits nothing, so the trash writes its row
-   * once the restore committed. A table restore is not written here: its re-emitted TABLE_CREATE
-   * (v1) or TableRestored (v2) becomes the `table.restore` row.
+   * A space, base, folder or dashboard restore is a bare column update that emits nothing, so the
+   * trash writes its row once the restore committed. A table restore is not written here: its
+   * re-emitted TABLE_CREATE (v1) or TableRestored (v2) becomes the `table.restore` row.
    */
   protected async auditTrashRestore(
     trash: ITrashAuditItem,
@@ -2374,14 +2981,29 @@ export class TrashService {
           params,
         });
         return;
+      // Its contents write their own rows; the folder's, even an empty one's, is this one.
+      case TrashType.Folder:
+        await this.audit.emitAtomic({
+          action: 'base.folder.restore',
+          resourceId: trash.resourceId,
+          params,
+        });
+        return;
+      case TrashType.Dashboard:
+        await this.audit.emitAtomic({
+          action: 'dashboard.restore',
+          resourceId: trash.resourceId,
+          params,
+        });
+        return;
       default:
         return;
     }
   }
 
   /**
-   * The permanent delete of a space or base from the trash: distinct from the soft delete that put
-   * it there. Tables and routines are not written here — their services write
+   * The permanent delete of a space, base, folder or dashboard from the trash: distinct from the soft
+   * delete that put it there. Tables and routines are not written here — their services write
    * `table.permanent-delete` / `base.routine.permanent-delete` for every entry point.
    */
   protected async auditTrashPermanentDelete(
@@ -2405,6 +3027,20 @@ export class TrashService {
           params,
         });
         return;
+      case TrashType.Folder:
+        await this.audit.emitAtomic({
+          action: 'base.folder.permanent-delete',
+          resourceId: trash.resourceId,
+          params,
+        });
+        return;
+      case TrashType.Dashboard:
+        await this.audit.emitAtomic({
+          action: 'dashboard.permanent-delete',
+          resourceId: trash.resourceId,
+          params,
+        });
+        return;
       default:
         return;
     }
@@ -2416,9 +3052,25 @@ export class TrashService {
   protected async resetBaseTrashResource(resetTrashItemsRo: IResetTrashItemsRo) {
     const { resourceId } = resetTrashItemsRo;
     const accessTokenId = this.cls.get('accessTokenId');
+    // Purging the trashed folders or dashboards takes what purging one of them does.
+    const [folderCount, dashboards] = await Promise.all([
+      this.prismaService.baseNodeFolder.count({
+        where: { baseId: resourceId, deletedTime: { not: null } },
+      }),
+      this.prismaService.dashboard.findMany({
+        where: { baseId: resourceId, deletedTime: { not: null } },
+        select: { id: true },
+      }),
+    ]);
     await this.permissionService.validPermissions(
       resourceId,
-      ['table|delete', 'app|delete', 'automation|delete', 'routine|delete'],
+      [
+        'table|delete',
+        'app|delete',
+        'automation|delete',
+        'routine|delete',
+        ...(folderCount > 0 || dashboards.length > 0 ? (['base|update'] as const) : []),
+      ],
       accessTokenId,
       true
     );
@@ -2431,10 +3083,51 @@ export class TrashService {
       select: { id: true },
     });
 
-    if (!tables.length) return;
+    if (tables.length) {
+      const tableIds = tables.map(({ id }) => id);
+      await this.tableOpenApiService.permanentDeleteTables(resourceId, tableIds);
+    }
+    await this.purgeDashboards(dashboards.map(({ id }) => id));
+  }
 
-    const tableIds = tables.map(({ id }) => id);
-    await this.tableOpenApiService.permanentDeleteTables(resourceId, tableIds);
+  /**
+   * What an emptied trash still lists under these parents names resources in use (a folder delete
+   * stopped before deleting them): the entries go, the resources stay.
+   */
+  private async dropStaleTrash(parentIds: string[]) {
+    const rows = await this.prismaService.trash.findMany({
+      where: { parentId: { in: parentIds } },
+      select: { id: true, resourceType: true, resourceId: true },
+    });
+    const stale: string[] = [];
+    for (const type of new Set(rows.map((row) => row.resourceType))) {
+      const ofType = rows.filter((row) => row.resourceType === type);
+      const live = await this.liveTrashResourceIds(
+        type,
+        ofType.map((row) => row.resourceId)
+      );
+      stale.push(...ofType.filter((row) => live.has(row.resourceId)).map((row) => row.id));
+    }
+    if (stale.length) await this.prismaService.trash.deleteMany({ where: { id: { in: stale } } });
+  }
+
+  private async purgeTrashedFolders(baseId: string, folderIds?: string[]) {
+    await this.prismaService.$tx(async (prisma) => {
+      const folders = await prisma.baseNodeFolder.findMany({
+        where: {
+          baseId,
+          deletedTime: { not: null },
+          ...(folderIds ? { id: { in: folderIds } } : {}),
+        },
+        select: { id: true },
+      });
+      const ids = folders.map(({ id }) => id);
+      if (!ids.length) return;
+      await prisma.trash.deleteMany({
+        where: { resourceType: TrashType.Folder, resourceId: { in: ids } },
+      });
+      await prisma.baseNodeFolder.deleteMany({ where: { id: { in: ids } } });
+    });
   }
 
   async resetTrashItems(resetTrashItemsRo: IResetTrashItemsRo) {
@@ -2458,8 +3151,19 @@ export class TrashService {
     // a routine's permanent delete) join its operation.
     await this.audit.withOperation({ rootAction: TRASH_RESET_ACTION, resourceId }, async () => {
       if (resourceType === TrashType.Base) {
-        const counts = await this.countBaseTrashItems(resourceId).catch(() => undefined);
-        await this.resetBaseTrashResource(resetTrashItemsRo);
+        let counts: Record<string, number> | undefined;
+        await this.withProjectLock(resourceId, async () => {
+          counts = await this.countBaseTrashItems(resourceId).catch(() => undefined);
+          await this.resetBaseTrashResource(resetTrashItemsRo);
+          const folders = await this.prismaService.baseNodeFolder.findMany({
+            where: { baseId: resourceId, deletedTime: { not: null } },
+            select: { id: true },
+          });
+          // The folders go last, once all they held is purged (the edition's resources too): a
+          // purge that fails before then leaves their entries where the trash shows them.
+          await this.purgeTrashedFolders(resourceId);
+          await this.dropStaleTrash([resourceId, ...folders.map(({ id }) => id)]);
+        });
         await this.auditTrashReset(resourceId, { resourceType, baseId: resourceId }, counts);
       }
 
@@ -2470,10 +3174,17 @@ export class TrashService {
     });
   }
 
-  /** What a base's trash holds, per resource type, before it is emptied. */
+  /**
+   * What a base's trash holds, per resource type, before it is emptied: the contents of its
+   * trashed folders included, as the reset purges those too.
+   */
   private async countBaseTrashItems(baseId: string): Promise<Record<string, number>> {
+    const folders = await this.prismaService.baseNodeFolder.findMany({
+      where: { baseId, deletedTime: { not: null } },
+      select: { id: true },
+    });
     const items = await this.prismaService.trash.findMany({
-      where: { parentId: baseId },
+      where: { parentId: { in: [baseId, ...folders.map(({ id }) => id)] } },
       select: { resourceType: true },
     });
     const counts: Record<string, number> = {};
@@ -2650,8 +3361,22 @@ export class TrashService {
     const item = { ...trash, resourceType: trash.resourceType as TrashType };
     // The retention sweep (ignorePermissionCheck) has no user to attribute the purge to.
     const described = ignorePermissionCheck ? undefined : await this.describeTrashItemSafely(item);
-    await this.deleteResource(item, ignorePermissionCheck);
-    if (!ignorePermissionCheck) {
+    const purged = await this.withProjectTrashLock(item, async () => {
+      // Read again under the lock: a restore may have taken the row meanwhile.
+      const current = await this.prismaService.trash.findUnique({ where: { id: trashId } });
+      if (!current) {
+        throw new CustomHttpException(`The trash ${trashId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: { i18nKey: 'httpErrors.trash.notFound' },
+        });
+      }
+      if (await this.isTrashResourceLive(item)) {
+        await this.prismaService.trash.deleteMany({ where: { id: trashId } });
+        return false;
+      }
+      await this.deleteResource(item, ignorePermissionCheck);
+      return true;
+    });
+    if (purged && !ignorePermissionCheck) {
       await this.auditTrashPermanentDelete(item, described);
     }
   }
@@ -2673,7 +3398,7 @@ export class TrashService {
       case TrashType.Base:
         return this.baseService.permanentDeleteBase(resourceId, ignorePermissionCheck);
       case TrashType.Table: {
-        const baseId = parentId ?? '';
+        const baseId = (await this.resolveTrashBaseId(parentId)) ?? '';
         if (!baseId) {
           throw new CustomHttpException(
             'Project ID is required for deleting table resources',
@@ -2696,6 +3421,28 @@ export class TrashService {
         }
         return this.tableOpenApiService.permanentDeleteTables(baseId, [resourceId]);
       }
+      case TrashType.Dashboard: {
+        const baseId = await this.resolveTrashBaseId(parentId);
+        if (!baseId) {
+          throw new CustomHttpException(
+            'Project ID is required for deleting dashboard resources',
+            HttpErrorCode.VALIDATION_ERROR,
+            { localization: { i18nKey: 'httpErrors.trash.parentNotFound' } }
+          );
+        }
+        if (!ignorePermissionCheck) {
+          const accessTokenId = this.cls.get('accessTokenId');
+          await this.permissionService.validPermissions(
+            baseId,
+            ['base|update'],
+            accessTokenId,
+            true
+          );
+        }
+        return this.purgeDashboards([resourceId]);
+      }
+      case TrashType.Folder:
+        return this.permanentDeleteFolder(resourceId, ignorePermissionCheck);
       default:
         throw new CustomHttpException(
           `Unsupported resource type: ${resourceType}`,

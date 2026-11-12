@@ -37,6 +37,7 @@ import {
   type UserField,
 } from '@teable/v2-core';
 import {
+  buildUserTitleFromSnapshotSql,
   formatNumberStringSql,
   Pg16TypeValidationStrategy,
   type IPgTypeValidationStrategy,
@@ -51,7 +52,6 @@ import {
   buildTableUserScopeSql,
   hasTableUserDepartmentRelations,
 } from '../../record/query-builder/tableUserScopeSql';
-import { buildUserTitleFromSnapshotSql } from '../../record/query-builder/userSnapshotSql';
 import type { TableSchemaStatementBuilder } from '../rules/core';
 import type { TableIdentifier } from '../rules/helpers';
 import { PostgresTableSchemaFieldCreateVisitor } from './PostgresTableSchemaFieldCreateVisitor';

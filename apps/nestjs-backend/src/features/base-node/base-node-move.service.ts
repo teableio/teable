@@ -44,7 +44,8 @@ import { BaseDependencyGraphService, nodeKey, parseNodeKey } from './base-depend
 import type { INodeKey } from './base-dependency-graph.service';
 import { checkBaseNodePermission } from './base-node.permission.helper';
 import { presenceHandler } from './helper';
-import type { IBaseNodePermissionContext } from './types';
+import { PROJECT_NODE_LOCK_TTL_SECONDS, projectNodeLockName } from './project-node-lock';
+import type { IBaseNodePermissionContext, IBaseNodeVisibilityContext } from './types';
 import { BaseNodeAction } from './types';
 
 export type IMoveNodeEntry = {
@@ -155,6 +156,67 @@ export class BaseNodeMoveService {
   }
 
   /**
+   * What deleting a node's subtree breaks outside it: resources staying behind that reference
+   * one of its tables. The same checks a move runs, read from the side that is deleted.
+   */
+  async collectDeleteDependents(
+    baseId: string,
+    nodeId: string
+  ): Promise<{
+    dependents: IMoveBaseNodeDependent[];
+    uninspectableApps: IMoveBaseNodeEmbeddedIdApp[];
+  }> {
+    const rootRow = await this.prismaService.txClient().baseNode.findFirst({
+      where: { baseId, id: nodeId },
+      select: { id: true, parentId: true, resourceType: true, resourceId: true },
+    });
+    if (!rootRow) return { dependents: [], uninspectableApps: [] };
+    const root = this.toEntry(rootRow);
+    const nodes = await this.collectSubtree(baseId, root);
+    const resourceIds = new Map<BaseNodeResourceType, string[]>();
+    for (const node of nodes) {
+      resourceIds.set(node.resourceType, [
+        ...(resourceIds.get(node.resourceType) ?? []),
+        node.resourceId,
+      ]);
+    }
+    const ctx: IMoveNodeContext = {
+      sourceBaseId: baseId,
+      targetBaseId: baseId,
+      spaceId: '',
+      root,
+      nodes,
+      items: [],
+      resourceIds,
+      tableIds: resourceIds.get(BaseNodeResourceType.Table) ?? [],
+      blockers: [],
+      crossBaseLinks: [],
+      dependents: [],
+      candidates: [],
+      dependencyClosure: [],
+      embeddedIdApps: [],
+      uninspectableApps: [],
+      droppedPermissionRuleCount: 0,
+    };
+    ctx.uninspectableApps = await this.readAppSources(ctx);
+    const deleted = new Set(nodes.map((node) => node.resourceId));
+    const dependents = (await this.collectDependents(ctx)).filter(
+      (dependent) => !deleted.has(dependent.resourceId)
+    );
+    return { dependents, uninspectableApps: ctx.uninspectableApps };
+  }
+
+  /**
+   * What the caller may do in and see of a project, for a check made outside that project's
+   * routes.
+   */
+  async getPermissionContextOutsideRoute(
+    baseId: string
+  ): Promise<IBaseNodeVisibilityContext | undefined> {
+    return this.getTargetPermissionContext(baseId);
+  }
+
+  /**
    * Two moves touching the same project at once would read the same node
    * rows and physical names, then both try to relocate them; the second
    * would find its tables already gone. One move per project at a time, and
@@ -167,10 +229,9 @@ export class BaseNodeMoveService {
       return;
     }
     const [head, ...rest] = baseIds;
-    const ttlSeconds = Math.ceil(this.thresholdConfig.bigTransactionTimeout / 1000) + 30;
     const ran = await this.distributedLockService.runExclusive(
-      `base-node-move:${head}`,
-      ttlSeconds,
+      projectNodeLockName(head),
+      PROJECT_NODE_LOCK_TTL_SECONDS,
       () => this.withMoveLocks(rest, task)
     );
     if (!ran) {
@@ -621,8 +682,13 @@ export class BaseNodeMoveService {
       where: { id: { in: folderIds } },
       select: { id: true, name: true },
     });
+    // A folder in the trash holds no name.
     const conflicts = await prisma.baseNodeFolder.findMany({
-      where: { baseId: ctx.targetBaseId, name: { in: names.map((f) => f.name) } },
+      where: {
+        baseId: ctx.targetBaseId,
+        name: { in: names.map((f) => f.name) },
+        deletedTime: null,
+      },
       select: { name: true },
     });
     const conflictNames = new Set(conflicts.map((c) => c.name));
@@ -913,7 +979,10 @@ export class BaseNodeMoveService {
         rows = await prisma.tableMeta.findMany({ where: { baseId, id: { in: ids } }, select });
         break;
       case BaseNodeResourceType.Dashboard:
-        rows = await prisma.dashboard.findMany({ where: { baseId, id: { in: ids } }, select });
+        rows = await prisma.dashboard.findMany({
+          where: { baseId, id: { in: ids }, deletedTime: null },
+          select,
+        });
         break;
       default:
         rows = [];

@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildTableSearchAccessPathDefinition,
+  resolveTableSearchDocumentCoverage,
   WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_FIELD_COUNT,
   WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT,
 } from './searchVectorDefinition';
@@ -278,5 +279,31 @@ describe('buildTableSearchAccessPathDefinition', () => {
     expect(definition.scope).toBe('selected_fields');
     expect(definition.accessPath).toBe('generated_text');
     expect(definition.fields).toHaveLength(2);
+  });
+});
+
+describe('resolveTableSearchDocumentCoverage', () => {
+  it('reports searchable fields the published document does not cover', () => {
+    const coverage = resolveTableSearchDocumentCoverage(makeTable(), ['fld0000000000000001']);
+
+    expect(coverage._unsafeUnwrap()).toEqual({
+      searchableFieldIds: ['fld0000000000000001', 'fld0000000000000002'],
+      coveredFieldIds: ['fld0000000000000001'],
+      uncoveredFieldIds: ['fld0000000000000002'],
+    });
+  });
+
+  it('drops covered ids the table no longer has', () => {
+    const coverage = resolveTableSearchDocumentCoverage(makeTable(), [
+      'fld0000000000000001',
+      'fld0000000000000002',
+      'fld0000000000000009',
+    ]);
+
+    expect(coverage._unsafeUnwrap()).toEqual({
+      searchableFieldIds: ['fld0000000000000001', 'fld0000000000000002'],
+      coveredFieldIds: ['fld0000000000000001', 'fld0000000000000002'],
+      uncoveredFieldIds: [],
+    });
   });
 });

@@ -6,7 +6,10 @@ import type { IDomainContext } from '../../domain/shared/DomainContext';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { Field } from '../../domain/table/fields/Field';
-import { FieldCreationSideEffectVisitor } from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
+import {
+  FieldCreationSideEffectVisitor,
+  type FieldCreationSideEffectContext,
+} from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
 import type { Table } from '../../domain/table/Table';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -20,6 +23,7 @@ export type FieldCreationSideEffectServiceInput = {
   foreignTables: ReadonlyArray<Table>;
   tableState?: ReadonlyMap<string, Table>;
   domainContext?: IDomainContext;
+  newFieldColumnMeta?: FieldCreationSideEffectContext['newFieldColumnMeta'];
 };
 
 export type FieldCreationSideEffectServiceResult = {
@@ -56,6 +60,7 @@ export class FieldCreationSideEffectService {
       table,
       foreignTables: [...foreignTableState.values()],
       domainContext: input.domainContext,
+      newFieldColumnMeta: input.newFieldColumnMeta,
     });
     if (sideEffectsResult.isErr()) {
       return err(sideEffectsResult.error);
@@ -105,6 +110,7 @@ export class FieldCreationSideEffectService {
           table,
           foreignTables: [...foreignTableState.values()],
           domainContext: input.domainContext,
+          newFieldColumnMeta: input.newFieldColumnMeta,
         });
         if (sideEffects.length === 0) return ok({ events: [], tableState: foreignTableState });
 

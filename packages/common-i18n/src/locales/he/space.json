@@ -47,7 +47,13 @@
     "generalDescription": "כאן ניתן לשנות את ההגדרות של המרחב הנוכחי",
     "spaceName": "שם המרחב",
     "spaceId": "מזהה המרחב",
-    "importBase": "ייבוא"
+    "importBase": "ייבוא",
+    "deleteSpaceDescription": "מעביר את המרחב ואת כל הפרויקטים שבו לאשפה. יש לבטל קודם מינוי פעיל.",
+    "icon": "סמל",
+    "iconDescription": "מוצג ברשימת המרחבים ובסרגל הצד.",
+    "profile": "פרופיל המרחב",
+    "spaceIdDescription": "לשימוש עם ה-API וה-CLI.",
+    "spaceNameDescription": "כל חברי המרחב רואים את השם הזה."
   },
   "collaborators": "משתפי פעולה",
   "more": "עוד",
@@ -107,6 +113,12 @@
     "importing": "בייבוא",
     "baseImportTips": "לחיצה או גרירת קובץ .tea לאזור הזה להעלאה",
     "confirm": "אישור והמשך",
+    "preview": {
+      "analyzing": "בניתוח תוכן הקובץ…",
+      "total": "סך כל הפריטים: {{count}}",
+      "invalid": "הקובץ הזה אינו קובץ .tea תקין ולא ניתן לייבא אותו.",
+      "failed": "לא ניתן היה לנתח את הקובץ. עדיין אפשר להמשיך בייבוא."
+    },
     "phase": {
       "importingV2": "בייבוא",
       "parsingStructure": "בניתוח המבנה",

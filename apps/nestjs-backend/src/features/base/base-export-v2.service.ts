@@ -459,7 +459,7 @@ export class BaseExportV2Service {
     const result = await sql<{ id: string; name: string }>`
       select "id", "name"
       from "base_node_folder"
-      where "base_id" = ${baseId}
+      where "base_id" = ${baseId} and "deleted_time" is null
       order by "created_time" asc
     `.execute(db);
     return result.rows.map((folder) => ({
@@ -502,7 +502,7 @@ export class BaseExportV2Service {
     const dashboards = await sql<{ id: string; name: string; layout: string | null }>`
       select "id", "name", "layout"
       from "dashboard"
-      where "base_id" = ${baseId}
+      where "base_id" = ${baseId} and "deleted_time" is null
       order by "created_time" asc
     `.execute(db);
     const installs = await this.getPluginInstalls(

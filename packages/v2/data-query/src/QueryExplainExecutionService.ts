@@ -1,17 +1,11 @@
 import { domainError, type DomainError, type IExecutionContext } from '@teable/v2-core';
 import { err, type Result } from 'neverthrow';
-import { z } from 'zod';
 
 import { DataQueryDefinition } from './DataQueryDefinition';
 import type { DataQueryExplainResult } from './DataQueryExplain';
 import type { DataQueryExplainService } from './DataQueryExplainService';
 import { traceDataQueryStage } from './DataQueryService';
-import { executeDataQueryRequestSchema } from './queryExecutionProtocol';
-
-// Same canonical envelope as execute; explain adds no private request shape.
-const explainEnvelopeSchema = executeDataQueryRequestSchema.extend({
-  definition: z.unknown().refine((value) => value !== undefined),
-});
+import { executeDataQueryEnvelopeSchema } from './queryExecutionProtocol';
 
 /** Transport-independent explain boundary for untrusted inline requests. */
 export class QueryExplainExecutionService {
@@ -23,7 +17,7 @@ export class QueryExplainExecutionService {
   ): Promise<Result<DataQueryExplainResult, DomainError>> {
     try {
       return await traceDataQueryStage(context, 'explain', {}, async () => {
-        const parsed = explainEnvelopeSchema.safeParse(raw);
+        const parsed = executeDataQueryEnvelopeSchema.safeParse(raw);
         if (!parsed.success)
           return err(
             domainError.validation({

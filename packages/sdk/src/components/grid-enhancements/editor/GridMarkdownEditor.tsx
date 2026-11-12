@@ -149,7 +149,7 @@ const GridMarkdownEditorBase: ForwardRefRenderFunction<
     if (isReadonly || savedRef.current) return;
 
     if (isMarkdown && milkdownGetEditorRef.current) {
-      const markdown = getEditorMarkdown(milkdownGetEditorRef.current());
+      const markdown = getEditorMarkdown(milkdownGetEditorRef.current(), initialValueRef.current);
       if (markdown !== undefined) {
         latestValueRef.current = markdown;
       }

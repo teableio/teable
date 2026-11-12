@@ -1,6 +1,11 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { HttpErrorCode, type HttpError } from '@teable/core';
-import { importBaseStream, type IImportBaseProgressEvent, type INotifyVo } from '@teable/openapi';
+import {
+  importBaseStream,
+  previewImportBase,
+  type IImportBaseProgressEvent,
+  type INotifyVo,
+} from '@teable/openapi';
 import { getHttpErrorMessage } from '@teable/sdk';
 import {
   extractUsageLimitReason,
@@ -26,6 +31,7 @@ import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useUpgradeCtaEnabled } from '../../../../hooks/useUpgradeCtaEnabled';
 import { ImportLogPanel, type ILogEntry, type ITableImportProgress } from './ImportLogPanel';
+import { ImportPreviewCard, type IImportPreviewStatus } from './ImportPreviewCard';
 import { UploadPanel } from './UploadPanel';
 
 const PHASE_I18N_MAP: Record<string, string> = {
@@ -347,7 +353,37 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
 
   const tableProgressList = React.useMemo(() => Object.values(tableProgresses), [tableProgresses]);
   const showLogs = logs.length > 0 || tableProgressList.length > 0;
+
+  // Read-only look at the uploaded file. It never gates the import on its own
+  // availability: only a file the import itself would reject disables confirm.
+  const previewQuery = useQuery({
+    queryKey: ['import-base-preview', spaceId, notify?.path],
+    queryFn: ({ signal }) =>
+      previewImportBase({ spaceId, notify: notify! }, signal).then((res) => res.data),
+    enabled: Boolean(notify),
+    retry: false,
+    staleTime: Infinity,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    meta: { preventGlobalError: true },
+  });
+  const previewError = previewQuery.error as HttpError | null;
+  const previewStatus: IImportPreviewStatus = previewQuery.data
+    ? 'ready'
+    : previewError
+      ? previewError.code === HttpErrorCode.VALIDATION_ERROR
+        ? 'invalid'
+        : 'failed'
+      : 'loading';
   const showV2Loading = isImporting && isV2Importing && !showLogs;
+  const showPreview = Boolean(notify) && !isImporting && !showLogs;
+  // Once the contents are listed the card stands in for the file tile, until
+  // the import log needs that area back.
+  const structureShown = showPreview && previewStatus === 'ready';
+  const removeFile = () => {
+    setFile(null);
+    setNotify(null);
+  };
 
   return (
     <Dialog
@@ -372,13 +408,15 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
           <DialogTitle>{t('space:spaceSetting.importBase')}</DialogTitle>
         </DialogHeader>
         <div className="relative w-full">
-          <div className={cn({ 'pointer-events-none opacity-50': showLogs || showV2Loading })}>
+          <div
+            className={cn({
+              'pointer-events-none opacity-50': showLogs || showV2Loading,
+              hidden: structureShown,
+            })}
+          >
             <UploadPanel
               file={file}
-              onClose={() => {
-                setFile(null);
-                setNotify(null);
-              }}
+              onClose={removeFile}
               onChange={(file) => {
                 setFile(file);
               }}
@@ -400,6 +438,15 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
             isImporting={isImporting}
           />
         </div>
+        {showPreview && (
+          <ImportPreviewCard
+            status={previewStatus}
+            preview={previewQuery.data}
+            file={file}
+            onRemove={removeFile}
+            errorDetail={previewError?.message}
+          />
+        )}
         <DialogFooter>
           {/* Before import: confirm button */}
           {!isImporting && !showLogs && notify && (
@@ -407,6 +454,7 @@ export const UploadPanelDialog = (props: IUploadPanelDialogProps) => {
               variant={'default'}
               size={'sm'}
               onClick={handleImport}
+              disabled={previewStatus === 'invalid'}
               className="flex items-center gap-2"
             >
               {t('space:import.confirm')}

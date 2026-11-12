@@ -75,8 +75,8 @@ import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.se
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { ShareViewScopeService } from '../record/share-view-scope.service';
-import { SelectionService } from './selection.service';
 import { buildRawCopyContent } from './raw-copy-content';
+import { SelectionService } from './selection.service';
 
 @UseGuards(V2FeatureGuard)
 @UseInterceptors(V2IndicatorInterceptor)
@@ -443,7 +443,7 @@ export class SelectionController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) query: IRangesRo
   ): Promise<ICopyVo> {
-    if (this.cls.get('useV2') && query.viewId) {
+    if (this.cls.get('useV2')) {
       return this.copyWithV2(tableId, query);
     }
     return this.selectionService.copy(tableId, query, true);

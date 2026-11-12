@@ -6,6 +6,9 @@ import {
 } from '@teable/formula';
 import {
   domainError,
+  type CellValueType,
+  type CellValueMultiplicity,
+  type ConditionalLookupField,
   type DomainError,
   FieldType,
   type Field,
@@ -30,8 +33,21 @@ import { FormulaSqlPgVisitor } from './FormulaSqlPgVisitor';
 import { buildErrorLiteral } from './PgSqlHelpers';
 import type { IPgTypeValidationStrategy } from './PgTypeValidationStrategy';
 import { makeExpr, type SqlExpr, type SqlStorageKind } from './SqlExpression';
+import { buildUserTitleFromSnapshotSql } from './UserSnapshotSql';
 
 export type FieldSqlResolver = (field: Field) => Result<SqlExpr, DomainError>;
+
+export type FormulaSqlPgReference =
+  | {
+      readonly field: Field;
+      readonly resolveFieldSql: FieldSqlResolver;
+      readonly actorIdFallbackSql?: string;
+    }
+  | {
+      readonly valueSql: string;
+      readonly valueType: CellValueType;
+      readonly multiplicity: CellValueMultiplicity;
+    };
 
 /**
  * Prefer the storage kind produced by resolveFieldSql when it already coerced a
@@ -49,26 +65,14 @@ const resolveFieldStorageKind = (
   return metadataStorageKind ?? expr.storageKind;
 };
 
-export type FormulaSqlPgTranslatorOptions = {
-  table: Table;
+type FormulaSqlPgTranslatorCommonOptions = {
   compileBudget?: FormulaCompileBudgetOptions;
   /** Share only within one host statement (for example, a multi-level CTE batch). */
   budget?: FormulaCompileBudget;
   tableAlias: string;
-  resolveFieldSql: FieldSqlResolver;
   timeZone?: string;
-  allowFieldNameFallback?: boolean;
-  /**
-   * When true, formula field references are resolved via resolveFieldSql instead
-   * of recursively translating the formula expression.
-   *
-   * Use case: CTE batch updates where formula fields at earlier levels are already
-   * computed and stored in CTE columns. The formula reference should point to the
-   * CTE column (e.g., level_0.col_formula_a) instead of re-computing the expression.
-   *
-   * Default: false (recursively expand formula expressions)
-   */
-  skipFormulaExpansion?: boolean;
+  /** Per-REPT intermediate UTF-8 bytes; omitted for stored formula semantics. */
+  maxReptBytes?: number;
   /**
    * PostgreSQL version type validation strategy.
    * Required parameter - must be injected from the DI container.
@@ -79,19 +83,45 @@ export type FormulaSqlPgTranslatorOptions = {
   typeValidationStrategy: IPgTypeValidationStrategy;
 };
 
+type FormulaSqlPgTableInput = {
+  table: Table;
+  resolveFieldSql: FieldSqlResolver;
+  references?: never;
+  allowFieldNameFallback?: boolean;
+  /** Resolve stored formula columns instead of recursively expanding their formulas. */
+  skipFormulaExpansion?: boolean;
+};
+
+type FormulaSqlPgReferenceInput = {
+  /** Exact Teable reference aliases, after the parser's reference extraction. */
+  references: ReadonlyMap<string, FormulaSqlPgReference>;
+  table?: never;
+  resolveFieldSql?: never;
+  allowFieldNameFallback?: never;
+  skipFormulaExpansion?: never;
+};
+
+export type FormulaSqlPgTranslatorOptions = FormulaSqlPgTranslatorCommonOptions &
+  (FormulaSqlPgTableInput | FormulaSqlPgReferenceInput);
+
 export class FormulaSqlPgTranslator {
   readonly tableAlias: string;
   readonly typeValidationStrategy: IPgTypeValidationStrategy;
   readonly timeZone: string;
-  private readonly table: Table;
-  private readonly fieldById: Map<string, Field>;
-  private readonly fieldByName: Map<string, Field>;
-  private readonly resolveFieldSql: FieldSqlResolver;
-  private readonly allowNameFallback: boolean;
-  private readonly skipFormulaExpansion: boolean;
+  readonly maxReptBytes: number | undefined;
+  private readonly options: FormulaSqlPgTranslatorOptions;
+  private readonly fieldById?: ReadonlyMap<string, Field>;
+  private readonly fieldByName?: ReadonlyMap<string, Field>;
   private readonly compileBudgetOptions: FormulaCompileBudgetOptions | undefined;
   private readonly budget?: FormulaCompileBudget;
   constructor(options: FormulaSqlPgTranslatorOptions) {
+    if (
+      options.maxReptBytes !== undefined &&
+      (!Number.isSafeInteger(options.maxReptBytes) || options.maxReptBytes < 1)
+    ) {
+      throw new Error('Invalid formula repetition byte limit');
+    }
+    this.maxReptBytes = options.maxReptBytes;
     if (options.compileBudget) assertFormulaCompileBudgetOptions(options.compileBudget);
     if (
       options.budget &&
@@ -102,32 +132,25 @@ export class FormulaSqlPgTranslator {
     )
       throw new Error('Formula compilation meter does not match configured policy');
     this.budget = options.budget;
-    this.table = options.table;
+    this.options = { ...options };
     const compileBudget = options.compileBudget ?? options.budget?.options;
     this.compileBudgetOptions = compileBudget ? Object.freeze({ ...compileBudget }) : undefined;
     this.tableAlias = options.tableAlias;
-    this.resolveFieldSql = options.resolveFieldSql;
-    this.allowNameFallback = options.allowFieldNameFallback ?? true;
-    this.skipFormulaExpansion = options.skipFormulaExpansion ?? false;
     this.typeValidationStrategy = options.typeValidationStrategy;
     this.timeZone = options.timeZone ?? 'utc';
-    const fields = options.table.getFields();
-    this.fieldById = new Map(fields.map((field) => [field.id().toString(), field]));
-    this.fieldByName = new Map(
-      fields.map((field) => [field.name().toString().trim().toLowerCase(), field])
-    );
+    if (options.references === undefined) {
+      const fields = options.table.getFields();
+      this.fieldById = new Map(fields.map((field) => [field.id().toString(), field]));
+      this.fieldByName = new Map(
+        fields.map((field) => [field.name().toString().trim().toLowerCase(), field])
+      );
+    }
   }
   withTimeZone(timeZone: string): FormulaSqlPgTranslator {
     return new FormulaSqlPgTranslator({
-      table: this.table,
+      ...this.options,
       compileBudget: this.compileBudgetOptions,
-      budget: this.budget,
-      tableAlias: this.tableAlias,
-      resolveFieldSql: this.resolveFieldSql,
       timeZone,
-      allowFieldNameFallback: this.allowNameFallback,
-      skipFormulaExpansion: this.skipFormulaExpansion,
-      typeValidationStrategy: this.typeValidationStrategy,
     });
   }
 
@@ -195,9 +218,44 @@ export class FormulaSqlPgTranslator {
     fieldIdOrName: string,
     graph: FormulaExpressionGraph
   ): Result<FormulaExpressionNode, DomainError> {
+    if (this.options.references !== undefined) {
+      return this.resolveReference(fieldIdOrName, this.options.references, graph.budget).map(
+        (expression) => graph.intern({ kind: 'leaf', expression, timeZone: this.timeZone })
+      );
+    }
+    return this.resolveTableFieldNode(fieldIdOrName, graph, this.options);
+  }
+
+  private resolveTableFieldNode(
+    fieldIdOrName: string,
+    graph: FormulaExpressionGraph,
+    options: FormulaSqlPgTableInput
+  ): Result<FormulaExpressionNode, DomainError> {
     const field = this.findField(fieldIdOrName);
     if (!field) return err(domainError.notFound({ message: `Field not found: ${fieldIdOrName}` }));
     const id = field.id().toString();
+    const cached = this.cachedTableFieldNode(id, graph);
+    if (cached) return cached;
+    const expansion = this.expandFormulaField(field, graph, options);
+    if (expansion.isErr()) return err(expansion.error);
+    const expanded = expansion.value;
+    if (expanded.formula && expanded.parsed && !expanded.useStored) {
+      graph.budget.check('referenceDepth', graph.visitingFields.size + 1);
+      graph.visitingFields.add(id);
+    }
+    const result = this.buildTableFieldNode(field, graph, expanded, options);
+    graph.visitingFields.delete(id);
+    if (result.isOk()) {
+      graph.fields.set(id, result.value);
+      graph.referenceDepths.set(id, graph.nodeReferenceDepths.get(result.value.id) ?? 0);
+    }
+    return result;
+  }
+
+  private cachedTableFieldNode(
+    id: string,
+    graph: FormulaExpressionGraph
+  ): Result<FormulaExpressionNode, DomainError> | undefined {
     const cached = graph.fields.get(id);
     if (cached) {
       graph.budget.check(
@@ -208,43 +266,47 @@ export class FormulaSqlPgTranslator {
     }
     if (graph.visitingFields.has(id))
       return err(domainError.invariant({ message: `Formula dependency cycle detected at ${id}` }));
+    return undefined;
+  }
+
+  private expandFormulaField(
+    field: Field,
+    graph: FormulaExpressionGraph,
+    options: FormulaSqlPgTableInput
+  ): Result<{ formula?: FormulaField; parsed?: RootContext; useStored: boolean }, DomainError> {
     const formula = field.type().equals(FieldType.formula()) ? (field as FormulaField) : undefined;
-    const parsed =
-      formula && !this.skipFormulaExpansion
-        ? this.parseExpression(formula.expression().toString(), graph.budget)
-        : undefined;
-    if (parsed?.isErr()) return err(parsed.error);
-    const useStored =
-      parsed?.isOk() &&
-      parsed.value
+    if (!formula || options.skipFormulaExpansion) return ok({ formula, useStored: false });
+    return this.parseExpression(formula.expression().toString(), graph.budget).map((parsed) => ({
+      formula,
+      parsed,
+      useStored: parsed
         .accept(new FunctionCallCollectorVisitor())
-        .some((call) => call.name === 'LAST_MODIFIED_TIME' && call.paramCount > 0);
-    if (formula && parsed && !useStored) {
-      graph.budget.check('referenceDepth', graph.visitingFields.size + 1);
-      graph.visitingFields.add(id);
+        .some((call) => call.name === 'LAST_MODIFIED_TIME' && call.paramCount > 0),
+    }));
+  }
+
+  private buildTableFieldNode(
+    field: Field,
+    graph: FormulaExpressionGraph,
+    expanded: { formula?: FormulaField; parsed?: RootContext; useStored: boolean },
+    options: FormulaSqlPgTableInput
+  ): Result<FormulaExpressionNode, DomainError> {
+    const formulaTimeZone = expanded.formula?.timeZone()?.toString() ?? 'utc';
+    if (expanded.formula && expanded.parsed && !expanded.useStored) {
+      return ok(
+        graph.intern({
+          kind: 'field',
+          field: expanded.formula,
+          timeZone: formulaTimeZone,
+          value: expanded.parsed.accept(
+            new FormulaSqlPgVisitor(this.withTimeZone(formulaTimeZone), graph)
+          ),
+        })
+      );
     }
-    const formulaTimeZone = formula?.timeZone()?.toString() ?? 'utc';
-    const result =
-      formula && parsed && !useStored
-        ? parsed.map((tree) =>
-            graph.intern({
-              kind: 'field',
-              field,
-              timeZone: formulaTimeZone,
-              value: tree.accept(
-                new FormulaSqlPgVisitor(this.withTimeZone(formulaTimeZone), graph)
-              ),
-            })
-          )
-        : this.resolveField(field, false).map((expression) =>
-            graph.intern({ kind: 'leaf', expression, timeZone: this.timeZone })
-          );
-    graph.visitingFields.delete(id);
-    if (result.isOk()) {
-      graph.fields.set(id, result.value);
-      graph.referenceDepths.set(id, graph.nodeReferenceDepths.get(result.value.id) ?? 0);
-    }
-    return result;
+    return this.resolveField(field, options, false).map((expression) =>
+      graph.intern({ kind: 'leaf', expression, timeZone: this.timeZone })
+    );
   }
 
   /** Compose host casts/error guards before rendering, sharing one binding scope. */
@@ -317,40 +379,102 @@ export class FormulaSqlPgTranslator {
   }
 
   resolveFieldById(fieldIdOrName: string): Result<SqlExpr, DomainError> {
+    if (this.options.references !== undefined) {
+      return this.resolveReference(fieldIdOrName, this.options.references);
+    }
     const field = this.findField(fieldIdOrName);
     if (!field) return err(domainError.notFound({ message: `Field not found: ${fieldIdOrName}` }));
-    return this.resolveField(field);
+    return this.resolveField(field, this.options);
+  }
+
+  private resolveReference(
+    alias: string,
+    references: ReadonlyMap<string, FormulaSqlPgReference>,
+    budget?: FormulaCompileBudget
+  ): Result<SqlExpr, DomainError> {
+    const reference = references.get(alias);
+    if (!reference) return err(domainError.notFound({ message: `Field not found: ${alias}` }));
+    if ('resolveFieldSql' in reference) {
+      return this.resolveField(
+        reference.field,
+        {
+          resolveFieldSql: (field) =>
+            reference.resolveFieldSql(field).map((expr) => {
+              const type = field.type();
+              if (
+                (type.equals(FieldType.createdBy()) || type.equals(FieldType.lastModifiedBy())) &&
+                !(expr.valueType === 'string' && expr.storageKind === 'scalar')
+              ) {
+                return makeExpr(
+                  buildUserTitleFromSnapshotSql(
+                    expr.valueSql,
+                    reference.actorIdFallbackSql,
+                    budget
+                  ),
+                  'string',
+                  false,
+                  expr.errorConditionSql,
+                  expr.errorMessageSql,
+                  field,
+                  'scalar'
+                );
+              }
+              return expr;
+            }),
+        },
+        false
+      );
+    }
+    const multiple = reference.multiplicity.isMultiple();
+    const type = reference.valueType.toString();
+    return ok(
+      makeExpr(
+        reference.valueSql,
+        type === 'dateTime' ? 'datetime' : type,
+        multiple,
+        undefined,
+        undefined,
+        undefined,
+        multiple ? 'array' : 'scalar'
+      )
+    );
   }
 
   private findField(fieldIdOrName: string): Field | undefined {
     return (
-      this.fieldById.get(fieldIdOrName) ??
-      (this.allowNameFallback
-        ? this.fieldByName.get(fieldIdOrName.trim().toLowerCase())
+      this.fieldById?.get(fieldIdOrName) ??
+      ((this.options.allowFieldNameFallback ?? true)
+        ? this.fieldByName?.get(fieldIdOrName.trim().toLowerCase())
         : undefined)
     );
   }
 
-  private resolveField(field: Field, expandFormula = true): Result<SqlExpr, DomainError> {
+  private resolveField(
+    field: Field,
+    input: Pick<FormulaSqlPgTableInput, 'resolveFieldSql' | 'skipFormulaExpansion'>,
+    expandFormula = true
+  ): Result<SqlExpr, DomainError> {
     if (field.type().equals(FieldType.formula()) && expandFormula) {
-      // When skipFormulaExpansion is true, use resolveFieldSql for formula fields
-      // instead of recursively translating. This is used for CTE batch updates
-      // where the formula value is already computed in a previous CTE.
-      if (this.skipFormulaExpansion) {
-        return this.resolveFieldSql(field);
-      }
+      // Existing CTE callers already supply their completed formula expression.
+      if (input.skipFormulaExpansion) return input.resolveFieldSql(field);
       return this.translateExpression(`{${field.id().toString()}}`);
     }
-    if (field.type().equals(FieldType.formula()) && this.skipFormulaExpansion)
-      return this.resolveFieldSql(field);
+    if (field.type().equals(FieldType.formula()) && input.skipFormulaExpansion)
+      return input.resolveFieldSql(field);
     // For lookup fields, proxy to innerField's SQL generation logic
-    if (field.type().equals(FieldType.lookup())) {
-      return this.resolveLookupField(field as LookupField);
+    if (
+      field.type().equals(FieldType.lookup()) ||
+      field.type().equals(FieldType.conditionalLookup())
+    ) {
+      return this.resolveLookupField(
+        field as LookupField | ConditionalLookupField,
+        input.resolveFieldSql
+      );
     }
-    return this.resolveFieldSql(field).andThen((expr) =>
+    return input.resolveFieldSql(field).andThen((expr) =>
       buildFieldSqlMetadata(field)
-        .map((metadata) =>
-          makeExpr(
+        .map((metadata) => ({
+          ...makeExpr(
             expr.valueSql,
             // Prefer the resolved expression type when resolveFieldSql already coerced
             // JSON snapshots (createdBy/lastModifiedBy titles) into string scalars.
@@ -366,8 +490,9 @@ export class FormulaSqlPgTranslator {
             field.type().equals(FieldType.formula())
               ? metadata.storageKind
               : resolveFieldStorageKind(expr, metadata.storageKind)
-          )
-        )
+          ),
+          displayValueSql: expr.displayValueSql,
+        }))
         .orElse(() =>
           ok(
             makeExpr(
@@ -392,12 +517,15 @@ export class FormulaSqlPgTranslator {
    * 3. The extraction from JSON array is handled by extractArrayScalarText, which will
    *    detect this is a lookup field and use innerField's type-specific extraction
    */
-  private resolveLookupField(lookupField: LookupField): Result<SqlExpr, DomainError> {
+  private resolveLookupField(
+    lookupField: LookupField | ConditionalLookupField,
+    resolveFieldSql: FieldSqlResolver
+  ): Result<SqlExpr, DomainError> {
     // Get the innerField
     const innerFieldResult = lookupField.innerField();
     if (innerFieldResult.isErr()) {
       // If innerField is not resolved, fall back to generic lookup handling
-      return this.resolveFieldSql(lookupField).andThen((expr) =>
+      return resolveFieldSql(lookupField).andThen((expr) =>
         buildFieldSqlMetadata(lookupField)
           .map((metadata) =>
             makeExpr(
@@ -429,7 +557,7 @@ export class FormulaSqlPgTranslator {
     const innerField = innerFieldResult.value;
 
     // Get the lookup field's raw SQL (the JSON array column)
-    const lookupSqlResult = this.resolveFieldSql(lookupField);
+    const lookupSqlResult = resolveFieldSql(lookupField);
     if (lookupSqlResult.isErr()) {
       return lookupSqlResult;
     }
@@ -437,6 +565,7 @@ export class FormulaSqlPgTranslator {
 
     // Get innerField's metadata to proxy its type information
     const innerFieldMetadata = buildFieldSqlMetadata(innerField);
+    const lookupFieldMetadata = buildFieldSqlMetadata(lookupField);
 
     const isMultiple = lookupField
       .isMultipleCellValue()
@@ -466,7 +595,10 @@ export class FormulaSqlPgTranslator {
                   .map((raw) => raw.toUpperCase() === 'TEXT')
                   .unwrapOr(false)
               ? 'scalar'
-              : (lookupSql.storageKind ?? metadata.storageKind)
+              : (lookupSql.storageKind ??
+                lookupFieldMetadata
+                  .map((value) => value.storageKind)
+                  .unwrapOr(metadata.storageKind))
         )
       )
       .orElse(() =>

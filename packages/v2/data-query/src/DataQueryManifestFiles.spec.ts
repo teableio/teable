@@ -1,14 +1,20 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
+import { DATA_QUERY_ARTIFACT_GENERATOR_VERSION } from './DataQueryArtifactProvenance';
 import { DataQueryDefinition } from './DataQueryDefinition';
-import type { DataQueryManifest } from './DataQueryManifest';
+import { dataQueryManifestJsonSchema, type DataQueryManifest } from './DataQueryManifest';
 import {
   generateAppQueryArtifacts,
   generatedClientState,
   parseDataQueryManifestText,
   withGeneratedClientDigest,
 } from './DataQueryManifestFiles';
+import { getManagedQueryToolSource } from './managedQueryTool.generated';
 
 const todo = `schemaVersion: 1
 queries:
@@ -63,6 +69,18 @@ describe('generated client integrity', () => {
       .filter((line) => !line.startsWith('// Source SHA256: '))
       .join('\n');
     expect(generatedClientState(legacy)).toBe('legacy');
+  });
+
+  it('digests provenance while retaining correctly digested pre-stamp accepted clients', () => {
+    const module = artifacts().module;
+    const stamp = `// Teable query generator: ${DATA_QUERY_ARTIFACT_GENERATOR_VERSION}`;
+    expect(module).toContain(`${stamp}\n`);
+    expect(generatedClientState(module)).toBe('current');
+    const changed = module.replace(stamp, '// Teable query generator: tampered');
+    expect(generatedClientState(changed)).toBe('invalid');
+    expect(generatedClientState(withGeneratedClientDigest(changed))).toBe('current');
+    const historical = withGeneratedClientDigest(module.replace(`${stamp}\n`, ''));
+    expect(generatedClientState(historical)).toBe('current');
   });
 });
 
@@ -211,6 +229,58 @@ describe('app query manifest files', () => {
     );
   });
 
+  it('stamps deterministic canonical artifacts without changing manifest schema compatibility', () => {
+    const parsed = parseDataQueryManifestText(todo)._unsafeUnwrap();
+    const first = generateAppQueryArtifacts(parsed)._unsafeUnwrap();
+    expect(first.module).toContain(
+      `// Teable query generator: ${DATA_QUERY_ARTIFACT_GENERATOR_VERSION}\n`
+    );
+    expect(generatedClientState(first.module)).toBe('current');
+    const schema = JSON.parse(first.schema);
+    expect(schema['x-teable-query-generator-version']).toBe(DATA_QUERY_ARTIFACT_GENERATOR_VERSION);
+    expect(schema).toEqual(dataQueryManifestJsonSchema());
+    expect(schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema');
+    expect(schema.properties.schemaVersion).toMatchObject({ const: 1 });
+    expect(schema.required).toContain('queries');
+    expect(generateAppQueryArtifacts(parsed)._unsafeUnwrap()).toEqual(first);
+    expect(parseDataQueryManifestText(JSON.stringify(parsed))._unsafeUnwrap()).toEqual(parsed);
+    expect(schema).toMatchObject({ type: 'object', additionalProperties: false });
+  });
+
+  it('matches managed generate and check bytes to the canonical host generator', () => {
+    const root = mkdtempSync(join(tmpdir(), 'teable-query-provenance-'));
+    try {
+      mkdirSync(join(root, 'teable'));
+      const source = getManagedQueryToolSource();
+      expect(source).toContain(
+        `// Teable query generator: ${DATA_QUERY_ARTIFACT_GENERATOR_VERSION}\n`
+      );
+      writeFileSync(join(root, 'teable/query-tool.mjs'), source);
+      writeFileSync(join(root, 'teable/queries.yaml'), todo);
+      const run = (command: string) =>
+        JSON.parse(
+          execFileSync(process.execPath, ['teable/query-tool.mjs', command], {
+            cwd: root,
+            encoding: 'utf8',
+            timeout: 15000,
+          })
+        );
+      expect(run('generate').ok).toBe(true);
+      const expected = generateAppQueryArtifacts(
+        parseDataQueryManifestText(todo)._unsafeUnwrap()
+      )._unsafeUnwrap();
+      expect(readFileSync(join(root, 'lib/queries.ts'), 'utf8')).toBe(expected.module);
+      expect(readFileSync(join(root, 'teable/queries.schema.json'), 'utf8')).toBe(expected.schema);
+      expect(run('manifest-schema')).toEqual(dataQueryManifestJsonSchema());
+      expect(run('generate').ok).toBe(true);
+      expect(run('check').ok).toBe(true);
+      expect(readFileSync(join(root, 'lib/queries.ts'), 'utf8')).toBe(expected.module);
+      expect(readFileSync(join(root, 'teable/queries.schema.json'), 'utf8')).toBe(expected.schema);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it.each([
     'schemaVersion: [',
     'schemaVersion: 1\nschemaVersion: 1\nqueries: {}',
@@ -243,6 +313,9 @@ describe('app query manifest files', () => {
 
   it('executes canonical requests through one shared request helper', async () => {
     const calls: unknown[] = [];
+    expect(artifacts().module).toContain(
+      `// Teable query generator: ${DATA_QUERY_ARTIFACT_GENERATOR_VERSION}\n`
+    );
     const generated = loadModule(async (endpoint, options) => {
       calls.push({ endpoint, options });
       return { ok: true, data: { rows: [{ id: `rec${'c'.repeat(16)}`, title: 'Todo' }] } };
@@ -643,6 +716,9 @@ describe('app query manifest files', () => {
   });
 
   it('emits callable parameter and live output types checked by TypeScript', () => {
+    expect(artifacts().module).toContain(
+      `// Teable query generator: ${DATA_QUERY_ARTIFACT_GENERATOR_VERSION}\n`
+    );
     const files: Record<string, string> = {
       '/query-types/queries.ts': artifacts().module,
       '/query-types/request.ts':

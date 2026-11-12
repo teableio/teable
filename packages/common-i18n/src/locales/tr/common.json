@@ -483,7 +483,10 @@
           "placeholder": "DELETE"
         },
         "loading": "Siliniyor…"
-      }
+      },
+      "description": "Profiliniz, nasıl oturum açtığınız ve verileriniz.",
+      "nameDesc": "Teable'da başkalarının sizi nasıl gördüğü.",
+      "yourDataTitle": "Verileriniz"
     },
     "notify": {
       "title": "Bildirimler",
@@ -506,7 +509,10 @@
       "touchMode": "Dokunmatik Mod",
       "systemMode": "Sistemi Takip Et",
       "buySelfHostedLicense": "Kendi barındırma lisansı satın al",
-      "teableSkill": "Teable becerisi"
+      "teableSkill": "Teable becerisi",
+      "description": "Görünüm, dil ve bildirimler.",
+      "interactionModeDesc": "Tabloların, menülerin ve düzenleyicilerin dokunmatik için mi fare için mi çalışacağı.",
+      "languageDesc": "Teable arayüzünün dili."
     },
     "teableSkill": {
       "intro": "AI Agent modelinizin Projenize bağlanarak verileri sorgulamasına, tabloları, alanları ve görünümleri yönetmesine, kayıtları içe aktarmasına veya güncellemesine, otomasyonlar ve uygulamalar oluşturmasına yardımcı olun.",
@@ -587,7 +593,8 @@
     },
     "developerTools": {
       "title": "Geliştirici araçları"
-    }
+    },
+    "dangerZone": "Tehlikeli bölge"
   },
   "noun": {
     "table": "Tablo",
@@ -1342,7 +1349,10 @@
     "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar.",
     "spaceDescription": "Son {{retentionDays}} gün içinde silinen alanları geri yükle",
     "spaceInnerDescription": "Son {{retentionDays}} gün içinde bu alandan silinen projeleri geri yükle",
-    "baseDescription": "Son {{retentionDays}} gün içinde bu projeden silinen kaynakları geri yükle"
+    "baseDescription": "Son {{retentionDays}} gün içinde bu projeden silinen kaynakları geri yükle",
+    "restoredInactive": "Pasif olarak geri gelir: {{names}}.",
+    "restoredUnpublished": "Yeniden yayınlanması gerekir: {{names}}.",
+    "emptyFolder": "Boş klasör"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Eklenti URL'si Ayarlanmamış",
@@ -2131,5 +2141,42 @@
     "getApp": "Uygulamayı indir",
     "inAppBrowserHint": "Uygulamaya geçmek için sağ üstteki menüden bu sayfayı tarayıcıda açın",
     "menuItem": "Teable uygulamasında aç"
+  },
+  "appDelete": {
+    "offlineWarning": "Bu uygulama yayında. Silmek onu hemen çevrimdışı yapar: herkese açık bağlantısı çalışmaz, özel alan adı serbest bırakılır ve giriş ayarları silinir. Geri yükledikten sonra yeniden yayınlayın."
+  },
+  "folderDelete": {
+    "title": "\"{{name}}\" klasörünü silmek istediğinizden emin misiniz?",
+    "summary": "Klasör tüm içeriğiyle çöp kutusuna taşınır ve orada tutulduğu sürece geri yüklenebilir; geri yüklerken klasör yapısı korunur.",
+    "progress": "Siliniyor… {{done}} / {{total}}",
+    "stopped": "Silme yarıda durdu. Silinenler çöp kutusunda ayrı ayrı duruyor; aşağıda klasörde kalanlar var.",
+    "continue": "Silmeye devam et",
+    "blocked": "Bu klasördeki bazı öğeleri silemezsiniz, bu yüzden hiçbir şey silinmeyecek:",
+    "loginTable": "\"{{table}}\" bu uygulamaların kullanıcı tablosudur. Silindiğinde bu uygulamalara giriş çalışmaz.",
+    "outsideReferences": "Klasör dışındaki bu öğeler klasördeki tablolara başvuruyor ve hata verecek:",
+    "possibleReference": "(olası başvuru)",
+    "shares": "Paylaşım bağlantıları kalıcı olarak silinir, geri yüklemeyle geri gelmez: {{count}}",
+    "unreadApps": "Bu uygulamaların kaynak kodu silinen tablolara başvuru için denetlenemedi:",
+    "hiddenItem": "Gizli öğe",
+    "badge": {
+      "blocked": "Engellendi",
+      "offline": "Çevrimdışı olur",
+      "permanent": "Kalıcı olarak silinir",
+      "impacts": "Etki: {{count}}",
+      "impactsAtLeast": "Etki: {{count}}+",
+      "none": "Etki yok",
+      "trash": "Çöp kutusu"
+    },
+    "detail": {
+      "trash": "Çöp kutusuna taşınır ve orada tutulduğu sürece geri yüklenebilir.",
+      "permanent": "Kalıcı olarak silinir ve geri yüklenemez."
+    },
+    "appOffline": {
+      "title": "Bu uygulama yayında ve silindiği anda çevrimdışı olur:",
+      "publicLink": "Herkese açık bağlantısı çalışmaz",
+      "customDomain": "Özel alan adı {{domain}} serbest bırakılır",
+      "loginConfig": "Giriş ayarları silinir",
+      "afterRestore": "Geri yükledikten sonra yeniden yayınlayın, alan adını yeniden bağlayın ve girişi yeniden ayarlayın."
+    }
   }
 }

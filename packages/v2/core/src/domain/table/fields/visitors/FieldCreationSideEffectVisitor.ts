@@ -1,14 +1,20 @@
-import { err, ok } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IDomainContext } from '../../../shared/DomainContext';
 import { domainError, type DomainError } from '../../../shared/DomainError';
+import { composeAndSpecs } from '../../../shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { ForeignTable } from '../../ForeignTable';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from '../../specs/TableAddFieldSpec';
+import {
+  TableUpdateViewColumnMetaSpec,
+  type TableViewColumnMetaUpdate,
+} from '../../specs/TableUpdateViewColumnMetaSpec';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
+import { ViewColumnMeta } from '../../views/ViewColumnMeta';
 import type { Field } from '../Field';
 import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
@@ -45,13 +51,16 @@ export type FieldCreationSideEffectContext = {
   table: Table;
   foreignTables: ReadonlyArray<Table>;
   domainContext?: IDomainContext;
+  // An explicit entry replaces inherited visibility; undefined keeps append defaults.
+  newFieldColumnMeta?: Readonly<{ hidden?: boolean; visible?: boolean }>;
 };
 
 export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreationSideEffects> {
   private constructor(
     private readonly table: Table,
     private readonly foreignTablesById: ReadonlyMap<string, Table>,
-    private readonly domainContext?: IDomainContext
+    private readonly domainContext?: IDomainContext,
+    private readonly newFieldColumnMeta?: FieldCreationSideEffectContext['newFieldColumnMeta']
   ) {}
 
   static collect(
@@ -73,6 +82,7 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
           table,
           foreignTables: [...tableState.values()],
           domainContext: context.domainContext,
+          newFieldColumnMeta: context.newFieldColumnMeta,
         })
       );
       if (nextEffectsResult.isErr()) return err(nextEffectsResult.error);
@@ -103,7 +113,8 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
     return new FieldCreationSideEffectVisitor(
       context.table,
       foreignTablesById,
-      context.domainContext
+      context.domainContext,
+      context.newFieldColumnMeta
     );
   }
 
@@ -199,16 +210,40 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
       }
     }
 
-    return field
-      .buildSymmetricField({ foreignTable: ForeignTable.from(foreignTable), hostTable: this.table })
-      .map((symmetricField) => [
-        {
-          foreignTable,
-          mutateSpec: TableAddFieldSpec.create(symmetricField, {
-            domainContext: this.domainContext,
-          }),
-        },
+    const visitor = this;
+    return safeTry(function* () {
+      const symmetricField = yield* field.buildSymmetricField({
+        foreignTable: ForeignTable.from(foreignTable),
+        hostTable: visitor.table,
+      });
+      const addSpec = TableAddFieldSpec.create(symmetricField, {
+        domainContext: visitor.domainContext,
+      });
+      if (!visitor.newFieldColumnMeta) return ok([{ foreignTable, mutateSpec: addSpec }]);
+
+      const updates: TableViewColumnMetaUpdate[] = [];
+      for (const view of foreignTable.views()) {
+        const raw = (yield* view.columnMeta()).toDto();
+        let maxOrder: number | undefined;
+        for (const fieldId in raw) {
+          const order = raw[fieldId]!.order;
+          if (typeof order === 'number') {
+            maxOrder = maxOrder === undefined ? order : Math.max(maxOrder, order);
+          }
+        }
+        raw[symmetricField.id().toString()] = {
+          ...visitor.newFieldColumnMeta,
+          order: (maxOrder ?? -1) + 1,
+        };
+        const columnMeta = yield* ViewColumnMeta.create(raw);
+        updates.push({ viewId: view.id(), fieldId: symmetricField.id(), columnMeta });
+      }
+      const mutateSpec = yield* composeAndSpecs([
+        addSpec,
+        TableUpdateViewColumnMetaSpec.create(foreignTable, updates),
       ]);
+      return ok([{ foreignTable, mutateSpec }]);
+    });
   }
 
   visitLookupField(_: LookupField): Result<FieldCreationSideEffects, DomainError> {

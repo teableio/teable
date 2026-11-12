@@ -73,6 +73,8 @@ export const TABLE_ROUTE_EDITIONS: Record<string, 'EE'> = {
   'POST /api/template/install': 'EE',
   'GET /api/base/:baseId/template/installs': 'EE',
   'GET /api/base/:baseId/template/installs/:installId': 'EE',
+  'PATCH /api/base/:baseId/template/installs/:installId/guide/steps/:stepId': 'EE',
+  'POST /api/base/:baseId/template/installs/:installId/guide/evaluate': 'EE',
   'POST /api/base/:baseId/template/installs/:installId/report': 'EE',
   'DELETE /api/base/:baseId/template/installs/:installId': 'EE',
 };
@@ -147,6 +149,7 @@ export const TABLE_ROUTE_LEDGER = {
   'POST /api/base/duplicate': 'v2',
   'POST /api/base/duplicate-stream': 'v2',
   'POST /api/base/import': 'v2',
+  'POST /api/base/import-preview': 'host',
   'POST /api/base/import-stream': 'v2',
   'PUT /api/base/:baseId/move': 'host',
   'PUT /api/base/:baseId/order': 'host',
@@ -155,6 +158,8 @@ export const TABLE_ROUTE_LEDGER = {
   // Node reads/folders are host; create/duplicate/delete use v2 dispatch; rename/move still v1 (A16/A22).
   'DELETE /api/base/:baseId/node/:nodeId': 'v2',
   'DELETE /api/base/:baseId/node/:nodeId/permanent': 'v2',
+  'DELETE /api/base/:baseId/node/:nodeId/stream': 'v2',
+  'DELETE /api/base/:baseId/node/folder/:nodeId': 'v2', // the node delete, by folder ID
   'GET /api/base/:baseId/node/:nodeId': 'host',
   'GET /api/base/:baseId/node/list': 'host',
   'GET /api/base/:baseId/node/tree': 'host',
@@ -165,7 +170,6 @@ export const TABLE_ROUTE_LEDGER = {
   'PUT /api/base/:baseId/node/:nodeId/move': 'v1:T8416',
   // BaseNodeFolderController
   // Folder organization is host state.
-  'DELETE /api/base/:baseId/node/folder/:folderId': 'host',
   'PATCH /api/base/:baseId/node/folder/:folderId': 'host',
   'POST /api/base/:baseId/node/folder': 'host',
   // BaseShareOpenController
@@ -382,9 +386,12 @@ export const TABLE_ROUTE_LEDGER = {
   'PUT /api/template/category/:templateCategoryId/order': 'host',
   // TemplateInstallController
   // Template install/uninstall now orchestrate native v2 duplication and v2 table deletion.
+  // The post-install guide counts rows through v2 table queries only; ticking a step is host.
   'DELETE /api/base/:baseId/template/installs/:installId': 'v2',
   'GET /api/base/:baseId/template/installs': 'host',
   'GET /api/base/:baseId/template/installs/:installId': 'host',
+  'PATCH /api/base/:baseId/template/installs/:installId/guide/steps/:stepId': 'host',
+  'POST /api/base/:baseId/template/installs/:installId/guide/evaluate': 'v2-only',
   'POST /api/base/:baseId/template/installs/:installId/report': 'host',
   'POST /api/template/install': 'v2',
   // TrashController

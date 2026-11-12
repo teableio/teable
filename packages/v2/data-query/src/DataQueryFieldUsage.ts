@@ -1,13 +1,13 @@
 // oxlint-disable sonarjs/cognitive-complexity -- one branch per projection kind or usage source
 import { isRecordFilterFieldReferenceValue } from '@teable/v2-core';
 
+import {
+  walkDataQueryFormulaExpression,
+  walkDataQueryPredicateExpressions,
+  type DataQueryPredicateV3,
+} from './DataQueryExpression';
 import { dataQueryFieldUsageValues } from './types';
-import type {
-  DataQueryDefinitionInput,
-  DataQueryFieldUsage,
-  DataQueryFilter,
-  DataQuerySortTarget,
-} from './types';
+import type { DataQueryDefinitionInput, DataQueryFieldUsage, DataQuerySortTarget } from './types';
 
 /**
  * Canonical usage order so every caller that reports the same dependency renders
@@ -40,7 +40,7 @@ const isLocalFieldReference = (
   (value.tableId === undefined || value.tableId === tableId);
 
 const recordFilterUsages = (
-  node: DataQueryFilter,
+  node: DataQueryPredicateV3,
   tableId: string,
   record: UsageRecorder
 ): void => {
@@ -52,6 +52,7 @@ const recordFilterUsages = (
     recordFilterUsages(node.not, tableId, record);
     return;
   }
+  if ('type' in node) return;
   record(node.fieldId, 'filter');
   // Parameter references resolve to literals or dates, never to field references.
   if (isLocalFieldReference(node.value, tableId)) record(node.value.fieldId, 'reference');
@@ -92,7 +93,7 @@ const recordRelationSourceUsages = (
   definition: DataQueryDefinitionInput,
   record: SourceUsageRecorder
 ): void => {
-  if (definition.version !== 2) return;
+  if (definition.version === 1) return;
   for (const [alias, relation] of Object.entries(definition.relations ?? {})) {
     // A multi-hop link is a field of the table it is declared on, not of the root.
     record(relation.via ?? 'root', relation.linkFieldId, 'relation');
@@ -100,6 +101,12 @@ const recordRelationSourceUsages = (
     recordFilterUsages(relation.filter, relation.tableId, (fieldId, usage) =>
       record(alias, fieldId, usage)
     );
+    walkDataQueryPredicateExpressions(relation.filter, (node) => {
+      if (node.type === 'field') {
+        record(node.source ?? alias, node.fieldId, 'filter');
+        record(node.source ?? alias, node.fieldId, 'reference');
+      }
+    });
   }
 };
 
@@ -129,6 +136,16 @@ export const collectDataQuerySourceFieldUsages = (
   };
   if (definition.kind === 'records') {
     for (const projection of definition.select) {
+      if ('expr' in projection) {
+        // Declared references are dependencies even when the formula text does not use them.
+        walkDataQueryFormulaExpression(projection.expr, (node) => {
+          if (node.type === 'field') {
+            record(node.source ?? 'root', node.fieldId, 'projection');
+            record(node.source ?? 'root', node.fieldId, 'reference');
+          }
+        });
+        continue;
+      }
       if ('statisticFunc' in projection) {
         if (projection.fieldId !== undefined) {
           record(sourceOf(projection), projection.fieldId, 'aggregate');
@@ -151,6 +168,13 @@ export const collectDataQuerySourceFieldUsages = (
   const rootRecord: UsageRecorder = (fieldId, usage) => record('root', fieldId, usage);
   if (definition.sort) recordSortUsages(definition.sort, record);
   if (definition.filter) recordFilterUsages(definition.filter, definition.tableId, rootRecord);
+  if (definition.filter)
+    walkDataQueryPredicateExpressions(definition.filter, (node) => {
+      if (node.type === 'field') {
+        record(node.source ?? 'root', node.fieldId, 'filter');
+        record(node.source ?? 'root', node.fieldId, 'reference');
+      }
+    });
   recordRelationSourceUsages(definition, record);
   return sources;
 };

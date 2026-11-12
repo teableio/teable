@@ -1,5 +1,17 @@
 import { HttpErrorCode } from '@teable/core';
-import { domainError, type DomainError } from '@teable/v2-core';
+import {
+  BaseId,
+  DbFieldName,
+  FieldId,
+  FieldName,
+  Table,
+  TableId,
+  TableName,
+  ViewName,
+  domainError,
+  v2CoreTokens,
+  type DomainError,
+} from '@teable/v2-core';
 import { v2TableOpsTokens, type TableSearchVectorStatus } from '@teable/v2-table-query-ops';
 import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
@@ -7,6 +19,32 @@ import { describe, expect, it, vi } from 'vitest';
 import { TableIndexService } from './table-index.service';
 
 const tableId = 'tblSearchVectorTest';
+
+/** Two searchable text fields, so a covered-id list of one leaves one uncovered. */
+const buildTableWithTwoTextFields = (): Table => {
+  const builder = Table.builder()
+    .withId(TableId.create(tableId)._unsafeUnwrap())
+    .withBaseId(BaseId.create('bseSearchVectorTest')._unsafeUnwrap())
+    .withName(TableName.create('Orders')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withId(FieldId.create('fldSearchVectorCovered1')._unsafeUnwrap())
+    .withName(FieldName.create('Order number')._unsafeUnwrap())
+    .primary()
+    .done();
+  builder
+    .field()
+    .longText()
+    .withId(FieldId.create('fldSearchVectorCovered2')._unsafeUnwrap())
+    .withName(FieldName.create('Notes')._unsafeUnwrap())
+    .done();
+  builder.view().grid().withName(ViewName.create('Grid')._unsafeUnwrap()).done();
+  const table = builder.build()._unsafeUnwrap();
+  table.getFields()[0]?.setDbFieldName(DbFieldName.rehydrate('order_no')._unsafeUnwrap());
+  table.getFields()[1]?.setDbFieldName(DbFieldName.rehydrate('notes')._unsafeUnwrap());
+  return table;
+};
 
 const createService = (input: {
   registered: boolean;
@@ -20,14 +58,21 @@ const createService = (input: {
           tableId,
           state: 'ready',
           configured: true,
+          serving: true,
+          coveredFieldIds: [],
           languageConfig: 'simple',
           coveredFieldCount: 3,
         } satisfies TableSearchVectorStatus)
     ),
   };
+  const tableRepository = {
+    findOne: vi.fn().mockResolvedValue(ok(buildTableWithTwoTextFields())),
+  };
   const container = {
     isRegistered: vi.fn().mockReturnValue(input.registered),
-    resolve: vi.fn().mockReturnValue(reader),
+    resolve: vi.fn((token: symbol) =>
+      token === v2CoreTokens.tableRepository ? tableRepository : reader
+    ),
   };
   const v2ContainerService = {
     getContainerForTable: vi.fn().mockResolvedValue(container),
@@ -58,7 +103,14 @@ const createService = (input: {
     v2ExecutionContextFactory as never
   );
 
-  return { service, reader, container, v2ContainerService, v2ExecutionContextFactory };
+  return {
+    service,
+    reader,
+    container,
+    tableRepository,
+    v2ContainerService,
+    v2ExecutionContextFactory,
+  };
 };
 
 describe('TableIndexService search vector status', () => {
@@ -82,7 +134,9 @@ describe('TableIndexService search vector status', () => {
       tableId,
       state: 'disabled',
       configured: false,
+      serving: false,
       active: false,
+      coveredFieldIds: [],
       coveredFieldCount: 0,
     });
   });
@@ -96,12 +150,77 @@ describe('TableIndexService search vector status', () => {
       tableId,
       state: 'disabled',
       configured: false,
+      serving: false,
       active: false,
+      coveredFieldIds: [],
       coveredFieldCount: 0,
     });
     expect(container.isRegistered).toHaveBeenCalledWith(v2TableOpsTokens.searchVectorStatusReader);
     expect(v2ExecutionContextFactory.createContext).not.toHaveBeenCalled();
     expect(reader.read).not.toHaveBeenCalled();
+  });
+
+  const statusWith = (
+    overrides: Partial<TableSearchVectorStatus> = {}
+  ): Result<TableSearchVectorStatus, DomainError> =>
+    ok({
+      tableId,
+      state: 'ready',
+      configured: true,
+      serving: true,
+      searchScope: 'all_fields',
+      coveredFieldIds: ['fldSearchVectorCovered1'],
+      languageConfig: 'simple',
+      coveredFieldCount: 1,
+      ...overrides,
+    } satisfies TableSearchVectorStatus);
+
+  it('reports searchable fields the published coverage does not include', async () => {
+    const { service } = createService({ registered: true, result: statusWith() });
+
+    await expect(service.getSearchVectorStatus(tableId)).resolves.toMatchObject({
+      serving: true,
+      coveredFieldIds: ['fldSearchVectorCovered1'],
+      uncoveredFieldIds: ['fldSearchVectorCovered2'],
+    });
+  });
+
+  it('drops covered ids the table no longer has', async () => {
+    const { service } = createService({
+      registered: true,
+      result: statusWith({
+        coveredFieldIds: ['fldSearchVectorCovered1', 'fldSearchVectorGone'],
+        coveredFieldCount: 2,
+      }),
+    });
+
+    await expect(service.getSearchVectorStatus(tableId)).resolves.toMatchObject({
+      coveredFieldIds: ['fldSearchVectorCovered1'],
+      uncoveredFieldIds: ['fldSearchVectorCovered2'],
+    });
+  });
+
+  it('omits the uncovered list when no snapshot serves', async () => {
+    const { service } = createService({
+      registered: true,
+      result: statusWith({ serving: false }),
+    });
+
+    const status = await service.getSearchVectorStatus(tableId);
+
+    expect(status).not.toHaveProperty('uncoveredFieldIds');
+  });
+
+  it('omits the uncovered list for a selected-fields document', async () => {
+    const { service } = createService({
+      registered: true,
+      result: statusWith({ searchScope: 'selected_fields' }),
+    });
+
+    const status = await service.getSearchVectorStatus(tableId);
+
+    expect(status).not.toHaveProperty('uncoveredFieldIds');
+    expect(status.coveredFieldIds).toEqual(['fldSearchVectorCovered1']);
   });
 
   it('returns the read-only adapter status when registered', async () => {

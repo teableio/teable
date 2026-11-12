@@ -1,19 +1,33 @@
 import { updateFieldInputSchema } from '@teable/v2-core';
 import { z } from 'zod';
 
-import { dataQueryDefinitionInputSchema } from './DataQueryDefinition';
+import { dataQueryCapabilities } from './DataQueryCapabilities';
+import { dataQueryDefinitionInputSchema, guardDataQueryPlainInput } from './DataQueryDefinition';
 import { dataQueryIdSchema } from './DataQueryManifest';
 import { dataQueryFieldUsageValues } from './types';
 import type { DataQueryFieldUsage, DataQueryOutput } from './types';
 
+export { dataQueryCapabilities } from './DataQueryCapabilities';
+
 /** Public inline input. Identity and permissions belong only to the execution context. */
-export const executeDataQueryRequestSchema = z
+const executeDataQueryRequestObjectSchema = z
   .object({
     definition: dataQueryDefinitionInputSchema,
     parameters: z.record(z.string(), z.json()).optional(),
     queryId: dataQueryIdSchema.optional(),
   })
   .strict();
+export const executeDataQueryRequestSchema = guardDataQueryPlainInput(
+  executeDataQueryRequestObjectSchema
+).meta({ 'x-teable-data-query-capabilities': dataQueryCapabilities });
+
+/** Server admission defers definition diagnostics to canonical construction. */
+export const executeDataQueryEnvelopeSchema = guardDataQueryPlainInput(
+  executeDataQueryRequestObjectSchema.extend({
+    definition: z.unknown().refine((value) => value !== undefined),
+  }),
+  { deferDefinition: true }
+);
 
 export type ExecuteDataQueryRequest = z.infer<typeof executeDataQueryRequestSchema>;
 
@@ -66,7 +80,7 @@ export const dataQueryCandidateSchema = z.discriminatedUnion('operation', [
 ]);
 export type DataQueryCandidate = z.infer<typeof dataQueryCandidateSchema>;
 
-export const validateDataQueryRequestSchema = z
+const validateDataQueryRequestObjectSchema = z
   .object({
     definition: dataQueryDefinitionInputSchema,
     includeUsage: z.boolean().optional(),
@@ -75,6 +89,16 @@ export const validateDataQueryRequestSchema = z
     candidateProof: z.string().min(1).optional(),
   })
   .strict();
+export const validateDataQueryRequestSchema = guardDataQueryPlainInput(
+  validateDataQueryRequestObjectSchema
+).meta({ 'x-teable-data-query-capabilities': dataQueryCapabilities });
+
+export const validateDataQueryEnvelopeSchema = guardDataQueryPlainInput(
+  validateDataQueryRequestObjectSchema.extend({
+    definition: z.unknown().refine((value) => value !== undefined),
+  }),
+  { deferDefinition: true }
+);
 export type ValidateDataQueryRequest = z.infer<typeof validateDataQueryRequestSchema>;
 
 export type DataQueryValidationUsage = ReadonlyArray<{

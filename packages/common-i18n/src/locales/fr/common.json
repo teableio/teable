@@ -483,7 +483,10 @@
           "placeholder": "DELETE"
         },
         "loading": "Suppression…"
-      }
+      },
+      "description": "Votre profil, votre façon de vous connecter et vos données.",
+      "nameDesc": "Comment les autres vous voient dans Teable.",
+      "yourDataTitle": "Vos données"
     },
     "notify": {
       "title": "Notifications",
@@ -506,7 +509,10 @@
       "touchMode": "Mode tactile",
       "systemMode": "Suivre le système",
       "buySelfHostedLicense": "Acheter une licence auto-hébergée",
-      "teableSkill": "Compétence Teable"
+      "teableSkill": "Compétence Teable",
+      "description": "Apparence, langue et notifications.",
+      "interactionModeDesc": "Indique si les tableaux, menus et éditeurs sont adaptés au tactile ou à la souris.",
+      "languageDesc": "La langue de l'interface de Teable."
     },
     "teableSkill": {
       "intro": "Permettez à votre AI Agent de se connecter à votre Projet pour interroger les données, gérer les tables, champs et vues, importer ou mettre à jour des enregistrements, et créer des automatisations et des apps.",
@@ -588,7 +594,8 @@
     },
     "developerTools": {
       "title": "Outils de développement"
-    }
+    },
+    "dangerZone": "Zone de danger"
   },
   "noun": {
     "table": "Table",
@@ -1353,7 +1360,10 @@
     "description": "Les données dans la corbeille occupent toujours un espace d'utilisation de records et d'utilisation de pièces jointes.",
     "spaceDescription": "Restaurer les espaces supprimés au cours des {{retentionDays}} derniers jours",
     "spaceInnerDescription": "Restaurer les projets supprimés de cet espace au cours des {{retentionDays}} derniers jours",
-    "baseDescription": "Restaurer les ressources supprimées de ce projet au cours des {{retentionDays}} derniers jours"
+    "baseDescription": "Restaurer les ressources supprimées de ce projet au cours des {{retentionDays}} derniers jours",
+    "restoredInactive": "Reviennent inactifs : {{names}}.",
+    "restoredUnpublished": "À publier à nouveau : {{names}}.",
+    "emptyFolder": "Dossier vide"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Le plugin n'a pas d'URL",
@@ -2145,5 +2155,42 @@
     "getApp": "Obtenir l'app",
     "inAppBrowserHint": "Pour passer à l'application, ouvrez cette page dans votre navigateur depuis le menu en haut à droite",
     "menuItem": "Ouvrir dans l'application Teable"
+  },
+  "appDelete": {
+    "offlineWarning": "Cette application est publiée. La supprimer la met hors ligne immédiatement : son lien public cesse de fonctionner, tout domaine personnalisé est libéré et ses paramètres de connexion sont supprimés. Après la restauration, publiez-la à nouveau."
+  },
+  "folderDelete": {
+    "title": "Voulez-vous vraiment supprimer le dossier « {{name}} » ?",
+    "summary": "Il part dans la corbeille avec tout son contenu et peut être restauré tant qu’il y est conservé ; la restauration conserve la structure du dossier.",
+    "progress": "Suppression… {{done}} sur {{total}}",
+    "stopped": "La suppression s’est arrêtée en cours de route. Ce qui a été supprimé est dans la corbeille, élément par élément ; ci-dessous, ce qui reste dans le dossier.",
+    "continue": "Continuer la suppression",
+    "blocked": "Vous ne pouvez pas supprimer certains éléments de ce dossier, donc rien ne sera supprimé :",
+    "loginTable": "« {{table}} » est la table des utilisateurs de ces applications. Une fois supprimée, la connexion à celles-ci ne fonctionne plus.",
+    "outsideReferences": "Ces éléments hors du dossier font référence à ses tables et rencontreront des erreurs :",
+    "possibleReference": "(référence possible)",
+    "shares": "Liens de partage supprimés définitivement, non rétablis par la restauration : {{count}}",
+    "unreadApps": "Le code source de ces applications n’a pas pu être vérifié pour des références aux tables supprimées :",
+    "hiddenItem": "Élément masqué",
+    "badge": {
+      "blocked": "Bloqué",
+      "offline": "Hors ligne",
+      "permanent": "Supprimé définitivement",
+      "impacts": "Impacts : {{count}}",
+      "impactsAtLeast": "Impacts : {{count}}+",
+      "none": "Aucun impact",
+      "trash": "Corbeille"
+    },
+    "detail": {
+      "trash": "Part dans la corbeille et peut être restauré tant qu’il y est conservé.",
+      "permanent": "Supprimé définitivement, ne peut pas être restauré."
+    },
+    "appOffline": {
+      "title": "Cette application est publiée et passe hors ligne dès sa suppression :",
+      "publicLink": "Son lien public cesse de fonctionner",
+      "customDomain": "Le domaine personnalisé {{domain}} est libéré",
+      "loginConfig": "Ses paramètres de connexion sont supprimés",
+      "afterRestore": "Après la restauration, publiez-la à nouveau, reliez le domaine et reconfigurez la connexion."
+    }
   }
 }

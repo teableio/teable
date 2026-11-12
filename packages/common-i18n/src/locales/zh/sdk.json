@@ -1191,6 +1191,10 @@
       "circularReference": "检测到循环引用",
       "folderDepthLimitExceeded": "目录深度超限",
       "folderNotFound": "目录未找到",
+      "folderDeleteForbidden": "你没有删除此文件夹中部分内容的权限",
+      "folderDeleteInProgress": "该文件夹正在删除中，请稍后再试",
+      "folderDeletePartial": "文件夹只删除了一部分：已有 {{count}} 项单独进入回收站。请再次删除该文件夹以完成删除",
+      "projectBusy": "该项目有文件夹删除、移动或回收站操作正在进行，请稍后再试",
       "anchorNotFound": "锚点节点未找到",
       "nameAlreadyExists": "名称已存在",
       "targetBaseRequired": "目标项目不能为空",
@@ -1588,7 +1592,8 @@
       "parentBaseTrashed": "无法恢复此内容，因为其所属项目也在回收站中",
       "parentNotFound": "父级资源未找到",
       "tableNotFound": "表格回收站中未找到该内容",
-      "restoreFieldInvalidSnapshot": "已删除字段的配置无效，无法恢复。"
+      "restoreFieldInvalidSnapshot": "已删除字段的配置无效，无法恢复。",
+      "folderRestorePartial": "文件夹只恢复了一部分：已有 {{count}} 张表恢复到项目根目录。请再次恢复该文件夹以完成恢复"
     },
     "license": {
       "invalid": "许可证无效",

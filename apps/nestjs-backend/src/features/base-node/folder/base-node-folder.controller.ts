@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Controller, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Post, Patch, Param, Body } from '@nestjs/common';
 import type { ICreateBaseNodeFolderVo, IUpdateBaseNodeFolderVo } from '@teable/openapi';
 import {
   createBaseNodeFolderRoSchema,
@@ -38,10 +38,5 @@ export class BaseNodeFolderController {
     return this.baseNodeFolderService.renameFolder(baseId, folderId, ro);
   }
 
-  @Delete(':folderId')
-  @Permissions('base|update')
-  @EmitControllerEvent(Events.BASE_FOLDER_DELETE)
-  async deleteFolder(@Param('baseId') baseId: string, @Param('folderId') folderId: string) {
-    return this.baseNodeFolderService.deleteFolder(baseId, folderId);
-  }
+  // DELETE is BaseNodeController.deleteFolder, a node delete: the folder goes to the trash with its contents.
 }

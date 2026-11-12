@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateBaseNodeId, HttpErrorCode } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
@@ -24,7 +24,8 @@ import type {
   IUserInfoVo,
   V2Feature,
 } from '@teable/openapi';
-import { BaseNodeResourceType, ShortLinkType } from '@teable/openapi';
+import { BaseNodeResourceType, ResourceType, ShortLinkType } from '@teable/openapi';
+import type { PreviewEffect, PreviewResourceReference } from '@teable/v2-command-explain';
 import { Knex } from 'knex';
 import { isString, keyBy, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -32,6 +33,10 @@ import { ClsService } from 'nestjs-cls';
 import type { LocalPresence } from 'sharedb/lib/client';
 import { type IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
+import { DistributedLockService } from '../../distributed-lock/distributed-lock.service';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { BaseNodeEventFactory } from '../../event-emitter/events/base/base-node.event';
+import { Events } from '../../event-emitter/events/event.enum';
 import {
   generateBaseNodeListCacheKey,
   generateBaseShareListCacheKey,
@@ -53,6 +58,8 @@ import { TableDuplicateService } from '../table/table-duplicate.service';
 import { buildBaseNodeUrl } from './base-node-url.helper';
 import { BaseNodeFolderService } from './folder/base-node-folder.service';
 import { buildBatchUpdateSql, presenceHandler } from './helper';
+import { createMissingFolderNodes } from './missing-folder-nodes';
+import { PROJECT_NODE_LOCK_TTL_SECONDS, projectNodeLockName } from './project-node-lock';
 
 type IBaseNodeEntry = {
   id: string;
@@ -81,9 +88,68 @@ type IBaseNodeResourceInput = Omit<
   lastModifiedTime?: Date | string | null;
 };
 
+export type IFolderSubtreeNode = {
+  id: string;
+  parentId: string | null;
+  resourceType: BaseNodeResourceType;
+  resourceId: string;
+};
+
+/** How the folder.delete preview names a resource: by name only to a caller who may read it. */
+export type IFolderDeleteReference = (resource: {
+  resourceType: BaseNodeResourceType;
+  resourceId: string;
+  name: string;
+}) => PreviewResourceReference;
+
+/** How far a folder delete is: resources deleted so far, of all it deletes. */
+export type IFolderDeleteProgress = { done: number; total: number };
+
+export type IBaseNodeDeleteOptions = {
+  /**
+   * Sees what a folder delete is about to delete, read under the lock it runs in: whatever it
+   * allows is exactly what goes, nothing added to the folder after it looked.
+   */
+  assertSubtree?: (subtree: IFolderSubtreeNode[]) => Promise<void> | void;
+  /** Called as a folder delete deletes each resource in it. */
+  onProgress?: (progress: IFolderDeleteProgress) => void;
+};
+
+/** A node of a folder being deleted, as the folder.delete preview describes it. */
+export type IFolderDeleteItem = IFolderSubtreeNode & {
+  name: string;
+  /** What the node list returns for the resource: edition-specific facts ride along. */
+  resource: Record<string, unknown>;
+  shareCount: number;
+};
+
+// Node types whose soft delete leaves a trash entry.
+const TRASHED_NODE_TYPES: ReadonlySet<BaseNodeResourceType> = new Set([
+  BaseNodeResourceType.Table,
+  BaseNodeResourceType.Dashboard,
+  BaseNodeResourceType.App,
+  BaseNodeResourceType.Workflow,
+  BaseNodeResourceType.Routine,
+]);
+
+// Inside a folder, what can be put back goes first and what cannot goes last: an app goes
+// offline and links into a table turn into text, so a failure before them leaves nothing lost.
+const FOLDER_DELETE_ORDER: BaseNodeResourceType[] = [
+  BaseNodeResourceType.Workflow,
+  BaseNodeResourceType.Routine,
+  BaseNodeResourceType.Dashboard,
+  BaseNodeResourceType.App,
+  BaseNodeResourceType.Table,
+];
+
 @Injectable()
 export class BaseNodeService {
   private readonly logger = new Logger(BaseNodeService.name);
+
+  @Inject(EventEmitterService) private readonly eventEmitterService!: EventEmitterService;
+  @Optional()
+  @Inject(DistributedLockService)
+  private readonly distributedLockService?: DistributedLockService;
   constructor(
     private readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     private readonly shareDbService: ShareDbService,
@@ -171,7 +237,10 @@ export class BaseNodeService {
       select: { resourceType: true },
     });
 
-    if (node?.resourceType !== BaseNodeResourceType.Table) {
+    if (
+      node?.resourceType !== BaseNodeResourceType.Table &&
+      node?.resourceType !== BaseNodeResourceType.Folder
+    ) {
       return undefined;
     }
 
@@ -201,6 +270,7 @@ export class BaseNodeService {
    * the node id, asserting it exists in this base and is a folder.
    */
   async resolveFolderNodeId(baseId: string, folderId: string): Promise<string> {
+    await createMissingFolderNodes(this.prismaService, baseId, [folderId], this.userId);
     const node = await this.prismaService.baseNode.findFirst({
       where: { baseId, OR: [{ id: folderId }, { resourceId: folderId }] },
       select: { id: true, resourceType: true },
@@ -375,7 +445,7 @@ export class BaseNodeService {
 
   protected async getDashboardResources(baseId: string, ids?: string[]) {
     return await this.prismaService.dashboard.findMany({
-      where: { baseId, id: { in: ids || undefined } },
+      where: { baseId, id: { in: ids || undefined }, deletedTime: null },
       select: {
         id: true,
         name: true,
@@ -389,7 +459,7 @@ export class BaseNodeService {
 
   protected async getFolderResources(baseId: string, ids?: string[]) {
     return await this.prismaService.baseNodeFolder.findMany({
-      where: { baseId, id: { in: ids || undefined } },
+      where: { baseId, id: { in: ids || undefined }, deletedTime: null },
       select: {
         id: true,
         name: true,
@@ -899,7 +969,12 @@ export class BaseNodeService {
     }
   }
 
-  async delete(baseId: string, nodeId: string, permanent?: boolean) {
+  async delete(
+    baseId: string,
+    nodeId: string,
+    permanent?: boolean,
+    options: IBaseNodeDeleteOptions = {}
+  ) {
     this.setIgnoreBaseNodeListener();
 
     const node = await this.prismaService.baseNode
@@ -915,20 +990,8 @@ export class BaseNodeService {
         });
       });
     if (node.resourceType === BaseNodeResourceType.Folder) {
-      const children = await this.prismaService.baseNode.findMany({
-        where: { baseId, parentId: nodeId },
-      });
-      if (children.length > 0) {
-        throw new CustomHttpException(
-          'Cannot delete folder because it is not empty',
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.baseNode.cannotDeleteEmptyFolder',
-            },
-          }
-        );
-      }
+      await this.deleteFolderNode(baseId, nodeId, permanent, options);
+      return node;
     }
 
     // Clean up share records for this node before deletion
@@ -951,6 +1014,394 @@ export class BaseNodeService {
       });
     });
     return node;
+  }
+
+  /**
+   * The folder and everything under it, the folder first. Read from the node table, so
+   * nodes the caller cannot see are included: deleting a folder must not leave them behind.
+   */
+  async getFolderSubtree(baseId: string, folderNodeId: string): Promise<IFolderSubtreeNode[]> {
+    const nodes = await this.prismaService.baseNode.findMany({
+      where: { baseId },
+      select: { id: true, parentId: true, resourceType: true, resourceId: true },
+      orderBy: { order: 'asc' },
+    });
+    const root = nodes.find((n) => n.id === folderNodeId);
+    if (!root) return [];
+    const childrenOf = new Map<string, typeof nodes>();
+    for (const node of nodes) {
+      if (!node.parentId) continue;
+      childrenOf.set(node.parentId, [...(childrenOf.get(node.parentId) ?? []), node]);
+    }
+    const subtree: IFolderSubtreeNode[] = [];
+    const queue = [root];
+    while (queue.length > 0) {
+      const node = queue.shift()!;
+      subtree.push({ ...node, resourceType: node.resourceType as BaseNodeResourceType });
+      queue.push(...(childrenOf.get(node.id) ?? []));
+    }
+    return subtree;
+  }
+
+  /** The folder's subtree with what the folder.delete preview says about each node. */
+  async getFolderDeleteItems(baseId: string, folderNodeId: string): Promise<IFolderDeleteItem[]> {
+    const subtree = await this.getFolderSubtree(baseId, folderNodeId);
+    const types = [...new Set(subtree.map((node) => node.resourceType))];
+    const resources = new Map<string, Record<string, unknown>>();
+    for (const type of types) {
+      const ids = subtree.filter((n) => n.resourceType === type).map((n) => n.resourceId);
+      for (const resource of await this.getNodeResource(baseId, type, ids)) {
+        resources.set(`${type}:${resource.id}`, resource as Record<string, unknown>);
+      }
+    }
+    const shares = await this.prismaService.baseShare.groupBy({
+      by: ['nodeId'],
+      where: { baseId, nodeId: { in: subtree.map((node) => node.id) } },
+      _count: { _all: true },
+    });
+    const shareCounts = new Map(shares.map((share) => [share.nodeId, share._count._all]));
+    // A resource already in the trash on its own is not part of this delete.
+    const inDelete = subtree.filter(
+      (node) =>
+        node.resourceType === BaseNodeResourceType.Folder ||
+        resources.has(`${node.resourceType}:${node.resourceId}`)
+    );
+    return inDelete.map((node) => {
+      const resource = resources.get(`${node.resourceType}:${node.resourceId}`) ?? {};
+      return {
+        ...node,
+        name: isString(resource.name) ? resource.name : '',
+        resource,
+        shareCount: shareCounts.get(node.id) ?? 0,
+      };
+    });
+  }
+
+  /** Consequences of deleting these nodes that only the edition knows about. */
+  async getFolderDeleteHostEffects(
+    _baseId: string,
+    _items: IFolderDeleteItem[],
+    _reference: IFolderDeleteReference
+  ): Promise<PreviewEffect[]> {
+    return [];
+  }
+
+  /**
+   * Shares the project lock with moves, within the project and across projects: a move would
+   * carry nodes out of the subtree being deleted, and two overlapping deletes would each delete
+   * the other's half. A second caller is told to retry.
+   */
+  private async withFolderDeleteLock<T>(baseId: string, task: () => Promise<T>): Promise<T> {
+    if (!this.distributedLockService) return task();
+    let result!: T;
+    const ran = await this.distributedLockService.runExclusive(
+      projectNodeLockName(baseId),
+      PROJECT_NODE_LOCK_TTL_SECONDS,
+      async () => {
+        result = await task();
+      }
+    );
+    if (!ran) {
+      throw new CustomHttpException(
+        `Another folder delete or node move in project ${baseId} is in progress`,
+        HttpErrorCode.CONFLICT,
+        { localization: { i18nKey: 'httpErrors.baseNode.projectBusy' } }
+      );
+    }
+    return result;
+  }
+
+  private async deleteFolderNode(
+    baseId: string,
+    nodeId: string,
+    permanent: boolean | undefined,
+    { assertSubtree, onProgress }: IBaseNodeDeleteOptions
+  ) {
+    try {
+      await this.withFolderDeleteLock(baseId, async () => {
+        const subtree = await this.dropTrashedNodes(
+          baseId,
+          await this.getFolderSubtree(baseId, nodeId)
+        );
+        await assertSubtree?.(subtree);
+        if (permanent) {
+          await this.permanentDeleteEmptyFolder(baseId, subtree);
+        } else {
+          await this.trashFolderSubtree(baseId, subtree, onProgress);
+        }
+        await this.deleteSubtreeShares(baseId, subtree);
+        // The controller raises the event for the folder itself; its contents are raised here
+        // so the audit log, pins, recent visits and the trash see each of them.
+        await this.emitSubtreeDeleteEvents(baseId, subtree.slice(1), permanent);
+      });
+    } finally {
+      // A delete that stopped part way has still taken what it deleted out of the tree.
+      this.presenceHandler<IBaseNodePresenceFlushPayload>(baseId, (presence) => {
+        presence.submit({ event: 'flush' });
+      });
+    }
+  }
+
+  /**
+   * A resource deleted on its own is in the trash already, with its own entry, while its node
+   * may wait for the tree to drop it. The node goes now, as the tree drops any node whose
+   * resource it does not list, and the folder delete leaves the resource and its entry alone.
+   */
+  private async dropTrashedNodes(baseId: string, subtree: IFolderSubtreeNode[]) {
+    const resources = subtree.filter((n) => n.resourceType !== BaseNodeResourceType.Folder);
+    const live = await this.liveResourceIds(baseId, resources);
+    const trashed = resources.filter((n) => !live.has(n.resourceId));
+    if (!trashed.length) return subtree;
+    await this.prismaService.baseNode.deleteMany({
+      where: { id: { in: trashed.map((n) => n.id) } },
+    });
+    const trashedIds = new Set(trashed.map((n) => n.id));
+    return subtree.filter((n) => !trashedIds.has(n.id));
+  }
+
+  private async liveResourceIds(baseId: string, nodes: IFolderSubtreeNode[]) {
+    const live = new Set<string>();
+    for (const type of new Set(nodes.map((n) => n.resourceType))) {
+      const ids = nodes.filter((n) => n.resourceType === type).map((n) => n.resourceId);
+      for (const { id } of await this.getNodeResource(baseId, type, ids)) live.add(id);
+    }
+    return live;
+  }
+
+  private orderForFolderDelete(subtree: IFolderSubtreeNode[]) {
+    return subtree
+      .filter((node) => node.resourceType !== BaseNodeResourceType.Folder)
+      .sort(
+        (a, b) =>
+          FOLDER_DELETE_ORDER.indexOf(a.resourceType) - FOLDER_DELETE_ORDER.indexOf(b.resourceType)
+      );
+  }
+
+  /**
+   * The trash rows of a folder delete: every folder and every trashed resource, each under
+   * its direct parent folder; the folder deleted is the one entry the project's trash lists.
+   */
+  private buildFolderTrashRows(baseId: string, subtree: IFolderSubtreeNode[], deletedTime: Date) {
+    const folderIdOfNode = new Map(
+      subtree
+        .filter((n) => n.resourceType === BaseNodeResourceType.Folder)
+        .map((n) => [n.id, n.resourceId])
+    );
+    const [root] = subtree;
+    return subtree
+      .filter(
+        (n) =>
+          n.resourceType === BaseNodeResourceType.Folder || TRASHED_NODE_TYPES.has(n.resourceType)
+      )
+      .map((n) => ({
+        resourceType: n.resourceType as string,
+        resourceId: n.resourceId,
+        parentId: n.id === root.id ? baseId : folderIdOfNode.get(n.parentId!)!,
+        deletedTime,
+        deletedBy: this.userId,
+      }));
+  }
+
+  /**
+   * Nothing is put back when this fails part way: each delete it made is committed on its own and
+   * may have changed things outside the folder (a link to a deleted table becomes text) that a
+   * restore does not undo. What was deleted stays in the trash as entries of their own; the folder
+   * and the rest stay where they are, and deleting the folder again finishes the job.
+   */
+  private async trashFolderSubtree(
+    baseId: string,
+    subtree: IFolderSubtreeNode[],
+    onProgress?: (progress: IFolderDeleteProgress) => void
+  ) {
+    const deletedTime = new Date();
+    const rows = this.buildFolderTrashRows(baseId, subtree, deletedTime);
+    // The resources' rows go first, at the project, as any resource deleted on its own has. The
+    // folders' rows, and each resource under its folder, come with the commit that trashes the
+    // folders: a trash row names a folder only once that folder is in the trash, so whatever
+    // stops this before then leaves ordinary entries of the project.
+    const rowKeys = rows
+      .filter((row) => row.resourceType !== BaseNodeResourceType.Folder)
+      .map(({ resourceType, resourceId }) => ({ resourceType, resourceId }));
+    await this.prismaService.$tx(async (prisma) => {
+      await prisma.trash.deleteMany({ where: { OR: rowKeys } });
+      await prisma.trash.createMany({
+        data: rows
+          .filter((row) => row.resourceType !== BaseNodeResourceType.Folder)
+          .map((row) => ({ ...row, parentId: baseId })),
+      });
+    });
+
+    const resources = this.orderForFolderDelete(subtree);
+    const total = resources.length;
+    try {
+      for (const [index, node] of resources.entries()) {
+        await this.deleteResource(baseId, node.resourceType, node.resourceId);
+        if (node.resourceType === BaseNodeResourceType.Table) {
+          await this.syncTableTrashTime(node.resourceId);
+        }
+        onProgress?.({ done: index + 1, total });
+      }
+      await this.commitFolderTrash(baseId, subtree, rows, rowKeys, deletedTime);
+    } catch (error) {
+      const deleted = await this.settleFailedFolderTrash(baseId, resources, rowKeys);
+      if (deleted === 0) throw error;
+      this.logger.error(
+        `Folder delete in project ${baseId} stopped after ${deleted} of ${resources.length} items`,
+        error instanceof Error ? error.stack : error
+      );
+      throw new CustomHttpException(
+        `The folder was only partly deleted: ${deleted} of its items are in the trash on their own. Delete the folder again to finish.`,
+        HttpErrorCode.INTERNAL_SERVER_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.folderDeletePartial',
+            context: { count: deleted },
+          },
+        }
+      );
+    }
+  }
+
+  /**
+   * After a folder delete stopped: what is actually deleted, whether or not its delete returned,
+   * keeps its trash row, an entry of its own at the project; the rows of what is still live go.
+   * Returns how many were deleted.
+   */
+  private async settleFailedFolderTrash(
+    baseId: string,
+    resources: IFolderSubtreeNode[],
+    rowKeys: { resourceType: string; resourceId: string }[]
+  ) {
+    const live = await this.liveResourceIds(baseId, resources);
+    const deleted = resources.filter((n) => !live.has(n.resourceId));
+    for (const node of deleted) {
+      if (node.resourceType === BaseNodeResourceType.Table) {
+        await this.syncTableTrashTime(node.resourceId);
+      }
+    }
+    const deletedIds = new Set(deleted.map((n) => n.resourceId));
+    await this.prismaService.$tx(async (prisma) => {
+      await prisma.trash.deleteMany({
+        where: { OR: rowKeys.filter((key) => !deletedIds.has(key.resourceId)) },
+      });
+      await prisma.baseNode.deleteMany({ where: { id: { in: deleted.map((n) => n.id) } } });
+    });
+    // They are gone like anything deleted on its own: their shares, pins, recent visits and
+    // audit rows follow them, as a finished folder delete's contents do.
+    await this.deleteSubtreeShares(baseId, deleted);
+    await this.emitSubtreeDeleteEvents(baseId, deleted);
+    return deleted.length;
+  }
+
+  /**
+   * A table's fields and views are restored by matching the deleted time its trash row
+   * holds, so the row takes the time the table was actually deleted at.
+   */
+  private async syncTableTrashTime(tableId: string) {
+    const table = await this.prismaService.tableMeta.findUnique({
+      where: { id: tableId },
+      select: { deletedTime: true },
+    });
+    if (!table?.deletedTime) return;
+    await this.prismaService.trash.updateMany({
+      where: { resourceType: ResourceType.Table, resourceId: tableId },
+      data: { deletedTime: table.deletedTime },
+    });
+  }
+
+  private async commitFolderTrash(
+    baseId: string,
+    subtree: IFolderSubtreeNode[],
+    rows: ReturnType<BaseNodeService['buildFolderTrashRows']>,
+    rowKeys: { resourceType: string; resourceId: string }[],
+    deletedTime: Date
+  ) {
+    await this.prismaService.$tx(async (prisma) => {
+      // Something restored from under the folder while it was being deleted would be
+      // trashed again by this commit; give up instead, as any failure does.
+      const count = await prisma.trash.count({ where: { OR: rowKeys } });
+      if (count !== rowKeys.length) {
+        throw new CustomHttpException(
+          'The folder changed while it was being deleted',
+          HttpErrorCode.CONFLICT,
+          { localization: { i18nKey: 'httpErrors.baseNode.folderDeleteInProgress' } }
+        );
+      }
+      const folders = subtree.filter((n) => n.resourceType === BaseNodeResourceType.Folder);
+      await prisma.baseNodeFolder.updateMany({
+        where: { id: { in: folders.map((n) => n.resourceId) } },
+        data: { deletedTime },
+      });
+      // The structure: the folders' own rows, the top one at the project, and each resource
+      // under its folder. All rewritten in the tree's order, which a restore rebuilds the
+      // folders' contents in; a table keeps the deleted time its row was given.
+      const written = await prisma.trash.findMany({
+        where: { OR: rowKeys },
+        select: { resourceType: true, resourceId: true, deletedTime: true },
+      });
+      const writtenTime = new Map(
+        written.map((row) => [`${row.resourceType}:${row.resourceId}`, row.deletedTime])
+      );
+      await prisma.trash.deleteMany({
+        where: { OR: rows.map(({ resourceType, resourceId }) => ({ resourceType, resourceId })) },
+      });
+      await prisma.trash.createMany({
+        data: rows.map((row) => ({
+          ...row,
+          deletedTime: writtenTime.get(`${row.resourceType}:${row.resourceId}`) ?? row.deletedTime,
+        })),
+      });
+      await prisma.baseNode.deleteMany({ where: { id: { in: subtree.map((n) => n.id) } } });
+      await this.onFoldersTrashed(baseId, folders);
+    });
+  }
+
+  /** Runs in the trash commit, after the folders' nodes are gone. */
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  protected async onFoldersTrashed(_baseId: string, _folders: IFolderSubtreeNode[]) {}
+
+  /** Only an empty folder is deleted for good; one with contents goes to the trash first. */
+  private async permanentDeleteEmptyFolder(baseId: string, subtree: IFolderSubtreeNode[]) {
+    const [folder] = subtree;
+    if (subtree.length > 1) {
+      throw new CustomHttpException(
+        'Cannot delete folder because it is not empty; move it to the trash instead',
+        HttpErrorCode.VALIDATION_ERROR,
+        { localization: { i18nKey: 'httpErrors.baseNode.cannotDeleteEmptyFolder' } }
+      );
+    }
+    await this.prismaService.$tx(async (prisma) => {
+      await prisma.baseNode.delete({ where: { id: folder.id } });
+      await prisma.baseNodeFolder.deleteMany({ where: { baseId, id: folder.resourceId } });
+    });
+  }
+
+  private async deleteSubtreeShares(baseId: string, subtree: IFolderSubtreeNode[]) {
+    for (const node of subtree) {
+      await this.deleteNodeShares(baseId, node.id);
+    }
+  }
+
+  /** The node's own delete event, for a delete route that streams and so is not intercepted. */
+  async emitDeleteEvent(baseId: string, node: { resourceType: string; resourceId: string }) {
+    await this.emitSubtreeDeleteEvents(baseId, [
+      { resourceType: node.resourceType as BaseNodeResourceType, resourceId: node.resourceId },
+    ]);
+  }
+
+  private async emitSubtreeDeleteEvents(
+    baseId: string,
+    nodes: Pick<IFolderSubtreeNode, 'resourceType' | 'resourceId'>[],
+    permanent?: boolean
+  ) {
+    for (const { resourceType, resourceId } of nodes) {
+      const event = BaseNodeEventFactory.create(
+        Events.BASE_NODE_DELETE,
+        { baseId, node: { resourceType, resourceId, ...(permanent ? { permanent } : {}) } },
+        { user: this.cls.get('user') }
+      );
+      if (event) await this.eventEmitterService.emitAsync(event.name, event);
+    }
   }
 
   protected async deleteResource(
@@ -979,7 +1430,7 @@ export class BaseNodeService {
         }
         break;
       case BaseNodeResourceType.Dashboard:
-        await this.dashboardService.deleteDashboard(baseId, id);
+        await this.dashboardService.deleteDashboard(baseId, id, permanent);
         break;
       default:
         throw new CustomHttpException(
@@ -995,6 +1446,16 @@ export class BaseNodeService {
   }
 
   async move(baseId: string, nodeId: string, ro: IMoveBaseNodeRo): Promise<IBaseNodeVo> {
+    // A folder delete deletes the nodes it read when it began: one moved meanwhile would go with
+    // it from wherever it was moved to.
+    return this.withFolderDeleteLock(baseId, () => this.moveInProject(baseId, nodeId, ro));
+  }
+
+  private async moveInProject(
+    baseId: string,
+    nodeId: string,
+    ro: IMoveBaseNodeRo
+  ): Promise<IBaseNodeVo> {
     this.setIgnoreBaseNodeListener();
 
     const { parentId, anchorId, position } = ro;

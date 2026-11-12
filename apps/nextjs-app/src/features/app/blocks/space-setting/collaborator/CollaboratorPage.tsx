@@ -41,19 +41,17 @@ export const CollaboratorPage = ({ spaceId: spaceIdProp }: { spaceId?: string } 
           components={{ b: <b /> }}
         />
       }
-      className="overflow-hidden"
+      actions={
+        isHydrated && !!space ? (
+          <InviteSpacePopover space={space}>
+            <Button>
+              <UserPlus className="size-4" /> {t('space:action.invite')}
+            </Button>
+          </InviteSpacePopover>
+        ) : undefined
+      }
     >
-      {isHydrated && !!space && (
-        <div className="min-h-0 flex-1">
-          <Collaborators spaceId={space.id} role={space.role}>
-            <InviteSpacePopover space={space}>
-              <Button size="sm">
-                <UserPlus className="size-4" /> {t('space:action.invite')}
-              </Button>
-            </InviteSpacePopover>
-          </Collaborators>
-        </div>
-      )}
+      {isHydrated && !!space && <Collaborators spaceId={space.id} role={space.role} />}
     </SpaceSettingContainer>
   );
 };

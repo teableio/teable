@@ -47,7 +47,11 @@ export const RefreshToken = (props: IRefreshTokenProps) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size={'xs'} variant="destructive">
+        <Button
+          size="sm"
+          variant="outline"
+          className="me-auto text-destructive hover:text-destructive"
+        >
           {t('token:refresh.button')}
         </Button>
       </DialogTrigger>

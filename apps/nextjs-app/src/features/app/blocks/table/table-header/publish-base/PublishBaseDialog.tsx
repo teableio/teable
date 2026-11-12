@@ -588,6 +588,11 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                   />
                   <Label htmlFor="include-data">{t('publishBase.form.includeData')}</Label>
                 </div>
+                {submission?.renderGuideRow?.({
+                  baseId,
+                  includeData,
+                  close: () => setOpen(false),
+                })}
               </section>
             </div>
 

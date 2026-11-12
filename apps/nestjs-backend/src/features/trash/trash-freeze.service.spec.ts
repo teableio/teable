@@ -23,6 +23,8 @@ describe('TrashService write freeze', () => {
     $tx: vi.fn(async (fn: (client: typeof txClient) => Promise<unknown>) => fn(txClient)),
     $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     txClient: vi.fn(() => txClient),
+    // The restore reads the row once before its transaction, to know which project to lock.
+    trash: { findUnique: vi.fn(() => txClient.trash.findUniqueOrThrow()) },
   };
   const dataDbClientManager = {
     dataPrismaForTable: vi.fn(),

@@ -12,6 +12,7 @@ import type {
   Table,
 } from '@teable/v2-core';
 import {
+  buildUserTitleFromSnapshotSql,
   extractFirstJsonScalarTextWithStrategy,
   extractJsonScalarText,
   FormulaSqlPgTranslator,
@@ -35,7 +36,6 @@ import { err, ok, safeTry } from 'neverthrow';
 
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
 import type { DynamicDB, QB } from '../ITableRecordQueryBuilder';
-import { buildUserTitleFromSnapshotSql } from '../userSnapshotSql';
 import {
   CteLevelSqlPlan,
   FormulaFieldSqlFragment,

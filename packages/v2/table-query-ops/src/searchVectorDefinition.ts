@@ -156,6 +156,33 @@ const resolveIndexKind = (
   return provider === 'pg_trgm' ? 'gin_trgm' : 'gin_tsvector';
 };
 
+export type TableSearchDocumentCoverage = {
+  readonly searchableFieldIds: readonly string[];
+  readonly coveredFieldIds: readonly string[];
+  readonly uncoveredFieldIds: readonly string[];
+};
+
+/**
+ * Which searchable fields the serving document covers. The covered ids come from the published
+ * configuration; the searchable set is re-derived from the current table, so a field created after
+ * the document was built is reported as uncovered instead of silently missing from search.
+ */
+export const resolveTableSearchDocumentCoverage = (
+  table: ITableReadModel,
+  coveredFieldIds: readonly string[]
+): Result<TableSearchDocumentCoverage, DomainError> => {
+  const collected = collectSearchDocumentFields(table, undefined);
+  if (collected.isErr()) return err(collected.error);
+
+  const searchableFieldIds = collected.value.fields.map((field) => field.fieldId);
+  const covered = new Set(coveredFieldIds);
+  return ok({
+    searchableFieldIds,
+    coveredFieldIds: searchableFieldIds.filter((fieldId) => covered.has(fieldId)),
+    uncoveredFieldIds: searchableFieldIds.filter((fieldId) => !covered.has(fieldId)),
+  });
+};
+
 export const buildTableSearchAccessPathDefinition = (
   table: ITableReadModel,
   options: BuildTableSearchAccessPathDefinitionOptions = {}

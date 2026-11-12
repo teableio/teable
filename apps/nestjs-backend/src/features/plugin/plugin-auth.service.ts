@@ -123,7 +123,7 @@ export class PluginAuthService {
     const activeParents = await Promise.all([
       dashboardIds.length
         ? prisma.dashboard.findFirst({
-            where: { id: { in: dashboardIds }, baseId },
+            where: { id: { in: dashboardIds }, baseId, deletedTime: null },
             select: { id: true },
           })
         : null,

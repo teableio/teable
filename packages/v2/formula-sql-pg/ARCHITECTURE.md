@@ -18,6 +18,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `src/FormulaSqlPgFunctions.ts` - Role: function registry; Purpose: map formula functions to SQL implementations.
 - `src/SqlExpression.ts` - Role: value model; Purpose: carry SQL + type/multiplicity + error metadata.
 - `src/FieldSqlCoercionVisitor.ts` - Role: field visitor; Purpose: generate safe casts for field references.
+- `src/FormulaOutputSql.ts` - Role: stored/transient result finalization; Purpose: share display extraction, scalar/array representation, numeric finalization and explicit formula-error handling.
+- `src/UserSnapshotSql.ts` - Role: snapshot SQL; Purpose: share collaborator snapshot title/fallback handling without querying another metadata plane.
 - `src/PgSqlHelpers.ts` - Role: helper library; Purpose: shared SQL snippets for casting, arrays, and errors.
 - `src/testkit/FormulaSqlPgTestkit.ts` - Role: test scaffold; Purpose: create tables/records via commands and evaluate formulas in Postgres.
 
@@ -67,6 +69,22 @@ or database session time zone. Recursive formula references retain that defining
 zone in the expression graph; ordinary lowering and fused array operations use
 the same zone for their coercions. A referencing field may format the result in
 another zone, but must not reinterpret the referenced formula's midnight.
+
+Reference-map mode binds an exact alias to a real field plus its SQL resolver, or to a
+domain-typed system/parameter value. Field references still pass through the same field/lookup
+resolution and coercion used by table mode; adapters must not turn all JSON-backed fields into
+primitive text or construct an alternate formula type system. Masks belong in the supplied input
+SQL. A masked user snapshot must not regain a value through an actor fallback.
+
+Stored computed fields and transient query projections use `finalizeFormulaOutputSql` inside the
+translator's render scope. Scalar outputs cross the inferred physical storage boundary in SQL:
+String becomes text, Datetime becomes timestamptz, and Number retains stored float8 behavior.
+Mixed conditional branches therefore match their stored text representation before alias sorting;
+naive date results cannot acquire the Node process time zone during driver decoding. A wire
+`numberOrString` is not an exact-NUMERIC formula promise. Transient query compilation takes the
+routed formula policy in enforce mode, including the final rendered SQL size. It also opts into
+a 1 MiB UTF-8 byte limit per `REPT` intermediate before allocation; omitted `maxReptBytes` preserves
+stored formula behavior. Nested/lazy branches retain their ordinary evaluation semantics.
 
 ## Regression acceptance
 

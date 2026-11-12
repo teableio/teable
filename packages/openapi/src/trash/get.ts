@@ -68,6 +68,10 @@ export const resourceMapVoSchema = z.record(
       id: z.string().startsWith(IdPrefix.Workflow),
       name: z.string(),
     }),
+    z.object({
+      id: z.string().startsWith(IdPrefix.BaseNodeFolder),
+      name: z.string(),
+    }),
     viewSnapshotItemVoSchema,
     fieldSnapshotItemVoSchema,
     recordSnapshotItemVoSchema,

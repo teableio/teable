@@ -78,7 +78,7 @@ const MarkdownEditorInner = ({
 
   const handleBlur = useCallback(() => {
     if (!loading) {
-      const markdown = getEditorMarkdown(getEditor());
+      const markdown = getEditorMarkdown(getEditor(), initialValueRef.current);
       if (markdown !== undefined) {
         latestValueRef.current = markdown;
         onValueChangeRef.current?.(markdown);

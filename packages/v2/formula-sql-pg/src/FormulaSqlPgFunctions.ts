@@ -1202,7 +1202,26 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
       this.budget
     );
-    const valueSql = this.budget.sql`REPEAT(${text.valueSql}, ${count.valueSql}::integer)`;
+    const maxBytes = this.translator.maxReptBytes;
+    let valueSql: string;
+    if (maxBytes === undefined) {
+      valueSql = this.budget.sql`REPEAT(${text.valueSql}, ${count.valueSql}::integer)`;
+    } else {
+      // Check each intermediate before REPEAT allocates it, even under LEN/LEFT.
+      // Numeric multiplication cannot overflow; use the existing integer count cast
+      // so fractional, negative, zero and NULL behavior stays PostgreSQL-compatible.
+      const oversized = this.budget
+        .sql`(OCTET_LENGTH(_rept.value)::numeric * GREATEST(_rept.count, 0) > ${maxBytes})`;
+      // REPEAT('xx', INT_MAX) deterministically raises SQLSTATE 54000 in its size
+      // check, before allocating. Keep that native failure inside this invocation
+      // rather than silently returning NULL or requiring a database helper function.
+      // OFFSET 0 evaluates the inputs once and prevents planner constant folding
+      // from raising this error inside an unused IF/SWITCH branch.
+      valueSql = this.budget.sql`(SELECT REPEAT(
+        CASE WHEN ${oversized} THEN 'xx' ELSE _rept.value END,
+        CASE WHEN ${oversized} THEN 2147483647 ELSE _rept.count END
+      ) FROM (SELECT ${text.valueSql} AS value, ${count.valueSql}::integer AS count OFFSET 0) AS _rept)`;
+    }
     return makeExpr(
       guardValueSql(valueSql, errorCondition, this.budget),
       'string',

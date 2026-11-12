@@ -1196,6 +1196,10 @@
       "circularReference": "Circular reference detected",
       "folderDepthLimitExceeded": "Folder depth limit exceeded",
       "folderNotFound": "Folder not found",
+      "folderDeleteForbidden": "You don't have permission to delete some items in this folder",
+      "folderDeleteInProgress": "This folder is being deleted, try again later",
+      "folderDeletePartial": "The folder was only partly deleted: {{count}} of its items are in the trash on their own. Delete the folder again to finish",
+      "projectBusy": "A folder delete, move or trash operation is in progress in this project, try again later",
       "anchorNotFound": "Anchor node not found",
       "nameAlreadyExists": "Name already exists",
       "targetBaseRequired": "Target project is required",
@@ -1593,7 +1597,8 @@
       "parentBaseTrashed": "Unable to restore this item because its parent project is also in trash",
       "parentNotFound": "Parent resource not found",
       "tableNotFound": "Table trash item not found",
-      "restoreFieldInvalidSnapshot": "The deleted field configuration is invalid and cannot be restored."
+      "restoreFieldInvalidSnapshot": "The deleted field configuration is invalid and cannot be restored.",
+      "folderRestorePartial": "The folder was only partly restored: {{count}} of its tables are back at the project root. Restore the folder again to finish"
     },
     "license": {
       "invalid": "The license is invalid",

@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
@@ -24,6 +25,29 @@ import { useEnv } from '@/features/app/hooks/useEnv';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
+
+type ITrashRow = ITrashItemVo & { depth: number };
+
+/** Every page of the entries directly under a trashed folder. */
+const getFolderTrashItems = async (folderId: string) => {
+  const items: ITrashItemVo[] = [];
+  let resourceMap: ITrashVo['resourceMap'] = {};
+  let userMap: ITrashVo['userMap'] = {};
+  let cursor: string | undefined;
+  do {
+    const { data } = await getTrashItems({
+      resourceType: TrashType.Folder,
+      resourceId: folderId,
+      cursor,
+      pageSize: 20,
+    });
+    items.push(...(data.trashItems as ITrashItemVo[]));
+    resourceMap = { ...resourceMap, ...data.resourceMap };
+    userMap = { ...userMap, ...data.userMap };
+    cursor = data.nextCursor ?? undefined;
+  } while (cursor);
+  return { items, resourceMap, userMap };
+};
 
 export const BaseTrashPage = () => {
   const baseId = useBaseId() as string;
@@ -39,6 +63,33 @@ export const BaseTrashPage = () => {
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
   const [nextCursor, setNextCursor] = useState<string | null | undefined>(undefined);
   const [isConfirmVisible, setConfirmVisible] = useState(false);
+  // A trashed folder lists its own contents when expanded, each entry restorable on its own.
+  const [folderItems, setFolderItems] = useState<Record<string, ITrashItemVo[]>>({});
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+
+  const loadFolder = useCallback(async (folderId: string) => {
+    const loaded = await getFolderTrashItems(folderId);
+    setUserMap((prev) => ({ ...prev, ...loaded.userMap }));
+    setResourceMap((prev) => ({ ...prev, ...loaded.resourceMap }));
+    setFolderItems((prev) => ({ ...prev, [folderId]: loaded.items }));
+    return loaded;
+  }, []);
+
+  const toggleFolder = useCallback(
+    (folderId: string) => {
+      setExpandedFolders((prev) => {
+        const next = new Set(prev);
+        if (next.has(folderId)) {
+          next.delete(folderId);
+        } else {
+          next.add(folderId);
+          void loadFolder(folderId);
+        }
+        return next;
+      });
+    },
+    [loadFolder]
+  );
 
   const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
     const res = await getTrashItems({
@@ -70,16 +121,42 @@ export const BaseTrashPage = () => {
     getNextPageParam: () => nextCursor ?? undefined,
   });
 
-  const { mutateAsync: mutateRestore } = useMutation({
-    mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
-    onSuccess: () => {
+  // mutate, not mutateAsync: a failed restore or reset is reported by the global error toast.
+  const { mutate: mutateRestore } = useMutation({
+    mutationFn: async (props: { trashId: string; resourceType: string; resourceId: string }) => {
+      const { data } = await restoreTrash(props.trashId);
+      // Each trashed resource's name is in the map every page of the trash returns.
+      return data.restored.map((item) => ({
+        resourceType: item.resourceType,
+        name: resourceMap[item.resourceId]?.name ?? '',
+      }));
+    },
+    // A folder restore that fails part way has still brought some of it back.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId) });
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseNodeTree(baseId) });
-      toast.success(t('actions.restoreSucceed'));
+      // Open folders stay open, so the rest of their contents can be restored one by one.
+      expandedFolders.forEach((folderId) => void loadFolder(folderId).catch(() => undefined));
+    },
+    onSuccess: (contents) => {
+      const namesOf = (...types: string[]) =>
+        contents
+          .filter((item) => types.includes(item.resourceType))
+          .map((item) => item.name)
+          .join(', ');
+      const inactive = namesOf(TrashType.Workflow, TrashType.Routine);
+      const unpublished = namesOf(TrashType.App);
+      const notes = [
+        inactive && t('common:trash.restoredInactive', { names: inactive }),
+        unpublished && t('common:trash.restoredUnpublished', { names: unpublished }),
+      ].filter(Boolean);
+      toast.success(t('actions.restoreSucceed'), {
+        description: notes.length ? notes.join(' ') : undefined,
+      });
     },
   });
 
-  const { mutateAsync: mutateResetTrash, isPending: isResetting } = useMutation({
+  const { mutate: mutateResetTrash, isPending: isResetting } = useMutation({
     mutationFn: () => resetTrashItems({ resourceType: TrashType.Base, resourceId: baseId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId) });
@@ -87,7 +164,19 @@ export const BaseTrashPage = () => {
     },
   });
 
-  const allRows = useMemo(() => (data ? data.pages.flat() : []) as ITrashItemVo[], [data]);
+  const allRows = useMemo(() => {
+    const rows: ITrashRow[] = [];
+    const push = (items: ITrashItemVo[], depth: number) => {
+      for (const item of items) {
+        rows.push({ ...item, depth });
+        if (item.resourceType === TrashType.Folder && expandedFolders.has(item.resourceId)) {
+          push(folderItems[item.resourceId] ?? [], depth + 1);
+        }
+      }
+    };
+    push(data ? (data.pages.flat() as ITrashItemVo[]) : [], 0);
+    return rows;
+  }, [data, expandedFolders, folderItems]);
 
   const canReset =
     permission?.['table|delete'] &&
@@ -106,6 +195,9 @@ export const BaseTrashPage = () => {
           return permission?.['automation|create'];
         case TrashType.Routine:
           return permission?.['routine|create'];
+        case TrashType.Dashboard:
+        case TrashType.Folder:
+          return permission?.['base|update'];
         default:
           return false;
       }
@@ -113,8 +205,8 @@ export const BaseTrashPage = () => {
     [permission]
   );
 
-  const columns: ColumnDef<ITrashItemVo>[] = useMemo(() => {
-    const tableColumns: ColumnDef<ITrashItemVo>[] = [
+  const columns: ColumnDef<ITrashRow>[] = useMemo(() => {
+    const tableColumns: ColumnDef<ITrashRow>[] = [
       {
         accessorKey: 'resourceId',
         header: t('name'),
@@ -127,10 +219,38 @@ export const BaseTrashPage = () => {
           if (!resourceInfo) return null;
 
           const { name } = resourceInfo;
+          const { depth, resourceType } = row.original;
+          const isFolder = resourceType === TrashType.Folder;
+          const expanded = expandedFolders.has(resourceId);
+          const Chevron = expanded ? ChevronDown : ChevronRight;
 
           return (
-            <div className="truncate text-wrap text-sm" title={name}>
-              {name}
+            <div
+              className="flex min-w-0 items-center gap-1"
+              style={{ paddingInlineStart: depth * 20 }}
+            >
+              {isFolder ? (
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-0.5 hover:bg-accent"
+                  aria-expanded={expanded}
+                  onClick={() => toggleFolder(resourceId)}
+                >
+                  <Chevron className="size-4" />
+                </button>
+              ) : (
+                <span className="size-5 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <div className="truncate text-wrap text-sm [overflow-wrap:anywhere]" title={name}>
+                  {name}
+                </div>
+                {expanded && folderItems[resourceId]?.length === 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    {t('common:trash.emptyFolder')}
+                  </div>
+                )}
+              </div>
             </div>
           );
         },
@@ -151,6 +271,10 @@ export const BaseTrashPage = () => {
                 return t('common:noun.automation');
               case TrashType.Routine:
                 return t('common:noun.routine');
+              case TrashType.Dashboard:
+                return t('common:noun.dashboard');
+              case TrashType.Folder:
+                return t('common:noun.folder');
               default:
                 return '';
             }
@@ -208,7 +332,7 @@ export const BaseTrashPage = () => {
               size="xs"
               variant="outline"
               title={t('actions.restore')}
-              onClick={() => mutateRestore({ trashId })}
+              onClick={() => mutateRestore({ trashId, resourceType, resourceId })}
             >
               {t('actions.restore')}
             </Button>
@@ -218,7 +342,16 @@ export const BaseTrashPage = () => {
     ];
 
     return tableColumns;
-  }, [t, resourceMap, userMap, mutateRestore, canRestore]);
+  }, [
+    t,
+    resourceMap,
+    userMap,
+    mutateRestore,
+    canRestore,
+    expandedFolders,
+    folderItems,
+    toggleFolder,
+  ]);
 
   const fetchNextPageInner = useCallback(() => {
     if (!isFetching && nextCursor) {

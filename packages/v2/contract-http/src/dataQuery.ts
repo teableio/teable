@@ -1,5 +1,6 @@
 import { oc } from '@orpc/contract';
 import {
+  dataQueryCapabilities,
   executeDataQueryRequestSchema,
   queryExecutionResultSchema,
   validateDataQueryRequestSchema,
@@ -53,10 +54,11 @@ export const dataQueryContract = {
       path: DATA_QUERY_VALIDATE_PATH,
       successStatus: 200,
       summary:
-        'Validate a structured query without reading records (requires V2_DATA_QUERY_ENABLED)',
+        'Validate a structured query without reading records (requires the native data-query gate)',
       tags: ['data-query'],
       spec: (operation) => ({
         ...operation,
+        'x-teable-data-query-capabilities': dataQueryCapabilities,
         requestBody: {
           required: true,
           content: {
@@ -112,7 +114,7 @@ export const dataQueryContract = {
       method: 'POST',
       path: DATA_QUERY_EXECUTE_PATH,
       successStatus: 200,
-      summary: 'Execute an inline structured data query (requires V2_DATA_QUERY_ENABLED)',
+      summary: 'Execute an inline structured data query (requires the native data-query gate)',
       tags: ['data-query'],
       spec: (operation) => {
         // ORPC does not expose Zod schemas in the generated document by default.
@@ -137,6 +139,7 @@ export const dataQueryContract = {
         }) as OpenAPIV3_1.SchemaObject;
         return {
           ...operation,
+          'x-teable-data-query-capabilities': dataQueryCapabilities,
           requestBody: {
             required: true,
             content: { 'application/json': { schema: requestSchema } },

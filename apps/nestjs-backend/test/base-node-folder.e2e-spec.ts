@@ -6,9 +6,9 @@ import {
   createBaseNodeFolder,
   updateBaseNodeFolder,
   deleteBaseNodeFolder,
+  permanentDeleteBaseNode,
   createBaseNode,
   BaseNodeResourceType,
-  deleteBaseNode,
   createBase,
 } from '@teable/openapi';
 import { getError } from './utils/get-error';
@@ -42,7 +42,7 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       expect(response.data.id).toBeDefined();
 
       // Cleanup
-      await deleteBaseNodeFolder(baseId, response.data.id);
+      await permanentDeleteBaseNode(baseId, response.data.id);
     });
 
     it('should create multiple folders with same name (auto unique)', async () => {
@@ -56,8 +56,8 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       expect(response1.data.id).not.toBe(response2.data.id);
 
       // Cleanup
-      await deleteBaseNodeFolder(baseId, response1.data.id);
-      await deleteBaseNodeFolder(baseId, response2.data.id);
+      await permanentDeleteBaseNode(baseId, response1.data.id);
+      await permanentDeleteBaseNode(baseId, response2.data.id);
     });
 
     it('should trim folder name', async () => {
@@ -67,7 +67,7 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       expect(response.data.name).toContain('Trimmed Folder');
 
       // Cleanup
-      await deleteBaseNodeFolder(baseId, response.data.id);
+      await permanentDeleteBaseNode(baseId, response.data.id);
     });
 
     it('should fail with empty name', async () => {
@@ -95,7 +95,7 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
 
     afterEach(async () => {
       try {
-        await deleteBaseNodeFolder(baseId, folderId);
+        await permanentDeleteBaseNode(baseId, folderId);
       } catch (e) {
         // Folder might already be deleted in some tests
       }
@@ -129,7 +129,7 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       expect(error?.message).toContain('Folder name already exists');
 
       // Cleanup
-      await deleteBaseNodeFolder(baseId, anotherFolder.data.id);
+      await permanentDeleteBaseNode(baseId, anotherFolder.data.id);
     });
 
     it('should allow renaming folder to same name', async () => {
@@ -196,20 +196,24 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       });
       expect(findFolder).toBeDefined();
 
-      // Delete the folder
+      // Delete the folder: like a node delete, it goes to the trash
       await deleteBaseNodeFolder(baseId, folderId);
 
       const findFolderAfterDelete = await prisma.baseNodeFolder.findFirst({
         where: { id: folderId },
       });
-      expect(findFolderAfterDelete).toBeNull();
+      expect(findFolderAfterDelete?.deletedTime).toBeTruthy();
+      const trash = await prisma.trash.findFirst({
+        where: { resourceType: 'folder', resourceId: folderId },
+      });
+      expect(trash).toBeTruthy();
 
       // Verify folder is deleted
       const error = await getError(() => deleteBaseNodeFolder(baseId, folderId));
       expect(error?.status).toBeGreaterThanOrEqual(400);
     });
 
-    it('should fail when deleting folder with children', async () => {
+    it('should move a folder with children to the trash together', async () => {
       // Create a parent folder
       const parentFolder = await createBaseNode(baseId, {
         resourceType: BaseNodeResourceType.Folder,
@@ -223,20 +227,19 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
         name: 'Child Folder',
       }).then((res) => res.data);
 
-      // Try to delete the parent folder
-      const error = await getError(() => deleteBaseNode(baseId, parentFolder.id));
+      // By its folder ID, which stays the same across trash and restore
+      await deleteBaseNodeFolder(baseId, parentFolder.resourceId);
 
-      expect(error?.status).toBe(400);
-      expect(error?.message).toContain('Cannot delete folder because it is not empty');
-
-      // Cleanup - need to delete the folder manually after removing children
-      await deleteBaseNode(baseId, childFolder.id);
-      await deleteBaseNode(baseId, parentFolder.id);
-
-      const findFolderAfterDelete = await prisma.baseNodeFolder.findFirst({
+      // Both folder rows stay, marked deleted, until restored or purged
+      const folders = await prisma.baseNodeFolder.findMany({
+        where: { id: { in: [parentFolder.resourceId, childFolder.resourceId] } },
+      });
+      expect(folders).toHaveLength(2);
+      expect(folders.every((folder) => folder.deletedTime)).toBe(true);
+      const nodes = await prisma.baseNode.findMany({
         where: { id: { in: [parentFolder.id, childFolder.id] } },
       });
-      expect(findFolderAfterDelete).toBeNull();
+      expect(nodes).toEqual([]);
     });
 
     it('should fail when deleting non-existent folder', async () => {
@@ -278,7 +281,7 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       const findFolderAfterDelete = await prisma.baseNodeFolder.findFirst({
         where: { id: folderId },
       });
-      expect(findFolderAfterDelete).toBeNull();
+      expect(findFolderAfterDelete?.deletedTime).toBeTruthy();
     });
   });
 });

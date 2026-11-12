@@ -1,14 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { updateUserAvatar, updateUserName, USER_NAME_MAX_LENGTH } from '@teable/openapi';
-import { useIsTouchDevice, useSession } from '@teable/sdk';
-import {
-  Button,
-  Input,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@teable/ui-lib/shadcn';
+import { useSession } from '@teable/sdk';
+import { Button, Input } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import React from 'react';
@@ -19,7 +12,7 @@ import { AddPassword } from './account/AddPassword';
 import { ChangeEmailDialog } from './account/ChangeEmailDialog';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 import { DeleteAccountDialog } from './account/DeleteAccountDialog';
-import { SettingGroup, SettingRow } from './SettingGroup';
+import { SettingItem, SettingSection, SettingStack } from './SettingSection';
 import { SettingTabShell } from './SettingTabShell';
 
 interface IAccountProps {
@@ -30,7 +23,6 @@ interface IAccountProps {
 export const Account = ({ securityItems }: IAccountProps) => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
   const { t } = useTranslation('common');
-  const isTouchDevice = useIsTouchDevice();
   const { buildVersion, gitCommitSha, previewTag } = useEnv();
   const shortGitCommitSha = gitCommitSha?.slice(0, 12);
   const displayBuildVersion = buildVersion ?? process.env.APP_VERSION ?? 'develop';
@@ -65,105 +57,18 @@ export const Account = ({ securityItems }: IAccountProps) => {
     formData.append('file', avatarFille);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     updateUserAvatarMutation.mutate(formData as any);
+    // Let the same file be picked again after a failed upload.
+    e.target.value = '';
   };
 
-  const avatarComponent = (
-    <div className="group relative flex h-fit shrink-0 items-center justify-center">
-      <UserAvatar className="size-10 border" user={sessionUser} />
-      <div className="absolute start-0 top-0 size-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
-        <input
-          type="file"
-          className="absolute inset-0 size-full opacity-0"
-          accept="image/png,image/jpeg,image/webp"
-          aria-label={t('settings.account.photo')}
-          onChange={uploadAvatar}
-        />
-      </div>
-    </div>
-  );
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
 
   return (
-    <SettingTabShell title={t('settings.account.tab')}>
-      {/* The version sits at the bottom of a short page and scrolls with a long one, rather than
-          pinning to the dialog's edge and eating the room the settings need. */}
-      <div className="flex min-h-full flex-col gap-8">
-        <div className="flex max-w-3xl flex-col gap-8">
-          <SettingGroup title={t('settings.account.profileTitle')}>
-            <SettingRow
-              label={t('settings.account.photo')}
-              description={t('settings.account.photoDesc')}
-              action={
-                isTouchDevice ? (
-                  avatarComponent
-                ) : (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>{avatarComponent}</TooltipTrigger>
-                      <TooltipContent>
-                        <p>{t('settings.account.updatePhoto')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )
-              }
-            />
-            <SettingRow
-              label={t('name')}
-              htmlFor="account-name"
-              action={
-                <Input
-                  id="account-name"
-                  className="w-full px-3 sm:w-64"
-                  defaultValue={sessionUser.name}
-                  maxLength={USER_NAME_MAX_LENGTH}
-                  onBlur={(e) => toggleRenameUser(e)}
-                />
-              }
-            />
-          </SettingGroup>
-          <SettingGroup title={t('settings.account.securityTitle')}>
-            <SettingRow
-              label={t('settings.account.email')}
-              description={sessionUser.email}
-              action={
-                <ChangeEmailDialog>
-                  <Button className="w-full sm:w-auto" size={'sm'} variant={'outline'}>
-                    {t('settings.account.changeEmail.title')}
-                  </Button>
-                </ChangeEmailDialog>
-              }
-            />
-            <SettingRow
-              label={t('settings.account.password')}
-              description={t('settings.account.passwordDesc')}
-              action={
-                sessionUser.hasPassword ? (
-                  <ChangePasswordDialog>
-                    <Button className="w-full sm:w-auto" size={'sm'} variant={'outline'}>
-                      {t('settings.account.changePassword.title')}
-                    </Button>
-                  </ChangePasswordDialog>
-                ) : (
-                  <AddPassword>
-                    <Button className="w-full sm:w-auto" size={'sm'} variant={'outline'}>
-                      {t('settings.account.addPassword.title')}
-                    </Button>
-                  </AddPassword>
-                )
-              }
-            />
-            {securityItems}
-          </SettingGroup>
-          <SettingGroup title={t('settings.account.dataTitle')}>
-            <AccountDataExport />
-            <SettingRow
-              label={t('settings.account.deleteAccount.title')}
-              description={t('settings.account.deleteAccount.desc')}
-              action={<DeleteAccountDialog />}
-            />
-          </SettingGroup>
-        </div>
-        <div className="mt-auto flex w-full flex-col items-center justify-center gap-1 pb-[env(safe-area-inset-bottom)] text-center text-xs text-muted-foreground">
+    <SettingTabShell
+      title={t('settings.account.tab')}
+      description={t('settings.account.description')}
+      footer={
+        <div className="flex w-full flex-col items-center justify-center gap-1 pb-[env(safe-area-inset-bottom)] text-center text-xs text-muted-foreground">
           <div>{`${t('settings.setting.version')}: ${displayBuildVersion}`}</div>
           {previewTag && (
             <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5">
@@ -172,7 +77,93 @@ export const Account = ({ securityItems }: IAccountProps) => {
             </div>
           )}
         </div>
-      </div>
+      }
+    >
+      <SettingStack>
+        <SettingSection title={t('settings.account.profileTitle')}>
+          <SettingItem
+            label={t('settings.account.photo')}
+            description={t('settings.account.photoDesc')}
+            inline
+            action={
+              <>
+                <UserAvatar className="size-10 border" user={sessionUser} />
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/png,image/jpeg,image/webp"
+                  aria-label={t('settings.account.photo')}
+                  onChange={uploadAvatar}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={updateUserAvatarMutation.isPending}
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  {t('settings.account.updatePhoto')}
+                </Button>
+              </>
+            }
+          />
+          <SettingItem
+            label={t('name')}
+            description={t('settings.account.nameDesc')}
+            htmlFor="account-name"
+            action={
+              <Input
+                id="account-name"
+                className="w-full sm:w-64"
+                defaultValue={sessionUser.name}
+                maxLength={USER_NAME_MAX_LENGTH}
+                onBlur={(e) => toggleRenameUser(e)}
+              />
+            }
+          />
+        </SettingSection>
+        <SettingSection title={t('settings.account.securityTitle')}>
+          <SettingItem
+            label={t('settings.account.email')}
+            description={sessionUser.email}
+            action={
+              <ChangeEmailDialog>
+                <Button className="w-full sm:w-auto" size="sm" variant="outline">
+                  {t('settings.account.changeEmail.title')}
+                </Button>
+              </ChangeEmailDialog>
+            }
+          />
+          <SettingItem
+            label={t('settings.account.password')}
+            description={t('settings.account.passwordDesc')}
+            action={
+              sessionUser.hasPassword ? (
+                <ChangePasswordDialog>
+                  <Button className="w-full sm:w-auto" size="sm" variant="outline">
+                    {t('settings.account.changePassword.title')}
+                  </Button>
+                </ChangePasswordDialog>
+              ) : (
+                <AddPassword>
+                  <Button className="w-full sm:w-auto" size="sm" variant="outline">
+                    {t('settings.account.addPassword.title')}
+                  </Button>
+                </AddPassword>
+              )
+            }
+          />
+          {securityItems}
+        </SettingSection>
+        <AccountDataExport />
+        <SettingSection title={t('settings.dangerZone')} danger>
+          <SettingItem
+            label={t('settings.account.deleteAccount.title')}
+            description={t('settings.account.deleteAccount.desc')}
+            action={<DeleteAccountDialog />}
+          />
+        </SettingSection>
+      </SettingStack>
     </SettingTabShell>
   );
 };

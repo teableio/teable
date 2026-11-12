@@ -40,7 +40,8 @@ describe('secrets guard', () => {
   it('reports every secret missing on an empty environment, with pin teaching', () => {
     const missing = findMissingSecrets(ALL_SECRET_SPECS, {});
     // EE/cloud-only secrets (requiredWhen) are not nagged about on an empty
-    // community env; everything else is required.
+    // community env, nor is the BYODB root, which is in scope only once it is
+    // set; everything else is required.
     const eeOnly = [
       'BACKEND_ENV_VARIABLE_SECRET',
       'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET',
@@ -48,8 +49,9 @@ describe('secrets guard', () => {
       'BACKEND_MAIL_ENCRYPTION_IV',
       'SANDBOX_JWT_SECRET',
     ];
-    expect(missing).toHaveLength(ALL_SECRET_SPECS.length - eeOnly.length);
-    for (const envKey of eeOnly) {
+    const optIn = ['BACKEND_DATA_DB_URL_ENCRYPTION_SECRET'];
+    expect(missing).toHaveLength(ALL_SECRET_SPECS.length - eeOnly.length - optIn.length);
+    for (const envKey of [...eeOnly, ...optIn]) {
       expect(missing.map((s) => s.envKey)).not.toContain(envKey);
     }
     expect(
@@ -223,6 +225,22 @@ describe('secrets guard', () => {
       expect(findInsecureSecrets({ ...pinnedMail, NEXT_BUILD_ENV_EDITION: 'EE' })).toEqual([
         { envKey: 'BACKEND_MAIL_ENCRYPTION_KEY', reason: 'publicDefault' },
       ]);
+    });
+
+    it('checks the BYODB root only once it is set', () => {
+      // unset, nothing is written under it: neither missing nor on a default
+      expect(findInsecureSecrets({ BACKEND_DATA_DB_URL_ENCRYPTION_SECRET: undefined })).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET' }),
+        ])
+      );
+      expect(
+        findInsecureSecrets({
+          ...fullEnv,
+          BACKEND_DATA_DB_URL_ENCRYPTION_SECRET:
+            SECRET_SPECS.dataDbUrlEncryptionSecret.legacyDefault,
+        })
+      ).toEqual([{ envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET', reason: 'publicDefault' }]);
     });
 
     it('counts SECRET_KEY for the BYODB pair and the pairs derived from it', () => {

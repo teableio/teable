@@ -19,6 +19,14 @@ import {
 import { err, ok, safeTry, type Result } from 'neverthrow';
 import { z } from 'zod';
 
+import {
+  createDataQueryPredicateV3Schema,
+  dataQueryExpressionLimits,
+  dataQueryFormulaExpressionSchema,
+  walkDataQueryPredicateExpressions,
+  walkDataQueryFormulaExpression,
+  type DataQueryPredicateV3,
+} from './DataQueryExpression';
 import type {
   BoundDataQuery,
   DataQueryDefinitionInput,
@@ -355,10 +363,65 @@ const v2Schema = z.discriminatedUnion('kind', [
     })
     .strict(),
 ]);
+const predicateV3Schema = createDataQueryPredicateV3Schema(
+  z
+    .object({
+      fieldId: fieldIdSchema,
+      operator: recordFilterOperatorSchema,
+      value: z.union([referenceSchema, valueSchema]),
+      optional: z.boolean().optional(),
+    })
+    .strict()
+);
+const v3ProjectionSchema = z.union([
+  v2ProjectionSchema,
+  z.object({ expr: dataQueryFormulaExpressionSchema, alias: aliasSchema }).strict(),
+]);
+const v3BaseShape = {
+  ...baseShape,
+  version: z.literal(3),
+  filter: predicateV3Schema.optional(),
+  relations: z
+    .record(
+      dataQueryNameSchema,
+      relationSchema.extend({ filter: predicateV3Schema.optional() }).strict()
+    )
+    .optional(),
+};
+const v3Schema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      ...v3BaseShape,
+      kind: z.literal('records'),
+      recordId: z
+        .union([z.string().refine((value) => RecordId.create(value).isOk()), referenceSchema])
+        .optional(),
+      select: z.tuple([v3ProjectionSchema]).rest(v3ProjectionSchema),
+    })
+    .strict(),
+  z
+    .object({
+      ...v3BaseShape,
+      kind: z.literal('aggregate'),
+      aggregates: z.tuple([v2AggregateSchema]).rest(v2AggregateSchema),
+      groupBy: z.array(v2FieldProjectionSchema).optional(),
+    })
+    .strict(),
+]);
 export const dataQueryDefinitionInputSchema: z.ZodType<
   DataQueryDefinitionInput,
   DataQueryDefinitionInput
-> = z.union([v1Schema, v2Schema]);
+> = z.preprocess(
+  (raw: DataQueryDefinitionInput, context) => {
+    const bounded = validateDataQueryDefinitionInputBounds(raw);
+    if (bounded.isErr()) {
+      context.addIssue({ code: 'custom', message: bounded.error.message });
+      return z.NEVER;
+    }
+    return raw;
+  },
+  z.union([v1Schema, v2Schema, v3Schema])
+);
 
 export const isParameterReference = (value: unknown): value is DataQueryParameterReference =>
   value !== null && typeof value === 'object' && 'type' in value && value.type === 'parameter';
@@ -425,7 +488,7 @@ type ParameterReferenceRecorder = (
 ) => void;
 
 const collectFilterReferenceUsages = (
-  node: DataQueryFilter,
+  node: DataQueryPredicateV3,
   record: ParameterReferenceRecorder
 ): void => {
   if ('items' in node) {
@@ -434,6 +497,12 @@ const collectFilterReferenceUsages = (
   }
   if ('not' in node) {
     collectFilterReferenceUsages(node.not, record);
+    return;
+  }
+  if ('type' in node) {
+    walkDataQueryPredicateExpressions(node, (scalar) => {
+      if (scalar.type === 'parameter') record(scalar, false);
+    });
     return;
   }
   if (isParameterReference(node.value)) record(node.value, node.optional === true);
@@ -451,9 +520,15 @@ export const dataQueryParameterUsage = (definition: DataQueryDefinitionInput): P
     (isOptional ? optional : required).add(reference.name);
   };
   if (definition.filter) collectFilterReferenceUsages(definition.filter, record);
+  if (definition.version === 3 && definition.kind === 'records')
+    for (const projection of definition.select)
+      if ('expr' in projection)
+        walkDataQueryFormulaExpression(projection.expr, (node) => {
+          if (node.type === 'parameter') record(node, false);
+        });
   // A relation filter is bound and executed like the root filter; an optional leaf
   // there must not force the parameter to be required in the generated client.
-  if (definition.version === 2) {
+  if (definition.version !== 1) {
     for (const relation of Object.values(definition.relations ?? {})) {
       if (relation.filter) collectFilterReferenceUsages(relation.filter, record);
     }
@@ -551,6 +626,12 @@ export const resolveDataQueryFilter = (
     : err(queryError('invalid_filter', 'Bound parameters are incompatible with the query filter'));
 };
 
+export const bindDataQueryExpressionLegacyFilter = (
+  filter: DataQueryFilter,
+  values: Readonly<Record<string, RecordFilterValue>>
+): Result<RecordFilter | undefined, DomainError> =>
+  resolveDataQueryFilter(filter, new Map(Object.entries(values)));
+
 const isParameterMap = (raw: unknown): raw is Readonly<Record<string, unknown>> => {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return false;
   const prototype = Object.getPrototypeOf(raw);
@@ -560,27 +641,143 @@ const isParameterMap = (raw: unknown): raw is Readonly<Record<string, unknown>> 
   );
 };
 
-export const isPlainData = (value: unknown, ancestors = new WeakSet<object>()): boolean => {
-  if (value === null || typeof value !== 'object')
-    return typeof value !== 'function' && typeof value !== 'symbol';
-  if (ancestors.has(value)) return false;
-  if (!Array.isArray(value) && !isParameterMap(value)) return false;
-  ancestors.add(value);
-  const valid = Reflect.ownKeys(value).every((key) => {
-    if (Array.isArray(value) && key === 'length') return true;
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
-    return (
-      typeof key === 'string' &&
-      key !== '__proto__' &&
-      key !== 'constructor' &&
-      key !== 'prototype' &&
-      descriptor.enumerable === true &&
-      'value' in descriptor &&
-      isPlainData(descriptor.value, ancestors)
-    );
-  });
-  ancestors.delete(value);
-  return valid;
+export type DataQueryPlainInputGuardOptions = { readonly deferDefinition?: boolean };
+
+type PlainDataFrame = { value: unknown; depth: number; exit?: boolean };
+const hasPlainContainerShape = (value: object): boolean => {
+  if (Array.isArray(value))
+    return value.length <= 10000 && Object.getPrototypeOf(value) === Array.prototype;
+  return isParameterMap(value);
+};
+const enqueuePlainProperties = (
+  current: object,
+  depth: number,
+  pending: PlainDataFrame[],
+  options: DataQueryPlainInputGuardOptions
+): boolean => {
+  for (const key of Reflect.ownKeys(current)) {
+    if (Array.isArray(current) && key === 'length') continue;
+    const descriptor = Object.getOwnPropertyDescriptor(current, key)!;
+    if (typeof key !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(key))
+      return false;
+    if (descriptor.enumerable !== true || !('value' in descriptor)) return false;
+    if (options.deferDefinition && depth === 0 && key === 'definition') continue;
+    pending.push({ value: descriptor.value, depth: depth + 1 });
+  }
+  return true;
+};
+const enterPlainContainer = (
+  current: object,
+  item: PlainDataFrame,
+  count: number,
+  ancestors: WeakSet<object>,
+  pending: PlainDataFrame[],
+  options: DataQueryPlainInputGuardOptions
+): boolean => {
+  if (count > 10000 || item.depth > 256 || ancestors.has(current)) return false;
+  if (!hasPlainContainerShape(current)) return false;
+  ancestors.add(current);
+  pending.push({ ...item, exit: true });
+  return enqueuePlainProperties(current, item.depth, pending, options);
+};
+export const isPlainData = (
+  value: unknown,
+  options: DataQueryPlainInputGuardOptions = {}
+): boolean => {
+  const pending: PlainDataFrame[] = [{ value, depth: 0 }];
+  const ancestors = new WeakSet<object>();
+  let objects = 0;
+  while (pending.length) {
+    const item = pending.pop()!;
+    const current = item.value;
+    if (current === null || typeof current !== 'object') {
+      if (typeof current === 'function' || typeof current === 'symbol') return false;
+      continue;
+    }
+    if (item.exit) {
+      ancestors.delete(current);
+      continue;
+    }
+    if (!enterPlainContainer(current, item, ++objects, ancestors, pending, options)) return false;
+  }
+  return true;
+};
+
+/** Guard the whole envelope before Zod reads any properties; preprocessing retains JSON-schema output. */
+export function guardDataQueryPlainInput<T extends z.ZodType>(
+  schema: T,
+  options: DataQueryPlainInputGuardOptions = {}
+): z.ZodPreprocess<T, z.input<T>> {
+  return z.preprocess((raw: z.input<T>, context) => {
+    try {
+      if (isPlainData(raw, options)) return raw;
+    } catch {
+      // Exotic inputs fail closed without exposing thrown values or invoking coercion.
+    }
+    context.addIssue({ code: 'custom', message: 'Query inputs must contain plain data' });
+    return z.NEVER;
+  }, schema);
+}
+
+const expressionSyntaxRoots = (definition: Record<string, unknown>): unknown[] => {
+  const roots: unknown[] = [definition.filter];
+  if (Array.isArray(definition.select))
+    for (const projection of definition.select) {
+      if (projection && typeof projection === 'object')
+        roots.push(Object.getOwnPropertyDescriptor(projection, 'expr')?.value);
+    }
+  if (definition.relations && typeof definition.relations === 'object')
+    for (const relation of Object.values(definition.relations)) {
+      if (relation && typeof relation === 'object')
+        roots.push(Object.getOwnPropertyDescriptor(relation, 'filter')?.value);
+    }
+  return roots;
+};
+const expressionSyntaxChildren = (node: Record<string, unknown>): unknown[] => {
+  if ('items' in node && Array.isArray(node.items)) return node.items;
+  if ('not' in node) return [node.not];
+  if (node.type !== 'formula') return [];
+  // Every declared reference consumes structural budget, including unused aliases.
+  const references = Object.getOwnPropertyDescriptor(node, 'references')?.value;
+  return references !== null && typeof references === 'object' && !Array.isArray(references)
+    ? Object.values(references as Record<string, unknown>)
+    : [];
+};
+const validateExpressionSyntaxBounds = (raw: unknown): Result<void, DomainError> => {
+  if (!raw || typeof raw !== 'object') return ok(undefined);
+  const pending = expressionSyntaxRoots(Object.fromEntries(Object.entries(raw))).map((value) => ({
+    value,
+    depth: 1,
+  }));
+  let nodes = 0;
+  while (pending.length) {
+    const { value, depth } = pending.pop()!;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    if (++nodes > dataQueryExpressionLimits.nodes || depth > dataQueryExpressionLimits.depth)
+      return err(queryError('expression_too_complex', 'Query expression limits exceeded'));
+    for (const child of expressionSyntaxChildren(Object.fromEntries(Object.entries(value))))
+      pending.push({ value: child, depth: depth + 1 });
+  }
+  return ok(undefined);
+};
+
+/** Run before embedding the recursive grammar in a host/manifest parser. Does not parse grammar. */
+export const validateDataQueryDefinitionInputBounds = (raw: unknown): Result<void, DomainError> => {
+  try {
+    if (!isPlainData(raw))
+      return err(queryError('invalid_definition', 'Query definitions must contain plain data'));
+    if (raw !== null && typeof raw === 'object') {
+      const version = Object.getOwnPropertyDescriptor(raw, 'version')?.value;
+      if (typeof version === 'number' && ![1, 2, 3].includes(version))
+        return err(
+          queryError('unsupported_version', 'Structured query definition version is not supported')
+        );
+      if (version === 3) return validateExpressionSyntaxBounds(raw);
+    }
+    return ok(undefined);
+  } catch {
+    return err(queryError('invalid_definition', 'Invalid structured query definition'));
+  }
 };
 
 const boundQueryToken = Symbol('bound-query');
@@ -597,13 +794,15 @@ class BoundDataQueryValue implements BoundDataQuery {
     readonly offset: number,
     readonly sort: ReadonlyArray<DataQuerySortResolved>,
     readonly includeTotal: boolean,
-    readonly recordId?: string
+    readonly recordId?: string,
+    readonly expressionParameters?: Readonly<Record<string, RecordFilterValue>>
   ) {
     if (token !== boundQueryToken)
       throw new Error('Bound queries must be created by definition.bind');
     freezeQueryValue(filter);
     freezeQueryValue(relationFilters);
     freezeQueryValue(sort);
+    freezeQueryValue(expressionParameters);
     Object.freeze(this);
   }
 
@@ -649,11 +848,10 @@ const validateOptionalFilters = (node: DataQueryFilter): Result<void, DomainErro
     : ok(undefined);
 };
 
-const filterParameterReferences = (
-  filter: DataQueryFilter | undefined,
+const legacyFilterParameterReferences = (
+  filter: DataQueryFilter,
   parameters: ParameterDefinitions
 ): Result<DataQueryParameterReference[], DomainError> => {
-  if (!filter) return ok([]);
   const optional = validateOptionalFilters(filter);
   if (optional.isErr()) return err(optional.error);
   const references: DataQueryParameterReference[] = [];
@@ -666,13 +864,36 @@ const filterParameterReferences = (
     }
     return representativeParameterValue(parameters[reference.name]);
   });
-  if (undeclared !== undefined) {
+  if (undeclared !== undefined)
     return err(queryError('unknown_parameter', `Parameter \`${undeclared}\` is not declared`));
-  }
-  if (!recordFilterSchema.safeParse(representative).success || !hasValidFilterLiterals(filter)) {
+  if (!recordFilterSchema.safeParse(representative).success || !hasValidFilterLiterals(filter))
     return err(queryError('invalid_filter', 'Invalid query filter'));
-  }
   return ok(references);
+};
+const filterParameterReferences = (
+  filter: DataQueryPredicateV3 | undefined,
+  parameters: ParameterDefinitions
+): Result<DataQueryParameterReference[], DomainError> => {
+  if (!filter) return ok([]);
+  if ('items' in filter || 'not' in filter) {
+    const references: DataQueryParameterReference[] = [];
+    for (const child of 'items' in filter ? filter.items : [filter.not]) {
+      const result = filterParameterReferences(child, parameters);
+      if (result.isErr()) return err(result.error);
+      references.push(...result.value);
+    }
+    return ok(references);
+  }
+  if ('type' in filter) {
+    const references: DataQueryParameterReference[] = [];
+    walkDataQueryPredicateExpressions(filter, (node) => {
+      if (node.type === 'parameter') references.push(node);
+    });
+    return references.some((reference) => !Object.hasOwn(parameters, reference.name))
+      ? err(queryError('unknown_parameter', 'Query references an undeclared parameter'))
+      : ok(references);
+  }
+  return legacyFilterParameterReferences(filter, parameters);
 };
 
 const pageParameterReferences = (
@@ -762,7 +983,7 @@ const validateAliasSort = (
   // A records sort may order by the one-row-per-root relation aggregate, never by a
   // stored projection alias: only that alias has a documented ordering contract.
   const allowed =
-    value.kind === 'aggregate'
+    value.kind === 'aggregate' || value.version === 3
       ? outputAliases.has(sort.alias)
       : relationAggregateAliases.has(sort.alias);
   return allowed
@@ -780,7 +1001,7 @@ const validateFieldSort = (
 ): Result<DataQueryParameterReference[], DomainError> => {
   const references = validateParameterizedSort(sort, parameters, index);
   if (references.isErr()) return err(references.error);
-  const relations = value.version === 2 ? (value.relations ?? {}) : {};
+  const relations = value.version !== 1 ? (value.relations ?? {}) : {};
   for (const target of sort.allowed) {
     if ('source' in target && !Object.hasOwn(relations, target.source)) {
       return err(
@@ -819,7 +1040,7 @@ const validateLiteralSort = (
   ambiguousGroupFieldIds: ReadonlySet<string>
 ): Result<void, DomainError> => {
   if ('source' in sort) {
-    const relations = value.version === 2 ? (value.relations ?? {}) : {};
+    const relations = value.version !== 1 ? (value.relations ?? {}) : {};
     if (!Object.hasOwn(relations, sort.source)) {
       return err(
         queryError('join_source_unknown', 'A sort references an undeclared source', {
@@ -978,7 +1199,7 @@ const validateRelationAggregateEntry = (
 
 // eslint-disable-next-line sonarjs/cognitive-complexity -- one linear contract per hop
 const validateRelations = (value: DataQueryDefinitionInput): Result<void, DomainError> => {
-  if (value.version !== 2) return ok(undefined);
+  if (value.version === 1) return ok(undefined);
   const relations = value.relations ?? {};
   const aliases = Object.keys(relations);
   if (aliases.length > 4) {
@@ -1120,7 +1341,7 @@ const relationFilterParameterReferences = (
   parameters: ParameterDefinitions
 ): Result<DataQueryParameterReference[], DomainError> =>
   safeTry(function* () {
-    if (value.version !== 2 || !value.relations) return ok([]);
+    if (value.version === 1 || !value.relations) return ok([]);
     const references: DataQueryParameterReference[] = [];
     for (const relation of Object.values(value.relations)) {
       references.push(...(yield* filterParameterReferences(relation.filter, parameters)));
@@ -1128,6 +1349,19 @@ const relationFilterParameterReferences = (
     return ok(references);
   });
 
+const projectionParameterReferences = (
+  value: DataQueryDefinitionInput
+): DataQueryParameterReference[] => {
+  const references: DataQueryParameterReference[] = [];
+  if (value.version !== 3 || value.kind !== 'records') return references;
+  for (const projection of value.select) {
+    if (!('expr' in projection)) continue;
+    walkDataQueryFormulaExpression(projection.expr, (node) => {
+      if (node.type === 'parameter') references.push(node);
+    });
+  }
+  return references;
+};
 const validateDefinition = (value: DataQueryDefinitionInput): Result<void, DomainError> =>
   safeTry(function* () {
     const relations = validateRelations(value);
@@ -1157,6 +1391,7 @@ const validateDefinition = (value: DataQueryDefinitionInput): Result<void, Domai
       ...(yield* validateSorts(value, parameters)),
       ...(value.kind === 'records' && isParameterReference(value.recordId) ? [value.recordId] : []),
     ];
+    references.push(...projectionParameterReferences(value));
     if (references.some((reference) => !Object.hasOwn(parameters, reference.name))) {
       return err(queryError('unknown_parameter', 'Query references an undeclared parameter'));
     }
@@ -1330,6 +1565,145 @@ const bindRelationFilters = (
     return ok(Object.keys(resolved).length > 0 ? resolved : undefined);
   });
 
+// Only grammar-owned names may leave the parser. Record keys are always opaque,
+// even when an alias happens to equal a grammar-owned name.
+const definitionPathKeys: Readonly<Record<string, true>> = {
+  version: true,
+  kind: true,
+  tableId: true,
+  parameters: true,
+  type: true,
+  nullable: true,
+  default: true,
+  filter: true,
+  conjunction: true,
+  items: true,
+  not: true,
+  fieldId: true,
+  operator: true,
+  value: true,
+  optional: true,
+  mode: true,
+  numberOfDays: true,
+  exactDate: true,
+  exactDateEnd: true,
+  timeZone: true,
+  name: true,
+  page: true,
+  limit: true,
+  offset: true,
+  includeTotal: true,
+  sort: true,
+  order: true,
+  nulls: true,
+  field: true,
+  allowed: true,
+  recordId: true,
+  select: true,
+  system: true,
+  alias: true,
+  arrayDistinct: true,
+  source: true,
+  bucket: true,
+  unit: true,
+  edges: true,
+  maxExclusive: true,
+  label: true,
+  fallbackLabel: true,
+  nullLabel: true,
+  anchor: true,
+  relations: true,
+  linkFieldId: true,
+  via: true,
+  statisticFunc: true,
+  aggregates: true,
+  groupBy: true,
+  expr: true,
+  formula: true,
+  references: true,
+  distinct: true,
+};
+const definitionDictionaryKeys: Readonly<Record<string, true>> = {
+  parameters: true,
+  relations: true,
+  references: true,
+};
+
+const definitionUnionBranches = (
+  issue: Extract<z.core.$ZodIssue, { code: 'invalid_union' }>,
+  path: readonly PropertyKey[]
+): readonly (readonly z.core.$ZodIssue[])[] => {
+  if (path.length !== 0) return issue.errors;
+  // The envelope union contains historical versions. A mismatched version
+  // must not win over a useful diagnostic from the requested grammar.
+  const matching = issue.errors.filter(
+    (branch) =>
+      !branch.some(
+        (error) =>
+          error.code === 'invalid_value' && error.path.length === 1 && error.path[0] === 'version'
+      )
+  );
+  return matching.length ? matching : issue.errors;
+};
+
+const definitionIssuePath = (
+  raw: unknown,
+  issues: readonly z.core.$ZodIssue[]
+): string | undefined => {
+  // Historical versions retain their original public error DTO.
+  if (
+    raw === null ||
+    typeof raw !== 'object' ||
+    Object.getOwnPropertyDescriptor(raw, 'version')?.value !== 3
+  )
+    return undefined;
+  let best: string[] = [];
+  const consider = (path: readonly PropertyKey[]) => {
+    const safe: string[] = [];
+    let current = raw;
+    let dictionaryKey = false;
+    for (const key of path) {
+      if (current === null || typeof current !== 'object') break;
+      const descriptor = Object.getOwnPropertyDescriptor(current, key);
+      if (!descriptor || !('value' in descriptor)) break;
+      if (dictionaryKey) {
+        safe.push('*');
+        dictionaryKey = false;
+      } else if (typeof key === 'number' && Array.isArray(current)) {
+        safe.push(String(key));
+      } else if (typeof key === 'string' && Object.hasOwn(definitionPathKeys, key)) {
+        safe.push(key);
+        dictionaryKey = Object.hasOwn(definitionDictionaryKeys, key);
+      } else break;
+      current = descriptor.value;
+    }
+    if (safe.length > best.length) best = safe;
+  };
+  const visit = (errors: readonly z.core.$ZodIssue[], prefix: readonly PropertyKey[]) => {
+    for (const issue of errors) {
+      const path = [...prefix, ...issue.path];
+      consider(path);
+      switch (issue.code) {
+        case 'invalid_union':
+          for (const branch of definitionUnionBranches(issue, path)) visit(branch, path);
+          break;
+        case 'invalid_key':
+        case 'invalid_element':
+          visit(issue.issues, path);
+          break;
+        case 'unrecognized_keys':
+          // Never forward Zod messages or arbitrary unknown-key strings.
+          for (const key of issue.keys) {
+            if (Object.hasOwn(definitionPathKeys, key)) consider([...path, key]);
+          }
+          break;
+      }
+    }
+  };
+  visit(issues, []);
+  return best.length ? best.join('.') : undefined;
+};
+
 export class DataQueryDefinition {
   private constructor(private readonly value: DataQueryDefinitionInput) {
     Object.freeze(this);
@@ -1337,11 +1711,19 @@ export class DataQueryDefinition {
 
   static create(raw: unknown): Result<DataQueryDefinition, DomainError> {
     try {
-      if (!isPlainData(raw))
-        return err(queryError('invalid_definition', 'Query definitions must contain plain data'));
+      const preflight = validateDataQueryDefinitionInputBounds(raw);
+      if (preflight.isErr()) return err(preflight.error);
       const parsed = dataQueryDefinitionInputSchema.safeParse(raw);
-      if (!parsed.success)
-        return err(queryError('invalid_definition', 'Invalid structured query definition'));
+      if (!parsed.success) {
+        const path = definitionIssuePath(raw, parsed.error.issues);
+        return err(
+          queryError(
+            'invalid_definition',
+            'Invalid structured query definition',
+            path ? { path } : undefined
+          )
+        );
+      }
       const value: DataQueryDefinitionInput = parsed.data;
       return validateDefinition(value).map(() => new DataQueryDefinition(freezeQueryValue(value)));
     } catch {
@@ -1364,7 +1746,10 @@ export class DataQueryDefinition {
           );
           const { limit, offset } = yield* bindPage(this.value.page, values);
           // Undefined is absence (optional leaves/items are skipped); null stays an explicit value.
-          const filter = yield* resolveDataQueryFilter(this.value.filter, values);
+          const filter = yield* resolveDataQueryFilter(
+            this.value.version === 3 ? undefined : this.value.filter,
+            values
+          );
           const sort = yield* bindSort(this.value.sort, values);
           const relationFilters = yield* bindRelationFilters(this.value, values);
           const rawRecordId = this.value.kind === 'records' ? this.value.recordId : undefined;
@@ -1390,7 +1775,8 @@ export class DataQueryDefinition {
               offset,
               sort,
               this.value.page?.includeTotal === true,
-              recordId
+              recordId,
+              this.value.version === 3 ? Object.fromEntries(values) : undefined
             )
           );
         }.bind(this)

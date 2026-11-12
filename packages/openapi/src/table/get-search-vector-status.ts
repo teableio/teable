@@ -10,8 +10,17 @@ export const tableSearchVectorStatusSchema = z.object({
   tableId: z.string(),
   state: z.enum(['disabled', 'ready', 'rebuild_pending', 'stale', 'unknown']),
   configured: z.boolean(),
+  /** A published, usable snapshot is bound to this physical table, so reads can be served by it. */
+  serving: z.boolean(),
   active: z.boolean(),
   languageConfig: z.string().optional(),
+  coveredFieldIds: z.array(z.string()),
+  searchScope: z.enum(['all_fields', 'selected_fields']).optional(),
+  /**
+   * Searchable fields the published coverage does not include. Only present while `serving` and
+   * only for an `all_fields` document; absent means "not applicable", not "fully covered".
+   */
+  uncoveredFieldIds: z.array(z.string()).optional(),
   coveredFieldCount: z.number().int().nonnegative(),
 });
 

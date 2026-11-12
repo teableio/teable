@@ -99,6 +99,12 @@ type ConvertFieldExecutionOptions = {
   undoRedoMode?: 'undo' | 'redo' | 'normal';
 };
 
+type CreateFieldsExecutionOptions = NonNullable<
+  Parameters<typeof CreateFieldsCommand.create>[1]
+> & {
+  recordUndo?: boolean;
+};
+
 type IPreparedLegacyCreateField = {
   v2Field: Record<string, unknown>;
   hasAiConfig: boolean;
@@ -2252,7 +2258,11 @@ export class FieldOpenApiV2Service {
     };
   }
 
-  async createFields(tableId: string, fieldRos: IFieldRo[]): Promise<IFieldVo[]> {
+  async createFields(
+    tableId: string,
+    fieldRos: IFieldRo[],
+    options?: CreateFieldsExecutionOptions
+  ): Promise<IFieldVo[]> {
     if (!fieldRos.length) {
       return [];
     }
@@ -2283,11 +2293,14 @@ export class FieldOpenApiV2Service {
         this.prepareLegacyCreateField(fieldRo, table, tableQueryService, context)
       )
     );
-    const commandResult = CreateFieldsCommand.create({
-      baseId: table.baseId().toString(),
-      tableId,
-      fields: preparedFields.map((field) => field.v2Field),
-    });
+    const commandResult = CreateFieldsCommand.create(
+      {
+        baseId: table.baseId().toString(),
+        tableId,
+        fields: preparedFields.map((field) => field.v2Field),
+      },
+      options ? { columnMeta: options.columnMeta } : undefined
+    );
 
     if (commandResult.isErr()) {
       throwV2Error(
@@ -2296,8 +2309,15 @@ export class FieldOpenApiV2Service {
       );
     }
 
+    // Legacy paste expansion did not record a field-history entry. Keep that
+    // caller policy local, without changing CLS, window identity, or replay modes.
+    const executionContext: IExecutionContext =
+      options?.recordUndo === false && context.undoRedo?.mode == null
+        ? { ...context, undoRedo: { ...context.undoRedo, mode: 'normal' } }
+        : context;
+
     const result = await commandBus.execute<CreateFieldsCommand, CreateFieldsResult>(
-      context,
+      executionContext,
       commandResult.value
     );
 

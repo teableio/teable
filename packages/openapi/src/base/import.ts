@@ -3,6 +3,7 @@ import type { HttpErrorCode, ILocalization } from '@teable/core';
 import { HttpError } from '@teable/core';
 import { notifyVoSchema } from '../attachment';
 import { axios } from '../axios';
+import { BaseNodeResourceType } from '../base-node/types';
 import { CREATE_SOURCE_HEADER, CREATE_SOURCE_IMPORT } from '../types';
 import { registerRoute, urlBuilder } from '../utils';
 import { toSSERequestError } from '../utils/sse';
@@ -11,6 +12,7 @@ import { createBaseVoSchema } from './create';
 
 export const IMPORT_BASE = '/base/import';
 export const IMPORT_BASE_STREAM = '/base/import-stream';
+export const IMPORT_BASE_PREVIEW = '/base/import-preview';
 
 export const importBaseVoSchema = z.object({
   base: createBaseVoSchema,
@@ -27,6 +29,34 @@ export const importBaseRoSchema = z.object({
 });
 
 export type ImportBaseRo = z.infer<typeof importBaseRoSchema>;
+
+export const importBasePreviewGroupSchema = z.object({
+  type: z.enum(BaseNodeResourceType),
+  count: z.number(),
+});
+
+export type IImportBasePreviewGroup = z.infer<typeof importBasePreviewGroupSchema>;
+
+export const importBasePreviewNodeSchema = z.object({
+  id: z.string(),
+  parentId: z.string().nullable().meta({
+    description: 'The id of the folder node this node sits in, null at the root.',
+  }),
+  type: z.enum(BaseNodeResourceType),
+  name: z.string(),
+});
+
+export type IImportBasePreviewNode = z.infer<typeof importBasePreviewNodeSchema>;
+
+export const importBasePreviewVoSchema = z.object({
+  name: z.string().nullable(),
+  groups: z.array(importBasePreviewGroupSchema),
+  nodes: z.array(importBasePreviewNodeSchema).meta({
+    description: 'Every node of the file, siblings in display order.',
+  }),
+});
+
+export type IImportBasePreviewVo = z.infer<typeof importBasePreviewVoSchema>;
 
 export interface IImportBaseProgressEvent {
   type: 'progress';
@@ -108,6 +138,41 @@ export const ImportBaseStreamRoute: RouteConfig = registerRoute({
   },
   tags: ['base'],
 });
+
+export const ImportBasePreviewRoute: RouteConfig = registerRoute({
+  method: 'post',
+  path: IMPORT_BASE_PREVIEW,
+  title: 'Preview project import',
+  description:
+    'Read the structure of an uploaded .tea file and list the nodes an import would create, without importing anything.',
+  summary: 'preview the contents of a project file',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: importBaseRoSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Node counts by type and the node tree',
+      content: {
+        'application/json': {
+          schema: importBasePreviewVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['base'],
+});
+
+export const previewImportBase = async (importBaseRo: ImportBaseRo, signal?: AbortSignal) => {
+  return await axios.post<IImportBasePreviewVo>(urlBuilder(IMPORT_BASE_PREVIEW), importBaseRo, {
+    signal,
+  });
+};
 
 /**
  * Import a base (standard JSON response).

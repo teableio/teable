@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { CellFormat } from '@teable/core';
 import { CellValue } from '@teable/sdk';
+import { createFieldInstance } from '@teable/sdk/model';
 import { TableBody, TableCell, TableHead, TableHeader, TableRow, Table } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import { useBaseQueryData } from '../../../../hooks/useBaseQueryData';
@@ -15,7 +15,11 @@ export const ChartTable = (props: { config?: ITableConfig }) => {
   const configColumnMap = useMemo(() => tableConfigColumnsToMap(configColumns), [configColumns]);
 
   const sortedColumns = useMemo(
-    () => (columns ? sortTableColumns(columns, configColumnMap) : []),
+    () =>
+      (columns ? sortTableColumns(columns, configColumnMap) : []).map((column) => ({
+        ...column,
+        field: column.fieldSource ? createFieldInstance(column.fieldSource) : undefined,
+      })),
     [columns, configColumnMap]
   );
 
@@ -41,14 +45,10 @@ export const ChartTable = (props: { config?: ITableConfig }) => {
         <TableBody>
           {queryData?.rows.slice(0, 50).map((row, index) => (
             <TableRow key={index}>
-              {queryData.columns.map(({ column, fieldSource }) => (
+              {sortedColumns.map(({ column, field }) => (
                 <TableCell key={column}>
-                  {fieldSource ? (
-                    <CellValue
-                      formatImageUrl={(url) => url}
-                      field={fieldSource as any}
-                      value={row[column]}
-                    />
+                  {field ? (
+                    <CellValue formatImageUrl={(url) => url} field={field} value={row[column]} />
                   ) : (
                     `${row[column]}`
                   )}

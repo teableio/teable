@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */
-import { Draggable } from '@hello-pangea/dnd';
+import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { Plus } from '@teable/icons';
 import { CreateRecordModal, generateLocalId } from '@teable/sdk/components';
 import { useTableId, useViewId } from '@teable/sdk/hooks';
@@ -24,16 +24,26 @@ interface IKanbanStackContainerProps {
   cards: Record[];
   disabled?: boolean;
   isCollapsed?: boolean;
+  isBoardDragging?: boolean;
   setCardMap?: (partialItemMap: ICardMap) => void;
 }
 
 export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
-  const { index, stack, cards, disabled, isCollapsed, setCardMap } = props;
+  const { index, stack, cards, disabled, isCollapsed, isBoardDragging, setCardMap } = props;
   const tableId = useTableId();
   const viewId = useViewId();
   const { collapsedStackMap, setCollapsedStackMap } = useKanbanStackCollapsedStore();
   const { permission, stackField } = useKanban() as Required<IKanbanContext>;
   const [ref, isInView] = useInView();
+  // The card list only mounts while the stack is in view; out of view an empty
+  // Droppable stands in so the stack can still take a drop. Board auto-scroll
+  // moves stacks in and out of view mid-drag, and @hello-pangea/dnd throws on a
+  // Droppable added or removed during a drag, aborting it, so the swap waits
+  // until the drag ends.
+  const [isStackMounted, setIsStackMounted] = useState(isInView);
+  if (!isBoardDragging && isStackMounted !== isInView) {
+    setIsStackMounted(isInView);
+  }
   const [editMode, setEditMode] = useState(false);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
@@ -107,13 +117,25 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
                   </div>
 
                   <div className="w-full grow">
-                    {isInView && (
+                    {isStackMounted ? (
                       <KanbanStack
                         ref={virtuosoRef}
                         stack={stack}
                         cards={cards}
                         setCardMap={setCardMap}
                       />
+                    ) : (
+                      <Droppable droppableId={stackId}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className="size-full pt-3"
+                          >
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
                     )}
                   </div>
 

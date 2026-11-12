@@ -5,6 +5,7 @@ import {
   DbTableName,
   FieldValueTypeVisitor,
   getValidRecordAggregationFunctions,
+  getFormulaSourceBudget,
   isRecordFilterDateValue,
   isRecordFilterFieldReferenceValue,
   RecordConditionDateValue,
@@ -13,6 +14,7 @@ import {
   ConditionalLookupField,
   type DomainError,
   type Field,
+  type FormulaSourceBudget,
   type ITableReadModel,
   type LinkField,
   LookupField,
@@ -28,21 +30,50 @@ import { buildBoundDataQueryPlan, type BoundDataQueryPlan } from './BoundDataQue
 import type { DataQueryDefinition } from './DataQueryDefinition';
 import {
   freezeQueryValue,
-  mapQueryFilter,
   queryError,
   representativeParameterValue,
   resolveDataQueryFilter,
 } from './DataQueryDefinition';
+import type { DataQueryPredicateV3 } from './DataQueryExpression';
+import { dataQueryExpressionOutput } from './DataQueryExpressionBinding';
+import { collectDataQuerySourceFieldUsages, sortDataQueryFieldUsages } from './DataQueryFieldUsage';
 import type {
   DataQueryAggregate,
   DataQueryBucket,
   DataQueryDefinitionInput,
   DataQueryFieldDependency,
   DataQueryFieldUsage,
-  DataQueryFilter,
   DataQueryOutput,
   DataQueryRelationAggregate,
 } from './types';
+
+/** A relation metric is the only projection/aggregate entry carrying both keys. */
+const isDataQueryRelationAggregate = (entry: object): entry is DataQueryRelationAggregate =>
+  'source' in entry && 'statisticFunc' in entry;
+
+const withExpressionOutputs = (
+  snapshot: DataQueryDefinitionInput,
+  plan: BoundDataQueryPlan,
+  outputs: readonly DataQueryOutput[]
+): Result<DataQueryOutput[], DomainError> => {
+  if (snapshot.kind !== 'records') return ok([...outputs]);
+  const ordered: DataQueryOutput[] = [];
+  for (const projection of snapshot.select) {
+    if ('expr' in projection) {
+      const bound = plan.projections.find(
+        (candidate) => candidate.kind === 'expression' && candidate.alias === projection.alias
+      );
+      if (!bound || bound.kind !== 'expression')
+        return err(queryError('expression_projection', 'Expression projection is not bound'));
+      ordered.push(dataQueryExpressionOutput(projection.alias, bound.expression));
+    } else {
+      const output = outputs.find((candidate) => candidate.alias === projection.alias);
+      if (!output) return err(queryError('projection', 'Projection is not bound'));
+      ordered.push(output);
+    }
+  }
+  return ok(ordered);
+};
 
 const describeField = (
   table: ITableReadModel,
@@ -140,7 +171,11 @@ const locateFilterLeafError = (
   if ('not' in node) return locateFilterLeafError(table, node.not);
 
   const fieldResult = table.getField((candidate) => candidate.id().toString() === node.fieldId);
-  if (fieldResult.isErr()) return queryError('field_missing', 'A required filter field is missing');
+  if (fieldResult.isErr())
+    return queryError('field_missing', 'A required filter field is missing', {
+      fieldId: node.fieldId,
+      operator: node.operator,
+    });
   const field = fieldResult.value;
   const valueType = field.accept(new FieldValueTypeVisitor());
   if (valueType.isErr()) return queryError('field_type', 'Cannot resolve filter field type');
@@ -190,7 +225,12 @@ export const validateDataQueryFilter = (
       if ('not' in node) return validateNode(node.not);
       const field = yield* table
         .getField((candidate) => candidate.id().toString() === node.fieldId)
-        .mapErr(() => queryError('field_missing', 'A required filter field is missing'));
+        .mapErr(() =>
+          queryError('field_missing', 'A required filter field is missing', {
+            fieldId: node.fieldId,
+            operator: node.operator,
+          })
+        );
       const type = yield* field
         .accept(new FieldValueTypeVisitor())
         .mapErr(() => queryError('field_type', 'Cannot resolve filter field type'));
@@ -217,66 +257,6 @@ export const validateDataQueryFilter = (
   return validateNode(filter);
 };
 
-type AddFieldUsage = (fieldId: string, usage: DataQueryFieldUsage) => void;
-
-const collectFilterUsages = (node: RecordFilterNode, add: AddFieldUsage): void => {
-  if ('items' in node) {
-    node.items.forEach((child) => collectFilterUsages(child, add));
-    return;
-  }
-  if ('not' in node) {
-    collectFilterUsages(node.not, add);
-    return;
-  }
-  add(node.fieldId, 'filter');
-  if (isRecordFilterFieldReferenceValue(node.value)) add(node.value.fieldId, 'reference');
-};
-
-const queryFieldUsages = (
-  snapshot: DataQueryDefinitionInput
-): Map<string, DataQueryFieldUsage[]> => {
-  const usages = new Map<string, DataQueryFieldUsage[]>();
-  const add: AddFieldUsage = (fieldId, usage) => {
-    const fieldUsages = usages.get(fieldId) ?? [];
-    if (!fieldUsages.includes(usage)) fieldUsages.push(usage);
-    usages.set(fieldId, fieldUsages);
-  };
-  if (snapshot.kind === 'records') {
-    snapshot.select.forEach((projection) => {
-      if ('statisticFunc' in projection) {
-        if (projection.fieldId !== undefined) add(projection.fieldId, 'aggregate');
-        return;
-      }
-      if ('fieldId' in projection) add(projection.fieldId, 'projection');
-    });
-  } else {
-    for (const group of snapshot.groupBy ?? []) add(group.fieldId, 'group');
-    for (const aggregate of snapshot.aggregates) {
-      // A relation metric reads its target field; the flat walk has no source map.
-      if (aggregate.fieldId !== undefined) add(aggregate.fieldId, 'aggregate');
-    }
-  }
-  snapshot.sort?.forEach((sort) => {
-    if ('fieldId' in sort && !('source' in sort)) add(sort.fieldId, 'sort');
-    // Every allow-listed target must exist and be readable, even when the runtime
-    // parameter selects only one of them: the choice is not a permission boundary.
-    if ('field' in sort) {
-      for (const target of sort.allowed) {
-        if ('fieldId' in target && !('source' in target)) add(target.fieldId, 'sort');
-      }
-    }
-  });
-  if (snapshot.filter) {
-    collectFilterUsages(
-      mapQueryFilter(snapshot.filter, (reference) =>
-        representativeParameterValue(snapshot.parameters![reference.name])
-      ),
-      add
-    );
-  }
-  return usages;
-};
-
 type ParameterValueMaps = {
   readonly representative: ReadonlyMap<string, RecordFilterValue>;
   readonly defaults: ReadonlyMap<string, RecordFilterValue>;
@@ -296,12 +276,18 @@ const parameterValueMaps = (
 };
 
 const validateFilterAgainstTable = (
-  filter: DataQueryFilter | undefined,
+  filter: DataQueryPredicateV3 | undefined,
   table: ITableReadModel,
   values: ParameterValueMaps
 ): Result<void, DomainError> =>
   safeTry(function* () {
     if (!filter) return ok(undefined);
+    if ('items' in filter || 'not' in filter) {
+      for (const child of 'items' in filter ? filter.items : [filter.not])
+        yield* validateFilterAgainstTable(child, table, values);
+      return ok(undefined);
+    }
+    if ('type' in filter) return ok(undefined);
     const representativeFilter = yield* resolveDataQueryFilter(filter, values.representative);
     const defaultFilter = yield* resolveDataQueryFilter(filter, values.defaults);
     yield* validateDataQueryFilter(table, representativeFilter);
@@ -436,6 +422,7 @@ const describeOutputs = (
     };
     if (snapshot.kind === 'records') {
       for (const projection of snapshot.select) {
+        if ('expr' in projection) continue;
         // A relation aggregate always implies a version 2 relation query and is
         // bound by DataQueryRelationBinding, never by this single-table path.
         if ('statisticFunc' in projection) {
@@ -504,6 +491,7 @@ export type DataQueryBindingPrepareOptions = {
    * A denied caller must not learn a field's type or operator matrix.
    */
   readonly deferOperatorRejection?: boolean;
+  readonly formulaSourceBudget?: FormulaSourceBudget;
 };
 
 /** Complete dependency plans can be authorized even when live output semantics are broken. */
@@ -798,8 +786,10 @@ export class DataQueryRelationBinding {
     // eslint-disable-next-line sonarjs/cognitive-complexity
     return safeTry(function* () {
       const snapshot = definition.snapshot();
-      if (snapshot.version !== 2) {
-        return err(queryError('join_version', 'Relation binding requires definition version 2'));
+      if (snapshot.version === 1) {
+        return err(
+          queryError('join_version', 'Relation binding requires definition version 2 or 3')
+        );
       }
       if (snapshot.tableId !== rootTable.id().toString())
         return err(queryError('table_mismatch', 'Query table does not match the loaded table'));
@@ -814,83 +804,20 @@ export class DataQueryRelationBinding {
 
       const parameterValues = parameterValueMaps(snapshot.parameters);
 
-      const rootUsages = new Map<string, DataQueryFieldUsage[]>();
+      const allUsages = collectDataQuerySourceFieldUsages(snapshot);
+      const rootUsages = new Map<string, DataQueryFieldUsage[]>(
+        [...(allUsages.get('root') ?? [])].map(([id, usages]) => [
+          id,
+          sortDataQueryFieldUsages(usages),
+        ])
+      );
       const targetUsages = new Map<string, Map<string, DataQueryFieldUsage[]>>();
-      const usageMap = (source: string): Map<string, DataQueryFieldUsage[]> => {
-        if (source === 'root') return rootUsages;
-        const existing = targetUsages.get(source) ?? new Map<string, DataQueryFieldUsage[]>();
-        targetUsages.set(source, existing);
-        return existing;
-      };
-      const addUsage = (source: string, fieldId: string, usage: DataQueryFieldUsage) => {
-        const usages = usageMap(source);
-        const fieldUsages = usages.get(fieldId) ?? [];
-        if (!fieldUsages.includes(usage)) fieldUsages.push(usage);
-        usages.set(fieldId, fieldUsages);
-      };
-      if (snapshot.kind === 'records') {
-        for (const projection of snapshot.select) {
-          if ('statisticFunc' in projection) {
-            if (projection.fieldId !== undefined) {
-              addUsage(projection.source, projection.fieldId, 'aggregate');
-            }
-            continue;
-          }
-          const source = projectionSource(projection) ?? 'root';
-          if ('fieldId' in projection) addUsage(source, projection.fieldId, 'projection');
-        }
-      } else {
-        for (const group of snapshot.groupBy ?? []) {
-          addUsage(projectionSource(group) ?? 'root', group.fieldId, 'group');
-        }
-        for (const aggregate of snapshot.aggregates) {
-          if ('source' in aggregate) {
-            if (aggregate.fieldId !== undefined) {
-              addUsage(aggregate.source, aggregate.fieldId, 'aggregate');
-            }
-            continue;
-          }
-          addUsage('root', aggregate.fieldId, 'aggregate');
-        }
-      }
-      // The executor compiles the root filter for relation queries too, so its
-      // fields must be dependencies there as well (the non-relation binding does this).
-      if (snapshot.filter) {
-        collectFilterUsages(
-          mapQueryFilter(snapshot.filter, (reference) =>
-            representativeParameterValue(snapshot.parameters![reference.name])
-          ),
-          (fieldId, usage) => addUsage('root', fieldId, usage)
-        );
-      }
-      for (const [alias, relation] of Object.entries(snapshot.relations ?? {})) {
-        // Create the map before any child hop can attach its link-edge dependency.
-        usageMap(alias);
-        if (!relation.filter) continue;
-        collectFilterUsages(
-          mapQueryFilter(relation.filter, (reference) =>
-            representativeParameterValue(snapshot.parameters![reference.name])
-          ),
-          (fieldId, usage) => addUsage(alias, fieldId, usage)
-        );
-      }
-      for (const sort of snapshot.sort ?? []) {
-        if ('source' in sort) {
-          if ('fieldId' in sort) addUsage(sort.source, sort.fieldId, 'sort');
-          continue;
-        }
-        if ('fieldId' in sort) {
-          addUsage('root', sort.fieldId, 'sort');
-          continue;
-        }
-        if ('field' in sort) {
-          for (const target of sort.allowed) {
-            if ('fieldId' in target) {
-              addUsage('source' in target ? target.source : 'root', target.fieldId, 'sort');
-            }
-          }
-        }
-      }
+      for (const [source, usages] of allUsages)
+        if (source !== 'root')
+          targetUsages.set(
+            source,
+            new Map([...usages].map(([id, values]) => [id, sortDataQueryFieldUsages(values)]))
+          );
 
       type ResolvedRelation = {
         alias: string;
@@ -1008,8 +935,6 @@ export class DataQueryRelationBinding {
           );
         }
         yield* validateFilterAgainstTable(relation.filter, target, parameterValues);
-        // The link edge itself is a dependency of the table that hosts it.
-        addUsage(parentAlias, linkField.id().toString(), 'relation');
         resolved.set(alias, {
           alias,
           table: target,
@@ -1021,19 +946,16 @@ export class DataQueryRelationBinding {
       }
 
       // Count has no field dependency, so aggregates are checked by declared source.
-      const relationMetrics: DataQueryRelationAggregate[] = [
-        ...(snapshot.kind === 'records'
-          ? snapshot.select.filter(
-              (projection): projection is DataQueryRelationAggregate =>
-                'statisticFunc' in projection
-            )
-          : []),
-        ...(snapshot.kind === 'aggregate'
-          ? snapshot.aggregates.filter(
-              (aggregate): aggregate is DataQueryRelationAggregate => 'source' in aggregate
-            )
-          : []),
-      ];
+      const relationMetrics: DataQueryRelationAggregate[] = [];
+      if (snapshot.kind === 'records') {
+        for (const entry of snapshot.select) {
+          if (isDataQueryRelationAggregate(entry)) relationMetrics.push(entry);
+        }
+      } else {
+        for (const entry of snapshot.aggregates) {
+          if (isDataQueryRelationAggregate(entry)) relationMetrics.push(entry);
+        }
+      }
       for (const metric of relationMetrics) {
         const info = resolved.get(metric.source);
         if (info !== undefined && info.cardinality !== 'many') {
@@ -1171,6 +1093,7 @@ export class DataQueryRelationBinding {
           const outputs: DataQueryOutput[] = [];
           if (snapshot.kind === 'records') {
             for (const projection of snapshot.select) {
+              if ('expr' in projection) continue;
               if ('statisticFunc' in projection) {
                 const info = resolved.get(projection.source);
                 if (!info) {
@@ -1338,6 +1261,7 @@ export class DataQueryRelationBinding {
         rootTable,
         rootDependencies: root.dependencies,
         rootUsage: rootUsages,
+        formulaSourceBudget: options.formulaSourceBudget ?? getFormulaSourceBudget(),
         relations: sources.map((source) => ({
           alias: source.alias,
           table: source.table,
@@ -1354,18 +1278,20 @@ export class DataQueryRelationBinding {
         plan,
         sources,
         bind: () =>
-          bindOutputs().map(
-            (outputs) =>
-              new DataQueryRelationBinding(
-                definition,
-                rootTable,
-                root.dependencies,
-                sources,
-                outputs,
-                plan,
-                deferredFilterError
-              )
-          ),
+          bindOutputs()
+            .andThen((outputs) => withExpressionOutputs(snapshot, plan, outputs))
+            .map(
+              (outputs) =>
+                new DataQueryRelationBinding(
+                  definition,
+                  rootTable,
+                  root.dependencies,
+                  sources,
+                  outputs,
+                  plan,
+                  deferredFilterError
+                )
+            ),
       });
     });
   }
@@ -1415,11 +1341,17 @@ export class DataQueryBinding {
       const dependencies: DataQueryFieldDependency[] = [];
       const fields = new Map<string, Field>();
       const descriptions = new Map<string, DataQueryFieldDependency>();
-      const usages = queryFieldUsages(snapshot);
+      const usages = new Map<string, DataQueryFieldUsage[]>(
+        [...(collectDataQuerySourceFieldUsages(snapshot).get('root') ?? [])].map(
+          ([id, fieldUsages]) => [id, sortDataQueryFieldUsages(fieldUsages)]
+        )
+      );
       for (const [id, fieldUsages] of usages) {
         const field = yield* table
           .getField((candidate) => candidate.id().toString() === id)
-          .mapErr(() => queryError('field_missing', 'A required query field is missing'));
+          .mapErr(() =>
+            queryError('field_missing', 'A required query field is missing', { fieldId: id })
+          );
         const dependency = yield* describeField(table, field, fieldUsages);
         fields.set(id, field);
         descriptions.set(id, dependency);
@@ -1447,14 +1379,17 @@ export class DataQueryBinding {
         rootTable: table,
         rootDependencies: dependencies,
         rootUsage: usages,
+        formulaSourceBudget: options.formulaSourceBudget ?? getFormulaSourceBudget(),
       });
       return ok({
         plan,
         bind: () =>
-          describeOutputs(snapshot, fields, descriptions).map(
-            (outputs) =>
-              new DataQueryBinding(definition, dependencies, outputs, plan, deferredFilterError)
-          ),
+          describeOutputs(snapshot, fields, descriptions)
+            .andThen((outputs) => withExpressionOutputs(snapshot, plan, outputs))
+            .map(
+              (outputs) =>
+                new DataQueryBinding(definition, dependencies, outputs, plan, deferredFilterError)
+            ),
       });
     });
   }

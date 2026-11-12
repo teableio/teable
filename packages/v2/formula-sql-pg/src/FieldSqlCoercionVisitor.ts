@@ -54,6 +54,14 @@ const mapCellValueType = (cellValueType: DomainCellValueType): SqlValueType => {
   }
 };
 
+const storedScalarStorageKind = (field: Field): SqlStorageKind => {
+  const physicalType = field
+    .dbFieldType()
+    .andThen((type) => type.value())
+    .unwrapOr('');
+  return ['JSON', 'JSONB'].includes(physicalType.trim().toUpperCase()) ? 'json' : 'scalar';
+};
+
 class FieldStorageKindVisitor extends AbstractFieldVisitor<SqlStorageKind> {
   visitSingleLineTextField(_field: SingleLineTextField) {
     return this.ok('scalar');
@@ -71,12 +79,12 @@ class FieldStorageKindVisitor extends AbstractFieldVisitor<SqlStorageKind> {
     return this.ok('scalar');
   }
 
-  visitFormulaField(_field: FormulaField) {
-    return this.ok('scalar');
+  visitFormulaField(field: FormulaField) {
+    return this.ok(storedScalarStorageKind(field));
   }
 
-  visitRollupField(_field: RollupField) {
-    return this.ok('scalar');
+  visitRollupField(field: RollupField) {
+    return this.ok(storedScalarStorageKind(field));
   }
 
   visitSingleSelectField(_field: SingleSelectField) {
@@ -135,8 +143,8 @@ class FieldStorageKindVisitor extends AbstractFieldVisitor<SqlStorageKind> {
     return this.lookupStorageKind(field);
   }
 
-  visitConditionalRollupField(_field: ConditionalRollupField) {
-    return this.ok('scalar');
+  visitConditionalRollupField(field: ConditionalRollupField) {
+    return this.ok(storedScalarStorageKind(field));
   }
 
   visitConditionalLookupField(field: ConditionalLookupField) {
@@ -150,6 +158,7 @@ class FieldStorageKindVisitor extends AbstractFieldVisitor<SqlStorageKind> {
   private lookupStorageKind(field: LookupField | ConditionalLookupField) {
     return field.isMultipleCellValue().map((multiplicity) => {
       if (multiplicity.isMultiple()) return 'array' as const;
+      if (storedScalarStorageKind(field) === 'json') return 'json' as const;
       const innerField = field.innerField();
       if (innerField.isErr()) return 'scalar' as const;
       return this.isJsonFieldType(innerField.value) ? ('json' as const) : ('scalar' as const);

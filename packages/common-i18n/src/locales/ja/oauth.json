@@ -45,7 +45,8 @@
       "neverUsed": "未使用"
     },
     "clientId": {
-      "label": "クライアントID: "
+      "label": "クライアントID: ",
+      "description": "ユーザーに認可を求めるときに、このアプリを識別するための ID です。"
     }
   },
   "formType": {
@@ -95,5 +96,6 @@
   "deleteConfirm": {
     "title": "OAuth アプリを削除",
     "description": "OAuth アプリ「{{name}}」を削除してもよろしいですか？この操作は取り消せません。"
-  }
+  },
+  "empty": "OAuth アプリはまだありません。"
 }

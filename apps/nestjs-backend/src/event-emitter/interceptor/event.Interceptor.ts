@@ -172,18 +172,11 @@ export class EventMiddleware implements NestInterceptor {
             eventContext
           )
         )
-        // The folder routes (`/node/folder`) resolve to the folder; delete resolves to nothing.
+        // The folder routes (`/node/folder`) resolve to the folder; their delete is a node delete.
         .with(P.union(Events.BASE_FOLDER_CREATE, Events.BASE_FOLDER_UPDATE), () =>
           BaseFolderEventFactory.create(
             eventName,
             { baseId: reqParams.baseId, folder: resolveData },
-            eventContext
-          )
-        )
-        .with(Events.BASE_FOLDER_DELETE, () =>
-          BaseFolderEventFactory.create(
-            eventName,
-            { baseId: reqParams.baseId, folderId: reqParams.folderId },
             eventContext
           )
         )

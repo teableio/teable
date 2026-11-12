@@ -27,6 +27,10 @@ export const searchAccessPathStatusSchema = z
     provider: z.enum(['pg_trgm', 'pg_bigm', 'tsvector']).optional(),
     accessPath: z.enum(['generated_text', 'generated_tsvector']).optional(),
     coveredFieldCount: z.number().int().nonnegative(),
+    serving: z.boolean(),
+    coveredFieldIds: z.array(z.string()),
+    searchScope: z.enum(['all_fields', 'selected_fields']).optional(),
+    uncoveredFieldIds: z.array(z.string()).optional(),
   })
   .strict();
 

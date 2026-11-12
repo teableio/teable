@@ -19,6 +19,7 @@ vi.mock('@teable/sdk/hooks', async (importOriginal) => ({
   useFieldStaticGetter: () => () => ({ Icon: () => null }),
 }));
 vi.mock('../../hooks/useContextMenu', () => ({ useContextMenu: () => ({}) }));
+vi.mock('../../hooks/useDuplicateRecord', () => ({ useDuplicateRecord: () => vi.fn() }));
 const chat = vi.hoisted(() => ({ enabled: true, addToChat: vi.fn() }));
 vi.mock('../../hooks/useAddToChat', () => ({
   useAddToChat: () => ({ chatEnabled: chat.enabled, addToChat: chat.addToChat }),

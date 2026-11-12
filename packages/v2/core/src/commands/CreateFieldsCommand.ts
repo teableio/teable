@@ -7,6 +7,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { FieldId } from '../domain/table/fields/FieldId';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { TableId } from '../domain/table/TableId';
+import { ViewId } from '../domain/table/views/ViewId';
 import { tableFieldInputSchema } from '../schemas/field';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
 import { TableUpdateCommand } from './TableUpdateCommand';
@@ -18,6 +19,15 @@ export const createFieldsInputSchema = z.object({
 });
 
 export type ICreateFieldsCommandInput = z.input<typeof createFieldsInputSchema>;
+
+// Internal aggregate-creation metadata, deliberately separate from transport input.
+// When supplied, cover every batch field and table view with an exact order-only
+// entry. Reciprocal fields likewise append without inheriting view visibility.
+const createFieldsOptionsSchema = z.object({
+  columnMeta: z
+    .record(z.string(), z.record(z.string(), z.object({ order: z.number().finite() }).strict()))
+    .optional(),
+});
 
 const dedupeForeignTableReferences = (
   references: ReadonlyArray<LinkForeignTableReference>
@@ -62,12 +72,18 @@ export class CreateFieldsCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
-    readonly fields: ReadonlyArray<z.output<typeof tableFieldInputSchema>>
+    readonly fields: ReadonlyArray<z.output<typeof tableFieldInputSchema>>,
+    readonly columnMeta:
+      | Readonly<Record<string, Readonly<Record<string, { order: number }>>>>
+      | undefined
   ) {
     super(baseId, tableId);
   }
 
-  static create(raw: unknown): Result<CreateFieldsCommand, DomainError> {
+  static create(
+    raw: unknown,
+    options?: z.input<typeof createFieldsOptionsSchema>
+  ): Result<CreateFieldsCommand, DomainError> {
     const parsed = createFieldsInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -96,9 +112,39 @@ export class CreateFieldsCommand extends TableUpdateCommand {
       );
     }
 
+    const parsedOptions = createFieldsOptionsSchema.safeParse(options ?? {});
+    if (!parsedOptions.success) {
+      return err(
+        domainError.validation({
+          message: 'Invalid CreateFieldsCommand options',
+          details: z.formatError(parsedOptions.error),
+        })
+      );
+    }
+    const explicitIds = new Set(parsed.data.fields.map((field) => field.id));
+    for (const [fieldId, views] of Object.entries(parsedOptions.data.columnMeta ?? {})) {
+      const fieldIdResult = FieldId.create(fieldId);
+      if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+      if (!explicitIds.has(fieldId)) {
+        return err(
+          domainError.validation({ message: 'Column metadata field is not in the batch' })
+        );
+      }
+      for (const viewId of Object.keys(views)) {
+        const viewIdResult = ViewId.create(viewId);
+        if (viewIdResult.isErr()) return err(viewIdResult.error);
+      }
+    }
+
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(
-        (tableId) => new CreateFieldsCommand(baseId, tableId, [...parsed.data.fields])
+        (tableId) =>
+          new CreateFieldsCommand(
+            baseId,
+            tableId,
+            [...parsed.data.fields],
+            parsedOptions.data.columnMeta
+          )
       )
     );
   }

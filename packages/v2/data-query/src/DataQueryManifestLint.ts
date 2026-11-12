@@ -98,7 +98,7 @@ const definitionShape = (definition: DataQueryDefinitionInput): string =>
     kind: definition.kind,
     tableId: definition.tableId,
     recordId: definition.kind === 'records' ? (definition.recordId ?? null) : undefined,
-    relations: definition.version === 2 ? (definition.relations ?? {}) : undefined,
+    relations: definition.version !== 1 ? (definition.relations ?? {}) : undefined,
     select: definition.kind === 'records' ? definition.select : undefined,
     aggregates: definition.kind === 'aggregate' ? definition.aggregates : undefined,
     groupBy: definition.kind === 'aggregate' ? (definition.groupBy ?? []) : undefined,
@@ -183,11 +183,11 @@ const combinatorialFindings = (
     // A parameterized query is not evidence of a literal cross-product, and it must
     // not excuse literal variants that share its shape.
     if (
-      hasParameterReference({
-        filter: definition.filter,
-        sort: definition.sort,
-        page: definition.page,
-      })
+      hasParameterReference(
+        definition.version === 3
+          ? definition
+          : { filter: definition.filter, sort: definition.sort, page: definition.page }
+      )
     )
       continue;
     const shape = definitionShape(definition);
