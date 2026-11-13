@@ -305,7 +305,7 @@
       "showNumber": "Afficher le nombre",
       "autoFillDate": "Remplir automatiquement avec la date actuelle",
       "createSymmetricLink": "Créer un champ de lien réciproque dans la table de lien",
-      "allowLinkMultipleRecords": "Autoriser la sélection multiple",
+      "allowLinkMultipleRecords": "Autoriser la liaison à plusieurs enregistrements",
       "allowLinkToDuplicateRecords": "Permet la sélection des enregistrements plus d'une fois",
       "allowSymmetricFieldLinkMultipleRecords": "Permet la sélection des enregistrements plus d'une fois",
       "oneToOne": "un-à-un",
@@ -409,7 +409,7 @@
     "fieldNameOptional": "Nom du champ (Optionnel)",
     "fieldType": "Type de champ",
     "aiConfig": {
-      "title": "Configuration AI",
+      "title": "Configuration IA",
       "type": {
         "summary": "Résumer",
         "translation": "Traduire",
@@ -419,18 +419,18 @@
         "classification": "Classification intelligente",
         "customization": "Personnaliser",
         "imageGeneration": "Génération d'images",
-        "rating": "Évaluation d'images"
+        "rating": "Évaluation"
       },
       "label": {
-        "type": "Type d'action AI",
-        "model": "Modèle AI",
+        "type": "Type d'action IA",
+        "model": "Modèle IA",
         "targetLanguage": "Langue cible",
         "sourceField": "Champ source",
-        "sourceFieldForTag": "Sélectionnez un champ, correspondant aux tags créés",
-        "sourceFieldForClassify": "Sélectionnez un champ, correspondant aux classifications créées",
-        "attachPrompt": "Attacher les exigences",
+        "sourceFieldForTag": "Sélectionnez un champ à associer aux étiquettes créées",
+        "sourceFieldForClassify": "Sélectionnez un champ à associer aux classifications créées",
+        "attachPrompt": "Joindre des exigences",
         "prompt": "Personnaliser le prompt",
-        "sourceFieldForAttachment": "Champ source pour l'attachement",
+        "sourceFieldForAttachment": "Champ source de la pièce jointe",
         "imageSize": "Taille de l'image",
         "imageQuality": "Qualité de l'image",
         "imageCount": "Nombre d'images",

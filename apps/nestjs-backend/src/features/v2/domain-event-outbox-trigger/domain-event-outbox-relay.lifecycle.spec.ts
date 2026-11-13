@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
 import { createV2PostgresDb } from '@teable/v2-adapter-db-postgres-pg';
@@ -138,7 +139,8 @@ describe('DomainEventOutboxRelayService resource ownership', () => {
           connect: async () => {
             if (state.ended) throw new Error('Pool already closed');
             state.checkouts += 1;
-            return {
+            // The pool listens for connection errors on each checkout, so the client has to be an emitter.
+            return Object.assign(new EventEmitter(), {
               query: async (text: string, parameters: unknown[] = []) => {
                 if (state.ended) throw new Error('Pool already closed');
                 const result = await client.query(text, parameters);
@@ -152,7 +154,7 @@ describe('DomainEventOutboxRelayService resource ownership', () => {
               release: () => {
                 state.checkouts -= 1;
               },
-            };
+            });
           },
           end: async () => {
             if (state.checkouts !== 0) throw new Error('Closing a checked-out pool');

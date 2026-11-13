@@ -50,6 +50,14 @@ import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { ICellValueSpecResolver } from './SpecResolver';
 
+/** A caller-owned scoped read, used when resolving cells without a record write. */
+export type LinkTitleRecordReader = (
+  context: IExecutionContext,
+  table: Table,
+  titleField: Field,
+  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined
+) => Promise<Result<TableRecordQueryRepositoryPort.ITableRecordQueryResult, DomainError>>;
+
 export interface LinkTitleResolveRequest {
   readonly fieldId: FieldId;
   readonly foreignTableId: TableId;
@@ -193,7 +201,8 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
 
   async resolve(
     context: IExecutionContext,
-    requests: ReadonlyArray<LinkTitleResolveRequest>
+    requests: ReadonlyArray<LinkTitleResolveRequest>,
+    readRecords?: LinkTitleRecordReader
   ): Promise<Result<ReadonlyArray<LinkTitleResolveResult>, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
@@ -265,7 +274,8 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
               context,
               foreignTable,
               titleField,
-              [...allTitles]
+              [...allTitles],
+              readRecords
             );
           }
 
@@ -300,7 +310,8 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     context: IExecutionContext,
     table: Table,
     titleField: Field,
-    titles: ReadonlyArray<string>
+    titles: ReadonlyArray<string>,
+    readRecords?: LinkTitleRecordReader
   ): Promise<Result<Map<string, string>, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
@@ -326,7 +337,8 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
             context,
             table,
             primaryFieldResult.value,
-            titles
+            titles,
+            readRecords
           );
           return ok(resolved);
         }
@@ -360,12 +372,9 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         }
 
         const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryValues]);
-        const queryResult = yield* await service.recordQueryRepository.find(
-          context,
-          table,
-          querySpec,
-          { mode: 'stored' }
-        );
+        const queryResult = yield* await (readRecords
+          ? readRecords(context, table, titleField, querySpec)
+          : service.recordQueryRepository.find(context, table, querySpec, { mode: 'stored' }));
 
         const valueToId = new Map<string, string>();
         for (const record of queryResult.records) {
@@ -419,14 +428,10 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
         if (queryValues.size === 0) {
           return ok(new Map());
         }
-
         const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryValues]);
-        const queryResult = yield* await service.recordQueryRepository.find(
-          context,
-          table,
-          querySpec,
-          { mode: 'stored' }
-        );
+        const queryResult = yield* await (readRecords
+          ? readRecords(context, table, titleField, querySpec)
+          : service.recordQueryRepository.find(context, table, querySpec, { mode: 'stored' }));
 
         const valueToId = new Map<string, string>();
         for (const record of queryResult.records) {
@@ -465,12 +470,9 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
       }
 
       const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryTitles]);
-      const queryResult = yield* await service.recordQueryRepository.find(
-        context,
-        table,
-        querySpec,
-        { mode: 'stored' }
-      );
+      const queryResult = yield* await (readRecords
+        ? readRecords(context, table, titleField, querySpec)
+        : service.recordQueryRepository.find(context, table, querySpec, { mode: 'stored' }));
 
       const exactRecordId = new Map<string, string>();
       const normalizedRecordId = new Map<string, string>();

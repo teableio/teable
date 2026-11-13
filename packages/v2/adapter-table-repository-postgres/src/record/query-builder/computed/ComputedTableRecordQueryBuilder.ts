@@ -1,4 +1,3 @@
-import type { ConditionalQueryRuntimeConfig } from '../../../config/runtimeConfig';
 import {
   AndSpec,
   CellValueType,
@@ -41,6 +40,7 @@ import {
 import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
+import type { ConditionalQueryRuntimeConfig } from '../../../config/runtimeConfig';
 
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { TableRecordConditionWhereVisitor } from '../../visitors';
@@ -763,6 +763,8 @@ export interface IComputedQueryBuilderOptions {
   readonly forceLookupArrayOutput?: boolean;
   readonly userSnapshotActorFallback?: UserSnapshotActorFallback;
   readonly resolveSystemUserSnapshotsFromUsers?: boolean;
+  /** Metadata profiles for a bounded split-database backfill batch, keyed by user ID. */
+  readonly systemUserSnapshots?: RawBuilder<unknown>;
   /** Full-table computed backfills may aggregate all host rows before the outer UPDATE. */
   readonly allowFullTableSetBasedRollups?: boolean;
   /** Limits for conditional/derived rollup subqueries; supplied by the composition root. */
@@ -797,6 +799,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private readonly forceLookupArrayOutput: boolean;
   private userSnapshotActorFallback?: UserSnapshotActorFallback;
   private readonly resolveSystemUserSnapshotsFromUsers: boolean;
+  private readonly systemUserSnapshots?: RawBuilder<unknown>;
   private readonly allowFullTableSetBasedRollups: boolean;
   private readonly conditionalQueryMaxLimit: number;
   private readonly conditionalQueryDefaultLimit: number;
@@ -817,6 +820,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     this.forceLookupArrayOutput = options.forceLookupArrayOutput ?? true;
     this.userSnapshotActorFallback = options.userSnapshotActorFallback;
     this.resolveSystemUserSnapshotsFromUsers = options.resolveSystemUserSnapshotsFromUsers ?? false;
+    this.systemUserSnapshots = options.systemUserSnapshots;
     this.allowFullTableSetBasedRollups = options.allowFullTableSetBasedRollups ?? false;
     this.conditionalQueryMaxLimit = Math.max(
       1,
@@ -1437,6 +1441,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             forceLookupArrayOutput: this.forceLookupArrayOutput,
             userSnapshotActorFallback: this.userSnapshotActorFallback,
             resolveSystemUserSnapshotsFromUsers: this.resolveSystemUserSnapshotsFromUsers,
+            systemUserSnapshots: this.systemUserSnapshots,
           }
         );
         const columns: AliasedRawBuilder<unknown, string>[] = [];

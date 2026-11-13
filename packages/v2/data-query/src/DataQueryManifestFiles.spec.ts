@@ -1,7 +1,3 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
@@ -14,7 +10,6 @@ import {
   parseDataQueryManifestText,
   withGeneratedClientDigest,
 } from './DataQueryManifestFiles';
-import { getManagedQueryToolSource } from './managedQueryTool.generated';
 
 const todo = `schemaVersion: 1
 queries:
@@ -213,6 +208,89 @@ const relationQuery = (
 });
 
 describe('app query manifest files', () => {
+  it('generates a callable v4 aggregate client preserving HAVING and exact page totals', async () => {
+    const definition = {
+      version: 4,
+      kind: 'aggregate',
+      tableId: `tbl${'a'.repeat(16)}`,
+      parameters: { minimum: { type: 'number' } },
+      aggregates: [
+        {
+          alias: 'total',
+          statisticFunc: 'sum',
+          expr: {
+            type: 'formula',
+            formula: '{amount} * 2',
+            references: { amount: { type: 'field', fieldId: `fld${'b'.repeat(16)}` } },
+          },
+        },
+      ],
+      having: {
+        type: 'formula',
+        formula: '{total} > {minimum}',
+        references: {
+          total: { type: 'output', alias: 'total' },
+          minimum: { type: 'parameter', name: 'minimum' },
+        },
+      },
+      page: { limit: 1, includeTotal: true },
+    };
+    const manifest = parseDataQueryManifestText(
+      JSON.stringify({
+        schemaVersion: 1,
+        queries: {
+          totals: { definition },
+        },
+      })
+    )._unsafeUnwrap();
+    const generated = generateAppQueryArtifacts(manifest, {
+      totals: {
+        outputs: [
+          {
+            alias: 'total',
+            cellValueType: 'number',
+            wireType: 'numberOrString',
+            isMultipleCellValue: false,
+            nullable: true,
+          },
+        ],
+      },
+    })._unsafeUnwrap();
+    expect(generated.module).toContain('"total": number | string | null');
+    const compiled = ts.transpileModule(generated.module, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    });
+    const exports = {};
+    const result = { rows: [{ total: 40 }], page: { limit: 1, offset: 0, total: 1 } };
+    const calls: unknown[] = [];
+    const require = (name: string) => {
+      if (name === 'server-only') return {};
+      if (name === './request')
+        return {
+          getConfig: () => ({ baseId: 'bseTest' }),
+          request: async (_endpoint: string, options: unknown) => {
+            calls.push(options);
+            return { ok: true, data: result };
+          },
+        };
+      throw new Error(`Unexpected dependency ${name}`);
+    };
+    new Function('require', 'exports', compiled.outputText)(require, exports);
+    const client = exports as {
+      queries: { totals(parameters: { minimum: number }): Promise<unknown> };
+    };
+    await expect(client.queries.totals({ minimum: 30 })).resolves.toEqual(result);
+    expect(calls).toEqual([
+      expect.objectContaining({
+        body: expect.objectContaining({
+          definition,
+          parameters: { minimum: 30 },
+          queryId: 'totals',
+        }),
+      }),
+    ]);
+  });
+
   it('accepts Todo YAML and equivalent JSON and generates deterministically', () => {
     const parsed = parseDataQueryManifestText(todo)._unsafeUnwrap();
     expect(parseDataQueryManifestText(JSON.stringify(parsed))._unsafeUnwrap()).toEqual(parsed);
@@ -245,40 +323,6 @@ describe('app query manifest files', () => {
     expect(generateAppQueryArtifacts(parsed)._unsafeUnwrap()).toEqual(first);
     expect(parseDataQueryManifestText(JSON.stringify(parsed))._unsafeUnwrap()).toEqual(parsed);
     expect(schema).toMatchObject({ type: 'object', additionalProperties: false });
-  });
-
-  it('matches managed generate and check bytes to the canonical host generator', () => {
-    const root = mkdtempSync(join(tmpdir(), 'teable-query-provenance-'));
-    try {
-      mkdirSync(join(root, 'teable'));
-      const source = getManagedQueryToolSource();
-      expect(source).toContain(
-        `// Teable query generator: ${DATA_QUERY_ARTIFACT_GENERATOR_VERSION}\n`
-      );
-      writeFileSync(join(root, 'teable/query-tool.mjs'), source);
-      writeFileSync(join(root, 'teable/queries.yaml'), todo);
-      const run = (command: string) =>
-        JSON.parse(
-          execFileSync(process.execPath, ['teable/query-tool.mjs', command], {
-            cwd: root,
-            encoding: 'utf8',
-            timeout: 15000,
-          })
-        );
-      expect(run('generate').ok).toBe(true);
-      const expected = generateAppQueryArtifacts(
-        parseDataQueryManifestText(todo)._unsafeUnwrap()
-      )._unsafeUnwrap();
-      expect(readFileSync(join(root, 'lib/queries.ts'), 'utf8')).toBe(expected.module);
-      expect(readFileSync(join(root, 'teable/queries.schema.json'), 'utf8')).toBe(expected.schema);
-      expect(run('manifest-schema')).toEqual(dataQueryManifestJsonSchema());
-      expect(run('generate').ok).toBe(true);
-      expect(run('check').ok).toBe(true);
-      expect(readFileSync(join(root, 'lib/queries.ts'), 'utf8')).toBe(expected.module);
-      expect(readFileSync(join(root, 'teable/queries.schema.json'), 'utf8')).toBe(expected.schema);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
   });
 
   it.each([

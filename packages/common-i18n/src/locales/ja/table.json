@@ -295,7 +295,7 @@
       "showNumber": "数値を表示",
       "autoFillDate": "現在の日付を自動入力",
       "createSymmetricLink": "リンクテーブルにバックリンクフィールドを作成する",
-      "allowLinkMultipleRecords": "複数選択を許可する",
+      "allowLinkMultipleRecords": "複数のレコードへのリンクを許可",
       "allowLinkToDuplicateRecords": "レコードを複数回選択できます",
       "allowSymmetricFieldLinkMultipleRecords": "レコードを複数回選択できます",
       "oneToOne": "1 対 1",
@@ -407,7 +407,7 @@
         "classification": "スマート分類",
         "customization": "カスタマイズ",
         "imageGeneration": "画像生成",
-        "rating": "画像評価"
+        "rating": "評価"
       },
       "label": {
         "type": "AI アクションタイプ",
@@ -417,7 +417,7 @@
         "sourceFieldForTag": "フィールドを選択し、作成されたタグと一致させます",
         "sourceFieldForClassify": "フィールドを選択し、作成された分類と一致させます",
         "attachPrompt": "要件を添付",
-        "prompt": "カスタマイズされたプロンプト",
+        "prompt": "プロンプトをカスタマイズ",
         "sourceFieldForAttachment": "添付ファイルのソースフィールド",
         "imageSize": "画像サイズ",
         "imageQuality": "画像品質",
@@ -964,7 +964,7 @@
     },
     "menu": {
       "addFromOtherSource": "他のソースから追加",
-      "excelFile": "Microsoft Excelル",
+      "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
       "googleSheet": "Google Sheets",
       "csvFile": "CSVファイル",

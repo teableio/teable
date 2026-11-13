@@ -158,6 +158,17 @@ export class FormulaExpression extends ValueObject {
     return ok(calls.some((call) => call.name === 'LAST_MODIFIED_TIME' && call.paramCount > 0));
   }
 
+  /** Whether evaluation needs a source record rather than only explicit arguments. */
+  hasRecordContextFunctions(): Result<boolean, DomainError> {
+    return this.parseTree().map((tree) =>
+      tree
+        .accept(new FunctionCallCollectorVisitor())
+        .some((call) =>
+          ['RECORD_ID', 'CREATED_TIME', 'LAST_MODIFIED_TIME', 'AUTO_NUMBER'].includes(call.name)
+        )
+    );
+  }
+
   getParsedValueType(
     fieldValueTypes: ReadonlyArray<{ id: FieldId | string; valueType: FieldValueType }>
   ): Result<

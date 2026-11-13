@@ -1,6 +1,4 @@
 import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone.js';
-import utc from 'dayjs/plugin/utc.js';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -23,10 +21,7 @@ import type { LongTextField } from '../../domain/table/fields/types/LongTextFiel
 import type { LookupField } from '../../domain/table/fields/types/LookupField';
 import type { MultipleSelectField } from '../../domain/table/fields/types/MultipleSelectField';
 import type { NumberField } from '../../domain/table/fields/types/NumberField';
-import {
-  NumberFormatting,
-  NumberFormattingType,
-} from '../../domain/table/fields/types/NumberFormatting';
+import { NumberFormatting } from '../../domain/table/fields/types/NumberFormatting';
 import type { RatingField } from '../../domain/table/fields/types/RatingField';
 import type { RollupField } from '../../domain/table/fields/types/RollupField';
 import type { SingleLineTextField } from '../../domain/table/fields/types/SingleLineTextField';
@@ -34,8 +29,7 @@ import type { SingleSelectField } from '../../domain/table/fields/types/SingleSe
 import type { UserField } from '../../domain/table/fields/types/UserField';
 import { AbstractFieldVisitor } from '../../domain/table/fields/visitors/AbstractFieldVisitor';
 
-dayjs.extend(utc);
-dayjs.extend(timezone);
+import { dateDisplayPattern, renderDateValue, renderNumberValue } from './cellValueFormatting';
 
 const asArray = (value: unknown): ReadonlyArray<unknown> =>
   Array.isArray(value) ? value : [value];
@@ -50,32 +44,9 @@ const formatGeneric = (value: unknown, multiple: boolean): string => {
   return String(value);
 };
 
-// Past MAX_SAFE_INTEGER toFixed prints the double's full binary expansion, digits the API never returns.
-const toFixedDigits = (value: number, precision: number): string => {
-  if (!Number.isFinite(value) || Math.abs(value) <= Number.MAX_SAFE_INTEGER) {
-    return value.toFixed(precision);
-  }
-  const digits = String(value);
-  const zeros = digits.includes('e') ? '' : '0'.repeat(precision);
-  return zeros ? `${digits}.${zeros}` : digits;
-};
-
 const formatNumber = (value: unknown, formatting: NumberFormatting): string => {
   if (value == null) return '';
-  const number = Number(value);
-  const precision = formatting.precision().toNumber();
-  if (formatting.type() === NumberFormattingType.Currency) {
-    const sign = number < 0 ? '-' : '';
-    const formatted = Math.abs(number).toLocaleString('en-US', {
-      minimumFractionDigits: precision,
-      maximumFractionDigits: precision,
-    });
-    return `${sign}${formatting.symbol() ?? '$'}${formatted}`;
-  }
-  if (formatting.type() === NumberFormattingType.Percent) {
-    return `${toFixedDigits(number * 100, precision)}%`;
-  }
-  return toFixedDigits(number, precision);
+  return renderNumberValue(Number(value), formatting);
 };
 
 const formatDate = (value: unknown, formatting: DateTimeFormatting): string => {
@@ -84,9 +55,7 @@ const formatDate = (value: unknown, formatting: DateTimeFormatting): string => {
   const date = dayjs(text);
   if (!date.isValid()) return text;
 
-  const pattern =
-    formatting.time() === 'None' ? formatting.date() : `${formatting.date()} ${formatting.time()}`;
-  return date.tz(formatting.timeZone().toString()).format(pattern);
+  return renderDateValue(date, dateDisplayPattern(formatting), formatting.timeZone().toString());
 };
 
 const formatWithMultiplicity = (
@@ -241,11 +210,19 @@ export class FieldClipboardValueVisitor extends AbstractFieldVisitor<string> {
   }
 
   visitCreatedTimeField(field: CreatedTimeField): Result<string, DomainError> {
-    return ok(formatDate(this.value, field.formatting()));
+    return ok(
+      formatWithMultiplicity(this.value, this.multiplicityOverride ?? false, (item) =>
+        formatDate(item, field.formatting())
+      )
+    );
   }
 
   visitLastModifiedTimeField(field: LastModifiedTimeField): Result<string, DomainError> {
-    return ok(formatDate(this.value, field.formatting()));
+    return ok(
+      formatWithMultiplicity(this.value, this.multiplicityOverride ?? false, (item) =>
+        formatDate(item, field.formatting())
+      )
+    );
   }
 
   visitUserField(field: UserField): Result<string, DomainError> {

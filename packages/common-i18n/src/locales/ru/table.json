@@ -310,7 +310,7 @@
       "showNumber": "Показать число",
       "autoFillDate": "Автозаполнение текущей датой",
       "createSymmetricLink": "Создать обратную связь в связанной таблице",
-      "allowLinkMultipleRecords": "Разрешить множественный выбор",
+      "allowLinkMultipleRecords": "Разрешить связь с несколькими записями",
       "allowLinkToDuplicateRecords": "Разрешить выбирать записи более одного раза",
       "allowSymmetricFieldLinkMultipleRecords": "Разрешить выбирать записи более одного раза",
       "oneToOne": "один-к-одному",
@@ -415,9 +415,9 @@
     "fieldNameOptional": "Имя поля (Необязательно)",
     "fieldType": "Тип поля",
     "aiConfig": {
-      "title": "Конфигурация AI",
+      "title": "Настройки ИИ",
       "type": {
-        "summary": "Сводка",
+        "summary": "Краткое изложение",
         "translation": "Перевод",
         "extraction": "Извлечение информации",
         "improvement": "Улучшение",
@@ -425,11 +425,11 @@
         "classification": "Смарт-классификация",
         "customization": "Настройка",
         "imageGeneration": "Генерация изображений",
-        "rating": "Оценка изображений"
+        "rating": "Оценка"
       },
       "label": {
-        "type": "Тип действия AI",
-        "model": "Модель AI",
+        "type": "Тип действия ИИ",
+        "model": "Модель ИИ",
         "targetLanguage": "Целевой язык",
         "sourceField": "Исходное поле",
         "sourceFieldForTag": "Выберите поле, сопоставьте его с созданными тегами",
@@ -1036,7 +1036,7 @@
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
       "googleSheet": "Google Sheets",
-      "csvFile": "Csv файл",
+      "csvFile": "CSV-файл",
       "importCsvData": "Импортировать данные CSV",
       "importExcelData": "Импортировать данные Microsoft Excel",
       "cancel": "Отмена",

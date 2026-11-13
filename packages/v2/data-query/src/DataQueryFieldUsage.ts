@@ -4,7 +4,7 @@ import { isRecordFilterFieldReferenceValue } from '@teable/v2-core';
 import {
   walkDataQueryFormulaExpression,
   walkDataQueryPredicateExpressions,
-  type DataQueryPredicateV3,
+  type DataQueryPredicateV5,
 } from './DataQueryExpression';
 import { dataQueryFieldUsageValues } from './types';
 import type { DataQueryDefinitionInput, DataQueryFieldUsage, DataQuerySortTarget } from './types';
@@ -40,7 +40,7 @@ const isLocalFieldReference = (
   (value.tableId === undefined || value.tableId === tableId);
 
 const recordFilterUsages = (
-  node: DataQueryPredicateV3,
+  node: DataQueryPredicateV5,
   tableId: string,
   record: UsageRecorder
 ): void => {
@@ -52,7 +52,7 @@ const recordFilterUsages = (
     recordFilterUsages(node.not, tableId, record);
     return;
   }
-  if ('type' in node) return;
+  if ('type' in node || 'relation' in node) return;
   record(node.fieldId, 'filter');
   // Parameter references resolve to literals or dates, never to field references.
   if (isLocalFieldReference(node.value, tableId)) record(node.value.fieldId, 'reference');
@@ -94,17 +94,36 @@ const recordRelationSourceUsages = (
   record: SourceUsageRecorder
 ): void => {
   if (definition.version === 1) return;
+  const existenceSources = new Set<string>();
+  const recordExistenceSources = (predicate: DataQueryPredicateV5): void => {
+    if ('items' in predicate) {
+      for (const item of predicate.items) recordExistenceSources(item);
+    } else if ('not' in predicate) {
+      recordExistenceSources(predicate.not);
+    } else if ('relation' in predicate) {
+      let source = predicate.relation;
+      while (source !== 'root' && !existenceSources.has(source)) {
+        existenceSources.add(source);
+        source = definition.relations?.[source]?.via ?? 'root';
+      }
+    }
+  };
+  if (definition.version >= 5 && definition.filter) recordExistenceSources(definition.filter);
   for (const [alias, relation] of Object.entries(definition.relations ?? {})) {
     // A multi-hop link is a field of the table it is declared on, not of the root.
     record(relation.via ?? 'root', relation.linkFieldId, 'relation');
     if (!relation.filter) continue;
+    const recordPredicateUsage: SourceUsageRecorder = (source, fieldId, usage) => {
+      record(source, fieldId, usage);
+      if (source === alias && existenceSources.has(alias)) record(source, fieldId, 'existence');
+    };
     recordFilterUsages(relation.filter, relation.tableId, (fieldId, usage) =>
-      record(alias, fieldId, usage)
+      recordPredicateUsage(alias, fieldId, usage)
     );
     walkDataQueryPredicateExpressions(relation.filter, (node) => {
       if (node.type === 'field') {
-        record(node.source ?? alias, node.fieldId, 'filter');
-        record(node.source ?? alias, node.fieldId, 'reference');
+        recordPredicateUsage(node.source ?? alias, node.fieldId, 'filter');
+        recordPredicateUsage(node.source ?? alias, node.fieldId, 'reference');
       }
     });
   }
@@ -161,8 +180,32 @@ export const collectDataQuerySourceFieldUsages = (
       record(sourceOf(group), group.fieldId, 'group');
     }
     for (const aggregate of definition.aggregates) {
-      if (aggregate.fieldId === undefined) continue;
-      record(sourceOf(aggregate), aggregate.fieldId, 'aggregate');
+      const source = sourceOf(aggregate);
+      if (aggregate.fieldId !== undefined) record(source, aggregate.fieldId, 'aggregate');
+      if ('expr' in aggregate)
+        walkDataQueryFormulaExpression(aggregate.expr, (node) => {
+          if (node.type === 'field') {
+            record(node.source ?? source, node.fieldId, 'aggregate');
+            record(node.source ?? source, node.fieldId, 'reference');
+          }
+        });
+      if ('filter' in aggregate && aggregate.filter) {
+        const tableId =
+          source === 'root'
+            ? definition.tableId
+            : definition.version !== 1
+              ? definition.relations?.[source]?.tableId
+              : undefined;
+        recordFilterUsages(aggregate.filter, tableId ?? '', (fieldId, usage) =>
+          record(source, fieldId, usage)
+        );
+        walkDataQueryPredicateExpressions(aggregate.filter, (node) => {
+          if (node.type === 'field') {
+            record(node.source ?? source, node.fieldId, 'filter');
+            record(node.source ?? source, node.fieldId, 'reference');
+          }
+        });
+      }
     }
   }
   const rootRecord: UsageRecorder = (fieldId, usage) => record('root', fieldId, usage);

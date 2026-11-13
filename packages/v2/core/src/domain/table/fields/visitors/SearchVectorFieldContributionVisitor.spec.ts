@@ -7,9 +7,13 @@ import { AutoNumberField } from '../types/AutoNumberField';
 import { CellValueMultiplicity } from '../types/CellValueMultiplicity';
 import { CellValueType } from '../types/CellValueType';
 import { CheckboxField } from '../types/CheckboxField';
+import { CreatedByField } from '../types/CreatedByField';
+import { GeneratedColumnMeta } from '../types/GeneratedColumnMeta';
+import { LastModifiedByField } from '../types/LastModifiedByField';
 import { DateField } from '../types/DateField';
 import { FormulaExpression } from '../types/FormulaExpression';
 import { FormulaField } from '../types/FormulaField';
+import { FormulaMeta } from '../types/FormulaMeta';
 import { LinkField } from '../types/LinkField';
 import { LinkFieldConfig } from '../types/LinkFieldConfig';
 import { LongTextField } from '../types/LongTextField';
@@ -88,6 +92,45 @@ describe('SearchDocumentFieldContributionVisitor', () => {
         },
       })._unsafeUnwrap(),
       expected: { included: true, textProjection: { kind: 'plain' } },
+    },
+    {
+      name: 'formula persisted as a generated column',
+      field: FormulaField.create({
+        id: fieldId('fld0000000000000013'),
+        name: fieldName('Persisted formula'),
+        expression: FormulaExpression.create('"x"')._unsafeUnwrap(),
+        meta: FormulaMeta.rehydrate({ persistedAsGeneratedColumn: true })._unsafeUnwrap(),
+        resultType: {
+          cellValueType: CellValueType.string(),
+          isMultipleCellValue: CellValueMultiplicity.single(),
+        },
+      })._unsafeUnwrap(),
+      expected: { included: false, skippedReason: 'generated_column_dependency' },
+    },
+    {
+      name: 'created by title',
+      field: CreatedByField.create({
+        id: fieldId('fld0000000000000014'),
+        name: fieldName('Created by'),
+      })._unsafeUnwrap(),
+      expected: { included: true, textProjection: { kind: 'structured_title' } },
+    },
+    {
+      name: 'created by persisted as a generated column',
+      field: CreatedByField.create({
+        id: fieldId('fld0000000000000015'),
+        name: fieldName('Created by generated'),
+        meta: GeneratedColumnMeta.rehydrate({ persistedAsGeneratedColumn: true })._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      expected: { included: false, skippedReason: 'generated_column_dependency' },
+    },
+    {
+      name: 'last modified by title',
+      field: LastModifiedByField.create({
+        id: fieldId('fld0000000000000016'),
+        name: fieldName('Last modified by'),
+      })._unsafeUnwrap(),
+      expected: { included: true, textProjection: { kind: 'structured_title' } },
     },
     {
       name: 'text lookup',

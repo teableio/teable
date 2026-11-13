@@ -29,7 +29,7 @@ const POOL_DESTROYED_MESSAGE = 'Table schema coordination pool has been destroye
 
 type CoordinationMode = 'shared' | 'exclusive';
 
-interface ICoordinationLease {
+export interface ICoordinationLease {
   readonly mode: CoordinationMode;
   readonly tableIds: ReadonlyArray<string>;
   release(): Promise<void>;

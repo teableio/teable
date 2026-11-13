@@ -194,9 +194,9 @@
       "isLess": "ist kleiner als",
       "isLessEqual": "ist kleinergleich",
       "isAnyOf": "ist eine von",
-      "isNoneOf": "ist nicht eine von",
+      "isNoneOf": "ist keine von",
       "hasAnyOf": "hat eine von",
-      "hasAllOf": "hat all von",
+      "hasAllOf": "hat alle von",
       "hasNoneOf": "hat keine von",
       "isExactly": "ist genau",
       "isWithIn": "ist enthalten in",
@@ -208,9 +208,9 @@
         "is": "ist",
         "isNot": "ist nicht",
         "isAnyOf": "ist eine von",
-        "isNoneOf": "ist nicht eine von",
+        "isNoneOf": "ist keine von",
         "hasAnyOf": "hat eine von",
-        "hasAllOf": "hat all von",
+        "hasAllOf": "hat alle von",
         "isExactly": "ist genau",
         "isNotExactly": "ist nicht",
         "hasNoneOf": "hat keine von"
@@ -352,7 +352,7 @@
       "singleLineText": "Einzeiliger Text",
       "longText": "Langer Text",
       "singleSelect": "Einfache Auswahl",
-      "number": "Nummer",
+      "number": "Zahl",
       "multipleSelect": "Mehrfachauswahl",
       "link": "Link zu einem anderen Datensatz",
       "formula": "Formel",
@@ -367,7 +367,7 @@
       "rating": "Bewertung",
       "autoNumber": "Automatische Nummer",
       "lookup": "Nachschlag",
-      "conditionalLookup": "Conditional Lookup",
+      "conditionalLookup": "Bedingter Nachschlag",
       "button": "Button",
       "createdBy": "Erstellt von",
       "lastModifiedBy": "Letzte Änderung von"
@@ -524,15 +524,15 @@
       "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "Gibt das nächstgelegene ganzzahlige Vielfache von Bedeutung zurück, das größer oder gleich dem Wert ist. Wird keine Wertigkeit angegeben, wird eine Wertigkeit von 1 angenommen.",
+      "summary": "Rundet den Wert auf die angegebene Anzahl an Dezimalstellen auf (Standard: 0). Negative Stellen runden auf Zehner, Hunderter usw. auf.",
       "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "Gibt das nächstgelegene ganzzahlige Vielfache von Bedeutung zurück, das kleiner oder gleich dem Wert ist. Wird keine Wertigkeit angegeben, wird eine Wertigkeit von 1 angenommen.",
+      "summary": "Rundet den Wert auf die angegebene Anzahl an Dezimalstellen ab (Standard: 0). Negative Stellen runden auf Zehner, Hunderter usw. ab.",
       "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "Gibt die kleinste gerade Ganzzahl zurück, die größer oder gleich dem angegebenen Wert ist.",
+      "summary": "Rundet positive Werte auf und negative Werte ab, jeweils auf die nächste gerade Ganzzahl.",
       "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
@@ -553,7 +553,7 @@
     },
     "POWER": {
       "summary": "Berechnet die angegebene Basis mit der angegebenen Potenz.",
-      "example": "POWER(2) => 4"
+      "example": "POWER(2, 2) => 4"
     },
     "EXP": {
       "summary": "Berechnet die Eulersche Zahl (e) mit der angegebenen Potenz.",
@@ -625,7 +625,7 @@
     },
     "REPT": {
       "summary": "Wiederholt Zeichenkette um die angegebene Anzahl von Malen.",
-      "example": "REPT(\"Hallo!\") => \"Hallo!Hallo!Hallo!\""
+      "example": "REPT(\"Hallo!\", 3) => \"Hallo!Hallo!Hallo!\""
     },
     "TRIM": {
       "summary": "Entfernt Leerzeichen am Anfang und Ende der Zeichenkette.",
@@ -673,7 +673,7 @@
     },
     "ERROR": {
       "summary": "Gibt den Fehlerwert zurück.",
-      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "Gibt wahr zurück, wenn der Ausdruck einen Fehler verursacht.",
@@ -729,7 +729,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Gibt die Differenz zwischen den Zeitpunkten in den angegebenen Einheiten zurück. Standardeinheit ist \"day\".\nUnterstützte Einheiten: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nDie Differenz zwischen Datumszeiten wird durch Subtraktion von [datum2] von [datum1] ermittelt. Das bedeutet, dass der resultierende Wert negativ ist, wenn [datum2] später als [datum1] liegt.",
-      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "Gibt den Arbeitstag bis zum Startdatum zurück, ohne die angegebenen Feiertage",
@@ -761,7 +761,7 @@
     },
     "TIMESTR": {
       "summary": "Formatiert eine Datumsangabe in eine reine Zeitzeichenfolge (HH:mm:ss).",
-      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+      "example": "TIMESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
       "summary": "Formatiert eine Datumsangabe in eine angegebene Zeichenkette. Für eine Erklärung, wie diese Funktion mit Datumsfeldern verwendet werden kann, klicken Sie hier. Für eine Liste der unterstützten Formatspezifikationen klicken Sie bitte hier.",
@@ -915,7 +915,7 @@
     "tip": {
       "editing": "Bearbeiten...",
       "edited": "(Bearbeitet)",
-      "notifyAll": "Alle Kommentare benachrichtigen",
+      "notifyAll": "Bei allen Kommentaren benachrichtigen",
       "notifyRelatedToMe": "Kommentare, die sich auf mich beziehen, benachrichtigen",
       "all": "Alle",
       "relatedToMe": "Mit mir verbunden",
@@ -1671,7 +1671,10 @@
       "categoryDepthExceeded": "Eine Unterbranche kann keine eigenen Unterbranchen haben",
       "teamIsFlat": "Ein Team hat weder eine übergeordnete Kategorie noch Unterkategorien",
       "categoryKeyTaken": "Dieser URL-Schlüssel wird bereits von einer anderen Kategorie verwendet",
-      "slugTaken": "Dieser URL-Slug wird bereits von einer anderen Vorlage verwendet"
+      "slugTaken": "Dieser URL-Slug wird bereits von einer anderen Vorlage verwendet",
+      "guideStepLeftOut": "Der Leitfadenschritt „{{title}}“ öffnet etwas, das diese Einreichung nicht enthält.",
+      "guideStepStartsTicked": "Der Leitfadenschritt „{{title}}“ ist in den Beispieldatensätzen bereits erledigt und wäre daher von Anfang an abgehakt.",
+      "guideNothingToConnect": "Der Leitfadenschritt „{{title}}“ wartet auf verbundene Konten, aber dieses Projekt braucht keine – er wäre von Anfang an abgehakt."
     },
     "department": {
       "parentNotFound": "Übergeordnete Abteilung nicht gefunden",
@@ -1831,5 +1834,8 @@
     "seats": {
       "unit": "Plätze"
     }
+  },
+  "template": {
+    "trialName": "{{name}} (Test)"
   }
 }

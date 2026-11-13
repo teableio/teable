@@ -27,24 +27,29 @@ const flattenedFunctions: ReadonlyArray<TableRecordAggregationFunction> = [
 ];
 
 export const buildTableRecordAggregationExpression = (
-  field: Field,
-  columnName: string,
+  value: RawBuilder<unknown>,
   statisticFunc: TableRecordAggregationFunction,
-  tableAlias = 'a'
+  field?: Field,
+  predicate?: RawBuilder<unknown>
 ): RawBuilder<unknown> => {
-  const column = sql.ref(`${tableAlias}.${columnName}`);
-  const fieldType = field.type().toString();
-  const valueType = field.accept(new FieldValueTypeVisitor())._unsafeUnwrap();
-  const isMultiple = valueType.isMultipleCellValue.toBoolean();
-  const isUserLike = ['user', 'createdBy', 'lastModifiedBy'].includes(fieldType);
+  const filter = predicate ? sql` filter (where ${predicate})` : sql``;
+  const fieldType = field?.type().toString();
+  const valueType = field?.accept(new FieldValueTypeVisitor())._unsafeUnwrap();
+  const isMultiple = valueType?.isMultipleCellValue.toBoolean() ?? false;
+  const isUserLike =
+    fieldType !== undefined && ['user', 'createdBy', 'lastModifiedBy'].includes(fieldType);
   const flattenedValues = sql`jsonb_array_elements_text(
     jsonb_path_query_array(
-      coalesce(jsonb_agg(${column}::jsonb) filter (where ${column} is not null), '[]'::jsonb),
+      coalesce(jsonb_agg(${value}::jsonb) filter (where ${
+        predicate ? sql`(${predicate}) and ${value} is not null` : sql`${value} is not null`
+      }), '[]'::jsonb),
       '$[*][*]'
     )
   ) as flattened(value)`;
   const numericValue = sql`nullif(regexp_replace(value, '[^0-9.+-]', '', 'g'), '')::double precision`;
-  const denominator = sql`greatest(count(*), 1)`;
+  const count = sql`count(*)${filter}`;
+  const filled = sql`count(${value})${filter}`;
+  const denominator = sql`greatest(${count}, 1)`;
 
   if (isMultiple && flattenedFunctions.includes(statisticFunc)) {
     switch (statisticFunc) {
@@ -74,65 +79,66 @@ export const buildTableRecordAggregationExpression = (
     }
   }
 
+  const identity = isUserLike ? sql`(${value}::jsonb ->> 'id')` : value;
+  const checked = isMultiple
+    ? sql`sum(case when ${value}::jsonb @> '[true]'::jsonb then 1 else 0 end)${filter}`
+    : sql`sum(case when ${value} = true then 1 else 0 end)${filter}`;
+  const unchecked = isMultiple
+    ? sql`sum(case when ${value} is null or not (${value}::jsonb @> '[true]'::jsonb) then 1 else 0 end)${filter}`
+    : sql`sum(case when ${value} = false or ${value} is null then 1 else 0 end)${filter}`;
+  const minimum = sql`min(${value})${filter}`;
+  const maximum = sql`max(${value})${filter}`;
   switch (statisticFunc) {
     case 'count':
-      return sql`count(*)`;
+      return count;
     case 'empty':
-      return sql`count(*) - count(${column})`;
+      return sql`${count} - ${filled}`;
     case 'filled':
-      return sql`count(${column})`;
+      return filled;
     case 'unique':
-      return isUserLike
-        ? sql`count(distinct (${column}::jsonb ->> 'id'))`
-        : sql`count(distinct ${column})`;
+      return sql`count(distinct ${identity})${filter}`;
     case 'max':
-      return sql`max(${column})`;
+      return maximum;
     case 'min':
-      return sql`min(${column})`;
+      return minimum;
     case 'sum':
-      return sql`sum(${column})`;
+      return sql`sum(${value})${filter}`;
     case 'average':
-      return sql`avg(${column})`;
+      return sql`avg(${value})${filter}`;
     case 'checked':
-      return isMultiple
-        ? sql`sum(case when ${column}::jsonb @> '[true]'::jsonb then 1 else 0 end)`
-        : sql`sum(case when ${column} = true then 1 else 0 end)`;
+      return checked;
     case 'unChecked':
-      return isMultiple
-        ? sql`sum(case when ${column} is null or not (${column}::jsonb @> '[true]'::jsonb) then 1 else 0 end)`
-        : sql`sum(case when ${column} = false or ${column} is null then 1 else 0 end)`;
+      return unchecked;
     case 'percentEmpty':
-      return sql`(count(*) - count(${column})) * 100.0 / ${denominator}`;
+      return sql`(${count} - ${filled}) * 100.0 / ${denominator}`;
     case 'percentFilled':
-      return sql`count(${column}) * 100.0 / ${denominator}`;
+      return sql`${filled} * 100.0 / ${denominator}`;
     case 'percentUnique':
-      return isUserLike
-        ? sql`count(distinct (${column}::jsonb ->> 'id')) * 100.0 / ${denominator}`
-        : sql`count(distinct ${column}) * 100.0 / ${denominator}`;
+      return sql`count(distinct ${identity})${filter} * 100.0 / ${denominator}`;
     case 'percentChecked':
-      return isMultiple
-        ? sql`sum(case when ${column}::jsonb @> '[true]'::jsonb then 1 else 0 end) * 100.0 / ${denominator}`
-        : sql`sum(case when ${column} = true then 1 else 0 end) * 100.0 / ${denominator}`;
+      return predicate
+        ? sql`coalesce(${checked}, 0) * 100.0 / ${denominator}`
+        : sql`${checked} * 100.0 / ${denominator}`;
     case 'percentUnChecked':
-      return isMultiple
-        ? sql`sum(case when ${column} is null or not (${column}::jsonb @> '[true]'::jsonb) then 1 else 0 end) * 100.0 / ${denominator}`
-        : sql`sum(case when ${column} = false or ${column} is null then 1 else 0 end) * 100.0 / ${denominator}`;
+      return predicate
+        ? sql`coalesce(${unchecked}, 0) * 100.0 / ${denominator}`
+        : sql`${unchecked} * 100.0 / ${denominator}`;
     case 'earliestDate':
-      return sql`min(${column})`;
+      return minimum;
     case 'latestDate':
-      return sql`max(${column})`;
+      return maximum;
     case 'dateRangeOfDays':
-      return sql`extract(day from (max(${column}) - min(${column})))::integer`;
+      return sql`extract(day from (${maximum} - ${minimum}))::integer`;
     case 'dateRangeOfMonths':
       return sql`(
-        extract(year from age(max(${column}), min(${column}))) * 12 +
-        extract(month from age(max(${column}), min(${column})))
+        extract(year from age(${maximum}, ${minimum})) * 12 +
+        extract(month from age(${maximum}, ${minimum}))
       )::integer`;
     case 'totalAttachmentSize':
       return sql`sum(coalesce((
         select sum((element.value ->> 'size')::integer)
-        from jsonb_array_elements(coalesce(${column}::jsonb, '[]'::jsonb)) as element(value)
-      ), 0))`;
+        from jsonb_array_elements(coalesce(${value}::jsonb, '[]'::jsonb)) as element(value)
+      ), 0))${filter}`;
   }
 };
 

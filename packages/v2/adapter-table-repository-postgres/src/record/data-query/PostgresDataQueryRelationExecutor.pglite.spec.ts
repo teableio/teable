@@ -2,18 +2,22 @@ import {
   ActorId,
   buildRecordConditionSpec,
   DefaultTableMapper,
+  NoopLogger,
+  RecordQueryPluginRunner,
   type ITablePersistenceDTO,
   type RecordQueryPluginScope,
   type Table,
 } from '@teable/v2-core';
 import {
   DataQueryDefinition,
+  DataQueryService,
   DataQueryRelationBinding,
   type DataQueryFormulaExpression,
   type DataQueryFormulaReference,
   type DataQueryRelationPlan,
 } from '@teable/v2-data-query';
 import { sql } from 'kysely';
+import { ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -243,6 +247,56 @@ describe('Postgres relation data query on PGlite', () => {
       plan: binding.plan,
     });
   };
+
+  it('v4 evaluates root metrics against root and to-one inputs before grouped output HAVING', async () => {
+    const tables = [root, target];
+    const service = new DataQueryService(
+      { findOne: async (_context, spec) => ok(tables.find((table) => spec.isSatisfiedBy(table))!) },
+      new RecordQueryPluginRunner([], new NoopLogger()),
+      executor
+    );
+    const parsed = DataQueryDefinition.create({
+      version: 4,
+      kind: 'aggregate',
+      tableId: rootTableId,
+      relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+      groupBy: [{ source: 'owner', fieldId: targetNameId, alias: 'owner' }],
+      aggregates: [
+        {
+          expr: formula('LEN(CONCATENATE({title}, {owner}))', {
+            title: reference(titleId),
+            owner: reference(targetNameId, 'owner'),
+          }),
+          statisticFunc: 'sum',
+          alias: 'value',
+        },
+        {
+          expr: formula('IF(RECORD_ID() = "recA", 1, 0)', {}),
+          statisticFunc: 'sum',
+          alias: 'identity',
+        },
+      ],
+      having: {
+        type: 'formula',
+        formula: '{value} > 7',
+        references: {
+          value: { type: 'output', alias: 'value' },
+        },
+      },
+      sort: [{ alias: 'value', order: 'desc' }],
+      page: { limit: 10, includeTotal: true },
+    });
+    if (parsed.isErr()) throw new Error(JSON.stringify(parsed.error));
+    const result = await service.execute(context, parsed.value);
+    if (result.isErr()) throw new Error(JSON.stringify(result.error));
+    expect(result.value).toEqual({
+      rows: [
+        { owner: null, value: 10, identity: 0 },
+        { owner: 'One', value: 8, identity: 1 },
+      ],
+      page: { limit: 10, offset: 0, total: 2 },
+    });
+  });
 
   it('keeps expression relation predicates in ON and combines masked to-one operands', async () => {
     const result = await executeExpressions(

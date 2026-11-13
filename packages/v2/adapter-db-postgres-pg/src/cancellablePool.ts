@@ -36,30 +36,39 @@ const acquire = (pool: Pool, scope: CancellationScope): Promise<PoolClient> => {
 
 const checkout = (
   client: PoolClient,
-  scope: CancellationScope,
+  scope: CancellationScope | undefined,
   connectionConstructor: PostgresProtocolConnectionConstructor
 ): PostgresPoolClient => {
-  const { signal } = scope;
+  const signal = scope?.signal;
   let released = false;
   let releaseRequested = false;
   let cancellationAttempted = false;
   let cancellationSettled = true;
   let statementSequence = 0;
   let activeStatement: number | undefined;
+  let connectionFailure: Error | undefined;
+  const onClientError = (error: Error) => {
+    connectionFailure ??= error;
+    releaseRequested = true;
+    releaseIfSettled();
+  };
+  client.on('error', onClientError);
 
   const releaseIfSettled = () => {
     if (released || !releaseRequested || activeStatement || !cancellationSettled) return;
     released = true;
-    // An abort between statements still prevents Kysely's ROLLBACK from running.
-    // Retire that checkout too: returning it idle could expose an open transaction.
-    client.release(cancellationAttempted || signal.aborted);
+    client.removeListener('error', onClientError);
+    // An abort between statements can prevent Kysely's ROLLBACK from running.
+    client.release(connectionFailure ?? (cancellationAttempted || signal?.aborted === true));
   };
 
   const query = async <R>(
     text: string,
     parameters: ReadonlyArray<unknown>
   ): Promise<PostgresQueryResult<R>> => {
-    if (signal.aborted || cancellationAttempted) throw recordPostgresQueryCancellation(scope);
+    if (connectionFailure) throw connectionFailure;
+    if (scope && (signal?.aborted || cancellationAttempted))
+      throw recordPostgresQueryCancellation(scope);
     if (released || releaseRequested) throw new Error('PostgreSQL checkout already released');
     // Kysely serializes work on a reserved connection. Do not put a second statement
     // behind one whose CancelRequest could still be in flight.
@@ -81,15 +90,17 @@ const checkout = (
           releaseIfSettled();
         });
     };
-    signal.addEventListener('abort', abort, { once: true });
+    signal?.addEventListener('abort', abort, { once: true });
     try {
       // Call the real instrumented pg method; Kysely already owns this parameter array.
       const result = await client.query(text, parameters as unknown[]);
-      if (signal.aborted) throw recordPostgresQueryCancellation(scope);
+      if (connectionFailure) throw connectionFailure;
+      if (scope && signal?.aborted) throw recordPostgresQueryCancellation(scope);
       return result as PostgresQueryResult<R>;
     } catch (error) {
       if (
-        signal.aborted &&
+        scope &&
+        signal?.aborted &&
         cancellationAttempted &&
         error instanceof Error &&
         'code' in error &&
@@ -97,9 +108,9 @@ const checkout = (
       ) {
         throw recordPostgresQueryCancellation(scope, error);
       }
-      throw error;
+      throw connectionFailure ?? error;
     } finally {
-      signal.removeEventListener('abort', abort);
+      signal?.removeEventListener('abort', abort);
       activeStatement = undefined;
       releaseIfSettled();
     }
@@ -123,10 +134,9 @@ export const createCancellablePool = (
 ): PostgresPool => ({
   connect: async () => {
     const scope = getPostgresQueryCancellationScope();
-    if (!scope) return pool.connect();
-    const client = await acquire(pool, scope);
+    const client = scope ? await acquire(pool, scope) : await pool.connect();
     // Abort can win between the acquisition's resolution and this continuation.
-    if (scope.signal.aborted) {
+    if (scope?.signal.aborted) {
       client.release();
       throw recordPostgresQueryCancellation(scope);
     }

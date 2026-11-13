@@ -10,6 +10,7 @@ import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/s
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
+import type { TableId } from '../domain/table/TableId';
 import type { IBatchMutationOrchestration } from './BatchMutationOrchestration';
 import type { IExecutionContext } from './ExecutionContext';
 import type { UndoRedoArchiveTrashRow } from './UndoRedoStore';
@@ -131,6 +132,9 @@ export interface InsertManyStreamOptions {
    */
   orchestration?: IBatchMutationOrchestration;
 
+  /** Same-transaction owned schema IDs, forwarded to each inserted batch's computed planner. */
+  scopedPendingTableIds?: ReadonlyArray<TableId>;
+
   /**
    * Callback invoked after the corresponding yielded batch is persisted.
    * `batchIndex` follows the source iterable emission order so callers can
@@ -231,6 +235,13 @@ export interface UpdateManyStreamOptions {
    * Batch write orchestration metadata for realtime/computed projection grouping.
    */
   orchestration?: IBatchMutationOrchestration;
+
+  /**
+   * Pending schemas successfully changed by this same transaction before the write.
+   * Computed planning may include only these owned tables; other pending tables stay excluded.
+   * This scope must not outlive the schema-owning transaction/chunk.
+   */
+  scopedPendingTableIds?: ReadonlyArray<TableId>;
 
   /** Callback invoked after each batch is updated */
   onBatchUpdated?: (progress: UpdateManyStreamProgress) => void;
@@ -366,6 +377,9 @@ export interface InsertOptions {
    * Batch write orchestration metadata for realtime/computed projection grouping.
    */
   orchestration?: IBatchMutationOrchestration;
+
+  /** Transaction-owned pending schema IDs for computed planning; never a global pending bypass. */
+  scopedPendingTableIds?: ReadonlyArray<TableId>;
 
   /**
    * Optional ordering specification for the inserted record(s).

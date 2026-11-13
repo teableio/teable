@@ -422,6 +422,41 @@ describe('GlobalExceptionFilter', () => {
     });
   });
 
+  it.each([
+    [
+      '42P01',
+      'data_db.relation_missing',
+      'A required table or relation is missing from the bound data database.',
+    ],
+    ['3F000', 'data_db.schema_missing', 'The bound data database internal schema is missing.'],
+  ])(
+    'does not describe a missing database object as a connection outage: %s',
+    (code, classification, message) => {
+      const cls = {
+        get: (key: string) =>
+          key === 'dataDb' ? { mode: 'byodb', connectionId: dataDbConnectionId } : undefined,
+      };
+      const exception = Object.assign(
+        new Error('relation "private_fixture_table" does not exist'),
+        { code }
+      );
+      const filter = new GlobalExceptionFilter(configService as never, cls as never);
+
+      filter.catch(exception, host as never);
+
+      expect(response.status).toHaveBeenCalledWith(500);
+      expect(response.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 500,
+          code: HttpErrorCode.INTERNAL_SERVER_ERROR,
+          message,
+          data: { dataDb: expect.objectContaining({ code: classification, retryable: false }) },
+        })
+      );
+      expect(JSON.stringify(response.json.mock.calls)).not.toContain('private_fixture_table');
+    }
+  );
+
   // NestInstrumentation used to do this on its handler span; it is disabled now, so the
   // filter is the only thing left that sees a thrown exception with the span active.
   it('records the exception on the span but leaves 4xx unmarked', () => {

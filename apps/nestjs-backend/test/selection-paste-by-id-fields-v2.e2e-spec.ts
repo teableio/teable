@@ -3,13 +3,14 @@ import type { INestApplication } from '@nestjs/common';
 import {
   Colors,
   FieldType,
+  NumberFormattingType,
   Relationship,
   ViewType,
   generateWorkflowId,
   getRandomString,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IPasteByIdVo } from '@teable/openapi';
+import type { IPasteByIdVo, ITableFullVo } from '@teable/openapi';
 import {
   axios,
   PASTE_BY_ID_URL,
@@ -21,14 +22,20 @@ import {
 } from '@teable/openapi';
 import { thresholdConfig } from '../src/configs/threshold.config';
 import { FieldCreatingService } from '../src/features/field/field-calculate/field-creating.service';
+import * as fieldFactory from '../src/features/field/model/factory';
 import {
+  createBase,
   createField,
+  createRecords,
+  createSpace,
   createTable,
   createView,
   getFields,
   getRecord,
   getView,
   initApp,
+  permanentDeleteBase,
+  permanentDeleteSpace,
   permanentDeleteTable,
   updateViewColumnMeta,
 } from './utils/init-app';
@@ -54,6 +61,341 @@ describe('Selection paste-by-id field expansion (v2, non-stream HTTP)', () => {
   const hideFieldInView = async (tableId: string, viewId: string, fieldId: string) => {
     await updateViewColumnMeta(tableId, viewId, [{ fieldId, columnMeta: { hidden: true } }]);
   };
+
+  it('keeps non-divisible by-id selections within the submitted clipboard quota', async () => {
+    const target = await createTable(baseId, {
+      name: 'Native by-id quota boundary',
+      fields: [
+        { name: 'Title', type: FieldType.SingleLineText },
+        { name: 'Detail', type: FieldType.SingleLineText },
+      ],
+      records: [
+        { fields: { Title: 'before-one', Detail: 'keep-one' } },
+        { fields: { Title: 'before-two', Detail: 'keep-two' } },
+        { fields: { Title: 'before-three', Detail: 'keep-three' } },
+      ],
+    });
+    const config = app.get(thresholdConfig.KEY);
+    const previousLimit = config.maxPasteCells;
+    try {
+      config.maxPasteCells = 4;
+      const [title, detail] = target.fields;
+      const response = await pasteById(target.id, {
+        viewId: target.views[0].id,
+        selection: {
+          recordIds: target.records.map((record) => record.id),
+          fieldIds: [title.id, detail.id],
+        },
+        content: [
+          ['first', 'detail-one'],
+          ['second', 'detail-two'],
+        ],
+      });
+      expect(response.status, JSON.stringify(response.data)).toBe(200);
+      expect(response.data.createdFieldIds ?? []).toEqual([]);
+      expect(response.data.createdRecordIds ?? []).toEqual([]);
+      expect((await getRecord(target.id, target.records[0].id)).fields).toMatchObject({
+        [title.id]: 'first',
+        [detail.id]: 'detail-one',
+      });
+      expect((await getRecord(target.id, target.records[1].id)).fields).toMatchObject({
+        [title.id]: 'second',
+        [detail.id]: 'detail-two',
+      });
+      expect((await getRecord(target.id, target.records[2].id)).fields).toMatchObject({
+        [title.id]: 'before-three',
+        [detail.id]: 'keep-three',
+      });
+      expect((await getFields(target.id)).map((field) => field.id)).toEqual([title.id, detail.id]);
+    } finally {
+      config.maxPasteCells = previousLimit;
+      await permanentDeleteTable(baseId, target.id);
+    }
+  });
+
+  it('retires the legacy factory for no-header string paste-by-id updates and creates', async () => {
+    const target = await createTable(baseId, {
+      name: 'Native by-id string payload',
+      fields: [
+        { name: 'Title', type: FieldType.SingleLineText },
+        { name: 'Amount', type: FieldType.Number },
+        { name: 'Checked', type: FieldType.Checkbox },
+      ],
+      records: [{ fields: { Title: 'before', Amount: 1 } }],
+    });
+    try {
+      const [title, amount, checked] = target.fields;
+      const retiredFactory = vi
+        .spyOn(fieldFactory, 'createFieldInstanceByVo')
+        .mockImplementation(() => {
+          throw new Error('Legacy field factory is retired for native paste-by-id payloads');
+        });
+      let response;
+      try {
+        response = await pasteById(target.id, {
+          viewId: target.views[0].id,
+          selection: {
+            recordIds: [target.records[0].id],
+            fieldIds: [title.id, amount.id, checked.id],
+          },
+          content: 'updated\t12.5\ttrue\ncreated-item\t7\ttrue',
+        });
+      } finally {
+        retiredFactory.mockRestore();
+      }
+      expect(response.status, JSON.stringify(response.data)).toBe(200);
+      expect(response.headers['x-teable-v2']).toBe('true');
+      expect(response.data.createdRecordIds).toHaveLength(1);
+      const createdId = response.data.createdRecordIds![0];
+      expect(response.data.pastedRecordIds).toEqual([target.records[0].id, createdId]);
+      expect((await getRecord(target.id, target.records[0].id)).fields).toMatchObject({
+        [title.id]: 'updated',
+        [amount.id]: 12.5,
+        [checked.id]: true,
+      });
+      expect((await getRecord(target.id, createdId)).fields).toMatchObject({
+        [title.id]: 'created-item',
+        [amount.id]: 7,
+        [checked.id]: true,
+      });
+    } finally {
+      await permanentDeleteTable(baseId, target.id);
+    }
+  });
+
+  it('retires the legacy factory for typed-header paste-by-id conversion and defaults', async () => {
+    const source = await createTable(baseId, {
+      name: 'Native by-id clipboard source',
+      fields: [
+        { name: 'Title', type: FieldType.SingleLineText },
+        {
+          name: 'Percent',
+          type: FieldType.Number,
+          options: { formatting: { type: NumberFormattingType.Percent, precision: 1 } },
+        },
+        {
+          name: 'When',
+          type: FieldType.Date,
+          options: {
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'Asia/Tokyo' },
+          },
+        },
+        {
+          name: 'Tags',
+          type: FieldType.MultipleSelect,
+          options: { choices: [{ name: 'Alpha, Beta' }, { name: 'Gamma' }] },
+        },
+        { name: 'Ignored', type: FieldType.SingleLineText },
+      ],
+      records: [],
+    });
+    let target: ITableFullVo | undefined;
+    try {
+      target = await createTable(baseId, {
+        name: 'Native by-id typed destination',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText, notNull: true },
+          { name: 'Percent text', type: FieldType.SingleLineText },
+          { name: 'When text', type: FieldType.SingleLineText },
+          {
+            name: 'Tags',
+            type: FieldType.MultipleSelect,
+            options: { choices: [{ name: 'Existing' }] },
+          },
+          {
+            name: 'Default status',
+            type: FieldType.SingleLineText,
+            options: { defaultValue: 'Default status' },
+          },
+        ],
+        records: [{ fields: { Title: 'before', ['Default status']: 'Existing status' } }],
+      });
+      const [title, percent, when, tags, defaultStatus] = target.fields;
+      const computed = await createField(target.id, {
+        name: 'Title length',
+        type: FieldType.Formula,
+        options: { expression: `LEN({${title.id}})` },
+      });
+      const retiredFactory = vi
+        .spyOn(fieldFactory, 'createFieldInstanceByVo')
+        .mockImplementation(() => {
+          throw new Error('Legacy field factory is retired for native paste-by-id payloads');
+        });
+      let response;
+      try {
+        response = await pasteById(target.id, {
+          viewId: target.views[0].id,
+          selection: {
+            recordIds: [target.records[0].id],
+            fieldIds: [title.id, percent.id, when.id, tags.id, computed.id],
+          },
+          header: source.fields,
+          content: [
+            ['updated', 0.25, '2026-02-01T23:45:00.000Z', ['Alpha, Beta', 'Gamma'], '999'],
+            ['created-item', '0.25', '2026-02-02 08:45', ['Delta'], '999'],
+          ],
+        });
+      } finally {
+        retiredFactory.mockRestore();
+      }
+      expect(response.status, JSON.stringify(response.data)).toBe(200);
+      expect(response.headers['x-teable-v2']).toBe('true');
+      expect(response.data.createdRecordIds).toHaveLength(1);
+      const createdId = response.data.createdRecordIds![0];
+      expect(response.data.pastedRecordIds).toEqual([target.records[0].id, createdId]);
+      expect((await getRecord(target.id, target.records[0].id)).fields).toMatchObject({
+        [title.id]: 'updated',
+        [percent.id]: '25.0%',
+        [when.id]: '2026-02-02 08:45',
+        [tags.id]: ['Alpha, Beta', 'Gamma'],
+        [computed.id]: 7,
+        [defaultStatus.id]: 'Existing status',
+      });
+      expect((await getRecord(target.id, createdId)).fields).toMatchObject({
+        [title.id]: 'created-item',
+        [percent.id]: '25.0%',
+        [when.id]: '2026-02-02 08:45',
+        [tags.id]: ['Delta'],
+        [computed.id]: 12,
+        [defaultStatus.id]: 'Default status',
+      });
+      const savedTags = (await getFields(target.id)).find((field) => field.id === tags.id)!;
+      expect(savedTags.options).toMatchObject({
+        choices: expect.arrayContaining([
+          expect.objectContaining({ name: 'Existing' }),
+          expect.objectContaining({ name: 'Alpha, Beta' }),
+          expect.objectContaining({ name: 'Gamma' }),
+          expect.objectContaining({ name: 'Delta' }),
+        ]),
+      });
+    } finally {
+      if (target) await permanentDeleteTable(baseId, target.id);
+      await permanentDeleteTable(baseId, source.id);
+    }
+  });
+
+  it('expands cross-space scalar lookup and rollup headers without retaining foreign references', async () => {
+    const spaceIds: string[] = [];
+    const baseIds: string[] = [];
+    try {
+      for (const name of ['Source', 'Destination']) {
+        const space = await createSpace({ name: `Scalar clipboard ${name}` });
+        spaceIds.push(space.id);
+        const base = await createBase({ spaceId: space.id, name: `Scalar clipboard ${name}` });
+        baseIds.push(base.id);
+      }
+      const [sourceBaseId, destinationBaseId] = baseIds;
+      const details = await createTable(sourceBaseId, {
+        name: 'Clipboard details',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Amount', type: FieldType.Number },
+        ],
+        records: [{ fields: { Name: 'Item', Amount: 12.5 } }],
+      });
+      const source = await createTable(sourceBaseId, {
+        name: 'Clipboard computed source',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [],
+      });
+      const link = await createField(source.id, {
+        name: 'Detail',
+        type: FieldType.Link,
+        options: {
+          foreignTableId: details.id,
+          relationship: Relationship.ManyOne,
+          isOneWay: true,
+        },
+      });
+      const lookup = await createField(source.id, {
+        name: 'Copied label',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: details.id,
+          linkFieldId: link.id,
+          lookupFieldId: details.fields[0].id,
+        },
+      });
+      const rollup = await createField(source.id, {
+        name: 'Copied total',
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: details.id,
+          linkFieldId: link.id,
+          lookupFieldId: details.fields[1].id,
+        },
+      });
+      const sourceRecords = await createRecords(source.id, {
+        records: [
+          { fields: { [source.fields[0].id]: 'after', [link.id]: { id: details.records[0].id } } },
+        ],
+      });
+      const sourceRecord = await getRecord(source.id, sourceRecords.records[0].id);
+      expect(sourceRecord.fields[lookup.id]).toBe('Item');
+      expect(sourceRecord.fields[rollup.id]).toBe(12.5);
+      const target = await createTable(destinationBaseId, {
+        name: 'Clipboard scalar destination',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [{ fields: { Title: 'before' } }],
+      });
+      const response = await pasteById(target.id, {
+        viewId: target.views[0].id,
+        selection: { recordIds: [target.records[0].id], fieldIds: [target.fields[0].id] },
+        header: [source.fields[0], lookup, rollup],
+        content: [['after', sourceRecord.fields[lookup.id], sourceRecord.fields[rollup.id]]],
+      });
+      expect(response.status, JSON.stringify(response.data)).toBe(200);
+      expect(response.headers['x-teable-v2']).toBe('true');
+      expect(response.data.createdFieldIds).toHaveLength(2);
+      const [lookupId, rollupId] = response.data.createdFieldIds!;
+      const fields = await getFields(target.id);
+      expect(fields.find((field) => field.id === lookupId)).toMatchObject({
+        name: 'Copied label',
+        type: FieldType.SingleLineText,
+      });
+      expect(fields.find((field) => field.id === rollupId)).toMatchObject({
+        name: 'Copied total',
+        type: FieldType.Number,
+      });
+      for (const field of fields.filter((field) => [lookupId, rollupId].includes(field.id))) {
+        expect(field.isLookup).toBeUndefined();
+        expect(field.isComputed).toBeUndefined();
+        expect(field.lookupOptions).toBeUndefined();
+        expect(field.options).not.toHaveProperty('foreignTableId');
+      }
+      const beforeRejectedLink = await getRecord(target.id, target.records[0].id);
+      expect(beforeRejectedLink.fields).toMatchObject({
+        [target.fields[0].id]: 'after',
+        [lookupId]: 'Item',
+        [rollupId]: 12.5,
+      });
+
+      const rejectedLink = await pasteById(target.id, {
+        viewId: target.views[0].id,
+        selection: {
+          recordIds: [target.records[0].id],
+          fieldIds: [target.fields[0].id, lookupId, rollupId],
+        },
+        header: [source.fields[0], lookup, rollup, link],
+        content: [['not-written', 'not-written', 99, 'Item']],
+      });
+      expect(rejectedLink.status).toBe(400);
+      expect(rejectedLink.data).toMatchObject({
+        data: { localization: { i18nKey: 'httpErrors.field.crossSpaceLinkForbidden' } },
+      });
+      expect((await getFields(target.id)).map((field) => field.id)).toEqual(
+        fields.map((field) => field.id)
+      );
+      expect((await getRecord(target.id, target.records[0].id)).fields).toEqual(
+        beforeRejectedLink.fields
+      );
+    } finally {
+      for (const id of baseIds.reverse()) await permanentDeleteBase(id);
+      for (const id of spaceIds.reverse()) await permanentDeleteSpace(id);
+    }
+  });
 
   it('expands through public v2 HTTP after the legacy field expander is unavailable, preserving ids and live-view order', async () => {
     const target = await createTable(baseId, {

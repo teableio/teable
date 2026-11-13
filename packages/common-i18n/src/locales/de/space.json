@@ -164,7 +164,7 @@
       "tableDataBatchRows_one": "{{count}} Zeilen in diesem Batch",
       "tableDataBatchRows_other": "{{count}} Zeilen in diesem Batch",
       "tableDataEmpty": "Keine Tabellendaten zum Importieren",
-      "done": "Import completed",
+      "done": "Import abgeschlossen",
       "clickToView": "Klicken zum Anzeigen"
     }
   },

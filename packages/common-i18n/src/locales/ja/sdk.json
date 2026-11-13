@@ -194,10 +194,10 @@
       "isLessEqual": "以下",
       "isAnyOf": "いずれか",
       "isNoneOf": "いずれでもない",
-      "hasAnyOf": "いずれも含む",
+      "hasAnyOf": "いずれかを含む",
       "hasAllOf": "すべて含む",
-      "hasNoneOf": "含まない",
-      "isExactly": "正確に",
+      "hasNoneOf": "いずれも含まない",
+      "isExactly": "完全に一致",
       "isWithIn": "中にある",
       "isBefore": "より前",
       "isAfter": "より後",
@@ -208,11 +208,11 @@
         "isNot": "等しくない",
         "isAnyOf": "いずれか",
         "isNoneOf": "いずれでもない",
-        "hasAnyOf": "いずれも含む",
+        "hasAnyOf": "いずれかを含む",
         "hasAllOf": "すべて含む",
-        "isExactly": "正確に",
+        "isExactly": "完全に一致",
         "isNotExactly": "等しくない",
-        "hasNoneOf": "含まない"
+        "hasNoneOf": "いずれも含まない"
       },
       "number": {
         "is": "=",
@@ -351,7 +351,7 @@
       "number": "数値",
       "multipleSelect": "複数選択",
       "link": "別のレコードへのリンク",
-      "formula": "式",
+      "formula": "数式",
       "date": "日付",
       "createdTime": "作成日時",
       "lastModifiedTime": "最終更新日時",
@@ -520,15 +520,15 @@
       "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "値以上の、重要度の最も近い整数倍を返します。重要度が指定されていない場合は、重要度1が想定されます。",
+      "summary": "値を指定した小数点以下の桁数に切り上げます（既定は 0）。負の桁数を指定すると、十の位、百の位などに切り上げます。",
       "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "値以下の、重要度の最も近い整数倍を返します。重要度が指定されていない場合は、重要度1が想定されます。",
+      "summary": "値を指定した小数点以下の桁数に切り捨てます（既定は 0）。負の桁数を指定すると、十の位、百の位などに切り捨てます。",
       "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "指定された値以上の最小の偶数を返します。",
+      "summary": "正の値は切り上げ、負の値は切り捨てて、最も近い偶数にします。",
       "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
@@ -549,7 +549,7 @@
     },
     "POWER": {
       "summary": "指定された値を指定された指数で累乗します。",
-      "example": "POWER(2) => 4"
+      "example": "POWER(2, 2) => 4"
     },
     "EXP": {
       "summary": "オイラー数(e)を指定された累乗で計算します。",
@@ -621,7 +621,7 @@
     },
     "REPT": {
       "summary": "文字列を指定された回数繰り返します。",
-      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+      "example": "REPT(\"Hello!\", 3) => \"Hello!Hello!Hello!\""
     },
     "TRIM": {
       "summary": "文字列の先頭と末尾の空白を削除します。",
@@ -669,7 +669,7 @@
     },
     "ERROR": {
       "summary": "エラー値を返します。",
-      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "式がエラーを引き起こした場合は true を返します。",
@@ -725,7 +725,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "指定された単位で日付時刻の差を返します。デフォルトの単位は \"day\" です。\nサポートされている単位: \"millisecond\" (ms)、\"second\" (s)、\"minute\" (m)、\"hour\" (h)、\"day\" (d)、\"week\" (w)、\"month\" (M)、\"year\" (y)。\n日付時刻の差は、[date1] から [date2] を減算して決定されます。つまり、[date2] が [date1] より後の場合、結果の値は負になります。",
-      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "指定された休日を除いて、開始日の就業日を返します。",
@@ -757,7 +757,7 @@
     },
     "TIMESTR": {
       "summary": "日時を時間のみの文字列 (HH:mm:ss) にフォーマットします。",
-      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+      "example": "TIMESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
       "summary": "日時を指定された文字列にフォーマットします。日付フィールドでこの関数を使用する方法については、ここをクリックしてください。サポートされている書式指定子のリストについては、ここをクリックしてください。",
@@ -1667,7 +1667,10 @@
       "categoryDepthExceeded": "細分業種の下にさらに細分業種は作れません",
       "teamIsFlat": "チームには上位カテゴリもサブカテゴリもありません",
       "categoryKeyTaken": "このURLキーは他のカテゴリで使われています",
-      "slugTaken": "このURLスラッグは他のテンプレートで使われています"
+      "slugTaken": "このURLスラッグは他のテンプレートで使われています",
+      "guideStepLeftOut": "ガイドのステップ「{{title}}」が開く内容は、今回の申請に含まれていません。",
+      "guideStepStartsTicked": "ガイドのステップ「{{title}}」はサンプルデータ上ですでに完了しているため、インストール直後からチェック済みになります。",
+      "guideNothingToConnect": "ガイドのステップ「{{title}}」はアカウントの連携を待ちますが、このプロジェクトに必要なアカウントはないため、インストール直後からチェック済みになります。"
     },
     "department": {
       "parentNotFound": "親部門が見つかりません",
@@ -1827,5 +1830,8 @@
     "seats": {
       "unit": "シート"
     }
+  },
+  "template": {
+    "trialName": "{{name}}（試用）"
   }
 }

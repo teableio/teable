@@ -3,6 +3,8 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { FieldId } from '../domain/table/fields/FieldId';
+import type { RecordId } from '../domain/table/records/RecordId';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
 import { sortCollationSchema } from '../domain/table/views/ViewSort';
@@ -110,6 +112,12 @@ export const clearCommandInputSchema = z.object({
 
 export type IClearCommandInput = z.input<typeof clearCommandInputSchema>;
 
+export interface ClearRecordTarget {
+  readonly recordIds: ReadonlyArray<RecordId>;
+  readonly fieldIds: ReadonlyArray<FieldId>;
+  readonly fieldIdsByRecord?: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
 export class ClearCommand {
   protected constructor(
     readonly tableId: TableId,
@@ -121,7 +129,8 @@ export class ClearCommand {
     readonly sort: ReadonlyArray<ClearSort> | undefined,
     readonly groupBy: ReadonlyArray<ClearGroup> | undefined,
     readonly projection: ReadonlyArray<string> | undefined,
-    readonly ignoreViewQuery: boolean
+    readonly ignoreViewQuery: boolean,
+    readonly recordTarget?: ClearRecordTarget
   ) {}
 
   static create(raw: unknown): Result<ClearCommand, DomainError> {
@@ -164,6 +173,22 @@ export class ClearCommand {
           parsed.data.ignoreViewQuery ?? false
         );
       })
+    );
+  }
+
+  static forRecords(tableId: TableId, viewId: ViewId, target: ClearRecordTarget): ClearCommand {
+    return new ClearCommand(
+      tableId,
+      viewId,
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true,
+      target
     );
   }
 

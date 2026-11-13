@@ -1,4 +1,4 @@
-import { pgErrorCode } from '@teable/v2-adapter-db-postgres-shared';
+import { pgErrorCode, resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
 import {
   Field,
   FieldType,
@@ -32,7 +32,7 @@ import {
   type FormulaCompileBudgetConfig,
 } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { sql, type Kysely, type Transaction } from 'kysely';
+import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -59,6 +59,10 @@ type ComputedFieldBackfillInput = {
 export type { ComputedFieldBackfillManyResult } from '@teable/v2-core';
 
 const BACKFILL_SYNC_FIELD_CHUNK_SIZE = 1;
+const SYSTEM_USER_BACKFILL_BATCH_SIZE = 500;
+
+const isSystemUserField = (field: Field): boolean =>
+  field.type().equals(FieldType.createdBy()) || field.type().equals(FieldType.lastModifiedBy());
 
 export type ComputedFieldBackfillBatchResult = ComputedFieldBackfillManyResult & {
   batch?: {
@@ -244,7 +248,9 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     @inject(formulaSqlPgTokens.typeValidationStrategy)
     private readonly typeValidationStrategy: IPgTypeValidationStrategy,
     @inject(formulaSqlPgTokens.compileBudget)
-    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig
+    private readonly formulaCompileBudget: FormulaCompileBudgetConfig = defaultFormulaCompileBudgetConfig,
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
+    private readonly metaDb: Kysely<V1TeableDatabase> = db
   ) {}
 
   /**
@@ -518,6 +524,15 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       return ok(undefined);
     }
 
+    if (this.db !== this.metaDb && isSystemUserField(input.field)) {
+      return (
+        await this.executeSyncMany(context, {
+          table: input.table,
+          fields: [input.field],
+        })
+      ).map(() => undefined);
+    }
+
     const db = this.resolveDb(context);
     await this.disableJitInTransaction(db, context);
     const fieldId = input.field.id();
@@ -718,6 +733,30 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
     }
     if (filtered.length === 0) return ok({ fields: [] });
 
+    if (this.db !== this.metaDb && filtered.some(isSystemUserField) && !input.recordBatch) {
+      // Complete each field stage before its dependents can read rows in later batches.
+      for (const fields of planBackfillFieldChunks(input.table, filtered)) {
+        if (!fields.some(isSystemUserField)) {
+          const result = await this.executeSyncMany(context, { ...input, fields });
+          if (result.isErr()) return err(result.error);
+          continue;
+        }
+        let cursor: string | undefined;
+        let hasMore: boolean;
+        do {
+          const result = await this.executeSyncMany(context, {
+            ...input,
+            fields,
+            recordBatch: { cursor, size: SYSTEM_USER_BACKFILL_BATCH_SIZE },
+          });
+          if (result.isErr()) return err(result.error);
+          cursor = result.value.batch?.lastRecordId;
+          hasMore = result.value.batch?.hasMore ?? false;
+        } while (hasMore);
+      }
+      return ok({ fields: filtered });
+    }
+
     const db = this.resolveDb(context);
     await this.disableJitInTransaction(db, context);
     const fieldIds = filtered.map((f) => f.id());
@@ -774,6 +813,14 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
           }
         }
 
+        const systemUserSnapshots = yield* await this.loadSystemUserSnapshots(
+          context,
+          db,
+          input.table,
+          filtered,
+          batchRecordIds
+        );
+
         const fieldChunks = planBackfillFieldChunks(input.table, filtered);
         for (let index = 0; index < fieldChunks.length; index += 1) {
           const fields = fieldChunks[index]!;
@@ -784,6 +831,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
             formulaCompileBudget: this.formulaCompileBudget,
             forceLookupArrayOutput: true,
             resolveSystemUserSnapshotsFromUsers: true,
+            systemUserSnapshots,
             allowFullTableSetBasedRollups: true,
           })
             .from(input.table)
@@ -854,6 +902,64 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
         return ok({ fields: filtered, batch: batchProgress });
       }.bind(this)
     );
+  }
+
+  /** Load only profiles referenced by this data-plane batch; users never lives in BYODB. */
+  private async loadSystemUserSnapshots(
+    context: IExecutionContext,
+    db: Kysely<DynamicDB>,
+    table: Table,
+    fields: ReadonlyArray<Field>,
+    recordIds: ReadonlyArray<RecordId> | undefined
+  ): Promise<Result<RawBuilder<unknown> | undefined, DomainError>> {
+    if (this.db === this.metaDb) return ok(undefined);
+    const systemFields = fields.filter(isSystemUserField);
+    if (systemFields.length === 0) return ok(undefined);
+    if (!recordIds?.length) {
+      return err(
+        domainError.infrastructure({ message: 'System user backfill requires a record batch' })
+      );
+    }
+    const tableName = table.dbTableName().andThen((name) => name.value());
+    if (tableName.isErr()) return err(tableName.error);
+    const columns = [
+      ...new Set(
+        systemFields.map((field) =>
+          field.type().equals(FieldType.createdBy()) ? '__created_by' : '__last_modified_by'
+        )
+      ),
+    ];
+    try {
+      const { rows } = await sql<{ user_id: string | null }>`
+        SELECT DISTINCT unnest(ARRAY[${sql.join(columns.map((column) => sql.ref(`s.${column}`)))}]) AS user_id
+        FROM ${sql.table(tableName.value)} AS s
+        WHERE s.__id IN (${sql.join(recordIds.map((id) => sql`${id.toString()}`))})
+      `.execute(db);
+      const ids: string[] = [];
+      for (const row of rows) {
+        if (row.user_id) ids.push(row.user_id);
+      }
+      const users = ids.length
+        ? await resolvePostgresDbOrTx(this.metaDb, context, 'meta')
+            .withSchema('public')
+            .selectFrom('users')
+            .select(['id', 'name', 'email'])
+            .where('id', 'in', ids)
+            .execute()
+        : [];
+      const snapshots: Record<string, { id: string; title: string; email: string | null }> =
+        Object.create(null);
+      for (const user of users) {
+        snapshots[user.id] = { id: user.id, title: user.name ?? user.id, email: user.email };
+      }
+      return ok(sql`${JSON.stringify(snapshots)}::jsonb`);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to load system user snapshots: ${error instanceof Error ? error.message : String(error)}`,
+        })
+      );
+    }
   }
 
   /**

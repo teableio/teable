@@ -60,6 +60,7 @@ const collectFieldKeys = (context: RecordWritePluginContext): Set<string> => {
     case RecordWriteOperationKind.importAppend:
     case RecordWriteOperationKind.upsertRecords:
     case RecordWriteOperationKind.duplicateStream:
+    case RecordWriteOperationKind.temporaryPaste:
       context.payload.recordsFieldValues.forEach((fieldValues) =>
         addFieldValues(keys, fieldValues)
       );

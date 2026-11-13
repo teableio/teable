@@ -153,6 +153,12 @@ class RecordSpecCellValueCollector implements ICellValueSpecVisitor {
   }
 }
 
+/** Collects only assigned cells, without generating a record identity or applying defaults. */
+export const collectRecordSpecCellValues = (
+  spec: ICellValueSpec
+): Result<ReadonlyArray<TableRecordFieldValue>, DomainError> =>
+  new RecordSpecCellValueCollector().collect(spec);
+
 /**
  * Applies a cell-value spec tree to one immutable record in a single pass.
  *

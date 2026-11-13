@@ -308,7 +308,7 @@ export const TABLE_ROUTE_LEDGER = {
   'PATCH /api/table/:tableId/selection/paste-by-id': 'v2',
   'PATCH /api/table/:tableId/selection/paste-by-id-stream': 'v2',
   'PATCH /api/table/:tableId/selection/paste-stream': 'v2',
-  'PATCH /api/table/:tableId/selection/temporaryPaste': 'v1:T8416',
+  'PATCH /api/table/:tableId/selection/temporaryPaste': 'v2',
   'POST /api/table/:tableId/selection/copy-by-id': 'v2',
   'POST /api/table/:tableId/selection/delete-by-id': 'v2',
   // ShareController

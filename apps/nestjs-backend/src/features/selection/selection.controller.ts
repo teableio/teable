@@ -71,7 +71,10 @@ import {
 } from '../canary/interceptors/v2-indicator.interceptor';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
-import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
+import {
+  RecordOpenApiV2Service,
+  type IPasteByIdPreparation,
+} from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { ShareViewScopeService } from '../record/share-view-scope.service';
@@ -174,22 +177,33 @@ export class SelectionController {
     }
   }
 
+  protected async createPasteByIdFields(
+    tableId: string,
+    creation: IPasteByIdPreparation['fieldCreation']
+  ): Promise<void> {
+    if (!creation) return;
+    await this.fieldOpenApiV2Service.createFields(tableId, creation.fields, {
+      columnMeta: creation.columnMeta,
+      // Keep expansion out of field-only undo history, as in A5.
+      recordUndo: false,
+    });
+  }
+
   private async pasteByIdWithV2(tableId: string, pasteRo: IPasteByIdRo): Promise<IPasteByIdVo> {
     const targetRecordIds = await this.recordOpenApiV2Service.resolveRecordIdsBySelection(
       tableId,
       pasteRo
     );
-    const { updatePayload, createPayload, fieldIds, recordIds, createdFieldIds } =
-      await this.selectionService.buildPasteByIdPayload(tableId, pasteRo, {
+    const { updatePayload, createPayload, fieldIds, recordIds, createdFieldIds, fieldCreation } =
+      await this.recordOpenApiV2Service.preparePasteById(tableId, pasteRo, {
         recordIds: targetRecordIds,
-        validateBeforeExpansion: async (updatePayload, createPayload, plannedFields) => {
-          await this.recordOpenApiV2Service.validatePasteLinkTargets(
-            tableId,
-            [...updatePayload.records, ...createPayload.records],
-            plannedFields
-          );
-        },
       });
+    await this.recordOpenApiV2Service.validatePasteLinkTargets(
+      tableId,
+      [...updatePayload.records, ...(createPayload?.records ?? [])],
+      fieldCreation?.fields
+    );
+    await this.createPasteByIdFields(tableId, fieldCreation);
     const beforeSnapshot = await this.selectionService.createPasteByIdMutationSnapshot(
       tableId,
       fieldIds
@@ -500,6 +514,7 @@ export class SelectionController {
     return this.selectionService.pasteById(tableId, pasteRo, { windowId });
   }
 
+  @UseV2Feature('paste')
   @Permissions('record|read')
   @Patch('/temporaryPaste')
   async temporaryPaste(
@@ -507,6 +522,10 @@ export class SelectionController {
     @Body(new ZodValidationPipe(temporaryPasteRoSchema), TqlPipe)
     temporaryPasteRo: ITemporaryPasteRo
   ): Promise<ITemporaryPasteVo> {
+    if (this.cls.get('useV2')) {
+      return this.recordOpenApiV2Service.temporaryPaste(tableId, temporaryPasteRo);
+    }
+
     return await this.selectionService.temporaryPaste(tableId, temporaryPasteRo);
   }
 
@@ -546,12 +565,12 @@ export class SelectionController {
         tableId,
         clearRo
       );
-      const { payload } = await this.selectionService.buildClearByIdUpdatePayload(
+      const target = await this.recordOpenApiV2Service.resolveClearByIdTarget(
         tableId,
         clearRo,
-        { recordIds }
+        recordIds
       );
-      await this.recordOpenApiV2Service.updateRecords(tableId, payload);
+      await this.recordOpenApiV2Service.clearById(tableId, target);
     } else {
       await this.selectionService.clearById(tableId, clearRo, { windowId });
     }

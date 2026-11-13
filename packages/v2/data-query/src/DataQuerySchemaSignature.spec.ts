@@ -81,10 +81,10 @@ const expressionDefinition = {
 };
 
 describe('expression schema signatures', () => {
-  it('keeps v1/v2 fingerprints stable and isolates the v3 formula language contract', async () => {
+  it('keeps v1/v2 fingerprints stable and isolates each expression language contract', async () => {
     const service = queryService(tableDto);
     const versions = await Promise.all(
-      [1, 2, 3].map(async (version) =>
+      [1, 2, 3, 4].map(async (version) =>
         (
           await service.validate(context, {
             definition: { ...definition, version },
@@ -97,6 +97,8 @@ describe('expression schema signatures', () => {
     expect(versions[1].outputs).toEqual(versions[2].outputs);
     expect(versions[0].schemaSignature).toBe(versions[1].schemaSignature);
     expect(versions[2].schemaSignature).not.toBe(versions[1].schemaSignature);
+    expect(versions[3].outputs).toEqual(versions[2].outputs);
+    expect(versions[3].schemaSignature).not.toBe(versions[2].schemaSignature);
   });
 
   it('fingerprints all formula branch references, but not physical placement or unrelated fields', async () => {
@@ -122,6 +124,61 @@ describe('expression schema signatures', () => {
       fields: dto.fields.map((field) => (field.id === unusedId ? longTextMetadata(field) : field)),
     };
     expect(await signature()).toBe(baseline);
+    for (const fieldId of [conditionId, otherwiseId]) {
+      dto = {
+        ...tableDto(),
+        fields: tableDto().fields.map((field) =>
+          field.id === fieldId ? longTextMetadata(field) : field
+        ),
+      };
+      expect(await signature()).not.toBe(baseline);
+    }
+  });
+
+  it('fingerprints unused metric formula and predicate references in v4', async () => {
+    let dto = tableDto();
+    const service = queryService(() => dto);
+    const definition = {
+      version: 4,
+      kind: 'aggregate',
+      tableId,
+      aggregates: [
+        {
+          expr: {
+            type: 'formula',
+            formula: 'LEN({title})',
+            references: {
+              title: { type: 'field', fieldId: titleId },
+              unused: { type: 'field', fieldId: conditionId },
+            },
+          },
+          statisticFunc: 'sum',
+          alias: 'total',
+          filter: {
+            type: 'formula',
+            formula: 'TRUE',
+            references: {
+              unused: { type: 'field', fieldId: otherwiseId },
+            },
+          },
+        },
+      ],
+      having: {
+        type: 'formula',
+        formula: '{total} > 0',
+        references: {
+          total: { type: 'output', alias: 'total' },
+        },
+      },
+    };
+    const signature = async () =>
+      (
+        await service.validate(context, {
+          definition,
+          includeSchemaSignature: true,
+        })
+      )._unsafeUnwrap().schemaSignature;
+    const baseline = await signature();
     for (const fieldId of [conditionId, otherwiseId]) {
       dto = {
         ...tableDto(),

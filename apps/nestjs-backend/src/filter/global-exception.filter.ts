@@ -118,11 +118,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       });
     }
     if (dataDbError) {
-      return response.status(503).json({
-        message:
-          'The data database bound to this space is currently unavailable. Please check the external database connection and try again.',
-        status: 503,
-        code: HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE,
+      const httpError = this.dataDbHttpError(dataDbError);
+      return response.status(httpError.status).json({
+        ...httpError,
         data: {
           dataDb: {
             code: dataDbError.code,
@@ -145,6 +143,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       code: customHttpException.code,
       data: customHttpException.data,
     });
+  }
+
+  private dataDbHttpError(error: IDataDbRuntimeErrorClassification) {
+    const missingObject =
+      error.code === 'data_db.relation_missing' || error.code === 'data_db.schema_missing';
+    return {
+      status: missingObject ? HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.SERVICE_UNAVAILABLE,
+      code: missingObject
+        ? HttpErrorCode.INTERNAL_SERVER_ERROR
+        : HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE,
+      message: missingObject
+        ? error.message
+        : 'The data database bound to this space is currently unavailable. Please check the external database connection and try again.',
+    };
   }
 
   private captureException(

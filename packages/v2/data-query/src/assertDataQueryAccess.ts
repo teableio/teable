@@ -29,10 +29,14 @@ export const assertDataQueryAccess = (
   if (scope.readableFieldIds == null) return ok(undefined);
   for (const usage of plan.usage) {
     if (scope.readableFieldIds.has(usage.fieldId)) continue;
-    const exposesValue = usage.usages.some(
-      (candidate) => candidate === 'projection' || candidate === 'group' || candidate === 'relation'
+    const requiresReadableField = usage.usages.some(
+      (candidate) =>
+        candidate === 'projection' ||
+        candidate === 'group' ||
+        candidate === 'relation' ||
+        candidate === 'existence'
     );
-    if (!exposesValue && maskedFields.has(usage.fieldId)) continue;
+    if (!requiresReadableField && maskedFields.has(usage.fieldId)) continue;
     return err(
       domainError.forbidden({
         code: 'data_query.field_forbidden',

@@ -483,3 +483,130 @@ void offlineText; void offlineNumber; void offlineNull; void liveText; void live
     }
   );
 });
+
+describe('v4 metric and HAVING lifecycle', () => {
+  const manifest = () =>
+    parseDataQueryManifest({
+      schemaVersion: 1,
+      queries: {
+        totals: {
+          definition: {
+            version: 4,
+            kind: 'aggregate',
+            tableId,
+            aggregates: [
+              {
+                expr: {
+                  type: 'formula',
+                  formula: 'LEN({title})',
+                  references: {
+                    title: { type: 'field', fieldId: titleId },
+                  },
+                },
+                statisticFunc: 'sum',
+                alias: 'total',
+                filter: {
+                  fieldId: declaredId,
+                  operator: 'isNotEmpty',
+                  value: null,
+                },
+              },
+            ],
+            having: {
+              type: 'formula',
+              formula: '{total} > 0',
+              references: {
+                total: { type: 'output', alias: 'total' },
+              },
+            },
+          },
+        },
+      },
+    })._unsafeUnwrap();
+
+  it('indexes metric formulas and local predicates and preserves manual repair semantics', () => {
+    const accepted = manifest();
+    const dependencies = collectDataQueryManifestDependencies(accepted).queries;
+    expect(dependencies[0]!.fields).toEqual([
+      { fieldId: titleId, usages: ['aggregate', 'reference'] },
+      { fieldId: declaredId, usages: ['filter'] },
+    ]);
+    for (const fieldId of [titleId, declaredId]) {
+      for (const change of [
+        { kind: 'field_deleted' as const, tableId, fieldId },
+        {
+          kind: 'field_updated' as const,
+          tableId,
+          fieldId,
+          typeChanged: true,
+          outputCompatible: true,
+        },
+      ]) {
+        const repair = planDataQueryManifestRepair(accepted, change, dependencies);
+        expect(repair.queries[0]!.classification).toBe('manual');
+        expect(repair.applyable).toBe(false);
+        expect(repair.queries[0]!.actions).toEqual([]);
+      }
+    }
+  });
+
+  it('rewrites metric expression and filter field references without changing HAVING aliases', () => {
+    const accepted = manifest();
+    const repair = planDataQueryManifestRepair(
+      accepted,
+      {
+        kind: 'field_replaced',
+        tableId,
+        fieldId: titleId,
+        replacementFieldId: replacementId,
+        outputCompatible: true,
+      },
+      collectDataQueryManifestDependencies(accepted).queries
+    );
+    expect(repair.applyable).toBe(true);
+    expect(repair.repaired?.queries.totals.definition).toMatchObject({
+      aggregates: [{ expr: { references: { title: { fieldId: replacementId } } } }],
+      having: { references: { total: { type: 'output', alias: 'total' } } },
+    });
+  });
+
+  it('never drops a field metric or group output consumed by HAVING during repair', () => {
+    for (const alias of ['count', 'group']) {
+      const accepted = parseDataQueryManifest({
+        schemaVersion: 1,
+        queries: {
+          grouped: {
+            definition: {
+              version: 4,
+              kind: 'aggregate',
+              tableId,
+              aggregates: [{ fieldId: titleId, statisticFunc: 'count', alias: 'count' }],
+              groupBy: [{ fieldId: declaredId, alias: 'group' }],
+              having: {
+                type: 'formula',
+                formula: 'NOT({value} = BLANK())',
+                references: {
+                  value: { type: 'output', alias },
+                },
+              },
+            },
+          },
+        },
+      })._unsafeUnwrap();
+      const repair = planDataQueryManifestRepair(
+        accepted,
+        {
+          kind: 'field_deleted',
+          tableId,
+          fieldId: alias === 'count' ? titleId : declaredId,
+        },
+        collectDataQueryManifestDependencies(accepted).queries
+      );
+      expect(repair.queries[0]).toMatchObject({
+        classification: 'manual',
+        actions: [],
+        reasons: ['expression_semantics_changed'],
+      });
+    }
+  });
+});

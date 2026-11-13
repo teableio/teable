@@ -95,6 +95,8 @@ const describeError = (error: unknown): string => {
 
 const isRetryableFailure = (error: DomainError): boolean => {
   if (nonRetryableCodes.has(error.code)) return false;
+  // Repairs reload metadata, so a stale view version can succeed on a later attempt.
+  if (error.code === 'view.version_conflict') return true;
   return !error.tags.some((tag) => nonRetryableTags.has(tag));
 };
 

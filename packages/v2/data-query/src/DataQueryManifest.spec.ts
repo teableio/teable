@@ -32,6 +32,62 @@ describe('canonical named query manifest', () => {
     expect(parseDataQueryManifest({ ...manifest, schemaVersion: 2 }).isErr()).toBe(true);
   });
 
+  it('retains schemaVersion 1 and frozen fallback metadata for native v4 aggregates', () => {
+    const metricDefinition = {
+      version: 4,
+      kind: 'aggregate',
+      tableId: definition.tableId,
+      aggregates: [
+        {
+          fieldId: `fld${'b'.repeat(16)}`,
+          statisticFunc: 'count',
+          alias: 'count',
+          filter: {
+            type: 'formula',
+            formula: 'TRUE',
+            references: {},
+          },
+        },
+      ],
+      having: {
+        type: 'formula',
+        formula: '{count} > 0',
+        references: {
+          count: { type: 'output', alias: 'count' },
+        },
+      },
+      page: { limit: 1, includeTotal: true },
+    };
+    const query = {
+      mode: 'auto',
+      definition: metricDefinition,
+      fallback: { sql: 'SELECT COUNT(*) AS "count"', outputs: [{ alias: 'count' }] },
+    };
+    const parsed = parseDataQueryManifest({
+      schemaVersion: 1,
+      queries: { totals: query },
+    })._unsafeUnwrap();
+    expect(parsed.queries.totals.definition).toEqual(metricDefinition);
+    expect(parsed.queries.totals.fallback).toEqual(query.fallback);
+    expect(Object.isFrozen(parsed.queries.totals.definition)).toBe(true);
+    expect(parseDataQueryManifest({ schemaVersion: 4, queries: { totals: query } }).isErr()).toBe(
+      true
+    );
+    for (const version of [1, 2, 3]) {
+      expect(
+        parseDataQueryManifest({
+          schemaVersion: 1,
+          queries: {
+            totals: {
+              ...query,
+              definition: { ...metricDefinition, version },
+            },
+          },
+        }).isErr()
+      ).toBe(true);
+    }
+  });
+
   it.each(['constructor', '__proto__', 'then', 'default', 'get-todos', 'get\ntodos', 'getTodos\n'])(
     'rejects unsafe query identifier %s',
     (queryId) => {

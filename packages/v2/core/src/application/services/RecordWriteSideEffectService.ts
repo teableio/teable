@@ -239,7 +239,8 @@ export class RecordWriteSideEffectService {
     context: IExecutionContext,
     table: Table,
     recordFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>>,
-    typecast: boolean
+    typecast: boolean,
+    options?: { selectOptionOverflow?: 'reject' | 'isolate' }
   ): Result<RecordWriteSideEffectResult, DomainError> {
     if (!typecast) return ok({ table, effects: [] });
 
@@ -302,6 +303,13 @@ export class RecordWriteSideEffectService {
       if (acceptedOptions.length > 0) {
         accepted.push({ fieldId: effect.fieldId, options: acceptedOptions });
       }
+    }
+
+    // Temporary conversion has no partial-write result: reject before mutating
+    // cells or metadata. Existing record writes keep their cell-isolation policy.
+    if (options?.selectOptionOverflow === 'reject') {
+      const overflow = countOverflowError ?? nameOverflowError ?? bytesOverflowError;
+      if (overflow) return err(overflow);
     }
 
     stripRejectedSelectValues(table, recordFieldValues, rejectedNamesByFieldId);

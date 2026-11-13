@@ -524,15 +524,15 @@
       "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "Değerden büyük veya eşit olan en yakın significance katını döndürür. Eğer significance belirtilmezse, 1 varsayılır.",
+      "summary": "Değeri belirtilen ondalık basamak sayısına yukarı yuvarlar (varsayılan 0). Negatif basamak sayısı onlar, yüzler vb. basamağa yukarı yuvarlar.",
       "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "Değerden küçük veya eşit olan en yakın significance katını döndürür. Eğer significance belirtilmezse, 1 varsayılır.",
+      "summary": "Değeri belirtilen ondalık basamak sayısına aşağı yuvarlar (varsayılan 0). Negatif basamak sayısı onlar, yüzler vb. basamağa aşağı yuvarlar.",
       "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "Belirtilen değerden büyük veya eşit olan en küçük çift tam sayıyı döndürür.",
+      "summary": "Pozitif değerleri yukarı, negatif değerleri aşağı yuvarlayarak en yakın çift tam sayıya getirir.",
       "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
@@ -553,7 +553,7 @@
     },
     "POWER": {
       "summary": "Belirtilen tabanı belirtilen üsse yükseltir.",
-      "example": "POWER(2) => 4"
+      "example": "POWER(2, 2) => 4"
     },
     "EXP": {
       "summary": "Euler sayısını (e) belirtilen üsse yükseltir.",
@@ -625,7 +625,7 @@
     },
     "REPT": {
       "summary": "Dizeyi belirtilen sayıda tekrarlar.",
-      "example": "REPT(\"Merhaba!\") => \"Merhaba!Merhaba!Merhaba!\""
+      "example": "REPT(\"Merhaba!\", 3) => \"Merhaba!Merhaba!Merhaba!\""
     },
     "TRIM": {
       "summary": "Dizenin başındaki ve sonundaki boşlukları kaldırır.",
@@ -673,7 +673,7 @@
     },
     "ERROR": {
       "summary": "Hata değerini döndürür.",
-      "example": "IF(2 > 3, \"Evet\", ERROR(\"Hesaplama\")) => \"#ERROR: Hesaplama\""
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "İfade bir hataya neden oluyorsa true döndürür.",
@@ -729,7 +729,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Tarih/saatler arasındaki farkı belirtilen birimde döndürür. Varsayılan birim \"day\"dir.\nDesteklenen birimler: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nTarih/saatler arasındaki fark [date2]'nin [date1]'den çıkarılmasıyla belirlenir. Bu, eğer [date2] [date1]'den sonraysa, sonuç değerinin negatif olacağı anlamına gelir.",
-      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "Başlangıç tarihinden itibaren belirtilen tatiller hariç iş gününü döndürür",
@@ -761,7 +761,7 @@
     },
     "TIMESTR": {
       "summary": "Bir tarih/saati yalnızca saat dizesine biçimlendirir (HH:mm:ss).",
-      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+      "example": "TIMESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
       "summary": "Bir tarih/saati belirtilen dizeye biçimlendirir. Bu fonksiyonu tarih alanlarıyla nasıl kullanacağınıza dair bir açıklama için buraya tıklayın. Desteklenen biçim belirteçlerinin listesi için lütfen buraya tıklayın.",
@@ -1671,7 +1671,10 @@
       "categoryDepthExceeded": "Bir alt sektörün kendi alt sektörleri olamaz",
       "teamIsFlat": "Bir ekibin ne üst kategorisi ne de alt kategorisi olur",
       "categoryKeyTaken": "Bu URL anahtarı başka bir kategoride kullanılıyor",
-      "slugTaken": "Bu URL kısa adı başka bir şablonda kullanılıyor"
+      "slugTaken": "Bu URL kısa adı başka bir şablonda kullanılıyor",
+      "guideStepLeftOut": "Rehber adımı “{{title}}”, bu gönderimde yer almayan bir şeyi açıyor.",
+      "guideStepStartsTicked": "Rehber adımı “{{title}}” örnek kayıtlarda zaten tamamlanmış, bu yüzden işaretli başlar.",
+      "guideNothingToConnect": "Rehber adımı “{{title}}” hesapların bağlanmasını bekliyor, ancak bu proje hiçbir hesap gerektirmiyor; bu yüzden işaretli başlar."
     },
     "department": {
       "parentNotFound": "Üst departman bulunamadı",
@@ -1831,5 +1834,8 @@
     "seats": {
       "unit": "koltuk"
     }
+  },
+  "template": {
+    "trialName": "{{name}} (deneme)"
   }
 }

@@ -179,7 +179,107 @@ describe('generated data-query OpenAPI contract', () => {
       parameters: { suffix: '!' },
     };
     expect(acceptsRequest(expression)).toBe(true);
-    for (const version of [1, 2, 4]) {
+    expect(
+      acceptsRequest({ ...expression, definition: { ...expression.definition, version: 4 } })
+    ).toBe(true);
+    const unique = {
+      ...expression,
+      definition: { ...expression.definition, version: 6, distinct: true },
+    };
+    expect(acceptsRequest(unique)).toBe(true);
+    for (const version of [1, 2, 3, 4, 5])
+      expect(
+        acceptsRequest({ ...unique, definition: { ...inline.definition, version, distinct: true } })
+      ).toBe(false);
+    for (const distinct of [false, 'true', null])
+      expect(acceptsRequest({ ...unique, definition: { ...unique.definition, distinct } })).toBe(
+        false
+      );
+    expect(
+      (operation as unknown as Record<string, unknown>)['x-teable-data-query-capabilities']
+    ).toMatchObject({
+      definitionVersions: [1, 2, 3, 4, 5, 6],
+      recordsDistinct: { version: 6, grain: 'selectedOutputTuple' },
+    });
+    for (const quantifier of ['any', 'none']) {
+      expect(
+        acceptsRequest({
+          ...expression,
+          definition: {
+            ...expression.definition,
+            version: 5,
+            relations: {
+              items: {
+                linkFieldId: `fld${'c'.repeat(16)}`,
+                tableId: `tbl${'b'.repeat(16)}`,
+                filter: { fieldId: `fld${'d'.repeat(16)}`, operator: 'is', value: 'ready' },
+              },
+            },
+            filter: {
+              conjunction: 'or',
+              items: [{ relation: 'items', quantifier }, { not: expression.definition.filter }],
+            },
+          },
+        })
+      ).toBe(true);
+    }
+    const aggregate = {
+      definition: {
+        version: 4,
+        kind: 'aggregate',
+        tableId: input.definition.tableId,
+        parameters: { minimum: { type: 'number' } },
+        aggregates: [
+          {
+            alias: 'total',
+            statisticFunc: 'sum',
+            expr: {
+              type: 'formula',
+              formula: '{amount} * 2',
+              references: { amount: { type: 'field', fieldId: `fld${'b'.repeat(16)}` } },
+            },
+            filter: { fieldId: `fld${'b'.repeat(16)}`, operator: 'isGreater', value: 0 },
+          },
+        ],
+        having: {
+          type: 'formula',
+          formula: '{total} > {minimum}',
+          references: {
+            total: { type: 'output', alias: 'total' },
+            minimum: { type: 'parameter', name: 'minimum' },
+          },
+        },
+      },
+      parameters: { minimum: 30 },
+    };
+    expect(acceptsRequest(aggregate), JSON.stringify(acceptsRequest.errors)).toBe(true);
+    for (const version of [1, 2, 3]) {
+      expect(
+        acceptsRequest({ ...aggregate, definition: { ...aggregate.definition, version } })
+      ).toBe(false);
+    }
+    expect(
+      acceptsRequest({
+        ...aggregate,
+        definition: {
+          ...aggregate.definition,
+          aggregates: [{ ...aggregate.definition.aggregates[0], fieldId: `fld${'b'.repeat(16)}` }],
+        },
+      })
+    ).toBe(false);
+    expect(
+      acceptsRequest({
+        ...aggregate,
+        definition: {
+          ...aggregate.definition,
+          having: {
+            ...aggregate.definition.having,
+            references: { total: { type: 'field', fieldId: `fld${'b'.repeat(16)}` } },
+          },
+        },
+      })
+    ).toBe(false);
+    for (const version of [1, 2, 999]) {
       expect(
         acceptsRequest({
           ...expression,

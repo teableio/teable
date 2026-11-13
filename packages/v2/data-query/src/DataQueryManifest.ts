@@ -266,9 +266,9 @@ const validateFallbackSemantics = (
 ) => {
   const definition = query.definition;
   if (!query.fallback || !definition) return;
-  // V3 fallbacks are frozen compatibility metadata, not an expression execution path.
-  // Keep the v1/v2 admission contract unchanged without inventing new v3 SQL parity rules.
-  if (definition.version === 3) return;
+  // Expression fallbacks are frozen compatibility metadata, not an execution path.
+  // Keep the v1/v2 admission contract unchanged without inventing SQL parity rules.
+  if (definition.version >= 3) return;
   const hasOptionalFilter = (node: NonNullable<typeof definition.filter>): boolean => {
     if ('items' in node) return node.items.some(hasOptionalFilter);
     if ('not' in node) return hasOptionalFilter(node.not);

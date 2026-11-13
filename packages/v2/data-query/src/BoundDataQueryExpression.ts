@@ -21,6 +21,17 @@ export type BoundDataQueryFormulaExpression = BoundDataQueryExpressionType & {
   /** Source row used by implicit record functions, independent of reference inputs. */
   readonly recordSource: string;
 };
+export type BoundDataQueryHavingReference = BoundDataQueryExpressionType &
+  (
+    | { readonly kind: 'output'; readonly alias: string }
+    | { readonly kind: 'parameter'; readonly name: string }
+  );
+export type BoundDataQueryHavingExpression = BoundDataQueryExpressionType & {
+  readonly kind: 'formula';
+  readonly formula: string;
+  readonly references: Readonly<Record<string, BoundDataQueryHavingReference>>;
+  readonly timeZone?: string;
+};
 export type BoundDataQueryPredicate =
   | {
       readonly kind: 'group';
@@ -28,5 +39,6 @@ export type BoundDataQueryPredicate =
       readonly items: readonly BoundDataQueryPredicate[];
     }
   | { readonly kind: 'not'; readonly predicate: BoundDataQueryPredicate }
+  | { readonly kind: 'exists'; readonly relation: string; readonly quantifier: 'any' | 'none' }
   | { readonly kind: 'legacy'; readonly source: string; readonly filter: DataQueryFilter }
   | { readonly kind: 'formula'; readonly expression: BoundDataQueryFormulaExpression };

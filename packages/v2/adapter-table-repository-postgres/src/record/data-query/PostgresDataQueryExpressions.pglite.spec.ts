@@ -22,7 +22,7 @@ import {
   defaultFormulaCompileBudgetLimits,
 } from '@teable/v2-formula-sql-pg';
 import { sql } from 'kysely';
-import { ok } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -35,6 +35,7 @@ import { PostgresDataQueryExplainer } from './PostgresDataQueryExplainer';
 const tableId = `tbl${'e'.repeat(16)}`;
 const titleId = `fld${'t'.repeat(16)}`;
 const quantityId = `fld${'q'.repeat(16)}`;
+const tagsId = `fld${'z'.repeat(16)}`;
 const priceId = `fld${'p'.repeat(16)}`;
 const discountId = `fld${'d'.repeat(16)}`;
 const occurredAtId = `fld${'o'.repeat(16)}`;
@@ -59,6 +60,18 @@ const tableDto: ITablePersistenceDTO = {
     { id: occurredAtId, name: 'Due at', type: 'date', dbFieldName: 'due_at' },
     { id: emailId, name: 'Email', type: 'singleLineText', dbFieldName: 'email' },
     { id: paidId, name: 'Paid', type: 'checkbox', dbFieldName: 'paid' },
+    {
+      id: tagsId,
+      name: 'Tags',
+      type: 'multipleSelect',
+      dbFieldName: 'tags',
+      options: {
+        choices: [
+          { id: 'tagX', name: 'X', color: 'blue' },
+          { id: 'tagY', name: 'Y', color: 'green' },
+        ],
+      },
+    },
     ...[
       { id: quantityId, name: 'Quantity', column: 'quantity' },
       { id: priceId, name: 'Unit price', column: 'unit_price' },
@@ -151,6 +164,7 @@ describe('scalar expressions through the native query service', () => {
       __id text primary key, title text, quantity double precision,
       unit_price double precision, discount double precision,
       due_at timestamptz default '2026-03-07T17:00:00Z', email text, paid boolean,
+      tags jsonb,
       __created_time timestamptz default '2026-01-01T00:00:00Z',
       __last_modified_time timestamptz, __auto_number bigint,
       __version integer default 1
@@ -170,6 +184,327 @@ describe('scalar expressions through the native query service', () => {
 
   afterEach(async () => {
     await database.db.destroy();
+  });
+
+  const resultValue = <T>(result: Result<T, unknown>): T => {
+    if (result.isErr()) throw new Error(`v4 query: ${JSON.stringify(result.error)}`);
+    return result.value;
+  };
+
+  it('v4 aggregates row formulas and independent conditional counts before HAVING and paging', async () => {
+    const definition = resultValue(
+      DataQueryDefinition.create({
+        version: 4,
+        tableId,
+        kind: 'aggregate',
+        parameters: { minimum: { type: 'number' } },
+        aggregates: [
+          { expr: netAmount, statisticFunc: 'sum', alias: 'revenue' },
+          {
+            fieldId: quantityId,
+            statisticFunc: 'count',
+            alias: 'paidRows',
+            filter: formula('{paid}', { paid: reference(paidId) }),
+          },
+          { expr: field(quantityId), statisticFunc: 'count', alias: 'allRows' },
+        ],
+        having: {
+          type: 'formula',
+          formula: '{revenue} >= {minimum}',
+          references: {
+            revenue: { type: 'output', alias: 'revenue' },
+            minimum: parameterReference('minimum'),
+          },
+        },
+        page: { limit: 1, offset: 0, includeTotal: true },
+      })
+    );
+    expect(
+      resultValue(await service.execute(context, definition, { parameters: { minimum: 50 } }))
+    ).toEqual({
+      rows: [{ revenue: 54, paidRows: 1, allRows: 3 }],
+      page: { limit: 1, offset: 0, total: 1 },
+    });
+    expect(
+      resultValue(await service.execute(context, definition, { parameters: { minimum: 55 } }))
+    ).toEqual({
+      rows: [],
+      page: { limit: 1, offset: 0, total: 0 },
+    });
+    const offset = resultValue(
+      DataQueryDefinition.create({
+        ...definition.snapshot(),
+        page: { limit: 1, offset: 2, includeTotal: true },
+      })
+    );
+    expect(
+      resultValue(await service.execute(context, offset, { parameters: { minimum: 50 } }))
+    ).toEqual({
+      rows: [],
+      page: { limit: 1, offset: 2, total: 1 },
+    });
+  });
+
+  it('v4 filters multiple-select unique metrics before flattening', async () => {
+    await sql`update ${sql.id('public', physicalTable)}
+      set tags = ${JSON.stringify(['X', 'Y'])}::jsonb where __id = 'recA'`.execute(database.db);
+    await sql`update ${sql.id('public', physicalTable)}
+      set tags = ${JSON.stringify(['Y'])}::jsonb where __id = 'recB'`.execute(database.db);
+    await sql`update ${sql.id('public', physicalTable)}
+      set tags = '[]'::jsonb where __id = 'recC'`.execute(database.db);
+
+    const aggregate = (filter?: DataQueryFormulaExpression) =>
+      resultValue(
+        DataQueryDefinition.create({
+          version: 4,
+          tableId,
+          kind: 'aggregate',
+          aggregates: [
+            {
+              fieldId: tagsId,
+              statisticFunc: 'unique',
+              alias: 'unique',
+              ...(filter === undefined ? {} : { filter }),
+            },
+            {
+              fieldId: tagsId,
+              statisticFunc: 'percentUnique',
+              alias: 'percentUnique',
+              ...(filter === undefined ? {} : { filter }),
+            },
+          ],
+        })
+      );
+
+    expect(resultValue(await service.execute(context, aggregate()))).toEqual({
+      rows: [{ unique: 2, percentUnique: 200 / 3 }],
+    });
+    expect(resultValue(await service.execute(context, aggregate(onlyAlpha)))).toEqual({
+      rows: [{ unique: 2, percentUnique: 100 }],
+    });
+    expect(
+      resultValue(await service.execute(context, aggregate(formula('RECORD_ID() = "missing"'))))
+    ).toEqual({ rows: [{ unique: 0, percentUnique: 0 }] });
+  });
+
+  it('v4 filters scalar percentUnique numerator and denominator together', async () => {
+    const aggregate = (filter?: DataQueryFormulaExpression) =>
+      resultValue(
+        DataQueryDefinition.create({
+          version: 4,
+          tableId,
+          kind: 'aggregate',
+          aggregates: [
+            {
+              fieldId: emailId,
+              statisticFunc: 'percentUnique',
+              alias: 'percentUnique',
+              ...(filter === undefined ? {} : { filter }),
+            },
+          ],
+        })
+      );
+
+    expect(resultValue(await service.execute(context, aggregate(onlyAlpha)))).toEqual({
+      rows: [{ percentUnique: 100 }],
+    });
+    expect(
+      resultValue(await service.execute(context, aggregate(formula('RECORD_ID() = "missing"'))))
+    ).toEqual({ rows: [{ percentUnique: 0 }] });
+  });
+
+  it('v4 returns zero percentages for groups with no metric-filter matches', async () => {
+    const aggregates = [
+      { fieldId: quantityId, statisticFunc: 'percentFilled', alias: 'filled' },
+      { fieldId: quantityId, statisticFunc: 'percentEmpty', alias: 'empty' },
+      { fieldId: quantityId, statisticFunc: 'percentUnique', alias: 'unique' },
+      { fieldId: paidId, statisticFunc: 'percentChecked', alias: 'checked' },
+      { fieldId: paidId, statisticFunc: 'percentUnChecked', alias: 'unchecked' },
+    ];
+    const grouped = resultValue(
+      DataQueryDefinition.create({
+        version: 4,
+        kind: 'aggregate',
+        tableId,
+        groupBy: [{ fieldId: titleId, alias: 'title' }],
+        aggregates: aggregates.map((metric) => ({ ...metric, filter: onlyAlpha })),
+      })
+    );
+    expect(resultValue(await service.execute(context, grouped))).toEqual({
+      rows: [
+        { title: 'ALPHA', filled: 100, empty: 0, unique: 100, checked: 100, unchecked: 0 },
+        { title: 'Beta', filled: 0, empty: 0, unique: 0, checked: 0, unchecked: 0 },
+        { title: 'GAMMA', filled: 0, empty: 0, unique: 0, checked: 0, unchecked: 0 },
+      ],
+    });
+
+    // An empty global scope without metric predicates retains the legacy SQL NULLs.
+    const unfilteredEmpty = resultValue(
+      DataQueryDefinition.create({
+        version: 4,
+        kind: 'aggregate',
+        tableId,
+        filter: formula('RECORD_ID() = "missing"'),
+        aggregates,
+      })
+    );
+    expect(resultValue(await service.execute(context, unfilteredEmpty))).toEqual({
+      rows: [{ filled: 0, empty: 0, unique: 0, checked: null, unchecked: null }],
+    });
+  });
+
+  it('v4 masks metric inputs and rejects denied references even when declared but unused', async () => {
+    const definition = resultValue(
+      DataQueryDefinition.create({
+        version: 4,
+        tableId,
+        kind: 'aggregate',
+        aggregates: [
+          {
+            expr: formula('IF({price}, {quantity} * {price}, 0)', {
+              quantity: reference(quantityId),
+              price: reference(priceId),
+            }),
+            statisticFunc: 'sum',
+            alias: 'revenue',
+          },
+        ],
+        page: { limit: 10, includeTotal: true },
+      })
+    );
+    const visible = buildRecordConditionSpec(
+      new DefaultTableMapper().toDomain(tableDto)._unsafeUnwrap(),
+      {
+        fieldId: titleId,
+        operator: 'is',
+        value: 'ALPHA',
+      }
+    )._unsafeUnwrap();
+    const masked = scopedService({ fieldMasks: [{ fieldId: priceId, visibleWhen: visible }] });
+    expect(resultValue(await masked.execute(context, definition)).rows).toEqual([{ revenue: 20 }]);
+    const denied = scopedService({ readableFieldIds: new Set([titleId, quantityId]) });
+    expect((await denied.execute(context, definition)).isErr()).toBe(true);
+    const unused = resultValue(
+      DataQueryDefinition.create({
+        version: 4,
+        tableId,
+        kind: 'aggregate',
+        aggregates: [
+          {
+            expr: formula('1', { secret: reference(priceId) }),
+            statisticFunc: 'sum',
+            alias: 'value',
+          },
+        ],
+      })
+    );
+    expect((await denied.execute(context, unused)).isErr()).toBe(true);
+  });
+  it.each(['metric', 'filter', 'having'] as const)(
+    'v4 enforces the %s compile budget equally for execute and explain',
+    async (stage) => {
+      const table = resultValue(new DefaultTableMapper().toDomain(tableDto));
+      const repository = { findOne: async () => ok(table) };
+      const plugins = new RecordQueryPluginRunner([], new NoopLogger());
+      const options = {
+        formulaCompileBudget: {
+          policy: createFormulaCompileBudgetPolicy({
+            ...defaultFormulaCompileBudgetLimits,
+            visitedNodes: 0,
+          }),
+          policyVersion: 1,
+        },
+      };
+      const definition = resultValue(
+        DataQueryDefinition.create({
+          version: 4,
+          tableId,
+          kind: 'aggregate',
+          aggregates:
+            stage === 'metric'
+              ? [{ expr: formula('1'), statisticFunc: 'sum', alias: 'value' }]
+              : [
+                  {
+                    fieldId: quantityId,
+                    statisticFunc: 'sum',
+                    alias: 'value',
+                    ...(stage === 'filter' ? { filter: formula('1 = 1') } : {}),
+                  },
+                ],
+          ...(stage === 'having'
+            ? { having: { type: 'formula', formula: '1 = 1', references: {} } }
+            : {}),
+        })
+      );
+      const executor = new DataQueryService(
+        repository,
+        plugins,
+        new PostgresDataQueryExecutor(database.db, options)
+      );
+      const explainer = new DataQueryExplainService(
+        repository,
+        plugins,
+        new PostgresDataQueryExplainer(database.db, options)
+      );
+      for (const result of [
+        await executor.execute(context, definition),
+        await explainer.explain(context, definition),
+      ]) {
+        expect(result.isErr()).toBe(true);
+        expect(result._unsafeUnwrapErr()).toMatchObject({
+          code: 'validation.limit.formula_compile_nodes_max',
+          details: { metric: 'visitedNodes', max: 0, policyVersion: 1 },
+        });
+      }
+    }
+  );
+
+  it('v4 filters grouped output aliases before sorting and paging and treats blank HAVING as false', async () => {
+    const definition = resultValue(
+      DataQueryDefinition.create({
+        version: 4,
+        tableId,
+        kind: 'aggregate',
+        parameters: { minimum: { type: 'number' } },
+        groupBy: [{ fieldId: titleId, alias: 'label' }],
+        aggregates: [{ expr: netAmount, statisticFunc: 'sum', alias: 'revenue' }],
+        having: {
+          type: 'formula',
+          formula: 'AND({revenue} >= {minimum}, {label} != "GAMMA")',
+          references: {
+            revenue: { type: 'output', alias: 'revenue' },
+            label: { type: 'output', alias: 'label' },
+            minimum: { type: 'parameter', name: 'minimum' },
+          },
+        },
+        sort: [{ alias: 'revenue', order: 'desc' }],
+        page: { limit: 1, includeTotal: true },
+      })
+    );
+    expect(
+      resultValue(await service.execute(context, definition, { parameters: { minimum: 10 } }))
+    ).toEqual({
+      rows: [{ label: 'Beta', revenue: 27 }],
+      page: { limit: 1, offset: 0, total: 2 },
+    });
+    const blank = resultValue(
+      DataQueryDefinition.create({
+        ...definition.snapshot(),
+        having: {
+          type: 'formula',
+          formula: 'IF({revenue} > 0, BLANK(), 1 = 1)',
+          references: {
+            revenue: { type: 'output', alias: 'revenue' },
+          },
+        },
+      })
+    );
+    expect(
+      resultValue(await service.execute(context, blank, { parameters: { minimum: 10 } }))
+    ).toEqual({
+      rows: [],
+      page: { limit: 1, offset: 0, total: 0 },
+    });
   });
 
   it.each([

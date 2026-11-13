@@ -3,7 +3,12 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { ensureTableQueryObservationSchema, type TableQueryObservationDatabase } from './schema';
+import {
+  ensureTableQueryObservationSchema,
+  ensureTableQueryOpsSchema,
+  type TableQueryObservationDatabase,
+  type TableQueryOpsDatabase,
+} from './schema';
 
 const runPostgresAcceptance = process.env.TEABLE_V2_RUN_OBSERVATION_SCHEMA_PG_INTEGRATION === '1';
 const testDatabaseUrl = process.env.PRISMA_DATABASE_URL;
@@ -103,6 +108,87 @@ describeWithPostgres('ensureTableQueryObservationSchema lock timeout', () => {
     await sql`DELETE FROM table_query_observation_shard WHERE table_id = ${tableId}`.execute(
       locker
     );
+  });
+
+  it('upgrades an existing task table without changing its payload, receipt or owner', async () => {
+    const schema = `query_ops_upgrade_${process.pid}`;
+    const journal = {
+      version: 1,
+      kind: 'search_generation',
+      phase: 'column_ready',
+      indexName: 'owned_generation',
+    };
+    await (locker as unknown as Kysely<TableQueryOpsDatabase>).connection().execute(async (db) => {
+      await sql`BEGIN`.execute(db);
+      try {
+        await db.schema.createSchema(schema).execute();
+        await sql`SELECT set_config('search_path', ${schema}, true)`.execute(db);
+        await sql`CREATE TABLE table_query_remediation_task (
+          id text PRIMARY KEY, recommendation_id text, base_id text NOT NULL, table_id text NOT NULL,
+          kind text NOT NULL, status text NOT NULL, payload jsonb NOT NULL, result jsonb,
+          attempts integer NOT NULL DEFAULT 0, max_attempts integer NOT NULL DEFAULT 3,
+          locked_at timestamptz, locked_by text, last_error text,
+          created_time timestamptz NOT NULL DEFAULT now(), last_modified_time timestamptz
+        )`.execute(db);
+        await sql`INSERT INTO table_query_remediation_task
+          (id, base_id, table_id, kind, status, payload, result, attempts, locked_at, locked_by)
+          VALUES ('legacy-task', 'base', 'table', 'create_search_access_path', 'running',
+            '{"frozen":"target"}'::jsonb, '{"receipt":"existing"}'::jsonb, 2,
+            '2026-11-01T00:00:00Z', 'existing-worker')`.execute(db);
+        const before = await db
+          .selectFrom('table_query_remediation_task')
+          .selectAll()
+          .executeTakeFirstOrThrow();
+        await ensureTableQueryOpsSchema(db);
+        const upgraded = await db
+          .selectFrom('table_query_remediation_task')
+          .selectAll()
+          .executeTakeFirstOrThrow();
+        expect(upgraded).toEqual({ ...before, execution_state: null });
+        await db
+          .updateTable('table_query_remediation_task')
+          .set({ execution_state: JSON.stringify(journal) })
+          .where('id', '=', 'legacy-task')
+          .execute();
+        await ensureTableQueryOpsSchema(db);
+        const repeated = await db
+          .selectFrom('table_query_remediation_task')
+          .selectAll()
+          .executeTakeFirstOrThrow();
+        expect(repeated).toEqual({ ...before, execution_state: journal });
+      } finally {
+        await sql`ROLLBACK`.execute(db);
+      }
+    });
+  });
+
+  it('does not queue task-table DDL when the journal column already exists', async () => {
+    const opsLocker = locker as unknown as Kysely<TableQueryOpsDatabase>;
+    const opsContender = contender as unknown as Kysely<TableQueryOpsDatabase>;
+    await ensureTableQueryOpsSchema(opsLocker);
+    const { promise: locked, resolve: markLocked } = Promise.withResolvers<void>();
+    const { promise: released, resolve: releaseLock } = Promise.withResolvers<void>();
+    const lock = opsLocker.transaction().execute(async (trx) => {
+      await sql`LOCK TABLE table_query_remediation_task IN ACCESS SHARE MODE`.execute(trx);
+      markLocked();
+      await released;
+    });
+    await locked;
+
+    try {
+      const ensure = ensureTableQueryOpsSchema(opsContender);
+      const { promise: expired, resolve: expire } = Promise.withResolvers<'timed_out'>();
+      const timer = setTimeout(() => expire('timed_out'), 1_000);
+      const outcome = await Promise.race([ensure.then(() => 'completed' as const), expired]);
+      clearTimeout(timer);
+      releaseLock();
+      await lock;
+      await ensure;
+      expect(outcome).toBe('completed');
+    } finally {
+      releaseLock();
+      await lock.catch(() => undefined);
+    }
   });
 
   it('fails fast instead of waiting behind observation DDL locks', async () => {

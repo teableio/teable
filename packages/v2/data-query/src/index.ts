@@ -35,6 +35,5 @@ export * from './DataQueryManifest';
 export * from './DataQueryManifestDependencies';
 export * from './DataQueryManifestLint';
 export * from './DataQueryManifestFiles';
-export * from './managedQueryTool.generated';
 
 export * from './DataQueryManifestRepair';

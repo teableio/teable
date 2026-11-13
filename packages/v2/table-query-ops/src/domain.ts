@@ -1207,8 +1207,20 @@ export class TableQueryRemediationTask {
   }
 
   start(workerId: string, now: Date): Result<TableQueryRemediationTask, DomainError> {
-    if (this.props.status !== 'queued' && this.props.status !== 'failed') {
-      return err(domainError.conflict({ message: 'Only queued or failed tasks can start' }));
+    const recoveringSearch =
+      this.props.status === 'running' &&
+      [
+        'create_search_access_path',
+        'rebuild_search_access_path',
+        'create_search_vector',
+        'rebuild_search_vector',
+      ].includes(this.props.kind) &&
+      this.props.lockedBy === workerId &&
+      this.props.lockedAt !== undefined;
+    if (this.props.status !== 'queued' && this.props.status !== 'failed' && !recoveringSearch) {
+      return err(
+        domainError.conflict({ message: 'Only queued, failed or reserved search tasks can start' })
+      );
     }
     if (this.props.lockedBy && this.props.lockedBy !== workerId) {
       return err(domainError.conflict({ message: 'Task is reserved by another worker' }));
@@ -1216,11 +1228,14 @@ export class TableQueryRemediationTask {
     if (this.props.lockedAt && this.props.lockedAt.getTime() < now.getTime() - 60_000) {
       return err(domainError.conflict({ message: 'Task reservation has expired' }));
     }
+    if (!recoveringSearch && this.props.attempts >= this.props.maxAttempts) {
+      return err(domainError.conflict({ message: 'Task retry budget is exhausted' }));
+    }
     return ok(
       new TableQueryRemediationTask({
         ...this.props,
         status: 'running',
-        attempts: this.props.attempts + 1,
+        attempts: this.props.attempts + (recoveringSearch ? 0 : 1),
         lockedBy: workerId,
         lockedAt: this.props.lockedAt ?? now,
         lastModifiedTime: now,
@@ -1242,7 +1257,11 @@ export class TableQueryRemediationTask {
     );
   }
 
-  fail(errorMessage: string, now: Date): Result<TableQueryRemediationTask, DomainError> {
+  fail(
+    errorMessage: string,
+    now: Date,
+    retryable = true
+  ): Result<TableQueryRemediationTask, DomainError> {
     if (this.props.status !== 'running') {
       return err(domainError.conflict({ message: 'Only running tasks can fail' }));
     }
@@ -1251,6 +1270,7 @@ export class TableQueryRemediationTask {
         ...this.props,
         status: 'failed',
         lastError: errorMessage,
+        maxAttempts: retryable ? this.props.maxAttempts : this.props.attempts,
         lastModifiedTime: now,
       })
     );

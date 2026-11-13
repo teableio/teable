@@ -588,9 +588,9 @@ export class PostgresTableRecordQueryRepository
               const field = fieldsById.get(aggregationField.fieldId.toString())!;
               const columnName = fieldColumns.get(aggregationField.fieldId.toString())!;
               return buildTableRecordAggregationExpression(
-                field,
-                columnName,
-                aggregationField.statisticFunc
+                sql.ref(`a.${columnName}`),
+                aggregationField.statisticFunc,
+                field
               ).as(aggregateAliases[index]!);
             })
           );

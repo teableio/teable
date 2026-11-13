@@ -169,6 +169,162 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
       allowPolicyIndexExecution: false,
     });
 
+  it('persists a permanent failure budget and refuses claims and stale restart snapshots', async () => {
+    const task = queued('tqt_terminal', 'tblTerminal');
+    unwrapTaskResult(await repository.save(context, task));
+    const running = unwrapTaskResult(
+      await repository.save(context, task.start('owner', new Date())._unsafeUnwrap())
+    );
+    const retryableSnapshot = running.fail('transient', new Date())._unsafeUnwrap();
+    const terminal = unwrapTaskResult(
+      await repository.save(
+        context,
+        running.fail('target changed', new Date(), false)._unsafeUnwrap()
+      )
+    );
+    expect(terminal.snapshot()).toMatchObject({
+      status: 'failed',
+      attempts: 1,
+      maxAttempts: 1,
+      lockedAt: undefined,
+    });
+    expect(unwrapTaskResult(await claim('next'))).toBeUndefined();
+    expect(
+      (
+        await repository.save(context, retryableSnapshot.start('owner', new Date())._unsafeUnwrap())
+      ).isErr()
+    ).toBe(true);
+    expect(
+      (
+        await repository.save(context, running.fail('stale overwrite', new Date())._unsafeUnwrap())
+      ).isErr()
+    ).toBe(true);
+    expect(
+      unwrapTaskResult(await repository.findById(context, task.snapshot().id)).snapshot()
+    ).toMatchObject({ attempts: 1, maxAttempts: 1, lastError: 'target changed' });
+  });
+
+  it('never reclaims live long search DDL from its timestamp and fences the departed owner', async () => {
+    const task = queued('tqt_orphan', 'tblOrphan');
+    unwrapTaskResult(await repository.save(context, task));
+    const running = task.start('departed', new Date())._unsafeUnwrap();
+    unwrapTaskResult(await repository.save(context, running));
+    const stale = new Date(Date.now() - 120_000);
+    await db
+      .updateTable('table_query_remediation_task')
+      .set({ locked_at: stale })
+      .where('id', '=', task.snapshot().id)
+      .execute();
+    const departed = unwrapTaskResult(await repository.findById(context, task.snapshot().id));
+    await db.connection().execute(async (session) => {
+      await sql`SELECT pg_advisory_lock(hashtext('teable.table_query_ops.search_vector'), hashtext('tblOrphan'))`.execute(
+        session
+      );
+      try {
+        expect(
+          unwrapTaskResult(await claim('replacement', new Date(), 'manual_search'))
+        ).toBeUndefined();
+      } finally {
+        await sql`SELECT pg_advisory_unlock(hashtext('teable.table_query_ops.search_vector'), hashtext('tblOrphan'))`.execute(
+          session
+        );
+      }
+    });
+    const recovered = unwrapTaskResult(await claim('replacement', new Date(), 'manual_search'))!;
+    expect(recovered.snapshot()).toMatchObject({
+      status: 'running',
+      attempts: 1,
+      lockedBy: 'replacement',
+    });
+    const resumed = recovered.start('replacement', new Date())._unsafeUnwrap();
+    unwrapTaskResult(await repository.save(context, resumed));
+    expect(
+      (
+        await repository.save(
+          context,
+          departed.succeed({ falseOwner: true }, new Date())._unsafeUnwrap()
+        )
+      ).isErr()
+    ).toBe(true);
+    unwrapTaskResult(
+      await repository.save(
+        context,
+        resumed.succeed({ recovered: true }, new Date())._unsafeUnwrap()
+      )
+    );
+    expect(
+      unwrapTaskResult(await repository.findById(context, task.snapshot().id)).snapshot().result
+    ).toEqual({ recovered: true });
+  });
+
+  it('recovers an interrupted last search attempt without taking another capacity slot or recovering generic work', async () => {
+    for (const [id, tableId, kind] of [
+      ['tqt_last_search', 'tblLastSearch', 'rebuild_search_access_path'],
+      ['tqt_generic', 'tblGeneric', 'create_filter_index'],
+    ] as const) {
+      const task = queued(
+        id,
+        tableId,
+        {
+          trigger: kind === 'create_filter_index' ? 'admin_index' : 'admin_search_access_path',
+          executionMode: 'manual',
+        },
+        kind
+      );
+      unwrapTaskResult(await repository.save(context, task));
+      unwrapTaskResult(
+        await repository.save(context, task.start('departed', new Date())._unsafeUnwrap())
+      );
+      await db
+        .updateTable('table_query_remediation_task')
+        .set({ attempts: 3, locked_at: new Date(Date.now() - 120_000) })
+        .where('id', '=', id)
+        .execute();
+    }
+    const recovered = unwrapTaskResult(await claim('replacement'))!;
+    expect(recovered.snapshot()).toMatchObject({
+      id: 'tqt_last_search',
+      status: 'running',
+      attempts: 3,
+    });
+    unwrapTaskResult(
+      await repository.save(context, recovered.start('replacement', new Date())._unsafeUnwrap())
+    );
+    expect(unwrapTaskResult(await claim('another'))).toBeUndefined();
+    expect(
+      unwrapTaskResult(await repository.findById(context, 'tqt_generic')).snapshot()
+    ).toMatchObject({ lockedBy: 'departed', status: 'running' });
+  });
+
+  it('keeps the execution journal independent of stale completion snapshots and immutable approval payloads', async () => {
+    const task = queued('tqt_journal', 'tblJournal');
+    unwrapTaskResult(await repository.save(context, task));
+    const running = task.start('owner', new Date())._unsafeUnwrap();
+    unwrapTaskResult(await repository.save(context, running));
+    const journal = {
+      version: 1,
+      kind: 'search_generation',
+      phase: 'published',
+      indexName: 'managed_candidate',
+    };
+    await db
+      .updateTable('table_query_remediation_task')
+      .set({ execution_state: JSON.stringify(journal) })
+      .where('id', '=', task.snapshot().id)
+      .execute();
+    unwrapTaskResult(
+      await repository.save(context, running.succeed({ receipt: true }, new Date())._unsafeUnwrap())
+    );
+    const row = await db
+      .selectFrom('table_query_remediation_task')
+      .selectAll()
+      .where('id', '=', task.snapshot().id)
+      .executeTakeFirstOrThrow();
+    expect(row.execution_state).toEqual(journal);
+    expect(row.payload).toEqual(task.snapshot().payload);
+    expect(row.result).toEqual({ receipt: true });
+  });
+
   it('claims only explicitly marked modern search tasks in the manual scope', async () => {
     await repository.save(
       context,

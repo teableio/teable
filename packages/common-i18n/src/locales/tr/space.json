@@ -164,7 +164,7 @@
       "tableDataBatchRows_one": "Bu toplu işte {{count}} satır",
       "tableDataBatchRows_other": "Bu toplu işte {{count}} satır",
       "tableDataEmpty": "İçe aktarılacak tablo verisi yok",
-      "done": "Import completed",
+      "done": "İçe aktarma tamamlandı",
       "clickToView": "Görüntülemek için tıklayın"
     }
   },

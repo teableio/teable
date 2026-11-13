@@ -23,6 +23,13 @@
       "module": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./complexity": {
+      "@teable/source": "./src/complexity.ts",
+      "types": "./src/complexity.ts",
+      "import": "./dist/index.js",
+      "module": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
     "./complexityPaths": {
       "@teable/source": "./src/complexityPaths.ts",
       "types": "./src/complexityPaths.ts",

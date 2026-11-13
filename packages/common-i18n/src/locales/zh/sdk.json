@@ -1671,7 +1671,10 @@
       "categoryDepthExceeded": "细分行业下不能再建细分",
       "teamIsFlat": "团队不能有上级或细分",
       "categoryKeyTaken": "这个网址标识已被其他分类使用",
-      "slugTaken": "这个网址标识已被其他模板使用"
+      "slugTaken": "这个网址标识已被其他模板使用",
+      "guideStepLeftOut": "引导步骤「{{title}}」要打开的内容不在这次提交里。",
+      "guideStepStartsTicked": "引导步骤「{{title}}」在示例数据上已经完成，装好就会是打勾的。",
+      "guideNothingToConnect": "引导步骤「{{title}}」要等用户连接账号，但这个项目不需要任何账号，装好就会是打勾的。"
     },
     "department": {
       "parentNotFound": "父部门未找到",
@@ -1827,5 +1830,8 @@
     "seats": {
       "unit": "席位"
     }
+  },
+  "template": {
+    "trialName": "{{name}}（试用）"
   }
 }

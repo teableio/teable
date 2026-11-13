@@ -161,7 +161,7 @@
       "tableDataBatch": "バッチ {{batch}}",
       "tableDataBatchRows": "このバッチの {{count}} 行",
       "tableDataEmpty": "インポートするテーブルデータがありません",
-      "done": "Import completed",
+      "done": "インポート完了",
       "clickToView": "クリックして表示"
     }
   },

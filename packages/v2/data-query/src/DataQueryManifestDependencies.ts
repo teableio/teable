@@ -3,7 +3,7 @@ import type { DataQueryManifest } from './DataQueryManifest';
 import type { DataQueryFieldUsage } from './types';
 
 /** Bump when declared dependency traversal changes so persisted indexes are rebuilt. */
-export const DATA_QUERY_DEPENDENCY_ANALYZER_VERSION = 8;
+export const DATA_QUERY_DEPENDENCY_ANALYZER_VERSION = 11;
 
 const compareText = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;

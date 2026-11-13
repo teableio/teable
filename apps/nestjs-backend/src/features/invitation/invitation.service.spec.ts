@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { createHmac } from 'node:crypto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
@@ -401,6 +402,51 @@ describe('InvitationService', () => {
           expect(error?.message).toBe('Invalid invitation code');
         }
       );
+    });
+    it('turns a wrong code away without asking the database', async () => {
+      await clsService.runWith(
+        {
+          ...defaultCls,
+          permissions: getPermissions(Role.Owner),
+        },
+        async () => {
+          const error = await getError(() =>
+            invitationService.acceptInvitationLink({
+              invitationId: mockInvitationId,
+              invitationCode: generateInvitationCode('invsomeoneelse'),
+            })
+          );
+          expect(error?.message).toBe('Invalid invitation code');
+        }
+      );
+      expect(prismaService.invitation.findFirst).not.toHaveBeenCalled();
+    });
+    it('accepts a link sent before the invitation secret changed while its _OLD holds the old value', async () => {
+      const previous = process.env.BACKEND_INVITATION_SECRET_OLD;
+      process.env.BACKEND_INVITATION_SECRET_OLD = 'previous-secret-key';
+      try {
+        prismaService.invitation.findFirst.mockResolvedValue({
+          spaceId: mockSpace.id,
+          type: 'email',
+        } as any);
+        const result = await clsService.runWith(
+          {
+            ...defaultCls,
+            permissions: getPermissions(Role.Owner),
+          },
+          async () =>
+            await invitationService.acceptInvitationLink({
+              invitationId: mockInvitationId,
+              invitationCode: createHmac('sha256', 'previous-secret-key')
+                .update(mockInvitationId)
+                .digest('hex'),
+            })
+        );
+        expect(result.spaceId).toEqual(mockSpace.id);
+      } finally {
+        if (previous === undefined) delete process.env.BACKEND_INVITATION_SECRET_OLD;
+        else process.env.BACKEND_INVITATION_SECRET_OLD = previous;
+      }
     });
     it('should throw NotFoundException for not found link invitation', async () => {
       prismaService.invitation.findFirst.mockResolvedValue(null);

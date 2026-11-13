@@ -235,7 +235,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     <div className="flex w-full flex-col">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-        <DropdownMenuContent className="w-64">
+        <DropdownMenuContent className="w-64" collisionPadding={16}>
           <AddTableMenuItems />
           <AddResourceMenuItems />
           <ImportTableMenuItems />

@@ -4489,38 +4489,6 @@
   },
   {
     "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/model/factory.ts",
-    "symbol": "createFieldInstanceByVo",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/model/factory.ts",
-    "symbol": "IFieldInstance",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/paste-link-cell-value.ts",
-    "symbol": "convertLinkPasteCellValue",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/select-paste-cell-value.ts",
-    "symbol": "selectPasteCellValue",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
     "source": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api-v2.service.ts",
     "target": "community/apps/nestjs-backend/src/features/table/table-duplicate.service.ts",
     "symbol": "TableDuplicateService",
@@ -4694,13 +4662,5 @@
     "symbol": "BaseExportService",
     "kind": "injection",
     "owner": "BaseExportV2Service"
-  },
-  {
-    "scope": "v2-host",
-    "source": "enterprise/backend-ee/src/features/task/v2-task.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/model/factory.ts",
-    "symbol": "createFieldInstanceByVo",
-    "kind": "import",
-    "owner": ""
   }
 ]

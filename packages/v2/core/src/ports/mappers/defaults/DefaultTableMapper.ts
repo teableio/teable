@@ -1099,6 +1099,11 @@ export class DefaultTableMapper implements ITableMapper {
     );
   }
 
+  /** Hydrates clipboard/header metadata without manufacturing a containing table. */
+  fieldFromDTO(dto: ITableFieldPersistenceDTO): Result<Field, DomainError> {
+    return this.mapFieldToDomain(dto);
+  }
+
   private mapFieldToDomain(dto: ITableFieldPersistenceDTO): Result<Field, DomainError> {
     // Check if this is a lookup field (v1 format: isLookup flag on the field)
     const mapped =

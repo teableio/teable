@@ -50,6 +50,7 @@ const recordsFromContext = (
       return context.payload.recordsFieldValues;
     case RecordWriteOperationKind.deleteMany:
     case RecordWriteOperationKind.archiveMany:
+    case RecordWriteOperationKind.temporaryPaste:
       return [];
   }
 };
@@ -74,6 +75,7 @@ const recordCountFromContext = (context: RecordWritePluginContext): number => {
       return context.payload.recordCount;
     case RecordWriteOperationKind.deleteMany:
     case RecordWriteOperationKind.archiveMany:
+    case RecordWriteOperationKind.temporaryPaste:
       // Removal operations do not write field values and are excluded by supports().
       return 0;
     case RecordWriteOperationKind.updateMany:
@@ -94,6 +96,7 @@ export class TableDataSafetyLimitRecordWritePlugin implements IRecordWritePlugin
 
   supports(operation: RecordWriteOperationKind): boolean {
     return (
+      operation !== RecordWriteOperationKind.temporaryPaste &&
       operation !== RecordWriteOperationKind.deleteMany &&
       operation !== RecordWriteOperationKind.archiveMany &&
       // Restore keeps its pre-plugin behavior: the trash row already counted

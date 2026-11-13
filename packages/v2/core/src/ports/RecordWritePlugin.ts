@@ -32,6 +32,7 @@ export const RecordWriteOperationKind = {
   archiveMany: 'archiveMany',
   importAppend: 'importAppend',
   paste: 'paste',
+  temporaryPaste: 'temporaryPaste',
   upsertRecords: 'upsertRecords',
   restoreMany: 'restoreMany',
 } as const;
@@ -301,6 +302,19 @@ export type IRecordWriteRestoreManyContext = IRecordWritePluginContextBase<
   RecordWriteRestoreManyPayload
 >;
 
+/** Cell conversion may update select metadata, but never creates or updates a record. */
+export type RecordWriteTemporaryPastePayload = {
+  readonly recordsFieldValues: ReadonlyArray<RecordWriteFieldValues>;
+  readonly fieldKeyType: FieldKeyType;
+  readonly typecast: true;
+  readonly recordCount: number;
+};
+
+export type IRecordWriteTemporaryPasteContext = IRecordWritePluginContextBase<
+  'temporaryPaste',
+  RecordWriteTemporaryPastePayload
+>;
+
 export type RecordWritePluginContextMap = {
   createOne: IRecordWriteCreateOneContext;
   createMany: IRecordWriteCreateManyContext;
@@ -315,6 +329,7 @@ export type RecordWritePluginContextMap = {
   archiveMany: IRecordWriteArchiveManyContext;
   importAppend: IRecordWriteImportAppendContext;
   paste: IRecordWritePasteContext;
+  temporaryPaste: IRecordWriteTemporaryPasteContext;
   upsertRecords: IRecordWriteUpsertRecordsContext;
   restoreMany: IRecordWriteRestoreManyContext;
 };

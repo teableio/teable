@@ -4,12 +4,12 @@ import { isRecordFilterFieldReferenceValue } from '@teable/v2-core';
 import { stringify as stringifyYaml } from 'yaml';
 
 import {
-  mapDataQueryPredicateV3,
   mapDataQueryFormulaExpression,
   walkDataQueryPredicateExpressions,
   walkDataQueryFormulaExpression,
   type DataQueryExpressionProjection,
   type DataQueryPredicateV3,
+  type DataQueryPredicateV5,
   type DataQueryExpressionNode,
 } from './DataQueryExpression';
 import type { DataQueryManifest } from './DataQueryManifest';
@@ -232,7 +232,7 @@ export const sqlMentionsIdentifier = (sql: string, identifier: string | undefine
 const sourceOf = (item: object): string =>
   'source' in item && typeof item.source === 'string' ? item.source : 'root';
 
-type Relations = NonNullable<Extract<MutableDefinition, { version: 2 | 3 }>['relations']>;
+type Relations = NonNullable<Extract<MutableDefinition, { version: 2 | 3 | 4 | 5 }>['relations']>;
 
 const relationsOf = (definition: MutableDefinition): Relations =>
   definition.version !== 1 ? (definition.relations ?? {}) : {};
@@ -290,15 +290,27 @@ const leafTouchesField = (
   return qualified === target.tableId && value.fieldId === target.fieldId;
 };
 
-type FilterRemoval = { node?: DataQueryPredicateV3; removed: number };
+type FilterRemoval<T = DataQueryPredicateV5> = { node?: T; removed: number };
 
 /** Remove leaves that read the changed field; unwrap emptied groups and `not`. */
-const removeFilterLeaves = (
+function removeFilterLeaves(
   node: DataQueryPredicateV3,
   definition: MutableDefinition,
   source: string,
   target: ChangeTarget
-): FilterRemoval => {
+): FilterRemoval<DataQueryPredicateV3>;
+function removeFilterLeaves(
+  node: DataQueryPredicateV5,
+  definition: MutableDefinition,
+  source: string,
+  target: ChangeTarget
+): FilterRemoval;
+function removeFilterLeaves(
+  node: DataQueryPredicateV5,
+  definition: MutableDefinition,
+  source: string,
+  target: ChangeTarget
+): FilterRemoval {
   if ('items' in node) {
     const children = node.items.map((item) => removeFilterLeaves(item, definition, source, target));
     const removed = children.reduce((count, child) => count + child.removed, 0);
@@ -316,6 +328,46 @@ const removeFilterLeaves = (
   return 'fieldId' in node && leafTouchesField(node, definition, source, target)
     ? { removed: 1 }
     : { node, removed: 0 };
+}
+
+const existenceTouchesChange = (
+  definition: MutableDefinition,
+  target: ChangeTarget,
+  kind: DataQuerySchemaChange['kind']
+): boolean => {
+  if ((definition.version !== 5 && definition.version !== 6) || !definition.filter) return false;
+  const relations = relationsOf(definition);
+  const filterTouches = (filter: DataQueryPredicateV3, source: string): boolean => {
+    if ('items' in filter) return filter.items.some((item) => filterTouches(item, source));
+    if ('not' in filter) return filterTouches(filter.not, source);
+    if ('fieldId' in filter) return leafTouchesField(filter, definition, source, target);
+    return Object.values(filter.references).some(
+      (reference) =>
+        reference.type === 'field' &&
+        reference.fieldId === target.fieldId &&
+        tableOfSource(definition, reference.source ?? source) === target.tableId
+    );
+  };
+  const visit = (predicate: DataQueryPredicateV5): boolean => {
+    if ('items' in predicate) return predicate.items.some(visit);
+    if ('not' in predicate) return visit(predicate.not);
+    if (!('relation' in predicate)) return false;
+    let alias = predicate.relation;
+    while (alias !== 'root') {
+      const relation = relations[alias];
+      if (!relation) return true;
+      if (kind === 'table_deleted' && relation.tableId === target.tableId) return true;
+      if (
+        relation.linkFieldId === target.fieldId &&
+        linkHostTable(definition, relation) === target.tableId
+      )
+        return true;
+      if (relation.filter && filterTouches(relation.filter, alias)) return true;
+      alias = relation.via ?? 'root';
+    }
+    return false;
+  };
+  return visit(definition.filter);
 };
 /** A formula and its declared references are indivisible: never prune formula operands. */
 const expressionTouchesChange = (
@@ -323,7 +375,7 @@ const expressionTouchesChange = (
   target: ChangeTarget,
   kind: DataQuerySchemaChange['kind']
 ): boolean => {
-  if (definition.version !== 3) return false;
+  if (definition.version < 3) return false;
   const relations = relationsOf(definition);
   const sourceRemoved = (source: string): boolean => {
     let alias = source;
@@ -356,6 +408,40 @@ const expressionTouchesChange = (
   if (definition.kind === 'records') {
     for (const projection of definition.select) {
       if ('expr' in projection) walkDataQueryFormulaExpression(projection.expr, visitor('root'));
+    }
+  }
+  if (
+    (definition.version === 4 || definition.version === 5 || definition.version === 6) &&
+    definition.kind === 'aggregate'
+  ) {
+    const filterTouches = (filter: DataQueryPredicateV3, source: string): boolean => {
+      if ('items' in filter) return filter.items.some((item) => filterTouches(item, source));
+      if ('not' in filter) return filterTouches(filter.not, source);
+      if ('type' in filter) {
+        walkDataQueryPredicateExpressions(filter, visitor(source));
+        return false;
+      }
+      return sourceRemoved(source) || leafTouchesField(filter, definition, source, target);
+    };
+    for (const metric of definition.aggregates) {
+      const source = sourceOf(metric);
+      if (sourceRemoved(source) && ('expr' in metric || metric.filter)) touched = true;
+      if ('expr' in metric) walkDataQueryFormulaExpression(metric.expr, visitor(source));
+      if (metric.filter && filterTouches(metric.filter, source)) touched = true;
+    }
+    const referencedOutputs = new Set(
+      Object.values(definition.having?.references ?? {}).flatMap((reference) =>
+        reference.type === 'output' ? [reference.alias] : []
+      )
+    );
+    for (const output of [...(definition.groupBy ?? []), ...definition.aggregates]) {
+      if (!referencedOutputs.has(output.alias)) continue;
+      const source = sourceOf(output);
+      if (
+        sourceRemoved(source) ||
+        (output.fieldId === target.fieldId && tableOfSource(definition, source) === target.tableId)
+      )
+        touched = true;
     }
   }
   if (definition.filter) walkDataQueryPredicateExpressions(definition.filter, visitor('root'));
@@ -418,6 +504,12 @@ const rewriteFieldReferences = (
     }
   } else {
     for (const aggregate of definition.aggregates) {
+      if ('expr' in aggregate) {
+        aggregate.expr = mapDataQueryFormulaExpression(
+          aggregate.expr,
+          rewriteExpression(sourceOf(aggregate), 'aggregate')
+        );
+      }
       // A relation `count` metric carries no fieldId, so there is nothing to rewrite.
       if (typeof aggregate.fieldId !== 'string') continue;
       const before = aggregate.fieldId;
@@ -449,14 +541,16 @@ const rewriteFieldReferences = (
     return { ...item, allowed };
   });
 
-  const rewriteFilter = (node: DataQueryPredicateV3, source: string): DataQueryPredicateV3 => {
+  function rewriteFilter(node: DataQueryPredicateV3, source: string): DataQueryPredicateV3;
+  function rewriteFilter(node: DataQueryPredicateV5, source: string): DataQueryPredicateV5;
+  function rewriteFilter(node: DataQueryPredicateV5, source: string): DataQueryPredicateV5 {
     if ('items' in node) {
       return { ...node, items: node.items.map((item) => rewriteFilter(item, source)) };
     }
     if ('not' in node) return { not: rewriteFilter(node.not, source) };
-    if (!('fieldId' in node)) {
-      return mapDataQueryPredicateV3(node, rewriteExpression(source, 'filter'));
-    }
+    if ('relation' in node) return node;
+    if ('type' in node)
+      return mapDataQueryFormulaExpression(node, rewriteExpression(source, 'filter'));
     const tableId = tableOfSource(definition, source);
     const fieldId = rewrite(tableId, node.fieldId);
     if (fieldId !== node.fieldId) usages.add('filter');
@@ -470,12 +564,18 @@ const rewriteFieldReferences = (
     }
     usages.add('reference');
     return { ...node, fieldId, value: { ...value, fieldId: rewritten } };
-  };
+  }
 
   if (definition.filter) definition.filter = rewriteFilter(definition.filter, 'root');
   for (const [alias, relation] of Object.entries(relationsOf(definition))) {
     if (relation.filter) relation.filter = rewriteFilter(relation.filter, alias);
   }
+  if (
+    (definition.version === 4 || definition.version === 5 || definition.version === 6) &&
+    definition.kind === 'aggregate'
+  )
+    for (const metric of definition.aggregates)
+      if (metric.filter) metric.filter = rewriteFilter(metric.filter, sourceOf(metric));
 };
 
 /** `mode: auto` keeps a fallback; switching preserves parameters and aliases. */
@@ -547,6 +647,30 @@ const planQuery = (
 
   if (kind === 'table_deleted' && definition.tableId === target.tableId) {
     reasons.add('table_deleted');
+    return outcome('manual');
+  }
+  // Every selected component defines the tuple grain. Even compatible replacement
+  // can change equality; never silently rewrite or prune that contract.
+  if (
+    definition.version === 6 &&
+    definition.kind === 'records' &&
+    definition.distinct &&
+    (kind === 'field_deleted' ||
+      kind === 'table_deleted' ||
+      kind === 'field_replaced' ||
+      (kind === 'field_updated' && target.typeChanged)) &&
+    ['projection', 'aggregate', 'reference', 'relation'].some((usage) =>
+      semanticUsages.has(usage as DataQueryFieldUsage)
+    )
+  ) {
+    reasons.add('group_semantics_changed');
+    return outcome('manual');
+  }
+  if (
+    (kind !== 'field_updated' || target.typeChanged) &&
+    existenceTouchesChange(definition, target, kind)
+  ) {
+    reasons.add('filter_semantics_changed');
     return outcome('manual');
   }
 
@@ -806,7 +930,7 @@ const planQuery = (
       ? definition.select.length === 0
       : definition.aggregates.length === 0;
   if (empty) {
-    if (definition.version !== 3 && query.mode === 'auto' && query.fallback) {
+    if (definition.version < 3 && query.mode === 'auto' && query.fallback) {
       // Promotion makes the fallback executable. If it names the deleted field,
       // activating it is not an automatic repair.
       if (sqlMentionsIdentifier(query.fallback.sql, target.sqlIdentifier)) {

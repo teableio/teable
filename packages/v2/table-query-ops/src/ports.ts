@@ -292,6 +292,11 @@ export type ReconcileTableSearchAccessPathInput = {
   /** Automatic acceleration requires a better plan; explicit coverage configuration does not. */
   readonly requirePlanImprovement?: boolean;
   readonly allowLargeTableRewrite?: boolean;
+  readonly execution?: {
+    readonly taskId: string;
+    readonly workerId: string;
+    readonly lockedAt: Date;
+  };
 };
 
 export type ReconcileTableSearchAccessPathResult = {

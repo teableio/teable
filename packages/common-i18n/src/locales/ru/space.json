@@ -170,7 +170,7 @@
       "tableDataBatchRows_many": "Строк в этом пакете: {{count}}",
       "tableDataBatchRows_other": "Строк в этом пакете: {{count}}",
       "tableDataEmpty": "Нет данных таблиц для импорта",
-      "done": "Import completed",
+      "done": "Импорт завершён",
       "clickToView": "Нажмите для просмотра"
     }
   },

@@ -195,6 +195,58 @@ describe('SchemaOperationRunnerService', () => {
     );
   });
 
+  it.each([
+    {
+      code: 'view.version_conflict',
+      attempts: 1,
+      retryable: true,
+      terminal: false,
+      status: 'error',
+      delayMs: 2_000,
+    },
+    {
+      code: 'view.version_conflict',
+      attempts: 7,
+      retryable: true,
+      terminal: true,
+      status: 'dead',
+      delayMs: 0,
+    },
+    {
+      code: 'conflict',
+      attempts: 1,
+      retryable: false,
+      terminal: true,
+      status: 'dead',
+      delayMs: 0,
+    },
+  ])(
+    'classifies $code at attempt $attempts without bypassing the retry limit',
+    async ({ code, attempts, retryable, terminal, status, delayMs }) => {
+      const repository = new FakeSchemaOperationRepository(operation({ attempts, maxAttempts: 8 }));
+      const handler: ISchemaOperationHandler = {
+        type: 'table.create',
+        run: async () => err(domainError.conflict({ code, message: 'Metadata conflict' })),
+      };
+      const runner = new SchemaOperationRunnerService(repository, [handler]);
+      const now = new Date('2026-04-28T01:00:00.000Z');
+
+      const result = await runner.runNext(context(), { now });
+
+      expect(result._unsafeUnwrap()).toMatchObject({
+        status: 'failed',
+        retryable,
+        terminal,
+        operation: {
+          status,
+          phase: 'error',
+          lastError: 'Metadata conflict',
+          nextRunAt: new Date(now.getTime() + delayMs),
+        },
+      });
+    }
+  );
+
   it('marks non-retryable failures dead immediately', async () => {
     const repository = new FakeSchemaOperationRepository(
       operation({

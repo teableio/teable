@@ -337,3 +337,105 @@ describe('DataQueryDefinition v2 relations', () => {
     expect(result.isOk()).toBe(true);
   });
 });
+
+describe('DataQueryDefinition v4 aggregate expressions', () => {
+  const expr = {
+    type: 'formula',
+    formula: '{amount} * {factor}',
+    references: {
+      amount: { type: 'field', fieldId },
+      factor: { type: 'parameter', name: 'factor' },
+    },
+  };
+  const aggregate = {
+    version: 4,
+    kind: 'aggregate',
+    tableId,
+    parameters: { factor: { type: 'number' }, minimum: { type: 'number' } },
+    aggregates: [
+      {
+        expr,
+        statisticFunc: 'sum',
+        alias: 'total',
+        filter: {
+          type: 'formula',
+          formula: '{amount} > 0',
+          references: { amount: { type: 'field', fieldId } },
+        },
+      },
+    ],
+    having: {
+      type: 'formula',
+      formula: '{total} > {minimum}',
+      references: {
+        total: { type: 'output', alias: 'total' },
+        minimum: { type: 'parameter', name: 'minimum' },
+      },
+    },
+  };
+
+  it('accepts formula input, metric-local filtering and output-stage HAVING together', () => {
+    const definition = DataQueryDefinition.create(aggregate)._unsafeUnwrap();
+    expect(definition.snapshot()).toMatchObject(aggregate);
+    expect(definition.bind({ factor: 2, minimum: 10 }).isOk()).toBe(true);
+  });
+
+  it('preserves strict old-version grammar and rejects ambiguous metric input', () => {
+    for (const version of [1, 2, 3]) {
+      expect(DataQueryDefinition.create({ ...aggregate, version }).isErr()).toBe(true);
+      expect(
+        DataQueryDefinition.create({
+          version,
+          kind: 'aggregate',
+          tableId,
+          aggregates: [{ fieldId, statisticFunc: 'count', alias: 'count' }],
+        }).isOk()
+      ).toBe(true);
+    }
+    expect(
+      DataQueryDefinition.create({
+        ...aggregate,
+        aggregates: [{ fieldId, expr, statisticFunc: 'sum', alias: 'total' }],
+      }).isErr()
+    ).toBe(true);
+  });
+
+  it('rejects raw-field HAVING, undeclared aliases and undeclared metric-filter parameters', () => {
+    for (const references of [
+      { total: { type: 'field', fieldId } },
+      { total: { type: 'system', system: 'id' } },
+      { total: { type: 'output', alias: 'missing' } },
+      { total: { type: 'parameter', name: 'missing' } },
+    ]) {
+      expect(
+        DataQueryDefinition.create({
+          ...aggregate,
+          having: {
+            type: 'formula',
+            formula: '{total} > 0',
+            references,
+          },
+        }).isErr()
+      ).toBe(true);
+    }
+    expect(
+      DataQueryDefinition.create({
+        ...aggregate,
+        aggregates: [
+          {
+            expr,
+            statisticFunc: 'sum',
+            alias: 'total',
+            filter: {
+              type: 'formula',
+              formula: 'TRUE',
+              references: {
+                unused: { type: 'parameter', name: 'missing' },
+              },
+            },
+          },
+        ],
+      }).isErr()
+    ).toBe(true);
+  });
+});

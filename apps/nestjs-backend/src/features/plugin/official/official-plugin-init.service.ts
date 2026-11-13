@@ -16,6 +16,7 @@ import { generateSecret } from '../utils';
 import { chartConfig } from './config/chart';
 import { sheetFormConfig } from './config/sheet-form-view';
 import type { IOfficialPluginConfig } from './config/types';
+import { deriveOfficialPluginSecret } from './official-plugin-secret';
 
 interface IUploadResult {
   id: string;
@@ -50,17 +51,21 @@ export class OfficialPluginInitService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    // Rewritten on every boot, so a SECRET_KEY change re-derives these; no client presents
+    // an official plugin's secret (they run on the app's own origin), so nothing breaks.
     const officialPlugins = [
       {
         ...chartConfig,
-        secret: this.configService.get<string>('PLUGIN_CHART_SECRET') || this.baseConfig.secretKey,
+        secret:
+          this.configService.get<string>('PLUGIN_CHART_SECRET') ||
+          deriveOfficialPluginSecret(this.baseConfig.secretKey, chartConfig.id),
         url: `/plugin/chart`,
       },
       {
         ...sheetFormConfig,
         secret:
           this.configService.get<string>('PLUGIN_SHEETFORMVIEW_SECRET') ||
-          this.baseConfig.secretKey,
+          deriveOfficialPluginSecret(this.baseConfig.secretKey, sheetFormConfig.id),
         url: `/plugin/sheet-form-view`,
       },
     ];

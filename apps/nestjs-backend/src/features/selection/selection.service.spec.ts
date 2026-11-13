@@ -201,28 +201,6 @@ describe('selectionService', () => {
       expect(result.recordIds).toEqual(['record2', 'record1']);
     });
 
-    it('uses a supplied record loader for paste payload preparation', async () => {
-      const recordLoader = vi.fn().mockResolvedValue([
-        { id: 'record2', fields: { field1: 'second' } },
-        { id: 'record1', fields: { field1: 'first' } },
-      ]);
-      vi.spyOn(selectionService, 'resolveFieldsBySelection').mockResolvedValue(fields);
-      const legacyLoader = vi.spyOn(selectionService, 'getRecordsByIdsForFields');
-
-      const result = await selectionService.buildPasteByIdPayload(
-        tableId,
-        {
-          selection: { recordIds: ['record2', 'record1'], fieldIds: ['field1'] },
-          content: [['new second'], ['new first']],
-        },
-        { recordIds: ['record2', 'record1'], recordLoader }
-      );
-
-      expect(recordLoader).toHaveBeenCalledWith(tableId, ['record2', 'record1'], ['field1']);
-      expect(legacyLoader).not.toHaveBeenCalled();
-      expect(result.recordIds).toEqual(['record2', 'record1']);
-    });
-
     it('keeps the legacy loader as the default', async () => {
       vi.spyOn(selectionService, 'resolveFieldsBySelection').mockResolvedValue(fields);
       const legacyLoader = vi

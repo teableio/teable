@@ -89,6 +89,89 @@ describe('query formula repetition resource limits', () => {
     await database.db.destroy();
   });
 
+  it.each(['metric', 'filter', 'having'] as const)(
+    'v4 maps %s repetition limits to query-only errors',
+    async (stage) => {
+      const expression = {
+        type: 'formula',
+        formula: 'LEN(REPT({title}, {count}))',
+        references: {
+          title: { type: 'field', fieldId: titleId },
+          count: { type: 'field', fieldId: countId },
+        },
+      } as const;
+      const parsed = DataQueryDefinition.create({
+        version: 4,
+        tableId,
+        kind: 'aggregate',
+        aggregates:
+          stage === 'metric'
+            ? [{ expr: expression, statisticFunc: 'sum', alias: 'value' }]
+            : [
+                {
+                  fieldId: countId,
+                  statisticFunc: 'sum',
+                  alias: 'value',
+                  ...(stage === 'filter'
+                    ? {
+                        filter: { ...expression, formula: `${expression.formula} > 0` },
+                      }
+                    : {}),
+                },
+              ],
+        ...(stage === 'having'
+          ? {
+              having: {
+                type: 'formula',
+                formula: 'LEN(REPT("a", {value})) > 0',
+                references: {
+                  value: { type: 'output', alias: 'value' },
+                },
+              },
+            }
+          : {}),
+      });
+      if (parsed.isErr()) throw new Error(JSON.stringify(parsed.error));
+      const result = await service.execute(context, parsed.value);
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toMatchObject({
+        code: 'data_query.expression_resource_limit',
+      });
+      expect(JSON.stringify(result._unsafeUnwrapErr())).not.toMatch(/resource_inputs|1048577/i);
+    }
+  );
+
+  it('v4 excludes a metric input before evaluating its oversized formula', async () => {
+    const parsed = DataQueryDefinition.create({
+      version: 4,
+      tableId,
+      kind: 'aggregate',
+      aggregates: [
+        {
+          expr: {
+            type: 'formula',
+            formula: 'LEN(REPT({title}, {count}))',
+            references: {
+              title: { type: 'field', fieldId: titleId },
+              count: { type: 'field', fieldId: countId },
+            },
+          },
+          statisticFunc: 'sum',
+          alias: 'value',
+          filter: {
+            fieldId: countId,
+            operator: 'isLess',
+            value: 0,
+          },
+        },
+      ],
+    });
+    if (parsed.isErr()) throw new Error(JSON.stringify(parsed.error));
+    const result = await service.execute(context, parsed.value);
+    if (result.isErr()) throw new Error(JSON.stringify(result.error));
+    expect(result.value.rows).toEqual([{ value: null }]);
+  });
+
   it.each([
     ['dynamic count and text', 'LEN(REPT({title}, {count}))'],
     ['nested expansion', 'LEN(REPT(REPT("a", 1025), 1025))'],

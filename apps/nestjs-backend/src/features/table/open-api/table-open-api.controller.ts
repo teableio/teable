@@ -49,6 +49,7 @@ import {
   IDuplicateTableRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { z } from 'zod';
 import type { IClsStore } from '../../../types/cls';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
@@ -276,7 +277,10 @@ export class TableController {
   @Permissions('table|read')
   @UseV2Feature('getTable')
   @Get('/socket/snapshot-bulk')
-  async getSnapshotBulk(@Param('baseId') baseId: string, @Query('ids') ids: string[]) {
+  async getSnapshotBulk(
+    @Param('baseId') baseId: string,
+    @Query('ids', new ZodValidationPipe(z.array(z.string()))) ids: string[]
+  ) {
     const permissionMap = await this.tablePermissionService.getTablePermissionMapByBaseId(
       baseId,
       ids

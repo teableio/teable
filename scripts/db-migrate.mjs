@@ -107,7 +107,12 @@ try {
     },
   });
 } catch (p) {
-  console.error(`Exit code: ${p.exitCode}`);
-  console.error(`Migrate Deploy Error: ${p.stderr}`);
+  // A failed Prisma run is a zx ProcessOutput (exitCode + stderr). Errors thrown
+  // before it, such as the migrate lock's connection being rejected, are plain
+  // Errors: print their message instead of "undefined".
+  if (p.exitCode != null) {
+    console.error(`Exit code: ${p.exitCode}`);
+  }
+  console.error(`Migrate Deploy Error: ${p.stderr?.trim() || p.message || p}`);
   await $`exit 1`;
 }

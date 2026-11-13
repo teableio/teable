@@ -45,6 +45,12 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `CreateRecordsHandler.ts` - Role: command handler; Purpose: create records, persist, publish.
 - `CreateRecordsStreamCommand.ts` - Role: command DTO + schema; Purpose: validate streaming record inputs.
 - `CreateRecordsStreamHandler.ts` - Role: command handler; Purpose: stream-create records, persist, publish.
+- `ClearCommand.ts` / `ClearHandler.ts` - Role: native non-stream clear; Purpose: clear a visible
+  range or an internal nominal record/field target through the same typed mutation, permission,
+  transaction, actual-change event and undo/redo pipeline. Empty `forRecords` targets return before
+  field-write admission, never query-all. Per-record masks bound admitted fields before plugin
+  preparation and intersect native plugin scope again per row; their admission union is not a row
+  write grant. Public range input and streaming semantics remain separate.
 - `DeleteByRangeCommand.ts` - Role: command DTO + schema; Purpose: validate range-based record deletion inputs.
 - `DeleteByRangeHandler.ts` - Role: command handler; Purpose: delegate range-based deletion to the shared delete application service.
 - `DeleteByRangeStreamCommand.ts` - Role: command DTO + schema; Purpose: validate streaming range-deletion inputs and batch sizing.

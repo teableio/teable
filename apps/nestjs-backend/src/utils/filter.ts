@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IUserCellValue, ILinkCellValue, IOperator, IDatetimeFormatting } from '@teable/core';
+import type { IUserCellValue, ILinkCellValue, IOperator, IFieldVo } from '@teable/core';
 import {
   FieldType,
   isNot,
@@ -10,7 +10,10 @@ import {
   exactFormatDate,
   buttonFieldCelValueSchema,
 } from '@teable/core';
-import type { IFieldInstance } from '../features/field/model/factory';
+export type GroupFilterField = Pick<
+  IFieldVo,
+  'id' | 'type' | 'isMultipleCellValue' | 'options' | 'cellValueType'
+>;
 
 const SPECIAL_OPERATOR_FIELD_TYPE_SET = new Set([
   FieldType.SingleSelect,
@@ -33,7 +36,7 @@ export const shouldFilterByDefaultValue = (
   );
 };
 
-export const cellValue2FilterValue = (cellValue: unknown, field: IFieldInstance) => {
+export const cellValue2FilterValue = (cellValue: unknown, field: GroupFilterField) => {
   const { type, isMultipleCellValue } = field;
 
   if (
@@ -48,7 +51,7 @@ export const cellValue2FilterValue = (cellValue: unknown, field: IFieldInstance)
   return (cellValue as IUserCellValue | ILinkCellValue).id;
 };
 
-export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
+export const generateFilterItem = (field: GroupFilterField, value: unknown) => {
   let operator: IOperator = isNot.value;
   const { id: fieldId, type, isMultipleCellValue, options, cellValueType } = field;
 
@@ -63,9 +66,14 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
     type === FieldType.Date ||
     (type === FieldType.Formula && cellValueType === CellValueType.DateTime)
   ) {
+    const formatting = options && 'formatting' in options ? options.formatting : undefined;
     const timeZone =
-      (options?.formatting as IDatetimeFormatting)?.timeZone ??
-      Intl.DateTimeFormat().resolvedOptions().timeZone;
+      formatting &&
+      typeof formatting === 'object' &&
+      'timeZone' in formatting &&
+      typeof formatting.timeZone === 'string'
+        ? formatting.timeZone
+        : Intl.DateTimeFormat().resolvedOptions().timeZone;
     // Group keys are already absolute instants (ISO with offset); re-zoning them
     // would shift by the server process timezone and exclude the wrong day.
     const dateStr = new Date(value as string).toISOString();

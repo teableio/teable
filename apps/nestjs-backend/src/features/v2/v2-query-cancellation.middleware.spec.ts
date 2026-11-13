@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { EventEmitter } from 'node:events';
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { PrismaService } from '@teable/db-main-prisma';
@@ -36,10 +37,11 @@ const createFixture = async () => {
   const middleware = new V2QueryCancellationMiddleware(cls);
   // Exercise the real Kysely/pg cancellation boundary without opening a network connection.
   // Physical CancelRequest behavior has its own real PostgreSQL integration suite.
-  const client = {
+  // The pool listens for connection errors on each checkout, so the client has to be an emitter.
+  const client = Object.assign(new EventEmitter(), {
     query: async () => ({ rows: [{ value: 42 }], rowCount: 1, command: 'SELECT' }),
     release: () => undefined,
-  };
+  });
   const pool = { connect: async () => client, end: async () => undefined } as unknown as Pool;
   const db = await createV2PostgresDb(
     { pg: { connectionString: 'postgresql://unused/unused' } },

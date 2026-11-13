@@ -1,5 +1,9 @@
 import { defineConfig, configDefaults } from 'vitest/config';
 
+// Date specs assert UTC values and fail on a machine in another time zone, so pin it as the backend
+// e2e configs do. Set here so the forked test workers inherit it.
+process.env.TZ = 'UTC';
+
 const testFiles = ['./src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
@@ -28,7 +32,10 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       allowExternal: true,
-      include: ['../*/src/**/*.ts', '../../formula/src/**/*.ts'],
+      // The sources live outside this package's root, and Vitest matches these patterns against
+      // absolute paths: a pattern starting with `../` matches no file and leaves the report empty.
+      // Only files the tests load are reported; Vitest cannot transform an unloaded file outside root.
+      include: ['**/packages/v2/*/src/**/*.ts', '**/packages/formula/src/**/*.ts'],
       exclude: [
         '**/*.spec.ts',
         '**/*.test.ts',

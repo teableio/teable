@@ -83,6 +83,15 @@ export const SECRET_SPECS = {
     usedFor: 'signing login session cookies',
     legacyDefault: 'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932',
   },
+  // HMAC key of invitation codes. Unset, it is SECRET_KEY itself (byte-identical to the
+  // behaviour before it existed), so it changes nothing until set; _OLD stays verify-only
+  // while links sent under the previous value are in use.
+  invitationSecret: {
+    envKey: 'BACKEND_INVITATION_SECRET',
+    fallbackEnvKeys: ['SECRET_KEY'],
+    usedFor: 'signing invitation link codes (HMAC)',
+    legacyDefault: 'defaultSecretKey',
+  },
   // Same shape as jwtSecret: dedicated var, then the SECRET_KEY umbrella
   // (byte-identical to the pre-dedicated behavior), then the public dev
   // default. HKDF input, so any strong value works (`openssl rand -base64 32`).
@@ -102,6 +111,16 @@ export const SECRET_SPECS = {
     fallbackEnvKeys: ['SECRET_KEY'],
     usedFor: 'encrypting AI provider API keys stored in instance/space AI config (HKDF root)',
     legacyDefault: 'defaultSecretKey',
+  },
+  // HMAC key of the welcome reward's per-inbox dedupe key; only cloud grants the reward.
+  // Unset, it is SECRET_KEY itself (byte-identical to the behaviour before it existed);
+  // _OLD keeps counting while the key convergence re-signs the stored keys.
+  welcomeRewardSecret: {
+    envKey: 'BACKEND_WELCOME_REWARD_SECRET',
+    fallbackEnvKeys: ['SECRET_KEY'],
+    usedFor: 'deduplicating the welcome reward per inbox (HMAC, cloud)',
+    legacyDefault: 'defaultSecretKey',
+    requiredWhen: (env) => env.NEXT_BUILD_ENV_EDITION?.toUpperCase() === 'CLOUD',
   },
   // Same resolution shape as aiConfigEncryptionSecret; the HKDF info string
   // (teable:third-party-credential) keeps it apart from the AI-config key when

@@ -534,7 +534,11 @@ export class RunTableQueryRemediationTaskHandler implements ICommandHandler<
             )
           );
         if (executed.isErr()) {
-          const failed = yield* savedRunning.fail(executed.error.message, this.clock.now());
+          const failed = yield* savedRunning.fail(
+            executed.error.message,
+            this.clock.now(),
+            executed.error.code !== 'table_query_ops.search_target_changed'
+          );
           const savedFailed = yield* await this.taskRepository.save(context, failed);
           await this.recordDecisionOutcome(context, savedFailed, false);
           return ok(savedFailed);
@@ -649,7 +653,11 @@ export class RunTableQueryRecommendedIndexHandler implements ICommandHandler<
             )
           );
         if (executed.isErr()) {
-          const failed = yield* savedRunning.fail(executed.error.message, this.clock.now());
+          const failed = yield* savedRunning.fail(
+            executed.error.message,
+            this.clock.now(),
+            executed.error.code !== 'table_query_ops.search_target_changed'
+          );
           const savedFailed = yield* await this.taskRepository.save(context, failed);
           return ok(savedFailed);
         }

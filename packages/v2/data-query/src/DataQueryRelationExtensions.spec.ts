@@ -1,9 +1,20 @@
-import { DefaultTableMapper, type ITablePersistenceDTO } from '@teable/v2-core';
+import {
+  ActorId,
+  buildRecordConditionSpec,
+  DefaultTableMapper,
+  NoopLogger,
+  RecordQueryPluginRunner,
+  type ITablePersistenceDTO,
+} from '@teable/v2-core';
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { assertDataQueryAccess, dataQueryAccessForSource } from './assertDataQueryAccess';
 import { DataQueryRelationBinding } from './DataQueryBinding';
 import { DataQueryDefinition, dataQueryOptionalParameters } from './DataQueryDefinition';
+import { dataQuerySchemaSignature } from './DataQuerySchemaSignature';
+import { authorizeDataQueryExpressionDependencies } from './DataQueryService';
+import type { DataQueryDefinitionV5Input } from './types';
 
 const rootTableId = `tbl${'a'.repeat(16)}`;
 const targetTableId = `tbl${'b'.repeat(16)}`;
@@ -825,5 +836,397 @@ describe('Relation query binding regressions', () => {
       select: [{ system: 'id', alias: 'id' }],
     });
     expect(definition._unsafeUnwrapErr().code).toBe('data_query.join_alias_order');
+  });
+});
+
+describe('V5 root relation existence', () => {
+  const input = (): DataQueryDefinitionV5Input => ({
+    version: 5,
+    kind: 'records',
+    tableId: rootTableId,
+    relations: {
+      items: {
+        linkFieldId: itemsId,
+        tableId: targetTableId,
+        filter: {
+          fieldId: amountId,
+          operator: 'isGreater',
+          value: { type: 'parameter', name: 'minimum' },
+          optional: true,
+        },
+      },
+    },
+    parameters: { minimum: { type: 'number', nullable: true } },
+    filter: {
+      conjunction: 'or',
+      items: [
+        { fieldId: titleId, operator: 'is', value: 'active' },
+        { not: { relation: 'items', quantifier: 'none' } },
+      ],
+    },
+    select: [{ system: 'id', alias: 'id' }],
+  });
+  const prepare = (value: unknown = input()) =>
+    DataQueryRelationBinding.prepare(
+      DataQueryDefinition.create(value)._unsafeUnwrap(),
+      root(),
+      new Map([['items', target()]])
+    )._unsafeUnwrap();
+
+  it('admits the structural leaf only in V5 root Boolean trees', () => {
+    expect(prepare().plan.predicate).toMatchObject({
+      kind: 'group',
+      conjunction: 'or',
+      items: [
+        { kind: 'legacy', source: 'root' },
+        { kind: 'not', predicate: { kind: 'exists', relation: 'items', quantifier: 'none' } },
+      ],
+    });
+    for (const version of [1, 2, 3, 4])
+      expect(DataQueryDefinition.create({ ...input(), version }).isErr()).toBe(true);
+    for (const leaf of [
+      { relation: 'items', quantifier: 'all' },
+      {
+        relation: 'items',
+        quantifier: 'any',
+        where: { fieldId: amountId, operator: 'is', value: 1 },
+      },
+      { relation: 'items', quantifier: 'any', optional: true },
+    ])
+      expect(DataQueryDefinition.create({ ...input(), filter: leaf }).isErr()).toBe(true);
+    for (const relation of ['root', 'missing'])
+      expect(
+        DataQueryDefinition.create({
+          ...input(),
+          filter: { not: { relation, quantifier: 'any' } },
+        })._unsafeUnwrapErr().code
+      ).toBe('data_query.join_source_unknown');
+    expect(
+      DataQueryDefinition.create({
+        ...input(),
+        relations: {
+          items: {
+            linkFieldId: itemsId,
+            tableId: targetTableId,
+            filter: { relation: 'items', quantifier: 'any' },
+          },
+        },
+      }).isErr()
+    ).toBe(true);
+    expect(
+      DataQueryDefinition.create({
+        ...input(),
+        kind: 'aggregate',
+        select: undefined,
+        aggregates: [
+          {
+            fieldId: titleId,
+            statisticFunc: 'count',
+            alias: 'n',
+            filter: { relation: 'items', quantifier: 'any' },
+          },
+        ],
+      }).isErr()
+    ).toBe(true);
+  });
+
+  it('preserves optional parameter absence and explicit scalar values without disabling existence', () => {
+    const definition = DataQueryDefinition.create(input())._unsafeUnwrap();
+    expect(dataQueryOptionalParameters(definition.snapshot()).has('minimum')).toBe(true);
+    expect(definition.bind({}).isOk()).toBe(true);
+    for (const minimum of [null, 0, 1])
+      expect(definition.bind({ minimum })._unsafeUnwrap().expressionParameters).toEqual({
+        minimum,
+      });
+    expect(prepare().plan.predicate).toMatchObject({ kind: 'group' });
+    const required = input();
+    required.filter = {
+      type: 'formula',
+      formula: '{minimum} > 0',
+      references: { minimum: { type: 'parameter', name: 'minimum' } },
+    };
+    const mustSupply = DataQueryDefinition.create(required)._unsafeUnwrap();
+    expect(dataQueryOptionalParameters(mustSupply.snapshot()).has('minimum')).toBe(false);
+    expect(mustSupply.bind({})._unsafeUnwrapErr().code).toBe('data_query.missing_parameter');
+  });
+
+  it('tracks local predicate dependencies and rejects unreadable Link and matching fields', () => {
+    const binding = prepare();
+    expect(binding.plan.usage).toEqual(
+      expect.arrayContaining([
+        { source: 'root', fieldId: itemsId, usages: ['relation'] },
+        { source: 'items', fieldId: amountId, usages: ['filter', 'existence'] },
+      ])
+    );
+    expect(
+      assertDataQueryAccess(dataQueryAccessForSource(binding.plan, 'root'), {
+        readableFieldIds: new Set([titleId]),
+      })._unsafeUnwrapErr().code
+    ).toBe('data_query.field_forbidden');
+    expect(
+      assertDataQueryAccess(dataQueryAccessForSource(binding.plan, 'items'), {
+        readableFieldIds: new Set([targetNameId]),
+      })._unsafeUnwrapErr().code
+    ).toBe('data_query.field_forbidden');
+  });
+
+  it('includes unused declared formula dependencies even when optional filters prune', () => {
+    const value = input();
+    value.relations!.items.filter = {
+      type: 'formula',
+      formula: '1 = 1',
+      references: {
+        unused: { type: 'field', fieldId: targetNameId },
+      },
+    };
+    const binding = prepare(value);
+    expect(dataQueryAccessForSource(binding.plan, 'items').usage).toEqual(
+      expect.arrayContaining([expect.objectContaining({ fieldId: targetNameId })])
+    );
+  });
+
+  it('requires static readability for masked existence predicates without changing historical filters', () => {
+    const fieldMasks = [
+      {
+        fieldId: amountId,
+        visibleWhen: buildRecordConditionSpec(target(), {
+          fieldId: amountId,
+          operator: 'isGreater',
+          value: 0,
+        })._unsafeUnwrap(),
+      },
+    ];
+    for (const version of [4, 5]) {
+      for (const existence of [false, true]) {
+        if (version === 4 && existence) continue;
+        const value = { ...input(), version, filter: existence ? input().filter : undefined };
+        const access = dataQueryAccessForSource(prepare(value).plan, 'items');
+        const denied = assertDataQueryAccess(access, {
+          readableFieldIds: new Set([targetNameId]),
+          fieldMasks,
+        });
+        if (existence) expect(denied._unsafeUnwrapErr().code).toBe('data_query.field_forbidden');
+        else expect(denied.isOk()).toBe(true);
+        expect(
+          assertDataQueryAccess(access, {
+            readableFieldIds: new Set([targetNameId, amountId]),
+            fieldMasks,
+          }).isOk()
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('requires every selected-path filter dependency but leaves other source usages unchanged', async () => {
+    const targetData = targetDto();
+    const owner = mapper
+      .toDomain({
+        ...targetData,
+        fields: [
+          ...targetData.fields,
+          { id: tagsId, name: 'Threshold', dbFieldName: 'threshold', type: 'number' },
+        ],
+      })
+      ._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 5,
+      kind: 'records',
+      tableId: rootTableId,
+      relations: {
+        owner: {
+          linkFieldId: ownerId,
+          tableId: targetTableId,
+          filter: {
+            conjunction: 'and',
+            items: [
+              {
+                fieldId: amountId,
+                operator: 'isGreater',
+                value: { type: 'field', fieldId: tagsId },
+              },
+              {
+                type: 'formula',
+                formula: '1 = 1',
+                references: { unused: { type: 'field', fieldId: targetNameId } },
+              },
+            ],
+          },
+        },
+        department: {
+          via: 'owner',
+          linkFieldId: departmentLinkId,
+          tableId: departmentTableId,
+          filter: { fieldId: departmentNameId, operator: 'is', value: 'active' },
+        },
+        items: {
+          linkFieldId: itemsId,
+          tableId: targetTableId,
+          filter: { fieldId: amountId, operator: 'isGreater', value: 0 },
+        },
+      },
+      filter: {
+        conjunction: 'and',
+        items: [
+          { fieldId: titleId, operator: 'is', value: 'active' },
+          { not: { relation: 'department', quantifier: 'none' } },
+        ],
+      },
+      select: [
+        {
+          alias: 'constant',
+          expr: {
+            type: 'formula',
+            formula: '1',
+            references: { unused: { type: 'field', fieldId: dueId } },
+          },
+        },
+        {
+          alias: 'ownerConstant',
+          expr: {
+            type: 'formula',
+            formula: '1',
+            references: { unused: { type: 'field', source: 'owner', fieldId: targetDueId } },
+          },
+        },
+      ],
+    })._unsafeUnwrap();
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      root(),
+      new Map([
+        ['owner', owner],
+        ['department', department()],
+        ['items', target()],
+      ])
+    )._unsafeUnwrap();
+    expect(binding.plan.usage).toEqual(
+      expect.arrayContaining([
+        { source: 'root', fieldId: titleId, usages: ['filter'] },
+        { source: 'root', fieldId: dueId, usages: ['projection', 'reference'] },
+        { source: 'owner', fieldId: targetDueId, usages: ['projection', 'reference'] },
+        { source: 'owner', fieldId: amountId, usages: ['filter', 'existence'] },
+        { source: 'owner', fieldId: tagsId, usages: ['reference', 'existence'] },
+        { source: 'owner', fieldId: targetNameId, usages: ['filter', 'reference', 'existence'] },
+        { source: 'department', fieldId: departmentNameId, usages: ['filter', 'existence'] },
+        { source: 'items', fieldId: amountId, usages: ['filter'] },
+      ])
+    );
+    const access = dataQueryAccessForSource(binding.plan, 'owner');
+    const readable = [amountId, tagsId, targetNameId, departmentLinkId, targetDueId];
+    const visibleWhen = buildRecordConditionSpec(owner, {
+      fieldId: amountId,
+      operator: 'isGreater',
+      value: 0,
+    })._unsafeUnwrap();
+    for (const fieldId of [amountId, tagsId, targetNameId]) {
+      const fieldMasks = [{ fieldId, visibleWhen }];
+      expect(
+        assertDataQueryAccess(access, {
+          readableFieldIds: new Set(readable.filter((id) => id !== fieldId)),
+          fieldMasks,
+        })._unsafeUnwrapErr().code
+      ).toBe('data_query.field_forbidden');
+      expect(
+        assertDataQueryAccess(access, { readableFieldIds: new Set(readable), fieldMasks }).isOk()
+      ).toBe(true);
+      for (const allowed of [false, true]) {
+        const plugins = new RecordQueryPluginRunner(
+          [
+            {
+              name: 'existence-read-scope',
+              supports: () => true,
+              scope: ({ table }) =>
+                ok(
+                  table.id().toString() === targetTableId
+                    ? {
+                        readableFieldIds: new Set(
+                          allowed ? readable : readable.filter((id) => id !== fieldId)
+                        ),
+                        fieldMasks,
+                      }
+                    : {}
+                ),
+            },
+          ],
+          new NoopLogger()
+        );
+        const authorized = await authorizeDataQueryExpressionDependencies(
+          { actorId: ActorId.create('reader')._unsafeUnwrap() },
+          plugins,
+          definition,
+          root(),
+          new Map([
+            ['owner', owner],
+            ['department', department()],
+            ['items', target()],
+          ])
+        );
+        if (allowed) expect(authorized.isOk()).toBe(true);
+        else expect(authorized._unsafeUnwrapErr().code).toBe('data_query.field_forbidden');
+      }
+    }
+  });
+
+  it('inherits V4 metric parameters and HAVING binding', () => {
+    const value = {
+      ...input(),
+      kind: 'aggregate',
+      select: undefined,
+      parameters: { minimum: { type: 'number' }, factor: { type: 'number' } },
+      aggregates: [
+        {
+          expr: {
+            type: 'formula',
+            formula: '{factor}',
+            references: { factor: { type: 'parameter', name: 'factor' } },
+          },
+          statisticFunc: 'sum',
+          alias: 'total',
+        },
+      ],
+      having: {
+        type: 'formula',
+        formula: '{total} >= {minimum}',
+        references: {
+          total: { type: 'output', alias: 'total' },
+          minimum: { type: 'parameter', name: 'minimum' },
+        },
+      },
+    };
+    delete value.select;
+    const definition = DataQueryDefinition.create(value)._unsafeUnwrap();
+    expect(definition.bind({ minimum: 1 })._unsafeUnwrapErr().code).toBe(
+      'data_query.missing_parameter'
+    );
+    expect(prepare(value).plan.having).toMatchObject({ kind: 'formula' });
+  });
+
+  it('fingerprints V5 source-qualified field contracts, not quantifier values', async () => {
+    const first = prepare();
+    const changed = input();
+    changed.filter = { relation: 'items', quantifier: 'any' };
+    const second = prepare(changed);
+    const left = input();
+    left.filter = { relation: 'items', quantifier: 'none' };
+    const third = prepare(left);
+    const tables = new Map([
+      ['root', root()],
+      ['items', target()],
+    ]);
+    const signature = async (binding: typeof first) =>
+      (await dataQuerySchemaSignature(binding.plan, tables, binding.outputs))._unsafeUnwrap();
+    expect(await signature(second)).toBe(await signature(third));
+    expect(await signature(first)).not.toBe(await signature(second));
+    const legacy = DataQueryDefinition.create({
+      ...changed,
+      version: 4,
+      filter: undefined,
+    })._unsafeUnwrap();
+    const legacyBinding = DataQueryRelationBinding.prepare(
+      legacy,
+      root(),
+      new Map([['items', target()]])
+    )._unsafeUnwrap();
+    expect(await signature(legacyBinding)).not.toBe(await signature(second));
   });
 });

@@ -25,7 +25,7 @@ import {
   Events,
 } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
-import { generateInvitationCode } from '../../utils/code-generate';
+import { generateInvitationCode, isValidInvitationCode } from '../../utils/code-generate';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -470,7 +470,7 @@ export class InvitationService {
   async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {
     const currentUserId = this.cls.get('user.id');
     const { invitationCode, invitationId } = acceptInvitationLinkRo;
-    if (generateInvitationCode(invitationId) !== invitationCode) {
+    if (!isValidInvitationCode(invitationId, invitationCode)) {
       throw new CustomHttpException('Invalid invitation code', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.invitation.invalidCode',
