@@ -830,7 +830,7 @@
         "addProviderDescription": "Додати новий LLM провайдера до списку",
         "providerType": "Тип провайдера",
         "baseUrl": "Базовий URL",
-        "apiKey": "API ключ",
+        "apiKey": "API-ключ",
         "baseUrlDescription": "Базовий URL LLM провайдера",
         "apiKeyDescription": "API ключ провайдера LLM",
         "models": "Моделі",
@@ -1348,7 +1348,7 @@
       "creator": "Творець",
       "editor": "Редактор",
       "commenter": "Коментатор",
-      "viewer": "Перегляд"
+      "viewer": "Переглядач"
     },
     "description": {
       "owner": "Може повністю налаштовувати проєкти, застосунки, автоматизацію та матриці повноважень, а також керувати налаштуваннями простору й оплатою",

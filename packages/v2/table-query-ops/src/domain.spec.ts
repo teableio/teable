@@ -79,6 +79,40 @@ describe('TableQueryRemediationTask ownership and cancellation', () => {
     expect(reserved.start('owner', new Date(now.getTime() + 60_001)).isErr()).toBe(true);
   });
 
+  it('resumes only a currently reserved search owner without spending another attempt', () => {
+    const recovered = TableQueryRemediationTask.rehydrate({
+      ...queued().snapshot(),
+      status: 'running',
+      attempts: 3,
+      lockedAt: now,
+      lockedBy: 'replacement',
+    })._unsafeUnwrap();
+    expect(recovered.start('replacement', now)._unsafeUnwrap().snapshot()).toMatchObject({
+      status: 'running',
+      attempts: 3,
+      lockedAt: now,
+      lockedBy: 'replacement',
+      payload: recovered.snapshot().payload,
+    });
+    expect(recovered.start('departed', now).isErr()).toBe(true);
+    expect(recovered.start('replacement', new Date(now.getTime() + 60_001)).isErr()).toBe(true);
+    const generic = TableQueryRemediationTask.rehydrate({
+      ...recovered.snapshot(),
+      kind: 'create_filter_index',
+    })._unsafeUnwrap();
+    expect(generic.start('replacement', now).isErr()).toBe(true);
+  });
+
+  it('terminalizes a permanent failure without inventing attempts', () => {
+    const running = queued().start('owner', now)._unsafeUnwrap();
+    const terminal = running.fail('approved target changed', now, false)._unsafeUnwrap();
+    expect(terminal.snapshot()).toMatchObject({ status: 'failed', attempts: 1, maxAttempts: 1 });
+    expect(terminal.start('owner', now).isErr()).toBe(true);
+    const retryable = running.fail('connection interrupted', now)._unsafeUnwrap();
+    expect(retryable.snapshot()).toMatchObject({ status: 'failed', attempts: 1, maxAttempts: 3 });
+    expect(retryable.start('owner', now)._unsafeUnwrap().snapshot().attempts).toBe(2);
+  });
+
   it('uses the live reservation boundary and preserves history on cancellation', () => {
     const reserved = TableQueryRemediationTask.rehydrate({
       ...queued().snapshot(),

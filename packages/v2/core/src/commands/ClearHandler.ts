@@ -210,66 +210,89 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
       // 1. Get table
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
-      // 2. Get ordered visible field IDs from view's columnMeta
-      const orderedFieldIds = yield* table.getOrderedVisibleFieldIds(command.viewId.toString(), {
-        projection: command.projection,
-      });
-      const totalCols = orderedFieldIds.length;
-
-      const view = yield* table.getView(command.viewId);
-      const viewDefaults = yield* view.queryDefaults();
-      const mergedDefaults = viewDefaults.merge({
-        filter: command.filter,
-        sort: command.sort,
-        group: command.groupBy,
-      });
-      const effectiveFilter = command.ignoreViewQuery
-        ? (command.filter ?? undefined)
-        : mergedDefaults.filter();
-      const effectiveSort = command.ignoreViewQuery
-        ? (command.sort ?? undefined)
-        : mergedDefaults.sort();
-
-      // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
-      // by the query repository so field-type-specific search semantics stay centralized.
-      const actorResolvedFilter = replaceCurrentUserTagInFilter(
-        table,
-        effectiveFilter,
-        context.actorId.toString()
-      );
-      const filterSpec = yield* buildSanitizedRecordConditionSpec(table, actorResolvedFilter);
-      const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
-
-      // 4. Get total row count for columns/rows type normalization
-      let totalRows = 0;
-      if (command.rangeType === 'columns' || command.rangeType === 'rows') {
-        const limitResult = PageLimit.create(1);
-        if (limitResult.isOk()) {
-          const pagination = OffsetPagination.create(limitResult.value, PageOffset.zero());
-          const countResult = yield* await handler.tableRecordQueryRepository.find(
-            context,
-            table,
-            filterSpec,
-            { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
-          );
-          totalRows = countResult.total;
+      let targetFieldIds: ReadonlyArray<FieldId>;
+      let filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
+      let pagination: TableRecordQueryRepositoryPort.ITableRecordQueryStreamOptions['pagination'];
+      let visibleRowSearch: TableRecordQueryRepositoryPort.ITableRecordQueryStreamOptions['search'];
+      let effectiveSort: ClearCommand['sort'];
+      let effectiveGroup: ClearCommand['groupBy'];
+      if (command.recordTarget) {
+        const { recordIds, fieldIds, fieldIdsByRecord } = command.recordTarget;
+        if (recordIds.length === 0) {
+          return ok({ updatedCount: 0 });
         }
+        targetFieldIds = fieldIds;
+        if (fieldIdsByRecord) {
+          // Admit only fields writable on an explicit target; mutation still intersects each row's mask.
+          const admittedFieldIds = new Set<string>();
+          for (const recordId of recordIds) {
+            const allowedFieldIds = fieldIdsByRecord.get(recordId.toString());
+            if (!allowedFieldIds) continue;
+            for (const fieldId of allowedFieldIds) {
+              admittedFieldIds.add(fieldId);
+            }
+          }
+          targetFieldIds = filterScopedFieldIds(fieldIds, admittedFieldIds);
+        }
+        filterSpec = RecordByIdsSpec.create(recordIds);
+      } else {
+        // 2. Resolve the visible range independently of explicit record targets.
+        const orderedFieldIds = yield* table.getOrderedVisibleFieldIds(command.viewId.toString(), {
+          projection: command.projection,
+        });
+        const totalCols = orderedFieldIds.length;
+
+        const view = yield* table.getView(command.viewId);
+        const viewDefaults = yield* view.queryDefaults();
+        const mergedDefaults = viewDefaults.merge({
+          filter: command.filter,
+          sort: command.sort,
+          group: command.groupBy,
+        });
+        const effectiveFilter = command.ignoreViewQuery
+          ? (command.filter ?? undefined)
+          : mergedDefaults.filter();
+        effectiveSort = command.ignoreViewQuery
+          ? (command.sort ?? undefined)
+          : mergedDefaults.sort();
+
+        const actorResolvedFilter = replaceCurrentUserTagInFilter(
+          table,
+          effectiveFilter,
+          context.actorId.toString()
+        );
+        filterSpec = yield* buildSanitizedRecordConditionSpec(table, actorResolvedFilter);
+        visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
+
+        let totalRows = 0;
+        if (command.rangeType === 'columns' || command.rangeType === 'rows') {
+          const limitResult = PageLimit.create(1);
+          if (limitResult.isOk()) {
+            const pagination = OffsetPagination.create(limitResult.value, PageOffset.zero());
+            const countResult = yield* await handler.tableRecordQueryRepository.find(
+              context,
+              table,
+              filterSpec,
+              { mode: 'stored', pagination, search: visibleRowSearch, includeTotal: true }
+            );
+            totalRows = countResult.total;
+          }
+        }
+
+        const normalizedRanges = command.normalizeRanges(totalRows, totalCols);
+        const [[startCol, startRow], [endCol, endRow]] = normalizedRanges;
+        const targetRowCount = endRow - startRow + 1;
+        const targetColCount = endCol - startCol + 1;
+        if (targetRowCount <= 0 || targetColCount <= 0) {
+          return ok({ updatedCount: 0 });
+        }
+        targetFieldIds = orderedFieldIds.slice(startCol, startCol + targetColCount);
+
+        effectiveGroup = command.ignoreViewQuery
+          ? (command.groupBy ?? undefined)
+          : mergedDefaults.group();
+        pagination = { offset: startRow, limit: targetRowCount };
       }
-
-      // 5. Normalize ranges
-      const normalizedRanges = command.normalizeRanges(totalRows, totalCols);
-      const [[startCol, startRow], [endCol, endRow]] = normalizedRanges;
-      const targetRowCount = endRow - startRow + 1;
-      const targetColCount = endCol - startCol + 1;
-
-      // Early return if nothing to clear
-      if (targetRowCount <= 0 || targetColCount <= 0) {
-        return ok({ updatedCount: 0 });
-      }
-
-      // 6. Get target fields
-      const targetFieldIds = orderedFieldIds.slice(startCol, startCol + targetColCount);
-
       // 7. Filter out computed fields only - notNull validation is handled at database level
       const editableFieldIds = targetFieldIds.filter((fieldId) => {
         const fieldResult = table.getField((f) => f.id().equals(fieldId));
@@ -335,29 +358,22 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         return ok({ updatedCount: 0 });
       }
 
-      // 8. Build orderBy from group + sort to match the visible list row order.
-      const effectiveGroup = command.ignoreViewQuery
-        ? (command.groupBy ?? undefined)
-        : mergedDefaults.group();
-      const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
-      const sortOrderBy = yield* resolveOrderBy(effectiveSort, table, effectiveGroup);
-      const orderBy = mergeOrderByWithViewRowTieBreaker(
-        groupByOrderBy,
-        sortOrderBy,
-        command.viewId.toString()
-      );
+      let orderBy: ReadonlyArray<TableRecordOrderBy> | undefined;
+      if (!command.recordTarget) {
+        const groupByOrderBy = yield* resolveGroupByToOrderBy(effectiveGroup);
+        const sortOrderBy = yield* resolveOrderBy(effectiveSort, table, effectiveGroup);
+        orderBy = mergeOrderByWithViewRowTieBreaker(
+          groupByOrderBy,
+          sortOrderBy,
+          command.viewId.toString()
+        );
+      }
 
-      // 9. Query existing records in the range
       const existingRecordsStream = handler.tableRecordQueryRepository.findStream(
         context,
         table,
         filterSpec,
-        {
-          mode: 'stored',
-          pagination: { offset: startRow, limit: targetRowCount },
-          orderBy,
-          search: visibleRowSearch,
-        }
+        { mode: 'stored', pagination, orderBy, search: visibleRowSearch }
       );
 
       // 10. Collect records and build update operations
@@ -384,8 +400,15 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         const perRecordAllowedFieldIds = tableRecord
           ? yield* initialPluginExecution.getUpdateFieldIdsForRecord(tableRecord)
           : undefined;
+        const targetFieldMap = command.recordTarget?.fieldIdsByRecord;
+        const targetAllowedFieldIds = targetFieldMap?.get(record.id);
+        if (targetFieldMap && !targetAllowedFieldIds) {
+          continue;
+        }
         const recordScopedEditableFieldIds = filterScopedFieldIds(
-          scopedEditableFieldIds,
+          targetAllowedFieldIds
+            ? scopedEditableFieldIds.filter((id) => targetAllowedFieldIds.has(id.toString()))
+            : scopedEditableFieldIds,
           perRecordAllowedFieldIds
         );
         if (recordScopedEditableFieldIds.length === 0) {

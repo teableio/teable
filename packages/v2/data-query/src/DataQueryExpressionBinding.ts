@@ -13,14 +13,17 @@ import type {
   BoundDataQueryExpressionType,
   BoundDataQueryPredicate,
   BoundDataQueryFormulaExpression,
+  BoundDataQueryHavingExpression,
+  BoundDataQueryHavingReference,
 } from './BoundDataQueryExpression';
 import { queryError } from './DataQueryDefinition';
 import type {
   DataQueryFormulaExpression,
   DataQueryFormulaReference,
-  DataQueryPredicateV3,
+  DataQueryPredicateV5,
+  DataQueryHavingExpression,
 } from './DataQueryExpression';
-import type { DataQueryOutput, DataQueryParameterDefinition } from './types';
+import type { DataQueryAggregate, DataQueryOutput, DataQueryParameterDefinition } from './types';
 
 export type DataQueryExpressionBindingContext = {
   readonly formulaSourceBudget: FormulaSourceBudget;
@@ -121,41 +124,26 @@ const bindReference = (
     return bindParameterReference(reference, context);
   });
 
-export const bindDataQueryFormulaExpression = (
-  expression: DataQueryFormulaExpression,
-  context: DataQueryExpressionBindingContext
-): Result<BoundDataQueryFormulaExpression, DomainError> =>
+const inferFormula = (
+  expression: { formula: string; timeZone?: string },
+  references: Readonly<Record<string, BoundDataQueryExpressionType>>,
+  budget: FormulaSourceBudget,
+  outputStage = false
+): Result<BoundDataQueryExpressionType & { timeZone?: string }, DomainError> =>
   safeTry(function* () {
-    const references: Record<string, BoundDataQueryReferenceExpression> = Object.create(null);
-    const dependencies: {
-      id: string;
-      valueType: { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity };
-    }[] = [];
-    for (const [alias, reference] of Object.entries(expression.references)) {
-      if (
-        !alias ||
-        alias !== alias.trim() ||
-        /[{}]/.test(alias) ||
-        ['__proto__', 'prototype', 'constructor'].includes(alias)
-      )
-        return err(queryError('expression_invalid', 'Invalid formula reference alias'));
-      const bound = yield* bindReference(reference, context);
-      references[alias] = bound;
-      dependencies.push({
-        id: alias,
-        valueType: { cellValueType: bound.valueType, isMultipleCellValue: bound.multiplicity },
-      });
-    }
+    const dependencies = Object.entries(references).map(([id, bound]) => ({
+      id,
+      valueType: { cellValueType: bound.valueType, isMultipleCellValue: bound.multiplicity },
+    }));
     const timeZone =
       expression.timeZone === undefined
         ? undefined
         : yield* TimeZone.create(expression.timeZone).mapErr(() =>
             queryError('expression_invalid', 'Invalid formula time zone')
           );
-    const formula = yield* FormulaExpression.create(
-      expression.formula,
-      context.formulaSourceBudget
-    ).mapErr(formulaDiagnostic);
+    const formula = yield* FormulaExpression.create(expression.formula, budget).mapErr(
+      formulaDiagnostic
+    );
     const identifiers = yield* formula.getReferencedIdentifiers().mapErr(formulaDiagnostic);
     for (const alias of identifiers)
       if (!Object.hasOwn(references, alias))
@@ -169,22 +157,90 @@ export const bindDataQueryFormulaExpression = (
           'Inline field-tracking last-modified time is not supported; reference a stored formula field instead'
         )
       );
+    if (outputStage) {
+      const hasRecordContext = yield* formula.hasRecordContextFunctions().mapErr(formulaDiagnostic);
+      if (hasRecordContext)
+        return err(
+          queryError('unsupported_expression_context', 'HAVING has no source row context')
+        );
+      if (!result.cellValueType.equals(CellValueType.boolean()))
+        return err(invalid('HAVING must return a boolean'));
+    }
     if (result.isMultipleCellValue.isMultiple())
       return err(invalid('Query formula output must be scalar'));
+    return ok({
+      valueType: result.cellValueType,
+      multiplicity: result.isMultipleCellValue,
+      nullable: true,
+      ...(timeZone ? { timeZone: timeZone.toString() } : {}),
+    });
+  });
+
+export const bindDataQueryFormulaExpression = (
+  expression: DataQueryFormulaExpression,
+  context: DataQueryExpressionBindingContext
+): Result<BoundDataQueryFormulaExpression, DomainError> =>
+  safeTry(function* () {
+    const references: Record<string, BoundDataQueryReferenceExpression> = Object.create(null);
+    for (const [alias, reference] of Object.entries(expression.references)) {
+      if (
+        !alias ||
+        alias !== alias.trim() ||
+        /[{}]/.test(alias) ||
+        ['__proto__', 'prototype', 'constructor'].includes(alias)
+      )
+        return err(queryError('expression_invalid', 'Invalid formula reference alias'));
+      references[alias] = yield* bindReference(reference, context);
+    }
+    const inferred = yield* inferFormula(expression, references, context.formulaSourceBudget);
     return ok({
       kind: 'formula' as const,
       formula: expression.formula,
       references,
       recordSource: context.localSource ?? 'root',
-      ...(timeZone ? { timeZone: timeZone.toString() } : {}),
-      valueType: result.cellValueType,
-      multiplicity: result.isMultipleCellValue,
-      nullable: true,
+      ...inferred,
     });
   });
 
+export const bindDataQueryHavingExpression = (
+  expression: DataQueryHavingExpression,
+  outputs: readonly DataQueryOutput[],
+  parameters: Readonly<Record<string, DataQueryParameterDefinition>> | undefined,
+  formulaSourceBudget: FormulaSourceBudget
+): Result<BoundDataQueryHavingExpression, DomainError> =>
+  safeTry(function* () {
+    const references: Record<string, BoundDataQueryHavingReference> = Object.create(null);
+    for (const [alias, reference] of Object.entries(expression.references)) {
+      if (reference.type === 'parameter') {
+        const parameter = yield* bindParameterReference(reference, {
+          parameters,
+          formulaSourceBudget,
+          resolveField: () => err(invalid('HAVING cannot reference a field')),
+          resolveSource: () => err(invalid('HAVING has no source row context')),
+        });
+        if (parameter.kind !== 'parameter') return err(invalid('Invalid HAVING parameter'));
+        references[alias] = parameter;
+      } else {
+        const output = outputs.find((candidate) => candidate.alias === reference.alias);
+        if (!output)
+          return err(queryError('having_output_unknown', 'HAVING references an unselected output'));
+        if (output.wireType === 'unknown')
+          return err(invalid('HAVING requires scalar typed outputs'));
+        references[alias] = {
+          kind: 'output',
+          alias: reference.alias,
+          valueType: yield* CellValueType.create(output.cellValueType),
+          multiplicity: yield* CellValueMultiplicity.create(output.isMultipleCellValue),
+          nullable: output.nullable,
+        };
+      }
+    }
+    const inferred = yield* inferFormula(expression, references, formulaSourceBudget, true);
+    return ok({ kind: 'formula' as const, formula: expression.formula, references, ...inferred });
+  });
+
 export const bindDataQueryExpressionPredicate = (
-  predicate: DataQueryPredicateV3,
+  predicate: DataQueryPredicateV5,
   context: DataQueryExpressionBindingContext
 ): Result<BoundDataQueryPredicate, DomainError> =>
   safeTry(function* () {
@@ -199,6 +255,12 @@ export const bindDataQueryExpressionPredicate = (
         kind: 'not' as const,
         predicate: yield* bindDataQueryExpressionPredicate(predicate.not, context),
       });
+    if ('relation' in predicate) {
+      if (context.localSource !== 'root' || predicate.relation === 'root')
+        return err(queryError('join_source_unknown', 'Existence requires a declared relation'));
+      yield* context.resolveSource(predicate.relation);
+      return ok({ kind: 'exists' as const, ...predicate });
+    }
     if ('type' in predicate) {
       const expression = yield* bindDataQueryFormulaExpression(predicate, context);
       if (!expression.valueType.equals(CellValueType.boolean()))
@@ -228,4 +290,49 @@ export const dataQueryExpressionOutput = (
     isMultipleCellValue: expression.multiplicity.toBoolean(),
     nullable: expression.nullable,
   };
+};
+
+/** Statistics operate on the inferred scalar domain, never a fabricated stored Field. */
+export const dataQueryAggregateExpressionOutput = (
+  alias: string,
+  statisticFunc: DataQueryAggregate['statisticFunc'],
+  expression: BoundDataQueryFormulaExpression,
+  relation: boolean
+): Result<DataQueryOutput, DomainError> => {
+  const type = expression.valueType.toString();
+  const common = [
+    'count',
+    'empty',
+    'filled',
+    'unique',
+    'percentEmpty',
+    'percentFilled',
+    'percentUnique',
+  ];
+  const compatible =
+    type === 'number'
+      ? [...common, 'sum', 'average', 'min', 'max']
+      : type === 'dateTime'
+        ? [...common, 'earliestDate', 'latestDate', 'dateRangeOfDays', 'dateRangeOfMonths']
+        : type === 'boolean'
+          ? ['count', 'checked', 'unChecked', 'percentChecked', 'percentUnChecked']
+          : common;
+  if (
+    !compatible.includes(statisticFunc) ||
+    (relation && !['count', 'unique', 'sum', 'average', 'min', 'max'].includes(statisticFunc))
+  )
+    return err(
+      queryError(
+        'aggregate_incompatible',
+        'Aggregation function is incompatible with its expression'
+      )
+    );
+  const dateOutput = statisticFunc === 'earliestDate' || statisticFunc === 'latestDate';
+  return ok({
+    alias,
+    wireType: dateOutput ? 'string' : 'numberOrString',
+    cellValueType: dateOutput ? 'dateTime' : 'number',
+    isMultipleCellValue: false,
+    nullable: !common.includes(statisticFunc) && statisticFunc !== 'count',
+  });
 };

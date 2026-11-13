@@ -10,7 +10,8 @@ interface ISpaceInnerSettingModalProps {
   open?: boolean;
   setOpen?: (open: boolean) => void;
   defaultTab?: UnifiedSettingTab;
-  children: React.ReactNode;
+  /** The trigger; leave it out when `open` is controlled from elsewhere. */
+  children?: React.ReactNode;
 }
 
 export { SpaceSettingTab };
@@ -48,7 +49,7 @@ export const SpaceInnerSettingModal = (props: ISpaceInnerSettingModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent
         className="flex h-dvh max-h-dvh max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none transition-[max-width] duration-300 sm:h-[85%] sm:max-h-[85%] sm:max-w-[80%] sm:rounded-lg sm:border"
         onOpenAutoFocus={(e) => e.preventDefault()}

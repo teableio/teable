@@ -68,7 +68,6 @@ import { FieldSupplementService } from '../field/field-calculate/field-supplemen
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
-import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { convertLinkPasteCellValue } from '../record/paste-link-cell-value';
 import { RecordService } from '../record/record.service';
@@ -111,7 +110,6 @@ export class SelectionService {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
@@ -496,22 +494,9 @@ export class SelectionService {
     };
   }
 
-  async buildPasteByIdPayload(
-    tableId: string,
-    pasteRo: IPasteByIdRo,
-    options: {
-      recordIds?: string[];
-      recordLoader?: SelectionRecordLoader;
-      validateBeforeExpansion?: (
-        updatePayload: IUpdateRecordsRo,
-        createPayload: ICreateRecordsRo,
-        plannedFields: IFieldVo[]
-      ) => Promise<void>;
-    } = {}
-  ) {
+  private async buildV1PasteByIdPayload(tableId: string, pasteRo: IPasteByIdRo) {
     const { content, header } = pasteRo;
-    const recordIds =
-      options.recordIds ?? (await this.resolveRecordIdsBySelection(tableId, pasteRo));
+    const recordIds = await this.resolveRecordIdsBySelection(tableId, pasteRo);
     const pasteContent = typeof content === 'string' ? this.parseCopyContent(content) : content;
     let fields = await this.resolveFieldsBySelection(tableId, pasteRo);
     const pasteContentSize = pasteContent.length * (pasteContent[0]?.length ?? 0);
@@ -562,9 +547,11 @@ export class SelectionService {
     // but do not ask record reads or writes for columns that are not provisioned yet.
     const fieldIds = fields.filter((field) => !field.isPending).map((field) => field.id);
 
-    const existingRecords = options.recordLoader
-      ? await options.recordLoader(tableId, recordIds, existingFieldIds)
-      : await this.getRecordsByIdsForFields(tableId, recordIds, existingFieldIds);
+    const existingRecords = await this.getRecordsByIdsForFields(
+      tableId,
+      recordIds,
+      existingFieldIds
+    );
     const updateRecordsRo = this.fillCells(
       existingRecords,
       recordsFromClipboard.slice(0, existingRecords.length)
@@ -582,12 +569,7 @@ export class SelectionService {
           records: newRecords,
         }
       : undefined;
-    await options.validateBeforeExpansion?.(
-      updatePayload,
-      createPayload ?? { fieldKeyType: FieldKeyType.Id, typecast: true, records: [] },
-      newFields
-    );
-    await this.createPasteByIdFields(tableId, newFields);
+    await this.createV1PasteByIdFields(tableId, newFields);
 
     return {
       fieldIds,
@@ -602,7 +584,7 @@ export class SelectionService {
     };
   }
 
-  private async createPasteByIdFields(tableId: string, newFields: IFieldVo[]): Promise<void> {
+  private async createV1PasteByIdFields(tableId: string, newFields: IFieldVo[]): Promise<void> {
     if (!newFields.length) return;
 
     const views = await this.prismaService.txClient().view.findMany({
@@ -620,21 +602,13 @@ export class SelectionService {
         Object.fromEntries(viewOrders.map((view) => [view.id, { order: view.order + index + 1 }])),
       ])
     );
-    if (this.cls.get('useV2')) {
-      await this.fieldOpenApiV2Service.createFields(tableId, newFields, {
-        columnMeta,
-        // Expansion historically left field creation out of paste undo history.
-        recordUndo: false,
-      });
-    } else {
-      await this.fieldCreatingService.alterCreateFieldsInExistingTable(
-        tableId,
-        newFields.map((field) => ({
-          field: createFieldInstanceByVo(field),
-          columnMeta: columnMeta[field.id],
-        }))
-      );
-    }
+    await this.fieldCreatingService.alterCreateFieldsInExistingTable(
+      tableId,
+      newFields.map((field) => ({
+        field: createFieldInstanceByVo(field),
+        columnMeta: columnMeta[field.id],
+      }))
+    );
   }
 
   async createPasteByIdMutationSnapshot(
@@ -737,7 +711,7 @@ export class SelectionService {
     } = {}
   ): Promise<IPasteByIdVo> {
     const { updatePayload, createPayload, fieldIds, recordIds, createdFieldIds } =
-      await this.buildPasteByIdPayload(tableId, pasteRo);
+      await this.buildV1PasteByIdPayload(tableId, pasteRo);
     const beforeSnapshot = await this.createPasteByIdMutationSnapshot(tableId, fieldIds);
     const filteredUpdatePayload = permissionFilter
       ? await permissionFilter('update', updatePayload)

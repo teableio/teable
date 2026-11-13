@@ -11,6 +11,7 @@ import { err, ok, safeTry, type Result } from 'neverthrow';
 import type {
   BoundDataQueryFormulaExpression,
   BoundDataQueryPredicate,
+  BoundDataQueryHavingExpression,
 } from './BoundDataQueryExpression';
 import { freezeQueryValue, queryError } from './DataQueryDefinition';
 import {
@@ -22,6 +23,7 @@ import { dataQueryExpressionFieldType } from './DataQueryExpressionFieldType';
 import type {
   DataQueryAggregate,
   DataQueryBucket,
+  DataQueryAggregateV4,
   DataQueryDefinitionInput,
   DataQueryFieldDependency,
   DataQueryFieldUsage,
@@ -107,21 +109,15 @@ export type BoundDataQueryPlanProjection =
       readonly column: string | null;
     };
 
-export type BoundDataQueryPlanAggregate =
-  | {
-      readonly source: 'root';
-      readonly alias: string;
-      readonly statisticFunc: DataQueryAggregate['statisticFunc'];
-      readonly fieldId: string;
-      readonly column: string | null;
-    }
-  | {
-      readonly source: string;
-      readonly alias: string;
-      readonly statisticFunc: DataQueryRelationAggregate['statisticFunc'];
-      readonly fieldId?: string;
-      readonly column: string | null;
-    };
+export type BoundDataQueryPlanAggregate = {
+  readonly source: string;
+  readonly alias: string;
+  readonly statisticFunc: DataQueryAggregate['statisticFunc'];
+  readonly fieldId?: string;
+  readonly column: string | null;
+  readonly expression?: BoundDataQueryFormulaExpression;
+  readonly filter?: BoundDataQueryPredicate;
+};
 
 export type BoundDataQueryPlanGroup = {
   readonly source: string;
@@ -177,9 +173,11 @@ export type BoundDataQueryPlanUsage = {
 };
 
 export type BoundDataQueryPlan = {
-  readonly definitionVersion: 1 | 2 | 3;
+  readonly definitionVersion: 1 | 2 | 3 | 4 | 5 | 6;
+  readonly resultGrain: 'record' | 'distinctTuple' | 'group';
   readonly formulaLanguage?: 'teable-formula';
   readonly predicate?: BoundDataQueryPredicate;
+  readonly having?: BoundDataQueryHavingExpression;
   readonly relationPredicates?: readonly {
     readonly source: string;
     readonly predicate: BoundDataQueryPredicate;
@@ -224,6 +222,8 @@ export type BuildBoundDataQueryPlanInput = {
   readonly rootUsage: ReadonlyMap<string, ReadonlyArray<DataQueryFieldUsage>>;
   readonly formulaSourceBudget: FormulaSourceBudget;
   readonly relations?: ReadonlyArray<BoundDataQueryPlanRelationInput>;
+  /** Retain complete authorization usage before exposing expression diagnostics. */
+  readonly deferExpressionError?: (error: DomainError) => void;
 };
 
 const systemColumns: Readonly<Record<DataQuerySystemField, string>> = {
@@ -374,24 +374,16 @@ const planSort = (
 };
 
 const planAggregate = (
-  aggregate: DataQueryRelationAggregate | DataQueryAggregate,
+  aggregate: DataQueryRelationAggregate | DataQueryAggregate | DataQueryAggregateV4,
   sources: ReadonlyMap<string, BoundDataQueryPlanSource>
 ): BoundDataQueryPlanAggregate => {
-  if ('source' in aggregate) {
-    return {
-      source: aggregate.source,
-      alias: aggregate.alias,
-      statisticFunc: aggregate.statisticFunc,
-      ...(aggregate.fieldId ? { fieldId: aggregate.fieldId } : {}),
-      column: columnFor(sources, aggregate.source, aggregate.fieldId ?? ''),
-    };
-  }
+  const source = sourceAlias('source' in aggregate ? aggregate.source : undefined);
   return {
-    source: 'root',
+    source,
     alias: aggregate.alias,
     statisticFunc: aggregate.statisticFunc,
-    fieldId: aggregate.fieldId,
-    column: columnFor(sources, 'root', aggregate.fieldId),
+    ...(aggregate.fieldId ? { fieldId: aggregate.fieldId } : {}),
+    column: aggregate.fieldId ? columnFor(sources, source, aggregate.fieldId) : null,
   };
 };
 
@@ -458,17 +450,23 @@ export const buildBoundDataQueryPlan = (
           .andThen((field) => dataQueryExpressionFieldType(field));
       },
     };
+    const defer = <T>(result: Result<T, DomainError>): Result<T | undefined, DomainError> =>
+      result.orElse((error) => {
+        if (!input.deferExpressionError) return err(error);
+        input.deferExpressionError(error);
+        return ok(undefined);
+      });
 
     const projections: BoundDataQueryPlanProjection[] = [];
     const aggregates: BoundDataQueryPlanAggregate[] = [];
     if (definition.kind === 'records') {
       for (const projection of definition.select) {
         if ('expr' in projection) {
-          const expression = yield* bindDataQueryFormulaExpression(
-            projection.expr,
-            expressionContext
+          const expression = yield* defer(
+            bindDataQueryFormulaExpression(projection.expr, expressionContext)
           );
-          projections.push({ kind: 'expression', alias: projection.alias, expression });
+          if (expression)
+            projections.push({ kind: 'expression', alias: projection.alias, expression });
           continue;
         }
         const source = sourceAlias('source' in projection ? projection.source : undefined);
@@ -505,7 +503,24 @@ export const buildBoundDataQueryPlan = (
       }
     } else {
       for (const aggregate of definition.aggregates) {
-        aggregates.push(planAggregate(aggregate, sources));
+        const metric = planAggregate(aggregate, sources);
+        const context = {
+          ...expressionContext,
+          ...(metric.source !== 'root' ? { localSource: metric.source } : {}),
+        };
+        const expression =
+          'expr' in aggregate
+            ? yield* defer(bindDataQueryFormulaExpression(aggregate.expr, context))
+            : undefined;
+        const filter =
+          'filter' in aggregate && aggregate.filter
+            ? yield* defer(bindDataQueryExpressionPredicate(aggregate.filter, context))
+            : undefined;
+        aggregates.push({
+          ...metric,
+          ...(expression ? { expression } : {}),
+          ...(filter ? { filter } : {}),
+        });
       }
     }
 
@@ -533,27 +548,35 @@ export const buildBoundDataQueryPlan = (
       }
     }
     const predicate =
-      definition.version === 3 && definition.filter
-        ? yield* bindDataQueryExpressionPredicate(definition.filter, {
-            ...expressionContext,
-            localSource: 'root',
-          })
+      definition.version >= 3 && definition.filter
+        ? yield* defer(
+            bindDataQueryExpressionPredicate(definition.filter, {
+              ...expressionContext,
+              localSource: 'root',
+            })
+          )
         : undefined;
     const relationPredicates: { source: string; predicate: BoundDataQueryPredicate }[] = [];
-    if (definition.version === 3)
+    if (
+      definition.version === 3 ||
+      definition.version === 4 ||
+      definition.version === 5 ||
+      definition.version === 6
+    )
       for (const [source, relation] of Object.entries(definition.relations ?? {}))
-        if (relation.filter)
-          relationPredicates.push({
-            source,
-            predicate: yield* bindDataQueryExpressionPredicate(relation.filter, {
+        if (relation.filter) {
+          const predicate = yield* defer(
+            bindDataQueryExpressionPredicate(relation.filter, {
               ...expressionContext,
               localSource: source,
-            }),
-          });
+            })
+          );
+          if (predicate) relationPredicates.push({ source, predicate });
+        }
 
     const plan: BoundDataQueryPlan = {
       definitionVersion: definition.version,
-      ...(definition.version === 3
+      ...(definition.version >= 3
         ? {
             formulaLanguage: 'teable-formula' as const,
             ...(predicate ? { predicate } : {}),
@@ -561,6 +584,12 @@ export const buildBoundDataQueryPlan = (
           }
         : {}),
       kind: definition.kind,
+      resultGrain:
+        definition.kind === 'aggregate'
+          ? 'group'
+          : definition.version === 6 && definition.distinct
+            ? 'distinctTuple'
+            : 'record',
       tableId: definition.tableId,
       root,
       sources: relationSources,
@@ -593,7 +622,9 @@ export const buildBoundDataQueryPlan = (
         nullable: parameter.nullable === true,
         hasDefault: parameter.default !== undefined,
       })),
-      ...(definition.version !== 3 && definition.filter ? { filter: definition.filter } : {}),
+      ...((definition.version === 1 || definition.version === 2) && definition.filter
+        ? { filter: definition.filter }
+        : {}),
       relationFilters: relationFilters(definition.version === 2 ? definition.relations : undefined),
       usage,
     };

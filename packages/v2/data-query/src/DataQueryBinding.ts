@@ -34,8 +34,12 @@ import {
   representativeParameterValue,
   resolveDataQueryFilter,
 } from './DataQueryDefinition';
-import type { DataQueryPredicateV3 } from './DataQueryExpression';
-import { dataQueryExpressionOutput } from './DataQueryExpressionBinding';
+import type { DataQueryPredicateV5 } from './DataQueryExpression';
+import {
+  dataQueryExpressionOutput,
+  dataQueryAggregateExpressionOutput,
+  bindDataQueryHavingExpression,
+} from './DataQueryExpressionBinding';
 import { collectDataQuerySourceFieldUsages, sortDataQueryFieldUsages } from './DataQueryFieldUsage';
 import type {
   DataQueryAggregate,
@@ -56,7 +60,31 @@ const withExpressionOutputs = (
   plan: BoundDataQueryPlan,
   outputs: readonly DataQueryOutput[]
 ): Result<DataQueryOutput[], DomainError> => {
-  if (snapshot.kind !== 'records') return ok([...outputs]);
+  if (snapshot.kind === 'aggregate') {
+    const ordered = (snapshot.groupBy ?? []).map((group) =>
+      outputs.find((output) => output.alias === group.alias)!
+    );
+    for (const aggregate of snapshot.aggregates) {
+      if ('expr' in aggregate) {
+        const bound = plan.aggregates.find((metric) => metric.alias === aggregate.alias);
+        if (!bound?.expression)
+          return err(queryError('expression_metric', 'Metric expression is not bound'));
+        const output = dataQueryAggregateExpressionOutput(
+          aggregate.alias,
+          aggregate.statisticFunc,
+          bound.expression,
+          bound.source !== 'root'
+        );
+        if (output.isErr()) return err(output.error);
+        ordered.push(output.value);
+      } else {
+        const output = outputs.find((candidate) => candidate.alias === aggregate.alias);
+        if (!output) return err(queryError('aggregate', 'Aggregate output is not bound'));
+        ordered.push(output);
+      }
+    }
+    return ok(ordered);
+  }
   const ordered: DataQueryOutput[] = [];
   for (const projection of snapshot.select) {
     if ('expr' in projection) {
@@ -73,6 +101,23 @@ const withExpressionOutputs = (
     }
   }
   return ok(ordered);
+};
+
+const withHaving = (
+  snapshot: DataQueryDefinitionInput,
+  plan: BoundDataQueryPlan,
+  outputs: readonly DataQueryOutput[],
+  budget: FormulaSourceBudget
+): Result<BoundDataQueryPlan, DomainError> => {
+  if (
+    (snapshot.version !== 4 && snapshot.version !== 5 && snapshot.version !== 6) ||
+    snapshot.kind !== 'aggregate' ||
+    !snapshot.having
+  )
+    return ok(plan);
+  return bindDataQueryHavingExpression(snapshot.having, outputs, snapshot.parameters, budget).map(
+    (having) => freezeQueryValue({ ...plan, having })
+  );
 };
 
 const describeField = (
@@ -276,7 +321,7 @@ const parameterValueMaps = (
 };
 
 const validateFilterAgainstTable = (
-  filter: DataQueryPredicateV3 | undefined,
+  filter: DataQueryPredicateV5 | undefined,
   table: ITableReadModel,
   values: ParameterValueMaps
 ): Result<void, DomainError> =>
@@ -287,7 +332,7 @@ const validateFilterAgainstTable = (
         yield* validateFilterAgainstTable(child, table, values);
       return ok(undefined);
     }
-    if ('type' in filter) return ok(undefined);
+    if ('type' in filter || 'relation' in filter) return ok(undefined);
     const representativeFilter = yield* resolveDataQueryFilter(filter, values.representative);
     const defaultFilter = yield* resolveDataQueryFilter(filter, values.defaults);
     yield* validateDataQueryFilter(table, representativeFilter);
@@ -300,6 +345,29 @@ const validateDefinitionFilters = (
   table: ITableReadModel
 ): Result<void, DomainError> =>
   validateFilterAgainstTable(snapshot.filter, table, parameterValueMaps(snapshot.parameters));
+
+const validateMetricFilters = (
+  snapshot: DataQueryDefinitionInput,
+  root: ITableReadModel,
+  targets: ReadonlyMap<string, ITableReadModel> = new Map()
+): Result<void, DomainError> =>
+  safeTry(function* () {
+    if (
+      (snapshot.version !== 4 && snapshot.version !== 5 && snapshot.version !== 6) ||
+      snapshot.kind !== 'aggregate'
+    )
+      return ok(undefined);
+    const values = parameterValueMaps(snapshot.parameters);
+    for (const metric of snapshot.aggregates) {
+      if (!metric.filter) continue;
+      const source = projectionSource(metric) ?? 'root';
+      const table = source === 'root' ? root : targets.get(source);
+      if (!table)
+        return err(queryError('join_source_unknown', 'A metric references an undeclared source'));
+      yield* validateFilterAgainstTable(metric.filter, table, values);
+    }
+    return ok(undefined);
+  });
 
 const aggregateOutput = (
   aggregate: DataQueryAggregate,
@@ -470,6 +538,7 @@ const describeOutputs = (
       );
     }
     for (const aggregate of snapshot.aggregates) {
+      if ('expr' in aggregate) continue;
       // A relation metric cannot be bound without its declared relation sources.
       if ('source' in aggregate) {
         return err(
@@ -788,7 +857,7 @@ export class DataQueryRelationBinding {
       const snapshot = definition.snapshot();
       if (snapshot.version === 1) {
         return err(
-          queryError('join_version', 'Relation binding requires definition version 2 or 3')
+          queryError('join_version', 'Relation binding requires definition version 2 or later')
         );
       }
       if (snapshot.tableId !== rootTable.id().toString())
@@ -1217,6 +1286,7 @@ export class DataQueryRelationBinding {
               });
             }
             for (const aggregate of snapshot.aggregates) {
+              if ('expr' in aggregate) continue;
               if ('source' in aggregate) {
                 const info = resolved.get(aggregate.source);
                 if (!info) {
@@ -1256,12 +1326,20 @@ export class DataQueryRelationBinding {
           return ok(outputs);
         });
 
+      let expressionError: DomainError | undefined;
       const plan = yield* buildBoundDataQueryPlan({
         definition: snapshot,
         rootTable,
         rootDependencies: root.dependencies,
         rootUsage: rootUsages,
         formulaSourceBudget: options.formulaSourceBudget ?? getFormulaSourceBudget(),
+        ...(snapshot.version >= 4
+          ? {
+              deferExpressionError: (error: DomainError) => {
+                expressionError ??= error;
+              },
+            }
+          : {}),
         relations: sources.map((source) => ({
           alias: source.alias,
           table: source.table,
@@ -1277,21 +1355,31 @@ export class DataQueryRelationBinding {
       return ok({
         plan,
         sources,
-        bind: () =>
-          bindOutputs()
+        bind: () => {
+          if (expressionError) return err(expressionError);
+          return validateMetricFilters(snapshot, rootTable, targetTables)
+            .andThen(() => bindOutputs())
             .andThen((outputs) => withExpressionOutputs(snapshot, plan, outputs))
-            .map(
-              (outputs) =>
-                new DataQueryRelationBinding(
-                  definition,
-                  rootTable,
-                  root.dependencies,
-                  sources,
-                  outputs,
-                  plan,
-                  deferredFilterError
-                )
-            ),
+            .andThen((outputs) =>
+              withHaving(
+                snapshot,
+                plan,
+                outputs,
+                options.formulaSourceBudget ?? getFormulaSourceBudget()
+              ).map(
+                (boundPlan) =>
+                  new DataQueryRelationBinding(
+                    definition,
+                    rootTable,
+                    root.dependencies,
+                    sources,
+                    outputs,
+                    boundPlan,
+                    deferredFilterError
+                  )
+              )
+            );
+        },
       });
     });
   }
@@ -1374,22 +1462,46 @@ export class DataQueryBinding {
           }
         }
       }
+      let expressionError: DomainError | undefined;
       const plan = yield* buildBoundDataQueryPlan({
         definition: snapshot,
         rootTable: table,
         rootDependencies: dependencies,
         rootUsage: usages,
         formulaSourceBudget: options.formulaSourceBudget ?? getFormulaSourceBudget(),
+        ...(snapshot.version >= 4
+          ? {
+              deferExpressionError: (error: DomainError) => {
+                expressionError ??= error;
+              },
+            }
+          : {}),
       });
       return ok({
         plan,
-        bind: () =>
-          describeOutputs(snapshot, fields, descriptions)
+        bind: () => {
+          if (expressionError) return err(expressionError);
+          return validateMetricFilters(snapshot, table)
+            .andThen(() => describeOutputs(snapshot, fields, descriptions))
             .andThen((outputs) => withExpressionOutputs(snapshot, plan, outputs))
-            .map(
-              (outputs) =>
-                new DataQueryBinding(definition, dependencies, outputs, plan, deferredFilterError)
-            ),
+            .andThen((outputs) =>
+              withHaving(
+                snapshot,
+                plan,
+                outputs,
+                options.formulaSourceBudget ?? getFormulaSourceBudget()
+              ).map(
+                (boundPlan) =>
+                  new DataQueryBinding(
+                    definition,
+                    dependencies,
+                    outputs,
+                    boundPlan,
+                    deferredFilterError
+                  )
+              )
+            );
+        },
       });
     });
   }

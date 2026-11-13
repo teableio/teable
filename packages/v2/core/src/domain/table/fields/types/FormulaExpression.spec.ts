@@ -13,6 +13,29 @@ describe('FormulaExpression', () => {
     expect(FormulaExpression.create(123).isErr()).toBe(true);
   });
 
+  it('detects source-row context structurally, including nested and unused branches', () => {
+    for (const source of [
+      'RECORD_ID()',
+      'IF(TRUE, 1, CREATED_TIME())',
+      'YEAR(LAST_MODIFIED_TIME())',
+      'AUTO_NUMBER()',
+    ]) {
+      expect(
+        FormulaExpression.create(source)._unsafeUnwrap().hasRecordContextFunctions()._unsafeUnwrap()
+      ).toBe(true);
+    }
+    for (const source of [
+      'NOW()',
+      'TODAY()',
+      '"RECORD_ID()"',
+      'CONCATENATE("CREATED_TIME()", "AUTO_NUMBER()")',
+    ]) {
+      expect(
+        FormulaExpression.create(source)._unsafeUnwrap().hasRecordContextFunctions()._unsafeUnwrap()
+      ).toBe(false);
+    }
+  });
+
   it('extracts referenced field ids', () => {
     const idResult = createFieldId('a');
     idResult._unsafeUnwrap();
@@ -60,6 +83,7 @@ describe('FormulaExpression', () => {
       expect(expression.getReferencedIdentifiers().isErr()).toBe(true);
       expect(expression.getReferencedFieldIds().isErr()).toBe(true);
       expect(expression.hasLastModifiedTimeParams().isErr()).toBe(true);
+      expect(expression.hasRecordContextFunctions().isErr()).toBe(true);
       expect(expression.getParsedValueType([]).isErr()).toBe(true);
     }
   );

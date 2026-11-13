@@ -148,10 +148,13 @@ export const buildUserJsonObjectFromSnapshotExpr = (
 
 export const buildUserJsonObjectFromSnapshotWithLookupExpr = (
   snapshotExpr: RawBuilder<unknown>,
-  idFallbackExpr: RawBuilder<unknown>
+  idFallbackExpr: RawBuilder<unknown>,
+  userSnapshots?: RawBuilder<unknown>
 ): RawBuilder<unknown> => {
   const snapshotObject = buildUserSnapshotObjectExpr(snapshotExpr);
-  const lookupObject = sql`(
+  const lookupObject = userSnapshots
+    ? sql`(${userSnapshots} -> ${idFallbackExpr}::text)`
+    : sql`(
     SELECT jsonb_strip_nulls(jsonb_build_object(
       'id', u.id,
       'title', COALESCE(u.name, u.id),

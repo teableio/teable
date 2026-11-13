@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { setTimeout } from 'node:timers/promises';
 import {
   LEGACY_MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX,
   LEGACY_MANAGED_SEARCH_INDEX_PREFIX,
@@ -8,6 +9,8 @@ import {
 } from '@teable/v2-adapter-db-postgres-shared';
 import {
   domainError,
+  isTableSearchIndex,
+  type DomainError,
   type IExecutionContext,
   type ITableSearchIndex,
   type SearchFieldTextProjection,
@@ -57,6 +60,18 @@ const SEARCH_SEMANTICS_SAMPLE_LIMIT = 3;
 const SEARCH_SEMANTICS_FIELD_PREVIEW_LIMIT = 4;
 const SEARCH_SEMANTICS_TOKEN_LIMIT = 16;
 const SEARCH_SEMANTICS_PREVIEW_LENGTH = 120;
+
+class SearchGenerationTargetChangedError extends Error {}
+
+export const toSearchGenerationError = (error: unknown): DomainError =>
+  error instanceof SearchGenerationTargetChangedError
+    ? domainError.conflict({
+        code: 'table_query_ops.search_target_changed',
+        message: error.message,
+      })
+    : domainError.infrastructure({
+        message: error instanceof Error ? error.message : 'Failed to reconcile search vector',
+      });
 
 type ExplainRow = {
   readonly 'QUERY PLAN': unknown;
@@ -137,6 +152,19 @@ export type TableQuerySearchVectorPlanEvidence = {
   readonly semanticsCompatible?: boolean;
   readonly hypotheticalIndexStatement?: string;
   readonly sqlDetails?: TableQuerySearchVectorSqlDetails;
+};
+
+export type SearchGenerationExecutionState = {
+  readonly version: 1;
+  readonly kind: 'search_generation';
+  readonly targetDefinition: string;
+  readonly dbTableName: string;
+  readonly tableOid: string;
+  readonly expectedVersion: number;
+  readonly generatedColumnName: string;
+  readonly indexName: string;
+  readonly phase: 'prepared' | 'column_ready' | 'index_ready' | 'validated' | 'published';
+  readonly planEvidence?: TableQuerySearchVectorPlanEvidence;
 };
 
 export type TableQuerySearchVectorSqlDetails = {
@@ -283,6 +311,7 @@ export type TableQueryScopedSearchIndexRecommendation = {
 export type AnalyzeTableSearchVectorInput = {
   readonly table: Table;
   readonly fieldIds?: readonly string[];
+  readonly searchScope?: 'all_fields' | 'selected_fields';
   readonly provider?: TableQuerySubstringSearchProvider;
   readonly languageConfig?: string;
   readonly searchProbe?: string;
@@ -314,6 +343,7 @@ export type AnalyzeTableSearchVectorResult = {
 
 export type ExecuteTableSearchVectorInput = {
   readonly tableId: string;
+  readonly execution?: ReconcileTableSearchVectorInput['execution'];
   readonly payload: {
     readonly candidateKey: string;
     readonly languageConfig: string;
@@ -497,7 +527,9 @@ const requireExecutionFields = (
       textProjection: sanitizeSearchTextProjection(field.textProjection),
     }));
   if (!included.length) {
-    throw new Error('Search access-path task payload must include at least one field');
+    throw new SearchGenerationTargetChangedError(
+      'Search access-path task payload must include at least one field'
+    );
   }
   return included;
 };
@@ -521,7 +553,7 @@ const assertExecutionOperatorClass = (
   capability: TableQuerySubstringSearchProviderCapability
 ): void => {
   if (!requested || requested === capability.operatorClass) return;
-  throw new Error(
+  throw new SearchGenerationTargetChangedError(
     `Substring search operator class ${requested} does not match provider ${capability.provider}`
   );
 };
@@ -558,8 +590,34 @@ const assertInventoryCanBeApplied = (
   );
 };
 
+/**
+ * Columns that PostgreSQL itself generates, whatever the field meta claims. Legacy CreatedBy /
+ * LastModifiedBy columns and drifted formulas can be GENERATED while meta says otherwise; a
+ * generated document may not reference them (42P17), so they must leave the document.
+ */
+export const readPhysicallyGeneratedColumnNames = async (
+  db: Kysely<UnknownPostgresDatabase>,
+  physical: PhysicalTable
+): Promise<ReadonlySet<string>> => {
+  const rows = await sql<{ column_name: string }>`
+    SELECT a.attname AS column_name
+    FROM pg_attribute a
+    JOIN pg_class t ON t.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = ${physical.schema}
+      AND t.relname = ${physical.tableName}
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+      AND a.attgenerated <> ''
+  `.execute(db);
+  return new Set(rows.rows.map((row) => row.column_name));
+};
+
 export class PostgresTableSearchVectorAdvisor {
-  constructor(private readonly dataDb: Kysely<UnknownPostgresDatabase>) {}
+  constructor(
+    private readonly dataDb: Kysely<UnknownPostgresDatabase>,
+    private readonly metaDb?: Kysely<UnknownPostgresDatabase>
+  ) {}
 
   async analyze(
     _context: IExecutionContext,
@@ -572,10 +630,27 @@ export class PostgresTableSearchVectorAdvisor {
     const capabilities = await readSubstringSearchCapabilities(this.dataDb);
     const selectedProvider = input.provider ?? capabilities.selectedProvider;
     const providerCapability = requireProviderCapability(capabilities, selectedProvider);
+    const physicalResult = getTablePhysicalName(table);
+    // A column PostgreSQL generates cannot appear in the document, whatever the field meta says.
+    const generatedColumns = physicalResult.isOk()
+      ? await readPhysicallyGeneratedColumnNames(this.dataDb, physicalResult.value)
+      : new Set<string>();
+    const excludeFieldIds = generatedColumns.size
+      ? table
+          .getFields()
+          .filter((field) => {
+            const name = field.dbFieldName();
+            if (name.isErr()) return false;
+            const column = name._unsafeUnwrap().value();
+            return column.isOk() && generatedColumns.has(column._unsafeUnwrap());
+          })
+          .map((field) => field.id().toString())
+      : [];
     const definition = buildTableSearchVectorDefinition(table, {
       fieldIds: input.fieldIds,
       semantics: 'substring',
       provider: selectedProvider,
+      ...(excludeFieldIds.length ? { excludeFieldIds } : {}),
     });
     if (definition.isErr()) throw definition.error;
     const fieldSummaries: readonly TableQuerySearchVectorFieldSummary[] = [
@@ -586,7 +661,6 @@ export class PostgresTableSearchVectorAdvisor {
       (field): field is IncludedSearchVectorField => field.included && Boolean(field.fieldDbName)
     );
     const skippedFields = fieldSummaries.filter((field) => !field.included);
-    const physicalResult = getTablePhysicalName(table);
     if (physicalResult.isErr()) {
       return buildPhysicalNameFailureResult({
         tableId,
@@ -603,7 +677,28 @@ export class PostgresTableSearchVectorAdvisor {
     const rowEstimate = await readRowEstimate(this.dataDb, physical);
     const estimatedRows = rowEstimate.rows;
     const tableSizeBytes = await readTableSizeBytes(this.dataDb, physical);
-    const names = buildSearchVectorNames(tableId, providerCapability, coveredFields);
+    const canonicalNames = buildSearchVectorNames(tableId, providerCapability, coveredFields);
+    const published = this.metaDb
+      ? (
+          await sql<{ search_index: unknown }>`SELECT search_index FROM table_meta
+          WHERE id = ${tableId} AND deleted_time IS NULL`.execute(this.metaDb)
+        ).rows[0]?.search_index
+      : table.searchIndex();
+    const physicalName = table.dbTableName().andThen((name) => name.value());
+    const names =
+      isTableSearchIndex(published) &&
+      published.definitionKey === canonicalNames.candidateKey &&
+      published.provider === providerCapability.provider &&
+      published.searchScope ===
+        (input.searchScope ?? (input.fieldIds?.length ? 'selected_fields' : 'all_fields')) &&
+      physicalName.isOk() &&
+      published.dbTableName === physicalName.value
+        ? {
+            ...canonicalNames,
+            generatedColumnName: published.generatedColumnName,
+            indexName: published.indexName,
+          }
+        : canonicalNames;
     const inventory = await inspectSearchVectorInventory(
       this.dataDb,
       physical,
@@ -891,27 +986,297 @@ export class PostgresTableSearchVectorExecutor {
   ) {}
 
   async execute(input: ExecuteTableSearchVectorInput): Promise<ExecuteTableSearchVectorResult> {
-    return this.metaDb.connection().execute(async (lockedMetaDb) => {
-      await sql`
-        SELECT pg_advisory_lock(
-          hashtext('teable.table_query_ops.search_vector'),
-          hashtext(${input.tableId})
-        )
-      `.execute(lockedMetaDb);
-      try {
-        const lockedDataDb = this.dataDb === this.metaDb ? lockedMetaDb : this.dataDb;
-        return await new PostgresTableSearchVectorExecutor(
-          lockedMetaDb,
-          lockedDataDb
-        ).executeUnlocked(input);
-      } finally {
-        await sql`
-          SELECT pg_advisory_unlock(
-            hashtext('teable.table_query_ops.search_vector'),
-            hashtext(${input.tableId})
-          )
-        `.execute(lockedMetaDb);
+    return this.withPhysicalLocks(input.tableId, (executor) => executor.executeUnlocked(input));
+  }
+
+  private async withPhysicalLocks<T>(
+    tableId: string,
+    work: (executor: PostgresTableSearchVectorExecutor) => Promise<T>
+  ): Promise<T> {
+    const metadataNamespace = 'teable.table_query_ops.search_vector';
+    const dataNamespace = 'teable.table_query_ops.search_vector.data';
+    const acquireLock = async (
+      db: Kysely<UnknownPostgresDatabase>,
+      namespace: string,
+      metadata?: Kysely<UnknownPostgresDatabase>
+    ) => {
+      for (;;) {
+        if (metadata) await sql`SELECT 1`.execute(metadata);
+        const result = await sql<{ acquired: boolean }>`SELECT pg_try_advisory_lock(
+          hashtext(${namespace}), hashtext(${tableId})) AS acquired`.execute(db);
+        if (result.rows[0]?.acquired) return;
+        // A blocking SELECT can hold the snapshot that a surviving concurrent build needs.
+        await setTimeout(25);
       }
+    };
+    const releaseLock = (db: Kysely<UnknownPostgresDatabase>, namespace: string) =>
+      sql`SELECT pg_advisory_unlock(hashtext(${namespace}), hashtext(${tableId}))`.execute(db);
+    return this.metaDb.connection().execute(async (meta) => {
+      await acquireLock(meta, metadataNamespace);
+      try {
+        if (this.dataDb === this.metaDb) {
+          await acquireLock(meta, dataNamespace);
+          try {
+            return await work(new PostgresTableSearchVectorExecutor(meta, meta));
+          } finally {
+            await releaseLock(meta, dataNamespace);
+          }
+        }
+        return await this.dataDb.connection().execute(async (data) => {
+          await acquireLock(data, dataNamespace, meta);
+          try {
+            await sql`SELECT 1`.execute(meta);
+            return await work(new PostgresTableSearchVectorExecutor(meta, data));
+          } finally {
+            await releaseLock(data, dataNamespace);
+          }
+        });
+      } finally {
+        await releaseLock(meta, metadataNamespace);
+      }
+    });
+  }
+
+  private inDataTransaction(data: Kysely<UnknownPostgresDatabase>) {
+    // A shared reserved connection cannot re-enter its outer executor while a
+    // transaction owns it. BYODB metadata must still use the metadata session.
+    return new PostgresTableSearchVectorExecutor(
+      this.metaDb === this.dataDb ? data : this.metaDb,
+      data
+    );
+  }
+
+  private async checkpoint(
+    input: Pick<ExecuteTableSearchVectorInput, 'tableId' | 'execution'>,
+    state?: SearchGenerationExecutionState
+  ): Promise<void> {
+    if (!input.execution) return;
+    const owner = input.execution;
+    const updated = await sql<{ id: string }>`
+      UPDATE table_query_remediation_task
+      SET execution_state = COALESCE(${state ? JSON.stringify(state) : null}::jsonb, execution_state)
+      WHERE id = ${owner.taskId} AND table_id = ${input.tableId} AND status = 'running'
+        AND locked_by = ${owner.workerId} AND locked_at = ${owner.lockedAt}
+      RETURNING id
+    `.execute(this.metaDb);
+    if (!updated.rows.length) throw new Error('Search task execution ownership was lost');
+  }
+
+  private async prepareGeneration(
+    input: ExecuteTableSearchVectorInput,
+    tableMeta: TableMetaRow,
+    physical: PhysicalTable,
+    currentConfig: SearchVectorConfigRow | undefined,
+    providerCapability: TableQuerySubstringSearchProviderCapability
+  ): Promise<SearchGenerationExecutionState | undefined> {
+    if (!input.execution) return undefined;
+    await this.checkpoint(input);
+    const rows = await sql<{ execution_state: SearchGenerationExecutionState | null }>`
+      SELECT execution_state FROM table_query_remediation_task WHERE id = ${input.execution.taskId}
+    `.execute(this.metaDb);
+    const identity = await sql<{ oid: string }>`
+      SELECT to_regclass(${makePhysicalTableSql(physical.schema, physical.tableName)})::oid::text AS oid
+    `.execute(this.dataDb);
+    const tableOid = identity.rows[0]?.oid;
+    if (!tableOid) throw new SearchGenerationTargetChangedError('Search physical table is missing');
+    const targetDefinition = JSON.stringify({
+      candidateKey: input.payload.candidateKey,
+      fields: input.payload.fields,
+      provider: providerCapability.provider,
+      operatorClass: providerCapability.operatorClass,
+      searchScope: input.payload.searchScope ?? 'all_fields',
+    });
+    const existing = rows.rows[0]?.execution_state;
+    if (existing) {
+      if (
+        existing.version !== 1 ||
+        existing.kind !== 'search_generation' ||
+        existing.targetDefinition !== targetDefinition ||
+        existing.dbTableName !== tableMeta.db_table_name ||
+        existing.tableOid !== tableOid
+      )
+        throw new SearchGenerationTargetChangedError(
+          'Frozen search generation target changed; analyze and approve again'
+        );
+      assertManagedSearchVectorNames(existing.generatedColumnName, existing.indexName);
+      return existing;
+    }
+    const suffix = createHash('sha256').update(input.execution.taskId).digest('hex').slice(0, 16);
+    const verifyCurrent =
+      !input.payload.rebuild && currentConfig?.candidate_key === input.payload.candidateKey;
+    const names = buildSearchVectorNames(input.tableId, providerCapability, input.payload.fields);
+    if (names.candidateKey !== input.payload.candidateKey)
+      throw new SearchGenerationTargetChangedError(
+        'Search generation definition does not match its managed names'
+      );
+    let state: SearchGenerationExecutionState = {
+      version: 1,
+      kind: 'search_generation',
+      targetDefinition,
+      dbTableName: tableMeta.db_table_name,
+      tableOid,
+      expectedVersion: tableMeta.version,
+      generatedColumnName: verifyCurrent
+        ? currentConfig.generated_column_name
+        : `${names.generatedColumnName.slice(0, 46)}_${suffix}`,
+      indexName: verifyCurrent
+        ? currentConfig.index_name
+        : `${names.indexName.slice(0, 46)}_${suffix}`,
+      phase: 'prepared',
+    };
+    const canonical = {
+      ...state,
+      generatedColumnName: names.generatedColumnName,
+      indexName: names.indexName,
+    };
+    const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
+    const presence = await sql<{ present: boolean }>`SELECT
+      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${tableSql})
+        AND attname = ${names.generatedColumnName} AND NOT attisdropped) OR
+      to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(names.indexName)}`}) IS NOT NULL AS present
+    `.execute(this.dataDb);
+    if (!presence.rows[0]?.present) {
+      await this.checkpoint(input, state);
+      return state;
+    }
+    const observed = await this.inspectOwnedGeneration(
+      input.tableId,
+      input.execution.taskId,
+      canonical,
+      tableMeta,
+      physical
+    );
+    if (!observed.safe)
+      throw new SearchGenerationTargetChangedError(
+        'Canonical search objects have incompatible ownership or definition; refusing an unreachable duplicate'
+      );
+    if (observed.referenced) {
+      // Protected objects are never claimed or deleted here. Building a shadow
+      // generation must not take an exclusive lock on the old serving table
+      // while readers hold snapshots needed by the later concurrent build.
+      await this.checkpoint(input, state);
+      return state;
+    }
+    await this.dataDb.transaction().execute(async (data) => {
+      await sql.raw(`LOCK TABLE ${tableSql} IN ACCESS EXCLUSIVE MODE`).execute(data);
+      const executor = this.inDataTransaction(data);
+      const objects = await executor.inspectOwnedGeneration(
+        input.tableId,
+        input.execution!.taskId,
+        canonical,
+        tableMeta,
+        physical
+      );
+      if (!objects.safe)
+        throw new SearchGenerationTargetChangedError(
+          'Canonical search objects have incompatible ownership or definition; refusing an unreachable duplicate'
+        );
+      if (objects.present && !objects.referenced) state = canonical;
+      await executor.checkpoint(input, state);
+    });
+    return state;
+  }
+
+  async adoptLegacyAdminGeneration(input: ReconcileTableSearchVectorInput): Promise<void> {
+    if (!input.execution || !input.expectedDefinitionKey || input.mode === 'drop') return;
+    const owner = input.execution;
+    const expected = input.expectedDefinitionKey;
+    const tableId = input.table.id().toString();
+    await this.withPhysicalLocks(tableId, async (executor) => {
+      await executor.checkpoint({ tableId, execution: owner });
+      const task = await sql<{ execution_state: unknown }>`SELECT execution_state
+        FROM table_query_remediation_task WHERE id = ${owner.taskId}`.execute(executor.metaDb);
+      if (task.rows[0]?.execution_state) return;
+      const prefix = `search_document:${tableId}:`;
+      if (!expected.startsWith(prefix)) return;
+      const [providerName, hash, extra] = expected.slice(prefix.length).split(':');
+      if (
+        extra !== undefined ||
+        !/^[a-f0-9]+$/.test(hash ?? '') ||
+        (providerName !== 'pg_trgm' && providerName !== 'pg_bigm')
+      )
+        return;
+      const tableMeta = await executor.requireTableMeta(tableId);
+      const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
+      const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
+      const column = `${GENERATED_COLUMN_PREFIX}${hash}`.slice(0, 63);
+      const index = `${INDEX_NAME_PREFIX}${tableId}_${hash}`.slice(0, 63);
+      const artifacts = await sql<{ present: boolean; dependencies: string[] }>`SELECT
+        EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${tableSql})
+          AND attname = ${column} AND NOT attisdropped) OR
+        to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(index)}`}) IS NOT NULL AS present,
+        ARRAY(SELECT DISTINCT source.attname::text FROM pg_attribute generated
+          JOIN pg_attrdef ad ON ad.adrelid = generated.attrelid AND ad.adnum = generated.attnum
+          JOIN pg_depend d ON d.classid = 'pg_attrdef'::regclass AND d.objid = ad.oid
+            AND d.refclassid = 'pg_class'::regclass AND d.refobjid = generated.attrelid
+            AND d.refobjsubid > 0 AND d.deptype = 'n'
+          JOIN pg_attribute source ON source.attrelid = d.refobjid AND source.attnum = d.refobjsubid
+          WHERE generated.attrelid = to_regclass(${tableSql}) AND generated.attname = ${column}
+            AND NOT generated.attisdropped AND NOT source.attisdropped) AS dependencies
+      `.execute(executor.dataDb);
+      const artifact = artifacts.rows[0];
+      if (!artifact?.present) return;
+      const dependencies = new Set(artifact.dependencies);
+      // Recover only the original physical contributors, not today's all-field
+      // scope. The domain visitor remains authoritative for their projections.
+      const fieldIds = input.fieldIds?.length
+        ? input.fieldIds
+        : input.table
+            .getFields()
+            .filter((field) => {
+              const name = field.dbFieldName().andThen((value) => value.value());
+              return name.isOk() && dependencies.has(name.value);
+            })
+            .map((field) => field.id().toString());
+      const definition = buildTableSearchVectorDefinition(input.table, {
+        fieldIds,
+        semantics: 'substring',
+        provider: providerName,
+      });
+      const refusal = (reason: string) =>
+        new SearchGenerationTargetChangedError(
+          `Canonical search objects have incompatible ownership or definition; refusing an unreachable duplicate: ${reason}`
+        );
+      if (definition.isErr() || !fieldIds.length || (!input.fieldIds?.length && !dependencies.size))
+        throw refusal('original field contributors are unavailable');
+      const fields = definition.value.fields.map((field) => ({
+        fieldId: field.fieldId,
+        fieldDbName: field.fieldDbName,
+        fieldType: field.fieldType,
+        textProjection: field.textProjection,
+      }));
+      if (
+        !input.fieldIds?.length &&
+        (fields.length !== dependencies.size ||
+          fields.some((field) => !dependencies.has(field.fieldDbName)))
+      )
+        throw refusal('physical dependencies do not match the domain projections');
+      const capabilities = await readSubstringSearchCapabilities(executor.dataDb);
+      const provider = requireProviderCapability(capabilities, providerName);
+      const names = buildSearchVectorNames(tableId, provider, fields);
+      if (names.candidateKey !== expected || (input.provider && input.provider !== providerName))
+        throw refusal('reconstructed candidate or provider differs from the original approval');
+      // prepareGeneration locks the table and re-proves marker, actual parsed
+      // expression, provider, opclass, references and identity before journaling.
+      await executor.prepareGeneration(
+        {
+          tableId,
+          execution: owner,
+          payload: {
+            ...names,
+            fields,
+            provider: providerName,
+            operatorClass: provider.operatorClass,
+            languageConfig: input.languageConfig ?? DEFAULT_LANGUAGE_CONFIG,
+            searchScope: input.fieldIds?.length ? 'selected_fields' : 'all_fields',
+            rebuild: input.mode === 'rebuild',
+          },
+        },
+        tableMeta,
+        physical,
+        await executor.currentConfig(tableId),
+        provider
+      );
     });
   }
 
@@ -923,28 +1288,9 @@ export class PostgresTableSearchVectorExecutor {
     tableId: string,
     expectedDefinitionKey?: string
   ): Promise<DropTableSearchVectorResult> {
-    return this.metaDb.connection().execute(async (lockedMetaDb) => {
-      await sql`
-        SELECT pg_advisory_lock(
-          hashtext('teable.table_query_ops.search_vector'),
-          hashtext(${tableId})
-        )
-      `.execute(lockedMetaDb);
-      try {
-        const lockedDataDb = this.dataDb === this.metaDb ? lockedMetaDb : this.dataDb;
-        return await new PostgresTableSearchVectorExecutor(lockedMetaDb, lockedDataDb).dropUnlocked(
-          tableId,
-          expectedDefinitionKey
-        );
-      } finally {
-        await sql`
-          SELECT pg_advisory_unlock(
-            hashtext('teable.table_query_ops.search_vector'),
-            hashtext(${tableId})
-          )
-        `.execute(lockedMetaDb);
-      }
-    });
+    return this.withPhysicalLocks(tableId, (executor) =>
+      executor.dropUnlocked(tableId, expectedDefinitionKey)
+    );
   }
 
   private async dropUnlocked(
@@ -965,6 +1311,8 @@ export class PostgresTableSearchVectorExecutor {
     for (const config of configs) {
       assertManagedSearchVectorNames(config.generated_column_name, config.index_name);
     }
+    const reclaimedGeneration =
+      !expectedDefinitionKey && (await this.dropAbandonedGenerations(tableId, tableMeta, physical));
     await this.clearServingObjects(
       physical,
       configs.map((config) => config.index_name),
@@ -1010,7 +1358,7 @@ export class PostgresTableSearchVectorExecutor {
     return {
       action: 'dropped',
       tableId,
-      hadManagedObjects: Boolean(currentConfig),
+      hadManagedObjects: Boolean(currentConfig) || reclaimedGeneration,
       ...(currentConfig
         ? {
             candidateKey: currentConfig.candidate_key,
@@ -1021,11 +1369,315 @@ export class PostgresTableSearchVectorExecutor {
     };
   }
 
+  async reclaimFailedTask(
+    tableId: string,
+    owner: NonNullable<ExecuteTableSearchVectorInput['execution']>
+  ): Promise<void> {
+    await this.withPhysicalLocks(tableId, async (executor) => {
+      await executor.checkpoint({ tableId, execution: owner });
+      const rows = await sql<{
+        execution_state: SearchGenerationExecutionState | null;
+        payload: ExecuteTableSearchVectorInput['payload'] & { expectedDefinitionKey?: string };
+      }>`
+        SELECT execution_state, payload FROM table_query_remediation_task WHERE id = ${owner.taskId}
+      `.execute(executor.metaDb);
+      let state: SearchGenerationExecutionState | null | undefined = rows.rows[0]?.execution_state;
+      const payload = rows.rows[0]?.payload;
+      if (!state && !payload) return;
+      const tableMeta = await executor.requireTableMeta(tableId);
+      const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
+      if (!state && payload) {
+        if (Array.isArray(payload.fields) && payload.candidateKey) {
+          const capabilities = await readSubstringSearchCapabilities(executor.dataDb);
+          const provider = requireProviderCapability(
+            capabilities,
+            payload.provider === 'pg_bigm' ? 'pg_bigm' : 'pg_trgm'
+          );
+          state = await executor.prepareGeneration(
+            { tableId, execution: owner, payload },
+            tableMeta,
+            physical,
+            undefined,
+            provider
+          );
+        } else {
+          const candidate = payload.expectedDefinitionKey;
+          const prefix = `search_document:${tableId}:`;
+          const hash = candidate?.startsWith(prefix) ? candidate.split(':').at(-1) : undefined;
+          if (hash && /^[a-f0-9]+$/.test(hash)) {
+            const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
+            const column = `${GENERATED_COLUMN_PREFIX}${hash}`.slice(0, 63);
+            const index = `${INDEX_NAME_PREFIX}${tableId}_${hash}`.slice(0, 63);
+            const legacy = await sql<{ present: boolean }>`SELECT
+              EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${tableSql})
+                AND attname = ${column} AND NOT attisdropped) OR
+              to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(index)}`}) IS NOT NULL AS present
+            `.execute(executor.dataDb);
+            if (legacy.rows[0]?.present)
+              throw new Error(
+                'Pre-upgrade canonical artifacts retained: approved field definition is unavailable, so cleanup ownership cannot be proven'
+              );
+          }
+          return;
+        }
+      }
+      if (!state) return;
+      await executor.reclaimGeneration(tableId, owner.taskId, state, tableMeta, physical, true);
+    });
+  }
+
+  private async dropAbandonedGenerations(
+    tableId: string,
+    tableMeta: TableMetaRow,
+    physical: PhysicalTable
+  ): Promise<boolean> {
+    const tasks = await sql<{ id: string; execution_state: SearchGenerationExecutionState }>`
+      SELECT id, execution_state FROM table_query_remediation_task
+      WHERE table_id = ${tableId}
+        AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector')
+        AND (status = 'cancelled' OR (status = 'failed' AND attempts >= max_attempts))
+        AND (locked_at IS NULL OR locked_at < now() - interval '60 seconds')
+        AND execution_state->>'kind' = 'search_generation'
+    `.execute(this.metaDb);
+    let reclaimed = false;
+    for (const task of tasks.rows)
+      reclaimed =
+        (await this.reclaimGeneration(
+          tableId,
+          task.id,
+          task.execution_state,
+          tableMeta,
+          physical,
+          false
+        )) || reclaimed;
+    return reclaimed;
+  }
+
+  private async reclaimGeneration(
+    tableId: string,
+    taskId: string,
+    state: SearchGenerationExecutionState,
+    tableMeta: TableMetaRow,
+    physical: PhysicalTable,
+    reportUnsafe: boolean
+  ): Promise<boolean> {
+    return this.dataDb.transaction().execute(async (data) => {
+      const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
+      await sql.raw(`LOCK TABLE ${tableSql} IN ACCESS EXCLUSIVE MODE`).execute(data);
+      const executor = this.inDataTransaction(data);
+      const objects = await executor.inspectOwnedGeneration(
+        tableId,
+        taskId,
+        state,
+        tableMeta,
+        physical
+      );
+      if (objects.referenced) return false;
+      if (!objects.safe) {
+        if (reportUnsafe)
+          throw new Error(
+            'Search generation cleanup refused: artifact ownership or definition cannot be proven; journal retained'
+          );
+        return false;
+      }
+      // DROP COLUMN removes its dependent index by identity, not by a schema
+      // name that could have been absent (or renamed) during inspection. The
+      // table lock keeps the proven attribute and its dependency set stable.
+      if (objects.column) await executor.dropManagedColumn(tableSql, state.generatedColumnName);
+      return Boolean(objects.column || objects.index);
+    });
+  }
+
+  private async inspectOwnedGeneration(
+    tableId: string,
+    taskId: string,
+    state: SearchGenerationExecutionState,
+    tableMeta: TableMetaRow,
+    physical: PhysicalTable
+  ): Promise<{
+    safe: boolean;
+    present: boolean;
+    referenced: boolean;
+    column?: { tableOid: string; attnum: number };
+    index?: { oid: string };
+  }> {
+    const unsafe = { safe: false, present: true, referenced: false };
+    const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
+    const identity = await sql<{ oid: string | null }>`
+      SELECT to_regclass(${tableSql})::oid::text AS oid
+    `.execute(this.dataDb);
+    if (
+      state.version !== 1 ||
+      state.kind !== 'search_generation' ||
+      state.dbTableName !== tableMeta.db_table_name ||
+      state.tableOid !== identity.rows[0]?.oid
+    )
+      return unsafe;
+    let target: Pick<
+      ExecuteTableSearchVectorInput['payload'],
+      'candidateKey' | 'fields' | 'provider' | 'operatorClass'
+    >;
+    try {
+      target = JSON.parse(state.targetDefinition);
+    } catch {
+      return unsafe;
+    }
+    if (
+      !target ||
+      !Array.isArray(target.fields) ||
+      !['pg_trgm', 'pg_bigm'].includes(target.provider ?? '')
+    )
+      return unsafe;
+    const capabilities = await readSubstringSearchCapabilities(this.dataDb);
+    const provider = requireProviderCapability(
+      capabilities,
+      target.provider === 'pg_bigm' ? 'pg_bigm' : 'pg_trgm'
+    );
+    if (target.provider !== provider.provider || target.operatorClass !== provider.operatorClass)
+      return unsafe;
+    const fields = requireExecutionFields(target.fields);
+    const names = buildSearchVectorNames(tableId, provider, fields);
+    const suffix = createHash('sha256').update(taskId).digest('hex').slice(0, 16);
+    const canonical =
+      state.generatedColumnName === names.generatedColumnName &&
+      state.indexName === names.indexName;
+    const suffixed =
+      state.generatedColumnName === `${names.generatedColumnName.slice(0, 46)}_${suffix}` &&
+      state.indexName === `${names.indexName.slice(0, 46)}_${suffix}`;
+    if (target.candidateKey !== names.candidateKey || (!canonical && !suffixed)) return unsafe;
+    const references = await sql<{ referenced: boolean }>`SELECT
+      EXISTS (SELECT 1 FROM table_query_search_vector_config WHERE
+        index_name = ${state.indexName} OR generated_column_name = ${state.generatedColumnName}) OR
+      EXISTS (SELECT 1 FROM table_meta WHERE search_index->>'indexName' = ${state.indexName}
+        OR search_index->>'generatedColumnName' = ${state.generatedColumnName}) OR
+      EXISTS (SELECT 1 FROM table_query_remediation_task WHERE id <> ${taskId}
+        AND table_id = ${tableId} AND status IN ('queued', 'running', 'failed')
+        AND (status <> 'failed' OR attempts < max_attempts)
+        AND (execution_state->>'indexName' = ${state.indexName}
+          OR execution_state->>'generatedColumnName' = ${state.generatedColumnName})) AS referenced
+    `.execute(this.metaDb);
+    const referenced = references.rows[0]?.referenced === true;
+    const expression = buildSearchDocumentExpression(fields, true);
+    const marker = buildSearchDocumentDefinitionMarker(expression, provider);
+    const indexSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(state.indexName)}`;
+    const catalog = await sql<{
+      column_attnum: number | null;
+      index_oid: string | null;
+      column_present: boolean;
+      column_owned: boolean;
+      index_present: boolean;
+      index_owned: boolean;
+      expression: string | null;
+      foreign_dependents: boolean;
+    }>`SELECT
+      (SELECT attnum FROM pg_attribute WHERE attrelid = ${state.tableOid}::oid
+        AND attname = ${state.generatedColumnName} AND NOT attisdropped) AS column_attnum,
+      to_regclass(${indexSql})::oid::text AS index_oid,
+      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = ${state.tableOid}::oid
+        AND attname = ${state.generatedColumnName} AND NOT attisdropped) AS column_present,
+      EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = ${state.tableOid}::oid
+        AND attname = ${state.generatedColumnName} AND NOT attisdropped AND attgenerated = 's'
+        AND atttypid = 'text'::regtype AND col_description(attrelid, attnum) = ${marker}) AS column_owned,
+      to_regclass(${indexSql}) IS NOT NULL AS index_present,
+      EXISTS (SELECT 1 FROM pg_index i
+        JOIN pg_class idx ON idx.oid = i.indexrelid
+        JOIN pg_am am ON am.oid = idx.relam
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+        JOIN pg_opclass op ON op.oid = i.indclass[0]
+        JOIN pg_namespace op_schema ON op_schema.oid = op.opcnamespace
+        WHERE idx.oid = to_regclass(${indexSql}) AND i.indrelid = ${state.tableOid}::oid
+          AND i.indnatts = 1 AND a.attname = ${state.generatedColumnName} AND am.amname = 'gin'
+          AND i.indpred IS NULL AND i.indexprs IS NULL
+          AND op.opcname = ${provider.operatorClass}
+          AND op_schema.nspname = ${provider.operatorClassSchema ?? 'public'}) AS index_owned,
+      (SELECT pg_get_expr(ad.adbin, ad.adrelid) FROM pg_attrdef ad
+        JOIN pg_attribute a ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
+        WHERE a.attrelid = ${state.tableOid}::oid AND a.attname = ${state.generatedColumnName}
+          AND NOT a.attisdropped) AS expression,
+      EXISTS (SELECT 1 FROM pg_depend d JOIN pg_attribute a
+        ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+        WHERE d.refclassid = 'pg_class'::regclass AND a.attrelid = ${state.tableOid}::oid
+          AND a.attname = ${state.generatedColumnName} AND NOT a.attisdropped
+          AND NOT (d.classid = 'pg_attrdef'::regclass AND d.objid IN (
+            SELECT oid FROM pg_attrdef WHERE adrelid = a.attrelid AND adnum = a.attnum))
+          AND NOT (d.classid = 'pg_class'::regclass AND COALESCE(d.objid = to_regclass(${indexSql}), false))) AS foreign_dependents
+    `.execute(this.dataDb);
+    const objects = catalog.rows[0];
+    const present = objects.column_present || objects.index_present;
+    const artifacts = {
+      present,
+      referenced,
+      ...(objects.column_present && objects.column_attnum != null
+        ? { column: { tableOid: state.tableOid, attnum: objects.column_attnum } }
+        : {}),
+      ...(objects.index_present && objects.index_oid ? { index: { oid: objects.index_oid } } : {}),
+    };
+    if (
+      (objects.column_present && !objects.column_owned) ||
+      (objects.index_present && !objects.index_owned) ||
+      (objects.foreign_dependents && !referenced)
+    )
+      return { safe: false, ...artifacts };
+    if (
+      objects.column_present &&
+      !(await this.matchesGenerationExpression(
+        state.tableOid,
+        fields,
+        expression,
+        objects.expression
+      ))
+    )
+      return { safe: false, ...artifacts };
+    return { safe: true, ...artifacts };
+  }
+
+  private async matchesGenerationExpression(
+    tableOid: string,
+    fields: readonly SearchAccessPathExecutionField[],
+    expression: string,
+    actual: string | null
+  ): Promise<boolean> {
+    const columns = await sql<{ name: string; type: string; collation: string | null }>`
+      SELECT a.attname AS name, format_type(a.atttypid, a.atttypmod) AS type,
+        CASE WHEN a.attcollation <> 0 THEN quote_ident(n.nspname) || '.' || quote_ident(c.collname) END AS collation
+      FROM pg_attribute a LEFT JOIN pg_collation c ON c.oid = a.attcollation
+      LEFT JOIN pg_namespace n ON n.oid = c.collnamespace
+      WHERE a.attrelid = ${tableOid}::oid AND a.attname = ANY(${fields.map((f) => f.fieldDbName)}::text[])
+        AND NOT a.attisdropped
+    `.execute(this.dataDb);
+    if (columns.rows.length !== new Set(fields.map((f) => f.fieldDbName)).size) return false;
+    const name = `tqops_definition_${randomUUID().replaceAll('-', '')}`;
+    const quoted = quoteIdentifier(name);
+    // Let PostgreSQL deparse both expressions. Text normalization cannot prove casts or functions.
+    await sql
+      .raw(
+        `CREATE TEMP TABLE ${quoted} (${columns.rows
+          .map(
+            (c) =>
+              `${quoteIdentifier(c.name)} ${c.type}${c.collation ? ` COLLATE ${c.collation}` : ''}`
+          )
+          .join(
+            ', '
+          )}, ${quoteIdentifier(`${name}_expected`.slice(0, 63))} text GENERATED ALWAYS AS (${expression}) STORED)`
+      )
+      .execute(this.dataDb);
+    try {
+      const expected = await sql<{
+        expression: string;
+      }>`SELECT pg_get_expr(adbin, adrelid) AS expression
+        FROM pg_attrdef WHERE adrelid = to_regclass(${`pg_temp.${quoted}`})`.execute(this.dataDb);
+      return expected.rows[0]?.expression === actual;
+    } finally {
+      await sql.raw(`DROP TABLE pg_temp.${quoted}`).execute(this.dataDb);
+    }
+  }
+
   private async executeUnlocked(
     input: ExecuteTableSearchVectorInput
   ): Promise<ExecuteTableSearchVectorResult> {
     const tableMeta = await this.requireTableMeta(input.tableId);
     const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
+    const currentConfig = await this.currentConfig(input.tableId);
     let columnName = input.payload.generatedColumnName;
     let indexName = input.payload.indexName;
     // Only ADD/DROP objects this advisor owns, so a hand-built payload can never
@@ -1039,6 +1691,13 @@ export class PostgresTableSearchVectorExecutor {
     const capabilities = await readSubstringSearchCapabilities(this.dataDb);
     const providerCapability = requireUsableExecutionProvider(capabilities, input.payload.provider);
     assertExecutionOperatorClass(input.payload.operatorClass, providerCapability);
+    const generation = await this.prepareGeneration(
+      input,
+      tableMeta,
+      physical,
+      currentConfig,
+      providerCapability
+    );
     const executionInput = await withUnattendedProbe(
       this.dataDb,
       physical,
@@ -1068,9 +1727,10 @@ export class PostgresTableSearchVectorExecutor {
     const expression = buildSearchDocumentExpression(fields, true);
     const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
 
-    const currentConfig = await this.currentConfig(input.tableId);
     this.assertDefinitionChangeAllowed(currentConfig, input);
-    ({ columnName, indexName } = this.resolveManagedObjectNames(currentConfig, input));
+    ({ columnName, indexName } = generation
+      ? { columnName: generation.generatedColumnName, indexName: generation.indexName }
+      : this.resolveManagedObjectNames(currentConfig, input));
     const inventoryBefore = await inspectSearchVectorInventory(
       this.dataDb,
       physical,
@@ -1078,13 +1738,25 @@ export class PostgresTableSearchVectorExecutor {
       validationFields,
       providerCapability
     );
-    assertInventoryCanBeApplied(inventoryBefore, input.payload.rebuild);
+    if (!generation) assertInventoryCanBeApplied(inventoryBefore, input.payload.rebuild);
     const alreadyReady =
       currentConfig?.candidate_key === input.payload.candidateKey &&
       inventoryBefore.state === 'ready' &&
       !input.payload.rebuild;
+    const publishedGeneration =
+      generation &&
+      currentConfig?.candidate_key === input.payload.candidateKey &&
+      currentConfig.generated_column_name === columnName &&
+      currentConfig.index_name === indexName &&
+      inventoryBefore.state === 'ready' &&
+      (await this.isServingGeneration(input.tableId, columnName, indexName));
+    if (generation && !publishedGeneration && tableMeta.version !== generation.expectedVersion)
+      throw new SearchGenerationTargetChangedError(
+        'Table changed during interrupted search build; analyze and approve again'
+      );
 
-    this.assertTableRewriteAllowed(rowEstimate, alreadyReady, input);
+    if (!publishedGeneration && !inventoryBefore.existingGeneratedColumn)
+      this.assertTableRewriteAllowed(rowEstimate, alreadyReady, input);
 
     // A definition with independent physical objects can be built alongside the
     // active path. Keep that path ready until validation and the metadata switch
@@ -1097,48 +1769,55 @@ export class PostgresTableSearchVectorExecutor {
 
     const changedManagedObjects = input.payload.rebuild || !alreadyReady;
     try {
-      const { inventory, planEvidence } = await this.createAndValidateManagedObjects({
-        physical,
-        tableSql,
-        currentConfig: preserveCurrentObjects ? undefined : currentConfig,
-        columnName,
-        indexName,
-        expression,
-        rebuild: input.payload.rebuild ?? false,
-        alreadyReady,
-        validationMode,
-        requirePlanImprovement:
-          !executionInput.noSearchableTextValidation &&
-          (input.payload.requirePlanImprovement ?? true),
-        providerCapability,
-        realDdlBeforePlan,
-        searchProbe,
-        noSearchableTextValidation: executionInput.noSearchableTextValidation === true,
-        validationFields,
-      });
+      const { inventory, planEvidence } = publishedGeneration
+        ? { inventory: inventoryBefore, planEvidence: generation.planEvidence }
+        : await this.createAndValidateManagedObjects({
+            physical,
+            tableSql,
+            currentConfig: preserveCurrentObjects ? undefined : currentConfig,
+            columnName,
+            indexName,
+            expression,
+            rebuild: input.payload.rebuild ?? false,
+            alreadyReady,
+            validationMode,
+            requirePlanImprovement:
+              !executionInput.noSearchableTextValidation &&
+              (input.payload.requirePlanImprovement ?? true),
+            providerCapability,
+            realDdlBeforePlan,
+            searchProbe,
+            noSearchableTextValidation: executionInput.noSearchableTextValidation === true,
+            validationFields,
+            recovery: generation ? { input, generation, inventoryBefore } : undefined,
+          });
 
-      await this.upsertConfig({
-        tableId: input.tableId,
-        baseId: tableMeta.base_id,
-        spaceId: tableMeta.space_id,
-        candidateKey: input.payload.candidateKey,
-        semantics: 'substring',
-        accessPath: 'generated_text',
-        provider: providerCapability.provider,
-        operatorClass: providerCapability.operatorClass,
-        languageConfig,
-        generatedColumnName: columnName,
-        indexName,
-        fields: fields.map(({ fieldId, fieldDbName, textProjection }) => ({
-          fieldId,
-          fieldDbName,
-          textProjection: textProjection ?? { kind: 'plain' },
-        })),
-        dbTableName: tableMeta.db_table_name,
-        expectedVersion: tableMeta.version,
-        searchScope: input.payload.searchScope ?? 'all_fields',
-        inventory,
-      });
+      if (!publishedGeneration)
+        await this.upsertConfig({
+          tableId: input.tableId,
+          baseId: tableMeta.base_id,
+          spaceId: tableMeta.space_id,
+          candidateKey: input.payload.candidateKey,
+          semantics: 'substring',
+          accessPath: 'generated_text',
+          provider: providerCapability.provider,
+          operatorClass: providerCapability.operatorClass,
+          languageConfig,
+          generatedColumnName: columnName,
+          indexName,
+          fields: fields.map(({ fieldId, fieldDbName, textProjection }) => ({
+            fieldId,
+            fieldDbName,
+            textProjection: textProjection ?? { kind: 'plain' },
+          })),
+          dbTableName: tableMeta.db_table_name,
+          expectedVersion: tableMeta.version,
+          searchScope: input.payload.searchScope ?? 'all_fields',
+          inventory,
+          execution: input.execution,
+        });
+      if (generation)
+        await this.checkpoint(input, { ...generation, planEvidence, phase: 'published' });
 
       return {
         action: input.payload.rebuild ? 'rebuilt' : alreadyReady ? 'verified' : 'created',
@@ -1157,6 +1836,7 @@ export class PostgresTableSearchVectorExecutor {
         ...(planEvidence ? { planEvidence } : {}),
       };
     } catch (error) {
+      if (generation) throw error;
       return this.rethrowAfterManagedObjectCleanup(
         {
           changedManagedObjects,
@@ -1193,7 +1873,9 @@ export class PostgresTableSearchVectorExecutor {
   private async requireTableMeta(tableId: string): Promise<TableMetaRow> {
     const tableMeta = await this.findTableMeta(tableId);
     if (!tableMeta) {
-      throw new Error('Table meta not found for search vector remediation task');
+      throw new SearchGenerationTargetChangedError(
+        'Table meta not found for search vector remediation task'
+      );
     }
     return tableMeta;
   }
@@ -1207,7 +1889,9 @@ export class PostgresTableSearchVectorExecutor {
       currentConfig.candidate_key !== input.payload.candidateKey &&
       !input.payload.rebuild
     ) {
-      throw new Error('Search vector definition changed; rerun with mode=rebuild');
+      throw new SearchGenerationTargetChangedError(
+        'Search vector definition changed; rerun with mode=rebuild'
+      );
     }
   }
 
@@ -1244,11 +1928,16 @@ export class PostgresTableSearchVectorExecutor {
     readonly searchProbe: string | undefined;
     readonly noSearchableTextValidation: boolean;
     readonly validationFields: readonly IncludedSearchVectorField[];
+    readonly recovery?: {
+      readonly input: ExecuteTableSearchVectorInput;
+      readonly generation: SearchGenerationExecutionState;
+      readonly inventoryBefore: TableQuerySearchVectorInventory;
+    };
   }): Promise<{
     readonly inventory: TableQuerySearchVectorInventory;
     readonly planEvidence: TableQuerySearchVectorPlanEvidence | undefined;
   }> {
-    if (input.rebuild) {
+    if (input.rebuild && !input.recovery) {
       await this.dropManagedObjects(
         input.physical,
         input.tableSql,
@@ -1258,7 +1947,7 @@ export class PostgresTableSearchVectorExecutor {
       );
     }
 
-    if (!input.alreadyReady) {
+    if (!input.alreadyReady && !input.recovery) {
       await ensureSearchDocumentFunctions(
         this.dataDb,
         input.validationFields.map((field) => field.textProjection)
@@ -1268,7 +1957,34 @@ export class PostgresTableSearchVectorExecutor {
         input.columnName,
         input.indexName,
         input.expression,
-        input.providerCapability
+        input.providerCapability,
+        input.physical.schema
+      );
+    }
+    if (input.recovery) {
+      const { input: taskInput, generation, inventoryBefore } = input.recovery;
+      await this.checkpoint(taskInput, generation);
+      if (
+        inventoryBefore.existingGeneratedColumn &&
+        inventoryBefore.staleReasons.some((reason) => reason !== 'invalid_index')
+      )
+        throw new SearchGenerationTargetChangedError(
+          `Interrupted search column definition is stale: ${inventoryBefore.staleReasons.join(', ')}`
+        );
+      await ensureSearchDocumentFunctions(
+        this.dataDb,
+        input.validationFields.map((field) => field.textProjection)
+      );
+      await this.createManagedObjects(
+        input.tableSql,
+        input.columnName,
+        input.indexName,
+        input.expression,
+        input.providerCapability,
+        input.physical.schema,
+        async (phase) => {
+          await this.checkpoint(taskInput, { ...generation, phase });
+        }
       );
     }
 
@@ -1300,6 +2016,12 @@ export class PostgresTableSearchVectorExecutor {
     if (input.validationMode === 'real_ddl') {
       assertRealDdlPlanEvidenceReady(planEvidence, input.indexName, input.requirePlanImprovement);
     }
+    if (input.recovery)
+      await this.checkpoint(input.recovery.input, {
+        ...input.recovery.generation,
+        planEvidence,
+        phase: 'validated',
+      });
     return { inventory, planEvidence };
   }
 
@@ -1384,35 +2106,70 @@ export class PostgresTableSearchVectorExecutor {
     columnName: string,
     indexName: string,
     expression: string,
-    providerCapability: TableQuerySubstringSearchProviderCapability
+    providerCapability: TableQuerySubstringSearchProviderCapability,
+    indexSchema: string,
+    checkpoint?: (phase: 'column_ready' | 'index_ready') => Promise<void>
   ): Promise<void> {
     // pg_bigm has cluster-level deployment requirements. The adapter only uses
     // capabilities that are already installed and never attempts CREATE EXTENSION.
     if (!providerCapability.usable) {
       throw new Error(`Substring search provider ${providerCapability.provider} is not usable`);
     }
-    await sql
-      .raw(
-        `ALTER TABLE ${tableSql} ADD COLUMN IF NOT EXISTS ${quoteIdentifier(
-          columnName
-        )} text GENERATED ALWAYS AS (${expression}) STORED`
-      )
-      .execute(this.dataDb);
-    await sql
-      .raw(
-        `COMMENT ON COLUMN ${tableSql}.${quoteIdentifier(columnName)} IS ${quoteLiteral(
-          buildSearchDocumentDefinitionMarker(expression, providerCapability)
-        )}`
-      )
-      .execute(this.dataDb);
+    const column = await sql<{ present: boolean }>`
+      SELECT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${tableSql})
+        AND attname = ${columnName} AND NOT attisdropped) AS present
+    `.execute(this.dataDb);
+    if (!column.rows[0]?.present) {
+      await this.dataDb.transaction().execute(async (trx) => {
+        await sql
+          .raw(
+            `ALTER TABLE ${tableSql} ADD COLUMN ${quoteIdentifier(columnName)} text GENERATED ALWAYS AS (${expression}) STORED`
+          )
+          .execute(trx);
+        await sql
+          .raw(
+            `COMMENT ON COLUMN ${tableSql}.${quoteIdentifier(columnName)} IS ${quoteLiteral(buildSearchDocumentDefinitionMarker(expression, providerCapability))}`
+          )
+          .execute(trx);
+      });
+    }
+    await checkpoint?.('column_ready');
+    const existing = await sql<{ valid: boolean | null; owned: boolean | null }>`
+      SELECT i.indisvalid AND i.indisready AS valid,
+        i.indrelid = to_regclass(${tableSql}) AND i.indnatts = 1
+          AND a.attname = ${columnName} AND am.amname = 'gin'
+          AND i.indpred IS NULL AND i.indexprs IS NULL
+          AND op.opcname = ${providerCapability.operatorClass}
+          AND (${providerCapability.operatorClassSchema ?? null}::text IS NULL OR
+            op_schema.nspname = ${providerCapability.operatorClassSchema ?? null}) AS owned
+      FROM pg_class c
+      LEFT JOIN pg_index i ON i.indexrelid = c.oid
+      LEFT JOIN pg_am am ON am.oid = c.relam
+      LEFT JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+      LEFT JOIN pg_opclass op ON op.oid = i.indclass[0]
+      LEFT JOIN pg_namespace op_schema ON op_schema.oid = op.opcnamespace
+      WHERE c.oid = to_regclass(${`${quoteIdentifier(indexSchema)}.${quoteIdentifier(indexName)}`})
+    `.execute(this.dataDb);
+    if (existing.rows[0] && existing.rows[0].owned !== true)
+      throw new SearchGenerationTargetChangedError(
+        'Search index name belongs to an incompatible physical object'
+      );
+    if (checkpoint && existing.rows[0]?.valid === false)
+      await sql
+        .raw(
+          `DROP INDEX CONCURRENTLY ${quoteIdentifier(indexSchema)}.${quoteIdentifier(indexName)}`
+        )
+        .execute(this.dataDb);
     const operatorClass = qualifyOperatorClass(providerCapability);
-    await sql
-      .raw(
-        `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${quoteIdentifier(indexName)} ON ${tableSql} USING GIN (${quoteIdentifier(
-          columnName
-        )} ${operatorClass})`
-      )
-      .execute(this.dataDb);
+    if (!existing.rows[0]?.valid)
+      await sql
+        .raw(
+          `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${quoteIdentifier(indexName)} ON ${tableSql} USING GIN (${quoteIdentifier(
+            columnName
+          )} ${operatorClass})`
+        )
+        .execute(this.dataDb);
+    await checkpoint?.('index_ready');
   }
 
   private assertReadyInventory(inventory: TableQuerySearchVectorInventory): void {
@@ -1500,6 +2257,7 @@ export class PostgresTableSearchVectorExecutor {
     readonly expectedVersion: number;
     readonly searchScope: 'all_fields' | 'selected_fields';
     readonly inventory: TableQuerySearchVectorInventory;
+    readonly execution?: ReconcileTableSearchVectorInput['execution'];
   }): Promise<void> {
     const id = `tqsv_${stableHash(`${input.tableId}:${input.candidateKey}`).slice(0, 20)}`;
     const snapshot: ITableSearchIndex = {
@@ -1522,6 +2280,12 @@ export class PostgresTableSearchVectorExecutor {
             version = version + 1, last_modified_time = now()
         WHERE id = ${input.tableId} AND version = ${input.expectedVersion}
           AND db_table_name = ${input.dbTableName} AND deleted_time IS NULL
+          AND (${!input.execution} OR EXISTS (
+            SELECT 1 FROM table_query_remediation_task
+            WHERE id = ${input.execution?.taskId ?? ''} AND status = 'running'
+              AND locked_by = ${input.execution?.workerId ?? ''}
+              AND locked_at = ${input.execution?.lockedAt ?? null}
+          ))
         RETURNING id
       ), retained_generation AS (
         -- A request may still hold the previous serving snapshot. Keep its
@@ -1619,8 +2383,19 @@ export class PostgresTableSearchVectorExecutor {
       RETURNING id
     `.execute(this.metaDb);
     if (!published.rows.length) {
-      throw new Error('Table changed during search index build; retry remediation');
+      throw new SearchGenerationTargetChangedError(
+        'Table changed during search index build; analyze and approve again'
+      );
     }
+  }
+
+  private async isServingGeneration(tableId: string, columnName: string, indexName: string) {
+    const rows = await sql<{ serving: boolean }>`
+      SELECT search_index->>'generatedColumnName' = ${columnName}
+        AND search_index->>'indexName' = ${indexName} AND search_index->>'indexUsable' = 'true' AS serving
+      FROM table_meta WHERE id = ${tableId} AND deleted_time IS NULL
+    `.execute(this.metaDb);
+    return rows.rows[0]?.serving === true;
   }
 }
 
@@ -1650,7 +2425,12 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
         });
       }
 
-      const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb);
+      await new PostgresTableSearchVectorExecutor(
+        this.metaDb,
+        this.dataDb
+      ).adoptLegacyAdminGeneration(input);
+
+      const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb, this.metaDb);
       const analysis = await advisor.analyze(context, {
         table: input.table,
         fieldIds: input.fieldIds,
@@ -1663,7 +2443,10 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
       const recommendation = analysis.recommendations[0];
       if (!recommendation) {
         return err(
-          domainError.validation({ message: 'Table has no fields eligible for full-text search' })
+          domainError.validation({
+            code: 'table_query_ops.search_target_changed',
+            message: 'Table has no fields eligible for full-text search',
+          })
         );
       }
       if (
@@ -1672,6 +2455,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
       ) {
         return err(
           domainError.conflict({
+            code: 'table_query_ops.search_target_changed',
             message: `Search access path changed from ${input.expectedDefinitionKey} to ${recommendation.candidateKey}; analyze and confirm again`,
           })
         );
@@ -1697,6 +2481,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
       const executor = new PostgresTableSearchVectorExecutor(this.metaDb, this.dataDb);
       const execution = await executor.execute({
         tableId: input.table.id().toString(),
+        execution: input.execution,
         payload: {
           candidateKey: recommendation.candidateKey,
           languageConfig: recommendation.languageConfig,
@@ -1731,11 +2516,7 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
         ...(execution.planEvidence ? { planEvidence: execution.planEvidence } : {}),
       });
     } catch (error) {
-      return err(
-        domainError.infrastructure({
-          message: error instanceof Error ? error.message : 'Failed to reconcile search vector',
-        })
-      );
+      return err(toSearchGenerationError(error));
     }
   }
 
@@ -1756,10 +2537,11 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
         await this.markConfigStale(table.id().toString(), 'no_eligible_fields_after_schema_change');
         return ok(undefined);
       }
-      const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb);
+      const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb, this.metaDb);
       const analysis = await advisor.analyze(context, {
         table,
         fieldIds: selectedFieldIds,
+        searchScope: current.search_scope === 'all_fields' ? 'all_fields' : 'selected_fields',
         languageConfig: current.language_config,
         provider:
           current.provider === 'pg_bigm' || current.provider === 'pg_trgm'
@@ -2595,7 +3377,7 @@ const inspectSearchVectorInventory = async (
   }>`
     SELECT
       c.relname AS index_name,
-      i.indisvalid AS valid,
+      i.indisvalid AND i.indisready AS valid,
       am.amname AS access_method,
       indexed_attribute.attname AS indexed_column,
       opc.opcname AS operator_class,

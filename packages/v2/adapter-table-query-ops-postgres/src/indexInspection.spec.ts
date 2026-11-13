@@ -24,7 +24,9 @@ describe('collectBtreeAccessPathFields', () => {
           conditionCount: 1,
           andDepth: 1,
           orDepth: 0,
-          fields: [{ fieldId: 'fld_filter', operatorFamily: 'equality' }],
+          fields: [
+            { fieldId: 'fld_filter', fieldType: 'singleLineText', operatorFamily: 'equality' },
+          ],
         },
         orderShape: {
           fields: [
@@ -55,7 +57,9 @@ describe('collectBtreeAccessPathFields', () => {
           conditionCount: 1,
           andDepth: 1,
           orDepth: 0,
-          fields: [{ fieldId: 'fld_filter', operatorFamily: 'equality' }],
+          fields: [
+            { fieldId: 'fld_filter', fieldType: 'singleLineText', operatorFamily: 'equality' },
+          ],
         },
         orderShape: {
           fields: [{ source: 'tieBreaker', systemColumn: '__auto_number', direction: 'asc' }],
@@ -74,7 +78,7 @@ describe('collectBtreeAccessPathFields', () => {
           conditionCount: 1,
           andDepth: 1,
           orDepth: 0,
-          fields: [{ fieldId: 'fld_filter', operatorFamily: 'range' }],
+          fields: [{ fieldId: 'fld_filter', fieldType: 'number', operatorFamily: 'range' }],
         },
         orderShape: {
           fields: [{ source: 'tieBreaker', systemColumn: '__auto_number', direction: 'asc' }],

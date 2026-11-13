@@ -51,7 +51,7 @@
   },
   "formType": {
     "basic": "Información básica",
-    "scopes": "Escopas",
+    "scopes": "Ámbitos",
     "identify": "Identificar y autorizar a los usuarios",
     "clientInfo": "Información del cliente"
   },

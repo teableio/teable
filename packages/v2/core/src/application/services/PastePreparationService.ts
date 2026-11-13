@@ -330,8 +330,10 @@ export class PastePreparationService {
       let columnExpansion: PasteColumnExpansion | undefined;
       if (columnsToExpand > 0) {
         columnExpansion = yield* await service.prepareColumnExpansion(context, persistedTable, {
-          columnsToExpand,
-          sourceFields: command.sourceFields,
+          fieldInputs: service.prepareColumnExpansionInputs({
+            columnsToExpand,
+            sourceFields: command.sourceFields,
+          }),
         });
         tableForPaste = columnExpansion.projectedTable;
         orderedFieldIds = [
@@ -505,24 +507,30 @@ export class PastePreparationService {
     });
   }
 
+  /** Pure clipboard-to-new-column interpretation; safe to authorize before metadata loading. */
+  prepareColumnExpansionInputs(input: {
+    readonly columnsToExpand: number;
+    readonly sourceFields?: ReadonlyArray<PastePreparationSourceField>;
+  }): ReadonlyArray<ITableFieldInput> {
+    const sourceFields = input.sourceFields ?? [];
+    const startIndex = Math.max(0, sourceFields.length - input.columnsToExpand);
+    return Array.from({ length: input.columnsToExpand }, (_, index) =>
+      this.sourceFieldToInput(sourceFields[startIndex + index])
+    );
+  }
+
   async prepareColumnExpansion(
     context: IExecutionContext,
     table: Table,
     input: {
-      readonly columnsToExpand: number;
-      readonly sourceFields?: ReadonlyArray<PastePreparationSourceField>;
+      readonly fieldInputs: ReadonlyArray<ITableFieldInput>;
     }
   ): Promise<Result<PasteColumnExpansion, DomainError>> {
     const service = this;
     return safeTry<PasteColumnExpansion, DomainError>(async function* () {
       const detachedTable = yield* table.clone(service.tableMapper);
-      const sourceFields = input.sourceFields ?? [];
-      const startIndex = Math.max(0, sourceFields.length - input.columnsToExpand);
-      const fieldInputs = Array.from({ length: input.columnsToExpand }, (_, index) =>
-        service.sourceFieldToInput(sourceFields[startIndex + index])
-      );
       const existingNames = detachedTable.getFields().map((field) => field.name().toString());
-      const resolvedInputs = yield* resolveTableFieldInputs(fieldInputs, existingNames, {
+      const resolvedInputs = yield* resolveTableFieldInputs(input.fieldInputs, existingNames, {
         t: context.$t,
         hostTable: detachedTable,
       });
@@ -663,18 +671,29 @@ export class PastePreparationService {
     };
     if (field.isComputed && !field.isLookup) {
       if (field.type === 'createdBy' || field.type === 'lastModifiedBy') {
-        return {
-          ...baseField,
-          type: 'user',
-          options: { isMultiple: false, shouldNotify: true },
-        } as ITableFieldInput;
+        baseField.type = 'user';
+        baseField.options = { isMultiple: false, shouldNotify: true };
+      } else {
+        const mapped = this.optionsRoToVoByCellValueType(field.cellValueType, field.options);
+        baseField.type = mapped.type;
+        baseField.options = mapped.options;
       }
-      const mapped = this.optionsRoToVoByCellValueType(field.cellValueType, field.options);
-      return { ...baseField, type: mapped.type, options: mapped.options } as ITableFieldInput;
-    }
-    if (field.isLookup) {
+    } else if (field.isLookup) {
       const mapped = this.lookupOptionsRoToVo(field);
-      return { ...baseField, type: mapped.type, options: mapped.options } as ITableFieldInput;
+      baseField.type = mapped.type;
+      baseField.options = mapped.options;
+    }
+    if (baseField.type === 'link' && baseField.options) {
+      // A fresh clipboard column owns its physical and reciprocal identities.
+      // Keep the original source options intact for value interpretation.
+      const {
+        fkHostTableName: _fkHostTableName,
+        selfKeyName: _selfKeyName,
+        foreignKeyName: _foreignKeyName,
+        symmetricFieldId: _symmetricFieldId,
+        ...options
+      } = baseField.options;
+      baseField.options = options;
     }
     return baseField as ITableFieldInput;
   }

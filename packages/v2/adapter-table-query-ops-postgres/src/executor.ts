@@ -18,7 +18,7 @@ import { sql } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
 import { makePhysicalTableSql, quoteIdentifier, toInfrastructureError } from './helpers';
-import { PostgresTableSearchVectorExecutor } from './searchVector';
+import { PostgresTableSearchVectorExecutor, toSearchGenerationError } from './searchVector';
 import type { UnknownPostgresDatabase } from './types';
 
 type TableMetaRow = {
@@ -49,9 +49,45 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     }
   ): Promise<Result<unknown, DomainError>> {
     const task = input.task.snapshot();
+    let result: Result<unknown, DomainError>;
+    try {
+      result = await this.executeTask(context, input);
+    } catch (error) {
+      result = err(toSearchGenerationError(error));
+    }
+    if (
+      result.isErr() &&
+      manualSearchVectorTaskKinds[task.kind] &&
+      !isSchemaMaintenancePayload(task.payload) &&
+      (result.error.code === 'table_query_ops.search_target_changed' ||
+        task.attempts >= task.maxAttempts)
+    ) {
+      try {
+        await new PostgresTableSearchVectorExecutor(this.metaDb, this.dataDb).reclaimFailedTask(
+          task.tableId,
+          this.searchExecutionOwner(input.task)
+        );
+      } catch (cleanupError) {
+        return err({
+          ...result.error,
+          message: `${result.error.message}; task-owned search cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+        });
+      }
+    }
+    return result;
+  }
+
+  private async executeTask(
+    context: IExecutionContext,
+    input: { readonly task: TableQueryRemediationTask; readonly allowManualIndexExecution: boolean }
+  ): Promise<Result<unknown, DomainError>> {
+    const task = input.task.snapshot();
     const adminPayload = readAdminSearchPayload(task.payload);
     if (adminPayload) {
-      return this.executeAdminSearchReconciliation(context, task.tableId, adminPayload);
+      return this.executeAdminSearchReconciliation(context, task.tableId, {
+        ...adminPayload,
+        execution: adminPayload.mode === 'drop' ? undefined : this.searchExecutionOwner(input.task),
+      });
     }
     if (task.kind === 'manual_investigation') {
       return ok({ skipped: true, reason: 'manual investigation task' });
@@ -90,16 +126,24 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
         return ok(
           await executor.execute({
             tableId: task.tableId,
+            execution: this.searchExecutionOwner(input.task),
             payload: task.payload as Parameters<
               PostgresTableSearchVectorExecutor['execute']
             >[0]['payload'],
           })
         );
       } catch (error) {
-        return err(toInfrastructureError(error, 'Failed to execute search vector remediation'));
+        return err(toSearchGenerationError(error));
       }
     }
     return this.executeGenericIndexTask(task);
+  }
+
+  private searchExecutionOwner(value: TableQueryRemediationTask) {
+    const task = value.snapshot();
+    if (!task.lockedBy || !task.lockedAt || task.status !== 'running')
+      throw new Error('Search execution requires running task ownership');
+    return { taskId: task.id, workerId: task.lockedBy, lockedAt: task.lockedAt };
   }
 
   private async executeAdminSearchReconciliation(
@@ -116,7 +160,12 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     const tableId = TableId.create(rawTableId);
     if (tableId.isErr()) return err(tableId.error);
     const table = await this.tableRepository.findOne(context, TableByIdSpec.create(tableId.value));
-    if (table.isErr()) return err(table.error);
+    if (table.isErr())
+      return err(
+        table.error.tags.includes('not-found')
+          ? { ...table.error, code: 'table_query_ops.search_target_changed' }
+          : table.error
+      );
     const result = await this.searchVectorReconciler.reconcile(context, {
       table: table.value,
       ...adminPayload,

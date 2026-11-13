@@ -1,4 +1,4 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../../shared/DomainError';
@@ -42,8 +42,7 @@ export type SearchDocumentFieldContribution = {
   readonly skippedReason?:
     | 'non_text_value'
     | 'unsupported_search_field_type'
-    | 'generated_column_dependency'
-    | 'wide_table_all_field_document';
+    | 'generated_column_dependency';
 };
 
 const valueTypeVisitor = new FieldValueTypeVisitor();
@@ -83,6 +82,18 @@ export class SearchDocumentFieldContributionVisitor implements IFieldVisitor<Sea
     );
   }
 
+  /**
+   * Created/updated-by default to an ordinary JSON column, so their title can join the document;
+   * the meta can still mark them GENERATED on some deployments, where they cannot.
+   */
+  private byShapeUnlessGenerated(
+    field: CreatedByField | LastModifiedByField
+  ): Result<SearchDocumentFieldContribution, DomainError> {
+    const persisted = field.isPersistedAsGeneratedColumn();
+    if (persisted.isErr()) return err(persisted.error);
+    return persisted.value ? this.generatedDependency(field) : this.byShape(field);
+  }
+
   private unsupported(field: Field): Result<SearchDocumentFieldContribution, DomainError> {
     return ok(skip(field, 'unsupported_search_field_type'));
   }
@@ -108,7 +119,11 @@ export class SearchDocumentFieldContributionVisitor implements IFieldVisitor<Sea
   }
 
   visitFormulaField(field: FormulaField) {
-    return this.byShape(field);
+    // A formula persisted as a generated column cannot appear in another generated column:
+    // PostgreSQL rejects the document with 42P17. It stays searchable through the plain predicate.
+    const persisted = field.isPersistedAsGeneratedColumn();
+    if (persisted.isErr()) return err(persisted.error);
+    return persisted.value ? this.generatedDependency(field) : this.byShape(field);
   }
 
   visitRollupField(field: RollupField) {
@@ -148,11 +163,11 @@ export class SearchDocumentFieldContributionVisitor implements IFieldVisitor<Sea
   }
 
   visitCreatedByField(field: CreatedByField) {
-    return this.generatedDependency(field);
+    return this.byShapeUnlessGenerated(field);
   }
 
   visitLastModifiedByField(field: LastModifiedByField) {
-    return this.generatedDependency(field);
+    return this.byShapeUnlessGenerated(field);
   }
 
   visitAutoNumberField(field: AutoNumberField) {

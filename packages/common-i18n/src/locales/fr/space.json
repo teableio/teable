@@ -167,7 +167,7 @@
       "tableDataBatchRows_many": "{{count}} lignes dans ce lot",
       "tableDataBatchRows_other": "{{count}} lignes dans ce lot",
       "tableDataEmpty": "Aucune donnée de table à importer",
-      "done": "Import completed",
+      "done": "Importation terminée",
       "clickToView": "Cliquer pour voir"
     }
   },

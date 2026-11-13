@@ -4,10 +4,12 @@ import {
   DbFieldName,
   FieldId,
   FieldName,
+  FieldType,
   LongTextConditionSpec,
   RecordConditionLiteralValue,
   RecordSearch,
   SingleLineTextConditionSpec,
+  type SingleLineTextField,
   Table,
   TableId,
   TableName,
@@ -104,7 +106,11 @@ describe('ObservedTableRecordQueryRepository', () => {
     const repository = new ObservedTableRecordQueryRepository(inner as never, publisher);
     const spec = new AndSpec(
       SingleLineTextConditionSpec.create(
-        table.getFields()[0]!,
+        table
+          .getField((field): field is SingleLineTextField =>
+            field.type().equals(FieldType.singleLineText())
+          )
+          ._unsafeUnwrap(),
         'is',
         RecordConditionLiteralValue.create('open')._unsafeUnwrap()
       ),

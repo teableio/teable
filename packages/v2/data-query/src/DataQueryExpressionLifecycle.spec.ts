@@ -149,7 +149,7 @@ describe('expression query lifecycle', () => {
     }
     expect(
       executeDataQueryRequestSchema.safeParse({ definition: { ...definition, version: 4 } }).success
-    ).toBe(false);
+    ).toBe(true);
     for (const expr of [
       { type: 'sql', sql: 'SELECT 1' },
       { type: 'field', fieldId: sharedField },
@@ -638,5 +638,200 @@ void row; void wrong; void usePage;`,
         .getPreEmitDiagnostics(ts.createProgram(Object.keys(files), options, host))
         .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
     ).toEqual([]);
+  });
+});
+
+describe('V5 existence lifecycle', () => {
+  const query = () => ({
+    mode: 'structured',
+    definition: {
+      version: 5,
+      kind: 'records',
+      tableId: rootTable,
+      relations: {
+        owner: {
+          linkFieldId: ownerLink,
+          tableId: ownerTable,
+          filter: {
+            fieldId: sharedField,
+            operator: 'is',
+            value: { type: 'field', fieldId: guardField },
+          },
+        },
+        department: {
+          via: 'owner',
+          linkFieldId: departmentLink,
+          tableId: departmentTable,
+          filter: {
+            conjunction: 'and',
+            items: [
+              {
+                fieldId: sharedField,
+                operator: 'is',
+                value: { type: 'parameter', name: 'status' },
+                optional: true,
+              },
+              {
+                type: 'formula',
+                formula: '1 = 1',
+                references: { unused: { type: 'field', fieldId: elseField } },
+              },
+            ],
+          },
+        },
+      },
+      parameters: { status: { type: 'string' } },
+      select: [{ system: 'id', alias: 'id' }],
+      filter: { not: { relation: 'department', quantifier: 'none' } },
+    },
+  });
+
+  it('indexes intermediate Links, field operands and unused leaf formula references', () => {
+    const manifest = manifestOf(query());
+    const index = collectDataQueryManifestDependencies(manifest);
+    expect(index.queries[0]).toMatchObject({
+      complete: true,
+      relations: [
+        {
+          alias: 'owner',
+          tableId: ownerTable,
+          fields: expect.arrayContaining([
+            { fieldId: sharedField, usages: ['filter', 'existence'] },
+            { fieldId: guardField, usages: ['reference', 'existence'] },
+            { fieldId: departmentLink, usages: ['relation'] },
+          ]),
+        },
+        {
+          alias: 'department',
+          tableId: departmentTable,
+          fields: expect.arrayContaining([
+            { fieldId: sharedField, usages: ['filter', 'existence'] },
+            { fieldId: elseField, usages: ['filter', 'reference', 'existence'] },
+          ]),
+        },
+      ],
+    });
+    const artifacts = generateAppQueryArtifacts(manifest)._unsafeUnwrap();
+    expect(generatedClientState(artifacts.module)).toBe('current');
+    expect(
+      executeDataQueryRequestSchema.safeParse({ definition: manifest.queries.captions.definition })
+        .success
+    ).toBe(true);
+  });
+
+  it('blocks every selected-path deletion, replacement and type change before generic pruning', () => {
+    const changes: DataQuerySchemaChange[] = [
+      { kind: 'table_deleted', tableId: ownerTable },
+      { kind: 'table_deleted', tableId: departmentTable },
+      ...[
+        [rootTable, ownerLink],
+        [ownerTable, departmentLink],
+        [ownerTable, sharedField],
+        [ownerTable, guardField],
+        [departmentTable, sharedField],
+        [departmentTable, elseField],
+      ].flatMap(([tableId, fieldId]): DataQuerySchemaChange[] => [
+        { kind: 'field_deleted', tableId, fieldId },
+        {
+          kind: 'field_replaced',
+          tableId,
+          fieldId,
+          replacementFieldId: replacementField,
+          outputCompatible: true,
+        },
+        { kind: 'field_updated', tableId, fieldId, typeChanged: true, outputCompatible: true },
+      ]),
+    ];
+    for (const change of changes) {
+      const { manifest, plan } = repair(change, query());
+      expect(plan.applyable).toBe(false);
+      expect(plan.queries[0]).toMatchObject({
+        classification: 'manual',
+        reasons: ['filter_semantics_changed'],
+        actions: [],
+      });
+      expect(plan.preview).toBeUndefined();
+      expect(plan.repaired).toBeUndefined();
+      expect(manifest.queries.captions.definition).toEqual(
+        manifestOf(query()).queries.captions.definition
+      );
+    }
+  });
+
+  it('keeps field-free membership dependent on the entire selected path', () => {
+    const value = query();
+    const fieldFree = {
+      ...value,
+      definition: {
+        ...value.definition,
+        relations: {
+          owner: { linkFieldId: ownerLink, tableId: ownerTable },
+          department: { via: 'owner', linkFieldId: departmentLink, tableId: departmentTable },
+        },
+      },
+    };
+    for (const change of [
+      { kind: 'table_deleted', tableId: ownerTable },
+      { kind: 'field_deleted', tableId: ownerTable, fieldId: departmentLink },
+    ] satisfies DataQuerySchemaChange[]) {
+      expect(repair(change, fieldFree).plan.queries[0]).toMatchObject({
+        classification: 'manual',
+        actions: [],
+      });
+    }
+  });
+
+  it('distinguishes any/none in duplicate lint fingerprints', () => {
+    const first = query();
+    const second = query();
+    second.definition.filter.not.quantifier = 'any';
+    const manifest = parseDataQueryManifest({
+      schemaVersion: 1,
+      queries: { first, second },
+    })._unsafeUnwrap();
+    expect(
+      lintDataQueryManifest({ text: JSON.stringify(manifest), manifest }).some(
+        (finding) => finding.code === dataQueryLintCodes.duplicateDefinition
+      )
+    ).toBe(false);
+  });
+
+  it('inherits V4 HAVING lint identity and parameter requirements', () => {
+    const value = query().definition;
+    const { select: _select, ...common } = value;
+    const aggregate = {
+      ...common,
+      kind: 'aggregate',
+      aggregates: [{ fieldId: sharedField, statisticFunc: 'count', alias: 'total' }],
+      having: {
+        type: 'formula',
+        formula: '{total} > {minimum}',
+        references: {
+          total: { type: 'output', alias: 'total' },
+          minimum: { type: 'parameter', name: 'minimum' },
+        },
+      },
+      parameters: { ...common.parameters, minimum: { type: 'number' } },
+    };
+    const manifest = parseDataQueryManifest({
+      schemaVersion: 1,
+      queries: {
+        first: { definition: aggregate },
+        second: {
+          definition: {
+            ...aggregate,
+            having: { ...aggregate.having, formula: '{total} < {minimum}' },
+          },
+        },
+      },
+    })._unsafeUnwrap();
+    expect(
+      lintDataQueryManifest({ text: JSON.stringify(manifest), manifest }).some(
+        (finding) => finding.code === dataQueryLintCodes.duplicateDefinition
+      )
+    ).toBe(false);
+    expect(
+      DataQueryDefinition.create(aggregate)._unsafeUnwrap().bind({})._unsafeUnwrapErr().code
+    ).toBe('data_query.missing_parameter');
   });
 });

@@ -1676,7 +1676,10 @@
       "categoryDepthExceeded": "A sub-industry cannot have sub-industries of its own",
       "teamIsFlat": "A team cannot have a parent or sub-categories",
       "categoryKeyTaken": "This URL key is already used by another category",
-      "slugTaken": "This URL slug is already used by another template"
+      "slugTaken": "This URL slug is already used by another template",
+      "guideStepLeftOut": "Guide step “{{title}}” opens something this submission leaves out.",
+      "guideStepStartsTicked": "Guide step “{{title}}” is already done on the sample records, so it would start ticked.",
+      "guideNothingToConnect": "Guide step “{{title}}” waits for accounts, but this project needs none, so it would start ticked."
     },
     "department": {
       "parentNotFound": "Parent department not found",
@@ -1832,5 +1835,8 @@
     "seats": {
       "unit": "seats"
     }
+  },
+  "template": {
+    "trialName": "{{name}} (trial)"
   }
 }

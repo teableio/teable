@@ -54,6 +54,7 @@ export type TableQueryOpsDatabase = {
     status: string;
     payload: unknown;
     result: unknown;
+    execution_state?: unknown;
     attempts: number;
     max_attempts: number;
     locked_at?: Date | null;
@@ -314,9 +315,29 @@ export const ensureTableQueryOpsSchema = async (
     .addColumn('locked_at', 'timestamptz')
     .addColumn('locked_by', 'text')
     .addColumn('last_error', 'text')
+    .addColumn('execution_state', 'jsonb')
     .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('last_modified_time', 'timestamptz')
     .execute();
+
+  await sql`
+    DO $$
+    DECLARE
+      task_table_oid oid := pg_catalog.to_regclass('table_query_remediation_task');
+    BEGIN
+      IF task_table_oid IS NOT NULL AND NOT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_attribute
+        WHERE attrelid = task_table_oid
+          AND attname = 'execution_state'
+          AND attnum > 0
+          AND NOT attisdropped
+      ) THEN
+        ALTER TABLE table_query_remediation_task
+          ADD COLUMN IF NOT EXISTS execution_state jsonb;
+      END IF;
+    END $$;
+  `.execute(db);
 
   await db.schema
     .createIndex('table_query_remediation_task_status_idx')

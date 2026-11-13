@@ -499,8 +499,10 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               {t('publishBase.description')}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex min-h-0 flex-1">
-            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
+          {/* Side by side from md up; on a narrow screen the preview column goes below the form,
+              which would otherwise be squeezed to a few characters, and the two scroll as one. */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 px-6 py-5 md:overflow-y-auto">
               <section className="flex flex-col gap-3">
                 <div className="text-sm font-semibold">{t('publishBase.infoTitle')}</div>
                 <div className="flex flex-col gap-1.5">
@@ -596,7 +598,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               </section>
             </div>
 
-            <aside className="flex w-[380px] shrink-0 flex-col gap-4 overflow-y-auto border-s bg-muted/40 p-5">
+            <aside className="flex w-full shrink-0 flex-col gap-4 border-t bg-muted/40 p-5 md:w-[380px] md:overflow-y-auto md:border-s md:border-t-0">
               <input
                 ref={uploadRef}
                 type="file"

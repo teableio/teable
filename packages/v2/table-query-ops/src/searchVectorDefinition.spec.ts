@@ -13,8 +13,6 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTableSearchAccessPathDefinition,
   resolveTableSearchDocumentCoverage,
-  WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_FIELD_COUNT,
-  WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT,
 } from './searchVectorDefinition';
 
 const makeTable = (): Table => {
@@ -211,64 +209,36 @@ describe('buildTableSearchAccessPathDefinition', () => {
     expect(definition.skippedFields).toEqual([]);
   });
 
-  it('refuses all-field documents when field count meets the wide-table threshold', () => {
-    const table = makeTableWithCounts({
-      textCount: 1,
-      checkboxCount: WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_FIELD_COUNT - 1,
-    });
+  it('includes every searchable field when the table is wide', () => {
+    // 1 text + 49 checkbox: wide by field count, narrow by searchable count.
+    const table = makeTableWithCounts({ textCount: 1, checkboxCount: 49 });
 
     const definition = buildTableSearchAccessPathDefinition(table, {
       provider: 'pg_trgm',
     })._unsafeUnwrap();
 
-    expect(table.getFields()).toHaveLength(WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_FIELD_COUNT);
+    expect(table.getFields()).toHaveLength(50);
     expect(definition.scope).toBe('all_fields');
-    expect(definition.accessPath).toBe('none');
-    expect(definition.fields).toEqual([]);
-    expect(definition.skippedFields).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          fieldId: 'fld0000000000000001',
-          skippedReason: 'wide_table_all_field_document',
-        }),
-      ])
-    );
+    expect(definition.accessPath).toBe('generated_text');
+    expect(definition.fields).toHaveLength(1);
+    expect(definition.skippedFields).toHaveLength(49);
   });
 
-  it('refuses all-field documents when searchable field count meets the threshold', () => {
-    const table = makeTableWithCounts({
-      textCount: WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT,
-    });
-
-    const definition = buildTableSearchAccessPathDefinition(table, {
-      provider: 'pg_trgm',
-    })._unsafeUnwrap();
-
-    expect(definition.accessPath).toBe('none');
-    expect(definition.fields).toEqual([]);
-    expect(
-      definition.skippedFields.filter(
-        (field) => field.skippedReason === 'wide_table_all_field_document'
-      )
-    ).toHaveLength(WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT);
-  });
-
-  it('keeps all-field documents below both wide-table thresholds', () => {
-    const table = makeTableWithCounts({
-      textCount: WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT - 1,
-    });
+  it('includes all searchable fields past the old searchable threshold', () => {
+    const table = makeTableWithCounts({ textCount: 25 });
 
     const definition = buildTableSearchAccessPathDefinition(table, {
       provider: 'pg_trgm',
     })._unsafeUnwrap();
 
     expect(definition.accessPath).toBe('generated_text');
-    expect(definition.fields).toHaveLength(WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT - 1);
+    expect(definition.fields).toHaveLength(25);
+    expect(definition.skippedFields).toEqual([]);
   });
 
   it('still allows selected-field documents on a wide table', () => {
     const table = makeTableWithCounts({
-      textCount: WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT,
+      textCount: 25,
     });
 
     const definition = buildTableSearchAccessPathDefinition(table, {
@@ -279,6 +249,28 @@ describe('buildTableSearchAccessPathDefinition', () => {
     expect(definition.scope).toBe('selected_fields');
     expect(definition.accessPath).toBe('generated_text');
     expect(definition.fields).toHaveLength(2);
+  });
+});
+
+describe('buildTableSearchAccessPathDefinition with excluded fields', () => {
+  it('skips a caller-known generated column instead of failing the document', () => {
+    const table = makeTable();
+
+    const definition = buildTableSearchAccessPathDefinition(table, {
+      provider: 'pg_trgm',
+      excludeFieldIds: ['fld0000000000000002'],
+    })._unsafeUnwrap();
+
+    expect(definition.accessPath).toBe('generated_text');
+    expect(definition.fields.map((field) => field.fieldId)).toEqual(['fld0000000000000001']);
+    expect(definition.skippedFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fieldId: 'fld0000000000000002',
+          skippedReason: 'generated_column_dependency',
+        }),
+      ])
+    );
   });
 });
 

@@ -11,7 +11,6 @@ import {
   SortFunc,
   TimeFormatting,
   formatDateToString,
-  getDbFieldType,
   isMeTag,
   parseClipboardText,
   stringifyClipboardText,
@@ -24,6 +23,7 @@ import {
 } from '@teable/core';
 import type {
   IButtonClickVo,
+  IClearByIdRo,
   IClearSelectionStreamEvent,
   ICopyVo,
   IDeleteSelectionStreamEvent,
@@ -38,9 +38,12 @@ import type {
   IUpdateRecordsRo,
   IUpsertRecordsRo,
   IUpsertRecordsVo,
+  IPasteByIdRo,
   IPasteByIdStreamRo,
   IPasteRo,
   IPasteVo,
+  ITemporaryPasteRo,
+  ITemporaryPasteVo,
   IRangesRo,
   IRecordGetCollaboratorsRo,
   IRecordGetCollaboratorsVo,
@@ -71,6 +74,7 @@ import {
   executeListTableRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import {
+  ClearCommand,
   ClearStreamCommand,
   ClickButtonCommand,
   buildUserAvatarUrl,
@@ -78,6 +82,9 @@ import {
   DeleteByRangeStreamCommand,
   DuplicateRecordsStreamCommand,
   FieldClipboardValueVisitor,
+  FieldDisplayValueVisitor,
+  type FieldDisplayValueFormatter,
+  prepareRecordPasteValueConverter,
   FieldId,
   FieldName,
   FieldOptionsDtoVisitor,
@@ -94,13 +101,20 @@ import {
   LinkFieldConfig,
   ListTableRecordsQuery,
   PasteStreamCommand,
+  type PastePreparationService,
   MAX_PASTE_CELLS,
   ResetButtonCommand,
   presignAttachmentFieldMaps,
   RecordQueryOperationKind,
+  RecordId,
   TableByIdSpec,
   TableId,
+  TemporaryPasteCommand,
+  type TemporaryPasteResult,
+  type ViewId,
   v2CoreTokens,
+  type ClearRecordTarget,
+  type ClearResult,
   type ClearStreamResult,
   type ClickButtonResult,
   type DeleteByRangeStreamResult,
@@ -143,7 +157,6 @@ import {
   type TableRecordReadModel,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
-import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
@@ -153,13 +166,11 @@ import { DataDbClientManager } from '../../../global/data-db-client-manager.serv
 import { Span } from '../../../tracing/decorators/span';
 import type { IClsStore } from '../../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../../utils';
-import { generateFilterItem } from '../../../utils/filter';
+import { generateFilterItem, type GroupFilterField } from '../../../utils/filter';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { AuditScope } from '../../audit/audit-scope';
 import { PermissionService } from '../../auth/permission.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
-import type { IFieldInstance } from '../../field/model/factory';
-import { createFieldInstanceByVo } from '../../field/model/factory';
 import { buildRawCopyContent } from '../../selection/raw-copy-content';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { buildUndoRedoEnginePreferenceKey } from '../../undo-redo/open-api/undo-redo-engine-preference';
@@ -168,13 +179,16 @@ import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
 import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
-import { convertLinkPasteCellValue } from '../paste-link-cell-value';
-import { selectPasteCellValue } from '../select-paste-cell-value';
 import { normalizeEmptyDateComparison } from './record-filter-v2.mapper';
 
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
 const publicUserFieldTypes: ReadonlySet<string> = new Set(['user', 'createdBy', 'lastModifiedBy']);
+
+interface IClearByIdTarget extends ClearRecordTarget {
+  readonly tableId: TableId;
+  readonly viewId: ViewId;
+}
 
 interface IRecordsWithVersions {
   result: IRecordsVo;
@@ -189,6 +203,18 @@ interface IIdRecordResponsePlan {
     fieldId: string;
     source: 'createdBy' | 'lastModifiedBy';
   }>;
+}
+
+export interface IPasteByIdPreparation {
+  fieldIds: string[];
+  recordIds: string[];
+  createdFieldIds: string[];
+  updatePayload: IUpdateRecordsRo & { fieldIds: string[] };
+  createPayload?: ICreateRecordsRo;
+  fieldCreation?: {
+    fields: IFieldVo[];
+    columnMeta: Record<string, Record<string, { order: number }>>;
+  };
 }
 
 const dataTxClientKey = 'dataTx.client';
@@ -238,9 +264,8 @@ const dateFilterFieldTypes: ReadonlySet<FieldType> = new Set([
   FieldType.LastModifiedTime,
 ]);
 
-type FilterFieldMeta = Pick<IFieldInstance, 'type' | 'cellValueType'> & {
-  /** Optional — pure-V2 table aggregate may not materialize full V1 options. */
-  options?: IFieldInstance['options'];
+type FilterFieldMeta = Pick<IFieldVo, 'type' | 'cellValueType'> & {
+  options?: IFieldVo['options'];
 };
 
 @Injectable()
@@ -629,10 +654,15 @@ export class RecordOpenApiV2Service {
     );
 
     const primaryFieldId = table.primaryFieldId().toString();
-    const primaryField = table.getField((field) => field.id().toString() === primaryFieldId);
-    const primaryFormatter = primaryField.isOk()
-      ? this.createDisplayFieldInstance(primaryField.value)
-      : undefined;
+    const displayFormatters = new Map<string, FieldDisplayValueFormatter>();
+    const displayVisitor = new FieldDisplayValueVisitor();
+    for (const field of table.getFields()) {
+      const fieldId = field.id().toString();
+      if (query.cellFormat !== CellFormat.Text && fieldId !== primaryFieldId) continue;
+      const formatter = field.accept(displayVisitor);
+      if (formatter.isOk()) displayFormatters.set(fieldId, formatter.value);
+    }
+    const primaryFormatter = displayFormatters.get(primaryFieldId);
     let records = this.withRecordReadSyncSpan(
       context,
       'teable.RecordOpenApiV2Service.mapReadModels',
@@ -681,7 +711,8 @@ export class RecordOpenApiV2Service {
       normalizedRecords = this.formatRecordFieldsAsDisplayText(
         table,
         normalizedRecords,
-        requestedFieldKeyType
+        requestedFieldKeyType,
+        displayFormatters
       );
     } else {
       normalizedRecords = await this.presignAttachmentFieldsFromTable(
@@ -980,14 +1011,28 @@ export class RecordOpenApiV2Service {
     // for dates), so rows in the empty bucket stay visible and date buckets
     // match the field's formatting granularity. Plain not+is would drop
     // NULL-valued rows (three-valued NOT).
-    const filterFieldCache = new Map<string, IFieldInstance | undefined>();
-    const resolveFilterField = (fieldId: string): IFieldInstance | undefined => {
+    const filterFieldCache = new Map<string, GroupFilterField | undefined>();
+    const resolveFilterField = (fieldId: string): GroupFilterField | undefined => {
       if (!filterFieldCache.has(fieldId)) {
         const field = table.getField((candidate) => candidate.id().toString() === fieldId);
-        filterFieldCache.set(
-          fieldId,
-          field.isOk() ? this.createDisplayFieldInstance(field.value) : undefined
-        );
+        let metadata: GroupFilterField | undefined;
+        if (field.isOk()) {
+          const presentationField = this.presentationField(field.value);
+          const valueType = field.value.accept(new FieldValueTypeVisitor());
+          const options = presentationField.accept(new FieldOptionsDtoVisitor());
+          if (valueType.isOk() && options.isOk()) {
+            metadata = {
+              id: fieldId,
+              type: presentationField.type().toString() as FieldType,
+              cellValueType: this.cellValueTypeFromV2ValueType(
+                valueType.value.cellValueType.toString()
+              ),
+              isMultipleCellValue: valueType.value.isMultipleCellValue.toBoolean(),
+              options: options.value as IFieldVo['options'],
+            };
+          }
+        }
+        filterFieldCache.set(fieldId, metadata);
       }
       return filterFieldCache.get(fieldId);
     };
@@ -1632,21 +1677,20 @@ export class RecordOpenApiV2Service {
   private formatRecordFieldsAsDisplayText(
     table: Table,
     records: IRecord[],
-    fieldKeyType: FieldKeyType
+    fieldKeyType: FieldKeyType,
+    formattersById: ReadonlyMap<string, FieldDisplayValueFormatter>
   ): IRecord[] {
     if (!records.length) {
       return records;
     }
 
-    const formatterByKey = new Map<string, IFieldInstance>();
-    for (const field of table.getFields()) {
-      const formatter = this.createDisplayFieldInstance(field);
-      if (formatter) {
-        formatterByKey.set(
-          this.resolveResponseFieldKey(table, field.id().toString(), fieldKeyType),
-          formatter
-        );
+    let formatterByKey = formattersById;
+    if (!this.isIdFieldKeyType(fieldKeyType)) {
+      const formatterByName = new Map<string, FieldDisplayValueFormatter>();
+      for (const [fieldId, formatter] of formattersById) {
+        formatterByName.set(this.resolveResponseFieldKey(table, fieldId, fieldKeyType), formatter);
       }
+      formatterByKey = formatterByName;
     }
     const primaryKey = this.resolveResponseFieldKey(
       table,
@@ -1676,48 +1720,18 @@ export class RecordOpenApiV2Service {
     });
   }
 
-  private createDisplayFieldInstance(
-    field: ReturnType<Table['getFields']>[number]
-  ): IFieldInstance | undefined {
-    const presentationField = this.presentationField(field);
-    const valueTypeResult = field.accept(new FieldValueTypeVisitor());
-    const optionsResult = presentationField.accept(new FieldOptionsDtoVisitor());
-    if (valueTypeResult.isErr() || optionsResult.isErr()) {
-      return undefined;
-    }
-
-    const type = presentationField.type().toString() as FieldType;
-    const cellValueType = this.cellValueTypeFromV2ValueType(
-      valueTypeResult.value.cellValueType.toString()
-    );
-    const isMultipleCellValue = valueTypeResult.value.isMultipleCellValue.toBoolean();
-    try {
-      return createFieldInstanceByVo({
-        id: field.id().toString(),
-        dbFieldName: field.id().toString(),
-        name: field.name().toString(),
-        type,
-        options:
-          optionsResult.value && typeof optionsResult.value === 'object'
-            ? (optionsResult.value as IFieldVo['options'])
-            : {},
-        cellValueType,
-        isMultipleCellValue,
-        dbFieldType: getDbFieldType(type, cellValueType, isMultipleCellValue),
-      });
-    } catch {
-      return undefined;
-    }
-  }
-
-  private formatCellValueWithField(field: IFieldInstance | undefined, value: unknown): string {
-    if (field) {
-      try {
-        return field.cellValue2String(value) ?? '';
-      } catch {
-        // Malformed legacy cells should not fail the entire records endpoint.
+  private formatCellValueWithField(
+    formatter: FieldDisplayValueFormatter | undefined,
+    value: unknown
+  ): string {
+    if (formatter) {
+      const formatted = formatter(value);
+      if (formatted.isOk()) {
+        // The legacy protocol also passes malformed text/select scalars through unchanged.
+        return (formatted.value ?? '') as string;
       }
     }
+    // Preserve the existing structural presentation for malformed historical cells.
     return this.cellValueToDisplayText(value);
   }
 
@@ -2016,7 +2030,8 @@ export class RecordOpenApiV2Service {
   private async loadV2Table(
     context: IExecutionContext,
     container: DependencyContainer,
-    tableId: string
+    tableId: string,
+    state: 'active' | 'activeWithPending' = 'active'
   ): Promise<Table> {
     const tableIdResult = TableId.create(tableId);
     if (tableIdResult.isErr()) {
@@ -2028,7 +2043,8 @@ export class RecordOpenApiV2Service {
     const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
     const tableResult = await tableRepository.findOne(
       context,
-      TableByIdSpec.create(tableIdResult.value)
+      TableByIdSpec.create(tableIdResult.value),
+      { state }
     );
     if (tableResult.isErr()) {
       throwV2Error(
@@ -2288,7 +2304,7 @@ export class RecordOpenApiV2Service {
     primaryFieldId: string,
     fieldKeyType: FieldKeyType,
     idResponsePlan: IIdRecordResponsePlan | undefined,
-    primaryFormatter: IFieldInstance | undefined
+    primaryFormatter: FieldDisplayValueFormatter | undefined
   ): IRecord {
     const fields = idResponsePlan
       ? this.normalizeIdKeyedRecordFields(record, idResponsePlan)
@@ -3189,6 +3205,182 @@ export class RecordOpenApiV2Service {
       );
     }
   }
+  /** Prepare the nonstream by-id write phases without committing fields or records. */
+  async preparePasteById(
+    tableId: string,
+    pasteRo: IPasteByIdRo,
+    options: {
+      recordIds: string[];
+      recordLoader?: (
+        tableId: string,
+        recordIds: string[],
+        fieldIds: string[]
+      ) => Promise<Array<Pick<IRecord, 'id' | 'fields'>>>;
+    }
+  ): Promise<IPasteByIdPreparation> {
+    const content =
+      typeof pasteRo.content === 'string'
+        ? this.parseCopyContent(pasteRo.content)
+        : pasteRo.content;
+    this.assertPasteExpansionWithinLimit(content, 0, 0);
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    // Payload planning needs pending column slots; record reads below remain active-only.
+    const table = await this.loadV2Table(context, container, tableId, 'activeWithPending');
+    const projection = pasteRo.selection.fieldIds?.length
+      ? pasteRo.selection.fieldIds
+      : pasteRo.projection;
+    let orderedIds = projection ?? table.fieldIds().map((id) => id.toString());
+    if (projection == null && pasteRo.viewId) {
+      const visible = table.getOrderedVisibleFieldIds(pasteRo.viewId);
+      if (visible.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(visible.error),
+          mapDomainErrorToHttpStatus(visible.error)
+        );
+      }
+      orderedIds = visible.value.map((id) => id.toString());
+    }
+    const available = new Map(table.getFields().map((field) => [field.id().toString(), field]));
+    const selectedFields = orderedIds.flatMap((id) => {
+      const field = available.get(id);
+      // Write permission filters run on the prepared payload; never shift later clipboard columns.
+      return field ? [field] : [];
+    });
+    const existingFieldIds = selectedFields
+      .filter((field) => !field.isProvisionPending())
+      .map((field) => field.id().toString());
+    const columnsToExpand = Math.max(0, (content[0]?.length ?? 0) - selectedFields.length);
+    const canCreateFields = (this.cls.get('permissions') ?? []).includes('field|create');
+    let newFields: V2Field[] = [];
+    let plannedFields: IFieldVo[] = [];
+    if (columnsToExpand && canCreateFields) {
+      const sourceFields = Array.from({ length: columnsToExpand }, (_, index) => {
+        const field = pasteRo.header?.[pasteRo.header.length - columnsToExpand + index];
+        if (!field) return {};
+        const fieldOptions: Record<string, unknown> = { ...field.options };
+        if (field.type === FieldType.Button) delete fieldOptions.workflow;
+        return { ...field, options: fieldOptions };
+      });
+      const preparation = container.resolve<PastePreparationService>(
+        v2CoreTokens.pastePreparationService
+      );
+      // Normalize once; authorize retained references before core loads any foreign metadata.
+      const fieldInputs = preparation.prepareColumnExpansionInputs({
+        columnsToExpand,
+        sourceFields,
+      });
+      await this.assertPasteSourceFieldsReadable(tableId, fieldInputs);
+      const expansion = await preparation.prepareColumnExpansion(context, table, { fieldInputs });
+      if (expansion.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(expansion.error),
+          mapDomainErrorToHttpStatus(expansion.error)
+        );
+      }
+      newFields = [...expansion.value.newFields];
+      plannedFields = newFields.map((field, index) => {
+        const dto = mapFieldToDto(field, table.primaryFieldId());
+        if (dto.isErr()) {
+          throwV2Error(mapDomainErrorToHttpError(dto.error), mapDomainErrorToHttpStatus(dto.error));
+        }
+        const source = pasteRo.header?.[pasteRo.header.length - columnsToExpand + index];
+        return {
+          ...dto.value,
+          ...(source?.description != null ? { description: source.description } : {}),
+        } as IFieldVo;
+      });
+    }
+    const fields = [...selectedFields, ...newFields];
+    // Keep pending columns in the positional plan, never in record projections or writes.
+    const fieldIds = fields
+      .filter((field) => !field.isProvisionPending())
+      .map((field) => field.id().toString());
+    const targetRows = Math.max(options.recordIds.length, 1);
+    const targetCols = Math.max(fields.length, 1);
+    const contentCols = content[0]?.length ?? 0;
+    const canTile =
+      content.length > 0 &&
+      contentCols > 0 &&
+      targetRows % content.length === 0 &&
+      targetCols % contentCols === 0;
+    // A non-divisible by-id selection writes only the submitted cells, not its full rectangle.
+    const tableData = canTile
+      ? this.expandPasteContent(
+          content,
+          undefined,
+          [
+            [0, 0],
+            [targetCols - 1, targetRows - 1],
+          ],
+          fields.length,
+          options.recordIds.length,
+          0,
+          0
+        )
+      : content;
+    const header = pasteRo.header;
+    const converted = header?.length
+      ? this.convertPasteContentWithSourceFields(
+          tableData,
+          fields,
+          fields.map((_, index) => header[index % header.length]!)
+        )
+      : tableData;
+    const clipboardRecords = converted.map((row) => {
+      const values: IRecord['fields'] = {};
+      fields.forEach((field, index) => {
+        if (!field.computed().toBoolean() && !field.isProvisionPending()) {
+          values[field.id().toString()] = row[index] ?? null;
+        }
+      });
+      return { fields: values };
+    });
+    const existingRecords = options.recordLoader
+      ? await options.recordLoader(tableId, options.recordIds, existingFieldIds)
+      : await this.getRecordsByIds(tableId, options.recordIds, {
+          projection: existingFieldIds,
+          fieldKeyType: FieldKeyType.Id,
+        });
+    const createRecords = clipboardRecords.slice(existingRecords.length);
+    const columnMeta: Record<string, Record<string, { order: number }>> = {};
+    if (plannedFields.length) {
+      for (const view of table.views()) {
+        const meta = view.columnMeta();
+        if (meta.isErr()) {
+          throwV2Error(
+            mapDomainErrorToHttpError(meta.error),
+            mapDomainErrorToHttpStatus(meta.error)
+          );
+        }
+        let order = -1;
+        for (const column of Object.values(meta.value.toDto())) {
+          order = Math.max(order, column.order ?? -1);
+        }
+        plannedFields.forEach((field, index) => {
+          (columnMeta[field.id] ??= {})[view.id().toString()] = { order: order + index + 1 };
+        });
+      }
+    }
+    return {
+      fieldIds,
+      recordIds: existingRecords.map((record) => record.id),
+      createdFieldIds: plannedFields.map((field) => field.id),
+      updatePayload: {
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        fieldIds,
+        records: existingRecords.map(({ id }, index) => ({
+          id,
+          fields: clipboardRecords[index]?.fields ?? {},
+        })),
+      },
+      createPayload: createRecords.length
+        ? { fieldKeyType: FieldKeyType.Id, typecast: true, records: createRecords }
+        : undefined,
+      fieldCreation: plannedFields.length ? { fields: plannedFields, columnMeta } : undefined,
+    };
+  }
 
   async paste(
     tableId: string,
@@ -3401,6 +3593,129 @@ export class RecordOpenApiV2Service {
     }
   }
 
+  async temporaryPaste(
+    tableId: string,
+    pasteRo: ITemporaryPasteRo,
+    options?: {
+      permissionFilter?: (records: ITemporaryPasteVo) => Promise<ITemporaryPasteVo>;
+    }
+  ): Promise<ITemporaryPasteVo> {
+    const content =
+      typeof pasteRo.content === 'string'
+        ? this.parseCopyContent(pasteRo.content)
+        : pasteRo.content;
+    if (!content.length || !content[0]?.length) return [];
+
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const table = await this.loadV2Table(context, container, tableId);
+    let orderedIds: string[];
+    // Projection, including [], takes precedence over saved view visibility and order.
+    if (pasteRo.projection != null) {
+      orderedIds = pasteRo.projection;
+    } else if (pasteRo.viewId) {
+      const visible = table.getOrderedVisibleFieldIds(pasteRo.viewId);
+      if (visible.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(visible.error),
+          mapDomainErrorToHttpStatus(visible.error)
+        );
+      }
+      orderedIds = visible.value.map((fieldId) => fieldId.toString());
+    } else {
+      orderedIds = table.fieldIds().map((fieldId) => fieldId.toString());
+    }
+    const readScope = await this.prepareRecordQueryScope(context, container, table, {
+      kind: RecordQueryOperationKind.list,
+      viewId: pasteRo.viewId,
+      projectionFieldIds: orderedIds,
+    });
+    const available = new Map(table.getFields().map((field) => [field.id().toString(), field]));
+    const fields = orderedIds.flatMap((id) => {
+      const field = available.get(id);
+      return field && (readScope?.readableFieldIds == null || readScope.readableFieldIds.has(id))
+        ? [field]
+        : [];
+    });
+    const [startCol, startRow] = pasteRo.ranges[0];
+    const expanded = this.expandPasteContent(
+      content,
+      undefined,
+      pasteRo.ranges,
+      fields.length,
+      content.length,
+      startCol,
+      startRow
+    );
+    const targetFields = fields.slice(startCol, startCol + expanded[0].length);
+    const rawRecords = expanded.map((row) => {
+      const values: IRecord['fields'] = {};
+      targetFields.forEach((field, index) => {
+        if (!field.computed().toBoolean()) values[field.id().toString()] = row[index] ?? null;
+      });
+      return { fields: values };
+    });
+    // The EE create-field mask runs on raw cells: denied select/link columns must
+    // not create choices, perform foreign lookups, or shift the remaining columns.
+    const records = options?.permissionFilter
+      ? await options.permissionFilter(rawRecords)
+      : rawRecords;
+    if (!records.length) return [];
+    const submitted = new Set(records.flatMap((record) => Object.keys(record.fields)));
+    const sourceFields = pasteRo.header?.length
+      ? Object.fromEntries(
+          targetFields.flatMap((field, index) => {
+            const id = field.id().toString();
+            return submitted.has(id) ? [[id, pasteRo.header![index % pasteRo.header!.length]]] : [];
+          })
+        )
+      : undefined;
+    const command = TemporaryPasteCommand.create({ tableId, records, sourceFields });
+    if (command.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(command.error),
+        mapDomainErrorToHttpStatus(command.error)
+      );
+    }
+    const bus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await bus.execute<TemporaryPasteCommand, TemporaryPasteResult>(
+      context,
+      command.value
+    );
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+    let prepared = await this.hydrateSelectedUserCells(
+      container,
+      result.value.records.map((record) => ({ fields: { ...record.fields } })),
+      targetFields
+        .filter((field) => this.isPublicUserValueField(field))
+        .map((field) => field.id().toString())
+    );
+    if (container.isRegistered(v2CoreTokens.attachmentUrlSignerService)) {
+      const signed = await presignAttachmentFieldMaps(
+        prepared.map((record) => record.fields),
+        new Set(
+          targetFields
+            .filter((field) => this.isAttachmentValueField(field))
+            .map((field) => field.id().toString())
+        ),
+        container.resolve<IAttachmentUrlSignerService>(v2CoreTokens.attachmentUrlSignerService)
+      );
+      if (signed.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(signed.error),
+          mapDomainErrorToHttpStatus(signed.error)
+        );
+      }
+      prepared = signed.value.map((fields) => ({ fields }));
+    }
+    return prepared;
+  }
+
   /**
    * Normalizes the mounted paste route into the canonical v2 command without invoking record
    * query plugins. Preview authorization has already admitted unrestricted read scope, while
@@ -3523,7 +3838,7 @@ export class RecordOpenApiV2Service {
           if (dto.isErr()) {
             return [];
           }
-          return [createFieldInstanceByVo(dto.value as IFieldVo)];
+          return [field.value];
         });
         const fieldCount = fields.length;
         const countQuery = CountTableRecordsQuery.create(
@@ -3616,12 +3931,11 @@ export class RecordOpenApiV2Service {
         if (expandableColumns > 0) {
           await this.assertPasteSourceFieldsReadable(tableId, header?.slice(-expandableColumns));
         }
-        const sourceFieldInstances = header?.map((field) => createFieldInstanceByVo(field));
-        if (sourceFieldInstances) {
+        if (header) {
           finalContent = this.convertPasteContentWithSourceFields(
             finalContent,
             targetFields,
-            sourceFieldInstances
+            header
           );
         }
 
@@ -3682,114 +3996,35 @@ export class RecordOpenApiV2Service {
     });
   }
 
-  private getFirstCopiedDateValue(sourceField: IFieldInstance, cellValue: unknown) {
-    if (Array.isArray(cellValue)) {
-      return cellValue[0];
-    }
-
-    if (typeof cellValue !== 'string' || !sourceField.isMultipleCellValue) {
-      return cellValue;
-    }
-
-    const segments = cellValue
-      .split(',')
-      .map((segment) => segment.trim())
-      .filter(Boolean);
-
-    if (segments.length <= 1) {
-      return cellValue;
-    }
-
-    const parserField = createFieldInstanceByVo({
-      ...(pick(
-        sourceField,
-        'id',
-        'dbFieldName',
-        'name',
-        'type',
-        'description',
-        'options',
-        'meta',
-        'aiConfig',
-        'notNull',
-        'unique',
-        'isPrimary',
-        'isPending',
-        'hasError',
-        'cellValueType',
-        'dbFieldType'
-      ) as IFieldVo),
-      isComputed: false,
-      isLookup: false,
-      isConditionalLookup: false,
-      isMultipleCellValue: false,
-    });
-
-    let candidate = '';
-    for (const segment of segments) {
-      candidate = candidate ? `${candidate}, ${segment}` : segment;
-      const parsed = parserField.convertStringToCellValue(candidate);
-      if (parsed != null) {
-        return parsed;
-      }
-    }
-
-    return segments[0];
-  }
-
-  private convertPasteCellValue(
-    targetField: IFieldInstance,
-    sourceField: IFieldInstance,
-    cellValue: unknown
-  ) {
-    if (cellValue == null) {
-      return null;
-    }
-
-    switch (targetField.type) {
-      case FieldType.User:
-      case FieldType.Attachment: {
-        const cellValues = [cellValue].flat();
-        return sourceField.type === targetField.type
-          ? targetField.isMultipleCellValue
-            ? cellValues
-            : cellValues[0]
-          : sourceField.cellValue2String(cellValue);
-      }
-      case FieldType.Date:
-        return sourceField.type === FieldType.Date
-          ? this.getFirstCopiedDateValue(sourceField, cellValue)
-          : sourceField.cellValue2String(cellValue);
-      case FieldType.SingleSelect:
-      case FieldType.MultipleSelect: {
-        if (
-          sourceField.type === FieldType.SingleSelect ||
-          sourceField.type === FieldType.MultipleSelect
-        ) {
-          return selectPasteCellValue(cellValue, targetField.isMultipleCellValue === true);
-        }
-        return sourceField.cellValue2String(cellValue) ?? null;
-      }
-      case FieldType.Link:
-        return convertLinkPasteCellValue(targetField, sourceField, cellValue);
-      default:
-        return sourceField.cellValue2String(cellValue) ?? null;
-    }
-  }
-
   private convertPasteContentWithSourceFields(
     tableData: unknown[][],
-    targetFields: IFieldInstance[],
-    sourceFields: IFieldInstance[]
+    targetFields: ReadonlyArray<V2Field>,
+    sourceFields: ReadonlyArray<IFieldVo>
   ) {
+    const converters = targetFields.map((target, col) => {
+      const source = sourceFields[col];
+      if (!source) return undefined;
+      const prepared = prepareRecordPasteValueConverter(target, source);
+      if (prepared.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(prepared.error),
+          mapDomainErrorToHttpStatus(prepared.error)
+        );
+      }
+      return prepared.value;
+    });
     return tableData.map((row) =>
       row.map((cellValue, col) => {
-        const targetField = targetFields[col];
-        const sourceField = sourceFields[col];
-        if (!targetField || !sourceField || targetField.isComputed) {
-          return cellValue;
+        const convert = converters[col];
+        if (!convert) return cellValue;
+        const converted = convert(cellValue);
+        if (converted.isErr()) {
+          throwV2Error(
+            mapDomainErrorToHttpError(converted.error),
+            mapDomainErrorToHttpStatus(converted.error)
+          );
         }
-        return this.convertPasteCellValue(targetField, sourceField, cellValue);
+        return converted.value;
       })
     );
   }
@@ -3888,6 +4123,78 @@ export class RecordOpenApiV2Service {
         (_, colIdx) => content[rowIdx % contentRows]![colIdx % contentCols]
       )
     );
+  }
+
+  async resolveClearByIdTarget(
+    tableId: string,
+    clearRo: IClearByIdRo,
+    recordIds: string[],
+    options: { throwOnMissing?: boolean } = {}
+  ): Promise<IClearByIdTarget> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const table = await this.loadV2Table(context, container, tableId);
+    const projection = clearRo.selection.fieldIds?.length
+      ? clearRo.selection.fieldIds
+      : clearRo.projection;
+    let fieldIds: ReadonlyArray<FieldId>;
+    if (projection !== undefined) {
+      // Legacy projection resolution ignores unknown field IDs and preserves order.
+      fieldIds = projection.flatMap((id) => {
+        const field = table.getField((candidate) => candidate.id().toString() === id);
+        return field.isOk() ? [field.value.id()] : [];
+      });
+    } else if (clearRo.viewId) {
+      const visible = table.getOrderedVisibleFieldIds(clearRo.viewId);
+      if (visible.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(visible.error),
+          mapDomainErrorToHttpStatus(visible.error)
+        );
+      }
+      fieldIds = visible.value;
+    } else {
+      fieldIds = table.fieldIds();
+    }
+    const records = await this.getRecordsByIds(tableId, recordIds, {
+      projection: fieldIds.map((id) => id.toString()),
+      fieldKeyType: FieldKeyType.Id,
+      throwOnMissing: options.throwOnMissing ?? false,
+    });
+    const targetRecordIds = records.map((record) => {
+      const id = RecordId.create(record.id);
+      if (id.isErr()) {
+        throwV2Error(mapDomainErrorToHttpError(id.error), mapDomainErrorToHttpStatus(id.error));
+      }
+      return id.value;
+    });
+    const view = table.defaultView();
+    if (view.isErr()) {
+      throwV2Error(mapDomainErrorToHttpError(view.error), mapDomainErrorToHttpStatus(view.error));
+    }
+    return {
+      tableId: table.id(),
+      viewId: view.value.id(),
+      recordIds: targetRecordIds,
+      fieldIds,
+    };
+  }
+
+  async clearById(tableId: string, target: IClearByIdTarget): Promise<null> {
+    await this.assertTableRecordWritable(tableId);
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const command = ClearCommand.forRecords(target.tableId, target.viewId, target);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await commandBus.execute<ClearCommand, ClearResult>(context, command);
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+    await this.clearUndoRedoEnginePreference(tableId);
+    return null;
   }
 
   async clear(tableId: string, rangesRo: IRangesRo): Promise<null> {

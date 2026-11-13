@@ -365,8 +365,8 @@
       "lastModifiedTime": "Dernière modification",
       "attachment": "Pièce jointe",
       "checkbox": "Case à cocher",
-      "rollup": "Résumé",
-      "conditionalRollup": "Résumé conditionnel",
+      "rollup": "Rollup",
+      "conditionalRollup": "Rollup conditionnel",
       "user": "Utilisateur",
       "rating": "Évaluation",
       "autoNumber": "Numéro automatique",
@@ -528,15 +528,15 @@
       "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "Renvoie le multiple entier le plus proche de la signification qui est supérieur ou égal à la valeur. Si aucune signification n'est fournie, une signification de 1 est supposée.",
+      "summary": "Arrondit la valeur au supérieur au nombre de décimales indiqué (0 par défaut). Un nombre négatif arrondit aux dizaines, centaines, etc.",
       "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "Renvoie le multiple entier le plus proche de la signification qui est inférieur ou égal à la valeur. Si aucune signification n'est fournie, une signification de 1 est supposée.",
+      "summary": "Arrondit la valeur à l'inférieur au nombre de décimales indiqué (0 par défaut). Un nombre négatif arrondit aux dizaines, centaines, etc.",
       "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "Renvoie le plus petit entier pair qui est supérieur ou égal à la valeur spécifiée.",
+      "summary": "Arrondit les valeurs positives au supérieur et les valeurs négatives à l'inférieur, à l'entier pair le plus proche.",
       "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
@@ -557,7 +557,7 @@
     },
     "POWER": {
       "summary": "Calcule la base spécifiée à la puissance spécifiée.",
-      "example": "POWER(2) => 4"
+      "example": "POWER(2, 2) => 4"
     },
     "EXP": {
       "summary": "Calcule le nombre d'Euler (e) à la puissance spécifiée.",
@@ -629,7 +629,7 @@
     },
     "REPT": {
       "summary": "Répète une chaîne un nombre spécifié de fois.",
-      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+      "example": "REPT(\"Hello!\", 3) => \"Hello!Hello!Hello!\""
     },
     "TRIM": {
       "summary": "Supprime les espaces au début et à la fin de la chaîne.",
@@ -677,7 +677,7 @@
     },
     "ERROR": {
       "summary": "Renvoie la valeur d'erreur.",
-      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calcul\")) => \"#ERROR: Calcul\""
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "Renvoie vrai si l'expression provoque une erreur.",
@@ -733,7 +733,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Renvoie la différence entre les datetimes dans les unités spécifiées. L'unité par défaut est \"day\".\nUnités supportées : \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nLa différence entre les datetimes est déterminée en soustrayant [date2] de [date1]. Cela signifie que si [date2] est plus tard que [date1], la valeur résultante sera négative.",
-      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "Renvoie le jour ouvrable à partir de la date de début, en excluant les jours fériés spécifiés.",
@@ -919,7 +919,7 @@
     "tip": {
       "editing": "Modification en cours...",
       "edited": "(Modifié)",
-      "notifyAll": "Notifier tous les commentaires",
+      "notifyAll": "Me notifier de tous les commentaires",
       "notifyRelatedToMe": "Notifier les commentaires relatifs à moi",
       "all": "Tous",
       "relatedToMe": "Relatif à moi",
@@ -1675,7 +1675,10 @@
       "categoryDepthExceeded": "Un sous-secteur ne peut pas avoir ses propres sous-secteurs",
       "teamIsFlat": "Une équipe n'a ni catégorie parente ni sous-catégories",
       "categoryKeyTaken": "Cette clé d'URL est déjà utilisée par une autre catégorie",
-      "slugTaken": "Ce slug d'URL est déjà utilisé par un autre modèle"
+      "slugTaken": "Ce slug d'URL est déjà utilisé par un autre modèle",
+      "guideStepLeftOut": "L’étape du guide « {{title}} » ouvre un élément que cette soumission n’inclut pas.",
+      "guideStepStartsTicked": "L’étape du guide « {{title}} » est déjà accomplie sur les enregistrements d’exemple : elle serait cochée dès le départ.",
+      "guideNothingToConnect": "L’étape du guide « {{title}} » attend la connexion de comptes, mais ce projet n’en demande aucun : elle serait cochée dès le départ."
     },
     "department": {
       "parentNotFound": "Département parent non trouvé",
@@ -1835,5 +1838,8 @@
     "seats": {
       "unit": "sièges"
     }
+  },
+  "template": {
+    "trialName": "{{name}} (essai)"
   }
 }

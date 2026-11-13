@@ -4268,6 +4268,9 @@ importers:
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pg
+      '@teable/v2-adapter-db-postgres-pglite':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pglite
       '@teable/v2-adapter-table-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-table-repository-postgres

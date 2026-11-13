@@ -320,7 +320,7 @@
       "showNumber": "إظهار الرقم",
       "autoFillDate": "التعبئة التلقائية بالتاريخ الحالي",
       "createSymmetricLink": "إنشاء حقل رابط عكسي في الجدول المرتبط",
-      "allowLinkMultipleRecords": "السماح بالاختيار المتعدد",
+      "allowLinkMultipleRecords": "السماح بالربط بعدة سجلات",
       "allowLinkToDuplicateRecords": "السماح باختيار السجلات أكثر من مرة",
       "allowSymmetricFieldLinkMultipleRecords": "السماح باختيار السجلات أكثر من مرة",
       "oneToOne": "واحد إلى واحد",

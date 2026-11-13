@@ -35,11 +35,14 @@ export type BuildTableSearchAccessPathDefinitionOptions = {
   readonly provider?: 'pg_trgm' | 'pg_bigm' | 'tsvector';
   readonly languageConfig?: string;
   readonly fieldIds?: readonly string[];
+  /**
+   * Field ids the caller knows are physically unusable in a generated document — a column that is
+   * `GENERATED` in PostgreSQL while its field meta says otherwise (legacy createdBy columns, drifted
+   * formulas). They are skipped with `generated_column_dependency` instead of failing the DDL.
+   */
+  readonly excludeFieldIds?: readonly string[];
 };
 
-/** All-field generated documents are refused at or above these sizes. */
-export const WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_FIELD_COUNT = 30;
-export const WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT = 20;
 const languageConfigPattern = /^[\w.]+$/;
 
 type ResolvedDefinitionOptions = {
@@ -117,22 +120,6 @@ const collectSearchDocumentFields = (
   return ok({ fields, skippedFields });
 };
 
-const refuseWideTableAllFieldDocument = (
-  collected: CollectedDocumentFields
-): CollectedDocumentFields => ({
-  fields: [],
-  skippedFields: [
-    ...collected.skippedFields,
-    ...collected.fields.map((field) => ({
-      fieldId: field.fieldId,
-      fieldType: field.fieldType,
-      ...(field.valueType ? { valueType: field.valueType } : {}),
-      included: false as const,
-      skippedReason: 'wide_table_all_field_document' as const,
-    })),
-  ],
-});
-
 const buildDefinitionKey = (
   tableId: string,
   resolved: ResolvedDefinitionOptions,
@@ -194,13 +181,14 @@ export const buildTableSearchAccessPathDefinition = (
   const selectedIds = options.fieldIds?.length ? new Set(options.fieldIds) : undefined;
   const collected = collectSearchDocumentFields(table, selectedIds);
   if (collected.isErr()) return err(collected.error);
-  const wideTableAllFieldDocument =
-    !selectedIds &&
-    (table.getFields().length >= WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_FIELD_COUNT ||
-      collected.value.fields.length >= WIDE_TABLE_ALL_FIELD_DOCUMENT_MIN_SEARCHABLE_COUNT);
-  const { fields, skippedFields } = wideTableAllFieldDocument
-    ? refuseWideTableAllFieldDocument(collected.value)
-    : collected.value;
+  // Every searchable field joins the document, however wide the table is: refusing wide tables
+  // left them with no document at all, which is strictly worse than a large one.
+  const excluded = new Set(options.excludeFieldIds ?? []);
+  const { fields, skippedFields } = collected.value;
+  const unusableFields = excluded.size ? fields.filter((field) => excluded.has(field.fieldId)) : [];
+  const usableFields = excluded.size
+    ? fields.filter((field) => !excluded.has(field.fieldId))
+    : fields;
 
   const tableId = table.id().toString();
   return ok({
@@ -211,15 +199,24 @@ export const buildTableSearchAccessPathDefinition = (
     ...(semantics === 'lexical' ? { languageConfig } : {}),
     scope: selectedIds ? 'selected_fields' : 'all_fields',
     accessPath:
-      fields.length > 0
+      usableFields.length > 0
         ? semantics === 'substring'
           ? 'generated_text'
           : 'generated_tsvector'
         : 'none',
-    indexKind: resolveIndexKind(provider, fields.length > 0),
-    definitionKey: buildDefinitionKey(tableId, resolvedOptions.value, fields),
-    fields,
-    skippedFields,
+    indexKind: resolveIndexKind(provider, usableFields.length > 0),
+    definitionKey: buildDefinitionKey(tableId, resolvedOptions.value, usableFields),
+    fields: usableFields,
+    skippedFields: [
+      ...skippedFields,
+      ...unusableFields.map((field) => ({
+        fieldId: field.fieldId,
+        fieldType: field.fieldType,
+        ...(field.valueType ? { valueType: field.valueType } : {}),
+        included: false as const,
+        skippedReason: 'generated_column_dependency' as const,
+      })),
+    ],
   });
 };
 

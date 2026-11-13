@@ -52,6 +52,25 @@ preparation and policy checks against current state.
   preview and execution reject unsupported pinyin targets and same-field group conflicts alike.
   Prepared counts precede execution write policy; link-title candidates are not counts of
   auto-created foreign rows. `applyWriteScope` consumes execution policy decisions separately.
+  `prepareColumnExpansionInputs` purely normalizes clipboard headers once before foreign loading;
+  hosts authorize references on those same inputs before `prepareColumnExpansion` consumes them.
+  The latter is also the detached schema planning seam for host nonstream by-id paste: the host
+  persists fields separately, then updates existing records before creating new records. This
+  reuse does not impose range-paste atomicity on the by-id write phases.
+  After computed/lookup source mapping, a final Link's physical keys and reciprocal ID are removed
+  at this single fresh-column boundary, without mutating the original source metadata.
+  Execution may pass the actual schema-owning host/side-effect table IDs to record-write computed
+  planning; that finite same-transaction scope preserves ready guards and the selected strategy.
+  Title hydration uses the successful current host and side-effect aggregates, retaining a newer
+  host already produced by a side effect; unrelated tables keep their normal ready admission.
+- `RecordPasteValueConverter.ts` - Role: prepared ordinary paste value interpretation; Purpose:
+  hydrate source metadata through `prepareTemporaryPasteSource` and compile display formatting once
+  per column. Ordinary paste preserves computed-target bypass, raw same-type identities, date/select
+  shapes and link ids/titles independently of temporary paste's conversion policy. The exported
+  `normalizeRecordLinkPasteValue` is the shared pure link normalization boundary; it does not compare
+  foreign tables or resolve titles. Neither API writes records or runs field side effects.
+  Rendered multiple Date prefixes use the source pattern/calendar defaults and Day.js timezone
+  resolution. They do not delegate to the stricter target-write date parser.
 - `BulkRecordPreparationService.ts` - Role: data-only explicit/selector preparation; Purpose:
   expose loaded/selected/missing records and optional read-only policy evidence. Execution also
   reuses its exported scope/resolution helpers. An absent policy is not unrestricted access;
@@ -143,6 +162,10 @@ preparation and policy checks against current state.
   are deferred with `publishEvents: false`. With an outer metadata transaction, readiness and
   mutation publication wait for its commit and publish without transaction handles; rollback
   publishes no mutation events.
+- `SchemaOperationRunnerService.ts` - Role: durable schema repair scheduling; Purpose: retry
+  `view.version_conflict` with the existing bounded backoff because each repair reloads metadata.
+  Keep optimistic version checks intact; business conflicts and unsupported repairs remain terminal.
+  Exhausting the operation's configured attempt limit still makes a view conflict terminal.
 - `FieldUndoRedoReplayService.ts` - Role: field snapshot replay; Purpose: restore field state through
   aggregate mutation, including transactionally locked source snapshots and reciprocal-table View
   query snapshots. Initial guards require ready tables; replay's own post-mutation reads include

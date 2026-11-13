@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreatePluginRo, IGetPluginCenterListVo } from '@teable/openapi';
 import {
   axios,
@@ -18,6 +19,10 @@ import {
   submitPlugin,
   updatePlugin,
 } from '@teable/openapi';
+import type { IBaseConfig } from '../src/configs/base.config';
+import { baseConfig } from '../src/configs/base.config';
+import { deriveOfficialPluginSecret } from '../src/features/plugin/official/official-plugin-secret';
+import { validateSecret } from '../src/features/plugin/utils';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
@@ -129,6 +134,21 @@ describe('PluginController', () => {
     expect(unpublishError?.status).toBe(404);
     expect(deleteError?.status).toBe(404);
     expect((await getPlugin(systemPluginId)).data.status).toBe(statusBefore);
+  });
+
+  it('stores a secret derived from SECRET_KEY for an official plugin, never SECRET_KEY itself', async () => {
+    const { secretKey } = app.get(baseConfig.KEY) as IBaseConfig;
+    const derived = deriveOfficialPluginSecret(secretKey, 'plgchart');
+    const stored = await app.get(PrismaService).plugin.findUniqueOrThrow({
+      where: { id: 'plgchart' },
+      select: { secret: true, maskedSecret: true },
+    });
+
+    expect(await validateSecret(derived, stored.secret)).toBe(true);
+    expect(await validateSecret(secretKey, stored.secret)).toBe(false);
+    // the masked form an admin sees is the derived value's tail, not the root key's
+    expect(stored.maskedSecret.endsWith(derived.slice(-10))).toBe(true);
+    expect((await getPlugin('plgchart')).data.secret).not.toContain(secretKey.slice(-10));
   });
 
   it('/api/plugin/{pluginId} (PUT)', async () => {

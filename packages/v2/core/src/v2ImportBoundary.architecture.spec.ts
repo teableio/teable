@@ -37,7 +37,8 @@ const runOxlint = (config: string, file: string) => {
 };
 
 describe('v2 import boundary', () => {
-  it('keeps all v2 package sources free of legacy imports', () => {
+  // The full scan gets its existing 30s process budget plus 5s of runner overhead.
+  it('keeps all v2 package sources free of legacy imports', { timeout: 35_000 }, () => {
     const result = spawnSync(
       process.execPath,
       [

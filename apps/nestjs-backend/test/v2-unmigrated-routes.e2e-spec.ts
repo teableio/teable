@@ -320,6 +320,43 @@ describe('T6893 remaining table APIs v2 dual-path (e2e)', () => {
     expect(docIds.data.ids).toContain(tableId);
   });
 
+  it.each(['scalar', 'commaSeparated', 'object', 'missing'] as const)(
+    'rejects malformed table socket snapshot ids (%s)',
+    async (encoding) => {
+      const query = {
+        scalar: `?ids=${tableId}`,
+        commaSeparated: `?ids=${tableId},${tableId}`,
+        object: `?ids[table]=${tableId}`,
+        missing: '',
+      }[encoding];
+      const response = await axios.get(`/base/${baseId}/table/socket/snapshot-bulk${query}`, {
+        validateStatus: () => true,
+      });
+
+      expect(response.status).toBe(400);
+    }
+  );
+
+  it('reads multiple table socket snapshots through v2', async () => {
+    const secondTable = await createTable(baseId, { name: 'Snapshot second table' });
+    try {
+      const response = await axios.get<Array<{ id: string; data: { id: string } }>>(
+        `/base/${baseId}/table/socket/snapshot-bulk`,
+        { params: { ids: [tableId, secondTable.id] } }
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.data.map((snapshot) => snapshot.id).sort()).toEqual(
+        [tableId, secondTable.id].sort()
+      );
+      expect(response.data.map((snapshot) => snapshot.data.id).sort()).toEqual(
+        [tableId, secondTable.id].sort()
+      );
+    } finally {
+      await permanentDeleteTable(baseId, secondTable.id);
+    }
+  });
+
   it('infers the primary lookup field when creating a cross-base link through v2', async () => {
     const foreignBase = await createBase({
       spaceId: globalThis.testConfig.spaceId,

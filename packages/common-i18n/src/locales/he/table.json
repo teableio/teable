@@ -305,7 +305,7 @@
       "showNumber": "הצגת מספר",
       "autoFillDate": "מילוי אוטומטי בתאריך הנוכחי",
       "createSymmetricLink": "יצירת שדה קישור הפוך בטבלה המקושרת",
-      "allowLinkMultipleRecords": "לאפשר בחירה מרובה",
+      "allowLinkMultipleRecords": "לאפשר קישור לכמה רשומות",
       "allowLinkToDuplicateRecords": "מאפשר לבחור רשומות יותר מפעם אחת",
       "allowSymmetricFieldLinkMultipleRecords": "מאפשר לבחור רשומות יותר מפעם אחת",
       "oneToOne": "אחד-לאחד",

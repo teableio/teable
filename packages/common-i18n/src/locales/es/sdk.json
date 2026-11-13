@@ -188,8 +188,8 @@
       "isNot": "no es",
       "contains": "contiene",
       "doesNotContain": "no contiene",
-      "isEmpty": "esta vacío",
-      "isNotEmpty": "no esta vacío",
+      "isEmpty": "está vacío",
+      "isNotEmpty": "no está vacío",
       "isGreater": "es mayor que",
       "isGreaterEqual": "es mayor igual",
       "isLess": "es menos que",
@@ -197,24 +197,24 @@
       "isAnyOf": "es alguno de",
       "isNoneOf": "no es ninguno de",
       "hasAnyOf": "tiene alguno de",
-      "hasAllOf": "tiene todo",
-      "hasNoneOf": "no tiene nada de",
+      "hasAllOf": "tiene todos",
+      "hasNoneOf": "no tiene ninguno de",
       "isExactly": "es exactamente",
-      "isWithIn": "es con",
-      "isBefore": "es antes",
-      "isAfter": "es después",
-      "isOnOrBefore": "está en o antes",
-      "isOnOrAfter": "está en o después",
+      "isWithIn": "está dentro de",
+      "isBefore": "es antes de",
+      "isAfter": "es después de",
+      "isOnOrBefore": "es igual o anterior a",
+      "isOnOrAfter": "es igual o posterior a",
       "user": {
         "is": "es",
         "isNot": "no es",
         "isAnyOf": "es alguno de",
         "isNoneOf": "no es ninguno de",
         "hasAnyOf": "tiene alguno de",
-        "hasAllOf": "tiene todo",
+        "hasAllOf": "tiene todos",
         "isExactly": "es exactamente",
         "isNotExactly": "no es",
-        "hasNoneOf": "no tiene nada de"
+        "hasNoneOf": "no tiene ninguno de"
       },
       "number": {
         "is": "=",
@@ -357,18 +357,18 @@
       "longText": "Texto largo",
       "singleSelect": "Selección única",
       "number": "Número",
-      "multipleSelect": "Seleccionar múltiples",
+      "multipleSelect": "Selección múltiple",
       "link": "Enlace a otro registro",
       "formula": "Fórmula",
       "date": "Fecha",
-      "createdTime": "Tiempo creado",
-      "lastModifiedTime": "Último tiempo modificado",
+      "createdTime": "Hora de creación",
+      "lastModifiedTime": "Hora de la última modificación",
       "attachment": "Adjunto",
-      "checkbox": "Caja",
-      "rollup": "Acurrucado",
+      "checkbox": "Casilla de verificación",
+      "rollup": "Resumen",
       "conditionalRollup": "Resumen condicional",
       "user": "Usuario",
-      "rating": "Clasificación",
+      "rating": "Valoración",
       "autoNumber": "Número automático",
       "lookup": "Buscar",
       "conditionalLookup": "Búsqueda condicional",
@@ -491,7 +491,7 @@
     "routine": "Rutina",
     "app": "Aplicación",
     "user": "Usuario",
-    "recordHistory": "Historia récord",
+    "recordHistory": "Historial del registro",
     "you": "Tú",
     "instance": "Instancia",
     "enterprise": "Empresa",
@@ -505,43 +505,43 @@
     },
     "AVERAGE": {
       "summary": "Devuelve el promedio de los números.",
-      "example": "Promedio (100, 200, 300) => 200"
+      "example": "AVERAGE(100, 200, 300) => 200"
     },
     "MAX": {
       "summary": "Devuelve el más grande de los números dados.",
-      "example": "Máx (100, 200, 300) => 300"
+      "example": "MAX(100, 200, 300) => 300"
     },
     "MIN": {
       "summary": "Devuelve el más pequeño de los números dados.",
-      "example": "Min (100, 200, 300) => 100"
+      "example": "MIN(100, 200, 300) => 100"
     },
     "ROUND": {
       "summary": "Reduce el valor al número de decimales dados por \"Precision\" (específicamente, la ronda redondeará al entero más cercano en la precisión especificada, con lazos rotos al redondear la mitad hacia el infinito positivo).",
-      "example": "Ronda (1.99, 0) => 2\n"
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
     },
     "ROUNDUP": {
       "summary": "Redonde el valor al número de decimales dados por \"precisión\" siempre redondeando, es decir, lejos de cero. ",
-      "example": "Roundup (1.1, 0) => 2\n"
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
     },
     "ROUNDDOWN": {
       "summary": "Redonde el valor al número de lugares decimales dados por \"precisión\" siempre redondeando, es decir, hacia cero. ",
-      "example": "Rounddown (1.9, 0) => 1\n"
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "Devuelve el múltiplo entero más cercano de importancia que es mayor o igual al valor. ",
-      "example": "Techo (2.49) => 3\n"
+      "summary": "Redondea el valor hacia arriba al número de decimales indicado (0 de forma predeterminada). Los decimales negativos redondean hacia arriba a decenas, centenas, etc.",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "Devuelve el múltiplo entero más cercano de importancia que es menor o igual al valor. ",
-      "example": "Piso (2.49) => 2\n"
+      "summary": "Redondea el valor hacia abajo al número de decimales indicado (0 de forma predeterminada). Los decimales negativos redondean hacia abajo a decenas, centenas, etc.",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "Devuelve el número entero incluso más pequeño que es mayor o igual al valor especificado.",
-      "example": "Incluso (0.1) => 2\n"
+      "summary": "Redondea los valores positivos hacia arriba y los negativos hacia abajo al número entero par más cercano.",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
       "summary": "Redondea el valor positivo en el número impar más cercano y el valor negativo hasta el número impar más cercano.",
-      "example": "Impar (0.1) => 1\n"
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
       "summary": "Redondea un número hacia abajo al entero más cercano.",
@@ -553,39 +553,39 @@
     },
     "SQRT": {
       "summary": "Devuelve la raíz cuadrada de un número no negativo.",
-      "example": "Sqrt (4) => 2"
+      "example": "SQRT(4) => 2"
     },
     "POWER": {
       "summary": "Calcula la base especificada a la potencia especificada.",
-      "example": "Potencia (2) => 4"
+      "example": "POWER(2, 2) => 4"
     },
     "EXP": {
       "summary": "Calcula el número de Euler (E) a la potencia especificada.",
-      "example": "Exp (0) => 1\n"
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
     },
     "LOG": {
       "summary": "Calcula el logaritmo del valor en la base proporcionada. ",
-      "example": "Log (100) => 2\n"
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
     },
     "MOD": {
       "summary": "Devuelve el resto después de dividir el primer argumento por el segundo.",
-      "example": "Mod (9, 2) => 1\n"
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
     },
     "VALUE": {
       "summary": "Convierte la cadena de texto a un número.",
-      "example": "Valor (\"$ 1,000,000\") => 1000000"
+      "example": "VALUE(\"$1,000,000\") => 1000000"
     },
     "CONCATENATE": {
       "summary": "Se une a varios argumentos de tipos de valor en un solo valor de texto.",
-      "example": "Concatenate (\"Hola\", \"TABLE\") => Hello Table"
+      "example": "CONCATENATE(\"Hello \", \"Teable\") => Hello Teable"
     },
     "FIND": {
       "summary": "Encuentra una ocurrencia de StringTOfind en WheretoseSearch String que comienza desde una Opcional StartFromposition. (StartFromposition es 0 por defecto). Si no se encuentra ninguna aparición de StringToFind, el resultado será 0.",
-      "example": "Find (\"table\", \"hola table\") => 7\n"
+      "example": "FIND(\"Teable\", \"Hello Teable\") => 7\nFIND(\"Teable\", \"Hello Teable\", 5) => 7\nFIND(\"Teable\", \"Hello Teable\", 10) => 0"
     },
     "SEARCH": {
       "summary": "Búsqueda de una aparición de StringToFind en Wheretosearch String que comienza desde una Opcional StartFromposition. ",
-      "example": "Buscar (\"table\", \"hello table\") => 7\n"
+      "example": "SEARCH(\"Teable\", \"Hello Teable\") => 7\nSEARCH(\"Teable\", \"Hello Teable\", 5) => 7\nSEARCH(\"Teable\", \"Hello Teable\", 10) => \"\""
     },
     "MID": {
       "summary": "Extrae una subcadena de count caracteres comenzando en whereToStart.",
@@ -593,23 +593,23 @@
     },
     "LEFT": {
       "summary": "Extraiga a Howmany personajes desde el comienzo de la cadena.",
-      "example": "Izquierda (\"2023-09-06\", 4) => \"2023\""
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
     },
     "RIGHT": {
       "summary": "Extraiga a Howmany personajes del final de la cadena.",
-      "example": "Derecha (\"2023-09-06\", 5) => \"09-06\""
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
     },
     "REPLACE": {
       "summary": "Reemplaza el número de caracteres que comienzan con el carácter de inicio con el texto de reemplazo.\n",
-      "example": "Reemplazar (\"Hello Table\", 7, 5, \"Table\") => \"Hola Table\""
+      "example": "REPLACE(\"Hello Table\", 7, 5, \"Teable\") => \"Hello Teable\""
     },
     "REGEXP_REPLACE": {
       "summary": "Reemplaza todas las subcadenas que coinciden con la expresión regular con reemplazo.",
-      "example": "Regexp_replace (\"Hello Table\", \"H.*\", \"\") => \"Table\""
+      "example": "REGEXP_REPLACE(\"Hello Table\", \"H.* \", \"\") => \"Teable\""
     },
     "SUBSTITUTE": {
       "summary": "Reemplaza las ocurrencias de Old_Text con New_Text.\n",
-      "example": "Sustituye (\"Hello Table\", \"Tabla\", \"Table\") => \"Hello Table\""
+      "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
     },
     "TEXTBEFORE": {
       "summary": "Devuelve el texto anterior a un delimitador.",
@@ -621,15 +621,15 @@
     },
     "LOWER": {
       "summary": "Hace una cuerda en minúsculas.",
-      "example": "Lower (\"Hello Table\") => \"Hola Table\""
+      "example": "LOWER(\"Hello Teable\") => \"hello teable\""
     },
     "UPPER": {
       "summary": "Hace una cadena en mayúscula.",
-      "example": "Upper (\"Hello Table\") => \"Hola Table\""
+      "example": "UPPER(\"Hello Teable\") => \"HELLO TEABLE\""
     },
     "REPT": {
       "summary": "Repita la cadena por el número especificado de veces.",
-      "example": "REPT (\"¡Hola!\") => \"¡Hola! ¡Hola! ¡Hola!\""
+      "example": "REPT(\"¡Hola!\", 3) => \"¡Hola!¡Hola!¡Hola!\""
     },
     "TRIM": {
       "summary": "Elimina espacios en blanco al principio y al final de la cadena.",
@@ -637,7 +637,7 @@
     },
     "LEN": {
       "summary": "Extraiga a Howmany personajes desde el comienzo de la cadena.",
-      "example": "Len (\"Hola\") => 5"
+      "example": "LEN(\"Hello\") => 5"
     },
     "T": {
       "summary": "Devuelve el argumento si es texto y en blanco de otra manera.",
@@ -645,55 +645,55 @@
     },
     "ENCODE_URL_COMPONENT": {
       "summary": "Reemplaza ciertos caracteres con equivalentes codificados para su uso en la construcción de URL o URI. ",
-      "example": "Encode_url_component (\"Hello Table\") => \"Hello%20 Mable\""
+      "example": "ENCODE_URL_COMPONENT(\"Hello Teable\") => \"Hello%20Teable\""
     },
     "IF": {
       "summary": "Devuelve Value1 si el argumento lógico es verdadero, de lo contrario devuelve Value2. ",
-      "example": "If (2> 1, \"a\", \"b\") => \"A\"\n"
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
     },
     "SWITCH": {
       "summary": "Toma una expresión, una lista de valores posibles para esa expresión, y para cada uno, un valor que la expresión debe tomar en ese caso. ",
-      "example": "Switch (\"B\", \"A\", \"Valor A\", \"B\", \"Valor B\", \"Valor predeterminado\") => \"Valor B\""
+      "example": "SWITCH(\"B\", \"A\", \"Value A\", \"B\", \"Value B\", \"Default Value\") => \"Value B\""
     },
     "AND": {
       "summary": "Devuelve verdadero si todos los argumentos son verdaderos, devuelve falso de lo contrario.",
-      "example": "Y (1 <2, 5> 3) => verdadero\n"
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
     },
     "OR": {
       "summary": "Devuelve verdadero si alguno de los argumentos es verdadero.",
-      "example": "O (1 <2, 5 <3) => verdadero\n"
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
     },
     "XOR": {
       "summary": "Devuelve verdadero si un número impar de argumentos son verdaderos.",
-      "example": "Xor (1 <2, 5 <3, 8 <10) => Falso\n"
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
     },
     "NOT": {
       "summary": "Invierte el valor lógico de su argumento.",
-      "example": "No (1 <2) => falso\n"
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
     },
     "BLANK": {
       "summary": "Devuelve un valor en blanco.",
-      "example": "Blank () => nulo\n"
+      "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
     },
     "ERROR": {
       "summary": "Devuelve el valor de error.",
-      "example": "If (2> 3, \"sí\", error (\"cálculo\")) => \"#Error: cálculo\""
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "Devuelve verdadero si la expresión causa un error.",
-      "example": "Is_error (error ()) => verdadero"
+      "example": "IS_ERROR(ERROR()) => true"
     },
     "TODAY": {
       "summary": "Devuelve la fecha actual.",
-      "example": "Today () => \"2023-09-08 00:00\""
+      "example": "TODAY() => \"2023-09-08 00:00\""
     },
     "NOW": {
       "summary": "Devuelve la fecha y hora actuales.",
-      "example": "Ahora () => \"2023-09-08 16:50\""
+      "example": "NOW() => \"2023-09-08 16:50\""
     },
     "YEAR": {
       "summary": "Devuelve el año de cuatro dígitos de una hora de fecha.",
-      "example": "Año (\"2023-09-08\") => 2023"
+      "example": "YEAR(\"2023-09-08\") => 2023"
     },
     "MONTH": {
       "summary": "Devuelve el mes de una fecha como un número entre 1 (Enero) y 12 (Diciembre).",
@@ -701,51 +701,51 @@
     },
     "WEEKNUM": {
       "summary": "Devuelve el número de semana en un año.",
-      "example": "Weeknum (\"2023-09-08\") => 36"
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
     },
     "WEEKDAY": {
       "summary": "Devuelve el día de la semana como entero entre 0 y 6, inclusive. ",
-      "example": "Weeknum (\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "Devuelve el día del mes de una fecha y hora en forma de un número entre 1-31.",
-      "example": "Día (\"2023-09-08\") => 8"
+      "example": "DAY(\"2023-09-08\") => 8"
     },
     "HOUR": {
       "summary": "Devuelve la hora de una fecha y hora como un número entre 0 (12:00 a.m.) y 23 (11:00 p.m.).",
-      "example": "Hora (\"2023-09-08 16:50\") => 16"
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
     },
     "MINUTE": {
       "summary": "Devuelve el minuto de una fecha y hora como un entero entre 0 y 59.",
-      "example": "Minuto (\"2023-09-08 16:50\") => 50"
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
     },
     "SECOND": {
       "summary": "Devuelve el segundo de una fecha y hora como un entero entre 0 y 59.",
-      "example": "Segundo (\"2023-09-08 16:50:30\") => 30"
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
     },
     "FROMNOW": {
       "summary": "Calcula el número de días entre la fecha actual y otra fecha.",
-      "example": "Fromnow ({date}, \"día\") => 25"
+      "example": "FROMNOW({Date}, \"day\") => 25"
     },
     "TONOW": {
       "summary": "Calcula el número de días entre la fecha actual y otra fecha.",
-      "example": "Tonow ({date}, \"día\") => 25"
+      "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
       "summary": "Devuelve la diferencia entre fechas en unidades especificadas. La unidad predeterminada es \"day\".\nUnidades soportadas: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nLa diferencia entre fechas se determina restando [date2] de [date1]. Esto significa que si [date2] es posterior a [date1], el valor resultante será negativo.",
-      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "Devuelve la jornada laboral a la fecha de inicio, excluyendo las vacaciones especificadas",
-      "example": "Día de trabajo (\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\n"
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
       "summary": "Devuelve el número de días hábiles entre la fecha1 y la fecha2. ",
-      "example": "Workday_diff (\"2023-06-18\", \"2023-10-01\") => 75\n"
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 5\nWORKDAY_DIFF(\"2026-03-13\", \"2026-03-09\") => -5"
     },
     "IS_SAME": {
       "summary": "Compara dos fechas hasta una unidad y determina si son idénticas. ",
-      "example": "Is_same (\"2023-09-08\", \"2023-09-10\") => Falso\n"
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
     },
     "IS_AFTER": {
       "summary": "Determina si la fecha1 es posterior a la fecha2. ",
@@ -753,31 +753,31 @@
     },
     "IS_BEFORE": {
       "summary": "Determina si la fecha1 es anterior a la fecha2. ",
-      "example": "Is_before (\"2023-09-08\", \"2023-09-10\") => verdadero\n"
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
     },
     "DATE_ADD": {
       "summary": "Agrega unidades especificadas de \"recuento\" a una hora de fecha.",
-      "example": "Date_add (\"2023-09-08 18:00:00\", 10, \"día\") => \"2023-09-18 18:00:00\""
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
     },
     "DATESTR": {
       "summary": "Formatea una fecha y hora en una cadena (aaa yyyy-mm-dd).",
-      "example": "Datestr (\"2023/09/08\") => \"2023-09-08\""
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
     },
     "TIMESTR": {
       "summary": "Formatea una vez en una cadena de solo tiempo (HH: MM: SS).",
-      "example": "Datestr (\"2023/09/08 16:50:30\") => \"16:50:30\""
+      "example": "TIMESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
       "summary": "Formatea una fecha y hora en una cadena especificada. ",
-      "example": "Datetime_format (\"2023-09-08\", \"dd-mm-yyyy\") => \"08-09-2023\""
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
     },
     "DATETIME_PARSE": {
       "summary": "Interpreta una cadena de texto como una fecha estructurada, con el formato de entrada opcional y los parámetros de locales. ",
-      "example": "Datetime_parse (\"8 de septiembre de 2023 18:00\", \"d mmm yyyy hh: mm\") => \"2023-09-08 18:00:00\""
+      "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
     },
     "CREATED_TIME": {
       "summary": "Devuelve el tiempo de creación del registro actual.",
-      "example": "Creat_time () => \"2023-09-08 18:00:00\""
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Devuelve la fecha y hora de la modificación más reciente realizada por un usuario en un campo no calculado en la tabla.",
@@ -785,47 +785,47 @@
     },
     "COUNTALL": {
       "summary": "Devuelve el número de todos los elementos, incluidos el texto y los espacios en blanco.",
-      "example": "Countall (100, 200, \"\", \"Table\", True ()) => 5"
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
     },
     "COUNTA": {
       "summary": "Devuelve el número de valores no vacíos. ",
-      "example": "Counta (100, 200, 300, \"\", \"Table\", True) => 4"
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
     },
     "COUNT": {
       "summary": "Devuelve el número de elementos numéricos.",
-      "example": "Count (100, 200, 300, \"\", \"Table\", True) => 3"
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
     },
     "ARRAY_JOIN": {
       "summary": "Únase a la matriz de elementos enrollables en una cadena con un separador.",
-      "example": "Array_join ([\"Tom\", \"Jerry\", \"Mike\"], \";\") => \"Tom; Jerry; Mike\""
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
     },
     "ARRAY_UNIQUE": {
       "summary": "Devuelve solo elementos únicos en la matriz.",
-      "example": "Array_unique ([1, 2, 3, 2, 1]) => [1, 2, 3]"
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
     },
     "ARRAY_FLATTEN": {
       "summary": "Aplana la matriz quitando cualquier anidación de matriz. ",
-      "example": "Array_flatten ([1, 2, \"\", 3, verdadero], [\"ABC\"]) => [1, 2, 3, \"\", verdadero, \"ABC\"]"
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
     },
     "ARRAY_COMPACT": {
       "summary": "Elimina cadenas vacías y valores nulos de la matriz. ",
-      "example": "Array_compact ([1, 2, 3, \"\", nulo, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
     },
     "TEXT_ALL": {
       "summary": "Devuelve todos los valores de texto",
-      "example": "Text_all (\"t\") => t"
+      "example": "TEXT_ALL(\"t\") => t"
     },
     "RECORD_ID": {
       "summary": "Devuelve la ID del registro actual.",
-      "example": "Registro_id () => \"recxxxxxx\""
+      "example": "RECORD_ID() => \"recxxxxxx\""
     },
     "AUTO_NUMBER": {
       "summary": "Devuelve los números únicos e incrementados para cada registro.",
-      "example": "Auto_number () => 1"
+      "example": "AUTO_NUMBER() => 1"
     },
     "FORMULA": {
       "summary": "Complete variables, caracteres operativos y funciones para formar fórmulas para los cálculos.",
-      "example": "Citando la columna: {nombre de campo}\n\n"
+      "example": "Quoting the Column: {Field name}\n\nUsing operator: 100 * 2 + 300\n\nUsing function: SUM({Number Field 1}, 100)\n\nUsing IF statement: \nIF(logical condition, \"value 1\", \"value 2\")"
     }
   },
   "functionType": {
@@ -919,7 +919,7 @@
     "tip": {
       "editing": "Editando...",
       "edited": "(Editado)",
-      "notifyAll": "Notificar todos los comentarios",
+      "notifyAll": "Notificarme todos los comentarios",
       "notifyRelatedToMe": "Notificar comentarios relacionados conmigo",
       "all": "Todos",
       "relatedToMe": "Relacionados conmigo",
@@ -1675,7 +1675,10 @@
       "categoryDepthExceeded": "Un subsector no puede tener subsectores propios",
       "teamIsFlat": "Un equipo no tiene categoría superior ni subcategorías",
       "categoryKeyTaken": "Esta clave de URL ya la usa otra categoría",
-      "slugTaken": "Este slug de URL ya lo usa otra plantilla"
+      "slugTaken": "Este slug de URL ya lo usa otra plantilla",
+      "guideStepLeftOut": "El paso de la guía «{{title}}» abre algo que este envío no incluye.",
+      "guideStepStartsTicked": "El paso de la guía «{{title}}» ya está hecho en los registros de ejemplo, así que empezaría marcado.",
+      "guideNothingToConnect": "El paso de la guía «{{title}}» espera a que se conecten cuentas, pero este proyecto no necesita ninguna, así que empezaría marcado."
     },
     "department": {
       "parentNotFound": "Departamento padre no encontrado",
@@ -1835,5 +1838,8 @@
     "seats": {
       "unit": "plazas"
     }
+  },
+  "template": {
+    "trialName": "{{name}} (prueba)"
   }
 }

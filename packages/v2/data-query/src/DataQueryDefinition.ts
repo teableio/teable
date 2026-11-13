@@ -21,11 +21,13 @@ import { z } from 'zod';
 
 import {
   createDataQueryPredicateV3Schema,
+  createDataQueryPredicateV5Schema,
   dataQueryExpressionLimits,
   dataQueryFormulaExpressionSchema,
+  dataQueryHavingExpressionSchema,
   walkDataQueryPredicateExpressions,
   walkDataQueryFormulaExpression,
-  type DataQueryPredicateV3,
+  type DataQueryPredicateV5,
 } from './DataQueryExpression';
 import type {
   BoundDataQuery,
@@ -38,6 +40,27 @@ import type {
   DataQuerySort,
   DataQuerySortResolved,
 } from './types';
+
+const distinctSortAlias = (
+  value: Extract<DataQueryDefinitionInput, { version: 6; kind: 'records' }>,
+  target: Exclude<DataQuerySortResolved, { alias: string }>
+): string | undefined => {
+  const source = 'source' in target ? target.source : 'root';
+  const matches = value.select.filter((projection) => {
+    if ('expr' in projection || 'statisticFunc' in projection) return false;
+    if (('source' in projection ? (projection.source ?? 'root') : 'root') !== source) return false;
+    return 'fieldId' in target
+      ? 'fieldId' in projection && projection.fieldId === target.fieldId
+      : 'system' in projection && projection.system === target.system;
+  });
+  const projection = matches[0];
+  return matches.length === 1 &&
+    projection &&
+    !('bucket' in projection && projection.bucket) &&
+    !('arrayDistinct' in projection && projection.arrayDistinct)
+    ? projection.alias
+    : undefined;
+};
 
 export const queryError = (
   code: string,
@@ -408,6 +431,73 @@ const v3Schema = z.discriminatedUnion('kind', [
     })
     .strict(),
 ]);
+const v4MetricSchema = z.union([
+  rootAggregateSchema.extend({ filter: predicateV3Schema.optional() }).strict(),
+  relationAggregateSchema.extend({ filter: predicateV3Schema.optional() }).strict(),
+  z
+    .object({
+      source: dataQueryNameSchema.optional(),
+      expr: dataQueryFormulaExpressionSchema,
+      statisticFunc: z.enum(tableRecordAggregationFunctionValues),
+      alias: aliasSchema,
+      filter: predicateV3Schema.optional(),
+    })
+    .strict(),
+]);
+const v4BaseShape = { ...v3BaseShape, version: z.literal(4) };
+const v4Schema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      ...v4BaseShape,
+      kind: z.literal('records'),
+      recordId: z
+        .union([z.string().refine((value) => RecordId.create(value).isOk()), referenceSchema])
+        .optional(),
+      select: z.tuple([v3ProjectionSchema]).rest(v3ProjectionSchema),
+    })
+    .strict(),
+  z
+    .object({
+      ...v4BaseShape,
+      kind: z.literal('aggregate'),
+      aggregates: z.tuple([v4MetricSchema]).rest(v4MetricSchema),
+      groupBy: z.array(v2FieldProjectionSchema).optional(),
+      having: dataQueryHavingExpressionSchema.optional(),
+    })
+    .strict(),
+]);
+const v5BaseShape = {
+  ...v4BaseShape,
+  version: z.literal(5),
+  filter: createDataQueryPredicateV5Schema(predicateV3Schema).optional(),
+};
+const v5Schema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      ...v5BaseShape,
+      kind: z.literal('records'),
+      recordId: z
+        .union([z.string().refine((value) => RecordId.create(value).isOk()), referenceSchema])
+        .optional(),
+      select: z.tuple([v3ProjectionSchema]).rest(v3ProjectionSchema),
+    })
+    .strict(),
+  z
+    .object({
+      ...v5BaseShape,
+      kind: z.literal('aggregate'),
+      aggregates: z.tuple([v4MetricSchema]).rest(v4MetricSchema),
+      groupBy: z.array(v2FieldProjectionSchema).optional(),
+      having: dataQueryHavingExpressionSchema.optional(),
+    })
+    .strict(),
+]);
+const v6Schema = z.discriminatedUnion('kind', [
+  v5Schema.options[0]
+    .extend({ version: z.literal(6), distinct: z.literal(true).optional() })
+    .strict(),
+  v5Schema.options[1].extend({ version: z.literal(6) }).strict(),
+]);
 export const dataQueryDefinitionInputSchema: z.ZodType<
   DataQueryDefinitionInput,
   DataQueryDefinitionInput
@@ -420,7 +510,7 @@ export const dataQueryDefinitionInputSchema: z.ZodType<
     }
     return raw;
   },
-  z.union([v1Schema, v2Schema, v3Schema])
+  z.union([v1Schema, v2Schema, v3Schema, v4Schema, v5Schema, v6Schema])
 );
 
 export const isParameterReference = (value: unknown): value is DataQueryParameterReference =>
@@ -488,7 +578,7 @@ type ParameterReferenceRecorder = (
 ) => void;
 
 const collectFilterReferenceUsages = (
-  node: DataQueryPredicateV3,
+  node: DataQueryPredicateV5,
   record: ParameterReferenceRecorder
 ): void => {
   if ('items' in node) {
@@ -505,6 +595,7 @@ const collectFilterReferenceUsages = (
     });
     return;
   }
+  if ('relation' in node) return;
   if (isParameterReference(node.value)) record(node.value, node.optional === true);
 };
 
@@ -520,12 +611,26 @@ export const dataQueryParameterUsage = (definition: DataQueryDefinitionInput): P
     (isOptional ? optional : required).add(reference.name);
   };
   if (definition.filter) collectFilterReferenceUsages(definition.filter, record);
-  if (definition.version === 3 && definition.kind === 'records')
+  if (definition.version >= 3 && definition.kind === 'records')
     for (const projection of definition.select)
       if ('expr' in projection)
         walkDataQueryFormulaExpression(projection.expr, (node) => {
           if (node.type === 'parameter') record(node, false);
         });
+  if (
+    (definition.version === 4 || definition.version === 5 || definition.version === 6) &&
+    definition.kind === 'aggregate'
+  ) {
+    for (const aggregate of definition.aggregates) {
+      if ('expr' in aggregate)
+        walkDataQueryFormulaExpression(aggregate.expr, (node) => {
+          if (node.type === 'parameter') record(node, false);
+        });
+      if (aggregate.filter) collectFilterReferenceUsages(aggregate.filter, record);
+    }
+    for (const reference of Object.values(definition.having?.references ?? {}))
+      if (reference.type === 'parameter') record(reference, false);
+  }
   // A relation filter is bound and executed like the root filter; an optional leaf
   // there must not force the parameter to be required in the generated client.
   if (definition.version !== 1) {
@@ -719,18 +824,25 @@ export function guardDataQueryPlainInput<T extends z.ZodType>(
   }, schema);
 }
 
+const appendExpressionSyntaxProperties = (
+  roots: unknown[],
+  entries: readonly unknown[],
+  keys: readonly string[]
+): void => {
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    for (const key of keys) roots.push(Object.getOwnPropertyDescriptor(entry, key)?.value);
+  }
+};
+
 const expressionSyntaxRoots = (definition: Record<string, unknown>): unknown[] => {
-  const roots: unknown[] = [definition.filter];
+  const roots: unknown[] = [definition.filter, definition.having];
   if (Array.isArray(definition.select))
-    for (const projection of definition.select) {
-      if (projection && typeof projection === 'object')
-        roots.push(Object.getOwnPropertyDescriptor(projection, 'expr')?.value);
-    }
+    appendExpressionSyntaxProperties(roots, definition.select, ['expr']);
+  if (Array.isArray(definition.aggregates))
+    appendExpressionSyntaxProperties(roots, definition.aggregates, ['expr', 'filter']);
   if (definition.relations && typeof definition.relations === 'object')
-    for (const relation of Object.values(definition.relations)) {
-      if (relation && typeof relation === 'object')
-        roots.push(Object.getOwnPropertyDescriptor(relation, 'filter')?.value);
-    }
+    appendExpressionSyntaxProperties(roots, Object.values(definition.relations), ['filter']);
   return roots;
 };
 const expressionSyntaxChildren = (node: Record<string, unknown>): unknown[] => {
@@ -768,11 +880,12 @@ export const validateDataQueryDefinitionInputBounds = (raw: unknown): Result<voi
       return err(queryError('invalid_definition', 'Query definitions must contain plain data'));
     if (raw !== null && typeof raw === 'object') {
       const version = Object.getOwnPropertyDescriptor(raw, 'version')?.value;
-      if (typeof version === 'number' && ![1, 2, 3].includes(version))
+      if (typeof version === 'number' && ![1, 2, 3, 4, 5, 6].includes(version))
         return err(
           queryError('unsupported_version', 'Structured query definition version is not supported')
         );
-      if (version === 3) return validateExpressionSyntaxBounds(raw);
+      if (version === 3 || version === 4 || version === 5 || version === 6)
+        return validateExpressionSyntaxBounds(raw);
     }
     return ok(undefined);
   } catch {
@@ -871,10 +984,11 @@ const legacyFilterParameterReferences = (
   return ok(references);
 };
 const filterParameterReferences = (
-  filter: DataQueryPredicateV3 | undefined,
+  filter: DataQueryPredicateV5 | undefined,
   parameters: ParameterDefinitions
 ): Result<DataQueryParameterReference[], DomainError> => {
   if (!filter) return ok([]);
+  if ('relation' in filter) return ok([]);
   if ('items' in filter || 'not' in filter) {
     const references: DataQueryParameterReference[] = [];
     for (const child of 'items' in filter ? filter.items : [filter.not]) {
@@ -983,7 +1097,7 @@ const validateAliasSort = (
   // A records sort may order by the one-row-per-root relation aggregate, never by a
   // stored projection alias: only that alias has a documented ordering contract.
   const allowed =
-    value.kind === 'aggregate' || value.version === 3
+    value.kind === 'aggregate' || value.version >= 3
       ? outputAliases.has(sort.alias)
       : relationAggregateAliases.has(sort.alias);
   return allowed
@@ -1108,37 +1222,55 @@ const sortContext = (value: DataQueryDefinitionInput): SortContext => {
   };
 };
 
+const validateDistinctSort = (
+  value: DataQueryDefinitionInput,
+  sort: DataQuerySort
+): Result<void, DomainError> => {
+  if (value.version !== 6 || value.kind !== 'records' || !value.distinct || 'alias' in sort) {
+    return ok(undefined);
+  }
+  const targets = 'field' in sort ? sort.allowed : [sort];
+  return targets.some((target) => !distinctSortAlias(value, { ...target, order: 'asc' }))
+    ? err(
+        queryError(
+          'distinct_sort',
+          'DISTINCT sorting requires one unchanged selected output; use its alias for transformed outputs'
+        )
+      )
+    : ok(undefined);
+};
+
 const validateSorts = (
   value: DataQueryDefinitionInput,
   parameters: ParameterDefinitions
-): Result<DataQueryParameterReference[], DomainError> => {
-  const references: DataQueryParameterReference[] = [];
-  const { groupFieldIds, ambiguousGroupFieldIds, outputAliases, relationAggregateAliases } =
-    sortContext(value);
-  for (const [index, sort] of (value.sort ?? []).entries()) {
-    if ('alias' in sort) {
-      const validated = validateAliasSort(value, sort, outputAliases, relationAggregateAliases);
-      if (validated.isErr()) return err(validated.error);
-      continue;
+): Result<DataQueryParameterReference[], DomainError> =>
+  safeTry(function* () {
+    const references: DataQueryParameterReference[] = [];
+    const { groupFieldIds, ambiguousGroupFieldIds, outputAliases, relationAggregateAliases } =
+      sortContext(value);
+    for (const [index, sort] of (value.sort ?? []).entries()) {
+      yield* validateDistinctSort(value, sort);
+      if ('alias' in sort) {
+        yield* validateAliasSort(value, sort, outputAliases, relationAggregateAliases);
+        continue;
+      }
+      if ('field' in sort) {
+        references.push(
+          ...(yield* validateFieldSort(
+            value,
+            sort,
+            parameters,
+            groupFieldIds,
+            ambiguousGroupFieldIds,
+            index
+          ))
+        );
+        continue;
+      }
+      yield* validateLiteralSort(value, sort, groupFieldIds, ambiguousGroupFieldIds);
     }
-    if ('field' in sort) {
-      const validated = validateFieldSort(
-        value,
-        sort,
-        parameters,
-        groupFieldIds,
-        ambiguousGroupFieldIds,
-        index
-      );
-      if (validated.isErr()) return err(validated.error);
-      references.push(...validated.value);
-      continue;
-    }
-    const validated = validateLiteralSort(value, sort, groupFieldIds, ambiguousGroupFieldIds);
-    if (validated.isErr()) return err(validated.error);
-  }
-  return ok(references);
-};
+    return ok(references);
+  });
 
 /** Upper bound on independent to-many branches a single query may compile. */
 const MAX_RELATION_AGGREGATES = 8;
@@ -1186,7 +1318,7 @@ const validateRelationAggregateEntry = (
     }
     return ok(undefined);
   }
-  if (aggregate.fieldId === undefined) {
+  if (aggregate.fieldId === undefined && !('expr' in aggregate)) {
     return err(
       queryError(
         'relation_aggregate_field',
@@ -1255,6 +1387,21 @@ const validateRelations = (value: DataQueryDefinitionInput): Result<void, Domain
     declared.add(alias);
   }
   const sources = new Set(['root', ...aliases]);
+  const validateExistence = (predicate: DataQueryPredicateV5): Result<void, DomainError> => {
+    if ('items' in predicate) {
+      for (const child of predicate.items) {
+        const result = validateExistence(child);
+        if (result.isErr()) return result;
+      }
+    } else if ('not' in predicate) return validateExistence(predicate.not);
+    else if ('relation' in predicate && !Object.hasOwn(relations, predicate.relation))
+      return err(queryError('join_source_unknown', 'Existence requires a declared relation'));
+    return ok(undefined);
+  };
+  if ((value.version === 5 || value.version === 6) && value.filter) {
+    const result = validateExistence(value.filter);
+    if (result.isErr()) return result;
+  }
   const relationAggregates: Array<{
     aggregate: DataQueryRelationAggregate;
     location: string;
@@ -1313,9 +1460,14 @@ const validateRelations = (value: DataQueryDefinitionInput): Result<void, Domain
       }
     }
     for (const [index, aggregate] of value.aggregates.entries()) {
-      if (!('source' in aggregate)) continue;
+      if (
+        !('source' in aggregate) ||
+        aggregate.source === undefined ||
+        (value.version >= 4 && 'expr' in aggregate && aggregate.source === 'root')
+      )
+        continue;
       relationAggregates.push({
-        aggregate,
+        aggregate: aggregate as DataQueryRelationAggregate,
         location: `aggregates.${index}`,
         allowUnique: false,
       });
@@ -1353,8 +1505,9 @@ const projectionParameterReferences = (
   value: DataQueryDefinitionInput
 ): DataQueryParameterReference[] => {
   const references: DataQueryParameterReference[] = [];
-  if (value.version !== 3 || value.kind !== 'records') return references;
-  for (const projection of value.select) {
+  if (value.version < 3) return references;
+  const expressions = value.kind === 'records' ? value.select : value.aggregates;
+  for (const projection of expressions) {
     if (!('expr' in projection)) continue;
     walkDataQueryFormulaExpression(projection.expr, (node) => {
       if (node.type === 'parameter') references.push(node);
@@ -1362,6 +1515,29 @@ const projectionParameterReferences = (
   }
   return references;
 };
+const aggregateParameterReferences = (
+  value: DataQueryDefinitionInput,
+  parameters: ParameterDefinitions,
+  outputs: readonly { readonly alias: string }[]
+): Result<DataQueryParameterReference[], DomainError> =>
+  safeTry(function* () {
+    if (
+      (value.version !== 4 && value.version !== 5 && value.version !== 6) ||
+      value.kind !== 'aggregate'
+    )
+      return ok([]);
+    const references: DataQueryParameterReference[] = [];
+    for (const aggregate of value.aggregates)
+      references.push(...(yield* filterParameterReferences(aggregate.filter, parameters)));
+    const aliases = new Set(outputs.map((output) => output.alias));
+    for (const reference of Object.values(value.having?.references ?? {})) {
+      if (reference.type === 'parameter') references.push(reference);
+      else if (!aliases.has(reference.alias))
+        return err(queryError('having_output_unknown', 'HAVING references an unselected output'));
+    }
+    return ok(references);
+  });
+
 const validateDefinition = (value: DataQueryDefinitionInput): Result<void, DomainError> =>
   safeTry(function* () {
     const relations = validateRelations(value);
@@ -1392,6 +1568,7 @@ const validateDefinition = (value: DataQueryDefinitionInput): Result<void, Domai
       ...(value.kind === 'records' && isParameterReference(value.recordId) ? [value.recordId] : []),
     ];
     references.push(...projectionParameterReferences(value));
+    references.push(...(yield* aggregateParameterReferences(value, parameters, outputs)));
     if (references.some((reference) => !Object.hasOwn(parameters, reference.name))) {
       return err(queryError('unknown_parameter', 'Query references an undeclared parameter'));
     }
@@ -1551,6 +1728,26 @@ const bindSort = (
   return ok(resolved);
 };
 
+const bindDistinctSorts = (
+  value: DataQueryDefinitionInput,
+  sort: DataQuerySortResolved[]
+): Result<DataQuerySortResolved[], DomainError> => {
+  if (value.version !== 6 || value.kind !== 'records' || !value.distinct) return ok(sort);
+  for (let index = 0; index < sort.length; index++) {
+    const item = sort[index]!;
+    if ('alias' in item) continue;
+    const alias = distinctSortAlias(value, item);
+    if (!alias)
+      return err(queryError('distinct_sort', 'A DISTINCT sort must name a selected output'));
+    sort[index] = {
+      alias,
+      order: item.order,
+      ...(item.nulls ? { nulls: item.nulls } : {}),
+    };
+  }
+  return ok(sort);
+};
+
 const bindRelationFilters = (
   value: DataQueryDefinitionInput,
   values: ParameterValues
@@ -1621,6 +1818,7 @@ const definitionPathKeys: Readonly<Record<string, true>> = {
   expr: true,
   formula: true,
   references: true,
+  having: true,
   distinct: true,
 };
 const definitionDictionaryKeys: Readonly<Record<string, true>> = {
@@ -1654,7 +1852,7 @@ const definitionIssuePath = (
   if (
     raw === null ||
     typeof raw !== 'object' ||
-    Object.getOwnPropertyDescriptor(raw, 'version')?.value !== 3
+    ![3, 4].includes(Object.getOwnPropertyDescriptor(raw, 'version')?.value)
   )
     return undefined;
   let best: string[] = [];
@@ -1747,10 +1945,13 @@ export class DataQueryDefinition {
           const { limit, offset } = yield* bindPage(this.value.page, values);
           // Undefined is absence (optional leaves/items are skipped); null stays an explicit value.
           const filter = yield* resolveDataQueryFilter(
-            this.value.version === 3 ? undefined : this.value.filter,
+            this.value.version === 1 || this.value.version === 2 ? this.value.filter : undefined,
             values
           );
-          const sort = yield* bindSort(this.value.sort, values);
+          const sort = yield* bindDistinctSorts(
+            this.value,
+            yield* bindSort(this.value.sort, values)
+          );
           const relationFilters = yield* bindRelationFilters(this.value, values);
           const rawRecordId = this.value.kind === 'records' ? this.value.recordId : undefined;
           if (isParameterReference(rawRecordId) && !values.has(rawRecordId.name)) {
@@ -1776,7 +1977,7 @@ export class DataQueryDefinition {
               sort,
               this.value.page?.includeTotal === true,
               recordId,
-              this.value.version === 3 ? Object.fromEntries(values) : undefined
+              this.value.version >= 3 ? Object.fromEntries(values) : undefined
             )
           );
         }.bind(this)

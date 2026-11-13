@@ -11,6 +11,7 @@ import {
   Relationship,
   SortFunc,
 } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { ICreateTableRo, IGetRecordsRo, IRecordsVo, ITableFullVo } from '@teable/openapi';
 import {
   GET_RECORDS_URL,
@@ -19,6 +20,8 @@ import {
   uploadAttachment,
   urlBuilder,
 } from '@teable/openapi';
+import type { Knex } from 'knex';
+import * as fieldFactory from '../../src/features/field/model/factory';
 import {
   createField,
   createRecords,
@@ -32,6 +35,8 @@ import {
 // semantics are covered separately by their query and authority matrices.
 describe('Record read V1/V2 presentation contract (e2e)', () => {
   let app: INestApplication;
+  let dataPrisma: DataPrismaService;
+  let knex: Knex;
   let previousForceV2All: string | undefined;
   let previousEnableCanaryFeature: string | undefined;
   let attachmentFixturePath: string;
@@ -77,6 +82,8 @@ describe('Record read V1/V2 presentation contract (e2e)', () => {
 
     const appCtx = await initApp();
     app = appCtx.app;
+    dataPrisma = app.get(DataPrismaService);
+    knex = app.get<Knex>('CUSTOM_KNEX');
     attachmentFixturePath = path.join(os.tmpdir(), `teable-record-presentation-${Date.now()}.txt`);
     fs.writeFileSync(attachmentFixturePath, 'presentation contract attachment');
   });
@@ -359,6 +366,200 @@ describe('Record read V1/V2 presentation contract (e2e)', () => {
       await permanentDeleteTable(baseId, table.id);
     }
   });
+
+  it.each([FieldKeyType.Id, FieldKeyType.Name])(
+    'preserves native display and primary titles with retired field factories (%s keys)',
+    async (fieldKeyType) => {
+      const table = await createTable(baseId, {
+        name: 'Native display retirement',
+        fields: [
+          {
+            id: primaryFieldId,
+            name: 'Amount',
+            type: FieldType.Number,
+            isPrimary: true,
+            options: {
+              formatting: { type: NumberFormattingType.Currency, precision: 2, symbol: '$' },
+            },
+          },
+          {
+            name: 'When',
+            type: FieldType.Date,
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'Asia/Tokyo' },
+            },
+          },
+          {
+            name: 'Double',
+            type: FieldType.Formula,
+            options: {
+              expression: `{${primaryFieldId}} * 2`,
+              formatting: { type: NumberFormattingType.Decimal, precision: 1 },
+            },
+          },
+        ],
+        records: [{ fields: { Amount: 1234.5, When: '2026-02-01T23:45:00.000Z' } }, { fields: {} }],
+      });
+      const key = (name: string) =>
+        fieldKeyType === FieldKeyType.Name
+          ? name
+          : table.fields.find((field) => field.name === name)!.id;
+      const retiredFactory = vi
+        .spyOn(fieldFactory, 'createFieldInstanceByVo')
+        .mockImplementation(() => {
+          throw new Error('Legacy field factory is retired for native record reads');
+        });
+      try {
+        const text = await getRecordsFromVersion(table.id, true, {
+          fieldKeyType,
+          cellFormat: CellFormat.Text,
+        });
+        expect(text.records[0]).toMatchObject({
+          name: '$1,234.50',
+          fields: {
+            [key('Amount')]: '$1,234.50',
+            [key('When')]: '2026-02-02 08:45',
+            [key('Double')]: '2469.0',
+          },
+        });
+        expect(text.records[1]?.fields).not.toHaveProperty(key('Amount'));
+        expect(text.records[1]?.fields).not.toHaveProperty(key('When'));
+        const single = await axios.get(`/table/${table.id}/record/${text.records[0]!.id}`, {
+          params: { fieldKeyType, cellFormat: CellFormat.Text },
+          headers: { [X_CANARY_HEADER]: 'true' },
+        });
+        expect(single.headers['x-teable-v2']).toBe('true');
+        expect(single.data.name).toBe('$1,234.50');
+        expect(single.data.fields).toEqual(text.records[0]?.fields);
+        const json = await getRecordsFromVersion(table.id, true, {
+          fieldKeyType,
+          cellFormat: CellFormat.Json,
+        });
+        expect(json.records[0]?.name).toBe('$1,234.50');
+        expect(json.records[0]?.fields[key('Amount')]).toBe(1234.5);
+      } finally {
+        retiredFactory.mockRestore();
+        await permanentDeleteTable(baseId, table.id);
+      }
+    }
+  );
+
+  it.each([FieldKeyType.Id, FieldKeyType.Name])(
+    'preserves historical scalar, malformed, empty and multiple values over HTTP (%s keys)',
+    async (fieldKeyType) => {
+      const formatting = { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'Asia/Tokyo' } as const;
+      const instant = '2026-02-01T23:45:00.000Z';
+      const fixtures = [
+        {
+          title: 'Historical scalar',
+          label: { title: 'Historical text' },
+          created: instant,
+          expectedLabel: { title: 'Historical text' },
+          expectedCreated: instant,
+        },
+        {
+          title: 'Historical array',
+          label: ['Alpha', null, ''],
+          created: [instant, null, 'not-a-date'],
+          expectedLabel: 'Alpha, , ',
+          expectedCreated: `${instant}, not-a-date`,
+        },
+        { title: 'Empty array', label: [], created: [], expectedLabel: '', expectedCreated: '' },
+        { title: 'Empty scalar', label: '', created: '', expectedLabel: '', expectedCreated: '' },
+        { title: 'Missing cells', label: null, created: null },
+        {
+          title: 'Multiple timestamps',
+          label: ['Alpha', 'Beta'],
+          created: [instant, null, '2026-02-02T23:45:00.000Z'],
+          expectedLabel: 'Alpha, Beta',
+          expectedCreated: '2026-02-02 08:45, , 2026-02-03 08:45',
+        },
+      ];
+      const foreign = await createTable(baseId, {
+        name: 'Historical value source',
+        fields: [
+          { name: 'Label', type: FieldType.SingleLineText },
+          { name: 'Created', type: FieldType.CreatedTime, options: { formatting } },
+        ],
+        records: [],
+      });
+      let table: ITableFullVo | undefined;
+      try {
+        table = await createTable(baseId, {
+          name: 'Historical display values',
+          fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+          records: fixtures.map(({ title }) => ({ fields: { Title: title } })),
+        });
+        const link = await createField(table.id, {
+          name: 'Sources',
+          type: FieldType.Link,
+          options: { relationship: Relationship.ManyMany, foreignTableId: foreign.id },
+        });
+        const label = await createField(table.id, {
+          name: 'Labels',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            linkFieldId: link.id,
+            foreignTableId: foreign.id,
+            lookupFieldId: foreign.fields[0]!.id,
+          },
+        });
+        const created = await createField(table.id, {
+          name: 'Created values',
+          type: FieldType.CreatedTime,
+          options: { formatting },
+          isLookup: true,
+          lookupOptions: {
+            linkFieldId: link.id,
+            foreignTableId: foreign.id,
+            lookupFieldId: foreign.fields[1]!.id,
+          },
+        });
+        // Historical JSON storage can contain shapes that normal writes no longer accept.
+        // Seed only this fixture's cells; assertions below cross the real HTTP interface.
+        for (const [index, fixture] of fixtures.entries()) {
+          await dataPrisma.$executeRawUnsafe(
+            knex(table.dbTableName)
+              .update({
+                [label.dbFieldName]: fixture.label === null ? null : JSON.stringify(fixture.label),
+                [created.dbFieldName]:
+                  fixture.created === null ? null : JSON.stringify(fixture.created),
+              })
+              .where('__id', table.records[index]!.id)
+              .toQuery()
+          );
+        }
+        const text = await getRecordsFromVersion(table.id, true, {
+          fieldKeyType,
+          cellFormat: CellFormat.Text,
+        });
+        const labelKey = fieldKeyType === FieldKeyType.Name ? label.name : label.id;
+        const createdKey = fieldKeyType === FieldKeyType.Name ? created.name : created.id;
+        for (const [index, fixture] of fixtures.entries()) {
+          const record = text.records.find(({ id }) => id === table!.records[index]!.id)!;
+          expect(record.name).toBe(fixture.title);
+          if (fixture.label === null) {
+            expect(record.fields).not.toHaveProperty(labelKey);
+            expect(record.fields).not.toHaveProperty(createdKey);
+          } else {
+            expect(record.fields[labelKey]).toEqual(fixture.expectedLabel);
+            expect(record.fields[createdKey]).toBe(fixture.expectedCreated);
+          }
+          const single = await axios.get(`/table/${table.id}/record/${record.id}`, {
+            params: { fieldKeyType, cellFormat: CellFormat.Text },
+            headers: { [X_CANARY_HEADER]: 'true' },
+          });
+          expect(single.headers['x-teable-v2']).toBe('true');
+          expect(single.data.name).toBe(fixture.title);
+          expect(single.data.fields).toEqual(record.fields);
+        }
+      } finally {
+        if (table) await permanentDeleteTable(baseId, table.id);
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    }
+  );
 
   it('matches checkbox, selection, and user group-header shapes', async () => {
     const table = await createPresentationTable();

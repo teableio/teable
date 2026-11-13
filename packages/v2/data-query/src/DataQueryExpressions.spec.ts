@@ -297,7 +297,7 @@ describe('version 3 canonical expressions', () => {
     expect(literal.code).toBe('data_query.invalid_definition');
     expect(literal.details?.path).toEqual(expect.stringContaining('filter.value'));
     expect(
-      DataQueryDefinition.create({ ...records(formula('1')), version: 4 })._unsafeUnwrapErr().code
+      DataQueryDefinition.create({ ...records(formula('1')), version: 999 })._unsafeUnwrapErr().code
     ).toBe('data_query.unsupported_version');
   });
 

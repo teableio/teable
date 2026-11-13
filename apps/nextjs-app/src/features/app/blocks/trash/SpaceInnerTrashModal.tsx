@@ -27,12 +27,15 @@ import { useEnv } from '../../hooks/useEnv';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
 
 interface ISpaceInnerTrashModalProps {
-  children: React.ReactNode;
+  /** The trigger; leave it out when `open` is controlled from elsewhere. */
+  children?: React.ReactNode;
   spaceId: string;
+  open?: boolean;
+  setOpen?: (open: boolean) => void;
 }
 
 export const SpaceInnerTrashModal = (props: ISpaceInnerTrashModalProps) => {
-  const { children, spaceId } = props;
+  const { children, spaceId, open: controlledOpen, setOpen: controlledSetOpen } = props;
   const isHydrated = useIsHydrated();
   const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
@@ -40,7 +43,13 @@ export const SpaceInnerTrashModal = (props: ISpaceInnerTrashModalProps) => {
   const { trash } = useEnv();
   const retentionDays = trash?.retentionDays ?? 0;
   const isCommunity = useIsCommunity();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (value: boolean) => {
+    controlledSetOpen?.(value);
+    if (!isControlled) setInternalOpen(value);
+  };
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
@@ -200,7 +209,7 @@ export const SpaceInnerTrashModal = (props: ISpaceInnerTrashModalProps) => {
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>{children}</DialogTrigger>
+        {children && <DialogTrigger asChild>{children}</DialogTrigger>}
         <DialogContent className="flex h-[85%] max-h-[85%] max-w-[80%] flex-col gap-0 p-0 transition-[max-width] duration-300">
           <DialogHeader className="flex w-full border-b p-4">
             <DialogTitle>{t('noun.trash')}</DialogTitle>

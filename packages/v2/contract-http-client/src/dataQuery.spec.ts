@@ -15,6 +15,63 @@ const request: ExecuteDataQueryRequest = {
 };
 
 describe('opt-in data query HTTP client', () => {
+  it('transports the canonical V6 records DISTINCT request without rewriting the tuple or later-page total', async () => {
+    const input: ExecuteDataQueryRequest = {
+      definition: {
+        version: 6,
+        kind: 'records',
+        tableId: request.definition.tableId,
+        distinct: true,
+        select: [{ fieldId: `fld${'b'.repeat(16)}`, alias: 'title' }],
+        sort: [{ alias: 'title', order: 'asc' }],
+        page: { limit: 1, offset: 99, includeTotal: true },
+      },
+    };
+    const body = { ok: true, data: { rows: [], page: { limit: 1, offset: 99, total: 2 } } };
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(body));
+    const client = createDataQueryHttpClient({ baseUrl: 'https://host/api/v2', fetch: fetcher });
+    expect(await client.execute(input)).toEqual(body);
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toEqual(input);
+  });
+  it('transports native v4 metric and HAVING definitions without rewriting public values', async () => {
+    const definition: ExecuteDataQueryRequest['definition'] = {
+      version: 4,
+      kind: 'aggregate',
+      tableId: request.definition.tableId,
+      parameters: { minimum: { type: 'number' } },
+      aggregates: [
+        {
+          alias: 'total',
+          statisticFunc: 'sum',
+          expr: {
+            type: 'formula',
+            formula: '{amount} * 2',
+            references: { amount: { type: 'field', fieldId: `fld${'b'.repeat(16)}` } },
+          },
+          filter: { fieldId: `fld${'b'.repeat(16)}`, operator: 'isGreater', value: 0 },
+        },
+      ],
+      having: {
+        type: 'formula',
+        formula: '{total} >= {minimum}',
+        references: {
+          total: { type: 'output', alias: 'total' },
+          minimum: { type: 'parameter', name: 'minimum' },
+        },
+      },
+      page: { limit: 1, includeTotal: true },
+    };
+    const result = {
+      ok: true,
+      data: { rows: [{ total: '9007199254740993' }], page: { limit: 1, offset: 0, total: 1 } },
+    };
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(result));
+    const client = createDataQueryHttpClient({ baseUrl: 'https://host/api/v2', fetch: fetcher });
+    const input = { definition, parameters: { minimum: 30 } };
+    expect(await client.execute(input)).toEqual(result);
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toEqual(input);
+  });
+
   it('validates definitions through the same authenticated fetch transport without parameters', async () => {
     const body = {
       ok: true,

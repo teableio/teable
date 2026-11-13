@@ -234,7 +234,7 @@ export const authorizeDataQueryDependencies = async (
   return assertDataQueryAccess(plan, resolvedScope).map(() => resolvedScope);
 };
 
-/** Version 3 authorizes every declared formula reference before live binding diagnostics. */
+/** Expression versions authorize every declared reference before live binding diagnostics. */
 export const authorizeDataQueryExpressionDependencies = async (
   context: IExecutionContext,
   queryPlugins: RecordQueryPluginRunner,
@@ -245,7 +245,7 @@ export const authorizeDataQueryExpressionDependencies = async (
 ): Promise<Result<ReadonlyMap<string, RecordQueryPluginScope> | undefined, DomainError>> =>
   safeTry(async function* () {
     const snapshot = definition.snapshot();
-    if (snapshot.version !== 3) return ok(undefined);
+    if (snapshot.version < 3) return ok(undefined);
     const usages = collectDataQuerySourceFieldUsages(snapshot);
     const scopes = new Map<string, RecordQueryPluginScope>();
     for (const [source, table] of new Map([['root', root], ...targets])) {
@@ -420,7 +420,7 @@ export class DataQueryService {
       return await safeTry(
         async function* (this: DataQueryService) {
           const earlyQuery =
-            definition.snapshot().version === 3
+            definition.snapshot().version >= 3
               ? yield* definition.bind(input.parameters ?? {})
               : undefined;
           const { table, binding, attributes, scopes } = yield* await this.prepare(
@@ -564,7 +564,7 @@ export class DataQueryService {
       return await safeTry(
         async function* (this: DataQueryService) {
           const earlyQuery =
-            definition.snapshot().version === 3
+            definition.snapshot().version >= 3
               ? yield* definition.bind(input.parameters ?? {})
               : undefined;
           const { rootTable, targetTables, attributes } = yield* await loadDataQueryRelation(

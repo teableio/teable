@@ -197,7 +197,7 @@
       "isAnyOf": "è uno di",
       "isNoneOf": "non è nessuno di",
       "hasAnyOf": "ha uno di",
-      "hasAllOf": "ha tutti di",
+      "hasAllOf": "ha tutti",
       "hasNoneOf": "non ha nessuno di",
       "isExactly": "è esattamente",
       "isWithIn": "è entro",
@@ -211,7 +211,7 @@
         "isAnyOf": "è uno di",
         "isNoneOf": "non è nessuno di",
         "hasAnyOf": "ha uno di",
-        "hasAllOf": "ha tutti di",
+        "hasAllOf": "ha tutti",
         "isExactly": "è esattamente",
         "isNotExactly": "non è",
         "hasNoneOf": "non ha nessuno di"
@@ -528,15 +528,15 @@
       "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "Restituisce il multiplo intero più vicino di significato che è maggiore o uguale al valore. Se non viene fornito alcun significato, si assume un significato di 1.",
+      "summary": "Arrotonda il valore per eccesso al numero di decimali indicato (predefinito 0). Valori negativi arrotondano per eccesso a decine, centinaia, ecc.",
       "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "Restituisce il multiplo intero più vicino di significato che è minore o uguale al valore. Se non viene fornito alcun significato, si assume un significato di 1.",
+      "summary": "Arrotonda il valore per difetto al numero di decimali indicato (predefinito 0). Valori negativi arrotondano per difetto a decine, centinaia, ecc.",
       "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "Restituisce il più piccolo numero intero pari che è maggiore o uguale al valore specificato.",
+      "summary": "Arrotonda i valori positivi per eccesso e quelli negativi per difetto al numero intero pari più vicino.",
       "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
@@ -557,7 +557,7 @@
     },
     "POWER": {
       "summary": "Calcola la base specificata alla potenza specificata.",
-      "example": "POWER(2) => 4"
+      "example": "POWER(2, 2) => 4"
     },
     "EXP": {
       "summary": "Calcola il numero di Eulero (e) alla potenza specificata.",
@@ -629,7 +629,7 @@
     },
     "REPT": {
       "summary": "Ripete la stringa per il numero di volte specificato.",
-      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+      "example": "REPT(\"Hello!\", 3) => \"Hello!Hello!Hello!\""
     },
     "TRIM": {
       "summary": "Rimuove gli spazi bianchi all'inizio e alla fine della stringa.",
@@ -677,7 +677,7 @@
     },
     "ERROR": {
       "summary": "Restituisce il valore di errore.",
-      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "Restituisce vero se l'espressione causa un errore.",
@@ -733,7 +733,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "Restituisce la differenza tra le date in unità specificate. L'unità predefinita è \"day\".\nUnità supportate: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nLa differenza tra le date è determinata sottraendo [date2] da [date1]. Ciò significa che se [date2] è successiva a [date1], il valore risultante sarà negativo.",
-      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "Restituisce il giorno lavorativo alla data di inizio, escludendo le festività specificate",
@@ -765,7 +765,7 @@
     },
     "TIMESTR": {
       "summary": "Formatta una data in una stringa solo ora (HH:mm:ss).",
-      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+      "example": "TIMESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
       "summary": "Formatta una data in una stringa specificata. Per una spiegazione su come utilizzare questa funzione con i campi data, fare clic qui. Per un elenco dei specificatori di formato supportati, fare clic qui.",
@@ -919,7 +919,7 @@
     "tip": {
       "editing": "Modifica...",
       "edited": "(Editato)",
-      "notifyAll": "Notifica tutti i commenti",
+      "notifyAll": "Avvisami di tutti i commenti",
       "notifyRelatedToMe": "Notifica i commenti relativi a me",
       "all": "Tutti",
       "relatedToMe": "Relativo a me",
@@ -1675,7 +1675,10 @@
       "categoryDepthExceeded": "Un sottosettore non può avere sottosettori propri",
       "teamIsFlat": "Un team non ha né una categoria superiore né sottocategorie",
       "categoryKeyTaken": "Questa chiave URL è già usata da un'altra categoria",
-      "slugTaken": "Questo slug URL è già usato da un altro modello"
+      "slugTaken": "Questo slug URL è già usato da un altro modello",
+      "guideStepLeftOut": "Il passaggio della guida «{{title}}» apre qualcosa che questo invio non include.",
+      "guideStepStartsTicked": "Il passaggio della guida «{{title}}» è già completato sui record di esempio, quindi partirebbe già spuntato.",
+      "guideNothingToConnect": "Il passaggio della guida «{{title}}» attende il collegamento di account, ma questo progetto non ne richiede: partirebbe già spuntato."
     },
     "department": {
       "parentNotFound": "Dipartimento padre non trovato",
@@ -1835,5 +1838,8 @@
     "seats": {
       "unit": "posti"
     }
+  },
+  "template": {
+    "trialName": "{{name}} (prova)"
   }
 }

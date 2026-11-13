@@ -1,7 +1,8 @@
-import type { DomainError, Field } from '@teable/v2-core';
+import { domainError, type DomainError, type Field } from '@teable/v2-core';
 import type {
   BoundDataQueryPredicate,
   BoundDataQueryFormulaExpression,
+  BoundDataQueryHavingExpression,
   BoundDataQueryReferenceExpression,
   DataQueryFilter,
   DataQuerySystemField,
@@ -15,7 +16,7 @@ import {
   type IPgTypeValidationStrategy,
 } from '@teable/v2-formula-sql-pg';
 import { sql, type RawBuilder } from 'kysely';
-import { ok, safeTry, type Result } from 'neverthrow';
+import { err, ok, safeTry, type Result } from 'neverthrow';
 
 const formulaInputAlias = '__dq_formula_inputs';
 
@@ -43,6 +44,7 @@ export interface DataQueryExpressionSqlContext {
     source: string,
     filter: DataQueryFilter
   ): Result<RawBuilder<unknown> | undefined, DomainError>;
+  compileExistence?(relation: string): Result<RawBuilder<unknown>, DomainError>;
 }
 
 export const compileDataQueryFormulaExpression = (
@@ -101,6 +103,55 @@ export const compileDataQueryFormulaExpression = (
     );
   });
 
+/** Output-stage formulas have typed aliases, never a record or raw-field context. */
+export const compileDataQueryHavingExpression = (
+  expression: BoundDataQueryHavingExpression,
+  context: Pick<
+    DataQueryExpressionSqlContext,
+    'resolveParameter' | 'typeValidationStrategy' | 'formulaCompileBudget'
+  >,
+  outputAlias: string
+): Result<RawBuilder<unknown>, DomainError> =>
+  safeTry(function* () {
+    const columns: RawBuilder<unknown>[] = [];
+    const references = new Map<string, FormulaSqlPgReference>();
+    let index = 0;
+    for (const [alias, reference] of Object.entries(expression.references)) {
+      const column = `arg_${index++}`;
+      let value: RawBuilder<unknown>;
+      if (reference.kind === 'output') {
+        value = sql`${sql.id(outputAlias, reference.alias)}`;
+      } else {
+        const parameter = yield* context.resolveParameter(reference.name);
+        value = Array.isArray(parameter)
+          ? sql`${JSON.stringify(parameter)}::jsonb`
+          : sql`${parameter}`;
+      }
+      columns.push(sql`${value} as ${sql.id(column)}`);
+      references.set(alias, {
+        valueSql: `"${formulaInputAlias}"."${column}"`,
+        valueType: reference.valueType,
+        multiplicity: reference.multiplicity,
+      });
+    }
+    if (!columns.length) columns.push(sql`1 as ${sql.id('__unit')}`);
+    const translator = new FormulaSqlPgTranslator({
+      tableAlias: outputAlias,
+      references,
+      typeValidationStrategy: context.typeValidationStrategy,
+      compileBudget: { ...context.formulaCompileBudget, mode: 'enforce' },
+      maxReptBytes: 1024 * 1024,
+      ...(expression.timeZone !== undefined ? { timeZone: expression.timeZone } : {}),
+    });
+    const translated = yield* translator.translateExpression(expression.formula);
+    const rendered = yield* translator.renderExpression(translated, (value, budget) =>
+      guardValueSql(value.valueSql, value.errorConditionSql, budget)
+    );
+    return ok(sql`coalesce((select ${sql.raw(rendered)} from (
+      select ${sql.join(columns)} offset 0
+    ) as ${sql.id(formulaInputAlias)}), false)`);
+  });
+
 const resolveFormulaReference = (
   reference: Exclude<BoundDataQueryReferenceExpression, { kind: 'field' }>,
   context: DataQueryExpressionSqlContext
@@ -118,6 +169,17 @@ export const compileDataQueryPredicate = (
 ): Result<RawBuilder<unknown> | undefined, DomainError> =>
   safeTry(function* () {
     switch (predicate.kind) {
+      case 'exists': {
+        if (!context.compileExistence)
+          return err(
+            domainError.validation({
+              code: 'data_query.expression_compile',
+              message: 'Existence requires a root relation context',
+            })
+          );
+        const positive = yield* context.compileExistence(predicate.relation);
+        return ok(predicate.quantifier === 'none' ? sql`(not (${positive}))` : positive);
+      }
       case 'legacy':
         return context.compileLegacyFilter(predicate.source, predicate.filter);
       case 'formula':

@@ -39,7 +39,10 @@ describe('PostgresTableQueryRemediationExecutor', () => {
         rebuild: true,
       },
       now: new Date('2026-07-20T00:00:00.000Z'),
-    })._unsafeUnwrap();
+    })
+      ._unsafeUnwrap()
+      .start('worker', new Date('2026-07-20T00:00:00.000Z'))
+      ._unsafeUnwrap();
     const executor = new PostgresTableQueryRemediationExecutor({} as never, {} as never);
 
     const result = await executor.execute(context, {
@@ -50,6 +53,11 @@ describe('PostgresTableQueryRemediationExecutor', () => {
     expect(result._unsafeUnwrap()).toEqual({ action: 'rebuilt' });
     expect(mocks.executeSearchVector).toHaveBeenCalledWith({
       tableId: 'tblExample',
+      execution: {
+        taskId: task.snapshot().id,
+        workerId: 'worker',
+        lockedAt: task.snapshot().lockedAt,
+      },
       payload: task.snapshot().payload,
     });
   });

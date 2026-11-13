@@ -300,7 +300,7 @@
       "showNumber": "Sayıyı Göster",
       "autoFillDate": "Mevcut tarihle otomatik doldur",
       "createSymmetricLink": "Bağlantı tablosunda geri bağlantı alanı oluştur",
-      "allowLinkMultipleRecords": "Çoklu seçime izin ver",
+      "allowLinkMultipleRecords": "Birden fazla kayda bağlantıya izin ver",
       "allowLinkToDuplicateRecords": "Kayıtların birden fazla kez seçilmesine izin ver",
       "allowSymmetricFieldLinkMultipleRecords": "Kayıtların birden fazla kez seçilmesine izin ver",
       "oneToOne": "bire-bir",
@@ -413,7 +413,7 @@
         "classification": "Akıllı Sınıflandırma",
         "customization": "Özelleştir",
         "imageGeneration": "Görüntü Oluşturma",
-        "rating": "Görüntü Değerlendirme"
+        "rating": "Değerlendirme"
       },
       "label": {
         "type": "AI Eylem Türü",
@@ -990,7 +990,7 @@
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
       "googleSheet": "Google Sheets",
-      "csvFile": "Csv dosyası",
+      "csvFile": "CSV dosyası",
       "importCsvData": "CSV verilerini içe aktar",
       "importExcelData": "Microsoft Excel verilerini içe aktar",
       "cancel": "İptal",

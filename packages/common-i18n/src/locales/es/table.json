@@ -164,7 +164,7 @@
         "title": "Etiquetas"
       },
       "attachment": {
-        "title": "Accesorios"
+        "title": "Archivos adjuntos"
       },
       "user": {
         "title": "Colaborador"
@@ -172,7 +172,7 @@
       "date": {
         "title": "Fecha",
         "dateFormatting": "Formato de fecha",
-        "timeFormatting": "Formato de tiempo",
+        "timeFormatting": "Formato de hora",
         "timeZone": "Huso horario",
         "yearMonth": "Año/mes",
         "monthDay": "Mes/día",
@@ -181,22 +181,22 @@
         "day": "Día",
         "local": "Local",
         "friendly": "Amigable",
-        "us": "A NOSOTROS",
-        "european": "europeo",
+        "us": "EE. UU.",
+        "european": "Europeo",
         "asia": "Asia",
-        "custom": "Costumbre",
+        "custom": "Personalizado",
         "12Hour": "12 horas",
         "24Hour": "24 horas",
-        "noDisplay": "Sin pantalla"
+        "noDisplay": "No mostrar"
       },
       "autoNumber": {
-        "title": "IDENTIFICACIÓN"
+        "title": "ID"
       },
       "createdTime": {
-        "title": "Tiempo creado"
+        "title": "Hora de creación"
       },
       "lastModifiedTime": {
-        "title": "Último tiempo modificado"
+        "title": "Hora de la última modificación"
       },
       "createdBy": {
         "title": "Creado por"
@@ -205,7 +205,7 @@
         "title": "Última modificación por"
       },
       "rating": {
-        "title": "Clasificación"
+        "title": "Valoración"
       },
       "checkbox": {
         "title": "Hecho"
@@ -235,8 +235,8 @@
       },
       "rollup": {
         "title": "Resumen de {{lookupFieldName}} (de {{linkFieldName}})",
-        "rollup": "Acurrucado",
-        "selectAnRollupFunction": "Seleccione una función enrollable",
+        "rollup": "Resumen",
+        "selectAnRollupFunction": "Seleccione una función de resumen",
         "func": {
           "and": "Y",
           "arrayCompact": "Arraycompact",
@@ -305,7 +305,7 @@
       "showNumber": "Numero",
       "autoFillDate": "Llena automática con la fecha actual",
       "createSymmetricLink": "Crear un campo de enlace posterior en la tabla de enlaces",
-      "allowLinkMultipleRecords": "Permitir múltiples select",
+      "allowLinkMultipleRecords": "Permitir vincular varios registros",
       "allowLinkToDuplicateRecords": "Permite que los registros se seleccionen más de una vez",
       "allowSymmetricFieldLinkMultipleRecords": "Permite que los registros se seleccionen más de una vez",
       "oneToOne": "cara a cara",
@@ -416,18 +416,18 @@
         "extraction": "Extraer información",
         "improvement": "Mejorar",
         "tag": "Etiqueta inteligente",
-        "classification": "Clasificar inteligente",
+        "classification": "Clasificación inteligente",
         "customization": "Personalizar",
         "imageGeneration": "Generación de imágenes",
-        "rating": "Clasificación de imágenes"
+        "rating": "Valoración"
       },
       "label": {
         "type": "Tipo de acción de IA",
         "model": "Modelo de IA",
         "targetLanguage": "Idioma objetivo",
         "sourceField": "Campo de origen",
-        "sourceFieldForTag": "Seleccione un campo, coincida con las etiquetas creadas",
-        "sourceFieldForClassify": "Seleccione un campo, coincida con las clasificaciones creadas",
+        "sourceFieldForTag": "Seleccione un campo para emparejarlo con las etiquetas creadas",
+        "sourceFieldForClassify": "Seleccione un campo para emparejarlo con las clasificaciones creadas",
         "attachPrompt": "Adjuntar requisitos",
         "prompt": "Personalizar prompt",
         "sourceFieldForAttachment": "Campo de origen para el adjunto",

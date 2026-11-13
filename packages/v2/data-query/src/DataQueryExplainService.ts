@@ -70,7 +70,7 @@ export class DataQueryExplainService {
         async function* (this: DataQueryExplainService) {
           const snapshot = definition.snapshot();
           const expressionQuery =
-            snapshot.version === 3 ? yield* definition.bind(input.parameters ?? {}) : undefined;
+            snapshot.version >= 3 ? yield* definition.bind(input.parameters ?? {}) : undefined;
           const tableId = yield* TableId.create(snapshot.tableId);
           if (hasDataQueryRelations(definition)) {
             return this.explainRelations(context, definition, input, expressionQuery);

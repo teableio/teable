@@ -506,6 +506,14 @@ describe('Folder delete to trash (e2e)', () => {
         await deleteBaseNode(other, board.id);
         boards.push(board);
       }
+      const boardIds = boards.map((board) => board.resourceId);
+      // A dashboard's trash entry is written after its delete has responded. One still on its way
+      // would land after the purge and be left behind, so wait for both before emptying.
+      await expect
+        .poll(() => prisma.trash.count({ where: { resourceId: { in: boardIds } } }), {
+          timeout: 5_000,
+        })
+        .toBe(boardIds.length);
       // Whether each is still deleted is asked once per resource type, not once per resource.
       const isLive = vi.spyOn(
         app.get(TrashService) as unknown as { isTrashResourceLive: () => Promise<boolean> },
@@ -517,7 +525,6 @@ describe('Folder delete to trash (e2e)', () => {
       isLive.mockRestore();
 
       expect(perResourceChecks).toBe(0);
-      const boardIds = boards.map((board) => board.resourceId);
       expect(await prisma.dashboard.findMany({ where: { id: { in: boardIds } } })).toEqual([]);
       expect(await prisma.trash.findMany({ where: { resourceId: { in: boardIds } } })).toEqual([]);
       expect(await prisma.trash.findUnique({ where: { id: row.id } })).toBeNull();

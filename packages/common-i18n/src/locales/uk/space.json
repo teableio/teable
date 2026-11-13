@@ -170,7 +170,7 @@
       "tableDataBatchRows_many": "Рядків у цьому пакеті: {{count}}",
       "tableDataBatchRows_other": "Рядків у цьому пакеті: {{count}}",
       "tableDataEmpty": "Немає даних таблиць для імпорту",
-      "done": "Import completed",
+      "done": "Імпорт завершено",
       "clickToView": "Натисніть для перегляду"
     }
   },

@@ -19,6 +19,7 @@ const fullEnv = {
   SECRET_KEY: 'strong-secret',
   BACKEND_JWT_SECRET: 'jwt-secret',
   BACKEND_SESSION_SECRET: 'session-secret',
+  BACKEND_INVITATION_SECRET: 'invitation-secret',
   BACKEND_AI_CONFIG_ENCRYPTION_SECRET: 'ai-config-secret',
   BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET: 'third-party-credential-secret',
   BACKEND_MAIL_ENCRYPTION_KEY: 'k'.repeat(16),
@@ -49,14 +50,21 @@ describe('secrets guard', () => {
       'BACKEND_MAIL_ENCRYPTION_IV',
       'SANDBOX_JWT_SECRET',
     ];
+    // the welcome reward is granted on cloud signups alone
+    const cloudOnly = ['BACKEND_WELCOME_REWARD_SECRET'];
     const optIn = ['BACKEND_DATA_DB_URL_ENCRYPTION_SECRET'];
-    expect(missing).toHaveLength(ALL_SECRET_SPECS.length - eeOnly.length - optIn.length);
-    for (const envKey of [...eeOnly, ...optIn]) {
+    expect(missing).toHaveLength(
+      ALL_SECRET_SPECS.length - eeOnly.length - cloudOnly.length - optIn.length
+    );
+    for (const envKey of [...eeOnly, ...cloudOnly, ...optIn]) {
       expect(missing.map((s) => s.envKey)).not.toContain(envKey);
     }
     expect(
       findMissingSecrets(ALL_SECRET_SPECS, { NEXT_BUILD_ENV_EDITION: 'EE' }).map((s) => s.envKey)
     ).toEqual(expect.arrayContaining(eeOnly));
+    expect(
+      findMissingSecrets(ALL_SECRET_SPECS, { NEXT_BUILD_ENV_EDITION: 'CLOUD' }).map((s) => s.envKey)
+    ).toEqual(expect.arrayContaining([...eeOnly, ...cloudOnly]));
 
     const message = buildMissingSecretsMessage(missing);
     expect(message).toContain('BACKEND_JWT_SECRET (or SECRET_KEY)');

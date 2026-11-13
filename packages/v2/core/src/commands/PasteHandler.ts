@@ -142,11 +142,28 @@ interface CollectedPasteOperations {
 interface PlannedColumnExpansion {
   table: Table;
   newFieldIds: ReadonlyArray<FieldId>;
+  linkTitleTableState?: ReadonlyMap<string, Table>;
   apply: (
     context: ExecutionContextPort.IExecutionContext
   ) => Promise<Result<TableUpdateFlowResult, DomainError>>;
   afterCommit: () => Promise<void>;
 }
+
+// Call only after expansion.apply succeeds; the foreign map contains successful
+// side-effect aggregates from that same transaction, never client-selected IDs.
+const getOwnedPendingTableIds = (
+  table: Table,
+  expansion: PlannedColumnExpansion | undefined
+): ReadonlyArray<TableId> | undefined => {
+  if (!expansion?.newFieldIds.length) return undefined;
+  const tableIds = [table.id()];
+  if (expansion.linkTitleTableState) {
+    for (const foreignTable of expansion.linkTitleTableState.values()) {
+      if (!foreignTable.id().equals(table.id())) tableIds.push(foreignTable.id());
+    }
+  }
+  return tableIds;
+};
 
 /** Represents an update operation for an existing record */
 interface UpdateOperation {
@@ -197,6 +214,7 @@ type PasteOperationStreamState = {
   pendingUpdateOperation?: UpdateOperation;
   pendingCreateOperation?: CreateOperation;
   tableForMutations: Table;
+  linkTitleTableState?: ReadonlyMap<string, Table>;
   accumulatedSideEffects: RecordWriteSideEffect[];
   resolvedLinkValues: ResolvedLinkValueLookupMap;
 };
@@ -572,8 +590,10 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       });
     }
     const prepared = await this.pastePreparationService.prepareColumnExpansion(context, table, {
-      columnsToExpand: params.numColsToExpand,
-      sourceFields: params.sourceFields,
+      fieldInputs: this.pastePreparationService.prepareColumnExpansionInputs({
+        columnsToExpand: params.numColsToExpand,
+        sourceFields: params.sourceFields,
+      }),
     });
     if (prepared.isErr()) return err(prepared.error);
     return this.toPlannedColumnExpansion(context, prepared.value);
@@ -610,13 +630,15 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         sideEffects: plannedSideEffects,
       });
       yield* await sideEffectPluginExecution.guard();
+      const linkTitleTableState = new Map<string, Table>();
 
       return ok({
         table: columnExpansion.projectedTable,
         newFieldIds: columnExpansion.newFields.map((field) => field.id()),
+        linkTitleTableState,
         afterCommit: () => sideEffectPluginExecution.afterCommit(),
-        apply: async (transactionContext: ExecutionContextPort.IExecutionContext) =>
-          handler.tableUpdateFlow.execute(
+        apply: async (transactionContext: ExecutionContextPort.IExecutionContext) => {
+          const result = await handler.tableUpdateFlow.execute(
             transactionContext,
             { table: columnExpansion.originalTable },
             applyFields,
@@ -637,11 +659,35 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
                         fields: columnExpansion.newFields,
                         foreignTables: columnExpansion.foreignTables,
                       });
+                    // These are current aggregates written by this operation, not a
+                    // general pending-table read exemption or the old prepared snapshots.
+                    for (const sideEffect of plannedSideEffects) {
+                      const tableId = sideEffect.foreignTable.id().toString();
+                      const currentTable = sideEffectResult.tableState.get(tableId);
+                      if (!currentTable) {
+                        return err(
+                          domainError.infrastructure({
+                            message: 'Foreign link metadata missing after field creation',
+                            details: { tableId },
+                          })
+                        );
+                      }
+                      linkTitleTableState.set(tableId, currentTable);
+                    }
                     return ok(sideEffectResult.events);
                   }),
               },
             }
-          ),
+          );
+          if (result.isOk()) {
+            const hostId = result.value.table.id().toString();
+            // A reciprocal side effect can have already produced a newer host.
+            if (!linkTitleTableState.has(hostId)) {
+              linkTitleTableState.set(hostId, result.value.table);
+            }
+          }
+          return result;
+        },
       });
     });
   }
@@ -871,6 +917,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       const streamState: PasteOperationStreamState = {
         iterator: operationsStream[Symbol.asyncIterator](),
         tableForMutations: table,
+        linkTitleTableState: plannedColumnExpansion?.linkTitleTableState,
         accumulatedSideEffects: [],
         resolvedLinkValues: new Map(),
       };
@@ -905,6 +952,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         eventData.schemaUndoCommands.push(...fieldExpansionUndoRedoPlan.value.undoCommands);
         eventData.schemaRedoCommands.push(...fieldExpansionUndoRedoPlan.value.redoCommands);
       }
+      const scopedPendingTableIds = getOwnedPendingTableIds(persistedTable, plannedColumnExpansion);
 
       if (updateOperations.length > 0) {
         const updateSpan = tracer?.startSpan('teable.PasteHandler.processUpdates');
@@ -920,7 +968,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
               batchSize,
               eventData
             ),
-            { orchestration }
+            { orchestration, scopedPendingTableIds }
           );
           if (updateResult.isErr()) {
             return err(updateResult.error);
@@ -953,6 +1001,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             ),
             {
               orchestration,
+              scopedPendingTableIds,
               onBatchInserted: (progress) => {
                 const records = createdRecordBatches[progress.batchIndex] ?? [];
                 for (const record of records) {
@@ -1092,7 +1141,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       eventData.afterCommitHandlers.push(...resolvedLinkValueMapResult.value.afterCommitHandlers);
 
       const linkTitleMapResult = typecast
-        ? await this.buildLinkTitleMap(context, resolvedColumns, updateOperations)
+        ? await this.buildLinkTitleMap(
+            context,
+            resolvedColumns,
+            updateOperations,
+            streamState.linkTitleTableState
+          )
         : ok(new Map());
       if (linkTitleMapResult.isErr()) {
         yield err(linkTitleMapResult.error);
@@ -1272,7 +1326,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       eventData.afterCommitHandlers.push(...resolvedLinkValueMapResult.value.afterCommitHandlers);
 
       const linkTitleMapResult = typecast
-        ? await this.buildLinkTitleMap(context, resolvedColumns, createOperations)
+        ? await this.buildLinkTitleMap(
+            context,
+            resolvedColumns,
+            createOperations,
+            streamState.linkTitleTableState
+          )
         : ok(new Map());
       if (linkTitleMapResult.isErr()) {
         throw linkTitleMapResult.error;
@@ -1717,7 +1776,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
   protected async buildLinkTitleMap(
     context: ExecutionContextPort.IExecutionContext,
     editableColumns: ReadonlyArray<ResolvedEditableColumn>,
-    operations: ReadonlyArray<PasteOperation>
+    operations: ReadonlyArray<PasteOperation>,
+    linkTitleTableState?: ReadonlyMap<string, Table>
   ): Promise<Result<LinkTitleMap, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const tracer = context.tracer;
@@ -1762,10 +1822,9 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           const loadForeignSpan = tracer?.startSpan('teable.PasteHandler.loadForeignTable');
           let foreignTable: Table;
           try {
-            foreignTable = yield* await handler.tableQueryService.getById(
-              context,
-              linkField.foreignTableId()
-            );
+            foreignTable =
+              linkTitleTableState?.get(linkField.foreignTableId().toString()) ??
+              (yield* await handler.tableQueryService.getById(context, linkField.foreignTableId()));
           } finally {
             loadForeignSpan?.end();
           }
@@ -2086,6 +2145,7 @@ export class PasteStreamApplicationService extends PasteHandler {
             scope: 'chunk',
           },
           plannedColumnExpansion: pendingColumnExpansion,
+          linkTitleTableState: pendingColumnExpansion?.linkTitleTableState,
         });
         if (chunkPersistResult.isErr()) {
           queue.push(
@@ -2563,6 +2623,7 @@ export class PasteStreamApplicationService extends PasteHandler {
       pluginExecution: RecordWritePluginExecution;
       batchMutation: IBatchMutationOrchestration;
       plannedColumnExpansion?: PlannedColumnExpansion;
+      linkTitleTableState?: ReadonlyMap<string, Table>;
     }
   ): Promise<Result<PasteChunkPersistResult, DomainError>> {
     const chunkEventData: CollectedEventData = {
@@ -2606,6 +2667,10 @@ export class PasteStreamApplicationService extends PasteHandler {
         chunkEventData.schemaUndoCommands.push(...fieldExpansionUndoRedoPlan.value.undoCommands);
         chunkEventData.schemaRedoCommands.push(...fieldExpansionUndoRedoPlan.value.redoCommands);
       }
+      const scopedPendingTableIds = getOwnedPendingTableIds(
+        tableForChunk,
+        params.plannedColumnExpansion
+      );
 
       const streamState: PasteOperationStreamState = {
         iterator: (async function* () {
@@ -2614,6 +2679,7 @@ export class PasteStreamApplicationService extends PasteHandler {
           }
         })()[Symbol.asyncIterator](),
         tableForMutations: tableForChunk,
+        linkTitleTableState: params.linkTitleTableState,
         accumulatedSideEffects: [],
         resolvedLinkValues: new Map(),
       };
@@ -2633,7 +2699,7 @@ export class PasteStreamApplicationService extends PasteHandler {
             params.operations.length,
             chunkEventData
           ),
-          { orchestration: params.batchMutation }
+          { orchestration: params.batchMutation, scopedPendingTableIds }
         );
         if (updateResult.isErr()) {
           return err(updateResult.error);
@@ -2658,6 +2724,7 @@ export class PasteStreamApplicationService extends PasteHandler {
           ),
           {
             orchestration: params.batchMutation,
+            scopedPendingTableIds,
             onBatchInserted: (progress) => {
               const records = createdRecordBatches[progress.batchIndex] ?? [];
               for (const record of records) {

@@ -730,9 +730,11 @@ export class PostgresTableQueryRemediationTaskRepository {
     const reservationCutoff = new Date(Date.now() - 60_000);
     const owned = sql`locked_by = ${snapshot.lockedBy} AND locked_at = ${snapshot.lockedAt}`;
     const priorState = isStarting
-      ? sql`status IN ('queued', 'failed')
-          AND attempts = ${snapshot.attempts - 1}
-          AND (${owned} OR (locked_by IS NULL AND locked_at IS NULL))
+      ? sql`((status IN ('queued', 'failed')
+          AND attempts = ${snapshot.attempts - 1} AND attempts < max_attempts
+          AND (${owned} OR (locked_by IS NULL AND locked_at IS NULL)))
+          OR (status = 'running' AND attempts = ${snapshot.attempts} AND ${owned}
+            AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector')))
           AND ${snapshot.lockedAt}::timestamptz >= ${reservationCutoff}::timestamptz`
       : sql`(${owned}) AND (
           (status = 'running' AND attempts = ${snapshot.attempts})
@@ -755,6 +757,7 @@ export class PostgresTableQueryRemediationTaskRepository {
       SET status = ${snapshot.status},
           result = ${snapshot.result == null ? null : toJsonb(snapshot.result)},
           attempts = ${snapshot.attempts},
+          max_attempts = LEAST(max_attempts, ${snapshot.maxAttempts}),
           locked_at = ${isStarting ? snapshot.lockedAt : null},
           locked_by = ${isStarting ? snapshot.lockedBy : null},
           last_error = ${snapshot.lastError ?? null},
@@ -893,7 +896,11 @@ export class PostgresTableQueryRemediationTaskRepository {
         WHERE id = (
           SELECT id
           FROM table_query_remediation_task
-          WHERE status IN ('queued', 'failed')
+          WHERE (status IN ('queued', 'failed') OR (
+              status = 'running'
+              AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector')
+              AND (execution_state IS NOT NULL OR (payload ->> 'trigger' = 'admin_search_access_path' AND payload ->> 'executionMode' = 'manual'))
+            ))
             AND (
               ${input.scope === 'all'}
               OR (
@@ -915,7 +922,8 @@ export class PostgresTableQueryRemediationTaskRepository {
                 AND (active.status = 'running' OR (active.status IN ('queued', 'failed') AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)}))
             )
             AND (SELECT count(*) FROM table_query_remediation_task AS active
-              WHERE active.status = 'running' OR (active.status IN ('queued', 'failed') AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)})) < 2
+              WHERE active.id <> table_query_remediation_task.id
+                AND (active.status = 'running' OR (active.status IN ('queued', 'failed') AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)}))) < 2
             AND (kind = ANY(${input.allowedKinds}) OR payload ->> 'trigger' IN ('admin_search_access_path', 'admin_index'))
             AND (
               ${input.allowManualIndexExecution}
@@ -932,8 +940,10 @@ export class PostgresTableQueryRemediationTaskRepository {
               )
               OR payload ->> 'trigger' IN ('schema_change', 'reclaim', 'admin_search_access_path', 'admin_index')
             )
-            AND attempts < max_attempts
+            AND (attempts < max_attempts OR status = 'running')
             AND (locked_at IS NULL OR locked_at < ${new Date(input.now.getTime() - 60_000)})
+            AND (status <> 'running' OR pg_try_advisory_xact_lock(
+              hashtext('teable.table_query_ops.search_vector'), hashtext(table_id)))
           ORDER BY created_time ASC
           FOR UPDATE SKIP LOCKED
           LIMIT 1

@@ -412,7 +412,7 @@ const buildDefaultSearchCondition = (
   });
 
 type GeneratedTextSearchPlan =
-  | { readonly condition: Expression<SqlBool> }
+  | { readonly condition: Expression<SqlBool>; readonly usedDocument?: boolean }
   | {
       readonly fallbackReason: RecordSearchAccessPathFallbackReason;
       /**
@@ -440,15 +440,27 @@ const buildGeneratedTextSearchCondition = (
 
   const coveredFieldIds = new Set(accessPath.coveredFieldIds.map((fieldId) => fieldId.toString()));
   const searchesAllFields = recordSearch.search.searchesAllFields();
-  const useConfiguredScope = searchesAllFields && !requireCompleteFieldScope;
-  const contractFields = useConfiguredScope
-    ? resolvedFields.filter((field) => coveredFieldIds.has(field.id().toString()))
+  // Only an all-field document promises to cover the whole search scope. A `selected_fields`
+  // document was built from an explicit choice, so it keeps narrowing to its coverage: expanding
+  // it to every unselected field turned an index scan into a sequential one for no product reason.
+  const useConfiguredScope =
+    searchesAllFields && accessPath.searchScope === 'all_fields' && !requireCompleteFieldScope;
+  const isCovered = (field: Field) => coveredFieldIds.has(field.id().toString());
+  // The document is a prefilter, not the definition of what the table can find. A field it cannot
+  // hold — autoNumber and persisted formula columns are themselves GENERATED columns, and a field
+  // added after the build is not in the document yet — keeps matching through the plain predicate.
+  // Narrowing the scope to the document silently dropped those matches once acceleration was on.
+  const coveredFields = useConfiguredScope
+    ? resolvedFields.filter((field) => isCovered(field))
     : resolvedFields;
+  const uncoveredFields = useConfiguredScope
+    ? resolvedFields.filter((field) => !isCovered(field))
+    : [];
 
   if (accessPath.indexUsable === false || !coveredFieldIds.size) {
     return ok({
       fallbackReason: 'generated_text_unavailable',
-      ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
+      ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
     });
   }
 
@@ -459,7 +471,7 @@ const buildGeneratedTextSearchCondition = (
   ) {
     return ok({
       fallbackReason: 'generated_text_probe_too_short',
-      ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
+      ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
     });
   }
 
@@ -468,7 +480,7 @@ const buildGeneratedTextSearchCondition = (
     // Cell navigation and explicit field scopes instead require every matching
     // field to be covered, or fall back to the complete field predicate.
     const conditionFields: Field[] = [];
-    for (const field of contractFields) {
+    for (const field of coveredFields) {
       const shape = yield* resolveSearchFieldTextShape(field);
       if (!shapeProducesCondition(shape, recordSearch.search)) continue;
       // A scoped date that cannot parse this probe contributes only FALSE to
@@ -484,17 +496,16 @@ const buildGeneratedTextSearchCondition = (
       if (!isSearchFieldTextProjection(shape)) {
         return ok({
           fallbackReason: 'generated_text_unsupported_projection',
-          ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
+          ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
         });
       }
       conditionFields.push(field);
     }
 
-    if (!conditionFields.length) {
-      return ok({
-        fallbackReason: 'generated_text_unavailable',
-        ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
-      });
+    const uncoveredConditionFields: Field[] = [];
+    for (const field of uncoveredFields) {
+      const shape = yield* resolveSearchFieldTextShape(field);
+      if (shapeProducesCondition(shape, recordSearch.search)) uncoveredConditionFields.push(field);
     }
     if (
       (!searchesAllFields || requireCompleteFieldScope) &&
@@ -503,17 +514,38 @@ const buildGeneratedTextSearchCondition = (
       return ok({ fallbackReason: 'generated_text_coverage_mismatch' });
     }
 
+    if (!conditionFields.length && !uncoveredConditionFields.length) {
+      return ok({
+        fallbackReason: 'generated_text_unavailable',
+        ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
+      });
+    }
+
     const exactCondition = yield* buildDefaultSearchCondition(
-      contractFields,
+      coveredFields,
       recordSearch,
       tableAlias,
       fieldMaskSqlMap
     );
+    const uncoveredCondition = uncoveredConditionFields.length
+      ? yield* buildDefaultSearchCondition(
+          uncoveredConditionFields,
+          recordSearch,
+          tableAlias,
+          fieldMaskSqlMap
+        )
+      : null;
+
     if (!exactCondition) {
-      return ok({
-        fallbackReason: 'generated_text_unavailable',
-        ...(useConfiguredScope ? { fallbackFields: contractFields } : {}),
-      });
+      if (!uncoveredCondition) {
+        return ok({
+          fallbackReason: 'generated_text_unavailable',
+          ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
+        });
+      }
+      // Nothing the document covers can match this probe; only the uncovered fields can, so the
+      // document contributed no prefilter and the plan must not report it as used.
+      return ok({ condition: uncoveredCondition, usedDocument: false });
     }
 
     const pattern = `%${escapeLikeWildcards(recordSearch.search.value)}%`;
@@ -521,7 +553,12 @@ const buildGeneratedTextSearchCondition = (
     // pg_bigm indexes LIKE only. Keeping both providers on a normalized document gives the
     // runtime one predicate shape; the original field predicate below remains the result oracle.
     const indexedPrefilter = sql<SqlBool>`${documentRef} LIKE lower(${pattern}) ESCAPE '\\'`;
-    return ok({ condition: sql<SqlBool>`(${indexedPrefilter}) AND (${exactCondition})` });
+    const coveredClause = sql<SqlBool>`(${indexedPrefilter}) AND (${exactCondition})`;
+    return ok({
+      condition: uncoveredCondition
+        ? sql<SqlBool>`(${coveredClause}) OR (${uncoveredCondition})`
+        : coveredClause,
+    });
   });
 };
 
@@ -604,6 +641,13 @@ export const buildRecordSearchWherePlan = (
       options?.requireCompleteFieldScope
     );
     if ('condition' in generatedTextCondition) {
+      if (generatedTextCondition.usedDocument === false) {
+        return ok({
+          condition: generatedTextCondition.condition,
+          usedAccessPath: 'default',
+          fallbackReason: 'generated_text_coverage_mismatch',
+        });
+      }
       return ok({ condition: generatedTextCondition.condition, usedAccessPath: 'generated_text' });
     }
 

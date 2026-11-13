@@ -26,6 +26,13 @@
     },
     "types": ["node"]
   },
-  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../di/src/**/*.spec.ts"
+  ],
   "include": ["src", "../adapter-db-postgres-shared/src", "../core/src", "../di/src"]
 }

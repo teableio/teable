@@ -300,7 +300,7 @@
       "showNumber": "Zeige Nummer",
       "autoFillDate": "Automatisches Ausfüllen mit aktuellem Datum",
       "createSymmetricLink": "Erstellen Sie ein Rückverweisfeld in der verlinkten Tabelle",
-      "allowLinkMultipleRecords": "Mehrfachauswahl zulassen",
+      "allowLinkMultipleRecords": "Verknüpfung mit mehreren Datensätzen zulassen",
       "allowLinkToDuplicateRecords": "Erlaubt die mehrfache Auswahl von Datensätzen",
       "allowSymmetricFieldLinkMultipleRecords": "Erlaubt die mehrfache Auswahl von Datensätzen",
       "oneToOne": "one-to-one",
@@ -403,7 +403,7 @@
     "fieldNameOptional": "Feld Name (Optional)",
     "fieldType": "Feld Typ",
     "aiConfig": {
-      "title": "AI Konfiguration",
+      "title": "KI-Konfiguration",
       "type": {
         "summary": "Zusammenfassung",
         "translation": "Übersetzen",
@@ -416,14 +416,14 @@
         "rating": "Bewertung"
       },
       "label": {
-        "type": "AI Aktion Typ",
-        "model": "AI Modell",
+        "type": "KI-Aktionstyp",
+        "model": "KI-Modell",
         "targetLanguage": "Zielsprache",
         "sourceField": "Quellfeld",
-        "sourceFieldForTag": "Wählen Sie ein Feld, passen Sie es mit den erstellten Tags an",
-        "sourceFieldForClassify": "Wählen Sie ein Feld, passen Sie es mit den erstellten Klassifizierungen an",
-        "attachPrompt": "Anhängen von Anforderungen",
-        "prompt": "Anpassen von Prompt",
+        "sourceFieldForTag": "Wählen Sie ein Feld und ordnen Sie es den erstellten Tags zu",
+        "sourceFieldForClassify": "Wählen Sie ein Feld und ordnen Sie es den erstellten Klassifizierungen zu",
+        "attachPrompt": "Anforderungen anhängen",
+        "prompt": "Prompt anpassen",
         "sourceFieldForAttachment": "Quellfeld für Anhang",
         "imageSize": "Bildgröße",
         "imageQuality": "Bildqualität",
@@ -990,7 +990,7 @@
       "excelFile": "Microsoft Excel",
       "airtable": "Airtable",
       "googleSheet": "Google Sheets",
-      "csvFile": "CSV Datei",
+      "csvFile": "CSV-Datei",
       "importCsvData": "CSV-Daten importieren",
       "importExcelData": "Microsoft Excel-Daten importieren",
       "cancel": "Abbrechen",
@@ -1190,7 +1190,7 @@
     "category": {
       "table": "Raster Ansicht",
       "form": "Formular Ansicht",
-      "kanban": "Kanban Ansicht",
+      "kanban": "Kanban-Ansicht",
       "gallery": "Galerie Ansicht",
       "calendar": "Kalendar Ansicht"
     },

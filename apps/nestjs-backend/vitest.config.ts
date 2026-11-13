@@ -1,6 +1,7 @@
 import swc from 'unplugin-swc';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults, defineConfig } from 'vitest/config';
+import { coverageTestFileExcludes } from './vitest-coverage-exclude';
 
 const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
@@ -44,6 +45,7 @@ export default defineConfig({
       provider: 'v8',
       reportsDirectory: './coverage/unit',
       include: ['src/**/*.{js,ts}'],
+      exclude: coverageTestFileExcludes,
     },
     include: testFiles,
     exclude: [

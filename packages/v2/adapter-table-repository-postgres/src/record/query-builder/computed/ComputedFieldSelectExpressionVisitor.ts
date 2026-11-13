@@ -1,6 +1,5 @@
 import { inspectFormulaStructure } from '@teable/formula';
 import {
-  FieldType,
   FieldValueTypeVisitor,
   type AttachmentField,
   type AutoNumberField,
@@ -43,7 +42,7 @@ import {
   type IPgTypeValidationStrategy,
   type SqlExpr,
 } from '@teable/v2-formula-sql-pg';
-import { sql, type AliasedRawBuilder } from 'kysely';
+import { sql, type AliasedRawBuilder, type RawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
@@ -154,6 +153,7 @@ export interface ComputedFieldSelectExpressionVisitorOptions {
   forceLookupArrayOutput?: boolean;
   userSnapshotActorFallback?: UserSnapshotActorFallback;
   resolveSystemUserSnapshotsFromUsers?: boolean;
+  systemUserSnapshots?: RawBuilder<unknown>;
 }
 
 export class ComputedFieldSelectExpressionVisitor implements IFieldVisitor<
@@ -167,6 +167,7 @@ export class ComputedFieldSelectExpressionVisitor implements IFieldVisitor<
   private readonly forceLookupArrayOutput: boolean;
   private readonly userSnapshotActorFallback?: UserSnapshotActorFallback;
   private readonly resolveSystemUserSnapshotsFromUsers: boolean;
+  private readonly systemUserSnapshots?: RawBuilder<unknown>;
   private readonly formulaCompileBudget: FormulaCompileBudgetConfig;
 
   constructor(
@@ -184,6 +185,7 @@ export class ComputedFieldSelectExpressionVisitor implements IFieldVisitor<
     this.userSnapshotActorFallback = options?.userSnapshotActorFallback;
     this.resolveSystemUserSnapshotsFromUsers =
       options?.resolveSystemUserSnapshotsFromUsers ?? false;
+    this.systemUserSnapshots = options?.systemUserSnapshots;
     this.fieldReferenceVisitor = new FieldReferenceSqlVisitor({
       table,
       tableAlias,
@@ -280,7 +282,11 @@ export class ComputedFieldSelectExpressionVisitor implements IFieldVisitor<
       const systemColRef = systemColumn ? sql.ref(`${this.tableAlias}.${systemColumn}`) : undefined;
       const valueExpr =
         this.resolveSystemUserSnapshotsFromUsers && systemColRef
-          ? buildUserJsonObjectFromSnapshotWithLookupExpr(snapshotRef, systemColRef)
+          ? buildUserJsonObjectFromSnapshotWithLookupExpr(
+              snapshotRef,
+              systemColRef,
+              this.systemUserSnapshots
+            )
           : buildUserJsonObjectFromSnapshotExpr(
               snapshotRef,
               systemColRef,

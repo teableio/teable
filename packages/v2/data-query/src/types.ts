@@ -5,7 +5,13 @@ import type {
   TableRecordAggregationFunction,
 } from '@teable/v2-core';
 import type { DataQueryDefinition } from './DataQueryDefinition';
-import type { DataQueryExpressionProjection, DataQueryPredicateV3 } from './DataQueryExpression';
+import type {
+  DataQueryExpressionProjection,
+  DataQueryPredicateV3,
+  DataQueryPredicateV5,
+  DataQueryFormulaExpression,
+  DataQueryHavingExpression,
+} from './DataQueryExpression';
 
 export type DataQueryParameterReference = { type: 'parameter'; name: string };
 export type DataQueryParameterDefinition = {
@@ -186,7 +192,51 @@ type DataQueryDefinitionBody =
       aggregates: [DataQueryAggregateEntry, ...DataQueryAggregateEntry[]];
       groupBy?: (DataQueryFieldProjection | DataQueryFieldProjectionV2)[];
     };
+export type DataQueryAggregateV4 =
+  | ((DataQueryAggregate | DataQueryRelationAggregate) & { filter?: DataQueryPredicateV3 })
+  | {
+      source?: string;
+      fieldId?: never;
+      expr: DataQueryFormulaExpression;
+      statisticFunc: TableRecordAggregationFunction;
+      alias: string;
+      filter?: DataQueryPredicateV3;
+    };
+export type DataQueryDefinitionV4Input = Omit<DataQueryDefinitionBase, 'filter'> & {
+  version: 4;
+  filter?: DataQueryPredicateV3;
+  relations?: Record<string, DataQueryRelationV3>;
+} & (
+    | {
+        kind: 'records';
+        recordId?: string | DataQueryParameterReference;
+        select: [
+          DataQueryRecordsProjection | DataQueryExpressionProjection,
+          ...(DataQueryRecordsProjection | DataQueryExpressionProjection)[],
+        ];
+      }
+    | {
+        kind: 'aggregate';
+        aggregates: [DataQueryAggregateV4, ...DataQueryAggregateV4[]];
+        groupBy?: (DataQueryFieldProjection | DataQueryFieldProjectionV2)[];
+        having?: DataQueryHavingExpression;
+      }
+  );
+type WithRootExistence<T> = T extends DataQueryDefinitionV4Input
+  ? Omit<T, 'version' | 'filter'> & { version: 5; filter?: DataQueryPredicateV5 }
+  : never;
+export type DataQueryDefinitionV5Input = WithRootExistence<DataQueryDefinitionV4Input>;
+type WithDistinct<T> =
+  T extends Extract<DataQueryDefinitionV5Input, { kind: 'records' }>
+    ? Omit<T, 'version'> & { version: 6; distinct?: true }
+    : T extends Extract<DataQueryDefinitionV5Input, { kind: 'aggregate' }>
+      ? Omit<T, 'version'> & { version: 6 }
+      : never;
+export type DataQueryDefinitionV6Input = WithDistinct<DataQueryDefinitionV5Input>;
 export type DataQueryDefinitionInput =
+  | DataQueryDefinitionV4Input
+  | DataQueryDefinitionV5Input
+  | DataQueryDefinitionV6Input
   | ((DataQueryDefinitionBase &
       ({ version: 1 } | { version: 2; relations?: Record<string, DataQueryRelation> })) &
       DataQueryDefinitionBody)
@@ -236,6 +286,7 @@ export const dataQueryFieldUsageValues = [
   'aggregate',
   'reference',
   'relation',
+  'existence',
 ] as const;
 export type DataQueryFieldUsage = (typeof dataQueryFieldUsageValues)[number];
 export type DataQueryFieldDependency = {

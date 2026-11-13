@@ -8,13 +8,18 @@ import { BaseService } from './base.service';
 
 describe('BaseService', () => {
   let service: BaseService;
+  let module: TestingModule | undefined;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+  beforeAll(async () => {
+    module = await Test.createTestingModule({
       imports: [GlobalModule, BaseModule],
     }).compile();
 
     service = module.get<BaseService>(BaseService);
+  });
+
+  afterAll(async () => {
+    await module?.close();
   });
 
   it('should be defined', () => {

@@ -97,7 +97,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
       process.env.SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT ?? 10
     ),
     workflowRunDefaultLimit: Number(process.env.SPACE_WORKFLOW_RUN_DEFAULT_LIMIT ?? 10),
-    routineRunDefaultLimit: Number(process.env.SPACE_ROUTINE_RUN_DEFAULT_LIMIT ?? 10),
+    routineRunDefaultLimit: Number(process.env.SPACE_ROUTINE_RUN_DEFAULT_LIMIT ?? 5),
   },
 }));
 

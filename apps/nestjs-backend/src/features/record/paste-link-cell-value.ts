@@ -1,7 +1,11 @@
 import { FieldType } from '@teable/core';
-import type { IFieldInstance } from '../field/model/factory';
+import { normalizeRecordLinkPasteValue } from '@teable/v2-core';
 
-type LinkPasteItem = { id: string; title?: string };
+type LinkPasteTarget = { readonly isMultipleCellValue?: boolean };
+type LinkPasteSource = {
+  readonly type: FieldType;
+  cellValue2String(value: unknown): unknown;
+};
 
 /**
  * Convert a copied cell into a paste value for a link field.
@@ -11,8 +15,8 @@ type LinkPasteItem = { id: string; title?: string };
  * unresolved links, so the grid shows "Untitled" until a full refresh.
  */
 export const convertLinkPasteCellValue = (
-  targetField: Pick<IFieldInstance, 'isMultipleCellValue'>,
-  sourceField: Pick<IFieldInstance, 'type' | 'cellValue2String'>,
+  targetField: LinkPasteTarget,
+  sourceField: LinkPasteSource,
   cellValue: unknown
 ): unknown => {
   if (cellValue == null) {
@@ -23,36 +27,14 @@ export const convertLinkPasteCellValue = (
     return sourceField.cellValue2String(cellValue);
   }
 
-  const items = [cellValue]
-    .flat()
-    .map((value): string | LinkPasteItem | null => {
-      if (typeof value === 'string') {
-        const trimmed = value.trim();
-        return trimmed || null;
-      }
-
-      if (value && typeof value === 'object' && 'id' in value) {
-        const id = String((value as { id?: unknown }).id ?? '').trim();
-        if (!id) {
-          return null;
-        }
-        const title = (value as { title?: unknown }).title;
-        return typeof title === 'string' ? { id, title } : { id };
-      }
-
-      return null;
-    })
-    .filter((value): value is string | LinkPasteItem => value != null);
-
-  if (items.length === 0) {
-    return null;
+  const normalized = normalizeRecordLinkPasteValue(
+    cellValue,
+    targetField.isMultipleCellValue === true
+  );
+  if (normalized.isErr()) {
+    // Retain the existing thrown-error boundary for callers using legacy source metadata.
+    if (normalized.error.cause instanceof Error) throw normalized.error.cause;
+    throw new Error(normalized.error.message);
   }
-
-  const allStructured = items.every((item) => typeof item === 'object');
-  if (allStructured) {
-    return targetField.isMultipleCellValue ? items : (items[0] ?? null);
-  }
-
-  // Plain-text / title tokens remain comma-joined for typecast resolution.
-  return items.map((item) => (typeof item === 'string' ? item : item.id)).join(',');
+  return normalized.value;
 };

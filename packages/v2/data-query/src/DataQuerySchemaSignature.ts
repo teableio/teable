@@ -89,12 +89,13 @@ export const dataQuerySchemaSignature = async (
     return ok(
       canonical({
         version: 1,
-        ...(plan.definitionVersion === 3
+        ...(plan.definitionVersion >= 3
           ? {
               definitionVersion: plan.definitionVersion,
               formulaLanguage: plan.formulaLanguage,
             }
           : {}),
+        ...(plan.definitionVersion === 6 ? { resultGrain: plan.resultGrain } : {}),
         fields,
         outputs,
       })

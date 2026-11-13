@@ -528,15 +528,15 @@
       "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "מחזיר את הכפולה השלמה הקרובה ביותר של significance שגדולה מהערך או שווה לו. אם לא סופק significance, ההנחה היא significance של 1.",
+      "summary": "מעגל את הערך כלפי מעלה למספר הספרות העשרוניות שצוין (ברירת מחדל 0). מספר שלילי מעגל כלפי מעלה לעשרות, למאות וכן הלאה.",
       "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "מחזיר את הכפולה השלמה הקרובה ביותר של significance שקטנה מהערך או שווה לו. אם לא סופק significance, ההנחה היא significance של 1.",
+      "summary": "מעגל את הערך כלפי מטה למספר הספרות העשרוניות שצוין (ברירת מחדל 0). מספר שלילי מעגל כלפי מטה לעשרות, למאות וכן הלאה.",
       "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "מחזיר את המספר הזוגי השלם הקטן ביותר שגדול מהערך שצוין או שווה לו.",
+      "summary": "מעגל ערכים חיוביים כלפי מעלה וערכים שליליים כלפי מטה למספר השלם הזוגי הקרוב ביותר.",
       "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
@@ -557,7 +557,7 @@
     },
     "POWER": {
       "summary": "מחשב את הבסיס שצוין בחזקה שצוינה.",
-      "example": "POWER(2) => 4"
+      "example": "POWER(2, 2) => 4"
     },
     "EXP": {
       "summary": "מחשב את מספר אוילר (e) בחזקה שצוינה.",
@@ -629,7 +629,7 @@
     },
     "REPT": {
       "summary": "חוזר על המחרוזת במספר הפעמים שצוין.",
-      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+      "example": "REPT(\"Hello!\", 3) => \"Hello!Hello!Hello!\""
     },
     "TRIM": {
       "summary": "מסיר רווחים מתחילת המחרוזת ומסופה.",
@@ -677,7 +677,7 @@
     },
     "ERROR": {
       "summary": "מחזירה את ערך השגיאה.",
-      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+      "example": "ERROR(\"custom error\") => \"#ERROR: custom error\"\nIF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
       "summary": "מחזירה true אם הביטוי גורם לשגיאה.",
@@ -733,7 +733,7 @@
     },
     "DATETIME_DIFF": {
       "summary": "מחזירה את ההפרש בין שני תאריכים ביחידות שצוינו. יחידת ברירת המחדל היא \"second\".\nיחידות נתמכות: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nDATETIME_DIFF תמיד מחסרת את הארגומנט השני מהראשון (`date1 - date2`). כדי לקבל את הזמן שחלף מתאריך התחלה עד תאריך סיום מאוחר יותר, יש לכתוב `DATETIME_DIFF(endDate, startDate, unit)`.",
-      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-11T12:00:00Z\", \"2026-03-09T16:00:00Z\", \"day\") => 1\nDATETIME_DIFF(\"2026-03-09T16:00:00Z\", \"2026-03-11T12:00:00Z\", \"days\") => -1"
     },
     "WORKDAY": {
       "summary": "מחזירה את יום העבודה שמתקבל מתאריך ההתחלה, ללא החגים שצוינו",
@@ -765,7 +765,7 @@
     },
     "TIMESTR": {
       "summary": "מעצבת תאריך ושעה כמחרוזת של שעה בלבד (HH:mm:ss).",
-      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+      "example": "TIMESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
       "summary": "מעצבת תאריך ושעה למחרוזת בתבנית שצוינה. מציינים נתמכים: YY, YYYY, M, MM, MMM, MMMM, D, DD, d, dd, ddd, dddd, H, HH, h, hh, m, mm, s, ss, SSS, Z, ZZ, A, a, LT, LTS, L, LL, LLL, LLLL, l, ll, lll, llll.",
@@ -1675,7 +1675,10 @@
       "categoryDepthExceeded": "לתת-ענף לא יכולים להיות תת-ענפים משלו",
       "teamIsFlat": "לצוות אין קטגוריית־אב ולא תת־קטגוריות",
       "categoryKeyTaken": "מפתח ה־URL הזה כבר בשימוש בקטגוריה אחרת",
-      "slugTaken": "ה־slug הזה כבר בשימוש בתבנית אחרת"
+      "slugTaken": "ה־slug הזה כבר בשימוש בתבנית אחרת",
+      "guideStepLeftOut": "שלב המדריך „{{title}}” פותח משהו שלא נכלל בהגשה הזו.",
+      "guideStepStartsTicked": "שלב המדריך „{{title}}” כבר הושלם ברשומות הדוגמה, ולכן הוא יתחיל מסומן.",
+      "guideNothingToConnect": "שלב המדריך „{{title}}” ממתין לחיבור חשבונות, אבל הפרויקט הזה לא צריך אף חשבון, ולכן הוא יתחיל מסומן."
     },
     "department": {
       "parentNotFound": "מחלקת האב לא נמצאה",
@@ -1835,5 +1838,8 @@
     "seats": {
       "unit": "מושבים"
     }
+  },
+  "template": {
+    "trialName": "{{name}} (ניסיון)"
   }
 }

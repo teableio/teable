@@ -2008,6 +2008,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       const { batchTable, records, restoreRecordsById } = normalizeBatch(batch);
       const result = await this.insertMany(context, batchTable, records, {
         orchestration: options?.orchestration,
+        scopedPendingTableIds: options?.scopedPendingTableIds,
         skipComputedUpdates: skipComputed || deferComputed,
         skipSnapshotCapture: restoreRecordsById != null,
         skipChangedFields: options?.skipChangedFields,
@@ -3417,6 +3418,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                       forceOutbox: true,
                       scheduleDispatchAfterCommit: true,
                       orchestration: options?.orchestration,
+                      scopedPendingTableIds: options?.scopedPendingTableIds,
                     }
                   )
                 : this.scheduleDeferredComputedUpdateManyByIds(
@@ -3437,6 +3439,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                   [...beforeImageByRecordId.values()],
                   {
                     orchestration: options?.orchestration,
+                    scopedPendingTableIds: options?.scopedPendingTableIds,
                   }
                 );
             if (computedResult.isErr()) {
@@ -3467,6 +3470,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       readonly forceOutbox?: boolean;
       readonly scheduleDispatchAfterCommit?: boolean;
       readonly orchestration?: core.IBatchMutationOrchestration;
+      readonly scopedPendingTableIds?: ReadonlyArray<core.TableId>;
     } = {}
   ): Promise<Result<void, DomainError>> {
     const changedFieldIds = impact ? [...impact.valueFieldIds, ...impact.linkFieldIds] : [];
@@ -3498,7 +3502,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         table,
       };
 
-      const planResult = await this.computedUpdatePlanner.planStage(planInput, context);
+      const planResult = await this.computedUpdatePlanner.planStage(
+        planInput,
+        context,
+        options.scopedPendingTableIds
+          ? { scopedPendingTableIds: options.scopedPendingTableIds }
+          : undefined
+      );
       if (planResult.isErr()) {
         this.logger.warn('computed:seed:plan_batch_failed', {
           error: planResult.error.message,
@@ -4408,7 +4418,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     changeType: 'insert' | 'update' | 'delete',
     extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = [],
     beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = [],
-    options?: Pick<InsertOptions, 'allowPendingTableProvisionForComputedUpdates'> & {
+    options?: Pick<
+      InsertOptions,
+      'allowPendingTableProvisionForComputedUpdates' | 'scopedPendingTableIds'
+    > & {
       readonly orchestration?: core.IBatchMutationOrchestration;
     }
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
@@ -4461,7 +4474,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     changeType: 'insert' | 'update' | 'delete',
     extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup>,
     beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord>,
-    options?: Pick<InsertOptions, 'allowPendingTableProvisionForComputedUpdates'> & {
+    options?: Pick<
+      InsertOptions,
+      'allowPendingTableProvisionForComputedUpdates' | 'scopedPendingTableIds'
+    > & {
       readonly orchestration?: core.IBatchMutationOrchestration | undefined;
     },
     realtimeRecordCount = recordIds.length
@@ -4491,8 +4507,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         table,
       };
 
-      const plannerOptions =
-        changeType === 'insert' && options?.allowPendingTableProvisionForComputedUpdates === true
+      const plannerOptions = options?.scopedPendingTableIds
+        ? { scopedPendingTableIds: options.scopedPendingTableIds }
+        : changeType === 'insert' && options?.allowPendingTableProvisionForComputedUpdates === true
           ? ({ tableProvisionStates: ['ready', 'pending'] } as const)
           : undefined;
       const planResult = await this.computedUpdatePlanner.planStage(

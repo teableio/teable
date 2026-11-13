@@ -77,3 +77,15 @@ V1/V2 strict create/update with an external user and a base- or space-level
 collaborator, then repeats the write after revoking the collaborator's grant.
 Complete identities persist canonically in all cases; only current collaborators
 receive a notification or mail-send call.
+
+## Table socket snapshot queries
+
+`GET /api/base/:baseId/table/socket/snapshot-bulk` requires `ids` to be an
+array of strings, encoded as `ids[]=<tableId>` (repeat the key for multiple tables).
+Both Community and Enterprise validate this query before reading table permissions
+or snapshots. Scalar, comma-separated, object-valued, and missing `ids` return 400;
+they are not normalized or treated as an unfiltered table read. Authorized array
+requests are unchanged, including Enterprise's 403 for a mixed allowed/denied list.
+
+Regression coverage: `test/v2-unmigrated-routes.e2e-spec.ts` and the Enterprise
+backend's `test/authority/table.e2e-spec.ts`.

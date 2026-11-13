@@ -823,9 +823,9 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
       })
     ).resolves.toEqual([fixture.recordIds.alpha]);
 
-    // Owner is a newly added/uncovered searchable field. It must not make the
-    // global query abandon the configured document or become searchable until
-    // the access path is rebuilt with that field in coveredFieldIds.
+    // Owner is not in the document's coverage. It must neither make the global query abandon the
+    // documented path nor stop matching: the document prefilters the covered subset and the plain
+    // predicate still covers the rest.
     const uncoveredSearch = RecordSearch.fromTuple(['Visible Owner', '', true]);
     const uncoveredPlan = buildRecordSearchWherePlan(
       fixture.table,
@@ -842,10 +842,48 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
         search: uncoveredSearch,
         searchAccessPath,
       })
+    ).resolves.toEqual([fixture.recordIds.alpha]);
+  });
+
+  it('keeps a selected-fields document narrowing to its chosen coverage', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'selected-scope' });
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (
+        lower(COALESCE(col_name, ''))
+      ) STORED
+    `.execute(db);
+    const searchAccessPath: IRecordSearchAccessPath = {
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_bigm',
+      searchScope: 'selected_fields',
+      coveredFieldIds: [fixture.fieldIds.name],
+    };
+
+    // An operator-chosen document is an explicit scope: unselected fields are out of scope, and
+    // expanding the query to them would trade an index scan for a sequential one.
+    const plan = buildRecordSearchWherePlan(
+      fixture.table,
+      {
+        search: RecordSearch.fromTuple(['plain', '', true]),
+        visibleFieldIds: fixture.table.fieldIds(),
+      },
+      { tableAlias: 't', searchAccessPath }
+    )._unsafeUnwrap();
+    expect(plan.usedAccessPath).toBe('generated_text');
+    await expect(
+      findMatchingRecordIds({
+        db,
+        table: fixture.table,
+        fullTableName: fixture.fullTableName,
+        search: RecordSearch.fromTuple(['plain', '', true]),
+        searchAccessPath,
+      })
     ).resolves.toEqual([]);
   });
 
-  it('limits a short pg_trgm global fallback to configured covered fields', async () => {
+  it('searches every field on a short pg_trgm global fallback', async () => {
     const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'global-trgm-short' });
     const searchAccessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
@@ -865,6 +903,8 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
       usedAccessPath: 'default',
       fallbackReason: 'generated_text_probe_too_short',
     });
+    // The document cannot index a two-character pg_trgm probe, so the fallback must stay
+    // complete: narrowing it to the document's coverage used to lose uncovered matches.
     await expect(
       findMatchingRecordIds({
         db,
@@ -873,7 +913,7 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
         search,
         searchAccessPath,
       })
-    ).resolves.toEqual([]);
+    ).resolves.toEqual([fixture.recordIds.alpha, fixture.recordIds.bravo]);
 
     // An explicit field scope remains an explicit request and retains the
     // existing legacy fallback semantics even when the field is uncovered.
@@ -888,7 +928,7 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ).resolves.toEqual([fixture.recordIds.alpha]);
   });
 
-  it('keeps configured coverage while the physical document is unavailable, including empty surviving coverage', async () => {
+  it('falls back to every field when the physical document is unavailable or coverage is empty', async () => {
     const fixture = await setupSearchFixture({
       db,
       createdSchemas,
@@ -911,10 +951,11 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
         searchAccessPath: path,
       });
     await expect(search('Alpha')).resolves.toEqual([fixture.recordIds.alpha]);
-    await expect(search('Visible Owner')).resolves.toEqual([]);
-    await expect(search('Alpha', { ...searchAccessPath, coveredFieldIds: [] })).resolves.toEqual(
-      []
-    );
+    // Uncovered fields stay searchable: the document is a prefilter, not the search scope.
+    await expect(search('Visible Owner')).resolves.toEqual([fixture.recordIds.alpha]);
+    await expect(search('Alpha', { ...searchAccessPath, coveredFieldIds: [] })).resolves.toEqual([
+      fixture.recordIds.alpha,
+    ]);
   });
 
   it.each([true, false])(
@@ -934,7 +975,7 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
       };
       for (const [probe, ordinaryIds] of [
         ['Alpha', [fixture.recordIds.alpha]],
-        ['Visible Owner', []],
+        ['Visible Owner', [fixture.recordIds.alpha]],
       ] as const) {
         const query = {
           db,

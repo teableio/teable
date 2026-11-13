@@ -3,6 +3,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { resolveE2eMaxWorkers } from './test/utils/e2e-shared';
 import { v2CoveredV1TableIntegrationFiles } from './v2-covered-v1-table-integrations';
+import { coverageTestFileExcludes } from './vitest-coverage-exclude';
 
 // Set timezone to UTC for deterministic datetime test results
 // This must be set before any datetime operations
@@ -75,6 +76,7 @@ export default defineConfig({
       provider: 'v8',
       reportsDirectory: './coverage/e2e',
       include: ['src/**/*.{js,ts}'],
+      exclude: coverageTestFileExcludes,
     },
     sequence: {
       hooks: 'stack',

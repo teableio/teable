@@ -13,11 +13,25 @@ export type DataQueryFormulaExpression = {
   references: Record<string, DataQueryFormulaReference>;
   timeZone?: string;
 };
+/** Aggregate output stage: no stored fields, systems or implicit source row. */
+export type DataQueryHavingReference =
+  | { type: 'output'; alias: string }
+  | { type: 'parameter'; name: string };
+export type DataQueryHavingExpression = Omit<DataQueryFormulaExpression, 'references'> & {
+  references: Record<string, DataQueryHavingReference>;
+};
 export type DataQueryPredicateV3 =
   | { conjunction: 'and' | 'or'; items: DataQueryPredicateV3[] }
   | { not: DataQueryPredicateV3 }
   | DataQueryFilterLeaf
   | DataQueryFormulaExpression;
+export type DataQueryRelationExistence = { relation: string; quantifier: 'any' | 'none' };
+export type DataQueryPredicateV5 =
+  | { conjunction: 'and' | 'or'; items: DataQueryPredicateV5[] }
+  | { not: DataQueryPredicateV5 }
+  | DataQueryFilterLeaf
+  | DataQueryFormulaExpression
+  | DataQueryRelationExistence;
 export type DataQueryExpressionProjection = { expr: DataQueryFormulaExpression; alias: string };
 export type DataQueryExpressionNode = DataQueryFormulaExpression | DataQueryFormulaReference;
 
@@ -57,6 +71,23 @@ export const dataQueryFormulaExpressionSchema: z.ZodType<
     timeZone: z.string().min(1).optional(),
   })
   .strict();
+export const dataQueryHavingExpressionSchema: z.ZodType<
+  DataQueryHavingExpression,
+  DataQueryHavingExpression
+> = z
+  .object({
+    type: z.literal('formula'),
+    formula: z.string().min(1),
+    references: z.record(
+      formulaAlias,
+      z.union([
+        z.object({ type: z.literal('output'), alias: name }).strict(),
+        z.object({ type: z.literal('parameter'), name }).strict(),
+      ])
+    ),
+    timeZone: z.string().min(1).optional(),
+  })
+  .strict();
 export const createDataQueryPredicateV3Schema = (
   leaf: z.ZodType<DataQueryFilterLeaf, DataQueryFilterLeaf>
 ): z.ZodType<DataQueryPredicateV3, DataQueryPredicateV3> => {
@@ -71,6 +102,20 @@ export const createDataQueryPredicateV3Schema = (
   return predicate;
 };
 
+export const createDataQueryPredicateV5Schema = (
+  ordinary: z.ZodType<DataQueryPredicateV3, DataQueryPredicateV3>
+): z.ZodType<DataQueryPredicateV5, DataQueryPredicateV5> => {
+  const predicate: z.ZodType<DataQueryPredicateV5, DataQueryPredicateV5> = z.lazy(() =>
+    z.union([
+      z.object({ conjunction: z.enum(['and', 'or']), items: z.array(predicate).min(1) }).strict(),
+      z.object({ not: predicate }).strict(),
+      z.object({ relation: name, quantifier: z.enum(['any', 'none']) }).strict(),
+      ordinary,
+    ])
+  );
+  return predicate;
+};
+
 export type DataQueryExpressionVisitor = (node: DataQueryExpressionNode) => void;
 export const walkDataQueryFormulaExpression = (
   expression: DataQueryFormulaExpression,
@@ -80,7 +125,7 @@ export const walkDataQueryFormulaExpression = (
   for (const reference of Object.values(expression.references)) visit(reference);
 };
 export const walkDataQueryPredicateExpressions = (
-  predicate: DataQueryPredicateV3,
+  predicate: DataQueryPredicateV5,
   visit: DataQueryExpressionVisitor
 ): void => {
   if ('items' in predicate)

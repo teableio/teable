@@ -51,7 +51,7 @@
   },
   "formType": {
     "basic": "基本情報",
-    "scopes": "Scopes",
+    "scopes": "スコープ",
     "identify": "ユーザーの識別と承認",
     "clientInfo": "クライアント情報"
   },

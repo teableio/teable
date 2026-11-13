@@ -1,16 +1,14 @@
-import { ActorId, type IExecutionContext } from '@teable/v2-core';
+import { ActorId, type DomainError, type IExecutionContext } from '@teable/v2-core';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { Result } from 'neverthrow';
 import { Pool as PgPool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { V2PgTableSchemaCoordination } from './schemaCoordination';
+import { V2PgTableSchemaCoordination, type ICoordinationLease } from './schemaCoordination';
 
 const APPLICATION_NAME = 'teable-v2-schema-coordination-test';
 
-type AcquireResult = {
-  isOk(): boolean;
-  value: { release(): Promise<void> };
-};
+type AcquireResult = Result<ICoordinationLease, DomainError>;
 const TABLE_A = `tbl${'a'.repeat(16)}`;
 const TABLE_B = `tbl${'b'.repeat(16)}`;
 
@@ -69,8 +67,8 @@ describe('V2PgTableSchemaCoordination', () => {
     try {
       first = await coordination.acquire(createContext(), [TABLE_A], 'shared');
       second = await coordination.acquire(createContext(), [TABLE_A], 'shared');
-      const firstLease = first.value;
-      const secondLease = second.value;
+      const firstLease = first._unsafeUnwrap();
+      const secondLease = second._unsafeUnwrap();
 
       exclusivePromise = coordination.acquire(createContext(), [TABLE_A], 'exclusive');
       await waitForAdvisoryWaiter(observer);
@@ -107,7 +105,7 @@ describe('V2PgTableSchemaCoordination', () => {
 
     try {
       exclusive = await coordination.acquire(createContext(), [TABLE_A], 'exclusive');
-      const exclusiveLease = exclusive.value;
+      const exclusiveLease = exclusive._unsafeUnwrap();
       sharedPromise = coordination.acquire(createContext(), [TABLE_A], 'shared');
 
       await waitForAdvisoryWaiter(observer);
