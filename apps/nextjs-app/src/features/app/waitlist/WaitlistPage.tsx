@@ -57,7 +57,7 @@ const WaitlistPageInner = () => {
 
   if (isSubmitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-green-100">
@@ -91,7 +91,7 @@ const WaitlistPageInner = () => {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <div className="mb-16 text-center">
         <h1 className="mb-4 text-4xl font-bold text-gray-900">{t('waitlist.joinTitle')}</h1>
         <h2 className="text-xl  text-gray-900">{t('waitlist.joinDesc')}</h2>

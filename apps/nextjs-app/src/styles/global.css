@@ -29,18 +29,18 @@ body[data-teable-top-banner='visible'] #portal {
   margin-top: var(--teable-top-banner-height);
 }
 
-body[data-teable-top-banner='visible'] #portal.h-screen,
-body[data-teable-top-banner='visible'] #portal .h-screen {
-  height: calc(100vh - var(--teable-top-banner-height));
+body[data-teable-top-banner='visible'] #portal.h-dvh,
+body[data-teable-top-banner='visible'] #portal .h-dvh {
+  height: calc(100dvh - var(--teable-top-banner-height));
 }
 
-body[data-teable-top-banner='visible'] #portal.min-h-screen,
-body[data-teable-top-banner='visible'] #portal .min-h-screen {
-  min-height: calc(100vh - var(--teable-top-banner-height));
+body[data-teable-top-banner='visible'] #portal.min-h-dvh,
+body[data-teable-top-banner='visible'] #portal .min-h-dvh {
+  min-height: calc(100dvh - var(--teable-top-banner-height));
 }
 
 .select-field-type [cmdk-list] {
-  max-height: min(600px, calc(100vh - 450px));
+  max-height: min(600px, calc(100dvh - 450px));
 }
 
 .height-preserving-container:empty {
