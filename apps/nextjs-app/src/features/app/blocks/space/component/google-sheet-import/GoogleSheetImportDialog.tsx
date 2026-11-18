@@ -293,7 +293,13 @@ export const GoogleSheetImportDialog = (props: IGoogleSheetImportDialogProps) =>
       if (issues.length === 0) return;
       addLog(t('space:googleSheetImport.issuesSummary', { count: issues.length }), 'warning');
       for (const issue of issues.slice(0, MAX_ISSUE_LOGS)) {
-        addLog(tAny(ISSUE_I18N_MAP[issue.code], { ...issue }), 'warning');
+        const message = tAny(ISSUE_I18N_MAP[issue.code], { ...issue });
+        const rowSamples = issue.rowNumbers?.length
+          ? tAny('space:googleSheetImport.issue.rowSamples', {
+              rows: issue.rowNumbers.join(', '),
+            })
+          : '';
+        addLog([message, rowSamples].filter(Boolean).join(' '), 'warning');
       }
       if (issues.length > MAX_ISSUE_LOGS) {
         addLog(

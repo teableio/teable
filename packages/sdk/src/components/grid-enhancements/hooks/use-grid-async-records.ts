@@ -121,13 +121,19 @@ export const useGridAsyncRecords = (
   const loadedRecordIdsKey = JSON.stringify(loadedRecordIds);
   const searchFilter = shareId ? view?.filter : outerQuery?.filter;
   const searchProjection = shareId ? fields.map(({ id }) => id) : outerQuery?.projection;
+  // The visible fields the search covers: hiding a column outside the search scope must not
+  // reload the hits, so the key carries these rather than the whole columnMeta.
+  const searchedFieldIds = useMemo(() => {
+    const picked = searchQuery?.[1] ? new Set(searchQuery[1].split(',')) : undefined;
+    return fields.map(({ id }) => id).filter((id) => !picked || picked.has(id));
+  }, [fields, searchQuery]);
 
   const searchRequestKey = JSON.stringify([
     tableId,
     shareId,
     view?.id,
     view?.filter,
-    view?.columnMeta,
+    searchedFieldIds,
     hideNotMatchRow,
     outerQuery,
     searchQuery,

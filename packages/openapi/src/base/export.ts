@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import type { HttpErrorCode } from '@teable/core';
 import { fieldVoSchema, IdPrefix, viewVoSchema } from '@teable/core';
 import { axios } from '../axios';
 import { BaseNodeResourceType } from '../base-node/types';
@@ -236,7 +237,13 @@ export type ExportBaseProgressCallback = (
 export type IExportBaseSSEEvent =
   | IExportBaseProgressEvent
   | { type: 'done'; data: IExportBaseVo }
-  | { type: 'error'; message: string };
+  | {
+      type: 'error';
+      message: string;
+      status?: number;
+      code?: HttpErrorCode;
+      data?: Record<string, unknown>;
+    };
 
 export const ExportBaseStreamRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -298,7 +305,7 @@ const handleSSEEvent = (
     case 'done':
       return event.data;
     case 'error':
-      throw new Error(event.message);
+      throw toSSERequestError(JSON.stringify(event), event.status ?? 500, 'Export base failed');
   }
 };
 
@@ -355,7 +362,7 @@ const readSSEStream = async (
 
 export const exportBaseStream = async (
   baseId: string,
-  options?: { includeData?: boolean },
+  options?: { includeData?: boolean; signal?: AbortSignal },
   onProgress?: ExportBaseProgressCallback
 ): Promise<{ data: IExportBaseVo }> => {
   const includeData = options?.includeData ?? true;
@@ -368,6 +375,7 @@ export const exportBaseStream = async (
     method: 'GET',
     headers: buildSSERequestHeaders(),
     credentials: 'include',
+    signal: options?.signal,
   });
 
   if (!response.ok) {

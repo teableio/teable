@@ -142,6 +142,7 @@ export type TableQuerySearchShape = {
   readonly allFields: boolean;
   readonly valueLengthBucket: SearchValueLengthBucket;
   readonly searchedFieldIds?: ReadonlyArray<string>;
+  readonly indexedBranches?: ReadonlyArray<'document' | 'residual'>;
   readonly searchMode?: TableQuerySearchMode;
   readonly searchScope?: TableQuerySearchScope;
   readonly languageConfig?: string;
@@ -398,6 +399,7 @@ const tableQueryShapeSchema: z.ZodType<TableQueryShapeInput> = z.object({
       allFields: z.boolean(),
       valueLengthBucket: z.enum(['none', 'short', 'medium', 'long']),
       searchedFieldIds: z.array(z.string().min(1)).optional(),
+      indexedBranches: z.array(z.enum(['document', 'residual'])).optional(),
       searchMode: z.enum(['ilike', 'substring', 'trigram', 'full_text']).optional(),
       searchScope: z.enum(['selected_fields', 'all_fields']).optional(),
       languageConfig: z

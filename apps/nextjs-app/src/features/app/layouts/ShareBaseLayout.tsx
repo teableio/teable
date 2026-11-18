@@ -11,6 +11,7 @@ import { BaseNodeProvider } from '../blocks/base/base-node/BaseNodeProvider';
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
+import { StaleTableNotice } from '../blocks/table/hooks/use-table-error-handler';
 import { ExpandRecordNavigationProvider } from '../components/ExpandRecordNavigationProvider';
 import { LinkConnectorLine } from '../components/LinkConnectorLine';
 import { ShareBaseOperationProvider } from '../components/share-operation/ShareBaseOperationProvider';
@@ -107,6 +108,8 @@ export const ShareBaseLayout: React.FC<IShareBaseLayoutProps> = ({
               <BaseProvider>
                 <BaseNodeProvider>
                   <BasePermissionListener />
+                  {/* Share pages reuse getTableServerSideProps, which may land here with staleTableId */}
+                  <StaleTableNotice />
                   <TableProvider serverData={tableServerData}>
                     <ShareBaseOperationProvider>
                       <ExpandRecordNavigationProvider>

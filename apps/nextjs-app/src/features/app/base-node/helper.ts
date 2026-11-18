@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { ViewType } from '@teable/core';
+import { HttpError, HttpErrorCode, ViewType } from '@teable/core';
 import type { IBaseNodeVo } from '@teable/openapi';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import type { SsrApi } from '@/backend/api/rest/ssr-api';
@@ -36,6 +36,28 @@ export const getDefaultViewId = async (
     : viewIds[0]!;
 };
 
+/** Default navigation may skip an inaccessible table, but must not hide request failures. */
+export const getDefaultViewIdForNavigation = async (ssrApi: SsrApi, tableId: string) => {
+  try {
+    return await getDefaultViewId(ssrApi, tableId);
+  } catch (error) {
+    if (error instanceof HttpError) {
+      if (error.status === 403 || error.status === 404) return undefined;
+      if (
+        error.status === 400 &&
+        error.code === HttpErrorCode.VALIDATION_ERROR &&
+        typeof error.data === 'object' &&
+        error.data !== null &&
+        'domainCode' in error.data &&
+        error.data.domainCode === 'validation.invalid'
+      ) {
+        return undefined;
+      }
+    }
+    throw error;
+  }
+};
+
 interface IDefaultNodeOptions {
   filterNode?: (node: IBaseNodeVo) => boolean;
 }
@@ -50,41 +72,33 @@ export const getDefaultNodeUrl = async (
 ): Promise<string | null> => {
   const { ssrApi, baseId } = ctx;
 
-  try {
-    const [lastVisitNode, nodes] = await Promise.all([
-      ssrApi.getUserLastVisitBaseNode({ parentResourceId: baseId }),
-      ssrApi.getBaseNodeList(baseId),
-    ]);
-    const availableNodes = options?.filterNode ? nodes.filter(options.filterNode) : nodes;
+  const [lastVisitNode, nodes] = await Promise.all([
+    ssrApi.getUserLastVisitBaseNode({ parentResourceId: baseId }),
+    ssrApi.getBaseNodeList(baseId),
+  ]);
+  const availableNodes = nodes.filter(
+    (node) =>
+      node.resourceType !== BaseNodeResourceType.Folder &&
+      (!options?.filterNode || options.filterNode(node))
+  );
+  const lastNode = availableNodes.find((node) => node.resourceId === lastVisitNode?.resourceId);
+  const candidates = lastNode
+    ? [lastNode, ...availableNodes.filter((node) => node !== lastNode)]
+    : availableNodes;
 
-    // Try to find the last visited node, but skip if it's a folder
-    let findNode = availableNodes.find(
-      (n) =>
-        n.resourceId === lastVisitNode?.resourceId && n.resourceType !== BaseNodeResourceType.Folder
-    );
-
-    // If not found, find the first non-folder node
-    if (!findNode) {
-      findNode = availableNodes.find((n) => n.resourceType !== BaseNodeResourceType.Folder);
+  for (const node of candidates) {
+    let viewId: string | undefined;
+    if (node.resourceType === BaseNodeResourceType.Table) {
+      viewId = await getDefaultViewIdForNavigation(ssrApi, node.resourceId);
+      if (!viewId) continue;
     }
-
-    if (findNode) {
-      // For table nodes, resolve the default view in the same pass so the browser
-      // gets a single redirect to the final URL instead of a second SSR round trip
-      let viewId: string | undefined;
-      if (findNode.resourceType === BaseNodeResourceType.Table) {
-        viewId = await getDefaultViewId(ssrApi, findNode.resourceId).catch(() => undefined);
-      }
-      const url = getNodeUrl({
-        baseId,
-        resourceType: findNode.resourceType,
-        resourceId: findNode.resourceId,
-        viewId,
-      });
-      return url?.pathname || null;
-    }
-  } catch (error) {
-    console.error('Failed to get default node:', error);
+    const url = getNodeUrl({
+      baseId,
+      resourceType: node.resourceType,
+      resourceId: node.resourceId,
+      viewId,
+    });
+    if (url?.pathname) return url.pathname;
   }
 
   return null;

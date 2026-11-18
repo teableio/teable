@@ -212,6 +212,45 @@ describe('buildDataDbUrlCipher', () => {
     expect(buildDataDbUrlCipher({ SECRET_KEY: 'instance-secret' }).decrypt(written)).toBe(URL);
   });
 
+  it('writes the authenticated format under a private SECRET_KEY, with no root set', () => {
+    const env = { SECRET_KEY: 'instance-secret' };
+    const cipher = buildDataDbUrlCipher(env);
+    const stored = cipher.encrypt(URL);
+
+    expect(cipher.authenticated).toBe(true);
+    expect(isEncryptedSecretValue(stored)).toBe(true);
+    expect(cipher.decrypt(stored)).toBe(URL);
+    expect(cipher.isCurrent(stored)).toBe(true);
+    expect(cipher.usesPublicKey).toBe(false);
+    // setting the root to the same value later changes nothing
+    expect(buildDataDbUrlCipher({ ...env, [ROOT]: 'instance-secret' }).isCurrent(stored)).toBe(
+      true
+    );
+  });
+
+  it('still opens what the same SECRET_KEY wrote in the legacy format, reported as not current', () => {
+    const env = { SECRET_KEY: 'instance-secret' };
+    // what this deployment wrote before the format followed SECRET_KEY
+    const legacyStored = new Encryptor<{ url: string }>({
+      entries: buildDataDbUrlCipherEntries(env),
+    }).encrypt({ url: URL });
+    const cipher = buildDataDbUrlCipher(env);
+
+    expect(isEncryptedSecretValue(legacyStored)).toBe(false);
+    expect(cipher.decrypt(legacyStored)).toBe(URL);
+    expect(cipher.isCurrent(legacyStored)).toBe(false);
+  });
+
+  it('keeps the legacy format under the public default SECRET_KEY, over a private legacy pair too', () => {
+    const cipher = buildDataDbUrlCipher({ SECRET_KEY: 'defaultSecretKey', ...LEGACY_ENV });
+    const stored = cipher.encrypt(URL);
+
+    expect(cipher.authenticated).toBe(false);
+    expect(isEncryptedSecretValue(stored)).toBe(false);
+    expect(open(LEGACY_ENV, stored)).toEqual({ url: URL });
+    expect(cipher.usesPublicKey).toBe(false);
+  });
+
   it('rotates the root via _OLD', () => {
     const before = buildDataDbUrlCipher({ [ROOT]: 'old-root' }).encrypt(URL);
     const after = buildDataDbUrlCipher({ [ROOT]: 'new-root', [`${ROOT}_OLD`]: 'old-root' });

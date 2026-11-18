@@ -481,6 +481,8 @@ export const createV2NodeTestContainer = async (
     throw new Error(codecResult.error.message);
   }
   c.registerInstance(v2CoreTokens.durableSubscriptionCatalog, catalogResult.value);
+  const sameTxDispatcher = new SameTxProjectionDispatcher(c, spyLogger);
+  c.registerInstance(v2CoreTokens.sameTxProjectionDispatcher, sameTxDispatcher);
   c.registerInstance(
     v2CoreTokens.domainWriteTransaction,
     new DomainWriteTransaction(
@@ -489,7 +491,7 @@ export const createV2NodeTestContainer = async (
       catalogResult.value,
       c.resolve(v2CoreTokens.projectionMessageJournal),
       new TargetedLegacyEventDispatcher(c, spyLogger),
-      new SameTxProjectionDispatcher(c),
+      sameTxDispatcher,
       spyLogger,
       undefined,
       c.resolve(v2CoreTokens.eventBus),

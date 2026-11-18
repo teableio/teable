@@ -184,6 +184,62 @@ describe('ensureUndoCaptureInfrastructure', () => {
       await Promise.all([root.db.destroy(), scoped.db.destroy()]);
     }
   });
+
+  it('does not poison the durable trigger cache when a transaction installs a trigger and then rolls back', async () => {
+    const root = createRecordingDb();
+    let tx1Installed = false;
+    const tx1 = createRecordingDb((compiledQuery) => {
+      if (compiledQuery.sql.includes('CREATE OR REPLACE TRIGGER "__teable_undo_capture"')) {
+        tx1Installed = true;
+        return [];
+      }
+      if (compiledQuery.sql.includes('FROM pg_trigger AS t')) {
+        return [{ exists: tx1Installed }];
+      }
+      return [];
+    });
+    Object.defineProperty(tx1.db, 'isTransaction', { get: () => true, configurable: true });
+
+    const tx2 = createRecordingDb((compiledQuery) => {
+      if (compiledQuery.sql.includes('FROM pg_trigger AS t')) {
+        return [{ exists: false }];
+      }
+      return [];
+    });
+    Object.defineProperty(tx2.db, 'isTransaction', { get: () => true, configurable: true });
+
+    try {
+      const tableRef = toQualifiedIdentifierLiteral('bseRetry', 'tblRetry');
+      const tableKey = 'bseRetry.tblRetry';
+
+      // Step 1 inside tx1 (e.g., CreateTableCommand): installs trigger in uncommitted tx1
+      expect(await ensureUndoCaptureInfrastructure(root.db, tx1.db, tableRef, tableKey)).toBe(
+        'ready'
+      );
+      expect(
+        tx1.driver.queries.filter((q) =>
+          q.sql.includes('CREATE OR REPLACE TRIGGER "__teable_undo_capture"')
+        )
+      ).toHaveLength(1);
+
+      // Step 2 inside the same tx1 (e.g., CreateRecordsCommand): must not promote uncommitted trigger to rootDb cache
+      expect(await ensureUndoCaptureInfrastructure(root.db, tx1.db, tableRef, tableKey)).toBe(
+        'ready'
+      );
+
+      // Suppose tx1 rolls back (e.g., 40P01 deadlock) and a fresh retry tx2 runs against clean DB:
+      expect(await ensureUndoCaptureInfrastructure(root.db, tx2.db, tableRef, tableKey)).toBe(
+        'ready'
+      );
+      expect(
+        tx2.driver.queries.some((q) =>
+          q.sql.includes('CREATE OR REPLACE TRIGGER "__teable_undo_capture"')
+        )
+      ).toBe(true);
+    } finally {
+      await Promise.all([root.db.destroy(), tx1.db.destroy(), tx2.db.destroy()]);
+    }
+  });
 });
 
 describe('matchesUndoCaptureTableName', () => {

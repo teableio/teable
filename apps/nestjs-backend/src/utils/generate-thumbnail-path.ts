@@ -1,14 +1,15 @@
 import {
   ATTACHMENT_LG_THUMBNAIL_HEIGHT,
   ATTACHMENT_SM_THUMBNAIL_HEIGHT,
+  ATTACHMENT_THUMBNAIL_EXTENSION,
 } from '../features/attachments/constant';
 import { ThumbnailSize } from '../features/attachments/plugins/types';
 import { generateCropImagePath } from '../features/attachments/plugins/utils';
 
 export const generateTableThumbnailPath = (path: string) => {
   return {
-    smThumbnailPath: generateCropImagePath(path, ThumbnailSize.SM),
-    lgThumbnailPath: generateCropImagePath(path, ThumbnailSize.LG),
+    smThumbnailPath: generateCropImagePath(path, ThumbnailSize.SM) + ATTACHMENT_THUMBNAIL_EXTENSION,
+    lgThumbnailPath: generateCropImagePath(path, ThumbnailSize.LG) + ATTACHMENT_THUMBNAIL_EXTENSION,
   };
 };
 

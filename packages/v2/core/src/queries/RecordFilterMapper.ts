@@ -6,11 +6,11 @@ import { andSpec } from '../domain/shared/specification/AndSpec';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { notSpec } from '../domain/shared/specification/NotSpec';
 import { orSpec } from '../domain/shared/specification/OrSpec';
-import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
-import { FieldType } from '../domain/table/fields/FieldType';
-import { ConditionalLookupField } from '../domain/table/fields/types/ConditionalLookupField';
-import { LookupField } from '../domain/table/fields/types/LookupField';
+import {
+  isUserLikeField,
+  replaceCurrentUserFilterValue,
+} from '../domain/table/fields/user-filter-operator-remap';
 import type { ITableReadModel } from '../domain/table/ITableReadModel';
 import {
   conditionNullMatch,
@@ -45,8 +45,6 @@ type FieldMaskMap = ReadonlyMap<
   string,
   ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
 >;
-
-const currentUserFilterValue = 'Me';
 
 const resolveField = (table: ITableReadModel, rawFieldId: string) => {
   return FieldId.create(rawFieldId).andThen((fieldId) =>
@@ -322,19 +320,6 @@ const sanitizeNode = (
   return err(domainError.validation({ message: 'Invalid record filter node' }));
 };
 
-function isUserLikeField(field: Field): boolean {
-  if (field instanceof LookupField || field instanceof ConditionalLookupField) {
-    const innerField = field.innerField();
-    return innerField.isOk() && isUserLikeField(innerField.value);
-  }
-  const type = field.type();
-  return (
-    type.equals(FieldType.user()) ||
-    type.equals(FieldType.createdBy()) ||
-    type.equals(FieldType.lastModifiedBy())
-  );
-}
-
 export function replaceCurrentUserTagInFilter(
   table: ITableReadModel,
   filter: RecordFilter | null | undefined,
@@ -365,16 +350,9 @@ export function replaceCurrentUserTagInFilter(
       return node;
     }
 
-    const replaceValue = (value: RecordFilterValue): RecordFilterValue => {
-      if (Array.isArray(value)) {
-        return value.map((item) => (item === currentUserFilterValue ? actorId : item));
-      }
-      return value === currentUserFilterValue ? actorId : value;
-    };
-
     return {
       ...node,
-      value: replaceValue(node.value),
+      value: replaceCurrentUserFilterValue(node.value, actorId),
     };
   };
 

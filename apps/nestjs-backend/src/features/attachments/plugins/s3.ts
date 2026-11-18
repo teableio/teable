@@ -5,8 +5,10 @@ import http from 'node:http';
 import https from 'node:https';
 import { join, resolve } from 'node:path';
 import type { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import { finished, pipeline } from 'node:stream/promises';
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
@@ -27,7 +29,8 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
-import { resolveThumbnailMimetype } from '../utils';
+import { ATTACHMENT_THUMBNAIL_MIMETYPE, ATTACHMENT_THUMBNAIL_WEBP_QUALITY } from '../constant';
+import { getThumbnailResizeOptions } from '../utils';
 import StorageAdapter from './adapter';
 import type {
   IPresignParams,
@@ -450,51 +453,124 @@ export class S3Storage implements StorageAdapter {
     bucket: string,
     path: string,
     stream: Buffer | Readable,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    signal?: AbortSignal
   ) {
-    const upload = new Upload({
-      client: this.s3ClientPrivateNetwork,
-      params: {
-        Bucket: bucket,
-        Key: path,
-        Body: stream,
-        ContentType: metadata?.['Content-Type'] as string,
-        ContentLength: metadata?.['Content-Length'] as number,
-        ContentDisposition: metadata?.['Content-Disposition'] as string,
-        ContentEncoding: metadata?.['Content-Encoding'] as string,
-        ContentLanguage: metadata?.['Content-Language'] as string,
-        ContentMD5: metadata?.['Content-MD5'] as string,
-        CacheControl: metadata?.['Cache-Control'] as string,
+    const transportController = new AbortController();
+    // Scope cancellation to this upload; the client and its agents are shared.
+    const scopedClient = new Proxy(this.s3ClientPrivateNetwork, {
+      get(target, property, receiver) {
+        if (property !== 'send') {
+          return Reflect.get(target, property, receiver);
+        }
+        return async (
+          command: Parameters<S3Client['send']>[0],
+          options?: Parameters<S3Client['send']>[1]
+        ) => {
+          try {
+            return await target.send(command, {
+              ...options,
+              // Multipart cleanup must remain usable after cancellation.
+              abortSignal:
+                command instanceof AbortMultipartUploadCommand
+                  ? undefined
+                  : transportController.signal,
+            });
+          } catch (error) {
+            // The SDK cleans up failed part workers, but does not clean up a
+            // failed CompleteMultipartUpload request after those workers finish.
+            if (
+              command instanceof CompleteMultipartUploadCommand &&
+              transportController.signal.aborted
+            ) {
+              await target.send(
+                new AbortMultipartUploadCommand({
+                  Bucket: command.input.Bucket,
+                  Key: command.input.Key,
+                  UploadId: command.input.UploadId,
+                })
+              );
+            }
+            throw error;
+          }
+        };
       },
     });
+    const source = Buffer.isBuffer(stream) ? undefined : stream;
+    const onInputError = () => transportController.abort();
+    const onInputClose = () => {
+      if (!source?.readableEnded) {
+        transportController.abort();
+      }
+    };
+    const onAbort = () => {
+      transportController.abort(signal?.reason);
+      source?.destroy();
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    source?.once('error', onInputError);
+    source?.once('close', onInputClose);
 
-    return upload
-      .done()
-      .then((res) => ({
-        hash: res.ETag!,
-        path,
-      }))
-      .catch((error) => {
-        if (stream && typeof stream !== 'string' && 'destroy' in stream) {
-          (stream as Readable)?.removeAllListeners?.();
-          (stream as Readable)?.destroy?.();
-        }
-        throw new CustomHttpException(
-          `S3 upload failed: ${error?.message || 'Unknown error'}`,
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.attachment.uploadFailed',
-            },
-          }
-        );
-      })
-      .finally(() => {
-        if (stream && typeof stream !== 'string' && 'destroy' in stream) {
-          (stream as Readable)?.removeAllListeners?.();
-          (stream as Readable).destroy?.();
-        }
+    try {
+      signal?.throwIfAborted();
+      if (source?.destroyed && !source.readableEnded) {
+        // closed becomes true before destroy(error)'s queued error/close events.
+        // Keep our observer until those events have actually been delivered.
+        await finished(source, { cleanup: true });
+        throw source.errored ?? new Error('Upload source closed before completion');
+      }
+      const upload = new Upload({
+        client: scopedClient,
+        params: {
+          Bucket: bucket,
+          Key: path,
+          Body: stream,
+          ContentType: metadata?.['Content-Type'] as string,
+          ContentLength: metadata?.['Content-Length'] as number,
+          ContentDisposition: metadata?.['Content-Disposition'] as string,
+          ContentEncoding: metadata?.['Content-Encoding'] as string,
+          ContentLanguage: metadata?.['Content-Language'] as string,
+          ContentMD5: metadata?.['Content-MD5'] as string,
+          CacheControl: metadata?.['Cache-Control'] as string,
+        },
       });
+
+      // Do not use Upload.abort(): done() races it against workers and can settle
+      // before their HTTP requests and AbortMultipartUpload cleanup have finished.
+      const result = await upload.done();
+      signal?.throwIfAborted();
+      return { hash: result.ETag!, path };
+    } catch (error) {
+      const message =
+        typeof error === 'object' &&
+        error !== null &&
+        'message' in error &&
+        typeof error.message === 'string'
+          ? error.message
+          : undefined;
+      throw new CustomHttpException(
+        `S3 upload failed: ${message || 'Unknown error'}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.uploadFailed',
+          },
+        }
+      );
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
+      source?.destroy();
+      if (source?.closed) {
+        source.removeListener('error', onInputError);
+        source.removeListener('close', onInputClose);
+      } else {
+        // destroy(error) can precede this call while its error event is still queued.
+        source?.once('close', () => {
+          source.removeListener('error', onInputError);
+          source.removeListener('close', onInputClose);
+        });
+      }
+    }
   }
 
   // s3 file exists
@@ -558,10 +634,11 @@ export class S3Storage implements StorageAdapter {
       await pipeline(stream as Readable, fse.createWriteStream(sourceFilePath));
       const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true })
         .rotate()
-        .resize(width, height);
+        .resize(getThumbnailResizeOptions(width, height))
+        .webp({ quality: ATTACHMENT_THUMBNAIL_WEBP_QUALITY });
       await metaReader.toFile(resizedImagePath);
       const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
-        'Content-Type': resolveThumbnailMimetype(mimetype ?? ''),
+        'Content-Type': ATTACHMENT_THUMBNAIL_MIMETYPE,
       });
       return upload.path;
     } finally {

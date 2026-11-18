@@ -212,7 +212,6 @@ export class RepairAttachmentOpService {
     let smThumbnailUrl: string | undefined;
     let lgThumbnailUrl: string | undefined;
     const isImg = isImage(mimetype);
-    const thumbnailMimetype = resolveThumbnailMimetype(mimetype);
     if (thumbnailPathTokenMap && thumbnailPathTokenMap[token]) {
       const { sm: smThumbnailPath, lg: lgThumbnailPath } = thumbnailPathTokenMap[token]!;
       if (smThumbnailPath) {
@@ -220,7 +219,7 @@ export class RepairAttachmentOpService {
           cachePreviewUrlTokenMap?.[getTableThumbnailToken(smThumbnailPath)] ??
           (await this.attachmentsStorageService.getTableThumbnailUrl(
             smThumbnailPath,
-            thumbnailMimetype
+            resolveThumbnailMimetype(mimetype, smThumbnailPath)
           ));
       }
       if (lgThumbnailPath) {
@@ -228,7 +227,7 @@ export class RepairAttachmentOpService {
           cachePreviewUrlTokenMap?.[getTableThumbnailToken(lgThumbnailPath)] ??
           (await this.attachmentsStorageService.getTableThumbnailUrl(
             lgThumbnailPath,
-            thumbnailMimetype
+            resolveThumbnailMimetype(mimetype, lgThumbnailPath)
           ));
       }
     }

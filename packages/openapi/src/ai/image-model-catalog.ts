@@ -152,7 +152,13 @@ export const IMAGE_MODEL_CONFIGS: IImageModelConfig[] = [
   createGrokImageModel('grok-imagine-image-2.0', 'Grok Imagine Image 2.0'),
 
   // OpenAI
-  // GPT Image 2.5 uses the existing product presets and low/medium/high quality levels.
+  // GPT Image 2.5 and 2.6 use the existing product presets and low/medium/high quality levels.
+  createOpenAIGptImageModel('gpt-image-2.6-flare', 'GPT Image 2.6 Flare', OPENAI_GPT_IMAGE_2_SIZES),
+  createOpenAIGptImageModel(
+    'gpt-image-2.6-sunburst',
+    'GPT Image 2.6 Sunburst',
+    OPENAI_GPT_IMAGE_2_SIZES
+  ),
   createOpenAIGptImageModel('gpt-image-2.5-flare', 'GPT Image 2.5 Flare', OPENAI_GPT_IMAGE_2_SIZES),
   createOpenAIGptImageModel(
     'gpt-image-2.5-sunburst',
@@ -295,6 +301,7 @@ export const IMAGE_MODEL_CONFIGS: IImageModelConfig[] = [
   createGeminiImageLanguageModel('gemini-3.1-flash-lite-image', 'Gemini 3.1 Flash Lite Image', [
     '1K',
   ]),
+  createGeminiImageLanguageModel('gemini-nano-banana-2.1', 'Gemini Nano Banana 2.1'),
 
   // Google Imagen
   createAspectRatioImageModel(

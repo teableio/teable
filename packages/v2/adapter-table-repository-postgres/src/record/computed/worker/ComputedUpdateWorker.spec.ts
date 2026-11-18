@@ -65,7 +65,8 @@ const createUnitOfWork = (): IUnitOfWork => ({
   withTransaction: vi.fn().mockImplementation(async (_ctx, fn) => fn(_ctx)),
 });
 
-const createTableRepository = (): ITableRepository => ({}) as unknown as ITableRepository;
+const createTableRepository = (): ITableRepository =>
+  ({ find: vi.fn().mockResolvedValue(ok([])) }) as unknown as ITableRepository;
 
 const createBackfillService = (): ComputedFieldBackfillService =>
   ({
@@ -300,6 +301,7 @@ describe('ComputedUpdateWorker', () => {
           createLogger(),
           createHasher(),
           {
+            ...createTableRepository(),
             findOne: async () =>
               ok({
                 id: () => tableId,
@@ -3657,7 +3659,7 @@ describe('ComputedUpdateWorker stage budget', () => {
     expect(markedDoneIds).not.toContain(task.id);
   });
 
-  it('splits seed task plans and defers the remainder without replanning', async () => {
+  it('splits seed task plans and preserves the deferred steps', async () => {
     const task = createMockSeedTask();
     const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
     const tableA = TableId.create(TABLE_ID)._unsafeUnwrap();
@@ -3738,8 +3740,6 @@ describe('ComputedUpdateWorker stage budget', () => {
 
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap()).toBe(1);
-    // one initial planStage call, no replanning for the continuation
-    expect(planStage).toHaveBeenCalledTimes(1);
 
     const executedPlan = execute.mock.calls[0][0];
     expect(executedPlan.steps.map((step: { level: number }) => step.level)).toEqual([0, 1]);

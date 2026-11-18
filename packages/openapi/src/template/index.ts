@@ -12,5 +12,6 @@ export * from './get-by-base-id';
 export * from './unpublish';
 export * from './increment-visit';
 export * from './get-permalink';
+export * from './link-preview';
 export * from './manifest';
 export * from './url-key';

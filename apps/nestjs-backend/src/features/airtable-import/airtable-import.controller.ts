@@ -1,11 +1,25 @@
-import { Body, Controller, ForbiddenException, Logger, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Res,
+} from '@nestjs/common';
 import { HttpErrorCode, type Action } from '@teable/core';
 import {
   importAirtableAnalyzeRoSchema,
   importAirtableRoSchema,
+  importAirtableTaskRoSchema,
   type IImportAirtableAnalyzeRo,
   type IImportAirtableAnalyzeVo,
   type IImportAirtableRo,
+  type IImportAirtableTaskRo,
+  type IImportAirtableTaskVo,
+  type IImportAirtableVo,
+  type IImportTaskSubmitVo,
 } from '@teable/openapi';
 import { Response as ExpressResponse } from 'express';
 import { ClsService } from 'nestjs-cls';
@@ -15,6 +29,7 @@ import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { PermissionService } from '../auth/permission.service';
 import { BaseNodeService } from '../base-node/base-node.service';
+import { SourceImportTaskService } from '../source-import-task/source-import-task.service';
 import { AirtableApiError } from './airtable-api.client';
 import { AirtableImportService } from './airtable-import.service';
 
@@ -40,7 +55,8 @@ export class AirtableImportController {
     private readonly airtableImportService: AirtableImportService,
     private readonly permissionService: PermissionService,
     private readonly baseNodeService: BaseNodeService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly importTaskService: SourceImportTaskService
   ) {}
 
   /**
@@ -91,13 +107,11 @@ export class AirtableImportController {
     }
   }
 
-  @TokenAccess()
-  @Post('import-airtable/stream')
-  async importStream(
-    @Body(new ZodValidationPipe(importAirtableRoSchema))
-    importAirtableRo: IImportAirtableRo,
-    @Res() res: ExpressResponse
-  ) {
+  /**
+   * Everything an import request must pass before any work starts, shared by
+   * the stream and the task route. Returns the request with its folder resolved.
+   */
+  private async authorizeImport(importAirtableRo: IImportAirtableRo): Promise<IImportAirtableRo> {
     // Authorize the real write target before doing anything: importing into an
     // existing base needs table-import rights on THAT base — not base|create on
     // whatever space the caller passes — while creating a new base needs
@@ -120,14 +134,81 @@ export class AirtableImportController {
       this.cls.get('accessTokenId')
     );
     await this.assertIntegrationScope(importAirtableRo.integrationId);
-    // fail fast: past flushHeaders errors can only surface as stream events
+    // fail fast: once the import has started, errors only surface as stream events or task state
     if (importAirtableRo.folderId && importAirtableRo.baseId) {
       const folderNodeId = await this.baseNodeService.resolveFolderNodeId(
         importAirtableRo.baseId,
         importAirtableRo.folderId
       );
-      importAirtableRo = { ...importAirtableRo, folderId: folderNodeId };
+      return { ...importAirtableRo, folderId: folderNodeId };
     }
+    return importAirtableRo;
+  }
+
+  private logImportFailure(importAirtableRo: IImportAirtableRo, reason: string): void {
+    this.logger.warn(
+      `[airtable-import] failed airtableBase=${importAirtableRo.airtableBaseId} ` +
+        `target=${importAirtableRo.baseId ?? 'new'} reason=${reason}`
+    );
+  }
+
+  /**
+   * Starts the import in the background and returns its task id at once, so the
+   * client polls with short requests instead of holding one connection open for
+   * the whole import. Asking again for the same Airtable base and destination
+   * while it runs returns the running task.
+   */
+  @TokenAccess()
+  @Post('import-airtable/tasks')
+  async createImportTask(
+    @Body(new ZodValidationPipe(importAirtableTaskRoSchema))
+    taskRo: IImportAirtableTaskRo
+  ): Promise<IImportTaskSubmitVo> {
+    const { force, ...ro } = taskRo;
+    const importAirtableRo = await this.authorizeImport(ro);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- credentials stay out of the digest
+    const { accessToken, integrationId, ...request } = importAirtableRo;
+    return this.importTaskService.submit<IImportAirtableVo>({
+      source: 'airtable',
+      userId: this.cls.get('user.id'),
+      scope: {
+        airtableBaseId: importAirtableRo.airtableBaseId,
+        // Where the import goes, not how it is imported: a retry with other
+        // options still finds the running task, another destination does not.
+        target: importAirtableRo.baseId
+          ? { baseId: importAirtableRo.baseId, folderId: importAirtableRo.folderId ?? null }
+          : { spaceId: importAirtableRo.spaceId, baseName: importAirtableRo.baseName },
+      },
+      fingerprint: request,
+      force,
+      run: (report, setBaseId) =>
+        this.airtableImportService.importBase(importAirtableRo, report, setBaseId),
+      toFailure: (error) => {
+        const reason = formatAirtableImportError(error);
+        this.logImportFailure(importAirtableRo, reason);
+        return { error: { message: reason } };
+      },
+    });
+  }
+
+  @TokenAccess()
+  @Get('import-airtable/tasks/:taskId')
+  async getImportTask(@Param('taskId') taskId: string): Promise<IImportAirtableTaskVo> {
+    return this.importTaskService.get<IImportAirtableVo>(
+      'airtable',
+      this.cls.get('user.id'),
+      taskId
+    );
+  }
+
+  @TokenAccess()
+  @Post('import-airtable/stream')
+  async importStream(
+    @Body(new ZodValidationPipe(importAirtableRoSchema))
+    importAirtableRo: IImportAirtableRo,
+    @Res() res: ExpressResponse
+  ) {
+    importAirtableRo = await this.authorizeImport(importAirtableRo);
 
     const sseHeartbeatMs = 15_000;
     res.setHeader('Content-Type', 'text/event-stream');
@@ -156,10 +237,7 @@ export class AirtableImportController {
       sendEvent({ type: 'done', data: result });
     } catch (error) {
       const reason = formatAirtableImportError(error);
-      this.logger.warn(
-        `[airtable-import] failed airtableBase=${importAirtableRo.airtableBaseId} ` +
-          `target=${importAirtableRo.baseId ?? 'new'} reason=${reason}`
-      );
+      this.logImportFailure(importAirtableRo, reason);
       sendEvent({ type: 'error', message: reason });
     } finally {
       clearInterval(heartbeat);

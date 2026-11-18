@@ -96,7 +96,8 @@ export type TableQueryOpsDatabase = {
     provider: string;
     operator_class: string | null;
     language_config: string | null;
-    generated_column_name: string;
+    generated_column_name: string | null;
+    serving_snapshot: unknown;
     index_name: string;
     field_ids: unknown;
     field_db_names: unknown;
@@ -401,7 +402,8 @@ export const ensureTableQueryOpsSchema = async (
     .addColumn('provider', 'text', (col) => col.notNull().defaultTo('tsvector'))
     .addColumn('operator_class', 'text')
     .addColumn('language_config', 'text')
-    .addColumn('generated_column_name', 'text', (col) => col.notNull())
+    .addColumn('generated_column_name', 'text')
+    .addColumn('serving_snapshot', 'jsonb')
     .addColumn('index_name', 'text', (col) => col.notNull())
     .addColumn('field_ids', 'jsonb', (col) => col.notNull())
     .addColumn('field_db_names', 'jsonb', (col) => col.notNull())
@@ -418,23 +420,55 @@ export const ensureTableQueryOpsSchema = async (
     .execute();
 
   await sql`
-    ALTER TABLE table_query_search_vector_config
-    ADD COLUMN IF NOT EXISTS search_scope text NOT NULL DEFAULT 'all_fields'
-  `.execute(db);
-  await sql`
-    ALTER TABLE table_query_search_vector_config
-      ADD COLUMN IF NOT EXISTS reclaim_idx_scan_baseline bigint,
-      ADD COLUMN IF NOT EXISTS reclaim_sampled_at timestamptz,
-      ADD COLUMN IF NOT EXISTS reclaim_disabled_at timestamptz,
-      ADD COLUMN IF NOT EXISTS reclaim_drop_after timestamptz,
-      ADD COLUMN IF NOT EXISTS reclaim_drop_queued_at timestamptz
-  `.execute(db);
-  await sql`
-    ALTER TABLE table_query_search_vector_config
-      ADD COLUMN IF NOT EXISTS semantics text NOT NULL DEFAULT 'lexical',
-      ADD COLUMN IF NOT EXISTS access_path text NOT NULL DEFAULT 'generated_tsvector',
-      ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT 'tsvector',
-      ADD COLUMN IF NOT EXISTS operator_class text
+    DO $$
+    DECLARE
+      config_table_oid oid := pg_catalog.to_regclass('table_query_search_vector_config');
+      config_columns text[];
+      generated_column_not_null boolean;
+    BEGIN
+      IF config_table_oid IS NOT NULL THEN
+        SELECT array_agg(attname::text),
+          bool_or(attname = 'generated_column_name' AND attnotnull)
+        INTO config_columns, generated_column_not_null
+        FROM pg_catalog.pg_attribute
+        WHERE attrelid = config_table_oid
+          AND attnum > 0
+          AND NOT attisdropped;
+
+        IF NOT config_columns @> ARRAY['search_scope'] THEN
+          ALTER TABLE table_query_search_vector_config
+            ADD COLUMN IF NOT EXISTS search_scope text NOT NULL DEFAULT 'all_fields';
+        END IF;
+
+        IF NOT config_columns @> ARRAY[
+          'reclaim_idx_scan_baseline', 'reclaim_sampled_at', 'reclaim_disabled_at',
+          'reclaim_drop_after', 'reclaim_drop_queued_at'
+        ] THEN
+          ALTER TABLE table_query_search_vector_config
+            ADD COLUMN IF NOT EXISTS reclaim_idx_scan_baseline bigint,
+            ADD COLUMN IF NOT EXISTS reclaim_sampled_at timestamptz,
+            ADD COLUMN IF NOT EXISTS reclaim_disabled_at timestamptz,
+            ADD COLUMN IF NOT EXISTS reclaim_drop_after timestamptz,
+            ADD COLUMN IF NOT EXISTS reclaim_drop_queued_at timestamptz;
+        END IF;
+
+        IF NOT config_columns @> ARRAY[
+          'semantics', 'access_path', 'provider', 'operator_class'
+        ] THEN
+          ALTER TABLE table_query_search_vector_config
+            ADD COLUMN IF NOT EXISTS semantics text NOT NULL DEFAULT 'lexical',
+            ADD COLUMN IF NOT EXISTS access_path text NOT NULL DEFAULT 'generated_tsvector',
+            ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT 'tsvector',
+            ADD COLUMN IF NOT EXISTS operator_class text;
+        END IF;
+
+        IF NOT config_columns @> ARRAY['serving_snapshot'] OR generated_column_not_null THEN
+          ALTER TABLE table_query_search_vector_config
+            ADD COLUMN IF NOT EXISTS serving_snapshot jsonb,
+            ALTER COLUMN generated_column_name DROP NOT NULL;
+        END IF;
+      END IF;
+    END $$;
   `.execute(db);
 
   await db.schema

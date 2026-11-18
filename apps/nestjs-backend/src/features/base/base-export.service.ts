@@ -20,7 +20,6 @@ import type {
   IExportBaseVo,
 } from '@teable/openapi';
 import archiver from 'archiver';
-import { stringify } from 'csv-stringify/sync';
 import { Knex } from 'knex';
 import { groupBy, omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -45,6 +44,12 @@ import { createFieldInstanceByRaw } from '../field/model/factory';
 import { NotificationService } from '../notification/notification.service';
 import { PENDING_ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
+import { BaseExportCoordinator } from './base-export-coordinator';
+import {
+  appendBaseExportEntry,
+  createBaseExportCsvStream,
+  isBaseExportCancelled,
+} from './base-export-stream';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 import { isCrossSpaceReferenceAllowed } from './cross-space-detection.util';
 import { EXPORT_ZIP_OPTIONS, guardExportArchive } from './export-archive-guard';
@@ -90,7 +95,8 @@ export class BaseExportService {
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @StorageConfig() private readonly storageConfig: IStorageConfig,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly databaseRouter: DatabaseRouter
+    private readonly databaseRouter: DatabaseRouter,
+    private readonly exportCoordinator: BaseExportCoordinator
   ) {}
 
   private captureExportError(
@@ -128,48 +134,47 @@ export class BaseExportService {
     return `${getRandomString(12)}`;
   }
 
-  /**
-   * Download a single file and append it to archive with timeout and error handling
-   * @returns true on success, false on failure
-   */
+  /** Unsignalled internal callers retain their best-effort download contract. */
   async appendFileToArchive(
     archive: archiver.Archiver,
     bucket: string,
     s3Path: string,
     archivePath: string,
     timeoutMs: number = 10 * 60 * 1000,
-    chatId?: string
+    _chatId?: string,
+    signal?: AbortSignal
   ): Promise<boolean> {
+    const controller = new AbortController();
+    let stream: Readable | undefined;
+    const abort = () => controller.abort(signal?.reason);
+    const destroy = () => stream?.destroy();
+    signal?.addEventListener('abort', abort, { once: true });
+    controller.signal.addEventListener('abort', destroy, { once: true });
+    if (signal?.aborted) abort();
+    const timeout = setTimeout(
+      () => controller.abort(new Error(`File stream timeout after ${timeoutMs}ms: ${archivePath}`)),
+      timeoutMs
+    );
     try {
-      const stream = await this.storageAdapter.downloadFile(bucket, s3Path);
-
-      await new Promise<void>((resolve, reject) => {
-        archive.append(stream, { name: archivePath });
-
-        const timeout = setTimeout(() => {
-          stream.destroy();
-          reject(new Error(`File stream timeout after ${timeoutMs}ms: ${archivePath}`));
-        }, timeoutMs);
-
-        stream.on('error', (err) => {
-          clearTimeout(timeout);
-          stream.destroy();
-          reject(err);
-        });
-
-        stream.on('end', () => {
-          clearTimeout(timeout);
-          stream.destroy();
-          resolve();
-        });
-      });
-
+      controller.signal.throwIfAborted();
+      stream = await this.storageAdapter.downloadFile(bucket, s3Path);
+      controller.signal.throwIfAborted();
+      await appendBaseExportEntry(archive, stream, archivePath, controller.signal);
       return true;
-    } catch (err) {
+    } catch (error) {
       this.logger.error(
-        `Failed to export file ${s3Path} to ${archivePath}: ${err instanceof Error ? err.message : String(err)}`
+        `Failed to export file ${s3Path} to ${archivePath}: ${error instanceof Error ? error.message : String(error)}`
       );
+      if (signal) {
+        controller.signal.throwIfAborted();
+        throw error;
+      }
       return false;
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', abort);
+      controller.signal.removeEventListener('abort', destroy);
+      stream?.destroy();
     }
   }
 
@@ -177,10 +182,41 @@ export class BaseExportService {
   async exportBaseZip(
     baseId: string,
     includeData = true,
-    onProgress?: ExportBaseProgressCallback
+    onProgress?: ExportBaseProgressCallback,
+    signal?: AbortSignal
   ): Promise<IExportBaseVo | undefined> {
+    return this.exportCoordinator.run(
+      {
+        baseId,
+        includeData,
+        userId: this.cls.get('user.id'),
+        onProgress,
+        signal,
+        onCancelled: () =>
+          this.notifyExportResult(
+            baseId,
+            {
+              i18nKey: 'common.email.templates.notify.exportBase.cancelled.message',
+              context: { baseId },
+            },
+            { status: 'cancelled' }
+          ),
+      },
+      (jobSignal, progress, commitTerminalOutcome) =>
+        this.performExport(baseId, includeData, progress, jobSignal, commitTerminalOutcome)
+    );
+  }
+
+  private async performExport(
+    baseId: string,
+    includeData: boolean,
+    onProgress: ExportBaseProgressCallback,
+    signal: AbortSignal,
+    commitTerminalOutcome: () => boolean
+  ): Promise<IExportBaseVo> {
     let baseName: string | undefined;
-    onProgress?.('preparing');
+    onProgress('preparing');
+    signal.throwIfAborted();
     try {
       const { name } = await this.prismaService.base.findFirstOrThrow({
         where: {
@@ -190,8 +226,10 @@ export class BaseExportService {
           name: true,
         },
       });
+      signal.throwIfAborted();
       baseName = baseDisplayName(name);
     } catch (error) {
+      if (isBaseExportCancelled(signal)) throw error;
       this.captureExportError(error, {
         stage: 'fetchBase',
         baseId,
@@ -225,27 +263,33 @@ export class BaseExportService {
         'Content-Type': 'application/octet-stream',
         // eslint-disable-next-line @typescript-eslint/naming-convention
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
-      }
+      },
+      guard.signal
     );
     // The upload runs alongside the archive; a part failing mid-export must stop the export
     // instead of surfacing later as an unhandled rejection.
     uploadPromise.catch(guard.fail);
+    const onAbort = () => guard.fail(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    let processing: Promise<void> | undefined;
 
     try {
       onProgress?.('exporting_archive');
-      await guard.run(
-        this.prismaService.$tx(
-          async (prisma) => {
-            await prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY');
-            await this.pipeArchive(archive, baseId, includeData, onProgress);
-          },
-          {
-            isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-            timeout: this.thresholdConfig.bigTransactionTimeout,
-          }
-        )
+      processing = this.prismaService.$tx(
+        async (prisma) => {
+          guard.signal.throwIfAborted();
+          await prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+          guard.signal.throwIfAborted();
+          await this.pipeArchive(archive, baseId, includeData, onProgress, guard.signal);
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+          timeout: this.thresholdConfig.bigTransactionTimeout,
+        }
       );
-      archive.finalize().catch(guard.fail);
+      await guard.run(processing);
+      await guard.run(archive.finalize());
       onProgress?.('uploading_archive');
       const uploadResult = await guard.run(uploadPromise);
       const { path } = uploadResult;
@@ -268,7 +312,9 @@ export class BaseExportService {
           name: exportFileName,
         },
       };
-      this.notifyExportResult(baseId, message, {
+      signal.throwIfAborted();
+      commitTerminalOutcome();
+      await this.notifyExportResult(baseId, message, {
         status: 'success',
         previewUrl,
         attachment: {
@@ -279,12 +325,15 @@ export class BaseExportService {
       onProgress?.('done');
       return { previewUrl, baseName, fileName: exportFileName };
     } catch (e) {
+      guard.fail(e);
+      if (isBaseExportCancelled(signal)) throw e;
       this.captureExportError(e, {
         stage: 'processExport',
         baseId,
         baseName,
         includeData,
       });
+      if (!commitTerminalOutcome()) throw e;
       if (e instanceof Error) {
         const message: ILocalization<I18nPath> = {
           i18nKey: 'common.email.templates.notify.exportBase.failed.message',
@@ -294,14 +343,26 @@ export class BaseExportService {
             errorMessage: e.message,
           },
         };
-        this.notifyExportResult(baseId, message, {
-          status: 'failed',
-          errorMessage: e.message,
-        });
+        try {
+          await this.notifyExportResult(baseId, message, {
+            status: 'failed',
+            errorMessage: e.message,
+          });
+        } catch (notificationError) {
+          this.captureExportError(notificationError, {
+            stage: 'processExport',
+            baseId,
+            baseName,
+            includeData,
+          });
+          throw notificationError;
+        }
       }
-      if (onProgress) {
-        throw e;
-      }
+      throw e;
+    } finally {
+      // Keep the shared process slot until pending DB reads and upload cleanup unwind.
+      await Promise.allSettled([processing, uploadPromise]);
+      signal.removeEventListener('abort', onAbort);
     }
   }
 
@@ -310,17 +371,21 @@ export class BaseExportService {
     archive: archiver.Archiver,
     baseId: string,
     includeData: boolean,
-    onProgress?: ExportBaseProgressCallback
+    onProgress?: ExportBaseProgressCallback,
+    signal?: AbortSignal
   ) {
-    await this.processExportBaseZip(baseId, includeData, archive, onProgress);
+    signal?.throwIfAborted();
+    await this.processExportBaseZip(baseId, includeData, archive, onProgress, signal);
   }
 
   async processExportBaseZip(
     baseId: string,
     includeData: boolean,
     archive: archiver.Archiver,
-    onProgress?: ExportBaseProgressCallback
+    onProgress?: ExportBaseProgressCallback,
+    signal?: AbortSignal
   ) {
+    signal?.throwIfAborted();
     const prisma = this.prismaService.txClient();
     //  1. get all raw info
     const baseRaw = await prisma.base.findUniqueOrThrow({
@@ -329,6 +394,7 @@ export class BaseExportService {
         deletedTime: null,
       },
     });
+    signal?.throwIfAborted();
     const baseLabel = `${baseRaw.id}/${baseDisplayName(baseRaw.name)}`;
     const tableRaws = await prisma.tableMeta.findMany({
       where: {
@@ -339,9 +405,10 @@ export class BaseExportService {
         order: 'asc',
       },
     });
+    signal?.throwIfAborted();
     const tableIds = tableRaws.map(({ id }) => id);
-    const fieldRaws = await this.findFieldsByTableIds(tableIds);
-    const viewRaws = await this.findViewsByTableIds(tableIds);
+    const fieldRaws = await this.findFieldsByTableIds(tableIds, signal);
+    const viewRaws = await this.findViewsByTableIds(tableIds, signal);
 
     // 2. generate base structure json
     onProgress?.('exporting_structure');
@@ -350,25 +417,28 @@ export class BaseExportService {
       tableRaws,
       fieldRaws,
       viewRaws,
+      signal,
     });
-    const jsonString = JSON.stringify(structure, null, 2);
-    const jsonStream = Readable.from(jsonString);
-
-    // 3. export structure json
-    archive.append(jsonStream, { name: 'structure.json' });
+    signal?.throwIfAborted();
+    await appendBaseExportEntry(
+      archive,
+      Readable.from(JSON.stringify(structure, null, 2)),
+      'structure.json',
+      signal
+    );
 
     // 4 export data
     if (includeData) {
       onProgress?.('exporting_attachments');
       this.logger.log(`export base ${baseLabel}: Start exporting attachments`);
       // 4.0 export attachments
-      await this.appendAttachments('attachments', tableRaws, archive);
+      await this.appendAttachments('attachments', tableRaws, archive, signal);
       this.logger.log(`export base ${baseLabel}: End exporting attachments data csv`);
 
       onProgress?.('exporting_attachment_metadata');
       // 4.1 export attachments data .csv
       this.logger.log(`export base ${baseLabel}: Start exporting attachments data csv`);
-      await this.appendAttachmentsDataCsv('attachments', tableRaws, archive);
+      await this.appendAttachmentsDataCsv('attachments', tableRaws, archive, signal);
       this.logger.log(`export base ${baseLabel}: End exporting attachments data csv`);
 
       onProgress?.('exporting_table_data');
@@ -382,6 +452,7 @@ export class BaseExportService {
       );
 
       for (const [index, tableRaw] of tableRaws.entries()) {
+        signal?.throwIfAborted();
         onProgress?.('table_data_started', tableRaw.name, {
           type: 'progress',
           phase: 'table_data_started',
@@ -407,7 +478,8 @@ export class BaseExportService {
           tableRaw,
           crossBaseFieldRaws,
           excludeDbFieldNames,
-          onProgress
+          onProgress,
+          signal
         );
         onProgress?.('table_data_done', tableRaw.name, {
           type: 'progress',
@@ -436,7 +508,8 @@ export class BaseExportService {
             fkHostTableName,
             selfKeyName,
             foreignKeyName,
-            archive
+            archive,
+            signal
           );
         }
       }
@@ -466,6 +539,7 @@ export class BaseExportService {
     // degraded to text even when allowCrossBase=true (same-space cross-base
     // remains a real link).
     destSpaceId,
+    signal,
   }: {
     baseRaw: Base;
     tableRaws: TableMeta[];
@@ -481,11 +555,14 @@ export class BaseExportService {
     excludedTableIds?: string[];
     rootNodeIds?: string[];
     destSpaceId?: string;
+    signal?: AbortSignal;
   }) {
+    signal?.throwIfAborted();
     const { name: baseName, icon: baseIcon, id: baseId } = baseRaw;
     const crossSpaceForeignBaseIds = await this.computeCrossSpaceForeignBaseIds(
       fieldRaws,
-      destSpaceId
+      destSpaceId,
+      signal
     );
     const fieldsByTableId = groupBy(fieldRaws, 'tableId');
     const viewsByTableId = groupBy(viewRaws, 'tableId');
@@ -516,10 +593,11 @@ export class BaseExportService {
       baseId,
       includedDashboardIds,
       viewRaws,
-      tableRaws.map(({ id }) => id)
+      tableRaws.map(({ id }) => id),
+      signal
     );
-    const folders = await this.generateFolderConfig(baseId, includedFolderIds);
-    const nodes = await this.generateNodeConfig(baseId, includeNodes, rootNodeIds);
+    const folders = await this.generateFolderConfig(baseId, includedFolderIds, signal);
+    const nodes = await this.generateNodeConfig(baseId, includeNodes, rootNodeIds, signal);
 
     return {
       id: baseId,
@@ -534,87 +612,89 @@ export class BaseExportService {
     };
   }
 
+  private async *getAttachmentMetadataPages(
+    tableRaws: TableMeta[],
+    includeDeleted: boolean,
+    signal?: AbortSignal
+  ) {
+    // Legacy refs belong to the main transaction; table CSV queries use DatabaseRouter.
+    // Keep that v1 mapping and the full Prisma metadata shape (including its CSV order).
+    const prisma = this.prismaService.txClient();
+    const tableIds = tableRaws.map(({ id }) => id);
+    const seen = new Set<string>();
+    let cursor: string | undefined;
+    while (true) {
+      signal?.throwIfAborted();
+      const refs = await prisma.attachmentsTable.findMany({
+        where: { tableId: { in: tableIds }, ...(cursor ? { id: { gt: cursor } } : {}) },
+        select: { id: true, token: true, name: true },
+        orderBy: { id: 'asc' },
+        take: BaseExportService.CSV_CHUNK,
+      });
+      signal?.throwIfAborted();
+      if (!refs.length) return;
+      cursor = refs[refs.length - 1].id;
+      const names = new Map<string, string>();
+      for (const ref of refs) {
+        if (seen.has(ref.token)) continue;
+        seen.add(ref.token);
+        names.set(ref.token, ref.name);
+      }
+      if (!names.size) continue;
+      signal?.throwIfAborted();
+      const rows = await prisma.attachments.findMany({
+        where: {
+          token: { in: [...names.keys()] },
+          ...(includeDeleted ? {} : { deletedTime: null }),
+        },
+      });
+      signal?.throwIfAborted();
+      if (rows.length) yield { rows, names };
+    }
+  }
+
   private async appendAttachments(
     filePath: string,
     tableRaws: TableMeta[],
-    archive: archiver.Archiver
+    archive: archiver.Archiver,
+    signal?: AbortSignal
   ) {
-    const tableIds = tableRaws.map(({ id }) => id);
-    const prisma = this.prismaService.txClient();
-    const attachmentTokenRaws = await prisma.attachmentsTable.findMany({
-      where: {
-        tableId: {
-          in: tableIds,
-        },
-      },
-      select: {
-        token: true,
-        name: true,
-      },
-    });
-    const attachments = (
-      await prisma.attachments.findMany({
-        where: {
-          token: {
-            in: attachmentTokenRaws.map(({ token }) => token),
-          },
-        },
-        select: {
-          token: true,
-          path: true,
-          mimetype: true,
-          thumbnailPath: true,
-        },
-      })
-    ).map((att) => ({
-      ...att,
-      name: attachmentTokenRaws.find(({ token }) => token === att.token)?.name,
-    }));
     const bucket = StorageAdapter.getBucket(UploadType.Table);
-    for (const { token, path, name } of attachments) {
-      const archivePath = `${filePath}/${token}.${name?.split('.').pop()}`;
-      await this.appendFileToArchive(archive, bucket, path, archivePath);
+    // v1 includes deleted file bodies but excludes their metadata rows. Preserve that quirk.
+    for await (const { rows, names } of this.getAttachmentMetadataPages(tableRaws, true, signal)) {
+      for (const { token, path } of rows) {
+        signal?.throwIfAborted();
+        await this.appendFileToArchive(
+          archive,
+          bucket,
+          path,
+          `${filePath}/${token}.${names.get(token)?.split('.').pop()}`,
+          undefined,
+          undefined,
+          signal
+        );
+      }
     }
-
-    const thumbnailAttachments = attachments.filter(({ thumbnailPath }) => thumbnailPath);
-    const prefix = `${filePath}/thumbnail__`;
-
-    for (const { thumbnailPath, name } of thumbnailAttachments) {
-      const suffix = name?.split('.').pop() || 'jpg';
-      const {
-        lg: thumbnailLgPath,
-        md: thumbnailMdPath,
-        sm: thumbnailSmPath,
-      } = JSON.parse(thumbnailPath as string);
-
-      if (thumbnailLgPath) {
-        const fileName = thumbnailLgPath.split('/').pop();
-        await this.appendFileToArchive(
-          archive,
-          bucket,
-          thumbnailLgPath,
-          `${prefix}${fileName}.${suffix}`
-        );
-      }
-
-      if (thumbnailMdPath) {
-        const fileName = thumbnailMdPath.split('/').pop();
-        await this.appendFileToArchive(
-          archive,
-          bucket,
-          thumbnailMdPath,
-          `${prefix}${fileName}.${suffix}`
-        );
-      }
-
-      if (thumbnailSmPath) {
-        const fileName = thumbnailSmPath.split('/').pop();
-        await this.appendFileToArchive(
-          archive,
-          bucket,
-          thumbnailSmPath,
-          `${prefix}${fileName}.${suffix}`
-        );
+    // Keep v1's bodies-before-thumbnails ordering without retaining all metadata.
+    for await (const { rows, names } of this.getAttachmentMetadataPages(tableRaws, true, signal)) {
+      for (const { token, thumbnailPath } of rows) {
+        if (!thumbnailPath) continue;
+        const suffix = names.get(token)?.split('.').pop() || 'jpg';
+        const thumbnails = JSON.parse(thumbnailPath) as Record<string, string>;
+        for (const size of ['lg', 'md', 'sm']) {
+          const path = thumbnails[size];
+          if (!path) continue;
+          signal?.throwIfAborted();
+          await this.appendFileToArchive(
+            archive,
+            bucket,
+            path,
+            `${filePath}/thumbnail__${path.split('/').pop()}.${suffix}`,
+            undefined,
+            undefined,
+            signal
+          );
+        }
       }
     }
   }
@@ -625,15 +705,18 @@ export class BaseExportService {
     tableRaw: TableMeta,
     crossBaseRelativeFields: Field[],
     excludeDbFieldNames: string[],
-    onProgress?: ExportBaseProgressCallback
+    onProgress?: ExportBaseProgressCallback,
+    signal?: AbortSignal
   ) {
+    signal?.throwIfAborted();
     const { dbTableName, id } = tableRaw;
-    const csvStream = new PassThrough();
     const prisma = await this.databaseRouter.dataPrismaExecutorForTable(id, {
       useTransaction: true,
     });
+    signal?.throwIfAborted();
     const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+    signal?.throwIfAborted();
 
     // 1. set csv header
     const convertLinkFields = crossBaseRelativeFields.filter(({ type }) => type === FieldType.Link);
@@ -648,250 +731,126 @@ export class BaseExportService {
       .filter((name) => !name.startsWith(PENDING_ROW_ORDER_FIELD_PREFIX))
       // exclude fk fields which are cross base link fields
       .filter((name) => !fkNames.includes(name));
-    // write the column header
-    const headerRow = columnHeader.join(',');
-    csvStream.write(`${headerRow}\n`);
-
-    let offset = 0;
-    let processedRows = 0;
-    let hasMoreData = true;
-    archive.append(csvStream, { name: `${filePath}/${id}.csv` });
-
-    // Logged only: the export archive guard fails the export on entry errors, while a
-    // throw here would just escape as an uncaught exception.
-    csvStream.on('error', (err) => {
-      this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
-    });
-
-    csvStream.on('end', () => {
-      console.log('CSV Stream ended');
-    });
-
-    csvStream.on('finish', () => {
-      console.log('CSV Stream finished');
-    });
-
-    // 2. write csv content
-    while (hasMoreData) {
-      const csvChunk = await this.getCsvChunk(
-        prisma,
-        dbTableName,
-        offset,
-        crossBaseRelativeFields,
-        excludeDbFieldNames
-      );
-      if (csvChunk.length === 0) {
-        hasMoreData = false;
-        break;
+    const service = this;
+    async function* rows(): AsyncGenerator<readonly unknown[]> {
+      let offset = 0;
+      let processedRows = 0;
+      while (true) {
+        signal?.throwIfAborted();
+        const records = await service.getChunkRecords(prisma, dbTableName, offset);
+        signal?.throwIfAborted();
+        if (!records.length) return;
+        for (const record of records) {
+          signal?.throwIfAborted();
+          const converted = service.transformConvertFieldsCellValue(record, crossBaseRelativeFields);
+          yield columnHeader.map((header) => converted[header]);
+        }
+        offset += BaseExportService.CSV_CHUNK;
+        processedRows += records.length;
+        onProgress?.('table_data_progress', tableRaw.name, {
+          type: 'progress',
+          phase: 'table_data_progress',
+          tableId: tableRaw.id,
+          tableName: tableRaw.name,
+          processedRows,
+          batchProcessedRows: records.length,
+          currentBatch: Math.ceil(offset / BaseExportService.CSV_CHUNK),
+        });
       }
-      if (csvStream.destroyed) {
-        // The export failed and its archive guard tore this entry down.
-        return;
-      }
-      const csvString = stringify(csvChunk, {
-        columns: columnHeader,
-      });
-      csvStream.write(csvString);
-      offset += BaseExportService.CSV_CHUNK;
-      processedRows += csvChunk.length;
-      onProgress?.('table_data_progress', tableRaw.name, {
-        type: 'progress',
-        phase: 'table_data_progress',
-        tableId: tableRaw.id,
-        tableName: tableRaw.name,
-        processedRows,
-        batchProcessedRows: csvChunk.length,
-        currentBatch: Math.ceil(offset / BaseExportService.CSV_CHUNK),
-      });
     }
-    csvStream.end();
+    await appendBaseExportEntry(
+      archive,
+      createBaseExportCsvStream(columnHeader, rows(), signal),
+      `${filePath}/${id}.csv`,
+      signal
+    );
   }
 
   private async appendAttachmentsDataCsv(
     filePath: string,
     tableRaws: TableMeta[],
-    archive: archiver.Archiver
+    archive: archiver.Archiver,
+    signal?: AbortSignal
   ) {
-    const csvStream = new PassThrough();
-    const prisma = this.prismaService.txClient();
-
-    const tokens = await prisma.attachmentsTable.findMany({
-      where: {
-        tableId: {
-          in: tableRaws.map(({ id }) => id),
-        },
-      },
-      select: {
-        token: true,
-      },
-    });
-
-    const attachments = await prisma.attachments.findMany({
-      where: {
-        token: {
-          in: tokens.map(({ token }) => token),
-        },
-        deletedTime: null,
-      },
-    });
-
-    if (!attachments.length) {
-      return;
-    }
-
-    const columnInfo = Object.keys(attachments[0]);
-
-    // 1. set csv header
-    const columnHeader = columnInfo
-      // exclude system fields
-      .filter((name) => !EXCLUDE_SYSTEM_FIELDS.includes(name));
-
-    const headerRow = columnHeader.join(',');
-    csvStream.write(`${headerRow}\n`);
-
-    archive.append(csvStream, { name: `${filePath}/attachments.csv` });
-
-    // Logged only: the export archive guard fails the export on entry errors, while a
-    // throw here would just escape as an uncaught exception.
-    csvStream.on('error', (err) => {
-      this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
-    });
-
-    csvStream.on('end', () => {
-      console.log('CSV Stream ended');
-    });
-
-    csvStream.on('finish', () => {
-      console.log('CSV Stream finished');
-    });
-
-    const csvString = stringify(
-      attachments.map((att) => ({
-        ...pick(att, columnHeader),
-        size: Number(att.size),
-      })),
-      {
-        columns: columnHeader,
+    const pages = this.getAttachmentMetadataPages(tableRaws, false, signal);
+    try {
+      let page = await pages.next();
+      signal?.throwIfAborted();
+      if (page.done) return;
+      const headers = Object.keys(page.value.rows[0]).filter(
+        (name) => !EXCLUDE_SYSTEM_FIELDS.includes(name)
+      );
+      async function* rows(): AsyncGenerator<readonly unknown[]> {
+        while (!page.done) {
+          for (const attachment of page.value.rows) {
+            signal?.throwIfAborted();
+            const values: Record<string, unknown> = { ...attachment, size: Number(attachment.size) };
+            yield headers.map((header) => values[header]);
+          }
+          signal?.throwIfAborted();
+          page = await pages.next();
+        }
       }
-    );
-    csvStream.write(csvString);
-
-    csvStream.end();
+      await appendBaseExportEntry(
+        archive,
+        createBaseExportCsvStream(headers, rows(), signal),
+        `${filePath}/attachments.csv`,
+        signal
+      );
+    } finally {
+      await pages.return(undefined);
+    }
   }
 
   private async appendJunctionCsv(
     filePath: string,
     tableId: string,
     fkHostTableName: string,
-    selfKeyName: string,
-    foreignKeyName: string,
-    archive: archiver.Archiver
+    _selfKeyName: string,
+    _foreignKeyName: string,
+    archive: archiver.Archiver,
+    signal?: AbortSignal
   ) {
-    const csvStream = new PassThrough();
+    signal?.throwIfAborted();
     const prisma = await this.databaseRouter.dataPrismaExecutorForTable(tableId, {
       useTransaction: true,
     });
+    signal?.throwIfAborted();
     const columnInfoQuery = this.dbProvider.columnInfo(fkHostTableName);
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+    signal?.throwIfAborted();
 
     // 1. set csv header
     const columnHeader = columnInfo
       .map(({ name }) => name)
       // exclude id column
       .filter((name) => name !== '__id');
-    // write the column header
-    const headerRow = columnHeader.join(',');
-    csvStream.write(`${headerRow}\n`);
-
-    let offset = 0;
-    let hasMoreData = true;
-    archive.append(csvStream, { name: `${filePath}/${fkHostTableName}.csv` });
-
-    // Logged only: the export archive guard fails the export on entry errors, while a
-    // throw here would just escape as an uncaught exception.
-    csvStream.on('error', (err) => {
-      this.logger.error(`CSV Stream error: ${err.message}`, err.stack);
-    });
-
-    csvStream.on('end', () => {
-      console.log('CSV Stream ended');
-    });
-
-    csvStream.on('finish', () => {
-      console.log('CSV Stream finished');
-    });
-
-    // 2. write csv content
-    while (hasMoreData) {
-      const csvChunk = await this.getJunctionChunk(
-        prisma,
-        fkHostTableName,
-        offset,
-        [selfKeyName, foreignKeyName],
-        ['__id']
-      );
-      if (csvChunk.length === 0) {
-        hasMoreData = false;
-        break;
+    const service = this;
+    async function* rows(): AsyncGenerator<readonly unknown[]> {
+      let offset = 0;
+      while (true) {
+        signal?.throwIfAborted();
+        const query = service.knex(fkHostTableName)
+          .select('*')
+          .limit(BaseExportService.CSV_CHUNK)
+          .offset(offset)
+          .toQuery();
+        const records = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(query);
+        signal?.throwIfAborted();
+        if (!records.length) return;
+        for (const record of records) {
+          signal?.throwIfAborted();
+          yield columnHeader.map((header) => record[header]);
+        }
+        offset += BaseExportService.CSV_CHUNK;
       }
-      if (csvStream.destroyed) {
-        // The export failed and its archive guard tore this entry down.
-        return;
-      }
-      const csvString = stringify(csvChunk, {
-        columns: columnHeader,
-      });
-      csvStream.write(csvString);
-      offset += BaseExportService.CSV_CHUNK;
     }
-    csvStream.end();
-  }
-
-  private async getCsvChunk(
-    prisma: { $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> },
-    dbTableName: string,
-    offset: number,
-    crossBaseRelativeFields: Field[],
-    excludeFieldNames: string[]
-  ) {
-    const rawRecords = await this.getChunkRecords(prisma, dbTableName, offset);
-    // 1. clear unless fields
-    const records = rawRecords.map((record) => omit(record, excludeFieldNames));
-    // 2. convert to csv value
-    return records.map((record) =>
-      this.transformConvertFieldsCellValue(record, crossBaseRelativeFields)
+    await appendBaseExportEntry(
+      archive,
+      createBaseExportCsvStream(columnHeader, rows(), signal),
+      `${filePath}/${fkHostTableName}.csv`,
+      signal
     );
-  }
-
-  private async getJunctionChunk(
-    prisma: { $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> },
-    fkHostTableName: string,
-    offset: number,
-    convertFields: [string, string],
-    excludeFieldNames: string[]
-  ) {
-    const recordsQuery = this.knex(fkHostTableName)
-      .select('*')
-      .limit(BaseExportService.CSV_CHUNK)
-      .offset(offset)
-      .toQuery();
-    const rawRecords = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(recordsQuery);
-    // 1. clear unless fields
-    const records = rawRecords.map((record) => omit(record, excludeFieldNames));
-
-    return records.map((record) => {
-      if (!record) {
-        return record;
-      }
-
-      const newRecord = {} as Record<string, unknown>;
-
-      Object.entries(record).forEach(([key, value]) => {
-        newRecord[key] = value;
-      });
-
-      return newRecord;
-    });
   }
 
   private async getChunkRecords(
@@ -908,7 +867,7 @@ export class BaseExportService {
     return await prisma.$queryRawUnsafe<Record<string, unknown>[]>(recordsQuery);
   }
 
-  async findFieldsByTableIds(tableIds: string[]) {
+  async findFieldsByTableIds(tableIds: string[], signal?: AbortSignal) {
     const prisma = this.prismaService.txClient();
     const fieldRaws: Field[] = [];
 
@@ -925,6 +884,7 @@ export class BaseExportService {
       let hasMore = true;
 
       while (hasMore) {
+        signal?.throwIfAborted();
         const page = await prisma.field.findMany({
           where: {
             tableId: { in: tableIdChunk },
@@ -941,6 +901,7 @@ export class BaseExportService {
           orderBy: [{ tableId: 'asc' }, { id: 'asc' }],
           take: BaseExportService.FIELD_EXPORT_BATCH_SIZE,
         });
+        signal?.throwIfAborted();
 
         fieldRaws.push(...page);
 
@@ -954,7 +915,7 @@ export class BaseExportService {
     return fieldRaws;
   }
 
-  async findViewsByTableIds(tableIds: string[]) {
+  async findViewsByTableIds(tableIds: string[], signal?: AbortSignal) {
     const prisma = this.prismaService.txClient();
     const viewRaws: View[] = [];
 
@@ -971,6 +932,7 @@ export class BaseExportService {
       let hasMore = true;
 
       while (hasMore) {
+        signal?.throwIfAborted();
         const page = await prisma.view.findMany({
           where: {
             tableId: { in: tableIdChunk },
@@ -987,6 +949,7 @@ export class BaseExportService {
           orderBy: [{ tableId: 'asc' }, { order: 'asc' }, { id: 'asc' }],
           take: BaseExportService.VIEW_EXPORT_BATCH_SIZE,
         });
+        signal?.throwIfAborted();
 
         viewRaws.push(...page);
 
@@ -1221,8 +1184,10 @@ export class BaseExportService {
 
   private async computeCrossSpaceForeignBaseIds(
     fieldRaws: Field[],
-    destSpaceId?: string
+    destSpaceId?: string,
+    signal?: AbortSignal
   ): Promise<Set<string>> {
+    signal?.throwIfAborted();
     if (!destSpaceId || isCrossSpaceReferenceAllowed()) return new Set();
     const foreignBaseIds = new Set<string>();
     for (const f of fieldRaws) {
@@ -1246,6 +1211,7 @@ export class BaseExportService {
       where: { id: { in: Array.from(foreignBaseIds) }, deletedTime: null },
       select: { id: true, spaceId: true },
     });
+    signal?.throwIfAborted();
     return new Set(bases.filter((b) => b.spaceId !== destSpaceId).map((b) => b.id));
   }
 
@@ -1431,8 +1397,10 @@ export class BaseExportService {
 
   async generateFolderConfig(
     baseId: string,
-    includedFolderIds?: string[]
+    includedFolderIds?: string[],
+    signal?: AbortSignal
   ): Promise<IBaseJson['folders']> {
+    signal?.throwIfAborted();
     // If includedFolderIds is an empty array, return empty array (user filtered but no folders selected)
     if (includedFolderIds !== undefined && includedFolderIds.length === 0) {
       return [];
@@ -1455,6 +1423,7 @@ export class BaseExportService {
         name: true,
       },
     });
+    signal?.throwIfAborted();
 
     return folderRaws.map((folderRaw) => ({
       id: folderRaw.id,
@@ -1472,8 +1441,10 @@ export class BaseExportService {
   async generateNodeConfig(
     baseId: string,
     includeNodes?: string[],
-    rootNodeIds?: string[]
+    rootNodeIds?: string[],
+    signal?: AbortSignal
   ): Promise<IBaseJson['nodes']> {
+    signal?.throwIfAborted();
     // If includeNodes is an empty array, return empty array (user filtered but no nodes selected)
     if (includeNodes !== undefined && includeNodes.length === 0) {
       return [];
@@ -1496,6 +1467,7 @@ export class BaseExportService {
         order: true,
       },
     });
+    signal?.throwIfAborted();
 
     const rootNodeIdSet = rootNodeIds ? new Set(rootNodeIds) : null;
 
@@ -1523,26 +1495,34 @@ export class BaseExportService {
     baseId: string,
     includedDashboardIds?: string[],
     viewRaws?: View[],
-    includedTableIds?: string[]
+    includedTableIds?: string[],
+    signal?: AbortSignal
   ) {
+    signal?.throwIfAborted();
     const pluginJson = {} as IBaseJson['plugins'];
 
     pluginJson[PluginPosition.Dashboard] = await this.generateDashboard(
       baseId,
-      includedDashboardIds
+      includedDashboardIds,
+      signal
     );
 
-    pluginJson[PluginPosition.Panel] = await this.generatePluginPanel(baseId, includedTableIds);
+    pluginJson[PluginPosition.Panel] = await this.generatePluginPanel(
+      baseId,
+      includedTableIds,
+      signal
+    );
 
-    pluginJson[PluginPosition.View] = await this.generatePluginView(baseId, viewRaws);
+    pluginJson[PluginPosition.View] = await this.generatePluginView(baseId, viewRaws, signal);
 
     return pluginJson;
   }
 
-  private async generatePluginView(baseId: string, viewRaws?: View[]) {
+  private async generatePluginView(baseId: string, viewRaws?: View[], signal?: AbortSignal) {
+    signal?.throwIfAborted();
     const viewPluginRaws = viewRaws
       ? viewRaws.filter(({ type }) => type === ViewType.Plugin)
-      : await this.findPluginViewsByBaseId(baseId);
+      : await this.findPluginViewsByBaseId(baseId, signal);
 
     const viewPluginInstallRaws = await this.prismaService.txClient().pluginInstall.findMany({
       where: {
@@ -1551,6 +1531,7 @@ export class BaseExportService {
         },
       },
     });
+    signal?.throwIfAborted();
 
     return viewPluginRaws.map((viewRaw) => {
       const pluginInstall = viewPluginInstallRaws.find(
@@ -1572,7 +1553,8 @@ export class BaseExportService {
     }) as unknown as IBaseJson['plugins'][PluginPosition.View];
   }
 
-  private async findPluginViewsByBaseId(baseId: string) {
+  private async findPluginViewsByBaseId(baseId: string, signal?: AbortSignal) {
+    signal?.throwIfAborted();
     const tableIds = await this.prismaService.txClient().tableMeta.findMany({
       where: {
         baseId,
@@ -1582,13 +1564,19 @@ export class BaseExportService {
         id: true,
       },
     });
+    signal?.throwIfAborted();
 
-    return (await this.findViewsByTableIds(tableIds.map(({ id }) => id))).filter(
+    return (await this.findViewsByTableIds(tableIds.map(({ id }) => id), signal)).filter(
       ({ type }) => type === ViewType.Plugin
     );
   }
 
-  private async generatePluginPanel(baseId: string, includedTableIds?: string[]) {
+  private async generatePluginPanel(
+    baseId: string,
+    includedTableIds?: string[],
+    signal?: AbortSignal
+  ) {
+    signal?.throwIfAborted();
     const prisma = this.prismaService.txClient();
     const tableIds =
       includedTableIds ??
@@ -1603,6 +1591,7 @@ export class BaseExportService {
           },
         })
       ).map(({ id }) => id);
+    signal?.throwIfAborted();
 
     const pluginPanelRaws = await prisma.pluginPanel.findMany({
       where: {
@@ -1620,6 +1609,7 @@ export class BaseExportService {
         tableId: true,
       },
     });
+    signal?.throwIfAborted();
 
     const panelInstallPluginRaws = await prisma.pluginInstall.findMany({
       where: {
@@ -1636,6 +1626,7 @@ export class BaseExportService {
         storage: true,
       },
     });
+    signal?.throwIfAborted();
 
     return pluginPanelRaws.map(({ id, name, layout, tableId }) => {
       const panelConfig = {
@@ -1660,7 +1651,12 @@ export class BaseExportService {
     });
   }
 
-  private async generateDashboard(baseId: string, includedDashboardIds?: string[]) {
+  private async generateDashboard(
+    baseId: string,
+    includedDashboardIds?: string[],
+    signal?: AbortSignal
+  ) {
+    signal?.throwIfAborted();
     // If includedDashboardIds is an empty array, return empty array (user filtered but no dashboards selected)
     if (includedDashboardIds !== undefined && includedDashboardIds.length === 0) {
       return [];
@@ -1684,6 +1680,7 @@ export class BaseExportService {
         layout: true,
       },
     });
+    signal?.throwIfAborted();
 
     const dashboardInstallPluginRaws = await prisma.pluginInstall.findMany({
       where: {
@@ -1700,6 +1697,7 @@ export class BaseExportService {
         storage: true,
       },
     });
+    signal?.throwIfAborted();
 
     return dashboardRaws.map(({ id, name, layout }) => {
       const dashboardConfig = {
@@ -1727,7 +1725,7 @@ export class BaseExportService {
     baseId: string,
     message: string | ILocalization<I18nPath>,
     result?: {
-      status: 'success' | 'failed';
+      status: 'success' | 'failed' | 'cancelled';
       previewUrl?: string;
       attachment?: { name: string; path: string };
       errorMessage?: string;

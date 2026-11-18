@@ -4,9 +4,17 @@ import { registerRoute, urlBuilder } from '../utils';
 import { toSSERequestError } from '../utils/sse';
 import { z } from '../zod';
 import { createBaseVoSchema } from './create';
+import type { IImportTaskSubmitVo } from './import-task';
+import {
+  createImportTaskVoSchema,
+  importTaskOptionsRoSchema,
+  importTaskSubmitVoSchema,
+} from './import-task';
 
 export const IMPORT_GOOGLE_SHEET_ANALYZE = '/base/import-google-sheet/analyze';
 export const IMPORT_GOOGLE_SHEET_STREAM = '/base/import-google-sheet/stream';
+export const IMPORT_GOOGLE_SHEET_TASKS = '/base/import-google-sheet/tasks';
+export const IMPORT_GOOGLE_SHEET_TASK = '/base/import-google-sheet/tasks/{taskId}';
 export const IMPORT_GOOGLE_SHEET_PICKER_CONFIG = '/base/import-google-sheet/picker-config';
 
 const googleSheetCredentialsShape = {
@@ -66,6 +74,8 @@ export const importGoogleSheetIssueSchema = z.object({
   sheetName: z.string(),
   fieldName: z.string().optional(),
   count: z.number().optional(),
+  /** Original 1-based sheet rows, including the header; at most 100 samples per table. */
+  rowNumbers: z.array(z.number().int().positive()).max(100).optional(),
   reason: z.string().optional(),
 });
 
@@ -135,6 +145,24 @@ export const importGoogleSheetVoSchema = z.object({
 });
 
 export type IImportGoogleSheetVo = z.infer<typeof importGoogleSheetVoSchema>;
+
+export const importGoogleSheetTaskRoSchema =
+  importGoogleSheetRoSchema.and(importTaskOptionsRoSchema);
+
+export type IImportGoogleSheetTaskRo = z.infer<typeof importGoogleSheetTaskRoSchema>;
+
+export const importGoogleSheetTaskVoSchema = createImportTaskVoSchema(importGoogleSheetVoSchema, {
+  partial: importGoogleSheetVoSchema
+    .partial({ base: true })
+    .optional()
+    .meta({
+      description:
+        'Present when the import failed midway: the tabs that were fully imported before the ' +
+        'failure. They are kept.',
+    }),
+});
+
+export type IImportGoogleSheetTaskVo = z.infer<typeof importGoogleSheetTaskVoSchema>;
 
 export const googleSheetPickerConfigVoSchema = z.object({
   /** Google API key with the Picker API enabled (public, referrer-restricted). */
@@ -267,8 +295,71 @@ export const GoogleSheetPickerConfigRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
+export const ImportGoogleSheetTaskCreateRoute: RouteConfig = registerRoute({
+  method: 'post',
+  path: IMPORT_GOOGLE_SHEET_TASKS,
+  title: 'Start a Google Sheets import task',
+  description:
+    'Start importing a Google spreadsheet in the background and return its task id right away. ' +
+    'Poll the task for progress and the result. Submitting the same spreadsheet, tabs and target ' +
+    'again while the import is running returns the running task instead of starting another.',
+  summary: 'start a Google Sheets import as a background task',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: importGoogleSheetTaskRoSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Returns the id of the started (or already running) import task.',
+      content: {
+        'application/json': {
+          schema: importTaskSubmitVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['base'],
+});
+
+export const ImportGoogleSheetTaskRoute: RouteConfig = registerRoute({
+  method: 'get',
+  path: IMPORT_GOOGLE_SHEET_TASK,
+  title: 'Get a Google Sheets import task',
+  description: 'Status, latest progress and final result of a Google Sheets import task',
+  summary: 'get the status of a Google Sheets import task',
+  request: {
+    params: z.object({ taskId: z.string() }),
+  },
+  responses: {
+    200: {
+      description: 'Returns the task status with its progress, result or failure.',
+      content: {
+        'application/json': {
+          schema: importGoogleSheetTaskVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['base'],
+});
+
 export const importGoogleSheetAnalyze = async (ro: IImportGoogleSheetAnalyzeRo) => {
   return await axios.post<IImportGoogleSheetAnalyzeVo>(urlBuilder(IMPORT_GOOGLE_SHEET_ANALYZE), ro);
+};
+
+export const createImportGoogleSheetTask = async (ro: IImportGoogleSheetTaskRo) => {
+  return await axios.post<IImportTaskSubmitVo>(urlBuilder(IMPORT_GOOGLE_SHEET_TASKS), ro);
+};
+
+export const getImportGoogleSheetTask = async (taskId: string) => {
+  return await axios.get<IImportGoogleSheetTaskVo>(
+    urlBuilder(IMPORT_GOOGLE_SHEET_TASK, { taskId })
+  );
 };
 
 export const getGoogleSheetPickerConfig = async () => {

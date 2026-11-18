@@ -7,6 +7,7 @@ import { BaseModule } from '../base/base.module';
 import { BaseNodeModule } from '../base-node/base-node.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
+import { SourceImportTaskModule } from '../source-import-task/source-import-task.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
 import { AirtableImportController } from './airtable-import.controller';
@@ -24,6 +25,7 @@ import { AirtableImportService } from './airtable-import.service';
     AiModule,
     PermissionModule,
     BaseNodeModule,
+    SourceImportTaskModule,
   ],
   controllers: [AirtableImportController],
   providers: [AirtableImportService],

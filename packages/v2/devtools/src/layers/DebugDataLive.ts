@@ -13,6 +13,7 @@ import {
   ActorId,
   type ITableRepository,
   type ITableRecordQueryRepository,
+  IRecordSearchAccessPath,
 } from '@teable/v2-core';
 import {
   registerV2DebugData,
@@ -264,24 +265,29 @@ export const DebugDataLive = Layer.effect(
                 if (result.isErr()) throw result.error;
                 return result.value;
               });
-            const searchAccessPath =
-              options?.searchAccessPath?.kind === 'generated_tsvector'
-                ? {
-                    kind: 'generated_tsvector' as const,
-                    generatedColumnName: options.searchAccessPath.generatedColumnName,
-                    languageConfig: options.searchAccessPath.languageConfig,
-                    searchScope: options.searchAccessPath.searchScope,
-                    coveredFieldIds: toFieldIds(options.searchAccessPath.coveredFieldIds),
-                  }
-                : options?.searchAccessPath?.kind === 'generated_text'
-                  ? {
-                      kind: 'generated_text' as const,
-                      generatedColumnName: options.searchAccessPath.generatedColumnName,
-                      provider: options.searchAccessPath.provider,
-                      searchScope: options.searchAccessPath.searchScope,
-                      coveredFieldIds: toFieldIds(options.searchAccessPath.coveredFieldIds),
-                    }
-                  : options?.searchAccessPath;
+            const inputAccessPath = options?.searchAccessPath;
+            let searchAccessPath: IRecordSearchAccessPath | undefined;
+            if (inputAccessPath?.kind === 'generated_text') {
+              const fieldIds = toFieldIds(inputAccessPath.coveredFieldIds);
+              searchAccessPath = {
+                kind: 'generated_text',
+                searchScope: inputAccessPath.searchScope,
+                fieldIds,
+                document: {
+                  generatedColumnName: inputAccessPath.generatedColumnName,
+                  provider: inputAccessPath.provider,
+                  coveredFieldIds: fieldIds,
+                  ready: true,
+                },
+              };
+            } else if (inputAccessPath?.kind === 'generated_tsvector') {
+              searchAccessPath = {
+                ...inputAccessPath,
+                coveredFieldIds: toFieldIds(inputAccessPath.coveredFieldIds),
+              };
+            } else {
+              searchAccessPath = inputAccessPath;
+            }
 
             // 3. Query records
             const queryResult = await recordQueryRepo.find(context, table, undefined, {

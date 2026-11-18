@@ -9,6 +9,7 @@ import {
   SUPPORTEDTYPE,
   type IImportOptionRo,
   type IImportSheetSummary,
+  type IImportDiagnostics,
   type IImportStreamErrorEvent,
   type IImportStreamEvent,
   type IImportStreamProgressEvent,
@@ -62,6 +63,11 @@ const maxImportStreamBufferedEvents = 64;
 // Zero means no remaining quota; negative legacy sentinels mean unbounded.
 const normalizeImportRowLimit = (limit: number | undefined) =>
   limit !== undefined && limit >= 0 ? limit : undefined;
+
+const mapImportDiagnostics = (
+  diagnostics: ImportRecordsResult['diagnostics']
+): IImportDiagnostics | undefined =>
+  diagnostics ? { ...diagnostics, samples: [...diagnostics.samples] } : undefined;
 
 /**
  * V2 Import Open API Service
@@ -333,7 +339,12 @@ export class ImportOpenApiV2Service {
           importedCount,
           truncated:
             skipData ||
-            Boolean(worksheet.importData && expectedRows != null && importedCount < expectedRows),
+            Boolean(
+              worksheet.importData &&
+                expectedRows != null &&
+                importedCount + (result.value.diagnostics?.skippedRows ?? 0) < expectedRows
+            ),
+          diagnostics: mapImportDiagnostics(result.value.diagnostics),
         });
         remaining = remainingImportRowCount(remaining, importedCount);
       }
@@ -481,7 +492,7 @@ export class ImportOpenApiV2Service {
     maxRowCount?: number,
     projection?: string[],
     onProgress?: (progress: IImportProgress) => void
-  ): Promise<{ totalImported: number }> {
+  ): Promise<{ totalImported: number; diagnostics?: IImportDiagnostics }> {
     await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
 
     const container = await this.v2ContainerService.getContainerForTable(tableId);
@@ -558,7 +569,10 @@ export class ImportOpenApiV2Service {
       tableId,
       status: 'completed',
     });
-    return { totalImported: result.value.totalImported };
+    return {
+      totalImported: result.value.totalImported,
+      diagnostics: mapImportDiagnostics(result.value.diagnostics),
+    };
   }
 
   createTableFromImportStream(
@@ -608,6 +622,7 @@ export class ImportOpenApiV2Service {
     let currentSheetName = worksheets[0]?.[1]?.name;
     let currentSheetTotal = 0;
     let lastBatchIndex = -1;
+    let diagnostics: IImportDiagnostics | undefined;
     let preparedExcel: PreparedExcelImportSource | undefined;
 
     try {
@@ -726,6 +741,7 @@ export class ImportOpenApiV2Service {
                     name: currentSheetName ?? 'CSV',
                   });
                   if (progress.phase === 'completed') {
+                    diagnostics = mapImportDiagnostics(progress.diagnostics);
                     processedCount += progress.processedRows;
                   }
                 }
@@ -762,6 +778,7 @@ export class ImportOpenApiV2Service {
           tables,
           tableId: tables[0]?.id,
           sheets: importResult.sheets,
+          diagnostics,
         },
       });
     } catch (error) {
@@ -869,6 +886,7 @@ export class ImportOpenApiV2Service {
         importedCount: result.totalImported,
         data: {
           tableId,
+          diagnostics: result.diagnostics,
         },
       });
     } catch (error) {

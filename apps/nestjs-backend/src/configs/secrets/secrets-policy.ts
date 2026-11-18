@@ -170,6 +170,56 @@ export const buildPublicDefaultsWarning = (onDefaults: ISecretSpec[]): string =>
     'The instance keeps running so existing data stays accessible, but plan a rotation to freshly generated values as soon as possible.',
   ].join('\n');
 
+// The key/iv pairs whose ciphertext sits in users' hands, with the cipher each runs under.
+const USER_HELD_PAIRS: { key: ISecretSpec; iv: ISecretSpec; algorithm: (env: IEnv) => string }[] = [
+  {
+    key: SECRET_SPECS.accessTokenEncryptionKey,
+    iv: SECRET_SPECS.accessTokenEncryptionIv,
+    algorithm: (env) => env.BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
+  },
+  {
+    key: SECRET_SPECS.mailEncryptionKey,
+    iv: SECRET_SPECS.mailEncryptionIv,
+    algorithm: () => 'aes-128-cbc',
+  },
+];
+/** The key length an AES-CBC cipher takes, from its name (aes-128-cbc: 16 bytes). */
+const cbcKeyBytes = (algorithm: string): number | undefined => {
+  const bits = /^aes-(128|192|256)-cbc$/.exec(algorithm)?.[1];
+  return bits ? Number(bits) / 8 : undefined;
+};
+const CBC_IV_BYTES = 16;
+
+/**
+ * Access token and mail key/iv values (and their _OLD) their cipher can't take: nothing can be
+ * sealed with them, so no token or unsubscribe link gets issued, and nothing sealed under them
+ * opens. Env var names and the length each needs, never the values.
+ */
+export const findWrongLengthCipherValues = (
+  env: IEnv = process.env
+): { envKey: string; bytes: number }[] =>
+  USER_HELD_PAIRS.flatMap(({ key, iv, algorithm }) => {
+    const keyBytes = cbcKeyBytes(algorithm(env));
+    if (!keyBytes) return [];
+    return [
+      { envKey: key.envKey, bytes: keyBytes },
+      { envKey: iv.envKey, bytes: CBC_IV_BYTES },
+      { envKey: `${key.envKey}_OLD`, bytes: keyBytes },
+      { envKey: `${iv.envKey}_OLD`, bytes: CBC_IV_BYTES },
+    ].filter(
+      ({ envKey, bytes }) => isSet(env, envKey) && Buffer.byteLength(env[envKey]!) !== bytes
+    );
+  });
+
+export const buildWrongLengthCipherValuesWarning = (
+  wrong: { envKey: string; bytes: number }[]
+): string =>
+  [
+    'WARNING: these key/iv values are not the length their cipher needs. Encrypting with them fails, so no personal access token or unsubscribe link can be issued, and nothing sealed under them opens:',
+    '',
+    ...wrong.map(({ envKey, bytes }) => `  - ${envKey} must be exactly ${bytes} bytes`),
+  ].join('\n');
+
 /**
  * The single policy checkpoint for secret configuration. ConfigModule calls it
  * right after BaseConfigModule.forRoot() has loaded the env files (awaited,
@@ -186,7 +236,9 @@ export const buildPublicDefaultsWarning = (onDefaults: ISecretSpec[]): string =>
  *   secrets BY DESIGN — it exercises the exact zero-config path self-hosters
  *   hit — so expect this warning on every local boot;
  * - secrets explicitly set to their public former defaults → loud error log,
- *   and boot (a deployment that pinned them per the instructions above).
+ *   and boot (a deployment that pinned them per the instructions above);
+ * - access token or mail key/iv values of a length their cipher can't take →
+ *   error log naming the variables and the length each needs, and boot.
  *
  * The one refusal is half of a key/iv pair: its halves would resolve from
  * different sources and strand what was encrypted before, so boot stops and
@@ -208,5 +260,9 @@ export const enforceSecretsPolicy = (
   const onDefaults = findPublicDefaultSecrets(ALL_SECRET_SPECS, env);
   if (onDefaults.length > 0) {
     logError(buildPublicDefaultsWarning(onDefaults));
+  }
+  const wrongLength = findWrongLengthCipherValues(env);
+  if (wrongLength.length > 0) {
+    logError(buildWrongLengthCipherValuesWarning(wrongLength));
   }
 };

@@ -172,6 +172,10 @@ export class DuplicateTableHandler implements ICommandHandler<
         restoreRecordsById = prepared.restoreRecordsById;
       }
 
+      const initialDuplicateEvents = [
+        ...duplicated.table.pullDomainEvents(),
+        ...persistedTable.pullDomainEvents(),
+      ];
       const duplicateResult = await handler.domainWriteTransaction.execute(
         context,
         async (dataTransactionContext) =>
@@ -220,17 +224,14 @@ export class DuplicateTableHandler implements ICommandHandler<
               );
             }
 
+            const rawEvents = [
+              ...initialDuplicateEvents,
+              ...duplicated.table.pullDomainEvents(),
+              ...persistedTable.pullDomainEvents(),
+            ];
             const events = usedPhysicalRowCopy
-              ? aggregatePhysicalDuplicateTableEvents(
-                  [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
-                  persistedTable,
-                  physicalRecordIds
-                )
-              : aggregateDuplicateTableEvents(
-                  [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
-                  persistedTable,
-                  restoreRecordsById
-                );
+              ? aggregatePhysicalDuplicateTableEvents(rawEvents, persistedTable, physicalRecordIds)
+              : aggregateDuplicateTableEvents(rawEvents, persistedTable, restoreRecordsById);
             return ok(domainWrite.fromEvents(undefined, events));
           }),
         { scope: 'data' }

@@ -32,11 +32,13 @@ interface CreateRecordEditableFieldContext {
 export interface CreateRecordBuildContext {
   readonly fieldByKey: ReadonlyMap<string, Field>;
   readonly editableFields: ReadonlyArray<CreateRecordEditableFieldContext>;
+  readonly requiredFields?: ReadonlyArray<Field>;
 }
 
 export interface CreateRecordBuildContextOptions {
   /** Streams reuse field metadata but must evaluate dynamic defaults (date `now`) per record. */
   readonly freshDefaults?: boolean;
+  readonly validateRequired?: boolean;
 }
 
 export function createRecordBuildContext(
@@ -57,7 +59,9 @@ export function createRecordBuildContext(
 
   const defaultValueVisitor = FieldDefaultValueVisitor.create();
   const schemaVisitor = FieldCellValueSchemaVisitor.create();
+  const requiredFields: Field[] | undefined = options?.validateRequired ? [] : undefined;
   const editableFields = table.getEditableFields().map((field) => {
+    if (requiredFields && field.notNull().toBoolean()) requiredFields.push(field);
     const defaultValueResult = field.accept(defaultValueVisitor);
     const defaultValue =
       defaultValueResult.isOk() && defaultValueResult.value !== undefined
@@ -85,6 +89,7 @@ export function createRecordBuildContext(
   return {
     fieldByKey,
     editableFields,
+    requiredFields,
   };
 }
 
@@ -106,6 +111,8 @@ export function buildRecordWithSpec(
     buildContext?: CreateRecordBuildContext;
     valuesAreValidated?: boolean;
     emitRecordCreatedEvent?: boolean;
+    onInvalidDate?: (field: Field) => void;
+    validateRequired?: boolean;
   }
 ): Result<RecordCreateResult, DomainError> {
   const table = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
@@ -147,8 +154,14 @@ export function buildRecordWithSpec(
     }
 
     // 3. Build mutation specs from resolved field values with default value support
-    const builder = RecordMutationSpecBuilder.create().withTypecast(typecast);
-    const fields = buildContext?.editableFields ?? createRecordBuildContext(table).editableFields;
+    const builder = RecordMutationSpecBuilder.create()
+      .withTypecast(typecast)
+      .withValueConversionObserver(options?.onInvalidDate)
+      .withDeferredSelectOptions(options?.validateRequired ?? false);
+    const recordBuildContext = buildContext ?? createRecordBuildContext(table, {
+      validateRequired: options?.validateRequired,
+    });
+    const fields = recordBuildContext.editableFields;
 
     for (const field of fields) {
       const fieldIdStr = field.fieldId;
@@ -205,12 +218,22 @@ export function buildRecordWithSpec(
     // persistence visitors and deferred link/user resolution.
     let mutateSpec: ICellValueSpec | null = null;
     let record: TableRecord;
+    const presentFieldIds =
+      options?.validateRequired && recordBuildContext.requiredFields?.length
+        ? new Set<string>()
+        : undefined;
     if (builder.hasSpecs()) {
       mutateSpec = yield* builder.build();
       record = yield* materializeRecordSpec({
         id: resolvedRecordId,
         tableId: table.id(),
         spec: mutateSpec,
+        onFieldValuePresence: presentFieldIds
+          ? (fieldId, present) => {
+              if (present) presentFieldIds.add(fieldId.toString());
+              else presentFieldIds.delete(fieldId.toString());
+            }
+          : undefined,
       });
     } else {
       record = yield* TableRecord.create({
@@ -218,6 +241,20 @@ export function buildRecordWithSpec(
         tableId: table.id(),
         fieldValues: [],
       });
+    }
+
+    if (options?.validateRequired) {
+      for (const field of recordBuildContext.requiredFields ?? []) {
+        if (!presentFieldIds?.has(field.id().toString())) {
+          return err(
+            domainError.validation({
+              code: 'validation.field.not_null',
+              message: 'Value violates not-null constraint',
+              details: { fieldId: field.id().toString(), fieldName: field.name().toString() },
+            })
+          );
+        }
+      }
     }
 
     if (emitRecordCreatedEvent) {
@@ -245,6 +282,8 @@ export function buildRecord(
     source?: RecordCreateSource;
     emitRecordCreatedEvent?: boolean;
     buildContext?: CreateRecordBuildContext;
+    onInvalidDate?: (field: Field) => void;
+    validateRequired?: boolean;
   }
 ): Result<TableRecord, DomainError> {
   return buildRecordWithSpec

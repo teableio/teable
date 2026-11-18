@@ -12,6 +12,7 @@ import {
   findInsecureSecrets,
   findMissingSecrets,
   findPublicDefaultSecrets,
+  findWrongLengthCipherValues,
   isSecretAdminToolsEnabled,
 } from './secrets-policy';
 
@@ -45,7 +46,6 @@ describe('secrets guard', () => {
     // set; everything else is required.
     const eeOnly = [
       'BACKEND_ENV_VARIABLE_SECRET',
-      'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET',
       'BACKEND_MAIL_ENCRYPTION_KEY',
       'BACKEND_MAIL_ENCRYPTION_IV',
       'SANDBOX_JWT_SECRET',
@@ -197,19 +197,13 @@ describe('secrets guard', () => {
       ]);
     });
 
-    it('asks community for the third-party credential root only once encryption is on', () => {
+    it('asks community for the third-party credential root too', () => {
       const pinnedRoot = {
         ...fullEnv,
         BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET:
           SECRET_SPECS.thirdPartyCredentialEncryptionSecret.legacyDefault,
       };
-      expect(findInsecureSecrets(pinnedRoot)).toEqual([]);
-      expect(
-        findInsecureSecrets({
-          ...pinnedRoot,
-          BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED: 'true',
-        })
-      ).toEqual([
+      expect(findInsecureSecrets(pinnedRoot)).toEqual([
         { envKey: 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET', reason: 'publicDefault' },
       ]);
     });
@@ -312,6 +306,34 @@ describe('secrets guard', () => {
       );
       expect(logged).toHaveLength(1);
       expect(logged[0]).toContain('PUBLICLY KNOWN');
+    });
+
+    it('names access token and mail key/iv values of the wrong length, never the values', () => {
+      const env = {
+        ...fullEnv,
+        BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: 'too-short',
+        BACKEND_MAIL_ENCRYPTION_IV_OLD: 'x'.repeat(20),
+        BACKEND_MAIL_ENCRYPTION_KEY_OLD: 'k'.repeat(16),
+      };
+      expect(findWrongLengthCipherValues(env)).toEqual([
+        { envKey: 'BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY', bytes: 16 },
+        { envKey: 'BACKEND_MAIL_ENCRYPTION_IV_OLD', bytes: 16 },
+      ]);
+      // a longer key for a cipher that takes one
+      expect(
+        findWrongLengthCipherValues({
+          ...fullEnv,
+          BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM: 'aes-256-cbc',
+          BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: 'k'.repeat(32),
+        })
+      ).toEqual([]);
+
+      const logged: string[] = [];
+      expect(() => enforceSecretsPolicy(env, (message) => logged.push(message))).not.toThrow();
+      expect(logged.join('\n')).toContain(
+        'BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY must be exactly 16 bytes'
+      );
+      expect(logged.join('\n')).not.toContain('too-short');
     });
 
     it('stays quiet on a fully configured environment', () => {

@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/naming-convention */
 import { readdirSync } from 'fs';
 import { resolve } from 'path';
 import { Readable } from 'stream';
 import { GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import * as fse from 'fs-extra';
+import sharp from 'sharp';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import StorageAdapter from './adapter';
 import { MinioStorage } from './minio';
@@ -84,5 +86,48 @@ describe.each([
     await expect(storage.cropImage('bucket', testPath, 10, 10)).rejects.toThrow('upload failed');
 
     expect(temporaryFilesFor(testPath)).toEqual([]);
+  });
+
+  it('uploads the thumbnail as WebP', async () => {
+    testPath = `crop-webp-${vi.getRealSystemTime()}`;
+    const storage = createStorage(png);
+    let uploaded: { buffer: Buffer; metadata: Record<string, unknown> } | undefined;
+    vi.spyOn(storage, 'uploadFileWidthPath').mockImplementation(
+      async (
+        _bucket: string,
+        path: string,
+        filePath: string,
+        metadata: Record<string, unknown>
+      ) => {
+        uploaded = { buffer: fse.readFileSync(filePath), metadata };
+        return { path } as any;
+      }
+    );
+
+    await storage.cropImage('bucket', testPath, 10, 10, `${testPath}_sm.webp`);
+
+    expect(uploaded?.metadata).toEqual({ 'Content-Type': 'image/webp' });
+    expect((await sharp(uploaded!.buffer).metadata()).format).toBe('webp');
+  });
+
+  it('caps an extra-wide thumbnail at the widest side WebP can encode', async () => {
+    testPath = `crop-webp-wide-${vi.getRealSystemTime()}`;
+    const wide = await sharp({
+      create: { width: 40000, height: 600, channels: 3, background: '#3b82f6' },
+    })
+      .png()
+      .toBuffer();
+    const storage = createStorage(wide);
+    let uploaded: Buffer | undefined;
+    vi.spyOn(storage, 'uploadFileWidthPath').mockImplementation(
+      async (_bucket: string, path: string, filePath: string) => {
+        uploaded = fse.readFileSync(filePath);
+        return { path } as any;
+      }
+    );
+
+    await storage.cropImage('bucket', testPath, undefined, 525, `${testPath}_lg.webp`);
+
+    expect(await sharp(uploaded!).metadata()).toMatchObject({ format: 'webp', width: 16383 });
   });
 });

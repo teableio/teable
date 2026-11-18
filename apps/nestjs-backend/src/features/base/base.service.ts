@@ -658,7 +658,7 @@ export class BaseService {
     });
   }
 
-  private async assertDuplicateBaseAdmission(duplicateBaseRo: IDuplicateBaseRo): Promise<void> {
+  protected async assertDuplicateBaseAdmission(duplicateBaseRo: IDuplicateBaseRo): Promise<void> {
     const { fromBaseId, spaceId, baseId } = duplicateBaseRo;
     await this.assertBaseWritable(fromBaseId);
     await this.assertSpaceWritable(spaceId);
@@ -794,7 +794,7 @@ export class BaseService {
     return result;
   }
 
-  private async markBaseVisited(baseId: string, spaceId: string) {
+  protected async markBaseVisited(baseId: string, spaceId: string) {
     const userId = this.cls.get('user.id');
     if (!userId) return;
     await this.prismaService

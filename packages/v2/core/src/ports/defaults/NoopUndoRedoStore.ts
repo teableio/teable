@@ -1,10 +1,11 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { DomainError } from '../../domain/shared/DomainError';
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type {
   IUndoRedoStore,
   UndoEntry,
+  UndoEntryInput,
   UndoRedoListOptions,
   UndoRedoReplayMode,
   UndoRedoReservation,
@@ -14,7 +15,7 @@ import type {
 export class NoopUndoRedoStore implements IUndoRedoStore {
   async append(
     _scope: UndoScope,
-    _entry: UndoEntry,
+    _entry: UndoEntryInput,
     _expectedRevision?: number
   ): Promise<Result<void, DomainError>> {
     return ok(undefined);
@@ -40,6 +41,14 @@ export class NoopUndoRedoStore implements IUndoRedoStore {
     _mode: UndoRedoReplayMode
   ): Promise<Result<UndoRedoReservation | null, DomainError>> {
     return ok(null);
+  }
+
+  async readReservedEntry(
+    _scope: UndoScope,
+    _token: string,
+    _entryIndex: number
+  ): Promise<Result<UndoEntry, DomainError>> {
+    return err(domainError.conflict({ message: 'Undo/redo reservation does not exist' }));
   }
 
   async markProgress(

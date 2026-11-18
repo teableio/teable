@@ -15,6 +15,9 @@ export const tableSearchVectorStatusSchema = z.object({
   active: z.boolean(),
   languageConfig: z.string().optional(),
   coveredFieldIds: z.array(z.string()),
+  configuredFieldIds: z.array(z.string()).optional(),
+  documentFieldIds: z.array(z.string()).optional(),
+  residualFieldIds: z.array(z.string()).optional(),
   searchScope: z.enum(['all_fields', 'selected_fields']).optional(),
   /**
    * Searchable fields the published coverage does not include. Only present while `serving` and

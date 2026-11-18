@@ -116,6 +116,7 @@ export const mapDomainErrorToHttpStatus = (error: DomainError): HttpErrorStatus 
   if (isForbiddenError(error)) return 403;
   if (isNotImplementedError(error)) return 501;
   if (error.code === COMPUTE_PAUSED_WRITE_BLOCKED_CODE) return 409;
+  if (error.code === 'schema_coordination.busy') return 409;
   if (error.code === DB_STATEMENT_TIMEOUT_CODE) return 504;
   if (IMPORT_SOURCE_INTERRUPTED_CODES.has(error.code)) return 504;
   if (isValidationError(error) || isConflictError(error) || isInvariantError(error)) return 400;

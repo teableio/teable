@@ -2,12 +2,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { createHash } from 'crypto';
-import { Readable } from 'stream';
+import { createServer } from 'node:http';
+import { PassThrough, Readable } from 'stream';
 import { DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import type { S3Client } from '@aws-sdk/client-s3';
+import { Client as MinioClient } from 'minio';
 import { vi } from 'vitest';
 import StorageAdapter from './adapter';
 import { AliyunStorage } from './aliyun';
+import { MinioStorage } from './minio';
 import { S3Storage } from './s3';
 import { getFreshPreviewCacheUrl, getPreviewCacheKey, getPreviewUrlConfigSig } from './utils';
 
@@ -32,6 +35,15 @@ const mockS3Config = (forcePathStyle: boolean, internalForcePathStyle?: boolean)
     internalForcePathStyle,
   },
 });
+
+// This package targets ES2022, before withResolvers is exposed by the TS library.
+const promiseWithResolvers = Promise as unknown as {
+  withResolvers<T>(): {
+    promise: Promise<T>;
+    resolve: (value: T | PromiseLike<T>) => void;
+    reject: (reason?: unknown) => void;
+  };
+};
 
 describe('S3Storage forcePathStyle', () => {
   it('keeps virtual-hosted style presigned PUT url when disabled', async () => {
@@ -333,6 +345,298 @@ describe('S3 request checksums', () => {
         .digest('base64')
     );
   });
+});
+
+describe('S3 upload cancellation', () => {
+  it.each(['error', 'close'] as const)(
+    'cancels stalled multipart HTTP work on source %s and awaits cleanup',
+    async (failure) => {
+      const partStarted = promiseWithResolvers.withResolvers<void>();
+      const partClosed = promiseWithResolvers.withResolvers<void>();
+      const cleanupStarted = promiseWithResolvers.withResolvers<void>();
+      const finishCleanup = promiseWithResolvers.withResolvers<void>();
+      const deadline = promiseWithResolvers.withResolvers<never>();
+      const timer = setTimeout(() => deadline.reject(new Error('upload did not cancel')), 2000);
+      const requests: string[] = [];
+      const server = createServer((request, response) => {
+        requests.push(`${request.method} ${request.url}`);
+        request.resume();
+        if (request.method === 'POST' && request.url?.includes('uploads')) {
+          response.setHeader('content-type', 'application/xml');
+          response.end(
+            '<InitiateMultipartUploadResult><Bucket>private-bucket</Bucket><Key>table/a</Key><UploadId>test-upload</UploadId></InitiateMultipartUploadResult>'
+          );
+        } else if (request.method === 'PUT' && request.url?.includes('partNumber')) {
+          response.once('close', () => partClosed.resolve());
+          partStarted.resolve();
+          // Leave the response pending until cancellation closes this HTTP request.
+        } else if (request.method === 'DELETE') {
+          cleanupStarted.resolve();
+          void finishCleanup.promise.then(() => response.writeHead(204).end());
+        } else {
+          response.setHeader('etag', 'normal-upload');
+          response.end();
+        }
+      });
+      const listening = promiseWithResolvers.withResolvers<void>();
+      server.once('error', listening.reject);
+      server.listen(0, '127.0.0.1', () => listening.resolve());
+      await listening.promise;
+      const source = new PassThrough();
+      const callerError = vi.fn();
+      const callerClose = vi.fn();
+      source.on('error', callerError);
+      source.on('close', callerClose);
+      let uploadPromise: Promise<unknown> | undefined;
+      try {
+        const address = server.address();
+        if (!address || typeof address === 'string') {
+          throw new Error('S3 test server has no TCP address');
+        }
+        const config = mockS3Config(true);
+        config.s3.endpoint = `http://127.0.0.1:${address.port}`;
+        config.s3.internalEndpoint = undefined;
+        const storage = new S3Storage(config);
+        let settled = false;
+        uploadPromise = storage.uploadFileStream('private-bucket', 'table/a', source).then(
+          (result) => {
+            settled = true;
+            return result;
+          },
+          (error: unknown) => {
+            settled = true;
+            return error;
+          }
+        );
+        source.write(Buffer.alloc(6 * 1024 * 1024));
+        await Promise.race([partStarted.promise, deadline.promise]);
+        const inputError = new Error('export source failed');
+        source.destroy(failure === 'error' ? inputError : undefined);
+
+        await Promise.race([
+          Promise.all([partClosed.promise, cleanupStarted.promise]),
+          deadline.promise,
+        ]);
+        expect(settled).toBe(false);
+        finishCleanup.resolve();
+        const result = await Promise.race([uploadPromise, deadline.promise]);
+        expect(result).toBeInstanceOf(Error);
+        expect(result).toHaveProperty('message', expect.stringContaining('S3 upload failed'));
+        expect(callerClose).toHaveBeenCalledOnce();
+        expect(source.listeners('error')).toContain(callerError);
+        expect(source.listeners('close')).toContain(callerClose);
+        if (failure === 'error') {
+          expect(callerError).toHaveBeenCalledWith(inputError);
+        }
+        expect(requests.filter((request) => request.startsWith('DELETE '))).toHaveLength(1);
+        // Cancellation must not destroy the shared client or agents.
+        await expect(
+          Promise.race([
+            storage.uploadFileStream('private-bucket', 'table/normal', Buffer.from('hello')),
+            deadline.promise,
+          ])
+        ).resolves.toEqual({ hash: 'normal-upload', path: 'table/normal' });
+        await expect(
+          Promise.race([
+            storage.uploadFileStream(
+              'private-bucket',
+              'table/readable',
+              Readable.from([Buffer.from('hello')])
+            ),
+            deadline.promise,
+          ])
+        ).resolves.toEqual({ hash: 'normal-upload', path: 'table/readable' });
+        const ended = Readable.from([]);
+        const endedEvent = promiseWithResolvers.withResolvers<void>();
+        ended.once('end', () => endedEvent.resolve());
+        ended.resume();
+        await endedEvent.promise;
+        await expect(
+          Promise.race([
+            storage.uploadFileStream('private-bucket', 'table/ended', ended),
+            deadline.promise,
+          ])
+        ).resolves.toEqual({ hash: 'normal-upload', path: 'table/ended' });
+
+        const requestsBeforeDestroyedSource = requests.length;
+        const destroyed = new PassThrough();
+        const destroyedClosed = promiseWithResolvers.withResolvers<void>();
+        destroyed.once('close', () => destroyedClosed.resolve());
+        destroyed.destroy(new Error('destroyed before upload'));
+        await expect(
+          Promise.race([
+            storage.uploadFileStream('private-bucket', 'table/destroyed', destroyed),
+            deadline.promise,
+          ])
+        ).rejects.toThrow('destroyed before upload');
+        await Promise.race([destroyedClosed.promise, deadline.promise]);
+        expect(requests).toHaveLength(requestsBeforeDestroyedSource);
+      } finally {
+        clearTimeout(timer);
+        finishCleanup.resolve();
+        source.destroy();
+        server.closeAllConnections();
+        const closed = promiseWithResolvers.withResolvers<void>();
+        server.close(() => closed.resolve());
+        await closed.promise;
+        await uploadPromise;
+      }
+    }
+  );
+
+  it.each([
+    ['S3', 'put'],
+    ['S3', 'part'],
+    ['S3', 'complete'],
+    ['MinIO', 'put'],
+    ['MinIO', 'complete'],
+  ] as const)(
+    '%s cancels a pending %s response after the source closes and awaits multipart cleanup',
+    async (provider, phase) => {
+      const responsePending = promiseWithResolvers.withResolvers<void>();
+      const requestClosed = promiseWithResolvers.withResolvers<void>();
+      const cleanupStarted = promiseWithResolvers.withResolvers<void>();
+      const finishCleanup = promiseWithResolvers.withResolvers<void>();
+      const sourceClosed = promiseWithResolvers.withResolvers<void>();
+      const deadline = promiseWithResolvers.withResolvers<never>();
+      const timer = setTimeout(
+        () => deadline.reject(new Error('late upload did not cancel')),
+        3000
+      );
+      const requests: string[] = [];
+      const server = createServer((request, response) => {
+        const url = new URL(request.url ?? '/', 'http://storage');
+        requests.push(`${request.method} ${request.url}`);
+        request.resume();
+        if (request.method === 'GET' && url.searchParams.has('uploads')) {
+          response.setHeader('content-type', 'application/xml');
+          response.end(
+            '<ListMultipartUploadsResult><IsTruncated>false</IsTruncated></ListMultipartUploadsResult>'
+          );
+        } else if (request.method === 'POST' && url.searchParams.has('uploads')) {
+          response.setHeader('content-type', 'application/xml');
+          response.end(
+            '<InitiateMultipartUploadResult><Bucket>private-bucket</Bucket><Key>table/late</Key><UploadId>late-upload</UploadId></InitiateMultipartUploadResult>'
+          );
+        } else if (request.method === 'DELETE') {
+          cleanupStarted.resolve();
+          void finishCleanup.promise.then(() => response.writeHead(204).end());
+        } else {
+          const pending =
+            url.pathname.endsWith('/table/late') &&
+            ((phase === 'put' && request.method === 'PUT' && !url.searchParams.has('partNumber')) ||
+              (phase === 'part' &&
+                request.method === 'PUT' &&
+                url.searchParams.has('partNumber')) ||
+              (phase === 'complete' &&
+                request.method === 'POST' &&
+                url.searchParams.has('uploadId')));
+          if (pending) {
+            response.once('close', () => requestClosed.resolve());
+            request.once('end', () => responsePending.resolve());
+          } else {
+            response.setHeader('etag', 'next-upload');
+            response.end();
+          }
+        }
+      });
+      const listening = promiseWithResolvers.withResolvers<void>();
+      server.once('error', listening.reject);
+      server.listen(0, '127.0.0.1', () => listening.resolve());
+      await listening.promise;
+      const controller = new AbortController();
+      const source = Readable.from([Buffer.alloc(phase === 'put' ? 10 : 6 * 1024 * 1024)]);
+      source.once('close', () => sourceClosed.resolve());
+      let uploadPromise: Promise<unknown> | undefined;
+      try {
+        const address = server.address();
+        if (!address || typeof address === 'string') {
+          throw new Error('S3 test server has no TCP address');
+        }
+        const config = mockS3Config(true);
+        config.s3.endpoint = `http://127.0.0.1:${address.port}`;
+        config.s3.internalEndpoint = undefined;
+        config.s3.maxSockets = 1;
+        config.minio = {
+          endPoint: '127.0.0.1',
+          port: address.port,
+          useSSL: false,
+          accessKey: 'test-access-key',
+          secretKey: 'test-secret-key',
+          region: 'us-east-1',
+          partSize: 5 * 1024 * 1024,
+        };
+        const storage = provider === 'S3' ? new S3Storage(config) : new MinioStorage(config);
+        if (storage instanceof MinioStorage) {
+          storage.minioClientPrivateNetwork = new MinioClient(config.minio);
+        }
+        let settled = false;
+        uploadPromise = storage
+          .uploadFileStream('private-bucket', 'table/late', source, undefined, controller.signal)
+          .then(
+            (result) => {
+              settled = true;
+              return result;
+            },
+            (error: unknown) => {
+              settled = true;
+              return error;
+            }
+          );
+        await Promise.race([
+          Promise.all([sourceClosed.promise, responsePending.promise]),
+          deadline.promise,
+        ]);
+        expect(source.readableEnded).toBe(true);
+        expect(source.closed).toBe(true);
+        controller.abort(new Error('export job cancelled after EOF'));
+        await Promise.race([requestClosed.promise, deadline.promise]);
+        if (phase !== 'put') {
+          await Promise.race([cleanupStarted.promise, deadline.promise]);
+          expect(settled).toBe(false);
+        }
+        finishCleanup.resolve();
+        const result = await Promise.race([uploadPromise, deadline.promise]);
+        expect(result).toBeInstanceOf(Error);
+        expect(requests.filter((request) => request.startsWith('DELETE '))).toHaveLength(
+          phase === 'put' ? 0 : 1
+        );
+        await expect(
+          Promise.race([
+            storage.uploadFileStream(
+              'private-bucket',
+              'table/next',
+              Buffer.from('next'),
+              undefined,
+              new AbortController().signal
+            ),
+            deadline.promise,
+          ])
+        ).resolves.toEqual({ hash: 'next-upload', path: 'table/next' });
+        const beforeAbortedUpload = requests.length;
+        await expect(
+          storage.uploadFileStream(
+            'private-bucket',
+            'table/pre-aborted',
+            Buffer.from('skip'),
+            undefined,
+            controller.signal
+          )
+        ).rejects.toThrow('export job cancelled after EOF');
+        expect(requests).toHaveLength(beforeAbortedUpload);
+      } finally {
+        clearTimeout(timer);
+        finishCleanup.resolve();
+        controller.abort();
+        source.destroy();
+        server.closeAllConnections();
+        const closed = promiseWithResolvers.withResolvers<void>();
+        server.close(() => closed.resolve());
+        await closed.promise;
+        await uploadPromise;
+      }
+    }
+  );
 });
 
 describe('S3Storage getObjectMeta', () => {

@@ -180,12 +180,13 @@ export const buildFieldRos = (columns: IGoogleSheetColumnPlan[]): IFieldRo[] =>
       : {}),
   }));
 
-/** JS Date range: ±8.64e15 ms. Out-of-range serials must drop, not throw. */
-const maxDateMs = 8.64e15;
+// Teable dates use UTC years 1–9999, a narrower range than JavaScript Date.
+const minDateMs = Date.parse('0001-01-01T00:00:00.000Z');
+const maxDateMs = Date.parse('9999-12-31T23:59:59.999Z');
 
 const serialToIsoString = (serial: number): string | undefined => {
   const ms = Math.round(googleSheetsEpochMs + serial * msPerDay);
-  if (!Number.isFinite(ms) || Math.abs(ms) > maxDateMs) return undefined;
+  if (!Number.isFinite(ms) || ms < minDateMs || ms > maxDateMs) return undefined;
   return new Date(ms).toISOString();
 };
 
@@ -230,7 +231,8 @@ const convertDateCell = (raw: IGoogleSheetCellValue): IConvertedCell => {
     return iso === undefined ? { dropped: true } : { value: iso };
   }
   if (typeof raw === 'string') {
-    return dateLikeString.test(raw) && !Number.isNaN(Date.parse(raw))
+    const ms = Date.parse(raw);
+    return dateLikeString.test(raw) && Number.isFinite(ms) && ms >= minDateMs && ms <= maxDateMs
       ? { value: raw }
       : { dropped: true };
   }

@@ -152,4 +152,179 @@ describe('streamSSE', () => {
     expect((error as HttpError).code).toBe(HttpErrorCode.PAYMENT_REQUIRED);
     expect((error as HttpError).message).toBe('Exceed the maximum number of rows');
   });
+
+  it('waits for the async consumer before delivering another result or pulling another chunk', async () => {
+    const entered = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    const encoder = new TextEncoder();
+    const delivered: number[] = [];
+    const applied: number[] = [];
+    const producedChunks: number[] = [];
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          const chunk = producedChunks.length;
+          producedChunks.push(chunk);
+          if (chunk === 0) {
+            controller.enqueue(
+              encoder.encode(
+                'data: {"id":"progress","sequence":0}\n\n' +
+                  'data: {"id":"progress","sequence":1}\n\n'
+              )
+            );
+          } else {
+            controller.enqueue(encoder.encode('data: {"id":"done","sequence":2}\n\n'));
+            controller.close();
+          }
+        },
+      },
+      { highWaterMark: 0 }
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
+
+    const consuming = streamSSE<{ id: string; sequence: number }>(
+      '/stream',
+      {},
+      {
+        async onResult(result) {
+          delivered.push(result.sequence);
+          if (result.sequence === 0) {
+            entered.resolve();
+            await resume.promise;
+          }
+          applied.push(result.sequence);
+        },
+      }
+    );
+    try {
+      await entered.promise;
+      expect(delivered).toEqual([0]);
+      expect(applied).toEqual([]);
+      expect(producedChunks).toEqual([0]);
+    } finally {
+      resume.resolve();
+      await consuming;
+    }
+    expect(delivered).toEqual([0, 1, 2]);
+    expect(applied).toEqual([0, 1, 2]);
+    expect(body.locked).toBe(false);
+  });
+
+  it.each(['error', 'done'])(
+    'stops at an opted-in %s result and releases the live source',
+    async (id) => {
+      let subscribed = true;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              `data: ${JSON.stringify({ id })}\n\n` + 'data: {"id":"unexpected"}\n\n'
+            )
+          );
+        },
+        async cancel() {
+          await Promise.resolve();
+          subscribed = false;
+        },
+      });
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
+      const results: string[] = [];
+
+      await streamSSE(
+        '/stream',
+        {},
+        {
+          terminalResultIds: ['error', 'done'],
+          onResult(result) {
+            results.push(result.id);
+          },
+        }
+      );
+
+      expect(results).toEqual([id]);
+      expect(subscribed).toBe(false);
+      expect(body.locked).toBe(false);
+    }
+  );
+
+  it.each(['sync', 'async'])(
+    'propagates %s consumer SyntaxErrors and still cleans up a failing source cancellation',
+    async (mode) => {
+      const error = new SyntaxError('consumer failed');
+      let subscribed = true;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('data: {"id":"progress"}\n\n'));
+        },
+        cancel() {
+          subscribed = false;
+          return Promise.reject(new Error('cancel failed'));
+        },
+      });
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
+
+      await expect(
+        streamSSE(
+          '/stream',
+          {},
+          {
+            onResult() {
+              if (mode === 'async') return Promise.reject(error);
+              throw error;
+            },
+          }
+        )
+      ).rejects.toBe(error);
+
+      expect(subscribed).toBe(false);
+      expect(body.locked).toBe(false);
+    }
+  );
+
+  it('releases the reader when reading the response body fails', async () => {
+    const error = new Error('connection failed');
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(error);
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
+
+    await expect(streamSSE('/stream', {})).rejects.toBe(error);
+    expect(body.locked).toBe(false);
+  });
+
+  it('preserves default ignored IDs, malformed-line tolerance, and nonterminal error results', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            ': ping\n\n' +
+              'data: {"id":"connect"}\n\n' +
+              'data: not-json\n\n' +
+              'data: {"id":"error"}\n\n' +
+              'data: {"id":"progress"}\n\n' +
+              'data: {"id":"complete"}\n\n' +
+              'data: {"id":"done"}'
+          )
+        );
+        controller.close();
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
+    const results: string[] = [];
+
+    await streamSSE(
+      '/stream',
+      {},
+      {
+        onResult(result) {
+          results.push(result.id);
+        },
+      }
+    );
+
+    expect(results).toEqual(['error', 'progress', 'done']);
+    expect(body.locked).toBe(false);
+  });
 });

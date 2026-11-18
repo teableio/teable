@@ -23,16 +23,15 @@ import {
   type INotificationVo,
   type IUpdateNotifyStatusRo,
 } from '@teable/openapi';
-import { escape, keyBy, mapValues, uniq } from 'lodash';
+import { escape, keyBy, mapValues, uniq, uniqBy } from 'lodash';
 import ms from 'ms';
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import { CacheService } from '../../cache/cache.service';
-import type { ICacheStore } from '../../cache/types';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
-import { DistributedLockService } from '../../distributed-lock';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { I18nPath, I18nTranslations } from '../../types/i18n.generated';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import { CoalesceMode, CoalesceService } from '../coalesce/coalesce.service';
+import { MailMergeGroup, type ISendMailOptions } from '../mail-sender/mail-helpers';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { UserService } from '../user/user.service';
 
@@ -41,6 +40,9 @@ type INotifyEmailConfig = {
   message: string | ILocalization<I18nPath>;
   buttonUrl?: string;
   buttonText?: string | ILocalization<I18nPath>;
+  mergeGroup?: MailMergeGroup;
+  /** The message is markup of its own (report links) rather than plain text. */
+  htmlBody?: boolean;
 };
 
 function toArray<T>(value?: T | T[]): T[] {
@@ -51,9 +53,9 @@ function toArray<T>(value?: T | T[]): T[] {
 const notificationListLimit = 10;
 
 // Collaborator notifies from one actor to one user in one table coalesce: a notify with
-// no open window is sent at once and opens one, later ones buffer in the shared cache and
-// go out as one notification once writes stay quiet. Every pod that touched a window runs
-// its own flush timer, so a buffer outlives the pod that filled it.
+// no open window is sent at once and opens one, later ones buffer behind it and go out as
+// one notification once writes stay quiet.
+const COLLABORATOR_NOTIFY_SCOPE = 'collaborator-notify';
 const defaultCollaboratorNotifyQuietMs = ms('10s');
 export const maxCollaboratorNotifyRecordTitles = 10;
 
@@ -78,6 +80,38 @@ type ICollaboratorNotifyParams = {
     recordIds: string[];
     recordTitles: { id: string; title: string }[];
   };
+};
+
+/** Buffered notifies to one user from one actor in one table, as the one notify they become. */
+const mergeCollaboratorNotifies = (
+  notifies: ICollaboratorNotifyParams[]
+): ICollaboratorNotifyParams => {
+  const [first] = notifies;
+  const recordTitles = uniqBy(
+    notifies.flatMap(({ refRecord }) => refRecord.recordTitles),
+    'id'
+  );
+  return {
+    ...first,
+    refRecord: {
+      ...first.refRecord,
+      recordIds: uniq(notifies.flatMap(({ refRecord }) => refRecord.recordIds)),
+      recordTitles: recordTitles.slice(0, maxCollaboratorNotifyRecordTitles),
+    },
+  };
+};
+
+type INotifyRecord = {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  type: NotificationTypeEnum;
+  urlPath: string;
+  createdBy: string;
+  message: string;
+  messageI18n?: string;
+  severity: NotificationSeverityEnum;
+  createdTime: Date;
 };
 
 const notificationListSelect = {
@@ -114,7 +148,6 @@ type INotificationListRecord = Prisma.NotificationGetPayload<{
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
-  private readonly collaboratorNotifyTimers = new Set<string>();
   private readonly mailTypeMap: Record<NotificationTypeEnum, MailType> = {
     [NotificationTypeEnum.System]: MailType.System,
     [NotificationTypeEnum.CollaboratorCellTag]: MailType.CollaboratorCellTag,
@@ -126,6 +159,18 @@ export class NotificationService {
     // never mailed: the app reaches its users on its own
     [NotificationTypeEnum.OAuthApp]: MailType.Common,
   };
+  // Which merge window a notification's mail joins; collaborator tags and export results go
+  // out on their own.
+  private readonly mailMergeGroupMap: Record<NotificationTypeEnum, MailMergeGroup | undefined> = {
+    [NotificationTypeEnum.System]: MailMergeGroup.Default,
+    [NotificationTypeEnum.CollaboratorCellTag]: undefined,
+    [NotificationTypeEnum.CollaboratorMultiRowTag]: undefined,
+    [NotificationTypeEnum.Comment]: MailMergeGroup.Default,
+    [NotificationTypeEnum.ExportBase]: undefined,
+    [NotificationTypeEnum.AdminNotice]: MailMergeGroup.Default,
+    [NotificationTypeEnum.CollaboratorInvite]: MailMergeGroup.Default,
+    [NotificationTypeEnum.OAuthApp]: undefined,
+  };
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
@@ -133,9 +178,17 @@ export class NotificationService {
     private readonly userService: UserService,
     @MailConfig() private readonly mailConfig: IMailConfig,
     private readonly i18n: I18nService<I18nTranslations>,
-    private readonly cacheService: CacheService<ICacheStore>,
-    private readonly distributedLockService: DistributedLockService
-  ) {}
+    private readonly coalesceService: CoalesceService
+  ) {
+    this.coalesceService.onFlush<ICollaboratorNotifyParams>(
+      COLLABORATOR_NOTIFY_SCOPE,
+      async (_key, notifies) => {
+        await this.createCollaboratorNotify(mergeCollaboratorNotifies(notifies));
+      },
+      // Buffered as the one notify the batch becomes, however long writes keep coming
+      (notifies) => [mergeCollaboratorNotifies(notifies)]
+    );
+  }
 
   getUserLang(lang?: string | null) {
     return lang ?? I18nContext.current()?.lang;
@@ -190,112 +243,17 @@ export class NotificationService {
       return;
     }
     const quietMs = resolveCollaboratorNotifyQuietMs();
-    if (quietMs <= 0) {
-      await this.createCollaboratorNotify(params);
-      return;
-    }
-
-    // The window lapses on its own once writes stay quiet.
-    const windowTtlSeconds = Math.ceil(quietMs / 1000);
-    const key = `${fromUserId}:${toUserId}:${refRecord.tableId}`;
-    const buffered = await this.withCollaboratorNotifyLock(key, async () => {
-      // Records still waiting to go out, e.g. left by a dead pod, keep this notify buffered too.
-      const current = await this.cacheService.get(`collaborator-notify:pending:${key}`);
-      if (!current && !(await this.cacheService.get(`collaborator-notify:window:${key}`))) {
-        // Reserve the window before sending, so notifies arriving mid-send buffer behind it.
-        await this.cacheService.setDetail(
-          `collaborator-notify:window:${key}`,
-          true,
-          windowTtlSeconds
-        );
-        return false;
-      }
-      const pending = current ?? {
-        ...params,
-        refRecord: { ...refRecord, recordIds: [], recordTitles: [] },
-        lastAt: 0,
-      };
-      pending.refRecord.recordIds = uniq([...pending.refRecord.recordIds, ...refRecord.recordIds]);
-      pending.refRecord.recordTitles = [
-        ...pending.refRecord.recordTitles,
-        ...refRecord.recordTitles.filter(
-          (title) => !pending.refRecord.recordTitles.some(({ id }) => id === title.id)
-        ),
-      ].slice(0, maxCollaboratorNotifyRecordTitles);
-      pending.lastAt = Date.now();
-      await this.cacheService.setDetail(
-        `collaborator-notify:pending:${key}`,
-        pending,
-        windowTtlSeconds + ms('1m') / 1000
-      );
-      await this.cacheService.setDetail(
-        `collaborator-notify:window:${key}`,
-        true,
-        windowTtlSeconds
-      );
-      return true;
-    });
-
-    this.scheduleCollaboratorNotifyFlush(key, quietMs);
-    if (!buffered) {
+    const opened =
+      quietMs <= 0 ||
+      (await this.coalesceService.add(
+        COLLABORATOR_NOTIFY_SCOPE,
+        `${fromUserId}:${toUserId}:${refRecord.tableId}`,
+        params,
+        { mode: CoalesceMode.Quiet, windowMs: quietMs }
+      ));
+    if (opened) {
       await this.createCollaboratorNotify(params);
     }
-  }
-
-  private scheduleCollaboratorNotifyFlush(key: string, delayMs: number) {
-    if (this.collaboratorNotifyTimers.has(key)) {
-      return;
-    }
-    this.collaboratorNotifyTimers.add(key);
-    const timer = setTimeout(() => void this.flushCollaboratorNotify(key), delayMs);
-    timer.unref?.();
-  }
-
-  private async flushCollaboratorNotify(key: string): Promise<void> {
-    this.collaboratorNotifyTimers.delete(key);
-    const quietMs = resolveCollaboratorNotifyQuietMs();
-    try {
-      const now = Date.now();
-      const pending = await this.withCollaboratorNotifyLock(key, async () => {
-        const current = await this.cacheService.get(`collaborator-notify:pending:${key}`);
-        if (current && now >= current.lastAt + quietMs) {
-          await this.cacheService.del(`collaborator-notify:pending:${key}`);
-        }
-        return current;
-      });
-      if (!pending) {
-        return;
-      }
-      const { lastAt, ...params } = pending;
-      if (now < lastAt + quietMs) {
-        this.scheduleCollaboratorNotifyFlush(key, lastAt + quietMs - now);
-        return;
-      }
-      await this.createCollaboratorNotify(params);
-    } catch (error) {
-      this.logger.error(
-        `Error flushing collaborator notifications: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-        error instanceof Error ? error.stack : undefined
-      );
-    }
-  }
-
-  private async withCollaboratorNotifyLock<T>(key: string, task: () => Promise<T>): Promise<T> {
-    let result!: T;
-    while (
-      !(await this.distributedLockService.runExclusive(
-        `collaborator-notify:${key}`,
-        10,
-        async () => {
-          result = await task();
-        }
-      ))
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-    return result;
   }
 
   private async createCollaboratorNotify(params: ICollaboratorNotifyParams): Promise<boolean> {
@@ -349,145 +307,39 @@ export class NotificationService {
         },
       };
     }
-    const data: Prisma.NotificationCreateInput = {
-      id: notifyId,
-      fromUserId,
-      toUserId,
-      type,
-      message: this.getMessage(message, 'en'),
-      messageI18n: this.getMessageI18n(message),
-      severity: NotificationSeverityEnum.Info,
-      urlPath: notifyPath,
-      createdBy: fromUserId,
-    };
-    const notifyData = await this.createNotify(data);
-
-    const unreadCount = (await this.unreadCount(toUser.id)).unreadCount;
-
-    const socketNotification = {
-      notification: {
-        id: notifyData.id,
-        message: notifyData.message,
-        messageI18n: notifyData.messageI18n,
-        notifyIcon: userIcon,
-        notifyType: notifyData.type as NotificationTypeEnum,
-        url: notifyPath,
-        severity: NotificationSeverityEnum.Info,
-        isRead: false,
-        createdTime: notifyData.createdTime.toISOString(),
-      },
-      unreadCount: unreadCount,
-    };
-
-    this.sendNotifyBySocket(toUser.id, socketNotification);
-
-    const emailOptions = await this.mailSenderService.collaboratorCellTagEmailOptions({
-      notifyId,
-      fromUserName: fromUser.name,
-      refRecord,
-    });
-    if (toUser.notifyMeta?.email) {
-      this.mailSenderService.sendMail(
+    await this.deliverNotifies(
+      [
         {
-          to: toUser.email,
-          ...emailOptions,
+          id: notifyId,
+          fromUserId,
+          toUserId,
+          type,
+          message: this.getMessage(message, 'en'),
+          messageI18n: this.getMessageI18n(message),
+          severity: NotificationSeverityEnum.Info,
+          urlPath: notifyPath,
+          createdBy: fromUserId,
+          createdTime: new Date(),
         },
-        {
-          type: this.mailTypeMap[type],
-          transporterName: MailTransporterType.Notify,
-        }
-      );
-    }
-    return true;
-  }
-
-  async sendHtmlContentNotify(
-    params: {
-      path: string;
-      fromUserId?: string;
-      toUserId: string;
-      message: string | ILocalization<I18nPath>;
-      severity?: NotificationSeverityEnum;
-      emailConfig?: INotifyEmailConfig;
-    },
-    type = NotificationTypeEnum.System
-  ) {
-    const { toUserId, emailConfig, path, fromUserId = SYSTEM_USER_ID } = params;
-    const notifyId = generateNotificationId();
-    const toUser = await this.userService.getUserById(toUserId);
-    if (!toUser) {
-      return;
-    }
-
-    const severity = params.severity ?? this.getNotificationSeverity(type);
-    const messageI18n = this.getMessageI18n(params.message);
-    const data: Prisma.NotificationCreateInput = {
-      id: notifyId,
-      fromUserId: fromUserId,
-      toUserId,
-      type,
-      urlPath: path,
-      createdBy: fromUserId,
-      message: this.getMessage(params.message, 'en'),
-      messageI18n,
-      severity,
-    };
-    const notifyData = await this.createNotify(data);
-
-    const unreadCount = (await this.unreadCount(toUser.id)).unreadCount;
-
-    const rawUsers = await this.prismaService.user.findMany({
-      select: { id: true, name: true, avatar: true },
-      where: { id: fromUserId },
-    });
-    const fromUserSets = keyBy(rawUsers, 'id');
-
-    const systemNotifyIcon = this.generateNotifyIcon(
-      notifyData.type as NotificationTypeEnum,
-      fromUserId,
-      fromUserSets
+      ],
+      userIcon
     );
 
-    const socketNotification = {
-      notification: {
-        id: notifyData.id,
-        message: notifyData.message,
-        messageI18n: notifyData.messageI18n,
-        notifyType: type,
-        url: path,
-        notifyIcon: systemNotifyIcon,
-        severity,
-        isRead: false,
-        createdTime: notifyData.createdTime.toISOString(),
-      },
-      unreadCount: unreadCount,
-    };
-
-    this.sendNotifyBySocket(toUser.id, socketNotification);
-
-    if (emailConfig && toUser.notifyMeta?.email) {
-      const lang = this.getUserLang(toUser.lang);
-      const emailOptions = await this.mailSenderService.htmlEmailOptions({
-        ...emailConfig,
-        title: this.getEmailMessage(emailConfig.title, lang),
-        message: this.getEmailMessage(emailConfig.message, lang),
-        to: toUserId,
-        buttonUrl: emailConfig.buttonUrl || this.mailConfig.origin + path,
-        buttonText: emailConfig.buttonText
-          ? this.getMessage(emailConfig.buttonText, lang)
-          : this.i18n.t('common.email.templates.notify.buttonText'),
-      });
-      this.mailSenderService.sendMail(
-        {
-          to: toUser.email,
-          ...emailOptions,
-        },
-        {
-          type: this.mailTypeMap[type],
-          transporterName: MailTransporterType.Notify,
-        }
-      );
+    if (toUser.notifyMeta?.email) {
+      // The notification is written: a mail that fails to build must not fail a flush into a
+      // retry that writes it again
+      try {
+        const emailOptions = await this.mailSenderService.collaboratorCellTagEmailOptions({
+          notifyId,
+          fromUserName: fromUser.name,
+          refRecord,
+        });
+        this.mailNotify(toUser.email, type, emailOptions);
+      } catch (error) {
+        this.logger.error(`collaborator notify ${notifyId} mail not sent: ${String(error)}`);
+      }
     }
+    return true;
   }
 
   /**
@@ -510,43 +362,25 @@ export class NotificationService {
       // the Web renders messages as HTML: whatever the app wrote shows as text
       context: { app: escape(app.name), text: escape(text) },
     };
-    const severity = this.getNotificationSeverity(type);
-    const record = {
-      id: appNotificationId(app.clientId, toUserId, externalId),
-      fromUserId: app.clientId,
-      toUserId,
-      type,
-      urlPath: url ?? '',
-      createdBy: app.clientId,
-      message: this.getMessage(localization, 'en'),
-      messageI18n: this.getMessageI18n(localization),
-      severity,
-      createdTime: new Date(),
-    };
-    const { count } = await this.prismaService.notification.createMany({
-      data: [record],
-      skipDuplicates: true,
-    });
-    if (!count) {
-      return 'duplicate';
-    }
-
-    const { unreadCount } = await this.unreadCount(toUserId);
-    this.sendNotifyBySocket(toUserId, {
-      notification: {
-        id: record.id,
-        message: record.message,
-        messageI18n: record.messageI18n,
-        notifyType: type,
-        url: record.urlPath,
-        notifyIcon: this.generateNotifyIcon(type, app.clientId, {}, app.logo),
-        severity,
-        isRead: false,
-        createdTime: record.createdTime.toISOString(),
-      },
-      unreadCount,
-    });
-    return 'created';
+    const count = await this.deliverNotifies(
+      [
+        {
+          id: appNotificationId(app.clientId, toUserId, externalId),
+          fromUserId: app.clientId,
+          toUserId,
+          type,
+          urlPath: url ?? '',
+          createdBy: app.clientId,
+          message: this.getMessage(localization, 'en'),
+          messageI18n: this.getMessageI18n(localization),
+          severity: this.getNotificationSeverity(type),
+          createdTime: new Date(),
+        },
+      ],
+      this.generateNotifyIcon(type, app.clientId, {}, app.logo),
+      { skipDuplicates: true }
+    );
+    return count ? 'created' : 'duplicate';
   }
 
   async sendCommonNotify(
@@ -594,53 +428,26 @@ export class NotificationService {
     const notifyIcon = this.generateNotifyIcon(type, fromUserId, fromUserSets);
 
     const createdTime = new Date();
-    const notifyRecords = toUsers.map((toUser) => ({
-      id: generateNotificationId(),
-      fromUserId,
-      toUserId: toUser.id,
-      type,
-      urlPath: path,
-      createdBy: fromUserId,
-      message: messageEn,
-      messageI18n,
-      severity,
-      createdTime,
-    }));
+    await this.deliverNotifies(
+      toUsers.map((toUser) => ({
+        id: generateNotificationId(),
+        fromUserId,
+        toUserId: toUser.id,
+        type,
+        urlPath: path,
+        createdBy: fromUserId,
+        message: messageEn,
+        messageI18n,
+        severity,
+        createdTime,
+      })),
+      notifyIcon
+    );
 
-    const toUserIdList = toUsers.map((u) => u.id);
-    const unreadCounts = await this.prismaService.notification.groupBy({
-      by: ['toUserId'],
-      where: { toUserId: { in: toUserIdList }, isRead: false },
-      _count: { _all: true },
-    });
-    const unreadCountMap = new Map(unreadCounts.map((r) => [r.toUserId, r._count._all]));
-
-    await this.prismaService.notification.createMany({ data: notifyRecords });
-
-    const notifyById = keyBy(notifyRecords, 'toUserId');
     for (const toUser of toUsers) {
-      const record = notifyById[toUser.id];
-      const unreadCount = (unreadCountMap.get(toUser.id) ?? 0) + 1;
-
-      this.sendNotifyBySocket(toUser.id, {
-        notification: {
-          id: record.id,
-          message: messageEn,
-          messageI18n,
-          notifyType: type,
-          url: path,
-          notifyIcon: notifyIcon,
-          severity,
-          isRead: false,
-          createdTime: createdTime.toISOString(),
-        },
-        unreadCount,
-      });
-
       if (emailConfig && toUser.notifyMeta?.email) {
         const lang = this.getUserLang(toUser.lang);
-        const emailOptions = await this.mailSenderService.commonEmailOptions({
-          ...emailConfig,
+        const mailInfo = {
           title: this.getEmailMessage(emailConfig.title, lang),
           message: this.getEmailMessage(emailConfig.message, lang),
           to: toUser.id,
@@ -648,21 +455,84 @@ export class NotificationService {
           buttonText: emailConfig.buttonText
             ? this.getMessage(emailConfig.buttonText, lang)
             : this.i18n.t('common.email.templates.notify.buttonText'),
-        });
-        this.mailSenderService.sendMail(
-          {
-            to: toUser.email,
-            ...emailOptions,
-          },
-          {
-            type: this.mailTypeMap[type],
-            transporterName: MailTransporterType.Notify,
-          }
-        );
+        };
+        const emailOptions = emailConfig.htmlBody
+          ? await this.mailSenderService.htmlEmailOptions(mailInfo)
+          : await this.mailSenderService.commonEmailOptions(mailInfo);
+        this.mailNotify(toUser.email, type, emailOptions, emailConfig.mergeGroup);
       }
     }
 
     return { sentCount: toUsers.length, invalidUserIds, invalidEmails };
+  }
+
+  /**
+   * Every notification lands the same way: the rows are written, then each recipient's open
+   * tabs are told, with an unread count read after the write. Returns how many rows were
+   * written: with `skipDuplicates`, none for an id that is taken, and nothing is pushed.
+   */
+  private async deliverNotifies(
+    records: INotifyRecord[],
+    notifyIcon: INotificationBuffer['notification']['notifyIcon'],
+    options: { skipDuplicates?: boolean } = {}
+  ): Promise<number> {
+    const { count } = await this.prismaService.notification.createMany({
+      data: records,
+      skipDuplicates: options.skipDuplicates,
+    });
+    if (!count) {
+      return 0;
+    }
+
+    // The rows are the notification: once written, a failure telling open tabs is logged and
+    // not thrown, so a retried caller (a coalesce flush) does not write them a second time.
+    // Counted after the write, so notifications landing at once each push a count that holds.
+    let unreadCountMap: Map<string, number>;
+    try {
+      const unreadCounts = await this.prismaService.notification.groupBy({
+        by: ['toUserId'],
+        where: { toUserId: { in: uniq(records.map((r) => r.toUserId)) }, isRead: false },
+        _count: { _all: true },
+      });
+      unreadCountMap = new Map(unreadCounts.map((r) => [r.toUserId, r._count._all]));
+    } catch (error) {
+      this.logger.warn(`notifications written but not pushed: ${String(error)}`);
+      return count;
+    }
+
+    for (const record of records) {
+      this.sendNotifyBySocket(record.toUserId, {
+        notification: {
+          id: record.id,
+          message: record.message,
+          messageI18n: record.messageI18n,
+          notifyType: record.type,
+          url: record.urlPath,
+          notifyIcon,
+          severity: record.severity,
+          isRead: false,
+          createdTime: record.createdTime.toISOString(),
+        },
+        unreadCount: unreadCountMap.get(record.toUserId) ?? 0,
+      });
+    }
+    return count;
+  }
+
+  /** A notification's mail, on the merge window its type joins unless the sender names one. */
+  private mailNotify(
+    to: string,
+    type: NotificationTypeEnum,
+    mailOptions: ISendMailOptions,
+    mergeGroup = this.mailMergeGroupMap[type]
+  ) {
+    this.mailSenderService.sendMail(
+      { to, ...mailOptions, mergeGroup },
+      {
+        type: this.mailTypeMap[type],
+        transporterName: MailTransporterType.Notify,
+      }
+    );
   }
 
   async sendImportResultNotify(params: {
@@ -708,7 +578,7 @@ export class NotificationService {
     const type = NotificationTypeEnum.ExportBase;
     const isFailed = typeof message === 'string' ? false : message.i18nKey.includes('.failed');
 
-    this.sendHtmlContentNotify(
+    this.sendCommonNotify(
       {
         path: '',
         toUserId,
@@ -717,6 +587,7 @@ export class NotificationService {
         emailConfig: {
           title: { i18nKey: 'common.email.templates.notify.exportBase.title' },
           message: message,
+          htmlBody: true,
         },
       },
       type
@@ -1028,10 +899,6 @@ export class NotificationService {
         isRead: true,
       },
     });
-  }
-
-  private async createNotify(data: Prisma.NotificationCreateInput) {
-    return this.prismaService.notification.create({ data });
   }
 
   private async sendNotifyBySocket(toUserId: string, data: INotificationBuffer) {

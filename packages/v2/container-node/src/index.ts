@@ -409,6 +409,8 @@ export const registerV2NodePgDependencies = async (
   if (!c.isRegistered(v2CoreTokens.projectionMessageJournal)) {
     c.registerInstance(v2CoreTokens.projectionMessageJournal, new NoopProjectionMessageJournal());
   }
+  const sameTxDispatcher = new SameTxProjectionDispatcher(c, logger);
+  c.registerInstance(v2CoreTokens.sameTxProjectionDispatcher, sameTxDispatcher);
   c.registerInstance(
     v2CoreTokens.domainWriteTransaction,
     new DomainWriteTransaction(
@@ -417,7 +419,7 @@ export const registerV2NodePgDependencies = async (
       catalogResult.value,
       c.resolve(v2CoreTokens.projectionMessageJournal),
       new TargetedLegacyEventDispatcher(c, logger),
-      new SameTxProjectionDispatcher(c),
+      sameTxDispatcher,
       logger,
       undefined,
       c.resolve(v2CoreTokens.eventBus),

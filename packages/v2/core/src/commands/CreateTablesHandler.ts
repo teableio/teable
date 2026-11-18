@@ -2,6 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  dispatchSameTxEvents,
+  publishEventsWithBatchDeferral,
+} from '../application/services/dispatchSameTxEvents';
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import {
   collectFieldCreationSideEffects,
@@ -16,6 +20,7 @@ import {
 import { aggregateRecordCreatedEvents } from '../application/services/recordEventFieldValues';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
+import { NoopSameTxProjectionDispatcher } from '../application/services/SameTxProjectionDispatcher';
 import { TableCreationService } from '../application/services/TableCreationService';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import {
@@ -38,6 +43,7 @@ import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type * as SameTxProjectionDispatcherPort from '../ports/SameTxProjectionDispatcher';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
@@ -269,10 +275,9 @@ type InitialRecordMutation = {
 };
 
 type TransactionResult = {
-  persistedTables: ReadonlyArray<Table>;
-  tableState: ReadonlyMap<string, Table>;
+  resultTables: ReadonlyArray<Table>;
+  ownEvents: ReadonlyArray<IDomainEvent>;
   sideEffectEvents: ReadonlyArray<IDomainEvent>;
-  recordMutationsByTableId: ReadonlyMap<string, InitialRecordMutation>;
 };
 
 @CommandHandler(CreateTablesCommand)
@@ -314,7 +319,9 @@ export class CreateTablesHandler implements ICommandHandler<
       new DefaultTableMapper()
     ),
     @inject(v2CoreTokens.recordChangedValueDecoratorService)
-    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService = new NullRecordChangedValueDecoratorService()
+    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService = new NullRecordChangedValueDecoratorService(),
+    @inject(v2CoreTokens.sameTxProjectionDispatcher)
+    private readonly sameTxProjectionDispatcher: SameTxProjectionDispatcherPort.ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
   ) {}
 
   @TraceSpan()
@@ -322,8 +329,12 @@ export class CreateTablesHandler implements ICommandHandler<
     context: ExecutionContextPort.IExecutionContext,
     command: CreateTablesCommand
   ): Promise<Result<CreateTablesResult, DomainError>> {
+    const poisoned = ExecutionContextPort.getBatchRollbackError(context);
+    if (poisoned) {
+      return err(poisoned);
+    }
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    return safeTry<CreateTablesResult, DomainError>(async function* () {
+    const result = await safeTry<CreateTablesResult, DomainError>(async function* () {
       const tableCommands = command.tables;
 
       // Collect foreign table references
@@ -451,10 +462,17 @@ export class CreateTablesHandler implements ICommandHandler<
         { scope: 'meta' }
       );
 
+      const initialTables = [...new Set([...builtTables, ...metadataResult])];
+      const initialEventsByTable = new Map<Table, ReadonlyArray<IDomainEvent>>(
+        initialTables.map((table) => [table, table.pullDomainEvents()])
+      );
       const dataResult = await handler.unitOfWork.withTransaction(
         context,
-        async (dataTransactionContext) =>
-          safeTry<TransactionResult, DomainError>(async function* () {
+        async (dataTransactionContext) => {
+          for (const table of initialTables) {
+            table.pullDomainEvents();
+          }
+          return safeTry<TransactionResult, DomainError>(async function* () {
             const creationResult = yield* await handler.tableCreationService.provisionData(
               dataTransactionContext,
               {
@@ -528,17 +546,44 @@ export class CreateTablesHandler implements ICommandHandler<
               });
             }
 
+            const resultTables = creationResult.persistedTables.map(
+              (table) => creationResult.tableState.get(table.id().toString()) ?? table
+            );
+            const ownEventTables = [
+              ...new Set([
+                ...builtTables,
+                ...creationResult.persistedTables,
+                ...creationResult.tableState.values(),
+              ]),
+            ];
+            const ownEvents = ownEventTables.flatMap((table) =>
+              aggregateRecordCreatedEvents({
+                events: [...(initialEventsByTable.get(table) ?? []), ...table.pullDomainEvents()],
+                ...recordMutationsByTableId.get(table.id().toString()),
+                preserveEventOrder: true,
+              })
+            );
+            yield* await dispatchSameTxEvents(
+              dataTransactionContext,
+              handler.sameTxProjectionDispatcher,
+              ownEvents,
+              { tables: resultTables }
+            );
+
             return ok({
-              persistedTables: creationResult.persistedTables,
-              tableState: creationResult.tableState,
+              resultTables,
+              ownEvents,
               sideEffectEvents: creationResult.sideEffectEvents,
-              recordMutationsByTableId,
             });
-          }),
+          });
+        },
         { scope: 'data' }
       );
 
       if (dataResult.isErr()) {
+        if (context.batchTransaction) {
+          return err(dataResult.error);
+        }
         yield* await failTablesSchemaOperation(
           handler.unitOfWork,
           handler.tableRepository,
@@ -564,25 +609,16 @@ export class CreateTablesHandler implements ICommandHandler<
         { type: 'table.create_many' }
       );
 
-      // Build and publish events
-      const events = [...builtTables, ...dataResult.value.tableState.values()].flatMap((table) =>
-        aggregateRecordCreatedEvents({
-          events: table.pullDomainEvents(),
-          ...dataResult.value.recordMutationsByTableId.get(table.id().toString()),
-          preserveEventOrder: true,
-        })
-      );
-      events.push(...dataResult.value.sideEffectEvents);
-      yield* await handler.eventBus.publishMany(context, events);
-      for (const execution of sideEffectPluginExecutions) {
-        await execution.afterCommit();
-      }
-
-      const resultTables = dataResult.value.persistedTables.map(
-        (table) => dataResult.value.tableState.get(table.id().toString()) ?? table
+      const events = [...dataResult.value.ownEvents, ...dataResult.value.sideEffectEvents];
+      yield* await publishEventsWithBatchDeferral(
+        context,
+        handler.eventBus,
+        events,
+        sideEffectPluginExecutions.map((execution) => () => execution.afterCommit())
       );
 
-      return ok(CreateTablesResult.create(resultTables, events));
+      return ok(CreateTablesResult.create(dataResult.value.resultTables, events));
     });
+    return ExecutionContextPort.failBatchResultIfActive(context, result);
   }
 }

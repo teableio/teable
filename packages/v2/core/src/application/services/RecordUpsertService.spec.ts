@@ -3,8 +3,11 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
+import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { DomainEventName } from '../../domain/shared/DomainEventName';
+import { OccurredAt } from '../../domain/shared/OccurredAt';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
@@ -16,9 +19,14 @@ import { Table as V2Table } from '../../domain/table/Table';
 import type { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
+import { domainWrite } from '../../ports/DomainWriteTransaction';
+import type { IEventBus } from '../../ports/EventBus';
+import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../../ports/memory/EventBusDomainWriteTransaction';
 import type { RecordQueryPluginScope } from '../../ports/RecordQueryPlugin';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import { createUndoRedoCommand } from '../../ports/UndoRedoStore';
+import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
 import type { IRecordBatchCreationResult } from './RecordBatchCreationService';
 import type { IRecordBulkUpdateTransactionResult } from './RecordBulkUpdateService';
 import {
@@ -27,6 +35,7 @@ import {
   type IRecordUpsertResult,
   type IRecordUpsertRowResult,
 } from './RecordUpsertService';
+import { NoopSameTxProjectionDispatcher } from './SameTxProjectionDispatcher';
 
 const tableId = TableId.create(`tbl${'t'.repeat(16)}`)._unsafeUnwrap();
 const fieldA = `fld${'a'.repeat(16)}`;
@@ -186,6 +195,8 @@ type HarnessOptions = {
   readonly createRecords?: ReadonlyArray<ReadonlyArray<TableRecord>>;
   readonly updateResult?: IRecordBulkUpdateTransactionResult;
   readonly readScope?: RecordQueryPluginScope;
+  readonly writeAfterCommitError?: Error;
+  readonly updateAfterCommitError?: Error;
 };
 
 const createHarness = (options: HarnessOptions) => {
@@ -232,6 +243,9 @@ const createHarness = (options: HarnessOptions) => {
           ...options.updateResult,
           afterCommit: async () => {
             afterCommitOrder.push('update');
+            if (options.updateAfterCommitError) {
+              throw options.updateAfterCommitError;
+            }
           },
         });
       }
@@ -244,6 +258,9 @@ const createHarness = (options: HarnessOptions) => {
         redoCommands: [],
         afterCommit: async () => {
           afterCommitOrder.push('update');
+          if (options.updateAfterCommitError) {
+            throw options.updateAfterCommitError;
+          }
         },
       });
     },
@@ -259,6 +276,9 @@ const createHarness = (options: HarnessOptions) => {
           ),
         afterCommit: async () => {
           afterCommitOrder.push('write');
+          if (options.writeAfterCommitError) {
+            throw options.writeAfterCommitError;
+          }
         },
       }),
   };
@@ -286,6 +306,7 @@ const createHarness = (options: HarnessOptions) => {
         events?: ReadonlyArray<IDomainEvent>;
       };
       return ok({
+        status: 'committed' as const,
         value: value.value,
         events: value.kind === 'changed' ? (value.events ?? []) : [],
         committed: true,
@@ -781,5 +802,318 @@ describe('RecordUpsertService behaviours', () => {
     );
 
     expect(result._unsafeUnwrap().results).toEqual([{ index: 0, status: 'created' }]);
+  });
+
+  it('commits outer withBatchTransaction when an inner savepoint unique violation triggers retry via update', async () => {
+    const upsertTable = buildUpsertTable();
+    const afterCommitOrder: string[] = [];
+    const publishedEvents: string[] = [];
+    const undoAppends: unknown[] = [];
+
+    class SiblingEvent implements IDomainEvent {
+      readonly name = DomainEventName.recordCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    const fakeUnitOfWork: IUnitOfWork & { commits: number; rollbacks: number } = {
+      commits: 0,
+      rollbacks: 0,
+      async withTransaction<T>(
+        ctx: IExecutionContext,
+        work: UnitOfWorkOperation<T>
+      ): Promise<Result<T, DomainError>> {
+        if (ctx.transaction) {
+          return work(ctx);
+        }
+        const tx: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction', scope: 'data' };
+        const res = await work({
+          ...ctx,
+          transaction: tx,
+          transactions: { data: tx, meta: tx },
+        });
+        if (res.isOk()) {
+          this.commits += 1;
+        } else {
+          this.rollbacks += 1;
+        }
+        return res;
+      },
+      async savepoint<T>(
+        ctx: IExecutionContext,
+        work: UnitOfWorkOperation<T>
+      ): Promise<Result<T, DomainError>> {
+        return work(ctx);
+      },
+    };
+
+    const eventBus: IEventBus = {
+      async publish(_ctx, event) {
+        publishedEvents.push(event.name.toString());
+        return ok(undefined);
+      },
+      async publishMany(_ctx, events) {
+        for (const e of events) publishedEvents.push(e.name.toString());
+        return ok(undefined);
+      },
+    };
+
+    const realDomainWriteTx = new EventBusDomainWriteTransaction(
+      fakeUnitOfWork,
+      eventBus,
+      new NoopSameTxProjectionDispatcher()
+    );
+
+    const matchSequence: Array<ReadonlyArray<TableRecordReadModel>> = [
+      [],
+      [matchedRow(upsertTable, recordA, 'k1')],
+    ];
+    const uniqueErr = domainError.validation({
+      code: 'validation.field.unique',
+      message: 'duplicate',
+      details: { fieldId: upsertTable.keyFieldId },
+    });
+
+    const upsertService = new RecordUpsertService(
+      {
+        find: async () => {
+          const rows = matchSequence.shift() ?? [];
+          return ok({ records: rows, total: rows.length });
+        },
+      } as never,
+      {
+        // Mirrors an inner transaction-bound table update/insert failing on unique violation inside savepoint
+        create: async (txCtx: IExecutionContext) =>
+          realDomainWriteTx.execute(txCtx, async () => err(uniqueErr)),
+      } as never,
+      {
+        updateWithinTransaction: async () =>
+          ok<IRecordBulkUpdateTransactionResult, DomainError>({
+            updatedCount: 1,
+            events: [
+              {
+                name: DomainEventName.recordsBatchUpdated(),
+                occurredAt: OccurredAt.now(),
+              } as IDomainEvent,
+            ],
+            records: [buildRecord(recordA)],
+            changedRecordIds: [{ toString: () => recordA } as never],
+            undoCommands: undoCommands(upsertTable.table.id().toString()),
+            redoCommands: redoCommands(upsertTable.table.id().toString()),
+            afterCommit: async () => {
+              afterCommitOrder.push('update');
+            },
+          }),
+      } as never,
+      {
+        prepare: async () =>
+          ok({
+            guard: async () => ok(undefined),
+            getRecordSpec: () => ok(undefined),
+            afterCommit: async () => {
+              afterCommitOrder.push('write');
+            },
+          }),
+      } as never,
+      realDomainWriteTx,
+      {
+        appendEntry: async (...args: unknown[]) => {
+          undoAppends.push(args);
+          return ok(undefined);
+        },
+      } as never,
+      { getById: async () => ok(upsertTable.table) } as never,
+      {
+        prepare: async () =>
+          ok({
+            guard: async () => ok(undefined),
+            getScope: () => ok(undefined),
+          }),
+      } as never
+    );
+
+    const rootCtx: IExecutionContext = {
+      actorId: ActorId.create('usrUpsertBatch')._unsafeUnwrap(),
+    };
+    const batchResult = await realDomainWriteTx.withBatchTransaction(rootCtx, async (batchCtx) => {
+      const sibling = await realDomainWriteTx.execute(batchCtx, async () =>
+        ok(domainWrite.changed('sibling', [new SiblingEvent()]))
+      );
+      if (sibling.isErr()) return err(sibling.error);
+
+      const upsertRes = await upsertService.upsert(batchCtx, {
+        ...baseInput(upsertTable, [
+          { [upsertTable.keyFieldId]: 'k1', [upsertTable.titleFieldId]: 'v2' },
+        ]),
+        onConflict: 'update',
+      });
+      if (upsertRes.isErr()) return err(upsertRes.error);
+
+      // Post-commit hooks & event publishing must remain deferred until the outer batch commits
+      expect(afterCommitOrder).toEqual([]);
+      expect(publishedEvents).toEqual([]);
+      return upsertRes;
+    });
+
+    expect(batchResult.isOk()).toBe(true);
+    expect(batchResult._unsafeUnwrap().results).toMatchObject([
+      { index: 0, status: 'updated', recordId: recordA },
+    ]);
+    expect(fakeUnitOfWork.commits).toBe(1);
+    expect(fakeUnitOfWork.rollbacks).toBe(0);
+    expect(afterCommitOrder).toEqual(['write', 'update']);
+    expect(publishedEvents).toEqual(['RecordCreated', 'RecordsBatchUpdated']);
+    expect(undoAppends).toHaveLength(1);
+  });
+
+  it('isolates throwing afterCommit handlers in withBatchTransaction so remaining upsert callbacks still run and caller receives ok', async () => {
+    const upsertTable = buildUpsertTable();
+    const afterCommitOrder: string[] = [];
+    const publishedEvents: string[] = [];
+
+    const fakeUnitOfWork: IUnitOfWork = {
+      async withTransaction<T>(
+        ctx: IExecutionContext,
+        work: UnitOfWorkOperation<T>
+      ): Promise<Result<T, DomainError>> {
+        if (ctx.transaction) {
+          return work(ctx);
+        }
+        const tx: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction', scope: 'data' };
+        return work({ ...ctx, transaction: tx, transactions: { data: tx, meta: tx } });
+      },
+      async savepoint<T>(
+        ctx: IExecutionContext,
+        work: UnitOfWorkOperation<T>
+      ): Promise<Result<T, DomainError>> {
+        return work(ctx);
+      },
+    };
+
+    const eventBus: IEventBus = {
+      async publish(_ctx, event) {
+        publishedEvents.push(event.name.toString());
+        return ok(undefined);
+      },
+      async publishMany(_ctx, events) {
+        for (const e of events) publishedEvents.push(e.name.toString());
+        return ok(undefined);
+      },
+    };
+
+    const realDomainWriteTx = new EventBusDomainWriteTransaction(
+      fakeUnitOfWork,
+      eventBus,
+      new NoopSameTxProjectionDispatcher()
+    );
+
+    const upsertService = new RecordUpsertService(
+      {
+        find: async () => ok({ records: [matchedRow(upsertTable, recordA, 'k1')], total: 1 }),
+      } as never,
+      {
+        create: async () =>
+          ok<IRecordBatchCreationResult, DomainError>({
+            records: [createdRecord(upsertTable, recordB, 'k2')],
+            events: [
+              {
+                name: DomainEventName.recordCreated(),
+                occurredAt: OccurredAt.now(),
+              } as IDomainEvent,
+            ],
+            fieldKeyMapping: new Map(),
+            undoCommands: [],
+            redoCommands: [],
+            afterCommit: async () => {
+              afterCommitOrder.push('second-plan-handler-ran');
+            },
+          }),
+      } as never,
+      {
+        updateWithinTransaction: async () =>
+          ok<IRecordBulkUpdateTransactionResult, DomainError>({
+            updatedCount: 1,
+            events: [],
+            records: [buildRecord(recordA)],
+            changedRecordIds: [{ toString: () => recordA } as never],
+            undoCommands: [],
+            redoCommands: [],
+            afterCommit: async () => {
+              afterCommitOrder.push('update-throws');
+              throw new Error('first plan handler boom');
+            },
+          }),
+      } as never,
+      {
+        prepare: async () =>
+          ok({
+            guard: async () => ok(undefined),
+            getRecordSpec: () => ok(undefined),
+            afterCommit: async () => {
+              afterCommitOrder.push('write-throws');
+              throw new Error('plugin afterCommit boom');
+            },
+          }),
+      } as never,
+      realDomainWriteTx,
+      { appendEntry: async () => ok(undefined) } as never,
+      { getById: async () => ok(upsertTable.table) } as never,
+      {
+        prepare: async () =>
+          ok({
+            guard: async () => ok(undefined),
+            getScope: () => ok(undefined),
+          }),
+      } as never
+    );
+
+    const rootCtx: IExecutionContext = {
+      actorId: ActorId.create('usrUpsertIsolated')._unsafeUnwrap(),
+    };
+    const batchResult = await realDomainWriteTx.withBatchTransaction(rootCtx, async (batchCtx) =>
+      upsertService.upsert(batchCtx, {
+        ...baseInput(upsertTable, [
+          { [upsertTable.keyFieldId]: 'k1' },
+          { [upsertTable.keyFieldId]: 'k2' },
+        ]),
+        onConflict: 'update',
+      })
+    );
+
+    expect(batchResult.isOk()).toBe(true);
+    expect(batchResult._unsafeUnwrap().results.map((r) => r.status)).toEqual([
+      'updated',
+      'created',
+    ]);
+    expect(afterCommitOrder).toEqual(['write-throws', 'update-throws', 'second-plan-handler-ran']);
+    expect(publishedEvents).toEqual(['RecordCreated']);
+  });
+
+  it('isolates throwing afterCommit handlers in standalone upsert so remaining callbacks still run and committed result stays ok', async () => {
+    const table = buildUpsertTable();
+    const harness = createHarness({
+      table,
+      matched: [matchedRow(table, recordA, 'k1')],
+      createRecords: [[createdRecord(table, recordB, 'k2')]],
+      writeAfterCommitError: new Error('plugin afterCommit boom'),
+      updateAfterCommitError: new Error('first plan handler boom'),
+      updateResult: {
+        updatedCount: 1,
+        events: [],
+        records: [buildRecord(recordA)],
+        changedRecordIds: [{ toString: () => recordA } as never],
+        undoCommands: [],
+        redoCommands: [],
+        afterCommit: async () => {},
+      },
+    });
+
+    const result = await harness.upsertService.upsert(context, {
+      ...baseInput(table, [{ [table.keyFieldId]: 'k1' }, { [table.keyFieldId]: 'k2' }]),
+      onConflict: 'update',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().results.map((r) => r.status)).toEqual(['updated', 'created']);
+    expect(harness.afterCommitOrder).toEqual(['write', 'update', 'create']);
   });
 });

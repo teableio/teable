@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { isSameTxProjectionHandlerForEvent } from '../../application/projections/SameTxProjection';
 import { domainError, isDomainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
@@ -336,7 +337,9 @@ export class AsyncMemoryEventBus implements IEventBus {
     dispatchScope: IEventDispatchScope
   ): Promise<void> {
     const eventType = (event as { constructor: EventType<IDomainEvent> }).constructor;
-    const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>);
+    const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>).filter(
+      (handlerToken) => !isSameTxProjectionHandlerForEvent(event, handlerToken)
+    );
     let projectionGroup: Array<IClassToken<IEventHandler<IDomainEvent>>> = [];
     const shouldDispatchProjectionGroupConcurrently =
       this.shouldDispatchProjectionGroupConcurrently(event);

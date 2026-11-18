@@ -17,10 +17,13 @@ import { isSsrfProtectionDisabled } from './fetch';
 // (e.g., http://evil.com redirects to https://169.254.169.254). keepAlive keeps
 // warm sockets for repeated hits on the same host (presigned storage URLs); the
 // filtering hook runs at createConnection, unaffected by socket reuse.
+// `proxy: false` stops axios from routing through HTTP(S)_PROXY: through a proxy
+// the agents would vet the proxy's address and the proxy would dial the target.
 const EMPTY_AGENTS = {};
 const SAFE_AGENTS = {
   httpAgent: new RequestFilteringHttpAgent({ keepAlive: true }),
   httpsAgent: new RequestFilteringHttpsAgent({ keepAlive: true }),
+  proxy: false as const,
 };
 // Cloud instance-metadata endpoints a private-network peer may still never reach:
 // IMDS on AWS / GCP / Azure (169.254.169.254, whole link-local range), AWS IMDS over
@@ -114,6 +117,7 @@ const PRIVATE_NETWORK_AGENT_OPTIONS = {
 const PRIVATE_NETWORK_AGENTS = {
   httpAgent: new PrivateNetworkHttpAgent(PRIVATE_NETWORK_AGENT_OPTIONS),
   httpsAgent: new PrivateNetworkHttpsAgent(PRIVATE_NETWORK_AGENT_OPTIONS),
+  proxy: false as const,
 };
 
 export interface ISafeAgentOptions {
@@ -139,6 +143,7 @@ const selectPrivateNetworkAgentByProtocol = (parsedUrl: URL) =>
 export function getSafeAxiosAgents(options?: ISafeAgentOptions): {
   httpAgent?: RequestFilteringHttpAgent;
   httpsAgent?: RequestFilteringHttpsAgent;
+  proxy?: false;
 } {
   if (isSsrfProtectionDisabled()) {
     return EMPTY_AGENTS;

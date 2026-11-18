@@ -24,10 +24,18 @@ import {
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import { domainError, getRandomString, v2CoreTokens, type IUnitOfWork } from '@teable/v2-core';
+import {
+  ActorId,
+  domainError,
+  getRandomString,
+  v2CoreTokens,
+  type DomainError,
+  type ITableSchemaCoordination,
+  type IUnitOfWork,
+} from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
-import { err } from 'neverthrow';
+import { err, type Result } from 'neverthrow';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
@@ -405,6 +413,128 @@ const runOneStageBatch = async (harness: TestHarness) => {
 };
 
 describe('[C14][S19] computed outbox recovery (e2e)', () => {
+  it('cancels while waiting for schema coordination and returns the claim without attempts', async () => {
+    const harness = await createHarness({
+      computedUpdate: {
+        mode: 'hybrid',
+        hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
+        outboxConfig: { taskStatementTimeoutMs: 0, baseBackoffMs: 0, maxBackoffMs: 0 },
+      },
+    });
+    const scenario = await prepareLockContentionScenario(harness);
+    const target = await createRecord(harness, scenario.targetTableId, {
+      [scenario.targetNameFieldId]: 'Schema cancellation target',
+      [scenario.linkFieldId]: { id: scenario.sourceRecordId },
+    });
+    await harness.testContainer.processOutbox();
+    await updateRecord(harness, scenario.sourceTableId, scenario.sourceRecordId, {
+      [scenario.sourceValueFieldId]: 200,
+    });
+    const db = harness.testContainer.db;
+    const before = await db
+      .selectFrom('computed_update_outbox')
+      .select(['id', 'attempts'])
+      .where('base_id', '=', harness.baseId)
+      .execute();
+    expect(before.length).toBeGreaterThan(0);
+    const worker = harness.testContainer.container.resolve<ComputedUpdateWorker>(
+      v2RecordRepositoryPostgresTokens.computedUpdateWorker
+    );
+    const coordination = harness.testContainer.container.resolve<ITableSchemaCoordination>(
+      v2CoreTokens.tableSchemaCoordination
+    );
+    const blocker = (
+      await coordination.acquire(
+        { actorId: ActorId.create('system')._unsafeUnwrap() },
+        [scenario.sourceTableId],
+        'exclusive'
+      )
+    )._unsafeUnwrap();
+    const abort = new AbortController();
+    const cancellation: ComputedTaskExecutionCancellation = {
+      signal: abort.signal,
+      async runTransaction(work) {
+        try {
+          return {
+            status: 'completed',
+            result: await runWithPostgresQueryCancellation(abort.signal, work),
+          };
+        } catch (error) {
+          if (error instanceof PostgresQueryCancelledError) return { status: 'cancelled', error };
+          throw error;
+        }
+      },
+    };
+    let run: Promise<Result<number, DomainError>> | undefined;
+    try {
+      let settled = false;
+      run = worker.runOnce({ workerId: 'schema-wait-cancel-worker', limit: 1, cancellation });
+      void run.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        }
+      );
+      await waitFor(
+        async () => {
+          const blocked = await sql<{ count: number }>`
+          WITH lock_key AS (
+            SELECT hashtextextended(${`teable.schema:table:${scenario.sourceTableId}`}, 0) AS value
+          )
+          SELECT count(*)::int AS count FROM pg_locks l CROSS JOIN lock_key k
+          WHERE l.locktype = 'advisory' AND NOT l.granted
+            AND l.classid::bigint = ((k.value >> 32) & 4294967295)
+            AND l.objid::bigint = (k.value & 4294967295)
+        `.execute(db);
+          expect(blocked.rows[0]?.count).toBe(1);
+        },
+        { timeoutMs: 10_000, intervalMs: 10 }
+      );
+      abort.abort(new Error('Computation admission was lost'));
+      // The exclusive schema blocker is deliberately still held here.
+      await waitFor(async () => expect(settled).toBe(true), { timeoutMs: 2_000, intervalMs: 10 });
+      expect((await run)._unsafeUnwrap()).toBe(0);
+      const pending = await db
+        .selectFrom('computed_update_outbox')
+        .select(['id', 'status', 'attempts', 'locked_by'])
+        .where('base_id', '=', harness.baseId)
+        .execute();
+      expect(pending.map((row) => row.id).sort()).toEqual(before.map((row) => row.id).sort());
+      expect(pending.every((row) => row.status === 'pending' && row.locked_by === null)).toBe(true);
+      expect(new Map(pending.map((row) => [row.id, row.attempts]))).toEqual(
+        new Map(before.map((row) => [row.id, row.attempts]))
+      );
+      expect(
+        await db
+          .selectFrom('computed_update_dead_letter')
+          .select('id')
+          .where('base_id', '=', harness.baseId)
+          .execute()
+      ).toEqual([]);
+    } finally {
+      abort.abort();
+      await blocker.release();
+      if (run) await Promise.allSettled([run]);
+    }
+    await harness.testContainer.processOutbox();
+    const recovered = await listRecordsWithoutDrain(harness, scenario.targetTableId);
+    expect(
+      parseArrayCell(recovered.find((row) => row.id === target.id)?.fields[scenario.lookupFieldId])
+    ).toEqual([200]);
+    expect(
+      recovered.find((row) => row.id === target.id)?.fields[scenario.finalFormulaFieldId]
+    ).toBe(204);
+    expect(
+      await db
+        .selectFrom('computed_update_outbox')
+        .select(['id', 'status'])
+        .where('base_id', '=', harness.baseId)
+        .execute()
+    ).toEqual([]);
+  }, 120_000);
+
   it('cancels an executing computed transaction, rolls back settlement and recovers without attempts', async () => {
     const harness = await createHarness({
       computedUpdate: {

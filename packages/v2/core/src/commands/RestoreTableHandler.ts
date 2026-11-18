@@ -1,13 +1,20 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  dispatchSameTxEvents,
+  hasSameTxTargets,
+  publishEventsWithBatchDeferral,
+} from '../application/services/dispatchSameTxEvents';
+import { NoopSameTxProjectionDispatcher } from '../application/services/SameTxProjectionDispatcher';
 import { TableQueryService } from '../application/services/TableQueryService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type * as SameTxProjectionDispatcherPort from '../ports/SameTxProjectionDispatcher';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -40,7 +47,9 @@ export class RestoreTableHandler implements ICommandHandler<
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.sameTxProjectionDispatcher)
+    private readonly sameTxProjectionDispatcher: SameTxProjectionDispatcherPort.ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
   ) {}
 
   @TraceSpan()
@@ -48,25 +57,47 @@ export class RestoreTableHandler implements ICommandHandler<
     context: ExecutionContextPort.IExecutionContext,
     command: RestoreTableCommand
   ): Promise<Result<RestoreTableResult, DomainError>> {
+    const poisoned = ExecutionContextPort.getBatchRollbackError(context);
+    if (poisoned) {
+      return err(poisoned);
+    }
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    return safeTry<RestoreTableResult, DomainError>(async function* () {
+    const result = await safeTry<RestoreTableResult, DomainError>(async function* () {
       const table = yield* await handler.tableQueryService.getDeletedByIdInBase(
         context,
         command.baseId,
         command.tableId
       );
 
-      yield* await handler.unitOfWork.withTransaction(
+      const events = yield* await handler.unitOfWork.withTransaction(
         context,
-        async (transactionContext) => handler.tableRepository.restore(transactionContext, table),
+        async (transactionContext) =>
+          safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
+            yield* await handler.tableRepository.restore(transactionContext, table);
+            yield* table.markRestored();
+            const restoredEvents = table.pullDomainEvents();
+            if (hasSameTxTargets(handler.sameTxProjectionDispatcher, restoredEvents)) {
+              yield* await handler.unitOfWork.withTransaction(
+                transactionContext,
+                (dataTransactionContext) =>
+                  dispatchSameTxEvents(
+                    dataTransactionContext,
+                    handler.sameTxProjectionDispatcher,
+                    restoredEvents,
+                    { tables: [table] }
+                  ),
+                { scope: 'data' }
+              );
+            }
+            return ok(restoredEvents);
+          }),
         { scope: 'meta' }
       );
 
-      yield* table.markRestored();
-      const events = table.pullDomainEvents();
-      yield* await handler.eventBus.publishMany(context, events);
+      yield* await publishEventsWithBatchDeferral(context, handler.eventBus, events);
 
       return ok(RestoreTableResult.create(table, events));
     });
+    return ExecutionContextPort.failBatchResultIfActive(context, result);
   }
 }

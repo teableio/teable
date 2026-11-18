@@ -4,9 +4,12 @@ import { TemplateTable } from './components';
 
 export const TemplatePage = ({
   renderRequirements,
+  listedByFeatured,
 }: {
   /** What a template needs to run (its integration slots); the EE admin page fills this in. */
   renderRequirements?: (template: ITemplateVo) => React.ReactNode;
+  /** See `TemplateTable`: one switch lists a template, where authors publish and reviews list. */
+  listedByFeatured?: boolean;
 }) => {
   const { t } = useTranslation('common');
   return (
@@ -16,7 +19,10 @@ export const TemplatePage = ({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <TemplateTable renderRequirements={renderRequirements} />
+        <TemplateTable
+          renderRequirements={renderRequirements}
+          listedByFeatured={listedByFeatured}
+        />
       </div>
     </div>
   );

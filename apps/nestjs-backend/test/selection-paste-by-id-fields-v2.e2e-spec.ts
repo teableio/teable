@@ -23,6 +23,7 @@ import {
 import { thresholdConfig } from '../src/configs/threshold.config';
 import { FieldCreatingService } from '../src/features/field/field-calculate/field-creating.service';
 import * as fieldFactory from '../src/features/field/model/factory';
+import { disableLegacyFieldAdmission } from './utils/disable-legacy-field-admission';
 import {
   createBase,
   createField,
@@ -43,12 +44,15 @@ import {
 describe('Selection paste-by-id field expansion (v2, non-stream HTTP)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  let restoreLegacyAdmission: (() => void) | undefined;
 
   beforeAll(async () => {
     app = (await initApp()).app;
+    restoreLegacyAdmission = disableLegacyFieldAdmission();
   });
 
   afterAll(async () => {
+    restoreLegacyAdmission?.();
     await app.close();
   });
 

@@ -175,7 +175,7 @@ it('exports naturally persisted split tasks across wakeups without borrowing leg
       } as never,
       logger as never,
       { sha256: () => 'hash' } as never,
-      {} as never,
+      { find: async () => ok([]) } as never,
       {} as never,
       { publishMany: async () => ok(undefined) } as never
     );

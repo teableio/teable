@@ -2,7 +2,7 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import type { IExecutionContext } from './ExecutionContext';
+import type { IExecutionContext, UnitOfWorkScope } from './ExecutionContext';
 import type { LegacyEventDispatchReport } from './LegacyEventDispatcher';
 import type { IUnitOfWorkOptions } from './UnitOfWork';
 
@@ -28,23 +28,40 @@ export type DomainWriteDecision<T> =
       value: T;
     }>;
 
-export type DomainWriteCommit<T> = Readonly<{
+export type DomainWriteDirectDelivery = Readonly<{
+  awaited: LegacyEventDispatchReport;
+  background: Readonly<{
+    scheduledTargets: number;
+    failedToScheduleTargets: number;
+  }>;
+}>;
+
+export type DomainWriteCommitted<T> = Readonly<{
+  status: 'committed';
   value: T;
   events: ReadonlyArray<IDomainEvent>;
   committed: true;
-  directDelivery: Readonly<{
-    awaited: LegacyEventDispatchReport;
-    background: Readonly<{
-      scheduledTargets: number;
-      failedToScheduleTargets: number;
-    }>;
-  }>;
+  directDelivery: DomainWriteDirectDelivery;
+}>;
+
+export type DomainWriteDeferred<T> = Readonly<{
+  status: 'deferred';
+  value: T;
+  events: ReadonlyArray<IDomainEvent>;
+  committed?: never;
+  directDelivery?: never;
+}>;
+
+export type DomainWriteCommit<T> = DomainWriteCommitted<T> | DomainWriteDeferred<T>;
+
+export type DomainBatchOptions = Readonly<{
+  scope?: UnitOfWorkScope;
 }>;
 
 /** Public event metadata; deliberately not an IDomainEvent or a replayable snapshot. */
 export type DomainEventSummary = Readonly<{ name: string; occurredAt: string }>;
 
-export type DomainWriteStreamCommit<T> = Omit<DomainWriteCommit<T>, 'events'> &
+export type DomainWriteStreamCommit<T> = Omit<DomainWriteCommitted<T>, 'events'> &
   Readonly<{
     events: ReadonlyArray<DomainEventSummary>;
     /** Data committed, but delivery was withheld because finalization failed. */
@@ -80,6 +97,12 @@ export interface IDomainWriteTransaction {
     ) => Promise<Result<DomainWriteDecision<T>, DomainError>>,
     options?: IUnitOfWorkOptions
   ): Promise<Result<DomainWriteCommit<T>, DomainError>>;
+
+  withBatchTransaction<T>(
+    context: IExecutionContext,
+    work: (batchContext: IExecutionContext) => Promise<Result<T, DomainError>>,
+    options?: DomainBatchOptions
+  ): Promise<Result<T, DomainError>>;
 
   /**
    * Runs `work` inside a savepoint of the active data transaction.

@@ -14,6 +14,7 @@ import type {
 } from '../domain/table/records/TableRecordAggregation';
 import type { TableRecordCalendarDailyCollection } from '../domain/table/records/TableRecordCalendarDailyCollection';
 import type { Table } from '../domain/table/Table';
+import type { ITableSearchField } from '../domain/table/ITableSearchIndex';
 import type { RecordQuerySearch } from '../queries/RecordSearch';
 import type { IExecutionContext } from './ExecutionContext';
 import type { RecordQueryFieldMask } from './RecordQueryPlugin';
@@ -47,16 +48,24 @@ export type IRecordSearchAccessPath =
   | { readonly kind: 'default' }
   | {
       /**
-       * A same-table normalized text document used only to narrow substring candidates.
-       * Repositories must recheck the original field predicates to preserve visible-row semantics.
+       * Independent substring prefilters. Exact field predicates remain authoritative.
        */
       readonly kind: 'generated_text';
-      readonly generatedColumnName: string;
-      readonly provider: 'pg_trgm' | 'pg_bigm';
       readonly searchScope: 'all_fields' | 'selected_fields';
-      readonly coveredFieldIds: ReadonlyArray<FieldId>;
-      /** False preserves configured coverage while the physical document/index is unavailable. */
-      readonly indexUsable?: boolean;
+      readonly fieldIds: ReadonlyArray<FieldId>;
+      readonly document?: {
+        readonly generatedColumnName: string;
+        readonly provider: 'pg_trgm' | 'pg_bigm';
+        readonly coveredFieldIds: ReadonlyArray<FieldId>;
+        readonly ready: boolean;
+      };
+      readonly residual?: {
+        readonly provider: 'pg_trgm' | 'pg_bigm';
+        readonly fields: ReadonlyArray<ITableSearchField>;
+        readonly coveredFieldIds: ReadonlyArray<FieldId>;
+        readonly expression: string;
+        readonly ready: boolean;
+      };
     }
   | {
       /** Explicit lexical search. This is not substring-compatible. */
@@ -77,9 +86,12 @@ export type RecordSearchAccessPathFallbackReason =
   | 'generated_text_invalid_config'
   | 'generated_tsvector_unavailable';
 
+export type RecordSearchIndexedBranch = 'document' | 'residual';
+
 export interface IRecordSearchAccessPathResolution {
   readonly requested: RecordSearchAccessPathKind;
   readonly used: RecordSearchAccessPathKind;
+  readonly indexedBranches?: readonly RecordSearchIndexedBranch[];
   readonly fallbackReason?: RecordSearchAccessPathFallbackReason;
 }
 export interface ITableRecordQueryOptions {

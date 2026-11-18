@@ -3,3 +3,4 @@ export * from './ExpandRecorder';
 export * from './ExpandRecordNavigationContext';
 export * from './type';
 export * from './ExpandRecordPanelHost';
+export { raiseRecordPanel } from './raiseRecordPanel';

@@ -36,6 +36,7 @@ const createFixture = async () => {
   const cls = new ClsService<IClsStore>(new AsyncLocalStorage());
   const middleware = new V2QueryCancellationMiddleware(cls);
   // Exercise the real Kysely/pg cancellation boundary without opening a network connection.
+  // pg clients are EventEmitters; preserve error-listener ownership at checkout/release.
   // Physical CancelRequest behavior has its own real PostgreSQL integration suite.
   // The pool listens for connection errors on each checkout, so the client has to be an emitter.
   const client = Object.assign(new EventEmitter(), {

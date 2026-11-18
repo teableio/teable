@@ -12,7 +12,7 @@ import {
 
 describe('space AI integration secrets', () => {
   it('round-trips a space AI integration config through both codecs', () => {
-    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED', 'true');
+    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET', 'private-root');
     try {
       const config = {
         llmProviders: [{ type: 'openai', name: 'p1', apiKey: 'sk-1' }],
@@ -29,19 +29,6 @@ describe('space AI integration secrets', () => {
       );
       expect(stored.appConfig.customDomain).toBe('apps.x');
       expect(decryptAiIntegrationConfig(stored)).toEqual(config);
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it('keeps the embedded appConfig plaintext while the switch is off', () => {
-    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED', '');
-    try {
-      const stored = encryptAiIntegrationConfig({
-        llmProviders: [],
-        appConfig: { vercelToken: 'vt' },
-      });
-      expect(stored.appConfig.vercelToken).toBe('vt');
     } finally {
       vi.unstubAllEnvs();
     }

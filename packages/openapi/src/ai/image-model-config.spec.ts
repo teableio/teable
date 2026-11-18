@@ -166,8 +166,11 @@ describe('getImageModelConfigByGatewayId', () => {
       'recraft/recraft-v4-pro',
       'openai/gpt-image-2.5-flare',
       'openai/gpt-image-2.5-sunburst',
+      'openai/gpt-image-2.6-flare',
+      'openai/gpt-image-2.6-sunburst',
       'google/gemini-3.1-flash-image',
       'google/gemini-3.1-flash-lite-image',
+      'google/gemini-nano-banana-2.1',
       'bytedance/seedream-5.0-pro',
       'recraft/recraft-v4.1',
       'recraft/recraft-v4.1-pro',
@@ -203,21 +206,23 @@ describe('image model parameter contracts', () => {
     }
   });
 
-  it.each(['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'])(
-    'retains the existing product size and quality options for %s',
-    (model) => {
-      const config = getImageModelConfigByGatewayId(`openai/${model}`)!;
-      expect(config.defaultSize).toBeUndefined();
-      expect(config.supportsAutoSize).toBe(true);
-      expect(getImageSizeCandidates(config)).toContain('3840x2160');
-      expect(getImageSizeCandidates(config)).not.toContain('256x256');
-      expect(getImageQualityCandidates(config)).toEqual([
-        ImageQuality.Low,
-        ImageQuality.Medium,
-        ImageQuality.High,
-      ]);
-    }
-  );
+  it.each([
+    'gpt-image-2.5-flare',
+    'gpt-image-2.5-sunburst',
+    'gpt-image-2.6-flare',
+    'gpt-image-2.6-sunburst',
+  ])('retains the existing product size and quality options for %s', (model) => {
+    const config = getImageModelConfigByGatewayId(`openai/${model}`)!;
+    expect(config.defaultSize).toBeUndefined();
+    expect(config.supportsAutoSize).toBe(true);
+    expect(getImageSizeCandidates(config)).toContain('3840x2160');
+    expect(getImageSizeCandidates(config)).not.toContain('256x256');
+    expect(getImageQualityCandidates(config)).toEqual([
+      ImageQuality.Low,
+      ImageQuality.Medium,
+      ImageQuality.High,
+    ]);
+  });
 
   it.each(['recraft-v4', 'recraft-v4.1', 'recraft-v4.1-utility'])(
     'uses V4 size presets for %s and doubles dimensions for its Pro variant',
@@ -246,9 +251,10 @@ describe('image model parameter contracts', () => {
       expect(getImageResolutionCandidates(config)).toEqual(['1K']);
       expect(getSupportedImageResolution(config, '4K')).toBeUndefined();
     }
-    expect(
-      getImageResolutionCandidates(getImageModelConfigByGatewayId('google/gemini-3.1-flash-image')!)
-    ).toEqual(['1K', '2K', '4K']);
+    for (const model of ['gemini-3.1-flash-image', 'gemini-nano-banana-2.1']) {
+      const config = getImageModelConfigByGatewayId(`google/${model}`)!;
+      expect(getImageResolutionCandidates(config)).toEqual(['1K', '2K', '4K']);
+    }
   });
 
   it('resolves SpaceXAI IDs using the direct xAI parameter contract', () => {

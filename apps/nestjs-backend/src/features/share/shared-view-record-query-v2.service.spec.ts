@@ -162,10 +162,14 @@ describe('SharedViewRecordQueryV2Service', () => {
       const fixture = createFixture();
       const accessPath = {
         kind: 'generated_text',
-        generatedColumnName: '__search_document',
-        provider: 'pg_trgm',
         searchScope: 'all_fields',
-        coveredFieldIds: [primaryFieldId],
+        fieldIds: [primaryFieldId],
+        document: {
+          generatedColumnName: '__search_document',
+          provider: 'pg_trgm',
+          coveredFieldIds: [primaryFieldId],
+          ready: true,
+        },
       };
       const search: [string, string, boolean] = ['order', '', true];
       if (kind === 'count') {

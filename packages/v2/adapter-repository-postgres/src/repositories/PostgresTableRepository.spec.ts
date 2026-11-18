@@ -342,18 +342,14 @@ describe('PostgresTableRepository (pg)', () => {
       expect((await repo.findOne(context, spec))._unsafeUnwrap().searchIndex()).toBeUndefined();
 
       const snapshot: ITableSearchIndex = {
-        version: 1,
+        version: 2,
         dbTableName: inserted
           .dbTableName()
           .andThen((name) => name.value())
           ._unsafeUnwrap(),
-        generatedColumnName: '__search_document',
-        indexName: 'idx_search_document',
-        provider: 'pg_trgm',
         searchScope: 'selected_fields',
         definitionKey: 'validated-definition',
-        indexUsable: false,
-        fields: [
+        fieldIds: [
           {
             fieldId: inserted.primaryFieldId().toString(),
             fieldDbName: inserted
@@ -363,7 +359,24 @@ describe('PostgresTableRepository (pg)', () => {
               ._unsafeUnwrap(),
             textProjection: { kind: 'plain' },
           },
-        ],
+        ].map((field) => field.fieldId),
+        document: {
+          generatedColumnName: '__search_document',
+          indexName: 'idx_search_document',
+          provider: 'pg_trgm',
+          ready: false,
+          fields: [
+            {
+              fieldId: inserted.primaryFieldId().toString(),
+              fieldDbName: inserted
+                .primaryField()
+                .andThen((field) => field.dbFieldName())
+                .andThen((name) => name.value())
+                ._unsafeUnwrap(),
+              textProjection: { kind: 'plain' },
+            },
+          ],
+        },
       };
       await db
         .updateTable('table_meta')
@@ -377,18 +390,28 @@ describe('PostgresTableRepository (pg)', () => {
 
       await db
         .updateTable('table_meta')
-        .set({ search_index: { ...snapshot, version: 2 } })
+        .set({ search_index: { ...snapshot, version: 99 } })
         .where('id', '=', inserted.id().toString())
         .execute();
       expect((await repo.findOne(context, spec))._unsafeUnwrap().searchIndex()).toBeUndefined();
       await db
         .updateTable('table_meta')
-        .set({ search_index: { ...snapshot, fields: 'malformed' } })
+        .set({
+          search_index: { ...snapshot, document: { ...snapshot.document, fields: 'malformed' } },
+        })
         .where('id', '=', inserted.id().toString())
         .execute();
       expect(
         (await repo.find(context, spec))._unsafeUnwrap().map((table) => table.searchIndex())
-      ).toEqual([undefined]);
+      ).toEqual([
+        {
+          version: snapshot.version,
+          dbTableName: snapshot.dbTableName,
+          searchScope: snapshot.searchScope,
+          definitionKey: snapshot.definitionKey,
+          fieldIds: snapshot.fieldIds,
+        },
+      ]);
     } finally {
       await db.destroy();
     }

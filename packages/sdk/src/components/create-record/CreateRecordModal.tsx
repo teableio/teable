@@ -1,13 +1,30 @@
 import { useMutation } from '@tanstack/react-query';
 import { FieldKeyType, generateAttachmentId } from '@teable/core';
+import { X } from '@teable/icons';
 import { createRecords } from '@teable/openapi';
 import { Dialog, DialogTrigger, DialogContent, Spin, Button } from '@teable/ui-lib';
 import { isEqual, keyBy } from 'lodash';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useCounter } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { PendingUploadContext } from '../../context/pending-upload';
-import { useBaseId, useFields, useSession, useTableId, useView, useViewId } from '../../hooks';
+import {
+  useBaseId,
+  useFields,
+  useIsMobile,
+  useSession,
+  useTableId,
+  useView,
+  useViewId,
+} from '../../hooks';
 import type { IFieldInstance, Record as IRecord } from '../../model';
 import { createRecordInstance, recordInstanceFieldMap } from '../../model';
 import {
@@ -16,6 +33,8 @@ import {
 } from '../../store/pending-upload-create';
 import { useCellAttachmentUploadStore } from '../../store/use-attachment-upload-store';
 import { extractDefaultFieldsFromFilters } from '../../utils/filterWithDefaultValue';
+import { Panel } from '../expand-record/Panel';
+import { ExpandRecordPanelHostContext } from '../expand-record/PanelContext';
 import { RecordEditor } from '../expand-record/RecordEditor';
 
 interface ICreateRecordModalProps {
@@ -32,8 +51,12 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const view = useView();
   const showFields = useFields();
   const [open, setOpen] = useState(false);
+  // bumped on every click of the trigger: an open draft covered by a record comes back on top
+  const [raiseKey, setRaiseKey] = useState(0);
   const [version, updateVersion] = useCounter(0);
   const { t } = useTranslation();
+  const { inHost } = useContext(ExpandRecordPanelHostContext);
+  const isMobile = useIsMobile();
   const allFields = useFields({ withHidden: true });
   const { user } = useSession();
   const [record, setRecord] = useState<IRecord | undefined>(undefined);
@@ -206,6 +229,74 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
     setOpen(false);
   }, [cancelPendingUploads, pendingRecordId, tableId]);
 
+  const title = t('editor.link.create');
+  const editor = (
+    <RecordEditor record={record} fields={fields} hiddenFields={hiddenFields} onChange={onChange} />
+  );
+  const actions = (
+    <>
+      <Button variant={'outline'} size={'sm'} onClick={handleCancel}>
+        {t('common.cancel')}
+      </Button>
+      <Button
+        className="relative overflow-hidden"
+        size={'sm'}
+        disabled={!tableId || isPending}
+        onClick={() => {
+          createRecord(record?.fields ?? {});
+        }}
+      >
+        {isPending && <Spin className="size-4" />}
+        {t('common.create')}
+      </Button>
+    </>
+  );
+
+  // In a table node it comes out as the record side panel does; elsewhere (a dialog, where the
+  // panel would land behind the overlay, or a phone) it stays a dialog.
+  if (inHost && !isMobile) {
+    const trigger = isValidElement<{ onClick?: (e: React.MouseEvent) => void }>(children)
+      ? cloneElement(children, {
+          onClick: (e: React.MouseEvent) => {
+            children.props.onClick?.(e);
+            setOpen(true);
+            setRaiseKey((key) => key + 1);
+          },
+        })
+      : children;
+    return (
+      <>
+        {trigger}
+        <Panel
+          visible={open}
+          onClose={handleCancel}
+          crumb={{ title }}
+          closeOnEscape={false}
+          raiseKey={raiseKey}
+        >
+          <PendingUploadContext.Provider value={pendingUploadCtx}>
+            <div className="flex h-full flex-col">
+              <div className="flex h-12 shrink-0 items-center justify-end border-b px-4">
+                <Button variant={'ghost'} size={'icon-xs'} onClick={handleCancel}>
+                  <X className="size-4 shrink-0" />
+                </Button>
+              </div>
+              <div className="shrink-0 px-6 pb-4 pt-5">
+                <h2 className="mx-auto max-w-3xl truncate text-xl font-semibold tracking-tight">
+                  {title}
+                </h2>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
+                <div className="mx-auto max-w-3xl">{editor}</div>
+              </div>
+              <div className="flex shrink-0 justify-end gap-2 border-t px-4 py-3">{actions}</div>
+            </div>
+          </PendingUploadContext.Provider>
+        </Panel>
+      </>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={(val) => val && setOpen(val)}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -217,30 +308,8 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
         onKeyDown={(e) => e.stopPropagation()}
       >
         <PendingUploadContext.Provider value={pendingUploadCtx}>
-          <div className="flex-1 overflow-y-auto p-10 pt-4">
-            <RecordEditor
-              record={record}
-              fields={fields}
-              hiddenFields={hiddenFields}
-              onChange={onChange}
-            />
-          </div>
-          <div className="flex justify-end gap-4 border-t p-3">
-            <Button variant={'outline'} size={'sm'} onClick={handleCancel}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              className="relative overflow-hidden"
-              size={'sm'}
-              disabled={!tableId || isPending}
-              onClick={() => {
-                createRecord(record?.fields ?? {});
-              }}
-            >
-              {isPending && <Spin className="size-4" />}
-              {t('common.create')}
-            </Button>
-          </div>
+          <div className="flex-1 overflow-y-auto p-10 pt-4">{editor}</div>
+          <div className="flex justify-end gap-4 border-t p-3">{actions}</div>
         </PendingUploadContext.Provider>
       </DialogContent>
     </Dialog>

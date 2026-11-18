@@ -27,6 +27,8 @@ const GPT_IMAGE_RATIO_RESOLUTION_MODELS = [
   'gpt-image-2',
   'gpt-image-2.5-flare',
   'gpt-image-2.5-sunburst',
+  'gpt-image-2.6-flare',
+  'gpt-image-2.6-sunburst',
 ];
 const DEFAULT_QUALITY_VALUES = [ImageQuality.Low, ImageQuality.Medium, ImageQuality.High];
 const AUTO_SELECTOR_ID = '__auto__';

@@ -77,8 +77,14 @@ export class ViewLinkRecordsQueryPlan {
       .map(() => void 0);
   }
 
+  /**
+   * The Link Field's own filter, for candidate selection. It is stored as the editor saved it,
+   * so a condition that cannot apply (no value yet, a Field deleted since) is left out instead
+   * of failing the picker, and `Me` stands for the reader.
+   */
   linkFilterSpec(
-    targetTable: Table
+    targetTable: Table,
+    currentUserId: string
   ): Result<
     ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
     DomainError
@@ -87,7 +93,9 @@ export class ViewLinkRecordsQueryPlan {
     const filter = this.linkFieldValue.config().filter();
     if (filter == null) return ok(undefined);
     return FieldCondition.create({ filter }).andThen((condition) =>
-      condition.toRecordConditionSpec(targetTable).map((spec) => spec ?? undefined)
+      condition
+        .toApplicableRecordConditionSpec(targetTable, currentUserId)
+        .map((spec) => spec ?? undefined)
     );
   }
 

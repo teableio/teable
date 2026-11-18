@@ -1,10 +1,23 @@
 import { err, ok, type Result } from 'neverthrow';
 
+import { sameTxTargetsForEvent } from '../../application/projections/SameTxProjection';
+import {
+  resolveBatchExecutionScope,
+  runWithBatchSavepoint,
+  runWithBatchTransaction,
+} from '../../application/services/batchTransactionOrchestration';
+import {
+  recordDispatchedSameTxEvent,
+  wasSameTxEventDispatched,
+} from '../../application/services/dispatchSameTxEvents';
 import { ImportRecordBatchTotals } from '../../application/services/ImportRecordBatchTotals';
+import { NoopSameTxProjectionDispatcher } from '../../application/services/SameTxProjectionDispatcher';
 import type { DomainError } from '../../domain/shared/DomainError';
 import { domainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { generateUuid } from '../../domain/shared/IdGenerator';
 import type {
+  DomainBatchOptions,
   DomainWriteStreamCommit,
   DomainWriteStreamOptions,
   IDomainWriteEventWriter,
@@ -19,6 +32,8 @@ import {
   type IExecutionContext,
   withoutTransaction,
 } from '../ExecutionContext';
+import type { ILogger } from '../Logger';
+import type { ISameTxProjectionDispatcher } from '../SameTxProjectionDispatcher';
 import type { IUnitOfWork, IUnitOfWorkOptions } from '../UnitOfWork';
 
 const emptyDirectDelivery = {
@@ -29,8 +44,24 @@ const emptyDirectDelivery = {
 export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
   constructor(
     private readonly unitOfWork: IUnitOfWork,
-    private readonly eventBus: IEventBus
+    private readonly eventBus: IEventBus,
+    private readonly sameTxDispatcher: ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher(),
+    private readonly logger?: ILogger
   ) {}
+
+  async withBatchTransaction<T>(
+    context: IExecutionContext,
+    work: (batchContext: IExecutionContext) => Promise<Result<T, DomainError>>,
+    options: DomainBatchOptions = {}
+  ): Promise<Result<T, DomainError>> {
+    return runWithBatchTransaction({
+      unitOfWork: this.unitOfWork,
+      context,
+      scope: options.scope ?? 'data',
+      work,
+      logger: this.logger,
+    });
+  }
 
   /** The in-memory adapter intentionally retains events, like its in-memory event bus. */
   async executeStream<T>(
@@ -58,8 +89,19 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
       { scope: options?.scope, retry: false }
     );
     if (result.isErr()) return err(result.error);
-    const commit = {
-      ...result.value,
+    if (result.value.status !== 'committed') {
+      return err(
+        domainError.infrastructure({
+          code: 'domain_event.transaction_owner_required',
+          message: 'Streaming domain writes must own their top-level transaction',
+        })
+      );
+    }
+    const commit: DomainWriteStreamCommit<T> = {
+      status: 'committed',
+      value: result.value.value,
+      committed: true,
+      directDelivery: result.value.directDelivery,
       events: events.map((event) => ({
         name: event.name.toString(),
         occurredAt: event.occurredAt.toDate().toISOString(),
@@ -116,26 +158,85 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
     options?: IUnitOfWorkOptions
   ): Promise<Result<DomainWriteCommit<T>, DomainError>> {
     const scope = options?.scope ?? 'data';
-    if (getUnitOfWorkTransaction(context, scope)) {
-      return err(
-        domainError.infrastructure({
-          code: 'domain_event.transaction_owner_required',
-          message: `DomainWriteTransaction must own the top-level ${scope} transaction`,
-        })
-      );
+    const scopeResolution = resolveBatchExecutionScope(context, scope);
+    if (scopeResolution.kind === 'error') {
+      return err(scopeResolution.error);
     }
 
-    const transactionResult = await this.unitOfWork.withTransaction(context, work, {
-      ...options,
-      scope,
-    });
+    const runInTx = async (
+      transactionContext: IExecutionContext
+    ): Promise<Result<DomainWriteDecision<T>, DomainError>> => {
+      const decisionResult = await work(transactionContext);
+      if (decisionResult.isErr()) {
+        return err(decisionResult.error);
+      }
+      const decision = decisionResult.value;
+      if (decision.kind === 'changed') {
+        const tables = new Map(
+          (decision.tables ?? []).map((table) => [table.id().toString(), table])
+        );
+        const historyRowBudget = { remaining: 200 };
+        for (const event of decision.events) {
+          if (wasSameTxEventDispatched(transactionContext, event)) {
+            continue;
+          }
+          const targets = sameTxTargetsForEvent(event);
+          if (targets.length === 0) {
+            continue;
+          }
+          const projResult = await this.sameTxDispatcher.dispatch(
+            {
+              ...transactionContext,
+              sameTxProjection: {
+                eventId: generateUuid(),
+                tables,
+                historyRowBudget,
+              },
+            },
+            event,
+            targets
+          );
+          if (projResult.isErr()) {
+            return err(projResult.error);
+          }
+          recordDispatchedSameTxEvent(transactionContext, event);
+        }
+      }
+      return ok(decision);
+    };
+
+    let transactionResult: Result<DomainWriteDecision<T>, DomainError>;
+    if (scopeResolution.kind === 'inBatch') {
+      try {
+        transactionResult = await runInTx(context);
+      } catch (error) {
+        scopeResolution.batchTransaction.markRollbackOnly(domainError.fromUnknown(error));
+        throw error;
+      }
+    } else {
+      transactionResult = await this.unitOfWork.withTransaction(context, runInTx, {
+        ...options,
+        scope,
+      });
+    }
     if (transactionResult.isErr()) {
+      if (scopeResolution.kind === 'inBatch') {
+        scopeResolution.batchTransaction.markRollbackOnly(transactionResult.error);
+      }
       return err(transactionResult.error);
     }
 
     const decision = transactionResult.value;
     if (decision.kind === 'unchanged') {
+      if (scopeResolution.kind === 'inBatch') {
+        return ok({
+          status: 'deferred',
+          value: decision.value,
+          events: [],
+        });
+      }
       return ok({
+        status: 'committed',
         value: decision.value,
         events: [],
         committed: true,
@@ -143,12 +244,25 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
       });
     }
 
-    const publishResult = await this.eventBus.publishMany(
-      withoutTransaction(context),
-      decision.events
-    );
+    const dispatchContext = withoutTransaction(context);
+    if (scopeResolution.kind === 'inBatch') {
+      scopeResolution.batchTransaction.enqueueAfterCommit(async () => {
+        const publishResult = await this.eventBus.publishMany(dispatchContext, decision.events);
+        if (publishResult.isErr()) {
+          throw new Error(publishResult.error.message);
+        }
+      });
+      return ok({
+        status: 'deferred',
+        value: decision.value,
+        events: decision.events,
+      });
+    }
+
+    const publishResult = await this.eventBus.publishMany(dispatchContext, decision.events);
     if (publishResult.isErr()) {
       return ok({
+        status: 'committed',
         value: decision.value,
         events: decision.events,
         committed: true,
@@ -164,6 +278,7 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
     }
 
     return ok({
+      status: 'committed',
       value: decision.value,
       events: decision.events,
       committed: true,
@@ -185,6 +300,8 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
       );
     }
 
-    return work();
+    return runWithBatchSavepoint(context, () =>
+      this.unitOfWork.savepoint ? this.unitOfWork.savepoint(context, async () => work()) : work()
+    );
   }
 }

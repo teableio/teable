@@ -127,6 +127,11 @@ describe('Template Open API Controller (e2e)', () => {
     const res2 = await getTemplateList();
     expect(res2.status).toBe(200);
     expect(res2.data.length).toBe(1);
+
+    // a template nobody published is not in the template centre
+    const listed = await getTemplateList({ listed: true });
+    expect(listed.status).toBe(200);
+    expect(listed.data.length).toBe(0);
   });
 
   it('should get published template list', async () => {
@@ -142,8 +147,10 @@ describe('Template Open API Controller (e2e)', () => {
     });
 
     await createTemplateSnapshot(template.data.id);
+    // listed in the template centre: featured lists it in both editions
     await updateTemplate(template.data.id, {
       isPublished: true,
+      featured: true,
     });
     const res2 = await getPublishedTemplateList();
     expect(res2.status).toBe(200);
@@ -555,6 +562,7 @@ describe('Template Open API Controller (e2e)', () => {
         await createTemplateSnapshot(template.data.id);
         await updateTemplate(template.data.id, {
           isPublished: true,
+          featured: true,
         });
       }
     });

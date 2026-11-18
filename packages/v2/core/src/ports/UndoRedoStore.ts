@@ -397,8 +397,16 @@ export const createUndoRedoCommand = <TType extends UndoRedoCommandType>(
   } as UndoRedoCommandDataByType[TType];
 };
 
-export const isSupportedUndoRedoCommandVersion = (command: UndoRedoCommandData): boolean =>
-  command.version === undoRedoCommandVersions[command.type];
+export const isSupportedUndoRedoCommandVersion = (command: unknown): boolean => {
+  if (
+    !isObject(command) ||
+    typeof command.type !== 'string' ||
+    !(command.type in undoRedoCommandVersions)
+  ) {
+    return false;
+  }
+  return command.version === undoRedoCommandVersions[command.type as UndoRedoCommandType];
+};
 
 export const composeUndoRedoCommands = (
   commands: ReadonlyArray<UndoRedoCommandLeafData>
@@ -421,6 +429,20 @@ export type UndoEntry = {
   readonly requestId?: string;
 };
 
+/**
+ * Recording intent only; stored/read entries retain the existing wire shape.
+ * A start admits a fresh interaction. A continuation requires its retained,
+ * applied start; an unknown group must never silently become a new interaction.
+ */
+export type UndoEntryGroupInput =
+  | { readonly groupId?: undefined; readonly groupPosition?: never }
+  | { readonly groupId: string; readonly groupPosition: 'start' | 'continue' };
+
+export type UndoEntryInput = Omit<UndoEntry, 'groupId'> & UndoEntryGroupInput;
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
 export type UndoRedoListOptions = {
   readonly offset?: number;
   readonly limit?: number;
@@ -432,9 +454,9 @@ export type UndoRedoListOptions = {
  * Repository adapters capture record snapshots separately; this port only
  * stores and replays already-built stack entries.
  *
- * `undo`/`redo` persist the cursor immediately and exist for store-level
- * inspection. Replay goes through `reserve` → execute → `commit`/`abort`
- * so a failed command does not skip the entry.
+ * `undo`/`redo` explicitly materialize a group for store-level inspection.
+ * Replay reserves metadata, reads each entry separately, then commits or aborts
+ * the cursor so a failed command does not skip the entry.
  */
 export type UndoRedoReplayMode = 'undo' | 'redo';
 
@@ -443,16 +465,18 @@ export type UndoRedoReservationExecutionStatus = 'reserved' | 'succeeded';
 export type UndoRedoReservation = {
   readonly token: string;
   readonly mode: UndoRedoReplayMode;
-  readonly entry: UndoEntry;
+  /** Number of entries in the reserved logical interaction, without payloads. */
+  readonly entryCount: number;
   readonly operationId: string;
   readonly executionStatus: UndoRedoReservationExecutionStatus;
+  /** Completed command leaves across all entries, in replay order. */
   readonly executedLeafIndex: number;
 };
 
 export interface IUndoRedoStore {
   append(
     scope: UndoScope,
-    entry: UndoEntry,
+    entry: UndoEntryInput,
     expectedRevision?: number
   ): Promise<Result<void, DomainError>>;
   undo(scope: UndoScope): Promise<Result<UndoEntry | null, DomainError>>;
@@ -465,7 +489,21 @@ export interface IUndoRedoStore {
     scope: UndoScope,
     mode: UndoRedoReplayMode
   ): Promise<Result<UndoRedoReservation | null, DomainError>>;
+  /**
+   * Read one entry in replay order (undo newest first, redo oldest first).
+   * Reject stale tokens, invalid indices and missing payloads; never skip holes.
+   */
+  readReservedEntry(
+    scope: UndoScope,
+    token: string,
+    entryIndex: number
+  ): Promise<Result<UndoEntry, DomainError>>;
   markSucceeded(scope: UndoScope, token: string): Promise<Result<void, DomainError>>;
+  /**
+   * Checkpoint the matching reservation's progress and extend its lease to the store's
+   * current time plus its lease duration in the same reservation update.
+   * Reject stale tokens without changing progress or lease; preserve all other state.
+   */
   markProgress(
     scope: UndoScope,
     token: string,

@@ -14,6 +14,7 @@
 export const MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX = '__tqops_search_';
 export const MANAGED_SEARCH_INDEX_PREFIX = 'idx_tqops_search_';
 export const MANAGED_SCOPED_SEARCH_INDEX_PREFIX = 'idx_tqops_search_scope_';
+export const MANAGED_RESIDUAL_SEARCH_INDEX_PREFIX = 'idx_tqops_search_residual_';
 export const LEGACY_MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX = '__tqops_tsv_';
 export const LEGACY_MANAGED_SEARCH_INDEX_PREFIX = 'idx_tqops_tsv_';
 

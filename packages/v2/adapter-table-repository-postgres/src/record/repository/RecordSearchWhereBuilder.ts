@@ -1,3 +1,4 @@
+import { buildIndexedSearchExpression } from '@teable/v2-adapter-db-postgres-shared';
 import {
   type ConditionalLookupField,
   type ConditionalRollupField,
@@ -15,6 +16,7 @@ import {
   type RecordQuerySearch,
   type IRecordSearchAccessPath,
   type RecordSearchAccessPathFallbackReason,
+  type RecordSearchIndexedBranch,
   resolveSearchFieldTextShape,
   type RollupField,
   type SearchFieldTextProjection,
@@ -268,7 +270,10 @@ export type RecordSearchFieldMatch = {
 export const buildRecordSearchFieldMatches = (
   table: Table,
   recordSearch: RecordQuerySearch | undefined,
-  options?: Pick<RecordSearchWhereBuilderOptions, 'tableAlias' | 'fieldMaskSqlMap'>
+  options?: Pick<
+    RecordSearchWhereBuilderOptions,
+    'tableAlias' | 'fieldMaskSqlMap' | 'searchAccessPath'
+  >
 ): Result<ReadonlyArray<RecordSearchFieldMatch>, DomainError> => {
   if (!recordSearch) return ok([]);
 
@@ -278,7 +283,14 @@ export const buildRecordSearchFieldMatches = (
       visibleFieldIds: recordSearch.visibleFieldIds,
     });
     const matches: RecordSearchFieldMatch[] = [];
+    const selected =
+      recordSearch.search.searchesAllFields() &&
+      options?.searchAccessPath?.kind === 'generated_text' &&
+      options.searchAccessPath.searchScope === 'selected_fields'
+        ? new Set(options.searchAccessPath.fieldIds.map((id) => id.toString()))
+        : undefined;
     for (const field of fields) {
+      if (selected && !selected.has(field.id().toString())) continue;
       const condition = yield* buildFieldSearchCondition(field, recordSearch.search, tableAlias);
       if (condition) {
         matches.push({
@@ -412,16 +424,55 @@ const buildDefaultSearchCondition = (
   });
 
 type GeneratedTextSearchPlan =
-  | { readonly condition: Expression<SqlBool>; readonly usedDocument?: boolean }
+  | {
+      readonly condition: Expression<SqlBool>;
+      readonly indexedBranches: readonly RecordSearchIndexedBranch[];
+    }
   | {
       readonly fallbackReason: RecordSearchAccessPathFallbackReason;
-      /**
-       * For all-field searches, a valid generated-text configuration makes
-       * its covered fields the durable search contract. A sequential fallback
-       * (for example, a short pg_trgm probe) must stay inside that contract.
-       */
       readonly fallbackFields?: ReadonlyArray<Field>;
     };
+
+const buildSubstringBranches = (
+  accessPath: Extract<IRecordSearchAccessPath, { kind: 'generated_text' }>,
+  value: string,
+  alias: string
+) => {
+  const length = Array.from(value).length;
+  const usable = (provider: 'pg_trgm' | 'pg_bigm') => length >= (provider === 'pg_trgm' ? 3 : 1);
+  const pattern = `%${escapeLikeWildcards(value)}%`;
+  const branches: {
+    kind: RecordSearchIndexedBranch;
+    ids: ReadonlySet<string>;
+    condition: Expression<SqlBool>;
+  }[] = [];
+  const document = accessPath.document;
+  if (
+    document?.ready &&
+    usable(document.provider) &&
+    isPostgresIdentifier(document.generatedColumnName)
+  ) {
+    branches.push({
+      kind: 'document',
+      ids: new Set(document.coveredFieldIds.map((id) => id.toString())),
+      condition: sql<SqlBool>`${sql.ref(`${alias}.${document.generatedColumnName}`)} LIKE lower(${pattern}) ESCAPE '\\'`,
+    });
+  }
+  const residual = accessPath.residual;
+  if (
+    residual?.ready &&
+    usable(residual.provider) &&
+    residual.fields.length &&
+    residual.expression === buildIndexedSearchExpression(residual.fields)
+  ) {
+    branches.push({
+      kind: 'residual',
+      ids: new Set(residual.coveredFieldIds.map((id) => id.toString())),
+      condition: sql<SqlBool>`${sql.raw(buildIndexedSearchExpression(residual.fields, alias))} LIKE lower(${pattern}) ESCAPE '\\'`,
+    });
+  }
+  return branches;
+};
 
 const buildGeneratedTextSearchCondition = (
   resolvedFields: ReadonlyArray<Field>,
@@ -429,148 +480,86 @@ const buildGeneratedTextSearchCondition = (
   accessPath: IRecordSearchAccessPath | undefined,
   tableAlias: string,
   fieldMaskSqlMap: FieldMaskSqlMap | undefined,
-  requireCompleteFieldScope = false
+  _requireCompleteFieldScope = false
 ): Result<GeneratedTextSearchPlan, DomainError> => {
-  if (accessPath?.kind !== 'generated_text') {
+  if (accessPath?.kind !== 'generated_text')
     return ok({ fallbackReason: 'generated_text_unavailable' });
-  }
-  if (!isPostgresIdentifier(accessPath.generatedColumnName)) {
-    return ok({ fallbackReason: 'generated_text_invalid_config' });
-  }
-
-  const coveredFieldIds = new Set(accessPath.coveredFieldIds.map((fieldId) => fieldId.toString()));
-  const searchesAllFields = recordSearch.search.searchesAllFields();
-  // Only an all-field document promises to cover the whole search scope. A `selected_fields`
-  // document was built from an explicit choice, so it keeps narrowing to its coverage: expanding
-  // it to every unselected field turned an index scan into a sequential one for no product reason.
-  const useConfiguredScope =
-    searchesAllFields && accessPath.searchScope === 'all_fields' && !requireCompleteFieldScope;
-  const isCovered = (field: Field) => coveredFieldIds.has(field.id().toString());
-  // The document is a prefilter, not the definition of what the table can find. A field it cannot
-  // hold — autoNumber and persisted formula columns are themselves GENERATED columns, and a field
-  // added after the build is not in the document yet — keeps matching through the plain predicate.
-  // Narrowing the scope to the document silently dropped those matches once acceleration was on.
-  const coveredFields = useConfiguredScope
-    ? resolvedFields.filter((field) => isCovered(field))
-    : resolvedFields;
-  const uncoveredFields = useConfiguredScope
-    ? resolvedFields.filter((field) => !isCovered(field))
-    : [];
-
-  if (accessPath.indexUsable === false || !coveredFieldIds.size) {
+  const selected = new Set(accessPath.fieldIds.map((id) => id.toString()));
+  const fields =
+    recordSearch.search.searchesAllFields() && accessPath.searchScope === 'selected_fields'
+      ? resolvedFields.filter((field) => selected.has(field.id().toString()))
+      : resolvedFields;
+  const branches = buildSubstringBranches(accessPath, recordSearch.search.value, tableAlias);
+  if (!branches.length) {
+    const ready = accessPath.document?.ready || accessPath.residual?.ready;
+    const invalid =
+      accessPath.document && !isPostgresIdentifier(accessPath.document.generatedColumnName);
     return ok({
-      fallbackReason: 'generated_text_unavailable',
-      ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
+      fallbackReason: invalid
+        ? 'generated_text_invalid_config'
+        : ready
+          ? 'generated_text_probe_too_short'
+          : 'generated_text_unavailable',
+      fallbackFields: fields,
     });
   }
-
-  const probeLength = Array.from(recordSearch.search.value).length;
-  if (
-    (accessPath.provider === 'pg_trgm' && probeLength < 3) ||
-    (accessPath.provider === 'pg_bigm' && probeLength < 1)
-  ) {
-    return ok({
-      fallbackReason: 'generated_text_probe_too_short',
-      ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
-    });
-  }
-
   return safeTry<GeneratedTextSearchPlan, DomainError>(function* () {
-    // Ordinary global search uses configured coverage as its durable contract.
-    // Cell navigation and explicit field scopes instead require every matching
-    // field to be covered, or fall back to the complete field predicate.
-    const conditionFields: Field[] = [];
-    for (const field of coveredFields) {
+    const remaining = new Set(fields);
+    for (const field of fields) {
       const shape = yield* resolveSearchFieldTextShape(field);
       if (!shapeProducesCondition(shape, recordSearch.search)) continue;
-      // A scoped date that cannot parse this probe contributes only FALSE to
-      // the exact predicate, so it cannot match outside the text document.
       if (
         shape.kind === 'date_range' &&
         !getDateSearchRange(recordSearch.search.value, resolveDateTimeFormatting(field))
-      ) {
+      )
         continue;
-      }
-      // Shapes without a document projection (such as scoped date search)
-      // cannot be prefiltered by the document; fall back entirely.
-      if (!isSearchFieldTextProjection(shape)) {
+      if (!isSearchFieldTextProjection(shape))
         return ok({
           fallbackReason: 'generated_text_unsupported_projection',
-          ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
+          fallbackFields: fields,
         });
+    }
+    const conditions: Expression<SqlBool>[] = [];
+    const indexedBranches: RecordSearchIndexedBranch[] = [];
+    for (const branch of branches) {
+      const members = fields.filter(
+        (field) => remaining.has(field) && branch.ids.has(field.id().toString())
+      );
+      if (!members.length) continue;
+      const exact = yield* buildDefaultSearchCondition(
+        members,
+        recordSearch,
+        tableAlias,
+        fieldMaskSqlMap
+      );
+      for (const field of members) remaining.delete(field);
+      if (exact) {
+        conditions.push(sql<SqlBool>`(${branch.condition}) AND (${exact})`);
+        indexedBranches.push(branch.kind);
       }
-      conditionFields.push(field);
     }
-
-    const uncoveredConditionFields: Field[] = [];
-    for (const field of uncoveredFields) {
-      const shape = yield* resolveSearchFieldTextShape(field);
-      if (shapeProducesCondition(shape, recordSearch.search)) uncoveredConditionFields.push(field);
-    }
-    if (
-      (!searchesAllFields || requireCompleteFieldScope) &&
-      conditionFields.some((field) => !coveredFieldIds.has(field.id().toString()))
-    ) {
-      return ok({ fallbackReason: 'generated_text_coverage_mismatch' });
-    }
-
-    if (!conditionFields.length && !uncoveredConditionFields.length) {
-      return ok({
-        fallbackReason: 'generated_text_unavailable',
-        ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
-      });
-    }
-
-    const exactCondition = yield* buildDefaultSearchCondition(
-      coveredFields,
+    const fallback = yield* buildDefaultSearchCondition(
+      [...remaining],
       recordSearch,
       tableAlias,
       fieldMaskSqlMap
     );
-    const uncoveredCondition = uncoveredConditionFields.length
-      ? yield* buildDefaultSearchCondition(
-          uncoveredConditionFields,
-          recordSearch,
-          tableAlias,
-          fieldMaskSqlMap
-        )
-      : null;
-
-    if (!exactCondition) {
-      if (!uncoveredCondition) {
-        return ok({
-          fallbackReason: 'generated_text_unavailable',
-          ...(useConfiguredScope ? { fallbackFields: resolvedFields } : {}),
-        });
-      }
-      // Nothing the document covers can match this probe; only the uncovered fields can, so the
-      // document contributed no prefilter and the plan must not report it as used.
-      return ok({ condition: uncoveredCondition, usedDocument: false });
-    }
-
-    const pattern = `%${escapeLikeWildcards(recordSearch.search.value)}%`;
-    const documentRef = sql.ref(`${tableAlias}.${accessPath.generatedColumnName}`);
-    // pg_bigm indexes LIKE only. Keeping both providers on a normalized document gives the
-    // runtime one predicate shape; the original field predicate below remains the result oracle.
-    const indexedPrefilter = sql<SqlBool>`${documentRef} LIKE lower(${pattern}) ESCAPE '\\'`;
-    const coveredClause = sql<SqlBool>`(${indexedPrefilter}) AND (${exactCondition})`;
+    if (fallback) conditions.push(fallback);
+    if (!indexedBranches.length)
+      return ok({ fallbackReason: 'generated_text_coverage_mismatch', fallbackFields: fields });
+    if (!conditions.length)
+      return ok({ fallbackReason: 'generated_text_unavailable', fallbackFields: fields });
     return ok({
-      condition: uncoveredCondition
-        ? sql<SqlBool>`(${coveredClause}) OR (${uncoveredCondition})`
-        : coveredClause,
+      condition: sql<SqlBool>`(${sql.join(
+        conditions.map((condition) => sql`(${condition})`),
+        sql` OR `
+      )})`,
+      indexedBranches,
     });
   });
 };
 
-/**
- * Monotone prefilter for callers whose result oracle stays the exact per-field
- * predicates, such as cell match counts. A row only contributes when at least one
- * searched field matches, and the generated document embeds the same projections
- * for every configured field, so a document `LIKE` may run first and only remove
- * rows that contribute nothing. It returns null unless every searched field is
- * covered by the document and the probe can use the index, which keeps the
- * caller's full scan as the fallback instead of risking an under-count.
- */
+/** Cell match callers retain their exact oracle and only prefilter complete coverage. */
 export const buildSearchDocumentPrefilter = (
   table: Table,
   recordSearch: RecordQuerySearch | undefined,
@@ -578,41 +567,42 @@ export const buildSearchDocumentPrefilter = (
   options?: { tableAlias?: string }
 ): Result<Expression<SqlBool> | null, DomainError> => {
   if (!recordSearch || accessPath?.kind !== 'generated_text') return ok(null);
-  if (accessPath.indexUsable === false) return ok(null);
-  if (!isPostgresIdentifier(accessPath.generatedColumnName)) return ok(null);
-
-  const probeLength = Array.from(recordSearch.search.value).length;
-  if (accessPath.provider === 'pg_trgm' && probeLength < 3) return ok(null);
-  if (accessPath.provider === 'pg_bigm' && probeLength < 1) return ok(null);
-
   return safeTry(function* () {
-    const resolvedFields = yield* recordSearch.search.resolveFields(table, {
+    const fields = yield* recordSearch.search.resolveFields(table, {
       visibleFieldIds: recordSearch.visibleFieldIds,
     });
-    const coveredFieldIds = new Set(
-      accessPath.coveredFieldIds.map((fieldId) => fieldId.toString())
+    const branches = buildSubstringBranches(
+      accessPath,
+      recordSearch.search.value,
+      options?.tableAlias ?? 't'
     );
-    for (const field of resolvedFields) {
+    const selected =
+      recordSearch.search.searchesAllFields() && accessPath.searchScope === 'selected_fields'
+        ? new Set(accessPath.fieldIds.map((id) => id.toString()))
+        : undefined;
+    const needed = new Set<string>();
+    for (const field of fields) {
+      if (selected && !selected.has(field.id().toString())) continue;
       const shape = yield* resolveSearchFieldTextShape(field);
       if (!shapeProducesCondition(shape, recordSearch.search)) continue;
-      // Scoped dates and other non-document shapes are matched outside the
-      // document, so they cannot be filtered by it.
       if (!isSearchFieldTextProjection(shape)) return ok(null);
-      if (!coveredFieldIds.has(field.id().toString())) return ok(null);
+      needed.add(field.id().toString());
     }
-
-    const tableAlias = options?.tableAlias ?? 't';
-    const pattern = `%${escapeLikeWildcards(recordSearch.search.value)}%`;
+    const used = branches.filter((branch) => [...needed].some((id) => branch.ids.has(id)));
+    if (!used.length || [...needed].some((id) => !used.some((branch) => branch.ids.has(id))))
+      return ok(null);
     return ok(
-      sql<SqlBool>`${sql.ref(
-        `${tableAlias}.${accessPath.generatedColumnName}`
-      )} LIKE lower(${pattern}) ESCAPE '\\'`
+      sql<SqlBool>`(${sql.join(
+        used.map((branch) => sql`(${branch.condition})`),
+        sql` OR `
+      )})`
     );
   });
 };
 
 export type RecordSearchWherePlan = {
   readonly condition: Expression<SqlBool> | null;
+  readonly indexedBranches?: readonly RecordSearchIndexedBranch[];
   readonly usedAccessPath: 'default' | 'generated_text' | 'generated_tsvector';
   readonly fallbackReason?: RecordSearchAccessPathFallbackReason;
 };
@@ -641,14 +631,11 @@ export const buildRecordSearchWherePlan = (
       options?.requireCompleteFieldScope
     );
     if ('condition' in generatedTextCondition) {
-      if (generatedTextCondition.usedDocument === false) {
-        return ok({
-          condition: generatedTextCondition.condition,
-          usedAccessPath: 'default',
-          fallbackReason: 'generated_text_coverage_mismatch',
-        });
-      }
-      return ok({ condition: generatedTextCondition.condition, usedAccessPath: 'generated_text' });
+      return ok({
+        condition: generatedTextCondition.condition,
+        usedAccessPath: 'generated_text',
+        indexedBranches: generatedTextCondition.indexedBranches,
+      });
     }
 
     // Lexical documents are not the substring oracle used by cell match flags.

@@ -32,6 +32,7 @@ import { RecordUpsertService } from '../application/services/RecordUpsertService
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
+import { NoopSameTxProjectionDispatcher } from '../application/services/SameTxProjectionDispatcher';
 import {
   SchemaOperationRunnerService,
   type ISchemaOperationHandler,
@@ -230,8 +231,16 @@ export const registerV2CoreServices = (
     });
   }
 
+  // TableQueryObservability - default no-op unless host overrides
   if (!container.isRegistered(v2CoreTokens.tableQueryObservability)) {
     container.register(v2CoreTokens.tableQueryObservability, NoopTableQueryObservability, {
+      lifecycle,
+    });
+  }
+
+  // SameTxProjectionDispatcher - default no-op unless host container registers resolver-backed dispatcher
+  if (!container.isRegistered(v2CoreTokens.sameTxProjectionDispatcher)) {
+    container.register(v2CoreTokens.sameTxProjectionDispatcher, NoopSameTxProjectionDispatcher, {
       lifecycle,
     });
   }

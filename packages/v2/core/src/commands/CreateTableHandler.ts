@@ -2,6 +2,10 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import {
+  dispatchSameTxEvents,
+  publishEventsWithBatchDeferral,
+} from '../application/services/dispatchSameTxEvents';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
 import {
@@ -16,6 +20,7 @@ import {
 import { aggregateRecordCreatedEvents } from '../application/services/recordEventFieldValues';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
+import { NoopSameTxProjectionDispatcher } from '../application/services/SameTxProjectionDispatcher';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import {
   beginTableSchemaOperation,
@@ -32,6 +37,7 @@ import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type * as SameTxProjectionDispatcherPort from '../ports/SameTxProjectionDispatcher';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
@@ -92,7 +98,9 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
       new DefaultTableMapper()
     ),
     @inject(v2CoreTokens.recordChangedValueDecoratorService)
-    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService = new NullRecordChangedValueDecoratorService()
+    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService = new NullRecordChangedValueDecoratorService(),
+    @inject(v2CoreTokens.sameTxProjectionDispatcher)
+    private readonly sameTxProjectionDispatcher: SameTxProjectionDispatcherPort.ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
   ) {}
 
   @TraceSpan()
@@ -100,8 +108,12 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     context: ExecutionContextPort.IExecutionContext,
     command: CreateTableCommand
   ): Promise<Result<CreateTableResult, DomainError>> {
+    const poisoned = ExecutionContextPort.getBatchRollbackError(context);
+    if (poisoned) {
+      return err(poisoned);
+    }
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    return safeTry<CreateTableResult, DomainError>(async function* () {
+    const result = await safeTry<CreateTableResult, DomainError>(async function* () {
       const foreignTableReferences = yield* command.foreignTableReferences();
       const selfTableId = command.tableId;
       const referencesToLoad = selfTableId
@@ -198,14 +210,16 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         recordsFieldValues.length > 0
           ? buildOperationBatchMutation(context.requestId, recordsFieldValues.length)
           : undefined;
+      const initialOwnEvents = [...table.pullDomainEvents(), ...persistedTable.pullDomainEvents()];
       const dataResult = await handler.unitOfWork.withTransaction(
         context,
-        async (dataTransactionContext) =>
-          safeTry<
+        async (dataTransactionContext) => {
+          table.pullDomainEvents();
+          persistedTable.pullDomainEvents();
+          return safeTry<
             {
+              ownEvents: ReadonlyArray<IDomainEvent>;
               sideEffectEvents: ReadonlyArray<IDomainEvent>;
-              recordMutation?: TableRecordRepositoryPort.BatchRecordMutationResult;
-              decoratedChangedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>;
             },
             DomainError
           >(async function* () {
@@ -270,16 +284,36 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
                   recordMutation.changedFieldsByRecord
                 );
             }
-            return ok({
-              sideEffectEvents: sideEffectResult.events,
-              recordMutation,
+            const ownEvents = aggregateRecordCreatedEvents({
+              events: [
+                ...initialOwnEvents,
+                ...table.pullDomainEvents(),
+                ...persistedTable.pullDomainEvents(),
+              ],
+              mutationResult: recordMutation,
               decoratedChangedFieldsByRecord,
+              orchestration: recordBatchMutation,
+              preserveEventOrder: true,
             });
-          }),
+            yield* await dispatchSameTxEvents(
+              dataTransactionContext,
+              handler.sameTxProjectionDispatcher,
+              ownEvents,
+              { tables: [persistedTable] }
+            );
+            return ok({
+              ownEvents,
+              sideEffectEvents: sideEffectResult.events,
+            });
+          });
+        },
         { scope: 'data' }
       );
 
       if (dataResult.isErr()) {
+        if (context.batchTransaction) {
+          return err(dataResult.error);
+        }
         yield* await failTableSchemaOperation(
           handler.unitOfWork,
           handler.tableRepository,
@@ -304,19 +338,12 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         { type: 'table.create' }
       );
 
-      const events = [
-        ...aggregateRecordCreatedEvents({
-          events: [...table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
-          mutationResult: dataResult.value.recordMutation,
-          decoratedChangedFieldsByRecord: dataResult.value.decoratedChangedFieldsByRecord,
-          orchestration: recordBatchMutation,
-          preserveEventOrder: true,
-        }),
-        ...dataResult.value.sideEffectEvents,
-      ];
-      yield* await handler.eventBus.publishMany(context, events);
-      await sideEffectPluginExecution.afterCommit();
+      const events = [...dataResult.value.ownEvents, ...dataResult.value.sideEffectEvents];
+      yield* await publishEventsWithBatchDeferral(context, handler.eventBus, events, () =>
+        sideEffectPluginExecution.afterCommit()
+      );
       return ok(CreateTableResult.create(persistedTable, events));
     });
+    return ExecutionContextPort.failBatchResultIfActive(context, result);
   }
 }

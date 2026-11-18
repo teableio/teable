@@ -7,6 +7,7 @@ import {
   flattenUndoRedoCommands,
   type IUndoRedoStore,
   type UndoEntry,
+  type UndoEntryInput,
   type UndoRedoListOptions,
   type UndoRedoReplayMode,
   type UndoRedoReservation,
@@ -17,6 +18,7 @@ type StoredReservation = {
   token: string;
   mode: UndoRedoReplayMode;
   cursorAfterCommit: number;
+  entryCount: number;
   operationId: string;
   executionStatus: 'reserved' | 'succeeded';
   leaseUntil: number;
@@ -46,6 +48,8 @@ const reservationConflict = (message: string) =>
 
 export class MemoryUndoRedoStore implements IUndoRedoStore {
   private readonly states = new Map<string, UndoRedoState>();
+  // Retain admission evidence privately without changing stored/read UndoEntry objects.
+  private readonly groupStarts = new WeakSet<UndoEntry>();
   private readonly now: () => number;
   private readonly leaseMs: number;
 
@@ -56,7 +60,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
 
   async append(
     scope: UndoScope,
-    entry: UndoEntry,
+    entry: UndoEntryInput,
     expectedRevision?: number
   ): Promise<Result<void, DomainError>> {
     const state = this.getState(scope);
@@ -72,11 +76,52 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
         })
       );
     }
+    const groupIndex =
+      entry.groupId === undefined
+        ? -1
+        : state.entries.findIndex((existing) => existing.groupId === entry.groupId);
+    const establishedGroup =
+      groupIndex >= 0 &&
+      groupIndex < state.cursor &&
+      this.groupStarts.has(state.entries[groupIndex]!);
+    if (
+      entry.groupId !== undefined &&
+      entry.groupPosition !== 'start' &&
+      (entry.groupPosition !== 'continue' || !establishedGroup)
+    ) {
+      return err(
+        domainError.conflict({
+          code: 'undo_redo.group_unavailable',
+          message: 'Undo/redo group start or continuation is unavailable',
+        })
+      );
+    }
+    if (entry.groupPosition === 'start' && groupIndex >= 0) {
+      return err(
+        domainError.conflict({
+          code: 'undo_redo.group_unavailable',
+          message: 'Undo/redo group start or continuation is unavailable',
+        })
+      );
+    }
     state.reservation = undefined;
     if (state.cursor < state.entries.length) {
       state.entries = state.entries.slice(0, state.cursor);
     }
-    state.entries.push(entry);
+    // Keep a streamed interaction together even when independent actions interleave.
+    if (entry.groupId && state.entries.at(-1)?.groupId !== entry.groupId) {
+      const grouped: UndoEntry[] = [];
+      let writeIndex = 0;
+      for (const existing of state.entries) {
+        if (existing.groupId === entry.groupId) grouped.push(existing);
+        else state.entries[writeIndex++] = existing;
+      }
+      state.entries.length = writeIndex;
+      for (const existing of grouped) state.entries.push(existing);
+    }
+    const { groupPosition: _groupPosition, ...storedEntry } = entry;
+    state.entries.push(storedEntry);
+    if (entry.groupPosition === 'start') this.groupStarts.add(storedEntry);
     state.cursor = state.entries.length;
     state.revision += 1;
     return ok(undefined);
@@ -108,7 +153,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     const state = this.getState(scope);
     if (state.reservation?.executionStatus === 'succeeded') {
       if (state.reservation.mode === mode) {
-        return ok(this.toPublicReservation(state, state.reservation));
+        return ok(this.toPublicReservation(state.reservation));
       }
       this.commitSucceededReservation(state);
     }
@@ -124,7 +169,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
         return err(reservationConflict('Undo/redo reservation already held for this window'));
       }
       state.reservation = { ...state.reservation, inFlight: true };
-      return ok(this.toPublicReservation(state, state.reservation));
+      return ok(this.toPublicReservation(state.reservation));
     }
 
     if (mode === 'undo') {
@@ -136,10 +181,11 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
       state.reservation = this.createReservation(
         mode,
         group.startIndex,
+        state.cursor - group.startIndex,
         takeover.operationId,
         takeover.executedLeafIndex
       );
-      return ok(this.toPublicReservation(state, state.reservation));
+      return ok(this.toPublicReservation(state.reservation));
     }
 
     if (state.cursor >= state.entries.length) {
@@ -150,15 +196,44 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     state.reservation = this.createReservation(
       mode,
       group.endIndex,
+      group.endIndex - state.cursor,
       takeover.operationId,
       takeover.executedLeafIndex
     );
-    return ok(this.toPublicReservation(state, state.reservation));
+    return ok(this.toPublicReservation(state.reservation));
+  }
+
+  async readReservedEntry(
+    scope: UndoScope,
+    token: string,
+    entryIndex: number
+  ): Promise<Result<UndoEntry, DomainError>> {
+    const state = this.getState(scope);
+    const reservation = state.reservation;
+    if (
+      !reservation ||
+      reservation.token !== token ||
+      !reservation.inFlight ||
+      !this.isLiveReservation(reservation)
+    ) {
+      return err(reservationConflict('Undo/redo reservation token does not match'));
+    }
+    if (!Number.isInteger(entryIndex) || entryIndex < 0 || entryIndex >= reservation.entryCount) {
+      return err(reservationConflict('Undo/redo reserved entry index is out of bounds'));
+    }
+    const index =
+      reservation.mode === 'undo' ? state.cursor - 1 - entryIndex : state.cursor + entryIndex;
+    const entry = state.entries[index];
+    return entry ? ok(entry) : err(reservationConflict('Undo/redo reserved entry is missing'));
   }
 
   async renew(scope: UndoScope, token: string): Promise<Result<void, DomainError>> {
     const state = this.getState(scope);
-    if (!state.reservation || state.reservation.token !== token) {
+    if (
+      !state.reservation ||
+      state.reservation.token !== token ||
+      !this.isLiveReservation(state.reservation)
+    ) {
       return err(reservationConflict('Undo/redo reservation token does not match'));
     }
     state.reservation = { ...state.reservation, leaseUntil: this.now() + this.leaseMs };
@@ -166,7 +241,11 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
   }
   async markSucceeded(scope: UndoScope, token: string): Promise<Result<void, DomainError>> {
     const state = this.getState(scope);
-    if (!state.reservation || state.reservation.token !== token) {
+    if (
+      !state.reservation ||
+      state.reservation.token !== token ||
+      !this.isLiveReservation(state.reservation)
+    ) {
       return err(reservationConflict('Undo/redo reservation token does not match'));
     }
     state.reservation = { ...state.reservation, executionStatus: 'succeeded' };
@@ -179,16 +258,28 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     executedLeafIndex: number
   ): Promise<Result<void, DomainError>> {
     const state = this.getState(scope);
-    if (!state.reservation || state.reservation.token !== token) {
+    if (
+      !state.reservation ||
+      state.reservation.token !== token ||
+      !this.isLiveReservation(state.reservation)
+    ) {
       return err(reservationConflict('Undo/redo reservation token does not match'));
     }
-    state.reservation = { ...state.reservation, executedLeafIndex };
+    state.reservation = {
+      ...state.reservation,
+      executedLeafIndex,
+      leaseUntil: this.now() + this.leaseMs,
+    };
     return ok(undefined);
   }
 
   async commit(scope: UndoScope, token: string): Promise<Result<void, DomainError>> {
     const state = this.getState(scope);
-    if (!state.reservation || state.reservation.token !== token) {
+    if (
+      !state.reservation ||
+      state.reservation.token !== token ||
+      !this.isLiveReservation(state.reservation)
+    ) {
       return err(reservationConflict('Undo/redo reservation token does not match'));
     }
     state.cursor = state.reservation.cursorAfterCommit;
@@ -227,11 +318,21 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     if (!reserved.value) {
       return ok(null);
     }
+    const entries: UndoEntry[] = [];
+    for (let index = 0; index < reserved.value.entryCount; index += 1) {
+      const entry = await this.readReservedEntry(scope, reserved.value.token, index);
+      if (entry.isErr()) {
+        await this.abort(scope, reserved.value.token);
+        return err(entry.error);
+      }
+      entries.push(entry.value);
+    }
+    if (mode === 'undo') entries.reverse();
     const committed = await this.commit(scope, reserved.value.token);
     if (committed.isErr()) {
       return err(committed.error);
     }
-    return ok(reserved.value.entry);
+    return ok(this.composeGroupedEntry(entries));
   }
 
   private commitSucceededReservation(state: UndoRedoState): void {
@@ -269,6 +370,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
   private createReservation(
     mode: UndoRedoReplayMode,
     cursorAfterCommit: number,
+    entryCount: number,
     operationId?: string,
     executedLeafIndex = 0
   ): StoredReservation {
@@ -276,6 +378,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
       token: crypto.randomUUID(),
       mode,
       cursorAfterCommit,
+      entryCount,
       operationId: operationId ?? crypto.randomUUID(),
       executionStatus: 'reserved',
       leaseUntil: this.now() + this.leaseMs,
@@ -293,18 +396,11 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     return created;
   }
 
-  private toPublicReservation(
-    state: UndoRedoState,
-    reservation: StoredReservation
-  ): UndoRedoReservation {
-    const entry =
-      reservation.mode === 'undo'
-        ? this.composeGroupedEntry(this.resolveUndoGroup(state.entries, state.cursor - 1).entries)
-        : this.composeGroupedEntry(this.resolveRedoGroup(state.entries, state.cursor).entries);
+  private toPublicReservation(reservation: StoredReservation): UndoRedoReservation {
     return {
       token: reservation.token,
       mode: reservation.mode,
-      entry,
+      entryCount: reservation.entryCount,
       operationId: reservation.operationId,
       executionStatus: reservation.executionStatus,
       executedLeafIndex: reservation.executedLeafIndex,
@@ -320,7 +416,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     if (!groupId) {
       return {
         startIndex: currentIndex,
-        entries: [current],
+        endIndex: currentIndex + 1,
       };
     }
 
@@ -331,7 +427,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
 
     return {
       startIndex,
-      entries: entries.slice(startIndex, currentIndex + 1),
+      endIndex: currentIndex + 1,
     };
   }
 
@@ -341,7 +437,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     if (!groupId) {
       return {
         endIndex: cursor + 1,
-        entries: [current],
+        startIndex: cursor,
       };
     }
 
@@ -352,7 +448,7 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
 
     return {
       endIndex,
-      entries: entries.slice(cursor, endIndex),
+      startIndex: cursor,
     };
   }
 

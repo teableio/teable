@@ -15,18 +15,28 @@ import { describe, expect, it } from 'vitest';
 import { resolveTableSearchAccessPath } from './searchAccessPath';
 
 const snapshot: ITableSearchIndex = {
-  version: 1,
+  version: 2,
   dbTableName: 'bse0000000000000001.records',
-  generatedColumnName: '__search_document',
-  indexName: 'search_document_idx',
-  provider: 'pg_trgm',
   searchScope: 'all_fields',
   definitionKey: 'validated-definition',
-  indexUsable: true,
-  fields: [
+  fieldIds: [
     { fieldId: 'fld0000000000000001', fieldDbName: 'title', textProjection: { kind: 'plain' } },
     { fieldId: 'fld0000000000000002', fieldDbName: 'notes', textProjection: { kind: 'multiline' } },
-  ],
+  ].map((field) => field.fieldId),
+  document: {
+    generatedColumnName: '__search_document',
+    indexName: 'search_document_idx',
+    provider: 'pg_trgm',
+    ready: true,
+    fields: [
+      { fieldId: 'fld0000000000000001', fieldDbName: 'title', textProjection: { kind: 'plain' } },
+      {
+        fieldId: 'fld0000000000000002',
+        fieldDbName: 'notes',
+        textProjection: { kind: 'multiline' },
+      },
+    ],
+  },
 };
 
 const makeTable = (searchIndex: ITableSearchIndex | undefined, titleDbName = 'title'): Table => {
@@ -75,43 +85,48 @@ const makeTable = (searchIndex: ITableSearchIndex | undefined, titleDbName = 'ti
 
 const coveredIds = (table: Table): string[] => {
   const path = resolveTableSearchAccessPath(table);
-  return path?.kind === 'generated_text' ? path.coveredFieldIds.map((id) => id.toString()) : [];
+  return path?.kind === 'generated_text'
+    ? (path.document?.coveredFieldIds ?? []).map((id) => id.toString())
+    : [];
 };
 
 describe('resolveTableSearchAccessPath', () => {
   it('retains saved coverage without enrolling newly searchable fields', () => {
     const table = makeTable(snapshot);
     expect(coveredIds(table)).toEqual(['fld0000000000000001', 'fld0000000000000002']);
-    expect(resolveTableSearchAccessPath(table)).toMatchObject({ indexUsable: true });
+    expect(resolveTableSearchAccessPath(table)).toMatchObject({ document: { ready: true } });
   });
 
   it('excludes renamed physical fields and changed canonical projections', () => {
     const table = makeTable({
       ...snapshot,
-      fields: [
-        snapshot.fields[0]!,
-        {
-          ...snapshot.fields[1]!,
-          textProjection: { kind: 'plain' },
-        },
-      ],
+      document: {
+        ...snapshot.document!,
+        fields: [
+          snapshot.document!.fields[0]!,
+          {
+            ...snapshot.document!.fields[1]!,
+            textProjection: { kind: 'plain' },
+          },
+        ],
+      },
     });
     expect(coveredIds(table)).toEqual(['fld0000000000000001']);
     const renamed = makeTable(table.searchIndex(), 'renamed_title');
     expect(coveredIds(renamed)).toEqual([]);
-    expect(resolveTableSearchAccessPath(renamed)).toMatchObject({ indexUsable: false });
+    expect(resolveTableSearchAccessPath(renamed)).toMatchObject({ document: { ready: false } });
   });
 
   it('preserves configured fallback scope when an index is unusable', () => {
     const table = makeTable({
       ...snapshot,
-      indexUsable: false,
       searchScope: 'selected_fields',
-      fields: [snapshot.fields[1]!],
+      fieldIds: [snapshot.document!.fields[1]!.fieldId],
+      document: { ...snapshot.document!, ready: false, fields: [snapshot.document!.fields[1]!] },
     });
     expect(resolveTableSearchAccessPath(table)).toMatchObject({
       kind: 'generated_text',
-      indexUsable: false,
+      document: { ready: false },
       searchScope: 'selected_fields',
     });
     expect(coveredIds(table)).toEqual(['fld0000000000000002']);

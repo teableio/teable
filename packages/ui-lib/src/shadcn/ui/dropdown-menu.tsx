@@ -7,6 +7,7 @@ import * as React from 'react';
 import { useUiDirection } from '../../base/direction/direction';
 
 import { cn } from '../utils';
+import { keepScrollingUnderLocks } from './scroll-lock';
 
 const DropdownMenu = (props: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root>) => (
   // `dir` first so a caller can still override it per instance
@@ -74,6 +75,7 @@ const DropdownMenuContent = React.forwardRef<
         className
       )}
       {...props}
+      {...keepScrollingUnderLocks(props)}
     />
   </DropdownMenuPrimitive.Portal>
 ));

@@ -1,6 +1,7 @@
 import type { IBaseJson } from '@teable/openapi';
 import {
   adaptStructureTimeZone,
+  parseImportAttachmentEntryName,
   replaceExpressionFieldIds,
   replaceJsonStringFieldIds,
   replaceTimeZoneDeep,
@@ -393,5 +394,40 @@ describe('adaptStructureTimeZone', () => {
     // untouched parts stay identical
     expect(result.id).toBe('bseTest');
     expect(result.plugins).toBe(structure.plugins);
+  });
+});
+
+describe('parseImportAttachmentEntryName', () => {
+  it('keeps the token of an attachment file', () => {
+    expect(parseImportAttachmentEntryName('abc123.png')).toEqual({
+      isThumbnail: false,
+      key: 'abc123',
+      extension: 'png',
+    });
+  });
+
+  it('keeps the full key of a thumbnail, including its own extension', () => {
+    expect(parseImportAttachmentEntryName('thumbnail__abc123_lg.png')).toEqual({
+      isThumbnail: true,
+      key: 'abc123_lg',
+      extension: 'png',
+    });
+    expect(parseImportAttachmentEntryName('thumbnail__abc123_lg.webp.jpg')).toEqual({
+      isThumbnail: true,
+      key: 'abc123_lg.webp',
+      extension: 'webp',
+    });
+  });
+
+  it('rejects thumbnail names that would leave the attachment directory', () => {
+    for (const name of [
+      'thumbnail__../../etc/passwd.png',
+      'thumbnail__a/b_lg.png',
+      'thumbnail__a\\b_lg.png',
+      'thumbnail__..',
+      'thumbnail__.png',
+    ]) {
+      expect(parseImportAttachmentEntryName(name)).toBeUndefined();
+    }
   });
 });

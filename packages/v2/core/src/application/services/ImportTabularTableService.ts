@@ -21,7 +21,7 @@ import type {
   IDomainWriteTransaction,
 } from '../../ports/DomainWriteTransaction';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
-import type { IImportProgress } from '../../ports/import/IImportSource';
+import type { IImportDiagnostics, IImportProgress } from '../../ports/import/IImportSource';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
 import {
   RecordWriteOperationKind,
@@ -37,6 +37,7 @@ import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { toImportWriteError } from './importSourceErrors';
 import type { TableOperationPluginExecution } from './TableOperationPluginRunner';
 import { TableOperationPluginRunner } from './TableOperationPluginRunner';
+import { ImportDiagnosticsCollector } from './ImportDiagnosticsCollector';
 import {
   abandonTableSchemaOperation,
   beginTableSchemaOperation,
@@ -115,15 +116,17 @@ export class ImportTabularTableResult {
   private constructor(
     readonly table: Table,
     readonly totalImported: number,
-    readonly events: ReadonlyArray<DomainEventSummary>
+    readonly events: ReadonlyArray<DomainEventSummary>,
+    readonly diagnostics?: IImportDiagnostics
   ) {}
 
   static create(
     table: Table,
     totalImported: number,
-    events: ReadonlyArray<DomainEventSummary>
+    events: ReadonlyArray<DomainEventSummary>,
+    diagnostics?: IImportDiagnostics
   ): ImportTabularTableResult {
-    return new ImportTabularTableResult(table, totalImported, events);
+    return new ImportTabularTableResult(table, totalImported, events, diagnostics);
   }
 }
 
@@ -174,6 +177,7 @@ export class ImportTabularTableService {
     try {
       return await safeTry<ImportTabularTableResult, DomainError>(async function* () {
         const parseResult = command.parseResult;
+        const diagnostics = new ImportDiagnosticsCollector();
         const sampledRows = await handler.sampleAsyncRows(iterator, csvInferenceSampleSize);
         const inferenceRows = sampledRows.sampleRows;
         const rowsAsync = sampledRows.rowsAsync;
@@ -271,12 +275,6 @@ export class ImportTabularTableService {
               );
               yield* await events.append(table.pullDomainEvents(), [persistedTable]);
               if (!command.importData) {
-                command.onProgress?.({
-                  phase: 'completed',
-                  processedRows: 0,
-                  currentBatch: 0,
-                  totalRows: 0,
-                });
                 return ok({ totalImported: 0 });
               }
 
@@ -339,16 +337,27 @@ export class ImportTabularTableService {
                 parseResult.headers,
                 importColumns
               );
+              let currentSourceRowNumber = parseResult.firstDataRowNumber ?? 2;
               const recordsIterable = handler.createRecordsIterableAsync(
                 rowsAsync,
                 fieldIdMap,
                 command.maxRowCount,
-                command.truncateOnRowLimit === true
+                command.truncateOnRowLimit === true,
+                parseResult,
+                (rowNumber) => {
+                  currentSourceRowNumber = rowNumber;
+                }
               );
               const batchGenerator = persistedTable.createRecordsStreamAsync(recordsIterable, {
                 batchSize: command.batchSize,
                 typecast: true,
                 emitRecordCreatedEvents: false,
+                recordValidation: {
+                  onInvalidDate: (_index, field) =>
+                    diagnostics.invalidDate(currentSourceRowNumber, field),
+                  onInvalidRecord: (_index, error) =>
+                    diagnostics.invalidRow(currentSourceRowNumber, error),
+                },
               });
 
               const insertResult = yield* (
@@ -382,13 +391,6 @@ export class ImportTabularTableService {
                   }
                 )
               ).mapErr(toImportWriteError);
-
-              command.onProgress?.({
-                phase: 'completed',
-                processedRows: insertResult.totalInserted,
-                currentBatch: 0,
-                totalRows: insertResult.totalInserted,
-              });
 
               return ok({ totalImported: insertResult.totalInserted });
             });
@@ -476,11 +478,21 @@ export class ImportTabularTableService {
           );
         }
 
+        const finalDiagnostics = diagnostics.snapshot();
+        command.onProgress?.({
+          phase: 'completed',
+          processedRows: importResult.value.value.totalImported,
+          currentBatch: 0,
+          totalRows: importResult.value.value.totalImported,
+          diagnostics: finalDiagnostics,
+        });
+
         return ok(
           ImportTabularTableResult.create(
             persistedTable,
             importResult.value.value.totalImported,
-            importResult.value.events
+            importResult.value.events,
+            finalDiagnostics
           )
         );
       });
@@ -873,11 +885,17 @@ export class ImportTabularTableService {
     rows: AsyncIterable<Record<string, string>>,
     fieldIdMap: Map<string, string>,
     maxRowCount?: number,
-    truncateOnRowLimit = false
+    truncateOnRowLimit = false,
+    parseResult?: CsvParseResult,
+    onSourceRow?: (rowNumber: number) => void
   ): AsyncIterable<ReadonlyMap<string, unknown>> {
     let rowCount = 0;
     for await (const row of rows) {
       rowCount += 1;
+      onSourceRow?.(
+        parseResult?.getSourceRowNumber?.(row) ??
+          rowCount + (parseResult?.firstDataRowNumber ?? 2) - 1
+      );
       if (maxRowCount !== undefined && rowCount > maxRowCount) {
         if (truncateOnRowLimit) {
           return;

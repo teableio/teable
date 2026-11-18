@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Colors, FieldType, NumberFormattingType, Relationship, type IFieldVo } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
   IdReturnType,
   axios,
@@ -22,6 +23,7 @@ import {
   updateField,
   updateTableIcon,
   updateTableName,
+  type ITableVo,
 } from '@teable/openapi';
 import { GetFieldSnapshotsHandler, ListFieldsHandler } from '@teable/v2-core';
 import { vi } from 'vitest';
@@ -303,6 +305,56 @@ describe('T6893 remaining table APIs v2 dual-path (e2e)', () => {
       description: 'V2 description',
       icon: '🧪',
     });
+  });
+
+  it('lists a healthy table beside a legacy table with no active fields', async () => {
+    const prisma = app.get(PrismaService);
+    const legacy = await createTable(baseId, {
+      name: 'Zulu fieldless table',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+      records: [],
+    });
+    const legacyFieldIds = legacy.fields.map((field) => field.id);
+    try {
+      // Directory order must differ from both creation order and alphabetical name order.
+      await prisma.tableMeta.update({
+        where: { id: tableId },
+        data: { name: 'Alpha healthy table', order: 20 },
+      });
+      await prisma.tableMeta.update({
+        where: { id: legacy.id },
+        data: { order: 10 },
+      });
+      // Historical metadata can retain a ready table and its view after every field was deleted.
+      await prisma.field.updateMany({
+        where: { id: { in: legacyFieldIds } },
+        data: { deletedTime: new Date() },
+      });
+
+      const views = await axios.get(`/table/${tableId}/view`);
+      expect(views.status).toBe(200);
+      expect(views.data.map((view: { id: string }) => view.id)).toContain(viewId);
+
+      const response = await axios.get<ITableVo[]>(`/base/${baseId}/table`, {
+        validateStatus: () => true,
+      });
+      expect(response.status, JSON.stringify(response.data)).toBe(200);
+      expect(response.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      expect(
+        response.data
+          .filter((table) => table.id === tableId || table.id === legacy.id)
+          .map(({ id, name, order, defaultViewId }) => ({ id, name, order, defaultViewId }))
+      ).toEqual([
+        { id: legacy.id, name: legacy.name, order: 10, defaultViewId: legacy.defaultViewId },
+        { id: tableId, name: 'Alpha healthy table', order: 20, defaultViewId: viewId },
+      ]);
+    } finally {
+      await prisma.field.updateMany({
+        where: { id: { in: legacyFieldIds } },
+        data: { deletedTime: null },
+      });
+      await permanentDeleteTable(baseId, legacy.id);
+    }
   });
 
   it('reads table socket snapshots and doc ids through v2', async () => {

@@ -52,43 +52,46 @@ describe('AdvancedImageSettings', () => {
     expect(screen.queryByLabelText('4K tooltip')).not.toBeInTheDocument();
   });
 
-  it.each(['gpt-image-2', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'])(
-    'shows mapped ratio and resolution for an existing %s size',
-    (imageModelId) => {
-      render(
-        <AdvancedImageSettings
-          open={true}
-          onOpenChange={() => undefined}
-          imageModelId={imageModelId}
-          supportsSize={true}
-          supportsAutoSize={true}
-          supportsQuality={false}
-          supportsAspectRatio={false}
-          supportsResolution={false}
-          supportsCount={false}
-          imageSizeValues={[
-            '1024x1024',
-            '1536x1024',
-            '2048x1360',
-            '3504x2336',
-            '2048x1152',
-            '3840x2160',
-          ]}
-          aspectRatioValues={[]}
-          currentSize="1536x1024"
-          currentQuality={ImageQuality.Medium}
-          currentCount={1}
-          maxCount={1}
-          onChange={() => undefined}
-        />
-      );
+  it.each([
+    'gpt-image-2',
+    'gpt-image-2.5-flare',
+    'gpt-image-2.5-sunburst',
+    'gpt-image-2.6-flare',
+    'gpt-image-2.6-sunburst',
+  ])('shows mapped ratio and resolution for an existing %s size', (imageModelId) => {
+    render(
+      <AdvancedImageSettings
+        open={true}
+        onOpenChange={() => undefined}
+        imageModelId={imageModelId}
+        supportsSize={true}
+        supportsAutoSize={true}
+        supportsQuality={false}
+        supportsAspectRatio={false}
+        supportsResolution={false}
+        supportsCount={false}
+        imageSizeValues={[
+          '1024x1024',
+          '1536x1024',
+          '2048x1360',
+          '3504x2336',
+          '2048x1152',
+          '3840x2160',
+        ]}
+        aspectRatioValues={[]}
+        currentSize="1536x1024"
+        currentQuality={ImageQuality.Medium}
+        currentCount={1}
+        maxCount={1}
+        onChange={() => undefined}
+      />
+    );
 
-      expect(screen.getAllByRole('combobox')).toHaveLength(2);
-      expect(screen.getByText('3:2')).toBeInTheDocument();
-      expect(screen.getByText('1K (Standard)')).toBeInTheDocument();
-      expect(screen.getByText('1536x1024')).toBeInTheDocument();
-    }
-  );
+    expect(screen.getAllByRole('combobox')).toHaveLength(2);
+    expect(screen.getByText('3:2')).toBeInTheDocument();
+    expect(screen.getByText('1K (Standard)')).toBeInTheDocument();
+    expect(screen.getByText('1536x1024')).toBeInTheDocument();
+  });
 
   it('limits resolution and quality choices to the supplied model capabilities', async () => {
     const user = userEvent.setup();

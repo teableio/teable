@@ -1,9 +1,5 @@
-import {
-  FieldId,
-  isTableSearchIndex,
-  type IExecutionContext,
-  type IRecordSearchAccessPath,
-} from '@teable/v2-core';
+import { decodeTableSearchIndex } from '@teable/v2-adapter-db-postgres-shared';
+import { FieldId, type IExecutionContext } from '@teable/v2-core';
 import {
   type TableSearchVectorStatus,
   type TableSearchVectorStatusReader,
@@ -48,23 +44,13 @@ export const isServingSearchSnapshot = (
   searchIndex: unknown,
   tableName: string | null
 ): boolean => {
-  if (!isTableSearchIndex(searchIndex) || !tableName) return false;
-  return (
-    searchIndex.indexUsable === true &&
-    searchIndex.dbTableName === tableName &&
-    searchIndex.fields.length > 0
+  const snapshot = decodeTableSearchIndex(searchIndex);
+  return Boolean(
+    snapshot &&
+    snapshot.dbTableName === tableName &&
+    ((snapshot.document?.ready && snapshot.document.fields.length) ||
+      (snapshot.residual?.ready && snapshot.residual.fields.length))
   );
-};
-
-export type SearchAccessPathConfigRow = {
-  readonly generatedColumnName: string;
-  readonly semantics?: string;
-  readonly accessPath?: string;
-  readonly provider?: string;
-  readonly languageConfig?: string | null;
-  readonly fieldIds: unknown;
-  readonly searchScope: string;
-  readonly status: string;
 };
 
 const parseFieldIds = (raw: unknown): readonly FieldId[] => {
@@ -87,51 +73,6 @@ const parseFieldIds = (raw: unknown): readonly FieldId[] => {
     const fieldIdResult = FieldId.create(value);
     return fieldIdResult.isOk() ? [fieldIdResult.value] : [];
   });
-};
-
-export const toRecordSearchAccessPathFromConfig = (
-  row: SearchAccessPathConfigRow | undefined
-): IRecordSearchAccessPath | undefined => {
-  if (!row) {
-    return undefined;
-  }
-
-  if (!knownStates.has(row.status as TableSearchVectorStatusState)) {
-    return undefined;
-  }
-
-  const searchScope =
-    row.searchScope === 'all_fields' || row.searchScope === 'selected_fields'
-      ? row.searchScope
-      : undefined;
-  const coveredFieldIds = parseFieldIds(row.fieldIds);
-  if (!row.generatedColumnName || !searchScope || coveredFieldIds.length === 0) {
-    return undefined;
-  }
-
-  if (
-    row.semantics === 'substring' &&
-    row.accessPath === 'generated_text' &&
-    (row.provider === 'pg_trgm' || row.provider === 'pg_bigm')
-  ) {
-    return {
-      kind: 'generated_text',
-      generatedColumnName: row.generatedColumnName,
-      provider: row.provider,
-      searchScope,
-      coveredFieldIds,
-    };
-  }
-
-  if (row.status !== 'ready' || !row.languageConfig) return undefined;
-
-  return {
-    kind: 'generated_tsvector',
-    generatedColumnName: row.generatedColumnName,
-    languageConfig: row.languageConfig,
-    searchScope,
-    coveredFieldIds,
-  };
 };
 
 export class PostgresTableSearchVectorStatusReader implements TableSearchVectorStatusReader {
@@ -164,25 +105,47 @@ export class PostgresTableSearchVectorStatusReader implements TableSearchVectorS
 
       const state = parseState(row.status);
       const serving = isServingSearchSnapshot(row.search_index, row.table_name);
-      const snapshot = isTableSearchIndex(row.search_index) ? row.search_index : undefined;
+      const snapshot = decodeTableSearchIndex(row.search_index);
       // While a snapshot serves, its fields are the coverage reads actually use.
       const coveredFieldIds = (
-        serving && snapshot
-          ? snapshot.fields.map((field) => field.fieldId)
-          : parseFieldIds(row.field_ids).map((fieldId) => fieldId.toString())
+        snapshot
+          ? [
+              ...(snapshot.document?.ready ? snapshot.document.fields : []),
+              ...(snapshot.residual?.ready ? snapshot.residual.fields : []),
+            ].map((field) => field.fieldId)
+          : row.semantics === 'substring'
+            ? []
+            : parseFieldIds(row.field_ids).map((fieldId) => fieldId.toString())
       ).map(String);
       const searchScope = snapshot?.searchScope;
       return ok({
         tableId,
-        state,
+        state:
+          snapshot &&
+          ((snapshot.document && !snapshot.document.ready) ||
+            (snapshot.residual && !snapshot.residual.ready))
+            ? 'stale'
+            : state,
+        documentFieldIds: snapshot?.document?.ready
+          ? snapshot.document.fields.map((field) => field.fieldId)
+          : [],
+        residualFieldIds: snapshot?.residual?.ready
+          ? snapshot.residual.fields.map((field) => field.fieldId)
+          : [],
         configured: true,
         serving,
         coveredFieldIds,
+        configuredFieldIds: parseFieldIds(row.field_ids).map((id) => id.toString()),
         ...(searchScope ? { searchScope } : {}),
         ...(row.language_config ? { languageConfig: row.language_config } : {}),
         semantics: row.semantics === 'substring' ? 'substring' : 'lexical',
-        provider:
-          row.provider === 'pg_bigm' || row.provider === 'pg_trgm' ? row.provider : 'tsvector',
+        provider: snapshot?.document?.ready
+          ? snapshot.document.provider
+          : snapshot?.residual?.ready
+            ? snapshot.residual.provider
+            : row.provider === 'pg_bigm' || row.provider === 'pg_trgm'
+              ? row.provider
+              : 'tsvector',
         accessPath: row.access_path === 'generated_text' ? 'generated_text' : 'generated_tsvector',
         coveredFieldCount: coveredFieldIds.length,
       } satisfies TableSearchVectorStatus);

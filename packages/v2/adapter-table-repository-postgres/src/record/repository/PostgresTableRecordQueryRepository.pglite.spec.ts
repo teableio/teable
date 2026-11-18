@@ -1004,10 +1004,14 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     };
     const accessPath = (coveredFieldIds: FieldId[]): IRecordSearchAccessPath => ({
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
-      searchScope: 'selected_fields',
-      coveredFieldIds,
+      searchScope: 'all_fields',
+      fieldIds: coveredFieldIds,
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds,
+        ready: true,
+      },
     });
 
     await sql`
@@ -1166,10 +1170,14 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     const context = { actorId: ActorId.create('tester')._unsafeUnwrap() };
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'selected_fields',
-      coveredFieldIds: fieldIds,
+      fieldIds: fieldIds,
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: fieldIds,
+        ready: true,
+      },
     };
     const searchWith = (visibleFieldIds: FieldId[]) => ({
       search: RecordSearch.fromTuple(['needle', '', true]),
@@ -1225,10 +1233,14 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     `.execute(db);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.nameFieldId, fixture.ageFieldId],
+      fieldIds: [fixture.nameFieldId, fixture.ageFieldId],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [fixture.nameFieldId, fixture.ageFieldId],
+        ready: true,
+      },
     };
     const searchAll = (value: string) => ({
       search: RecordSearch.fromTuple([value, '', true]),
@@ -3449,12 +3461,16 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
           ? undefined
           : {
               kind: 'generated_text',
-              generatedColumnName: '__tqops_search_document',
-              provider: 'pg_trgm',
               searchScope: 'selected_fields',
-              coveredFieldIds: [
-                accessMode === 'fallback' ? fixture.ageFieldId : fixture.nameFieldId,
-              ],
+              fieldIds: [accessMode === 'fallback' ? fixture.ageFieldId : fixture.nameFieldId],
+              document: {
+                generatedColumnName: '__tqops_search_document',
+                provider: 'pg_trgm',
+                coveredFieldIds: [
+                  accessMode === 'fallback' ? fixture.ageFieldId : fixture.nameFieldId,
+                ],
+                ready: true,
+              },
             };
       const tracer = new NoopTracer();
       const span = {

@@ -34,6 +34,7 @@ import { BaseList } from './BaseList';
 import { DataDbBadge } from './DataDbBadge';
 import { StarButton } from './space-side-bar/StarButton';
 import { useBaseList } from './useBaseList';
+import { useProjectListTabs } from './useProjectListTabs';
 
 /**
  * The space's page: its name, plan and actions above its projects and collaborators. With
@@ -123,6 +124,11 @@ export const SpaceInnerPage: React.FC<{ title?: string }> = ({ title }) => {
   };
 
   const canCreateBase = space && hasPermission(space.role, 'base|create');
+  const listTabs = useProjectListTabs({
+    spaceId,
+    bases: basesInSpace,
+    canCreate: Boolean(canCreateBase),
+  });
 
   useEffect(() => setSpaceName(space?.name), [renaming, space?.name]);
 
@@ -256,6 +262,7 @@ export const SpaceInnerPage: React.FC<{ title?: string }> = ({ title }) => {
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             disallowSpaceInvitation={disallowSpaceInvitation}
             variant={title ? 'projects' : 'space'}
+            create={listTabs.createAction}
             onDelete={() => deleteSpaceMutator(space.id)}
             onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
@@ -267,10 +274,11 @@ export const SpaceInnerPage: React.FC<{ title?: string }> = ({ title }) => {
             {basesInSpace?.length ? (
               <BaseList
                 key={spaceId}
-                baseIds={basesInSpace.map((base) => base.id)}
+                baseIds={(listTabs.bases ?? []).map((base) => base.id)}
                 spaceId={spaceId}
                 showToolbar={true}
                 showStar={!title}
+                {...listTabs.listProps}
               />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
@@ -311,6 +319,8 @@ export const SpaceInnerPage: React.FC<{ title?: string }> = ({ title }) => {
             </ScrollArea>
           </div>
         </div>
+
+        {listTabs.createDialog}
 
         <SpaceInnerSettingModal
           open={settingModalOpen}

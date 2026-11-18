@@ -31,6 +31,7 @@ import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { LoginAppWarning } from '@/features/app/components/LoginAppWarning';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -92,6 +93,13 @@ const useTargetBases = (
   return { bases, isLoading: spaceLoading || sharedLoading };
 };
 
+const confirmLabelKey = (closesSandboxes: boolean, moving: boolean) => {
+  if (!closesSandboxes) return 'table:baseNode.moveToBase.confirm';
+  return moving
+    ? 'table:baseNode.moveToBase.closingAndMoving'
+    : 'table:baseNode.moveToBase.closeAndMove';
+};
+
 /** First non-folder node in sidebar order that is not part of `excluded`. */
 const findRemainingNode = (
   treeItems: Record<string, TreeItemData>,
@@ -145,6 +153,8 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
   const [plainCheck, setPlainCheck] = useState<IMoveBaseNodeCheckVo | null>(null);
   /** What has been accepted so far, grown until the answer asks for nothing more. */
   const [closureIds, setClosureIds] = useState<string[]>([]);
+  /** Asked once per dialog: a retry closes whatever sandbox has started again without asking. */
+  const [closeConfirmed, setCloseConfirmed] = useState(false);
   const nodeName = node.resourceMeta?.name ?? '';
   /**
    * Which check is the current one.
@@ -155,6 +165,9 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
    * one move while the button performs another.
    */
   const checkSeq = useRef(0);
+  /** Read by handlers frozen on an earlier render: a reply landing after close must not refill it. */
+  const openRef = useRef(open);
+  openRef.current = open;
 
   const { bases, isLoading: basesLoading } = useTargetBases(base.spaceId, base.id, open, t);
 
@@ -166,6 +179,7 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
       setMoveClosure(true);
       setPlainCheck(null);
       setClosureIds([]);
+      setCloseConfirmed(false);
     }
   }, [open]);
 
@@ -221,6 +235,8 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
   const candidates = useMemo(() => check?.candidates ?? [], [check]);
   /** Whether there is anything to offer at all, known from the first answer. */
   const hasClosureOffer = (plainCheck?.dependencyClosure.length ?? 0) > 0;
+  const sandboxApps = check?.sandboxApps ?? [];
+  const closesSandboxes = sandboxApps.length > 0 || closeConfirmed;
 
   const currentResourceId = useMemo(() => {
     switch (baseResource.resourceType) {
@@ -255,7 +271,7 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
   });
 
   const { mutateAsync: runMove, isPending: moving } = useMutation({
-    mutationFn: (target: string) => {
+    mutationFn: ({ target, closeSandboxes }: { target: string; closeSandboxes: boolean }) => {
       // this window is the actor: keep the "your table was deleted" recovery quiet
       // the server's answer is the moving set; freeze it before anything resets
       const leaving = check?.nodes ?? [];
@@ -271,12 +287,17 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
       return moveBaseNode(base.id, node.id, {
         targetBaseId: target,
         ...(moveClosure && closureIds.length > 0 ? { additionalNodeIds: closureIds } : {}),
+        ...(closeSandboxes ? { closeAppSandboxes: true } : {}),
       }).then((res) => res.data);
     },
-    onError: () => {
+    onError: (_error, { target, closeSandboxes }) => {
       leavingRef.current.tableIds.forEach(unmarkTableDeletedLocally);
+      // refused without consent: a sandbox may have started since the check, so ask again
+      if (!closeSandboxes && openRef.current) {
+        startCheck(target, moveClosure ? closureIds : [], moveClosure);
+      }
     },
-    onSuccess: (moved, target) => {
+    onSuccess: (moved, { target }) => {
       invalidateMenu();
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseNodeTree(target) });
       const targetName = bases.find((b) => b.id === target)?.name ?? target;
@@ -532,6 +553,7 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
               setMoveClosure(true);
               setPlainCheck(null);
               setClosureIds([]);
+              setCloseConfirmed(false);
               startCheck(id, [], true);
             }}
           />
@@ -557,6 +579,13 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
             </div>
           ))}
         </div>
+      )}
+
+      {check?.allowed && sandboxApps.length > 0 && (
+        <LoginAppWarning
+          message={t('table:baseNode.moveToBase.sandboxApps')}
+          apps={sandboxApps.map((app) => ({ id: app.resourceId, name: app.name }))}
+        />
       )}
 
       {/* Outside the `allowed` gate on purpose. The box is ticked by default,
@@ -808,13 +837,14 @@ export const MoveNodeToBaseDialog = (props: IMoveNodeToBaseDialogProps) => {
       }
       content={content}
       cancelText={t('common:actions.cancel')}
-      confirmText={t('table:baseNode.moveToBase.confirm')}
+      confirmText={t(confirmLabelKey(closesSandboxes, moving))}
       confirmLoading={moving}
       confirmDisabled={!targetBaseId || !check?.allowed || checking}
       onCancel={() => onOpenChange(false)}
       onConfirm={async () => {
         if (!targetBaseId) return;
-        await runMove(targetBaseId);
+        if (closesSandboxes) setCloseConfirmed(true);
+        await runMove({ target: targetBaseId, closeSandboxes: closesSandboxes });
       }}
     />
   );

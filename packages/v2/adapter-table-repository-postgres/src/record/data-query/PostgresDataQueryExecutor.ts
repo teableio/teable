@@ -58,6 +58,7 @@ import {
 import { buildFieldMaskSqlMap } from '../repository/buildFieldMaskSql';
 import { buildRecordWhereClause } from '../repository/buildRecordWhereClause';
 import { buildTableRecordAggregationExpression } from '../repository/TableRecordAggregationSql';
+import { compileDataQueryDistinctTuple } from './compileDataQueryDistinctTuple';
 import {
   compileDataQueryPredicate,
   compileDataQueryHavingExpression,
@@ -535,7 +536,11 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               failure('invalid_relation_plan', 'A relation metric requires the relation executor')
             );
           }
-          if (!aggregate.expression && aggregate.fieldId === undefined) {
+          if (
+            !aggregate.expression &&
+            !aggregate.distinctExpressions &&
+            aggregate.fieldId === undefined
+          ) {
             return err(failure('invalid_relation_plan', 'A root aggregate requires an input'));
           }
         }
@@ -574,12 +579,11 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             predicate && expressionScope
               ? sql`case when ${expressionScope} then ${predicate} else false end`
               : (predicate ?? expressionScope);
-          if (metric.expression) {
+          if (metric.expression || metric.distinctExpressions) {
             const column = `__metric_${index}`;
-            const compiled = yield* compileDataQueryFormulaExpression(
-              metric.expression,
-              expressionContext
-            );
+            const compiled = metric.distinctExpressions
+              ? yield* compileDataQueryDistinctTuple(metric.distinctExpressions, expressionContext)
+              : yield* compileDataQueryFormulaExpression(metric.expression!, expressionContext);
             metricColumns.set(metric.alias, column);
             sourceSelections.push(
               sql`${allowed ? sql`case when ${allowed} then ${compiled} else null end` : compiled} as ${sql.id(column)}`
@@ -611,7 +615,9 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           const value = buildTableRecordAggregationExpression(
             sql.id('a', column),
             aggregate.statisticFunc,
-            aggregate.expression ? undefined : fields.get(aggregate.fieldId!),
+            aggregate.expression || aggregate.distinctExpressions
+              ? undefined
+              : fields.get(aggregate.fieldId!),
             filter ? sql.id('a', filter) : undefined
           );
           return sql`${value} as ${sql.id(aggregate.alias)}`;
@@ -898,6 +904,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           readonly fieldId?: string;
           readonly column: string | null;
           readonly expression?: BoundDataQueryFormulaExpression;
+          readonly distinctExpressions?: readonly BoundDataQueryFormulaExpression[];
           readonly filter?: BoundDataQueryPredicate;
         };
         const relationMetrics = (
@@ -905,6 +912,11 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             ? boundPlan.projections.filter((projection) => projection.kind === 'aggregate')
             : boundPlan.aggregates.filter((aggregate) => aggregate.source !== 'root')
         ) as BoundMetric[];
+        const groupDistinctMetrics =
+          boundPlan.kind === 'aggregate' && boundPlan.definitionVersion === 8
+            ? relationMetrics.filter((metric) => metric.statisticFunc === 'unique')
+            : [];
+        const groupDistinctAliases = new Set(groupDistinctMetrics.map((metric) => metric.alias));
         // Group-level averages need both components per root; the hidden column
         // names are index-based so a long public alias cannot exceed PG limits.
         const metricOrder = new Map(
@@ -918,6 +930,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           `metric_${metricOrder.get(metric.alias)}_count`;
         const metricsBySource = new Map<string, BoundMetric[]>();
         for (const metric of relationMetrics) {
+          if (groupDistinctAliases.has(metric.alias)) continue;
           const metrics = metricsBySource.get(metric.source) ?? [];
           metrics.push(metric);
           metricsBySource.set(metric.source, metrics);
@@ -1158,14 +1171,48 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           joins.push(sql`left join ${source.from} on ${sql.join(joinCondition, sql` and `)}`);
         }
 
-        // One lateral per to-many branch, keyed by the outer parent row. Branches
-        // never join each other, so a second metric source cannot multiply rows.
+        const predicates: RawBuilder<unknown>[] = [];
+        if (plan.query.recordId !== undefined) {
+          predicates.push(sql`${sql.id(rootAlias, '__id')} = ${plan.query.recordId}`);
+        }
+        const filter = replaceCurrentUserTagInFilter(
+          plan.rootTable,
+          plan.query.filter,
+          context.actorId.toString()
+        );
+        if (boundPlan.definitionVersion < 3 && filter != null) {
+          const condition = yield* buildRecordConditionSpec(
+            plan.rootTable,
+            filter,
+            plan.rootScope.fieldMasks
+          );
+          const where = yield* buildRecordWhereClause(condition, { tableAlias: rootAlias });
+          if (where) predicates.push(sql`${where}`);
+        }
+        if (expressionScope) predicates.push(expressionScope);
+        if (boundPlan.predicate) {
+          const predicate = yield* compileDataQueryPredicate(
+            boundPlan.predicate,
+            expressionContext
+          );
+          if (predicate)
+            predicates.push(
+              expressionScope
+                ? sql`(case when ${expressionScope} then ${predicate} else false end)`
+                : predicate
+            );
+        }
+        const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
+
+        // Each metric source keeps its own per-root grain. V8 grouped queries
+        // build that grain once in a batch; older plans retain their lateral path.
         const manyLaterals: RawBuilder<unknown>[] = [];
         const aggregateAliases = new Map<string, string>();
         for (const [index, source] of sqlSources.entries()) {
           if (source.cardinality !== 'many') continue;
           const metrics = metricsBySource.get(source.alias) ?? [];
           if (metrics.length === 0) continue;
+          const batch = grouped && boundPlan.definitionVersion === 8;
           const chain: SqlSource[] = [];
           let cursor: SqlSource | undefined = source;
           while (cursor && cursor.cardinality === 'many') {
@@ -1178,30 +1225,47 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           if (!anchorParentAlias) {
             return err(failure('invalid_relation_plan', 'A relation parent source is missing'));
           }
-          const anchorMembership = membership(anchor, anchorParentAlias);
-          if (!anchorMembership) {
-            return err(failure('join_storage', 'A to-many relation has no physical storage'));
-          }
-          const froms: RawBuilder<unknown>[] = [anchor.from];
-          const conditions: RawBuilder<unknown>[] = [anchorMembership, ...anchor.restrictions];
-          for (let hop = 1; hop < chain.length; hop++) {
-            const child = chain[hop]!;
-            const parent = chain[hop - 1]!;
-            const link = membership(child, parent.sqlAlias);
+          const froms: RawBuilder<unknown>[] = batch
+            ? [rootFrom, ...joins]
+            : [anchor.from];
+          // Root selection must precede metric formula projection and dedup,
+          // including recordId, authorization scope and any/none predicates.
+          const conditions: RawBuilder<unknown>[] = batch ? [...predicates] : [];
+          for (const [hopIndex, hop] of chain.entries()) {
+            const parent = parentSqlAlias(hop);
+            let link: RawBuilder<unknown> | undefined;
+            if (batch && parent && hop.linkStorage.kind === 'junction') {
+              const storage = hop.linkStorage;
+              const junctionAlias = `metric_junction_${sourceIndexByAlias.get(hop.alias)}`;
+              const junctionFrom = storage.schema
+                ? sql`${sql.id(storage.schema, storage.tableName)} as ${sql.id(junctionAlias)}`
+                : sql`${sql.id(storage.tableName)} as ${sql.id(junctionAlias)}`;
+              froms.push(sql`cross join ${junctionFrom} join ${hop.from} on ${sql.id(
+                junctionAlias,
+                storage.foreignKeyName
+              )} = ${sql.id(hop.sqlAlias, '__id')}`);
+              link = sql`${sql.id(junctionAlias, storage.selfKeyName)} = ${sql.id(parent, '__id')}`;
+            } else {
+              link = parent ? membership(hop, parent) : undefined;
+              if (batch) froms.push(sql`cross join ${hop.from}`);
+              else if (hopIndex > 0) froms.push(sql`join ${hop.from} on ${link}`);
+            }
             if (!link) {
               return err(failure('join_storage', 'A to-many relation has no physical storage'));
             }
-            froms.push(sql`join ${child.from} on ${link}`);
-            conditions.push(...child.restrictions);
+            // Legacy descendant memberships stay in ON, as before.
+            if (batch || hopIndex === 0) conditions.push(link);
+            conditions.push(...hop.restrictions);
           }
           // A target record reachable through several intermediate records is one
           // member of the branch: dedupe by the metric source's primary key.
           const leaf = chain[chain.length - 1]!;
-          const dedupe = chain.length > 1;
+          const dedupe = batch || chain.length > 1;
           const project = dedupe || metrics.some((metric) => metric.expression || metric.filter);
           const dedupeAlias = 'branch_rows';
           const valueColumns: RawBuilder<unknown>[] = [];
           const selections: RawBuilder<unknown>[] = [];
+          if (batch) selections.push(sql`${sql.id(dedupeAlias, '__parent_id')}`);
           for (const metric of metrics) {
             const rawValue = metric.expression
               ? yield* compileDataQueryFormulaExpression(metric.expression, expressionContext)
@@ -1216,7 +1280,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             if (!metric.expression && metric.statisticFunc !== 'count' && !field) {
               throw new Error('Missing relation aggregate field metadata');
             }
-            const guard = conditions.length ? sql`${sql.join(conditions, sql` and `)}` : undefined;
+            const guard =
+              !batch && conditions.length ? sql`${sql.join(conditions, sql` and `)}` : undefined;
             // A metric's own predicate also guards evaluation of its formula.
             const compiledFilter = metric.filter
               ? yield* compileDataQueryPredicate(metric.filter, expressionContext)
@@ -1262,53 +1327,28 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           const whereClause = sql`where ${sql.join(conditions, sql` and `)}`;
           const body = project
             ? sql`select ${sql.join(selections)} from (
-                select ${dedupe ? sql`distinct` : sql``} ${sql.id(leaf.sqlAlias, '__id')} as ${sql.id('__id')}
+                select ${dedupe ? sql`distinct` : sql``}
+                  ${batch ? sql`${sql.id(rootAlias, '__id')} as ${sql.id('__parent_id')},` : sql``}
+                  ${sql.id(leaf.sqlAlias, '__id')} as ${sql.id('__id')}
                   ${valueColumns.length ? sql`, ${sql.join(valueColumns)}` : sql``}
                 from ${sql.join(froms, sql` `)} ${whereClause} offset 0
-              ) as ${sql.id(dedupeAlias)}`
+              ) as ${sql.id(dedupeAlias)} ${batch ? sql`group by ${sql.id(dedupeAlias, '__parent_id')}` : sql``}`
             : sql`select ${sql.join(selections)} from ${sql.join(froms, sql` `)} ${whereClause}`;
           const aggregateAlias = `aggregate_${index}`;
           aggregateAliases.set(source.alias, aggregateAlias);
-          // One row per parent key, so the root result keeps its row shape and
-          // offset/total semantics; target filters and row scope stay inside.
-          manyLaterals.push(sql`left join lateral (${body}) as ${sql.id(aggregateAlias)} on true`);
-        }
-
-        const predicates: RawBuilder<unknown>[] = [];
-        if (plan.query.recordId !== undefined) {
-          predicates.push(sql`${sql.id(rootAlias, '__id')} = ${plan.query.recordId}`);
-        }
-        const filter = replaceCurrentUserTagInFilter(
-          plan.rootTable,
-          plan.query.filter,
-          context.actorId.toString()
-        );
-        if (boundPlan.definitionVersion < 3 && filter != null) {
-          const condition = yield* buildRecordConditionSpec(
-            plan.rootTable,
-            filter,
-            plan.rootScope.fieldMasks
+          // A leaf reached through multiple edges contributes once per root.
+          // Source branches aggregate independently, so unrelated metrics cannot
+          // fan out each other or alter the root row count.
+          manyLaterals.push(
+            batch
+              ? sql`left join (${body}) as ${sql.id(aggregateAlias)} on ${sql.id(aggregateAlias, '__parent_id')} = ${sql.id(rootAlias, '__id')}`
+              : sql`left join lateral (${body}) as ${sql.id(aggregateAlias)} on true`
           );
-          const where = yield* buildRecordWhereClause(condition, { tableAlias: rootAlias });
-          if (where) predicates.push(sql`${where}`);
         }
-        if (expressionScope) predicates.push(expressionScope);
-        if (boundPlan.predicate) {
-          const predicate = yield* compileDataQueryPredicate(
-            boundPlan.predicate,
-            expressionContext
-          );
-          if (predicate)
-            predicates.push(
-              expressionScope
-                ? sql`(case when ${expressionScope} then ${predicate} else false end)`
-                : predicate
-            );
-        }
-        const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
 
         if (boundPlan.kind === 'aggregate') {
           const innerSelections: RawBuilder<unknown>[] = [];
+          const groupSelections: RawBuilder<unknown>[] = [];
           const rootInnerAlias = (fieldId: string) => `root__${fieldId}`;
           const sourceInnerAlias = (index: number, fieldId: string) =>
             `source_${index}__${fieldId}`;
@@ -1329,6 +1369,12 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               return err(failure('invalid_relation_plan', 'A root field is not bound'));
             }
             innerSelections.push(sql`${expression} as ${sql.id(rootInnerAlias(fieldId))}`);
+            if (
+              boundPlan.groupBy.some(
+                (group) => group.source === 'root' && group.fieldId === fieldId
+              )
+            )
+              groupSelections.push(sql`${expression} as ${sql.id(rootInnerAlias(fieldId))}`);
           }
           const rootMetricColumns = new Map<string, string>();
           const rootMetricFilters = new Map<string, string>();
@@ -1340,12 +1386,14 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               predicate && expressionScope
                 ? sql`case when ${expressionScope} then ${predicate} else false end`
                 : (predicate ?? expressionScope);
-            if (metric.expression) {
+            if (metric.expression || metric.distinctExpressions) {
               const column = `__root_metric_${index}`;
-              const compiled = yield* compileDataQueryFormulaExpression(
-                metric.expression,
-                expressionContext
-              );
+              const compiled = metric.distinctExpressions
+                ? yield* compileDataQueryDistinctTuple(
+                    metric.distinctExpressions,
+                    expressionContext
+                  )
+                : yield* compileDataQueryFormulaExpression(metric.expression!, expressionContext);
               rootMetricColumns.set(metric.alias, column);
               innerSelections.push(
                 sql`${allowed ? sql`case when ${allowed} then ${compiled} else null end` : compiled} as ${sql.id(column)}`
@@ -1370,6 +1418,9 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 return err(failure('invalid_relation_plan', 'A source group field is not bound'));
               }
               innerSelections.push(
+                sql`${expression} as ${sql.id(sourceInnerAlias(index, fieldId))}`
+              );
+              groupSelections.push(
                 sql`${expression} as ${sql.id(sourceInnerAlias(index, fieldId))}`
               );
             }
@@ -1397,10 +1448,14 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             innerSelections.push(
               sql`${buildBucketExpression(expression, bucket)} as ${sql.id(privateName)}`
             );
+            groupSelections.push(
+              sql`${buildBucketExpression(expression, bucket)} as ${sql.id(privateName)}`
+            );
           }
           // One row per root: each branch's pre-aggregate is a scalar column.
           const metricSelections: RawBuilder<unknown>[] = [];
           for (const metric of relationMetrics) {
+            if (groupDistinctAliases.has(metric.alias)) continue;
             const aggregateAlias = aggregateAliases.get(metric.source);
             if (!aggregateAlias) {
               return err(failure('invalid_relation_plan', 'A relation metric has no branch'));
@@ -1422,10 +1477,13 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               sql`${sql.id(aggregateAlias, metric.alias)} as ${sql.id(metric.alias)}`
             );
           }
+          if (!innerSelections.length && !metricSelections.length)
+            innerSelections.push(sql`1 as ${sql.id('__unit')}`);
           const inner = sql`select ${sql.join([...innerSelections, ...metricSelections])} from ${rootFrom}
             ${sql.join([...joins, ...manyLaterals], sql` `)} ${where} ${rootMetricColumns.size || rootMetricFilters.size ? sql`offset 0` : sql``}`;
           const selections: RawBuilder<unknown>[] = [];
           for (const aggregate of boundPlan.aggregates) {
+            if (groupDistinctAliases.has(aggregate.alias)) continue;
             if (aggregate.source !== 'root') {
               if (!aggregateAliases.has(aggregate.source)) {
                 return err(failure('invalid_relation_plan', 'A relation metric has no branch'));
@@ -1467,7 +1525,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               continue;
             }
             const field = aggregate.fieldId ? rootFields.get(aggregate.fieldId) : undefined;
-            if (!aggregate.expression && !field) {
+            if (!aggregate.expression && !aggregate.distinctExpressions && !field) {
               return err(failure('invalid_relation_plan', 'A root aggregate field is not bound'));
             }
             const column =
@@ -1476,7 +1534,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             const value = buildTableRecordAggregationExpression(
               sql.id('b', column),
               aggregate.statisticFunc,
-              aggregate.expression ? undefined : field,
+              aggregate.expression || aggregate.distinctExpressions ? undefined : field,
               filter ? sql.id('b', filter) : undefined
             );
             selections.push(sql`${value} as ${sql.id(aggregate.alias)}`);
@@ -1576,14 +1634,158 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           }
           const groupClause = groups.size ? sql`group by ${sql.join([...groups.values()])}` : sql``;
           const orderClause = orders.length ? sql`order by ${sql.join(orders)}` : sql``;
-          if (boundPlan.having) {
-            const combined = sql`select ${sql.join(selections)} from (${inner}) as ${sql.id('b')} ${groupClause}`;
-            const predicate = yield* compileDataQueryHavingExpression(
-              boundPlan.having,
-              expressionContext,
-              'aggregate_outputs'
-            );
-            const filtered = sql`select * from (${combined}) as ${sql.id('aggregate_outputs')} where ${predicate}`;
+          let distinctCombined: RawBuilder<unknown> | undefined;
+          if (groupDistinctMetrics.length) {
+            // Distinct inputs cross the parent boundary before aggregation. Each
+            // source groups independently so unrelated branches cannot fan out.
+            const bySource = new Map<string, BoundMetric[]>();
+            for (const metric of groupDistinctMetrics) {
+              const metrics = bySource.get(metric.source) ?? [];
+              metrics.push(metric);
+              bySource.set(metric.source, metrics);
+            }
+            const distinctJoins: RawBuilder<unknown>[] = [];
+            const distinctOutputs = new Map<string, RawBuilder<unknown>>();
+            for (const [alias, metrics] of bySource) {
+              const source = sourceByAlias.get(alias)!;
+              const chain: SqlSource[] = [];
+              let cursor: SqlSource | undefined = source;
+              while (cursor?.cardinality === 'many') {
+                chain.unshift(cursor);
+                cursor = sourceByAlias.get(cursor.parentAlias);
+              }
+              const froms: RawBuilder<unknown>[] = [];
+              const conditions: RawBuilder<unknown>[] = [];
+              for (const hop of chain) {
+                const parent = parentSqlAlias(hop);
+                let link: RawBuilder<unknown> | undefined;
+                if (parent && hop.linkStorage.kind === 'junction') {
+                  const storage = hop.linkStorage;
+                  const junctionAlias = `distinct_junction_${sourceIndexByAlias.get(hop.alias)}`;
+                  const junctionFrom = storage.schema
+                    ? sql`${sql.id(storage.schema, storage.tableName)} as ${sql.id(junctionAlias)}`
+                    : sql`${sql.id(storage.tableName)} as ${sql.id(junctionAlias)}`;
+                  froms.push(sql`cross join ${junctionFrom} join ${hop.from} on ${sql.id(
+                    junctionAlias,
+                    storage.foreignKeyName
+                  )} = ${sql.id(hop.sqlAlias, '__id')}`);
+                  link = sql`${sql.id(junctionAlias, storage.selfKeyName)} = ${sql.id(parent, '__id')}`;
+                } else {
+                  froms.push(sql`cross join ${hop.from}`);
+                  link = parent ? membership(hop, parent) : undefined;
+                }
+                if (!link)
+                  return err(failure('join_storage', 'A distinct source has no link storage'));
+                conditions.push(link, ...hop.restrictions);
+              }
+              // A missing to-one target is not a real all-NULL input tuple.
+              conditions.push(sql`${sql.id(source.sqlAlias, '__id')} is not null`);
+              const guard = sql.join(conditions, sql` and `);
+              const inputs = [...groupSelections];
+              const streamSelections: RawBuilder<unknown>[] = [];
+              for (const [index, metric] of metrics.entries()) {
+                const field = metric.fieldId ? source.fields.get(metric.fieldId) : undefined;
+                const rawValue = metric.distinctExpressions
+                  ? yield* compileDataQueryDistinctTuple(
+                      metric.distinctExpressions,
+                      expressionContext
+                    )
+                  : metric.expression
+                    ? yield* compileDataQueryFormulaExpression(metric.expression, expressionContext)
+                    : source.values.get(metric.fieldId!);
+                if (!rawValue)
+                  return err(
+                    failure('invalid_relation_plan', 'A distinct metric input is not bound')
+                  );
+                const predicate = metric.filter
+                  ? yield* compileDataQueryPredicate(metric.filter, expressionContext)
+                  : undefined;
+                // streamRows applies membership and visibility in WHERE before
+                // this fenced projection. Only the metric predicate still needs
+                // to guard evaluation; SQL NULL then excludes a rejected input.
+                const value = predicate
+                  ? sql`case when ${predicate} then ${rawValue} else null end`
+                  : rawValue;
+                const valueColumn = `distinct_${index}`;
+                inputs.push(sql`${value} as ${sql.id(valueColumn)}`);
+                const column = sql.id('b', valueColumn);
+                const fieldType = field?.type().toString();
+                const normalized =
+                  fieldType === 'user' ||
+                  fieldType === 'createdBy' ||
+                  fieldType === 'lastModifiedBy'
+                    ? buildUserJsonObjectFromSnapshotExpr(column)
+                    : column;
+                const aggregate = buildTableRecordAggregationExpression(
+                  normalized,
+                  'unique',
+                  field
+                );
+                streamSelections.push(sql`${aggregate} as ${sql.id(metric.alias)}`);
+              }
+              for (const group of boundPlan.groupBy)
+                streamSelections.push(
+                  sql`${groups.get(`group:${group.alias}`)!} as ${sql.id(group.alias)}`
+                );
+              const streamRows = sql`select ${sql.join(inputs)} from ${rootFrom}
+                ${sql.join([...joins, ...froms], sql` `)} ${where}
+                ${predicates.length ? sql`and` : sql`where`} ${guard} offset 0`;
+              const stream = sql`select ${sql.join(streamSelections)} from (${streamRows}) as ${sql.id('b')} ${groupClause}`;
+              const streamAlias = `distinct_source_${sourceIndexByAlias.get(alias)}`;
+              // One-element native arrays compare NULL elements as equal and
+              // expose a hashable equality operator. Keep each native domain
+              // (including numeric/date/user identity) instead of serializing it.
+              const matches = boundPlan.groupBy.map(
+                (group) =>
+                  sql`array[${sql.id('grouped_metrics', group.alias)}] = array[${sql.id(streamAlias, group.alias)}]`
+              );
+              distinctJoins.push(
+                sql`left join (${stream}) as ${sql.id(streamAlias)} on ${matches.length ? sql.join(matches, sql` and `) : sql`true`}`
+              );
+              for (const metric of metrics)
+                distinctOutputs.set(
+                  metric.alias,
+                  sql`coalesce(${sql.id(streamAlias, metric.alias)}, 0)`
+                );
+            }
+            // Ungrouped aggregates still return one row for an empty root input.
+            const baseSelections = selections.length
+              ? selections
+              : [sql`count(*) as ${sql.id('__unit')}`];
+            const base = sql`select ${sql.join(baseSelections)} from (${inner}) as ${sql.id('b')} ${groupClause}`;
+            const outputs = [
+              ...boundPlan.aggregates.map(
+                (metric) =>
+                  sql`${distinctOutputs.get(metric.alias) ?? sql.id('grouped_metrics', metric.alias)} as ${sql.id(metric.alias)}`
+              ),
+              ...boundPlan.groupBy.map(
+                (group) => sql`${sql.id('grouped_metrics', group.alias)} as ${sql.id(group.alias)}`
+              ),
+            ];
+            distinctCombined = sql`select ${sql.join(outputs)} from (${base}) as ${sql.id('grouped_metrics')} ${sql.join(distinctJoins, sql` `)}`;
+          }
+          if (boundPlan.having || distinctCombined) {
+            const combined =
+              distinctCombined ??
+              sql`select ${sql.join(selections)} from (${inner}) as ${sql.id('b')} ${groupClause}`;
+            const predicate = boundPlan.having
+              ? yield* compileDataQueryHavingExpression(
+                  boundPlan.having,
+                  expressionContext,
+                  'aggregate_outputs'
+                )
+              : undefined;
+            // The page LIMIT must not price the group-stream join. As a plain
+            // subquery the joined groups are planned for early exit: once the
+            // grouped stream's row estimate stops matching its real group count,
+            // a nested loop that replays the whole stream per root group looks
+            // cheapest as long as the page is expected to fill before that
+            // replay is paid. Materializing the complete join plans it for its
+            // own total cost, so native group-key equality keeps its hashable
+            // array form and the page only sorts and slices the joined rows.
+            const filtered = distinctCombined
+              ? sql`with ${sql.id('distinct_joined')} as materialized (${combined}) select * from ${sql.id('distinct_joined')} as ${sql.id('aggregate_outputs')} ${predicate ? sql`where ${predicate}` : sql``}`
+              : sql`select * from (${combined}) as ${sql.id('aggregate_outputs')} ${predicate ? sql`where ${predicate}` : sql``}`;
             orders.length = 0;
             for (const sort of plan.query.sort) {
               if ('alias' in sort) {

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { dedupeCipherEntries } from '../../configs/secrets/resolve-cipher-entries';
-import { SECRET_SPECS } from '../../configs/secrets/secret-specs';
+import { SECRET_SPECS, writesAuthenticatedDataDbUrls } from '../../configs/secrets/secret-specs';
 import type { ICipherEntry } from '../../utils/encryptor';
 import { Encryptor } from '../../utils/encryptor';
 import { isEncryptedSecretValue, SecretValueCodec } from '../../utils/secret-value-codec';
@@ -124,13 +124,17 @@ export interface IDataDbUrlCipher {
  * - legacy: the fixed key/iv chain above.
  *
  * Both are always readable. New URLs are written in the authenticated format
- * only once BACKEND_DATA_DB_URL_ENCRYPTION_SECRET is set; the roots that only
- * decrypt are its `_OLD` var and what the root falls back to (SECRET_KEY). So
- * the format is turned on in two steps wherever several processes share the
- * database — replicas mid-rollout, or two environments on one database: first
- * every reader gets the root (as `_OLD`, which writes nothing), then the
- * dedicated var is set. Unsetting it goes back to writing the legacy format
- * while what was written stays readable through `_OLD`.
+ * once BACKEND_DATA_DB_URL_ENCRYPTION_SECRET is set, or once SECRET_KEY (what
+ * the root falls back to) is a private value (writesAuthenticatedDataDbUrls);
+ * the roots that only decrypt are its `_OLD` var and SECRET_KEY. Readers from
+ * the version that introduced the format on already open what a SECRET_KEY
+ * root writes, so an upgrade switches the format with no extra step. A
+ * dedicated root that differs from SECRET_KEY is turned on in two steps
+ * wherever several processes share the database — replicas mid-rollout, or two
+ * environments on one database: first every reader gets the root (as `_OLD`,
+ * which writes nothing), then the dedicated var is set. Without a dedicated
+ * root or a private SECRET_KEY the legacy format is written, and what was
+ * written in the new one stays readable through `_OLD`.
  */
 export const buildDataDbUrlCipher = (env: IEnv = process.env): IDataDbUrlCipher => {
   const entries = buildDataDbUrlCipherEntries(env);
@@ -145,7 +149,7 @@ export const buildDataDbUrlCipher = (env: IEnv = process.env): IDataDbUrlCipher 
     },
     env
   );
-  const authenticated = Boolean(env[AUTHENTICATED_ROOT.envKey]);
+  const authenticated = writesAuthenticatedDataDbUrls(env);
 
   const opensWithLegacyPrimary = (encryptedUrl: string): boolean => {
     try {

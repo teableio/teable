@@ -1,3 +1,4 @@
+import { buildIndexedSearchExpression } from '@teable/v2-adapter-db-postgres-shared';
 import { randomBytes } from 'node:crypto';
 import {
   createV2PostgresDb,
@@ -11,7 +12,6 @@ import {
   PostgresTableSearchVectorAdvisor,
   PostgresTableSearchAccessPathMetadataPublisher,
   registerV2TableOpsPostgresAdapter,
-  renderGeneratedSearchTextProjectionSql,
   ensureSearchDocumentFunctions,
   type AnalyzeTableSearchVectorResult,
   type UnknownPostgresDatabase,
@@ -44,6 +44,7 @@ import {
   type ITracer,
   type SearchFieldTextProjection,
   type Table,
+  IRecordSearchAccessPath,
 } from '@teable/v2-core';
 import {
   FormulaSqlPgTranslator,
@@ -1587,16 +1588,12 @@ const buildSearchDocumentGeneratedExpression = (
     readonly textProjection?: SearchFieldTextProjection;
   }>
 ): string => {
-  const document = fields
-    .filter((field): field is { fieldDbName: string; textProjection?: SearchFieldTextProjection } =>
-      Boolean(field.fieldDbName)
+  return buildIndexedSearchExpression(
+    fields.filter(
+      (field): field is { fieldDbName: string; textProjection?: SearchFieldTextProjection } =>
+        Boolean(field.fieldDbName)
     )
-    .map(
-      (field) =>
-        `coalesce(${renderGeneratedSearchTextProjectionSql(quoteIdentifier(field.fieldDbName), field.textProjection)}, '')`
-    )
-    .join(String.raw` || E'\n' || `);
-  return `lower(${document || "''"})`;
+  );
 };
 
 const makeTempSearchAccessPathTableName = (): string =>
@@ -1667,15 +1664,7 @@ const runTempSearchQuery = async (input: {
   readonly repetitions: number;
   readonly searchedFieldIds: readonly string[];
   readonly visibleFieldIds: readonly FieldId[];
-  readonly searchAccessPath:
-    | { readonly kind: 'default' }
-    | {
-        readonly kind: 'generated_text';
-        readonly generatedColumnName: string;
-        readonly provider: 'pg_bigm' | 'pg_trgm';
-        readonly searchScope: 'all_fields' | 'selected_fields';
-        readonly coveredFieldIds: readonly FieldId[];
-      };
+  readonly searchAccessPath: IRecordSearchAccessPath;
 }): Promise<SearchAccessPathTempQueryPathResult> => {
   const limit = PageLimit.create(input.queryLimit);
   if (limit.isErr()) throw limit.error;
@@ -2379,10 +2368,14 @@ export const TableQueryOpsLive = Layer.effect(
             visibleFieldIds: coveredFieldIds,
             searchAccessPath: {
               kind: 'generated_text',
-              generatedColumnName,
-              provider: providerCapability.provider,
               searchScope: input.fieldIds?.length ? 'selected_fields' : 'all_fields',
-              coveredFieldIds,
+              fieldIds: coveredFieldIds,
+              document: {
+                generatedColumnName,
+                provider: providerCapability.provider,
+                coveredFieldIds,
+                ready: true,
+              },
             },
           });
           const exactComparison = compareExactRecordIds(

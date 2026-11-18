@@ -11,15 +11,15 @@ import {
   type Result,
 } from '@teable/v2-core';
 import { CustomHttpException } from '../../custom.exception';
-import type { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
+import type { FieldReferenceAdmissionService } from '../field-reference-admission/field-reference-admission.service';
 import { toCrossBaseLinkDomainError } from './cross-base-link-access.plugin-support';
 
 export const CROSS_BASE_LINK_ACCESS_FIELD_OPERATION_PLUGIN_NAME =
   'crossBaseLinkAccessFieldOperation';
 
 /**
- * Applies the same rule the v1 field paths enforce through
- * `FieldSupplementService`, for the v2 field create/convert commands:
+ * Applies the shared host `FieldReferenceAdmissionService` rule to v2 field
+ * create/convert commands, without depending on legacy field execution:
  * - every referenced foreign table must stay in the host table's space;
  * - a foreign table the field did not reference before must also be readable
  *   by the caller when it is in another base.
@@ -40,7 +40,7 @@ export class CrossBaseLinkAccessFieldOperationPlugin implements IFieldOperationP
   readonly name = CROSS_BASE_LINK_ACCESS_FIELD_OPERATION_PLUGIN_NAME;
   readonly enforce = 'pre' as const;
 
-  constructor(private readonly fieldSupplementService: FieldSupplementService) {}
+  constructor(private readonly fieldReferenceAdmission: FieldReferenceAdmissionService) {}
 
   supports(operation: FieldOperationKind): boolean {
     return operation === FieldOperationKind.create || operation === FieldOperationKind.update;
@@ -63,7 +63,7 @@ export class CrossBaseLinkAccessFieldOperationPlugin implements IFieldOperationP
         if (previousForeignTableIds.value.has(foreignTableId)) {
           continue;
         }
-        await this.fieldSupplementService.assertNewForeignTableAllowed(tableId, foreignTableId);
+        await this.fieldReferenceAdmission.assertNewForeignTableAllowed(tableId, foreignTableId);
       }
     } catch (error) {
       if (!(error instanceof CustomHttpException)) {

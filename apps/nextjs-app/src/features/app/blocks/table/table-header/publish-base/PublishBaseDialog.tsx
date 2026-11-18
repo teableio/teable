@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { generateAttachmentId } from '@teable/core';
-import { Discord, InIcon, Link, Plus, Twitter } from '@teable/icons';
+import { Link, Plus } from '@teable/icons';
 import type { ITemplateCoverRo, INotifyVo, IPublishBaseRo, IGetBaseVo } from '@teable/openapi';
 import {
   getBaseNodeTree,
@@ -9,6 +9,8 @@ import {
   unpublishTemplate,
   UploadType,
   BaseNodeResourceType,
+  isTemplateLive,
+  isUnreleasedSubmission,
   ShortLinkType,
 } from '@teable/openapi';
 import { AttachmentManager } from '@teable/sdk/components';
@@ -35,7 +37,6 @@ import {
   DialogTrigger,
   Input,
   Label,
-  Switch,
   Textarea,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -44,7 +45,10 @@ import { noop } from 'lodash';
 import { Camera, Send, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
-import { TemplateHostContext } from '@/features/app/components/space/template/host-context';
+import {
+  TemplateHostContext,
+  useTemplateSubmitTerms,
+} from '@/features/app/components/space/template/host-context';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useOrigin } from '@/features/app/hooks/useOrigin';
 import { useShortLink } from '@/features/app/hooks/useShortLink';
@@ -54,7 +58,13 @@ import { buildTreeItems, filterAutoHiddenFolders, ROOT_ID } from '../../../base/
 import { useAppPublishContext } from './AppPublishContext';
 import { normalizeCheckedItems } from './node-tree-check';
 import { NodeSelect } from './NodeSelect';
-import { NodeTreeSelect } from './NodeTreeSelect';
+import {
+  IncludeDataSwitch,
+  PublishScopeField,
+  publishScopeOf,
+  useTemplateProjectPublish,
+} from './TemplateProjectPublish';
+import { TemplateShareButtons } from './TemplateShareButtons';
 import { TemplateChangelogField, TemplateReviewPanel } from './TemplateSubmissionState';
 import type { IUnpublishedApp } from './UnpublishedAppsDialog';
 import { UnpublishedAppsDialog, getUnpublishedAppNodes } from './UnpublishedAppsDialog';
@@ -115,6 +125,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const appPublishContext = useAppPublishContext();
   const host = useContext(TemplateHostContext);
   const { submission } = host;
+  const terms = useTemplateSubmitTerms(open && Boolean(submission));
 
   const queryClient = useQueryClient();
 
@@ -127,6 +138,12 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     });
     return nodeIds;
   }, [treeItems]);
+
+  const resourceCount = useMemo(
+    () =>
+      allNodeIds.filter((id) => treeItems[id]?.resourceType !== BaseNodeResourceType.Folder).length,
+    [allNodeIds, treeItems]
+  );
 
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [title, setTitle] = useState(base.name ?? '');
@@ -163,14 +180,23 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     enabled: open,
   });
   const isTemplatePublished = templateDetail?.isPublished;
+  // A template project goes out whole, with the sample records it holds.
+  const project = useTemplateProjectPublish({
+    baseId,
+    open,
+    close: () => setOpen(false),
+  });
+  const publishedNodeIds = publishScopeOf(project.isTemplateProject, allNodeIds, selectedNodeIds);
+  const shipsRecords = publishScopeOf(project.isTemplateProject, true, includeData);
   const isTemplateFeatured = templateDetail?.featured ?? false;
   const savedCoverUrl = templateDetail?.cover?.presignedUrl || undefined;
   const origin = useOrigin();
 
-  // Prefer the short URL when sharing a published template; only fall back to
-  // the permalink when short link creation failed (empty while loading)
+  // Prefer the short URL when sharing a published template, listed or not (or a submission from
+  // before publishing went live on submit, which its link opens); only fall back to the
+  // permalink when short link creation failed (empty while loading)
   const { shortUrl, isFallback } = useShortLink(
-    isTemplatePublished && templateDetail?.id
+    (isTemplateLive(templateDetail) || isUnreleasedSubmission(templateDetail)) && templateDetail?.id
       ? { type: ShortLinkType.Template, resourceId: templateDetail.id }
       : undefined
   );
@@ -266,12 +292,15 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       description,
       cover,
       // Everything ticked means the whole project, so a later submission follows it as it grows.
-      nodes:
+      nodes: publishScopeOf(
+        project.isTemplateProject,
+        undefined,
         selectedNodeIds.length > 0 &&
-        (base.restrictedAuthority || !allNodeIds.every((id) => selectedNodeIds.includes(id)))
+          (base.restrictedAuthority || !allNodeIds.every((id) => selectedNodeIds.includes(id)))
           ? selectedNodeIds
-          : undefined,
-      includeData,
+          : undefined
+      ),
+      includeData: shipsRecords,
       defaultActiveNodeId,
     };
   };
@@ -293,6 +322,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       await submission.submit(baseId, {
         ...ro,
         changelog: changelog.trim() || undefined,
+        agreeTerms: terms.agreed || undefined,
       });
       // The review panel reads the listing, so the refetch has to land before it shows.
       await queryClient.invalidateQueries({ queryKey: ['template-by-base', baseId] });
@@ -304,13 +334,13 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       // Close the publish dialog and show success dialog
       setOpen(false);
       setSuccessDialogOpen(true);
+      // Published either way: a submission goes live the moment it is made.
+      fireConfetti();
       if (data) {
         const { baseId: templateBaseId, defaultUrl, permalink } = data;
         queryClient.invalidateQueries({ queryKey: ['template-by-base', baseId] });
         // Generate share URL with permalink
         setShareUrl(generateShareUrl(origin, permalink, defaultUrl, templateBaseId));
-        // Trigger fireworks effect
-        fireConfetti();
       }
       // Close parent dialog if closeOnSuccess is true
       if (closeOnSuccess) {
@@ -428,27 +458,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     toast.success(t('publishBase.urlCopied'));
   };
 
-  const handleShareToX = () => {
-    const text = encodeURIComponent(`Check out this template: ${title}`);
-    window.open(
-      `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(displayShareUrl)}`,
-      '_blank'
-    );
-  };
-
-  const handleShareToLinkedIn = () => {
-    window.open(
-      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(displayShareUrl)}`,
-      '_blank'
-    );
-  };
-
-  const handleShareToDiscord = () => {
-    // Discord doesn't have a direct share URL, so we just copy the URL
-    navigator.clipboard.writeText(displayShareUrl);
-    toast.success(t('publishBase.urlCopiedForDiscord'));
-  };
-
   const fireConfetti = () => {
     confetti({
       particleCount: 100,
@@ -463,13 +472,19 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       return;
     }
 
-    if (selectedNodeIds.length === 0) {
+    // A submission is what a shared link previews: it needs a cover
+    if (submission && !uploadedCover && !savedCoverUrl) {
+      toast.error(t('publishBase.tips.coverRequired'));
+      return;
+    }
+
+    if (publishedNodeIds.length === 0) {
       toast.error(t('publishBase.tips.atLeastOneNode'));
       return;
     }
 
     // Check for unpublished app nodes
-    const unpublishedAppNodes = getUnpublishedAppNodes(selectedNodeIds, treeItems);
+    const unpublishedAppNodes = getUnpublishedAppNodes(publishedNodeIds, treeItems);
     if (unpublishedAppNodes.length > 0) {
       setUnpublishedApps(unpublishedAppNodes);
       setExternalApps(undefined); // Reset external apps state
@@ -479,7 +494,17 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
 
     // No unpublished apps, proceed with publishing
     publishMutate({ title, description: description || '' });
-  }, [title, description, selectedNodeIds, treeItems, publishMutate, t]);
+  }, [
+    title,
+    description,
+    submission,
+    uploadedCover,
+    savedCoverUrl,
+    publishedNodeIds,
+    treeItems,
+    publishMutate,
+    t,
+  ]);
 
   const publishLabel = publishLabelFor(asTranslate(t), Boolean(submission), templateDetail);
 
@@ -494,9 +519,9 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         {children && <DialogTrigger asChild>{children}</DialogTrigger>}
         <DialogContent className="flex max-h-[90vh] max-w-[1080px] flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="border-b px-6 py-4 text-start">
-            <DialogTitle>{t('publishBase.title')}</DialogTitle>
+            <DialogTitle>{project.title}</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              {t('publishBase.description')}
+              {project.description}
             </DialogDescription>
           </DialogHeader>
           {/* Side by side from md up; on a narrow screen the preview column goes below the form,
@@ -526,12 +551,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     placeholder={t('publishBase.form.descriptionPlaceholder')}
                   />
                 </div>
-                <CoverRow
-                  screenshotUrl={screenshotUrl}
-                  isUploading={isUploading}
-                  uploadProgress={uploadProgress}
-                  onPick={handleUploadClick}
-                />
               </section>
 
               <section className="flex flex-col gap-3">
@@ -561,13 +580,12 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     <Label className="text-xs text-muted-foreground">
                       {t('publishBase.form.publishNode')}
                     </Label>
-                    <NodeTreeSelect
-                      showCheckbox
+                    <PublishScopeField
+                      wholeProject={project.isTemplateProject}
+                      count={resourceCount}
+                      records={project.records}
                       checkedItems={selectedNodeIds}
-                      onCheckedItemsChange={(ids) => {
-                        setSelectedNodeIds(ids);
-                      }}
-                      placeholder={t('common:actions.select')}
+                      onCheckedItemsChange={setSelectedNodeIds}
                       totalNodeCount={allNodeIds.length}
                     />
                   </div>
@@ -576,23 +594,20 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                       {t('publishBase.form.defaultActiveNode')}
                     </Label>
                     <NodeSelect
-                      nodeIds={selectedNodeIds}
+                      nodeIds={publishedNodeIds}
                       value={defaultActiveNodeId || ''}
                       onChange={setDefaultActiveNodeId}
                     />
                   </div>
                 </div>
-                <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                  <Switch
-                    id="include-data"
-                    checked={includeData}
-                    onCheckedChange={setIncludeData}
-                  />
-                  <Label htmlFor="include-data">{t('publishBase.form.includeData')}</Label>
-                </div>
+                <IncludeDataSwitch
+                  hidden={project.isTemplateProject}
+                  checked={includeData}
+                  onCheckedChange={setIncludeData}
+                />
                 {submission?.renderGuideRow?.({
                   baseId,
-                  includeData,
+                  includeData: shipsRecords,
                   close: () => setOpen(false),
                 })}
               </section>
@@ -624,7 +639,8 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                   >
                     {title || t('publishBase.form.titlePlaceholder')}
                   </p>
-                  {isTemplatePublished && isTemplateFeatured && (
+                  {/* Where a review lists templates, the panel below says so: shown once. */}
+                  {!submission && isTemplatePublished && isTemplateFeatured && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -659,7 +675,9 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 template={templateDetail}
                 onWithdraw={withdrawMutate}
                 withdrawing={withdrawLoading}
+                shareUrl={displayShareUrl}
               />
+              {project.checks}
               {!submission && templateDetail?.isPublished && (
                 <div className="flex h-9 items-center gap-2 overflow-hidden rounded-md border bg-background ps-3">
                   <Link className="size-4 shrink-0" />
@@ -684,7 +702,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                   </Button>
                 </div>
               )}
-              {templateDetail?.isPublished && (
+              {!submission && templateDetail?.isPublished && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
@@ -719,10 +737,14 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             </aside>
           </div>
           <DialogFooter className="border-t px-6 py-3">
+            {terms.panel && <div className="flex items-center sm:me-auto">{terms.panel}</div>}
             <Button variant="outline" onClick={() => setOpen(false)}>
               {t('common:actions.cancel')}
             </Button>
-            <Button onClick={handlePublishClick} disabled={publishLoading}>
+            <Button
+              onClick={handlePublishClick}
+              disabled={publishLoading || project.blocked || terms.blocked}
+            >
               <Send className="size-4" />
               {publishLabel}
               {publishLoading && <Spin className="size-4" />}
@@ -747,7 +769,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             <>
               <DialogHeader className="flex h-[60px] flex-col justify-center px-6">
                 <DialogTitle className="text-start text-lg font-semibold">
-                  {t('publishBase.submitted')}
+                  {t('publishBase.publishSuccess')}
                 </DialogTitle>
               </DialogHeader>
               <TemplateReviewPanel
@@ -755,6 +777,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 template={templateDetail}
                 onWithdraw={withdrawMutate}
                 withdrawing={withdrawLoading}
+                shareUrl={displayShareUrl}
               />
             </>
           ) : (
@@ -786,35 +809,9 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                   </Button>
                 </div>
 
-                {isCloud && (
-                  <div className="flex flex-col gap-3 pt-6">
-                    <div className="text-sm font-medium">{t('publishBase.shareWith')}</div>
-                    <div className="flex gap-3">
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="size-9 rounded-lg p-0"
-                        onClick={handleShareToX}
-                      >
-                        <Twitter className="size-6 p-0.5" />
-                      </Button>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="size-9 rounded-lg p-0"
-                        onClick={handleShareToLinkedIn}
-                      >
-                        <InIcon className="size-6 fill-[#0A66C2] p-0.5" />
-                      </Button>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="size-9 rounded-lg p-0"
-                        onClick={handleShareToDiscord}
-                      >
-                        <Discord className="size-6 fill-[#5865F2] p-0.5" />
-                      </Button>
-                    </div>
+                {isCloud && displayShareUrl && (
+                  <div className="pt-6">
+                    <TemplateShareButtons title={title} shareUrl={displayShareUrl} />
                   </div>
                 )}
               </div>
@@ -839,10 +836,10 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
 const publishLabelFor = (
   t: ITranslate,
   reviewed: boolean,
-  template: { isPublished?: boolean; version: number } | null | undefined
+  template: (Parameters<typeof isTemplateLive>[0] & { version: number }) | null | undefined
 ) => {
   if (!reviewed) return t(template ? 'publishBase.update' : 'publishBase.publish');
-  if (!template?.isPublished) return t('publishBase.submit');
+  if (!template || !isTemplateLive(template)) return t('publishBase.submit');
   return t('publishBase.submitVersion', { version: template.version + 1 });
 };
 
@@ -851,84 +848,62 @@ interface ICoverProps {
   isUploading: boolean;
   uploadProgress: number;
   onPick: () => void;
+  overlay: React.ReactNode;
 }
 
-const CoverRow = ({ screenshotUrl, isUploading, uploadProgress, onPick }: ICoverProps) => {
-  const { t } = useTranslation('space');
-  return (
-    <div className="flex items-center gap-3 rounded-md border border-dashed px-3 py-2.5">
-      {screenshotUrl ? (
-        <img src={screenshotUrl} className="h-14 w-24 shrink-0 rounded object-cover" alt="cover" />
-      ) : (
-        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded bg-muted">
-          {isUploading ? (
-            <Spin className="size-5" />
-          ) : (
-            <Plus className="size-5 text-muted-foreground" />
-          )}
-        </div>
-      )}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-sm">{t('publishBase.form.cover')}</span>
-        <span className="text-xs text-muted-foreground">
-          {isUploading ? `${uploadProgress}%` : t('publishBase.form.coverHint')}
-        </span>
-      </div>
-      <Button size="sm" variant="outline" onClick={onPick} disabled={isUploading}>
-        <Camera className="size-4" />
-        {screenshotUrl ? t('publishBase.changeCover') : t('publishBase.uploadCover')}
-      </Button>
-    </div>
-  );
-};
-
+/** The cover as the catalogue card shows it, and the one place to pick it. */
 const CoverPicker = ({
   screenshotUrl,
   isUploading,
   uploadProgress,
   onPick,
   overlay,
-}: ICoverProps & { overlay: React.ReactNode }) => {
+}: ICoverProps) => {
   const { t } = useTranslation('space');
+  // picking again while an upload runs would start a second one
+  const pickable = !isUploading;
   return (
     <div
-      className="group relative aspect-video cursor-pointer overflow-hidden rounded-md bg-muted"
-      onClick={onPick}
+      className={cn(
+        'group relative aspect-video overflow-hidden rounded-md bg-muted',
+        pickable && 'cursor-pointer'
+      )}
+      onClick={pickable ? onPick : undefined}
       role="button"
-      tabIndex={0}
+      aria-label={t(screenshotUrl ? 'publishBase.changeCover' : 'publishBase.uploadCover')}
+      tabIndex={pickable ? 0 : -1}
+      aria-disabled={!pickable}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (pickable && (e.key === 'Enter' || e.key === ' ')) {
           onPick();
         }
       }}
     >
-      {screenshotUrl ? (
-        <>
-          <img
-            src={screenshotUrl}
-            className="size-full object-cover"
-            alt="published project preview"
-          />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-            <div className="flex flex-col items-center gap-2">
-              <Camera className="size-8 text-white" />
-              <span className="text-sm text-white">{t('publishBase.changeCover')}</span>
-            </div>
-          </div>
-        </>
-      ) : (
+      {screenshotUrl && (
+        <img
+          src={screenshotUrl}
+          className="size-full object-cover"
+          alt="published project preview"
+        />
+      )}
+      {!screenshotUrl && pickable && (
         <div className="flex size-full flex-col items-center justify-center gap-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10">
-          {isUploading ? (
-            <>
-              <Spin className="size-8" />
-              <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
-            </>
-          ) : (
-            <>
-              <Plus className="size-8 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">{t('publishBase.uploadCover')}</span>
-            </>
-          )}
+          <Plus className="size-8 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">{t('publishBase.uploadCover')}</span>
+        </div>
+      )}
+      {screenshotUrl && pickable && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex flex-col items-center gap-2">
+            <Camera className="size-8 text-white" />
+            <span className="text-sm text-white">{t('publishBase.changeCover')}</span>
+          </div>
+        </div>
+      )}
+      {isUploading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/60">
+          <Spin className="size-8" />
+          <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
         </div>
       )}
       {overlay && <div className="absolute bottom-2 start-2">{overlay}</div>}

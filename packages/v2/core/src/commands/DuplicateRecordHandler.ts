@@ -215,6 +215,10 @@ export class DuplicateRecordHandler implements ICommandHandler<
         }
       }
 
+      const initialDuplicateEvents = tableForCreate.pullDomainEvents();
+      const initialSideEffectEvents = tableUpdateResult
+        ? tableUpdateResult.table.pullDomainEvents()
+        : [];
       const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) => {
@@ -224,7 +228,11 @@ export class DuplicateRecordHandler implements ICommandHandler<
               const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
                 transactionContext,
                 { table },
-                () => ok(tableUpdateResult),
+                () => {
+                  tableUpdateResult.table.pullDomainEvents();
+                  tableUpdateResult.table.recordDomainEvents(initialSideEffectEvents);
+                  return ok(tableUpdateResult);
+                },
                 { publishEvents: false }
               );
               tableEvents = tableFlowResult.events;
@@ -236,7 +244,11 @@ export class DuplicateRecordHandler implements ICommandHandler<
               record,
               command.order ? { order: command.order } : undefined
             );
-            const events = [...tableEvents, ...tableForCreate.pullDomainEvents()];
+            const events = [
+              ...tableEvents,
+              ...initialDuplicateEvents,
+              ...tableForCreate.pullDomainEvents(),
+            ];
             return ok(domainWrite.fromEvents({ mutation }, events));
           });
         }

@@ -83,16 +83,21 @@ async function* paddedRows(
   prefix: PhysicalExcelRow[],
   start: number,
   width: number,
-  exhausted: boolean
+  exhausted: boolean,
+  sourceRows: WeakMap<ReadonlyArray<unknown>, number>
 ): AsyncGenerator<ReadonlyArray<unknown>> {
   let index = start;
   try {
     for await (const row of remainingRows(physical, prefix, start, exhausted)) {
       while (index < row.index) {
-        yield Array<string>(width).fill('');
+        const values = Array<string>(width).fill('');
+        sourceRows.set(values, index + 1);
+        yield values;
         index++;
       }
-      yield Array.from({ length: width }, (_, column) => row.values[column] ?? '');
+      const values = Array.from({ length: width }, (_, column) => row.values[column] ?? '');
+      sourceRows.set(values, row.index + 1);
+      yield values;
       index = row.index + 1;
     }
   } finally {
@@ -131,7 +136,7 @@ async function sheetRows(
   owner: TemporaryWorkbook,
   workbook: StreamingWorkbook,
   target: string
-): Promise<Pick<IImportParseResult, 'headers' | 'rowsAsync' | 'rowCount'>> {
+): Promise<Pick<IImportParseResult, 'headers' | 'rowsAsync' | 'rowCount' | 'getSourceRowNumber'>> {
   const physical = workbook.rows(target)[Symbol.asyncIterator]();
   owner.own(async () => {
     await physical.return?.();
@@ -153,13 +158,15 @@ async function sheetRows(
     { length: header.values.length },
     (_, index) => header.values[index] || `Column_${index + 1}`
   );
+  const sourceRows = new WeakMap<ReadonlyArray<unknown>, number>();
   const rowCount = exhausted ? prefix[prefix.length - 1].index - header.index + 1 : undefined;
   return {
     headers,
     rowCount,
+    getSourceRowNumber: (row) => sourceRows.get(row),
     rowsAsync: ownedRows(
       owner,
-      paddedRows(owner, physical, prefix, header.index, headers.length, exhausted)
+      paddedRows(owner, physical, prefix, header.index, headers.length, exhausted, sourceRows)
     ),
   };
 }

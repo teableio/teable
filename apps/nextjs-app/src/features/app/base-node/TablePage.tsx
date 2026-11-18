@@ -10,7 +10,13 @@ import { STALE_VIEW_PARAM } from '@/features/app/blocks/table/hooks/stale-view-f
 import { TableSkeleton } from '@/features/app/blocks/table/TableSkeleton';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
 import { getViewPageServerData } from '@/lib/view-pages-data';
-import { getDefaultNodeUrl, getDefaultViewId, redirect, validateResourceExists } from './helper';
+import {
+  getDefaultNodeUrl,
+  getDefaultViewId,
+  getDefaultViewIdForNavigation,
+  redirect,
+  validateResourceExists,
+} from './helper';
 import type { ISSRContext, SSRResult, ITablePageProps } from './types';
 
 interface IQueryParams {
@@ -38,17 +44,16 @@ export const getTableServerSideProps = async (
       ssrApi.getUserLastVisit(LastVisitResourceType.Table, baseId),
       ssrApi.getTables(baseId),
     ]);
-    const tableIds = tableList.map((t) => t.id);
-    const defaultTableId =
-      lastVisit?.resourceId && tableIds.includes(lastVisit.resourceId)
-        ? lastVisit.resourceId
-        : tableIds[0];
+    const lastTable = tableList.find((table) => table.id === lastVisit?.resourceId);
+    const candidates = lastTable
+      ? [lastTable, ...tableList.filter((table) => table !== lastTable)]
+      : tableList;
 
-    const defaultViewId = defaultTableId
-      ? await getDefaultViewId(ssrApi, defaultTableId)
-      : undefined;
-    if (defaultTableId && defaultViewId) {
-      return redirect(`/base/${baseId}/table/${defaultTableId}/${defaultViewId}`);
+    for (const table of candidates) {
+      const defaultViewId = await getDefaultViewIdForNavigation(ssrApi, table.id);
+      if (defaultViewId) {
+        return redirect(`/base/${baseId}/table/${table.id}/${defaultViewId}`);
+      }
     }
     return redirect(`/base/${baseId}`);
   }

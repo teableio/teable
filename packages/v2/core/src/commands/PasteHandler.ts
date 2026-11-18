@@ -2023,6 +2023,7 @@ export class PasteStreamApplicationService extends PasteHandler {
       const iterator = plan.operationsStream[Symbol.asyncIterator]();
       let batchIndex = 0;
       let previousPluginExecution = operationPluginExecution;
+      const undoGroup = { groupId: operationId, attempted: false };
 
       for (;;) {
         const chunkResult = await this.readNextOperationChunk(iterator, plan.batchSize);
@@ -2186,7 +2187,7 @@ export class PasteStreamApplicationService extends PasteHandler {
           context,
           plan.persistedTable,
           chunkPersistResult.value.eventData,
-          operationId
+          undoGroup
         );
         if (undoRedoResult.isErr()) {
           queue.push(
@@ -2782,7 +2783,7 @@ export class PasteStreamApplicationService extends PasteHandler {
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
     eventData: CollectedEventData,
-    groupId: string
+    group: { groupId: string; attempted: boolean }
   ): Promise<Result<void, DomainError>> {
     const undoCommands: UndoRedoCommandLeafData[] = [];
     const redoCommands: UndoRedoCommandLeafData[] = [];
@@ -2850,12 +2851,15 @@ export class PasteStreamApplicationService extends PasteHandler {
     ) {
       return ok(undefined);
     }
+    const groupPosition = group.attempted ? 'continue' : 'start';
+    group.attempted = true;
 
     return this.undoRedoStackService.appendEntry(
       toUndoRedoStackAppendContext(context),
       table.id(),
       {
-        groupId,
+        groupId: group.groupId,
+        groupPosition,
         undoCommand: composeUndoRedoCommands([...undoCommands, ...eventData.schemaUndoCommands]),
         redoCommand: composeUndoRedoCommands([...eventData.schemaRedoCommands, ...redoCommands]),
       }

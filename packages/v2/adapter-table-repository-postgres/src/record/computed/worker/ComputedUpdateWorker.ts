@@ -2,11 +2,15 @@ import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import type { PostgresSqlExecutionDiagnostics } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
+  BaseId,
   domainError,
   FieldId,
   hasCode,
   isNotFoundError,
+  LinkForeignTableReferenceVisitor,
+  NoopTableSchemaCoordination,
   registerAfterCommit,
+  Table,
   TableByIdSpec,
   TableId,
   tableDataSafetyLimitErrors,
@@ -15,8 +19,8 @@ import {
   withoutTransaction,
 } from '@teable/v2-core';
 import type {
-  BaseId,
   DomainError,
+  Field,
   FieldComputeLastError,
   FieldComputeTarget,
   IExecutionContext,
@@ -25,8 +29,9 @@ import type {
   IUnitOfWork,
   ILogger,
   IEventBus,
-  Table,
   ITracer,
+  ITableSchemaCoordination,
+  ITableSchemaCoordinationLease,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { sql } from 'kysely';
@@ -873,7 +878,9 @@ export class ComputedUpdateWorker {
     @inject(v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
     private readonly backfillService: ComputedFieldBackfillService,
     @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: IEventBus
+    private readonly eventBus: IEventBus,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   async runOnce(params: ComputedUpdateWorkerParams): Promise<Result<number, DomainError>> {
@@ -1287,8 +1294,140 @@ export class ComputedUpdateWorker {
     cancellation: ComputedTaskExecutionCancellation | undefined,
     work: () => Promise<Result<T, DomainError>>
   ): Promise<ComputationTransactionOutcome<T>> {
-    if (cancellation) return cancellation.runTransaction(work);
-    return { status: 'completed', result: await work() };
+    const outcome = cancellation
+      ? await cancellation.runTransaction(work)
+      : { status: 'completed' as const, result: await work() };
+    // Coordination uses raw pg checkouts, outside Kysely's cancellation runner.
+    if (
+      cancellation?.signal.aborted &&
+      outcome.status === 'completed' &&
+      outcome.result.isErr() &&
+      hasCode(outcome.result.error, 'schema_coordination.cancelled')
+    ) {
+      const reason: unknown = cancellation.signal.reason;
+      return {
+        status: 'cancelled',
+        error:
+          reason instanceof Error ? reason : new Error('Computed schema acquisition cancelled'),
+      };
+    }
+    return outcome;
+  }
+
+  private async acquireSharedSchemaLease<P>(
+    context: IExecutionContext,
+    baseId: BaseId,
+    initialTableIds: ReadonlyArray<TableId>,
+    signal: AbortSignal | undefined,
+    prepare: () => Promise<Result<{ value: P; tableIds: ReadonlyArray<TableId> }, DomainError>>
+  ): Promise<Result<{ lease: ITableSchemaCoordinationLease; value: P }, DomainError>> {
+    const tableIds = new Map(initialTableIds.map((tableId) => [tableId.toString(), tableId]));
+    const readTableIds = new Map(tableIds);
+
+    // Schema reads can discover one more hop of foreign tables. Release an
+    // incomplete lease before acquiring the expanded sorted set, so reciprocal
+    // schema changes cannot each retain their own table while waiting.
+    for (;;) {
+      const leaseResult = await this.tableSchemaCoordination.acquire(
+        context,
+        [...tableIds.keys()],
+        'shared',
+        signal
+      );
+      if (leaseResult.isErr()) return err(leaseResult.error);
+      const lease = leaseResult.value;
+      let retryWithExpandedReadSet = false;
+      let retained = false;
+      try {
+        const prepared = await prepare();
+        if (prepared.isErr()) return err(prepared.error);
+        for (const tableId of prepared.value.tableIds) {
+          const value = tableId.toString();
+          readTableIds.set(value, tableId);
+          if (tableIds.has(value)) continue;
+          tableIds.set(value, tableId);
+          retryWithExpandedReadSet = true;
+        }
+        if (retryWithExpandedReadSet) continue;
+        const tablesSpec = Table.specs(baseId)
+          .withoutBaseId()
+          .byIds([...readTableIds.values()])
+          .build();
+        if (tablesSpec.isErr()) return err(tablesSpec.error);
+        const lockedTables = await this.tableRepository.find(context, tablesSpec.value, {
+          state: 'activeWithPending',
+        });
+        if (lockedTables.isErr()) return err(lockedTables.error);
+        const references = new LinkForeignTableReferenceVisitor().collect(
+          lockedTables.value.flatMap((table) => table.getFields())
+        );
+        if (references.isErr()) return err(references.error);
+        for (const { foreignTableId: tableId } of references.value) {
+          const value = tableId.toString();
+          if (tableIds.has(value)) continue;
+          tableIds.set(value, tableId);
+          retryWithExpandedReadSet = true;
+        }
+        if (!retryWithExpandedReadSet) {
+          if (signal?.aborted) {
+            return err(
+              domainError.infrastructure({
+                code: 'schema_coordination.cancelled',
+                message: 'Table schema coordination acquisition cancelled',
+              })
+            );
+          }
+          retained = true;
+          return ok({ lease, value: prepared.value.value });
+        }
+      } finally {
+        if (!retained) await lease.release();
+      }
+    }
+  }
+
+  private getPlanSchemaTableIds(plan: ComputedUpdatePlan): ReadonlyArray<TableId> {
+    const tableIds = new Map<string, TableId>([[plan.seedTableId.toString(), plan.seedTableId]]);
+    for (const step of plan.steps) tableIds.set(step.tableId.toString(), step.tableId);
+    for (const edge of plan.edges) {
+      tableIds.set(edge.fromTableId.toString(), edge.fromTableId);
+      tableIds.set(edge.toTableId.toString(), edge.toTableId);
+    }
+    for (const group of plan.extraSeedRecords)
+      tableIds.set(group.tableId.toString(), group.tableId);
+    for (const tableId of plan.seedAllTableIds ?? []) tableIds.set(tableId.toString(), tableId);
+    return [...tableIds.values()];
+  }
+
+  private async runSchemaCoordinatedTransaction<T>(
+    context: IExecutionContext,
+    plan: ComputedUpdatePlan,
+    cancellation: ComputedTaskExecutionCancellation | undefined,
+    work: () => Promise<Result<T, DomainError>>
+  ): Promise<ComputationTransactionOutcome<T>> {
+    return this.runComputationTransaction(cancellation, async () => {
+      const leaseResult = await this.acquireSharedSchemaLease(
+        context,
+        plan.baseId,
+        this.getPlanSchemaTableIds(plan),
+        cancellation?.signal,
+        async () => ok({ value: undefined, tableIds: [] })
+      );
+      if (leaseResult.isErr()) return err(leaseResult.error);
+      try {
+        if (cancellation?.signal.aborted) {
+          return err(
+            domainError.infrastructure({
+              code: 'schema_coordination.cancelled',
+              message: 'Table schema coordination acquisition cancelled',
+            })
+          );
+        }
+        return await work();
+      } finally {
+        await leaseResult.value.lease.release();
+      }
+    });
   }
 
   private async releaseCancelledTask(
@@ -1548,7 +1687,7 @@ export class ComputedUpdateWorker {
     // rows that never existed.
     const stagedContinuations: ContinuationRef[] = [];
     let remainingTargets: ReadonlyArray<FieldComputeTarget> | undefined;
-    const transactionOutcome = await this.runComputationTransaction(cancellation, () =>
+    const runTransaction = () =>
       this.unitOfWork.withTransaction(context, async (txContext) => {
         failurePhase = 'set_statement_timeout';
         const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
@@ -1754,7 +1893,12 @@ export class ComputedUpdateWorker {
 
         if (!doneValue) return ok(false);
         return ok(true);
-      })
+      });
+    const transactionOutcome = await this.runSchemaCoordinatedTransaction(
+      context,
+      planResult.value,
+      cancellation,
+      runTransaction
     );
     if (transactionOutcome.status === 'cancelled') {
       for (const continuation of stagedContinuations) {
@@ -2333,110 +2477,107 @@ export class ComputedUpdateWorker {
       return err(tableIdResult.error);
     }
 
-    // Load table with fields
-    const tableResult = await this.loadActiveTableForTask({
-      task,
-      tableId: tableIdResult.value,
-      context,
-      logContext: runLogContext,
-    });
-    if (tableResult.isErr()) {
-      this.logger.error('computed:worker:field_backfill_failed', {
-        taskId: task.id,
-        error: tableResult.error.message,
-        ...runLogContext,
-      });
-      await this.handleTaskFailure(task, tableResult.error.message, context);
-      return err(tableResult.error);
-    }
-    if (tableResult.value.status !== 'loaded') {
-      return ok(tableResult.value.status === 'completed');
-    }
-
-    const table = tableResult.value.table;
-
-    // Get fields to backfill
-    const fieldsToBackfill: ReturnType<typeof table.getFields> = [];
-    for (const fieldId of fieldIdsResult.value) {
-      const fieldResult = table.getField((f) => f.id().equals(fieldId));
-      if (fieldResult.isOk()) {
-        (fieldsToBackfill as Array<typeof fieldResult.value>).push(fieldResult.value);
-      }
-    }
-
-    if (fieldsToBackfill.length === 0) {
-      this.logger.warn('computed:worker:field_backfill_no_fields', {
-        taskId: task.id,
-        ...runLogContext,
-      });
-      // Mark as done since there's nothing to backfill
-      const doneResult = await this.markTaskDone(task, context);
-      return doneResult;
-    }
-
-    // Execute backfill within a transaction
+    const baseIdResult = BaseId.create(task.baseId);
+    if (baseIdResult.isErr()) return err(baseIdResult.error);
+    let fieldCount = 0;
     const stagedContinuations: ContinuationRef[] = [];
-    const transactionOutcome = await this.runComputationTransaction(cancellation, () =>
-      this.unitOfWork.withTransaction(context, async (txContext) => {
-        const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
-        if (timeoutResult.isErr()) return err(timeoutResult.error);
-
-        // Execute sync backfill for all fields
-        const backfillResult = await this.backfillService.executeSyncMany(txContext, {
-          table,
-          fields: fieldsToBackfill,
-          recordBatch: {
-            cursor: task.cursor,
-            size: this.outboxConfig.fieldBackfillBatchSize,
-          },
-        });
-        if (backfillResult.isErr()) return err(backfillResult.error);
-
-        const batch = backfillResult.value.batch;
-        let pendingContinuation: ContinuationRef | undefined;
-        if (batch?.hasMore && batch.lastRecordId) {
-          const continuation = buildFieldBackfillTaskInput({
-            baseId: table.baseId(),
-            tableId: table.id(),
-            fieldIds: fieldsToBackfill.map((field) => field.id()),
-            hasher: this.hasher,
-            runId: task.runId,
-            estimatedRowCount: task.estimatedRowCount,
-            cursor: batch.lastRecordId,
-            sourceChangedAt: task.sourceChangedAt,
-            stageDepth: (task.stageDepth ?? 0) + 1,
-            predecessorTaskId: task.id,
-            traceparent: task.traceparent,
-            tracestate: task.tracestate,
+    const transactionOutcome = await this.runComputationTransaction(cancellation, async () => {
+      const preparedResult = await this.acquireSharedSchemaLease<LoadTaskTableResult>(
+        context,
+        baseIdResult.value,
+        [tableIdResult.value],
+        cancellation?.signal,
+        async () => {
+          const tableResult = await this.loadActiveTableForTask({
+            task,
+            tableId: tableIdResult.value,
+            context,
+            logContext: runLogContext,
           });
-          const enqueueResult = await this.outbox.enqueueFieldBackfill(
-            continuation,
-            txContext,
-            relayWorkerId
-              ? { relayClaim: { workerId: relayWorkerId, predecessorTaskId: task.id } }
-              : undefined
-          );
-          if (enqueueResult.isErr()) return err(enqueueResult.error);
-          pendingContinuation = {
-            taskId: enqueueResult.value.taskId,
-            ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
-          };
+          return tableResult.map((value) => ({ value, tableIds: [] }));
         }
+      );
+      if (preparedResult.isErr()) return err(preparedResult.error);
+      const { lease, value: prepared } = preparedResult.value;
+      try {
+        if (prepared.status !== 'loaded') return ok(prepared.status === 'completed');
+        const table = prepared.table;
+        const fieldsToBackfill: Field[] = [];
+        for (const fieldId of fieldIdsResult.value) {
+          const fieldResult = table.getField((field) => field.id().equals(fieldId));
+          if (fieldResult.isOk()) fieldsToBackfill.push(fieldResult.value);
+        }
+        fieldCount = fieldsToBackfill.length;
+        if (fieldCount === 0) {
+          this.logger.warn('computed:worker:field_backfill_no_fields', {
+            taskId: task.id,
+            ...runLogContext,
+          });
+          return this.markTaskDone(task, context);
+        }
+        return await this.unitOfWork.withTransaction(context, async (txContext) => {
+          const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+          if (timeoutResult.isErr()) return err(timeoutResult.error);
 
-        const doneResult = await this.markTaskDone(task, txContext);
-        if (doneResult.isErr()) return doneResult;
-        if (!doneResult.value) {
-          // Roll back the relay-claimed continuation so another worker cannot
-          // process overlapping cursor batches after this lease is lost.
-          return err(domainError.infrastructure({ message: FIELD_BACKFILL_OWNERSHIP_LOST }));
-        }
-        if (pendingContinuation) {
-          stagedContinuations.push(pendingContinuation);
-        }
+          // Execute sync backfill for all fields
+          const backfillResult = await this.backfillService.executeSyncMany(txContext, {
+            table,
+            fields: fieldsToBackfill,
+            recordBatch: {
+              cursor: task.cursor,
+              size: this.outboxConfig.fieldBackfillBatchSize,
+            },
+          });
+          if (backfillResult.isErr()) return err(backfillResult.error);
 
-        return ok(true);
-      })
-    );
+          const batch = backfillResult.value.batch;
+          let pendingContinuation: ContinuationRef | undefined;
+          if (batch?.hasMore && batch.lastRecordId) {
+            const continuation = buildFieldBackfillTaskInput({
+              baseId: table.baseId(),
+              tableId: table.id(),
+              fieldIds: fieldsToBackfill.map((field) => field.id()),
+              hasher: this.hasher,
+              runId: task.runId,
+              estimatedRowCount: task.estimatedRowCount,
+              cursor: batch.lastRecordId,
+              sourceChangedAt: task.sourceChangedAt,
+              stageDepth: (task.stageDepth ?? 0) + 1,
+              predecessorTaskId: task.id,
+              traceparent: task.traceparent,
+              tracestate: task.tracestate,
+            });
+            const enqueueResult = await this.outbox.enqueueFieldBackfill(
+              continuation,
+              txContext,
+              relayWorkerId
+                ? { relayClaim: { workerId: relayWorkerId, predecessorTaskId: task.id } }
+                : undefined
+            );
+            if (enqueueResult.isErr()) return err(enqueueResult.error);
+            pendingContinuation = {
+              taskId: enqueueResult.value.taskId,
+              ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
+            };
+          }
+
+          const doneResult = await this.markTaskDone(task, txContext);
+          if (doneResult.isErr()) return doneResult;
+          if (!doneResult.value) {
+            // Roll back the relay-claimed continuation so another worker cannot
+            // process overlapping cursor batches after this lease is lost.
+            return err(domainError.infrastructure({ message: FIELD_BACKFILL_OWNERSHIP_LOST }));
+          }
+          if (pendingContinuation) {
+            stagedContinuations.push(pendingContinuation);
+          }
+
+          return ok(true);
+        });
+      } finally {
+        await lease.release();
+      }
+    });
     if (transactionOutcome.status === 'cancelled') {
       for (const continuation of stagedContinuations) {
         if (continuation.claimed) {
@@ -2500,7 +2641,7 @@ export class ComputedUpdateWorker {
     this.logger.debug('computed:worker:field_backfill_done', {
       taskId: task.id,
       tableId: task.tableId,
-      fieldCount: fieldsToBackfill.length,
+      fieldCount,
       cursor: task.cursor,
       ...runLogContext,
     });
@@ -2587,204 +2728,249 @@ export class ComputedUpdateWorker {
 
     const seedData = seedPayloadResult.value;
 
-    // Load table with fields
-    failurePhase = 'load_seed_table';
-    const tableResult = await this.loadActiveTableForTask({
-      task,
-      tableId: seedData.seedTableId,
-      context,
-      logContext: runLogContext,
-    });
-    if (tableResult.isErr()) {
-      const recovered = await this.recoverFromTableLookupFailure({
-        task,
-        error: tableResult.error,
-        context,
-        logContext: runLogContext,
-        referencedTableIds: [seedData.seedTableId],
-      });
-      if (recovered.isOk() && recovered.value === 'retried') return ok(false);
-      if (recovered.isOk() && recovered.value === 'completed') return ok(true);
-      if (recovered.isOk() && recovered.value === 'blocked') return ok(false);
-      logSeedFailure(tableResult.error);
-      await this.handleTaskFailure(task, tableResult.error.message, context);
-      return err(tableResult.error);
-    }
-    if (tableResult.value.status !== 'loaded') {
-      return ok(tableResult.value.status === 'completed');
-    }
-
-    const table = tableResult.value.table;
-
-    // Compute the full plan from seed data
-    failurePhase = 'plan_seed';
-    const planResult = await this.planner.planStage(
-      {
-        baseId: table.baseId(),
-        seedTableId: table.id(),
-        seedRecordIds: seedData.seedRecordIds,
-        extraSeedRecords: seedData.extraSeedRecords,
-        beforeImageRecords: seedData.beforeImageRecords,
-        table,
-        changedFieldIds: seedData.changedFieldIds,
-        changeType: seedData.changeType,
-        cyclePolicy: seedData.cyclePolicy,
-        impact: seedData.impact
-          ? {
-              valueFieldIds: seedData.impact.valueFieldIds,
-              linkFieldIds: seedData.impact.linkFieldIds,
-            }
-          : undefined,
-      },
-      context
-    );
-    if (planResult.isErr()) {
-      logSeedFailure(planResult.error, 'computed:worker:seed_plan_failed');
-      await this.handleTaskFailure(task, planResult.error.message, context);
-      return err(planResult.error);
-    }
-
-    const plan: ComputedUpdatePlan = planResult.value;
-
-    // A plan with edges but no steps is still executable work (propagation-only
-    // orphan/delete plans); only a plan with neither is a no-op.
-    if (plan.steps.length === 0 && plan.edges.length === 0) {
-      this.logger.debug('computed:worker:seed_no_steps', {
-        taskId: task.id,
-        ...runLogContext,
-      });
-      const doneResult = await this.markTaskDone(task, context);
-      return doneResult;
-    }
-
-    // Bound the first transaction to the stage budget; activity registration below
-    // still advertises the full plan so pending targets stay visible across stages.
-    // Seed tasks predate planning, so no dirty estimate exists yet; the plan's
-    // own estimated complexity (steps + edges + seeds) is the adaptivity signal.
-    const stageSplit = this.splitPlanForStageBudget(plan);
-    const stagePlan = stageSplit.stagePlan;
-
-    failurePhase = 'project_activity';
-    const batchProgress = toComputedActivityBatch(task.orchestration);
-    const activityResult = await this.outbox.registerPlannedTaskActivity(
-      {
-        taskId: task.id,
-        baseId: plan.baseId.toString(),
-        targets: resolveFieldTargetsFromPlan(plan),
-        metrics: {
-          estimatedComplexity: plan.estimatedComplexity,
-          estimatedDirtyRecords: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
-          hasAllTargetRecords: hasAllTargetRecordsEdge(plan.edges),
-          ...(batchProgress ? { batchProgress } : {}),
-        },
-      },
-      context
-    );
-    if (activityResult.isErr()) {
-      logSeedFailure(activityResult.error);
-      await this.handleTaskFailure(task, activityResult.error.message, context);
-      return err(activityResult.error);
-    }
-
-    // Execute the plan within a transaction. Continuations only become
-    // processable after commit; see processComputedTask for the rationale.
+    const baseIdResult = BaseId.create(task.baseId);
+    if (baseIdResult.isErr()) return err(baseIdResult.error);
+    type PreparedSeed =
+      | Exclude<LoadTaskTableResult, { status: 'loaded' }>
+      | { status: 'loaded'; plan: ComputedUpdatePlan };
+    let stepCount = 0;
     const stagedContinuations: ContinuationRef[] = [];
-    const transactionOutcome = await this.runComputationTransaction(cancellation, () =>
-      this.unitOfWork.withTransaction(context, async (txContext) => {
-        failurePhase = 'set_statement_timeout';
-        const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
-        if (timeoutResult.isErr()) return err(timeoutResult.error);
-
-        const run = createComputedUpdateRun({
-          runId: task.runId,
-          totalSteps: plan.steps.length,
-          completedStepsBefore: 0,
-          phase: 'async',
-          taskId: task.id,
-        });
-
-        failurePhase = 'acquire_locks';
-        const lockOptions = this.resolveTaskLockOptions(task);
-        const lockResult = await this.updater.acquireLocks(stagePlan, txContext, {
-          logContext: runLogContext,
-          ...lockOptions,
-        });
-        if (lockResult.isErr()) return err(lockResult.error);
-
-        failurePhase = 'execute_plan';
-        // Seed tasks are always chain roots: their partial continuations carry
-        // this scope forward as computed tasks.
-        const ledgerScopeId = task.id;
-        const stageExecution = await this.runStageWithinDirtyBudget({
-          plan,
-          initialSplit: stageSplit,
-          context: txContext,
-          run,
-          ledgerScopeId,
-          lockOptions,
-          logContext: runLogContext,
-        });
-        if (stageExecution.isErr()) return err(stageExecution.error);
-        const { split: finalSplit, result: stageChanges, selfReferential } = stageExecution.value;
-
-        // Publish events for computed updates
-        const events = buildComputedUpdateEvents(
-          stageChanges.changesByStep,
-          plan.baseId,
-          task.orchestration
-        );
-        if (events.length > 0) {
-          failurePhase = 'publish_events';
-          await this.publishComputedUpdateEvents(txContext, events, {
-            failed: 'computed:worker:seed_events_publish_failed',
-            published: 'computed:worker:seed_events_published',
-            deferred: 'computed:worker:seed_events_publish_deferred',
+    const transactionOutcome = await this.runComputationTransaction(cancellation, async () => {
+      const preparedResult = await this.acquireSharedSchemaLease<PreparedSeed>(
+        context,
+        baseIdResult.value,
+        [seedData.seedTableId, ...seedData.extraSeedRecords.map((group) => group.tableId)],
+        cancellation?.signal,
+        async () => {
+          failurePhase = 'load_seed_table';
+          const tableResult = await this.loadActiveTableForTask({
+            task,
+            tableId: seedData.seedTableId,
+            context,
             logContext: runLogContext,
           });
-        }
-
-        let stageContinuationFieldIds = collectContinuationFieldIdsFromExecutedSteps(
-          plan,
-          finalSplit.stagePlan.steps,
-          stageChanges.changesByStep,
-          stageChanges.rejectedCells
-        );
-        if (stageChanges.fieldErrors?.length)
-          stageContinuationFieldIds = stageContinuationFieldIds.filter(
-            (id) => !stageChanges.fieldErrors!.some((entry) => entry.fieldId === id.toString())
+          if (tableResult.isErr()) return err(tableResult.error);
+          if (tableResult.value.status !== 'loaded') {
+            return ok({ value: tableResult.value, tableIds: [] });
+          }
+          const table = tableResult.value.table;
+          failurePhase = 'plan_seed';
+          const planResult = await this.planner.planStage(
+            {
+              baseId: table.baseId(),
+              seedTableId: table.id(),
+              seedRecordIds: seedData.seedRecordIds,
+              extraSeedRecords: seedData.extraSeedRecords,
+              beforeImageRecords: seedData.beforeImageRecords,
+              table,
+              changedFieldIds: seedData.changedFieldIds,
+              changeType: seedData.changeType,
+              cyclePolicy: seedData.cyclePolicy,
+              impact: seedData.impact,
+            },
+            context
           );
-
-        const settleResult = await this.settleStage({
-          task,
-          plan,
-          finalSplit,
-          stageChanges,
-          continuationFieldIds: stageContinuationFieldIds,
-          selfReferential,
-          runId: run.runId,
-          ledgerScopeId,
-          originRunIds: [...run.originRunIds],
-          runTotalSteps: plan.steps.length,
-          runCompletedStepsBefore: 0,
-          stageDepth: 0,
-          sourceChangedAt: task.sourceChangedAt,
-          orchestration: task.orchestration,
-          context: txContext,
-          logContext: runLogContext,
-          continuations: stagedContinuations,
-          relayWorkerId,
-          setPhase: (phase) => {
-            failurePhase = phase;
+          return planResult.map((plan) => ({
+            value: { status: 'loaded' as const, plan },
+            tableIds: this.getPlanSchemaTableIds(plan),
+          }));
+        }
+      );
+      if (preparedResult.isErr()) return err(preparedResult.error);
+      const { lease, value: prepared } = preparedResult.value;
+      try {
+        if (prepared.status !== 'loaded') return ok(prepared.status === 'completed');
+        const { plan } = prepared;
+        stepCount = plan.steps.length;
+        const stageSplit = this.splitPlanForStageBudget(plan);
+        const stagePlan = stageSplit.stagePlan;
+        failurePhase = 'project_activity';
+        const batchProgress = toComputedActivityBatch(task.orchestration);
+        const activityResult = await this.outbox.registerPlannedTaskActivity(
+          {
+            taskId: task.id,
+            baseId: plan.baseId.toString(),
+            targets: resolveFieldTargetsFromPlan(plan),
+            metrics: {
+              estimatedComplexity: plan.estimatedComplexity,
+              estimatedDirtyRecords: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
+              hasAllTargetRecords: hasAllTargetRecordsEdge(plan.edges),
+              ...(batchProgress ? { batchProgress } : {}),
+            },
           },
-        });
-        if (settleResult.isErr()) return err(settleResult.error);
-        if (settleResult.value.kind === 'done') return ok(settleResult.value.processed);
-        const { seedGroups, seedAllTableIds } = settleResult.value;
+          context
+        );
+        if (activityResult.isErr()) return err(activityResult.error);
+        // Release only after commit/rollback and continuation settlement.
+        return await this.unitOfWork.withTransaction(context, async (txContext) => {
+          failurePhase = 'set_statement_timeout';
+          const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+          if (timeoutResult.isErr()) return err(timeoutResult.error);
 
-        // Plan next stage if needed
-        // If there are no cross-record propagation edges, the plan is purely same-record
-        // (e.g. same-table formula chains) and should not enqueue follow-up stages.
-        if (plan.edges.length === 0) {
+          const run = createComputedUpdateRun({
+            runId: task.runId,
+            totalSteps: plan.steps.length,
+            completedStepsBefore: 0,
+            phase: 'async',
+            taskId: task.id,
+          });
+
+          failurePhase = 'acquire_locks';
+          const lockOptions = this.resolveTaskLockOptions(task);
+          const lockResult = await this.updater.acquireLocks(stagePlan, txContext, {
+            logContext: runLogContext,
+            ...lockOptions,
+          });
+          if (lockResult.isErr()) return err(lockResult.error);
+
+          failurePhase = 'execute_plan';
+          // Seed tasks are always chain roots: their partial continuations carry
+          // this scope forward as computed tasks.
+          const ledgerScopeId = task.id;
+          const stageExecution = await this.runStageWithinDirtyBudget({
+            plan,
+            initialSplit: stageSplit,
+            context: txContext,
+            run,
+            ledgerScopeId,
+            lockOptions,
+            logContext: runLogContext,
+          });
+          if (stageExecution.isErr()) return err(stageExecution.error);
+          const { split: finalSplit, result: stageChanges, selfReferential } = stageExecution.value;
+
+          // Publish events for computed updates
+          const events = buildComputedUpdateEvents(
+            stageChanges.changesByStep,
+            plan.baseId,
+            task.orchestration
+          );
+          if (events.length > 0) {
+            failurePhase = 'publish_events';
+            await this.publishComputedUpdateEvents(txContext, events, {
+              failed: 'computed:worker:seed_events_publish_failed',
+              published: 'computed:worker:seed_events_published',
+              deferred: 'computed:worker:seed_events_publish_deferred',
+              logContext: runLogContext,
+            });
+          }
+
+          let stageContinuationFieldIds = collectContinuationFieldIdsFromExecutedSteps(
+            plan,
+            finalSplit.stagePlan.steps,
+            stageChanges.changesByStep,
+            stageChanges.rejectedCells
+          );
+          if (stageChanges.fieldErrors?.length)
+            stageContinuationFieldIds = stageContinuationFieldIds.filter(
+              (id) => !stageChanges.fieldErrors!.some((entry) => entry.fieldId === id.toString())
+            );
+
+          const settleResult = await this.settleStage({
+            task,
+            plan,
+            finalSplit,
+            stageChanges,
+            continuationFieldIds: stageContinuationFieldIds,
+            selfReferential,
+            runId: run.runId,
+            ledgerScopeId,
+            originRunIds: [...run.originRunIds],
+            runTotalSteps: plan.steps.length,
+            runCompletedStepsBefore: 0,
+            stageDepth: 0,
+            sourceChangedAt: task.sourceChangedAt,
+            orchestration: task.orchestration,
+            context: txContext,
+            logContext: runLogContext,
+            continuations: stagedContinuations,
+            relayWorkerId,
+            setPhase: (phase) => {
+              failurePhase = phase;
+            },
+          });
+          if (settleResult.isErr()) return err(settleResult.error);
+          if (settleResult.value.kind === 'done') return ok(settleResult.value.processed);
+          const { seedGroups, seedAllTableIds } = settleResult.value;
+
+          // Plan next stage if needed
+          // If there are no cross-record propagation edges, the plan is purely same-record
+          // (e.g. same-table formula chains) and should not enqueue follow-up stages.
+          if (plan.edges.length === 0) {
+            const doneResult = await this.markTaskDone(
+              task,
+              txContext,
+              stageChanges.rejectedCells,
+              toRunHistoryPlan(plan),
+              stageChanges.fieldErrors
+            );
+            if (doneResult.isErr()) return err(doneResult.error);
+            if (!doneResult.value) return ok(false);
+            return ok(true);
+          }
+          failurePhase = 'plan_next_stage';
+          const nextPlanResult = (
+            await this.planNextStage(
+              plan,
+              txContext,
+              stageContinuationFieldIds,
+              seedGroups,
+              seedAllTableIds,
+              stageChanges.changesByStep
+            )
+          ).map((nextPlan) => withoutFailedComputedFields(nextPlan, stageChanges));
+          if (nextPlanResult.isErr()) return err(nextPlanResult.error);
+
+          // Enqueue next stage if there is more work (steps, or propagation-only edges)
+          // Seed tasks start at depth 0, so the first follow-up is depth 1
+          if (nextPlanResult.value.steps.length > 0 || nextPlanResult.value.edges.length > 0) {
+            const nextTask = buildOutboxTaskInput({
+              plan: nextPlanResult.value,
+              dirtyStats: seedGroups.map((group) => ({
+                tableId: group.tableId.toString(),
+                recordCount: group.recordIds.length,
+              })),
+              syncMaxLevel: 0,
+              hasher: this.hasher,
+              runId: run.runId,
+              originRunIds: [...run.originRunIds],
+              runTotalSteps: plan.steps.length + nextPlanResult.value.steps.length,
+              runCompletedStepsBefore: plan.steps.length,
+              stageDepth: 1,
+              sourceChangedAt: task.sourceChangedAt,
+              predecessorTaskId: task.id,
+              sourceFieldIds: sourceFieldIdsOf(task),
+              orchestration: task.orchestration,
+              traceparent: task.traceparent,
+              tracestate: task.tracestate,
+            });
+            // Import seed chunks share a schema, but must not coalesce back into an
+            // unbounded planned task. Retries of this predecessor keep the same key.
+            if (task.changeType === 'insert') {
+              nextTask.planHash = buildContinuationPlanHash(nextTask.planHash, {
+                runId: run.runId,
+                stageIndex: plan.steps.length,
+                predecessorTaskId: task.id,
+              });
+            }
+
+            failurePhase = 'enqueue_next_stage';
+            const enqueueResult = await this.outbox.enqueueOrMerge(
+              nextTask,
+              txContext,
+              relayWorkerId
+                ? { relayClaim: { workerId: relayWorkerId, predecessorTaskId: task.id } }
+                : undefined
+            );
+            if (enqueueResult.isErr()) return err(enqueueResult.error);
+            stagedContinuations.push({
+              taskId: enqueueResult.value.taskId,
+              ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
+            });
+          }
+
+          // Mark seed task as done
+          failurePhase = 'mark_done';
           const doneResult = await this.markTaskDone(
             task,
             txContext,
@@ -2794,84 +2980,13 @@ export class ComputedUpdateWorker {
           );
           if (doneResult.isErr()) return err(doneResult.error);
           if (!doneResult.value) return ok(false);
+
           return ok(true);
-        }
-        failurePhase = 'plan_next_stage';
-        const nextPlanResult = (
-          await this.planNextStage(
-            plan,
-            txContext,
-            stageContinuationFieldIds,
-            seedGroups,
-            seedAllTableIds,
-            stageChanges.changesByStep
-          )
-        ).map((nextPlan) => withoutFailedComputedFields(nextPlan, stageChanges));
-        if (nextPlanResult.isErr()) return err(nextPlanResult.error);
-
-        // Enqueue next stage if there is more work (steps, or propagation-only edges)
-        // Seed tasks start at depth 0, so the first follow-up is depth 1
-        if (nextPlanResult.value.steps.length > 0 || nextPlanResult.value.edges.length > 0) {
-          const nextTask = buildOutboxTaskInput({
-            plan: nextPlanResult.value,
-            dirtyStats: seedGroups.map((group) => ({
-              tableId: group.tableId.toString(),
-              recordCount: group.recordIds.length,
-            })),
-            syncMaxLevel: 0,
-            hasher: this.hasher,
-            runId: run.runId,
-            originRunIds: [...run.originRunIds],
-            runTotalSteps: plan.steps.length + nextPlanResult.value.steps.length,
-            runCompletedStepsBefore: plan.steps.length,
-            stageDepth: 1,
-            sourceChangedAt: task.sourceChangedAt,
-            predecessorTaskId: task.id,
-            sourceFieldIds: sourceFieldIdsOf(task),
-            orchestration: task.orchestration,
-            traceparent: task.traceparent,
-            tracestate: task.tracestate,
-          });
-          // Import seed chunks share a schema, but must not coalesce back into an
-          // unbounded planned task. Retries of this predecessor keep the same key.
-          if (task.changeType === 'insert') {
-            nextTask.planHash = buildContinuationPlanHash(nextTask.planHash, {
-              runId: run.runId,
-              stageIndex: plan.steps.length,
-              predecessorTaskId: task.id,
-            });
-          }
-
-          failurePhase = 'enqueue_next_stage';
-          const enqueueResult = await this.outbox.enqueueOrMerge(
-            nextTask,
-            txContext,
-            relayWorkerId
-              ? { relayClaim: { workerId: relayWorkerId, predecessorTaskId: task.id } }
-              : undefined
-          );
-          if (enqueueResult.isErr()) return err(enqueueResult.error);
-          stagedContinuations.push({
-            taskId: enqueueResult.value.taskId,
-            ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
-          });
-        }
-
-        // Mark seed task as done
-        failurePhase = 'mark_done';
-        const doneResult = await this.markTaskDone(
-          task,
-          txContext,
-          stageChanges.rejectedCells,
-          toRunHistoryPlan(plan),
-          stageChanges.fieldErrors
-        );
-        if (doneResult.isErr()) return err(doneResult.error);
-        if (!doneResult.value) return ok(false);
-
-        return ok(true);
-      })
-    );
+        });
+      } finally {
+        await lease.release();
+      }
+    });
     if (transactionOutcome.status === 'cancelled') {
       for (const continuation of stagedContinuations) {
         if (continuation.claimed) {
@@ -2928,7 +3043,7 @@ export class ComputedUpdateWorker {
     this.logger.debug('computed:worker:seed_done', {
       taskId: task.id,
       seedTableId: task.seedTableId,
-      stepCount: plan.steps.length,
+      stepCount,
       ...runLogContext,
     });
 

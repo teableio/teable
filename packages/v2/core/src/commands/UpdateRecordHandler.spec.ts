@@ -12,6 +12,7 @@ import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type {
   RecordUpdateUndoRedoInput,
   RecordSnapshotUndoRedoInput,
+  UndoRedoStackEntryInput,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
@@ -579,7 +580,7 @@ class FakeUndoRedoService {
   async appendEntry(
     _context: IExecutionContext,
     _tableId: TableId,
-    entry: unknown
+    entry: UndoRedoStackEntryInput
   ): Promise<Result<void, DomainError>> {
     this.entryCalls.push(entry);
     return ok(undefined);

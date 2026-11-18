@@ -75,7 +75,9 @@
     "exportTitle": "ייצוא",
     "exportDescription": "ייצוא הפרויקט הנוכחי לקובץ .tea, פעולה שעשויה לקחת זמן.",
     "exportStartButton": "התחלת הייצוא",
-    "exportSlowTip": "נפח הנתונים גדול. הייצוא עשוי להימשך זמן מה. אפשר לצאת בינתיים.",
+    "exportSlowTip": "נפח הנתונים גדול. הייצוא עשוי להימשך זמן מה.",
+    "exportBusy": "כבר מתבצע ייצוא. יש לנסות שוב בעוד זמן קצר.",
+    "exportNavigationWarning": "עזיבת הדף או רענונו מבטלים את הייצוא, אלא אם לשונית אחרת עדיין עוקבת אחר אותו ייצוא. סגירת תיבת הדו־שיח הזו אינה מבטלת אותו.",
     "exportReadyDescription": "יש להוריד את קובץ ה-.tea, {{importHint}}",
     "moveBaseSuccessTitle": "הפרויקט הועבר",
     "moveBaseSuccessDescription": "{{baseName}} הועבר אל {{spaceName}}",
@@ -223,6 +225,8 @@
   "publishBase": {
     "title": "פרסום במרכז התבניות",
     "description": "פרסום הפרויקט במרכז התבניות בלחיצה אחת! כך עוד אנשים יוכלו לראות את היצירה שלך, להשתמש בה ולהתאים אותה לעצמם, ויחד נבנה עסק חזק יותר",
+    "configureTitle": "הגדרת פרטי התבנית",
+    "configureDescription": "תבניות מצטיינות עשויות להופיע במרכז התבניות",
     "infoTitle": "פרטים בסיסיים",
     "form": {
       "title": "שם היצירה",
@@ -234,8 +238,6 @@
       "defaultActiveNode": "הפריט הפעיל כברירת מחדל",
       "descriptionPlaceholder": "תיאור קצר של הרעיון...",
       "titlePlaceholder": "שם ליצירה שלך...",
-      "cover": "תמונת שער",
-      "coverHint": "16:9, מוצגת בכרטיס בקטלוג ובדף הציבורי",
       "versionTitle": "תוכן הגרסה",
       "addChangelog": "הוספת הערות גרסה"
     },
@@ -244,33 +246,32 @@
     "publishSuccess": "הפרסום הצליח!",
     "previewTips": "שהעולם יראה את היצירה שלך",
     "update": "עדכון",
-    "submit": "הגשה לבדיקה",
-    "submitted": "הוגש לבדיקה",
+    "submit": "פרסום התבנית",
     "review": {
       "status": {
-        "review": "בבדיקה",
-        "rejected": "הוחזר לתיקונים",
-        "withdrawn": "ההגשה בוטלה"
+        "review": "בבדיקה"
       },
-      "submittedTime": "הוגש {{time}}",
-      "note": "הערת הבודק",
-      "checks": "בדיקות אוטומטיות",
       "check": {
         "connectors": "חיבורים",
         "privacy": "פרטיות",
         "estimate": "הערכת הרצות",
-        "trial": "הרצת ניסיון"
+        "trial": "הרצת ניסיון",
+        "content": "תוכן"
       },
       "checkMessage": {
         "connectors": "לא ניתן להתחבר כאן אל: {{providers}}",
         "privacy": "הרשומות נכללות; יש לבדוק שאין בהן מידע אישי",
         "estimate": "כ־{{runs}} הרצות בחודש, יותר מ־{{free}} שבתוכנית החינמית",
-        "trial": "האוטומציות אינן דורשות חשבון; יש לוודא שהן פועלות גם בלעדיו"
+        "trial": "האוטומציות אינן דורשות חשבון; יש לוודא שהן פועלות גם בלעדיו",
+        "content": "עדיין רק שלך: {{count}}",
+        "contentMarked": "סומנו כדוגמה: {{count}}"
       },
-      "withdraw": "ביטול ההגשה",
-      "withdrawn": "ההגשה בוטלה.",
-      "live": "פורסם · v{{version}}",
-      "publicLink": "קישור ציבורי"
+      "withdraw": "ביטול פרסום",
+      "withdrawn": "הפרסום בוטל.",
+      "withdrawConfirmTitle": "לבטל את פרסום התבנית?",
+      "withdrawConfirmDescription": "לאחר הביטול הקישור לתבנית לא ייפתח והיא לא תופיע במרכז התבניות. עותקים מותקנים לא יושפעו, ואפשר לפרסם אותה שוב בהמשך.",
+      "live": "פורסמה · v{{version}}",
+      "listed": "במרכז התבניות"
     },
     "unPublish": "ביטול פרסום",
     "unPublishSuccess": "פרסום הפרויקט בוטל בהצלחה!",
@@ -284,7 +285,8 @@
     "invalidImageType": "יש לבחור קובץ תמונה",
     "tips": {
       "publishValidation": "שם ותיאור הם שדות חובה",
-      "atLeastOneNode": "יש לבחור לפחות פריט אחד לפרסום"
+      "atLeastOneNode": "יש לבחור לפחות פריט אחד לפרסום",
+      "coverRequired": "הוסיפו תמונת שער"
     },
     "urlCopied": "כתובת ה-URL הועתקה ללוח!",
     "urlCopiedForDiscord": "כתובת ה-URL הועתקה ללוח! אפשר להדביק אותה ב-Discord.",
@@ -308,7 +310,7 @@
       "redeploy": "פריסה מחדש",
       "unnamedApp": "אפליקציה ללא שם"
     },
-    "submitVersion": "הגשת v{{version}} לבדיקה"
+    "submitVersion": "פרסום v{{version}}"
   },
   "dataDb": {
     "create": {
@@ -458,6 +460,7 @@
       "valuesDropped_one": "{{sheetName}} / {{fieldName}}: {{count}} ערכים הושמטו ({{reason}})",
       "valuesDropped_two": "{{sheetName}} / {{fieldName}}: {{count}} ערכים הושמטו ({{reason}})",
       "valuesDropped_other": "{{sheetName}} / {{fieldName}}: {{count}} ערכים הושמטו ({{reason}})",
+      "rowSamples": "שורות המקור (עד 100 דוגמאות): {{rows}}.",
       "sheetSkipped": "הלשונית \"{{sheetName}}\" דולגה: {{reason}}",
       "columnsTruncated_one": "{{sheetName}}: {{count}} עמודות שחרגו ממגבלת העמודות לא יובאו",
       "columnsTruncated_two": "{{sheetName}}: {{count}} עמודות שחרגו ממגבלת העמודות לא יובאו",
@@ -483,5 +486,16 @@
     "fromFileDesc": "העלאת קובץ ‎.tea",
     "fromAirtableDesc": "בחירת base",
     "fromGoogleSheetDesc": "בחירת גיליון"
+  },
+  "templateProject": {
+    "make": "הפיכה לתבנית",
+    "new": "פרויקט תבנית חדש",
+    "plural": "פרויקטי תבנית",
+    "projectsTab": "פרויקטים",
+    "empty": "עדיין אין פרויקטי תבנית",
+    "trialCopy": "עותק ניסיון",
+    "wholeProject": "כל מה שבפרויקט ({{count}})",
+    "sampleRecords": "רשומות לדוגמה: {{count}}",
+    "noRecords": "אין רשומות"
   }
 }

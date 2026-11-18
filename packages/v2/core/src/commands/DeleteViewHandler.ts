@@ -11,11 +11,11 @@ import { Table as TableAggregate, type Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
 import type { ViewId } from '../domain/table/views/ViewId';
 import type { ViewSnapshotValue } from '../domain/table/views/ViewSnapshot';
-import * as EventBusPort from '../ports/EventBus';
-import type * as ExecutionContextPort from '../ports/ExecutionContext';
+import { domainWrite, type DomainWriteDecision } from '../ports/DomainWriteTransaction';
+import * as DomainWriteTransactionPort from '../ports/DomainWriteTransaction';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteViewCommand } from './DeleteViewCommand';
 
@@ -50,10 +50,8 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
     private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
-    @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.domainWriteTransaction)
+    private readonly domainWriteTransaction: DomainWriteTransactionPort.IDomainWriteTransaction,
     @inject(v2CoreTokens.viewUndoRedoService)
     private readonly viewUndoRedoService: ViewUndoRedoService
   ) {}
@@ -62,11 +60,25 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
     context: ExecutionContextPort.IExecutionContext,
     command: DeleteViewCommand
   ): Promise<Result<DeleteViewResult, DomainError>> {
+    const poisoned = ExecutionContextPort.getBatchRollbackError(context);
+    if (poisoned) {
+      return err(poisoned);
+    }
+    return ExecutionContextPort.failBatchResultIfActive(
+      context,
+      await this.executeHandle(context, command)
+    );
+  }
+
+  private async executeHandle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: DeleteViewCommand
+  ): Promise<Result<DeleteViewResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    const transactionResult = await this.unitOfWork.withTransaction(
+    const transactionResult = await this.domainWriteTransaction.execute(
       context,
       async (transactionContext) =>
-        safeTry<DeleteViewResult, DomainError>(async function* () {
+        safeTry<DomainWriteDecision<DeleteViewResult>, DomainError>(async function* () {
           const tableSpec = yield* TableAggregate.specs().byId(command.tableId).build();
           const tableResult = await handler.tableRepository.findOne(transactionContext, tableSpec, {
             lock: 'forUpdate',
@@ -144,27 +156,43 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
 
           const events = [...updateResult.events, ...updateResult.postPersistEvents];
           return ok(
-            DeleteViewResult.create(updateResult.table, command.viewId, deletedSnapshot, events)
+            domainWrite.fromEvents(
+              DeleteViewResult.create(updateResult.table, command.viewId, deletedSnapshot, events),
+              events,
+              { tables: [updateResult.table] }
+            )
           );
         }),
       { scope: 'meta' }
     );
 
     if (transactionResult.isErr()) return err(transactionResult.error);
-    if (transactionResult.value.events.length > 0) {
-      const publishResult = await this.eventBus.publishMany(
-        context,
-        transactionResult.value.events
-      );
-      if (publishResult.isErr()) return err(publishResult.error);
+    const { table: updatedTable, deletedSnapshot } = transactionResult.value.value;
+    if (
+      transactionResult.value.status === 'deferred' &&
+      ExecutionContextPort.isReusableBatchTransactionScope(context.batchTransaction)
+    ) {
+      const dispatchContext = ExecutionContextPort.withoutTransaction(context);
+      context.batchTransaction.enqueueAfterCommit(async () => {
+        const undoRedoResult = await this.viewUndoRedoService.appendDelete(
+          dispatchContext,
+          updatedTable,
+          deletedSnapshot
+        );
+        if (undoRedoResult.isErr()) {
+          throw new Error(undoRedoResult.error.message);
+        }
+      });
+      return ok(transactionResult.value.value);
     }
+
     const undoRedoResult = await this.viewUndoRedoService.appendDelete(
       context,
-      transactionResult.value.table,
-      transactionResult.value.deletedSnapshot
+      updatedTable,
+      deletedSnapshot
     );
     if (undoRedoResult.isErr()) return err(undoRedoResult.error);
-    return ok(transactionResult.value);
+    return ok(transactionResult.value.value);
   }
 
   private groupLinkDependencies(

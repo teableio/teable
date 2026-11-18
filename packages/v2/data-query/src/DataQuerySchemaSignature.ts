@@ -95,7 +95,42 @@ export const dataQuerySchemaSignature = async (
               formulaLanguage: plan.formulaLanguage,
             }
           : {}),
-        ...(plan.definitionVersion === 6 ? { resultGrain: plan.resultGrain } : {}),
+        ...(plan.definitionVersion === 6 || plan.definitionVersion === 8
+          ? { resultGrain: plan.resultGrain }
+          : {}),
+        ...(plan.definitionVersion === 8
+          ? {
+              distinctAggregates: plan.aggregates
+                .filter((metric) => metric.distinctExpressions)
+                .map((metric) => ({
+                  alias: metric.alias,
+                  source: metric.source,
+                  keys: metric.distinctExpressions!.map((key) => ({
+                    formula: key.formula,
+                    recordSource: key.recordSource,
+                    timeZone: key.timeZone,
+                    references: Object.fromEntries(
+                      Object.entries(key.references).map(([alias, reference]) => [
+                        alias,
+                        reference.kind === 'field'
+                          ? {
+                              kind: reference.kind,
+                              source: reference.source,
+                              fieldId: reference.fieldId,
+                            }
+                          : reference.kind === 'system'
+                            ? {
+                                kind: reference.kind,
+                                source: reference.source,
+                                system: reference.system,
+                              }
+                            : { kind: reference.kind, name: reference.name },
+                      ])
+                    ),
+                  })),
+                })),
+            }
+          : {}),
         fields,
         outputs,
       })

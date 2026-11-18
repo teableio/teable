@@ -42,7 +42,7 @@ import type {
 } from './types';
 
 const distinctSortAlias = (
-  value: Extract<DataQueryDefinitionInput, { version: 6; kind: 'records' }>,
+  value: Extract<DataQueryDefinitionInput, { version: 6 | 8; kind: 'records' }>,
   target: Exclude<DataQuerySortResolved, { alias: string }>
 ): string | undefined => {
   const source = 'source' in target ? target.source : 'root';
@@ -498,6 +498,30 @@ const v6Schema = z.discriminatedUnion('kind', [
     .strict(),
   v5Schema.options[1].extend({ version: z.literal(6) }).strict(),
 ]);
+const v8MetricSchema = z.union([
+  v4MetricSchema,
+  z
+    .object({
+      source: dataQueryNameSchema.optional(),
+      statisticFunc: z.literal('unique'),
+      distinctBy: z
+        .tuple([dataQueryFormulaExpressionSchema])
+        .rest(dataQueryFormulaExpressionSchema)
+        .check(z.maxLength(8)),
+      alias: aliasSchema,
+      filter: predicateV3Schema.optional(),
+    })
+    .strict(),
+]);
+const v8Schema = z.discriminatedUnion('kind', [
+  v6Schema.options[0].extend({ version: z.literal(8) }).strict(),
+  v6Schema.options[1]
+    .extend({
+      version: z.literal(8),
+      aggregates: z.tuple([v8MetricSchema]).rest(v8MetricSchema),
+    })
+    .strict(),
+]);
 export const dataQueryDefinitionInputSchema: z.ZodType<
   DataQueryDefinitionInput,
   DataQueryDefinitionInput
@@ -510,7 +534,7 @@ export const dataQueryDefinitionInputSchema: z.ZodType<
     }
     return raw;
   },
-  z.union([v1Schema, v2Schema, v3Schema, v4Schema, v5Schema, v6Schema])
+  z.union([v1Schema, v2Schema, v3Schema, v4Schema, v5Schema, v6Schema, v8Schema])
 );
 
 export const isParameterReference = (value: unknown): value is DataQueryParameterReference =>
@@ -618,11 +642,19 @@ export const dataQueryParameterUsage = (definition: DataQueryDefinitionInput): P
           if (node.type === 'parameter') record(node, false);
         });
   if (
-    (definition.version === 4 || definition.version === 5 || definition.version === 6) &&
+    (definition.version === 4 ||
+      definition.version === 5 ||
+      definition.version === 6 ||
+      definition.version === 8) &&
     definition.kind === 'aggregate'
   ) {
     for (const aggregate of definition.aggregates) {
-      if ('expr' in aggregate)
+      if ('distinctBy' in aggregate)
+        for (const expression of aggregate.distinctBy)
+          walkDataQueryFormulaExpression(expression, (node) => {
+            if (node.type === 'parameter') record(node, false);
+          });
+      if ('expr' in aggregate && aggregate.expr)
         walkDataQueryFormulaExpression(aggregate.expr, (node) => {
           if (node.type === 'parameter') record(node, false);
         });
@@ -839,8 +871,14 @@ const expressionSyntaxRoots = (definition: Record<string, unknown>): unknown[] =
   const roots: unknown[] = [definition.filter, definition.having];
   if (Array.isArray(definition.select))
     appendExpressionSyntaxProperties(roots, definition.select, ['expr']);
-  if (Array.isArray(definition.aggregates))
+  if (Array.isArray(definition.aggregates)) {
     appendExpressionSyntaxProperties(roots, definition.aggregates, ['expr', 'filter']);
+    for (const aggregate of definition.aggregates) {
+      if (!aggregate || typeof aggregate !== 'object') continue;
+      const keys = Object.getOwnPropertyDescriptor(aggregate, 'distinctBy')?.value;
+      if (Array.isArray(keys)) roots.push(...keys);
+    }
+  }
   if (definition.relations && typeof definition.relations === 'object')
     appendExpressionSyntaxProperties(roots, Object.values(definition.relations), ['filter']);
   return roots;
@@ -880,11 +918,11 @@ export const validateDataQueryDefinitionInputBounds = (raw: unknown): Result<voi
       return err(queryError('invalid_definition', 'Query definitions must contain plain data'));
     if (raw !== null && typeof raw === 'object') {
       const version = Object.getOwnPropertyDescriptor(raw, 'version')?.value;
-      if (typeof version === 'number' && ![1, 2, 3, 4, 5, 6].includes(version))
+      if (typeof version === 'number' && ![1, 2, 3, 4, 5, 6, 8].includes(version))
         return err(
           queryError('unsupported_version', 'Structured query definition version is not supported')
         );
-      if (version === 3 || version === 4 || version === 5 || version === 6)
+      if (version === 3 || version === 4 || version === 5 || version === 6 || version === 8)
         return validateExpressionSyntaxBounds(raw);
     }
     return ok(undefined);
@@ -1226,7 +1264,12 @@ const validateDistinctSort = (
   value: DataQueryDefinitionInput,
   sort: DataQuerySort
 ): Result<void, DomainError> => {
-  if (value.version !== 6 || value.kind !== 'records' || !value.distinct || 'alias' in sort) {
+  if (
+    (value.version !== 6 && value.version !== 8) ||
+    value.kind !== 'records' ||
+    !value.distinct ||
+    'alias' in sort
+  ) {
     return ok(undefined);
   }
   const targets = 'field' in sort ? sort.allowed : [sort];
@@ -1318,7 +1361,7 @@ const validateRelationAggregateEntry = (
     }
     return ok(undefined);
   }
-  if (aggregate.fieldId === undefined && !('expr' in aggregate)) {
+  if (aggregate.fieldId === undefined && !('expr' in aggregate) && !('distinctBy' in aggregate)) {
     return err(
       queryError(
         'relation_aggregate_field',
@@ -1398,7 +1441,7 @@ const validateRelations = (value: DataQueryDefinitionInput): Result<void, Domain
       return err(queryError('join_source_unknown', 'Existence requires a declared relation'));
     return ok(undefined);
   };
-  if ((value.version === 5 || value.version === 6) && value.filter) {
+  if ((value.version === 5 || value.version === 6 || value.version === 8) && value.filter) {
     const result = validateExistence(value.filter);
     if (result.isErr()) return result;
   }
@@ -1463,13 +1506,15 @@ const validateRelations = (value: DataQueryDefinitionInput): Result<void, Domain
       if (
         !('source' in aggregate) ||
         aggregate.source === undefined ||
-        (value.version >= 4 && 'expr' in aggregate && aggregate.source === 'root')
+        (value.version >= 4 &&
+          ('expr' in aggregate || 'distinctBy' in aggregate) &&
+          aggregate.source === 'root')
       )
         continue;
       relationAggregates.push({
         aggregate: aggregate as DataQueryRelationAggregate,
         location: `aggregates.${index}`,
-        allowUnique: false,
+        allowUnique: value.version === 8,
       });
     }
   }
@@ -1508,10 +1553,16 @@ const projectionParameterReferences = (
   if (value.version < 3) return references;
   const expressions = value.kind === 'records' ? value.select : value.aggregates;
   for (const projection of expressions) {
-    if (!('expr' in projection)) continue;
-    walkDataQueryFormulaExpression(projection.expr, (node) => {
-      if (node.type === 'parameter') references.push(node);
-    });
+    const keys =
+      'distinctBy' in projection
+        ? projection.distinctBy
+        : 'expr' in projection && projection.expr
+          ? [projection.expr]
+          : [];
+    for (const expression of keys)
+      walkDataQueryFormulaExpression(expression, (node) => {
+        if (node.type === 'parameter') references.push(node);
+      });
   }
   return references;
 };
@@ -1522,7 +1573,7 @@ const aggregateParameterReferences = (
 ): Result<DataQueryParameterReference[], DomainError> =>
   safeTry(function* () {
     if (
-      (value.version !== 4 && value.version !== 5 && value.version !== 6) ||
+      (value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 8) ||
       value.kind !== 'aggregate'
     )
       return ok([]);
@@ -1732,7 +1783,8 @@ const bindDistinctSorts = (
   value: DataQueryDefinitionInput,
   sort: DataQuerySortResolved[]
 ): Result<DataQuerySortResolved[], DomainError> => {
-  if (value.version !== 6 || value.kind !== 'records' || !value.distinct) return ok(sort);
+  if ((value.version !== 6 && value.version !== 8) || value.kind !== 'records' || !value.distinct)
+    return ok(sort);
   for (let index = 0; index < sort.length; index++) {
     const item = sort[index]!;
     if ('alias' in item) continue;

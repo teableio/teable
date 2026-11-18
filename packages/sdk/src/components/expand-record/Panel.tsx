@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -65,12 +66,33 @@ export const Panel: FC<
     // the open record as the breadcrumb of a record stacked over it shows it
     crumb?: Omit<IExpandRecordCrumb, 'close'>;
     className?: string;
+    // false keeps Escape from closing it: a new record's draft goes only through its own buttons
+    closeOnEscape?: boolean;
+    // changing it while open brings the panel back on top of one opened beside it later: a new
+    // record opened into it, or its opener clicked again
+    raiseKey?: string | number;
     onClose?: () => void;
   }>
 > = (props) => {
-  const { visible, extraWidth = 0, crumb, className, onClose, children } = props;
-  const { container } = useContext(ExpandRecordPanelHostContext);
+  const {
+    visible,
+    extraWidth = 0,
+    crumb,
+    className,
+    closeOnEscape = true,
+    raiseKey,
+    onClose,
+    children,
+  } = props;
+  const { container, roots, registerRoot, raiseRoot } = useContext(ExpandRecordPanelHostContext);
   const parentStack = useContext(ExpandRecordPanelStackContext);
+  const rootId = useId();
+  const isRoot = parentStack.depth === 0;
+  // another panel opened beside this one later sits on top of it, and on the records stacked
+  // over it, until it closes
+  const covered = isRoot
+    ? Boolean(roots?.length) && roots?.at(-1) !== rootId
+    : Boolean(parentStack.covered);
   const ref = useRef<HTMLDivElement>(null);
   const [storedWidth, setStoredWidth] = useLocalStorage<number>(
     LocalStorageKeys.ExpandRecordPanelSize,
@@ -92,6 +114,18 @@ export const Panel: FC<
     return registerInParent?.();
   }, [visible, registerInParent]);
 
+  useLayoutEffect(() => {
+    if (!visible || !isRoot) return;
+    return registerRoot?.(rootId);
+  }, [visible, isRoot, registerRoot, rootId]);
+
+  useLayoutEffect(() => {
+    if (!visible || !isRoot || raiseKey === undefined) return;
+    raiseRoot?.(rootId);
+    // only a new key raises it: being shown registers it on top already
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raiseKey]);
+
   const registerChild = useCallback(() => {
     setChildCount((count) => count + 1);
     return () => setChildCount((count) => count - 1);
@@ -100,7 +134,7 @@ export const Panel: FC<
   // Escape closes the top panel wherever focus is. Captured on the window so nothing on the page
   // can swallow it first; a panel with a record stacked over it leaves the key to that one.
   useEffect(() => {
-    if (!visible || childCount > 0) return;
+    if (!visible || childCount > 0 || covered || !closeOnEscape) return;
     const onKeyDownCapture = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.isComposing) return;
       if (document.querySelector(OPEN_LAYER_SELECTOR)) return;
@@ -110,7 +144,7 @@ export const Panel: FC<
     };
     window.addEventListener('keydown', onKeyDownCapture, true);
     return () => window.removeEventListener('keydown', onKeyDownCapture, true);
-  }, [visible, childCount, onClose]);
+  }, [visible, childCount, covered, closeOnEscape, onClose]);
 
   const { title, tableName, openTable } = crumb ?? {};
   const stackValue = useMemo(
@@ -119,6 +153,7 @@ export const Panel: FC<
       trail: [...parentStack.trail, { title, tableName, openTable, close: onClose }],
       closeRoot: parentStack.closeRoot ?? onClose,
       registerChild,
+      covered,
     }),
     [
       parentStack.depth,
@@ -129,6 +164,7 @@ export const Panel: FC<
       parentStack.closeRoot,
       onClose,
       registerChild,
+      covered,
     ]
   );
 
@@ -170,7 +206,7 @@ export const Panel: FC<
           parentStack.depth === 0 && 'animate-in slide-in-from-right rtl:slide-in-from-left',
           dragging && 'select-none',
           // a linked record stacked on top replaces this one until it is closed
-          childCount > 0 && 'invisible',
+          (childCount > 0 || covered) && 'invisible',
           className
         )}
         style={{ width }}

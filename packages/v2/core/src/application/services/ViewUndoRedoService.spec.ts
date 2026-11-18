@@ -11,7 +11,7 @@ import { ViewName } from '../../domain/table/views/ViewName';
 import { ViewOrder } from '../../domain/table/views/ViewOrder';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { UndoEntry } from '../../ports/UndoRedoStore';
+import type { UndoRedoStackEntryInput } from './UndoRedoStackService';
 import { ViewUndoRedoService } from './ViewUndoRedoService';
 
 const buildTable = () => {
@@ -62,10 +62,7 @@ describe('ViewUndoRedoService', () => {
     });
 
     await service.appendCreate(context, table, snapshot);
-    let entry = appendEntry.mock.calls[0]![2] as Omit<
-      UndoEntry,
-      'scope' | 'createdAt' | 'requestId'
-    >;
+    let entry = appendEntry.mock.calls[0]![2] as UndoRedoStackEntryInput;
     expect(entry.undoCommand).toMatchObject({
       type: 'DeleteView',
       payload: { tableId: table.id().toString(), viewId: snapshot.id },
@@ -76,7 +73,7 @@ describe('ViewUndoRedoService', () => {
     });
 
     await service.appendDelete(context, table, snapshot);
-    entry = appendEntry.mock.calls[1]![2] as Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'>;
+    entry = appendEntry.mock.calls[1]![2] as UndoRedoStackEntryInput;
     expect(entry.undoCommand.type).toBe('ApplyViewSnapshot');
     expect(entry.redoCommand.type).toBe('DeleteView');
   });
@@ -96,10 +93,7 @@ describe('ViewUndoRedoService', () => {
     }));
 
     await service.appendUpdate(context, table, previous, changed);
-    const entry = appendEntry.mock.calls[0]![2] as Omit<
-      UndoEntry,
-      'scope' | 'createdAt' | 'requestId'
-    >;
+    const entry = appendEntry.mock.calls[0]![2] as UndoRedoStackEntryInput;
     expect(entry.undoCommand.type).toBe('Batch');
     expect(entry.redoCommand.type).toBe('Batch');
     if (entry.undoCommand.type !== 'Batch') throw new Error('Expected a batch');
@@ -127,10 +121,7 @@ describe('ViewUndoRedoService', () => {
     const { service, appendEntry } = setup();
 
     await service.appendShareLifecycle(context, table, viewId, 'enable');
-    let entry = appendEntry.mock.calls[0]![2] as Omit<
-      UndoEntry,
-      'scope' | 'createdAt' | 'requestId'
-    >;
+    let entry = appendEntry.mock.calls[0]![2] as UndoRedoStackEntryInput;
     expect(entry.undoCommand).toMatchObject({
       type: 'DisableViewShare',
       payload: { tableId: table.id().toString(), viewId },
@@ -141,7 +132,7 @@ describe('ViewUndoRedoService', () => {
     });
 
     await service.appendShareLifecycle(context, table, viewId, 'disable');
-    entry = appendEntry.mock.calls[1]![2] as Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'>;
+    entry = appendEntry.mock.calls[1]![2] as UndoRedoStackEntryInput;
     expect(entry.undoCommand.type).toBe('EnableViewShare');
     expect(entry.redoCommand.type).toBe('DisableViewShare');
     expect(JSON.stringify(entry)).not.toContain('shr');

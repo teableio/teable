@@ -29,6 +29,9 @@ export const searchAccessPathStatusSchema = z
     coveredFieldCount: z.number().int().nonnegative(),
     serving: z.boolean(),
     coveredFieldIds: z.array(z.string()),
+    configuredFieldIds: z.array(z.string()).optional(),
+    documentFieldIds: z.array(z.string()).optional(),
+    residualFieldIds: z.array(z.string()).optional(),
     searchScope: z.enum(['all_fields', 'selected_fields']).optional(),
     uncoveredFieldIds: z.array(z.string()).optional(),
   })
@@ -130,7 +133,7 @@ export const reconcileSearchAccessPathResultSchema = z
     action: z.enum(['created', 'rebuilt', 'verified', 'dropped']),
     tableId: z.string(),
     definitionKey: z.string(),
-    generatedColumnName: z.string(),
+    generatedColumnName: z.string().optional(),
     indexName: z.string(),
     languageConfig: z.string(),
     semantics: z.enum(['substring', 'lexical']).optional(),

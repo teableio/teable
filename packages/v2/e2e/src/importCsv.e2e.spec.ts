@@ -76,6 +76,7 @@ Jane,,555-1234
 
     // 验证导入的记录数
     expect(result.totalImported).toBe(3);
+    expect(result.diagnostics).toBeUndefined();
 
     // 验证事件
     expect(result.events.some((e) => e.name === 'TableCreated')).toBe(true);
@@ -171,6 +172,31 @@ Jane,,555-1234
       '数据首列C',
     ]);
   });
+  it.each([true, false])('reports bad dates in a new table with headers=%s and retains the tail', async (useFirstRowAsHeader) => {
+    const rows = Array.from({ length: 605 }, (_, index) =>
+      `event ${index},${index < 104 || index === 500 ? '+010000-01-01T00:00:00.000Z' : '2025-04-01'}`
+    );
+    const result = await ctx.importCsv({
+      baseId: ctx.baseId, tableName: `New table invalid dates ${useFirstRowAsHeader}`,
+      csvData: (useFirstRowAsHeader ? ['Event,Date', ...rows] : rows).join('\n'),
+      useFirstRowAsHeader, batchSize: 500,
+      columns: [
+        { name: 'Event', sourceColumnIndex: 0, type: 'singleLineText' },
+        { name: 'Date', sourceColumnIndex: 1, type: 'date' },
+      ],
+    });
+    expect(result.totalImported).toBe(605);
+    expect(result.diagnostics).toMatchObject({ invalidDateCells: 105, skippedRows: 0 });
+    expect(result.diagnostics!.samples).toHaveLength(100);
+    expect(result.diagnostics!.samples[0]).toMatchObject({ rowNumber: useFirstRowAsHeader ? 2 : 1, reason: 'invalidDate' });
+    const eventFieldId = result.table.fields.find((field) => field.name === 'Event')!.id;
+    const dateFieldId = result.table.fields.find((field) => field.name === 'Date')!.id;
+    const records = await ctx.listRecords(result.table.id, { limit: 1000 });
+    expect(records).toHaveLength(605);
+    expect(records.find((record) => record.fields[eventFieldId] === 'event 0')!.fields[dateFieldId] ?? null).toBeNull();
+    expect(records.find((record) => record.fields[eventFieldId] === 'event 604')!.fields[dateFieldId]).toBe('2025-04-01T00:00:00.000Z');
+  });
+
 
   it('auto-generates table name when not provided', async () => {
     const client = createV2HttpClient({ baseUrl: ctx.baseUrl });

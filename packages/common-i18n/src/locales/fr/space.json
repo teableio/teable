@@ -75,7 +75,9 @@
     "exportTitle": "Exporter",
     "exportDescription": "Exporter le projet actuel en fichier .tea, cela peut prendre un certain temps.",
     "exportStartButton": "Commencer l'exportation",
-    "exportSlowTip": "Le volume de données est important. L'exportation peut prendre du temps. Vous pouvez quitter temporairement.",
+    "exportSlowTip": "Le volume de données est important. L'exportation peut prendre du temps.",
+    "exportBusy": "Une exportation est déjà en cours. Réessayez dans un instant.",
+    "exportNavigationWarning": "Quitter ou actualiser cette page annule l'exportation, sauf si un autre onglet suit toujours la même exportation. Fermer cette boîte de dialogue ne l'annule pas.",
     "exportReadyDescription": "Veuillez télécharger le fichier .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Déplacement réussi",
     "moveBaseSuccessDescription": "{{baseName}} a été déplacé avec succès vers {{spaceName}}",
@@ -223,6 +225,8 @@
   "publishBase": {
     "title": "Publier dans le centre de modèles",
     "description": "Publiez votre projet dans le centre de modèles en un clic ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
+    "configureTitle": "Configurer votre modèle",
+    "configureDescription": "Les meilleurs modèles peuvent être mis en avant dans le centre de modèles",
     "infoTitle": "Infos de base",
     "form": {
       "title": "Titre",
@@ -234,8 +238,6 @@
       "defaultActiveNode": "Nœud actif par défaut",
       "descriptionPlaceholder": "Décrivez brièvement votre idée...",
       "titlePlaceholder": "Nommez votre travail...",
-      "cover": "Couverture",
-      "coverHint": "16:9, utilisée sur la carte du catalogue et sur la page publique",
       "versionTitle": "Contenu de la version",
       "addChangelog": "Ajouter des notes de version"
     },
@@ -244,33 +246,32 @@
     "publishSuccess": "Publication réussie !",
     "previewTips": "Montrez votre travail au monde",
     "update": "Mettre à jour",
-    "submit": "Soumettre pour validation",
-    "submitted": "Soumis pour validation",
+    "submit": "Publier le modèle",
     "review": {
       "status": {
-        "review": "En cours de validation",
-        "rejected": "Renvoyé",
-        "withdrawn": "Retiré"
+        "review": "En cours de validation"
       },
-      "submittedTime": "Soumis {{time}}",
-      "note": "Note du validateur",
-      "checks": "Vérifications automatiques",
       "check": {
         "connectors": "Connexions",
         "privacy": "Confidentialité",
         "estimate": "Estimation des exécutions",
-        "trial": "Essai"
+        "trial": "Essai",
+        "content": "Contenu"
       },
       "checkMessage": {
         "connectors": "Impossible de connecter ici : {{providers}}",
         "privacy": "Des enregistrements sont inclus ; vérifiez qu'ils ne contiennent pas de données personnelles",
         "estimate": "Environ {{runs}} exécutions par mois, au-delà des {{free}} du forfait gratuit",
-        "trial": "Les automatisations ne nécessitent aucun compte ; vérifiez qu'elles fonctionnent sans compte"
+        "trial": "Les automatisations ne nécessitent aucun compte ; vérifiez qu'elles fonctionnent sans compte",
+        "content": "Encore propre à vous : {{count}}",
+        "contentMarked": "Marqué comme exemple : {{count}}"
       },
-      "withdraw": "Retirer",
-      "withdrawn": "Soumission retirée.",
-      "live": "En ligne · v{{version}}",
-      "publicLink": "Lien public"
+      "withdraw": "Dépublier",
+      "withdrawn": "Modèle dépublié.",
+      "withdrawConfirmTitle": "Dépublier ce modèle ?",
+      "withdrawConfirmDescription": "Son lien ne s'ouvrira plus et il n'apparaîtra plus dans le centre de modèles. Les copies installées ne sont pas affectées, et vous pourrez le republier plus tard.",
+      "live": "Publié · v{{version}}",
+      "listed": "Dans le centre de modèles"
     },
     "unPublish": "Dépublier",
     "unPublishSuccess": "Projet dépublié avec succès !",
@@ -284,7 +285,8 @@
     "invalidImageType": "Veuillez sélectionner un fichier image",
     "tips": {
       "publishValidation": "le titre et la description sont requis",
-      "atLeastOneNode": "Sélectionnez au moins un nœud à publier"
+      "atLeastOneNode": "Sélectionnez au moins un nœud à publier",
+      "coverRequired": "Ajoutez une image de couverture"
     },
     "urlCopied": "URL copiée dans le presse-papiers !",
     "urlCopiedForDiscord": "URL copiée dans le presse-papiers ! Vous pouvez la coller dans Discord.",
@@ -308,7 +310,7 @@
       "redeploy": "Redéployer",
       "unnamedApp": "Application sans nom"
     },
-    "submitVersion": "Soumettre la v{{version}} pour validation"
+    "submitVersion": "Publier la v{{version}}"
   },
   "dataDb": {
     "create": {
@@ -458,6 +460,7 @@
       "valuesDropped_one": "{{sheetName}} / {{fieldName}} : {{count}} valeurs ignorées ({{reason}})",
       "valuesDropped_many": "{{sheetName}} / {{fieldName}} : {{count}} valeurs ignorées ({{reason}})",
       "valuesDropped_other": "{{sheetName}} / {{fieldName}} : {{count}} valeurs ignorées ({{reason}})",
+      "rowSamples": "Lignes source (jusqu'à 100 exemples) : {{rows}}.",
       "sheetSkipped": "Onglet « {{sheetName}} » ignoré : {{reason}}",
       "columnsTruncated_one": "{{sheetName}} : {{count}} colonnes au-delà de la limite de colonnes n'ont pas été importées",
       "columnsTruncated_many": "{{sheetName}} : {{count}} colonnes au-delà de la limite de colonnes n'ont pas été importées",
@@ -483,5 +486,16 @@
     "fromFileDesc": "Téléverser un fichier .tea",
     "fromAirtableDesc": "Choisir une base",
     "fromGoogleSheetDesc": "Choisir une feuille de calcul"
+  },
+  "templateProject": {
+    "make": "En faire un modèle",
+    "new": "Nouveau projet de modèle",
+    "plural": "Projets de modèle",
+    "projectsTab": "Projets",
+    "empty": "Aucun projet de modèle pour le moment",
+    "trialCopy": "Copie d'essai",
+    "wholeProject": "Tout le projet ({{count}})",
+    "sampleRecords": "Enregistrements d'exemple : {{count}}",
+    "noRecords": "Aucun enregistrement"
   }
 }

@@ -25,6 +25,8 @@ export type CsvRowsOptions = {
   formatSampleBytes?: number;
   /** Never read past the format sample when delimiter inference is inconclusive. */
   boundedPreview?: boolean;
+  /** 1-based CSV record ordinal, including blanks; quoted newlines stay in one record. */
+  onRow?: (row: string[], sourceRowNumber: number) => void;
 };
 
 /**
@@ -61,7 +63,8 @@ export async function* parseCsvRows(
     const state = new CsvChunkParser(
       prepared.delimiter,
       prepared.newline,
-      options.skipEmptyLines ?? true
+      options.skipEmptyLines ?? true,
+      options.onRow
     );
     if (replay) {
       for await (const text of replay.read()) yield* state.consume(text, false);
@@ -204,18 +207,22 @@ class CsvChunkParser {
   private buffer = '';
   private readonly parser: Papa.Parser;
   private endedAtRecordBoundary = false;
+  private sourceRowNumber = 0;
 
   constructor(
     delimiter: string,
     newline: '\r\n' | '\r' | '\n',
-    private readonly skipEmptyLines: boolean | 'greedy'
+    private readonly skipEmptyLines: boolean | 'greedy',
+    private readonly onRow?: CsvRowsOptions['onRow']
   ) {
     this.parser = new Papa.Parser({ delimiter, newline });
   }
 
   *consume(text: string, finished: boolean): Generator<string[]> {
     if (finished && this.endedAtRecordBoundary && !this.skipEmptyLines) {
-      yield [''];
+      const row = [''];
+      this.onRow?.(row, ++this.sourceRowNumber);
+      yield row;
     }
     this.buffer += text;
 
@@ -249,7 +256,11 @@ class CsvChunkParser {
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index]!;
       rows[index] = undefined;
-      if (!this.isEmpty(row)) yield row;
+      this.sourceRowNumber++;
+      if (!this.isEmpty(row)) {
+        this.onRow?.(row, this.sourceRowNumber);
+        yield row;
+      }
     }
   }
 

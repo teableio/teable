@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { FieldUndoRedoReplayService } from '../application/services/FieldUndoRedoReplayService';
 import type {
+  UndoRedoReplayResult,
   UndoRedoStackReplayContext,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
@@ -16,8 +17,6 @@ import { Table as TableAggregate } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import type { UndoEntry } from '../ports/UndoRedoStore';
-import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import { ApplyFieldSnapshotCommand } from './ApplyFieldSnapshotCommand';
 import { ApplyFieldSnapshotHandler } from './ApplyFieldSnapshotHandler';
 import { RedoCommand } from './RedoCommand';
@@ -50,25 +49,25 @@ class FakeUndoRedoService {
     [];
   redoCalls: Array<{ context: UndoRedoStackReplayContext; tableId: string; windowId?: string }> =
     [];
-  undoEntry: UndoEntry | null = null;
-  redoEntry: UndoEntry | null = null;
+  undoReplay: UndoRedoReplayResult | null = null;
+  redoReplay: UndoRedoReplayResult | null = null;
 
   async applyUndo(
     context: UndoRedoStackReplayContext,
     tableId: TableId,
     windowId?: string
-  ): Promise<Result<UndoEntry | null, DomainError>> {
+  ): Promise<Result<UndoRedoReplayResult | null, DomainError>> {
     this.undoCalls.push({ context, tableId: tableId.toString(), windowId });
-    return ok(this.undoEntry);
+    return ok(this.undoReplay);
   }
 
   async applyRedo(
     context: UndoRedoStackReplayContext,
     tableId: TableId,
     windowId?: string
-  ): Promise<Result<UndoEntry | null, DomainError>> {
+  ): Promise<Result<UndoRedoReplayResult | null, DomainError>> {
     this.redoCalls.push({ context, tableId: tableId.toString(), windowId });
-    return ok(this.redoEntry);
+    return ok(this.redoReplay);
   }
 }
 
@@ -88,35 +87,6 @@ class FakeFieldUndoRedoReplayService {
     return ok(this.table);
   }
 }
-
-const buildEntry = (): UndoEntry => {
-  const tableId = `tbl${'c'.repeat(16)}`;
-  const recordId = `rec${'d'.repeat(16)}`;
-  const actorId = ActorId.create('actor')._unsafeUnwrap();
-  const resolvedTableId = TableId.create(tableId)._unsafeUnwrap();
-  return {
-    scope: {
-      actorId,
-      tableId: resolvedTableId,
-      windowId: 'window-1',
-    },
-    undoCommand: createUndoRedoCommand('UpdateRecord', {
-      tableId,
-      recordId,
-      fields: { fld1: 'old' },
-      fieldKeyType: 'id',
-      typecast: false,
-    }),
-    redoCommand: createUndoRedoCommand('UpdateRecord', {
-      tableId,
-      recordId,
-      fields: { fld1: 'new' },
-      fieldKeyType: 'id',
-      typecast: false,
-    }),
-    createdAt: new Date().toISOString(),
-  };
-};
 
 describe('undo/redo commands and handlers', () => {
   it('creates undo and redo commands from valid raw input and rejects invalid table ids', () => {
@@ -142,11 +112,11 @@ describe('undo/redo commands and handlers', () => {
 
   it('delegates undo and redo handling to the undo/redo service', async () => {
     const context = buildContext();
-    const entry = buildEntry();
+    const replay = { entryCount: 3 };
     const service = new FakeUndoRedoService();
-    service.undoEntry = entry;
-    service.redoEntry = entry;
-    const tableId = entry.scope.tableId.toString();
+    service.undoReplay = replay;
+    service.redoReplay = replay;
+    const tableId = `tbl${'c'.repeat(16)}`;
 
     const undoHandler = new UndoHandler(service as unknown as UndoRedoStackService);
     const redoHandler = new RedoHandler(service as unknown as UndoRedoStackService);
@@ -156,8 +126,8 @@ describe('undo/redo commands and handlers', () => {
     const undoResult = await undoHandler.handle(context, undoCommand);
     const redoResult = await redoHandler.handle(context, redoCommand);
 
-    expect(undoResult._unsafeUnwrap().entry).toBe(entry);
-    expect(redoResult._unsafeUnwrap().entry).toBe(entry);
+    expect(undoResult._unsafeUnwrap().replay).toBe(replay);
+    expect(redoResult._unsafeUnwrap().replay).toBe(replay);
     expect(service.undoCalls).toHaveLength(1);
     expect(service.undoCalls[0]?.tableId).toBe(tableId);
     expect(service.undoCalls[0]?.windowId).toBe('window-2');

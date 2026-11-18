@@ -3,9 +3,25 @@ import {
   PostgresUnitOfWork,
   PostgresUnitOfWorkTransaction,
 } from '@teable/v2-adapter-db-postgres-shared';
-import type { IExecutionContext, IUnitOfWorkTransaction } from '@teable/v2-core';
-import { domainError } from '@teable/v2-core';
-import type { Transaction } from 'kysely';
+import {
+  domainError,
+  EventBusDomainWriteTransaction,
+  NoopSameTxProjectionDispatcher,
+  type IEventBus,
+  type IExecutionContext,
+  type IUnitOfWorkTransaction,
+} from '@teable/v2-core';
+import {
+  Kysely,
+  PostgresAdapter,
+  PostgresIntrospector,
+  PostgresQueryCompiler,
+  type CompiledQuery,
+  type DatabaseConnection,
+  type Driver,
+  type QueryResult,
+  type Transaction,
+} from 'kysely';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -347,5 +363,185 @@ describe('shared Postgres unit of work helpers', () => {
     expect(result.isOk()).toBe(true);
     expect(sharedDb.transaction).toHaveBeenCalledOnce();
     expect(observedMetaTransaction).toBe(freshHandle);
+  });
+
+  const createSavepointHarness = () => {
+    const executedSql: string[] = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(query: CompiledQuery): Promise<QueryResult<R>> {
+        executedSql.push(query.sql);
+        return { rows: [] };
+      },
+      async *streamQuery<R>(): AsyncIterableIterator<QueryResult<R>> {
+        yield { rows: [] };
+      },
+    };
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    };
+    const fakeKysely = new Kysely<unknown>({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (db) => new PostgresIntrospector(db),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    });
+    const fakeDb = {
+      transaction: () => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) =>
+          work(fakeKysely as unknown as Transaction<unknown>),
+      }),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      fakeDb as never,
+      fakeDb as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable' } }
+    );
+    const eventBus: IEventBus = {
+      publish: async () => ok(undefined),
+      publishMany: async () => ok(undefined),
+    };
+    const domainWriteTx = new EventBusDomainWriteTransaction(
+      unitOfWork,
+      eventBus,
+      new NoopSameTxProjectionDispatcher()
+    );
+    return {
+      executedSql,
+      unitOfWork,
+      domainWriteTx,
+      dispose: () => fakeKysely.destroy(),
+    };
+  };
+
+  it('savepoint isolates batch rollback-only when an inner withTransaction fails inside savepoint', async () => {
+    const harness = createSavepointHarness();
+    try {
+      const batchRes = await harness.domainWriteTx.withBatchTransaction(
+        createContext(),
+        async (batchCtx) => {
+          // Simulate RecordUpsertService.savepoint() containing an inner withTransaction() that fails with 23505
+          const spRes = await harness.domainWriteTx.savepoint(batchCtx, () =>
+            harness.unitOfWork.withTransaction(batchCtx, async () =>
+              err(domainError.validation({ code: 'validation.field.unique', message: 'dup key' }))
+            )
+          );
+          expect(spRes.isErr()).toBe(true);
+
+          // Recovery write after savepoint rollback must NOT see batch rollback-only poison
+          const recovered = await harness.unitOfWork.withTransaction(batchCtx, async () =>
+            ok('recovered')
+          );
+          expect(recovered.isOk()).toBe(true);
+          return recovered;
+        }
+      );
+
+      expect(batchRes.isOk()).toBe(true);
+      expect(batchRes._unsafeUnwrap()).toBe('recovered');
+      expect(harness.executedSql.some((s) => s.startsWith('savepoint '))).toBe(true);
+      expect(harness.executedSql.some((s) => s.startsWith('rollback to savepoint '))).toBe(true);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  it('savepoint rollback discards transaction.afterCommit handlers registered inside the failed savepoint while preserving outer and successful retry callbacks', async () => {
+    const harness = createSavepointHarness();
+    const callbackLog: string[] = [];
+    let afterFailedSavepoint: string[] = [];
+    try {
+      const result = await harness.unitOfWork.withTransaction(createContext(), async (txCtx) => {
+        txCtx.transaction?.afterCommit?.(() => {
+          callbackLog.push('outerCommit');
+        });
+        txCtx.transaction?.afterRollback?.(() => {
+          callbackLog.push('outerRollback');
+        });
+
+        const failedSp = await harness.unitOfWork.savepoint(txCtx, async (spCtx) => {
+          spCtx.transaction?.afterCommit?.(() => {
+            callbackLog.push('failedSpCommit');
+          });
+          spCtx.transaction?.afterRollback?.(() => {
+            callbackLog.push('failedSpRollback');
+          });
+          return err(domainError.validation({ code: 'validation.field.unique', message: 'dup' }));
+        });
+        expect(failedSp.isErr()).toBe(true);
+        afterFailedSavepoint = [...callbackLog];
+
+        const retrySp = await harness.unitOfWork.savepoint(txCtx, async (spCtx) => {
+          spCtx.transaction?.afterCommit?.(() => {
+            callbackLog.push('retrySpCommit');
+          });
+          spCtx.transaction?.afterRollback?.(() => {
+            callbackLog.push('retrySpRollback');
+          });
+          return ok('retried');
+        });
+        expect(retrySp.isOk()).toBe(true);
+
+        return ok('done');
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(afterFailedSavepoint).toEqual(['failedSpRollback']);
+      expect(callbackLog).toEqual(['failedSpRollback', 'outerCommit', 'retrySpCommit']);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  it('outer rollback after a failed savepoint and a succeeded savepoint runs outer and succeeded-savepoint afterRollback handlers once without re-running failed savepoint rollback', async () => {
+    const harness = createSavepointHarness();
+    const callbackLog: string[] = [];
+    try {
+      const result = await harness.unitOfWork.withTransaction(createContext(), async (txCtx) => {
+        txCtx.transaction?.afterCommit?.(() => {
+          callbackLog.push('outerCommit');
+        });
+        txCtx.transaction?.afterRollback?.(() => {
+          callbackLog.push('outerRollback');
+        });
+
+        const failedSp = await harness.unitOfWork.savepoint(txCtx, async (spCtx) => {
+          spCtx.transaction?.afterCommit?.(() => {
+            callbackLog.push('failedSpCommit');
+          });
+          spCtx.transaction?.afterRollback?.(() => {
+            callbackLog.push('failedSpRollback');
+          });
+          return err(domainError.validation({ code: 'validation.field.unique', message: 'dup' }));
+        });
+        expect(failedSp.isErr()).toBe(true);
+
+        const retrySp = await harness.unitOfWork.savepoint(txCtx, async (spCtx) => {
+          spCtx.transaction?.afterCommit?.(() => {
+            callbackLog.push('retrySpCommit');
+          });
+          spCtx.transaction?.afterRollback?.(() => {
+            callbackLog.push('retrySpRollback');
+          });
+          return ok('retried');
+        });
+        expect(retrySp.isOk()).toBe(true);
+
+        return err(domainError.conflict({ code: 'outer.abort', message: 'outer failed' }));
+      });
+
+      expect(result.isErr()).toBe(true);
+      expect(callbackLog).toEqual(['failedSpRollback', 'outerRollback', 'retrySpRollback']);
+    } finally {
+      await harness.dispose();
+    }
   });
 });

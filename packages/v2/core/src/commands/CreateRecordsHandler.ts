@@ -272,6 +272,10 @@ export class CreateRecordsHandler implements ICommandHandler<
         );
       }
       // 4. Persist all records within a transaction
+      const initialCreateEvents = tableForCreate.pullDomainEvents();
+      const initialSideEffectEvents = tableUpdateResult
+        ? tableUpdateResult.table.pullDomainEvents()
+        : [];
       const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) => {
@@ -282,7 +286,11 @@ export class CreateRecordsHandler implements ICommandHandler<
               const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
                 transactionContext,
                 { table },
-                () => ok(tableUpdateResult),
+                () => {
+                  tableUpdateResult.table.pullDomainEvents();
+                  tableUpdateResult.table.recordDomainEvents(initialSideEffectEvents);
+                  return ok(tableUpdateResult);
+                },
                 { publishEvents: false }
               );
               tableEvents = tableFlowResult.events;
@@ -311,7 +319,7 @@ export class CreateRecordsHandler implements ICommandHandler<
                 mutation.changedFieldsByRecord
               );
             const events = aggregateRecordCreatedEvents({
-              events: tableForCreate.pullDomainEvents(),
+              events: [...initialCreateEvents, ...tableForCreate.pullDomainEvents()],
               mutationResult: mutation,
               decoratedChangedFieldsByRecord,
               orchestration: batchMutation,

@@ -9,7 +9,10 @@ import { PerformanceCache, PerformanceCacheService } from '../../performance-cac
 import { generateShortLinkCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { buildBaseShareDefaultUrl } from '../base-share/base-share-default-url.helper';
-import { resolveTemplateRedirectUrl } from '../template/template-permalink.helper';
+import {
+  resolveTemplateLanding,
+  resolveTemplateRedirectUrl,
+} from '../template/template-permalink.helper';
 
 const SHORT_LINK_CODE_LENGTH = 9;
 const SHORT_LINK_CODE_MAX_RETRY = 5;
@@ -197,11 +200,41 @@ export class ShortLinkService {
     if (!shortLink) {
       throw new CustomHttpException('Short link not found', HttpErrorCode.NOT_FOUND);
     }
+    // A template link also carries what link previews show for it
+    if (shortLink.type === ShortLinkType.Template) {
+      const { redirectUrl, preview } = await resolveTemplateLanding(
+        this.prismaService.txClient(),
+        shortLink.resourceId
+      );
+      return { code: shortLink.code, path: redirectUrl, preview };
+    }
     const path = await this.resolveTargetPath(
       shortLink.type as ShortLinkType,
       shortLink.resourceId
     );
     return { code: shortLink.code, path };
+  }
+
+  /**
+   * Drop the cached resolution of a resource's short links, so a change in what they open
+   * (a template submitted, approved, refused or withdrawn) shows up on the next visit
+   * instead of after the cache TTL.
+   */
+  async clearResolutionCache(type: ShortLinkType, resourceId: string): Promise<void> {
+    try {
+      const links = await this.prismaService.shortLink.findMany({
+        where: { type, resourceId, deletedTime: null },
+        select: { code: true },
+      });
+      await Promise.all(
+        links.map((link) => this.performanceCacheService.del(generateShortLinkCacheKey(link.code)))
+      );
+    } catch (error) {
+      // the cache expires on its own within its TTL; never fail the caller over it
+      this.logger.warn(
+        `Failed to clear short link cache for ${type}:${resourceId}: ${(error as Error).message}`
+      );
+    }
   }
 
   /**

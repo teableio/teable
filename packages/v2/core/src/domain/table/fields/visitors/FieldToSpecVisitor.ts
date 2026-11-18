@@ -66,27 +66,20 @@ import { splitSelectTypecastValues } from './splitSelectTypecastValues';
 export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
   private constructor(
     private readonly value: unknown,
-    private readonly typecast: boolean
+    private readonly typecast: boolean,
+    private readonly onInvalidDate?: (field: DateField) => void,
+    private readonly deferSelectOptions: boolean = false
   ) {
     super();
   }
 
-  static create(value: unknown, typecast: boolean): FieldToSpecVisitor {
-    return new FieldToSpecVisitor(value, typecast);
-  }
-
-  private normalizeSingleDateInput(field: DateField): unknown {
-    if (!this.typecast || !Array.isArray(this.value)) {
-      return this.value;
-    }
-
-    for (const candidate of this.value) {
-      if (parseDateValue(field, candidate) !== undefined) {
-        return candidate;
-      }
-    }
-
-    return null;
+  static create(
+    value: unknown,
+    typecast: boolean,
+    onInvalidDate?: (field: DateField) => void,
+    deferSelectOptions: boolean = false
+  ): FieldToSpecVisitor {
+    return new FieldToSpecVisitor(value, typecast, onInvalidDate, deferSelectOptions);
   }
 
   // ============ Text Fields ============
@@ -280,7 +273,20 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
   // ============ Date ============
 
   visitDateField(field: DateField): Result<ICellValueSpec, DomainError> {
-    const parsed = parseDateValue(field, this.normalizeSingleDateInput(field));
+    // Array typecasts select the first representable candidate without parsing it twice.
+    let parsed: string | null | undefined;
+    if (this.typecast && Array.isArray(this.value)) {
+      parsed = this.value.length === 0 ? null : undefined;
+      for (const candidate of this.value) {
+        const candidateDate = parseDateValue(field, candidate);
+        if (candidateDate !== undefined) {
+          parsed = candidateDate;
+          break;
+        }
+      }
+    } else {
+      parsed = parseDateValue(field, this.value);
+    }
     if (parsed === null) {
       return ok(new SetDateValueSpec(field.id(), CellValue.null()));
     }
@@ -289,6 +295,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     }
 
     if (this.typecast) {
+      this.onInvalidDate?.(field);
       return ok(new SetDateValueSpec(field.id(), CellValue.null()));
     }
 
@@ -327,8 +334,9 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
     // 3. Option not found
     if (this.typecast) {
-      // TODO: Auto-create option requires Table.updateField() support
-      // For now, return null for non-existent options
+      if (this.deferSelectOptions && !field.preventAutoNewOptions().toBoolean()) {
+        return ok(new SetSingleSelectValueSpec(field.id(), CellValue.fromValidated(strValue)));
+      }
       return ok(new SetSingleSelectValueSpec(field.id(), CellValue.null()));
     }
 
@@ -372,7 +380,9 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
       // Option not found
       if (this.typecast) {
-        // typecast mode: ignore non-existent options
+        if (this.deferSelectOptions && !field.preventAutoNewOptions().toBoolean()) {
+          result.push(val);
+        }
         continue;
       } else {
         invalidOptions.push(val);

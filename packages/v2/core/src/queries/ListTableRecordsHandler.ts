@@ -239,15 +239,24 @@ const resolveSearchAccessPath = (
     if (resolution?.used !== 'generated_text') {
       return { accessPath: 'none', searchMode: 'none', searchScope };
     }
+    const path = query.recordSearchAccessPath;
+    const document = resolution.indexedBranches?.includes('document') ? path.document : undefined;
+    const residual = resolution.indexedBranches?.includes('residual') ? path.residual : undefined;
+    const provider = document?.provider ?? residual?.provider;
+    if (!provider) {
+      return {
+        accessPath: 'fallback',
+        searchMode: 'ilike',
+        searchScope,
+        fallbackReason: 'generated_text_invalid_config',
+      };
+    }
     return {
-      accessPath:
-        query.recordSearchAccessPath.provider === 'pg_bigm'
-          ? 'generated_text_bigram'
-          : 'generated_text_trigram',
+      accessPath: provider === 'pg_bigm' ? 'generated_text_bigram' : 'generated_text_trigram',
       searchMode: 'substring',
       searchScope,
-      generatedColumnName: query.recordSearchAccessPath.generatedColumnName,
-      indexProvider: query.recordSearchAccessPath.provider,
+      ...(document ? { generatedColumnName: document.generatedColumnName } : {}),
+      indexProvider: provider,
     };
   }
   if (query.recordSearchAccessPath?.kind === 'generated_tsvector') {

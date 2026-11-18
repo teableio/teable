@@ -24,10 +24,6 @@ vi.mock('../attachments/attachments-storage.service', () => ({
 vi.mock('../attachments/plugins/adapter', () => ({
   default: { getBucket: () => 'table-bucket' },
 }));
-vi.mock('../attachments/utils', () => ({
-  resolveThumbnailMimetype: (mimetype: string) =>
-    mimetype === 'application/pdf' ? 'image/png' : mimetype,
-}));
 
 import type { CacheService } from '../../cache/cache.service';
 import { V2AttachmentUrlSignerService } from './v2-attachment-url-signer.service';
@@ -287,6 +283,52 @@ describe('V2RecordChangedValueDecoratorService', () => {
         name: 'incomplete',
       },
     ]);
+  });
+
+  it('signs WebP thumbnails as image/webp', async () => {
+    const { table, attachmentFieldId } = buildTable();
+    const attachmentsStorageService = {
+      getPreviewUrlByPath: vi.fn().mockResolvedValue('https://cdn.example.com/file.png'),
+      getTableThumbnailUrl: vi.fn().mockResolvedValue('https://cdn.example.com/thumb.webp'),
+    };
+    const attachmentLookupService = buildAttachmentLookupService([
+      {
+        token: 'tok-1',
+        thumbnailPath: { sm: 'table/file.png_sm.webp', lg: 'table/file.png_lg.webp' },
+      },
+    ]);
+    const service = buildService(
+      attachmentsStorageService as unknown as IAttachmentStorage,
+      attachmentLookupService,
+      buildCacheService()
+    );
+
+    await service.decorateChangedFields(
+      table,
+      new Map<string, unknown>([
+        [
+          attachmentFieldId,
+          [
+            {
+              id: 'att-1',
+              name: 'file.png',
+              path: 'table/file.png',
+              token: 'tok-1',
+              mimetype: 'image/png',
+            },
+          ],
+        ],
+      ])
+    );
+
+    expect(attachmentsStorageService.getTableThumbnailUrl).toHaveBeenCalledWith(
+      'table/file.png_sm.webp',
+      'image/webp'
+    );
+    expect(attachmentsStorageService.getTableThumbnailUrl).toHaveBeenCalledWith(
+      'table/file.png_lg.webp',
+      'image/webp'
+    );
   });
 
   it('limits attachment URL decoration concurrency', async () => {

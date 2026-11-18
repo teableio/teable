@@ -134,6 +134,7 @@ import {
   type UpdateRecordOptions,
   type UpdateRecordsStreamOptions,
 } from './methods/records';
+import type { RecordCreationValidation } from './methods/records/createRecords';
 import {
   refreshViewShareId as refreshViewShareIdMethod,
   type RefreshViewShareIdMethodResult,
@@ -973,6 +974,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       valuesAreValidated?: boolean;
       emitRecordCreatedEvents?: boolean;
       source?: RecordCreateSource;
+      recordValidation?: RecordCreationValidation;
     }
   ): Result<CreateRecordsMethodResult, DomainError> {
     return createRecordsMethod.call(this, recordsFieldValues, options);

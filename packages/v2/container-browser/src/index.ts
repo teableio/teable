@@ -50,6 +50,7 @@ import {
   type ICommandBusMiddleware,
   type ILogger,
   type IQueryBusMiddleware,
+  type ISameTxProjectionDispatcher,
   type TableDataSafetyLimitConfig,
   type ITracer,
   type DomainError,
@@ -80,6 +81,7 @@ export interface IV2BrowserPgliteContainerOptions {
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
   importEventSpoolFactory?: IImportEventSpoolFactory;
+  sameTxProjectionDispatcher?: ISameTxProjectionDispatcher;
 }
 
 const resolvePgliteDataDir = (options: IV2BrowserPgliteContainerOptions): string => {
@@ -199,6 +201,9 @@ export const registerV2BrowserPgliteDependencies = async (
   // exact journal instance passed to DomainWriteTransaction.
   const projectionJournal = new NoopProjectionMessageJournal();
   c.registerInstance(v2CoreTokens.projectionMessageJournal, projectionJournal);
+  const sameTxDispatcher =
+    options.sameTxProjectionDispatcher ?? new SameTxProjectionDispatcher(c, logger);
+  c.registerInstance(v2CoreTokens.sameTxProjectionDispatcher, sameTxDispatcher);
   c.registerInstance(
     v2CoreTokens.domainWriteTransaction,
     new DomainWriteTransaction(
@@ -207,7 +212,7 @@ export const registerV2BrowserPgliteDependencies = async (
       catalogResult.value,
       projectionJournal,
       new TargetedLegacyEventDispatcher(c, logger),
-      new SameTxProjectionDispatcher(c),
+      sameTxDispatcher,
       logger,
       undefined,
       c.resolve(v2CoreTokens.eventBus),

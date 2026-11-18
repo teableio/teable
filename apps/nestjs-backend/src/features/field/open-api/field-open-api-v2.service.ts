@@ -86,11 +86,11 @@ import type { IClsStore } from '../../../types/cls';
 import { isNotHiddenField } from '../../../utils/is-not-hidden-field';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
+import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
-import { FieldSupplementService } from '../field-calculate/field-supplement.service';
 
 const internalServerError = 'Internal server error';
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -202,7 +202,7 @@ export class FieldOpenApiV2Service {
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly dataLoaderService: DataLoaderService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly fieldSupplementService: FieldSupplementService,
+    private readonly fieldReferenceAdmission: FieldReferenceAdmissionService,
     private readonly prismaService: PrismaService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @Optional()
@@ -240,9 +240,9 @@ export class FieldOpenApiV2Service {
     const current = new Set(foreignTableIdsOf(currentField));
     for (const foreignTableId of new Set(foreignTableIdsOf(v2Field))) {
       if (current.has(foreignTableId)) {
-        await this.fieldSupplementService.assertSameSpaceLinkTarget(tableId, foreignTableId);
+        await this.fieldReferenceAdmission.assertSameSpaceLinkTarget(tableId, foreignTableId);
       } else {
-        await this.fieldSupplementService.assertNewForeignTableAllowed(tableId, foreignTableId);
+        await this.fieldReferenceAdmission.assertNewForeignTableAllowed(tableId, foreignTableId);
       }
     }
   }
@@ -269,7 +269,7 @@ export class FieldOpenApiV2Service {
       }
     }
     for (const foreignTableId of foreignTableIds) {
-      await this.fieldSupplementService.assertSameSpaceLinkTarget(tableId, foreignTableId);
+      await this.fieldReferenceAdmission.assertSameSpaceLinkTarget(tableId, foreignTableId);
     }
   }
 
@@ -309,7 +309,7 @@ export class FieldOpenApiV2Service {
     // through its link/conditionalRollup options needs read access there too.
     const foreignTableId = await this.getFilterLinkForeignTableId(tableId, fieldId);
     if (foreignTableId) {
-      await this.fieldSupplementService.assertForeignTableReadable(tableId, foreignTableId);
+      await this.fieldReferenceAdmission.assertForeignTableReadable(tableId, foreignTableId);
     }
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
@@ -2400,7 +2400,7 @@ export class FieldOpenApiV2Service {
       },
     });
     if (sourceFieldRaw) {
-      const isCrossSpace = await this.fieldSupplementService.isCrossSpaceField(
+      const isCrossSpace = await this.fieldReferenceAdmission.isCrossSpaceField(
         tableId,
         sourceFieldRaw
       );

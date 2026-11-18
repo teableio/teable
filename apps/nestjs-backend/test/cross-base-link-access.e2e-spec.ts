@@ -24,6 +24,7 @@ import {
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
+import { disableLegacyFieldAdmission } from './utils/disable-legacy-field-admission';
 import { getError } from './utils/get-error';
 import {
   createBase,
@@ -75,6 +76,7 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
   let editorEmail: string;
   let creatorUser: AxiosInstance;
   let previousForceV2All: string | undefined;
+  let restoreLegacyAdmission: (() => void) | undefined;
 
   beforeAll(async () => {
     previousForceV2All = process.env.FORCE_V2_ALL;
@@ -214,9 +216,11 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
       baseId,
       emailBaseInvitationRo: { emails: [creatorMe.data.email], role: Role.Creator },
     });
+    restoreLegacyAdmission = disableLegacyFieldAdmission();
   });
 
   afterAll(async () => {
+    restoreLegacyAdmission?.();
     for (const tableId of [table?.id, duplicateTable?.id, siblingTable?.id]) {
       if (tableId) {
         await permanentDeleteTable(baseId, tableId).catch(() => undefined);
@@ -250,6 +254,11 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
     );
     return rows[0]!.count;
   };
+
+  const findRecordTrashItem = async () =>
+    (
+      await getTrashItems({ resourceId: table.id, resourceType: TrashType.Table })
+    ).data.trashItems.find((item) => optionString(item, 'resourceType') === TableTrashType.Record);
 
   it('denies /api/v2/tables/updateRecords without foreign read', async () => {
     const error = await getError(() =>
@@ -387,6 +396,15 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
     expect(error?.status).toBe(403);
   });
 
+  it('denies filter-link reads from an unreadable foreign base after legacy admission retires', async () => {
+    const before = await getFields(table.id);
+    const error = await getError(() =>
+      creatorUser.get(`/table/${table.id}/field/${linkField.id}/filter-link-records`)
+    );
+    expect(error?.status).toBe(403);
+    expect(await getFields(table.id)).toEqual(before);
+  });
+
   it('denies converting a field to an unreadable foreign base', async () => {
     const error = await getError(() =>
       creatorUser.patch(urlBuilder(UPDATE_FIELD, { tableId: table.id, fieldId: linkField.id }), {
@@ -476,12 +494,6 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
   it('denies restoring a trashed record without foreign read', async () => {
     await deleteRecords(table.id, [hostRecordId]);
     const junctionAfterDelete = await junctionCount(junctionTableName);
-    const findRecordTrashItem = async () =>
-      (
-        await getTrashItems({ resourceId: table.id, resourceType: TrashType.Table })
-      ).data.trashItems.find(
-        (item) => optionString(item, 'resourceType') === TableTrashType.Record
-      );
     await expect.poll(findRecordTrashItem).toBeDefined();
     const trashItem = await findRecordTrashItem();
 
@@ -522,12 +534,6 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
     expect(await junctionCount(junctionTableName)).toBe(0);
 
     await deleteRecords(table.id, [hostRecordId]);
-    const findRecordTrashItem = async () =>
-      (
-        await getTrashItems({ resourceId: table.id, resourceType: TrashType.Table })
-      ).data.trashItems.find(
-        (item) => optionString(item, 'resourceType') === TableTrashType.Record
-      );
     await expect.poll(findRecordTrashItem).toBeDefined();
     const trashItem = await findRecordTrashItem();
     const trashedRecord = await prisma.recordTrash.findFirstOrThrow({

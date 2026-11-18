@@ -1202,7 +1202,9 @@
       "anchorNotFound": "Nœud d'ancrage non trouvé",
       "nameAlreadyExists": "Le nom existe déjà",
       "targetBaseRequired": "Le projet cible est requis",
-      "moveBlocked": "Impossible de déplacer le nœud vers le projet cible ({{code}})"
+      "moveBlocked": "Impossible de déplacer le nœud vers le projet cible ({{code}})",
+      "appSandboxActive": "Une application à déplacer a un bac à sable en cours d'exécution. Confirmez sa fermeture pour la déplacer",
+      "appSandboxCloseFailed": "Impossible de fermer le bac à sable. Rien n'a été déplacé, réessayez"
     },
     "routine": {
       "notFound": "Routine non trouvée",
@@ -1666,6 +1668,7 @@
     },
     "template": {
       "categoryNotFound": "Catégorie de modèle non trouvée",
+      "notShareable": "Seul un modèle publié peut être partagé",
       "snapshotRequired": "Ce modèle n'a pas pu être publié en raison d'un instantané manquant",
       "sourceTemplateNotFound": "Modèle source introuvable",
       "noMinOrderFound": "Aucun ordre minimum trouvé",
@@ -1676,9 +1679,14 @@
       "teamIsFlat": "Une équipe n'a ni catégorie parente ni sous-catégories",
       "categoryKeyTaken": "Cette clé d'URL est déjà utilisée par une autre catégorie",
       "slugTaken": "Ce slug d'URL est déjà utilisé par un autre modèle",
-      "guideStepLeftOut": "L’étape du guide « {{title}} » ouvre un élément que cette soumission n’inclut pas.",
+      "guideStepLeftOut": "L’étape du guide « {{title}} » ouvre un élément qui n’est pas publié.",
       "guideStepStartsTicked": "L’étape du guide « {{title}} » est déjà accomplie sur les enregistrements d’exemple : elle serait cochée dès le départ.",
-      "guideNothingToConnect": "L’étape du guide « {{title}} » attend la connexion de comptes, mais ce projet n’en demande aucun : elle serait cochée dès le départ."
+      "guideNothingToConnect": "L’étape du guide « {{title}} » attend la connexion de comptes, mais ce projet n’en demande aucun : elle serait cochée dès le départ.",
+      "contentNotReplaced": "Ce projet de modèle contient encore du contenu qui vous est propre ({{count}}). Remplacez-le ou marquez-le comme exemple, puis publiez à nouveau.",
+      "notTemplateProject": "Ce projet n'est pas un projet de modèle.",
+      "coverRequired": "Un modèle doit avoir une image de couverture",
+      "descriptionRequired": "Un modèle doit avoir une description",
+      "unavailable": "Ce modèle n’est pas disponible"
     },
     "department": {
       "parentNotFound": "Département parent non trouvé",

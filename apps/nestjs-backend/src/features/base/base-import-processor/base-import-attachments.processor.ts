@@ -9,6 +9,7 @@ import * as unzipper from 'unzipper';
 import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
+import { parseImportAttachmentEntryName } from '../utils';
 import {
   BASE_IMPORT_ATTACHMENTS_CSV_QUEUE,
   BaseImportAttachmentsCsvQueueProcessor,
@@ -131,16 +132,19 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
 
     let passThrough: PassThrough | undefined;
     try {
-      const token = filePath.replace('attachments/', '').split('.')[0];
-      const isThumbnail = token.includes('thumbnail__');
-      const mimeType = this.getFileMimeType(fileSuffix);
+      const entryName = filePath.replace('attachments/', '');
+      const parsed = parseImportAttachmentEntryName(entryName);
+      if (!parsed) {
+        this.logger.warn(`[base import attachment] skip invalid entry: ${entryName}`);
+        entry.autodrain();
+        return;
+      }
+      const { isThumbnail, key: finalToken, extension } = parsed;
+      const mimeType = this.getFileMimeType(extension);
       const pathDir = StorageAdapter.getDir(UploadType.Table);
-      const finalPath = isThumbnail
-        ? `table/${token.split('__')[1].split('.')[0]}`
-        : `${pathDir}/${token}`;
-      const finalToken = isThumbnail ? token.split('__')[1].split('.')[0] : token;
+      const finalPath = isThumbnail ? `table/${finalToken}` : `${pathDir}/${finalToken}`;
 
-      this.logger.log(`[base import attachment] start upload: ${token}`);
+      this.logger.log(`[base import attachment] start upload: ${entryName}`);
 
       const existing = await this.prismaService.txClient().attachments.findUnique({
         where: { token: finalToken },
@@ -148,7 +152,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
       });
 
       if (existing) {
-        this.logger.log(`[base import attachment]  already exists: ${token}`);
+        this.logger.log(`[base import attachment]  already exists: ${entryName}`);
         entry.autodrain();
         return;
       }
@@ -161,7 +165,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
         'Content-Type': mimeType,
       });
 
-      this.logger.log(`[base import attachment] ${token} finished: ${token}`);
+      this.logger.log(`[base import attachment] ${entryName} finished: ${entryName}`);
     } catch (err) {
       this.logger.error(`[base import attachment] upload  error: ${(err as Error).message}`);
       if (passThrough) {

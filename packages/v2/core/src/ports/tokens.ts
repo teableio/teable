@@ -89,6 +89,7 @@ export const v2CoreTokens = {
   domainWriteTransaction: Symbol('v2.core.domainWriteTransaction'),
   durableSubscriptionCatalog: Symbol('v2.core.durableSubscriptionCatalog'),
   projectionMessageJournal: Symbol('v2.core.projectionMessageJournal'),
+  sameTxProjectionDispatcher: Symbol('v2.core.sameTxProjectionDispatcher'),
   realtimeEngine: Symbol('v2.core.realtimeEngine'),
   logger: Symbol('v2.core.logger'),
   tracer: Symbol('v2.core.tracer'),

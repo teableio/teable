@@ -75,7 +75,9 @@
     "exportTitle": "导出",
     "exportDescription": "将当前项目导出成 .tea 文件，这可能需要一定的时间。",
     "exportStartButton": "开始导出",
-    "exportSlowTip": "数据量较大，导出可能需要较长时间，你可以暂时离开。",
+    "exportSlowTip": "数据量较大，导出可能需要较长时间。",
+    "exportBusy": "已有导出正在进行，请稍后重试。",
+    "exportNavigationWarning": "离开或刷新此页面会取消导出，除非其他标签页仍在跟进同一个导出任务。关闭此对话框不会取消导出。",
     "exportReadyDescription": "请下载 .tea 文件，{{importHint}}",
     "moveBaseSuccessTitle": "移动成功",
     "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}",
@@ -215,6 +217,8 @@
   "publishBase": {
     "title": "发布到模板中心",
     "description": "一键发布到模板中心！让更多人看到你的创意",
+    "configureTitle": "配置模板信息",
+    "configureDescription": "精品模板将有机会展示在模板中心",
     "infoTitle": "展示信息",
     "form": {
       "title": "名称",
@@ -226,8 +230,6 @@
       "defaultActiveNode": "默认打开",
       "descriptionPlaceholder": "它解决什么问题、怎么用",
       "titlePlaceholder": "给它起个名字",
-      "cover": "封面",
-      "coverHint": "16:9，用于目录卡片与公开页",
       "versionTitle": "版本内容",
       "addChangelog": "添加更新说明"
     },
@@ -236,33 +238,32 @@
     "publishSuccess": "发布成功！",
     "previewTips": "目录预览",
     "update": "更新",
-    "submit": "提交审核",
-    "submitted": "已提交审核",
+    "submit": "发布模板",
     "review": {
       "status": {
-        "review": "审核中",
-        "rejected": "已退回",
-        "withdrawn": "已撤回"
+        "review": "审核中"
       },
-      "submittedTime": "提交于 {{time}}",
-      "note": "审核备注",
-      "checks": "自动检查",
       "check": {
         "connectors": "连接",
         "privacy": "隐私",
         "estimate": "运行量估算",
-        "trial": "试运行"
+        "trial": "试运行",
+        "content": "内容"
       },
       "checkMessage": {
         "connectors": "以下连接暂不支持：{{providers}}",
         "privacy": "模板包含记录，请检查其中是否有个人信息",
         "estimate": "每月约 {{runs}} 次，超过免费版的 {{free}} 次",
-        "trial": "请确认自动化或任务无需连接账号也能运行"
+        "trial": "请确认自动化或任务无需连接账号也能运行",
+        "content": "还有 {{count}} 处只属于你的内容",
+        "contentMarked": "{{count}} 处已标为示例"
       },
-      "withdraw": "撤回",
-      "withdrawn": "已撤回提交。",
-      "live": "已上线 · v{{version}}",
-      "publicLink": "公开链接"
+      "withdraw": "取消发布",
+      "withdrawn": "已取消发布。",
+      "withdrawConfirmTitle": "取消发布？",
+      "withdrawConfirmDescription": "取消发布后，模板链接将无法打开，模板中心也不再展示；已安装的副本不受影响，之后可以重新发布。",
+      "live": "已发布 · v{{version}}",
+      "listed": "已收录到模板中心"
     },
     "unPublish": "下架",
     "unPublishSuccess": "已下架。",
@@ -276,7 +277,8 @@
     "invalidImageType": "请选择图片文件",
     "tips": {
       "publishValidation": "名称和详细介绍不能为空",
-      "atLeastOneNode": "请至少选择一项包含的内容"
+      "atLeastOneNode": "请至少选择一项包含的内容",
+      "coverRequired": "请上传封面"
     },
     "urlCopied": "链接已复制到剪贴板！",
     "urlCopiedForDiscord": "链接已复制到剪贴板！你可以在 Discord 中粘贴。",
@@ -294,13 +296,13 @@
       "notPublished": "未发布",
       "publishFailed": "发布失败",
       "publishFailedTip1": "检查源应用是否能正常发布",
-      "publishFailedTip2": "尝试重新提交此模板",
+      "publishFailedTip2": "尝试重新发布此模板",
       "ignoreAndContinue": "忽略并继续",
       "goToFix": "去修复",
       "redeploy": "重新部署",
       "unnamedApp": "未命名应用"
     },
-    "submitVersion": "提交 v{{version}} 审核"
+    "submitVersion": "发布 v{{version}}"
   },
   "dataDb": {
     "create": {
@@ -438,6 +440,7 @@
     "partialImported": "出错前已完整导入 {{count}} 个数据表，并已保留",
     "issue": {
       "valuesDropped": "{{sheetName}} / {{fieldName}}：丢弃了 {{count}} 个值（{{reason}}）",
+      "rowSamples": "源工作表行号（最多显示 100 个样本）：{{rows}}。",
       "sheetSkipped": "工作表「{{sheetName}}」已跳过：{{reason}}",
       "columnsTruncated": "{{sheetName}}：超出列数上限的 {{count}} 列未导入"
     },
@@ -461,5 +464,16 @@
     "fromFileDesc": "上传 .tea 文件",
     "fromAirtableDesc": "选择一个 base",
     "fromGoogleSheetDesc": "选择一个表格"
+  },
+  "templateProject": {
+    "make": "做成模板",
+    "new": "新建模板项目",
+    "plural": "模板项目",
+    "projectsTab": "项目",
+    "empty": "还没有模板项目",
+    "trialCopy": "试用副本",
+    "wholeProject": "项目里的全部 {{count}} 项",
+    "sampleRecords": "{{count}} 条示例记录",
+    "noRecords": "没有记录"
   }
 }

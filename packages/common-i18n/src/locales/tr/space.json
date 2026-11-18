@@ -75,7 +75,9 @@
     "exportTitle": "Dışa Aktar",
     "exportDescription": "Mevcut projeyi .tea dosyası olarak dışa aktarın, bu biraz zaman alabilir.",
     "exportStartButton": "Dışa aktarmayı başlat",
-    "exportSlowTip": "Veri hacmi büyük. Dışa aktarma biraz zaman alabilir. Geçici olarak ayrılabilirsiniz.",
+    "exportSlowTip": "Veri hacmi büyük. Dışa aktarma biraz zaman alabilir.",
+    "exportBusy": "Bir dışa aktarma işlemi zaten devam ediyor. Birazdan tekrar deneyin.",
+    "exportNavigationWarning": "Başka bir sekme aynı dışa aktarmayı izlemeye devam etmiyorsa bu sayfadan ayrılmak veya sayfayı yenilemek dışa aktarmayı iptal eder. Bu iletişim kutusunu kapatmak işlemi iptal etmez.",
     "exportReadyDescription": "Lütfen .tea dosyasını indirin, {{importHint}}",
     "moveBaseSuccessTitle": "Taşıma başarılı",
     "moveBaseSuccessDescription": "{{baseName}} başarıyla {{spaceName}} alanına taşındı",
@@ -219,6 +221,8 @@
   "publishBase": {
     "title": "Şablon Merkezinde Yayınla",
     "description": "Tek tıkla projenizi şablon merkezinde yayınlayın! Yaratıcılığınızı daha fazla kişinin görmesine, kullanmasına ve Remix yapmasına izin verin ve birlikte daha güçlü bir iş kurun",
+    "configureTitle": "Şablon bilgilerini ayarla",
+    "configureDescription": "Öne çıkan şablonlar Şablon Merkezinde yer alabilir",
     "infoTitle": "Temel bilgiler",
     "form": {
       "title": "Başlık",
@@ -230,8 +234,6 @@
       "defaultActiveNode": "Varsayılan aktif düğüm",
       "descriptionPlaceholder": "Fikrinizi kısaca açıklayın...",
       "titlePlaceholder": "Çalışmanıza bir ad verin...",
-      "cover": "Kapak",
-      "coverHint": "16:9; katalog kartında ve herkese açık sayfada kullanılır",
       "versionTitle": "Sürüm içeriği",
       "addChangelog": "Sürüm notları ekle"
     },
@@ -240,33 +242,32 @@
     "publishSuccess": "Yayınlama başarılı!",
     "previewTips": "Dünyanın çalışmanızı görmesine izin verin",
     "update": "Güncelle",
-    "submit": "İncelemeye gönder",
-    "submitted": "İncelemeye gönderildi",
+    "submit": "Şablonu yayınla",
     "review": {
       "status": {
-        "review": "İncelemede",
-        "rejected": "Geri gönderildi",
-        "withdrawn": "Geri çekildi"
+        "review": "İncelemede"
       },
-      "submittedTime": "Gönderildi: {{time}}",
-      "note": "İnceleyen notu",
-      "checks": "Otomatik kontroller",
       "check": {
         "connectors": "Bağlantılar",
         "privacy": "Gizlilik",
         "estimate": "Çalıştırma tahmini",
-        "trial": "Deneme çalıştırması"
+        "trial": "Deneme çalıştırması",
+        "content": "İçerik"
       },
       "checkMessage": {
         "connectors": "Burada bağlanamıyor: {{providers}}",
         "privacy": "Kayıtlar dahil; kişisel veri içerip içermediklerini kontrol edin",
         "estimate": "Ayda yaklaşık {{runs}} çalıştırma; ücretsiz planın sınırı olan {{free}} değerinin üzerinde",
-        "trial": "Otomasyonlar hesap gerektirmiyor; hesap olmadan çalıştıklarından emin olun"
+        "trial": "Otomasyonlar hesap gerektirmiyor; hesap olmadan çalıştıklarından emin olun",
+        "content": "Hâlâ yalnızca size ait: {{count}}",
+        "contentMarked": "Örnek olarak işaretlendi: {{count}}"
       },
-      "withdraw": "Geri çek",
-      "withdrawn": "Gönderim geri çekildi.",
+      "withdraw": "Yayından kaldır",
+      "withdrawn": "Yayından kaldırıldı.",
+      "withdrawConfirmTitle": "Bu şablon yayından kaldırılsın mı?",
+      "withdrawConfirmDescription": "Şablonun bağlantısı artık açılmaz ve Şablon Merkezinde görünmez. Kurulu kopyalar etkilenmez; daha sonra yeniden yayınlayabilirsiniz.",
       "live": "Yayında · v{{version}}",
-      "publicLink": "Herkese açık bağlantı"
+      "listed": "Şablon Merkezinde"
     },
     "unPublish": "Yayından kaldır",
     "unPublishSuccess": "Proje başarıyla yayından kaldırıldı!",
@@ -280,7 +281,8 @@
     "invalidImageType": "Lütfen bir resim dosyası seçin",
     "tips": {
       "publishValidation": "başlık ve açıklama gereklidir",
-      "atLeastOneNode": "Yayınlamak için en az bir düğüm seçin"
+      "atLeastOneNode": "Yayınlamak için en az bir düğüm seçin",
+      "coverRequired": "Bir kapak görseli ekleyin"
     },
     "urlCopied": "URL panoya kopyalandı!",
     "urlCopiedForDiscord": "URL panoya kopyalandı! Discord'a yapıştırabilirsiniz.",
@@ -304,7 +306,7 @@
       "redeploy": "Yeniden Dağıt",
       "unnamedApp": "Adsız Uygulama"
     },
-    "submitVersion": "v{{version}} sürümünü incelemeye gönder"
+    "submitVersion": "v{{version}} yayınla"
   },
   "dataDb": {
     "create": {
@@ -448,6 +450,7 @@
     "issue": {
       "valuesDropped_one": "{{sheetName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
       "valuesDropped_other": "{{sheetName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
+      "rowSamples": "Kaynak satırlar (en fazla 100 örnek): {{rows}}.",
       "sheetSkipped": "\"{{sheetName}}\" sayfası atlandı: {{reason}}",
       "columnsTruncated_one": "{{sheetName}}: Sütun sınırını aşan {{count}} sütun içe aktarılmadı",
       "columnsTruncated_other": "{{sheetName}}: Sütun sınırını aşan {{count}} sütun içe aktarılmadı"
@@ -472,5 +475,16 @@
     "fromFileDesc": ".tea dosyası yükleyin",
     "fromAirtableDesc": "Bir base seçin",
     "fromGoogleSheetDesc": "Bir e-tablo seçin"
+  },
+  "templateProject": {
+    "make": "Şablon yap",
+    "new": "Yeni şablon projesi",
+    "plural": "Şablon projeleri",
+    "projectsTab": "Projeler",
+    "empty": "Henüz şablon projesi yok",
+    "trialCopy": "Deneme kopyası",
+    "wholeProject": "Projedeki her şey ({{count}})",
+    "sampleRecords": "Örnek kayıt: {{count}}",
+    "noRecords": "Kayıt yok"
   }
 }

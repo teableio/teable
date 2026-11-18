@@ -1,4 +1,14 @@
-import { mkdtempSync, rmSync, utimesSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  promises as fs,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -176,5 +186,132 @@ describe('ExportBaseCleanupProcessor on local storage', () => {
     expect(await processor.cleanupExpired(uploadedAt)).toEqual({ deleted: 1, failed: 0 });
     await expect(storage.downloadFile(BUCKET, path)).rejects.toThrow();
     expect((await storage.listObjects(BUCKET, 'export-base/')).objects).toEqual([]);
+  });
+
+  it('reclaims only stale recognized staging directories while preserving objects and symlink targets', async () => {
+    const exportDirectory = join(dir, BUCKET, 'export-base');
+    const old = daysAgo(2, new Date());
+    mkdirSync(exportDirectory, { recursive: true });
+    const staged = (parent: string, name: string, modified: Date) => {
+      const directory = join(parent, name);
+      mkdirSync(directory, { recursive: true });
+      writeFileSync(join(directory, 'content'), 'staged export');
+      utimesSync(join(directory, 'content'), modified, modified);
+      utimesSync(directory, modified, modified);
+      return directory;
+    };
+    const stale = staged(exportDirectory, '.upload-CRhnqh', old);
+    const empty = join(exportDirectory, '.upload-EMPTY1');
+    mkdirSync(empty);
+    utimesSync(empty, old, old);
+    const recent = staged(exportDirectory, '.upload-RECENT', new Date());
+    const foreignHeartbeat = staged(exportDirectory, '.upload-REMOTE', old);
+    utimesSync(foreignHeartbeat, new Date(), new Date());
+    const unrelated = staged(exportDirectory, '.upload-not-owned', old);
+    const unexpected = staged(exportDirectory, '.upload-EXTRA1', old);
+    writeFileSync(join(unexpected, 'keep'), 'not a staging directory');
+    utimesSync(unexpected, old, old);
+    const otherBucket = staged(join(dir, 'another-bucket', 'export-base'), '.upload-OTHER1', old);
+    const otherPrefix = staged(join(dir, BUCKET, 'table'), '.upload-OTHER2', old);
+    const outside = staged(join(dir, 'outside'), '.upload-TARGET', old);
+    const linkedDirectory = join(exportDirectory, '.upload-SYMLNK');
+    symlinkSync(outside, linkedDirectory, 'dir');
+    const linkedContent = join(exportDirectory, '.upload-LINKED');
+    mkdirSync(linkedContent);
+    symlinkSync(join(outside, 'content'), join(linkedContent, 'content'));
+    utimesSync(linkedContent, old, old);
+    const published = join(exportDirectory, 'published-ttl518400.tea');
+    writeFileSync(published, 'published export');
+    utimesSync(published, old, old);
+    const processor = new ExportBaseCleanupProcessor(storage, storageConfig, {} as Queue);
+
+    expect(await processor.cleanupExpired()).toEqual({ deleted: 2, failed: 0 });
+    expect(existsSync(stale)).toBe(false);
+    expect(existsSync(empty)).toBe(false);
+    for (const directory of [
+      recent,
+      foreignHeartbeat,
+      unrelated,
+      unexpected,
+      otherBucket,
+      otherPrefix,
+      outside,
+      linkedDirectory,
+      linkedContent,
+    ]) {
+      expect(readFileSync(join(directory, 'content'), 'utf8')).toBe('staged export');
+    }
+    expect(readFileSync(published, 'utf8')).toBe('published export');
+    expect((await storage.listObjects(BUCKET, 'export-base/')).objects.map(({ key }) => key)).not.toContain(
+      'export-base/.upload-RECENT/content'
+    );
+  });
+
+  it('preserves a long-running upload across storage instances and allows atomic publication', async () => {
+    const resolvers = Promise as unknown as {
+      withResolvers<T>(): { promise: Promise<T>; resolve: (value: T | PromiseLike<T>) => void };
+    };
+    const publishing = resolvers.withResolvers<string>();
+    const resume = resolvers.withResolvers<void>();
+    const rename = fs.rename.bind(fs);
+    const boundary = vi.spyOn(fs, 'rename').mockImplementationOnce(async (source, destination) => {
+      publishing.resolve(source.toString());
+      await resume.promise;
+      await rename(source, destination);
+    });
+    const path = tea('active', 6);
+    mkdirSync(join(dir, BUCKET, 'export-base'), { recursive: true });
+    writeFileSync(join(dir, BUCKET, path), 'existing export');
+    const upload = storage.uploadFileStream(
+      BUCKET,
+      path,
+      Buffer.from('replacement export'),
+      undefined,
+      new AbortController().signal
+    );
+    try {
+      const content = await publishing.promise;
+      const stagingDirectory = join(content, '..');
+      const old = daysAgo(10, new Date());
+      utimesSync(content, old, old);
+      utimesSync(stagingDirectory, old, old);
+      const otherStorage = new LocalStorage(
+        storage.config,
+        {} as IBaseConfig,
+        {} as CacheService,
+        {} as ClsService<IClsStore>
+      );
+      const processor = new ExportBaseCleanupProcessor(otherStorage, storageConfig, {} as Queue);
+
+      expect(await processor.cleanupExpired()).toEqual({ deleted: 0, failed: 0 });
+      expect(readFileSync(content, 'utf8')).toBe('replacement export');
+      expect(readFileSync(join(dir, BUCKET, path), 'utf8')).toBe('existing export');
+      resume.resolve();
+      await upload;
+      expect(readFileSync(join(dir, BUCKET, path), 'utf8')).toBe('replacement export');
+      expect(existsSync(stagingDirectory)).toBe(false);
+    } finally {
+      resume.resolve();
+      try {
+        await upload;
+      } finally {
+        boundary.mockRestore();
+      }
+    }
+  });
+
+  it('does not sweep through a symlinked export directory', async () => {
+    const outside = join(dir, 'outside');
+    mkdirSync(join(outside, '.upload-CRhnqh'), { recursive: true });
+    writeFileSync(join(outside, '.upload-CRhnqh', 'content'), 'outside export');
+    const old = daysAgo(2, new Date());
+    utimesSync(join(outside, '.upload-CRhnqh', 'content'), old, old);
+    utimesSync(join(outside, '.upload-CRhnqh'), old, old);
+    mkdirSync(join(dir, BUCKET), { recursive: true });
+    symlinkSync(outside, join(dir, BUCKET, 'export-base'), 'dir');
+    const processor = new ExportBaseCleanupProcessor(storage, storageConfig, {} as Queue);
+
+    expect(await processor.cleanupExpired()).toEqual({ deleted: 0, failed: 0 });
+    expect(readFileSync(join(outside, '.upload-CRhnqh', 'content'), 'utf8')).toBe('outside export');
   });
 });

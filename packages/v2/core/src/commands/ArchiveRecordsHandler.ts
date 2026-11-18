@@ -244,7 +244,9 @@ export class ArchiveRecordsHandler implements ICommandHandler<
                 recordSnapshots,
                 orchestration: {
                   operationId: command.operationId ?? context.requestId,
-                  ...(command.archiveGroupId ? { groupId: command.archiveGroupId } : {}),
+                  ...(command.undoGroup.groupId !== undefined
+                    ? { groupId: command.undoGroup.groupId }
+                    : {}),
                   totalRecordCount: recordSnapshots.length,
                   totalChunkCount: 1,
                   chunkIndex: 0,
@@ -287,7 +289,7 @@ export class ArchiveRecordsHandler implements ICommandHandler<
           archivedRecords: stackRecords,
           recordIds: archivedRecordIds,
           archiveRows,
-          ...(command.archiveGroupId ? { groupId: command.archiveGroupId } : {}),
+          ...command.undoGroup,
         }
       );
 

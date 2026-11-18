@@ -47,7 +47,11 @@ import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
-import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
+import {
+  createUndoRedoCommand,
+  type UndoEntryGroupInput,
+  type UndoRedoCommandLeafData,
+} from '../ports/UndoRedoStore';
 import {
   buildSanitizedRecordConditionSpec,
   replaceCurrentUserTagInFilter,
@@ -521,12 +525,16 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
 
       if (persistedEventData.length > 0) {
         const tableIdText = table.id().toString();
+        const group: UndoEntryGroupInput =
+          batchMutation.groupId !== undefined
+            ? { groupId: batchMutation.groupId, groupPosition: 'start' }
+            : {};
 
         yield* await handler.undoRedoStackService.appendEntry(
           toUndoRedoStackAppendContext(context),
           table.id(),
           {
-            groupId: batchMutation.groupId,
+            ...group,
             undoCommand: buildUpdateRecordsUndoRedoCommand(
               tableIdText,
               persistedEventData,
@@ -703,6 +711,7 @@ export class ClearStreamApplicationService extends ClearHandler {
 
       let processedCount = 0;
       let clearedCount = 0;
+      let undoRecordingAttempted = false;
       const clearedRecordIds: string[] = [];
       let previousPluginExecution = operationPluginExecution;
 
@@ -897,11 +906,14 @@ export class ClearStreamApplicationService extends ClearHandler {
 
           if (persistedEventData.length > 0) {
             const tableIdText = plan.table.id().toString();
+            const groupPosition = undoRecordingAttempted ? 'continue' : 'start';
+            undoRecordingAttempted = true;
             const undoRedoResult = await this.undoRedoStackService.appendEntry(
               toUndoRedoStackAppendContext(context),
               plan.table.id(),
               {
                 groupId: operationId,
+                groupPosition,
                 undoCommand: buildUpdateRecordsUndoRedoCommand(
                   tableIdText,
                   persistedEventData,

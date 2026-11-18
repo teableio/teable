@@ -5,21 +5,21 @@ import type { Result } from 'neverthrow';
 import {
   toUndoRedoStackReplayContext,
   UndoRedoStackService,
+  type UndoRedoReplayResult,
 } from '../application/services/UndoRedoStackService';
 import type { DomainError } from '../domain/shared/DomainError';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TeableSpanAttributes } from '../ports/Tracer';
 import { TraceSpan } from '../ports/TraceSpan';
-import type { UndoEntry } from '../ports/UndoRedoStore';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { UndoCommand } from './UndoCommand';
 
 export class UndoResult {
-  private constructor(readonly entry: UndoEntry | null) {}
+  private constructor(readonly replay: UndoRedoReplayResult | null) {}
 
-  static create(entry: UndoEntry | null): UndoResult {
-    return new UndoResult(entry);
+  static create(replay: UndoRedoReplayResult | null): UndoResult {
+    return new UndoResult(replay);
   }
 }
 
@@ -44,12 +44,12 @@ export class UndoHandler implements ICommandHandler<UndoCommand, UndoResult> {
   ): Promise<Result<UndoResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UndoResult, DomainError>(async function* () {
-      const entry = yield* await handler.undoRedoStackService.applyUndo(
+      const replay = yield* await handler.undoRedoStackService.applyUndo(
         toUndoRedoStackReplayContext(context),
         command.tableId,
         command.windowId
       );
-      return ok(UndoResult.create(entry));
+      return ok(UndoResult.create(replay));
     });
   }
 }

@@ -154,6 +154,11 @@ export const moveBaseNodeCheckVoSchema = z.object({
   /** authority-matrix / node permission rules on moved nodes that will be dropped (EE) */
   droppedPermissionRuleCount: z.number(),
   /**
+   * Moved apps whose sandbox is still running (EE). The move stops their generation and
+   * closes the sandbox first, and only when the request says `closeAppSandboxes`.
+   */
+  sandboxApps: z.array(moveBaseNodeItemSchema),
+  /**
    * Everything that would have to travel for no reference to be pulled apart:
    * the transitive closure over reference edges, minus whatever is already
    * moving. Pass it back as `additionalNodeIds` to ask about that whole set —

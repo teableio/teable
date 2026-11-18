@@ -4,7 +4,7 @@ import {
   roundedNumberListSearchFunctionSql,
   sanitizeSearchTextProjection,
   searchTextProjectionKey,
-} from '@teable/v2-adapter-table-query-ops-postgres';
+} from '@teable/v2-adapter-db-postgres-shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 describe('rounded number list search document', () => {

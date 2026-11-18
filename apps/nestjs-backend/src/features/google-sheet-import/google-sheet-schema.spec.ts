@@ -122,6 +122,34 @@ describe('convertCellValue', () => {
     expect(convertCellValue(25569.5, dateColumn)).toEqual({ value: '1970-01-01T12:00:00.000Z' });
   });
 
+  it.each(['0001-01-01T00:00:00.000Z', '9999-12-31T23:59:59.999Z'])(
+    'keeps supported serial date %s including fractional days',
+    (iso) => {
+      const serial = (Date.parse(iso) - Date.UTC(1899, 11, 30)) / 86_400_000;
+      expect(convertCellValue(serial, dateColumn)).toEqual({ value: iso });
+    }
+  );
+
+  it.each([
+    (Date.parse('0001-01-01T00:00:00.000Z') - Date.UTC(1899, 11, 30) - 1) / 86_400_000,
+    (Date.parse('9999-12-31T23:59:59.999Z') - Date.UTC(1899, 11, 30) + 1) / 86_400_000,
+    1700000000000,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ])('drops unsupported date serial %s without emitting expanded years', (serial) => {
+    expect(convertCellValue(serial, dateColumn)).toEqual({ dropped: true });
+  });
+
+  it.each([
+    '0000-01-01',
+    '+010000-01-01T00:00:00.000Z',
+    '0001-01-01T00:00:00+01:00',
+    '9999-12-31T23:59:59-01:00',
+  ])('reports date strings whose UTC result is unsupported: %s', (value) => {
+    expect(convertCellValue(value, dateColumn)).toEqual({ dropped: true });
+  });
+
   it('converts TIME serial fractions to HH:mm:ss text without a 24h wrap', () => {
     const timeColumn = { ...textColumn, timeOnly: true };
     expect(convertCellValue(0.5, timeColumn)).toEqual({ value: '12:00:00' });

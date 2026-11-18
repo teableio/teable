@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { useIsCoarsePointer } from '../../hooks/use-is-coarse-pointer';
 import { cn } from '../utils';
+import { keepScrollingUnderLocks } from './scroll-lock';
 
 const Popover = PopoverPrimitive.Root;
 
@@ -44,6 +45,7 @@ const PopoverContent = React.forwardRef<
           if (coarsePointer) event.preventDefault();
         }}
         {...props}
+        {...keepScrollingUnderLocks(props)}
       />
     </PopoverPrimitive.Portal>
   );

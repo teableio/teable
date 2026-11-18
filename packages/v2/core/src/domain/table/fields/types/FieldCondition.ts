@@ -24,6 +24,7 @@ import { DbFieldName } from '../DbFieldName';
 import type { Field } from '../Field';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
+import { isUserLikeField, replaceCurrentUserFilterValue } from '../user-filter-operator-remap';
 import { SingleLineTextField } from './SingleLineTextField';
 
 /**
@@ -572,6 +573,34 @@ export class FieldCondition extends ValueObject {
     table: Table,
     hostTable?: Table
   ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null, DomainError> {
+    return this.buildRecordConditionSpec(table, hostTable, { skipInapplicable: false });
+  }
+
+  /**
+   * Converts a stored filter that may have outlived what it names, such as a Link Field's
+   * candidate filter, to a RecordConditionSpec on `table`.
+   *
+   * Unlike {@link toRecordConditionSpec}, a condition that cannot apply (its Field or referenced
+   * Field deleted, its value still missing, its operator no longer valid for the Field) is left
+   * out instead of failing the whole filter, and `Me` on a user Field stands for `currentUserId`.
+   *
+   * @returns null when no condition applies.
+   */
+  toApplicableRecordConditionSpec(
+    table: Table,
+    currentUserId: string
+  ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null, DomainError> {
+    return this.buildRecordConditionSpec(table, undefined, {
+      skipInapplicable: true,
+      currentUserId,
+    });
+  }
+
+  private buildRecordConditionSpec(
+    table: Table,
+    hostTable: Table | undefined,
+    options: { skipInapplicable: boolean; currentUserId?: string }
+  ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null, DomainError> {
     if (this.filterItemsValue.length === 0) {
       return ok(null);
     }
@@ -584,113 +613,137 @@ export class FieldCondition extends ValueObject {
 
     const fields = table.getFields();
     const hostFields = hostTable?.getFields() ?? fields;
-    const buildSpecFromFilter = (
-      filter: IFilterDTO
-    ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> =>
-      safeTry<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError>(
-        function* () {
-          const builder = RecordConditionSpecBuilder.create(filter.conjunction);
-
-          for (const entry of filter.filterSet) {
-            if ('filterSet' in entry) {
-              const nestedSpec = yield* buildSpecFromFilter(entry as IFilterDTO);
-              builder.addConditionSpec(nestedSpec);
-              continue;
-            }
-
-            const filterItemEntry = entry as IFilterItemDTO;
-            const operatorResult = recordConditionOperatorSchema.safeParse(
-              filterItemEntry.operator
-            );
-            if (!operatorResult.success) {
-              return err(
-                domainError.validation({
-                  code: 'field.condition.invalid_operator',
-                  message: `Invalid operator: ${filterItemEntry.operator}`,
-                })
-              );
-            }
-
-            const isFieldRefObject =
-              typeof filterItemEntry.value === 'object' &&
-              filterItemEntry.value !== null &&
-              'type' in filterItemEntry.value &&
-              (filterItemEntry.value as { type?: string }).type === 'field' &&
-              'fieldId' in filterItemEntry.value;
-            const referencedFieldIdFromValue = isFieldRefObject
-              ? (filterItemEntry.value as { fieldId: string }).fieldId
-              : filterItemEntry.isSymbol && filterItemEntry.value != null
-                ? String(filterItemEntry.value)
-                : undefined;
-            // Self-table `NameMirror is {Name}` is stored as either
-            // `{ type: 'field' }` or `isSymbol`. Both must swap so the
-            // source alias reads Name and the host alias reads NameMirror.
-            const isSelfTableReference =
-              referencedFieldIdFromValue !== undefined &&
-              hostTable !== undefined &&
-              hostTable.id().equals(table.id());
-            const effectiveFieldIdValue = isSelfTableReference
-              ? referencedFieldIdFromValue
-              : filterItemEntry.fieldId;
-
-            const fieldResult = FieldCondition.resolveConditionField(
-              effectiveFieldIdValue,
-              fields,
-              {
-                code: 'field.condition.field_not_found',
-                messagePrefix: 'Field not found',
-              }
-            );
-            if (fieldResult.isErr()) return err(fieldResult.error);
-            const field = fieldResult.value;
-
-            let conditionValue: RecordConditionValue | undefined;
-            // `value: null` is commonly used by v1-style filters for operators that don't require a value
-            // (e.g. `isEmpty`, `isNotEmpty`). Treat null the same as "not provided".
-            if (filterItemEntry.value !== undefined && filterItemEntry.value !== null) {
-              if (filterItemEntry.isSymbol || isFieldRefObject) {
-                // Field reference - resolve from host table if provided, otherwise from main table
-                const refFieldIdValue = isSelfTableReference
-                  ? filterItemEntry.fieldId
-                  : (referencedFieldIdFromValue ?? String(filterItemEntry.value));
-                const refFieldResult = FieldCondition.resolveConditionField(
-                  refFieldIdValue,
-                  hostFields,
-                  {
-                    code: 'field.condition.reference_field_not_found',
-                    messagePrefix: 'Reference field not found',
-                  }
-                );
-                if (refFieldResult.isErr()) return err(refFieldResult.error);
-                const refField = refFieldResult.value;
-                conditionValue = yield* RecordConditionFieldReferenceValue.create(refField);
-              } else if (Array.isArray(filterItemEntry.value)) {
-                conditionValue = yield* RecordConditionLiteralListValue.create(
-                  filterItemEntry.value
-                );
-              } else if (
-                typeof filterItemEntry.value === 'object' &&
-                filterItemEntry.value !== null &&
-                'mode' in filterItemEntry.value &&
-                'timeZone' in filterItemEntry.value
-              ) {
-                conditionValue = yield* RecordConditionDateValue.create(filterItemEntry.value);
-              } else {
-                conditionValue = yield* RecordConditionLiteralValue.create(filterItemEntry.value);
-              }
-            }
-
-            builder.addCondition({
-              field,
-              operator: operatorResult.data,
-              value: conditionValue,
-            });
-          }
-
-          return builder.build();
+    const resolveCondition = (
+      filterItemEntry: IFilterItemDTO
+    ): Result<
+      { field: Field; operator: RecordConditionOperator; value?: RecordConditionValue },
+      DomainError
+    > =>
+      safeTry<
+        { field: Field; operator: RecordConditionOperator; value?: RecordConditionValue },
+        DomainError
+      >(function* () {
+        const operatorResult = recordConditionOperatorSchema.safeParse(filterItemEntry.operator);
+        if (!operatorResult.success) {
+          return err(
+            domainError.validation({
+              code: 'field.condition.invalid_operator',
+              message: `Invalid operator: ${filterItemEntry.operator}`,
+            })
+          );
         }
-      );
 
-    return buildSpecFromFilter(filter);
+        const isFieldRefObject =
+          typeof filterItemEntry.value === 'object' &&
+          filterItemEntry.value !== null &&
+          'type' in filterItemEntry.value &&
+          (filterItemEntry.value as { type?: string }).type === 'field' &&
+          'fieldId' in filterItemEntry.value;
+        const referencedFieldIdFromValue = isFieldRefObject
+          ? (filterItemEntry.value as { fieldId: string }).fieldId
+          : filterItemEntry.isSymbol && filterItemEntry.value != null
+            ? String(filterItemEntry.value)
+            : undefined;
+        // Self-table `NameMirror is {Name}` is stored as either
+        // `{ type: 'field' }` or `isSymbol`. Both must swap so the
+        // source alias reads Name and the host alias reads NameMirror.
+        const isSelfTableReference =
+          referencedFieldIdFromValue !== undefined &&
+          hostTable !== undefined &&
+          hostTable.id().equals(table.id());
+        const effectiveFieldIdValue = isSelfTableReference
+          ? referencedFieldIdFromValue
+          : filterItemEntry.fieldId;
+
+        const field = yield* FieldCondition.resolveConditionField(effectiveFieldIdValue, fields, {
+          code: 'field.condition.field_not_found',
+          messagePrefix: 'Field not found',
+        });
+
+        let conditionValue: RecordConditionValue | undefined;
+        // `value: null` is commonly used by v1-style filters for operators that don't require a value
+        // (e.g. `isEmpty`, `isNotEmpty`). Treat null the same as "not provided".
+        if (filterItemEntry.value !== undefined && filterItemEntry.value !== null) {
+          if (filterItemEntry.isSymbol || isFieldRefObject) {
+            // Field reference - resolve from host table if provided, otherwise from main table
+            const refFieldIdValue = isSelfTableReference
+              ? filterItemEntry.fieldId
+              : (referencedFieldIdFromValue ?? String(filterItemEntry.value));
+            const refField = yield* FieldCondition.resolveConditionField(
+              refFieldIdValue,
+              hostFields,
+              {
+                code: 'field.condition.reference_field_not_found',
+                messagePrefix: 'Reference field not found',
+              }
+            );
+            conditionValue = yield* RecordConditionFieldReferenceValue.create(refField);
+          } else {
+            const value =
+              options.currentUserId !== undefined && isUserLikeField(field)
+                ? replaceCurrentUserFilterValue(filterItemEntry.value, options.currentUserId)
+                : filterItemEntry.value;
+            if (Array.isArray(value)) {
+              conditionValue = yield* RecordConditionLiteralListValue.create(value);
+            } else if (
+              typeof value === 'object' &&
+              value !== null &&
+              'mode' in value &&
+              'timeZone' in value
+            ) {
+              conditionValue = yield* RecordConditionDateValue.create(value);
+            } else {
+              conditionValue = yield* RecordConditionLiteralValue.create(value);
+            }
+          }
+        }
+
+        return ok({ field, operator: operatorResult.data, value: conditionValue });
+      });
+    const buildGroupSpec = (
+      group: IFilterDTO
+    ): Result<
+      ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null,
+      DomainError
+    > => {
+      const builder = RecordConditionSpecBuilder.create(group.conjunction);
+      let hasConditionSpec = false;
+      for (const entry of group.filterSet) {
+        if ('filterSet' in entry) {
+          const nestedResult = buildGroupSpec(entry as IFilterDTO);
+          if (nestedResult.isErr()) {
+            if (options.skipInapplicable) continue;
+            return err(nestedResult.error);
+          }
+          if (nestedResult.value) {
+            builder.addConditionSpec(nestedResult.value);
+            hasConditionSpec = true;
+          }
+          continue;
+        }
+
+        const conditionResult = resolveCondition(entry as IFilterItemDTO);
+        if (conditionResult.isErr()) {
+          if (options.skipInapplicable) continue;
+          return err(conditionResult.error);
+        }
+        if (!options.skipInapplicable) {
+          // The builder collects operator/value mismatches so that several of them surface
+          // together as one `spec.builder` error.
+          builder.addCondition(conditionResult.value);
+          continue;
+        }
+        const { field, ...condition } = conditionResult.value;
+        const specResult = field.spec().create(condition);
+        if (specResult.isOk()) {
+          builder.addConditionSpec(specResult.value);
+          hasConditionSpec = true;
+        }
+      }
+      if (!hasConditionSpec && options.skipInapplicable) return ok(null);
+      return builder.build();
+    };
+
+    return buildGroupSpec(filter);
   }
 }

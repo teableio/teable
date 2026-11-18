@@ -100,27 +100,27 @@ export const parseSSELine = <T>(line: string): T | undefined => {
 export const readSSEStream = async <T extends { id: string }>(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   options?: {
-    onResult?: (result: T) => void;
+    onResult?: (result: T) => void | Promise<void>;
     ignoredResultIds?: Iterable<string>;
+    terminalResultIds?: Iterable<string>;
   }
 ): Promise<void> => {
   const decoder = new TextDecoder();
   const ignoredResultIds = new Set(options?.ignoredResultIds ?? defaultIgnoredResultIds);
+  const terminalResultIds = new Set(options?.terminalResultIds);
   let buffer = '';
 
-  const processBufferLine = (line: string) => {
+  const processBufferLine = async (line: string): Promise<boolean> => {
+    let result: T | undefined;
     try {
-      const result = parseSSELine<T>(line);
-      if (!result || ignoredResultIds.has(result.id)) {
-        return;
-      }
-      options?.onResult?.(result);
+      result = parseSSELine<T>(line);
     } catch (error) {
-      if (error instanceof SyntaxError) {
-        return;
-      }
+      if (error instanceof SyntaxError) return false;
       throw error;
     }
+    if (!result || ignoredResultIds.has(result.id)) return false;
+    await options?.onResult?.(result);
+    return terminalResultIds.has(result.id);
   };
 
   // eslint-disable-next-line no-constant-condition
@@ -135,13 +135,13 @@ export const readSSEStream = async <T extends { id: string }>(
     buffer = lines.pop() || '';
 
     for (const line of lines) {
-      processBufferLine(line);
+      if (await processBufferLine(line)) return;
     }
   }
 
   buffer += decoder.decode();
   if (buffer.trim()) {
-    processBufferLine(buffer);
+    await processBufferLine(buffer);
   }
 };
 
@@ -149,8 +149,9 @@ export const streamSSE = async <T extends { id: string }>(
   input: string,
   init: RequestInit,
   options?: {
-    onResult?: (result: T) => void;
+    onResult?: (result: T) => void | Promise<void>;
     ignoredResultIds?: Iterable<string>;
+    terminalResultIds?: Iterable<string>;
     errorPrefix?: string;
   }
 ): Promise<void> => {
@@ -171,8 +172,14 @@ export const streamSSE = async <T extends { id: string }>(
     throw new Error('No response body for SSE stream');
   }
 
-  await readSSEStream(reader, {
-    onResult: options?.onResult,
-    ignoredResultIds: options?.ignoredResultIds,
-  });
+  try {
+    await readSSEStream(reader, {
+      onResult: options?.onResult,
+      ignoredResultIds: options?.ignoredResultIds,
+      terminalResultIds: options?.terminalResultIds,
+    });
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
 };

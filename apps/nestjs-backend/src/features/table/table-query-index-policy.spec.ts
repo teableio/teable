@@ -309,7 +309,7 @@ const createWorld = (input?: { policy?: ITableQueryIndexPolicyVo | null; fields?
 
   const dataPrismaTransactionForTable = async <T>(
     _tableId: string,
-    callback: (prisma: { $executeRawUnsafe: (sql: string) => Promise<void> }) => Promise<T>
+    callback: (prisma: Pick<FakeTransaction, '$queryRawUnsafe' | '$executeRawUnsafe'>) => Promise<T>
   ): Promise<T> => {
     const snapshot = new Map(indexes);
     dataTransactions.push({
@@ -319,6 +319,13 @@ const createWorld = (input?: { policy?: ITableQueryIndexPolicyVo | null; fields?
     });
     try {
       return await callback({
+        $queryRawUnsafe: async (sql, ...args) => {
+          if (!sql.includes('pg_class') || !sql.includes('pg_namespace')) {
+            throw new Error(`Unsupported data catalog query in test double: ${sql}`);
+          }
+          const [schema, tableName] = meta.dbTableName.split('.');
+          return args[0] === schema ? [tableName, ...indexes.keys()].map((name) => ({ name })) : [];
+        },
         $executeRawUnsafe: async (sql) => applySql(sql),
       });
     } catch (error) {

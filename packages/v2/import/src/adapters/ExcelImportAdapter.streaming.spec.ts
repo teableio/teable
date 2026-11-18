@@ -94,6 +94,47 @@ const biffRecord = (id: number, data = Buffer.alloc(0)) => {
   return Buffer.concat([header, data]);
 };
 
+it('maps explicit SpreadsheetML row indices and padded blank rows', async () => {
+  const data = Buffer.from(
+    '<Workbook xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Data"><Table>' +
+      '<Row ss:Index="3"><Cell><Data ss:Type="String">Name</Data></Cell></Row>' +
+      '<Row ss:Index="8"><Cell><Data ss:Type="String">Alice</Data></Cell></Row>' +
+      '<Row><Cell><Data ss:Type="String"></Data></Cell></Row>' +
+      '<Row ss:Index="80"><Cell><Data ss:Type="String">Bob</Data></Cell></Row>' +
+      spreadsheetMlFooter
+  );
+  const parsed = (await new ExcelImportAdapter().parse({ type: 'xls', data }))._unsafeUnwrap();
+  const rows = await collect(parsed.rowsAsync!);
+  expect(rows).toEqual(
+    Array.from({ length: 78 }, (_, index) => [
+      index === 0 ? 'Name' : index === 5 ? 'Alice' : index === 77 ? 'Bob' : '',
+    ])
+  );
+  expect(rows.map((row) => parsed.getSourceRowNumber?.(row))).toEqual(
+    Array.from({ length: 78 }, (_, index) => index + 3)
+  );
+});
+
+it('maps explicit XLSX row indices and padded blank rows', async () => {
+  const data = xmlWorkbookBytes(
+    '<row r="3"><c r="A3" t="str"><v>Name</v></c></row>' +
+      '<row r="8"><c r="A8" t="str"><v>Alice</v></c></row>' +
+      '<row r="9"><c r="A9" t="str"><v></v></c></row>' +
+      '<row r="80"><c r="A80" t="str"><v>Bob</v></c></row>',
+    '<styleSheet><cellXfs><xf numFmtId="0"/></cellXfs></styleSheet>'
+  );
+  const parsed = (await new ExcelImportAdapter().parse({ type: 'xlsx', data }))._unsafeUnwrap();
+  const rows = await collect(parsed.rowsAsync!);
+  expect(rows).toEqual(
+    Array.from({ length: 78 }, (_, index) => [
+      index === 0 ? 'Name' : index === 5 ? 'Alice' : index === 77 ? 'Bob' : '',
+    ])
+  );
+  expect(rows.map((row) => parsed.getSourceRowNumber?.(row))).toEqual(
+    Array.from({ length: 78 }, (_, index) => index + 3)
+  );
+});
+
 it.each([
   { codepage: 0x8001, text: Buffer.from([0x80, 0xe9]), expected: '€é' },
   { codepage: 0x8000, text: Buffer.from([0x80, 0x8e]), expected: 'Äé' },
@@ -340,12 +381,63 @@ describe.each(['xlsx', 'xls'] as const)('Excel %s bounded stream', (type) => {
     ]);
     expect(parsed.headers).toEqual(['Name', 'Amount', 'Date', 'Enabled', 'Formula']);
     expect(parsed.rowsAsync).toBeDefined();
-    expect(await collect(parsed.rowsAsync!)).toEqual([
+    const rows = await collect(parsed.rowsAsync!);
+    expect(rows.map((row) => parsed.getSourceRowNumber?.(row))).toEqual([4, 5, 6, 7]);
+    expect(parsed.rowCount).toBe(4);
+    expect(rows).toEqual([
       ['Name', 'Amount', 'Date', 'Enabled', 'Formula'],
       ['Alice', '1,234.50', '2024-01-02', 'TRUE', '42'],
       ['', '', '', '', ''],
       ['跨记录字符串'.repeat(400), '0', '0', 'FALSE', 'Cached formula text'],
     ]);
+  });
+
+  it('counts A2, blank A3 and A4 as three data source rows for admission', async () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([['Name'], ['Alice'], [], ['Bob']]),
+      'Data'
+    );
+    const data = new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: type }));
+    const parsed = (await new ExcelImportAdapter().parse({ type, data }))._unsafeUnwrap();
+    const rows = await collect(parsed.rowsAsync!);
+    expect(rows).toEqual([['Name'], ['Alice'], [''], ['Bob']]);
+    expect(rows.map((row) => parsed.getSourceRowNumber?.(row))).toEqual([1, 2, 3, 4]);
+    expect(parsed.rowCount).toBe(4);
+    expect(parsed.rowCount! - 1).toBeGreaterThan(2);
+  });
+
+  it('keeps worksheet coordinates beyond the header window and across import batches', async () => {
+    const workbook = XLSX.utils.book_new();
+    const sheet = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_aoa(sheet, [['Name', 'Note']], { origin: 'A3' });
+    for (let index = 0; index < 210; index++) {
+      XLSX.utils.sheet_add_aoa(sheet, [[`Person ${index}`, 'value']], {
+        origin: { r: 40 + index * 2, c: 0 },
+      });
+    }
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Data');
+    const data = new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: type }));
+    const parsed = (
+      await new ExcelImportAdapter().parse({ type, stream: chunks(data) })
+    )._unsafeUnwrap();
+    const iterator = parsed.rowsAsync![Symbol.asyncIterator]();
+    const header = (await iterator.next()).value!;
+    expect(parsed.getSourceRowNumber?.(header)).toBe(3);
+    for (let sourceRowNumber = 4; sourceRowNumber <= 459; sourceRowNumber++) {
+      const row = (await iterator.next()).value!;
+      const personIndex = (sourceRowNumber - 41) / 2;
+      expect(row).toEqual(
+        personIndex >= 0 && Number.isInteger(personIndex)
+          ? [`Person ${personIndex}`, 'value']
+          : ['', '']
+      );
+      expect(parsed.getSourceRowNumber?.(row)).toBe(sourceRowNumber);
+      expect(parsed.getSourceRowNumber?.([...row])).toBeUndefined();
+    }
+    expect((await iterator.next()).done).toBe(true);
+    expect(parsed.getSourceRowNumber?.(header)).toBe(3);
   });
 
   it('analyzes only the requested preview and can parse the source again after an early return', async () => {
@@ -491,7 +583,9 @@ describe.each(['biff2', 'biff3', 'biff4', 'biff5', 'xlml'] as const)(
       const data = new Uint8Array(output);
       const parsed = (await new ExcelImportAdapter().parse({ type: 'xls', data }))._unsafeUnwrap();
       expect(parsed.rowsAsync).toBeDefined();
-      expect(await collect(parsed.rowsAsync!)).toEqual([
+      const rows = await collect(parsed.rowsAsync!);
+      expect(rows.map((row) => parsed.getSourceRowNumber?.(row))).toEqual([1, 2, 3, 4]);
+      expect(rows).toEqual([
         ['Name', 'Amount', 'Enabled'],
         ['Alice', '1234.5', 'TRUE'],
         ['', '', ''],

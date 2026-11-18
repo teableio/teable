@@ -53,6 +53,7 @@ import {
   SelectableType,
   useGridRowOrder,
   ExpandRecorder,
+  raiseRecordPanel,
   useGridViewStore,
   useGridSelection,
   DragRegionType,
@@ -670,7 +671,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           record,
           colIndex,
           false,
-          (tableId, recordId) => setExpandRecord({ tableId, recordId }),
+          (tableId, recordId) => {
+            raiseRecordPanel(tableId, recordId);
+            setExpandRecord({ tableId, recordId });
+          },
           buttonClickStatusHook
         );
       }
@@ -1201,6 +1205,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     if (!recordId) {
       return;
     }
+    // the record's panel comes back on top of a new-record draft, also when it is open already
+    raiseRecordPanel(tableId, recordId);
     if (onRowExpand) {
       onRowExpand(recordId);
       return;

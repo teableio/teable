@@ -10,6 +10,25 @@
 
 Basic demo of a shared package using [prisma](<(https://prisma.io)>) to handle database access, part of the [nextjs-monorepo-example](https://github.com/teableio/teable)
 
+## Transaction completion
+
+The PostgreSQL adapter is shared by metadata and data Prisma clients. With Prisma
+6.2.1, an unmapped PostgreSQL error from `COMMIT` can produce a response that the
+client mistakes for success. The checked-out connection proxy keeps these errors
+on Prisma's registered JavaScript-error path, retaining the driver error as
+`cause` and its SQLSTATE as top-level `code`, without top-level `severity`.
+Enclosing operations can retry `40P01` / `40001` conflicts or `23505` unique
+violations under their existing policies. The proxy does not retry `COMMIT`,
+change ordinary query error mapping, or alter connection release. `$tx` rejects
+before after-transaction callbacks run.
+
+The real PostgreSQL regression in the backend's `prisma-transaction.pg.spec.ts`
+uses a deferred constraint trigger to check rejection, rollback, callback
+suppression, and subsequent reuse of the one-connection pool.
+The record API regression in `record.e2e-spec.ts` also injects fail-once deferred
+`40P01` and `40001` errors: the real v1 PATCH must retry the operation and return
+the persisted value, rather than report a successful rolled-back update.
+
 ## Quick start
 
 Start the database with `docker-compose up database` then run

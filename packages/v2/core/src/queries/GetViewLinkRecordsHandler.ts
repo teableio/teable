@@ -120,7 +120,7 @@ export class GetViewLinkRecordsHandler implements IQueryHandler<
           specBuilder.addConditionSpec(selectionSpec);
           hasConditionSpec = true;
         }
-        const linkFilterSpec = yield* plan.linkFilterSpec(targetTable);
+        const linkFilterSpec = yield* plan.linkFilterSpec(targetTable, context.actorId.toString());
         if (linkFilterSpec) {
           specBuilder.addConditionSpec(linkFilterSpec);
           hasConditionSpec = true;

@@ -402,7 +402,7 @@ describe('PermissionService', () => {
 
     it('keeps a snapshot under review read-only', async () => {
       prismaServiceMock.space.findUnique.mockResolvedValue({ isTemplate: true } as any);
-      lookups(null, { id: 'tplPending' });
+      lookups(null, { id: 'tplPending', review: { status: 'review' } });
 
       const permissions = await service['getPermissionByBaseId'](snapshotBase.id);
 
@@ -421,6 +421,77 @@ describe('PermissionService', () => {
 
       expect(permissions).toEqual(getPermissions(Role.Owner));
       expect(prismaServiceMock.template.findFirst).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getTemplatePermissions for a submission under review', () => {
+    const lookups = (pending: unknown) =>
+      prismaServiceMock.template.findFirst.mockImplementation((({ where }: any) =>
+        Promise.resolve(where.review ? pending : null)) as any);
+
+    beforeEach(() => {
+      prismaServiceMock.txClient.mockReturnValue(prismaServiceMock);
+      // anyone following a shared link: no session, not an admin
+      clsServiceMock.get.mockReturnValue(undefined as any);
+    });
+
+    it('opens it read-only to anyone, so its link can be shared before the review', async () => {
+      lookups({ id: 'tplShared', review: { status: 'review', snapshotBaseId: 'bseShared' } });
+
+      const permissions = await service.getTemplatePermissions('bseShared');
+
+      expect(permissions).toEqual(TemplatePermissions);
+      expect(clsServiceMock.set).toHaveBeenCalledWith('template', {
+        id: 'tplShared',
+        baseId: 'bseShared',
+      });
+    });
+
+    it("keeps a live template's newer version with the reviewers", async () => {
+      lookups({
+        id: 'tplLive',
+        isPublished: true,
+        review: { status: 'review', snapshotBaseId: 'bseNewVersion' },
+      });
+
+      await expect(service.getTemplatePermissions('bseNewVersion')).rejects.toThrow(
+        'Template access denied'
+      );
+    });
+
+    it('keeps the pending version of a template taken offline with the reviewers', async () => {
+      lookups({
+        id: 'tplOffline',
+        isPublished: false,
+        snapshot: JSON.stringify({ baseId: 'bseWasLive' }),
+        review: { status: 'review', snapshotBaseId: 'bseOfflinePending' },
+      });
+
+      await expect(service.getTemplatePermissions('bseOfflinePending')).rejects.toThrow(
+        'Template access denied'
+      );
+    });
+
+    it('still opens that newer version to a reviewer', async () => {
+      clsServiceMock.get.mockImplementation(((key: string) =>
+        key === 'user.isAdmin' ? true : undefined) as any);
+      lookups({
+        id: 'tplLive',
+        isPublished: true,
+        review: { status: 'review', snapshotBaseId: 'bseNewVersionAdmin' },
+      });
+
+      await expect(service.getTemplatePermissions('bseNewVersionAdmin')).resolves.toEqual(
+        TemplatePermissions
+      );
+    });
+
+    it.each(['rejected', 'withdrawn'])('keeps a %s submission closed', async (status) => {
+      lookups({ id: 'tplGone', review: { status, snapshotBaseId: `bseGone${status}` } });
+
+      await expect(service.getTemplatePermissions(`bseGone${status}`)).rejects.toThrow(
+        'Template access denied'
+      );
     });
   });
 

@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IHttpError } from '@teable/core';
-import { getUniqName } from '@teable/core';
+import { getUniqName, hasPermission } from '@teable/core';
 import { FileCsv, FileExcel, History, Code2, Download, Share2 } from '@teable/icons';
 import type {
   IBaseNodeAppResourceMeta,
@@ -13,9 +13,10 @@ import type {
 } from '@teable/openapi';
 import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
+import { raiseRecordPanel } from '@teable/sdk/components/expand-record/raiseRecordPanel';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId, useBasePermission, useTables } from '@teable/sdk/hooks';
+import { useBase, useBaseId, useBasePermission, useTables } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   Button,
@@ -50,6 +51,7 @@ import {
   FolderInput,
   AlignLeft,
   Info,
+  LayoutTemplate,
   Pen,
   Star,
   StarOff,
@@ -59,11 +61,15 @@ import {
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { ComponentType, ReactNode } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { FolderDeleteConfirmDialog } from '@/features/app/components/folder-delete-confirm-dialog';
 import { LoginAppWarning } from '@/features/app/components/LoginAppWarning';
 import { OperationPreviewPanel } from '@/features/app/components/operation-preview';
 import type { OperationPreviewPanelProps } from '@/features/app/components/operation-preview/OperationPreviewPanel';
+import {
+  TemplateHostContext,
+  useTemplateProjectInfo,
+} from '@/features/app/components/space/template/host-context';
 import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
 import { useArchiveUpsell } from '@/features/app/hooks/useArchiveUpsell';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
@@ -177,7 +183,30 @@ interface IBaseNodeMoreProps {
 
   /** Star / Unstar, placed after Rename; a host that stars from the menu passes it. */
   star?: { starred: boolean; onToggle: () => void };
+
+  /**
+   * "Make a template" out of this node, placed after Duplicate. Set by BaseNodeMore itself
+   * where templates are made in template projects and this project is one to extract from.
+   */
+  onMakeTemplate?: () => void;
 }
+
+/** The menu's "Make a template" entry, as a dropdown item or, on mobile, a list row. */
+const MakeTemplateItem = ({ onClick, list }: { onClick: () => void; list?: boolean }) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const label = t('space:templateProject.make');
+  if (list) {
+    return (
+      <ListMenuItem icon={<LayoutTemplate className="size-4" />} label={label} onClick={onClick} />
+    );
+  }
+  return (
+    <DropdownMenuItem onClick={onClick}>
+      <LayoutTemplate className="me-2 size-4" />
+      {label}
+    </DropdownMenuItem>
+  );
+};
 
 interface ITableOperationProps extends IBaseNodeMoreProps {
   onRecordClick: (recordId: string) => void;
@@ -258,6 +287,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     nodeTypeLabel,
     extraActions = [],
     star,
+    onMakeTemplate,
     renderDeleteDialog,
     deleteWarning,
   } = props;
@@ -366,7 +396,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     ));
 
   // The menu's groups: edit, info, then delete on its own.
-  const hasEditGroup = anyOf(canRename, star, canDuplicate, onDescription);
+  const hasEditGroup = anyOf(canRename, star, canDuplicate, onMakeTemplate, onDescription);
   const hasInfoGroup = anyOf(shareNodeId, node);
   const hasDeleteGroup = anyOf(canPermanentDelete, canDelete);
   const hasVisibleCommonActions = anyOf(hasEditGroup, hasInfoGroup, hasDeleteGroup);
@@ -404,6 +434,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
             onClick={handleDuplicateClick}
           />
         )}
+        {onMakeTemplate && <MakeTemplateItem onClick={onMakeTemplate} list />}
         {onDescription && (
           <ListMenuItem
             icon={<AlignLeft className="size-4" />}
@@ -505,6 +536,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
+          {onMakeTemplate && <MakeTemplateItem onClick={onMakeTemplate} />}
           {onDescription && (
             <DropdownMenuItem onClick={() => onDescription()}>
               <AlignLeft className="me-2 size-4" />
@@ -752,6 +784,7 @@ export const TableOperation = (props: ITableOperationProps) => {
     variant = 'dropdown',
     contentAlign = 'end',
     star,
+    onMakeTemplate,
   } = props;
 
   const baseId = useBaseId() as string;
@@ -1050,6 +1083,7 @@ export const TableOperation = (props: ITableOperationProps) => {
             onClick={handleDuplicateClick}
           />
         )}
+        {onMakeTemplate && <MakeTemplateItem onClick={onMakeTemplate} list />}
         {onDescription && (
           <ListMenuItem
             icon={<AlignLeft className="size-4" />}
@@ -1176,7 +1210,8 @@ export const TableOperation = (props: ITableOperationProps) => {
     onDescription,
     menuPermission.updateTable,
     star,
-    menuPermission.duplicateTable
+    menuPermission.duplicateTable,
+    onMakeTemplate
   );
   const hasDataGroup = anyOf(
     menuPermission.exportTable,
@@ -1219,6 +1254,7 @@ export const TableOperation = (props: ITableOperationProps) => {
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
+          {onMakeTemplate && <MakeTemplateItem onClick={onMakeTemplate} />}
           {onDescription && (
             <DropdownMenuItem onClick={() => onDescription()}>
               <AlignLeft className="me-2 size-4" />
@@ -1429,6 +1465,22 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
     }
   }, [baseResource]);
   const { baseId } = baseResource;
+  const base = useBase() as ReturnType<typeof useBase> | undefined;
+  const { project: templateProjectHost } = useContext(TemplateHostContext);
+  const [makeTemplateOpen, setMakeTemplateOpen] = useState(false);
+  const canMakeTemplate = Boolean(
+    templateProjectHost &&
+    base &&
+    !base.restrictedAuthority &&
+    hasPermission(base.role, 'base|update')
+  );
+  // One answer per project, shared with the sidebar header that asked first.
+  const templateInfo = useTemplateProjectInfo(baseId, canMakeTemplate);
+  const showMakeTemplate =
+    canMakeTemplate &&
+    Boolean(templateInfo) &&
+    !templateInfo?.isTemplateProject &&
+    !templateInfo?.isTrialCopy;
 
   const onRecordClick = useCallback(
     (recordId: string) => {
@@ -1446,6 +1498,8 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
       });
       if (!navigation) return;
 
+      // the record's panel comes back on top of a new-record draft, also when it is open already
+      raiseRecordPanel(resourceId, recordId);
       router.push(navigation.url, undefined, { shallow: navigation.shallow });
     },
     [baseResource, resourceId, router, tableHrefMap, tableViewIdsMap]
@@ -1588,6 +1642,12 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
     ...rest,
     resourceType,
     resourceId,
+    onMakeTemplate: showMakeTemplate
+      ? () => {
+          props.setOpen?.(false);
+          setMakeTemplateOpen(true);
+        }
+      : undefined,
     onDelete:
       onDelete ??
       (async (permanent, onProgress) => {
@@ -1604,24 +1664,41 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
       }),
   };
 
-  switch (resourceType) {
-    case BaseNodeResourceType.Table:
-      return (
-        <TableOperation {...mergedProps} onRecordClick={onRecordClick}>
-          {children}
-        </TableOperation>
-      );
-    case BaseNodeResourceType.Dashboard:
-      return <DashboardOperation {...mergedProps}>{children}</DashboardOperation>;
-    case BaseNodeResourceType.Workflow:
-      return <WorkflowOperation {...mergedProps}>{children}</WorkflowOperation>;
-    case BaseNodeResourceType.Routine:
-      return <RoutineOperation {...mergedProps}>{children}</RoutineOperation>;
-    case BaseNodeResourceType.App:
-      return <AppOperation {...mergedProps}>{children}</AppOperation>;
-    case BaseNodeResourceType.Folder:
-      return <FolderOperation {...mergedProps}>{children}</FolderOperation>;
-    default:
-      return null;
-  }
+  const operation = (() => {
+    switch (resourceType) {
+      case BaseNodeResourceType.Table:
+        return (
+          <TableOperation {...mergedProps} onRecordClick={onRecordClick}>
+            {children}
+          </TableOperation>
+        );
+      case BaseNodeResourceType.Dashboard:
+        return <DashboardOperation {...mergedProps}>{children}</DashboardOperation>;
+      case BaseNodeResourceType.Workflow:
+        return <WorkflowOperation {...mergedProps}>{children}</WorkflowOperation>;
+      case BaseNodeResourceType.Routine:
+        return <RoutineOperation {...mergedProps}>{children}</RoutineOperation>;
+      case BaseNodeResourceType.App:
+        return <AppOperation {...mergedProps}>{children}</AppOperation>;
+      case BaseNodeResourceType.Folder:
+        return <FolderOperation {...mergedProps}>{children}</FolderOperation>;
+      default:
+        return null;
+    }
+  })();
+
+  return (
+    <>
+      {operation}
+      {/* Outside the menu, which unmounts its content as it closes. */}
+      {canMakeTemplate &&
+        base &&
+        templateProjectHost?.renderMakeTemplate({
+          base,
+          nodeId: getNode(treeItems, resourceId)?.id,
+          open: makeTemplateOpen,
+          onOpenChange: setMakeTemplateOpen,
+        })}
+    </>
+  );
 };

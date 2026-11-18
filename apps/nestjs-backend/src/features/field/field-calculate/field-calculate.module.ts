@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { DbProvider } from '../../../db-provider/db.provider';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
+import { FieldReferenceAdmissionModule } from '../../field-reference-admission/field-reference-admission.module';
 import { ComputedModule } from '../../record/computed/computed.module';
-import { CrossBaseLinkAccessService } from '../../record/cross-base-link-access.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { TableDomainQueryModule } from '../../table-domain';
 import { ViewModule } from '../../view/view.module';
@@ -21,6 +21,7 @@ import { LinkFieldQueryService } from './link-field-query.service';
   imports: [
     FieldModule,
     CalculationModule,
+    FieldReferenceAdmissionModule,
     ViewModule,
     CollaboratorModule,
     TableDomainQueryModule,
@@ -28,7 +29,6 @@ import { LinkFieldQueryService } from './link-field-query.service';
   ],
   providers: [
     DbProvider,
-    CrossBaseLinkAccessService,
     FieldDeletingService,
     FieldCreatingService,
     FieldConvertingService,

@@ -80,11 +80,29 @@ preparation and policy checks against current state.
   the application service. Preview does not cover streaming deletion's chunk policy.
 
 - `DomainWriteTransaction.ts` - Role: event-aware transaction orchestration; Purpose: apply same-tx
-  projections and append the journal before commit. Streaming imports snapshot complete event
+  projections and append the journal before commit. Supports re-entrant batch scopes
+  (`withBatchTransaction`) with deferred post-commit delivery (`status: 'deferred' | 'committed'`),
+  per-attempt retry queue reset, strict `rollback-only` propagation, and `savepoint()` isolation
+  across both transaction and batch post-commit queues while rejecting unsupported `executeStream`
+  calls inside batches (`batch.stream_unsupported`). Streaming imports snapshot complete event
   batches externally, finalize exact operation totals when input ends, then replay bounded batches
   for same-tx projections and journal writes before committing. Post-commit consumers are drained
   with backpressure using those same totals.
   `finalizeAfterCommit` runs before delivery; a failure cannot be reported as a rolled-back write.
+- `batchTransactionOrchestration.ts` - Role: re-entrant batch orchestration helper; Purpose: manage
+  single-transaction batch scopes, split Meta/Data cross-database rejection
+  (`batch.cross_database_not_atomic`), per-attempt `afterCommit` reset on retry, isolated
+  `runAfterCommitTasksSafely` execution (capturing post-commit failures per task without aborting
+  subsequent tasks or failing an already-committed caller result), and `runWithBatchSavepoint` state
+  restoration.
+- `dispatchSameTxEvents.ts` - Role: schema/table/view same-tx helper; Purpose: invoke
+  `ISameTxProjectionDispatcher` inside data transactions on both standalone and batch schema/table/view
+  writes (with fast-exit when no targets match) and defer bus/hook post-commit tasks when running
+  inside an active batch.
+- `SameTxProjectionDispatcher.ts` - Role: same-tx dispatcher service; Purpose: resolve registered
+  `@SameTxProjectionHandler` tokens by strict `instanceof` / explicit `eventName` matching, failing
+  closed (`projection.same_tx_failed`) on missing handlers or errors (`NoopSameTxProjectionDispatcher`
+  as standalone container fallback).
 - `ImportRecordBatchTotals.ts` - Role: bounded import metadata; Purpose: count rows and chunks by
   table/operation without retaining payloads, preserving bulk realtime and notification policy.
 - `FieldCreationSideEffectService.ts` - Role: application service; Purpose: validate cross-table field
@@ -125,6 +143,11 @@ preparation and policy checks against current state.
   payload construction never substitutes for entry qualification. Create undo skips restoring
   payloads and Delete/Restore commands for unrecorded requests, while stored snapshots, events and
   persistence are untouched.
+  Replay reserves metadata, validates both command directions and authorizes every
+  selected entry before mutating any entry, then reads and executes one entry at a
+  time. Completed leaf progress is global across the group. Undo visits newest
+  entries first; redo visits oldest first. Results expose replay metadata rather
+  than a composed payload; per-entry callbacks retain host completion effects.
 - `PasteLinkAutoResolveService.ts` - Role: paste-specific link-title validation and resolution.
   Both range paste and ID-based paste must validate textual link targets before record writes;
   ID-based hosts also validate planned link columns before persisting column expansion. Clipboard
@@ -156,12 +179,17 @@ preparation and policy checks against current state.
 - `TableQueryService.ts` - Role: application service; Purpose: common table lookup operations
   (getById, getByIdInBase, exists) used across CommandHandlers and QueryHandlers.
 - `TableUpdateFlow.ts` - Role: application service; Purpose: shared table update workflow (mutate +
-  persist + publish), including mapping one persisted View query-default version touch to its
-  filter/group/sort semantic events without consuming later mutation versions. Physical schema
+  persist + publish), including same-tx projection dispatch inside the data transaction (`previousTables`
+  plus updated table aggregates), batch deferral when inside `withBatchTransaction`, per-attempt View
+  version rollback across transaction retries, and mapping one persisted View query-default version touch
+  to its filter/group/sort semantic events without consuming later mutation versions. Physical schema
   completion publishes `TableProvisionReady` after ready is committed, even when mutation events
   are deferred with `publishEvents: false`. With an outer metadata transaction, readiness and
-  mutation publication wait for its commit and publish without transaction handles; rollback
-  publishes no mutation events.
+  mutation publication wait for its commit and publish without transaction handles. Inline
+  finalization may mark schema state ready inside that transaction, but its ready projection
+  still waits for commit; rollback publishes neither readiness nor mutation events.
+  Once ready state is committed, a failed ready projection is logged without turning the persisted
+  mutation into a failed response. Lifecycle persistence failures remain errors.
 - `SchemaOperationRunnerService.ts` - Role: durable schema repair scheduling; Purpose: retry
   `view.version_conflict` with the existing bounded backoff because each repair reloads metadata.
   Keep optimistic version checks intact; business conflicts and unsupported repairs remain terminal.

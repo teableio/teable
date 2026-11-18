@@ -6,7 +6,7 @@ import {
   requiresRoundedNumberListSearchFunction,
   roundedNumberListSearchFunctionBody,
   roundedNumberListSearchFunctionSql,
-} from './searchDocumentProjection';
+} from '@teable/v2-adapter-db-postgres-shared';
 import type { UnknownPostgresDatabase } from './types';
 
 /** Called only after the caller's writable-maintenance guards. Never replace

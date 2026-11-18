@@ -1,3 +1,8 @@
+import type { Field } from './Field';
+import { FieldType } from './FieldType';
+import type { ConditionalLookupField } from './types/ConditionalLookupField';
+import type { LookupField } from './types/LookupField';
+
 export type UserFilterMultiplicityChange = 'singleToMultiple' | 'multipleToSingle';
 
 const USER_FILTER_ARRAY_OPERATORS: Record<string, true> = {
@@ -36,6 +41,33 @@ export const isFieldReferenceFilterValue = (value: unknown): boolean => {
   }
   return value.type === 'field';
 };
+
+/** The filter value that stands for the reader on a user-valued Field. */
+export const currentUserFilterValue = 'Me';
+
+/** A user-valued Field, seen through lookups: `Me` in a filter on it stands for the reader. */
+export const isUserLikeField = (field: Field): boolean => {
+  const type = field.type();
+  if (type.equals(FieldType.lookup()) || type.equals(FieldType.conditionalLookup())) {
+    // Type-only: a runtime import of the lookup classes would cycle back through FieldCondition.
+    const lookup = field as LookupField | ConditionalLookupField;
+    const inner = lookup.innerField();
+    return inner.isOk() && isUserLikeField(inner.value);
+  }
+  return (
+    type.equals(FieldType.user()) ||
+    type.equals(FieldType.createdBy()) ||
+    type.equals(FieldType.lastModifiedBy())
+  );
+};
+
+/** Replaces `Me` in a user filter value, single or list, with `userId`. */
+export const replaceCurrentUserFilterValue = <T>(value: T, userId: string): T =>
+  (Array.isArray(value)
+    ? value.map((item) => (item === currentUserFilterValue ? userId : item))
+    : value === currentUserFilterValue
+      ? userId
+      : value) as T;
 
 export const remapUserFilterOperator = (
   operator: string,

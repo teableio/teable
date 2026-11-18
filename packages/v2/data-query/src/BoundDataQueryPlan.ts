@@ -23,7 +23,7 @@ import { dataQueryExpressionFieldType } from './DataQueryExpressionFieldType';
 import type {
   DataQueryAggregate,
   DataQueryBucket,
-  DataQueryAggregateV4,
+  DataQueryAggregateV8,
   DataQueryDefinitionInput,
   DataQueryFieldDependency,
   DataQueryFieldUsage,
@@ -116,6 +116,8 @@ export type BoundDataQueryPlanAggregate = {
   readonly fieldId?: string;
   readonly column: string | null;
   readonly expression?: BoundDataQueryFormulaExpression;
+  /** Explicit finalized scalar tuple keys; null components participate in equality. */
+  readonly distinctExpressions?: readonly BoundDataQueryFormulaExpression[];
   readonly filter?: BoundDataQueryPredicate;
 };
 
@@ -173,7 +175,7 @@ export type BoundDataQueryPlanUsage = {
 };
 
 export type BoundDataQueryPlan = {
-  readonly definitionVersion: 1 | 2 | 3 | 4 | 5 | 6;
+  readonly definitionVersion: DataQueryDefinitionInput['version'];
   readonly resultGrain: 'record' | 'distinctTuple' | 'group';
   readonly formulaLanguage?: 'teable-formula';
   readonly predicate?: BoundDataQueryPredicate;
@@ -374,7 +376,7 @@ const planSort = (
 };
 
 const planAggregate = (
-  aggregate: DataQueryRelationAggregate | DataQueryAggregate | DataQueryAggregateV4,
+  aggregate: DataQueryRelationAggregate | DataQueryAggregate | DataQueryAggregateV8,
   sources: ReadonlyMap<string, BoundDataQueryPlanSource>
 ): BoundDataQueryPlanAggregate => {
   const source = sourceAlias('source' in aggregate ? aggregate.source : undefined);
@@ -509,9 +511,15 @@ export const buildBoundDataQueryPlan = (
           ...(metric.source !== 'root' ? { localSource: metric.source } : {}),
         };
         const expression =
-          'expr' in aggregate
+          'expr' in aggregate && aggregate.expr
             ? yield* defer(bindDataQueryFormulaExpression(aggregate.expr, context))
             : undefined;
+        const distinctExpressions: BoundDataQueryFormulaExpression[] = [];
+        if ('distinctBy' in aggregate)
+          for (const key of aggregate.distinctBy) {
+            const boundKey = yield* defer(bindDataQueryFormulaExpression(key, context));
+            if (boundKey) distinctExpressions.push(boundKey);
+          }
         const filter =
           'filter' in aggregate && aggregate.filter
             ? yield* defer(bindDataQueryExpressionPredicate(aggregate.filter, context))
@@ -519,6 +527,7 @@ export const buildBoundDataQueryPlan = (
         aggregates.push({
           ...metric,
           ...(expression ? { expression } : {}),
+          ...(distinctExpressions.length ? { distinctExpressions } : {}),
           ...(filter ? { filter } : {}),
         });
       }
@@ -561,7 +570,8 @@ export const buildBoundDataQueryPlan = (
       definition.version === 3 ||
       definition.version === 4 ||
       definition.version === 5 ||
-      definition.version === 6
+      definition.version === 6 ||
+      definition.version === 8
     )
       for (const [source, relation] of Object.entries(definition.relations ?? {}))
         if (relation.filter) {
@@ -587,7 +597,7 @@ export const buildBoundDataQueryPlan = (
       resultGrain:
         definition.kind === 'aggregate'
           ? 'group'
-          : definition.version === 6 && definition.distinct
+          : (definition.version === 6 || definition.version === 8) && definition.distinct
             ? 'distinctTuple'
             : 'record',
       tableId: definition.tableId,

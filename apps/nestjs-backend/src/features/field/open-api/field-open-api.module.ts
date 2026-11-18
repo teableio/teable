@@ -3,6 +3,7 @@ import { DbProvider } from '../../../db-provider/db.provider';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { CanaryModule } from '../../canary/canary.module';
+import { FieldReferenceAdmissionModule } from '../../field-reference-admission/field-reference-admission.module';
 import { GraphModule } from '../../graph/graph.module';
 import { ComputedModule } from '../../record/computed/computed.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
@@ -27,6 +28,7 @@ import { FieldOpenApiService } from './field-open-api.service';
     CalculationModule,
     forwardRef(() => RecordOpenApiModule),
     FieldCalculateModule,
+    FieldReferenceAdmissionModule,
     ViewModule,
     GraphModule,
     RecordQueryBuilderModule,

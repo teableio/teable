@@ -1,31 +1,42 @@
 import { Link } from '@teable/icons';
 import type { ITemplateReviewCheck, ITemplateVo } from '@teable/openapi';
-import { TemplateCheckResult, TemplateReviewCheck, TemplateReviewStatus } from '@teable/openapi';
+import {
+  isTemplateListed,
+  isTemplateLive,
+  isUnreleasedSubmission,
+  TemplateCheckResult,
+  TemplateReviewCheck,
+} from '@teable/openapi';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
-import { Badge, Button, cn, Label, Textarea } from '@teable/ui-lib/shadcn';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Badge,
+  Button,
+  cn,
+  Label,
+  Textarea,
+} from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { CircleCheck, CircleX, Copy, ExternalLink, Info } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useContext, useEffect, useRef } from 'react';
 import { TemplateHostContext } from '@/features/app/components/space/template/host-context';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useOrigin } from '@/features/app/hooks/useOrigin';
 import { asTranslate, type ITranslate } from '@/features/app/utils/translate';
-
-const STATUS_LABEL = {
-  [TemplateReviewStatus.Review]: 'publishBase.review.status.review',
-  [TemplateReviewStatus.Rejected]: 'publishBase.review.status.rejected',
-  [TemplateReviewStatus.Withdrawn]: 'publishBase.review.status.withdrawn',
-} as const;
-
-const STATUS_CLASS: Record<TemplateReviewStatus, string> = {
-  [TemplateReviewStatus.Review]:
-    'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200',
-  [TemplateReviewStatus.Rejected]: 'bg-red-100 text-red-900 dark:bg-red-950/60 dark:text-red-200',
-  [TemplateReviewStatus.Withdrawn]: 'bg-muted text-muted-foreground',
-};
+import { TemplateShareButtons } from './TemplateShareButtons';
 
 const CHECK_LABEL = {
+  [TemplateReviewCheck.Content]: 'publishBase.review.check.content',
   [TemplateReviewCheck.Connectors]: 'publishBase.review.check.connectors',
   [TemplateReviewCheck.Privacy]: 'publishBase.review.check.privacy',
   [TemplateReviewCheck.Estimate]: 'publishBase.review.check.estimate',
@@ -33,6 +44,16 @@ const CHECK_LABEL = {
 } as const;
 
 export const describeCheck = (check: ITemplateReviewCheck, t: ITranslate): string | undefined => {
+  // The one check that stops a submission, and the one that says something when it passes:
+  // what the author vouched for as sample content.
+  if (check.key === TemplateReviewCheck.Content) {
+    if (check.result === TemplateCheckResult.Fail) {
+      return t('space:publishBase.review.checkMessage.content', { count: check.open ?? 0 });
+    }
+    return check.marked
+      ? t('space:publishBase.review.checkMessage.contentMarked', { count: check.marked })
+      : undefined;
+  }
   if (check.result !== TemplateCheckResult.Warn) return undefined;
   switch (check.key) {
     case TemplateReviewCheck.Connectors:
@@ -57,27 +78,38 @@ const CHECK_ICON = {
   [TemplateCheckResult.Fail]: <CircleX className="size-4 shrink-0 text-destructive" />,
 } as const;
 
-/** Where the listing stands; nothing without a host that reviews submissions, or without a listing. */
+/**
+ * A published template: the version its link opens, whether the template centre lists it, the
+ * link to share, and taking it down. Nothing without a host that reviews submissions, or while
+ * nothing is published. The review after publishing only decides the listing, so it has no
+ * say here.
+ */
 export const TemplateReviewPanel = ({
   template,
   onWithdraw,
   withdrawing,
   className,
+  shareUrl,
 }: {
   template: ITemplateVo | null | undefined;
   onWithdraw: () => void;
   withdrawing: boolean;
   className?: string;
+  /** The template's short link, when there is one; the /t permalink otherwise. */
+  shareUrl?: string;
 }) => {
   const { t } = useTranslation(['space', 'common']);
   const dayjs = useLanDayjs();
   const origin = useOrigin();
+  const isCloud = useIsCloud();
   const { submission } = useContext(TemplateHostContext);
   if (!submission || !template) return null;
 
-  const { review, version, isPublished } = template;
+  const live = isTemplateLive(template);
+  // A submission from before publishing went live on submit: its link opens it while it waits.
+  if (!live && !isUnreleasedSubmission(template)) return null;
   const history = [...(template.history ?? [])].reverse();
-  const publicUrl = isPublished ? `${origin}/t/${template.id}` : '';
+  const publicUrl = shareUrl || `${origin}/t/${template.id}`;
 
   const copyUrl = () => {
     navigator.clipboard.writeText(publicUrl);
@@ -86,105 +118,95 @@ export const TemplateReviewPanel = ({
 
   return (
     <div className={cn('flex min-w-0 flex-col gap-3 text-sm', className)}>
-      {publicUrl && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="border-transparent bg-green-100 text-green-900">
-              {t('publishBase.review.live', { version })}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              {t('publishBase.review.publicLink')}
-            </span>
-          </div>
-          <div className="flex h-9 items-center gap-2 overflow-hidden rounded-md border bg-background ps-3">
-            <Link className="size-4 shrink-0" />
-            <div className="min-w-0 grow truncate text-muted-foreground">{publicUrl}</div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="border-transparent bg-green-100 text-green-900">
+          {t('publishBase.review.live', { version: template.version })}
+        </Badge>
+        {isTemplateListed(template) && (
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            {t('publishBase.review.listed')}
+          </Badge>
+        )}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
             <Button
-              size="icon"
+              size="xs"
               variant="ghost"
-              className="size-9 shrink-0 rounded-none border-s p-0"
-              onClick={copyUrl}
+              className="ms-auto text-muted-foreground"
+              disabled={withdrawing}
             >
-              <Copy className="size-4" />
+              {withdrawing && <Spin className="size-3" />}
+              {t('publishBase.review.withdraw')}
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-9 shrink-0 rounded-none border-s p-0"
-              onClick={() => window.open(publicUrl, '_blank')}
-            >
-              <ExternalLink className="size-4" />
-            </Button>
-          </div>
-          {submission.renderStatusExtra?.(template)}
-          {history.length > 1 && (
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-              {history.map((entry) => (
-                <li key={entry.version} className="flex gap-2">
-                  <span className="w-6 shrink-0">v{entry.version}</span>
-                  <span className="w-20 shrink-0">
-                    {dayjs(entry.publishedTime).format('YYYY-MM-DD')}
-                  </span>
-                  <span className="truncate">
-                    {entry.changelog ||
-                      t(
-                        entry.version === 1
-                          ? 'common:template.detail.firstRelease'
-                          : 'common:template.detail.noChangelog'
-                      )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-      {review && (
-        <div className="flex flex-col gap-2 rounded-md border p-3">
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className={cn('border-transparent font-medium', STATUS_CLASS[review.status])}
-            >
-              {t(STATUS_LABEL[review.status])}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              {t('publishBase.review.submittedTime', {
-                time: dayjs(review.submittedTime).fromNow(),
-              })}
-            </span>
-            {review.status === TemplateReviewStatus.Review && (
-              <Button
-                size="xs"
-                variant="outline"
-                className="ms-auto"
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('publishBase.review.withdrawConfirmTitle')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('publishBase.review.withdrawConfirmDescription')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={onWithdraw}
-                disabled={withdrawing}
               >
-                {withdrawing && <Spin className="size-3" />}
                 {t('publishBase.review.withdraw')}
-              </Button>
-            )}
-          </div>
-          {review.note && (
-            <p className="text-xs">
-              <span className="text-muted-foreground">{t('publishBase.review.note')}: </span>
-              {review.note}
-            </p>
-          )}
-          <div className="text-xs font-medium">{t('publishBase.review.checks')}</div>
-          <ul className="flex flex-col gap-1">
-            {review.checks.map((check) => (
-              <CheckRow key={check.key} check={check} />
-            ))}
-          </ul>
-        </div>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+      <div className="flex h-9 items-center gap-2 overflow-hidden rounded-md border bg-background ps-3">
+        <Link className="size-4 shrink-0" />
+        <div className="min-w-0 grow truncate text-muted-foreground">{publicUrl}</div>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-9 shrink-0 rounded-none border-s p-0"
+          onClick={copyUrl}
+        >
+          <Copy className="size-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-9 shrink-0 rounded-none border-s p-0"
+          onClick={() => window.open(publicUrl, '_blank')}
+        >
+          <ExternalLink className="size-4" />
+        </Button>
+      </div>
+      {submission.renderShareActions?.({ template, shareUrl: publicUrl }) ??
+        (isCloud && <TemplateShareButtons title={template.name ?? ''} shareUrl={publicUrl} />)}
+      {live && submission.renderStatusExtra?.(template)}
+      {live && history.length > 1 && (
+        <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+          {history.map((entry) => (
+            <li key={entry.version} className="flex gap-2">
+              <span className="w-6 shrink-0">v{entry.version}</span>
+              <span className="w-20 shrink-0">
+                {dayjs(entry.publishedTime).format('YYYY-MM-DD')}
+              </span>
+              <span className="truncate">
+                {entry.changelog ||
+                  t(
+                    entry.version === 1
+                      ? 'common:template.detail.firstRelease'
+                      : 'common:template.detail.noChangelog'
+                  )}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
 };
 
-const CheckRow = ({ check }: { check: ITemplateReviewCheck }) => {
+/** One automatic check: how it went, its name and what it has to say. */
+export const CheckRow = ({ check }: { check: ITemplateReviewCheck }) => {
   const { t } = useTranslation('space');
   const message = describeCheck(check, asTranslate(t));
   return (

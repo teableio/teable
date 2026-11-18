@@ -43,6 +43,10 @@ export interface CsvParseResult {
    * Number of data rows when known up front (header already excluded).
    */
   readonly rowCount?: number;
+  /** Original 1-based source position without retaining streamed rows. */
+  readonly getSourceRowNumber?: (row: Record<string, string>) => number | undefined;
+  /** Fallback origin when a parser has stripped the header (defaults to 2). */
+  readonly firstDataRowNumber?: number;
 }
 
 /**

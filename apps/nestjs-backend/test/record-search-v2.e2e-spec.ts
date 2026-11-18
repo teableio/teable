@@ -1102,6 +1102,7 @@ describe.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)(
         })
       )._unsafeUnwrap();
       expect(provisioned).toMatchObject({ action: 'created', status: 'ready' });
+      if (!provisioned.generatedColumnName) throw new Error('Expected a generated search document');
 
       await run({
         dataDb,
@@ -1150,8 +1151,7 @@ describe.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)(
         await withPublishedDocument(table.id, async (fixture) => {
           expect(await fixture.documentColumns()).toEqual([{ generated: 's', valid: true }]);
           expect(await fixture.servingSnapshot()).toMatchObject({
-            indexUsable: true,
-            provider: 'pg_trgm',
+            document: { ready: true, provider: 'pg_trgm' },
           });
 
           // The document was built before this field existed, so the document
@@ -1164,16 +1164,19 @@ describe.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)(
 
           expect(await fixture.documentColumns()).toEqual([{ generated: 's', valid: true }]);
           expect(await fixture.servingSnapshot()).toMatchObject({
-            indexUsable: true,
-            provider: 'pg_trgm',
+            document: { ready: true, provider: 'pg_trgm' },
           });
+          const records = await getRecords(table.id, { search: ['needleunique'] });
+          expect(records.records.map((record) => record.id).sort()).toEqual(
+            table.records.map((record) => record.id).sort()
+          );
         });
       } finally {
         await permanentDeleteTable(baseId, table.id);
       }
     }, 120_000);
 
-    it('drops the document and unpublishes serving metadata when a covered field is removed', async () => {
+    it('drops the document and disables its serving branch when a covered field is removed', async () => {
       const table = await createTable(baseId, {
         name: 't7718_covered_field_removal',
         fields: [
@@ -1190,10 +1193,12 @@ describe.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)(
           expect(coveredField).toBeDefined();
           await removeFieldThroughApi(table.id, coveredField!.id);
 
-          // PostgreSQL refuses the column change until the covered document is
-          // removed, so the document and its serving snapshot must both go.
           expect(await fixture.documentColumns()).toEqual([]);
-          expect(await fixture.servingSnapshot()).toBeNull();
+          expect(await fixture.servingSnapshot()).toMatchObject({
+            document: { ready: false },
+          });
+          const records = await getRecords(table.id, { search: ['needleunique'] });
+          expect(records.records.map((record) => record.id)).toEqual([table.records[0].id]);
         });
       } finally {
         await permanentDeleteTable(baseId, table.id);

@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { setImmediate } from 'node:timers/promises';
 import {
   getActionTriggerChannel,
   getBaseNodeChannel,
@@ -8,10 +10,13 @@ import {
   getTableImportChannel,
   getUserNotificationChannel,
   getWorkflowTestChannel,
+  HttpErrorCode,
 } from '@teable/core';
+import { ClsService } from 'nestjs-cls';
 import ShareDBClass from 'sharedb';
 import type { Connection } from 'sharedb/lib/client';
 import { describe, expect, it, vi } from 'vitest';
+import type { IClsStore } from '../types/cls';
 import { authMiddleware, type IAuthMiddlewareDeps } from './auth.middleware';
 
 // --- fake backend data -------------------------------------------------------
@@ -82,12 +87,12 @@ const createDeps = (): IAuthMiddlewareDeps => {
   };
 };
 
-const createBackend = () => {
+const createBackend = (deps: IAuthMiddlewareDeps = createDeps()) => {
   const backend = new ShareDBClass({
     presence: true,
     doNotForwardSendPresenceErrorsToClient: true,
   });
-  authMiddleware(backend, createDeps());
+  authMiddleware(backend, deps);
   return backend;
 };
 
@@ -177,7 +182,10 @@ describe('non-notification presence requires read access to the channel resource
     const backend = createBackend();
     await expect(
       subscribe(connectBrowser(backend), getCollaboratorsChannel('tblMine'))
-    ).rejects.toBeDefined();
+    ).rejects.toMatchObject({
+      code: HttpErrorCode.RESTRICTED_RESOURCE,
+      message: 'Presence channel access denied',
+    });
   });
 
   it('rejects an anonymous connection publishing fake presence', async () => {
@@ -206,6 +214,103 @@ describe('non-notification presence requires read access to the channel resource
     await expect(
       subscribe(connectBrowser(backend, { userId: 'usrMe' }), getChatChannel('chtX'))
     ).rejects.toBeDefined();
+  });
+});
+
+describe('department-only collaborators receive realtime presence', () => {
+  const createDepartmentBackend = () => {
+    const cls = new ClsService<IClsStore>(new AsyncLocalStorage());
+    const departments = new Map([
+      ['usrDepartment', ['depEditor']],
+      ['usrUnrelated', ['depOther']],
+    ]);
+    const userOrganizationResolver = {
+      getUserOrganization: async (userId: string) => {
+        await setImmediate();
+        return {
+          id: 'orgFixture',
+          name: 'Organization',
+          isAdmin: false,
+          departments: (departments.get(userId) ?? []).map((id) => ({ id, name: id })),
+        };
+      },
+    };
+    const deps = {
+      ...createDeps(),
+      clsService: cls,
+      userOrganizationResolver,
+      permissionService: {
+        getPermissionByBaseId: async (baseId: string) => {
+          await setImmediate();
+          if (
+            baseId !== 'bseMine' ||
+            !cls.get('organization.departments')?.some(({ id }) => id === 'depEditor')
+          ) {
+            throw new Error('no permission');
+          }
+          return ['base|read'];
+        },
+      } as never,
+    };
+    return { backend: createBackend(deps), departments };
+  };
+
+  it.each([
+    getCollaboratorsChannel('tblMine'),
+    getActionTriggerChannel('tblMine'),
+    getBasePermissionUpdateChannel('bseMine'),
+  ])('delivers %s to a member without a direct user grant', async (channel) => {
+    const { backend } = createDepartmentBackend();
+    const member = connectBrowser(backend, { userId: 'usrDepartment' });
+    const publisher = connectBrowser(backend, { userId: 'usrDepartment' });
+    try {
+      const presence = await subscribe(member, channel);
+      const received = Promise.withResolvers<unknown>();
+      presence.once('receive', (_id: string, value: unknown) => received.resolve(value));
+      await submit(publisher, channel, 'update', { version: 1 });
+      expect(await received.promise).toEqual({ version: 1 });
+    } finally {
+      member.close();
+      publisher.close();
+    }
+  });
+
+  it('does not borrow departments across concurrent users or grant another base', async () => {
+    const { backend } = createDepartmentBackend();
+    const member = connectBrowser(backend, { userId: 'usrDepartment' });
+    const outsider = connectBrowser(backend, { userId: 'usrUnrelated' });
+    try {
+      const [allowed, denied, otherBase] = await Promise.allSettled([
+        subscribe(member, getCollaboratorsChannel('tblMine')),
+        subscribe(outsider, getCollaboratorsChannel('tblMine')),
+        subscribe(member, getCollaboratorsChannel('tblOther')),
+      ]);
+      expect(allowed.status).toBe('fulfilled');
+      expect(denied).toMatchObject({
+        status: 'rejected',
+        reason: { message: 'Presence channel access denied' },
+      });
+      expect(otherBase).toMatchObject({
+        status: 'rejected',
+        reason: { message: 'Presence channel access denied' },
+      });
+    } finally {
+      member.close();
+      outsider.close();
+    }
+  });
+
+  it('rejects a new connection after department membership is revoked', async () => {
+    const { backend, departments } = createDepartmentBackend();
+    departments.set('usrDepartment', []);
+    const formerMember = connectBrowser(backend, { userId: 'usrDepartment' });
+    try {
+      await expect(
+        subscribe(formerMember, getCollaboratorsChannel('tblMine'))
+      ).rejects.toMatchObject({ message: 'Presence channel access denied' });
+    } finally {
+      formerMember.close();
+    }
   });
 });
 
@@ -329,7 +434,10 @@ describe('share-granted presence is listen-only', () => {
     const backend = createBackend();
     await expect(
       submit(connectBrowser(backend, { baseShareId: 'shrBase' }), ch, 'fake', { x: 1 })
-    ).rejects.toMatchObject({ message: expect.stringContaining('listen-only') });
+    ).rejects.toMatchObject({
+      code: HttpErrorCode.RESTRICTED_RESOURCE,
+      message: expect.stringContaining('listen-only'),
+    });
   });
 
   it('refuses a view-share visitor publishing onto the shared table', async () => {

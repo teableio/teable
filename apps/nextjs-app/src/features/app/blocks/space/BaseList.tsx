@@ -28,9 +28,11 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { keyBy } from 'lodash';
+import { FlaskConical } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useState, useMemo, useCallback } from 'react';
 import { useLocalStorage } from 'react-use';
+import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseEntryMap } from '../../hooks/useBaseEntryMap';
 import { BaseNodeProvider } from '../base/base-node/BaseNodeProvider';
@@ -52,10 +54,33 @@ interface IBaseListProps {
   spaceId?: string;
   showToolbar?: boolean;
   showStar?: boolean;
+  /** Heads the name column; the space's "All projects" by default. */
+  title?: string;
+  /** Before the sort control in the toolbar (the tabs that split the list). */
+  toolbarStart?: React.ReactNode;
+  /** In place of the plain "nothing here" line. */
+  emptyContent?: React.ReactNode;
+  /** The rows that are template projects: they carry the template mark. */
+  templateProjectIds?: ReadonlySet<string>;
+  /** After a row's name. */
+  renderNameExtra?: (base: IGetBaseVo) => React.ReactNode;
+  /** A template project's trial copies, listed under it when the row is open. */
+  trialCopiesOf?: (baseId: string) => IGetBaseVo[];
 }
 
 export const BaseList = (props: IBaseListProps) => {
-  const { baseIds, spaceId, showToolbar = false, showStar = true } = props;
+  const {
+    baseIds,
+    spaceId,
+    showToolbar = false,
+    showStar = true,
+    title,
+    toolbarStart,
+    emptyContent,
+    templateProjectIds,
+    renderNameExtra,
+    trialCopiesOf,
+  } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const queryClient = useQueryClient();
   const { enterBase, enterBaseOverlay } = useEnterBase();
@@ -244,6 +269,7 @@ export const BaseList = (props: IBaseListProps) => {
     }
   ) => {
     const showDragHandle = options?.showDragHandle && canReorder;
+    const trialCopies = trialCopiesOf?.(base.id) ?? [];
 
     return (
       <Collapsible
@@ -254,6 +280,8 @@ export const BaseList = (props: IBaseListProps) => {
         <BaseItem
           base={base}
           showStar={showStar}
+          isTemplateProject={templateProjectIds?.has(base.id)}
+          nameExtra={renderNameExtra?.(base)}
           lastVisitTime={lastVisitBaseMap[base.id]?.lastVisitTime}
           isExpanded={expandedBases.has(base.id)}
           showDragHandle={showDragHandle}
@@ -292,6 +320,20 @@ export const BaseList = (props: IBaseListProps) => {
                     }
                   }}
                 />
+                {trialCopies.map((trial) => (
+                  <button
+                    key={trial.id}
+                    type="button"
+                    className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-start text-sm hover:bg-accent"
+                    onClick={() => enterBase(trial)}
+                  >
+                    <FlaskConical className="size-4 shrink-0" />
+                    <span className="min-w-0 truncate">{getBaseDisplayName(trial.name, t)}</span>
+                    <span className="shrink-0 rounded-md bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      {t('space:templateProject.trialCopy')}
+                    </span>
+                  </button>
+                ))}
               </div>
             </BaseNodeProvider>
           </AnchorContext.Provider>
@@ -305,6 +347,7 @@ export const BaseList = (props: IBaseListProps) => {
       {/* Toolbar: View Mode Select */}
       {showToolbar && (
         <div className="flex items-center gap-4">
+          {toolbarStart}
           {isHydrated ? (
             <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
               <SelectTrigger className="w-auto gap-1 border-none bg-transparent hover:bg-accent hover:text-accent-foreground dark:bg-transparent [&>svg]:hidden">
@@ -345,7 +388,7 @@ export const BaseList = (props: IBaseListProps) => {
 
       {/* Header */}
       <div className="flex h-8 items-center border-b text-xs font-medium text-muted-foreground">
-        <div className="flex-1 truncate pe-2 ps-6">{t('space:baseList.allBases')}</div>
+        <div className="flex-1 truncate pe-2 ps-6">{title ?? t('space:baseList.allBases')}</div>
         <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-40 2xl:w-48">
           {t('space:baseList.creator')}
         </div>
@@ -378,11 +421,13 @@ export const BaseList = (props: IBaseListProps) => {
         )}
 
         {/* Empty state */}
-        {isHydrated && currentList.length === 0 && (
-          <div className="flex h-40 items-center justify-center text-muted-foreground">
-            {t('space:baseList.empty')}
-          </div>
-        )}
+        {isHydrated &&
+          currentList.length === 0 &&
+          (emptyContent ?? (
+            <div className="flex h-40 items-center justify-center text-muted-foreground">
+              {t('space:baseList.empty')}
+            </div>
+          ))}
       </ScrollArea>
     </div>
   );

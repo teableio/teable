@@ -11,7 +11,7 @@ import type { DependencyContainer } from '@teable/v2-di';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
-import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
+import { FieldReferenceAdmissionService } from '../field-reference-admission/field-reference-admission.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
 import { CrossBaseLinkAccessFieldOperationPlugin } from './cross-base-link-access.field-operation.plugin';
 import { CrossBaseLinkAccessRecordWritePlugin } from './cross-base-link-access.record-write.plugin';
@@ -37,7 +37,7 @@ export class CrossBaseLinkAccessPluginRegistrar implements IV2ProjectionRegistra
 
   constructor(
     private readonly crossBaseLinkAccess: CrossBaseLinkAccessService,
-    private readonly fieldSupplementService: FieldSupplementService,
+    private readonly fieldReferenceAdmission: FieldReferenceAdmissionService,
     private readonly targetSchemaCapability: SymmetricFieldTargetSchemaCapabilityProvider,
     private readonly cls: ClsService<IClsStore>,
     private readonly permissionService: PermissionService
@@ -83,7 +83,7 @@ export class CrossBaseLinkAccessPluginRegistrar implements IV2ProjectionRegistra
     );
     registerFieldOperationPlugin(
       container,
-      new CrossBaseLinkAccessFieldOperationPlugin(this.fieldSupplementService),
+      new CrossBaseLinkAccessFieldOperationPlugin(this.fieldReferenceAdmission),
       { source: CrossBaseLinkAccessPluginRegistrar.name }
     );
     registerFieldOperationPlugin(

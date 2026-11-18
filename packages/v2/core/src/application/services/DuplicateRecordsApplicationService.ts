@@ -908,6 +908,7 @@ export class DuplicateRecordsApplicationService {
     const duplicatedRecordIds: string[] = [];
     let duplicatedCount = 0;
     let anchorRecordId = plan.anchorRecordId;
+    const undoGroup = { groupId: operation.operationId, attempted: false };
     const operationPluginExecutionResult = await this.prepareDuplicatePluginExecution(
       context,
       plan.table,
@@ -1096,7 +1097,7 @@ export class DuplicateRecordsApplicationService {
               plan.table,
               persisted.duplicatedRecordIds,
               persisted.storedSnapshots,
-              operation.operationId
+              undoGroup
             )
         );
         if (undoRedoResult.isErr()) {
@@ -1160,17 +1161,20 @@ export class DuplicateRecordsApplicationService {
     table: Table,
     duplicatedRecordIds: ReadonlyArray<string>,
     storedSnapshots: ReadonlyArray<RecordStoredSnapshot>,
-    groupId: string
+    group: { groupId: string; attempted: boolean }
   ): Promise<Result<void, DomainError>> {
     if (!storedSnapshots.length) {
       return ok(undefined);
     }
+    const groupPosition = group.attempted ? 'continue' : 'start';
+    group.attempted = true;
 
     return this.undoRedoStackService.appendRecordCreate(toUndoRedoStackAppendContext(context), {
       tableId: table.id(),
       createdRecordIds: duplicatedRecordIds,
       createdRecords: storedSnapshots,
-      groupId,
+      groupId: group.groupId,
+      groupPosition,
     });
   }
 

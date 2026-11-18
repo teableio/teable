@@ -43,6 +43,13 @@ export interface IGoogleSheetImportProgress {
 export type IGoogleSheetImportProgressReporter = (progress: IGoogleSheetImportProgress) => void;
 
 /**
+ * Told the base the import writes into as soon as that base exists, before
+ * anything else can fail, so a caller tracking the import always knows where an
+ * interrupted one left its data.
+ */
+export type IGoogleSheetImportBaseListener = (baseId: string) => void;
+
+/**
  * Thrown when the import fails after at least one table was fully imported.
  * Carries everything completed so far so the caller can report a partial
  * result instead of pretending nothing happened. A brand-new base with zero
@@ -64,6 +71,7 @@ export class GoogleSheetImportPartialError extends Error {
 const fetchChunkRows = 2000;
 // Records per createRecords call, matching the CSV importer's chunking.
 const insertBatchSize = 500;
+const maxIssueRowSamples = 100;
 // Tabs covered by the analyze sample-rows preview (one A1 range each in a
 // single request URL — the cap keeps that URL bounded).
 const maxSamplePreviewSheets = 30;
@@ -241,14 +249,15 @@ export class GoogleSheetImportService {
     ro: IImportGoogleSheetRo,
     onProgress?: IGoogleSheetImportProgressReporter,
     /** Polled between chunks: a disconnected SSE client stops the crawl. */
-    isAborted?: () => boolean
+    isAborted?: () => boolean,
+    onBaseResolved?: IGoogleSheetImportBaseListener
   ): Promise<IImportGoogleSheetVo> {
     return this.audit.withOperation(
       {
         rootAction: ro.baseId ? CreateRecordAction.Import : CreateRecordAction.BaseImport,
         resourceId: ro.baseId ?? ro.spaceId,
       },
-      () => this.runImport(ro, onProgress, isAborted)
+      () => this.runImport(ro, onProgress, isAborted, onBaseResolved)
     );
   }
 
@@ -256,7 +265,8 @@ export class GoogleSheetImportService {
   private async runImport(
     ro: IImportGoogleSheetRo,
     onProgress?: IGoogleSheetImportProgressReporter,
-    isAborted?: () => boolean
+    isAborted?: () => boolean,
+    onBaseResolved?: IGoogleSheetImportBaseListener
   ): Promise<IImportGoogleSheetVo> {
     const importRecords = ro.importRecords ?? true;
     const progress = (event: IGoogleSheetImportProgress) => onProgress?.(event);
@@ -284,6 +294,7 @@ export class GoogleSheetImportService {
     let base;
     if (ro.baseId) {
       base = await this.baseService.getBaseById(ro.baseId);
+      onBaseResolved?.(base.id);
     } else {
       if (!ro.spaceId) {
         throw new CustomHttpException(
@@ -296,6 +307,7 @@ export class GoogleSheetImportService {
         spaceId: ro.spaceId,
         name: ro.baseName ?? title,
       });
+      onBaseResolved?.(base.id);
       // The stream route has no controller BASE_CREATE event to record the new base.
       await auditBaseCreated(this.audit, base, { importSource: 'google-sheet' });
     }
@@ -519,7 +531,7 @@ export class GoogleSheetImportService {
       importedRecords: 0,
     });
 
-    const droppedByField = new Map<string, number>();
+    const droppedByField = new Map<string, { count: number; rowNumbers: number[] }>();
     // Fetch the full (capped) grid width, not just the sampled columns: a
     // column that is empty for the whole sample window but holds data further
     // down must be DETECTED and reported, not silently never fetched.
@@ -558,7 +570,7 @@ export class GoogleSheetImportService {
         }
       }
 
-      const payloads = this.buildRecordPayloads(values, columns, fieldIds, droppedByField);
+      const payloads = this.buildRecordPayloads(values, columns, fieldIds, droppedByField, startRow);
       for (let offset = 0; offset < payloads.length; offset += insertBatchSize) {
         const batch = payloads.slice(offset, offset + insertBatchSize);
         // Teable assigns each create batch a descending order, which flips the
@@ -584,12 +596,13 @@ export class GoogleSheetImportService {
       });
     }
 
-    for (const [fieldName, count] of droppedByField) {
+    for (const [fieldName, { count, rowNumbers }] of droppedByField) {
       issues.push({
         code: 'valuesDropped',
         sheetName: sheet.title,
         fieldName,
         count,
+        rowNumbers,
         reason: 'the cell value does not fit the inferred column type',
       });
     }
@@ -717,10 +730,13 @@ export class GoogleSheetImportService {
     rows: IGoogleSheetCellValue[][],
     columns: IGoogleSheetColumnPlan[],
     fieldIds: string[],
-    droppedByField: Map<string, number>
+    droppedByField: Map<string, { count: number; rowNumbers: number[] }>,
+    startRow: number
   ): { fields: Record<string, unknown> }[] {
     const payloads: { fields: Record<string, unknown> }[] = [];
-    for (const row of rows) {
+    let sampleCount = 0;
+    for (const { rowNumbers } of droppedByField.values()) sampleCount += rowNumbers.length;
+    for (const [rowIndex, row] of rows.entries()) {
       const fields: Record<string, unknown> = {};
       // Keyed on SOURCE content, not converted values: a row whose only cell
       // is an unchecked checkbox (converts to empty) or a dropped value must
@@ -736,7 +752,13 @@ export class GoogleSheetImportService {
         }
         const { value, dropped } = convertCellValue(raw, column);
         if (dropped) {
-          droppedByField.set(column.name, (droppedByField.get(column.name) ?? 0) + 1);
+          const droppedField = droppedByField.get(column.name) ?? { count: 0, rowNumbers: [] };
+          droppedField.count++;
+          if (sampleCount < maxIssueRowSamples) {
+            droppedField.rowNumbers.push(startRow + rowIndex);
+            sampleCount++;
+          }
+          droppedByField.set(column.name, droppedField);
           return;
         }
         if (value === undefined) return;

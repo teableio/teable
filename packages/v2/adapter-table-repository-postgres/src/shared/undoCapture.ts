@@ -119,6 +119,27 @@ const normalizeUndoCaptureTableKeys = (tableKeys: ReadonlyArray<string>): Readon
   return [...normalized];
 };
 
+const uncommittedTransactionTriggers = new WeakMap<object, Set<string>>();
+
+const hasUncommittedTransactionTrigger = (db: object, tableKey: string): boolean => {
+  const installed = uncommittedTransactionTriggers.get(db);
+  if (!installed) {
+    return false;
+  }
+  return normalizeUndoCaptureTableKeys([tableKey]).some((key) => installed.has(key));
+};
+
+const recordUncommittedTransactionTrigger = (db: object, tableKey: string): void => {
+  let installed = uncommittedTransactionTriggers.get(db);
+  if (!installed) {
+    installed = new Set<string>();
+    uncommittedTransactionTriggers.set(db, installed);
+  }
+  for (const key of normalizeUndoCaptureTableKeys([tableKey])) {
+    installed.add(key);
+  }
+};
+
 export const matchesUndoCaptureTableName = (
   rowTableName: string | null | undefined,
   expectedTableName: string
@@ -288,6 +309,10 @@ export const ensureUndoCaptureInfrastructure = async <DB>(
     return 'ready';
   }
 
+  if (isTransactionDb(db) && hasUncommittedTransactionTrigger(db, tableKey)) {
+    return 'ready';
+  }
+
   try {
     const hasDurableTrigger = await hasUndoCaptureTrigger(db, tableKey);
     if (hasDurableTrigger) {
@@ -312,7 +337,9 @@ export const ensureUndoCaptureInfrastructure = async <DB>(
       })();
 
   if (triggerEnsured) {
-    if (!isTransactionDb(db)) {
+    if (isTransactionDb(db)) {
+      recordUncommittedTransactionTrigger(db, tableKey);
+    } else {
       cache.tableTriggers.add(tableKey);
     }
     return 'ready';

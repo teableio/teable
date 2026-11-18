@@ -87,6 +87,13 @@ export interface IAirtableImportProgress {
 
 export type IAirtableImportProgressReporter = (progress: IAirtableImportProgress) => void;
 
+/**
+ * Told the base the import writes into as soon as that base exists, before
+ * anything else can fail, so a caller tracking the import always knows where a
+ * failed or interrupted one left its data.
+ */
+export type IAirtableImportBaseListener = (baseId: string) => void;
+
 const linkUpdateBatchSize = 100;
 const attachmentConcurrency = 3;
 // Stall watchdog for one attachment transfer: aborts only when NO bytes move
@@ -227,21 +234,23 @@ export class AirtableImportService {
    */
   async importBase(
     ro: IImportAirtableRo,
-    onProgress?: IAirtableImportProgressReporter
+    onProgress?: IAirtableImportProgressReporter,
+    onBaseResolved?: IAirtableImportBaseListener
   ): Promise<IImportAirtableVo> {
     return this.audit.withOperation(
       {
         rootAction: ro.baseId ? CreateRecordAction.Import : CreateRecordAction.BaseImport,
         resourceId: ro.baseId ?? ro.spaceId,
       },
-      () => this.runImport(ro, onProgress)
+      () => this.runImport(ro, onProgress, onBaseResolved)
     );
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity -- orchestrates the linear import pipeline
   private async runImport(
     ro: IImportAirtableRo,
-    onProgress?: IAirtableImportProgressReporter
+    onProgress?: IAirtableImportProgressReporter,
+    onBaseResolved?: IAirtableImportBaseListener
   ): Promise<IImportAirtableVo> {
     const importRecords = ro.importRecords ?? true;
     const importAttachments = ro.importAttachments ?? true;
@@ -275,6 +284,7 @@ export class AirtableImportService {
     let base;
     if (ro.baseId) {
       base = await this.baseService.getBaseById(ro.baseId);
+      onBaseResolved?.(base.id);
     } else {
       if (!ro.spaceId) {
         throw new CustomHttpException(
@@ -287,6 +297,7 @@ export class AirtableImportService {
         spaceId: ro.spaceId,
         name: ro.baseName ?? 'Imported project',
       });
+      onBaseResolved?.(base.id);
       // The stream route has no controller BASE_CREATE event to record the new base.
       await auditBaseCreated(this.audit, base, {
         importSource: 'airtable',

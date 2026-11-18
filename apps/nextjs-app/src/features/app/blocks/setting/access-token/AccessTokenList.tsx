@@ -1,18 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAccessTokenPreset } from '@teable/core';
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Info,
   MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
 } from '@teable/icons';
+import type { ListAccessTokenVo } from '@teable/openapi';
 import { deleteAccessToken, listAccessToken } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
+  Alert,
+  AlertDescription,
+  Badge,
   Table,
   TableHeader,
   TableRow,
@@ -44,6 +50,34 @@ const NEVER_EXPIRES_YEAR = 2099;
 
 const isNeverExpires = (expiredTime: string) =>
   new Date(expiredTime).getFullYear() >= NEVER_EXPIRES_YEAR;
+
+type ILegacyCipherMark = NonNullable<ListAccessTokenVo[number]['legacyCipher']>;
+
+/**
+ * `stopped`: its key/iv is no longer accepted at all, so the token no longer works; `rotate`: it
+ * still works under an older key/iv, and regenerating it moves it to the current one.
+ */
+const legacyCipherKind = (mark: ILegacyCipherMark) =>
+  mark.stopped ? ('stopped' as const) : ('rotate' as const);
+
+const LEGACY_CIPHER_COPY = {
+  stopped: { badge: 'badgeStopped', hint: 'hintStopped', banner: 'bannerStopped' },
+  rotate: { badge: 'badgeRotate', hint: 'hintRotate', banner: 'bannerRotate' },
+} as const;
+
+const LegacyCipherBadge = ({ mark }: { mark: ILegacyCipherMark }) => {
+  const { t } = useTranslation(personalAccessTokenConfig.i18nNamespaces);
+  const kind = legacyCipherKind(mark);
+  return (
+    <Badge
+      variant={kind === 'stopped' ? 'destructive' : 'outline'}
+      className={cn('ms-2', kind === 'rotate' && 'font-normal text-muted-foreground')}
+      title={t(`token:legacyCipher.${LEGACY_CIPHER_COPY[kind].hint}`)}
+    >
+      {t(`token:legacyCipher.${LEGACY_CIPHER_COPY[kind].badge}`)}
+    </Badge>
+  );
+};
 
 interface IAccessTokenListProps {
   newToken?: string;
@@ -143,6 +177,12 @@ export const AccessTokenList = (props: IAccessTokenListProps) => {
     return date;
   };
 
+  // The banner speaks for the most pressing kind present: a stopped token before a suggestion.
+  const marked = listResult?.filter((token) => token.legacyCipher) ?? [];
+  const bannerKind = (['stopped', 'rotate'] as const).find((kind) =>
+    marked.some((token) => legacyCipherKind(token.legacyCipher!) === kind)
+  );
+
   const onDelete = () => {
     if (!deleteId) {
       setDeleteId(undefined);
@@ -164,6 +204,22 @@ export const AccessTokenList = (props: IAccessTokenListProps) => {
             <CopyButton variant="outline" text={newToken} size="xs" iconClassName="size-4" />
           </div>
         </div>
+      )}
+      {bannerKind === 'stopped' && (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>
+            {t(`token:legacyCipher.${LEGACY_CIPHER_COPY.stopped.banner}`)}
+          </AlertDescription>
+        </Alert>
+      )}
+      {bannerKind === 'rotate' && (
+        <Alert>
+          <Info className="size-4" />
+          <AlertDescription className="text-muted-foreground">
+            {t(`token:legacyCipher.${LEGACY_CIPHER_COPY.rotate.banner}`)}
+          </AlertDescription>
+        </Alert>
       )}
       {listResult && !listResult.length ? (
         <SettingEmpty
@@ -205,6 +261,7 @@ export const AccessTokenList = (props: IAccessTokenListProps) => {
                   expiredTime,
                   lastUsedTime,
                   createdTime,
+                  legacyCipher,
                 }) => {
                   const accessArr: string[] = [];
                   if (hasFullAccess) {
@@ -246,7 +303,10 @@ export const AccessTokenList = (props: IAccessTokenListProps) => {
                         </span>
                       </TableCell>
                       <TableCell>{new Date(createdTime).toLocaleDateString()}</TableCell>
-                      <TableCell>{renderExpiration(expiredTime)}</TableCell>
+                      <TableCell>
+                        {renderExpiration(expiredTime)}
+                        {legacyCipher && <LegacyCipherBadge mark={legacyCipher} />}
+                      </TableCell>
                       <TableCell>
                         {lastUsedTime ? new Date(lastUsedTime).toLocaleDateString() : '-'}
                       </TableCell>

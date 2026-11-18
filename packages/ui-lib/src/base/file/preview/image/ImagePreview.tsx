@@ -18,6 +18,9 @@ interface IDimensions {
 const MAX_SCALE = 5;
 const DESKTOP_MIN_SCALE = 0.25;
 const MOBILE_MIN_SCALE = 1;
+// The toolbar fades out after the pointer rests this long so it stops
+// covering the bottom of the image
+const CONTROLS_IDLE_DELAY = 1500;
 
 const getMobileMinScale = (
   rotation: number,
@@ -100,6 +103,46 @@ export const ImagePreview = (props: IImagePreviewProps) => {
   const scaleFrameRef = useRef<number | null>(null);
   const pendingPositionRef = useRef<{ x: number; y: number }>(undefined);
   const pendingScaleRef = useRef<number>(undefined);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const controlsIdleTimerRef = useRef<number | null>(null);
+  const isHoveringControlsRef = useRef(false);
+  const lastPointerRef = useRef<{ x: number; y: number }>(undefined);
+
+  const clearControlsIdleTimer = useCallback(() => {
+    if (controlsIdleTimerRef.current !== null) {
+      window.clearTimeout(controlsIdleTimerRef.current);
+      controlsIdleTimerRef.current = null;
+    }
+  }, []);
+
+  // Any activity shows the toolbar and restarts the idle countdown. It stays
+  // up while the pointer rests on it or a keyboard user has focus inside it.
+  const revealControls = useCallback(() => {
+    setControlsVisible(true);
+    clearControlsIdleTimer();
+    controlsIdleTimerRef.current = window.setTimeout(() => {
+      controlsIdleTimerRef.current = null;
+      const hasKeyboardFocus = Boolean(controlsRef.current?.querySelector(':focus-visible'));
+      if (!isHoveringControlsRef.current && !hasKeyboardFocus) {
+        setControlsVisible(false);
+      }
+    }, CONTROLS_IDLE_DELAY);
+  }, [clearControlsIdleTimer]);
+
+  const handlePointerMoveActivity = (event: React.PointerEvent) => {
+    // Browsers can replay a move at the same spot after the page repaints;
+    // only a real move counts as activity
+    const last = lastPointerRef.current;
+    if (last && last.x === event.clientX && last.y === event.clientY) return;
+    lastPointerRef.current = { x: event.clientX, y: event.clientY };
+    revealControls();
+  };
+
+  useEffect(() => {
+    revealControls();
+    return clearControlsIdleTimer;
+  }, [clearControlsIdleTimer, revealControls, src]);
 
   const cancelScheduledUpdates = useCallback(() => {
     if (positionFrameRef.current !== null) {
@@ -319,7 +362,14 @@ export const ImagePreview = (props: IImagePreviewProps) => {
   };
 
   return (
-    <div ref={containerRef} className="relative flex size-full items-center justify-center">
+    <div
+      ref={containerRef}
+      className="relative flex size-full items-center justify-center"
+      onPointerMove={handlePointerMoveActivity}
+      onPointerDown={revealControls}
+      onWheel={revealControls}
+      onFocus={revealControls}
+    >
       <div
         className={cn(
           'relative flex size-full items-center justify-center overflow-hidden',
@@ -344,7 +394,20 @@ export const ImagePreview = (props: IImagePreviewProps) => {
       </div>
 
       {showPlaceholder ? null : (
-        <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg bg-black/60 px-2 py-2 sm:gap-2 sm:px-3">
+        <div
+          ref={controlsRef}
+          className={cn(
+            'absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg bg-black/60 px-2 py-2 transition-opacity duration-300 sm:gap-2 sm:px-3',
+            controlsVisible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+          )}
+          onMouseEnter={() => {
+            isHoveringControlsRef.current = true;
+          }}
+          onMouseLeave={() => {
+            isHoveringControlsRef.current = false;
+            revealControls();
+          }}
+        >
           <button
             type="button"
             className="rounded p-2 transition-colors hover:bg-white/10 disabled:opacity-40"

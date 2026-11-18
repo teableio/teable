@@ -4,11 +4,8 @@ import { Modal } from './Modal';
 import { ModalContext } from './ModalContext';
 import { Panel } from './Panel';
 import type { IExpandRecordCrumb } from './PanelContext';
-import { ExpandRecordPanelHostContext } from './PanelContext';
+import { ExpandRecordPanelHostContext, OUTSIDE_PANEL_HOST } from './PanelContext';
 import { ExpandRecordModel } from './type';
-
-// Records opened from inside a dialog or sheet stay dialogs: a side panel would land behind it.
-const outsideHost = { inHost: false, container: null };
 
 export const ExpandRecordWrap: FC<
   PropsWithChildren<{
@@ -19,15 +16,32 @@ export const ExpandRecordWrap: FC<
     className?: string;
     panelExtraWidth?: number;
     panelCrumb?: Omit<IExpandRecordCrumb, 'close'>;
+    // the panel comes back on top whenever this changes, see Panel's raiseKey
+    panelRaiseKey?: string;
   }>
 > = (props) => {
-  const { children, model, visible, onClose, modal, className, panelExtraWidth, panelCrumb } =
-    props;
+  const {
+    children,
+    model,
+    visible,
+    onClose,
+    modal,
+    className,
+    panelExtraWidth,
+    panelCrumb,
+    panelRaiseKey,
+  } = props;
   const sheetRef = useRef<HTMLDivElement>(null);
 
   if (model === ExpandRecordModel.Panel)
     return (
-      <Panel visible={visible} onClose={onClose} extraWidth={panelExtraWidth} crumb={panelCrumb}>
+      <Panel
+        visible={visible}
+        onClose={onClose}
+        extraWidth={panelExtraWidth}
+        crumb={panelCrumb}
+        raiseKey={panelRaiseKey}
+      >
         {children}
       </Panel>
     );
@@ -35,7 +49,7 @@ export const ExpandRecordWrap: FC<
   if (model === ExpandRecordModel.Modal)
     return (
       <Modal visible={visible} onClose={onClose} modal={modal} className={className}>
-        <ExpandRecordPanelHostContext.Provider value={outsideHost}>
+        <ExpandRecordPanelHostContext.Provider value={OUTSIDE_PANEL_HOST}>
           {children}
         </ExpandRecordPanelHostContext.Provider>
       </Modal>
@@ -53,7 +67,7 @@ export const ExpandRecordWrap: FC<
         ref={sheetRef}
       >
         <ModalContext.Provider value={{ ref: sheetRef }}>
-          <ExpandRecordPanelHostContext.Provider value={outsideHost}>
+          <ExpandRecordPanelHostContext.Provider value={OUTSIDE_PANEL_HOST}>
             {children}
           </ExpandRecordPanelHostContext.Provider>
         </ModalContext.Provider>

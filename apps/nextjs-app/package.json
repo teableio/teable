@@ -45,8 +45,8 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "16.4.2",
-    "@next/env": "16.4.2",
+    "@next/bundle-analyzer": "16.4.5",
+    "@next/env": "16.4.5",
     "@playwright/test": "1.57.0",
     "@size-limit/file": "11.1.2",
     "@svgr/webpack": "8.1.0",
@@ -150,7 +150,7 @@
     "lru-cache": "11.5.3",
     "lucide-react": "0.363.0",
     "ms": "2.1.3",
-    "next": "16.4.2",
+    "next": "16.4.5",
     "next-i18next": "15.2.0",
     "next-secure-headers": "2.2.0",
     "next-seo": "6.5.0",

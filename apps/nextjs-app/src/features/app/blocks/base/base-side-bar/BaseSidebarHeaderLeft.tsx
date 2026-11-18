@@ -30,14 +30,18 @@ import {
   TooltipTrigger,
   DropdownMenuSeparator,
 } from '@teable/ui-lib';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, LayoutTemplate, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useRef, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { DataDbBadge } from '@/features/app/blocks/space/DataDbBadge';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import {
+  TemplateHostContext,
+  useTemplateProjectInfo,
+} from '@/features/app/components/space/template/host-context';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -83,6 +87,19 @@ const BaseDropdownMenu = ({
   const [shareOpen, setShareOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishMounted, setPublishMounted] = useState(false);
+  const [makeTemplateOpen, setMakeTemplateOpen] = useState(false);
+  const { project: templateProjectHost } = useContext(TemplateHostContext);
+  const templateInfo = useTemplateProjectInfo(currentBaseId, showRename);
+  // Where templates are made in template projects, a project in use is only extracted from:
+  // it gets "Make a template", unless it was published before and still has a listing to
+  // look after. A template project submits from its sidebar, a trial copy not at all.
+  const templateEntry = !templateProjectHost
+    ? 'publish'
+    : !templateInfo || templateInfo.isTemplateProject || templateInfo.isTrialCopy
+      ? null
+      : templateInfo.hasListing
+        ? 'publish'
+        : 'make';
   const useV2 = v2Status?.useV2 ?? Boolean(isCanary);
   const versionLabel = useV2 ? 'v2' : 'v1';
   const versionTitle = v2Status?.reason
@@ -214,7 +231,7 @@ const BaseDropdownMenu = ({
               </div>
             </DropdownMenuItem>
           )}
-          {showRename && (
+          {showRename && templateEntry === 'publish' && (
             <DropdownMenuItem
               onClick={() => {
                 setOpen(false);
@@ -225,6 +242,19 @@ const BaseDropdownMenu = ({
               <div className="flex w-full cursor-pointer items-center gap-2">
                 <Send className="size-4" />
                 {t('space:publishBase.publishToCommunity')}
+              </div>
+            </DropdownMenuItem>
+          )}
+          {showRename && templateEntry === 'make' && (
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(false);
+                setMakeTemplateOpen(true);
+              }}
+            >
+              <div className="flex w-full cursor-pointer items-center gap-2">
+                <LayoutTemplate className="size-4" />
+                {t('space:templateProject.make')}
               </div>
             </DropdownMenuItem>
           )}
@@ -264,6 +294,12 @@ const BaseDropdownMenu = ({
           closeOnSuccess={false}
         />
       )}
+      {showRename &&
+        templateProjectHost?.renderMakeTemplate({
+          base,
+          open: makeTemplateOpen,
+          onOpenChange: setMakeTemplateOpen,
+        })}
     </>
   );
 };
@@ -280,6 +316,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
   const queryClient = useQueryClient();
   const isReadOnlyPreview = useIsReadOnlyPreview();
   const { isBaseShared } = useSharedNodeIds();
+  const { project: templateProjectHost } = useContext(TemplateHostContext);
   const { mutateAsync: updateBaseMutator } = useMutation({
     mutationFn: updateBase,
     onSuccess: () => {
@@ -405,6 +442,7 @@ export const BaseSidebarHeaderLeft = ({ creditUsage }: { creditUsage?: React.Rea
               >
                 {getBaseDisplayName(base.name, t)}
               </span>
+              {templateProjectHost?.renderTag(base.id)}
               {isBaseShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
               {!isReadOnlyPreview && !isBaseShared && <ChevronDown className="size-4 shrink-0" />}
             </div>

@@ -233,10 +233,29 @@ type WithDistinct<T> =
       ? Omit<T, 'version'> & { version: 6 }
       : never;
 export type DataQueryDefinitionV6Input = WithDistinct<DataQueryDefinitionV5Input>;
+/** COUNT DISTINCT over finalized public scalar tuples; null components compare equal. */
+export type DataQueryDistinctAggregate = {
+  source?: string;
+  statisticFunc: 'unique';
+  distinctBy: [DataQueryFormulaExpression, ...DataQueryFormulaExpression[]];
+  fieldId?: never;
+  expr?: never;
+  alias: string;
+  filter?: DataQueryPredicateV3;
+};
+export type DataQueryAggregateV8 = DataQueryAggregateV4 | DataQueryDistinctAggregate;
+/** Version 7 is reserved for the independent cursor protocol. */
+export type DataQueryDefinitionV8Input =
+  | (Omit<Extract<DataQueryDefinitionV6Input, { kind: 'records' }>, 'version'> & { version: 8 })
+  | (Omit<Extract<DataQueryDefinitionV6Input, { kind: 'aggregate' }>, 'version' | 'aggregates'> & {
+      version: 8;
+      aggregates: [DataQueryAggregateV8, ...DataQueryAggregateV8[]];
+    });
 export type DataQueryDefinitionInput =
   | DataQueryDefinitionV4Input
   | DataQueryDefinitionV5Input
   | DataQueryDefinitionV6Input
+  | DataQueryDefinitionV8Input
   | ((DataQueryDefinitionBase &
       ({ version: 1 } | { version: 2; relations?: Record<string, DataQueryRelation> })) &
       DataQueryDefinitionBody)

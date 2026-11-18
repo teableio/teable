@@ -856,7 +856,8 @@ export class SpaceService {
       const { id, enable: originalEnable } = aiIntegration;
       // Merge over the STORED shape (values stay encrypted) — encryption is
       // idempotent on already-prefixed values, so mixed content never
-      // double-encrypts nor downgrades while the write switch is off.
+      // double-encrypts, and a stored ciphertext is kept even where new values
+      // are stored as they are (the public default root).
       const originalConfig = JSON.parse(aiIntegration.config);
       const nextConfig = normalizeSpaceAIIntegrationConfig({
         ...originalConfig,

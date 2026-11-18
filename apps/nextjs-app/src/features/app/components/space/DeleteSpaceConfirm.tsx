@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { BillingProductLevel, getSpaceUsage } from '@teable/openapi';
+import { BillingProductLevel, getSpacePublishedAppCount, getSpaceUsage } from '@teable/openapi';
 import {
   Button,
   Dialog,
@@ -12,6 +12,7 @@ import { Trans, useTranslation } from 'next-i18next';
 import React from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useIsCloud } from '../../hooks/useIsCloud';
+import { useIsCommunity } from '../../hooks/useIsCommunity';
 
 export interface IDeleteSpaceConfirmProps {
   open: boolean;
@@ -26,6 +27,7 @@ export const DeleteSpaceConfirm: React.FC<IDeleteSpaceConfirmProps> = (props) =>
   const { open, spaceId, spaceName, onOpenChange, onConfirm } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const isCloud = useIsCloud();
+  const isCommunity = useIsCommunity();
 
   const { data } = useQuery({
     queryKey: ['usage-before-delete', spaceId],
@@ -37,6 +39,13 @@ export const DeleteSpaceConfirm: React.FC<IDeleteSpaceConfirmProps> = (props) =>
     data &&
     data.level !== BillingProductLevel.Free &&
     data.level !== BillingProductLevel.Enterprise;
+
+  // Trashing the space unpublishes its apps: the confirmation says how many go offline.
+  const { data: publishedAppCount = 0 } = useQuery({
+    queryKey: ['space-published-app-count', spaceId],
+    queryFn: async () => (await getSpacePublishedAppCount(spaceId)).data.count,
+    enabled: !isCommunity && !!spaceId && open,
+  });
 
   const handleAddToTrash = () => {
     onConfirm?.();
@@ -65,7 +74,10 @@ export const DeleteSpaceConfirm: React.FC<IDeleteSpaceConfirmProps> = (props) =>
         {isBlocked ? (
           <div className="text-sm">{t('space:deleteSpaceModal.blockedDesc')}</div>
         ) : (
-          <div className="py-1" />
+          <div className="py-1 text-sm">
+            {publishedAppCount > 0 &&
+              t('common:trash.publishedAppsOffline', { total: publishedAppCount })}
+          </div>
         )}
         <DialogFooter>
           {isBlocked ? (

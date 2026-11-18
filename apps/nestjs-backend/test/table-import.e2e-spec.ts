@@ -1355,5 +1355,102 @@ describe('OpenAPI ImportController (e2e)', () => {
         expect(records?.length).toBe(2);
       });
     });
+    it.each([SUPPORTEDTYPE.CSV, SUPPORTEDTYPE.EXCEL])(
+      'keeps valid rows, nulls bad dates and skips required-value failures in %s append imports',
+      async (fileType) => {
+        await withForceV2All(async () => {
+          const spaceRes = await apiCreateSpace({ name: `t8591-${fileType}-append` });
+          const baseId = (await apiCreateBase({ spaceId: spaceRes.data.id })).data.id;
+          const { data: table } = await apiCreateTable(baseId, {
+            fields: [
+              { name: 'Name', type: FieldType.SingleLineText, notNull: true },
+              {
+                name: 'When',
+                type: FieldType.Date,
+                options: {
+                  formatting: { date: 'YYYY-MM-DD', time: TimeFormatting.None, timeZone: 'UTC' },
+                },
+              },
+            ],
+            records: [],
+          });
+          bases.push([baseId, table.id]);
+          const [nameField, dateField] = table.fields;
+          const sourceWorkSheetKey =
+            fileType === SUPPORTEDTYPE.CSV ? CsvImporter.DEFAULT_SHEETKEY : 'Dates';
+          let attachmentUrl: string;
+          if (fileType === SUPPORTEDTYPE.CSV) {
+            attachmentUrl = await uploadCsv(
+              'Name,When\ngood,2026-04-20\n\nbad-date,20026-04-20\n,2026-04-21\nlater,2026-04-22',
+              't8591-invalid-date.csv'
+            );
+          } else {
+            const workbook = XLSX.utils.book_new();
+            const sheet = XLSX.utils.aoa_to_sheet([
+              ['Name', 'When'],
+              ['good', '2026-04-20'],
+              [],
+              ['bad-date', '20026-04-20'],
+              ['', '2026-04-21'],
+              ['later', '2026-04-22'],
+            ]);
+            // A genuine styled Excel serial remains a date, not an expanded year.
+            sheet.B2 = {
+              t: 'n',
+              v: (Date.UTC(2026, 3, 20) - Date.UTC(1899, 11, 30)) / 86400000,
+              z: 'yyyy-mm-dd',
+            };
+            XLSX.utils.book_append_sheet(workbook, sheet, sourceWorkSheetKey);
+            attachmentUrl = await uploadImportFile(
+              await XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }),
+              't8591-invalid-date.xlsx',
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+          }
+
+          const { doneEvent, errorEvents } = await consumeImportStream(
+            urlBuilder(INPLACE_IMPORT_TABLE_STREAM, { baseId, tableId: table.id }),
+            'PATCH',
+            {
+              attachmentUrl,
+              fileType,
+              insertConfig: {
+                sourceWorkSheetKey,
+                excludeFirstRow: true,
+                sourceColumnMap: { [nameField.id]: 0, [dateField.id]: 1 },
+              },
+            }
+          );
+
+          expect(errorEvents).toEqual([]);
+          expect(doneEvent?.importedCount).toBe(3);
+          expect(doneEvent?.processedCount).toBe(3);
+          expect(doneEvent?.data.diagnostics).toMatchObject({
+            invalidDateCells: 1,
+            skippedRows: fileType === SUPPORTEDTYPE.EXCEL ? 2 : 1,
+            samples: [
+              ...(fileType === SUPPORTEDTYPE.EXCEL
+                ? [{ rowNumber: 3, reason: 'invalidRow', code: 'validation.field.not_null' }]
+                : []),
+              { rowNumber: 4, fieldId: dateField.id, reason: 'invalidDate' },
+              { rowNumber: 5, reason: 'invalidRow', code: 'validation.field.not_null' },
+            ],
+          });
+          const { records } = await apiGetTableById(baseId, table.id, { includeContent: true });
+          expect(
+            Object.fromEntries(
+              (records ?? []).map((record) => [
+                record.fields[nameField.name],
+                record.fields[dateField.name] ?? null,
+              ])
+            )
+          ).toEqual({
+            good: '2026-04-20T00:00:00.000Z',
+            'bad-date': null,
+            later: '2026-04-22T00:00:00.000Z',
+          });
+        });
+      }
+    );
   });
 });

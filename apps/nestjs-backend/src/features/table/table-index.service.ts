@@ -289,13 +289,12 @@ export class TableIndexService {
       if (parsed.data.indexes.length === 0) {
         return parsed.data;
       }
-      const existingNames = new Set(await this.getQueryIndexNames(tableId, table.dbTableName));
-      const builder = this.dbProvider.searchIndex();
+      const existingIds = new Set(
+        (await this.getQueryIndexes(tableId, table.dbTableName)).map((index) => index.id)
+      );
       return {
         version: 1,
-        indexes: parsed.data.indexes.filter((index) =>
-          existingNames.has(builder.getQueryIndexName(tableId, index.id))
-        ),
+        indexes: parsed.data.indexes.filter((index) => existingIds.has(index.id)),
       };
     }
     if (table.queryIndexPolicy !== null) {
@@ -304,13 +303,21 @@ export class TableIndexService {
     return { version: 1, indexes: [] };
   }
 
-  private async getQueryIndexNames(tableId: string, dbTableName: string): Promise<string[]> {
-    const sql = this.dbProvider.searchIndex().getQueryIndexInfoSql(dbTableName);
+  private async getQueryIndexes(
+    tableId: string,
+    dbTableName: string
+  ): Promise<{ id: string; name: string }[]> {
+    const builder = this.dbProvider.searchIndex();
     const rows = await this.databaseRouter.queryDataPrismaForTable<{ indexname: string }[]>(
       tableId,
-      sql
+      builder.getQueryIndexInfoSql(dbTableName)
     );
-    return rows.map((row) => row.indexname);
+    const indexes: { id: string; name: string }[] = [];
+    for (const { indexname } of rows) {
+      const id = builder.getQueryIndexId(indexname);
+      if (id) indexes.push({ id, name: indexname });
+    }
+    return indexes;
   }
 
   async updateQueryIndexPolicy(
@@ -382,17 +389,25 @@ export class TableIndexService {
     }
 
     const builder = this.dbProvider.searchIndex();
-    const createSqls = policy.indexes.map((index) =>
-      builder.createQueryIndexSql(tableRaw.dbTableName, index, fieldNamesById, tableId)
-    );
     const stored: ITableQueryIndexPolicyVo = { version: 1, indexes: policy.indexes };
 
     await this.databaseRouter.dataPrismaTransactionForTable(
       tableId,
       async (prisma) => {
         await prisma.$executeRawUnsafe(builder.getDropQueryIndexesSql(tableRaw.dbTableName));
-        for (const sql of createSqls) {
-          await prisma.$executeRawUnsafe(sql);
+        const [schema] = tableRaw.dbTableName.split('.');
+        const relations = await prisma.$queryRawUnsafe<{ name: string }[]>(
+          `SELECT c.relname::text AS name FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1`,
+          schema
+        );
+        const unavailableNames = new Set(relations.map((relation) => relation.name));
+        for (const index of policy.indexes) {
+          const name = builder.getQueryIndexName(tableId, index.id, unavailableNames);
+          await prisma.$executeRawUnsafe(
+            builder.createQueryIndexSql(tableRaw.dbTableName, index, fieldNamesById, tableId, name)
+          );
+          unavailableNames.add(name);
         }
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
@@ -692,15 +707,24 @@ export class TableIndexService {
         fieldNames.set('__id', '__id');
         fieldNames.set('__created_time', '__created_time');
         fieldNames.set('__auto_number', '__auto_number');
-        const restoreSqls = removed.map((index) =>
-          builder.createQueryIndexSql(table.dbTableName, index, fieldNames, tableId)
+        const removedById = new Map(removed.map((index) => [index.id, index]));
+        const ownedIndexes = (await this.getQueryIndexes(tableId, table.dbTableName)).filter(
+          (index) => removedById.has(index.id)
+        );
+        const restoreSqls = ownedIndexes.map(({ id, name }) =>
+          builder.createQueryIndexSql(
+            table.dbTableName,
+            removedById.get(id)!,
+            fieldNames,
+            tableId,
+            name
+          )
         );
         const [schema] = table.dbTableName.split('.');
         await this.databaseRouter.dataPrismaTransactionForTable(
           tableId,
           async (prisma) => {
-            for (const index of removed) {
-              const name = builder.getQueryIndexName(tableId, index.id);
+            for (const { name } of ownedIndexes) {
               await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "${schema}"."${name}"`);
             }
           },
@@ -785,10 +809,12 @@ export class TableIndexService {
     const indexes = parsed.data.indexes.filter(
       (index) => !this.queryIndexReferencesField(index, fieldId)
     );
-    const builder = this.dbProvider.searchIndex();
     const [schema] = table.dbTableName.split('.');
-    for (const index of removed) {
-      const name = builder.getQueryIndexName(tableId, index.id);
+    const removedIds = new Set(removed.map((index) => index.id));
+    const ownedIndexes = (await this.getQueryIndexes(tableId, table.dbTableName)).filter((index) =>
+      removedIds.has(index.id)
+    );
+    for (const { name } of ownedIndexes) {
       await this.databaseRouter.executeDataPrismaForTable(
         tableId,
         `DROP INDEX IF EXISTS "${schema}"."${name}"`

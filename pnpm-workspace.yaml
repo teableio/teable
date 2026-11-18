@@ -36,10 +36,10 @@ packageExtensions:
 
 overrides:
   i18next-fs-backend: ^2.6.6
-  hono: ^4.13.7
+  hono: ^4.13.16
   jsonwebtoken>jws: ^3.2.3
   '@orpc/client': ^1.13.6
-  fast-xml-parser: ^5.7.0
+  fast-xml-parser: ^5.12.0
   handlebars: ^4.7.10
   websocket-driver: ^0.7.5
   protobufjs: ^7.5.5

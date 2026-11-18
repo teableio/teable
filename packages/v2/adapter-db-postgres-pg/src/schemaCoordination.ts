@@ -3,6 +3,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type { Pool, PoolClient } from 'pg';
 
+import { cancelPostgresQuery, type PostgresProtocolConnectionConstructor } from './cancelRequest';
 import { handlePgPoolError, hasPgDefault, loadPg } from './createDb';
 
 export interface IV2PgTableSchemaCoordinationOptions {
@@ -26,6 +27,12 @@ const DEFAULT_MAX_CONNECTIONS = 8;
 const DEFAULT_CONNECTION_TIMEOUT_MILLIS = 10_000;
 const DEFAULT_APPLICATION_NAME = 'teable-v2-schema-coordination';
 const POOL_DESTROYED_MESSAGE = 'Table schema coordination pool has been destroyed';
+
+const cancelledError = () =>
+  domainError.infrastructure({
+    code: 'schema_coordination.cancelled',
+    message: 'Table schema coordination acquisition cancelled',
+  });
 
 type CoordinationMode = 'shared' | 'exclusive';
 
@@ -61,6 +68,109 @@ const createDeferred = <T>(): IDeferred<T> => {
   return { promise, resolve, reject };
 };
 
+interface ILockAttempt {
+  readonly failed: boolean;
+  readonly error?: unknown;
+}
+
+/** One coordination checkout. Cancellation covers acquisition only; release commits the lease. */
+class CoordinationCheckout {
+  private disposed = false;
+  private released = false;
+  private acquiring = true;
+  private cancellationPending: Promise<void> | undefined;
+  broken = false;
+
+  constructor(
+    private readonly client: PoolClient,
+    private readonly protocol: PostgresProtocolConnectionConstructor
+  ) {
+    this.client.on('error', this.onClientError);
+  }
+
+  private readonly onClientError = (error: Error): void => {
+    this.broken = true;
+    console.error('[v2-adapter-db-postgres-pg] Table schema coordination connection failed', error);
+    // Never return a dead connection to the pool. `release()` becomes a
+    // no-op because the transaction was already rolled back by PostgreSQL.
+    this.dispose(true);
+  };
+
+  private readonly onAbort = (): void => {
+    // Closing a socket alone need not wake a backend blocked on an advisory
+    // lock. Observe both its CancelRequest and the original query before
+    // retiring this checkout; never reuse it for another statement.
+    this.cancellationPending ??= cancelPostgresQuery(
+      this.client,
+      this.protocol,
+      () => this.acquiring && !this.disposed
+    ).catch(() => undefined);
+  };
+
+  dispose(destroy: boolean): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.client.removeListener('error', this.onClientError);
+    try {
+      this.client.release(destroy);
+    } catch (error) {
+      // The client was already destroyed by the error path.
+      console.error(
+        '[v2-adapter-db-postgres-pg] Failed to release table schema coordination client',
+        error
+      );
+    }
+  }
+
+  async attempt(signal: AbortSignal | undefined, work: () => Promise<void>): Promise<ILockAttempt> {
+    if (signal) signal.addEventListener('abort', this.onAbort, { once: true });
+    let failed = false;
+    let error: unknown;
+    try {
+      await work();
+    } catch (caught) {
+      failed = true;
+      error = caught;
+    } finally {
+      this.acquiring = false;
+      // The acquisition signal must not release a successfully granted lease.
+      if (signal) signal.removeEventListener('abort', this.onAbort);
+      if (this.cancellationPending) await this.cancellationPending;
+    }
+    return failed ? { failed: true, error } : { failed: false };
+  }
+
+  async rollbackUnlessBroken(): Promise<void> {
+    if (this.broken) return;
+    const rollbackFailed = await this.client.query('ROLLBACK').then(
+      () => false,
+      () => true
+    );
+    this.dispose(rollbackFailed);
+  }
+
+  async release(): Promise<void> {
+    if (this.released) return;
+    this.released = true;
+    if (this.broken || this.disposed) return;
+    try {
+      // Committing releases every advisory xact lock held by this lease.
+      await this.client.query('COMMIT');
+      this.dispose(false);
+    } catch (error) {
+      const rollbackFailed = await this.client.query('ROLLBACK').then(
+        () => false,
+        () => true
+      );
+      this.dispose(rollbackFailed);
+      console.error(
+        '[v2-adapter-db-postgres-pg] Failed to release table schema coordination locks',
+        error
+      );
+    }
+  }
+}
+
 /**
  * PostgreSQL advisory-lock coordination for table schema writes.
  *
@@ -79,6 +189,8 @@ const createDeferred = <T>(): IDeferred<T> => {
 export class V2PgTableSchemaCoordination {
   private poolPromise: Promise<Pool> | undefined;
   private pool: Pool | undefined;
+  // Initialized with the pool before its first checkout.
+  private connectionConstructor!: PostgresProtocolConnectionConstructor;
   private destroyed = false;
   private readonly pendingAcquires = new Set<(error: Error) => void>();
 
@@ -87,19 +199,22 @@ export class V2PgTableSchemaCoordination {
   async acquire(
     context: IExecutionContext,
     tableIds: ReadonlyArray<string>,
-    mode: CoordinationMode
+    mode: CoordinationMode,
+    signal?: AbortSignal
   ): Promise<Result<ICoordinationLease, DomainError>> {
+    if (signal?.aborted) return err(cancelledError());
     const requested = Array.from(new Set(tableIds)).sort();
     if (requested.length === 0) {
       return ok(createLease(mode, []));
     }
-    return this.acquireLocks(context, requested, mode);
+    return this.acquireLocks(context, requested, mode, signal);
   }
 
   private async acquireLocks(
     _context: IExecutionContext,
     tableIds: ReadonlyArray<string>,
-    mode: CoordinationMode
+    mode: CoordinationMode,
+    signal?: AbortSignal
   ): Promise<Result<ICoordinationLease, DomainError>> {
     if (this.destroyed) {
       return err(
@@ -110,10 +225,52 @@ export class V2PgTableSchemaCoordination {
       );
     }
 
+    const client = await this.checkoutCoordinationClient(signal);
+    if (client.isErr()) return err(client.error);
+    if (signal?.aborted) {
+      client.value.release(true);
+      return err(cancelledError());
+    }
+
+    const checkout = new CoordinationCheckout(client.value, this.connectionConstructor);
+    const attempt = await checkout.attempt(signal, () =>
+      this.beginHoldingLocks(client.value, tableIds, mode, signal)
+    );
+    if (signal?.aborted) {
+      checkout.dispose(true);
+      return err(cancelledError());
+    }
+    if (attempt.failed) {
+      await checkout.rollbackUnlessBroken();
+      return err(
+        domainError.infrastructure({
+          code: 'schema_coordination.acquire_failed',
+          message: 'Failed to acquire table schema coordination locks',
+          details: { tableIds, mode },
+          cause: attempt.error instanceof Error ? attempt.error : undefined,
+        })
+      );
+    }
+    if (checkout.broken) {
+      return err(
+        domainError.infrastructure({
+          code: 'schema_coordination.acquire_failed',
+          message: 'Failed to acquire table schema coordination locks',
+          details: { tableIds, mode },
+        })
+      );
+    }
+    return ok(createLease(mode, tableIds, () => checkout.release()));
+  }
+
+  private async checkoutCoordinationClient(
+    signal?: AbortSignal
+  ): Promise<Result<PoolClient, DomainError>> {
     let pool: Pool;
     try {
       pool = await this.getPool();
     } catch (error) {
+      if (signal?.aborted) return err(cancelledError());
       return err(
         domainError.infrastructure({
           code: 'schema_coordination.connect_failed',
@@ -123,10 +280,10 @@ export class V2PgTableSchemaCoordination {
       );
     }
 
-    let client: PoolClient;
     try {
-      client = await this.connectClient(pool);
+      return ok(await this.connectClient(pool, signal));
     } catch (error) {
+      if (signal?.aborted) return err(cancelledError());
       return err(
         domainError.infrastructure({
           code: 'schema_coordination.connect_failed',
@@ -135,114 +292,29 @@ export class V2PgTableSchemaCoordination {
         })
       );
     }
-
-    let leaseReleased = false;
-    let clientDisposed = false;
-    let broken = false;
-
-    const disposeClient = (destroy: boolean) => {
-      if (clientDisposed) {
-        return;
-      }
-      clientDisposed = true;
-      client.removeListener('error', onClientError);
-      try {
-        client.release(destroy);
-      } catch (error) {
-        // The client was already destroyed by the error path.
-        console.error(
-          '[v2-adapter-db-postgres-pg] Failed to release table schema coordination client',
-          error
-        );
-      }
-    };
-
-    const onClientError = (error: Error) => {
-      broken = true;
-      console.error(
-        '[v2-adapter-db-postgres-pg] Table schema coordination connection failed',
-        error
-      );
-      // Never return a dead connection to the pool. `release()` becomes a
-      // no-op because the transaction was already rolled back by PostgreSQL.
-      disposeClient(true);
-    };
-    client.on('error', onClientError);
-
-    try {
-      await this.beginHoldingLocks(client, tableIds, mode);
-    } catch (error) {
-      if (!broken) {
-        const rollbackFailed = await client.query('ROLLBACK').then(
-          () => false,
-          () => true
-        );
-        disposeClient(rollbackFailed);
-      }
-      return err(
-        domainError.infrastructure({
-          code: 'schema_coordination.acquire_failed',
-          message: 'Failed to acquire table schema coordination locks',
-          details: { tableIds, mode },
-          cause: error instanceof Error ? error : undefined,
-        })
-      );
-    }
-
-    if (broken) {
-      return err(
-        domainError.infrastructure({
-          code: 'schema_coordination.acquire_failed',
-          message: 'Failed to acquire table schema coordination locks',
-          details: { tableIds, mode },
-        })
-      );
-    }
-
-    return ok(
-      createLease(mode, tableIds, async () => {
-        if (leaseReleased) {
-          return;
-        }
-        leaseReleased = true;
-        if (broken || clientDisposed) {
-          return;
-        }
-        try {
-          // Committing releases every advisory xact lock held by this lease.
-          await client.query('COMMIT');
-          disposeClient(false);
-        } catch (error) {
-          const rollbackFailed = await client.query('ROLLBACK').then(
-            () => false,
-            () => true
-          );
-          disposeClient(rollbackFailed);
-          console.error(
-            '[v2-adapter-db-postgres-pg] Failed to release table schema coordination locks',
-            error
-          );
-        }
-      })
-    );
   }
 
   private async beginHoldingLocks(
     client: PoolClient,
     tableIds: ReadonlyArray<string>,
-    mode: CoordinationMode
+    mode: CoordinationMode,
+    signal?: AbortSignal
   ): Promise<void> {
     const lockFunction =
       mode === 'exclusive' ? 'pg_advisory_xact_lock' : 'pg_advisory_xact_lock_shared';
+    signal?.throwIfAborted();
     await client.query('BEGIN');
+    signal?.throwIfAborted();
     await client.query("SELECT set_config('application_name', $1, true)", [
       this.options.applicationName ?? DEFAULT_APPLICATION_NAME,
     ]);
     for (const tableId of tableIds) {
+      signal?.throwIfAborted();
       await client.query(`SELECT ${lockFunction}(hashtextextended($1, 0))`, [
         `teable.schema:table:${tableId}`,
       ]);
     }
+    signal?.throwIfAborted();
   }
 
   async destroy(): Promise<void> {
@@ -287,6 +359,12 @@ export class V2PgTableSchemaCoordination {
     if (!poolCtor) {
       throw new Error('Missing pg.Pool');
     }
+    const protocolConnection =
+      pg.Connection ?? (hasPgDefault(pg) ? pg.default.Connection : undefined);
+    if (!protocolConnection) throw new Error('Missing pg.Connection');
+    // pg's public declaration omits the runtime protocol constructor signature.
+    this.connectionConstructor =
+      protocolConnection as unknown as PostgresProtocolConnectionConstructor;
     const pool = new poolCtor({
       connectionString: this.options.connectionString,
       max: this.options.maxConnections ?? DEFAULT_MAX_CONNECTIONS,
@@ -306,10 +384,11 @@ export class V2PgTableSchemaCoordination {
    * `pool.end()` never drains pending `connect()` callers, so track them and
    * reject on `destroy()` instead of leaving shutdown hanging.
    */
-  private async connectClient(pool: Pool): Promise<PoolClient> {
+  private async connectClient(pool: Pool, signal?: AbortSignal): Promise<PoolClient> {
     if (this.destroyed) {
       throw new Error(POOL_DESTROYED_MESSAGE);
     }
+    if (signal?.aborted) throw new Error('Table schema coordination acquisition cancelled');
 
     const deferred = createDeferred<PoolClient>();
     let settled = false;
@@ -320,14 +399,25 @@ export class V2PgTableSchemaCoordination {
       }
       settled = true;
       this.pendingAcquires.delete(abortPending);
+      if (onAbort) signal!.removeEventListener('abort', onAbort);
       deferred.reject(error);
     };
+    const onAbort = signal
+      ? () => abortPending(new Error('Table schema coordination acquisition cancelled'))
+      : undefined;
     this.pendingAcquires.add(abortPending);
+    if (onAbort) {
+      signal!.addEventListener('abort', onAbort, { once: true });
+      if (signal!.aborted) {
+        onAbort();
+        return deferred.promise;
+      }
+    }
 
     pool.connect().then(
       (client) => {
         if (settled) {
-          // `destroy()` already rejected this caller; never leak the client.
+          // Cancellation or destroy already rejected this caller; never leak a late checkout.
           try {
             client.release(true);
           } catch {
@@ -337,6 +427,7 @@ export class V2PgTableSchemaCoordination {
         }
         settled = true;
         this.pendingAcquires.delete(abortPending);
+        if (onAbort) signal!.removeEventListener('abort', onAbort);
         deferred.resolve(client);
       },
       (error) => {
@@ -345,6 +436,7 @@ export class V2PgTableSchemaCoordination {
         }
         settled = true;
         this.pendingAcquires.delete(abortPending);
+        if (onAbort) signal!.removeEventListener('abort', onAbort);
         deferred.reject(error instanceof Error ? error : new Error(String(error)));
       }
     );

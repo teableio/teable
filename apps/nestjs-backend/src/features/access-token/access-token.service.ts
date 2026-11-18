@@ -16,9 +16,23 @@ import type { IClsStore } from '../../types/cls';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { AccessTokenModel } from '../model/access-token';
-import { getAccessToken } from './access-token.encryptor';
+import { AccessTokenLegacyCipherService } from './access-token-legacy-cipher.service';
+import {
+  SIGN_RANDOM_LENGTH,
+  SIGN_TAG_SEPARATOR,
+  currentSignTag,
+  getAccessToken,
+} from './access-token.encryptor';
 
 const lastUsedTimeUpdateIntervalMs = 5 * 60 * 1000;
+
+/**
+ * A fresh sign for a new or refreshed token, led by the tag of the pair that seals it: the
+ * stored sign then tells which pair issued the token, which the token itself can't (only the
+ * holder has it). Validation compares signs as plain strings, so older releases accept it too.
+ */
+export const generateSign = () =>
+  `${currentSignTag()}${SIGN_TAG_SEPARATOR}${getRandomString(SIGN_RANDOM_LENGTH)}`;
 
 // Settings an update can change; the audit row records each one that did, before and after.
 const auditedTokenSettings = [
@@ -45,7 +59,8 @@ export class AccessTokenService {
     private readonly cls: ClsService<IClsStore>,
     private readonly accessTokenModel: AccessTokenModel,
     private readonly performanceCacheService: PerformanceCacheService,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly legacyCipher: AccessTokenLegacyCipherService
   ) {}
 
   private transformAccessTokenEntity<
@@ -144,10 +159,16 @@ export class AccessTokenService {
         createdTime: true,
         expiredTime: true,
         lastUsedTime: true,
+        // Only to tell which pair issued it; never leaves this method.
+        sign: true,
       },
       orderBy: { createdTime: 'desc' },
     });
-    return list.map(this.transformAccessTokenEntity);
+    const marks = this.legacyCipher.marksOf(list);
+    return list.map(({ sign: _sign, ...token }) => ({
+      ...this.transformAccessTokenEntity(token),
+      legacyCipher: marks.get(token.id),
+    }));
   }
 
   /**
@@ -197,7 +218,9 @@ export class AccessTokenService {
     const { name, description, scopes, spaceIds, baseIds, expiredTime, clientId, hasFullAccess } =
       createAccessToken;
     const id = generateAccessTokenId();
-    const sign = getRandomString(16);
+    const sign = generateSign();
+    // Sealed before anything is stored: a key/iv that can't encrypt leaves no unusable row behind.
+    const token = getAccessToken(id, sign);
     const accessTokenEntity = await this.prismaService.txClient().accessToken.create({
       data: {
         id,
@@ -227,7 +250,7 @@ export class AccessTokenService {
     });
     return {
       ...this.transformAccessTokenEntity(accessTokenEntity),
-      token: getAccessToken(id, sign),
+      token,
     };
   }
 
@@ -248,7 +271,10 @@ export class AccessTokenService {
     this.assertNotSandboxCaller();
     const userId = this.cls.get('user.id');
 
-    const sign = getRandomString(16);
+    const sign = generateSign();
+    // Sealed before the stored sign changes: a key/iv that can't encrypt leaves the old token
+    // working instead of replacing it with one nobody received.
+    const token = getAccessToken(id, sign);
     const expiredTime = refreshAccessTokenRo?.expiredTime;
     const accessTokenEntity = await this.prismaService.accessToken.update({
       where: { id, userId },
@@ -280,7 +306,7 @@ export class AccessTokenService {
     });
     return {
       ...this.transformAccessTokenEntity(accessTokenEntity),
-      token: getAccessToken(id, sign),
+      token,
     };
   }
 

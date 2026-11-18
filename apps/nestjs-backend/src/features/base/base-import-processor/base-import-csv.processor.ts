@@ -2,13 +2,18 @@
 import { pipeline } from 'node:stream/promises';
 import { InjectQueue, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
+import type { IAttachmentCellValue, IUserCellValue } from '@teable/core';
 import { DbFieldType, FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
 import { CreateRecordAction, UploadType } from '@teable/openapi';
-import type { IUserLookupService, UserLookupRecord } from '@teable/v2-core';
-import { v2CoreTokens } from '@teable/v2-core';
+import type {
+  ICommandBus,
+  IUserLookupService,
+  UpdateFieldResult,
+  UserLookupRecord,
+} from '@teable/v2-core';
+import { UpdateFieldCommand, v2CoreTokens } from '@teable/v2-core';
 import { Queue, Job } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import { ClsService } from 'nestjs-cls';
@@ -25,8 +30,15 @@ import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
+import { NotificationService } from '../../notification/notification.service';
 import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
+import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import {
+  notifyBaseImportFailure,
+  notifyBaseImportWarnings,
+  type IBaseImportWarnings,
+} from '../base-import-warnings';
 import { BatchProcessor } from '../BatchProcessor.class';
 import { EXCLUDE_SYSTEM_FIELDS } from '../constant';
 import { BaseImportJunctionCsvQueueProcessor } from './base-import-junction.processor';
@@ -63,7 +75,6 @@ interface IBaseImportCsvJob {
 export const BASE_IMPORT_CSV_QUEUE = 'base-import-csv-queue';
 
 const SAFE_BASE_IMPORT_CSV_FAILURES: Record<string, true> = {
-  'validation.field.user_not_found': true,
   'validation.field.invalid_user_format': true,
   'Failed to validate imported user references': true,
 };
@@ -86,7 +97,9 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     private readonly eventEmitterService: EventEmitterService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly v2ContainerService: V2ContainerService,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly notificationService: NotificationService,
+    private readonly v2ContextFactory: V2ExecutionContextFactory
   ) {
     super();
   }
@@ -109,6 +122,11 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         (error as Error)?.stack
       );
       this.processedJobs.delete(jobId);
+      try {
+        await notifyBaseImportFailure(this.notificationService, job.data.baseId, job.data.userId);
+      } catch {
+        this.logger.error('Failed to notify base import failure');
+      }
       throw this.toQueueFailure(error);
     }
   }
@@ -154,6 +172,13 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     const parser = unzipper.Parse();
     csvStream.pipe(parser);
     let totalRecordsCount = 0;
+    const warnings: IBaseImportWarnings = {
+      skippedUserCells: 0,
+      skippedLinkCells: 0,
+      relaxedRequiredUserFields: 0,
+    };
+    const requiredUserFieldRelaxations = new Map<string, Promise<void>>();
+    const executeChunk = this.createChunkExecutor();
 
     await new Promise<void>((resolve, reject) => {
       const entryImports: Promise<void>[] = [];
@@ -257,28 +282,32 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           });
 
           const batchProcessor = new BatchProcessor<Record<string, unknown>>(async (chunk) => {
-            if (firstError) throw firstError;
-            totalRecordsCount += chunk.length;
-            // Concurrent ZIP entries must not share CLS transaction slots. DataPrisma.$tx
-            // reuses an existing dataTx.client; sharing it lets another entry commit that
-            // transaction while this chunk is still inserting. Keep attribution inherited,
-            // but each chunk owns its metadata/data transaction lifecycle.
-            const chunkImport = this.cls.runWith({ ...this.cls.get(), tx: {}, dataTx: {} }, () =>
-              this.handleChunk(
-                chunk,
-                {
-                  baseId,
-                  tableId: tableIdMap[tableId],
-                  userId,
-                  fieldIdMap,
-                  viewIdMap,
-                  fkMap,
-                  attachmentsFields,
-                  notNullFieldMap,
-                },
-                excludeDbFieldNames
-              )
-            );
+            const chunkImport = executeChunk(() => {
+              if (firstError) throw firstError;
+              totalRecordsCount += chunk.length;
+              // Concurrent ZIP entries must not share CLS transaction slots. DataPrisma.$tx
+              // reuses an existing dataTx.client; sharing it lets another entry commit that
+              // transaction while this chunk is still inserting. Keep attribution inherited,
+              // but each chunk owns its metadata/data transaction lifecycle.
+              return this.cls.runWith({ ...this.cls.get(), tx: {}, dataTx: {} }, () =>
+                this.handleChunk(
+                  chunk,
+                  {
+                    baseId,
+                    tableId: tableIdMap[tableId],
+                    userId,
+                    fieldIdMap,
+                    viewIdMap,
+                    fkMap,
+                    attachmentsFields,
+                    notNullFieldMap,
+                    requiredUserFieldRelaxations,
+                  },
+                  excludeDbFieldNames,
+                  warnings
+                )
+              );
+            });
             activeChunkImports.add(chunkImport);
             try {
               await chunkImport;
@@ -339,22 +368,42 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         this.logger.error(`ZIP parser error: ${error.message}`, error.stack);
         stop(error);
       });
-    });
-
-    if (!this.hasJunctionImports(structure)) {
-      await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
-    }
+    })
+      .then(async () => {
+        if (!this.hasLinkImports(structure)) {
+          await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
+        }
+      })
+      .catch(async (error: unknown) => {
+        // The stream finish path has settled every entry and active chunk, so
+        // this count includes all required-field changes that really committed.
+        try {
+          await notifyBaseImportWarnings(this.notificationService, baseId, userId, {
+            skippedUserCells: 0,
+            skippedLinkCells: 0,
+            relaxedRequiredUserFields: warnings.relaxedRequiredUserFields,
+          });
+        } catch {
+          this.logger.error('Failed to notify imported required User constraint changes');
+        }
+        throw error;
+      });
+    await notifyBaseImportWarnings(this.notificationService, baseId, userId, warnings);
   }
 
-  private hasJunctionImports(structure: IBaseJson) {
-    return structure.tables
-      .flatMap(({ fields }) => fields)
-      .filter((field) => field.type === FieldType.Link && !field.isLookup)
-      .some((field) =>
-        ((field.options as ILinkFieldOptions | undefined)?.fkHostTableName || '').includes(
-          'junction_'
-        )
-      );
+  private createChunkExecutor(): (task: () => Promise<void>) => Promise<void> {
+    let tail = Promise.resolve();
+    return (task) => {
+      const chunk = tail.then(task);
+      tail = chunk;
+      return chunk;
+    };
+  }
+
+  private hasLinkImports(structure: IBaseJson) {
+    return structure.tables.some(({ fields }) =>
+      fields.some((field) => field.type === FieldType.Link && !field.isLookup)
+    );
   }
 
   private async dataTransaction<T>(
@@ -390,8 +439,10 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       fkMap: Record<string, string>;
       attachmentsFields: { dbFieldName: string; id: string }[];
       notNullFieldMap: Map<string, { dbFieldType: string; isMultipleCellValue: boolean }>;
+      requiredUserFieldRelaxations: Map<string, Promise<void>>;
     },
-    excludeDbFieldNames: string[]
+    excludeDbFieldNames: string[],
+    warnings: IBaseImportWarnings
   ) {
     const { baseId, tableId, userId, fieldIdMap, attachmentsFields, fkMap, notNullFieldMap } =
       config;
@@ -403,6 +454,8 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           fields: {
             where: { deletedTime: null },
             select: {
+              id: true,
+              notNull: true,
               dbFieldName: true,
               type: true,
               isMultipleCellValue: true,
@@ -421,12 +474,21 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       .map((field) => field.dbFieldName);
     const targetUserFields = targetFields
       .filter((field) => field.type === FieldType.User && !field.isComputed && !field.isLookup)
-      .map(({ dbFieldName, isMultipleCellValue }) => ({
+      .map(({ id, dbFieldName, isMultipleCellValue, notNull }) => ({
+        id,
         dbFieldName,
+        notNull: Boolean(notNull),
         isMultipleCellValue: Boolean(isMultipleCellValue),
       }));
     const authorizedResults = targetUserFields.length
-      ? await this.authorizeImportedUserValues(results, tableId, baseId, targetUserFields)
+      ? await this.authorizeImportedUserValues(
+          results,
+          tableId,
+          baseId,
+          targetUserFields,
+          warnings,
+          config.requiredUserFieldRelaxations
+        )
       : results;
     const authoritativeExcludeDbFieldNames = new Set([
       ...excludeDbFieldNames,
@@ -619,7 +681,14 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     records: Record<string, unknown>[],
     tableId: string,
     baseId: string,
-    userFields: ReadonlyArray<{ dbFieldName: string; isMultipleCellValue: boolean }>
+    userFields: ReadonlyArray<{
+      id: string;
+      dbFieldName: string;
+      isMultipleCellValue: boolean;
+      notNull: boolean;
+    }>,
+    warnings: IBaseImportWarnings,
+    requiredUserFieldRelaxations: Map<string, Promise<void>>
   ): Promise<Record<string, unknown>[]> {
     const scopedIds = new Set<string>();
     const identityPairs: Array<{ id: string; email: string }> = [];
@@ -654,7 +723,8 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       identityPairs
     );
 
-    return records.map((record) => {
+    const affectedRequiredFields = new Set<string>();
+    const authorizedRecords = records.map((record) => {
       const authorized = { ...record };
       for (const field of userFields) {
         const references = parsedCells.get(record)?.get(field.dbFieldName);
@@ -662,17 +732,79 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           authorized[field.dbFieldName] = null;
           continue;
         }
-        const canonical = references.map((reference) =>
-          this.toCanonicalUser(
-            (reference.email === undefined ? scopedUsersById : pairedUsersById).get(reference.id)!
-          )
-        );
+        const canonical: IUserCellValue[] = [];
+        for (const reference of references) {
+          const user = (reference.email === undefined ? scopedUsersById : pairedUsersById).get(
+            reference.id
+          );
+          if (user && (reference.email === undefined || user.email === reference.email)) {
+            canonical.push(this.toCanonicalUser(user));
+          }
+        }
+        if (canonical.length !== references.length) warnings.skippedUserCells += 1;
+        if (references.length > 0 && canonical.length === 0) {
+          authorized[field.dbFieldName] = null;
+          if (field.notNull) affectedRequiredFields.add(field.id);
+          continue;
+        }
         authorized[field.dbFieldName] = JSON.stringify(
           field.isMultipleCellValue ? canonical : canonical[0]
         );
       }
       return authorized;
     });
+    await this.relaxImportedRequiredUserFields(
+      baseId,
+      tableId,
+      affectedRequiredFields,
+      requiredUserFieldRelaxations,
+      warnings
+    );
+    return authorizedRecords;
+  }
+
+  private async relaxImportedRequiredUserFields(
+    baseId: string,
+    tableId: string,
+    fieldIds: ReadonlySet<string>,
+    relaxations: Map<string, Promise<void>>,
+    warnings: IBaseImportWarnings
+  ): Promise<void> {
+    for (const fieldId of fieldIds) {
+      let pending = relaxations.get(fieldId);
+      if (!pending) {
+        pending = this.relaxImportedRequiredUserField(baseId, tableId, fieldId, warnings);
+        relaxations.set(fieldId, pending);
+      }
+      await pending;
+    }
+  }
+
+  private async relaxImportedRequiredUserField(
+    baseId: string,
+    tableId: string,
+    fieldId: string,
+    warnings: IBaseImportWarnings
+  ): Promise<void> {
+    const field = await this.prismaService.field.findFirstOrThrow({
+      where: { id: fieldId, tableId, table: { baseId }, deletedTime: null },
+      select: { type: true, isComputed: true, isLookup: true, notNull: true },
+    });
+    if (field.type !== FieldType.User || field.isComputed || field.isLookup) {
+      throw new Error('Imported user field is no longer writable');
+    }
+    if (!field.notNull) return;
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const command = UpdateFieldCommand.create({ tableId, fieldId, field: { notNull: false } });
+    if (command.isErr()) throw new Error('Failed to relax imported required user field');
+    const result = await commandBus.execute<UpdateFieldCommand, UpdateFieldResult>(
+      context,
+      command.value
+    );
+    if (result.isErr()) throw new Error('Failed to relax imported required user field');
+    warnings.relaxedRequiredUserFields += 1;
   }
 
   private async lookupImportedUsers(
@@ -704,12 +836,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         throw new Error('Failed to validate imported user references');
       }
       for (const user of result.value) pairedUsersById.set(user.id, user);
-    }
-    if (
-      [...scopedIds].some((id) => !scopedUsersById.has(id)) ||
-      identityPairs.some((pair) => pairedUsersById.get(pair.id)?.email !== pair.email)
-    ) {
-      throw new Error('validation.field.user_not_found');
     }
     return { scopedUsersById, pairedUsersById };
   }
@@ -799,7 +925,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   @OnWorkerEvent('completed')
   async onCompleted(job: Job) {
     const { tableIdMap, fieldIdMap, path, structure, userId } = job.data;
-    if (!this.hasJunctionImports(structure)) {
+    if (!this.hasLinkImports(structure)) {
       return;
     }
 
@@ -807,6 +933,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       'import_base_junction_csv',
       {
         baseId: job.data.baseId,
+        userId,
         tableIdMap,
         fieldIdMap,
         path,

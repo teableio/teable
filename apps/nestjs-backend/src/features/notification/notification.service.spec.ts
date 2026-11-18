@@ -4,7 +4,9 @@ import {
   NotificationTypeEnum,
   SYSTEM_USER_ID,
 } from '@teable/core';
+import ms from 'ms';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createCoalesceBackend } from '../coalesce/coalesce.spec-mocks';
 import { NotificationService } from './notification.service';
 
 describe('NotificationService', () => {
@@ -47,8 +49,7 @@ describe('NotificationService', () => {
         {} as never,
         { origin: 'https://example.test' } as never,
         {} as never,
-        {} as never,
-        {} as never
+        { onFlush: vi.fn() } as never
       ),
     };
   };
@@ -139,6 +140,105 @@ describe('NotificationService', () => {
   });
 });
 
+describe('NotificationService delivery', () => {
+  const createService = (deps: {
+    prisma: unknown;
+    mailSender?: unknown;
+    user?: unknown;
+    i18n?: unknown;
+  }) =>
+    new NotificationService(
+      deps.prisma as never,
+      {} as never,
+      (deps.mailSender ?? {}) as never,
+      (deps.user ?? {}) as never,
+      { origin: 'https://app.example.com' } as never,
+      (deps.i18n ?? {}) as never,
+      { onFlush: vi.fn() } as never
+    );
+
+  it('pushes an unread count that counts notifications landing at the same time', async () => {
+    const rows: { toUserId: string }[] = [];
+    const prisma = {
+      notification: {
+        createMany: vi.fn(async ({ data }: { data: { toUserId: string }[] }) => {
+          rows.push(...data);
+          return { count: data.length };
+        }),
+        groupBy: vi.fn(async () => [
+          { toUserId: 'usrTarget00000001', _count: { _all: rows.length } },
+        ]),
+      },
+    };
+    const service = createService({ prisma });
+    const pushed: number[] = [];
+    vi.spyOn(
+      service as never as {
+        sendNotifyBySocket: (to: string, data: { unreadCount: number }) => void;
+      },
+      'sendNotifyBySocket'
+    ).mockImplementation((_to, data) => void pushed.push(data.unreadCount));
+    const deliver = (id: string) =>
+      (
+        service as never as {
+          deliverNotifies: (records: unknown[], icon: unknown) => Promise<number>;
+        }
+      ).deliverNotifies(
+        [{ id, toUserId: 'usrTarget00000001', createdTime: new Date(), message: id }],
+        {}
+      );
+
+    await Promise.all([deliver('ntf1'), deliver('ntf2')]);
+
+    expect(Math.max(...pushed)).toBe(2);
+  });
+
+  it('does not fail a written collaborator notify, so a retried flush cannot write it again', async () => {
+    const prisma = {
+      notification: {
+        createMany: vi.fn(async ({ data }: { data: unknown[] }) => ({ count: data.length })),
+        groupBy: vi.fn().mockRejectedValue(new Error('statement timeout')),
+      },
+    };
+    const users: Record<string, unknown> = {
+      usrActor000000001: { id: 'usrActor000000001', name: 'Actor' },
+      usrTarget00000001: {
+        id: 'usrTarget00000001',
+        name: 'Target',
+        email: 'target@example.com',
+        notifyMeta: { email: true },
+      },
+    };
+    const service = createService({
+      prisma,
+      mailSender: {
+        collaboratorCellTagEmailOptions: vi.fn().mockRejectedValue(new Error('template')),
+      },
+      user: { getUserById: vi.fn(async (id: string) => users[id]) },
+      i18n: { t: vi.fn((key: string) => key) },
+    });
+    const create = (
+      service as never as { createCollaboratorNotify: (params: unknown) => Promise<boolean> }
+    ).createCollaboratorNotify.bind(service);
+
+    await expect(
+      create({
+        fromUserId: 'usrActor000000001',
+        toUserId: 'usrTarget00000001',
+        refRecord: {
+          baseId: 'bseNotify000000001',
+          tableId: 'tblNotify00000001',
+          tableName: 'Tasks',
+          fieldName: 'Assignee',
+          recordIds: ['rec1'],
+          recordTitles: [{ id: 'rec1', title: 'rec1' }],
+        },
+      })
+    ).resolves.toBe(true);
+    expect(prisma.notification.createMany).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('NotificationService collaborator notify coalescing', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -150,32 +250,8 @@ describe('NotificationService collaborator notify coalescing', () => {
     delete process.env.USER_FIELD_NOTIFY_BATCH_WINDOW_MS;
   });
 
-  const createCache = () => {
-    const store = new Map<string, { value: unknown; expiresAt: number }>();
-    const read = (key: string) => {
-      const entry = store.get(key);
-      return entry && Date.now() < entry.expiresAt ? entry.value : undefined;
-    };
-    const write = (key: string, value: unknown, ttlSeconds: number) => {
-      store.set(key, { value: structuredClone(value), expiresAt: Date.now() + ttlSeconds * 1000 });
-    };
-    return {
-      get: vi.fn(async (key: string) => structuredClone(read(key))),
-      setDetail: vi.fn(async (key: string, value: unknown, ttlSeconds: number) =>
-        write(key, value, ttlSeconds)
-      ),
-      setnx: vi.fn(async (key: string, value: unknown, ttlSeconds: number) => {
-        if (read(key) !== undefined) {
-          return false;
-        }
-        write(key, value, ttlSeconds);
-        return true;
-      }),
-      del: vi.fn(async (key: string) => store.delete(key)),
-    };
-  };
-
-  const createService = (cache = createCache()) => {
+  // One NotificationService per pod, all on the same coalescing backend.
+  const createService = (backend = createCoalesceBackend()) => {
     const service = new NotificationService(
       {} as never,
       {} as never,
@@ -183,13 +259,7 @@ describe('NotificationService collaborator notify coalescing', () => {
       {} as never,
       {} as never,
       {} as never,
-      cache as never,
-      {
-        runExclusive: async (_name: string, _ttl: number, task: () => Promise<void>) => {
-          await task();
-          return true;
-        },
-      } as never
+      backend.createService()
     );
     const create = vi
       .spyOn(
@@ -291,9 +361,9 @@ describe('NotificationService collaborator notify coalescing', () => {
   });
 
   it('shares one window across pods', async () => {
-    const cache = createCache();
-    const podA = createService(cache);
-    const podB = createService(cache);
+    const backend = createCoalesceBackend();
+    const podA = createService(backend);
+    const podB = createService(backend);
 
     await notify(podA.service, ['rec1']);
     await notify(podB.service, ['rec2']);
@@ -307,16 +377,17 @@ describe('NotificationService collaborator notify coalescing', () => {
   });
 
   it('keeps buffering onto records left by pods that died', async () => {
-    const cache = createCache();
-    const podA = createService(cache);
-    const podB = createService(cache);
-    const podC = createService(cache);
+    const backend = createCoalesceBackend();
+    const podA = createService(backend);
+    const podB = createService(backend);
+    const podC = createService(backend);
 
     await notify(podA.service, ['rec1']);
     await notify(podB.service, ['rec2']);
-    // Pods A and B die with their timers; the buffer stays in the cache.
+    // The flushes pods A and B booked are lost; the buffer stays in the cache. Past the
+    // window and its flush's retries, the next notify books the flush again.
     vi.clearAllTimers();
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(ms('11m'));
 
     await notify(podC.service, ['rec3']);
     expect(podC.create).not.toHaveBeenCalled();
@@ -354,9 +425,9 @@ describe('NotificationService collaborator notify coalescing', () => {
   });
 
   it('buffers notifies arriving while the first one is still sending', async () => {
-    const cache = createCache();
-    const podA = createService(cache);
-    const podB = createService(cache);
+    const backend = createCoalesceBackend();
+    const podA = createService(backend);
+    const podB = createService(backend);
     let finishFirst!: (created: boolean) => void;
     podA.create.mockImplementationOnce(
       () => new Promise<boolean>((resolve) => (finishFirst = resolve))

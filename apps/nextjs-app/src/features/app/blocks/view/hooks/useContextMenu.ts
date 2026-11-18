@@ -1,3 +1,4 @@
+import { raiseRecordPanel } from '@teable/sdk/components/expand-record/raiseRecordPanel';
 import { ShareViewContext } from '@teable/sdk/context';
 import { useBaseId, useTableId } from '@teable/sdk/hooks';
 import { syncCopy } from '@teable/sdk/utils';
@@ -37,6 +38,8 @@ export const useContextMenu = () => {
   const viewRecordHistory = useCallback(
     async (recordId: string) => {
       if (!baseId || !tableId || !recordId) return;
+      // the record's panel comes back on top of a new-record draft, also when it is open already
+      raiseRecordPanel(tableId, recordId);
       await router.push(
         {
           pathname: router.pathname,
@@ -54,6 +57,8 @@ export const useContextMenu = () => {
   const addRecordComment = useCallback(
     async (recordId: string) => {
       if (!baseId || !tableId || !recordId) return;
+      // the record's panel comes back on top of a new-record draft, also when it is open already
+      raiseRecordPanel(tableId, recordId);
       await router.push(
         {
           pathname: router.pathname,

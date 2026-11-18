@@ -48,6 +48,12 @@ export class DistributedLockService {
     return true;
   }
 
+  /** Whether each lock named in `names` is held right now, by any instance. */
+  async isHeld(names: string[]): Promise<boolean[]> {
+    const owners = await this.cacheService.getMany(names.map((name) => `lock:${name}` as const));
+    return owners.map((owner) => owner != null);
+  }
+
   private async acquire(key: `lock:${string}`, ttlSeconds: number): Promise<boolean> {
     try {
       return await this.cacheService.setnx(key, this.owner, ttlSeconds);

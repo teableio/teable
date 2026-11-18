@@ -32,7 +32,7 @@ export const GridFilePreviewer = (props: IGridFilePreviewerProps) => {
   const previewFiles = useMemo(() => {
     return attachments.map((item) => ({
       src: item.presignedUrl || '',
-      thumb: item.lgThumbnailUrl,
+      thumb: item.smThumbnailUrl ?? item.lgThumbnailUrl,
       name: item.name,
       fileId: item.id,
       mimetype: item.mimetype,

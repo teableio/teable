@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { PrismaService } from '@teable/db-main-prisma';
 import sharp from 'sharp';
 import { vi } from 'vitest';
@@ -49,5 +50,46 @@ describe('AttachmentsStorageService.uploadTableImageThumbnailsFromBuffer', () =>
     expect(sm.height).toBe(ATTACHMENT_SM_THUMBNAIL_HEIGHT);
     expect(lg.height).toBe(height);
     expect(lg.height).toBeLessThan(ATTACHMENT_LG_THUMBNAIL_HEIGHT);
+  });
+
+  it('writes WebP thumbnails under .webp keys', async () => {
+    const png = await sharp({
+      create: { width: 800, height: 600, channels: 3, background: '#3b82f6' },
+    })
+      .png()
+      .toBuffer();
+
+    const result = await service.uploadTableImageThumbnailsFromBuffer('bucket', 'table/x', png);
+
+    expect(result).toEqual({
+      smThumbnailPath: 'table/x_sm.webp',
+      lgThumbnailPath: 'table/x_lg.webp',
+    });
+    expect(storageAdapter.uploadFile).toHaveBeenCalledWith(
+      'bucket',
+      'table/x_lg.webp',
+      expect.any(Buffer),
+      { 'Content-Type': 'image/webp' }
+    );
+    for (const { buffer } of uploads) {
+      expect((await sharp(buffer).metadata()).format).toBe('webp');
+    }
+  });
+
+  it('caps an extra-wide rendered thumbnail at the widest side WebP can encode', async () => {
+    const wide = await sharp({
+      create: { width: 40000, height: 600, channels: 3, background: '#3b82f6' },
+    })
+      .png()
+      .toBuffer();
+
+    await service.uploadTableImageThumbnailsFromBuffer('bucket', 'table/x', wide);
+
+    const byPath = Object.fromEntries(uploads.map(({ path, buffer }) => [path, buffer]));
+    expect(await sharp(byPath['table/x_lg.webp']).metadata()).toMatchObject({
+      format: 'webp',
+      width: 16383,
+    });
+    expect((await sharp(byPath['table/x_sm.webp']).metadata()).height).toBe(56);
   });
 });

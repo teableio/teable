@@ -9,7 +9,10 @@ import { RecordWriteSideEffectService } from '../application/services/RecordWrit
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import type {
+  UndoRedoStackEntryInput,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -102,23 +105,13 @@ const noopPasteLinkAutoResolveService = {
 
 class TrackingUndoRedoService {
   recordEntryCalls = 0;
-  entries: Array<{
-    groupId?: string;
-    undoCommand: unknown;
-    redoCommand: unknown;
-  }> = [];
-  latestEntry:
-    | {
-        groupId?: string;
-        undoCommand: unknown;
-        redoCommand: unknown;
-      }
-    | undefined;
+  entries: UndoRedoStackEntryInput[] = [];
+  latestEntry: UndoRedoStackEntryInput | undefined;
 
   async appendEntry(
     _context: IExecutionContext,
     _tableId: TableId,
-    entry: { groupId?: string; undoCommand: unknown; redoCommand: unknown }
+    entry: UndoRedoStackEntryInput
   ) {
     this.recordEntryCalls += 1;
     this.latestEntry = entry;
@@ -816,6 +809,12 @@ class CapturingDomainWriteTransaction implements IDomainWriteTransaction {
 
   executeStream: IDomainWriteTransaction['executeStream'] = (...args) =>
     this.inner.executeStream(...args);
+
+  withBatchTransaction: IDomainWriteTransaction['withBatchTransaction'] = (
+    context,
+    work,
+    options
+  ) => this.inner.withBatchTransaction(context, work, options);
 
   async execute<T>(
     context: IExecutionContext,
@@ -2872,6 +2871,11 @@ describe('PasteHandler', () => {
 
       expect(trackingUndoRedoService.recordEntryCalls).toBe(3);
       expect(new Set(trackingUndoRedoService.entries.map((entry) => entry.groupId)).size).toBe(1);
+      expect(trackingUndoRedoService.entries.map((entry) => entry.groupPosition)).toEqual([
+        'start',
+        'continue',
+        'continue',
+      ]);
     });
 
     it('stops after a persistence error without emitting done', async () => {

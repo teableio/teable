@@ -87,7 +87,7 @@ const noopRecordChangedValueDecoratorService = {
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
   eventBus: FakeEventBus,
-  unitOfWork: FakeUnitOfWork
+  unitOfWork: IUnitOfWork
 ) => new TableUpdateFlow(tableRepository, new FakeTableSchemaRepository(), eventBus, unitOfWork);
 
 const createHandler = (
@@ -1915,5 +1915,98 @@ describe('CreateRecordsHandler', () => {
     expect(result.isErr()).toBe(true);
     expect(events).toEqual(['shared', 'release-shared']);
     expect(tableRepository.findOneCalls).toBe(1);
+  });
+
+  it('re-emits batch and side-effect events when DomainWriteTransaction retries after COMMIT-time abort', async () => {
+    const { table, singleSelectFieldId, textFieldId } = createTestTable(baseId, tableId);
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+
+    // Simulate a transaction manager whose Attempt 1 fails AFTER the work callback
+    // has already drained table.pullDomainEvents() (i.e. a COMMIT-time 40001/40P01).
+    let attempts = 0;
+    const commitRetryUnitOfWork: IUnitOfWork = {
+      async withTransaction<T>(
+        context: IExecutionContext,
+        work: UnitOfWorkOperation<T>
+      ): Promise<Result<T, DomainError>> {
+        if (context.transaction) {
+          return work(context);
+        }
+        while (true) {
+          attempts += 1;
+          const afterRollbackHandlers: Array<() => Promise<void> | void> = [];
+          const afterCommitHandlers: Array<() => Promise<void> | void> = [];
+          const transaction: IUnitOfWorkTransaction = {
+            kind: 'unitOfWorkTransaction',
+            scope: 'data',
+            afterCommit(fn) {
+              afterCommitHandlers.push(fn);
+            },
+            afterRollback(fn) {
+              afterRollbackHandlers.push(fn);
+            },
+          };
+          const workResult = await work({ ...context, transaction });
+          if (attempts === 1) {
+            for (const fn of afterRollbackHandlers) {
+              await fn();
+            }
+            continue;
+          }
+          if (workResult.isOk()) {
+            for (const fn of afterCommitHandlers) {
+              await fn();
+            }
+          }
+          return workResult;
+        }
+      },
+    };
+
+    const handler = createHandler(
+      tableQueryService,
+      recordRepository,
+      new FakeRecordMutationSpecResolverService(),
+      createRecordWritePluginRunner(),
+      createTableUpdateFlow(tableRepository, eventBus, commitRetryUnitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      commitRetryUnitOfWork
+    );
+
+    const command = CreateRecordsCommand.create({
+      tableId,
+      typecast: true,
+      records: [
+        {
+          fields: {
+            [textFieldId]: 'Committed after retry 1',
+            [singleSelectFieldId]: 'Retry Choice',
+          },
+        },
+        {
+          fields: {
+            [textFieldId]: 'Committed after retry 2',
+            [singleSelectFieldId]: 'Retry Choice',
+          },
+        },
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(attempts).toBe(2);
+    const value = result._unsafeUnwrap();
+    expect(value.events.some(isRecordsBatchCreatedEvent)).toBe(true);
+    expect(value.events.some((event) => event.name.toString() === 'FieldOptionsAdded')).toBe(true);
+    expect(eventBus.published.filter(isRecordsBatchCreatedEvent)).toHaveLength(1);
+    expect(
+      eventBus.published.filter((event) => event.name.toString() === 'FieldOptionsAdded')
+    ).toHaveLength(1);
   });
 });

@@ -170,7 +170,7 @@ import { generateFilterItem, type GroupFilterField } from '../../../utils/filter
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { AuditScope } from '../../audit/audit-scope';
 import { PermissionService } from '../../auth/permission.service';
-import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
+import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
 import { buildRawCopyContent } from '../../selection/raw-copy-content';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { buildUndoRedoEnginePreferenceKey } from '../../undo-redo/open-api/undo-redo-engine-preference';
@@ -274,8 +274,8 @@ export class RecordOpenApiV2Service {
   @Inject(CrossBaseLinkAccessService)
   private readonly crossBaseLinkAccess!: CrossBaseLinkAccessService;
 
-  @Inject(FieldSupplementService)
-  private readonly fieldSupplementService!: FieldSupplementService;
+  @Inject(FieldReferenceAdmissionService)
+  private readonly fieldReferenceAdmission!: FieldReferenceAdmissionService;
 
   @Inject(PermissionService)
   private readonly previewPermissionService!: PermissionService;
@@ -3588,7 +3588,7 @@ export class RecordOpenApiV2Service {
           continue;
         }
         checked.add(foreignTableId);
-        await this.fieldSupplementService.assertNewForeignTableAllowed(tableId, foreignTableId);
+        await this.fieldReferenceAdmission.assertNewForeignTableAllowed(tableId, foreignTableId);
       }
     }
   }

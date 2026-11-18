@@ -6,9 +6,13 @@ import type archiver from 'archiver';
  * Level 6 is zlib's default: level 9 costs far more CPU on multi-GB CSVs for a
  * marginally smaller file.
  */
-export const EXPORT_ZIP_OPTIONS: archiver.ArchiverOptions = { zlib: { level: 6 } };
+export const EXPORT_ZIP_OPTIONS: archiver.ArchiverOptions = {
+  zlib: { level: 6 },
+  highWaterMark: 64 * 1024,
+};
 
 export interface IExportArchiveGuard {
+  readonly signal: AbortSignal;
   /** Races `work` against the first export failure, so callers never wait on a dead archive. */
   run<T>(work: Promise<T>): Promise<T>;
   fail(error: unknown): void;
@@ -33,6 +37,7 @@ export const guardExportArchive = (
   output: PassThrough
 ): IExportArchiveGuard => {
   const sources = new Set<Readable>();
+  const abort = new AbortController();
   let failure: Error | undefined;
   let rejectFailed!: (error: Error) => void;
   const failed = new Promise<never>((_, reject) => {
@@ -45,6 +50,7 @@ export const guardExportArchive = (
     if (failure) return;
     failure = error instanceof Error ? error : new Error(String(error));
     rejectFailed(failure);
+    abort.abort(failure);
     archive.abort();
     for (const source of sources) {
       source.destroy(failure);
@@ -83,6 +89,7 @@ export const guardExportArchive = (
   output.on('error', fail);
 
   return {
+    signal: abort.signal,
     run: <T>(work: Promise<T>) => Promise.race([work, failed]),
     fail,
   };

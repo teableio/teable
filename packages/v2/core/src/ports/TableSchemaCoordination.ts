@@ -1,7 +1,7 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { DomainError } from '../domain/shared/DomainError';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from './ExecutionContext';
 
 /**
@@ -46,7 +46,9 @@ export interface ITableSchemaCoordination {
   acquire(
     context: IExecutionContext,
     tableIds: ReadonlyArray<string>,
-    mode: TableSchemaCoordinationMode
+    mode: TableSchemaCoordinationMode,
+    /** Cancels acquisition only; a granted lease remains held until release(). */
+    signal?: AbortSignal
   ): Promise<Result<ITableSchemaCoordinationLease, DomainError>>;
 }
 
@@ -71,19 +73,29 @@ export abstract class TableSchemaCoordination implements ITableSchemaCoordinatio
   async acquire(
     context: IExecutionContext,
     tableIds: ReadonlyArray<string>,
-    mode: TableSchemaCoordinationMode
+    mode: TableSchemaCoordinationMode,
+    signal?: AbortSignal
   ): Promise<Result<ITableSchemaCoordinationLease, DomainError>> {
+    if (signal?.aborted) {
+      return err(
+        domainError.infrastructure({
+          code: 'schema_coordination.cancelled',
+          message: 'Table schema coordination acquisition cancelled',
+        })
+      );
+    }
     const requested = Array.from(new Set(tableIds)).sort();
     if (requested.length === 0) {
       return ok(createTableSchemaCoordinationLease(mode, []));
     }
-    return this.acquireLocks(context, requested, mode);
+    return this.acquireLocks(context, requested, mode, signal);
   }
 
   protected abstract acquireLocks(
     context: IExecutionContext,
     tableIds: ReadonlyArray<string>,
-    mode: TableSchemaCoordinationMode
+    mode: TableSchemaCoordinationMode,
+    signal?: AbortSignal
   ): Promise<Result<ITableSchemaCoordinationLease, DomainError>>;
 }
 

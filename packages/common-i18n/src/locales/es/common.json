@@ -257,7 +257,8 @@
       "firstRelease": "Primera versión",
       "about": "Acerca de",
       "noChangelog": "Actualización general"
-    }
+    },
+    "unavailable": "Esta plantilla no está disponible"
   },
   "baseShare": {
     "shareTitle": "Compartir",
@@ -1323,12 +1324,59 @@
       "successText": "Los datos de exportación están listos",
       "failedText": "La exportación falló, por favor reinténtelo"
     },
+    "baseImport": {
+      "skippedCells": "No se pudieron restaurar algunos valores importados: {{skippedUserCells}} celdas de usuario y {{skippedLinkCells}} celdas de enlace. Se conservaron los registros válidos; revise el proyecto importado.",
+      "relaxedRequiredUserFields": "Se quitó la restricción de campo obligatorio de {{count}} campos de usuario importados para conservar los registros con usuarios no reconocidos. Revise el proyecto importado.",
+      "failed": "La importación del proyecto falló antes de que se restauraran todos los datos. Revise el proyecto importado y vuelva a intentarlo después de resolver el error."
+    },
     "importantNotice": {
       "title": "Important Notice",
       "acknowledge": "I Understand"
     },
     "oauthApp": {
       "message": "De {{app}}: {{text}}"
+    },
+    "category": {
+      "mention": "Mención",
+      "comment": "Comentario",
+      "invite": "Invitación",
+      "import": "Importación",
+      "export": "Exportación",
+      "automation": "Automatización",
+      "routine": "Rutina",
+      "aiTask": "Campo de IA",
+      "aiChat": "Chat de IA",
+      "credit": "Créditos",
+      "billing": "Facturación",
+      "reward": "Recompensa",
+      "template": "Plantilla",
+      "dataExport": "Exportación de datos",
+      "announcement": "Anuncio",
+      "app": "App",
+      "system": "Sistema"
+    },
+    "panel": {
+      "unreadCount": "No leídas: {{count}}",
+      "markRead": "Marcar como leída",
+      "markUnread": "Marcar como no leída",
+      "allCaughtUp": "Estás al día",
+      "emptyTitle": "Aún no hay notificaciones",
+      "emptyDescription": "Aquí aparecen las menciones, invitaciones y resultados de importaciones, automatizaciones y tareas de IA.",
+      "noMatch": "Ninguna notificación coincide con estos filtros",
+      "group": {
+        "today": "Hoy",
+        "yesterday": "Ayer",
+        "earlier": "Anteriores"
+      },
+      "filter": {
+        "severity": "Nivel",
+        "title": "Filtrar",
+        "clear": "Borrar filtros",
+        "all": "Todas",
+        "mine": "Para ti",
+        "system": "Sistema",
+        "unreadOnly": "Solo no leídas"
+      }
     }
   },
   "role": {
@@ -1358,6 +1406,7 @@
     "resetTrashConfirm": "¿Estás seguro de que deseas vaciar la papelera?",
     "addToTrash": "Mover a la papelera",
     "description": "Los datos en la papelera aún ocupan espacio de uso de registros y uso de archivos adjuntos.",
+    "publishedAppsOffline": "Aplicaciones publicadas que dejarán de estar en línea de inmediato: {{total}}. Tras restaurar desde la papelera, habrá que volver a publicarlas.",
     "spaceDescription": "Restaurar espacios eliminados en los últimos {{retentionDays}} días",
     "spaceInnerDescription": "Restaurar proyectos eliminados de este espacio en los últimos {{retentionDays}} días",
     "baseDescription": "Restaurar recursos eliminados de este proyecto en los últimos {{retentionDays}} días",
@@ -1479,16 +1528,16 @@
       "notify": {
         "template": {
           "approved": {
-            "title": "Tu plantilla {{name}} ya está publicada",
-            "message": "{{name}} ha superado la revisión y ya está publicada como versión {{version}}.",
-            "messageWithNote": "{{name}} ha superado la revisión y ya está publicada como versión {{version}}. Nota del revisor: {{note}}",
-            "messageNoPayout": "{{name}} ha superado la revisión y ya está publicada como versión {{version}}. Aún no has configurado un método de cobro, así que las ganancias se acumularán; añade uno en el Centro de creadores.",
-            "messageNoPayoutWithNote": "{{name}} ha superado la revisión y ya está publicada como versión {{version}}. Aún no has configurado un método de cobro, así que las ganancias se acumularán; añade uno en el Centro de creadores. Nota del revisor: {{note}}"
+            "title": "Tu plantilla {{name}} ya está en el centro de plantillas",
+            "message": "{{name}} ya está en el centro de plantillas, con la versión {{version}}.",
+            "messageWithNote": "{{name}} ya está en el centro de plantillas, con la versión {{version}}. Nota del revisor: {{note}}",
+            "messageNoPayout": "{{name}} ya está en el centro de plantillas, con la versión {{version}}. Aún no has configurado un método de cobro, así que las ganancias se acumularán; añade uno en el Centro de creadores.",
+            "messageNoPayoutWithNote": "{{name}} ya está en el centro de plantillas, con la versión {{version}}. Aún no has configurado un método de cobro, así que las ganancias se acumularán; añade uno en el Centro de creadores. Nota del revisor: {{note}}"
           },
           "rejected": {
-            "title": "Tu plantilla {{name}} ha sido devuelta",
-            "message": "{{name}} no ha superado la revisión.",
-            "messageWithNote": "{{name}} no ha superado la revisión. Nota del revisor: {{note}}"
+            "title": "Tu plantilla {{name}} no está en el centro de plantillas por ahora",
+            "message": "{{name}} no está en el centro de plantillas por ahora. Su enlace sigue abriéndose y se puede seguir instalando y compartiendo.",
+            "messageWithNote": "{{name}} no está en el centro de plantillas por ahora. Su enlace sigue abriéndose y se puede seguir instalando y compartiendo. Nota del revisor: {{note}}"
           }
         },
         "subject": "Notificación - {{brandName}}",
@@ -1650,6 +1699,9 @@
           },
           "failed": {
             "message": "❌ Exportación de {{baseName}} fallida: {{errorMessage}}"
+          },
+          "cancelled": {
+            "message": "La exportación se canceló al cerrar o salir de todas las pestañas que la solicitaron. No se creó ningún archivo de descarga. Abre el proyecto y expórtalo de nuevo."
           }
         },
         "task": {
@@ -1690,6 +1742,8 @@
         "userDataExport": {
           "buttonText": "Descargar mis datos",
           "failed": "Hola, {{name}}:<br><br>No pudimos terminar de empaquetar tus datos:<br><em>{{errorMessage}}</em><br><br>Ponte en contacto con el administrador.",
+          "incompleteTitle": "Exportación detenida — espacio no eliminado",
+          "incomplete": "Hola {{name}},<br><br>La exportación se detuvo porque estas tablas no están listas. No se eliminó nada permanentemente; tu espacio sigue en la papelera.<br><br>{{tables}}<br><br>Estas tablas pueden estar ocultas en la barra lateral. Restaura el espacio desde la papelera y respalda las tablas listas mediante la exportación de datos en la configuración de la cuenta. Revisa las tablas omitidas en SKIPPED_TABLES.txt. Envía los ID de bases y tablas y los estados anteriores a tu administrador para reparar la creación antes de reintentar la exportación y eliminación permanente. No elimines permanentemente sin una copia de seguridad verificada.",
           "accountDeleted": {
             "title": "Tu exportación de datos está lista",
             "message": "Hola, {{name}}:<br><br>Pediste una copia de tus datos antes de eliminar tu cuenta de Teable. Ya está lista.<br><br>El siguiente enlace es válido durante {{expiresInDays}} días."
@@ -1767,26 +1821,58 @@
   "credit": {
     "title": "Crédito",
     "leftAmount": "Créditos restantes",
-    "winFreeCredits": "Compartir experiencia",
-    "getCredits": "Obtener 1000 créditos gratis",
+    "shareYourWork": "Comparte tu trabajo",
+    "shareYourWorkCash": "Comparte plantillas y gana un 30 % en efectivo",
+    "shareYourWorkCredits": "Comparte plantillas y consigue 1.000 créditos gratis",
+    "shareWork": {
+      "kicker": "Comparte tu trabajo",
+      "hookCash": "Por los usuarios de pago que traiga tu plantilla,<br/>recibes un <figure>30 %</figure> en efectivo.",
+      "hookCredits": "Comparte una plantilla dos veces por semana<br/>y gana <figure>500</figure> créditos cada vez.",
+      "chip": "Tus 2 primeras publicaciones de cada semana: 500 créditos cada una",
+      "prompt": {
+        "creditsAndCash": "Compártela y gana créditos y dinero",
+        "creditsAndCashRule": "500 créditos por cada una de tus 2 primeras publicaciones de la semana, y un 30 % en efectivo de los usuarios de pago que traiga",
+        "credits": "Compártela y gana créditos",
+        "creditsRule": "500 créditos por cada una de tus 2 primeras publicaciones de la semana",
+        "cash": "Compártela y gana dinero",
+        "cashRule": "Un 30 % en efectivo de los usuarios de pago que traiga",
+        "toX": "Compartir en X",
+        "toLinkedIn": "Compartir en LinkedIn"
+      },
+      "installs_one": "{{count}} instalación",
+      "installs_many": "{{count}} instalaciones",
+      "installs_other": "{{count}} instalaciones",
+      "share": "Compartir",
+      "empty": {
+        "title": "Primero convierte un proyecto en plantilla",
+        "hint": "Podrás compartirla en cuanto la publiques",
+        "make": "Crear plantilla",
+        "start": "Empezar desde cero"
+      },
+      "card": {
+        "title": "Compartir {{name}}",
+        "drafting": "Redactando…",
+        "again": "Otra versión",
+        "copy": "Copiar",
+        "copied": "Copiado",
+        "postX": "Publicar en X",
+        "postLinkedIn": "Publicar en LinkedIn",
+        "claimHint": "¿Ya lo publicaste? Pega el enlace y recibe <b>500</b> créditos"
+      },
+      "claim": {
+        "title": "Pega el enlace de tu publicación y recibe 500 créditos",
+        "hint": "Cuentan tus 2 primeras publicaciones de cada semana (X + LinkedIn)",
+        "requireLink": "La publicación enlaza a {{name}}",
+        "requireFollowers": "La cuenta tiene 10+ seguidores",
+        "requireRecent": "Publicada en las últimas 6 horas",
+        "button": "Recibir 500 créditos",
+        "back": "Volver al borrador"
+      }
+    },
     "winCredit": {
-      "title": "Comparte una reseña positiva para ganar",
-      "freeCredits": "1000 créditos gratis",
-      "guidelinesTitle": "Lista de verificación para compartir",
-      "tagTeableio": "Etiqueta <bold>@teableio</bold>",
-      "minCharacters": "Escribe una reseña de <bold>80+</bold> caracteres",
-      "minFollowers": "Ten <bold>10+</bold> seguidores",
-      "limitPerWeek": "500 créditos por publicación, hasta 2 publicaciones semanales (X + LinkedIn)",
-      "postOnX": "Publicar en X",
-      "postOnLinkedIn": "Publicar en LinkedIn",
-      "preFilledDraft": "🌟 ¡Borrador prellenado listo para ti!",
-      "claimTitle": "Pega la URL de la publicación para reclamar tus créditos",
-      "userEmail": "Correo del usuario",
-      "postUrlLabel": "URL de la publicación (X o LinkedIn)",
       "postUrlPlaceholder": "Pega el enlace de tu publicación aquí",
       "invalidUrl": "Por favor ingresa una URL válida de X o LinkedIn",
       "claiming": "Reclamando...",
-      "claimCredits": "Reclamar créditos",
       "congratulations": "¡Felicitaciones!",
       "claimSuccess": "¡Has reclamado 500 créditos!",
       "verifying": "Verificando tu publicación...",
@@ -1804,6 +1890,7 @@
     "minCharCount": "La publicación debe tener al menos {{count}} caracteres",
     "minFollowerCount": "La cuenta debe tener al menos {{count}} seguidores",
     "mustMention": "La publicación debe mencionar {{mention}}",
+    "mustLinkTemplate": "La publicación debe enlazar a una de tus plantillas",
     "fetchSnapshotFailed": "Error al obtener la captura de la publicación",
     "snapshotTimeout": "Se agotó el tiempo de espera de la captura de la publicación, inténtalo de nuevo más tarde",
     "alreadyClaimedThisWeek": "Ya has reclamado una recompensa para esta cuenta esta semana",
@@ -2107,14 +2194,18 @@
       "connectIntegration": "Cuppy necesita que conectes una app para continuar.",
       "pickGoogleSheet": "Cuppy necesita que elijas una hoja.",
       "presentTemplates": "Cuppy ha encontrado una plantilla lista para usar y espera tu decisión.",
-      "requestCredential": "Cuppy necesita acceso para continuar."
+      "requestCredential": "Cuppy necesita acceso para continuar.",
+      "presentTemplateScope": "Cuppy ha determinado qué incluye la plantilla y espera tu confirmación.",
+      "presentTemplateFindings": "Cuppy ha encontrado contenido que es solo tuyo y espera que decidas qué sustituir."
     },
     "result": {
       "done": "Listo.",
       "failed": "La ejecución falló.",
       "creditExhausted": "Detenido: no quedan créditos de IA.",
       "skippedNoCredit": "Omitido esta vez: no quedan créditos de IA.",
+      "skippedNoCreditSummary": "Se omitieron {{count}} rutinas más: no quedan créditos de IA.",
       "autoDeactivated": "Desactivado tras cinco ejecuciones fallidas seguidas.",
+      "autoDeactivatedSummary": "Se desactivaron {{count}} rutinas más tras cinco ejecuciones fallidas seguidas.",
       "summaryTitle": "Teable",
       "summary": "{{count}} conversaciones tienen novedades."
     }

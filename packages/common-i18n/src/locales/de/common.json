@@ -257,7 +257,8 @@
       "firstRelease": "Erstveröffentlichung",
       "about": "Über",
       "noChangelog": "Allgemeine Aktualisierung"
-    }
+    },
+    "unavailable": "Diese Vorlage ist nicht verfügbar"
   },
   "baseShare": {
     "shareTitle": "Teilen",
@@ -1312,12 +1313,59 @@
       "successText": "Exportdaten sind bereit",
       "failedText": "Export fehlgeschlagen, bitte erneut versuchen"
     },
+    "baseImport": {
+      "skippedCells": "Einige importierte Werte konnten nicht wiederhergestellt werden: {{skippedUserCells}} Benutzerzellen und {{skippedLinkCells}} Verknüpfungszellen. Gültige Datensätze wurden beibehalten. Bitte überprüfen Sie das importierte Projekt.",
+      "relaxedRequiredUserFields": "Für {{count}} importierte Benutzerfelder wurde die Pflichtfeld-Einstellung aufgehoben, um Datensätze mit unbekannten Benutzern beizubehalten. Überprüfen Sie das importierte Projekt.",
+      "failed": "Der Projektimport ist fehlgeschlagen, bevor alle Daten wiederhergestellt wurden. Überprüfen Sie das importierte Projekt und versuchen Sie es nach Behebung des Fehlers erneut."
+    },
     "importantNotice": {
       "title": "Important Notice",
       "acknowledge": "I Understand"
     },
     "oauthApp": {
       "message": "Von {{app}}: {{text}}"
+    },
+    "category": {
+      "mention": "Erwähnung",
+      "comment": "Kommentar",
+      "invite": "Einladung",
+      "import": "Import",
+      "export": "Export",
+      "automation": "Automatisierung",
+      "routine": "Routine",
+      "aiTask": "KI-Feld",
+      "aiChat": "KI-Chat",
+      "credit": "Credits",
+      "billing": "Abrechnung",
+      "reward": "Belohnung",
+      "template": "Vorlage",
+      "dataExport": "Datenexport",
+      "announcement": "Ankündigung",
+      "app": "App",
+      "system": "System"
+    },
+    "panel": {
+      "unreadCount": "Ungelesen: {{count}}",
+      "markRead": "Als gelesen markieren",
+      "markUnread": "Als ungelesen markieren",
+      "allCaughtUp": "Alles erledigt",
+      "emptyTitle": "Noch keine Benachrichtigungen",
+      "emptyDescription": "Erwähnungen, Einladungen und Ergebnisse von Importen, Automatisierungen und KI-Aufgaben erscheinen hier.",
+      "noMatch": "Keine Benachrichtigungen passen zu diesen Filtern",
+      "group": {
+        "today": "Heute",
+        "yesterday": "Gestern",
+        "earlier": "Früher"
+      },
+      "filter": {
+        "severity": "Stufe",
+        "title": "Filter",
+        "clear": "Filter zurücksetzen",
+        "all": "Alle",
+        "mine": "Für dich",
+        "system": "System",
+        "unreadOnly": "Nur ungelesene"
+      }
     }
   },
   "role": {
@@ -1347,6 +1395,7 @@
     "resetTrashConfirm": "Sind Sie sicher, dass Sie den Papierkorb leeren wollen?",
     "addToTrash": "Zum Papierkorb verschieben",
     "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge.",
+    "publishedAppsOffline": "Veröffentlichte Apps, die sofort offline gehen: {{total}}. Nach dem Wiederherstellen aus dem Papierkorb müssen sie erneut veröffentlicht werden.",
     "spaceDescription": "Stellen Sie Spaces wieder her, die in den letzten {{retentionDays}} Tagen gelöscht wurden",
     "spaceInnerDescription": "Stellen Sie Projekte wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
     "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Projekt gelöscht wurden",
@@ -1468,16 +1517,16 @@
       "notify": {
         "template": {
           "approved": {
-            "title": "Ihre Vorlage {{name}} ist online",
-            "message": "{{name}} hat die Prüfung bestanden und ist jetzt als Version {{version}} öffentlich.",
-            "messageWithNote": "{{name}} hat die Prüfung bestanden und ist jetzt als Version {{version}} öffentlich. Anmerkung des Prüfers: {{note}}",
-            "messageNoPayout": "{{name}} hat die Prüfung bestanden und ist jetzt als Version {{version}} öffentlich. Sie haben noch keine Auszahlungsmethode hinterlegt, daher werden Einnahmen übertragen; fügen Sie eine im Creator-Center hinzu.",
-            "messageNoPayoutWithNote": "{{name}} hat die Prüfung bestanden und ist jetzt als Version {{version}} öffentlich. Sie haben noch keine Auszahlungsmethode hinterlegt, daher werden Einnahmen übertragen; fügen Sie eine im Creator-Center hinzu. Anmerkung des Prüfers: {{note}}"
+            "title": "Ihre Vorlage {{name}} ist im Vorlagenzentrum",
+            "message": "{{name}} ist jetzt im Vorlagenzentrum, mit Version {{version}}.",
+            "messageWithNote": "{{name}} ist jetzt im Vorlagenzentrum, mit Version {{version}}. Anmerkung des Prüfers: {{note}}",
+            "messageNoPayout": "{{name}} ist jetzt im Vorlagenzentrum, mit Version {{version}}. Sie haben noch keine Auszahlungsmethode hinterlegt, daher werden Einnahmen übertragen; fügen Sie eine im Creator-Center hinzu.",
+            "messageNoPayoutWithNote": "{{name}} ist jetzt im Vorlagenzentrum, mit Version {{version}}. Sie haben noch keine Auszahlungsmethode hinterlegt, daher werden Einnahmen übertragen; fügen Sie eine im Creator-Center hinzu. Anmerkung des Prüfers: {{note}}"
           },
           "rejected": {
-            "title": "Ihre Vorlage {{name}} wurde zurückgegeben",
-            "message": "{{name}} hat die Prüfung nicht bestanden.",
-            "messageWithNote": "{{name}} hat die Prüfung nicht bestanden. Anmerkung des Prüfers: {{note}}"
+            "title": "Ihre Vorlage {{name}} ist vorerst nicht im Vorlagenzentrum",
+            "message": "{{name}} ist vorerst nicht im Vorlagenzentrum. Ihr Link öffnet sich weiterhin, und sie lässt sich weiter installieren und teilen.",
+            "messageWithNote": "{{name}} ist vorerst nicht im Vorlagenzentrum. Ihr Link öffnet sich weiterhin, und sie lässt sich weiter installieren und teilen. Anmerkung des Prüfers: {{note}}"
           }
         },
         "subject": "Benachrichtigung - {{brandName}}",
@@ -1639,6 +1688,9 @@
           },
           "failed": {
             "message": "❌ {{baseName}} Export fehlgeschlagen: {{errorMessage}}"
+          },
+          "cancelled": {
+            "message": "Der Projektexport wurde abgebrochen, weil alle anfordernden Tabs geschlossen oder verlassen wurden. Es wurde keine Downloaddatei erstellt. Öffne das Projekt und exportiere es erneut."
           }
         },
         "task": {
@@ -1679,6 +1731,8 @@
         "userDataExport": {
           "buttonText": "Meine Daten herunterladen",
           "failed": "Hallo {{name}},<br><br>wir konnten Ihre Daten nicht vollständig verpacken:<br><em>{{errorMessage}}</em><br><br>Bitte wenden Sie sich an den Administrator.",
+          "incompleteTitle": "Datenexport gestoppt — Space nicht gelöscht",
+          "incomplete": "Hallo {{name}},<br><br>Der Export wurde gestoppt, weil diese Tabellen noch nicht bereit sind. Es wurde nichts dauerhaft gelöscht; Ihr Space bleibt im Papierkorb.<br><br>{{tables}}<br><br>Diese Tabellen sind möglicherweise in der Seitenleiste ausgeblendet. Stellen Sie den Space aus dem Papierkorb wieder her und sichern Sie bereite Tabellen über den Datenexport in den Kontoeinstellungen. Prüfen Sie SKIPPED_TABLES.txt auf ausgelassene Tabellen. Senden Sie die obigen Base-IDs, Tabellen-IDs und Zustände an Ihren Administrator, damit die Tabellenerstellung repariert wird, bevor Sie Export und dauerhaftes Löschen erneut versuchen. Löschen Sie nichts dauerhaft ohne geprüfte Sicherung.",
           "accountDeleted": {
             "title": "Ihr Datenexport ist bereit",
             "message": "Hallo {{name}},<br><br>Sie haben vor dem Löschen Ihres Teable-Kontos eine Kopie Ihrer Daten angefordert. Sie ist jetzt bereit.<br><br>Der Link unten ist {{expiresInDays}} Tage lang gültig."
@@ -1756,26 +1810,57 @@
   "credit": {
     "title": "Guthaben",
     "leftAmount": "Verbleibendes Guthaben",
-    "winFreeCredits": "Erfahrung teilen",
-    "getCredits": "1000 kostenlose Credits erhalten",
+    "shareYourWork": "Teilen Sie Ihre Arbeit",
+    "shareYourWorkCash": "Vorlagen teilen, 30 % in bar verdienen",
+    "shareYourWorkCredits": "Vorlagen teilen, 1.000 kostenlose Credits erhalten",
+    "shareWork": {
+      "kicker": "Teilen Sie Ihre Arbeit",
+      "hookCash": "Für zahlende Nutzer über Ihre Vorlage<br/>erhalten Sie <figure>30 %</figure> in bar!",
+      "hookCredits": "Teilen Sie zweimal pro Woche eine Vorlage<br/>und erhalten Sie jeweils <figure>500</figure> Credits!",
+      "chip": "Ihre ersten 2 Beiträge pro Woche: je 500 Credits",
+      "prompt": {
+        "creditsAndCash": "Teilen und Credits und Geld verdienen",
+        "creditsAndCashRule": "Je 500 Credits für Ihre ersten 2 Beiträge pro Woche, dazu 30 % in bar von zahlenden Nutzern, die sie bringt",
+        "credits": "Teilen und Credits verdienen",
+        "creditsRule": "Je 500 Credits für Ihre ersten 2 Beiträge pro Woche",
+        "cash": "Teilen und Geld verdienen",
+        "cashRule": "30 % in bar von zahlenden Nutzern, die sie bringt",
+        "toX": "Auf X teilen",
+        "toLinkedIn": "Auf LinkedIn teilen"
+      },
+      "installs_one": "{{count}} Installation",
+      "installs_other": "{{count}} Installationen",
+      "share": "Teilen",
+      "empty": {
+        "title": "Machen Sie zuerst ein Projekt zur Vorlage",
+        "hint": "Sie können sie teilen, sobald Sie sie veröffentlichen",
+        "make": "Vorlage erstellen",
+        "start": "Leer beginnen"
+      },
+      "card": {
+        "title": "{{name}} teilen",
+        "drafting": "Entwurf wird erstellt…",
+        "again": "Andere Version",
+        "copy": "Kopieren",
+        "copied": "Kopiert",
+        "postX": "Auf X posten",
+        "postLinkedIn": "Auf LinkedIn posten",
+        "claimHint": "Gepostet? Fügen Sie den Link ein und erhalten Sie <b>500</b> Credits"
+      },
+      "claim": {
+        "title": "Link zum Beitrag einfügen und 500 Credits erhalten",
+        "hint": "Es zählen Ihre ersten 2 Beiträge pro Woche (X + LinkedIn)",
+        "requireLink": "Der Beitrag verlinkt {{name}}",
+        "requireFollowers": "Das Konto hat 10+ Follower",
+        "requireRecent": "In den letzten 6 Stunden gepostet",
+        "button": "500 Credits abholen",
+        "back": "Zurück zum Entwurf"
+      }
+    },
     "winCredit": {
-      "title": "Teilen Sie eine positive Bewertung und verdienen Sie",
-      "freeCredits": "1000 kostenloses Guthaben",
-      "guidelinesTitle": "Checkliste zum Teilen",
-      "tagTeableio": "Markieren Sie <bold>@teableio</bold>",
-      "minCharacters": "Schreiben Sie eine Bewertung mit <bold>80+</bold> Zeichen",
-      "minFollowers": "Haben Sie <bold>10+</bold> Follower",
-      "limitPerWeek": "500 Guthaben pro Beitrag, bis zu 2 Beiträge wöchentlich (X + LinkedIn)",
-      "postOnX": "Auf X posten",
-      "postOnLinkedIn": "Auf LinkedIn posten",
-      "preFilledDraft": "🌟 Vorausgefüllter Entwurf für Sie bereit!",
-      "claimTitle": "Fügen Sie die Beitrags-URL ein, um Ihr Guthaben zu beanspruchen",
-      "userEmail": "Benutzer-E-Mail",
-      "postUrlLabel": "Beitrags-URL (X oder LinkedIn)",
       "postUrlPlaceholder": "Fügen Sie hier den Link zu Ihrem Beitrag ein",
       "invalidUrl": "Bitte geben Sie eine gültige X- oder LinkedIn-Beitrags-URL ein",
       "claiming": "Wird beansprucht...",
-      "claimCredits": "Guthaben beanspruchen",
       "congratulations": "Herzlichen Glückwunsch!",
       "claimSuccess": "Sie haben 500 Guthaben erhalten!",
       "verifying": "Ihr Beitrag wird überprüft...",
@@ -1793,6 +1878,7 @@
     "minCharCount": "Beitrag muss mindestens {{count}} Zeichen haben",
     "minFollowerCount": "Konto muss mindestens {{count}} Follower haben",
     "mustMention": "Beitrag muss {{mention}} erwähnen",
+    "mustLinkTemplate": "Der Beitrag muss auf eine Ihrer Vorlagen verlinken",
     "fetchSnapshotFailed": "Fehler beim Abrufen des Beitrags-Snapshots",
     "snapshotTimeout": "Zeitüberschreitung beim Warten auf den Beitrags-Snapshot, bitte später erneut versuchen",
     "alreadyClaimedThisWeek": "Sie haben diese Woche bereits eine Belohnung für dieses Konto beansprucht",
@@ -2093,14 +2179,18 @@
       "connectIntegration": "Cuppy braucht eine verbundene App, um weiterzumachen.",
       "pickGoogleSheet": "Cuppy braucht die Auswahl einer Tabelle.",
       "presentTemplates": "Cuppy hat eine fertige Vorlage gefunden und wartet auf Ihre Entscheidung.",
-      "requestCredential": "Cuppy braucht Zugriff, um weiterzumachen."
+      "requestCredential": "Cuppy braucht Zugriff, um weiterzumachen.",
+      "presentTemplateScope": "Cuppy hat ermittelt, was in die Vorlage kommt, und wartet auf Ihre Bestätigung.",
+      "presentTemplateFindings": "Cuppy hat Inhalte gefunden, die nur Ihnen gehören, und wartet auf Ihre Entscheidung, was ersetzt wird."
     },
     "result": {
       "done": "Fertig.",
       "failed": "Der Lauf ist fehlgeschlagen.",
       "creditExhausted": "Gestoppt: keine AI-Credits mehr.",
       "skippedNoCredit": "Diesmal übersprungen: keine AI-Credits mehr.",
+      "skippedNoCreditSummary": "{{count}} weitere Routinen wurden übersprungen: keine KI-Credits mehr.",
       "autoDeactivated": "Nach fünf Fehlläufen in Folge abgeschaltet.",
+      "autoDeactivatedSummary": "{{count}} weitere Routinen wurden nach fünf fehlgeschlagenen Läufen in Folge deaktiviert.",
       "summaryTitle": "Teable",
       "summary": "{{count}} Unterhaltungen haben Neuigkeiten."
     }

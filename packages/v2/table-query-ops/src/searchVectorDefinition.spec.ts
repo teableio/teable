@@ -253,7 +253,7 @@ describe('buildTableSearchAccessPathDefinition', () => {
 });
 
 describe('buildTableSearchAccessPathDefinition with excluded fields', () => {
-  it('skips a caller-known generated column instead of failing the document', () => {
+  it('moves a caller-known generated column into residual coverage instead of failing the document', () => {
     const table = makeTable();
 
     const definition = buildTableSearchAccessPathDefinition(table, {
@@ -263,14 +263,12 @@ describe('buildTableSearchAccessPathDefinition with excluded fields', () => {
 
     expect(definition.accessPath).toBe('generated_text');
     expect(definition.fields.map((field) => field.fieldId)).toEqual(['fld0000000000000001']);
-    expect(definition.skippedFields).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          fieldId: 'fld0000000000000002',
-          skippedReason: 'generated_column_dependency',
-        }),
-      ])
-    );
+    expect(definition.residualFields).toEqual([
+      expect.objectContaining({ fieldId: 'fld0000000000000002', included: true }),
+    ]);
+    expect(definition.skippedFields).toEqual([
+      expect.objectContaining({ fieldId: 'fld0000000000000003', skippedReason: 'non_text_value' }),
+    ]);
   });
 });
 

@@ -12,7 +12,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe projection scope.
 - `DurableProjection.ts` - Role: durable projection decorator; Purpose: opt-in at-least-once consumers with stable ids.
-- `SameTxProjection.ts` - Role: same-tx projection decorator; Purpose: run host projections inside the record write transaction.
+- `SameTxProjection.ts` - Role: same-tx projection decorator; Purpose: bind `@SameTxProjectionHandler`
+  projections (strict `instanceof` / explicit `eventName`) to run inside active record, schema,
+  table, or view write transactions, failing closed on missing DI handlers or errors and filtered out
+  of post-commit memory event buses to avoid double execution.
 - `recordProjectionCodecs.ts` - Role: record event codecs; Purpose: encode/decode immutable outbox DTOs.
 - `Projection.ts` - Role: projection alias; Purpose: define IProjection and the ProjectionHandler decorator.
 - `RealtimeProjection.ts` - Role: marker type; Purpose: label projections that target realtime engines.

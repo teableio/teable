@@ -18,10 +18,10 @@ import { Table as TableAggregate } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
 import { TableName } from '../domain/table/TableName';
-import type { IEventBus } from '../ports/EventBus';
+import type { DomainWriteDecision, IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { ITableRepository, TableFindOneOptions } from '../ports/TableRepository';
-import type { IUnitOfWork } from '../ports/UnitOfWork';
+import type { IUnitOfWorkOptions } from '../ports/UnitOfWork';
 import { DeleteViewCommand } from './DeleteViewCommand';
 import { DeleteViewHandler } from './DeleteViewHandler';
 
@@ -181,29 +181,22 @@ class FakeTableUpdateFlow {
   }
 }
 
-class FakeUnitOfWork implements IUnitOfWork {
+class FakeDomainWriteTransaction {
   calls = 0;
+  options: IUnitOfWorkOptions | undefined;
+  published: ReadonlyArray<IDomainEvent> = [];
 
-  async withTransaction<T>(
+  async execute<T>(
     context: IExecutionContext,
-    work: (context: IExecutionContext) => Promise<Result<T, DomainError>>
-  ): Promise<Result<T, DomainError>> {
+    work: (context: IExecutionContext) => Promise<Result<DomainWriteDecision<T>, DomainError>>,
+    options?: IUnitOfWorkOptions
+  ) {
     this.calls += 1;
-    return work(context);
-  }
-}
-
-class FakeEventBus implements IEventBus {
-  published: IDomainEvent[] = [];
-
-  async publish(_context: IExecutionContext, event: IDomainEvent) {
-    this.published.push(event);
-    return ok(undefined);
-  }
-
-  async publishMany(_context: IExecutionContext, events: ReadonlyArray<IDomainEvent>) {
-    this.published.push(...events);
-    return ok(undefined);
+    this.options = options;
+    const decision = await work(context);
+    if (decision.isErr()) return err(decision.error);
+    this.published = decision.value.kind === 'changed' ? decision.value.events : [];
+    return ok({ value: decision.value.value, events: this.published, committed: true });
   }
 }
 
@@ -214,8 +207,7 @@ const createContext = (): IExecutionContext =>
 
 const createHandler = (repository: FakeTableRepository) => {
   const flow = new FakeTableUpdateFlow();
-  const unitOfWork = new FakeUnitOfWork();
-  const eventBus = new FakeEventBus();
+  const domainWriteTransaction = new FakeDomainWriteTransaction();
   const undoRedo = {
     capture: vi.fn((_table: Table, viewId: string) => ok({ id: viewId } as never)),
     appendDelete: vi.fn(async () => ok(undefined)),
@@ -223,11 +215,10 @@ const createHandler = (repository: FakeTableRepository) => {
   const handler = new DeleteViewHandler(
     repository as unknown as ITableRepository,
     flow as unknown as TableUpdateFlow,
-    unitOfWork,
-    eventBus,
+    domainWriteTransaction as unknown as IDomainWriteTransaction,
     undoRedo
   );
-  return { handler, flow, unitOfWork, eventBus };
+  return { handler, flow, domainWriteTransaction };
 };
 
 describe('DeleteViewCommand', () => {
@@ -240,7 +231,7 @@ describe('DeleteViewHandler', () => {
   it('locks Table aggregate roots, clears foreign Link dependencies, and publishes events', async () => {
     const setup = buildLinkedTables();
     const repository = new FakeTableRepository([ok(setup.source), ok(setup.foreign)]);
-    const { handler, flow, unitOfWork, eventBus } = createHandler(repository);
+    const { handler, flow, domainWriteTransaction } = createHandler(repository);
     const command = DeleteViewCommand.create({
       tableId: setup.source.id().toString(),
       viewId: setup.targetViewId.toString(),
@@ -250,11 +241,12 @@ describe('DeleteViewHandler', () => {
 
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap().table.views()).toHaveLength(1);
-    expect(unitOfWork.calls).toBe(1);
+    expect(domainWriteTransaction.calls).toBe(1);
+    expect(domainWriteTransaction.options).toEqual({ scope: 'meta' });
     expect(repository.findOneOptions).toEqual([{ lock: 'forUpdate' }, { lock: 'forUpdate' }]);
     expect(flow.updatedTables).toHaveLength(2);
-    expect(eventBus.published.some((event) => event instanceof ViewDeleted)).toBe(true);
-    expect(eventBus.published.some((event) => event instanceof FieldUpdated)).toBe(true);
+    expect(domainWriteTransaction.published.some((event) => event instanceof ViewDeleted)).toBe(true);
+    expect(domainWriteTransaction.published.some((event) => event instanceof FieldUpdated)).toBe(true);
   });
 
   it('keeps deletion valid when an orphan foreign Table is missing', async () => {
@@ -263,7 +255,7 @@ describe('DeleteViewHandler', () => {
       ok(setup.source),
       err(domainError.notFound({ message: 'Foreign Table missing' })),
     ]);
-    const { handler, flow, eventBus } = createHandler(repository);
+    const { handler, flow, domainWriteTransaction } = createHandler(repository);
     const command = DeleteViewCommand.create({
       tableId: setup.source.id().toString(),
       viewId: setup.targetViewId.toString(),
@@ -273,14 +265,14 @@ describe('DeleteViewHandler', () => {
 
     expect(result.isOk()).toBe(true);
     expect(flow.updatedTables).toHaveLength(1);
-    expect(eventBus.published).toHaveLength(1);
-    expect(eventBus.published[0]).toBeInstanceOf(ViewDeleted);
+    expect(domainWriteTransaction.published).toHaveLength(1);
+    expect(domainWriteTransaction.published[0]).toBeInstanceOf(ViewDeleted);
   });
 
   it('rejects deletion of the last View before persistence or event publication', async () => {
     const table = buildPlainTable('f');
     const repository = new FakeTableRepository([ok(table)]);
-    const { handler, flow, eventBus } = createHandler(repository);
+    const { handler, flow, domainWriteTransaction } = createHandler(repository);
     const command = DeleteViewCommand.create({
       tableId: table.id().toString(),
       viewId: table.views()[0]!.id().toString(),
@@ -290,7 +282,7 @@ describe('DeleteViewHandler', () => {
 
     expect(result._unsafeUnwrapErr().code).toBe('view.cannot_delete_last');
     expect(flow.updatedTables).toHaveLength(0);
-    expect(eventBus.published).toHaveLength(0);
+    expect(domainWriteTransaction.published).toHaveLength(0);
   });
 
   it('maps a missing source aggregate to table.not_found', async () => {

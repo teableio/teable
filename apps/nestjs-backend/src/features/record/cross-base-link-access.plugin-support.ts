@@ -11,7 +11,7 @@ import { CROSS_BASE_LINK_FOREIGN_TABLE_READ_FORBIDDEN } from './cross-base-link-
  * original message and `localization` over.
  *
  * `CrossBaseLinkAccessService` denies with 403; the same-space rule in
- * `FieldSupplementService` is a validation error (400).
+ * `FieldReferenceAdmissionService` is a validation error (400).
  */
 export const toCrossBaseLinkDomainError = (
   error: CustomHttpException,

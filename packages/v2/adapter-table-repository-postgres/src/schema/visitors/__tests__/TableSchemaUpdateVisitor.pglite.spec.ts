@@ -79,6 +79,7 @@ const ensureSearchMetadataTables = async (db: Kysely<V1TeableDatabase>): Promise
       "candidate_key" text NOT NULL,
       "status" text NOT NULL,
       "field_ids" jsonb,
+      "serving_snapshot" jsonb,
       "last_inspection" jsonb,
       "last_modified_time" timestamp with time zone,
       PRIMARY KEY ("table_id", "candidate_key")
@@ -1400,6 +1401,49 @@ describe('Search document survives removing a field outside its contract (PGlite
     expect(metadata.searchIndex).not.toBeNull();
     expect(metadata.version).toBe(7);
     expect(metadata.status).toBe('ready');
+  });
+
+  it('invalidates a residual member without retiring the independent document', async () => {
+    await createPhysicalTable('Name');
+    await seedServingMetadata([COVERED_FIELD_ID, OTHER_FIELD_ID]);
+    const snapshot = {
+      version: 2,
+      dbTableName: `${SCHEMA}.${TABLE_NAME}`,
+      definitionKey: 'candidate:pg_bigm',
+      searchScope: 'all_fields',
+      fieldIds: [COVERED_FIELD_ID, OTHER_FIELD_ID],
+      document: {
+        generatedColumnName: '__tqops_search_doc',
+        indexName: 'idx_tqops_search_doc',
+        provider: 'pg_bigm',
+        ready: true,
+        fields: [
+          { fieldId: COVERED_FIELD_ID, fieldDbName: 'Name', textProjection: { kind: 'plain' } },
+        ],
+      },
+      residual: {
+        indexName: 'idx_tqops_search_residual',
+        provider: 'pg_bigm',
+        ready: true,
+        expression: `lower(coalesce("Note", ''))`,
+        fields: [
+          { fieldId: OTHER_FIELD_ID, fieldDbName: 'Note', textProjection: { kind: 'plain' } },
+        ],
+      },
+    };
+    await sql`UPDATE table_meta SET search_index = ${JSON.stringify(snapshot)}::jsonb WHERE id = ${TABLE_ID}`.execute(
+      db
+    );
+    await sql`UPDATE table_query_search_vector_config SET serving_snapshot = ${JSON.stringify(snapshot)}::jsonb WHERE table_id = ${TABLE_ID}`.execute(
+      db
+    );
+    await removeField(OTHER_FIELD_ID);
+    expect(await managedDocumentColumns()).toEqual(['__tqops_search_doc']);
+    expect((await readServingMetadata()).searchIndex).toMatchObject({
+      document: { ready: true },
+      residual: { ready: false },
+    });
+    expect((await readServingMetadata()).status).toBe('rebuild_pending');
   });
 
   it('drops the document and unpublishes serving metadata when the removed field is covered', async () => {

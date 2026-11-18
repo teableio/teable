@@ -95,6 +95,22 @@ export const EventHandler =
     eventHandlerRegistry.set(event, existing as Array<EventHandlerClass<IDomainEvent>>);
   };
 
+export const unregisterEventHandler = <TEvent extends IDomainEvent>(
+  event: EventType<TEvent>,
+  target: EventHandlerClass<TEvent>
+): void => {
+  const existing = eventHandlerRegistry.get(event);
+  if (!existing) {
+    return;
+  }
+  const next = existing.filter((entry) => entry !== (target as EventHandlerClass<IDomainEvent>));
+  if (next.length === 0) {
+    eventHandlerRegistry.delete(event);
+  } else {
+    eventHandlerRegistry.set(event, next);
+  }
+};
+
 export const getEventHandlerTokens = (
   event: EventType<IDomainEvent>
 ): ReadonlyArray<EventHandlerClass<IDomainEvent>> => {

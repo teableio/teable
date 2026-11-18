@@ -78,13 +78,21 @@ export const SearchCountPagination = forwardRef<
     () => (shareView ? new Set(searchProjection) : undefined),
     [searchProjection, shareView]
   );
-  const searchViewCondition = view ? pick(view, ['sort', 'filter', 'group', 'columnMeta']) : {};
+  // The visible fields the search covers, in column order (hits are ordered by it). Keying on
+  // these instead of the whole columnMeta keeps the hit list when a column outside the search
+  // scope is hidden, resized or restyled.
+  const searchedFieldIds = useMemo(() => {
+    const picked = searchQuery?.[1] ? new Set(searchQuery[1].split(',')) : undefined;
+    return fields.map(({ id }) => id).filter((id) => !picked || picked.has(id));
+  }, [fields, searchQuery]);
+  const searchViewCondition = view ? pick(view, ['sort', 'filter', 'group']) : {};
   const searchScopeKey = JSON.stringify([
     tableId,
     hideNotMatchRow,
     view?.id,
     searchQuery,
     searchViewCondition,
+    searchedFieldIds,
     searchProjection,
     personalViewCommonQuery,
   ]);

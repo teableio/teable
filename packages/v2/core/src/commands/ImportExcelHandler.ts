@@ -82,11 +82,13 @@ export const excelParseResultToCsvParseResult = (
     );
   }
 
-  const mapRow = (row: ReadonlyArray<unknown>): Record<string, string> => {
+  const sourceRowNumbers = new WeakMap<Record<string, string>, number>();
+  const mapRow = (row: ReadonlyArray<unknown>, rowNumber: number): Record<string, string> => {
     const record: Record<string, string> = {};
     for (let index = 0; index < headers.length; index++) {
       record[headers[index]] = excelCellToString(row[index]);
     }
+    sourceRowNumbers.set(record, parseResult.getSourceRowNumber?.(row) ?? rowNumber);
     return record;
   };
 
@@ -96,7 +98,7 @@ export const excelParseResultToCsvParseResult = (
       if (rowIndex++ < skipFirstNLines) {
         continue;
       }
-      yield mapRow(row);
+      yield mapRow(row, rowIndex);
     }
   }
 
@@ -108,7 +110,7 @@ export const excelParseResultToCsvParseResult = (
       if (rowIndex++ < skipFirstNLines) {
         continue;
       }
-      yield mapRow(row);
+      yield mapRow(row, rowIndex);
     }
   }
 
@@ -121,6 +123,8 @@ export const excelParseResultToCsvParseResult = (
       rows: [],
       rowsAsync: namedRowsAsync(parseResult.rowsAsync),
       rowCount: dataRowCount,
+      firstDataRowNumber: skipFirstNLines + 1,
+      getSourceRowNumber: (row) => sourceRowNumbers.get(row),
     });
   }
 
@@ -128,6 +132,8 @@ export const excelParseResultToCsvParseResult = (
     headers,
     rows: namedRows(parseResult.rows ?? []),
     rowCount: dataRowCount,
+    firstDataRowNumber: skipFirstNLines + 1,
+    getSourceRowNumber: (row) => sourceRowNumbers.get(row),
   });
 };
 

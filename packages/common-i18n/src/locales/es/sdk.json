@@ -1202,7 +1202,9 @@
       "anchorNotFound": "Nodo ancla no encontrado",
       "nameAlreadyExists": "El nombre ya existe",
       "targetBaseRequired": "El proyecto de destino es obligatorio",
-      "moveBlocked": "No se puede mover el nodo al proyecto de destino ({{code}})"
+      "moveBlocked": "No se puede mover el nodo al proyecto de destino ({{code}})",
+      "appSandboxActive": "Una aplicación que se va a mover tiene un sandbox en ejecución. Confirma que quieres cerrarlo para moverla",
+      "appSandboxCloseFailed": "No se pudo cerrar el sandbox. No se movió nada, inténtalo de nuevo"
     },
     "routine": {
       "notFound": "Rutina no encontrada",
@@ -1666,6 +1668,7 @@
     },
     "template": {
       "categoryNotFound": "Categoría de plantilla no encontrada",
+      "notShareable": "Solo se pueden compartir plantillas publicadas",
       "snapshotRequired": "Esta plantilla no se pudo publicar debido a la falta de instantánea",
       "sourceTemplateNotFound": "Plantilla de origen no encontrada",
       "noMinOrderFound": "No se encontró el orden mínimo",
@@ -1676,9 +1679,14 @@
       "teamIsFlat": "Un equipo no tiene categoría superior ni subcategorías",
       "categoryKeyTaken": "Esta clave de URL ya la usa otra categoría",
       "slugTaken": "Este slug de URL ya lo usa otra plantilla",
-      "guideStepLeftOut": "El paso de la guía «{{title}}» abre algo que este envío no incluye.",
+      "guideStepLeftOut": "El paso de la guía «{{title}}» abre algo que no se va a publicar.",
       "guideStepStartsTicked": "El paso de la guía «{{title}}» ya está hecho en los registros de ejemplo, así que empezaría marcado.",
-      "guideNothingToConnect": "El paso de la guía «{{title}}» espera a que se conecten cuentas, pero este proyecto no necesita ninguna, así que empezaría marcado."
+      "guideNothingToConnect": "El paso de la guía «{{title}}» espera a que se conecten cuentas, pero este proyecto no necesita ninguna, así que empezaría marcado.",
+      "contentNotReplaced": "Este proyecto de plantilla aún tiene contenido que es solo tuyo ({{count}}). Sustitúyelo o márcalo como ejemplo y vuelve a publicarlo.",
+      "notTemplateProject": "Este proyecto no es un proyecto de plantilla.",
+      "coverRequired": "Una plantilla necesita una imagen de portada",
+      "descriptionRequired": "Una plantilla necesita una descripción",
+      "unavailable": "Esta plantilla no está disponible"
     },
     "department": {
       "parentNotFound": "Departamento padre no encontrado",

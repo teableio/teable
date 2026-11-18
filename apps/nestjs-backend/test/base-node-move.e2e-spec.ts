@@ -187,6 +187,194 @@ describe('BaseNode cross-project move (e2e)', () => {
     });
   });
 
+  describe('physical namespace collisions', () => {
+    it.each(['table', 'index', 'sequence'] as const)(
+      'moves a folder without overwriting a target %s with the same physical name',
+      async (kind) => {
+        const prisma = app.get(PrismaService);
+        const basename = `move_collision_${kind}`;
+        const folder = (
+          await createBaseNode(sourceBaseId, {
+            resourceType: BaseNodeResourceType.Folder,
+            name: `Collision folder ${kind}`,
+          })
+        ).data;
+        const moving = (
+          await createBaseNode(sourceBaseId, {
+            resourceType: BaseNodeResourceType.Table,
+            parentId: folder.id,
+            name: `Moving ${kind}`,
+            dbTableName: basename,
+            fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          })
+        ).data;
+        const companion = (
+          await createBaseNode(sourceBaseId, {
+            resourceType: BaseNodeResourceType.Table,
+            parentId: folder.id,
+            name: `Companion ${kind}`,
+            fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          })
+        ).data;
+        const target = (
+          await createBaseNode(targetBaseId, {
+            resourceType: BaseNodeResourceType.Table,
+            name: `Existing ${kind}`,
+            dbTableName: kind === 'table' ? basename : undefined,
+            fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          })
+        ).data;
+        const targetTable = await getTable(targetBaseId, target.resourceId);
+        if (kind === 'index') {
+          const [, targetName] = targetTable.dbTableName.split('.');
+          await prisma.$executeRawUnsafe(
+            `CREATE INDEX "${basename}" ON "${targetBaseId}"."${targetName}" ("__id")`
+          );
+        } else if (kind === 'sequence') {
+          await prisma.$executeRawUnsafe(`CREATE SEQUENCE "${targetBaseId}"."${basename}"`);
+        }
+        const sourceField = (await getFields(moving.resourceId)).find((f) => f.name === 'Name')!;
+        const targetField = (await getFields(target.resourceId)).find((f) => f.name === 'Name')!;
+        const companionField = (await getFields(companion.resourceId)).find((f) => f.isPrimary)!;
+        const companionRecords = await createRecords(companion.resourceId, {
+          records: [{ fields: { [companionField.id]: 'companion value' } }],
+        });
+        const sourceLink = await createField(moving.resourceId, {
+          name: 'Companion',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: companion.resourceId,
+            lookupFieldId: companionField.id,
+          },
+        });
+        const sourceRecords = await createRecords(moving.resourceId, {
+          records: [
+            {
+              fields: {
+                [sourceField.id]: 'source value',
+                [sourceLink.id]: { id: companionRecords.records[0].id },
+              },
+            },
+          ],
+        });
+        const targetRecords = await createRecords(target.resourceId, {
+          records: [{ fields: { [targetField.id]: 'target value' } }],
+        });
+        const [, targetName] = targetTable.dbTableName.split('.');
+        const targetRelation = await prisma.$queryRawUnsafe<
+          { oid: string; kind: string; name: string; schema: string }[]
+        >(
+          `SELECT c.oid::text AS oid, c.relkind::text AS kind,
+                  c.relname AS name, n.nspname AS schema
+           FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = $1 AND (
+             c.relname = $2 OR c.oid IN (
+               SELECT indexrelid FROM pg_index WHERE indrelid = to_regclass($3)
+               UNION
+               SELECT objid FROM pg_depend
+               WHERE classid = 'pg_class'::regclass AND refclassid = 'pg_class'::regclass
+                 AND refobjid = to_regclass($3) AND deptype IN ('a', 'i')
+             )
+           ) ORDER BY c.oid`,
+          targetBaseId,
+          basename,
+          `"${targetBaseId}"."${targetName}"`
+        );
+
+        await moveBaseNode(sourceBaseId, folder.id, { targetBaseId });
+
+        const movedTable = await getTable(targetBaseId, moving.resourceId);
+        expect(movedTable.dbTableName.startsWith(`${targetBaseId}.`)).toBe(true);
+        expect(movedTable.dbTableName).not.toBe(`${targetBaseId}.${basename}`);
+        const movedRecords = await getRecords(moving.resourceId, { fieldKeyType: FieldKeyType.Id });
+        expect(movedRecords.records).toEqual([
+          expect.objectContaining({
+            id: sourceRecords.records[0].id,
+            fields: expect.objectContaining({
+              [sourceField.id]: 'source value',
+              [sourceLink.id]: expect.objectContaining({ id: companionRecords.records[0].id }),
+            }),
+          }),
+        ]);
+        const movedLink = (await getFields(moving.resourceId)).find((f) => f.id === sourceLink.id)!;
+        expect((movedLink.options as ILinkFieldOptions).fkHostTableName).toBe(
+          movedTable.dbTableName
+        );
+        const companionLinkId = (sourceLink.options as ILinkFieldOptions).symmetricFieldId!;
+        const companionLink = (await getFields(companion.resourceId)).find(
+          (field) => field.id === companionLinkId
+        )!;
+        expect((companionLink.options as ILinkFieldOptions).fkHostTableName).toBe(
+          movedTable.dbTableName
+        );
+        const companionRecordId = companionRecords.records[0].id;
+        expect(
+          (await getRecords(companion.resourceId, { fieldKeyType: FieldKeyType.Id })).records
+        ).toEqual([
+          expect.objectContaining({
+            id: companionRecordId,
+            fields: expect.objectContaining({
+              [companionField.id]: 'companion value',
+              [companionLinkId]: [expect.objectContaining({ id: sourceRecords.records[0].id })],
+            }),
+          }),
+        ]);
+        await updateRecord(companion.resourceId, companionRecordId, {
+          fieldKeyType: FieldKeyType.Id,
+          record: { fields: { [companionLinkId]: [] } },
+        });
+        expect(
+          (await getRecords(moving.resourceId, { fieldKeyType: FieldKeyType.Id })).records[0]
+            .fields[sourceLink.id] ?? null
+        ).toBeNull();
+        await updateRecord(companion.resourceId, companionRecordId, {
+          fieldKeyType: FieldKeyType.Id,
+          record: { fields: { [companionLinkId]: [{ id: sourceRecords.records[0].id }] } },
+        });
+        expect(
+          (await getRecords(moving.resourceId, { fieldKeyType: FieldKeyType.Id })).records[0]
+            .fields[sourceLink.id]
+        ).toMatchObject({ id: companionRecordId });
+        const existingRecords = await getRecords(target.resourceId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(existingRecords.records).toEqual([
+          expect.objectContaining({
+            id: targetRecords.records[0].id,
+            fields: expect.objectContaining({ [targetField.id]: 'target value' }),
+          }),
+        ]);
+        expect(
+          await prisma.$queryRawUnsafe(
+            `SELECT c.oid::text AS oid, c.relkind::text AS kind,
+                    c.relname AS name, n.nspname AS schema
+             FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE c.oid::text = any($1::text[]) ORDER BY c.oid`,
+            targetRelation.map((relation) => relation.oid)
+          )
+        ).toEqual(targetRelation);
+        expect(
+          await prisma.$queryRawUnsafe(
+            `SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = $1 AND c.relname = $2`,
+            sourceBaseId,
+            basename
+          )
+        ).toEqual([]);
+        const targetNodes = (await getBaseNodeList(targetBaseId)).data;
+        expect(nodeOf(targetNodes, moving.resourceId)?.parentId).toBe(folder.id);
+        expect(nodeOf(targetNodes, companion.resourceId)?.parentId).toBe(folder.id);
+        expect(
+          nodeOf((await getBaseNodeList(sourceBaseId)).data, moving.resourceId)
+        ).toBeUndefined();
+      }
+    );
+  });
+
   describe('a link field in the trash whose foreign table moves', () => {
     it('comes back naming the project the table moved to', async () => {
       const shelf = await createTableNode(sourceBaseId, 'Trash shelf');

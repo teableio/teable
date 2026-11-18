@@ -65,6 +65,7 @@ import {
   searchTreeItems,
   useBaseNodeCreatePermissions,
   useBaseNodeCrud,
+  useLocatedTreeNodes,
 } from '../base-node/hooks';
 import type { TreeItemData } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
@@ -287,6 +288,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { sharedNodeIds } = useSharedNodeIds();
 
   const { isLoading, maxFolderDepth, treeItems, setTreeItems } = useBaseNodeContext();
+  const isLocated = useLocatedTreeNodes(treeItems);
   const displayedTreeItems = useMemo(
     () => (search ? searchTreeItems(treeItems, search) : treeItems),
     [treeItems, search]
@@ -869,6 +871,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
             const { resourceType, resourceId } = node;
             const name = getNodeName(node);
             const isHighlighted = highlightedTableId === resourceId;
+            const located = isLocated(nodeId, item.isExpanded());
             const isPinned = pinMap?.[resourceId];
             const showShareIndicator = !shareUrlPrefix;
             const isContextMenuTarget = contextMenuOpen && contextMenu?.nodeId === nodeId;
@@ -910,6 +913,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                       compact && ['text-sm', compactInset.label],
                       {
                         'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
+                        'bg-orange-300/40 ring-1 ring-inset ring-orange-500 hover:bg-orange-300/40':
+                          located,
                         'group-has-[[data-state=open]]:bg-accent group-has-[[data-menu-shown]]:bg-accent':
                           !isHighlighted,
                         'bg-accent': isContextMenuTarget && !isHighlighted,

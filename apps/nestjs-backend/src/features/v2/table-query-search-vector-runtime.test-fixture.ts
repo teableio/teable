@@ -36,8 +36,11 @@ export const createSearchIndexTable = (
 export const withSearchIndex = (
   table: Table,
   fieldIds: readonly string[],
-  overrides: Partial<ITableSearchIndex> = {}
+  overrides: Omit<Partial<ITableSearchIndex>, 'document'> & {
+    document?: Partial<NonNullable<ITableSearchIndex['document']>>;
+  } = {}
 ): Table => {
+  const { document: documentOverride, ...snapshotOverrides } = overrides;
   const fields = table.getFields();
   for (const field of fields) {
     if (field.dbFieldName().isErr()) {
@@ -56,20 +59,30 @@ export const withSearchIndex = (
     primaryFieldId: table.primaryFieldId(),
     dbTableName: DbTableName.rehydrate(dbTableName)._unsafeUnwrap(),
     searchIndex: {
-      version: 1,
+      version: 2,
       dbTableName,
-      generatedColumnName: '__search_document',
-      indexName: '__search_document_idx',
-      provider: 'pg_trgm',
       searchScope: 'all_fields',
       definitionKey: 'validated-test-definition',
-      indexUsable: true,
-      fields: fieldIds.map((fieldId) => ({
-        fieldId,
-        fieldDbName: fieldId,
-        textProjection: { kind: 'plain' },
-      })),
-      ...overrides,
+      fieldIds: fieldIds
+        .map((fieldId) => ({
+          fieldId,
+          fieldDbName: fieldId,
+          textProjection: { kind: 'plain' },
+        }))
+        .map((field) => field.fieldId),
+      document: {
+        generatedColumnName: '__search_document',
+        indexName: '__search_document_idx',
+        provider: 'pg_trgm',
+        ready: true,
+        fields: fieldIds.map((fieldId) => ({
+          fieldId,
+          fieldDbName: fieldId,
+          textProjection: { kind: 'plain' },
+        })),
+        ...documentOverride,
+      },
+      ...snapshotOverrides,
     },
   })._unsafeUnwrap();
 };

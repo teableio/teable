@@ -75,7 +75,9 @@
     "exportTitle": "Exportieren",
     "exportDescription": "Das aktuelle Projekt als .tea-Datei exportieren, dies kann einige Zeit dauern.",
     "exportStartButton": "Export starten",
-    "exportSlowTip": "Die Datenmenge ist groß. Der Export kann eine Weile dauern. Sie können vorübergehend die Seite verlassen.",
+    "exportSlowTip": "Die Datenmenge ist groß. Der Export kann eine Weile dauern.",
+    "exportBusy": "Ein Export läuft bereits. Versuchen Sie es in Kürze erneut.",
+    "exportNavigationWarning": "Wenn Sie diese Seite verlassen oder neu laden, wird der Export abgebrochen, sofern kein anderer Tab denselben Export weiterverfolgt. Das Schließen dieses Dialogs bricht ihn nicht ab.",
     "exportReadyDescription": "Bitte laden Sie die .tea-Datei herunter, {{importHint}}",
     "moveBaseSuccessTitle": "Verschiebung erfolgreich",
     "moveBaseSuccessDescription": "{{baseName}} wurde erfolgreich nach {{spaceName}} verschoben",
@@ -219,6 +221,8 @@
   "publishBase": {
     "title": "Im Vorlagenzentrum veröffentlichen",
     "description": "Veröffentlichen Sie Ihr Projekt mit einem Klick im Vorlagenzentrum! Lassen Sie mehr Menschen Ihre Kreativität sehen, nutzen und remixen, und bauen Sie gemeinsam ein leistungsstärkeres Geschäft auf",
+    "configureTitle": "Vorlage einrichten",
+    "configureDescription": "Herausragende Vorlagen können im Vorlagenzentrum erscheinen",
     "infoTitle": "Basisinformationen",
     "form": {
       "title": "Titel",
@@ -230,8 +234,6 @@
       "defaultActiveNode": "Standardmäßig aktiver Knoten",
       "descriptionPlaceholder": "Beschreibung",
       "titlePlaceholder": "Titel",
-      "cover": "Titelbild",
-      "coverHint": "16:9, wird auf der Katalogkarte und der öffentlichen Seite verwendet",
       "versionTitle": "Versionsinhalt",
       "addChangelog": "Versionshinweise hinzufügen"
     },
@@ -240,33 +242,32 @@
     "publishSuccess": "Veröffentlichung erfolgreich!",
     "previewTips": "Zeigen Sie der Welt Ihre Arbeit",
     "update": "Aktualisieren",
-    "submit": "Zur Prüfung einreichen",
-    "submitted": "Zur Prüfung eingereicht",
+    "submit": "Vorlage veröffentlichen",
     "review": {
       "status": {
-        "review": "In Prüfung",
-        "rejected": "Zurückgegeben",
-        "withdrawn": "Zurückgezogen"
+        "review": "In Prüfung"
       },
-      "submittedTime": "Eingereicht {{time}}",
-      "note": "Anmerkung des Prüfers",
-      "checks": "Automatische Prüfungen",
       "check": {
         "connectors": "Verbindungen",
         "privacy": "Datenschutz",
         "estimate": "Ausführungsschätzung",
-        "trial": "Testlauf"
+        "trial": "Testlauf",
+        "content": "Inhalt"
       },
       "checkMessage": {
         "connectors": "Kann hier nicht verbunden werden: {{providers}}",
         "privacy": "Datensätze sind enthalten; prüfen Sie sie auf personenbezogene Daten",
         "estimate": "Etwa {{runs}} Ausführungen pro Monat, mehr als die {{free}} des kostenlosen Plans",
-        "trial": "Die Automatisierungen benötigen kein Konto; stellen Sie sicher, dass sie ohne eines laufen"
+        "trial": "Die Automatisierungen benötigen kein Konto; stellen Sie sicher, dass sie ohne eines laufen",
+        "content": "Noch nur Ihres: {{count}}",
+        "contentMarked": "Als Beispiel markiert: {{count}}"
       },
-      "withdraw": "Zurückziehen",
-      "withdrawn": "Einreichung zurückgezogen.",
-      "live": "Online · v{{version}}",
-      "publicLink": "Öffentlicher Link"
+      "withdraw": "Veröffentlichung aufheben",
+      "withdrawn": "Veröffentlichung aufgehoben.",
+      "withdrawConfirmTitle": "Veröffentlichung dieser Vorlage aufheben?",
+      "withdrawConfirmDescription": "Danach öffnet sich ihr Link nicht mehr und sie erscheint nicht mehr im Vorlagenzentrum. Installierte Kopien sind nicht betroffen, und Sie können sie später erneut veröffentlichen.",
+      "live": "Veröffentlicht · v{{version}}",
+      "listed": "Im Vorlagenzentrum"
     },
     "unPublish": "Veröffentlichung aufheben",
     "unPublishSuccess": "Veröffentlichung des Projekts erfolgreich aufgehoben!",
@@ -280,7 +281,8 @@
     "invalidImageType": "Bitte wählen Sie eine Bilddatei",
     "tips": {
       "publishValidation": "Titel und Beschreibung sind erforderlich",
-      "atLeastOneNode": "Bitte wählen Sie mindestens einen Knoten zur Veröffentlichung"
+      "atLeastOneNode": "Bitte wählen Sie mindestens einen Knoten zur Veröffentlichung",
+      "coverRequired": "Füge ein Titelbild hinzu"
     },
     "urlCopied": "URL in die Zwischenablage kopiert!",
     "urlCopiedForDiscord": "URL in die Zwischenablage kopiert! Sie können sie in Discord einfügen.",
@@ -304,7 +306,7 @@
       "redeploy": "Erneut bereitstellen",
       "unnamedApp": "Unbenannte App"
     },
-    "submitVersion": "v{{version}} zur Prüfung einreichen"
+    "submitVersion": "v{{version}} veröffentlichen"
   },
   "dataDb": {
     "create": {
@@ -448,6 +450,7 @@
     "issue": {
       "valuesDropped_one": "{{sheetName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
       "valuesDropped_other": "{{sheetName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
+      "rowSamples": "Zeilen der Quelldatei (bis zu 100 Beispiele): {{rows}}.",
       "sheetSkipped": "Tabellenblatt \"{{sheetName}}\" übersprungen: {{reason}}",
       "columnsTruncated_one": "{{sheetName}}: {{count}} Spalten über dem Spaltenlimit wurden nicht importiert",
       "columnsTruncated_other": "{{sheetName}}: {{count}} Spalten über dem Spaltenlimit wurden nicht importiert"
@@ -472,5 +475,16 @@
     "fromFileDesc": "Eine .tea-Datei hochladen",
     "fromAirtableDesc": "Eine Base auswählen",
     "fromGoogleSheetDesc": "Eine Tabelle auswählen"
+  },
+  "templateProject": {
+    "make": "Als Vorlage erstellen",
+    "new": "Neues Vorlagenprojekt",
+    "plural": "Vorlagenprojekte",
+    "projectsTab": "Projekte",
+    "empty": "Noch keine Vorlagenprojekte",
+    "trialCopy": "Testkopie",
+    "wholeProject": "Alles im Projekt ({{count}})",
+    "sampleRecords": "Beispieldatensätze: {{count}}",
+    "noRecords": "Keine Datensätze"
   }
 }

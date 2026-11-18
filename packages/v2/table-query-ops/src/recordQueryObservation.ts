@@ -370,25 +370,33 @@ const buildRecordQueryShape = (
   const searchFieldsResult = search?.search.resolveFields(table, {
     visibleFieldIds: search.visibleFieldIds,
   });
+  const searchAccessPath = options?.searchAccessPath;
+  const selectedScope =
+    search?.search.searchesAllFields() &&
+    searchAccessPath?.kind === 'generated_text' &&
+    searchAccessPath.searchScope === 'selected_fields'
+      ? new Set(searchAccessPath.fieldIds.map((id) => id.toString()))
+      : undefined;
   const searchedFieldIds = searchFieldsResult?.isOk()
     ? searchFieldsResult.value
+        .filter((field) => !selectedScope || selectedScope.has(field.id().toString()))
         .map((field) => field.id().toString())
         .sort((a, b) => Number(a > b) - Number(a < b))
     : undefined;
   const searchFieldCount = searchedFieldIds?.length;
-  const searchAccessPath = options?.searchAccessPath;
   // T7339: describe the predicate that ran, not the one that was configured. The read reports
   // the path it used; the requested configuration is only a fallback for callers that cannot
   // report what happened.
   const effectiveSearchAccessPathKind =
     extras?.usedSearchAccessPath?.used ?? searchAccessPath?.kind;
-  const searchesAllFields = search?.search.searchesAllFields() ?? false;
+  const searchesAllFields = (search?.search.searchesAllFields() ?? false) && !selectedScope;
 
   return TableQueryShape.create({
     queryKind,
     whereShape: describeConditionSpec(spec),
     searchShape: search
       ? {
+          indexedBranches: extras?.usedSearchAccessPath?.indexedBranches,
           fieldCount: searchFieldCount ?? table.getFields().length,
           allFields: searchesAllFields,
           ...(!searchesAllFields && searchedFieldIds ? { searchedFieldIds } : {}),

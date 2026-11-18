@@ -36,12 +36,19 @@ Declaration: If the folder I belong to changes, please update me, especially cor
   import writes in one transaction: a source interruption commits zero rows, the caller retries the
   whole file, and the host does not reattempt on its own.
 - `DotTeaParser.ts` - Role: port interface; Purpose: parse .tea structure inputs.
-- `DomainWriteTransaction.ts` - Role: transaction-owned event delivery; Purpose: commit data and journal
-  together. `executeStream` appends bounded batches, disables replay of one-shot input, and returns
-  event summaries rather than record payloads. Post-commit finalization errors retain `committed: true`.
+- `DomainWriteTransaction.ts` - Role: transaction-owned event delivery; Purpose: commit data,
+  same-tx projections, and journal together while supporting re-entrant batch write scopes
+  (`withBatchTransaction`), deferred post-commit delivery (`status: 'deferred' | 'committed'`), and
+  rejecting unsupported streaming inside batches. `executeStream` appends bounded batches, disables
+  replay of one-shot input, and returns event summaries rather than record payloads. Post-commit
+  finalization errors retain `committed: true`.
 - `EventBus.ts` - Role: port interface; Purpose: define IEventBus publish contract.
 - `EventHandler.ts` - Role: handler registry; Purpose: map events to handlers.
-- `ExecutionContext.ts` - Role: execution context model; Purpose: carry actor/transaction/tracer.
+- `ExecutionContext.ts` - Role: execution context model; Purpose: carry actor, scoped
+  transactions (`IUnitOfWorkTransaction` with optional `beginSavepoint()` callback isolation),
+  re-entrant batch transaction scope (`IDomainBatchTransactionScope` with savepoint/rollback-only
+  helpers `getBatchRollbackError` / `failBatchResultIfActive`), `sameTxProjection` metadata, and
+  tracer.
 - `HandlerResolver.ts` - Role: container adapter; Purpose: resolve handlers by token.
 - `ImportEventSpool.ts` - Role: complete import-event snapshot storage outside the JS heap;
   Purpose: replay original values before transactional projections and after commit without accumulating rows. The Node adapter uses
@@ -65,7 +72,15 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TraceSpan.spec.ts` - Role: decorator tests; Purpose: verify span + error handling.
 - `TraceSpan.ts` - Role: decorator; Purpose: wrap handlers with spans and Result errors.
 - `Tracer.ts` - Role: tracing port; Purpose: abstract span creation and attributes.
-- `UndoRedoStore.ts` - Role: port interface; Purpose: store undo/redo log entries and cursor.
+- `UndoRedoStore.ts` - Role: grouped undo/redo log and cursor; Purpose: reserve metadata and
+  read indexed entries without returning a composed interaction. New grouped recording input
+  distinguishes `start` from `continue`; legacy read entries keep their shape. Progress and lease
+  updates match the same reservation atomically; stale tokens cannot alter either. Keyv preserves
+  unresolved old references, fails closed on ambiguous selected groups and retains durable private
+  start-sequence evidence for new groups across optional-cache loss. Compatibility cache misses may
+  scan bounded references one payload at a time; soft retention may keep an uncertain prefix beyond
+  the window, but hard reference admission precedes history mutation. This is not a global Redis-byte
+  guarantee and does not refresh stored payload expiry.
 - `UnitOfWork.ts` - Role: transaction port; Purpose: wrap cross-repo transactions.
 - `ViewPluginRepository.ts` - Role: Table plugin-view persistence; Purpose: install/read plugin views. Not a host-hook template.
 - `tokens.spec.ts` - Role: tokens test; Purpose: validate token exports.

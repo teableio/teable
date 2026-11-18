@@ -4,6 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle, Link } from '@teable/icons';
 import type { ITemplateCoverRo, ITemplateVo, IUpdateTemplateRo } from '@teable/openapi';
 import {
+  isTemplateListed,
   deleteTemplate,
   getTemplateList,
   pinTopTemplate,
@@ -54,8 +55,15 @@ const PAGE_SIZE = 20;
 
 export const TemplateTable = ({
   renderRequirements,
+  listedByFeatured,
 }: {
   renderRequirements?: (template: ITemplateVo) => React.ReactNode;
+  /**
+   * Where authors publish and a review lists (EE), the template centre shows what is featured:
+   * the featured switch is the one that lists a template, and there is no separate one to
+   * publish it, which is the author's call. A template taken off keeps its links.
+   */
+  listedByFeatured?: boolean;
 }) => {
   const { t } = useTranslation(['common']);
 
@@ -67,6 +75,7 @@ export const TemplateTable = ({
       getTemplateList({
         skip: pageParam,
         take: PAGE_SIZE,
+        ...(listedByFeatured ? { listed: true } : {}),
       }).then((res) => res.data),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
@@ -109,7 +118,11 @@ export const TemplateTable = ({
   };
 
   const handleFeaturedTemplate = (templateId: string, featured: boolean) => {
-    updateTemplateFn({ templateId, updateRo: { featured } });
+    // Listed and featured go together, so the template centre and the catalogue flag agree.
+    updateTemplateFn({
+      templateId,
+      updateRo: listedByFeatured ? { featured, isPublished: featured } : { featured },
+    });
   };
 
   const onChangeTemplateName = (templateId: string, name: string) => {
@@ -253,40 +266,60 @@ export const TemplateTable = ({
           />
         </TableCell>
         <TableCell className="text-center align-middle">
-          <TemplateTooltips
-            content={t('settings.templateAdmin.tips.needPublish')}
-            disabled={!row.isPublished}
-          >
-            <div>
-              <Switch
-                className="scale-80"
-                defaultChecked={Boolean(row.featured)}
-                disabled={!row.isPublished}
-                onCheckedChange={(checked: boolean) => {
-                  handleFeaturedTemplate(row?.id, checked);
-                }}
-              />
-            </div>
-          </TemplateTooltips>
+          {listedByFeatured ? (
+            <TemplateTooltips
+              content={t('settings.templateAdmin.tips.needSnapshot')}
+              disabled={!row.snapshot || !row.name || !row.description}
+            >
+              <div>
+                <Switch
+                  className="scale-80"
+                  defaultChecked={isTemplateListed(row)}
+                  disabled={!row.snapshot || !row.name || !row.description}
+                  onCheckedChange={(checked: boolean) => {
+                    handleFeaturedTemplate(row?.id, checked);
+                  }}
+                />
+              </div>
+            </TemplateTooltips>
+          ) : (
+            <TemplateTooltips
+              content={t('settings.templateAdmin.tips.needPublish')}
+              disabled={!row.isPublished}
+            >
+              <div>
+                <Switch
+                  className="scale-80"
+                  defaultChecked={Boolean(row.featured)}
+                  disabled={!row.isPublished}
+                  onCheckedChange={(checked: boolean) => {
+                    handleFeaturedTemplate(row?.id, checked);
+                  }}
+                />
+              </div>
+            </TemplateTooltips>
+          )}
         </TableCell>
         <TableCell className="align-middle">{renderRequirements?.(row)}</TableCell>
-        <TableCell className="text-center align-middle">
-          <TemplateTooltips
-            content={t('settings.templateAdmin.tips.needSnapshot')}
-            disabled={!row.snapshot || !row.name || !row.description}
-          >
-            <div>
-              <Switch
-                className="scale-80"
-                defaultChecked={Boolean(row.isPublished)}
-                disabled={!row.snapshot || !row.name || !row.description}
-                onCheckedChange={(checked: boolean) => {
-                  handlePublishTemplate(row?.id, checked);
-                }}
-              />
-            </div>
-          </TemplateTooltips>
-        </TableCell>
+        {!listedByFeatured && (
+          <TableCell className="text-center align-middle">
+            <TemplateTooltips
+              content={t('settings.templateAdmin.tips.needSnapshot')}
+              disabled={!row.snapshot || !row.name || !row.description}
+            >
+              <div>
+                <Switch
+                  className="scale-80"
+                  defaultChecked={Boolean(row.isPublished)}
+                  disabled={!row.snapshot || !row.name || !row.description}
+                  onCheckedChange={(checked: boolean) => {
+                    handlePublishTemplate(row?.id, checked);
+                  }}
+                />
+              </div>
+            </TemplateTooltips>
+          </TableCell>
+        )}
         <TableCell>
           {row.snapshot?.snapshotTime ? (
             dayjs(row.snapshot.snapshotTime).format('YYYY-MM-DD HH:mm:ss')
@@ -441,9 +474,11 @@ export const TemplateTable = ({
             <TableHead className="min-w-32">
               {t('settings.templateAdmin.header.requirements')}
             </TableHead>
-            <TableHead className="min-w-24 text-center">
-              {t('settings.templateAdmin.header.status')}
-            </TableHead>
+            {!listedByFeatured && (
+              <TableHead className="min-w-24 text-center">
+                {t('settings.templateAdmin.header.status')}
+              </TableHead>
+            )}
             <TableHead className="min-w-48">
               {t('settings.templateAdmin.header.snapshotTime')}
             </TableHead>

@@ -1,9 +1,12 @@
 import { Logger } from '@nestjs/common';
+import { resolveSecret } from '../configs/secrets/resolve-secret';
 import { SECRET_SPECS } from '../configs/secrets/secret-specs';
 import type { ISecretMapper } from './secret-value-codec';
 import { SecretValueCodec } from './secret-value-codec';
 
 type IEnv = Record<string, string | undefined>;
+
+const OLD_ROOT_ENV_KEY = 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET_OLD';
 
 /**
  * Value codec for third-party credentials we hold on a customer's behalf:
@@ -21,7 +24,7 @@ export class ThirdPartyCredentialCodec extends SecretValueCodec {
     super(
       {
         spec: SECRET_SPECS.thirdPartyCredentialEncryptionSecret,
-        oldEnvKey: 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET_OLD',
+        oldEnvKey: OLD_ROOT_ENV_KEY,
         hkdfInfo: 'teable:third-party-credential',
         label: 'Third-party credential',
       },
@@ -30,32 +33,38 @@ export class ThirdPartyCredentialCodec extends SecretValueCodec {
   }
 }
 
-let defaultCodec: ThirdPartyCredentialCodec | undefined;
+let defaultCodec: { roots: string; codec: ThirdPartyCredentialCodec } | undefined;
 
-/** Process-wide codec over process.env (env never changes at runtime). */
+/**
+ * Process-wide codec over process.env. The roots never change at runtime, so
+ * a process builds it once; it is keyed on them only so that a test stubbing a
+ * root gets the codec of that root.
+ */
 export const getThirdPartyCredentialCodec = (): ThirdPartyCredentialCodec => {
-  defaultCodec ??= new ThirdPartyCredentialCodec();
-  return defaultCodec;
+  const roots = [
+    resolveSecret(SECRET_SPECS.thirdPartyCredentialEncryptionSecret),
+    process.env[OLD_ROOT_ENV_KEY] ?? '',
+  ].join('\n');
+  if (defaultCodec?.roots !== roots) {
+    defaultCodec = { roots, codec: new ThirdPartyCredentialCodec() };
+  }
+  return defaultCodec.codec;
 };
 
 /**
- * Encrypt-on-write switch: BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED=true.
- * Off by default because staging and prod share one database and staging
- * ships first: a ciphertext written there would reach a prod build that
- * predates this codec and be sent upstream as the token. Turn it on (in every
- * environment sharing the DB) only once each of them runs a decrypt-capable
- * build. Decryption is never gated — turning the switch off again leaves
- * stored ciphertext readable, it only stops new writes from encrypting.
- * Read per call, so a test can stub it.
+ * Encrypt one credential for storage (idempotent).
+ *
+ * An instance with neither BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET
+ * nor SECRET_KEY has only the publicly known default root, and there the value
+ * is stored as it is: a ciphertext anyone can open protects nothing, and it
+ * would stop opening the day the operator sets a private SECRET_KEY. The
+ * re-encrypt page refuses that root as well (blockedPublicDefaultKey).
+ * Decryption never depends on this, so rows written either way stay readable.
  */
-export const isThirdPartyCredentialEncryptionEnabled = (env: IEnv = process.env): boolean =>
-  env.BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED === 'true';
-
-/** Encrypt one credential for storage (idempotent); plaintext while the switch is off. */
-export const encryptThirdPartyCredential = (value: string): string =>
-  isThirdPartyCredentialEncryptionEnabled()
-    ? getThirdPartyCredentialCodec().encryptValue(value)
-    : value;
+export const encryptThirdPartyCredential = (value: string): string => {
+  const codec = getThirdPartyCredentialCodec();
+  return codec.usesPublicDefaultRoot ? value : codec.encryptValue(value);
+};
 
 /** Optional columns: null / undefined / '' stay as they are. */
 export const encryptOptionalThirdPartyCredential = <T extends string | null | undefined>(

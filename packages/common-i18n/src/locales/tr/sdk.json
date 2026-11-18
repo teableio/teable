@@ -1198,7 +1198,9 @@
       "anchorNotFound": "Bağlantı düğümü bulunamadı",
       "nameAlreadyExists": "İsim zaten mevcut",
       "targetBaseRequired": "Hedef proje gereklidir",
-      "moveBlocked": "Düğüm hedef projeye taşınamıyor ({{code}})"
+      "moveBlocked": "Düğüm hedef projeye taşınamıyor ({{code}})",
+      "appSandboxActive": "Taşınan bir uygulamanın sanal alanı çalışıyor. Taşımak için kapatılmasını onaylayın",
+      "appSandboxCloseFailed": "Sanal alan kapatılamadı. Hiçbir şey taşınmadı, tekrar deneyin"
     },
     "routine": {
       "notFound": "Rutin bulunamadı",
@@ -1662,6 +1664,7 @@
     },
     "template": {
       "categoryNotFound": "Şablon kategorisi bulunamadı",
+      "notShareable": "Yalnızca yayınlanmış şablonlar paylaşılabilir",
       "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
       "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
       "noMinOrderFound": "Minimum sıra bulunamadı",
@@ -1672,9 +1675,14 @@
       "teamIsFlat": "Bir ekibin ne üst kategorisi ne de alt kategorisi olur",
       "categoryKeyTaken": "Bu URL anahtarı başka bir kategoride kullanılıyor",
       "slugTaken": "Bu URL kısa adı başka bir şablonda kullanılıyor",
-      "guideStepLeftOut": "Rehber adımı “{{title}}”, bu gönderimde yer almayan bir şeyi açıyor.",
+      "guideStepLeftOut": "Rehber adımı “{{title}}”, yayınlanmayan bir şeyi açıyor.",
       "guideStepStartsTicked": "Rehber adımı “{{title}}” örnek kayıtlarda zaten tamamlanmış, bu yüzden işaretli başlar.",
-      "guideNothingToConnect": "Rehber adımı “{{title}}” hesapların bağlanmasını bekliyor, ancak bu proje hiçbir hesap gerektirmiyor; bu yüzden işaretli başlar."
+      "guideNothingToConnect": "Rehber adımı “{{title}}” hesapların bağlanmasını bekliyor, ancak bu proje hiçbir hesap gerektirmiyor; bu yüzden işaretli başlar.",
+      "contentNotReplaced": "Bu şablon projesinde hâlâ yalnızca size ait içerik var ({{count}}). Değiştirin veya örnek olarak işaretleyin, ardından yeniden yayınlayın.",
+      "notTemplateProject": "Bu proje bir şablon projesi değil.",
+      "coverRequired": "Şablonun bir kapak görseli olmalı",
+      "descriptionRequired": "Şablonun bir açıklaması olmalı",
+      "unavailable": "Bu şablon kullanılamıyor"
     },
     "department": {
       "parentNotFound": "Üst departman bulunamadı",

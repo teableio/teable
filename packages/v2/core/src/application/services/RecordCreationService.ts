@@ -149,6 +149,10 @@ export class RecordCreationService {
           });
         }
       }
+      const initialCreateEvents = tableForCreate.pullDomainEvents();
+      const initialSideEffectEvents = tableUpdateResult
+        ? tableUpdateResult.table.pullDomainEvents()
+        : [];
       const persistCreatedRecord = async (
         transactionContext: ExecutionContextPort.IExecutionContext
       ) =>
@@ -158,7 +162,11 @@ export class RecordCreationService {
             const tableFlowResult = yield* await service.tableUpdateFlow.execute(
               transactionContext,
               { table: input.table },
-              () => ok(tableUpdateResult),
+              () => {
+                tableUpdateResult.table.pullDomainEvents();
+                tableUpdateResult.table.recordDomainEvents(initialSideEffectEvents);
+                return ok(tableUpdateResult);
+              },
               { publishEvents: false }
             );
             tableEvents = tableFlowResult.events;
@@ -194,19 +202,20 @@ export class RecordCreationService {
           }
           const mergedCreatedEventFieldChanges =
             createdEventFieldChanges.size > 0 ? createdEventFieldChanges : undefined;
-          const domainEvents = tableForCreate.pullDomainEvents().map((event) =>
-            isRecordCreatedEvent(event)
-              ? RecordCreated.create({
-                  tableId: event.tableId,
-                  baseId: event.baseId,
-                  recordId: event.recordId,
-                  fieldValues: mergeRecordFieldValues(
-                    event.fieldValues,
-                    mergedCreatedEventFieldChanges
-                  ),
-                  source: event.source,
-                })
-              : event
+          const domainEvents = [...initialCreateEvents, ...tableForCreate.pullDomainEvents()].map(
+            (event) =>
+              isRecordCreatedEvent(event)
+                ? RecordCreated.create({
+                    tableId: event.tableId,
+                    baseId: event.baseId,
+                    recordId: event.recordId,
+                    fieldValues: mergeRecordFieldValues(
+                      event.fieldValues,
+                      mergedCreatedEventFieldChanges
+                    ),
+                    source: event.source,
+                  })
+                : event
           );
           const events = [...tableEvents, ...domainEvents];
           return ok(domainWrite.fromEvents({ mutation }, events, { tables: [tableForCreate] }));

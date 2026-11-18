@@ -63,12 +63,15 @@ let previewUrlConfigSigCache: { input: string; sig: string } | undefined;
  * the previous shape no longer verify, so cached urls must be re-minted.
  * s3/minio v2: only inline-safe types keep an inline disposition; urls cached
  * before that would still open html/svg inline on the bucket origin.
+ * local/s3/minio v3: thumbnails under a `.webp` key are signed as image/webp;
+ * an older build signs them with the source type and caches that under the
+ * same key during a rolling deploy.
  */
 const PREVIEW_URL_SHAPE_VERSIONS: Partial<Record<string, number>> = {
   aliyun: 2,
-  local: 2,
-  s3: 2,
-  minio: 2,
+  local: 3,
+  s3: 3,
+  minio: 3,
 };
 
 /**

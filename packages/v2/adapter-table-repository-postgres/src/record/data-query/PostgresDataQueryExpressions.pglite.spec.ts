@@ -191,6 +191,59 @@ describe('scalar expressions through the native query service', () => {
     return result.value;
   };
 
+  it('V8 root distinctBy preserves typed formula tuples, delimiter collisions and real all-null rows', async () => {
+    await sql`delete from ${sql.id('public', physicalTable)}`.execute(database.db);
+    await sql`insert into ${sql.id('public', physicalTable)}
+      (__id, title, email, quantity, unit_price) values
+      ('recA', 'a|b', 'c', 1, 23),
+      ('recB', 'a', 'b|c', 12, 3),
+      ('recC', null, null, null, null),
+      ('recD', null, null, null, null),
+      ('recE', null, null, null, 0),
+      ('recF', null, null, 0, null),
+      ('recG', null, null, 0, 0)`.execute(database.db);
+    const definition = DataQueryDefinition.create({
+      version: 8,
+      tableId,
+      kind: 'aggregate',
+      aggregates: [
+        {
+          statisticFunc: 'unique',
+          distinctBy: [field(quantityId), field(priceId)],
+          alias: 'numericPairs',
+        },
+        {
+          statisticFunc: 'unique',
+          distinctBy: [field(titleId), field(emailId)],
+          alias: 'textPairs',
+        },
+        { fieldId: quantityId, statisticFunc: 'unique', alias: 'scalarValues' },
+      ],
+      page: { limit: 1, includeTotal: true },
+    })._unsafeUnwrap();
+    expect(resultValue(await service.execute(context, definition))).toEqual({
+      rows: [{ numericPairs: 6, textPairs: 3, scalarValues: 3 }],
+      page: { limit: 1, offset: 0, total: 1 },
+    });
+    const nullOnly = DataQueryDefinition.create({
+      ...definition.snapshot(),
+      filter: formula('OR({id} = "recC", {id} = "recD")', {
+        id: { type: 'system', system: 'id' },
+      }),
+    })._unsafeUnwrap();
+    expect(resultValue(await service.execute(context, nullOnly)).rows).toEqual([
+      { numericPairs: 1, textPairs: 1, scalarValues: 0 },
+    ]);
+    const empty = DataQueryDefinition.create({
+      ...definition.snapshot(),
+      filter: { fieldId: titleId, operator: 'is', value: 'Absent' },
+    })._unsafeUnwrap();
+    expect(resultValue(await service.execute(context, empty))).toEqual({
+      rows: [{ numericPairs: 0, textPairs: 0, scalarValues: 0 }],
+      page: { limit: 1, offset: 0, total: 1 },
+    });
+  });
+
   it('v4 aggregates row formulas and independent conditional counts before HAVING and paging', async () => {
     const definition = resultValue(
       DataQueryDefinition.create({

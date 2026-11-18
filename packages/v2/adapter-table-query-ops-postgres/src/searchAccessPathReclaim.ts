@@ -1,3 +1,4 @@
+import { decodeTableSearchIndex } from '@teable/v2-adapter-db-postgres-shared';
 import { type DomainError, type IExecutionContext } from '@teable/v2-core';
 import type {
   TableSearchAccessPathReclaimCandidate,
@@ -17,6 +18,7 @@ type ReadyConfigRow = {
   readonly base_id: string;
   readonly candidate_key: string;
   readonly index_name: string;
+  readonly serving_snapshot: unknown;
   readonly reclaim_idx_scan_baseline: number | string | null;
   readonly reclaim_sampled_at: Date | null;
   readonly created_time: Date | null;
@@ -67,7 +69,7 @@ export class PostgresTableSearchAccessPathReclaimSource implements TableSearchAc
       const [configs, dueConfigs] = await Promise.all([
         sql<ReadyConfigRow>`
         SELECT xmin::text AS config_version,
-               table_id, base_id, candidate_key, index_name,
+               table_id, base_id, candidate_key, index_name, serving_snapshot,
                reclaim_idx_scan_baseline, reclaim_sampled_at,
                created_time, last_modified_time
         FROM table_query_search_vector_config
@@ -104,7 +106,17 @@ export class PostgresTableSearchAccessPathReclaimSource implements TableSearchAc
 
       const [activityByTable, idxScanByIndex] = await Promise.all([
         this.readLastSearchActivity(held.map((config) => config.table_id)),
-        this.readIndexScans(held.map((config) => config.index_name)),
+        this.readIndexScans(
+          held.flatMap((config) => {
+            const snapshot = decodeTableSearchIndex(config.serving_snapshot);
+            return [
+              ...new Set([
+                config.index_name,
+                ...(snapshot?.residual ? [snapshot.residual.indexName] : []),
+              ]),
+            ];
+          })
+        ),
       ]);
 
       const candidates: TableSearchAccessPathReclaimCandidate[] = [...due];
@@ -113,7 +125,19 @@ export class PostgresTableSearchAccessPathReclaimSource implements TableSearchAc
         const lastSearchActivityAt = activityByTable.get(config.table_id);
         const indexScanEvidence = await this.resolveIndexScanEvidence(
           config,
-          idxScanByIndex.get(config.index_name),
+          (() => {
+            const snapshot = decodeTableSearchIndex(config.serving_snapshot);
+            const names = [
+              ...new Set([
+                config.index_name,
+                ...(snapshot?.residual ? [snapshot.residual.indexName] : []),
+              ]),
+            ];
+            const values = names.map((name) => idxScanByIndex.get(name));
+            return values.some((value) => value === undefined)
+              ? undefined
+              : values.reduce<number>((total, value) => total + value!, 0);
+          })(),
           input
         );
         candidates.push({

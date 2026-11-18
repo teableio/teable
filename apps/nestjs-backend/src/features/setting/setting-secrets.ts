@@ -69,7 +69,7 @@ const thirdPartyCredentialSettingCodec = (mapSlots: ISecretSlotMapper): ISetting
 /**
  * Settings whose secret slots are stored encrypted: encrypted on write, decrypted
  * on read. aiConfig uses the AI-config codec; the rest the third-party credential
- * codec (its encryption follows BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED).
+ * codec (which stores plaintext while the instance only has the public default root).
  */
 const SETTING_SECRET_CODECS: Partial<Record<string, ISettingSecretCodec>> = {
   [SettingKey.AI_CONFIG]: { encrypt: encryptAiConfigSecrets, decrypt: decryptAiConfigSecrets },

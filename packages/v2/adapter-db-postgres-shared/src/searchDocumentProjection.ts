@@ -119,3 +119,15 @@ export const renderGeneratedSearchTextProjectionSql = (
   projection?.kind === 'rounded_number_list'
     ? `public.teable_search_rounded_number_list_v1((${columnSql})::jsonb, ${sanitizePrecision(projection.precision)})`
     : renderSearchTextProjectionSql(columnSql, projection);
+
+export const buildIndexedSearchExpression = (
+  fields: readonly { readonly fieldDbName: string; readonly textProjection?: SearchFieldTextProjection }[],
+  alias?: string
+): string => {
+  const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
+  const parts = fields.map((field) => {
+    const column = `${alias ? `${quote(alias)}.` : ''}${quote(field.fieldDbName)}`;
+    return `coalesce(${renderGeneratedSearchTextProjectionSql(column, field.textProjection)}, '')`;
+  });
+  return `lower(${parts.join(String.raw` || E'\n' || `) || "''"})`;
+};

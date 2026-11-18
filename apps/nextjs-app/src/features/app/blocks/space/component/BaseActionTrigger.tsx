@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { HttpError } from '@teable/core';
 import {
   Info,
   Copy,
@@ -15,10 +16,12 @@ import {
   UserPlus,
 } from '@teable/icons';
 import {
+  BaseNodeResourceType,
   BillingProductLevel,
   cancelBaseDataDbMoveJob,
   exportBaseStream,
   getBaseDataDbMoveJob,
+  getBaseNodeTree,
   getSpaceList,
   moveBase,
   moveBaseCheck,
@@ -54,13 +57,19 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { Blocks, Recycle, Send } from 'lucide-react';
+import { Blocks, LayoutTemplate, Recycle, Send } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { useUpgradeAction } from '@/features/app/components/billing/UpgradeWrapper';
 import { BaseInviteDialog } from '@/features/app/components/collaborator/share/ShareBaseDialog';
+import {
+  TemplateHostContext,
+  useTemplateProjectDeleteNotice,
+  useTemplateProjectInfo,
+} from '@/features/app/components/space/template/host-context';
 import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { downloadUrlWithFileName } from '@/features/app/utils/download-url';
 import { BaseShareDialog } from '../../base/base-side-bar/BaseShareDialog';
@@ -142,6 +151,52 @@ const AuthorityMatrixItem = ({ base }: { base: IGetBaseVo }) => {
   );
 };
 
+/**
+ * The project's way into the template centre. Where templates are made in template projects,
+ * a project in use gets "Make a template", unless it was published before and still has a
+ * listing to look after; a template project submits itself; a trial copy offers neither.
+ */
+const TemplateEntryItem = ({
+  baseId,
+  onPublish,
+  onMakeTemplate,
+}: {
+  baseId: string;
+  onPublish: () => void;
+  onMakeTemplate: () => void;
+}) => {
+  const { t } = useTranslation(['common', 'space']);
+  const { project } = React.useContext(TemplateHostContext);
+  const info = useTemplateProjectInfo(baseId);
+  if (project && (!info || info.isTrialCopy)) return null;
+  if (project && info && !info.isTemplateProject && !info.hasListing) {
+    return (
+      <DropdownMenuItem onClick={onMakeTemplate}>
+        <LayoutTemplate className="me-2 size-4" />
+        {t('space:templateProject.make')}
+      </DropdownMenuItem>
+    );
+  }
+  return (
+    <DropdownMenuItem onClick={onPublish}>
+      <Send className="me-2 size-4" />
+      {project ? t('space:publishBase.submit') : t('space:publishBase.publishToCommunity')}
+    </DropdownMenuItem>
+  );
+};
+
+/** Trashing a project unpublishes its apps: the delete confirmation says how many go offline. */
+const usePublishedAppCount = (baseId: string, enabled: boolean) => {
+  const { data } = useQuery({
+    queryKey: ReactQueryKeys.baseNodeTree(baseId),
+    queryFn: () => getBaseNodeTree(baseId).then((res) => res.data),
+    enabled,
+  });
+  return (data?.nodes ?? []).filter(
+    (node) => node.resourceType === BaseNodeResourceType.App && node.resourceMeta.publicUrl
+  ).length;
+};
+
 export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrigger>> = (props) => {
   const {
     base,
@@ -164,9 +219,14 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   } = props;
   const { t } = useTranslation(['common', 'space', 'sdk']);
   const { resolvedTheme } = useTheme();
+  const router = useRouter();
   const isDark = resolvedTheme === 'dark';
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
   const [publishOpen, setPublishOpen] = React.useState(false);
+  const [makeTemplateOpen, setMakeTemplateOpen] = React.useState(false);
+  const { project: templateProjectHost } = React.useContext(TemplateHostContext);
+  const deleteNotice = useTemplateProjectDeleteNotice(base.id, deleteConfirm);
+  const publishedAppCount = usePublishedAppCount(base.id, deleteConfirm);
   const [shareOpen, setShareOpen] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [exportConfirm, setExportConfirm] = React.useState(false);
@@ -180,6 +240,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const [spaceId, setSpaceId] = React.useState<string | null>(null);
   const [includeData, setIncludeData] = React.useState(true);
   const slowTipTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exportAbortControllerRef = React.useRef<AbortController | null>(null);
   const baseStore = useDuplicateBaseStore();
   const queryClient = useQueryClient();
   // t() receives runtime keys for stream phases, so keep the cast local to this component.
@@ -308,9 +369,30 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       setMoveJobId(res.data.id);
     },
   });
+  const abortExport = React.useCallback(() => {
+    exportAbortControllerRef.current?.abort();
+    exportAbortControllerRef.current = null;
+    if (slowTipTimerRef.current) {
+      clearTimeout(slowTipTimerRef.current);
+      slowTipTimerRef.current = null;
+    }
+  }, []);
+
+  React.useEffect(() => abortExport, [abortExport]);
 
   React.useEffect(() => {
-    if (!exportConfirm) {
+    const handleRouteChangeStart = (url: string) => {
+      if (url.split('#')[0] === router.asPath.split('#')[0]) return;
+      abortExport();
+      setExportState('idle');
+      setExportConfirm(false);
+    };
+    router.events.on('routeChangeStart', handleRouteChangeStart);
+    return () => router.events.off('routeChangeStart', handleRouteChangeStart);
+  }, [abortExport, router.asPath, router.events]);
+
+  React.useEffect(() => {
+    if (!exportConfirm && !exportAbortControllerRef.current) {
       setIncludeData(true);
       setExportState('idle');
       setExportDownloadUrl(null);
@@ -326,7 +408,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   }, [exportConfirm]);
 
   React.useEffect(() => {
-    if (exportState !== 'loading') return;
+    if (!exportConfirm || exportState !== 'loading') return;
 
     const handleExportComplete = (e: Event) => {
       const detail = (e as CustomEvent).detail as {
@@ -361,7 +443,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
 
     window.addEventListener('export-base-complete', handleExportComplete);
     return () => window.removeEventListener('export-base-complete', handleExportComplete);
-  }, [exportState, base.id, base.name, t]);
+  }, [exportConfirm, exportState, base.id, base.name, t]);
 
   const translateExportPhase = React.useCallback(
     (phase: string, detail?: string, event?: IExportBaseProgressEvent) => {
@@ -401,35 +483,51 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   };
 
   const handleStartExport = async () => {
+    if (exportAbortControllerRef.current) return;
+    const controller = new AbortController();
+    exportAbortControllerRef.current = controller;
     setExportState('loading');
     setShowSlowTip(false);
     setExportProgressMessage(translateExportPhase('preparing'));
     setExportProgress(null);
     slowTipTimerRef.current = setTimeout(() => {
-      setShowSlowTip(true);
+      if (!controller.signal.aborted) setShowSlowTip(true);
     }, 10000);
     try {
-      const result = await exportBaseStream(base.id, { includeData }, (phase, detail, event) => {
-        setExportProgress(event ?? null);
-        setExportProgressMessage(translateExportPhase(phase, detail, event));
-      });
-      if (slowTipTimerRef.current) {
-        clearTimeout(slowTipTimerRef.current);
-        slowTipTimerRef.current = null;
-      }
+      const result = await exportBaseStream(
+        base.id,
+        { includeData, signal: controller.signal },
+        (phase, detail, event) => {
+          if (controller.signal.aborted) return;
+          setExportProgress(event ?? null);
+          setExportProgressMessage(translateExportPhase(phase, detail, event));
+        }
+      );
+      if (controller.signal.aborted) return;
       setExportDownloadUrl(result.data.previewUrl);
       setExportDownloadFileName(result.data.fileName);
       setExportState('done');
-    } catch {
-      // API request failed (network error, etc.)
-      if (slowTipTimerRef.current) {
-        clearTimeout(slowTipTimerRef.current);
-        slowTipTimerRef.current = null;
-      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
       setExportState('idle');
       setExportProgressMessage(null);
       setExportProgress(null);
-      toast.error(t('notification.exportBase.failedText'));
+      const isBusy =
+        error instanceof HttpError &&
+        error.status === 429 &&
+        typeof error.data === 'object' &&
+        error.data !== null &&
+        'domainCode' in error.data &&
+        error.data.domainCode === 'base.export_busy';
+      toast.error(t(isBusy ? 'space:tip.exportBusy' : 'notification.exportBase.failedText'));
+    } finally {
+      if (exportAbortControllerRef.current === controller) {
+        exportAbortControllerRef.current = null;
+        if (slowTipTimerRef.current) {
+          clearTimeout(slowTipTimerRef.current);
+          slowTipTimerRef.current = null;
+        }
+      }
     }
   };
 
@@ -524,10 +622,11 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       items: (
         <>
           {showPublish && (
-            <DropdownMenuItem onClick={() => setPublishOpen(true)}>
-              <Send className="me-2 size-4" />
-              {t('space:publishBase.publishToCommunity')}
-            </DropdownMenuItem>
+            <TemplateEntryItem
+              baseId={base.id}
+              onPublish={() => setPublishOpen(true)}
+              onMakeTemplate={() => setMakeTemplateOpen(true)}
+            />
           )}
           {showTemplate && (
             <PageLinkItem
@@ -577,6 +676,12 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         content={
           <>
             <div className="space-y-2 text-sm">
+              {deleteNotice?.lines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              {publishedAppCount > 0 && (
+                <p>{t('common:trash.publishedAppsOffline', { total: publishedAppCount })}</p>
+              )}
               <p>{t('common:trash.description')}</p>
             </div>
             <DialogFooter>
@@ -584,7 +689,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                 {t('common:actions.cancel')}
               </Button>
               <Button size={'sm'} onClick={() => handleDelete()}>
-                {t('common:trash.addToTrash')}
+                {deleteNotice?.confirmLabel ?? t('common:trash.addToTrash')}
               </Button>
             </DialogFooter>
           </>
@@ -643,6 +748,9 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
                 <div className="space-y-2 text-wrap">
                   <p>{t('space:tip.exportDescription')}</p>
                   <p>{t('space:tip.exportTips2')}</p>
+                  <p className="text-amber-600 dark:text-amber-500">
+                    {t('space:tip.exportNavigationWarning')}
+                  </p>
                   <div className="flex items-center gap-2 rounded-md border bg-muted px-3 py-2.5 text-sm text-muted-foreground">
                     <Info className="size-4 shrink-0" />
                     <span>Tips: {t('space:tip.exportTips3')}</span>
@@ -872,6 +980,12 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           onClose={() => setPublishOpen(false)}
         />
       )}
+      {showPublish &&
+        templateProjectHost?.renderMakeTemplate({
+          base,
+          open: makeTemplateOpen,
+          onOpenChange: setMakeTemplateOpen,
+        })}
 
       {showInvite && (
         <BaseInviteDialog base={base} open={inviteOpen} onOpenChange={setInviteOpen} />

@@ -6,3 +6,5 @@ export * from './PostgresSqlExecutionError';
 export * from './random';
 export * from './unitOfWork';
 export * from './tableComputedDownstreamHint';
+export * from './searchDocumentProjection';
+export * from './tableSearchIndex';

@@ -1,5 +1,11 @@
 import { isAudio, isHeic, isImage, isInlineSafeMimetype, isSvg, isVideo } from '@teable/core';
-import { ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE } from './constant';
+import type { ResizeOptions } from 'sharp';
+import {
+  ATTACHMENT_LEGACY_THUMBNAIL_MIMETYPE,
+  ATTACHMENT_THUMBNAIL_EXTENSION,
+  ATTACHMENT_THUMBNAIL_MAX_SIDE,
+  ATTACHMENT_THUMBNAIL_MIMETYPE,
+} from './constant';
 
 const PREVIEWABLE_DOCUMENT_MIMETYPES: ReadonlySet<string> = new Set([
   'application/pdf',
@@ -43,10 +49,26 @@ export const forceAttachmentDisposition = <T extends Record<string, unknown>>(he
   return headers;
 };
 
-export const resolveThumbnailMimetype = (mimetype: string) => {
-  // Image thumbnails keep the source format (cropImage preserves it), except
-  // HEIC (decoded server-side) and SVG (sharp cannot write it), both rendered as PNG.
+export const isWebpThumbnailPath = (thumbnailPath: string) =>
+  thumbnailPath.endsWith(ATTACHMENT_THUMBNAIL_EXTENSION);
+
+export const resolveThumbnailMimetype = (mimetype: string, thumbnailPath: string) => {
+  if (isWebpThumbnailPath(thumbnailPath)) {
+    return ATTACHMENT_THUMBNAIL_MIMETYPE;
+  }
+  // Legacy image thumbnails keep the source format, except HEIC (decoded
+  // server-side) and SVG (sharp cannot write it), both rendered as PNG.
   return isImage(mimetype) && !isHeic(mimetype) && !isSvg(mimetype)
     ? mimetype
-    : ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE;
+    : ATTACHMENT_LEGACY_THUMBNAIL_MIMETYPE;
 };
+
+/**
+ * Resize to a thumbnail height. A very wide image would come out wider than
+ * WebP can encode, so its width is capped and it keeps its aspect ratio
+ * (shorter than `height`); every other image resizes exactly as by height.
+ */
+export const getThumbnailResizeOptions = (width?: number, height?: number): ResizeOptions =>
+  width || !height
+    ? { width, height }
+    : { width: ATTACHMENT_THUMBNAIL_MAX_SIDE, height, fit: 'inside' };

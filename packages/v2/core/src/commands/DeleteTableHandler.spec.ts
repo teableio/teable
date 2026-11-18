@@ -1,6 +1,6 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   TableDeletionPreparationService,
@@ -38,6 +38,12 @@ import type {
   TableFindOptions,
   TableProvisionState,
 } from '../ports/TableRepository';
+import {
+  createTableSchemaCoordinationLease,
+  type ITableSchemaCoordination,
+  type ITableSchemaCoordinationLease,
+  type TableSchemaCoordinationMode,
+} from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteTableCommand } from './DeleteTableCommand';
@@ -58,6 +64,56 @@ const buildTable = (baseIdSeed: string): Table => {
   builder.view().defaultGrid().done();
   return builder.build()._unsafeUnwrap();
 };
+
+class TestTableSchemaCoordination implements ITableSchemaCoordination {
+  readonly requests: Array<{ tableIds: ReadonlyArray<string>; mode: TableSchemaCoordinationMode }> =
+    [];
+  private readonly leases = new Set<ITableSchemaCoordinationLease>();
+  private readonly waiters = new Set<() => void>();
+
+  async acquire(
+    _context: IExecutionContext,
+    tableIds: ReadonlyArray<string>,
+    mode: TableSchemaCoordinationMode,
+    signal?: AbortSignal
+  ): Promise<Result<ITableSchemaCoordinationLease, DomainError>> {
+    this.requests.push({ tableIds: [...tableIds], mode });
+    while (
+      [...this.leases].some(
+        (lease) =>
+          (mode === 'exclusive' || lease.mode === 'exclusive') &&
+          tableIds.some((tableId) => lease.tableIds.includes(tableId))
+      )
+    ) {
+      if (signal?.aborted) {
+        return err(
+          domainError.infrastructure({
+            code: 'schema_coordination.cancelled',
+            message: 'Table schema coordination acquisition cancelled',
+          })
+        );
+      }
+      const { promise, resolve } = Promise.withResolvers<void>();
+      const onAbort = () => resolve();
+      this.waiters.add(resolve);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      try {
+        await promise;
+      } finally {
+        this.waiters.delete(resolve);
+        signal?.removeEventListener('abort', onAbort);
+      }
+    }
+    const lease = createTableSchemaCoordinationLease(mode, tableIds, async () => {
+      this.leases.delete(lease);
+      const waiters = [...this.waiters];
+      this.waiters.clear();
+      for (const resolve of waiters) resolve();
+    });
+    this.leases.add(lease);
+    return ok(lease);
+  }
+}
 
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
@@ -123,6 +179,11 @@ class FakeTableRepository implements ITableRepository {
     this.deleted.push(table);
     this.deleteModes.push(options?.mode ?? 'soft');
     this.deletedTableIds.add(table.id().toString());
+    return ok(undefined);
+  }
+
+  async restore(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    this.deletedTableIds.delete(table.id().toString());
     return ok(undefined);
   }
 
@@ -208,6 +269,8 @@ class FakeTableDeletionSideEffectService {
   calls = 0;
   contexts: IExecutionContext[] = [];
   failExecute: DomainError | undefined;
+  candidateTables: Table[] = [];
+  preparations: TableDeletionSideEffectPreparation[] = [];
 
   async prepare(
     _: IExecutionContext,
@@ -219,15 +282,20 @@ class FakeTableDeletionSideEffectService {
       candidateTableCount: 0,
       downstreamCascadeEvidence: 'not-applicable',
       reactionEffects: [],
-      candidatePlans: [],
+      candidatePlans: this.candidateTables.map((sourceTable) => ({
+        sourceTable,
+        isolatedReactions: [],
+      })),
     });
   }
 
   async executePrepared(
-    context: IExecutionContext
+    context: IExecutionContext,
+    preparation: TableDeletionSideEffectPreparation
   ): Promise<Result<TableDeletionSideEffectServiceResult, DomainError>> {
     this.calls += 1;
     this.contexts.push(context);
+    this.preparations.push(preparation);
     if (this.failExecute) return err(this.failExecute);
     return ok({
       events: [...this.events],
@@ -298,7 +366,8 @@ const createHandler = (
   preparationService: ITableDeletionPreparationService = new TableDeletionPreparationService(
     repository,
     sideEffects as never
-  )
+  ),
+  coordination?: ITableSchemaCoordination
 ) =>
   new DeleteTableHandler(
     repository,
@@ -307,10 +376,434 @@ const createHandler = (
     preparationService,
     eventBus,
     logger,
-    unitOfWork
+    unitOfWork,
+    coordination
   );
 
+const createCoordinatedDeletion = () => {
+  const table = buildTable('l');
+  const context = createContext();
+  const repository = new FakeTableRepository();
+  repository.tables.push(table);
+  const schemaRepository = new FakeTableSchemaRepository();
+  const sideEffects = new FakeTableDeletionSideEffectService();
+  const eventBus = new FakeEventBus();
+  const unitOfWork = new FakeUnitOfWork();
+  const coordination = new TestTableSchemaCoordination();
+  const preparationService = new TableDeletionPreparationService(repository, sideEffects as never);
+  const handler = createHandler(
+    repository,
+    schemaRepository,
+    sideEffects,
+    eventBus,
+    new FakeLogger(),
+    unitOfWork,
+    preparationService,
+    coordination
+  );
+  const command = DeleteTableCommand.create({
+    baseId: table.baseId().toString(),
+    tableId: table.id().toString(),
+    mode: 'permanent',
+  })._unsafeUnwrap();
+  return {
+    table,
+    context,
+    repository,
+    schemaRepository,
+    sideEffects,
+    eventBus,
+    unitOfWork,
+    coordination,
+    preparationService,
+    handler,
+    command,
+  };
+};
+
 describe('DeleteTableHandler', () => {
+  it('retains all table leases through event publication', async () => {
+    const fixture = createCoordinatedDeletion();
+    const source = buildTable('s');
+    fixture.sideEffects.candidateTables = [source];
+    const publishing = Promise.withResolvers<void>();
+    const completePublication = Promise.withResolvers<void>();
+    const publish = fixture.eventBus.publishMany.bind(fixture.eventBus);
+    vi.spyOn(fixture.eventBus, 'publishMany').mockImplementation(async (context, events) => {
+      publishing.resolve();
+      await completePublication.promise;
+      return publish(context, events);
+    });
+
+    const deletion = fixture.handler.handle(fixture.context, fixture.command);
+    await publishing.promise;
+    const readersEntered: string[] = [];
+    const readers = [fixture.table, source].map(async (table) => {
+      const lease = (
+        await fixture.coordination.acquire(fixture.context, [table.id().toString()], 'shared')
+      )._unsafeUnwrap();
+      readersEntered.push(table.id().toString());
+      return lease;
+    });
+    await Promise.resolve();
+    expect(readersEntered).toEqual([]);
+
+    completePublication.resolve();
+    (await deletion)._unsafeUnwrap();
+    for (const reader of await Promise.all(readers)) await reader.release();
+    expect(readersEntered).toHaveLength(2);
+  });
+
+  it.each([
+    'preparation',
+    'blocker',
+    'begin lifecycle',
+    'side effects',
+    'schema delete',
+    'metadata delete',
+    'complete lifecycle',
+    'event publication',
+  ])('releases its lease when %s returns an error', async (phase) => {
+    const fixture = createCoordinatedDeletion();
+    const source = buildTable('r');
+    fixture.sideEffects.candidateTables = [source];
+    const failure = domainError.unexpected({ message: `${phase} failed` });
+    switch (phase) {
+      case 'preparation':
+        vi.spyOn(fixture.preparationService, 'prepare').mockResolvedValue(err(failure));
+        break;
+      case 'blocker': {
+        const preparation = (
+          await fixture.preparationService.prepare(fixture.context, fixture.command)
+        )._unsafeUnwrap();
+        vi.spyOn(fixture.preparationService, 'prepare').mockResolvedValue(
+          ok({
+            ...preparation,
+            blockers: [{ code: 'table.delete.blocked', message: failure.message }],
+          })
+        );
+        break;
+      }
+      case 'begin lifecycle':
+      case 'complete lifecycle': {
+        const setState = fixture.repository.setProvisionState.bind(fixture.repository);
+        vi.spyOn(fixture.repository, 'setProvisionState').mockImplementation(
+          (context, table, state) =>
+            state === (phase === 'begin lifecycle' ? 'deleting' : 'ready')
+              ? Promise.resolve(err(failure))
+              : setState(context, table, state)
+        );
+        break;
+      }
+      case 'side effects':
+        fixture.sideEffects.failExecute = failure;
+        break;
+      case 'schema delete':
+        fixture.schemaRepository.failDelete = failure;
+        break;
+      case 'metadata delete':
+        fixture.repository.failDelete = failure;
+        break;
+      case 'event publication':
+        fixture.eventBus.failPublish = failure;
+        break;
+    }
+
+    const result = await fixture.handler.handle(fixture.context, fixture.command);
+
+    expect(result._unsafeUnwrapErr().message).toBe(failure.message);
+    if (phase === 'preparation' || phase === 'blocker') {
+      expect(fixture.repository.provisionStateChanges).toEqual([]);
+      expect(fixture.unitOfWork.transactions).toEqual([]);
+    }
+    const reader = (
+      await fixture.coordination.acquire(
+        fixture.context,
+        [fixture.table, source].map((table) => table.id().toString()),
+        'shared'
+      )
+    )._unsafeUnwrap();
+    await reader.release();
+  });
+
+  it.each([
+    'preparation',
+    'begin lifecycle',
+    'side effects',
+    'complete lifecycle',
+    'event publication',
+  ])('releases its lease when %s throws', async (phase) => {
+    const fixture = createCoordinatedDeletion();
+    const source = buildTable('r');
+    fixture.sideEffects.candidateTables = [source];
+    const failure = new Error(`${phase} threw`);
+    switch (phase) {
+      case 'preparation':
+        vi.spyOn(fixture.preparationService, 'prepare').mockRejectedValue(failure);
+        break;
+      case 'begin lifecycle':
+      case 'complete lifecycle': {
+        const setState = fixture.repository.setProvisionState.bind(fixture.repository);
+        vi.spyOn(fixture.repository, 'setProvisionState').mockImplementation(
+          (context, table, state) =>
+            state === (phase === 'begin lifecycle' ? 'deleting' : 'ready')
+              ? Promise.reject(failure)
+              : setState(context, table, state)
+        );
+        break;
+      }
+      case 'side effects':
+        vi.spyOn(fixture.sideEffects, 'executePrepared').mockRejectedValue(failure);
+        break;
+      case 'event publication':
+        vi.spyOn(fixture.eventBus, 'publishMany').mockRejectedValue(failure);
+        break;
+    }
+
+    const result = await fixture.handler.handle(fixture.context, fixture.command);
+    expect(result._unsafeUnwrapErr().message).toBe(failure.message);
+
+    const reader = (
+      await fixture.coordination.acquire(
+        fixture.context,
+        [fixture.table, source].map((table) => table.id().toString()),
+        'shared'
+      )
+    )._unsafeUnwrap();
+    await reader.release();
+  });
+
+  it('returns an expanded acquisition error after releasing its previous lease', async () => {
+    const fixture = createCoordinatedDeletion();
+    const source = buildTable('o');
+    fixture.sideEffects.candidateTables = [source];
+    const acquire = fixture.coordination.acquire.bind(fixture.coordination);
+    const failure = domainError.infrastructure({ message: 'lease acquisition failed' });
+    vi.spyOn(fixture.coordination, 'acquire').mockImplementation((context, tableIds, mode) =>
+      mode === 'exclusive' && tableIds.length > 1
+        ? Promise.resolve(err(failure))
+        : acquire(context, tableIds, mode)
+    );
+
+    const result = await fixture.handler.handle(fixture.context, fixture.command);
+
+    expect(result._unsafeUnwrapErr()).toBe(failure);
+    expect(fixture.repository.provisionStateChanges).toEqual([]);
+    expect(fixture.sideEffects.calls).toBe(0);
+    const reader = (
+      await fixture.coordination.acquire(fixture.context, [fixture.table.id().toString()], 'shared')
+    )._unsafeUnwrap();
+    await reader.release();
+  });
+
+  it('waits for a schema reader before preparing or deleting its table', async () => {
+    const fixture = createCoordinatedDeletion();
+    const { coordination, context, table, preparationService, handler, command } = fixture;
+    const reader = (
+      await coordination.acquire(context, [table.id().toString()], 'shared')
+    )._unsafeUnwrap();
+    const prepare = vi.spyOn(preparationService, 'prepare');
+
+    const deletion = handler.handle(context, command);
+
+    await vi.waitFor(() => {
+      expect(coordination.requests).toContainEqual({
+        tableIds: [table.id().toString()],
+        mode: 'exclusive',
+      });
+    });
+
+    expect(prepare).not.toHaveBeenCalled();
+    expect(fixture.repository.provisionStateChanges).toEqual([]);
+    expect(fixture.schemaRepository.deleted).toEqual([]);
+    expect(fixture.sideEffects.calls).toBe(0);
+    await reader.release();
+    (await deletion)._unsafeUnwrap();
+
+    expect(prepare).toHaveBeenCalledOnce();
+    expect(fixture.schemaRepository.deleted).toEqual([table]);
+    expect(fixture.eventBus.published.some((event) => event instanceof TableDeleted)).toBe(true);
+    const nextReader = (
+      await coordination.acquire(context, [table.id().toString()], 'shared')
+    )._unsafeUnwrap();
+    await nextReader.release();
+  });
+
+  it('returns a retryable conflict when exclusive acquisition exceeds its wait', async () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = createCoordinatedDeletion();
+      const reader = (
+        await fixture.coordination.acquire(
+          fixture.context,
+          [fixture.table.id().toString()],
+          'shared'
+        )
+      )._unsafeUnwrap();
+
+      const deletion = fixture.handler.handle(fixture.context, fixture.command);
+      await vi.advanceTimersByTimeAsync(5_000);
+      const result = await deletion;
+
+      expect(result._unsafeUnwrapErr()).toMatchObject({
+        code: 'schema_coordination.busy',
+        tags: expect.arrayContaining(['conflict']),
+      });
+      expect(fixture.repository.provisionStateChanges).toEqual([]);
+      await reader.release();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(['result', 'throw'] as const)(
+    'releases exclusive coverage before stalled preparation settles with a late %s',
+    async (lateOutcome) => {
+      vi.useFakeTimers();
+      try {
+        const fixture = createCoordinatedDeletion();
+        const { preparationService, context, command, coordination, table } = fixture;
+        const preparation = await preparationService.prepare(context, command);
+        const stalled =
+          Promise.withResolvers<Awaited<ReturnType<typeof preparationService.prepare>>>();
+        const prepare = vi
+          .spyOn(preparationService, 'prepare')
+          .mockReturnValueOnce(stalled.promise);
+
+        const deletion = fixture.handler.handle(context, command);
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect((await deletion)._unsafeUnwrapErr().code).toBe('schema_coordination.busy');
+        const reader = (
+          await coordination.acquire(context, [table.id().toString()], 'shared')
+        )._unsafeUnwrap();
+        if (lateOutcome === 'result') stalled.resolve(preparation);
+        else stalled.reject(new Error('Late metadata read failed'));
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(fixture.repository.provisionStateChanges).toEqual([]);
+        expect(fixture.schemaRepository.deleted).toEqual([]);
+        expect(fixture.sideEffects.calls).toBe(0);
+        expect(fixture.eventBus.published).toEqual([]);
+        await reader.release();
+        prepare.mockRestore();
+        (await fixture.handler.handle(context, command))._unsafeUnwrap();
+        expect(fixture.schemaRepository.deleted).toEqual([table]);
+      } finally {
+        vi.useRealTimers();
+      }
+    }
+  );
+
+  it('releases incomplete leases and reprepares after each candidate-table expansion', async () => {
+    const fixture = createCoordinatedDeletion();
+    const { coordination, context, table, sideEffects, preparationService, handler, command } =
+      fixture;
+    const source = buildTable('m');
+    const additionalSource = buildTable('n');
+    sideEffects.candidateTables = [source];
+    const sourceReader = (
+      await coordination.acquire(context, [source.id().toString()], 'shared')
+    )._unsafeUnwrap();
+    const additionalReader = (
+      await coordination.acquire(context, [additionalSource.id().toString()], 'shared')
+    )._unsafeUnwrap();
+    const prepare = vi.spyOn(preparationService, 'prepare');
+
+    const deletion = handler.handle(context, command);
+    await vi.waitFor(() => {
+      expect(coordination.requests.filter(({ mode }) => mode === 'exclusive')).toHaveLength(2);
+    });
+    expect(prepare).toHaveBeenCalledOnce();
+    expect(fixture.repository.provisionStateChanges).toEqual([]);
+    expect(sideEffects.calls).toBe(0);
+    // A reader can enter the target while deletion waits on a candidate: no partial lease remains.
+    const targetReader = (
+      await coordination.acquire(context, [table.id().toString()], 'shared')
+    )._unsafeUnwrap();
+    sideEffects.candidateTables = [source, additionalSource];
+    await sourceReader.release();
+    await targetReader.release();
+
+    await vi.waitFor(() => {
+      expect(coordination.requests.filter(({ mode }) => mode === 'exclusive')).toHaveLength(3);
+    });
+    expect(prepare).toHaveBeenCalledTimes(2);
+    expect(fixture.repository.provisionStateChanges).toEqual([]);
+    expect(sideEffects.calls).toBe(0);
+    await additionalReader.release();
+    (await deletion)._unsafeUnwrap();
+
+    expect(prepare).toHaveBeenCalledTimes(3);
+    const finalPreparation = await prepare.mock.results[2]?.value;
+    expect(sideEffects.preparations[0]).toBe(finalPreparation?._unsafeUnwrap().sideEffects);
+    expect(coordination.requests.filter(({ mode }) => mode === 'exclusive')).toEqual([
+      { tableIds: [table.id().toString()], mode: 'exclusive' },
+      {
+        tableIds: [table, source].map((candidate) => candidate.id().toString()).sort(),
+        mode: 'exclusive',
+      },
+      {
+        tableIds: [table, source, additionalSource]
+          .map((candidate) => candidate.id().toString())
+          .sort(),
+        mode: 'exclusive',
+      },
+    ]);
+    expect(
+      sideEffects.preparations[0]?.candidatePlans.map(({ sourceTable }) => sourceTable)
+    ).toEqual([source, additionalSource]);
+    const nextReader = (
+      await coordination.acquire(
+        context,
+        [table, source, additionalSource].map((candidate) => candidate.id().toString()),
+        'shared'
+      )
+    )._unsafeUnwrap();
+    await nextReader.release();
+  });
+
+  it('allows reciprocal table deletions to acquire their complete lease without deadlocking', async () => {
+    const first = createCoordinatedDeletion();
+    const second = createCoordinatedDeletion();
+    const preparationBarrier = Promise.withResolvers<void>();
+    let preparations = 0;
+    for (const [fixture, source] of [
+      [first, second.table],
+      [second, first.table],
+    ] as const) {
+      fixture.sideEffects.candidateTables = [source];
+      const prepare = fixture.preparationService.prepare.bind(fixture.preparationService);
+      vi.spyOn(fixture.preparationService, 'prepare').mockImplementation(
+        async (context, command) => {
+          const result = await prepare(context, command);
+          preparations += 1;
+          if (preparations === 2) preparationBarrier.resolve();
+          await preparationBarrier.promise;
+          return result;
+        }
+      );
+    }
+    const secondHandler = createHandler(
+      second.repository,
+      second.schemaRepository,
+      second.sideEffects,
+      second.eventBus,
+      new FakeLogger(),
+      second.unitOfWork,
+      second.preparationService,
+      first.coordination
+    );
+
+    const results = await Promise.all([
+      first.handler.handle(first.context, first.command),
+      secondHandler.handle(second.context, second.command),
+    ]);
+
+    for (const result of results) result._unsafeUnwrap();
+    expect(first.schemaRepository.deleted).toEqual([first.table]);
+    expect(second.schemaRepository.deleted).toEqual([second.table]);
+  });
+
   it('soft deletes tables without dropping schema and publishes TableTrashed', async () => {
     const table = buildTable('a');
     const repo = new FakeTableRepository();

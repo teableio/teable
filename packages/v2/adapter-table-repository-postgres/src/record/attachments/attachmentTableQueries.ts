@@ -68,6 +68,162 @@ const queryAttachmentTableRefs = async (
     )
     .map(toRefRow);
 };
+export type AttachmentTableQueryOptions = {
+  pageSize?: number;
+  signal?: AbortSignal;
+};
+
+const throwIfAborted = (signal?: AbortSignal): void => {
+  if (signal?.aborted) {
+    throw signal.reason ?? new DOMException('The operation was aborted', 'AbortError');
+  }
+};
+
+const queryAttachmentTableRefsPage = async (
+  db: Kysely<DynamicDB>,
+  filter: AttachmentTableQueryFilter,
+  pageSize: number,
+  cursor: string | undefined,
+  signal?: AbortSignal
+): Promise<AttachmentTableQueryRow[]> => {
+  throwIfAborted(signal);
+  let query = db
+    .selectFrom('attachments_table')
+    .select(['id', 'attachment_id', 'token', 'name', 'table_id', 'record_id', 'field_id']);
+
+  if (filter.tableIds?.length) {
+    query = query.where('table_id', 'in', [...filter.tableIds]);
+  }
+  if (filter.attachmentIds?.length) {
+    query = query.where('attachment_id', 'in', [...filter.attachmentIds]);
+  }
+  if (cursor !== undefined) {
+    query = query.where('id', '>', cursor);
+  }
+
+  const rows = await query.orderBy('id', 'asc').limit(pageSize).execute();
+  throwIfAborted(signal);
+  return rows as AttachmentTableQueryRow[];
+};
+
+const queryAttachmentTableCellKeys = async (
+  db: Kysely<DynamicDB>,
+  cells: ReadonlyArray<Pick<AttachmentTableRefRow, 'tableId' | 'recordId' | 'fieldId'>>,
+  signal?: AbortSignal
+): Promise<Set<string>> => {
+  throwIfAborted(signal);
+  if (cells.length === 0) {
+    return new Set();
+  }
+
+  const query = db
+    .selectFrom('attachments_table')
+    .select(['table_id', 'record_id', 'field_id'])
+    .distinct()
+    .where((eb) =>
+      eb.or(
+        cells.map((cell) =>
+          eb.and([
+            eb('table_id', '=', cell.tableId),
+            eb('record_id', '=', cell.recordId),
+            eb('field_id', '=', cell.fieldId),
+          ])
+        )
+      )
+    );
+  const rows = await query.execute();
+  throwIfAborted(signal);
+  return new Set(
+    (rows as Array<{ table_id: unknown; record_id: unknown; field_id: unknown }>).map((row) =>
+      cellKey({
+        tableId: String(row.table_id),
+        recordId: String(row.record_id),
+        fieldId: String(row.field_id),
+      })
+    )
+  );
+};
+
+const validRefRows = (rows: AttachmentTableQueryRow[]): AttachmentTableRefRow[] =>
+  rows
+    .filter(
+      (row) =>
+        row.id != null &&
+        row.attachment_id != null &&
+        row.token != null &&
+        row.table_id != null &&
+        row.record_id != null &&
+        row.field_id != null
+    )
+    .map(toRefRow);
+
+/**
+ * Iterate attachment refs in bounded, stable-id pages. Data refs are yielded
+ * before migrated meta-db fallback refs, with rewritten cells suppressing all
+ * stale meta rows for that cell.
+ */
+export const iterateAttachmentTableRefs = async function* (
+  dataDb: Kysely<DynamicDB>,
+  metaDb: Kysely<DynamicDB>,
+  filter: AttachmentTableQueryFilter,
+  options: AttachmentTableQueryOptions = {}
+): AsyncGenerator<readonly AttachmentTableRefRow[]> {
+  const pageSize = options.pageSize ?? 500;
+  if (!Number.isInteger(pageSize) || pageSize <= 0) {
+    throw new RangeError('Attachment table query pageSize must be a positive integer');
+  }
+  if (!filter.tableIds?.length && !filter.attachmentIds?.length) {
+    return;
+  }
+
+  const { signal } = options;
+  let cursor: string | undefined;
+  while (true) {
+    throwIfAborted(signal);
+    const rawRows = await queryAttachmentTableRefsPage(dataDb, filter, pageSize, cursor, signal);
+    throwIfAborted(signal);
+    if (rawRows.length === 0) {
+      break;
+    }
+    const lastRawId = rawRows[rawRows.length - 1]?.id;
+    cursor = lastRawId == null ? undefined : String(lastRawId);
+    const rows = validRefRows(rawRows);
+    if (rows.length > 0) {
+      yield rows;
+    }
+    if (lastRawId == null) {
+      break;
+    }
+  }
+
+  if (dataDb === metaDb) {
+    return;
+  }
+
+  cursor = undefined;
+  while (true) {
+    throwIfAborted(signal);
+    const rawRows = await queryAttachmentTableRefsPage(metaDb, filter, pageSize, cursor, signal);
+    throwIfAborted(signal);
+    if (rawRows.length === 0) {
+      break;
+    }
+    const lastRawId = rawRows[rawRows.length - 1]?.id;
+    cursor = lastRawId == null ? undefined : String(lastRawId);
+    const metaRows = validRefRows(rawRows);
+    if (metaRows.length > 0) {
+      const dataCells = await queryAttachmentTableCellKeys(dataDb, metaRows, signal);
+      throwIfAborted(signal);
+      const rows = metaRows.filter((row) => !dataCells.has(cellKey(row)));
+      if (rows.length > 0) {
+        yield rows;
+      }
+    }
+    if (lastRawId == null) {
+      break;
+    }
+  }
+};
 
 export const mergeAttachmentTableRefs = (
   dataRows: AttachmentTableRefRow[],

@@ -17,6 +17,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `MemoryPorts.spec.ts` - Role: memory port tests; Purpose: validate bus/repository behavior.
 - `MemoryQueryBus.ts` - Role: IQueryBus memory impl; Purpose: resolve handler and execute query.
 - `MemoryTableRepository.ts` - Role: ITableRepository memory impl; Purpose: array storage + spec filter/sort/paginate + updateOne by id.
-- `MemoryUndoRedoStore.ts` - Role: IUndoRedoStore memory impl; Purpose: log + cursor for undo/redo in tests.
+- `MemoryUndoRedoStore.ts` - Role: IUndoRedoStore memory impl; Purpose: grouped log/cursor,
+  metadata-only reservations, ordered indexed reads, and resumable global leaf progress.
+  Tests cover whole-group replay order and stale-token lease/progress isolation.
 - `index.spec.ts` - Role: export tests; Purpose: validate entry exports.
 - `index.ts` - Role: module entry; Purpose: export memory adapters.
