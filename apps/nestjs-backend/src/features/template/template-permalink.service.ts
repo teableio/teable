@@ -6,7 +6,7 @@ import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateTemplatePermalinkCacheKey } from '../../performance-cache/generate-keys';
 import { TEMPLATE_CACHE_TTL } from '../model/template';
-import { resolveTemplateRedirectUrl } from './template-permalink.helper';
+import { resolveTemplateLanding } from './template-permalink.helper';
 
 @Injectable()
 export class TemplatePermalinkService {
@@ -26,10 +26,11 @@ export class TemplatePermalinkService {
       throw new CustomHttpException('Invalid identifier', HttpErrorCode.NOT_FOUND);
     }
 
-    const redirectUrl = await resolveTemplateRedirectUrl(this.prismaService.txClient(), identifier);
+    const { redirectUrl, preview } = await resolveTemplateLanding(
+      this.prismaService.txClient(),
+      identifier
+    );
 
-    return {
-      redirectUrl,
-    };
+    return { redirectUrl, preview };
   }
 }

@@ -16,7 +16,8 @@ import { second } from '../../utils/second';
 import {
   ATTACHMENT_LG_THUMBNAIL_HEIGHT,
   ATTACHMENT_SM_THUMBNAIL_HEIGHT,
-  ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE,
+  ATTACHMENT_THUMBNAIL_MIMETYPE,
+  ATTACHMENT_THUMBNAIL_WEBP_QUALITY,
 } from './constant';
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
@@ -26,7 +27,7 @@ import {
   getPreviewCacheKey,
   getPreviewUrlConfigSig,
 } from './plugins/utils';
-import { forceAttachmentDisposition } from './utils';
+import { forceAttachmentDisposition, getThumbnailResizeOptions } from './utils';
 
 @Injectable()
 export class AttachmentsStorageService {
@@ -138,20 +139,19 @@ export class AttachmentsStorageService {
    * size rather than upscaled.
    */
   async uploadTableImageThumbnailsFromBuffer(bucket: string, path: string, imageBuffer: Buffer) {
-    const mimetype = ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE;
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
     const image = sharp(imageBuffer, { failOn: 'none', unlimited: true });
 
     const uploadThumbnail = async (thumbnailPath: string, height: number) => {
       const buffer = await image
         .clone()
-        .resize(undefined, height, { withoutEnlargement: true })
-        .png()
+        .resize({ ...getThumbnailResizeOptions(undefined, height), withoutEnlargement: true })
+        .webp({ quality: ATTACHMENT_THUMBNAIL_WEBP_QUALITY })
         .toBuffer();
       return (
         await this.storageAdapter.uploadFile(bucket, thumbnailPath, buffer, {
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          'Content-Type': mimetype,
+          'Content-Type': ATTACHMENT_THUMBNAIL_MIMETYPE,
         })
       ).path;
     };

@@ -172,7 +172,8 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
     await this.cacheManager.set(
       key as string,
       value,
-      numberTTL ? (numberTTL + getRandomInt(20, 60)) * 1000 : undefined
+      // Whole milliseconds: a Redis store sends this as PX, which refuses a fraction
+      numberTTL ? Math.ceil((numberTTL + getRandomInt(20, 60)) * 1000) : undefined
     );
   }
 
@@ -184,7 +185,12 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   ): Promise<void> {
     const numberTTL = typeof ttl === 'string' ? second(ttl) : ttl;
     this.warnNotSetTTL(key as string, numberTTL);
-    await this.cacheManager.set(key as string, value, numberTTL ? numberTTL * 1000 : undefined);
+    // Whole milliseconds: a Redis store sends this as PX, which refuses a fraction
+    await this.cacheManager.set(
+      key as string,
+      value,
+      numberTTL ? Math.ceil(numberTTL * 1000) : undefined
+    );
   }
 
   // Returns true if the key existed and was deleted, so callers can use it

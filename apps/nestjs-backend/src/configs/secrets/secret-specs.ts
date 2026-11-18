@@ -53,6 +53,16 @@ export interface ISecretSpec {
 }
 
 /** For specs whose only consumer is an EE / cloud feature: do not nag community boots. */
+/**
+ * BYODB URLs are written in the authenticated format once its root is set, or once SECRET_KEY
+ * (what the root falls back to) is a private value. Under the public default SECRET_KEY the
+ * root would be publicly computable too, worse than a private legacy key/iv, so the legacy
+ * format stays until one of them is set.
+ */
+export const writesAuthenticatedDataDbUrls = (env: Record<string, string | undefined>): boolean =>
+  Boolean(env.BACKEND_DATA_DB_URL_ENCRYPTION_SECRET) ||
+  Boolean(env.SECRET_KEY && env.SECRET_KEY !== SECRET_SPECS.secretKey.legacyDefault);
+
 const isEeOrCloudEdition = (env: Record<string, string | undefined>) => {
   const edition = env.NEXT_BUILD_ENV_EDITION?.toUpperCase();
   return edition === 'EE' || edition === 'CLOUD';
@@ -124,18 +134,15 @@ export const SECRET_SPECS = {
   },
   // Same resolution shape as aiConfigEncryptionSecret; the HKDF info string
   // (teable:third-party-credential) keeps it apart from the AI-config key when
-  // both fall back to SECRET_KEY.
+  // both fall back to SECRET_KEY. Required on every edition: community stores
+  // such credentials too (instance settings, space AI integrations), and with
+  // only the public default root they are stored unencrypted.
   thirdPartyCredentialEncryptionSecret: {
     envKey: 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET',
     fallbackEnvKeys: ['SECRET_KEY'],
     usedFor:
       'encrypting third-party credentials stored for customers: OAuth tokens, IM bot credentials, SSO client secrets, SMTP passwords, app-builder secrets, automation webhook / mail secrets (HKDF root)',
     legacyDefault: 'defaultSecretKey',
-    // Community also stores such credentials (instance settings, space AI
-    // integrations), so once encrypt-on-write is on, an unset root means
-    // encrypting them under the public default.
-    requiredWhen: (env) =>
-      isEeOrCloudEdition(env) || env.BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED === 'true',
   },
   // Only the unsubscribe-link tokens of EE mail (automation / notification
   // emails) use this pair; the community backend never reads it. With
@@ -230,7 +237,7 @@ export const SECRET_SPECS = {
     fallbackEnvKeys: ['SECRET_KEY'],
     usedFor: 'encrypting BYODB database URLs in the authenticated format (HKDF root)',
     legacyDefault: 'defaultSecretKey',
-    requiredWhen: (env) => Boolean(env.BACKEND_DATA_DB_URL_ENCRYPTION_SECRET),
+    requiredWhen: writesAuthenticatedDataDbUrls,
   },
   // Read straight from env by the EE automation script runner; the sandbox
   // service falls back to the same public value, so the pair keeps working.

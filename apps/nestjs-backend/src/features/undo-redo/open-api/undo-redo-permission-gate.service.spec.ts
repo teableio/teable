@@ -1,6 +1,15 @@
 import { HttpErrorCode } from '@teable/core';
-import { createUndoRedoCommand, domainError, err, ok, TableId } from '@teable/v2-core';
-import type { UndoEntry, UndoRedoReplayOptions } from '@teable/v2-core';
+import {
+  ActorId,
+  createUndoRedoCommand,
+  domainError,
+  err,
+  MemoryUndoRedoStore,
+  ok,
+  TableId,
+  UndoRedoStackService,
+} from '@teable/v2-core';
+import type { UndoEntry, UndoEntryInput, UndoRedoReplayOptions } from '@teable/v2-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OperationName } from '../../../cache/types';
 import { CustomHttpException } from '../../../custom.exception';
@@ -181,14 +190,20 @@ describe('UndoRedoService permission gate', () => {
   });
 
   describe('v2 engine', () => {
-    const entry: UndoEntry = {
+    const entry: UndoEntryInput = {
       scope: {
-        actorId: 'usrxxx' as never,
+        actorId: ActorId.create('usrxxx')._unsafeUnwrap(),
         tableId: TableId.create(tableId)._unsafeUnwrap(),
         windowId,
       },
-      undoCommand: createUndoRedoCommand('RestoreRecords', { tableId, records: [] }),
-      redoCommand: createUndoRedoCommand('DeleteRecords', { tableId, recordIds: [] }),
+      undoCommand: createUndoRedoCommand('RestoreRecords', {
+        tableId,
+        records: [{ recordId: `rec${'a'.repeat(16)}`, fields: {} }],
+      }),
+      redoCommand: createUndoRedoCommand('DeleteRecords', {
+        tableId,
+        recordIds: [`rec${'a'.repeat(16)}`],
+      }),
       createdAt: new Date().toISOString(),
     };
 
@@ -202,7 +217,8 @@ describe('UndoRedoService permission gate', () => {
       if (veto?.isErr()) {
         return err(veto.error);
       }
-      return ok(entry);
+      await options?.onEntryReplayed?.(entry, mode);
+      return ok({ entryCount: 1 });
     };
 
     beforeEach(() => {
@@ -213,6 +229,118 @@ describe('UndoRedoService permission gate', () => {
       v2StackService.applyRedo.mockImplementation((_ctx, _tableId, _windowId, options) =>
         engineReplay(options, 'redo')
       );
+    });
+
+    it.each(['role', 'token'] as const)(
+      'rechecks %s revocation after append without replaying writes',
+      async (revoked) => {
+        const store = new MemoryUndoRedoStore();
+        (await store.append(entry.scope, entry))._unsafeUnwrap();
+        const execute = vi.fn();
+        const stack = new UndoRedoStackService(store, { execute } as never);
+        v2ContainerService.getContainerForTable.mockResolvedValueOnce({ resolve: () => stack });
+        v2ContextFactory.createContext.mockResolvedValueOnce({ actorId: entry.scope.actorId });
+
+        // The history was accepted before this request. Current authority is
+        // resolved only now, never retained in the persisted history entry.
+        clsStore['accessTokenId'] = revoked === 'token' ? 'revoked_token' : 'acc_token';
+        permissionService.validPermissions.mockRejectedValueOnce(denied);
+        await expect(service().undo(tableId, windowId)).rejects.toBe(denied);
+
+        expect(permissionService.validPermissions).toHaveBeenCalledWith(
+          tableId,
+          ['record|create'],
+          clsStore['accessTokenId']
+        );
+        expect(execute).not.toHaveBeenCalled();
+        expect((await store.list(entry.scope))._unsafeUnwrap()).toEqual([entry]);
+        const reservation = (await store.reserve(entry.scope, 'undo'))._unsafeUnwrap();
+        expect(reservation?.executedLeafIndex).toBe(0);
+        expect(reservation?.entryCount).toBe(1);
+      }
+    );
+
+    it.each(['matrix', 'share'] as const)(
+      'honors current %s grants after append',
+      async (authority) => {
+        const store = new MemoryUndoRedoStore();
+        (await store.append(entry.scope, entry))._unsafeUnwrap();
+        const execute = vi.fn();
+        const stack = new UndoRedoStackService(store, { execute } as never);
+        v2ContainerService.getContainerForTable.mockResolvedValueOnce({ resolve: () => stack });
+        v2ContextFactory.createContext.mockResolvedValueOnce({ actorId: entry.scope.actorId });
+
+        if (authority === 'share') {
+          clsStore['shareViewId'] = `viw${'a'.repeat(16)}`;
+          clsStore['permissions'] = ['table|read'];
+        } else {
+          permissionResolver.resolveTableActions.mockResolvedValueOnce(['table|read']);
+        }
+        await expect(service(permissionResolver).undo(tableId, windowId)).rejects.toMatchObject({
+          code: HttpErrorCode.RESTRICTED_RESOURCE,
+        });
+        expect(permissionService.validPermissions).not.toHaveBeenCalled();
+        expect(execute).not.toHaveBeenCalled();
+        expect((await store.list(entry.scope))._unsafeUnwrap()).toEqual([entry]);
+        if (authority === 'share') {
+          expect(permissionResolver.resolveTableActions).not.toHaveBeenCalled();
+        } else {
+          expect(permissionResolver.resolveTableActions).toHaveBeenCalledWith(tableId);
+        }
+      }
+    );
+
+    it('vetoes the whole group before writes when a later entry loses permission', async () => {
+      const store = new MemoryUndoRedoStore();
+      const groupId = 'permission-group';
+      const update = createUndoRedoCommand('UpdateRecord', {
+        tableId,
+        recordId: `rec${'a'.repeat(16)}`,
+        fields: {},
+        fieldKeyType: 'id',
+        typecast: false,
+      });
+      const earlier: UndoEntry = {
+        ...entry,
+        groupId,
+        undoCommand: update,
+        redoCommand: update,
+      };
+      const latest: UndoEntry = { ...entry, groupId };
+      (
+        await store.append(entry.scope, { ...earlier, groupId, groupPosition: 'start' })
+      )._unsafeUnwrap();
+      (
+        await store.append(entry.scope, { ...latest, groupId, groupPosition: 'continue' })
+      )._unsafeUnwrap();
+      const execute = vi.fn();
+      const stack = new UndoRedoStackService(store, { execute } as never);
+      v2ContainerService.getContainerForTable.mockResolvedValueOnce({ resolve: () => stack });
+      v2ContextFactory.createContext.mockResolvedValueOnce({ actorId: entry.scope.actorId });
+      permissionService.validPermissions
+        .mockReset()
+        .mockResolvedValueOnce(['record|create'])
+        .mockRejectedValueOnce(denied);
+
+      await expect(service().undo(tableId, windowId)).rejects.toBe(denied);
+
+      expect(permissionService.validPermissions).toHaveBeenNthCalledWith(
+        1,
+        tableId,
+        ['record|create'],
+        'acc_token'
+      );
+      expect(permissionService.validPermissions).toHaveBeenNthCalledWith(
+        2,
+        tableId,
+        ['record|update'],
+        'acc_token'
+      );
+      expect(execute).not.toHaveBeenCalled();
+      expect((await store.list(entry.scope))._unsafeUnwrap()).toEqual([earlier, latest]);
+      const reservation = (await store.reserve(entry.scope, 'undo'))._unsafeUnwrap();
+      expect(reservation?.entryCount).toBe(2);
+      expect(reservation?.executedLeafIndex).toBe(0);
     });
 
     it('vetoes the reserved entry through the engine hook and answers 403', async () => {

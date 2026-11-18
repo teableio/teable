@@ -21,6 +21,7 @@ import {
 } from '../../../hooks';
 import { useContentDir } from '../../../hooks/use-content-dir';
 import { CreateRecordModal } from '../../create-record';
+import { ExpandRecordPanelHostContext, OUTSIDE_PANEL_HOST } from '../../expand-record/PanelContext';
 import { SearchInput } from '../../search';
 import { LinkListType } from './interface';
 import type { ILinkListRef } from './LinkList';
@@ -207,13 +208,16 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     };
   }, [currentRecordTitle, options.relationship, options.symmetricFieldId, recordId]);
 
+  // The link picker is a dialog: the new record opens over it as a dialog too.
   const createRecordModal = (
-    <CreateRecordModal callback={onRecordCreated} initialFields={initialFields}>
-      <Button variant="outline">
-        <Plus className="size-4" />
-        {t('editor.link.create')}
-      </Button>
-    </CreateRecordModal>
+    <ExpandRecordPanelHostContext.Provider value={OUTSIDE_PANEL_HOST}>
+      <CreateRecordModal callback={onRecordCreated} initialFields={initialFields}>
+        <Button variant="outline">
+          <Plus className="size-4" />
+          {t('editor.link.create')}
+        </Button>
+      </CreateRecordModal>
+    </ExpandRecordPanelHostContext.Provider>
   );
 
   const onNavigate = () => {

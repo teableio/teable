@@ -14,6 +14,7 @@ import {
   getToolCallChannel,
   getUserNotificationChannel,
   getWorkflowTestChannel,
+  HttpErrorCode,
   IdPrefix,
 } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
@@ -21,6 +22,7 @@ import type { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
 import type { PermissionService } from '../features/auth/permission.service';
 import type { SessionHandleService } from '../features/auth/session/session-handle.service';
+import type { IUserOrganizationResolver } from '../features/auth/user-organization-resolver';
 import type { IClsStore } from '../types/cls';
 
 const NOTIFICATION_CHANNEL_PREFIX = getUserNotificationChannel('');
@@ -41,6 +43,7 @@ export interface IAuthMiddlewareDeps {
   permissionService?: PermissionService;
   clsService?: ClsService<IClsStore>;
   prismaService?: PrismaService;
+  userOrganizationResolver?: IUserOrganizationResolver;
 }
 
 /**
@@ -124,8 +127,15 @@ const parsePresenceChannel = (ch: string): IPresenceChannelSpec | undefined => {
   return undefined;
 };
 
-const DENIED = new Error('Presence channel access denied');
-const LISTEN_ONLY = new Error('Presence channel is listen-only for this connection');
+const DENIED = Object.assign(new Error('Presence channel access denied'), {
+  code: HttpErrorCode.RESTRICTED_RESOURCE,
+});
+const LISTEN_ONLY = Object.assign(
+  new Error('Presence channel is listen-only for this connection'),
+  {
+    code: HttpErrorCode.RESTRICTED_RESOURCE,
+  }
+);
 
 // What a connection may do on a channel: subscribe and publish, only subscribe, or nothing.
 type IPresenceGrant = 'full' | 'listen' | 'none';
@@ -144,7 +154,7 @@ type IPresenceGrant = 'full' | 'listen' | 'none';
  * from their grid until they reload.
  */
 const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
-  const { permissionService, clsService, prismaService: prisma } = deps;
+  const { permissionService, clsService, prismaService: prisma, userOrganizationResolver } = deps;
 
   const tableToBaseId = async (tableId: string): Promise<string | undefined> =>
     (
@@ -188,9 +198,13 @@ const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
     try {
       // Throws when the user has no role on the base (or its space); reuse the same
       // resolution the HTTP layer uses so cross-tenant users are rejected identically.
-      await clsService!.runWith({ user: { id: userId } } as IClsStore, () =>
-        permissionService!.getPermissionByBaseId(baseId)
-      );
+      await clsService!.runWith({ user: { id: userId } } as IClsStore, async () => {
+        if (userOrganizationResolver) {
+          const organization = await userOrganizationResolver.getUserOrganization(userId);
+          clsService!.set('organization', organization ?? undefined);
+        }
+        return permissionService!.getPermissionByBaseId(baseId);
+      });
       return true;
     } catch {
       return false;

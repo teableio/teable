@@ -10,7 +10,10 @@ import { RecordWriteSideEffectService } from '../application/services/RecordWrit
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import type {
+  UndoRedoStackEntryInput,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -551,16 +554,24 @@ class FakeUnitOfWork implements IUnitOfWork {
 }
 
 class FakeUndoRedoService {
-  entries: unknown[] = [];
+  entries: UndoRedoStackEntryInput[] = [];
   calls?: string[];
 
-  async recordEntry(_context: IExecutionContext, _tableId: TableId, entry: unknown) {
+  async recordEntry(
+    _context: IExecutionContext,
+    _tableId: TableId,
+    entry: UndoRedoStackEntryInput
+  ) {
     this.calls?.push('undoRedo.append');
     this.entries.push(entry);
     return ok(undefined);
   }
 
-  async appendEntry(_context: IExecutionContext, _tableId: TableId, entry: unknown) {
+  async appendEntry(
+    _context: IExecutionContext,
+    _tableId: TableId,
+    entry: UndoRedoStackEntryInput
+  ) {
     this.calls?.push('undoRedo.append');
     this.entries.push(entry);
     return ok(undefined);

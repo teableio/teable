@@ -21,12 +21,11 @@ import {
   executeDuplicateTableEndpoint,
   executeGetTableByIdEndpoint,
   executeListTableRecordsEndpoint,
-  executeListTablesEndpoint,
   executeRenameTableEndpoint,
   executeRestoreTableEndpoint,
   executeUpdateTablePropertiesEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
-import { GetDefaultViewIdQuery, v2CoreTokens } from '@teable/v2-core';
+import { BaseId, GetDefaultViewIdQuery, v2CoreTokens } from '@teable/v2-core';
 import type {
   GetDefaultViewIdResult,
   ICommandBus,
@@ -161,38 +160,42 @@ export class TableOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
+  /** Table navigation reads metadata, not field schemas of every sibling table. */
   async getTables(baseId: string): Promise<ITableVo[]> {
-    const container = await this.v2ContainerService.getContainerForBase(baseId);
-    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    const context = await this.v2ContextFactory.createContext(container);
-    const result = await executeListTablesEndpoint(context, { baseId, sortBy: 'name' }, queryBus);
-
-    if (result.status === 200 && result.body.ok) {
-      const tables = result.body.data.tables.map((table) => this.mapV2TableToVo(table));
-      const metas = await this.prismaService.tableMeta.findMany({
-        where: { baseId, deletedTime: null },
-        select: { id: true, order: true, lastModifiedTime: true },
-      });
-      const metaById = new Map(metas.map((meta) => [meta.id, meta]));
-      return tables
-        .map((table) => {
-          const meta = metaById.get(table.id);
-          return {
-            ...table,
-            ...(meta?.order != null ? { order: meta.order } : {}),
-            ...(meta?.lastModifiedTime
-              ? { lastModifiedTime: meta.lastModifiedTime.toISOString() }
-              : {}),
-          };
-        })
-        .sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+    const baseIdResult = BaseId.create(baseId);
+    if (baseIdResult.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(baseIdResult.error),
+        mapDomainErrorToHttpStatus(baseIdResult.error)
+      );
     }
 
-    if (!result.body.ok) {
-      throwV2Error(result.body.error, result.status);
-    }
-
-    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: { baseId, deletedTime: null, provisionState: ProvisionState.ready },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        dbTableName: true,
+        description: true,
+        icon: true,
+        order: true,
+        lastModifiedTime: true,
+      },
+    });
+    const defaultViewIdByTableId = await this.getDefaultViewIds(tables.map((table) => table.id));
+    return tables.map((table) => ({
+      id: table.id,
+      name: table.name,
+      dbTableName: table.dbTableName,
+      ...(table.description != null ? { description: table.description } : {}),
+      ...(table.icon != null ? { icon: table.icon } : {}),
+      order: table.order,
+      ...(table.lastModifiedTime ? { lastModifiedTime: table.lastModifiedTime.toISOString() } : {}),
+      ...(defaultViewIdByTableId.has(table.id)
+        ? { defaultViewId: defaultViewIdByTableId.get(table.id) }
+        : {}),
+    }));
   }
 
   async getSnapshotBulk(baseId: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {
@@ -201,22 +204,7 @@ export class TableOpenApiV2Service {
       orderBy: { order: 'asc' },
     });
 
-    const defaultViewIdByTableId = new Map<string, string>();
-    if (tables.length) {
-      const views = await this.prismaService.view.findMany({
-        where: {
-          tableId: { in: tables.map((table) => table.id) },
-          deletedTime: null,
-        },
-        select: { id: true, tableId: true, order: true },
-        orderBy: { order: 'asc' },
-      });
-      for (const view of views) {
-        if (!defaultViewIdByTableId.has(view.tableId)) {
-          defaultViewIdByTableId.set(view.tableId, view.id);
-        }
-      }
-    }
+    const defaultViewIdByTableId = await this.getDefaultViewIds(tables.map((table) => table.id));
 
     return tables
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
@@ -233,6 +221,23 @@ export class TableOpenApiV2Service {
           defaultViewId: defaultViewIdByTableId.get(table.id),
         } as ITableVo,
       }));
+  }
+
+  private async getDefaultViewIds(tableIds: string[]): Promise<Map<string, string>> {
+    const defaultViewIdByTableId = new Map<string, string>();
+    if (!tableIds.length) return defaultViewIdByTableId;
+
+    const views = await this.prismaService.view.findMany({
+      where: { tableId: { in: tableIds }, deletedTime: null },
+      select: { id: true, tableId: true, order: true },
+      orderBy: { order: 'asc' },
+    });
+    for (const view of views) {
+      if (!defaultViewIdByTableId.has(view.tableId)) {
+        defaultViewIdByTableId.set(view.tableId, view.id);
+      }
+    }
+    return defaultViewIdByTableId;
   }
 
   async getDocIds(baseId: string, projectionTableIds?: string[]): Promise<{ ids: string[] }> {

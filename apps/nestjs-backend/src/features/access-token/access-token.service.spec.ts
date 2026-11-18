@@ -7,9 +7,12 @@ import { ClsService } from 'nestjs-cls';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
 import { PerformanceCacheService } from '../../performance-cache';
+import { Encryptor } from '../../utils/encryptor';
 import { AccessTokenModel } from '../model/access-token';
+import { AccessTokenLegacyCipherService } from './access-token-legacy-cipher.service';
+import { currentSignTag } from './access-token.encryptor';
 import { AccessTokenModule } from './access-token.module';
-import { AccessTokenService } from './access-token.service';
+import { AccessTokenService, generateSign } from './access-token.service';
 
 describe('AccessTokenService', () => {
   let accessTokenService: AccessTokenService;
@@ -196,6 +199,99 @@ describe('AccessTokenService', () => {
 
       // Ensure accessToken.updateMany is not called in this case
       expect(prismaService.txClient().accessToken.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('signs and retiring key/iv', () => {
+    const tokenRow = {
+      id: 'acc1',
+      name: 't',
+      description: null,
+      scopes: '["record|read"]',
+      spaceIds: null,
+      baseIds: null,
+      hasFullAccess: null,
+      expiredTime: new Date('2099-12-31T00:00:00.000Z'),
+      createdTime: new Date('2026-01-01T00:00:00.000Z'),
+      lastUsedTime: null,
+      sign: 'SIGN',
+    };
+    const asUser = () => {
+      const cls = module.get(ClsService);
+      vitest
+        .spyOn(cls, 'get')
+        .mockImplementation(((key: string) => (key === 'user.id' ? 'usr1' : undefined)) as never);
+    };
+
+    it('leads a new sign with the tag of the key/iv sealing it', () => {
+      const sign = generateSign();
+      expect(currentSignTag()).toMatch(/^[0-9a-f]{6}$/);
+      expect(sign).toMatch(new RegExp(`^${currentSignTag()}\\.[0-9a-zA-Z]{13}$`));
+      expect(generateSign()).not.toBe(sign);
+    });
+
+    it('refreshes a token with a tagged sign', async () => {
+      asUser();
+      prismaService.accessToken.update.mockResolvedValue({
+        ...tokenRow,
+        expiredTime: new Date('2099-12-31T00:00:00.000Z'),
+      } as any);
+
+      await accessTokenService.refreshAccessToken('acc1');
+
+      const { data } = prismaService.accessToken.update.mock.calls[0][0] as {
+        data: { sign: string };
+      };
+      expect(data.sign.startsWith(`${currentSignTag()}.`)).toBe(true);
+    });
+
+    it('writes nothing when the token can not be sealed', async () => {
+      asUser();
+      const encrypt = vitest.spyOn(Encryptor.prototype, 'encrypt').mockImplementation(() => {
+        throw new Error('Encryption failed');
+      });
+      try {
+        await expect(
+          accessTokenService.createAccessToken({
+            name: 't',
+            scopes: ['record|read'],
+            expiredTime: '2099-12-31',
+          } as never)
+        ).rejects.toThrow('Encryption failed');
+        expect(prismaService.accessToken.create).not.toHaveBeenCalled();
+
+        // the stored sign stays, so the token in the holder's hands keeps working
+        await expect(accessTokenService.refreshAccessToken('acc1')).rejects.toThrow(
+          'Encryption failed'
+        );
+        expect(prismaService.accessToken.update).not.toHaveBeenCalled();
+      } finally {
+        encrypt.mockRestore();
+      }
+    });
+
+    it('lists the mark of a token under an older key/iv, and never the sign', async () => {
+      asUser();
+      const legacyCipher = module.get(AccessTokenLegacyCipherService);
+      const marksOf = vitest
+        .spyOn(legacyCipher, 'marksOf')
+        .mockReturnValue(new Map([['accOld', { stopped: false }]]));
+      prismaService.accessToken.findMany.mockResolvedValue([
+        { ...tokenRow, id: 'accOld' },
+        { ...tokenRow, id: 'accNew' },
+      ] as any);
+
+      const list = await accessTokenService.listAccessToken();
+
+      expect(marksOf).toHaveBeenCalledWith([
+        expect.objectContaining({ id: 'accOld', sign: 'SIGN' }),
+        expect.objectContaining({ id: 'accNew', sign: 'SIGN' }),
+      ]);
+      expect(list.map(({ id, legacyCipher }) => ({ id, legacyCipher }))).toEqual([
+        { id: 'accOld', legacyCipher: { stopped: false } },
+        { id: 'accNew', legacyCipher: undefined },
+      ]);
+      expect(list.some((token) => 'sign' in token)).toBe(false);
     });
   });
 });

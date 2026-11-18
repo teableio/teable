@@ -98,18 +98,17 @@ export class V2AttachmentUrlSignerService implements IAttachmentUrlSignerService
     }
 
     const { sm: smThumbnailPath, lg: lgThumbnailPath } = thumbnailPaths;
-    const thumbnailMimetype = resolveThumbnailMimetype(item.mimetype);
 
     const smThumbnailUrl = smThumbnailPath
       ? await this.attachmentsStorageService.getTableThumbnailUrl(
           smThumbnailPath,
-          thumbnailMimetype
+          resolveThumbnailMimetype(item.mimetype, smThumbnailPath)
         )
       : undefined;
     const lgThumbnailUrl = lgThumbnailPath
       ? await this.attachmentsStorageService.getTableThumbnailUrl(
           lgThumbnailPath,
-          thumbnailMimetype
+          resolveThumbnailMimetype(item.mimetype, lgThumbnailPath)
         )
       : undefined;
 

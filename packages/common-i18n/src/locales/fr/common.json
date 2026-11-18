@@ -257,7 +257,8 @@
       "firstRelease": "Première version",
       "about": "À propos",
       "noChangelog": "Mise à jour générale"
-    }
+    },
+    "unavailable": "Ce modèle n’est pas disponible"
   },
   "baseShare": {
     "shareTitle": "Partager",
@@ -1323,12 +1324,59 @@
       "successText": "Les données d'exportation sont prêtes",
       "failedText": "L'exportation a échoué, veuillez réessayer"
     },
+    "baseImport": {
+      "skippedCells": "Certaines valeurs importées n'ont pas pu être restaurées : {{skippedUserCells}} cellules utilisateur et {{skippedLinkCells}} cellules de liaison. Les enregistrements valides ont été conservés ; vérifiez le projet importé.",
+      "relaxedRequiredUserFields": "Pour conserver les enregistrements contenant des utilisateurs introuvables, le caractère obligatoire de {{count}} champs utilisateur importés a été supprimé. Vérifiez le projet importé.",
+      "failed": "L'importation du projet a échoué avant la restauration de toutes les données. Vérifiez le projet importé et réessayez après avoir résolu l'erreur."
+    },
     "importantNotice": {
       "title": "Important Notice",
       "acknowledge": "I Understand"
     },
     "oauthApp": {
       "message": "De {{app}} : {{text}}"
+    },
+    "category": {
+      "mention": "Mention",
+      "comment": "Commentaire",
+      "invite": "Invitation",
+      "import": "Importation",
+      "export": "Exportation",
+      "automation": "Automatisation",
+      "routine": "Routine",
+      "aiTask": "Champ IA",
+      "aiChat": "Chat IA",
+      "credit": "Crédits",
+      "billing": "Facturation",
+      "reward": "Récompense",
+      "template": "Modèle",
+      "dataExport": "Export de données",
+      "announcement": "Annonce",
+      "app": "Application",
+      "system": "Système"
+    },
+    "panel": {
+      "unreadCount": "Non lues : {{count}}",
+      "markRead": "Marquer comme lue",
+      "markUnread": "Marquer comme non lue",
+      "allCaughtUp": "Vous êtes à jour",
+      "emptyTitle": "Aucune notification pour le moment",
+      "emptyDescription": "Les mentions, invitations et résultats des importations, automatisations et tâches IA apparaissent ici.",
+      "noMatch": "Aucune notification ne correspond à ces filtres",
+      "group": {
+        "today": "Aujourd'hui",
+        "yesterday": "Hier",
+        "earlier": "Plus tôt"
+      },
+      "filter": {
+        "severity": "Niveau",
+        "title": "Filtrer",
+        "clear": "Effacer les filtres",
+        "all": "Toutes",
+        "mine": "Pour vous",
+        "system": "Système",
+        "unreadOnly": "Non lues uniquement"
+      }
     }
   },
   "role": {
@@ -1358,6 +1406,7 @@
     "resetTrashConfirm": "Êtes-vous sûr de vouloir vider la corbeille?",
     "addToTrash": "Déplacer dans la corbeille",
     "description": "Les données dans la corbeille occupent toujours un espace d'utilisation de records et d'utilisation de pièces jointes.",
+    "publishedAppsOffline": "Applications publiées immédiatement mises hors ligne : {{total}}. Après une restauration depuis la corbeille, il faudra les republier.",
     "spaceDescription": "Restaurer les espaces supprimés au cours des {{retentionDays}} derniers jours",
     "spaceInnerDescription": "Restaurer les projets supprimés de cet espace au cours des {{retentionDays}} derniers jours",
     "baseDescription": "Restaurer les ressources supprimées de ce projet au cours des {{retentionDays}} derniers jours",
@@ -1479,16 +1528,16 @@
       "notify": {
         "template": {
           "approved": {
-            "title": "Votre modèle {{name}} est en ligne",
-            "message": "{{name}} a été validé et est désormais public en version {{version}}.",
-            "messageWithNote": "{{name}} a été validé et est désormais public en version {{version}}. Note du validateur : {{note}}",
-            "messageNoPayout": "{{name}} a été validé et est désormais public en version {{version}}. Vous n'avez pas encore défini de mode de versement : vos gains seront donc reportés. Ajoutez-en un dans le Centre des créateurs.",
-            "messageNoPayoutWithNote": "{{name}} a été validé et est désormais public en version {{version}}. Vous n'avez pas encore défini de mode de versement : vos gains seront donc reportés. Ajoutez-en un dans le Centre des créateurs. Note du validateur : {{note}}"
+            "title": "Votre modèle {{name}} est dans le centre de modèles",
+            "message": "{{name}} est désormais dans le centre de modèles, en version {{version}}.",
+            "messageWithNote": "{{name}} est désormais dans le centre de modèles, en version {{version}}. Note du validateur : {{note}}",
+            "messageNoPayout": "{{name}} est désormais dans le centre de modèles, en version {{version}}. Vous n'avez pas encore défini de mode de versement : vos gains seront donc reportés. Ajoutez-en un dans le Centre des créateurs.",
+            "messageNoPayoutWithNote": "{{name}} est désormais dans le centre de modèles, en version {{version}}. Vous n'avez pas encore défini de mode de versement : vos gains seront donc reportés. Ajoutez-en un dans le Centre des créateurs. Note du validateur : {{note}}"
           },
           "rejected": {
-            "title": "Votre modèle {{name}} vous a été renvoyé",
-            "message": "{{name}} n'a pas été validé.",
-            "messageWithNote": "{{name}} n'a pas été validé. Note du validateur : {{note}}"
+            "title": "Votre modèle {{name}} n'est pas dans le centre de modèles pour l'instant",
+            "message": "{{name}} n'est pas dans le centre de modèles pour l'instant. Son lien s'ouvre toujours, et il peut toujours être installé et partagé.",
+            "messageWithNote": "{{name}} n'est pas dans le centre de modèles pour l'instant. Son lien s'ouvre toujours, et il peut toujours être installé et partagé. Note du validateur : {{note}}"
           }
         },
         "subject": "Notification - {{brandName}}",
@@ -1650,6 +1699,9 @@
           },
           "failed": {
             "message": "❌ Exportation de {{baseName}} échouée: {{errorMessage}}"
+          },
+          "cancelled": {
+            "message": "L’export du projet a été annulé, car tous les onglets qui l’avaient demandé ont été fermés ou quittés. Aucun fichier à télécharger n’a été créé. Rouvrez le projet et relancez l’export."
           }
         },
         "task": {
@@ -1690,6 +1742,8 @@
         "userDataExport": {
           "buttonText": "Télécharger mes données",
           "failed": "Bonjour {{name}},<br><br>Nous n'avons pas pu terminer la préparation de vos données :<br><em>{{errorMessage}}</em><br><br>Veuillez contacter l'administrateur.",
+          "incompleteTitle": "Export arrêté — espace non supprimé",
+          "incomplete": "Bonjour {{name}},<br><br>L’export a été arrêté car ces tables ne sont pas prêtes. Aucune suppression définitive n’a été effectuée ; votre espace reste dans la corbeille.<br><br>{{tables}}<br><br>Ces tables peuvent être masquées dans la barre latérale. Restaurez l’espace depuis la corbeille, puis sauvegardez les tables prêtes avec l’export des données dans les paramètres du compte. Vérifiez les tables omises dans SKIPPED_TABLES.txt. Transmettez les identifiants de bases et de tables ainsi que les états ci-dessus à votre administrateur pour réparer la création des tables avant de réessayer l’export avec suppression définitive. Ne supprimez rien définitivement sans sauvegarde vérifiée.",
           "accountDeleted": {
             "title": "Votre export de données est prêt",
             "message": "Bonjour {{name}},<br><br>Vous avez demandé une copie de vos données avant de supprimer votre compte Teable. Elle est prête.<br><br>Le lien ci-dessous est valable {{expiresInDays}} jours."
@@ -1767,26 +1821,58 @@
   "credit": {
     "title": "Crédit",
     "leftAmount": "Crédits restants",
-    "winFreeCredits": "Partager son expérience",
-    "getCredits": "Obtenir 1000 crédits gratuits",
+    "shareYourWork": "Partagez votre travail",
+    "shareYourWorkCash": "Partagez vos modèles, touchez 30 % en espèces",
+    "shareYourWorkCredits": "Partagez vos modèles, obtenez 1 000 crédits gratuits",
+    "shareWork": {
+      "kicker": "Partagez votre travail",
+      "hookCash": "Pour chaque client payant venu de votre modèle,<br/>touchez <figure>30 %</figure> en espèces !",
+      "hookCredits": "Partagez un modèle deux fois par semaine<br/>et recevez <figure>500</figure> crédits à chaque fois !",
+      "chip": "Vos 2 premiers partages de la semaine : 500 crédits chacun",
+      "prompt": {
+        "creditsAndCash": "Partagez-le, gagnez des crédits et de l'argent",
+        "creditsAndCashRule": "500 crédits pour chacun de vos 2 premiers partages de la semaine, plus 30 % en espèces des clients payants qu'il amène",
+        "credits": "Partagez-le, gagnez des crédits",
+        "creditsRule": "500 crédits pour chacun de vos 2 premiers partages de la semaine",
+        "cash": "Partagez-le, gagnez de l'argent",
+        "cashRule": "30 % en espèces des clients payants qu'il amène",
+        "toX": "Partager sur X",
+        "toLinkedIn": "Partager sur LinkedIn"
+      },
+      "installs_one": "{{count}} installation",
+      "installs_many": "{{count}} installations",
+      "installs_other": "{{count}} installations",
+      "share": "Partager",
+      "empty": {
+        "title": "Transformez d'abord un projet en modèle",
+        "hint": "Vous pourrez le partager dès sa publication",
+        "make": "Créer un modèle",
+        "start": "Partir de zéro"
+      },
+      "card": {
+        "title": "Partager {{name}}",
+        "drafting": "Rédaction…",
+        "again": "Autre version",
+        "copy": "Copier",
+        "copied": "Copié",
+        "postX": "Publier sur X",
+        "postLinkedIn": "Publier sur LinkedIn",
+        "claimHint": "Publié ? Collez le lien pour <b>500</b> crédits"
+      },
+      "claim": {
+        "title": "Collez le lien de votre publication pour 500 crédits",
+        "hint": "Vos 2 premières publications de la semaine comptent (X + LinkedIn)",
+        "requireLink": "La publication renvoie vers {{name}}",
+        "requireFollowers": "Le compte a 10+ abonnés",
+        "requireRecent": "Publiée il y a moins de 6 heures",
+        "button": "Recevoir 500 crédits",
+        "back": "Retour au brouillon"
+      }
+    },
     "winCredit": {
-      "title": "Partagez un avis positif pour gagner",
-      "freeCredits": "1000 crédits gratuits",
-      "guidelinesTitle": "Liste de vérification du partage",
-      "tagTeableio": "Mentionnez <bold>@teableio</bold>",
-      "minCharacters": "Écrivez un avis de <bold>80+</bold> caractères",
-      "minFollowers": "Ayez <bold>10+</bold> abonnés",
-      "limitPerWeek": "500 crédits par publication, jusqu'à 2 publications par semaine (X + LinkedIn)",
-      "postOnX": "Publier sur X",
-      "postOnLinkedIn": "Publier sur LinkedIn",
-      "preFilledDraft": "🌟 Brouillon pré-rempli prêt pour vous !",
-      "claimTitle": "Collez l'URL de la publication pour réclamer vos crédits",
-      "userEmail": "E-mail de l'utilisateur",
-      "postUrlLabel": "URL de la publication (X ou LinkedIn)",
       "postUrlPlaceholder": "Collez le lien de votre publication ici",
       "invalidUrl": "Veuillez entrer une URL de publication X ou LinkedIn valide",
       "claiming": "Réclamation en cours...",
-      "claimCredits": "Réclamer des crédits",
       "congratulations": "Félicitations !",
       "claimSuccess": "Vous avez réclamé 500 crédits !",
       "verifying": "Vérification de votre publication...",
@@ -1804,6 +1890,7 @@
     "minCharCount": "La publication doit contenir au moins {{count}} caractères",
     "minFollowerCount": "Le compte doit avoir au moins {{count}} abonnés",
     "mustMention": "La publication doit mentionner {{mention}}",
+    "mustLinkTemplate": "La publication doit renvoyer vers l'un de vos modèles",
     "fetchSnapshotFailed": "Échec de la récupération de la capture de la publication",
     "snapshotTimeout": "Délai d'attente dépassé pour la capture de la publication, veuillez réessayer plus tard",
     "alreadyClaimedThisWeek": "Vous avez déjà réclamé une récompense pour ce compte cette semaine",
@@ -2107,14 +2194,18 @@
       "connectIntegration": "Cuppy a besoin que tu connectes une application.",
       "pickGoogleSheet": "Cuppy a besoin que tu choisisses une feuille.",
       "presentTemplates": "Cuppy a trouvé un modèle prêt à l'emploi et attend votre décision.",
-      "requestCredential": "Cuppy a besoin d'un accès pour continuer."
+      "requestCredential": "Cuppy a besoin d'un accès pour continuer.",
+      "presentTemplateScope": "Cuppy a déterminé ce que le modèle emporte et attend votre confirmation.",
+      "presentTemplateFindings": "Cuppy a trouvé du contenu qui vous est propre et attend que vous choisissiez quoi remplacer."
     },
     "result": {
       "done": "Terminé.",
       "failed": "L'exécution a échoué.",
       "creditExhausted": "Arrêté : plus de crédits IA.",
       "skippedNoCredit": "Ignoré cette fois : plus de crédits IA.",
+      "skippedNoCreditSummary": "{{count}} autres routines ont été ignorées : plus de crédits IA.",
       "autoDeactivated": "Désactivé après cinq échecs consécutifs.",
+      "autoDeactivatedSummary": "{{count}} autres routines ont été désactivées après cinq échecs consécutifs.",
       "summaryTitle": "Teable",
       "summary": "{{count}} conversations ont du nouveau."
     }

@@ -29,6 +29,7 @@ export type TableDeletionPreparation = {
 };
 
 export interface ITableDeletionPreparationService {
+  /** Read-only and side-effect-free: callers may discard a late result after their deadline. */
   prepare(
     context: IExecutionContext,
     command: DeleteTableCommand

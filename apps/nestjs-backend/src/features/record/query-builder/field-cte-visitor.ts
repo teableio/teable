@@ -2330,9 +2330,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
               // Direct join for many-to-one and one-to-one relationships
               // No GROUP BY needed for single-value relationships
 
-              // For OneOne and ManyOne relationships, the foreign key is always stored in fkHostTableName
-              // But we need to determine the correct join condition based on which table we're querying from
-              const isForeignKeyInMainTable = fkHostTableName === this.table.dbTableName;
+              // A self OneOne relation shares the FK host table on both sides;
+              // only the side whose foreign key is not __id owns the FK column.
+              const isForeignKeyInMainTable =
+                fkHostTableName === this.table.dbTableName &&
+                selfKeyName === '__id' &&
+                foreignKeyName !== '__id';
 
               this.fromTableWithRestriction(cqb, this.table, mainAlias);
 
@@ -2751,7 +2754,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             relationship === Relationship.ManyOne ||
             relationship === Relationship.OneOne
           ) {
-            const isForeignKeyInMainTable = fkHostTableName === table.dbTableName;
+            const isForeignKeyInMainTable =
+              fkHostTableName === table.dbTableName &&
+              selfKeyName === '__id' &&
+              foreignKeyName !== '__id';
             this.fromTableWithRestriction(cqb, table, mainAlias);
 
             if (isForeignKeyInMainTable) {

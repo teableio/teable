@@ -749,9 +749,15 @@ export * from './application/services/RecordQueryPluginRunner';
 export * from './application/services/TableUpdateTransactionScope';
 export * from './application/services/createPaginatedExportStream';
 export * from './ports/TableSchemaRepository';
+export {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+  type ITableSchemaCoordinationLease,
+} from './ports/TableSchemaCoordination';
 export * from './ports/UnitOfWork';
 export * from './ports/UndoRedoStore';
 export * from './ports/CsvParser';
+export type { IImportDiagnostics } from './ports/import/IImportSource';
 export * from './ports/Hasher';
 export * from './ports/defaults';
 export * from './ports/memory';

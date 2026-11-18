@@ -13,6 +13,7 @@ import type {
 import {
   FieldType,
   HttpErrorCode,
+  Relationship,
   extractFieldIdsFromFilter,
   isConditionalLookupOptions,
   isLinkLookupOptions,
@@ -400,6 +401,16 @@ export class FieldDuplicateService {
     );
   }
 
+  private isLinkCreationSide(field: IFieldWithTableIdJson): boolean {
+    const { relationship, selfKeyName, foreignKeyName } = field.options as ILinkFieldOptions;
+    if (relationship === Relationship.ManyMany) {
+      // Both junction sides are equivalent; choose a stable physical key order.
+      return selfKeyName < foreignKeyName;
+    }
+    // Create the FK-owning ManyOne/OneOne side so its field ID still names the FK column.
+    return selfKeyName === '__id' && foreignKeyName !== '__id';
+  }
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
   async createSelfLinkFields(
     fields: IFieldWithTableIdJson[],
@@ -495,9 +506,8 @@ export class FieldDuplicateService {
       Array<{ driverField: IFieldWithTableIdJson; groupField: IFieldWithTableIdJson }>
     >();
     for (const pair of mergedTwoWaySelfLinkFields) {
-      const index = pair.findIndex((f) => (f.options as ILinkFieldOptions).isOneWay === undefined)!;
-      const passiveIndex = index === -1 ? 0 : index;
-      const driverIndex = passiveIndex === 0 ? 1 : 0;
+      const driverIndex = this.isLinkCreationSide(pair[0]) ? 0 : 1;
+      const passiveIndex = driverIndex === 0 ? 1 : 0;
 
       const groupField = pair[passiveIndex];
       const driverField = pair[driverIndex];
@@ -666,9 +676,7 @@ export class FieldDuplicateService {
       Array<{ passiveField: IFieldWithTableIdJson; symmetricField: IFieldWithTableIdJson }>
     >();
     for (const pair of groupedTwoWayFields) {
-      // fk would like in this table
-      const index = pair.findIndex((f) => (f.options as ILinkFieldOptions).isOneWay === undefined)!;
-      const passiveIndex = index === -1 ? 0 : index;
+      const passiveIndex = this.isLinkCreationSide(pair[0]) ? 0 : 1;
       const driverIndex = passiveIndex === 0 ? 1 : 0;
       const passiveField = pair[passiveIndex];
       const symmetricField = pair[driverIndex];
@@ -860,7 +868,7 @@ export class FieldDuplicateService {
     for (const field of linkFields) {
       const { options, id } = field;
       const sourceField = sourceFields.find((f) => fieldIdMap[f.id] === id);
-      const { filter, filterByViewId, visibleFieldIds } = sourceField?.options as ILinkFieldOptions;
+      const { filter, filterByViewId, visibleFieldIds } = sourceField!.options as ILinkFieldOptions;
       const moreConfigStr = {
         filter,
         filterByViewId,
@@ -899,7 +907,7 @@ export class FieldDuplicateService {
     for (const field of [...lookupFields, ...rollupFields]) {
       const { lookupOptions, id } = field;
       const sourceField = sourceFields.find((f) => fieldIdMap[f.id] === id);
-      const { filter } = sourceField?.lookupOptions as ILookupOptionsRo;
+      const { filter } = sourceField!.lookupOptions as ILookupOptionsRo;
       const moreConfigStr = {
         filter,
       };

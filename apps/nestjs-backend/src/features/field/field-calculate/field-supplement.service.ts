@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   AttachmentFieldCore,
   AutoNumberFieldCore,
@@ -78,13 +78,9 @@ import {
   majorFieldKeysChanged,
   NON_INFECT_OPTION_KEYS,
 } from '../../../utils/major-field-keys-changed';
-import {
-  isCrossSpaceReferenceAllowed,
-  parseFieldJson,
-} from '../../base/cross-space-detection.util';
 import { ReferenceService } from '../../calculation/reference.service';
 import { hasCycle } from '../../calculation/utils/dfs';
-import { CrossBaseLinkAccessService } from '../../record/cross-base-link-access.service';
+import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
@@ -98,8 +94,8 @@ type ILinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
     Partial<Pick<ILinkFieldOptions, 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'>>;
 };
 
-// Shared cross-space policy/accessors, formatting/schema normalization and
-// getFieldReferenceIds are host/pure helpers, not legacy execution boundaries.
+// Formatting/schema normalization and getFieldReferenceIds are host/pure helpers,
+// not legacy execution boundaries. Reference admission lives in its own host module.
 @V1EngineService([
   'generateNewLinkOptionsVo',
   'generateUpdatedLinkOptionsVo',
@@ -117,10 +113,8 @@ type ILinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
 ])
 @Injectable()
 export class FieldSupplementService {
-  private readonly logger = new Logger(FieldSupplementService.name);
-
-  @Inject(CrossBaseLinkAccessService)
-  private readonly crossBaseLinkAccess!: CrossBaseLinkAccessService;
+  @Inject(FieldReferenceAdmissionService)
+  private readonly fieldReferenceAdmission!: FieldReferenceAdmissionService;
 
   constructor(
     private readonly fieldService: FieldService,
@@ -137,119 +131,6 @@ export class FieldSupplementService {
       select: { dbTableName: true },
     });
     return tableMeta.dbTableName;
-  }
-
-  async isCrossSpaceTarget(tableId: string, foreignTableId: string): Promise<boolean> {
-    // Central policy switch: with the escape hatch on, nothing counts as a
-    // cross-space target, which disables the create-forbid and the
-    // field-duplicate downgrade in one place.
-    if (isCrossSpaceReferenceAllowed()) return false;
-    if (!foreignTableId || tableId === foreignTableId) return false;
-    const rows = await this.prismaService.txClient().tableMeta.findMany({
-      where: { id: { in: [tableId, foreignTableId] }, deletedTime: null },
-      select: { id: true, base: { select: { spaceId: true } } },
-    });
-    const spaceMap = new Map(rows.map((r) => [r.id, r.base.spaceId]));
-    const selfSpace = spaceMap.get(tableId);
-    const foreignSpace = spaceMap.get(foreignTableId);
-    return Boolean(selfSpace && foreignSpace && selfSpace !== foreignSpace);
-  }
-
-  async assertSameSpaceLinkTarget(tableId: string, foreignTableId: string): Promise<void> {
-    if (!(await this.isCrossSpaceTarget(tableId, foreignTableId))) return;
-    // Tag for post-deploy observability: count rejections to gauge how often
-    // clients try to create new cross-space refs after the forbid landed.
-    this.logger.warn(
-      `[cross-space] reject create: tableId=${tableId} foreignTableId=${foreignTableId}`
-    );
-    throw new CustomHttpException(
-      `Cross-space link is no longer supported (foreignTableId: ${foreignTableId})`,
-      HttpErrorCode.VALIDATION_ERROR,
-      {
-        localization: {
-          i18nKey: 'httpErrors.field.crossSpaceLinkForbidden',
-          context: { foreignTableId },
-        },
-      }
-    );
-  }
-
-  // Returns the field's foreign table reference: stored in `options` for
-  // Link / ConditionalRollup, in `lookupOptions` for Lookup / Rollup /
-  // ConditionalLookup. Accepts both parsed IFieldVo and raw Prisma rows
-  // (options/lookupOptions as JSON strings) — parseFieldJson short-circuits
-  // when already an object.
-  getForeignTableId(field: {
-    type: string;
-    isLookup?: boolean | null;
-    options?: unknown;
-    lookupOptions?: unknown;
-  }): string | undefined {
-    const readFt = (raw: unknown): string | undefined => {
-      const blob = parseFieldJson(raw);
-      const v = blob?.foreignTableId;
-      return typeof v === 'string' && v ? v : undefined;
-    };
-    if (field.type === FieldType.Link && !field.isLookup) {
-      return readFt(field.options);
-    }
-    if (field.type === FieldType.ConditionalRollup) {
-      return readFt(field.options);
-    }
-    if (field.isLookup || field.type === FieldType.Rollup) {
-      return readFt(field.lookupOptions);
-    }
-    return undefined;
-  }
-
-  // Composes getForeignTableId + isCrossSpaceTarget so callers don't have to
-  // re-derive the dual-location read every time. Returns true iff the field's
-  // foreignTableId resolves to a different space than `tableId`.
-  async isCrossSpaceField(
-    tableId: string,
-    field: {
-      type: string;
-      isLookup?: boolean | null;
-      options?: unknown;
-      lookupOptions?: unknown;
-    }
-  ): Promise<boolean> {
-    const ft = this.getForeignTableId(field);
-    if (!ft) return false;
-    return this.isCrossSpaceTarget(tableId, ft);
-  }
-
-  // Single guard at the public entry points: any new cross-space link / lookup /
-  // rollup / conditionalLookup / conditionalRollup is rejected, and a new one
-  // across bases needs read access to the foreign table. On update, keep legacy
-  // refs working as long as the foreignTableId is unchanged.
-  private async assertNoNewCrossSpaceField(
-    tableId: string,
-    newField: IFieldVo,
-    oldField?: IFieldVo
-  ): Promise<void> {
-    const newFt = this.getForeignTableId(newField);
-    if (!newFt) return;
-    if (oldField && this.getForeignTableId(oldField) === newFt) return;
-    await this.assertNewForeignTableAllowed(tableId, newFt);
-  }
-
-  /**
-   * A field about to reference `foreignTableId` for the first time: same space,
-   * and readable by the caller when it is in another base (GHSA-p8x2-vpf5-3f6x).
-   */
-  async assertNewForeignTableAllowed(tableId: string, foreignTableId: string): Promise<void> {
-    await this.assertSameSpaceLinkTarget(tableId, foreignTableId);
-    await this.crossBaseLinkAccess.assertForeignTableReadable(tableId, foreignTableId);
-  }
-
-  /**
-   * Reading a foreign table's records through a host field (e.g. a link field's
-   * filter-link options) is, across bases, not covered by the caller's role on
-   * the host base; require read access to the foreign table, as a write would.
-   */
-  async assertForeignTableReadable(tableId: string, foreignTableId: string): Promise<void> {
-    await this.crossBaseLinkAccess.assertForeignTableReadable(tableId, foreignTableId);
   }
 
   private getForeignKeyFieldName(fieldId: string | undefined) {
@@ -2026,7 +1907,7 @@ export class FieldSupplementService {
     this.validateFormattingShowAs(fieldVo);
     this.validateAiConfig(fieldVo);
     await this.validatePrimaryConfigurations(tableId, [fieldVo]);
-    await this.assertNoNewCrossSpaceField(tableId, fieldVo);
+    await this.fieldReferenceAdmission.assertNewFieldReferencesAllowed(tableId, fieldVo);
 
     return fieldVo;
   }
@@ -2157,7 +2038,7 @@ export class FieldSupplementService {
     });
     await this.validatePrimaryConfigurations(tableId, fieldVos);
     for (const fieldVo of fieldVos) {
-      await this.assertNoNewCrossSpaceField(tableId, fieldVo);
+      await this.fieldReferenceAdmission.assertNewFieldReferencesAllowed(tableId, fieldVo);
     }
     return fieldVos;
   }
@@ -2187,7 +2068,11 @@ export class FieldSupplementService {
     )) as IFieldVo;
     this.validateFormattingShowAs(fieldVo);
     this.validateAiConfig(fieldVo);
-    await this.assertNoNewCrossSpaceField(tableId, fieldVo, oldFieldVo);
+    await this.fieldReferenceAdmission.assertNewFieldReferencesAllowed(
+      tableId,
+      fieldVo,
+      oldFieldVo
+    );
 
     return {
       ...fieldVo,

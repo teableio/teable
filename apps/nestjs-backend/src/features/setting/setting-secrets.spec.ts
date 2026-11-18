@@ -29,7 +29,7 @@ describe('setting secrets', () => {
   const imConfig = { telegram: { botToken: 'tg-token', botUsername: 'teable_bot' } };
 
   it('stores each secret-bearing setting under its own codec and reads it back', () => {
-    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED', 'true');
+    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET', 'private-root');
     const storedIm = encryptSettingSecrets(SettingKey.IM_CONFIG, imConfig) as typeof imConfig;
     expect(getThirdPartyCredentialCodec().decryptValueStrict(storedIm.telegram.botToken)).toBe(
       'tg-token'
@@ -45,10 +45,11 @@ describe('setting secrets', () => {
     expect(decryptSettingSecrets(SettingKey.AI_CONFIG, storedAi)).toEqual(aiConfig);
   });
 
-  it('keeps third-party credentials plaintext while the switch is off', () => {
-    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED', '');
+  it('keeps third-party credentials plaintext under the public default root', () => {
+    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET', '');
+    vi.stubEnv('SECRET_KEY', '');
     expect(encryptSettingSecrets(SettingKey.IM_CONFIG, imConfig)).toEqual(imConfig);
-    // aiConfig does not follow the switch
+    // aiConfig is encrypted under any root
     const storedAi = encryptSettingSecrets(SettingKey.AI_CONFIG, { aiGatewayApiKey: 'gw' }) as {
       aiGatewayApiKey: string;
     };

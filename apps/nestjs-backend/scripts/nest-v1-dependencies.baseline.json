@@ -1553,38 +1553,6 @@
   },
   {
     "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/record/cross-base-link-access.field-operation.plugin.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
-    "symbol": "FieldSupplementService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/record/cross-base-link-access.field-operation.plugin.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
-    "symbol": "FieldSupplementService",
-    "kind": "injection",
-    "owner": "CrossBaseLinkAccessFieldOperationPlugin"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/record/cross-base-link-access.plugin-registrar.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
-    "symbol": "FieldSupplementService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/record/cross-base-link-access.plugin-registrar.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
-    "symbol": "FieldSupplementService",
-    "kind": "injection",
-    "owner": "CrossBaseLinkAccessPluginRegistrar"
-  },
-  {
-    "scope": "external-consumer",
     "source": "community/apps/nestjs-backend/src/features/record/share-view-scope.service.ts",
     "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
     "symbol": "RecordService",
@@ -2382,22 +2350,6 @@
     "symbol": "TableDomainQueryService",
     "kind": "injection",
     "owner": "ArchiveService"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/authority-matrix/authority-matrix.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/record-modify/record-modify.module.ts",
-    "symbol": "RecordModifyModule",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/authority-matrix/authority-matrix.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/record-modify/record-modify.module.ts",
-    "symbol": "RecordModifyModule",
-    "kind": "provider",
-    "owner": "AuthorityMatrixModule:imports"
   },
   {
     "scope": "external-consumer",
@@ -4454,38 +4406,6 @@
     "symbol": "IOpsMap",
     "kind": "import",
     "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api-v2.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
-    "symbol": "FieldSupplementService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api-v2.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
-    "symbol": "FieldSupplementService",
-    "kind": "injection",
-    "owner": "FieldOpenApiV2Service"
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
-    "symbol": "FieldSupplementService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/record/open-api/record-open-api-v2.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field-calculate/field-supplement.service.ts",
-    "symbol": "FieldSupplementService",
-    "kind": "property-injection",
-    "owner": "RecordOpenApiV2Service"
   },
   {
     "scope": "v2-host",

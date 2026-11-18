@@ -62,7 +62,7 @@ describe('managed search access-path HTTP contract (postgres)', () => {
     await testContainer?.dispose();
   });
 
-  it('exposes the v2-native status, capability, and guarded reconcile lifecycle', async () => {
+  const verifyLifecycle = async (branch: 'document' | 'residual') => {
     const createTableResponse = await fetch(`${baseUrl}/tables/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -92,9 +92,20 @@ describe('managed search access-path HTTP contract (postgres)', () => {
       .where('id', '=', titleField.id)
       .executeTakeFirstOrThrow();
 
+    const writeColumn = branch === 'residual' ? '__residual_source' : fieldStorage.db_field_name;
+    if (branch === 'residual') {
+      await sql`
+        ALTER TABLE ${sql.table(tableStorage.db_table_name)}
+        ADD COLUMN ${sql.id(writeColumn)} text,
+        DROP COLUMN ${sql.id(fieldStorage.db_field_name)},
+        ADD COLUMN ${sql.id(fieldStorage.db_field_name)} text
+          GENERATED ALWAYS AS (${sql.ref(writeColumn)}) STORED
+      `.execute(testContainer.dataDb);
+    }
+
     await sql`
       INSERT INTO ${sql.table(tableStorage.db_table_name)}
-        ("__id", "__created_by", "__version", ${sql.ref(fieldStorage.db_field_name)})
+        ("__id", "__created_by", "__version", ${sql.id(writeColumn)})
       SELECT
         'rec_search_contract_' || row_number::text,
         'system',
@@ -166,6 +177,11 @@ describe('managed search access-path HTTP contract (postgres)', () => {
       tableId: table.id,
       status: 'ready',
     });
+    if (branch === 'residual') {
+      expect(created).not.toHaveProperty('generatedColumnName');
+    } else {
+      expect(created.generatedColumnName).toEqual(expect.any(String));
+    }
     expect(created.planEvidence).toMatchObject({
       explainStatus: 'validated',
       explainMethod: 'real_index',
@@ -178,6 +194,11 @@ describe('managed search access-path HTTP contract (postgres)', () => {
       provider: 'pg_trgm',
       accessPath: 'generated_text',
       coveredFieldCount: 1,
+      serving: true,
+      configuredFieldIds: [titleField.id],
+      coveredFieldIds: [titleField.id],
+      documentFieldIds: branch === 'document' ? [titleField.id] : [],
+      residualFieldIds: branch === 'residual' ? [titleField.id] : [],
     });
 
     const rebuilt = await reconcile({
@@ -195,9 +216,18 @@ describe('managed search access-path HTTP contract (postgres)', () => {
       definitionKey: created.definitionKey,
       status: 'ready',
     });
+    if (branch === 'residual') {
+      expect(rebuilt).not.toHaveProperty('generatedColumnName');
+    }
 
     const dropped = await reconcile({ tableId: table.id, mode: 'drop' });
     expect(dropped).toMatchObject({ action: 'dropped', status: 'disabled' });
     expect(await readStatus()).toMatchObject({ state: 'disabled', configured: false });
-  }, 120_000);
+  };
+
+  it.each(['document', 'residual'] as const)(
+    'exposes the %s status, capability, and guarded reconcile lifecycle',
+    verifyLifecycle,
+    120_000
+  );
 });

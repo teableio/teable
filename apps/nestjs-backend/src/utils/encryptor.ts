@@ -10,6 +10,18 @@ export interface ICipherEntry {
   algorithm: string;
   key: string | Buffer;
   iv: string | Buffer;
+  /**
+   * Decrypt-only entry this deployment switches TO once its dedicated pair is removed (derived
+   * from SECRET_KEY), accepted ahead of time so pods still on the dedicated pair open what the
+   * switched pods issue. Not an old entry: what it sealed was not issued under an older key.
+   */
+  upcoming?: boolean;
+  /**
+   * Decrypt-only entry an operator pinned in the `_OLD` vars during a planned rotation (marked by
+   * resolveCipherEntries). Unlike a public pair kept for what was issued before a switch, it goes
+   * once the rotation is over, and what it sealed stops opening then.
+   */
+  pinned?: boolean;
 }
 
 export interface IEncryptorOptions {
@@ -47,9 +59,14 @@ export class Encryptor<T> {
   }
 
   decrypt(encryptedData: string): T {
+    return this.decryptWithEntry(encryptedData).data;
+  }
+
+  /** Like decrypt, plus the entry that opened the ciphertext (which key sealed it). */
+  decryptWithEntry(encryptedData: string): { data: T; entry: ICipherEntry } {
     for (const entry of this.entries) {
       try {
-        return this.decryptWith(entry, encryptedData);
+        return { data: this.decryptWith(entry, encryptedData), entry };
       } catch (error) {
         // Wrong entry for this ciphertext — try the next one. A wrong CBC key
         // almost always fails block padding; the rare false pass yields

@@ -314,12 +314,12 @@ export class TableSchemaUpdateVisitor
         SELECT
           count(*)::int AS "rows",
           count(*) FILTER (
-            WHERE field_ids IS NULL
-              OR jsonb_typeof(field_ids) <> 'array'
-              OR field_ids = '[]'::jsonb
-              OR field_ids @> ${JSON.stringify([fieldId])}::jsonb
+            WHERE CASE WHEN (to_jsonb(config)->'serving_snapshot')->'version' = '2'::jsonb
+              THEN coalesce((to_jsonb(config)->'serving_snapshot')->'document'->'fields', '[]'::jsonb) @> ${JSON.stringify([{ fieldId }])}::jsonb
+              ELSE field_ids IS NULL OR jsonb_typeof(field_ids) <> 'array'
+                OR field_ids = '[]'::jsonb OR field_ids @> ${JSON.stringify([fieldId])}::jsonb END
           )::int AS "covering"
-        FROM table_query_search_vector_config
+        FROM table_query_search_vector_config config
         WHERE table_id = ${tableId}
       `.compile(metaDb)
     );
@@ -410,23 +410,51 @@ export class TableSchemaUpdateVisitor
   ): TableSchemaStatementBuilder {
     const visitor = this;
     const { db, tableId } = this.params;
+    const member = quoteSqlLiteral(JSON.stringify([{ fieldId }]));
+    const ids = quoteSqlLiteral(JSON.stringify([fieldId]));
     const statement = `
       DO $teable_search_vector$
+      DECLARE retire_document boolean := true;
       BEGIN
-        UPDATE table_meta
-        SET search_index = NULL, version = version + 1
-        WHERE id = ${quoteSqlLiteral(tableId)};
-
         IF to_regclass('table_query_search_vector_config') IS NOT NULL THEN
-          UPDATE table_query_search_vector_config
-          SET status = 'rebuild_pending',
-              last_inspection = jsonb_build_object(
-                'state', 'rebuild_pending',
-                'staleReasons', jsonb_build_array(${quoteSqlLiteral(reason)})
-              ),
-              last_modified_time = now()
-          WHERE table_id = ${quoteSqlLiteral(tableId)}
-            AND status IN ('ready', 'rebuild_pending');
+          SELECT coalesce(bool_or(CASE WHEN (to_jsonb(config)->'serving_snapshot')->'version' = '2'::jsonb
+            THEN coalesce((to_jsonb(config)->'serving_snapshot')->'document'->'fields', '[]'::jsonb) @> ${member}::jsonb
+            ELSE field_ids IS NULL OR jsonb_typeof(field_ids) <> 'array'
+              OR field_ids = '[]'::jsonb OR field_ids @> ${ids}::jsonb END), true)
+          INTO retire_document FROM table_query_search_vector_config config WHERE table_id = ${quoteSqlLiteral(tableId)};
+        END IF;
+        UPDATE table_meta SET search_index = jsonb_build_object(
+          'version', 2, 'dbTableName', search_index->'dbTableName',
+          'definitionKey', search_index->'definitionKey', 'searchScope', search_index->'searchScope',
+          'fieldIds', coalesce((SELECT jsonb_agg(value->'fieldId') FROM jsonb_array_elements(CASE WHEN jsonb_typeof(search_index->'fields') = 'array' THEN search_index->'fields' ELSE '[]'::jsonb END)), '[]'::jsonb),
+          'document', jsonb_build_object('generatedColumnName', search_index->'generatedColumnName',
+            'indexName', search_index->'indexName', 'provider', search_index->'provider',
+            'ready', false, 'fields', search_index->'fields'))
+        WHERE id = ${quoteSqlLiteral(tableId)} AND search_index->'version' = '1'::jsonb
+          AND jsonb_typeof(search_index->'fields') = 'array'
+          AND jsonb_typeof(search_index->'dbTableName') = 'string'
+          AND jsonb_typeof(search_index->'definitionKey') = 'string'
+          AND jsonb_typeof(search_index->'generatedColumnName') = 'string'
+          AND jsonb_typeof(search_index->'indexName') = 'string';
+        UPDATE table_meta
+        SET search_index = CASE WHEN search_index->'version' = '2'::jsonb THEN
+          CASE WHEN search_index->'residual'->'fields' @> ${member}::jsonb
+            THEN jsonb_set(
+              CASE WHEN retire_document AND search_index ? 'document'
+                THEN jsonb_set(search_index, '{document,ready}', 'false'::jsonb) ELSE search_index END,
+              '{residual,ready}', 'false'::jsonb)
+            ELSE CASE WHEN retire_document AND search_index ? 'document'
+              THEN jsonb_set(search_index, '{document,ready}', 'false'::jsonb) ELSE search_index END END
+          ELSE NULL END,
+          version = version + 1
+        WHERE id = ${quoteSqlLiteral(tableId)};
+        IF to_regclass('table_query_search_vector_config') IS NOT NULL THEN
+          UPDATE table_query_search_vector_config SET status = 'rebuild_pending',
+            last_inspection = jsonb_build_object('state', 'rebuild_pending',
+              'staleReasons', jsonb_build_array(${quoteSqlLiteral(reason)})), last_modified_time = now()
+          WHERE table_id = ${quoteSqlLiteral(tableId)} AND status IN ('ready', 'rebuild_pending')
+            AND (field_ids @> ${ids}::jsonb OR field_ids IS NULL
+              OR jsonb_typeof(field_ids) <> 'array' OR field_ids = '[]'::jsonb);
         END IF;
       END
       $teable_search_vector$;
@@ -436,9 +464,14 @@ export class TableSchemaUpdateVisitor
       compile: () => sql.raw(statement).compile(db),
       execute: async ({ scopedDb, metaDb }) => {
         if (!(await visitor.managedSearchRetireDecision(metaDb, fieldId))) {
-          return;
+          const residual = await metaDb.executeQuery<{ affected: boolean }>(
+            sql`
+            SELECT coalesce(search_index->'residual'->'fields' @> ${JSON.stringify([{ fieldId }])}::jsonb, false) AS affected
+            FROM table_meta WHERE id = ${tableId}
+          `.compile(metaDb)
+          );
+          if (residual.rows[0]?.affected !== true) return;
         }
-
         await scopedDb.executeQuery(sql.raw(statement).compile(scopedDb));
       },
     };

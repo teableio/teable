@@ -1,6 +1,6 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 
 import type { TableUpdateCommand } from '../../commands/TableUpdateCommand';
 import type { BaseId } from '../../domain/base/BaseId';
@@ -20,6 +20,7 @@ import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
 import { TableProvisionReady } from '../../domain/table/events/TableProvisionReady';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
 import { ViewCreated } from '../../domain/table/events/ViewCreated';
+import { ViewDeleted } from '../../domain/table/events/ViewDeleted';
 import { ViewDescriptionUpdated } from '../../domain/table/events/ViewDescriptionUpdated';
 import { ViewFilterUpdated } from '../../domain/table/events/ViewFilterUpdated';
 import { ViewGroupUpdated } from '../../domain/table/events/ViewGroupUpdated';
@@ -51,18 +52,26 @@ import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
+import type { View } from '../../domain/table/views/View';
 import { ViewVersion } from '../../domain/table/views/ViewVersion';
+import { NoopLogger } from '../../ports/defaults/NoopLogger';
 import * as EventBusPort from '../../ports/EventBus';
 import {
+  failBatchResultIfActive,
+  getBatchRollbackError,
   getUnitOfWorkTransaction,
   registerAfterCommit,
   withoutTransaction,
   type IExecutionContext,
 } from '../../ports/ExecutionContext';
+import * as LoggerPort from '../../ports/Logger';
+import type * as SameTxProjectionDispatcherPort from '../../ports/SameTxProjectionDispatcher';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
+import { dispatchSameTxEvents, publishEventsWithBatchDeferral } from './dispatchSameTxEvents';
+import { NoopSameTxProjectionDispatcher } from './SameTxProjectionDispatcher';
 import {
   beginTableSchemaOperation,
   completeTableSchemaOperation,
@@ -172,7 +181,11 @@ export class TableUpdateFlow {
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.logger)
+    private readonly logger: LoggerPort.ILogger = new NoopLogger(),
+    @inject(v2CoreTokens.sameTxProjectionDispatcher)
+    private readonly sameTxProjectionDispatcher: SameTxProjectionDispatcherPort.ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
   ) {}
 
   async execute(
@@ -181,22 +194,25 @@ export class TableUpdateFlow {
     mutate: TableUpdateMutate,
     options?: TableUpdateFlowOptions
   ): Promise<Result<TableUpdateFlowResult, DomainError>> {
+    const poisoned = getBatchRollbackError(context);
+    if (poisoned) {
+      return err(poisoned);
+    }
     const publishEvents = options?.publishEvents ?? true;
     const finalizeWithinTransaction = options?.finalizeWithinTransaction ?? false;
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    return await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
-      const events: IDomainEvent[] = [];
-      const postPersistEvents: IDomainEvent[] = [];
+    const flowResult = await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
       const table = yield* await handler.resolveTable(context, target);
-      let tableUpdatePersistResult: TableRepositoryPort.TableUpdatePersistResult | void = undefined;
 
       const span = context.tracer?.startSpan('teable.TableUpdateFlow.mutate');
       const updated = yield* mutate(table);
       span?.end();
 
-      let latestTable = updated.table;
-      const hostEvents = latestTable.pullDomainEvents();
-      events.push(...hostEvents);
+      const baseTable = updated.table;
+      const hostEvents = baseTable.pullDomainEvents();
+      let latestTable = baseTable;
+      let events: IDomainEvent[] = [...hostEvents];
+      let postPersistEvents: IDomainEvent[] = [];
 
       const mutateSpec = updated.mutateSpec;
       const requiresPhysicalSchemaRepair = mayRequirePhysicalSchemaRepair(mutateSpec);
@@ -204,7 +220,7 @@ export class TableUpdateFlow {
       if (rowOrderViewIds.length > 0 && handler.tableSchemaRepository.prepareViewRowOrderStorage) {
         yield* await handler.tableSchemaRepository.prepareViewRowOrderStorage(
           context,
-          latestTable,
+          baseTable,
           rowOrderViewIds
         );
       }
@@ -212,23 +228,54 @@ export class TableUpdateFlow {
       let transactionContextRef: IExecutionContext | undefined;
       let schemaOperationStarted = false;
       let tableMetadataPersisted = false;
+      const viewVersionRollbackLog: Array<{ view: View; previous: ViewVersion | undefined }> = [];
+      const restoreBumpedViewVersions = (): void => {
+        for (let i = viewVersionRollbackLog.length - 1; i >= 0; i -= 1) {
+          const entry = viewVersionRollbackLog[i]!;
+          entry.view.restoreVersion(entry.previous);
+        }
+        viewVersionRollbackLog.length = 0;
+      };
 
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) => {
+          restoreBumpedViewVersions();
+          if (transactionContextRef) {
+            abortTableUpdateTransactionScope(transactionContextRef);
+          }
+          schemaOperationStarted = false;
+          tableMetadataPersisted = false;
           transactionContextRef = metaTransactionContext;
+
+          let attemptTable = baseTable;
+          // Drop any events leaked onto baseTable by an earlier rolled-back attempt.
+          attemptTable.pullDomainEvents();
+          const attemptHostEvents: IDomainEvent[] = [...hostEvents];
+          let attemptNormalizedOwnEvents: ReadonlyArray<IDomainEvent> = [];
+          const attemptAfterPersistHookEvents: IDomainEvent[] = [];
+          const attemptPostPersistEvents: IDomainEvent[] = [];
+          let attemptPersistResult: TableRepositoryPort.TableUpdatePersistResult | void = undefined;
+
+          const metaRollbackTx =
+            getUnitOfWorkTransaction(metaTransactionContext, 'meta') ??
+            metaTransactionContext.transaction;
+          metaRollbackTx?.afterRollback?.(() => {
+            restoreBumpedViewVersions();
+          });
+
           return safeTry<void, DomainError>(async function* () {
             enterTableUpdateTransactionScope(metaTransactionContext);
 
             if (options?.hooks?.prepare) {
               const prepareHookResult = yield* await options.hooks.prepare(
                 metaTransactionContext,
-                latestTable,
+                attemptTable,
                 mutateSpec
               );
               const normalizedResult = normalizeHookResult(prepareHookResult);
-              events.push(...normalizedResult.events);
-              latestTable = normalizedResult.table ?? latestTable;
+              attemptHostEvents.push(...normalizedResult.events);
+              attemptTable = normalizedResult.table ?? attemptTable;
             }
 
             // Commit pending with the meta transaction, not before it. An
@@ -239,7 +286,7 @@ export class TableUpdateFlow {
               handler.unitOfWork,
               handler.tableRepository,
               metaTransactionContext,
-              latestTable,
+              attemptTable,
               {
                 type: 'table.update',
                 state: requiresPhysicalSchemaRepair ? 'pending' : 'ready',
@@ -248,36 +295,51 @@ export class TableUpdateFlow {
             );
             schemaOperationStarted = true;
 
-            tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
+            attemptPersistResult = yield* await handler.tableRepository.updateOne(
               metaTransactionContext,
-              latestTable,
+              attemptTable,
               mutateSpec
             );
-            handler.applyPersistedViewVersions(latestTable, tableUpdatePersistResult);
+            handler.applyPersistedViewVersions(
+              attemptTable,
+              attemptPersistResult,
+              viewVersionRollbackLog
+            );
             tableMetadataPersisted = true;
             const dataPhaseResult = yield* await handler.unitOfWork.withTransaction(
               metaTransactionContext,
               async (dataTransactionContext) => {
                 transactionContextRef = dataTransactionContext;
                 return safeTry<void, DomainError>(async function* () {
-                  latestTable = yield* await handler.tableSchemaRepository.update(
+                  attemptTable = yield* await handler.tableSchemaRepository.update(
                     dataTransactionContext,
-                    latestTable,
+                    attemptTable,
                     mutateSpec
                   );
-                  recordLatestTableInTransactionScope(dataTransactionContext, latestTable);
-                  postPersistEvents.push(...latestTable.pullDomainEvents());
+                  recordLatestTableInTransactionScope(dataTransactionContext, attemptTable);
+                  attemptPostPersistEvents.push(...attemptTable.pullDomainEvents());
+
+                  attemptNormalizedOwnEvents = handler.attachPersistedEventVersions(
+                    attemptHostEvents,
+                    attemptPersistResult
+                  );
+                  yield* await dispatchSameTxEvents(
+                    dataTransactionContext,
+                    handler.sameTxProjectionDispatcher,
+                    [...attemptNormalizedOwnEvents, ...attemptPostPersistEvents],
+                    { tables: [attemptTable], previousTables: [table] }
+                  );
 
                   if (options?.hooks?.afterPersist) {
                     const afterPersistHookResult = yield* await options.hooks.afterPersist(
                       dataTransactionContext,
-                      latestTable,
+                      attemptTable,
                       mutateSpec
                     );
                     const normalizedResult = normalizeHookResult(afterPersistHookResult);
-                    events.push(...normalizedResult.events);
-                    latestTable = normalizedResult.table ?? latestTable;
-                    recordLatestTableInTransactionScope(dataTransactionContext, latestTable);
+                    attemptAfterPersistHookEvents.push(...normalizedResult.events);
+                    attemptTable = normalizedResult.table ?? attemptTable;
+                    recordLatestTableInTransactionScope(dataTransactionContext, attemptTable);
                   }
 
                   yield* await flushTableUpdateTransactionScope(dataTransactionContext);
@@ -286,14 +348,21 @@ export class TableUpdateFlow {
               },
               { scope: 'data' }
             );
+            latestTable = attemptTable;
+            events = [...attemptNormalizedOwnEvents, ...attemptAfterPersistHookEvents];
+            postPersistEvents = attemptPostPersistEvents;
             return ok(dataPhaseResult);
           });
         },
         { scope: 'meta' }
       );
       if (transactionResult.isErr()) {
+        restoreBumpedViewVersions();
         if (transactionContextRef) {
           abortTableUpdateTransactionScope(transactionContextRef);
+        }
+        if (context.batchTransaction) {
+          return err(transactionResult.error);
         }
         if (schemaOperationStarted && shouldFailSchemaOperation(transactionResult.error)) {
           await (tableMetadataPersisted
@@ -371,12 +440,33 @@ export class TableUpdateFlow {
         }
         const readyEvents = provisionReadyEvents();
         if (readyEvents.length > 0) {
-          const publishResult = await handler.eventBus.publishMany(committedContext, readyEvents);
-          if (publishResult.isErr()) {
-            throw new Error(publishResult.error.message);
-          }
+          await handler.publishReadyEvents(committedContext, latestTable, readyEvents);
         }
       };
+      const normalizedEvents = events;
+
+      if (context.batchTransaction) {
+        yield* await completeTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          latestTable,
+          { type: 'table.update' }
+        );
+        const readyEvents = provisionReadyEvents();
+        const batchEvents = publishEvents ? [...normalizedEvents, ...postPersistEvents] : [];
+        yield* await publishEventsWithBatchDeferral(
+          context,
+          handler.eventBus,
+          batchEvents,
+          readyEvents.length > 0
+            ? () =>
+                handler.publishReadyEvents(withoutTransaction(context), latestTable, readyEvents)
+            : undefined
+        );
+        return ok({ table: latestTable, events: normalizedEvents, postPersistEvents });
+      }
+
       const metaTransaction = getUnitOfWorkTransaction(context, 'meta');
       const commitContext = metaTransaction
         ? { ...context, transaction: metaTransaction }
@@ -432,11 +522,6 @@ export class TableUpdateFlow {
         }
       });
 
-      const normalizedEvents = handler.attachPersistedEventVersions(
-        events,
-        tableUpdatePersistResult
-      );
-
       if (publishEvents) {
         const publishMutationEvents = async (
           publishContext: IExecutionContext
@@ -463,10 +548,37 @@ export class TableUpdateFlow {
       }
       const readyEvents = readyEventsAfterCommit ? [] : provisionReadyEvents();
       if (readyEvents.length > 0) {
-        yield* await handler.eventBus.publishMany(context, readyEvents);
+        const publishReadyEvents = () =>
+          handler.publishReadyEvents(withoutTransaction(context), latestTable, readyEvents);
+        if (!registerAfterCommit(commitContext, publishReadyEvents)) {
+          await publishReadyEvents();
+        }
       }
       return ok({ table: latestTable, events: normalizedEvents, postPersistEvents });
     });
+    return failBatchResultIfActive(context, flowResult);
+  }
+
+  private async publishReadyEvents(
+    context: IExecutionContext,
+    table: Table,
+    events: ReadonlyArray<IDomainEvent>
+  ): Promise<void> {
+    // Ready state is committed. A failed realtime projection must not report
+    // the persisted mutation as failed and trigger a duplicate caller retry.
+    try {
+      const result = await this.eventBus.publishMany(context, events);
+      if (result.isOk()) return;
+      this.logger.error('table:update:ready_projection_failed', {
+        tableId: table.id().toString(),
+        error: result.error,
+      });
+    } catch (error) {
+      this.logger.error('table:update:ready_projection_failed', {
+        tableId: table.id().toString(),
+        error,
+      });
+    }
   }
 
   /**
@@ -477,14 +589,23 @@ export class TableUpdateFlow {
    */
   private applyPersistedViewVersions(
     table: Table,
-    persistResult: TableRepositoryPort.TableUpdatePersistResult | void
+    persistResult: TableRepositoryPort.TableUpdatePersistResult | void,
+    rollbackLog?: Array<{ view: View; previous: ViewVersion | undefined }>
   ): void {
     for (const change of persistResult?.viewVersionChanges ?? []) {
       const viewResult = table.getViewById(change.viewId);
       if (viewResult.isErr()) continue;
       const versionResult = ViewVersion.rehydrate(change.newVersion);
       if (versionResult.isErr()) continue;
-      viewResult.value.advanceVersion(versionResult.value);
+      const view = viewResult.value;
+      if (rollbackLog) {
+        const previousResult = view.version();
+        rollbackLog.push({
+          view,
+          previous: previousResult.isOk() ? previousResult.value : undefined,
+        });
+      }
+      view.advanceVersion(versionResult.value);
     }
   }
 

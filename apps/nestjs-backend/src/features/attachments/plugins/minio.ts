@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type http from 'node:http';
 import { join, resolve } from 'node:path';
 import type { Readable as ReadableStream } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -11,7 +12,8 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
-import { resolveThumbnailMimetype } from '../utils';
+import { ATTACHMENT_THUMBNAIL_MIMETYPE, ATTACHMENT_THUMBNAIL_WEBP_QUALITY } from '../constant';
+import { getThumbnailResizeOptions } from '../utils';
 import StorageAdapter from './adapter';
 import type {
   IListObjectsOptions,
@@ -20,6 +22,14 @@ import type {
   IPresignRes,
   IRespHeaders,
 } from './types';
+
+// This package targets ES2022, before withResolvers is exposed by the TS library.
+const promiseWithResolvers = Promise as unknown as {
+  withResolvers<T>(): {
+    promise: Promise<T>;
+    resolve: (value: T | PromiseLike<T>) => void;
+  };
+};
 
 @Injectable()
 export class MinioStorage implements StorageAdapter {
@@ -205,9 +215,76 @@ export class MinioStorage implements StorageAdapter {
     bucket: string,
     path: string,
     stream: Buffer | ReadableStream,
-    metadata: Record<string, string | number>
+    metadata?: Record<string, string | number>,
+    signal?: AbortSignal
   ) {
-    return await this.uploadFile(bucket, path, stream, metadata);
+    if (!signal) {
+      return await this.uploadFile(bucket, path, stream, metadata ?? {});
+    }
+    signal.throwIfAborted();
+    const requestsClosed: Promise<void>[] = [];
+    const multipartIds = new Set<string>();
+    const scopedClient = new Proxy(this.minioClientPrivateNetwork, {
+      get(target, property, receiver) {
+        if (property !== 'transport') {
+          return Reflect.get(target, property, receiver);
+        }
+        const transport = Reflect.get(target, property, receiver) as Pick<typeof http, 'request'>;
+        return {
+          request: new Proxy(transport.request, {
+            apply(requestMethod, _transportReceiver, args) {
+              const [options, callback] = args as [
+                http.RequestOptions,
+                (response: http.IncomingMessage) => void,
+              ];
+              signal.throwIfAborted();
+              const uploadId = new URL(options.path ?? '/', 'http://storage').searchParams.get(
+                'uploadId'
+              );
+              if (uploadId) multipartIds.add(uploadId);
+              const request: http.ClientRequest = Reflect.apply(requestMethod, transport, [
+                { ...options, signal },
+                callback,
+              ]);
+              const closed = promiseWithResolvers.withResolvers<void>();
+              requestsClosed.push(closed.promise);
+              request.once('close', () => closed.resolve());
+              return request;
+            },
+          }),
+        };
+      },
+    });
+    const source = Buffer.isBuffer(stream) ? undefined : stream;
+    const onAbort = () => {
+      source?.destroy(signal.reason instanceof Error ? signal.reason : new Error('Upload aborted'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    try {
+      signal.throwIfAborted();
+      const { etag: hash } = await scopedClient.putObject(
+        bucket,
+        path,
+        stream,
+        undefined,
+        metadata
+      );
+      signal.throwIfAborted();
+      return { hash, path };
+    } finally {
+      // A source error can settle putObject before the active request closes.
+      // Keep cancellation bound until all owned HTTP work and cleanup finish.
+      try {
+        await Promise.all(requestsClosed);
+        if (signal.aborted) {
+          for (const uploadId of multipartIds) {
+            await this.minioClientPrivateNetwork.abortMultipartUpload(bucket, path, uploadId);
+          }
+        }
+      } finally {
+        signal.removeEventListener('abort', onAbort);
+      }
+    }
   }
 
   // minio file exists
@@ -259,10 +336,11 @@ export class MinioStorage implements StorageAdapter {
       await pipeline(stream, fse.createWriteStream(sourceFilePath));
       const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true })
         .rotate()
-        .resize(width, height);
+        .resize(getThumbnailResizeOptions(width, height))
+        .webp({ quality: ATTACHMENT_THUMBNAIL_WEBP_QUALITY });
       await metaReader.toFile(resizedImagePath);
       const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
-        'Content-Type': resolveThumbnailMimetype(mimetype ?? ''),
+        'Content-Type': ATTACHMENT_THUMBNAIL_MIMETYPE,
       });
       return upload.path;
     } finally {

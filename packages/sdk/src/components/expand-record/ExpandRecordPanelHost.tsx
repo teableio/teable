@@ -1,5 +1,5 @@
 import { cn } from '@teable/ui-lib';
-import { type FC, type PropsWithChildren, useMemo, useState } from 'react';
+import { type FC, type PropsWithChildren, useCallback, useMemo, useState } from 'react';
 import { ExpandRecordPanelHostContext } from './PanelContext';
 
 /**
@@ -9,7 +9,22 @@ import { ExpandRecordPanelHostContext } from './PanelContext';
 export const ExpandRecordPanelHost: FC<PropsWithChildren<{ className?: string }>> = (props) => {
   const { className, children } = props;
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
-  const value = useMemo(() => ({ inHost: true, container }), [container]);
+  const [roots, setRoots] = useState<string[]>([]);
+  const registerRoot = useCallback((id: string) => {
+    setRoots((open) => [...open, id]);
+    return () => setRoots((open) => open.filter((openId) => openId !== id));
+  }, []);
+  const raiseRoot = useCallback((id: string) => {
+    setRoots((open) =>
+      open.includes(id) && open.at(-1) !== id
+        ? [...open.filter((openId) => openId !== id), id]
+        : open
+    );
+  }, []);
+  const value = useMemo(
+    () => ({ inHost: true, container, roots, registerRoot, raiseRoot }),
+    [container, roots, registerRoot, raiseRoot]
+  );
 
   return (
     <div ref={setContainer} className={cn('relative', className)}>

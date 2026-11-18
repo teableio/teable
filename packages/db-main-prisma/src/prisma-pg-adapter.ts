@@ -46,8 +46,26 @@ const wrapQueryable = <T extends Pool | PoolClient>(queryable: T): T =>
     get(target, property, receiver) {
       if (property === 'query') {
         return async (...args: unknown[]) => {
-          const result = await Reflect.apply(target.query, target, args);
-          return normalizeQueryResult(result);
+          try {
+            const result = await Reflect.apply(target.query, target, args);
+            return normalizeQueryResult(result);
+          } catch (cause) {
+            const query = args[0] as string | { text?: string } | undefined;
+            if (
+              (typeof query === 'string' ? query : query?.text) === 'COMMIT' &&
+              cause instanceof Error &&
+              'code' in cause &&
+              typeof cause.code === 'string' &&
+              'severity' in cause &&
+              typeof cause.severity === 'string'
+            ) {
+              // Keep SQLSTATE visible to callers, but omit severity so Prisma
+              // keeps this on its registered JS-error path rather than treating
+              // an unknown PostgreSQL COMMIT response as success.
+              throw Object.assign(new Error(cause.message, { cause }), { code: cause.code });
+            }
+            throw cause;
+          }
         };
       }
 

@@ -54,7 +54,7 @@ const finalizeComposite = (
   ) select string_agg(token, '' order by path)::jsonb from tokens
 )`;
 
-const finalizeValue = (
+export const finalizeValue = (
   value: RawBuilder<unknown>,
   metric: boolean,
   strategy: IPgTypeValidationStrategy

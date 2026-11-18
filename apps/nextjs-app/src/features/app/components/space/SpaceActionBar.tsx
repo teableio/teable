@@ -32,6 +32,11 @@ interface ActionBarProps {
    * space's projects rather than the space itself (no invite, no space menu).
    */
   variant?: 'space' | 'projects';
+  /**
+   * What the create button makes when it is not a project (the list's template tab makes a
+   * template project): its label and what pressing it does.
+   */
+  create?: { label: string; onClick: () => void };
   onRename?: () => void;
   onDelete?: () => void;
   onPermanentDelete?: () => void;
@@ -44,6 +49,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
     buttonSize = 'default',
     disallowSpaceInvitation,
     variant = 'space',
+    create,
     onRename,
     onDelete,
     onPermanentDelete,
@@ -67,6 +73,10 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   });
 
   const handleCreateBase = () => {
+    if (create) {
+      create.onClick();
+      return;
+    }
     if (chooserEnabled) {
       setCreateBaseOpen(true);
       return;
@@ -99,7 +109,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
                 disabled={!canCreateBase || createBaseLoading}
               >
                 <Plus className="size-4" />
-                {t('space:action.createBase')}
+                {create?.label ?? t('space:action.createBase')}
               </Button>
             )}
           </TooltipTrigger>

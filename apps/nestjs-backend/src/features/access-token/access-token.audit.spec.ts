@@ -30,7 +30,8 @@ const createFixture = () => {
     cls as never,
     {} as never,
     performanceCacheService as never,
-    audit as never
+    audit as never,
+    {} as never
   );
   const rows = () => audit.emitAtomic.mock.calls.map(([call]) => call);
   return { service, accessToken, audit, rows };

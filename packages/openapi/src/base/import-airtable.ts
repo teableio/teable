@@ -4,9 +4,17 @@ import { registerRoute, urlBuilder } from '../utils';
 import { toSSERequestError } from '../utils/sse';
 import { z } from '../zod';
 import { createBaseVoSchema } from './create';
+import type { IImportTaskSubmitVo } from './import-task';
+import {
+  createImportTaskVoSchema,
+  importTaskOptionsRoSchema,
+  importTaskSubmitVoSchema,
+} from './import-task';
 
 export const IMPORT_AIRTABLE_ANALYZE = '/base/import-airtable/analyze';
 export const IMPORT_AIRTABLE_STREAM = '/base/import-airtable/stream';
+export const IMPORT_AIRTABLE_TASKS = '/base/import-airtable/tasks';
+export const IMPORT_AIRTABLE_TASK = '/base/import-airtable/tasks/{taskId}';
 
 const airtableCredentialsShape = {
   integrationId: z.string().optional().meta({
@@ -210,6 +218,14 @@ export const importAirtableVoSchema = z.object({
 
 export type IImportAirtableVo = z.infer<typeof importAirtableVoSchema>;
 
+export const importAirtableTaskRoSchema = importAirtableRoSchema.and(importTaskOptionsRoSchema);
+
+export type IImportAirtableTaskRo = z.infer<typeof importAirtableTaskRoSchema>;
+
+export const importAirtableTaskVoSchema = createImportTaskVoSchema(importAirtableVoSchema, {});
+
+export type IImportAirtableTaskVo = z.infer<typeof importAirtableTaskVoSchema>;
+
 export interface IImportAirtableProgressEvent {
   type: 'progress';
   phase: string;
@@ -282,8 +298,69 @@ export const ImportAirtableStreamRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
+export const ImportAirtableTaskCreateRoute: RouteConfig = registerRoute({
+  method: 'post',
+  path: IMPORT_AIRTABLE_TASKS,
+  title: 'Start an Airtable import task',
+  description:
+    'Start importing an Airtable base in the background and return its task id right away. ' +
+    'Poll the task for progress and the result. Submitting the same Airtable base and target ' +
+    'again while the import is running returns the running task instead of starting another.',
+  summary: 'start an Airtable import as a background task',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: importAirtableTaskRoSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Returns the id of the started (or already running) import task.',
+      content: {
+        'application/json': {
+          schema: importTaskSubmitVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['base'],
+});
+
+export const ImportAirtableTaskRoute: RouteConfig = registerRoute({
+  method: 'get',
+  path: IMPORT_AIRTABLE_TASK,
+  title: 'Get an Airtable import task',
+  description: 'Status, latest progress and final result of an Airtable import task',
+  summary: 'get the status of an Airtable import task',
+  request: {
+    params: z.object({ taskId: z.string() }),
+  },
+  responses: {
+    200: {
+      description: 'Returns the task status with its progress, result or failure.',
+      content: {
+        'application/json': {
+          schema: importAirtableTaskVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['base'],
+});
+
 export const importAirtableAnalyze = async (ro: IImportAirtableAnalyzeRo) => {
   return await axios.post<IImportAirtableAnalyzeVo>(urlBuilder(IMPORT_AIRTABLE_ANALYZE), ro);
+};
+
+export const createImportAirtableTask = async (ro: IImportAirtableTaskRo) => {
+  return await axios.post<IImportTaskSubmitVo>(urlBuilder(IMPORT_AIRTABLE_TASKS), ro);
+};
+
+export const getImportAirtableTask = async (taskId: string) => {
+  return await axios.get<IImportAirtableTaskVo>(urlBuilder(IMPORT_AIRTABLE_TASK, { taskId }));
 };
 
 const buildSSERequestHeaders = (): Record<string, string> => {

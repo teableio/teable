@@ -1,12 +1,13 @@
-import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { err, ok } from 'neverthrow';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { TableProvisionReady } from '../../domain/table/events/TableProvisionReady';
 import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaUpdated';
 import { ViewDescriptionUpdated } from '../../domain/table/events/ViewDescriptionUpdated';
 import { ViewFilterUpdated } from '../../domain/table/events/ViewFilterUpdated';
@@ -33,6 +34,8 @@ import type { TableSortKey } from '../../domain/table/TableSortKey';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import { ViewName } from '../../domain/table/views/ViewName';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
+import { ViewVersion } from '../../domain/table/views/ViewVersion';
+import { NoopLogger } from '../../ports/defaults/NoopLogger';
 import type { IEventBus } from '../../ports/EventBus';
 import type {
   IExecutionContext,
@@ -173,17 +176,24 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
 class FakeEventBus implements IEventBus {
   published: IDomainEvent[] = [];
+  contexts = new Map<IDomainEvent, Pick<IExecutionContext, 'transaction'>>();
 
-  async publish(_: IExecutionContext, event: IDomainEvent): Promise<Result<void, DomainError>> {
+  async publish(
+    context: IExecutionContext,
+    event: IDomainEvent
+  ): Promise<Result<void, DomainError>> {
     this.published.push(event);
+    this.contexts.set(event, { transaction: context.transaction });
     return ok(undefined);
   }
 
   async publishMany(
-    _: IExecutionContext,
+    context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
   ): Promise<Result<void, DomainError>> {
-    this.published.push(...events);
+    for (const event of events) {
+      await this.publish(context, event);
+    }
     return ok(undefined);
   }
 }
@@ -442,14 +452,99 @@ describe('TableUpdateFlow', () => {
     expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
   });
 
-  it('settles physical schema updates when the parent transaction rolls back after inline finalization', async () => {
+  it('publishes ready projections only after an inline physical repair commits', async () => {
     const table = buildTable();
     const repository = new FakeTableRepository();
+    const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const flow = new TableUpdateFlow(
       repository,
       new FakeTableSchemaRepository(),
-      new FakeEventBus(),
+      eventBus,
+      unitOfWork
+    );
+    const result = await unitOfWork.withTransaction(
+      createContext(),
+      async (metaContext) => {
+        const inner = await unitOfWork.withTransaction(
+          metaContext,
+          async (dataContext) =>
+            flow.execute(
+              dataContext,
+              { table },
+              (tableToUpdate) =>
+                tableToUpdate.update((mutator) =>
+                  mutator.addField(buildTextField('r', 'Ready After Commit'))
+                ),
+              { finalizeWithinTransaction: true, publishEvents: false }
+            ),
+          { scope: 'data' }
+        );
+        expect(inner.isOk()).toBe(true);
+        expect(eventBus.published).toEqual([]);
+        return inner;
+      },
+      { scope: 'meta' }
+    );
+
+    expect(result.isOk()).toBe(true);
+    const readyEvent = eventBus.published.find((event) => event instanceof TableProvisionReady);
+    expect(readyEvent).toBeInstanceOf(TableProvisionReady);
+    expect(eventBus.contexts.get(readyEvent!)).toEqual({ transaction: undefined });
+  });
+  it.each(['result', 'throw'] as const)(
+    'keeps an inline schema mutation successful when its committed ready projection fails by %s',
+    async (failureMode) => {
+      const table = buildTable();
+      const repository = new FakeTableRepository();
+      const eventBus = new FakeEventBus();
+      const failure = domainError.unexpected({ message: 'Ready projection unavailable' });
+      vi.spyOn(eventBus, 'publishMany').mockImplementation(async () => {
+        if (failureMode === 'throw') throw new Error(failure.message);
+        return err(failure);
+      });
+      const logger = new NoopLogger();
+      const logError = vi.spyOn(logger, 'error');
+      const unitOfWork = new FakeUnitOfWork();
+      const flow = new TableUpdateFlow(
+        repository,
+        new FakeTableSchemaRepository(),
+        eventBus,
+        unitOfWork,
+        logger
+      );
+      const field = buildTextField('j', 'Committed Despite Projection Failure');
+      const result = await unitOfWork.withTransaction(
+        createContext(),
+        (context) =>
+          flow.execute(
+            context,
+            { table },
+            (candidate) => candidate.update((mutator) => mutator.addField(field)),
+            { finalizeWithinTransaction: true, publishEvents: false }
+          ),
+        { scope: 'meta' }
+      );
+
+      const updated = result._unsafeUnwrap().table;
+      expect(updated.getField((candidate) => candidate.id().equals(field.id())).isOk()).toBe(true);
+      expect(repository.provisionStateChanges.at(-1)).toBe('ready');
+      expect(logError).toHaveBeenCalledWith(
+        'table:update:ready_projection_failed',
+        expect.objectContaining({ tableId: table.id().toString() })
+      );
+    }
+  );
+
+  it('settles physical schema updates when the parent transaction rolls back after inline finalization', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const unitOfWork = new FakeUnitOfWork();
+    const eventBus = new FakeEventBus();
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
       unitOfWork
     );
     const outerResult = await unitOfWork.withTransaction(
@@ -478,6 +573,7 @@ describe('TableUpdateFlow', () => {
       { scope: 'meta' }
     );
     expect(outerResult._unsafeUnwrapErr().message).toBe('outer rollback');
+    expect(eventBus.published).toEqual([]);
     expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
       'pending',
       undefined,
@@ -1370,5 +1466,116 @@ describe('TableUpdateFlow', () => {
       'error',
     ]);
     expect(eventBus.published).toEqual([]);
+  });
+
+  it('restores in-memory View versions when a COMMIT-time failure retries the meta transaction', async () => {
+    const table = buildTable();
+    const view = table.views()[0]!;
+    const initialVersion = ViewVersion.rehydrate(1)._unsafeUnwrap();
+    view.setVersion(initialVersion)._unsafeUnwrap();
+
+    const seenVersionsAtUpdateOne: number[] = [];
+    const repository = new FakeTableRepository();
+    repository.updateOne = async (_ctx, updatedTable) => {
+      const currentVersion = updatedTable.views()[0]!.version()._unsafeUnwrap().toNumber();
+      seenVersionsAtUpdateOne.push(currentVersion);
+      if (currentVersion !== 1) {
+        return err(domainError.conflict({ code: 'view.version_conflict', message: 'stale' }));
+      }
+      return ok({
+        viewVersionChanges: [
+          {
+            viewId: view.id().toString(),
+            oldVersion: 1,
+            newVersion: 2,
+          },
+        ],
+      });
+    };
+
+    let metaAttempts = 0;
+    let commitRollbacks = 0;
+    const retryOnCommitUow: IUnitOfWork = {
+      async withTransaction<T>(
+        context: IExecutionContext,
+        work: UnitOfWorkOperation<T>,
+        options?: IUnitOfWorkOptions
+      ): Promise<Result<T, DomainError>> {
+        const scope: UnitOfWorkScope = options?.scope ?? 'data';
+        const existing = context.transactions?.[scope];
+        if (existing) {
+          return work({ ...context, transaction: existing });
+        }
+        while (true) {
+          if (scope === 'meta') {
+            metaAttempts += 1;
+          }
+          const afterCommitHandlers: Array<() => Promise<void> | void> = [];
+          const afterRollbackHandlers: Array<() => Promise<void> | void> = [];
+          const transaction: IUnitOfWorkTransaction = {
+            kind: 'unitOfWorkTransaction',
+            scope,
+            afterCommit(h) {
+              afterCommitHandlers.push(h);
+            },
+            afterRollback(h) {
+              afterRollbackHandlers.push(h);
+            },
+          };
+          const workResult = await work({
+            ...context,
+            transaction,
+            transactions: {
+              ...(context.transactions ?? {}),
+              [scope]: transaction,
+            },
+          });
+          if (scope === 'meta' && metaAttempts === 1) {
+            commitRollbacks += 1;
+            for (const h of afterRollbackHandlers) {
+              await h();
+            }
+            continue;
+          }
+          if (workResult.isOk()) {
+            for (const h of afterCommitHandlers) {
+              await h();
+            }
+          } else {
+            for (const h of afterRollbackHandlers) {
+              await h();
+            }
+          }
+          return workResult;
+        }
+      },
+    };
+
+    const eventBus = new FakeEventBus();
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      eventBus,
+      retryOnCommitUow
+    );
+
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate
+        .updateViewOptions(view.id(), { rowHeight: 'tall' })
+        .map(({ updateResult }) => updateResult!)
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(commitRollbacks).toBe(1);
+    expect(seenVersionsAtUpdateOne).toEqual([1, 1]);
+    // 2 mutation meta attempts (attempt 1 rolled back at commit + attempt 2 committed)
+    // + 1 post-commit finalizeReady meta transaction for setProvisionState('ready').
+    expect(metaAttempts).toBe(3);
+    expect(result._unsafeUnwrap().table.views()[0]!.version()._unsafeUnwrap().toNumber()).toBe(2);
+    const optionsEvents = eventBus.published.filter(
+      (event): event is ViewOptionsUpdated => event instanceof ViewOptionsUpdated
+    );
+    expect(optionsEvents).toHaveLength(1);
+    expect(optionsEvents[0]).toMatchObject({ oldVersion: 1, newVersion: 2 });
   });
 });

@@ -16,5 +16,9 @@ Declaration: If the folder I belong to changes, please update me.
 
 - `src/config.ts` - shared Postgres connection config schema.
 - `src/di/tokens.ts` - shared Postgres DB tokens.
-- `src/unitOfWork.ts` - UnitOfWork implementation based on Kysely transactions.
+- `src/unitOfWork.ts` - UnitOfWork implementation based on Kysely transactions: owns top-level
+  transaction execution with bounded `40P01`/`40001` retries, re-entrant batch transaction reuse and
+  `rollback-only` tracking, split Meta/Data cross-database batch rejection
+  (`batch.cross_database_not_atomic`), and `savepoint()` isolation across SQL state as well as both
+  batch and `PostgresUnitOfWorkTransaction` `afterCommit`/`afterRollback` handler queues.
 - `src/index.ts` - Package public exports.

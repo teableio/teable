@@ -335,6 +335,15 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect(attachment?.lgThumbnailUrl).toBe(attachment.presignedUrl);
     expect(attachment?.smThumbnailUrl).toBeDefined();
     expect(attachment.smThumbnailUrl).not.toBe(attachment.presignedUrl);
+
+    // thumbnails are written and served as WebP, whatever the source format
+    const smThumbnailUrl = attachment.smThumbnailUrl!;
+    const thumbnailRes = await createAxios().get(
+      smThumbnailUrl.startsWith('http') ? smThumbnailUrl : `${appUrl}${smThumbnailUrl}`,
+      { responseType: 'arraybuffer' }
+    );
+    expect(thumbnailRes.headers['content-type']).toBe('image/webp');
+    expect(Buffer.from(thumbnailRes.data).subarray(8, 12).toString()).toBe('WEBP');
   });
 
   it('should keep cross-origin headers on the 304 cache-hit read path', async () => {

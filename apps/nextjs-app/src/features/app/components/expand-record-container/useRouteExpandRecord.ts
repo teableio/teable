@@ -1,4 +1,5 @@
 import { BaseNodeResourceType } from '@teable/openapi';
+import { raiseRecordPanel } from '@teable/sdk/components/expand-record/raiseRecordPanel';
 import { useRouter } from 'next/router';
 import { useCallback, useState } from 'react';
 import { parseBaseSlug } from '../../hooks/useBaseResource';
@@ -35,6 +36,8 @@ export const useRouteExpandRecord = (tableId?: string) => {
 
   const setExpandRecordId = useCallback(
     (recordId?: string) => {
+      // the record's panel comes back on top of a new-record draft, also when it is open already
+      if (tableId && recordId) raiseRecordPanel(tableId, recordId);
       if (!ownsRoute) {
         setLocalRecordId(recordId);
         return;
@@ -49,7 +52,7 @@ export const useRouteExpandRecord = (tableId?: string) => {
         { shallow: true }
       );
     },
-    [ownsRoute, routerRecordId, router]
+    [tableId, ownsRoute, routerRecordId, router]
   );
 
   const closeExpandRecord = useCallback(() => setExpandRecordId(undefined), [setExpandRecordId]);

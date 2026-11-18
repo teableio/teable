@@ -65,7 +65,15 @@ const withExpressionOutputs = (
       outputs.find((output) => output.alias === group.alias)!
     );
     for (const aggregate of snapshot.aggregates) {
-      if ('expr' in aggregate) {
+      if ('distinctBy' in aggregate) {
+        ordered.push({
+          alias: aggregate.alias,
+          wireType: 'numberOrString',
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+          nullable: false,
+        });
+      } else if ('expr' in aggregate) {
         const bound = plan.aggregates.find((metric) => metric.alias === aggregate.alias);
         if (!bound?.expression)
           return err(queryError('expression_metric', 'Metric expression is not bound'));
@@ -110,7 +118,10 @@ const withHaving = (
   budget: FormulaSourceBudget
 ): Result<BoundDataQueryPlan, DomainError> => {
   if (
-    (snapshot.version !== 4 && snapshot.version !== 5 && snapshot.version !== 6) ||
+    (snapshot.version !== 4 &&
+      snapshot.version !== 5 &&
+      snapshot.version !== 6 &&
+      snapshot.version !== 8) ||
     snapshot.kind !== 'aggregate' ||
     !snapshot.having
   )
@@ -353,7 +364,10 @@ const validateMetricFilters = (
 ): Result<void, DomainError> =>
   safeTry(function* () {
     if (
-      (snapshot.version !== 4 && snapshot.version !== 5 && snapshot.version !== 6) ||
+      (snapshot.version !== 4 &&
+        snapshot.version !== 5 &&
+        snapshot.version !== 6 &&
+        snapshot.version !== 8) ||
       snapshot.kind !== 'aggregate'
     )
       return ok(undefined);
@@ -538,7 +552,7 @@ const describeOutputs = (
       );
     }
     for (const aggregate of snapshot.aggregates) {
-      if ('expr' in aggregate) continue;
+      if ('expr' in aggregate || 'distinctBy' in aggregate) continue;
       // A relation metric cannot be bound without its declared relation sources.
       if ('source' in aggregate) {
         return err(
@@ -1286,7 +1300,7 @@ export class DataQueryRelationBinding {
               });
             }
             for (const aggregate of snapshot.aggregates) {
-              if ('expr' in aggregate) continue;
+              if ('expr' in aggregate || 'distinctBy' in aggregate) continue;
               if ('source' in aggregate) {
                 const info = resolved.get(aggregate.source);
                 if (!info) {

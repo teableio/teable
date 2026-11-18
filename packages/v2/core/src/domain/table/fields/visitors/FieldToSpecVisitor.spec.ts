@@ -633,6 +633,16 @@ describe('FieldToSpecVisitor', () => {
       expect((result._unsafeUnwrap() as SetDateValueSpec).value.toValue()).toBeNull();
     });
 
+    it.each(['20026-04-20', '21020-11-11', '46332', '+020026-04-20T00:00:00.000Z'])(
+      'clears unsupported date %s when typecasting and rejects it in strict mode',
+      (value) => {
+        const typecast = field.accept(FieldToSpecVisitor.create(value, true))._unsafeUnwrap();
+        expect((typecast as SetDateValueSpec).value.toValue()).toBeNull();
+        const strict = field.accept(FieldToSpecVisitor.create(value, false))._unsafeUnwrapErr();
+        expect(strict.code).toBe('validation.field.invalid_date');
+      }
+    );
+
     it('rejects invalid date in non-typecast mode', () => {
       const visitor = FieldToSpecVisitor.create('not-a-date', false);
       const result = field.accept(visitor);

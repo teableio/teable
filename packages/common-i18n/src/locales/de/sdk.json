@@ -1198,7 +1198,9 @@
       "anchorNotFound": "Ankerknoten nicht gefunden",
       "nameAlreadyExists": "Name existiert bereits",
       "targetBaseRequired": "Zielprojekt ist erforderlich",
-      "moveBlocked": "Knoten kann nicht in das Zielprojekt verschoben werden ({{code}})"
+      "moveBlocked": "Knoten kann nicht in das Zielprojekt verschoben werden ({{code}})",
+      "appSandboxActive": "Eine zu verschiebende App hat eine laufende Sandbox. Bestätigen Sie das Schließen, um sie zu verschieben",
+      "appSandboxCloseFailed": "Die Sandbox konnte nicht geschlossen werden. Es wurde nichts verschoben, versuchen Sie es erneut"
     },
     "routine": {
       "notFound": "Routine nicht gefunden",
@@ -1662,6 +1664,7 @@
     },
     "template": {
       "categoryNotFound": "Vorlagenkategorie nicht gefunden",
+      "notShareable": "Nur veröffentlichte Vorlagen können geteilt werden",
       "snapshotRequired": "Diese Vorlage konnte nicht veröffentlicht werden, da ein Snapshot fehlt",
       "sourceTemplateNotFound": "Quellvorlage nicht gefunden",
       "noMinOrderFound": "Keine Minimalreihenfolge gefunden",
@@ -1672,9 +1675,14 @@
       "teamIsFlat": "Ein Team hat weder eine übergeordnete Kategorie noch Unterkategorien",
       "categoryKeyTaken": "Dieser URL-Schlüssel wird bereits von einer anderen Kategorie verwendet",
       "slugTaken": "Dieser URL-Slug wird bereits von einer anderen Vorlage verwendet",
-      "guideStepLeftOut": "Der Leitfadenschritt „{{title}}“ öffnet etwas, das diese Einreichung nicht enthält.",
+      "guideStepLeftOut": "Der Leitfadenschritt „{{title}}“ öffnet etwas, das nicht mit veröffentlicht wird.",
       "guideStepStartsTicked": "Der Leitfadenschritt „{{title}}“ ist in den Beispieldatensätzen bereits erledigt und wäre daher von Anfang an abgehakt.",
-      "guideNothingToConnect": "Der Leitfadenschritt „{{title}}“ wartet auf verbundene Konten, aber dieses Projekt braucht keine – er wäre von Anfang an abgehakt."
+      "guideNothingToConnect": "Der Leitfadenschritt „{{title}}“ wartet auf verbundene Konten, aber dieses Projekt braucht keine – er wäre von Anfang an abgehakt.",
+      "contentNotReplaced": "Dieses Vorlagenprojekt enthält noch Inhalte, die nur Ihnen gehören ({{count}}). Ersetzen Sie sie oder markieren Sie sie als Beispiel und veröffentlichen Sie dann erneut.",
+      "notTemplateProject": "Dieses Projekt ist kein Vorlagenprojekt.",
+      "coverRequired": "Eine Vorlage braucht ein Titelbild",
+      "descriptionRequired": "Eine Vorlage braucht eine Beschreibung",
+      "unavailable": "Diese Vorlage ist nicht verfügbar"
     },
     "department": {
       "parentNotFound": "Übergeordnete Abteilung nicht gefunden",

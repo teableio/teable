@@ -118,6 +118,7 @@ beforeEach(() => {
   state.view.sort = null;
   state.view.columnMeta = {};
   state.fields = [];
+  state.search.searchQuery = ['probe', '', false];
   state.search.hideNotMatchRow = false;
   state.countRefetch.mockClear();
   state.listenerMatches = [];
@@ -242,5 +243,48 @@ describe('SearchCountPagination recovery', () => {
 
     expect(state.infiniteOptions?.queryKey?.[2]).not.toEqual(navigationScope);
     expect(state.countOptions?.queryKey?.[2]).not.toEqual(countScope);
+  });
+
+  describe('hiding a column', () => {
+    const hideColumn = (view: ReturnType<typeof render>, fieldId: string) => {
+      state.view.columnMeta = { ...state.view.columnMeta, [fieldId]: { hidden: true } };
+      state.fields = state.fields.filter(({ id }) => id !== fieldId);
+      view.rerender(<SearchCountPagination />);
+    };
+
+    beforeEach(() => {
+      state.fields = [{ id: 'fldA' }, { id: 'fldB' }, { id: 'fldC' }];
+    });
+
+    it('keeps the hits when the column is outside a limited search scope', () => {
+      state.search.searchQuery = ['probe', 'fldA,fldB', false];
+      const view = render(<SearchCountPagination />);
+      const navigationScope = state.infiniteOptions?.queryKey?.[2];
+      const countScope = state.countOptions?.queryKey?.[2];
+
+      hideColumn(view, 'fldC');
+
+      expect(state.infiniteOptions?.queryKey?.[2]).toEqual(navigationScope);
+      expect(state.countOptions?.queryKey?.[2]).toEqual(countScope);
+    });
+
+    it('reloads the hits when the column is inside a limited search scope', () => {
+      state.search.searchQuery = ['probe', 'fldA,fldB', false];
+      const view = render(<SearchCountPagination />);
+      const navigationScope = state.infiniteOptions?.queryKey?.[2];
+
+      hideColumn(view, 'fldB');
+
+      expect(state.infiniteOptions?.queryKey?.[2]).not.toEqual(navigationScope);
+    });
+
+    it('reloads the hits when every visible field is searched', () => {
+      const view = render(<SearchCountPagination />);
+      const navigationScope = state.infiniteOptions?.queryKey?.[2];
+
+      hideColumn(view, 'fldC');
+
+      expect(state.infiniteOptions?.queryKey?.[2]).not.toEqual(navigationScope);
+    });
   });
 });

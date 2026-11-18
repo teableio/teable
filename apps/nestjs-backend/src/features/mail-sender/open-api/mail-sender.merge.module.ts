@@ -1,16 +1,12 @@
 import { Module } from '@nestjs/common';
-import { EventJobModule } from '../../../event-emitter/event-job/event-job.module';
+import { CoalesceModule } from '../../coalesce/coalesce.module';
 import { SettingOpenApiModule } from '../../setting/open-api/setting-open-api.module';
 import { MailSenderModule } from '../mail-sender.module';
-import { MAIL_SENDER_QUEUE, MailSenderMergeProcessor } from './mail-sender.merge.processor';
+import { MailSenderMergeService } from './mail-sender.merge.service';
 
 @Module({
-  imports: [
-    MailSenderModule.register(),
-    EventJobModule.registerQueue(MAIL_SENDER_QUEUE),
-    SettingOpenApiModule,
-  ],
-  providers: [MailSenderMergeProcessor],
-  exports: [MailSenderMergeProcessor],
+  imports: [CoalesceModule, MailSenderModule.register(), SettingOpenApiModule],
+  providers: [MailSenderMergeService],
+  exports: [MailSenderMergeService],
 })
 export class MailSenderMergeModule {}

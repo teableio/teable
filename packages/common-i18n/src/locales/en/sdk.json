@@ -1203,7 +1203,9 @@
       "anchorNotFound": "Anchor node not found",
       "nameAlreadyExists": "Name already exists",
       "targetBaseRequired": "Target project is required",
-      "moveBlocked": "Cannot move node to the target project ({{code}})"
+      "moveBlocked": "Cannot move node to the target project ({{code}})",
+      "appSandboxActive": "An app being moved has a running sandbox. Confirm closing it to move",
+      "appSandboxCloseFailed": "Couldn't close the sandbox. Nothing was moved; try again"
     },
     "routine": {
       "notFound": "Routine not found",
@@ -1667,6 +1669,7 @@
     },
     "template": {
       "categoryNotFound": "Template category not found",
+      "notShareable": "Only a published template can be shared",
       "snapshotRequired": "This template could not be published due to missing snapshot",
       "sourceTemplateNotFound": "Source template not found",
       "noMinOrderFound": "No minimum order found",
@@ -1677,9 +1680,14 @@
       "teamIsFlat": "A team cannot have a parent or sub-categories",
       "categoryKeyTaken": "This URL key is already used by another category",
       "slugTaken": "This URL slug is already used by another template",
-      "guideStepLeftOut": "Guide step “{{title}}” opens something this submission leaves out.",
+      "guideStepLeftOut": "Guide step “{{title}}” opens something that is not being published.",
       "guideStepStartsTicked": "Guide step “{{title}}” is already done on the sample records, so it would start ticked.",
-      "guideNothingToConnect": "Guide step “{{title}}” waits for accounts, but this project needs none, so it would start ticked."
+      "guideNothingToConnect": "Guide step “{{title}}” waits for accounts, but this project needs none, so it would start ticked.",
+      "contentNotReplaced": "This template project still has content that is only yours ({{count}}). Replace it or mark it as sample content, then publish again.",
+      "notTemplateProject": "This project is not a template project.",
+      "coverRequired": "A template needs a cover image",
+      "descriptionRequired": "A template needs a description",
+      "unavailable": "This template is unavailable"
     },
     "department": {
       "parentNotFound": "Parent department not found",

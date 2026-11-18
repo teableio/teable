@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
+import { createHash } from 'node:crypto';
 import {
   createReadStream,
   createWriteStream,
@@ -8,11 +9,13 @@ import {
   rmSync,
   promises as fsp,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import type { FileHandle } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { type Readable as ReadableStream } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { Injectable, Logger } from '@nestjs/common';
 import { getRandomString, HttpErrorCode, isImage } from '@teable/core';
-import { READ_PATH } from '@teable/openapi';
+import { READ_PATH, UploadType } from '@teable/openapi';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
 import { ClsService } from 'nestjs-cls';
@@ -25,7 +28,8 @@ import type { IClsStore } from '../../../types/cls';
 import { FileUtils } from '../../../utils';
 import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
-import { forceAttachmentDisposition } from '../utils';
+import { ATTACHMENT_THUMBNAIL_WEBP_QUALITY } from '../constant';
+import { forceAttachmentDisposition, getThumbnailResizeOptions } from '../utils';
 import StorageAdapter from './adapter';
 import { LocalReadTokenCodec, type ILocalReadTokenParams } from './local-read-token';
 import { normalizeObjectPath, resolveWithinStorage } from './local.helper';
@@ -39,8 +43,15 @@ import type {
 } from './types';
 import { isBodyParserFallback } from './utils';
 
+const UPLOAD_STAGING_DIRECTORY = /^\.upload-[A-Za-z0-9]{6}$/;
+const UPLOAD_STAGING_HEARTBEAT_MS = 60 * 1000;
+// Shared local volumes need a lease, not a startup purge. A process paused for
+// more than a day can lose its staging directory; publication checks ownership.
+const UPLOAD_STAGING_STALE_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class LocalStorage implements StorageAdapter {
+  private static readonly activeUploads = new Set<string>();
   private readonly logger = new Logger(LocalStorage.name);
   path: string;
   storageDir: string;
@@ -406,9 +417,97 @@ export class LocalStorage implements StorageAdapter {
     bucket: string,
     path: string,
     stream: Buffer | ReadableStream,
-    _metadata?: Record<string, unknown>
+    _metadata?: Record<string, unknown>,
+    signal?: AbortSignal
   ) {
-    return await this.uploadFile(bucket, path, stream, _metadata);
+    if (!signal) {
+      return await this.uploadFile(bucket, path, stream, _metadata);
+    }
+    signal.throwIfAborted();
+    const destinationPath = resolveWithinStorage(this.storageDir, bucket, path);
+    const destinationDirectory = dirname(destinationPath);
+    await fsp.mkdir(destinationDirectory, { recursive: true });
+    signal.throwIfAborted();
+    const stagingDirectory = await fsp.mkdtemp(join(destinationDirectory, '.upload-'));
+    const stagingPath = join(stagingDirectory, 'content');
+    LocalStorage.activeUploads.add(stagingDirectory);
+    let stagingHandle: FileHandle | undefined;
+    let heartbeatTimer: NodeJS.Timeout | undefined;
+    let heartbeat: Promise<void> | undefined;
+    let heartbeatError: unknown;
+    const hash = createHash('sha256');
+    try {
+      stagingHandle = await fsp.open(stagingDirectory, 'r');
+      const handle = stagingHandle;
+      heartbeatTimer = setInterval(() => {
+        if (heartbeat) return;
+        const now = new Date();
+        // Refresh the opened inode, never a replacement at the same path.
+        heartbeat = handle
+          .utimes(now, now)
+          .catch((error: unknown) => {
+            heartbeatError = error;
+          })
+          .finally(() => {
+            heartbeat = undefined;
+          });
+      }, UPLOAD_STAGING_HEARTBEAT_MS);
+      heartbeatTimer.unref();
+      signal.throwIfAborted();
+      if (Buffer.isBuffer(stream)) {
+        hash.update(stream);
+        await fsp.writeFile(stagingPath, stream, { signal });
+      } else {
+        await pipeline(
+          stream,
+          async function* (chunks) {
+            for await (const chunk of chunks) {
+              hash.update(chunk);
+              yield chunk;
+            }
+          },
+          createWriteStream(stagingPath),
+          { signal }
+        );
+      }
+      signal.throwIfAborted();
+      const digest = hash.digest('hex');
+      if (heartbeatError) throw heartbeatError;
+      const currentDirectory = await fsp.lstat(stagingDirectory);
+      const ownedDirectory = await stagingHandle.stat();
+      if (
+        !currentDirectory.isDirectory() ||
+        currentDirectory.dev !== ownedDirectory.dev ||
+        currentDirectory.ino !== ownedDirectory.ino
+      ) {
+        throw new Error('Local upload staging directory changed before publication');
+      }
+      signal.throwIfAborted();
+      // Rename is the publication point. Once issued, a completed replacement
+      // remains successful even if cancellation arrives while rename is pending.
+      await fsp.rename(stagingPath, destinationPath);
+      return { hash: digest, path };
+    } finally {
+      clearInterval(heartbeatTimer);
+      await heartbeat;
+      try {
+        const currentDirectory = await fsp.lstat(stagingDirectory);
+        const ownedDirectory = await stagingHandle?.stat();
+        if (
+          currentDirectory.isDirectory() &&
+          ownedDirectory &&
+          currentDirectory.dev === ownedDirectory.dev &&
+          currentDirectory.ino === ownedDirectory.ino
+        ) {
+          await fsp.rm(stagingDirectory, { recursive: true, force: true });
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      } finally {
+        LocalStorage.activeUploads.delete(stagingDirectory);
+        await stagingHandle?.close();
+      }
+    }
   }
 
   async cropImage(
@@ -434,7 +533,9 @@ export class LocalStorage implements StorageAdapter {
         },
       });
     }
-    const resizedImage = image.resize(width, height);
+    const resizedImage = image
+      .resize(getThumbnailResizeOptions(width, height))
+      .webp({ quality: ATTACHMENT_THUMBNAIL_WEBP_QUALITY });
     const tmpPath = `${resizedImagePath}_tmp_${getRandomString(8)}`;
     try {
       await resizedImage.toFile(tmpPath);
@@ -450,6 +551,61 @@ export class LocalStorage implements StorageAdapter {
     // reject up front with the fs error (ENOENT) instead of returning a stream that errors
     await fsp.access(filePath);
     return createReadStream(filePath);
+  }
+
+  /** Reclaim crash leftovers through the existing hourly export cleanup job. */
+  async cleanupStaleExportUploads(now = new Date()): Promise<{ deleted: number; failed: number }> {
+    const result = { deleted: 0, failed: 0 };
+    const bucket = StorageAdapter.getBucket(UploadType.ExportBase);
+    const prefix = StorageAdapter.getDir(UploadType.ExportBase);
+    const directory = resolveWithinStorage(this.storageDir, bucket, prefix);
+    try {
+      const storageRoot = await fsp.realpath(this.storageDir);
+      // Neither the bucket nor export-base may redirect cleanup through a symlink.
+      if ((await fsp.realpath(directory)) !== resolveWithinStorage(storageRoot, bucket, prefix)) {
+        return result;
+      }
+      for (const entry of await fsp.readdir(directory, { withFileTypes: true })) {
+        if (!entry.isDirectory() || !UPLOAD_STAGING_DIRECTORY.test(entry.name)) continue;
+        const stagingDirectory = join(directory, entry.name);
+        if (LocalStorage.activeUploads.has(stagingDirectory)) continue;
+        try {
+          const children = await fsp.readdir(stagingDirectory, { withFileTypes: true });
+          // This exact layout is owned by uploadFileStream. Unknown content and
+          // links are left alone, even when their names resemble our staging dirs.
+          if (children.some((child) => child.name !== 'content' || !child.isFile())) continue;
+          const staged = await fsp.lstat(stagingDirectory);
+          if (!staged.isDirectory()) continue;
+          const content = children.length
+            ? await fsp.lstat(join(stagingDirectory, 'content'))
+            : undefined;
+          if (content && !content.isFile()) continue;
+          const lastActivity = Math.max(staged.mtimeMs, content?.mtimeMs ?? 0);
+          if (now.getTime() <= lastActivity + UPLOAD_STAGING_STALE_MS) continue;
+          const current = await fsp.lstat(stagingDirectory);
+          if (
+            !current.isDirectory() ||
+            current.dev !== staged.dev ||
+            current.ino !== staged.ino ||
+            now.getTime() <= current.mtimeMs + UPLOAD_STAGING_STALE_MS
+          ) {
+            continue;
+          }
+          // rm does not follow links. Published objects live outside this exact
+          // directory and retain their ordinary signed-link lifetime.
+          await fsp.rm(stagingDirectory, { recursive: true, force: true });
+          result.deleted++;
+        } catch (error) {
+          // Another cleanup worker or the uploader may have removed it first.
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+          result.failed++;
+          this.logger.warn(`Failed to delete stale upload ${entry.name}: ${(error as Error).message}`);
+        }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    return result;
   }
 
   async listObjects(
@@ -468,14 +624,15 @@ export class LocalStorage implements StorageAdapter {
       for (const entry of fse.readdirSync(dir, { withFileTypes: true })) {
         const key = keyPrefix ? `${keyPrefix}/${entry.name}` : entry.name;
         if (!isRelevant(key)) continue;
-        if (entry.isFile()) {
-          if (key.startsWith(prefix)) {
-            const { size, mtime } = fse.statSync(join(dir, entry.name));
-            objects.push({ key, size, lastModified: mtime });
-          }
+        if (entry.isFile() && key.startsWith(prefix)) {
+          const { size, mtime } = fse.statSync(join(dir, entry.name));
+          objects.push({ key, size, lastModified: mtime });
           continue;
         }
         if (!entry.isDirectory()) continue;
+        // Staging bytes are never published objects and must not inherit the
+        // legacy object TTL (or be exposed to any other object-list consumer).
+        if (UPLOAD_STAGING_DIRECTORY.test(entry.name)) continue;
         if (options?.delimiter && key.startsWith(prefix)) {
           prefixes.add(`${key}${options.delimiter}`);
           continue;

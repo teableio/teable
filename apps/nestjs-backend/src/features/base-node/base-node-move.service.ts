@@ -78,6 +78,8 @@ export type IMoveNodeContext = {
   embeddedIdApps: IMoveBaseNodeEmbeddedIdApp[];
   uninspectableApps: IMoveBaseNodeEmbeddedIdApp[];
   droppedPermissionRuleCount: number;
+  /** moved apps whose sandbox is running */
+  sandboxApps: IMoveBaseNodeItem[];
 };
 
 /**
@@ -138,6 +140,7 @@ export class BaseNodeMoveService {
       nodeId,
       targetBaseId: ro.targetBaseId,
       additionalNodeIds: ro.additionalNodeIds,
+      closeAppSandboxes: ro.closeAppSandboxes,
     }),
     emit: true,
   })
@@ -197,6 +200,7 @@ export class BaseNodeMoveService {
       embeddedIdApps: [],
       uninspectableApps: [],
       droppedPermissionRuleCount: 0,
+      sandboxApps: [],
     };
     ctx.uninspectableApps = await this.readAppSources(ctx);
     const deleted = new Set(nodes.map((node) => node.resourceId));
@@ -271,6 +275,10 @@ export class BaseNodeMoveService {
 
     const placement = await this.resolveTargetPlacement(ctx, ro);
     const plan = await this.tableMoveService.prepareMove(baseId, targetBaseId, ctx.tableIds);
+    let physicalMoveApplied = false;
+    // after every check that can refuse the move and before anything changes, so whatever this
+    // does is never spent on a move refused above
+    await this.beforeMove(ctx, ro);
 
     try {
       await this.prismaService.$tx(
@@ -302,6 +310,7 @@ export class BaseNodeMoveService {
            * schema for the length of this transaction is not observable here.
            */
           await this.tableMoveService.applyPhysicalMove(plan);
+          physicalMoveApplied = true;
         },
         { timeout: this.thresholdConfig.bigTransactionTimeout }
       );
@@ -311,7 +320,8 @@ export class BaseNodeMoveService {
           error instanceof Error ? error.message : String(error)
         }`
       );
-      await this.tableMoveService.rollbackPhysicalMove(plan);
+      // A failed physical transaction already rolled itself back.
+      if (physicalMoveApplied) await this.tableMoveService.rollbackPhysicalMove(plan);
       throw error;
     }
 
@@ -375,6 +385,7 @@ export class BaseNodeMoveService {
       embeddedIdApps: [],
       uninspectableApps: [],
       droppedPermissionRuleCount: 0,
+      sandboxApps: [],
     };
 
     // --- base level ---------------------------------------------------------
@@ -440,6 +451,7 @@ export class BaseNodeMoveService {
     ctx.candidates = reachable.candidates;
     ctx.dependencyClosure = reachable.closure;
     ctx.embeddedIdApps = await this.inspectMovedApps(ctx);
+    ctx.sandboxApps = await this.collectSandboxApps(ctx);
 
     return ctx;
   }
@@ -456,6 +468,7 @@ export class BaseNodeMoveService {
       embeddedIdApps: ctx.embeddedIdApps,
       uninspectableApps: ctx.uninspectableApps,
       droppedPermissionRuleCount: ctx.droppedPermissionRuleCount,
+      sandboxApps: ctx.sandboxApps,
     };
   }
 
@@ -1038,6 +1051,15 @@ export class BaseNodeMoveService {
   protected async countDroppedPermissionRules(_ctx: IMoveNodeContext): Promise<number> {
     return 0;
   }
+
+  /** Moved apps whose sandbox is running. */
+  protected async collectSandboxApps(_ctx: IMoveNodeContext): Promise<IMoveBaseNodeItem[]> {
+    return [];
+  }
+
+  /** Runs once the move is certain to be attempted, before anything changes; may refuse it. */
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  protected async beforeMove(_ctx: IMoveNodeContext, _ro: IMoveBaseNodeRo): Promise<void> {}
 
   /** Runs inside the metadata transaction after every row has been re-homed. */
   // eslint-disable-next-line @typescript-eslint/no-empty-function

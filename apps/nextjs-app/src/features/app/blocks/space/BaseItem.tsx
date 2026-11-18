@@ -13,7 +13,7 @@ import type { IGetBaseVo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { Avatar, AvatarFallback, AvatarImage, Button, cn, Input } from '@teable/ui-lib/shadcn';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, LayoutTemplate } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useState, useRef, useEffect } from 'react';
@@ -33,6 +33,10 @@ export interface IBaseItemProps {
   isExpanded?: boolean;
   showDragHandle?: boolean;
   showStar?: boolean;
+  /** A project made to become a template: it gets the template mark where it has no icon. */
+  isTemplateProject?: boolean;
+  /** After the name: where a template project's listing stands. */
+  nameExtra?: React.ReactNode;
   dragHandleListeners?: Record<string, unknown>;
   onToggleExpand?: () => void;
   onEnterBase?: () => void;
@@ -48,6 +52,8 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
     isExpanded = false,
     showDragHandle = false,
     showStar = true,
+    isTemplateProject = false,
+    nameExtra,
     dragHandleListeners,
     onToggleExpand,
     onEnterBase,
@@ -141,6 +147,8 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
           >
             {base.icon ? (
               <Emoji emoji={base.icon} size="1rem" />
+            ) : isTemplateProject ? (
+              <LayoutTemplate className="size-4" />
             ) : (
               <LayoutGrid className="size-4" />
             )}
@@ -176,6 +184,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
                 <span className="truncate text-sm font-medium">
                   {getBaseDisplayName(base.name, t)}
                 </span>
+                {nameExtra}
                 {base.isShared && <Share2 className="size-3.5 shrink-0 text-muted-foreground" />}
                 {showStar && (
                   <StarButton

@@ -4,11 +4,11 @@ import type { IGatewayModel, IGatewayApiModel } from '@teable/openapi';
 export const RECOMMENDED_MODEL_IDS = [
   // Language models
   'openai/gpt-6-astra', // OpenAI flagship
-  'anthropic/claude-opus-4.8', // Best quality
-  'google/gemini-3.8-flash', // Google flagship
+  'anthropic/claude-opus-5.5', // Best quality
+  'google/gemini-4-carbon', // Google flagship
   // Image generation
-  'openai/gpt-image-2.5-flare', // OpenAI image generation
-  'google/gemini-3.1-flash-image', // Multimodal image generation
+  'openai/gpt-image-2.6-flare', // OpenAI image generation
+  'google/gemini-nano-banana-2.1', // Multimodal image generation
 ];
 
 // API response model structure from backend (camelCase, converted from Vercel AI Gateway snake_case)

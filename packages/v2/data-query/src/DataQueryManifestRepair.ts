@@ -232,7 +232,9 @@ export const sqlMentionsIdentifier = (sql: string, identifier: string | undefine
 const sourceOf = (item: object): string =>
   'source' in item && typeof item.source === 'string' ? item.source : 'root';
 
-type Relations = NonNullable<Extract<MutableDefinition, { version: 2 | 3 | 4 | 5 }>['relations']>;
+type Relations = NonNullable<
+  Extract<MutableDefinition, { version: 2 | 3 | 4 | 5 | 6 | 8 }>['relations']
+>;
 
 const relationsOf = (definition: MutableDefinition): Relations =>
   definition.version !== 1 ? (definition.relations ?? {}) : {};
@@ -335,7 +337,11 @@ const existenceTouchesChange = (
   target: ChangeTarget,
   kind: DataQuerySchemaChange['kind']
 ): boolean => {
-  if ((definition.version !== 5 && definition.version !== 6) || !definition.filter) return false;
+  if (
+    (definition.version !== 5 && definition.version !== 6 && definition.version !== 8) ||
+    !definition.filter
+  )
+    return false;
   const relations = relationsOf(definition);
   const filterTouches = (filter: DataQueryPredicateV3, source: string): boolean => {
     if ('items' in filter) return filter.items.some((item) => filterTouches(item, source));
@@ -384,7 +390,7 @@ const expressionTouchesChange = (
       if (!relation) return false;
       if (kind === 'table_deleted' && relation.tableId === target.tableId) return true;
       if (
-        kind === 'field_deleted' &&
+        (kind === 'field_deleted' || kind === 'field_replaced') &&
         relation.linkFieldId === target.fieldId &&
         linkHostTable(definition, relation) === target.tableId
       )
@@ -411,7 +417,10 @@ const expressionTouchesChange = (
     }
   }
   if (
-    (definition.version === 4 || definition.version === 5 || definition.version === 6) &&
+    (definition.version === 4 ||
+      definition.version === 5 ||
+      definition.version === 6 ||
+      definition.version === 8) &&
     definition.kind === 'aggregate'
   ) {
     const filterTouches = (filter: DataQueryPredicateV3, source: string): boolean => {
@@ -425,8 +434,13 @@ const expressionTouchesChange = (
     };
     for (const metric of definition.aggregates) {
       const source = sourceOf(metric);
-      if (sourceRemoved(source) && ('expr' in metric || metric.filter)) touched = true;
-      if ('expr' in metric) walkDataQueryFormulaExpression(metric.expr, visitor(source));
+      if (sourceRemoved(source) && ('expr' in metric || 'distinctBy' in metric || metric.filter))
+        touched = true;
+      if ('distinctBy' in metric)
+        for (const expression of metric.distinctBy)
+          walkDataQueryFormulaExpression(expression, visitor(source));
+      if ('expr' in metric && metric.expr)
+        walkDataQueryFormulaExpression(metric.expr, visitor(source));
       if (metric.filter && filterTouches(metric.filter, source)) touched = true;
     }
     const referencedOutputs = new Set(
@@ -504,7 +518,14 @@ const rewriteFieldReferences = (
     }
   } else {
     for (const aggregate of definition.aggregates) {
-      if ('expr' in aggregate) {
+      if ('distinctBy' in aggregate)
+        aggregate.distinctBy = aggregate.distinctBy.map((expression) =>
+          mapDataQueryFormulaExpression(
+            expression,
+            rewriteExpression(sourceOf(aggregate), 'aggregate')
+          )
+        ) as typeof aggregate.distinctBy;
+      if ('expr' in aggregate && aggregate.expr) {
         aggregate.expr = mapDataQueryFormulaExpression(
           aggregate.expr,
           rewriteExpression(sourceOf(aggregate), 'aggregate')
@@ -571,7 +592,10 @@ const rewriteFieldReferences = (
     if (relation.filter) relation.filter = rewriteFilter(relation.filter, alias);
   }
   if (
-    (definition.version === 4 || definition.version === 5 || definition.version === 6) &&
+    (definition.version === 4 ||
+      definition.version === 5 ||
+      definition.version === 6 ||
+      definition.version === 8) &&
     definition.kind === 'aggregate'
   )
     for (const metric of definition.aggregates)
@@ -652,7 +676,7 @@ const planQuery = (
   // Every selected component defines the tuple grain. Even compatible replacement
   // can change equality; never silently rewrite or prune that contract.
   if (
-    definition.version === 6 &&
+    (definition.version === 6 || definition.version === 8) &&
     definition.kind === 'records' &&
     definition.distinct &&
     (kind === 'field_deleted' ||
@@ -662,6 +686,16 @@ const planQuery = (
     ['projection', 'aggregate', 'reference', 'relation'].some((usage) =>
       semanticUsages.has(usage as DataQueryFieldUsage)
     )
+  ) {
+    reasons.add('group_semantics_changed');
+    return outcome('manual');
+  }
+  if (
+    definition.version === 8 &&
+    definition.kind === 'aggregate' &&
+    definition.aggregates.some((metric) => 'distinctBy' in metric) &&
+    kind === 'field_replaced' &&
+    expressionTouchesChange(definition, target, kind)
   ) {
     reasons.add('group_semantics_changed');
     return outcome('manual');

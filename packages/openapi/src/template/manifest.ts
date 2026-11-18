@@ -7,6 +7,8 @@ export enum TemplateReviewStatus {
 }
 
 export enum TemplateReviewCheck {
+  /** A template project: nothing in it is still the author's own (names, addresses, keys). */
+  Content = 'content',
   Connectors = 'connectors',
   Privacy = 'privacy',
   Estimate = 'estimate',
@@ -87,6 +89,9 @@ export const templateReviewCheckSchema = z.object({
   /** Estimate: what the submission needs a month against what the free plan allows. */
   runsPerMonth: z.number().optional(),
   freeRunsPerMonth: z.number().optional(),
+  /** Content: findings still open, and findings the author marked as samples. */
+  open: z.number().optional(),
+  marked: z.number().optional(),
 });
 
 export type ITemplateReviewCheck = z.infer<typeof templateReviewCheckSchema>;
@@ -118,3 +123,40 @@ export const templateHistoryEntrySchema = z.object({
 export type ITemplateHistoryEntry = z.infer<typeof templateHistoryEntrySchema>;
 
 export const templateHistorySchema = z.array(templateHistoryEntrySchema);
+
+interface ITemplatePublishState {
+  snapshot?: unknown;
+  isPublished?: boolean | null;
+  featured?: boolean | null;
+  history?: unknown;
+  review?: unknown;
+}
+
+/**
+ * Published: the template's links open the version that went out, and it installs. Whether the
+ * template centre lists it is a separate call (`isPublished`), made by a review after it went
+ * out, so a template the centre does not list is still published. A draft that never went out
+ * has no history; a template its author took down has no snapshot.
+ */
+export const isTemplateLive = (template: ITemplatePublishState | null | undefined): boolean =>
+  Boolean(template?.snapshot) && (Boolean(template?.isPublished) || Boolean(template?.history));
+
+/**
+ * In the template centre, where publishing is followed by a review: an admin let it in, which
+ * features it. `isPublished` alone is not enough: templates published before reviews existed
+ * carry it without being shown. A history only says that versions went out, which every
+ * published template has.
+ */
+export const isTemplateListed = (template: ITemplatePublishState | null | undefined): boolean =>
+  Boolean(template?.isPublished) && Boolean(template?.featured);
+
+/**
+ * Submitted before publishing went live on submit, and still waiting: nothing of it is live, so
+ * its links open the submission itself.
+ */
+export const isUnreleasedSubmission = (
+  template: ITemplatePublishState | null | undefined
+): boolean =>
+  !template?.snapshot &&
+  (template?.review as { status?: string } | null | undefined)?.status ===
+    TemplateReviewStatus.Review;

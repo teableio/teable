@@ -75,7 +75,9 @@
     "exportTitle": "Esporta",
     "exportDescription": "Esporta il progetto corrente in un file .tea, potrebbe richiedere del tempo.",
     "exportStartButton": "Avvia esportazione",
-    "exportSlowTip": "Il volume dei dati è grande. L'esportazione potrebbe richiedere del tempo. Puoi uscire temporaneamente.",
+    "exportSlowTip": "Il volume dei dati è grande. L'esportazione potrebbe richiedere del tempo.",
+    "exportBusy": "Un'esportazione è già in corso. Riprova tra poco.",
+    "exportNavigationWarning": "Uscire da questa pagina o aggiornarla annulla l'esportazione, a meno che un'altra scheda non stia ancora seguendo la stessa esportazione. Chiudere questa finestra di dialogo non la annulla.",
     "exportReadyDescription": "Scarica il file .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Spostamento riuscito",
     "moveBaseSuccessDescription": "{{baseName}} è stato spostato con successo in {{spaceName}}",
@@ -223,6 +225,8 @@
   "publishBase": {
     "title": "Pubblica nel centro modelli",
     "description": "Pubblica il progetto nel centro modelli con un clic! Lascia che più persone vedano, usino e facciano Remix della tua creatività, costruendo insieme un business più potente",
+    "configureTitle": "Configura il modello",
+    "configureDescription": "I modelli migliori possono comparire nel centro modelli",
     "infoTitle": "Informazioni di base",
     "form": {
       "title": "Titolo",
@@ -234,8 +238,6 @@
       "defaultActiveNode": "Nodo attivo predefinito",
       "descriptionPlaceholder": "Descrivi brevemente la tua idea...",
       "titlePlaceholder": "Dai un nome al tuo lavoro...",
-      "cover": "Copertina",
-      "coverHint": "16:9, usata nella scheda del catalogo e nella pagina pubblica",
       "versionTitle": "Contenuto della versione",
       "addChangelog": "Aggiungi note di rilascio"
     },
@@ -244,33 +246,32 @@
     "publishSuccess": "Pubblicazione riuscita!",
     "previewTips": "Fai vedere al mondo il tuo lavoro",
     "update": "Aggiorna",
-    "submit": "Invia per la revisione",
-    "submitted": "Inviato per la revisione",
+    "submit": "Pubblica modello",
     "review": {
       "status": {
-        "review": "In revisione",
-        "rejected": "Rimandato indietro",
-        "withdrawn": "Ritirato"
+        "review": "In revisione"
       },
-      "submittedTime": "Inviato {{time}}",
-      "note": "Nota del revisore",
-      "checks": "Controlli automatici",
       "check": {
         "connectors": "Connessioni",
         "privacy": "Privacy",
         "estimate": "Stima delle esecuzioni",
-        "trial": "Esecuzione di prova"
+        "trial": "Esecuzione di prova",
+        "content": "Contenuto"
       },
       "checkMessage": {
         "connectors": "Non collegabili qui: {{providers}}",
         "privacy": "Sono inclusi dei record; controlla che non contengano dati personali",
         "estimate": "Circa {{runs}} esecuzioni al mese, oltre le {{free}} del piano gratuito",
-        "trial": "Le automazioni non richiedono alcun account; verifica che funzionino senza"
+        "trial": "Le automazioni non richiedono alcun account; verifica che funzionino senza",
+        "content": "Ancora solo tuo: {{count}}",
+        "contentMarked": "Segnato come esempio: {{count}}"
       },
-      "withdraw": "Ritira",
-      "withdrawn": "Invio ritirato.",
-      "live": "Online · v{{version}}",
-      "publicLink": "Link pubblico"
+      "withdraw": "Annulla pubblicazione",
+      "withdrawn": "Pubblicazione annullata.",
+      "withdrawConfirmTitle": "Annullare la pubblicazione di questo modello?",
+      "withdrawConfirmDescription": "Il suo link non si aprirà più e non comparirà nel centro modelli. Le copie installate non sono interessate e potrai ripubblicarlo in seguito.",
+      "live": "Pubblicato · v{{version}}",
+      "listed": "Nel centro modelli"
     },
     "unPublish": "Annulla pubblicazione",
     "unPublishSuccess": "Pubblicazione progetto annullata con successo!",
@@ -284,7 +285,8 @@
     "invalidImageType": "Seleziona un file immagine",
     "tips": {
       "publishValidation": "titolo e descrizione sono obbligatori",
-      "atLeastOneNode": "Seleziona almeno un nodo da pubblicare"
+      "atLeastOneNode": "Seleziona almeno un nodo da pubblicare",
+      "coverRequired": "Aggiungi un’immagine di copertina"
     },
     "urlCopied": "URL copiato negli appunti!",
     "urlCopiedForDiscord": "URL copiato negli appunti! Puoi incollarlo su Discord.",
@@ -308,7 +310,7 @@
       "redeploy": "Ridistribuisci",
       "unnamedApp": "App senza nome"
     },
-    "submitVersion": "Invia la v{{version}} per la revisione"
+    "submitVersion": "Pubblica v{{version}}"
   },
   "dataDb": {
     "create": {
@@ -458,6 +460,7 @@
       "valuesDropped_one": "{{sheetName}} / {{fieldName}}: {{count}} valori scartati ({{reason}})",
       "valuesDropped_many": "{{sheetName}} / {{fieldName}}: {{count}} valori scartati ({{reason}})",
       "valuesDropped_other": "{{sheetName}} / {{fieldName}}: {{count}} valori scartati ({{reason}})",
+      "rowSamples": "Righe di origine (fino a 100 esempi): {{rows}}.",
       "sheetSkipped": "Scheda \"{{sheetName}}\" saltata: {{reason}}",
       "columnsTruncated_one": "{{sheetName}}: {{count}} colonne oltre il limite di colonne non sono state importate",
       "columnsTruncated_many": "{{sheetName}}: {{count}} colonne oltre il limite di colonne non sono state importate",
@@ -483,5 +486,16 @@
     "fromFileDesc": "Carica un file .tea",
     "fromAirtableDesc": "Scegli una base",
     "fromGoogleSheetDesc": "Scegli un foglio di calcolo"
+  },
+  "templateProject": {
+    "make": "Crea un modello",
+    "new": "Nuovo progetto modello",
+    "plural": "Progetti modello",
+    "projectsTab": "Progetti",
+    "empty": "Ancora nessun progetto modello",
+    "trialCopy": "Copia di prova",
+    "wholeProject": "Tutto il progetto ({{count}})",
+    "sampleRecords": "Record di esempio: {{count}}",
+    "noRecords": "Nessun record"
   }
 }

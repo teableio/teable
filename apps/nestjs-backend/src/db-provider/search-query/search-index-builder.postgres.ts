@@ -14,6 +14,8 @@ interface IPgIndex {
   indexdef: string;
 }
 
+const QUERY_INDEX_NAME_PATTERN = /^idx_qry_[0-9a-f]{8}_([a-z][a-z0-9_]{0,31})$/;
+
 const unSupportCellValueType = [CellValueType.Boolean];
 
 /**
@@ -258,11 +260,23 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     return 'idx_qry';
   }
 
-  getQueryIndexName(tableId: string, indexId: string): string {
+  getQueryIndexName(
+    tableId: string,
+    indexId: string,
+    unavailableNames?: ReadonlySet<string>
+  ): string {
     const prefix = this.getQueryIndexPrefix();
     const safeId = indexId.toLowerCase();
-    const tableHash = createHash('sha1').update(tableId).digest('hex').slice(0, 8);
-    return `${prefix}_${tableHash}_${safeId}`;
+    for (let attempt = 0; ; attempt++) {
+      const seed = attempt === 0 ? tableId : `${tableId}:${attempt}`;
+      const tableHash = createHash('sha1').update(seed).digest('hex').slice(0, 8);
+      const name = `${prefix}_${tableHash}_${safeId}`;
+      if (!unavailableNames?.has(name)) return name;
+    }
+  }
+
+  getQueryIndexId(indexName: string): string | undefined {
+    return QUERY_INDEX_NAME_PATTERN.exec(indexName)?.[1];
   }
 
   getQueryIndexInfoSql(dbTableName: string): string {
@@ -299,10 +313,10 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     dbTableName: string,
     index: ITableQueryIndexSpec,
     fieldNamesById: Map<string, string>,
-    tableId: string
+    tableId: string,
+    indexName = this.getQueryIndexName(tableId, index.id)
   ): string {
     const [schema, table] = dbTableName.split('.');
-    const indexName = this.getQueryIndexName(tableId, index.id);
     const columns = index.columns.map((column) => {
       const fieldIds = column.kind === 'field' ? [column.fieldId] : column.fieldIds;
       const expressions = fieldIds.map((fieldId) => {

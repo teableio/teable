@@ -100,7 +100,10 @@ export class ImportCsvHandler implements ICommandHandler<
         batchSize: command.batchSize,
         maxRowCount: command.maxRowCount,
         columns: command.columns,
-        parseResult,
+        parseResult: {
+          ...parseResult,
+          firstDataRowNumber: command.useFirstRowAsHeader ? 2 : 1,
+        },
         source: 'csv',
         onProgress: command.onProgress,
       });

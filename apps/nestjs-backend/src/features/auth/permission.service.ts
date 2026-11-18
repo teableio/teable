@@ -579,15 +579,22 @@ export class PermissionService {
     return pending ? { id: pending.id, baseId: base.id } : null;
   }
 
-  /** A published snapshot is open to everyone; one still under review only to the reviewers. */
+  /**
+   * A published snapshot is open to everyone, and so is the first submission of a template that
+   * was never live: its author can share it the moment it is submitted, and its link opens it
+   * read-only like a published one (it stays out of the catalogue until approved). A newer
+   * version of a template that was live stays with the reviewers, even if the template has been
+   * taken offline since: its links open the live version, or nothing.
+   */
   private async templateForSnapshotBase(
     baseId: string
   ): Promise<{ id: string; baseId: string } | null> {
     const published = await this.templateModel.getTemplateRawByBaseId(baseId);
     if (published?.id) return { id: published.id, baseId: published.snapshot.baseId };
-    if (!this.cls.get('user.isAdmin')) return null;
     const pending = await this.templateModel.getPendingTemplateRawByBaseId(baseId);
-    return pending ? { id: pending.id, baseId } : null;
+    if (!pending) return null;
+    if (!pending.firstSubmission && !this.cls.get('user.isAdmin')) return null;
+    return { id: pending.id, baseId };
   }
 
   async validTemplatePermissions(resourceId: string, permissions: Action[]) {

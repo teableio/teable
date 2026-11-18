@@ -23,6 +23,11 @@ export const moveBaseNodeRoSchema = z.object({
    * the node being moved.
    */
   additionalNodeIds: z.array(z.string()).optional(),
+  /**
+   * Stop the generation of every moved app and close its sandbox before moving. Without it, a
+   * move carrying an app whose sandbox is running is refused.
+   */
+  closeAppSandboxes: z.boolean().optional(),
 });
 
 export type IMoveBaseNodeRo = z.infer<typeof moveBaseNodeRoSchema>;

@@ -19,6 +19,7 @@ import { useEnv } from '../hooks/useEnv';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { initAxios } from '../utils/init-axios';
 import { preventContextMenuUnlessText } from '../utils/prevent-context-menu';
+import { isOutsideVisit, referrerVia } from '../utils/referrer-via';
 
 export const TemplateBaseLayout = ({
   children,
@@ -51,8 +52,16 @@ export const TemplateBaseLayout = ({
   }, [templateHeader]);
 
   useEffect(() => {
-    if (isTemplate && base?.template?.id) {
-      incrementTemplateVisit(base?.template?.id);
+    const templateId = base?.template?.id;
+    if (!isTemplate || !templateId) return;
+    incrementTemplateVisit(templateId);
+    // A shared link carries no parameters: where the visit came from is read off the referrer
+    const framed = window.self !== window.top;
+    if (isOutsideVisit(document.referrer, window.location.origin, framed)) {
+      window.posthog?.capture('template:public_viewed', {
+        template_id: templateId,
+        via: referrerVia(document.referrer),
+      });
     }
   }, [isTemplate, base?.template?.id]);
 

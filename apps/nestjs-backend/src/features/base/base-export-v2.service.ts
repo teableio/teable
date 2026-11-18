@@ -7,12 +7,10 @@ import { getRandomString } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import type { ExportBaseProgressCallback, IExportBaseVo } from '@teable/openapi';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
-import {
-  listAttachmentTableRefs,
-  listAttachmentTokensByTableIds,
-} from '@teable/v2-adapter-table-repository-postgres';
+import { iterateAttachmentTableRefs } from '@teable/v2-adapter-table-repository-postgres';
 import {
   FieldKeyType,
+  createPaginatedExportStream,
   ListTableRecordsQuery,
   normalizeDotTeaExportFieldsForSelfContainedBase,
   v2CoreTokens,
@@ -22,7 +20,6 @@ import {
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import archiver from 'archiver';
-import { stringify } from 'csv-stringify/sync';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { ClsService } from 'nestjs-cls';
@@ -39,6 +36,12 @@ import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { NotificationService } from '../notification/notification.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
+import { BaseExportCoordinator } from './base-export-coordinator';
+import {
+  appendBaseExportEntry,
+  createBaseExportCsvStream,
+  isBaseExportCancelled,
+} from './base-export-stream';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 import { EXPORT_ZIP_OPTIONS, guardExportArchive } from './export-archive-guard';
 import { exportBaseObjectPath } from './export-cleanup/export-base-path';
@@ -103,13 +106,6 @@ type ViewRow = {
   order: number;
 };
 
-type AttachmentFileRow = {
-  token: string;
-  name: string | null;
-  path: string;
-  thumbnail_path: string | null;
-};
-
 type AttachmentMetadataRow = {
   id: string;
   token: string;
@@ -170,19 +166,53 @@ export class BaseExportV2Service {
     private readonly notificationService: NotificationService,
     private readonly eventEmitterService: EventEmitterService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @StorageConfig() private readonly storageConfig: IStorageConfig
+    @StorageConfig() private readonly storageConfig: IStorageConfig,
+    private readonly exportCoordinator: BaseExportCoordinator
   ) {}
 
-  async exportBaseZip(
+  exportBaseZip(
     baseId: string,
     includeData = true,
-    onProgress?: ExportBaseProgressCallback
+    onProgress?: ExportBaseProgressCallback,
+    signal?: AbortSignal
   ): Promise<IExportBaseVo | undefined> {
+    return this.exportCoordinator.run(
+      {
+        baseId,
+        includeData,
+        userId: this.cls.get('user.id'),
+        onProgress,
+        signal,
+        onCancelled: () =>
+          this.notifyExportResult(
+            baseId,
+            {
+              i18nKey: 'common.email.templates.notify.exportBase.cancelled.message',
+              context: { baseId },
+            },
+            { status: 'cancelled' }
+          ),
+      },
+      (jobSignal, progress, commitTerminalOutcome) =>
+        this.performExport(baseId, includeData, progress, jobSignal, commitTerminalOutcome)
+    );
+  }
+
+  private async performExport(
+    baseId: string,
+    includeData: boolean,
+    onProgress: ExportBaseProgressCallback,
+    signal: AbortSignal,
+    commitTerminalOutcome: () => boolean
+  ): Promise<IExportBaseVo> {
     onProgress?.('preparing');
+    signal.throwIfAborted();
     const container = await this.v2ContainerService.getContainerForBase(baseId);
+    signal.throwIfAborted();
     const metaDb = container.resolve<ExportDb>(v2MetaDbTokens.db);
     const dataDb = container.resolve<ExportDb>(v2DataDbTokens.db);
     const base = await this.getBase(metaDb, baseId);
+    signal.throwIfAborted();
     const baseName = baseDisplayName(base.name);
     const passThrough = new PassThrough();
     const archive = archiver('zip', EXPORT_ZIP_OPTIONS);
@@ -200,17 +230,32 @@ export class BaseExportV2Service {
       {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
-      }
+      },
+      guard.signal
     );
     // The upload runs alongside the archive; a part failing mid-export must stop the export
     // instead of surfacing later as an unhandled rejection.
     uploadPromise.catch(guard.fail);
+    // Source EOF is not upload completion: keep the owner connected through the response
+    // and multipart cleanup, even after the archive output has closed normally.
+    const onAbort = () => guard.fail(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    let processing: Promise<void> | undefined;
 
     try {
       onProgress?.('exporting_archive');
-      await guard.run(
-        this.processExportBaseZip(metaDb, dataDb, container, base, includeData, archive, onProgress)
+      processing = this.processExportBaseZip(
+        metaDb,
+        dataDb,
+        container,
+        base,
+        includeData,
+        archive,
+        guard.signal,
+        onProgress
       );
+      await guard.run(processing);
       await guard.run(archive.finalize());
       onProgress?.('uploading_archive');
       const uploadResult = await guard.run(uploadPromise);
@@ -223,6 +268,8 @@ export class BaseExportV2Service {
           'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
         }
       );
+      signal.throwIfAborted();
+      commitTerminalOutcome();
 
       await this.notifyExportResult(
         baseId,
@@ -247,31 +294,42 @@ export class BaseExportV2Service {
       onProgress?.('done');
       return { previewUrl, baseName, fileName: exportFileName };
     } catch (error) {
+      guard.fail(error);
+      if (isBaseExportCancelled(signal)) throw error;
       this.captureExportError(error, { baseId, baseName, includeData });
+      if (!commitTerminalOutcome()) throw error;
       const message =
         error instanceof Error
           ? error.message
           : typeof error === 'string'
             ? error
             : 'Unknown error';
-      await this.notifyExportResult(
-        baseId,
-        {
-          i18nKey: 'common.email.templates.notify.exportBase.failed.message',
-          context: {
-            baseId,
-            baseName,
-            errorMessage: message,
+      try {
+        await this.notifyExportResult(
+          baseId,
+          {
+            i18nKey: 'common.email.templates.notify.exportBase.failed.message',
+            context: {
+              baseId,
+              baseName,
+              errorMessage: message,
+            },
           },
-        },
-        {
-          status: 'failed',
-          errorMessage: message,
-        }
-      );
-      if (onProgress) {
-        throw error;
+          {
+            status: 'failed',
+            errorMessage: message,
+          }
+        );
+      } catch (notificationError) {
+        this.captureExportError(notificationError, { baseId, baseName, includeData });
+        throw notificationError;
       }
+      throw error;
+    } finally {
+      // A raced failure is not permission to start another export while a DB read or upload
+      // is still unwinding. The coordinator retains its slot until both have settled.
+      await Promise.allSettled([processing, uploadPromise]);
+      signal.removeEventListener('abort', onAbort);
     }
   }
 
@@ -286,25 +344,35 @@ export class BaseExportV2Service {
     base: BaseRow,
     includeData: boolean,
     archive: archiver.Archiver,
+    signal: AbortSignal,
     onProgress?: ExportBaseProgressCallback
   ) {
-    const [tables, fields, views] = await Promise.all([
-      this.getTables(metaDb, base.id),
-      this.getFields(metaDb, base.id),
-      this.getViews(metaDb, base.id),
-    ]);
+    signal.throwIfAborted();
+    const tables = await this.getTables(metaDb, base.id);
+    signal.throwIfAborted();
+    const fields = await this.getFields(metaDb, base.id);
+    signal.throwIfAborted();
+    const views = await this.getViews(metaDb, base.id);
+    signal.throwIfAborted();
     onProgress?.('exporting_structure');
     const structure = await this.extendBaseStructConfig(
-      await this.generateBaseStructConfig(metaDb, base, tables, fields, views),
-      base.id
+      await this.generateBaseStructConfig(metaDb, base, tables, fields, views, signal),
+      base.id,
+      signal
     );
-    archive.append(Readable.from(JSON.stringify(structure, null, 2)), { name: 'structure.json' });
+    signal.throwIfAborted();
+    await appendBaseExportEntry(
+      archive,
+      Readable.from(JSON.stringify(structure, null, 2)),
+      'structure.json',
+      signal
+    );
 
     if (includeData) {
       onProgress?.('exporting_attachments');
-      await this.appendAttachments(dataDb, metaDb, 'attachments', tables, archive);
+      await this.appendAttachments(dataDb, metaDb, 'attachments', tables, archive, signal);
       onProgress?.('exporting_attachment_metadata');
-      await this.appendAttachmentsDataCsv(dataDb, metaDb, 'attachments', tables, archive);
+      await this.appendAttachmentsDataCsv(dataDb, metaDb, 'attachments', tables, archive, signal);
       onProgress?.('exporting_table_data');
       await this.appendTableDataCsvs(
         dataDb,
@@ -313,19 +381,30 @@ export class BaseExportV2Service {
         tables,
         fields,
         archive,
+        signal,
         onProgress
       );
     }
 
     onProgress?.('exporting_extra_files');
-    await this.appendExtraArchiveFiles(base.id, archive);
+    signal.throwIfAborted();
+    await this.appendExtraArchiveFiles(base.id, archive, signal);
   }
 
-  protected async extendBaseStructConfig(structure: unknown, _baseId: string): Promise<unknown> {
+  protected async extendBaseStructConfig(
+    structure: unknown,
+    _baseId: string,
+    signal?: AbortSignal
+  ): Promise<unknown> {
+    signal?.throwIfAborted();
     return structure;
   }
 
-  protected async appendExtraArchiveFiles(_baseId: string, _archive: archiver.Archiver) {
+  protected async appendExtraArchiveFiles(
+    _baseId: string,
+    _archive: archiver.Archiver,
+    _signal?: AbortSignal
+  ) {
     // the community edition adds no extra archive files; subclasses override this hook
   }
 
@@ -386,8 +465,16 @@ export class BaseExportV2Service {
     base: BaseRow,
     tables: TableRow[],
     fields: FieldRow[],
-    views: ViewRow[]
+    views: ViewRow[],
+    signal: AbortSignal
   ) {
+    signal.throwIfAborted();
+    const folders = await this.generateFolderConfig(db, base.id);
+    signal.throwIfAborted();
+    const nodes = await this.generateNodeConfig(db, base.id);
+    signal.throwIfAborted();
+    const plugins = await this.generatePluginConfig(db, base.id, tables, signal);
+    signal.throwIfAborted();
     return {
       id: base.id,
       name: baseDisplayName(base.name),
@@ -403,9 +490,9 @@ export class BaseExportV2Service {
         fields: this.generateFieldConfig(fields.filter((field) => field.table_id === table.id)),
         views: this.generateViewConfig(views.filter((view) => view.table_id === table.id)),
       })),
-      folders: await this.generateFolderConfig(db, base.id),
-      nodes: await this.generateNodeConfig(db, base.id),
-      plugins: await this.generatePluginConfig(db, base.id, tables),
+      folders,
+      nodes,
+      plugins,
     };
   }
 
@@ -490,25 +577,37 @@ export class BaseExportV2Service {
     }));
   }
 
-  private async generatePluginConfig(db: ExportDb, baseId: string, tables: TableRow[]) {
-    return {
-      dashboard: await this.generateDashboardConfig(db, baseId),
-      panel: await this.generatePluginPanelConfig(db, tables),
-      view: await this.generatePluginViewConfig(db, tables),
-    };
+  private async generatePluginConfig(
+    db: ExportDb,
+    baseId: string,
+    tables: TableRow[],
+    signal: AbortSignal
+  ) {
+    signal.throwIfAborted();
+    const dashboard = await this.generateDashboardConfig(db, baseId, signal);
+    signal.throwIfAborted();
+    const panel = await this.generatePluginPanelConfig(db, tables, signal);
+    signal.throwIfAborted();
+    const view = await this.generatePluginViewConfig(db, tables, signal);
+    signal.throwIfAborted();
+    return { dashboard, panel, view };
   }
 
-  private async generateDashboardConfig(db: ExportDb, baseId: string) {
+  private async generateDashboardConfig(db: ExportDb, baseId: string, signal: AbortSignal) {
+    signal.throwIfAborted();
     const dashboards = await sql<{ id: string; name: string; layout: string | null }>`
       select "id", "name", "layout"
       from "dashboard"
       where "base_id" = ${baseId} and "deleted_time" is null
       order by "created_time" asc
     `.execute(db);
+    signal.throwIfAborted();
     const installs = await this.getPluginInstalls(
       db,
-      dashboards.rows.map((dashboard) => dashboard.id)
+      dashboards.rows.map((dashboard) => dashboard.id),
+      signal
     );
+    signal.throwIfAborted();
 
     return dashboards.rows.map((dashboard) => ({
       id: dashboard.id,
@@ -520,7 +619,8 @@ export class BaseExportV2Service {
     }));
   }
 
-  private async generatePluginPanelConfig(db: ExportDb, tables: TableRow[]) {
+  private async generatePluginPanelConfig(db: ExportDb, tables: TableRow[], signal: AbortSignal) {
+    signal.throwIfAborted();
     if (!tables.length) return [];
     const tableIds = tables.map((table) => table.id);
     const panels = await sql<{ id: string; name: string; layout: string | null; table_id: string }>`
@@ -529,10 +629,13 @@ export class BaseExportV2Service {
       where "table_id" in (${sql.join(tableIds)})
       order by "created_time" asc
     `.execute(db);
+    signal.throwIfAborted();
     const installs = await this.getPluginInstalls(
       db,
-      panels.rows.map((panel) => panel.id)
+      panels.rows.map((panel) => panel.id),
+      signal
     );
+    signal.throwIfAborted();
 
     return panels.rows.map((panel) => ({
       id: panel.id,
@@ -545,7 +648,8 @@ export class BaseExportV2Service {
     }));
   }
 
-  private async generatePluginViewConfig(db: ExportDb, tables: TableRow[]) {
+  private async generatePluginViewConfig(db: ExportDb, tables: TableRow[], signal: AbortSignal) {
+    signal.throwIfAborted();
     if (!tables.length) return [];
     const tableIds = tables.map((table) => table.id);
     const views = await sql<ViewRow>`
@@ -556,10 +660,13 @@ export class BaseExportV2Service {
         and v."deleted_time" is null
       order by v."created_time" asc
     `.execute(db);
+    signal.throwIfAborted();
     const installs = await this.getPluginInstalls(
       db,
-      views.rows.map((view) => view.id)
+      views.rows.map((view) => view.id),
+      signal
     );
+    signal.throwIfAborted();
 
     return views.rows.map((view) => ({
       id: view.id,
@@ -580,7 +687,8 @@ export class BaseExportV2Service {
     }));
   }
 
-  private async getPluginInstalls(db: ExportDb, positionIds: string[]) {
+  private async getPluginInstalls(db: ExportDb, positionIds: string[], signal: AbortSignal) {
+    signal.throwIfAborted();
     if (!positionIds.length) return [];
     const result = await sql<{
       id: string;
@@ -594,6 +702,7 @@ export class BaseExportV2Service {
       from "plugin_install"
       where "position_id" in (${sql.join(positionIds)})
     `.execute(db);
+    signal.throwIfAborted();
     return [...result.rows];
   }
 
@@ -622,12 +731,14 @@ export class BaseExportV2Service {
     tables: TableRow[],
     fields: FieldRow[],
     archive: archiver.Archiver,
+    signal: AbortSignal,
     onProgress?: ExportBaseProgressCallback
   ) {
     const queryBus = this.getQueryBus(container);
     const context = await this.v2ContextFactory.createContext(container);
 
     for (const [index, table] of tables.entries()) {
+      signal.throwIfAborted();
       onProgress?.('table_data_started', table.name, {
         type: 'progress',
         phase: 'table_data_started',
@@ -645,6 +756,7 @@ export class BaseExportV2Service {
         filePath,
         table,
         tableFields,
+        signal,
         onProgress
       );
       onProgress?.('table_data_done', table.name, {
@@ -666,9 +778,11 @@ export class BaseExportV2Service {
     filePath: string,
     table: TableRow,
     fields: FieldRow[],
+    signal: AbortSignal,
     onProgress?: ExportBaseProgressCallback
   ) {
     const columns = await this.getPhysicalColumnNames(db, table.db_table_name);
+    signal.throwIfAborted();
     const buttonDbFieldNames = new Set(
       fields.filter((field) => field.type === 'button').map((field) => field.db_field_name)
     );
@@ -683,9 +797,11 @@ export class BaseExportV2Service {
     ];
     const physicalHeaders = headers.filter((header) => columns.includes(header));
 
-    archive.append(
-      Readable.from(
-        this.createTableDataCsvStream(
+    await appendBaseExportEntry(
+      archive,
+      createBaseExportCsvStream(
+        headers,
+        this.createTableDataRows(
           db,
           queryBus,
           context,
@@ -693,14 +809,17 @@ export class BaseExportV2Service {
           fields,
           headers,
           physicalHeaders,
+          signal,
           onProgress
-        )
+        ),
+        signal
       ),
-      { name: `${filePath}/${table.id}.csv` }
+      `${filePath}/${table.id}.csv`,
+      signal
     );
   }
 
-  private async *createTableDataCsvStream(
+  private async *createTableDataRows(
     db: ExportDb,
     queryBus: IQueryBus,
     context: IExecutionContext,
@@ -708,27 +827,29 @@ export class BaseExportV2Service {
     fields: FieldRow[],
     headers: string[],
     physicalHeaders: string[],
+    signal: AbortSignal,
     onProgress?: ExportBaseProgressCallback
-  ): AsyncGenerator<string> {
-    yield `${headers.join(',')}\n`;
-    // Physical columns always win below, so the record query only matters for fields
-    // without one; for typical tables it is skipped entirely.
+  ): AsyncGenerator<readonly unknown[]> {
     const needsRecordFields = headers.length > physicalHeaders.length;
     let afterAutoNumber: unknown;
     let batch = 0;
     let processedRows = 0;
-
-    while (true) {
-      const rawRows = await this.getRawRows(
-        db,
-        table.db_table_name,
-        physicalHeaders,
-        afterAutoNumber
-      );
-      if (rawRows.length === 0) {
-        break;
-      }
-      afterAutoNumber = rawRows[rawRows.length - 1]![autoNumberColumn];
+    // Pagination owns demand/cancellation; the physical reader retains its keyset cursor.
+    const pages = createPaginatedExportStream({
+      pageSize: csvChunkSize,
+      signal,
+      getPage: async () => {
+        const rows = await this.getRawRows(
+          db,
+          table.db_table_name,
+          physicalHeaders,
+          afterAutoNumber
+        );
+        if (rows.length) afterAutoNumber = rows[rows.length - 1]![autoNumberColumn];
+        return rows;
+      },
+    });
+    for await (const rawRows of pages) {
       const recordFields = needsRecordFields
         ? await this.getRecordFieldsByDbName(
             queryBus,
@@ -737,20 +858,15 @@ export class BaseExportV2Service {
             fields,
             rawRows.flatMap((row) => (typeof row.__id === 'string' ? [row.__id] : []))
           )
-        : new Map<string, Record<string, unknown>>();
-
-      const rows = rawRows.map((rawRow) => {
-        const recordId = String(rawRow.__id ?? '');
-        const fieldValues = recordFields.get(recordId) ?? {};
-        return Object.fromEntries(
-          headers.map((header) => [
-            header,
-            serializeCsvValue(rawRow[header] !== undefined ? rawRow[header] : fieldValues[header]),
-          ])
+        : undefined;
+      signal.throwIfAborted();
+      for (const rawRow of rawRows) {
+        signal.throwIfAborted();
+        const values = recordFields?.get(String(rawRow.__id ?? ''));
+        yield headers.map((header) =>
+          serializeCsvValue(rawRow[header] !== undefined ? rawRow[header] : values?.[header])
         );
-      });
-
-      yield stringify(rows, { columns: headers });
+      }
       batch += 1;
       processedRows += rawRows.length;
       onProgress?.('table_data_progress', table.name, {
@@ -841,50 +957,82 @@ export class BaseExportV2Service {
     );
   }
 
+  private async *getAttachmentMetadataPages(
+    dataDb: ExportDb,
+    metaDb: ExportDb,
+    tables: TableRow[],
+    signal: AbortSignal
+  ): AsyncGenerator<{
+    rows: readonly AttachmentMetadataRow[];
+    names: ReadonlyMap<string, string>;
+  }> {
+    // Only identities grow with the ZIP entry index; file bodies and metadata stay paged.
+    const seen = new Set<string>();
+    const tableIds = tables.map((table) => table.id);
+    for await (const refs of iterateAttachmentTableRefs(
+      dataDb as never,
+      metaDb as never,
+      { tableIds },
+      { pageSize: csvChunkSize, signal }
+    )) {
+      const names = new Map<string, string>();
+      for (const ref of refs) {
+        if (!ref.token || seen.has(ref.token)) continue;
+        names.set(ref.token, ref.name);
+      }
+      const tokens = [...names.keys()];
+      if (!tokens.length) continue;
+      for (const token of tokens) seen.add(token);
+      signal.throwIfAborted();
+      const result = await sql<AttachmentMetadataRow>`
+        select a."id", a."token", a."hash", a."size", a."mimetype", a."path",
+          a."width", a."height", a."deleted_time", a."created_time", a."created_by",
+          a."last_modified_by", a."thumbnail_path"
+        from "attachments" a
+        where a."token" in (${sql.join(tokens.map((token) => sql`${token}`))})
+          and a."deleted_time" is null
+      `.execute(metaDb);
+      signal.throwIfAborted();
+      if (result.rows.length) yield { rows: result.rows, names };
+    }
+  }
+
   private async appendAttachments(
     dataDb: ExportDb,
     metaDb: ExportDb,
     filePath: string,
     tables: TableRow[],
-    archive: archiver.Archiver
+    archive: archiver.Archiver,
+    signal: AbortSignal
   ) {
-    if (!tables.length) return;
-    const tableIds = tables.map((table) => table.id);
-    const refs = await listAttachmentTableRefs(dataDb as never, metaDb as never, { tableIds });
-    const tokens = [...new Set(refs.map((ref) => ref.token).filter(Boolean))];
-    if (!tokens.length) return;
-    const result = await sql<AttachmentFileRow>`
-      select a."token", a."path", a."thumbnail_path"
-      from "attachments" a
-      where a."token" in (${sql.join(tokens.map((token) => sql`${token}`))})
-        and a."deleted_time" is null
-    `.execute(metaDb);
-    const nameByToken = new Map(refs.map((ref) => [ref.token, ref.name]));
-    const files = result.rows.map((row) => ({
-      ...row,
-      name: nameByToken.get(row.token) ?? null,
-    }));
     const bucket = StorageAdapter.getBucket(UploadType.Table);
-
-    for (const attachment of files) {
-      const suffix = attachment.name?.split('.').pop();
-      const archivePath = `${filePath}/${attachment.token}${suffix ? `.${suffix}` : ''}`;
-      await this.appendFileToArchive(archive, bucket, attachment.path, archivePath);
-    }
-
-    const prefix = `${filePath}/thumbnail__`;
-    for (const attachment of files.filter((row) => row.thumbnail_path)) {
-      const suffix = attachment.name?.split('.').pop() || 'jpg';
-      const thumbnails = JSON.parse(attachment.thumbnail_path ?? '{}') as Record<string, string>;
-      for (const thumbnailPath of Object.values(thumbnails).filter(Boolean)) {
-        const fileName = thumbnailPath.split('/').pop();
-        if (fileName) {
-          await this.appendFileToArchive(
-            archive,
-            bucket,
-            thumbnailPath,
-            `${prefix}${fileName}.${suffix}`
-          );
+    for await (const { rows, names } of this.getAttachmentMetadataPages(
+      dataDb,
+      metaDb,
+      tables,
+      signal
+    )) {
+      for (const attachment of rows) {
+        const suffix = names.get(attachment.token)?.split('.').pop();
+        await this.appendFileToArchive(
+          archive,
+          bucket,
+          attachment.path,
+          `${filePath}/${attachment.token}${suffix ? `.${suffix}` : ''}`,
+          signal
+        );
+        const thumbnails = JSON.parse(attachment.thumbnail_path ?? '{}') as Record<string, string>;
+        for (const thumbnailPath of Object.values(thumbnails).filter(Boolean)) {
+          const fileName = thumbnailPath.split('/').pop();
+          if (fileName) {
+            await this.appendFileToArchive(
+              archive,
+              bucket,
+              thumbnailPath,
+              `${filePath}/thumbnail__${fileName}.${suffix || 'jpg'}`,
+              signal
+            );
+          }
         }
       }
     }
@@ -895,84 +1043,83 @@ export class BaseExportV2Service {
     metaDb: ExportDb,
     filePath: string,
     tables: TableRow[],
-    archive: archiver.Archiver
+    archive: archiver.Archiver,
+    signal: AbortSignal
   ) {
-    if (!tables.length) return;
-    const tableIds = tables.map((table) => table.id);
-    const tokens = await listAttachmentTokensByTableIds(dataDb as never, metaDb as never, tableIds);
-    if (!tokens.length) return;
-    const result = await sql<AttachmentMetadataRow>`
-      select distinct
-        a."id",
-        a."token",
-        a."hash",
-        a."size",
-        a."mimetype",
-        a."path",
-        a."width",
-        a."height",
-        a."deleted_time",
-        a."created_time",
-        a."created_by",
-        a."last_modified_by",
-        a."thumbnail_path"
-      from "attachments" a
-      where a."token" in (${sql.join(tokens.map((token) => sql`${token}`))})
-        and a."deleted_time" is null
-    `.execute(metaDb);
-    if (!result.rows.length) return;
-
-    const csvStream = new PassThrough();
-    const attachments = result.rows.map((row) => ({
-      id: row.id,
-      token: row.token,
-      hash: row.hash,
-      size: row.size,
-      mimetype: row.mimetype,
-      path: row.path,
-      width: row.width,
-      height: row.height,
-      deletedTime: row.deleted_time,
-      createdTime: row.created_time,
-      createdBy: row.created_by,
-      lastModifiedBy: row.last_modified_by,
-      thumbnailPath: row.thumbnail_path,
-    }));
-    const headers = Object.keys(attachments[0]!);
-    csvStream.write(`${headers.join(',')}\n`);
-    archive.append(csvStream, { name: `${filePath}/attachments.csv` });
-    csvStream.write(
-      stringify(
-        attachments.map((row) => {
-          const values = row as Record<string, unknown>;
-          return Object.fromEntries(
-            headers.map((header) => [header, serializeCsvValue(values[header])])
-          );
-        }),
-        { columns: headers }
-      )
-    );
-    csvStream.end();
+    const columns = [
+      ['id', 'id'],
+      ['token', 'token'],
+      ['hash', 'hash'],
+      ['size', 'size'],
+      ['mimetype', 'mimetype'],
+      ['path', 'path'],
+      ['width', 'width'],
+      ['height', 'height'],
+      ['deletedTime', 'deleted_time'],
+      ['createdTime', 'created_time'],
+      ['createdBy', 'created_by'],
+      ['lastModifiedBy', 'last_modified_by'],
+      ['thumbnailPath', 'thumbnail_path'],
+    ] as const;
+    const pages = this.getAttachmentMetadataPages(dataDb, metaDb, tables, signal);
+    const records = (async function* () {
+      for await (const { rows } of pages) {
+        for (const row of rows) {
+          signal.throwIfAborted();
+          yield columns.map(([, column]) => serializeCsvValue(row[column]));
+        }
+      }
+    })();
+    try {
+      const first = await records.next();
+      if (first.done) return;
+      const rows = (async function* () {
+        yield first.value;
+        yield* records;
+      })();
+      await appendBaseExportEntry(
+        archive,
+        createBaseExportCsvStream(
+          columns.map(([header]) => header),
+          rows,
+          signal
+        ),
+        `${filePath}/attachments.csv`,
+        signal
+      );
+    } finally {
+      await records.return();
+    }
   }
 
   private async appendFileToArchive(
     archive: archiver.Archiver,
     bucket: string,
     s3Path: string,
-    archivePath: string
-  ): Promise<boolean> {
-    try {
-      const stream = await this.storageAdapter.downloadFile(bucket, s3Path);
-      archive.append(stream, { name: archivePath });
-      return true;
-    } catch (error) {
-      this.logger.error(
-        `Failed to export file ${s3Path} to ${archivePath}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-      return false;
-    }
+    archivePath: string,
+    signal: AbortSignal
+  ): Promise<void> {
+    const storage = this.storageAdapter;
+    const source = Readable.from(
+      (async function* () {
+        signal.throwIfAborted();
+        const body = await storage.downloadFile(bucket, s3Path);
+        const destroyBody = () => body.destroy();
+        signal.addEventListener('abort', destroyBody, { once: true });
+        try {
+          signal.throwIfAborted();
+          for await (const chunk of body) {
+            signal.throwIfAborted();
+            yield chunk;
+          }
+        } finally {
+          signal.removeEventListener('abort', destroyBody);
+          body.destroy();
+        }
+      })(),
+      { objectMode: false, highWaterMark: 64 * 1024 }
+    );
+    await appendBaseExportEntry(archive, source, archivePath, signal);
   }
 
   private captureExportError(
@@ -999,7 +1146,7 @@ export class BaseExportV2Service {
     baseId: string,
     message: string | ILocalization<I18nPath>,
     result?: {
-      status: 'success' | 'failed';
+      status: 'success' | 'failed' | 'cancelled';
       previewUrl?: string;
       attachment?: { name: string; path: string };
       errorMessage?: string;

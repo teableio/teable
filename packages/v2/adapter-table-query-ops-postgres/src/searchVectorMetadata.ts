@@ -1,4 +1,9 @@
 import {
+  buildIndexedSearchExpression,
+  decodeTableSearchIndex,
+} from '@teable/v2-adapter-db-postgres-shared';
+import { inspectResidualSearchIndex } from './searchResidual';
+import {
   TableByIdSpec,
   TableId,
   Table,
@@ -23,15 +28,20 @@ import {
   quoteIdentifier,
   toInfrastructureError,
 } from './helpers';
-import { renderGeneratedSearchTextProjectionSql } from './searchDocumentProjection';
+import { renderGeneratedSearchTextProjectionSql } from '@teable/v2-adapter-db-postgres-shared';
 import { buildSearchDocumentDefinitionMarker, buildSearchDocumentExpression } from './searchVector';
-import {
-  toRecordSearchAccessPathFromConfig,
-  type SearchAccessPathConfigRow,
-} from './searchVectorStatus';
 import type { UnknownPostgresDatabase } from './types';
 
-type InspectedConfigRow = SearchAccessPathConfigRow & {
+type InspectedConfigRow = {
+  readonly generatedColumnName: string | null;
+  readonly servingSnapshot: unknown;
+  readonly semantics: string;
+  readonly accessPath: string;
+  readonly provider: string;
+  readonly languageConfig: string | null;
+  readonly fieldIds: unknown;
+  readonly searchScope: string;
+  readonly status: string;
   readonly indexName: string;
   readonly definitionKey: string;
   readonly configVersion: string;
@@ -73,6 +83,7 @@ export class PostgresTableSearchAccessPathMetadataPublisher {
           field_ids AS "fieldIds",
           search_scope AS "searchScope",
           status
+          , serving_snapshot AS "servingSnapshot"
         FROM table_query_search_vector_config
         WHERE table_id = ${tableId}
           AND status IN ('ready', 'stale', 'rebuild_pending')
@@ -195,57 +206,114 @@ export class PostgresTableSearchAccessPathMetadataPublisher {
     let fallback: ITableSearchIndex | undefined;
     const dbTableName = table.dbTableName().andThen((name) => name.value());
     if (dbTableName.isErr()) return err(dbTableName.error);
-    let contractFieldIds: ReadonlySet<string> | undefined;
+    let contract: ReadonlySet<string> | undefined;
+    let scope: 'all_fields' | 'selected_fields' | undefined;
     for (const row of rows) {
-      const configured = toRecordSearchAccessPathFromConfig(row);
-      // Lexical documents are not compatible with ordinary substring search.
-      if (configured?.kind !== 'generated_text') continue;
-      contractFieldIds ??= new Set(configured.coveredFieldIds.map((fieldId) => fieldId.toString()));
-      const candidateFieldIds = configured.coveredFieldIds
-        .map((fieldId) => fieldId.toString())
-        .filter((fieldId) => contractFieldIds?.has(fieldId));
-      if (!candidateFieldIds.length) continue;
+      if (
+        row.semantics !== 'substring' ||
+        row.accessPath !== 'generated_text' ||
+        (row.provider !== 'pg_trgm' && row.provider !== 'pg_bigm')
+      )
+        continue;
+      const saved = decodeTableSearchIndex(row.servingSnapshot);
+      const ids =
+        saved?.fieldIds ??
+        (Array.isArray(row.fieldIds)
+          ? row.fieldIds.filter((id): id is string => typeof id === 'string')
+          : []);
+      contract ??= new Set(ids);
+      scope ??= row.searchScope === 'all_fields' ? 'all_fields' : 'selected_fields';
+      const targetIds = ids.filter((id) => contract!.has(id));
       const definition = buildTableSearchAccessPathDefinition(table, {
         semantics: 'substring',
-        provider: configured.provider,
-        fieldIds: candidateFieldIds,
+        provider: row.provider,
+        fieldIds: targetIds,
       });
       if (definition.isErr()) return err(definition.error);
-      const compatible = definition.value.fields;
-      const snapshot: ITableSearchIndex = {
-        version: 1,
+      const compatible = definition.value.fields.filter((field) => contract!.has(field.fieldId));
+      let snapshot: ITableSearchIndex = saved ?? {
+        version: 2,
         dbTableName: dbTableName.value,
-        generatedColumnName: row.generatedColumnName,
-        indexName: row.indexName,
-        provider: configured.provider,
-        searchScope: configured.searchScope,
         definitionKey: row.definitionKey,
-        indexUsable: false,
-        fields: compatible.map(({ fieldId, fieldDbName, textProjection }) => ({
-          fieldId,
-          fieldDbName,
-          textProjection,
-        })),
+        searchScope: row.searchScope === 'all_fields' ? 'all_fields' : 'selected_fields',
+        fieldIds: targetIds,
+        ...(row.generatedColumnName
+          ? {
+              document: {
+                generatedColumnName: row.generatedColumnName,
+                indexName: row.indexName,
+                provider: row.provider,
+                ready: false,
+                fields: compatible,
+              },
+            }
+          : {}),
       };
-      fallback ??= snapshot;
-      if (!compatible.length) continue;
-
-      const indexed = await this.resolveIndexedAccessPath(
-        physical,
-        row.indexName,
-        configured,
-        compatible
+      snapshot = { ...snapshot, searchScope: scope, fieldIds: [...contract] };
+      if (snapshot.dbTableName !== dbTableName.value) continue;
+      const runtime = resolveTableSearchAccessPath(
+        Table.rehydrate({
+          id: table.id(),
+          baseId: table.baseId(),
+          name: table.name(),
+          fields: table.getFields(),
+          views: table.views(),
+          primaryFieldId: table.primaryFieldId(),
+          dbTableName: table.dbTableName()._unsafeUnwrap(),
+          searchIndex: {
+            ...snapshot,
+            ...(snapshot.residual ? { residual: { ...snapshot.residual, ready: true } } : {}),
+          },
+        })._unsafeUnwrap()
       );
-      if (indexed)
-        return ok({
+      const document = snapshot.document;
+      if (document) {
+        const matching = compatible.filter(
+          (field) =>
+            !saved ||
+            document.fields.some(
+              (member) =>
+                member.fieldId === field.fieldId &&
+                member.fieldDbName === field.fieldDbName &&
+                JSON.stringify(member.textProjection) === JSON.stringify(field.textProjection)
+            )
+        );
+        const indexed = matching.length
+          ? await this.resolveIndexedAccessPath(
+              physical,
+              document.indexName,
+              { generatedColumnName: document.generatedColumnName, provider: document.provider },
+              matching
+            )
+          : undefined;
+        snapshot = {
           ...snapshot,
-          indexUsable: true,
-          fields: indexed.map(({ fieldId, fieldDbName, textProjection }) => ({
-            fieldId,
-            fieldDbName,
-            textProjection,
-          })),
-        });
+          document: { ...document, ready: Boolean(indexed?.length), fields: indexed ?? matching },
+        };
+      }
+      const residual = snapshot.residual;
+      if (residual) {
+        const compatibleResidual =
+          residual.fields.every((member) => contract!.has(member.fieldId)) &&
+          runtime?.kind === 'generated_text' &&
+          runtime.residual?.ready &&
+          residual.expression === buildIndexedSearchExpression(residual.fields);
+        const inventory = compatibleResidual
+          ? await inspectResidualSearchIndex(
+              this.dataDb,
+              physical,
+              residual.indexName,
+              residual.fields,
+              {
+                provider: residual.provider,
+                operatorClass: residual.provider === 'pg_bigm' ? 'gin_bigm_ops' : 'gin_trgm_ops',
+              }
+            )
+          : undefined;
+        snapshot = { ...snapshot, residual: { ...residual, ready: inventory?.ready === true } };
+      }
+      fallback ??= snapshot;
+      if (snapshot.document?.ready || snapshot.residual?.ready) return ok(snapshot);
     }
     return ok(fallback);
   }
@@ -253,7 +321,7 @@ export class PostgresTableSearchAccessPathMetadataPublisher {
   private async resolveIndexedAccessPath(
     physical: { schema: string; tableName: string },
     indexName: string,
-    configured: Extract<IRecordSearchAccessPath, { kind: 'generated_text' }>,
+    configured: { readonly generatedColumnName: string; readonly provider: 'pg_trgm' | 'pg_bigm' },
     compatible: TableSearchAccessPathDefinition['fields']
   ): Promise<TableSearchAccessPathDefinition['fields'] | undefined> {
     const inventory = await sql<{

@@ -2,6 +2,7 @@
 import type { Readable } from 'node:stream';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { ILinkFieldOptions, IUserCellValue } from '@teable/core';
 import {
   DbFieldType,
   FieldType,
@@ -47,6 +48,7 @@ import {
   GetTableByIdQuery,
   ImportDotTeaStructureCommand,
   RestoreRecordsStreamCommand,
+  UpdateFieldCommand,
   v2CoreTokens,
   type ICommandBus,
   type DomainError,
@@ -63,6 +65,7 @@ import {
   type RestoreRecordInput,
   type RestoreRecordsStreamResult,
   type UpdateManyStreamBatchInput,
+  type UpdateFieldResult,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 
@@ -84,6 +87,7 @@ import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
+import { NotificationService } from '../notification/notification.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableService } from '../table/table.service';
 import { V2ContainerService } from '../v2/v2-container.service';
@@ -97,8 +101,9 @@ import {
 } from './base-import-preview';
 import { BaseImportAttachmentsQueueProcessor } from './base-import-processor/base-import-attachments.processor';
 import { BaseImportCsvQueueProcessor } from './base-import-processor/base-import-csv.processor';
+import { notifyBaseImportWarnings, type IBaseImportWarnings } from './base-import-warnings';
 import { DotTeaStructureError, readDotTeaStructureJson } from './dottea-structure-reader';
-import { replaceStringByMap } from './utils';
+import { parseImportAttachmentEntryName, replaceStringByMap } from './utils';
 
 export interface IBaseImportProgress {
   phase: string;
@@ -134,6 +139,18 @@ type IDataPrismaExecutor = {
 type IDataPrismaScopedClient = IDataPrismaExecutor & {
   txClient?: () => IDataPrismaExecutor;
 };
+
+interface IImportedLinkTarget {
+  id: string;
+  dbTableName: string;
+  baseId: string;
+}
+
+interface IImportedLinkReferences {
+  target: IImportedLinkTarget;
+  ids: Set<string>;
+  existing: Set<string>;
+}
 
 const tableDataImportBatchSize = 100;
 const linkFieldImportBatchSize = 25;
@@ -226,6 +243,7 @@ export class BaseImportService {
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly audit: AuditScope,
+    private readonly notificationService: NotificationService,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
@@ -597,52 +615,78 @@ export class BaseImportService {
     onProgress?.('queuing_attachments');
     await this.importAttachmentsV2(db, path);
     onProgress?.('importing_table_data');
-    await this.importTableDataV2(
-      path,
-      base.id,
-      structure,
-      tableIdMap,
-      viewIdMap,
-      commandBus,
-      queryBus,
-      context,
-      userLookupService,
-      onProgress,
-      rowBudget
-    );
-    await this.importTableLinkFieldsV2(
-      path,
-      base.id,
-      structure,
-      tableIdMap,
-      queryBus,
-      tableRecordRepository,
-      unitOfWork,
-      context,
-      onProgress
-    );
-
-    if (rowBudget?.truncatedTables.length) {
-      // Keep the imported base and rows (truncate-and-keep), but surface the
-      // plan limit so the caller can run the upgrade flow; details name the
-      // truncated tables so the report is explicit, not a silent partial.
-      throw new CustomHttpException(
-        `Exceed max row limit: ${maxRowCount ?? 0}. Imported data was truncated (tables: ${rowBudget.truncatedTables.join(', ')})`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          domainCode: 'validation.limit.rows_per_table_max',
-          details: {
-            max: maxRowCount,
-            truncatedTables: rowBudget.truncatedTables,
-            baseId: base.id,
-          },
-          localization: {
-            i18nKey: 'httpErrors.billing.exceedMaxRowLimit',
-            context: { maxRowCount: maxRowCount ?? 0 },
-          },
-        }
+    const warnings: IBaseImportWarnings = {
+      skippedUserCells: 0,
+      skippedLinkCells: 0,
+      relaxedRequiredUserFields: 0,
+    };
+    try {
+      await this.importTableDataV2(
+        path,
+        base.id,
+        structure,
+        tableIdMap,
+        viewIdMap,
+        commandBus,
+        queryBus,
+        context,
+        userLookupService,
+        warnings,
+        onProgress,
+        rowBudget
       );
+      await this.importTableLinkFieldsV2(
+        path,
+        base.id,
+        structure,
+        tableIdMap,
+        queryBus,
+        tableRecordRepository,
+        unitOfWork,
+        context,
+        warnings,
+        onProgress
+      );
+
+      if (rowBudget?.truncatedTables.length) {
+        // Keep the imported base and rows (truncate-and-keep), but surface the
+        // plan limit so the caller can run the upgrade flow; details name the
+        // truncated tables so the report is explicit, not a silent partial.
+        throw new CustomHttpException(
+          `Exceed max row limit: ${maxRowCount ?? 0}. Imported data was truncated (tables: ${rowBudget.truncatedTables.join(', ')})`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            domainCode: 'validation.limit.rows_per_table_max',
+            details: {
+              max: maxRowCount,
+              truncatedTables: rowBudget.truncatedTables,
+              baseId: base.id,
+            },
+            localization: {
+              i18nKey: 'httpErrors.billing.exceedMaxRowLimit',
+              context: { maxRowCount: maxRowCount ?? 0 },
+            },
+          }
+        );
+      }
+    } catch (error) {
+      try {
+        await notifyBaseImportWarnings(this.notificationService, base.id, this.cls.get('user.id'), {
+          skippedUserCells: 0,
+          skippedLinkCells: 0,
+          relaxedRequiredUserFields: warnings.relaxedRequiredUserFields,
+        });
+      } catch {
+        this.logger.error('Failed to notify imported required User constraint changes');
+      }
+      throw error;
     }
+    await notifyBaseImportWarnings(
+      this.notificationService,
+      base.id,
+      this.cls.get('user.id'),
+      warnings
+    );
 
     return {
       base,
@@ -1529,14 +1573,15 @@ export class BaseImportService {
         entry.type !== 'Directory' &&
         (entryPath.split('.').pop() ?? '') !== 'csv',
       async (entry) => {
-        const filePath = entry.path;
-        const fileSuffix = filePath.split('.').pop() ?? '';
-        const token = filePath.replace(attachmentsDirPrefix, '').split('.')[0];
-        const isThumbnail = token.includes('thumbnail__');
+        const parsed = parseImportAttachmentEntryName(entry.path.replace(attachmentsDirPrefix, ''));
+        if (!parsed) {
+          entry.autodrain();
+          return;
+        }
+        const { isThumbnail, key: finalToken, extension } = parsed;
         const finalPath = isThumbnail
-          ? `table/${token.split('__')[1].split('.')[0]}`
-          : `${StorageAdapter.getDir(UploadType.Table)}/${token}`;
-        const finalToken = isThumbnail ? token.split('__')[1].split('.')[0] : token;
+          ? `table/${finalToken}`
+          : `${StorageAdapter.getDir(UploadType.Table)}/${finalToken}`;
         const existing = await sql<{ id: string }>`
           select "id"
           from "attachments"
@@ -1551,7 +1596,7 @@ export class BaseImportService {
 
         await this.storageAdapter.uploadFileStream(bucket, finalPath, entry, {
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          'Content-Type': this.getAttachmentMimeType(fileSuffix),
+          'Content-Type': this.getAttachmentMimeType(extension),
         });
       }
     );
@@ -1693,6 +1738,7 @@ export class BaseImportService {
     queryBus: IQueryBus,
     context: IExecutionContext,
     userLookupService: IUserLookupService,
+    warnings: IBaseImportWarnings,
     onProgress?: BaseImportProgressCallback,
     rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
@@ -1716,6 +1762,7 @@ export class BaseImportService {
           queryBus,
           context,
           userLookupService,
+          warnings,
           onProgress,
           rowBudget
         );
@@ -1737,12 +1784,13 @@ export class BaseImportService {
     queryBus: IQueryBus,
     context: IExecutionContext,
     userLookupService: IUserLookupService,
+    warnings: IBaseImportWarnings,
     onProgress?: BaseImportProgressCallback,
     rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
     const tableId = targetTableId;
     const tableName = table.name;
-    const config = await this.buildTableDataImportConfig(baseId, tableId, queryBus, context);
+    let config = await this.buildTableDataImportConfig(baseId, tableId, queryBus, context);
 
     // Keep CSV processing streaming: only this batch is buffered. Authorization
     // runs immediately before its restore, at the same timing as normal writes.
@@ -1759,12 +1807,20 @@ export class BaseImportService {
 
     const restoreBatch = async () => {
       if (batch.length === 0) return;
-      const authorized = await this.authorizeImportedUserValues(
-        batch,
-        config,
-        tableId,
-        userLookupService
-      );
+      const { records: authorized, relaxedRequiredUserFields } =
+        await this.authorizeImportedUserValues(
+          batch,
+          config,
+          baseId,
+          tableId,
+          userLookupService,
+          warnings,
+          commandBus,
+          context
+        );
+      if (relaxedRequiredUserFields > 0) {
+        config = await this.buildTableDataImportConfig(baseId, tableId, queryBus, context);
+      }
       const commandResult = RestoreRecordsStreamCommand.create({
         tableId,
         records: this.toAsyncIterable(authorized),
@@ -1895,6 +1951,7 @@ export class BaseImportService {
     tableRecordRepository: ITableRecordRepository,
     unitOfWork: IUnitOfWork,
     context: IExecutionContext,
+    warnings: IBaseImportWarnings,
     onProgress?: BaseImportProgressCallback
   ) {
     const linkFieldsTableId = '__link_fields__';
@@ -1955,6 +2012,7 @@ export class BaseImportService {
           tableRecordRepository,
           unitOfWork,
           context,
+          warnings,
           onLinkBatchUpdated
         );
       }
@@ -2020,6 +2078,7 @@ export class BaseImportService {
     tableRecordRepository: ITableRecordRepository,
     unitOfWork: IUnitOfWork,
     context: IExecutionContext,
+    warnings: IBaseImportWarnings,
     onLinkBatchUpdated: (batchProcessedRows: number) => void
   ) {
     const tableId = targetTableId;
@@ -2033,7 +2092,11 @@ export class BaseImportService {
       return;
     }
 
-    for await (const batchResult of this.createTableLinkFieldUpdateBatchStream(entry, config)) {
+    for await (const batchResult of this.createTableLinkFieldUpdateBatchStream(
+      entry,
+      config,
+      warnings
+    )) {
       if (batchResult.isErr()) {
         throw new Error(
           formatBaseImportError(batchResult.error, 'Invalid link field import batch')
@@ -2177,17 +2240,28 @@ export class BaseImportService {
     config: {
       fieldsByDbFieldName: ReadonlyMap<
         string,
-        { type: string; dbFieldName: string; isMultipleCellValue: boolean }
+        {
+          id: string;
+          type: string;
+          dbFieldName: string;
+          isMultipleCellValue: boolean;
+          isComputed: boolean;
+          notNull: boolean;
+        }
       >;
     },
+    baseId: string,
     tableId: string,
-    userLookupService: IUserLookupService
-  ): Promise<RestoreRecordInput[]> {
+    userLookupService: IUserLookupService,
+    warnings: IBaseImportWarnings,
+    commandBus: ICommandBus,
+    context: IExecutionContext
+  ): Promise<{ records: RestoreRecordInput[]; relaxedRequiredUserFields: number }> {
     // The archive is caller-controlled, unlike undo/trash restore snapshots.
     // Re-evaluate scope for each bounded restore batch; do not cache grants
     // across batches or claim the whole import is atomic after schema commit.
     const userFields = [...config.fieldsByDbFieldName.values()].filter(
-      (field) => field.type === FieldType.User
+      (field) => field.type === FieldType.User && !field.isComputed
     );
     const scopedIds = new Set<string>();
     const identityPairs: Array<{ id: string; email: string }> = [];
@@ -2223,7 +2297,8 @@ export class BaseImportService {
       userLookupService
     );
 
-    return records.map((record) => {
+    const affectedRequiredFields = new Set<string>();
+    const authorizedRecords = records.map((record) => {
       const extraColumnValues = { ...record.extraColumnValues };
       for (const field of userFields) {
         const references = parsedCells.get(record)?.get(field.dbFieldName) ?? null;
@@ -2231,23 +2306,81 @@ export class BaseImportService {
           extraColumnValues[field.dbFieldName] = null;
           continue;
         }
-        const canonical = references.map((reference) => {
+        const canonical: IUserCellValue[] = [];
+        for (const reference of references) {
           const user = (reference.email === undefined ? scopedUsersById : pairedUsersById).get(
             reference.id
-          )!;
-          return {
-            id: user.id,
-            title: user.name,
-            ...(user.email ? { email: user.email } : {}),
-            ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
-          };
-        });
+          );
+          if (user && (reference.email === undefined || user.email === reference.email)) {
+            canonical.push({
+              id: user.id,
+              title: user.name,
+              ...(user.email ? { email: user.email } : {}),
+              ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
+            });
+          }
+        }
+        if (canonical.length !== references.length) warnings.skippedUserCells += 1;
+        if (canonical.length === 0) {
+          extraColumnValues[field.dbFieldName] = null;
+          if (field.notNull) affectedRequiredFields.add(field.id);
+          continue;
+        }
         extraColumnValues[field.dbFieldName] = JSON.stringify(
           field.isMultipleCellValue ? canonical : canonical[0]
         );
       }
-      return { ...record, extraColumnValues };
+      let { createdBy, lastModifiedBy } = record;
+      if (createdBy && !scopedUsersById.has(createdBy)) {
+        createdBy = this.cls.get('user.id');
+        warnings.skippedUserCells += 1;
+      }
+      if (lastModifiedBy && !scopedUsersById.has(lastModifiedBy)) {
+        lastModifiedBy = this.cls.get('user.id');
+        warnings.skippedUserCells += 1;
+      }
+      return { ...record, createdBy, lastModifiedBy, extraColumnValues };
     });
+    const relaxedRequiredUserFields = await this.relaxImportedRequiredUserFieldsV2(
+      baseId,
+      tableId,
+      affectedRequiredFields,
+      commandBus,
+      context,
+      warnings
+    );
+    return { records: authorizedRecords, relaxedRequiredUserFields };
+  }
+
+  private async relaxImportedRequiredUserFieldsV2(
+    baseId: string,
+    tableId: string,
+    fieldIds: ReadonlySet<string>,
+    commandBus: ICommandBus,
+    context: IExecutionContext,
+    warnings: IBaseImportWarnings
+  ): Promise<number> {
+    let relaxed = 0;
+    for (const fieldId of fieldIds) {
+      const field = await this.prismaService.field.findFirstOrThrow({
+        where: { id: fieldId, tableId, table: { baseId }, deletedTime: null },
+        select: { type: true, isComputed: true, isLookup: true, notNull: true },
+      });
+      if (field.type !== FieldType.User || field.isComputed || field.isLookup) {
+        throw new Error('Imported user field is no longer writable');
+      }
+      if (!field.notNull) continue;
+      const command = UpdateFieldCommand.create({ tableId, fieldId, field: { notNull: false } });
+      if (command.isErr()) throw new Error('Failed to relax imported required user field');
+      const result = await commandBus.execute<UpdateFieldCommand, UpdateFieldResult>(
+        context,
+        command.value
+      );
+      if (result.isErr()) throw new Error('Failed to relax imported required user field');
+      warnings.relaxedRequiredUserFields += 1;
+      relaxed += 1;
+    }
+    return relaxed;
   }
 
   private collectImportedAuthorIds(
@@ -2278,16 +2411,6 @@ export class BaseImportService {
     }
     const scopedUsersById = new Map(scopedResult.value.map((user) => [user.id, user]));
     const pairedUsersById = new Map(pairedResult.value.map((user) => [user.id, user]));
-    if (
-      [...scopedIds].some((id) => !scopedUsersById.has(id)) ||
-      identityPairs.some((pair) => pairedUsersById.get(pair.id)?.email !== pair.email)
-    ) {
-      throw new CustomHttpException(
-        'The imported archive contains an invalid user reference',
-        HttpErrorCode.VALIDATION_ERROR,
-        { domainCode: 'validation.field.user_not_found' }
-      );
-    }
     return { scopedUsersById, pairedUsersById };
   }
 
@@ -2356,50 +2479,148 @@ export class BaseImportService {
 
   private async *createTableLinkFieldUpdateBatchStream(
     entry: unzipper.Entry,
-    config: Awaited<ReturnType<BaseImportService['buildTableDataImportConfig']>>
+    config: Awaited<ReturnType<BaseImportService['buildTableDataImportConfig']>>,
+    warnings: IBaseImportWarnings
   ): AsyncGenerator<Result<UpdateManyStreamBatchInput, DomainError>> {
-    let batch: RecordUpdateResult[] = [];
+    const fields = await this.prismaService.field.findMany({
+      where: { tableId: config.table.id().toString(), deletedTime: null, type: FieldType.Link },
+      select: { id: true, options: true, isLookup: true, isComputed: true },
+    });
+    const linkFields = fields
+      .filter((field) => !field.isLookup && !field.isComputed)
+      .map((field) => ({
+        id: field.id,
+        foreignTableId: (JSON.parse(field.options ?? '{}') as ILinkFieldOptions).foreignTableId,
+      }));
+    const targetTables = await this.prismaService.tableMeta.findMany({
+      where: {
+        id: { in: [...new Set(linkFields.map((field) => field.foreignTableId))] },
+        deletedTime: null,
+      },
+      select: { id: true, dbTableName: true, baseId: true },
+    });
+    const targetsById = new Map(targetTables.map((table) => [table.id, table]));
+    const linkTargets = new Map<string, IImportedLinkTarget>();
+    for (const field of linkFields) {
+      const target = targetsById.get(field.foreignTableId);
+      if (!target) throw new Error('Invalid imported link target metadata');
+      linkTargets.set(field.id, target);
+    }
 
-    const flush = () => {
-      if (!batch.length) {
-        return null;
+    let batch: Array<{ id: string; fields: Record<string, unknown> }> = [];
+    const flush = async (): Promise<Result<UpdateManyStreamBatchInput, DomainError>> => {
+      await this.filterDanglingImportedLinks(batch, linkTargets, warnings);
+      const updates: RecordUpdateResult[] = [];
+      for (const record of batch) {
+        const recordIdResult = RecordId.create(record.id);
+        if (recordIdResult.isErr()) return err(recordIdResult.error);
+        const updateResult = config.table.updateRecord(
+          recordIdResult.value,
+          new Map(Object.entries(record.fields)),
+          { typecast: true }
+        );
+        if (updateResult.isErr()) return err(updateResult.error);
+        updates.push(updateResult.value);
       }
-
-      const updates = batch;
       batch = [];
       return ok({ table: config.table, updates });
     };
 
     for await (const record of this.createTableLinkFieldUpdateStream(entry, config)) {
-      const recordIdResult = RecordId.create(record.id);
-      if (recordIdResult.isErr()) {
-        yield err(recordIdResult.error);
-        return;
-      }
-
-      const updateResult = config.table.updateRecord(
-        recordIdResult.value,
-        new Map(Object.entries(record.fields)),
-        { typecast: true }
-      );
-      if (updateResult.isErr()) {
-        yield err(updateResult.error);
-        return;
-      }
-
-      batch.push(updateResult.value);
+      batch.push(record);
       if (batch.length >= linkFieldImportBatchSize) {
-        const batchResult = flush();
-        if (batchResult) {
-          yield batchResult;
-        }
+        const result = await flush();
+        yield result;
+        if (result.isErr()) return;
       }
     }
+    if (batch.length) yield await flush();
+  }
 
-    const batchResult = flush();
-    if (batchResult) {
-      yield batchResult;
+  private async filterDanglingImportedLinks(
+    records: Array<{ id: string; fields: Record<string, unknown> }>,
+    linkTargets: ReadonlyMap<string, IImportedLinkTarget>,
+    warnings: IBaseImportWarnings
+  ): Promise<void> {
+    const references = this.collectImportedLinkReferences(records, linkTargets);
+    await this.queryImportedLinkTargets(references);
+    for (const record of records) {
+      for (const [fieldId, value] of Object.entries(record.fields)) {
+        const target = linkTargets.get(fieldId)!;
+        const existing = references.get(target.id)!.existing;
+        const sanitized = this.filterImportedLinkCell(value, existing);
+        if (sanitized === value) continue;
+        record.fields[fieldId] = sanitized;
+        warnings.skippedLinkCells += 1;
+      }
     }
+  }
+
+  private collectImportedLinkReferences(
+    records: ReadonlyArray<{ fields: Record<string, unknown> }>,
+    linkTargets: ReadonlyMap<string, IImportedLinkTarget>
+  ) {
+    const referencesByTarget = new Map<string, IImportedLinkReferences>();
+    for (const record of records) {
+      for (const [fieldId, value] of Object.entries(record.fields)) {
+        const target = linkTargets.get(fieldId);
+        if (!target) throw new Error('Invalid imported link field metadata');
+        let references = referencesByTarget.get(target.id);
+        if (!references) {
+          references = { target, ids: new Set(), existing: new Set() };
+          referencesByTarget.set(target.id, references);
+        }
+        this.collectImportedLinkCellIds(value, references.ids);
+      }
+    }
+    return referencesByTarget;
+  }
+
+  private collectImportedLinkCellIds(value: unknown, ids: Set<string>): void {
+    for (const item of Array.isArray(value) ? value : [value]) {
+      const id = this.importedLinkRecordId(item);
+      if (id !== undefined) ids.add(id);
+    }
+  }
+
+  private importedLinkRecordId(value: unknown): string | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    const id = Reflect.get(value, 'id');
+    return typeof id === 'string' && RecordId.create(id).isOk() ? id : undefined;
+  }
+
+  private async queryImportedLinkTargets(
+    referencesByTarget: ReadonlyMap<string, IImportedLinkReferences>
+  ): Promise<void> {
+    for (const { target, ids, existing } of referencesByTarget.values()) {
+      if (!ids.size) continue;
+      const targetIds = [...ids];
+      await this.dataDbClientManager.withDataKnexConnectionForBase(
+        target.baseId,
+        async (knex, connection) => {
+          for (let offset = 0; offset < targetIds.length; offset += 500) {
+            const rows = await knex<{ __id: string }>(target.dbTableName)
+              .connection(connection)
+              .select('__id')
+              .whereIn('__id', targetIds.slice(offset, offset + 500));
+            for (const row of rows) existing.add(row.__id);
+          }
+        }
+      );
+    }
+  }
+
+  private filterImportedLinkCell(value: unknown, existing: ReadonlySet<string>): unknown {
+    const values = Array.isArray(value) ? value : [value];
+    const filtered = values.filter((item) => {
+      // Malformed values still reach normal domain validation; only valid-shaped
+      // references to absent records are discarded.
+      const id = this.importedLinkRecordId(item);
+      return id === undefined || existing.has(id);
+    });
+    if (filtered.length === values.length) return value;
+    if (filtered.length === 0) return null;
+    return Array.isArray(value) ? filtered : filtered[0];
   }
 
   private toLinkFieldUpdateRecordInput(

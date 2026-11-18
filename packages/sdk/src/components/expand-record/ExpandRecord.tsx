@@ -24,6 +24,7 @@ import { ExpandRecordBreadcrumb } from './ExpandRecordBreadcrumb';
 import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
 import { ExpandRecordPanelHostContext, ExpandRecordPanelStackContext } from './PanelContext';
+import { useRecordPanelRaiseCount } from './raiseRecordPanel';
 import { RecordEditor } from './RecordEditor';
 import { RecordHistory } from './RecordHistory';
 import { ExpandRecordModel } from './type';
@@ -144,6 +145,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const hiddenFieldsVisible = useExpandRecordHiddenFieldsStore(
     (state) => state.hiddenFieldsVisible
   );
+  const raiseCount = useRecordPanelRaiseCount(tableId, recordId);
   const record = useRecord(recordId, serverData, {
     hydrate: true,
     withHidden: hiddenFieldsVisible && hiddenFields.length > 0,
@@ -242,6 +244,9 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
       className={cn({ 'max-w-5xl': commentVisible })}
       panelExtraWidth={commentVisible ? COMMENT_PANEL_WIDTH : 0}
       panelCrumb={crumb}
+      // a row expanded from the table, another one or this one again, comes out over a
+      // new-record draft opened beside it
+      panelRaiseKey={`${recordId}:${raiseCount}`}
     >
       <div ref={bodyRef} className="flex h-full flex-col">
         {tableId && recordId && (

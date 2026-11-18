@@ -22,6 +22,11 @@ describe('search access path HTTP contract', () => {
             provider: 'pg_trgm',
             accessPath: 'generated_text',
             coveredFieldCount: 3,
+            serving: true,
+            coveredFieldIds: ['fld-primary', 'fld-number', 'fld-formula'],
+            configuredFieldIds: ['fld-primary', 'fld-number', 'fld-formula'],
+            documentFieldIds: ['fld-primary'],
+            residualFieldIds: ['fld-number', 'fld-formula'],
           },
         },
       })
@@ -54,6 +59,8 @@ describe('search access path HTTP contract', () => {
               state,
               configured: state !== 'disabled',
               coveredFieldCount: 0,
+              serving: false,
+              coveredFieldIds: [],
             },
           },
         }).data.status.state
@@ -132,7 +139,7 @@ describe('search access path HTTP contract', () => {
     ).toBe(false);
   });
 
-  it('maps the reconciler result without v1 index state aliases', () => {
+  it.each(['document', 'residual'] as const)('maps the %s reconciler result', (branch) => {
     expect(
       reconcileSearchAccessPathOkResponseSchema.parse({
         ok: true,
@@ -141,7 +148,7 @@ describe('search access path HTTP contract', () => {
             action: 'created',
             tableId: 'tbl-reconcile',
             definitionKey: 'definition-key',
-            generatedColumnName: '__teable_search',
+            ...(branch === 'document' ? { generatedColumnName: '__teable_search' } : {}),
             indexName: 'idx_teable_search',
             languageConfig: 'simple',
             semantics: 'substring',

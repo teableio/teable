@@ -33,8 +33,8 @@ vi.mock('../../v2/v2-container.service', () => ({
 vi.mock('../../v2/v2-execution-context.factory', () => ({
   V2ExecutionContextFactory: class V2ExecutionContextFactory {},
 }));
-vi.mock('../field-calculate/field-supplement.service', () => ({
-  FieldSupplementService: class FieldSupplementService {},
+vi.mock('../../field-reference-admission/field-reference-admission.service', () => ({
+  FieldReferenceAdmissionService: class FieldReferenceAdmissionService {},
 }));
 vi.mock('../../table/table-index.service', () => ({
   TableIndexService: class TableIndexService {},
@@ -183,7 +183,7 @@ const createV2ContainerService = (commandBus: unknown, tableQueryService: unknow
   };
 };
 
-const createFieldSupplementService = () => ({
+const createFieldReferenceAdmissionService = () => ({
   assertSameSpaceLinkTarget: vi.fn(),
   assertNewForeignTableAllowed: vi.fn(),
 });
@@ -1034,7 +1034,7 @@ describe('FieldOpenApiV2Service updateField', () => {
         throw new Error(`Unexpected token ${String(token)}`);
       }),
     };
-    const fieldSupplementService = createFieldSupplementService();
+    const fieldReferenceAdmission = createFieldReferenceAdmissionService();
     const service = new FieldOpenApiV2Service(
       {
         getContainerForTable: vi.fn().mockResolvedValue(container),
@@ -1044,7 +1044,7 @@ describe('FieldOpenApiV2Service updateField', () => {
       } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       { get: vi.fn(() => undefined) } as never,
-      fieldSupplementService as never,
+      fieldReferenceAdmission as never,
       {} as never
     );
 
@@ -1056,8 +1056,8 @@ describe('FieldOpenApiV2Service updateField', () => {
     // inside the command. The space invariant stays at the entry point because
     // the command builds its specs before the plugin can reject a cross-space
     // target, and the spec merge would fail with a generic config error.
-    expect(fieldSupplementService.assertNewForeignTableAllowed).not.toHaveBeenCalled();
-    expect(fieldSupplementService.assertSameSpaceLinkTarget).toHaveBeenCalledWith(
+    expect(fieldReferenceAdmission.assertNewForeignTableAllowed).not.toHaveBeenCalled();
+    expect(fieldReferenceAdmission.assertSameSpaceLinkTarget).toHaveBeenCalledWith(
       tableId,
       otherForeignTableId
     );
@@ -2493,7 +2493,7 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
       {} as never,
       {} as never,
       {} as never,
-      createFieldSupplementService() as never,
+      createFieldReferenceAdmissionService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -2919,7 +2919,7 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
       { createContext: vi.fn().mockResolvedValue({}) } as never,
       {} as never,
       {} as never,
-      createFieldSupplementService() as never,
+      createFieldReferenceAdmissionService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
     const vo = await (
@@ -2987,7 +2987,7 @@ describe('FieldOpenApiV2Service createField', () => {
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
-      createFieldSupplementService() as never,
+      createFieldReferenceAdmissionService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -3045,7 +3045,7 @@ describe('FieldOpenApiV2Service createField', () => {
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
-      createFieldSupplementService() as never,
+      createFieldReferenceAdmissionService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -3126,7 +3126,7 @@ describe('FieldOpenApiV2Service createFields', () => {
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
-      createFieldSupplementService() as never,
+      createFieldReferenceAdmissionService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -3355,7 +3355,7 @@ describe('T7141 lookup unique legacy boundary', () => {
         {} as never,
         {} as never,
         {} as never,
-        createFieldSupplementService() as never,
+        createFieldReferenceAdmissionService() as never,
         {} as never
       ) as unknown as ITestFieldOpenApiV2Service;
       const common = {
@@ -3412,7 +3412,7 @@ describe('FieldOpenApiV2Service pending propagation', () => {
       { createContext: vi.fn().mockResolvedValue({}) } as never,
       {} as never,
       {} as never,
-      createFieldSupplementService() as never,
+      createFieldReferenceAdmissionService() as never,
       {} as never
     );
     await expect(
@@ -3450,7 +3450,7 @@ const createReadOnlyService = (): {
     { createContext: vi.fn() } as never,
     {} as never,
     {} as never,
-    createFieldSupplementService() as never,
+    createFieldReferenceAdmissionService() as never,
     {} as never
   ) as unknown as ITestFieldOpenApiV2Service;
   Object.defineProperties(service, {

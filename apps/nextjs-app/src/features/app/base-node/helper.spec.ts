@@ -27,6 +27,8 @@ describe('validateResourceExists', () => {
       getBaseNodeList: vi
         .fn()
         .mockResolvedValue([createTableNode('tbl_error'), createTableNode('tbl_ready')]),
+      getUserLastVisit: vi.fn().mockResolvedValue(undefined),
+      getViewList: vi.fn().mockResolvedValue([{ id: 'viw_ready' }]),
     };
     const ctx = {
       baseId: 'bse_test',
@@ -45,7 +47,7 @@ describe('validateResourceExists', () => {
 
     expect(result).toEqual({
       redirect: {
-        destination: '/base/bse_test/table/tbl_ready',
+        destination: '/base/bse_test/table/tbl_ready/viw_ready',
         permanent: false,
       },
     });

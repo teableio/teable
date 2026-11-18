@@ -19,6 +19,11 @@ export const templateListQueryRoSchema = z.object({
     example: 300,
     description: 'The templates count you want to take',
   }),
+  listed: z.stringbool().optional().meta({
+    default: false,
+    example: true,
+    description: 'Only the templates the template center lists',
+  }),
 });
 
 export type ITemplateListQueryRo = z.infer<typeof templateListQueryRoSchema>;

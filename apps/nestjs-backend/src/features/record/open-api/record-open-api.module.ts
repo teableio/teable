@@ -7,6 +7,7 @@ import { CanaryModule } from '../../canary/canary.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { FieldModule } from '../../field/field.module';
+import { FieldReferenceAdmissionModule } from '../../field-reference-admission/field-reference-admission.module';
 import { RecordHistoryColdCoreModule } from '../../record-history-cold/record-history-cold.module';
 import { SelectionModule } from '../../selection/selection.module';
 import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migration-guard.module';
@@ -29,6 +30,7 @@ import { RecordRestoreService } from './record-restore.service';
     RecordModule,
     RecordModifyModule,
     FieldCalculateModule,
+    FieldReferenceAdmissionModule,
     FieldModule,
     CalculationModule,
     AggregationModule,

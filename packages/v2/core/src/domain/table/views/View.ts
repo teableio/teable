@@ -201,6 +201,14 @@ export abstract class View extends Entity<ViewId> implements OnTeableViewFieldDe
     this.versionValue = version;
   }
 
+  /**
+   * Restore a previously snapshotted persisted-version baseline when an
+   * enclosing transaction attempt rolls back.
+   */
+  restoreVersion(version: ViewVersion | undefined): void {
+    this.versionValue = version;
+  }
+
   onFieldDeleted(
     deletedField: Field,
     context: FieldDeletionContext

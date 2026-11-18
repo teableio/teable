@@ -102,9 +102,9 @@ const globalModules = {
       },
       resolvers: [
         { use: QueryResolver, options: ['lang'] },
+        new HeaderResolver(['x-lang']),
         { use: CookieResolver, options: ['NEXT_LOCALE'] },
         AcceptLanguageResolver,
-        new HeaderResolver(['x-lang']),
       ],
     }),
   ],

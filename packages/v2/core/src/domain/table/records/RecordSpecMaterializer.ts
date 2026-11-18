@@ -36,6 +36,10 @@ class RecordSpecCellValueCollector implements ICellValueSpecVisitor {
   private readonly fieldValues: TableRecordFieldValue[] = [];
   private readonly indexByFieldId = new Map<string, number>();
 
+  constructor(
+    private readonly onFieldValuePresence?: (fieldId: FieldId, present: boolean) => void
+  ) {}
+
   collect(
     spec: ICellValueSpec,
     baseFields?: ReadonlyArray<TableRecordFieldValue>
@@ -68,6 +72,7 @@ class RecordSpecCellValueCollector implements ICellValueSpecVisitor {
       } else {
         this.fieldValues[existingIndex] = fieldValue;
       }
+      this.onFieldValuePresence?.(fieldId, rawValue != null);
     });
   }
 
@@ -127,11 +132,13 @@ class RecordSpecCellValueCollector implements ICellValueSpecVisitor {
     return this.setCell(spec.field.id(), null);
   }
 
-  visitSetLinkValueByTitle(_spec: SetLinkValueByTitleSpec): Result<void, DomainError> {
+  visitSetLinkValueByTitle(spec: SetLinkValueByTitleSpec): Result<void, DomainError> {
+    this.onFieldValuePresence?.(spec.fieldId, spec.titles.length > 0);
     return ok(undefined);
   }
 
-  visitSetUserValueByIdentifier(_spec: SetUserValueByIdentifierSpec): Result<void, DomainError> {
+  visitSetUserValueByIdentifier(spec: SetUserValueByIdentifierSpec): Result<void, DomainError> {
+    this.onFieldValuePresence?.(spec.fieldId, spec.identifiers.length > 0);
     return ok(undefined);
   }
 
@@ -171,8 +178,10 @@ export const materializeRecordSpec = (params: {
   tableId: TableId;
   spec: ICellValueSpec;
   baseFields?: ReadonlyArray<TableRecordFieldValue>;
+  /** Observes known or deferred nonempty assignments during the existing spec traversal. */
+  onFieldValuePresence?: (fieldId: FieldId, present: boolean) => void;
 }): Result<TableRecord, DomainError> => {
-  const collector = new RecordSpecCellValueCollector();
+  const collector = new RecordSpecCellValueCollector(params.onFieldValuePresence);
   return collector.collect(params.spec, params.baseFields).andThen((fieldValues) =>
     TableRecord.create({
       id: params.id,

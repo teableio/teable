@@ -76,4 +76,24 @@ describe('Encryptor', () => {
     expect(() => box.decrypt(foreign.encrypt({ sign: 'x' }))).toThrow('Decryption failed');
     expect(() => box.decrypt('not-a-ciphertext')).toThrow('Decryption failed');
   });
+
+  it('tells which entry opened the ciphertext', () => {
+    const rotated = new Encryptor<{ sign: string }>({
+      entries: [ROTATED, LEGACY_PAT],
+      encoding: 'base64',
+    });
+    const legacyOnly = new Encryptor<{ sign: string }>({
+      entries: [LEGACY_PAT],
+      encoding: 'base64',
+    });
+
+    expect(rotated.decryptWithEntry(rotated.encrypt({ sign: 'new' }))).toEqual({
+      data: { sign: 'new' },
+      entry: ROTATED,
+    });
+    expect(rotated.decryptWithEntry(legacyOnly.encrypt({ sign: 'old' }))).toEqual({
+      data: { sign: 'old' },
+      entry: LEGACY_PAT,
+    });
+  });
 });

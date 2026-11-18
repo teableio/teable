@@ -211,7 +211,14 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
         .where('id', '=', task.snapshot().id)
         .executeTakeFirstOrThrow()
     ).execution_state as SearchGenerationExecutionState;
-    return { table, task, journal, meta };
+    if (!journal.generatedColumnName)
+      throw new Error('Document interruption fixture requires a document generation');
+    return {
+      table,
+      task,
+      journal: { ...journal, generatedColumnName: journal.generatedColumnName },
+      meta,
+    };
   };
   const abandonGeneration = async () => {
     const result = await interruptGeneration(1);
@@ -247,7 +254,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     return (
       await sql<{ column_present: boolean; index_present: boolean }>`SELECT
       EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${tableSql})
-        AND attname = ${journal.generatedColumnName} AND NOT attisdropped) AS column_present,
+        AND attname = ${journal.generatedColumnName ?? null} AND NOT attisdropped) AS column_present,
       to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(journal.indexName)}`}) IS NOT NULL AS index_present
     `.execute(db)
     ).rows[0];
@@ -263,6 +270,8 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
         maxRecommendations: 1,
       })
     ).recommendations[0];
+    if (!candidate.generatedColumnName)
+      throw new Error('Legacy fixture requires a document-only canonical generation');
     const physical = expectOk(getTablePhysicalName(table));
     const tableSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
     await sql
@@ -777,8 +786,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     `.execute(testContainer.metaDb as unknown as Kysely<TableQueryOpsDatabase>);
     expect(resolveTableSearchAccessPath(await loadTable(table.id().toString()))).toMatchObject({
       kind: 'generated_text',
-      provider: 'pg_bigm',
-      indexUsable: true,
+      document: { provider: 'pg_bigm', ready: true },
     });
     expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
     expect((await searchUsingRuntime(table, 'privatevalue')).total).toBe(0);
@@ -790,8 +798,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     (await publisher.refresh(context, table.id().toString()))._unsafeUnwrap();
     expect(resolveTableSearchAccessPath(await loadTable(table.id().toString()))).toMatchObject({
       kind: 'generated_text',
-      provider: 'pg_trgm',
-      indexUsable: true,
+      document: { provider: 'pg_trgm', ready: true },
     });
     expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
     expect((await searchUsingRuntime(table, 'privatevalue')).total).toBe(0);
@@ -804,7 +811,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     (await publisher.refresh(context, table.id().toString()))._unsafeUnwrap();
     expect(resolveTableSearchAccessPath(await loadTable(table.id().toString()))).toMatchObject({
       kind: 'generated_text',
-      indexUsable: false,
+      document: { ready: false },
     });
     expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
     expect((await searchUsingRuntime(table, 'privatevalue')).total).toBe(0);
@@ -885,10 +892,10 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     `.execute(testContainer.metaDb as unknown as Kysely<TableQueryOpsDatabase>);
     table = await loadTable(table.id().toString());
     const drifted = resolveTableSearchAccessPath(table);
-    expect(drifted).toMatchObject({ kind: 'generated_text', indexUsable: true });
+    expect(drifted).toMatchObject({ kind: 'generated_text', document: { ready: true } });
     expect(
       drifted?.kind === 'generated_text'
-        ? drifted.coveredFieldIds.map((fieldId) => fieldId.toString())
+        ? (drifted.document?.coveredFieldIds ?? []).map((fieldId) => fieldId.toString())
         : []
     ).toEqual([title.id().toString()]);
     expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
@@ -1023,7 +1030,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
       const observedMeta = meta.withPlugin({
         transformQuery(args) {
           const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
-          if (compiled.sql.includes('WITH published AS')) publications.add(args.queryId);
+          if (compiled.sql.includes('published AS (')) publications.add(args.queryId);
           const phase = compiled.parameters.find(
             (value) => typeof value === 'string' && value.includes('"kind":"search_generation"')
           );
@@ -1177,6 +1184,368 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
       expect(retained.rows[0]?.present).toBe(true);
     }, 120_000);
   }
+
+  it.each([
+    ['mixed', 'validated'],
+    ['mixed', 'publication'],
+    ['residual_only', 'index_ready'],
+    ['residual_only', 'publication'],
+    ['residual_only', 'foreign_index'],
+    ['mixed', 'terminal_version'],
+    ['residual_only', 'terminal_version'],
+    ['mixed', 'terminal_absent_race'],
+    ['residual_only', 'terminal_absent_race'],
+    ['residual_only', 'terminal_foreign_index'],
+    ['mixed', 'abandoned'],
+    ['residual_only', 'abandoned'],
+  ] as const)(
+    'recovers a task-backed %s generation after %s with physical ownership and publication fencing',
+    async (bundle, crash) => {
+      const { table } = await createTable();
+      const title = fieldByName(table, 'Title');
+      const score = fieldByName(table, 'Score');
+      await createSemanticRecords(table, title.id().toString(), score.id().toString());
+      const physical = expectOk(getTablePhysicalName(table));
+      const tableSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+      const scoreColumn = quoteIdentifier(expectOk(expectOk(score.dbFieldName()).value()));
+      await sql.raw(`ALTER TABLE ${tableSql} ADD COLUMN residual_seed text`).execute(db);
+      await sql
+        .raw(`UPDATE ${tableSql} SET residual_seed = 'recoverable-' || ${scoreColumn}`)
+        .execute(db);
+      await sql
+        .raw(`ALTER TABLE ${tableSql} DROP COLUMN ${scoreColumn},
+      ADD COLUMN ${scoreColumn} text GENERATED ALWAYS AS (residual_seed) STORED`)
+        .execute(db);
+      await sql.raw(`ANALYZE ${tableSql}`).execute(db);
+      const fieldIds = bundle === 'residual_only' ? [score.id().toString()] : undefined;
+      const original = expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          fieldIds,
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const originalSnapshot = (await loadTable(table.id().toString())).searchIndex()!;
+      expect(originalSnapshot.residual?.ready).toBe(true);
+      const meta = testContainer.metaDb as unknown as Kysely<TableQueryOpsDatabase>;
+      const task = expectOk(
+        TableQueryRemediationTask.createQueued({
+          tableId: table.id().toString(),
+          baseId: table.baseId().toString(),
+          kind: 'rebuild_search_access_path',
+          now: new Date(),
+          payload: {
+            trigger: 'admin_search_access_path',
+            executionMode: 'manual',
+            mode: 'rebuild',
+            provider: 'pg_trgm',
+            ...(fieldIds ? { fieldIds } : {}),
+            expectedDefinitionKey: original.definitionKey,
+            validationMode: 'real_ddl',
+            requirePlanImprovement: false,
+            allowLargeTableRewrite: true,
+          },
+        })
+      );
+      recoveryTaskIds.push(task.snapshot().id);
+      expectOk(await taskRepository.save(context, task));
+      const departed = expectOk(
+        await taskRepository.save(context, expectOk(task.start('departed-residual', new Date())))
+      );
+      const statements: string[] = [];
+      const publications = new Set<unknown>();
+      let armed = true;
+      const residualInspections = new Set<unknown>();
+      let afterResidualInspection: (() => Promise<void>) | undefined;
+      let residualInspectionSql: string | undefined;
+      const reclamationLocks = new Set<unknown>();
+      let reclamationLocked = false;
+      let residualAbsenceObserved = false;
+      const observedMeta = meta.withPlugin({
+        transformQuery(args) {
+          const query = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          if (query.sql.includes('published AS (')) publications.add(args.queryId);
+          const state = query.parameters.find(
+            (value) => typeof value === 'string' && value.includes('"kind":"search_generation"')
+          );
+          const target =
+            crash === 'foreign_index' || crash.startsWith('terminal_') || crash === 'abandoned'
+              ? 'validated'
+              : crash;
+          if (armed && typeof state === 'string' && JSON.parse(state).phase === target) {
+            armed = false;
+            throw new Error('residual worker interrupted');
+          }
+          return args.node;
+        },
+        async transformResult(args) {
+          if (armed && crash === 'publication' && publications.has(args.queryId)) {
+            armed = false;
+            throw new Error('residual worker interrupted after publication');
+          }
+          return args.result;
+        },
+      }) as unknown as Kysely<UnknownPostgresDatabase>;
+      const data = db.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          statements.push(compiled.sql);
+          if (
+            afterResidualInspection &&
+            compiled.sql === `LOCK TABLE ${tableSql} IN ACCESS EXCLUSIVE MODE`
+          )
+            reclamationLocks.add(args.queryId);
+          if (
+            compiled.sql.includes('AS foreign_dependents') &&
+            compiled.sql.includes('LEFT JOIN pg_index') &&
+            compiled.parameters.includes(residualInspectionSql)
+          )
+            residualInspections.add(args.queryId);
+          return args.node;
+        },
+        async transformResult(args) {
+          if (reclamationLocks.has(args.queryId)) reclamationLocked = true;
+          if (
+            afterResidualInspection &&
+            reclamationLocked &&
+            residualInspections.has(args.queryId)
+          ) {
+            expect(args.result.rows).toEqual([]);
+            residualAbsenceObserved = true;
+            const intervene = afterResidualInspection;
+            afterResidualInspection = undefined;
+            await intervene();
+          }
+          return args.result;
+        },
+      });
+      const executor = new PostgresTableQueryRemediationExecutor(
+        observedMeta,
+        data,
+        tableRepository,
+        new PostgresTableSearchVectorReconciler(observedMeta, data)
+      );
+      const failed = await executor.execute(context, {
+        task: departed,
+        allowManualIndexExecution: false,
+      });
+      expect(failed.isErr() ? failed.error : undefined).toMatchObject({
+        message: expect.stringContaining('residual worker interrupted'),
+      });
+      expect(armed).toBe(false);
+      const journal = (
+        await meta
+          .selectFrom('table_query_remediation_task')
+          .select('execution_state')
+          .where('id', '=', task.snapshot().id)
+          .executeTakeFirstOrThrow()
+      ).execution_state as SearchGenerationExecutionState;
+      expect(journal.residualIndexName).toBeDefined();
+      expect(journal.generatedColumnName === undefined).toBe(bundle === 'residual_only');
+      const residualSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(journal.residualIndexName!)}`;
+      residualInspectionSql = residualSql;
+      const physicalBefore = await sql<{
+        oid: string;
+        expression: string;
+      }>`SELECT i.indexrelid::text AS oid,
+      pg_get_expr(i.indexprs, i.indrelid) AS expression FROM pg_index i WHERE i.indexrelid = to_regclass(${residualSql})`.execute(
+        db
+      );
+      expect(physicalBefore.rows).toHaveLength(1);
+      if (crash === 'validated')
+        await sql`UPDATE pg_index SET indisvalid = false WHERE indexrelid = to_regclass(${residualSql})`.execute(
+          db
+        );
+      let foreignOid: string | undefined;
+      if (crash === 'foreign_index' || crash === 'terminal_foreign_index') {
+        const foreignSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(`residual_foreign_${table.id().toString()}`)}`;
+        await sql
+          .raw(`CREATE TABLE ${foreignSql} (LIKE ${tableSql} INCLUDING GENERATED)`)
+          .execute(db);
+        await sql.raw(`DROP INDEX ${residualSql}`).execute(db);
+        await sql
+          .raw(`CREATE INDEX ${quoteIdentifier(journal.residualIndexName!)} ON ${foreignSql}
+        USING GIN ((${physicalBefore.rows[0]!.expression}) gin_trgm_ops)`)
+          .execute(db);
+        await sql`UPDATE pg_index SET indisvalid = false WHERE indexrelid = to_regclass(${residualSql})`.execute(
+          db
+        );
+        foreignOid = (
+          await sql<{ oid: string }>`SELECT to_regclass(${residualSql})::oid::text AS oid`.execute(
+            db
+          )
+        ).rows[0]!.oid;
+      }
+      if (crash === 'terminal_absent_race') {
+        await sql.raw(`DROP INDEX ${residualSql}`).execute(db);
+        const other = (await createTable()).table;
+        const otherPhysical = expectOk(getTablePhysicalName(other));
+        const otherSql = `${quoteIdentifier(otherPhysical.schema)}.${quoteIdentifier(otherPhysical.tableName)}`;
+        afterResidualInspection = async () => {
+          await sql
+            .raw(
+              `CREATE INDEX ${quoteIdentifier(journal.residualIndexName!)} ON ${otherSql} (__id)`
+            )
+            .execute(db);
+          foreignOid = (
+            await sql<{
+              oid: string;
+            }>`SELECT to_regclass(${residualSql})::oid::text AS oid`.execute(db)
+          ).rows[0]!.oid;
+        };
+      }
+      if (crash === 'abandoned') {
+        await meta
+          .updateTable('table_query_remediation_task')
+          .set({ status: 'failed', attempts: 3, locked_by: null, locked_at: null })
+          .where('id', '=', task.snapshot().id)
+          .execute();
+        await new PostgresTableSearchVectorExecutor(observedMeta, data).drop(table.id().toString());
+        expect(await generationPresence(table, journal)).toEqual({
+          column_present: false,
+          index_present: false,
+        });
+        expect(
+          (
+            await sql<{
+              present: boolean;
+            }>`SELECT to_regclass(${residualSql}) IS NOT NULL AS present`.execute(db)
+          ).rows[0].present
+        ).toBe(false);
+        return;
+      }
+      if (crash.startsWith('terminal_'))
+        await sql`UPDATE table_meta SET version = version + 1 WHERE id = ${table.id().toString()}`.execute(
+          meta
+        );
+      const versionBefore = (
+        await sql<{
+          version: number;
+        }>`SELECT version FROM table_meta WHERE id = ${table.id().toString()}`.execute(meta)
+      ).rows[0]!.version;
+      const statementsBefore = statements.length;
+      await meta
+        .updateTable('table_query_remediation_task')
+        .set({ locked_at: new Date(Date.now() - 120_000) })
+        .where('id', '=', task.snapshot().id)
+        .execute();
+      const claimed = expectOk(
+        await taskRepository.claimNextAccepted(context, {
+          scope: 'manual_search',
+          workerId: 'replacement-residual',
+          now: new Date(),
+          allowedKinds: [],
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+        })
+      );
+      expect(claimed?.snapshot().id).toBe(task.snapshot().id);
+      const handler = new RunTableQueryRemediationTaskHandler(
+        taskRepository,
+        executor,
+        testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+        testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+        { now: () => new Date() }
+      );
+      const completed = expectOk(
+        await handler.handle(
+          context,
+          new RunTableQueryRemediationTaskCommand(task.snapshot().id, false, 'replacement-residual')
+        )
+      );
+      const resumedStatements = statements.slice(statementsBefore);
+      expect(resumedStatements.some((statement) => statement.includes('ADD COLUMN'))).toBe(false);
+      expect(statements.filter((statement) => statement.includes('ADD COLUMN'))).toHaveLength(
+        bundle === 'mixed' ? 1 : 0
+      );
+      if (crash.startsWith('terminal_')) {
+        const unsafe = crash === 'terminal_foreign_index';
+        expect(completed.snapshot()).toMatchObject({
+          status: 'failed',
+          attempts: 1,
+          maxAttempts: 1,
+        });
+        if (unsafe) expect(completed.snapshot().lastError).toContain('cleanup failed');
+        else expect(completed.snapshot().lastError).not.toContain('cleanup failed');
+        expect(await generationPresence(table, journal)).toEqual({
+          column_present: unsafe && bundle === 'mixed',
+          index_present: bundle === 'residual_only' ? foreignOid !== undefined : unsafe,
+        });
+        const residualAfter = await sql<{
+          oid: string;
+        }>`SELECT to_regclass(${residualSql})::oid::text AS oid`.execute(db);
+        expect(residualAfter.rows[0].oid).toBe(foreignOid ?? null);
+        if (crash === 'terminal_absent_race') {
+          expect(residualAbsenceObserved).toBe(true);
+          expect(foreignOid).toBeDefined();
+        }
+        expect((await loadTable(table.id().toString())).searchIndex()).toEqual(originalSnapshot);
+        const retained = await sql<{
+          present: boolean;
+        }>`SELECT to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(originalSnapshot.residual!.indexName)}`}) IS NOT NULL AS present`.execute(
+          db
+        );
+        expect(retained.rows[0].present).toBe(true);
+        expect((await searchUsingRuntime(table, '42')).total).toBe(1);
+        return;
+      }
+      if (foreignOid) {
+        expect(completed.snapshot()).toMatchObject({
+          status: 'failed',
+          lastError: expect.stringContaining('incompatible physical object'),
+        });
+        const foreignAfter = await sql<{
+          oid: string;
+          valid: boolean;
+        }>`SELECT indexrelid::text AS oid, indisvalid AS valid
+        FROM pg_index WHERE indexrelid = to_regclass(${residualSql})`.execute(db);
+        expect(foreignAfter.rows).toEqual([{ oid: foreignOid, valid: false }]);
+        expect(resumedStatements.some((statement) => /(?:DROP|CREATE) INDEX/.test(statement))).toBe(
+          false
+        );
+        expect((await loadTable(table.id().toString())).searchIndex()!.residual!.indexName).toBe(
+          originalSnapshot.residual!.indexName
+        );
+        return;
+      }
+      expect(completed.snapshot()).toMatchObject({
+        status: 'succeeded',
+        attempts: 1,
+        payload: task.snapshot().payload,
+      });
+      expect(
+        resumedStatements.filter((statement) => statement.includes('CREATE INDEX CONCURRENTLY'))
+      ).toHaveLength(crash === 'validated' ? 1 : 0);
+      const serving = (await loadTable(table.id().toString())).searchIndex()!;
+      expect(serving.residual).toMatchObject({ ready: true, indexName: journal.residualIndexName });
+      expect(serving.document?.generatedColumnName).toBe(journal.generatedColumnName);
+      const versionAfter = (
+        await sql<{
+          version: number;
+        }>`SELECT version FROM table_meta WHERE id = ${table.id().toString()}`.execute(meta)
+      ).rows[0]!.version;
+      expect(Number(versionAfter) - Number(versionBefore)).toBe(crash === 'publication' ? 0 : 1);
+      expect((await searchUsingRuntime(table, '42')).total).toBe(1);
+      const retained = await sql<{
+        present: boolean;
+      }>`SELECT to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(originalSnapshot.residual!.indexName)}`}) IS NOT NULL AS present`.execute(
+        db
+      );
+      expect(retained.rows[0]?.present).toBe(true);
+      const staleCompletion = await taskRepository.save(
+        context,
+        expectOk(departed.succeed({ stale: true }, new Date()))
+      );
+      expect(staleCompletion.isErr() ? staleCompletion.error : undefined).toMatchObject({
+        code: 'table_query_ops.task_ownership_conflict',
+      });
+    },
+    120_000
+  );
 
   it('automatically reclaims the final failed attempt and a later create has one document', async () => {
     const { table, task, journal } = await interruptGeneration(3);
@@ -1715,7 +2084,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
       const failingMeta = meta.withPlugin({
         transformQuery(args) {
           const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
-          if (compiled.sql.includes('WITH published AS')) publications.add(args.queryId);
+          if (compiled.sql.includes('published AS (')) publications.add(args.queryId);
           return args.node;
         },
         async transformResult(args) {
@@ -1763,6 +2132,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
             new RunTableQueryRemediationTaskCommand(task.snapshot().id, true, 'publication-worker')
           )
         );
+        expect(acknowledgementLost).toBe(failure === 'committed_acknowledgement_lost');
         expect(failed.snapshot()).toMatchObject({ status: 'failed', attempts: 2, maxAttempts: 2 });
         expect(failed.snapshot().lastError).not.toContain('cleanup failed');
         const serving = (
@@ -1784,7 +2154,6 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
               OR index_name = ${journal.indexName}`.execute(meta);
           expect(references.rows[0].count).toBe(0);
         } else {
-          expect(acknowledgementLost).toBe(true);
           expect(failed.snapshot().lastError).toContain(
             'publication acknowledgement lost after commit'
           );
@@ -1792,8 +2161,11 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
             journal.generatedColumnName
           );
           expect(serving.search_index).toMatchObject({
-            generatedColumnName: journal.generatedColumnName,
-            indexName: journal.indexName,
+            version: 2,
+            document: {
+              generatedColumnName: journal.generatedColumnName,
+              indexName: journal.indexName,
+            },
           });
           expect(await generationPresence(table, journal)).toEqual({
             column_present: true,
@@ -2055,7 +2427,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
       if (changed === 'column_marker')
         await sql
           .raw(
-            `COMMENT ON COLUMN ${tableSql}.${quoteIdentifier(journal.generatedColumnName)} IS NULL`
+            `COMMENT ON COLUMN ${tableSql}.${quoteIdentifier(journal.generatedColumnName!)} IS NULL`
           )
           .execute(db);
       if (changed === 'managed_names') {
@@ -2711,11 +3083,15 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     const result = await recordQueryRepository.find(context, table, undefined, {
       search: { search: RecordSearch.fromTuple([value, fieldIds.join(','), true]) },
       searchAccessPath: {
+        fieldIds: coveredFieldIds,
         kind: 'generated_text',
-        generatedColumnName: config.generated_column_name,
-        provider: config.provider,
         searchScope: 'selected_fields',
-        coveredFieldIds,
+        document: {
+          generatedColumnName: config.generated_column_name,
+          provider: config.provider,
+          coveredFieldIds,
+          ready: true,
+        },
       },
     });
     const value_ = result._unsafeUnwrap();
@@ -2743,11 +3119,15 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     const result = await recordQueryRepository.find(context, table, undefined, {
       search: { search: RecordSearch.fromTuple([value, '', true]) },
       searchAccessPath: {
+        fieldIds: coveredFieldIds,
         kind: 'generated_text',
-        generatedColumnName: config.generated_column_name,
-        provider: config.provider,
         searchScope: 'all_fields',
-        coveredFieldIds,
+        document: {
+          generatedColumnName: config.generated_column_name,
+          provider: config.provider,
+          coveredFieldIds,
+          ready: true,
+        },
       },
     });
     const value_ = result._unsafeUnwrap();

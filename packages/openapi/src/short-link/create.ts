@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
+import { linkPreviewSchema } from '../template/link-preview';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 
@@ -26,6 +27,9 @@ export type ICreateShortLinkRo = z.infer<typeof createShortLinkRoSchema>;
 export const shortLinkVoSchema = z.object({
   code: z.string().describe('The short link code, accessible at /s/{code}'),
   path: z.string().describe('The in-app path the short link currently redirects to'),
+  preview: linkPreviewSchema
+    .optional()
+    .describe('For a template link: what link previews show (name, description, cover)'),
 });
 
 export type IShortLinkVo = z.infer<typeof shortLinkVoSchema>;

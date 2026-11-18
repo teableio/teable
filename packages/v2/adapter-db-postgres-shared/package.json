@@ -27,6 +27,7 @@
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo",
     "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "test-unit": "vitest run --silent --bail 1",
     "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
@@ -44,6 +45,7 @@
     "oxlint": "1.89.0",
     "rimraf": "5.0.5",
     "tsdown": "0.23.1",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "4.1.12"
   }
 }

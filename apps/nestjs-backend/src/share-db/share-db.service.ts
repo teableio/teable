@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { FieldOpBuilder, IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
@@ -9,6 +9,10 @@ import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import { PermissionService } from '../features/auth/permission.service';
 import { SessionHandleService } from '../features/auth/session/session-handle.service';
+import {
+  USER_ORGANIZATION_RESOLVER,
+  type IUserOrganizationResolver,
+} from '../features/auth/user-organization-resolver';
 import { PerformanceCacheService } from '../performance-cache';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
@@ -60,7 +64,10 @@ export class ShareDbService extends ShareDBClass {
     private readonly performanceCacheService: PerformanceCacheService,
     private readonly sessionHandleService: SessionHandleService,
     private readonly permissionService: PermissionService,
-    @Optional() private readonly realtimeMetrics?: RealtimeMetricsService
+    @Optional() private readonly realtimeMetrics?: RealtimeMetricsService,
+    @Optional()
+    @Inject(USER_ORGANIZATION_RESOLVER)
+    private readonly userOrganizationResolver?: IUserOrganizationResolver
   ) {
     super({
       presence: true,
@@ -81,6 +88,7 @@ export class ShareDbService extends ShareDBClass {
       permissionService: this.permissionService,
       clsService: this.cls,
       prismaService: this.prismaService,
+      userOrganizationResolver: this.userOrganizationResolver,
     });
     registerViewShareConfigFilter(this, createCanReadViewShareConfig(this.prismaService));
     this.use('submit', this.onSubmit);

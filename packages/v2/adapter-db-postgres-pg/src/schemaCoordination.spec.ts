@@ -231,4 +231,123 @@ describe('V2PgTableSchemaCoordination', () => {
       await local.destroy();
     }
   }, 20_000);
+
+  it('cancels an acquisition and releases partial table locks before its blocker ends', async () => {
+    const abort = new AbortController();
+    let blocker: AcquireResult | undefined;
+    let waiting: Promise<AcquireResult> | undefined;
+    try {
+      blocker = await coordination.acquire(createContext(), [TABLE_B], 'exclusive');
+      let settled = false;
+      waiting = coordination.acquire(createContext(), [TABLE_A, TABLE_B], 'shared', abort.signal);
+      void waiting.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        }
+      );
+      await waitForAdvisoryWaiter(observer);
+
+      abort.abort();
+      await vi.waitFor(() => expect(settled).toBe(true), { timeout: 2_000, interval: 20 });
+      expect((await waiting)._unsafeUnwrapErr().code).toBe('schema_coordination.cancelled');
+      // B is still exclusively held: cancellation must release A's already-acquired
+      // shared lock rather than waiting for the multi-table acquisition to finish.
+      await vi.waitFor(
+        async () => {
+          const probe = await observer.query<{ acquired: boolean }>(
+            'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+            [`teable.schema:table:${TABLE_A}`]
+          );
+          expect(probe.rows[0]?.acquired).toBe(true);
+        },
+        { timeout: 2_000, interval: 20 }
+      );
+    } finally {
+      abort.abort();
+      if (blocker?.isOk()) await blocker.value.release();
+      if (waiting) {
+        const result = await waiting;
+        if (result.isOk()) await result.value.release();
+      }
+    }
+  }, 20_000);
+
+  it('cancels a queued checkout and disposes its late connection without starving the pool', async () => {
+    const local = new V2PgTableSchemaCoordination({
+      connectionString: container!.getConnectionUri(),
+      maxConnections: 1,
+      connectionTimeoutMillis: 5_000,
+      applicationName: `${APPLICATION_NAME}-cancel-queued`,
+    });
+    const abort = new AbortController();
+    let holder: AcquireResult | undefined;
+    let waiting: Promise<AcquireResult> | undefined;
+    try {
+      holder = await local.acquire(createContext(), [TABLE_A], 'shared');
+      let settled = false;
+      waiting = local.acquire(createContext(), [TABLE_B], 'shared', abort.signal);
+      void waiting.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        }
+      );
+      await vi.waitFor(
+        () => {
+          // Observe the real pg-pool queue, not a timer standing in for checkout.
+          const pool: unknown = Reflect.get(local, 'pool');
+          if (!(pool instanceof PgPool)) throw new Error('Coordinator pool was not initialized');
+          expect(pool.waitingCount).toBe(1);
+        },
+        { timeout: 2_000, interval: 20 }
+      );
+      abort.abort();
+      await vi.waitFor(() => expect(settled).toBe(true), { timeout: 2_000, interval: 20 });
+      expect((await waiting)._unsafeUnwrapErr().code).toBe('schema_coordination.cancelled');
+
+      await holder._unsafeUnwrap().release();
+      const fresh = (await local.acquire(createContext(), [TABLE_B], 'exclusive'))._unsafeUnwrap();
+      await fresh.release();
+      const probe = await observer.query<{ acquired: boolean }>(
+        'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+        [`teable.schema:table:${TABLE_B}`]
+      );
+      expect(probe.rows[0]?.acquired).toBe(true);
+    } finally {
+      abort.abort();
+      if (holder?.isOk()) await holder.value.release();
+      if (waiting) {
+        const result = await waiting;
+        if (result.isOk()) await result.value.release();
+      }
+      await local.destroy();
+    }
+  }, 20_000);
+
+  it('keeps a granted lease protected after its acquisition signal is aborted', async () => {
+    const abort = new AbortController();
+    const lease = (
+      await coordination.acquire(createContext(), [TABLE_A], 'shared', abort.signal)
+    )._unsafeUnwrap();
+    try {
+      abort.abort();
+      const probe = await observer.query<{ acquired: boolean }>(
+        'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+        [`teable.schema:table:${TABLE_A}`]
+      );
+      expect(probe.rows[0]?.acquired).toBe(false);
+    } finally {
+      await lease.release();
+    }
+    const released = await observer.query<{ acquired: boolean }>(
+      'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+      [`teable.schema:table:${TABLE_A}`]
+    );
+    expect(released.rows[0]?.acquired).toBe(true);
+  });
 });

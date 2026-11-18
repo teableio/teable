@@ -57,6 +57,7 @@ export class CsvImportAdapter implements IImportSourceAdapter {
     source: CsvSource,
     options?: IImportOptions
   ): Promise<Result<IImportParseResult, DomainError>> {
+    const sourceRows = new WeakMap<ReadonlyArray<unknown>, number>();
     const iterator = parseCsvRows(source, {
       delimiter: options?.delimiter,
       skipEmptyLines: true,
@@ -64,6 +65,7 @@ export class CsvImportAdapter implements IImportSourceAdapter {
       formatSampleBytes: options?.snapshotSource === false ? 64 * 1024 : undefined,
       boundedPreview: options?.snapshotSource === false,
       fetchFn: this.fetchFn,
+      onRow: (row, sourceRowNumber) => sourceRows.set(row, sourceRowNumber),
     });
     try {
       const first = await iterator.next();
@@ -90,7 +92,7 @@ export class CsvImportAdapter implements IImportSourceAdapter {
           return iterator.throw(error);
         },
       };
-      return ok({ headers, rowsAsync });
+      return ok({ headers, rowsAsync, getSourceRowNumber: (row) => sourceRows.get(row) });
     } catch (error) {
       await iterator.return(undefined);
       const failure = domainError.fromUnknown(error);

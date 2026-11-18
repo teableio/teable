@@ -3,7 +3,13 @@ import type { CacheService } from '../cache/cache.service';
 import { DistributedLockService } from './distributed-lock.service';
 
 describe('DistributedLockService', () => {
-  const cache = { setnx: vi.fn(), get: vi.fn(), del: vi.fn(), renewLock: vi.fn() };
+  const cache = {
+    setnx: vi.fn(),
+    get: vi.fn(),
+    del: vi.fn(),
+    renewLock: vi.fn(),
+    getMany: vi.fn(),
+  };
   const newService = () => new DistributedLockService(cache as unknown as CacheService);
 
   afterEach(() => {
@@ -20,6 +26,13 @@ describe('DistributedLockService', () => {
     expect(ran).toBe(true);
     expect(cache.setnx).toHaveBeenCalledWith('lock:seed', expect.any(String), 60);
     expect(task).toHaveBeenCalledOnce();
+  });
+
+  it('reports which locks are held', async () => {
+    cache.getMany.mockResolvedValue(['some-instance', undefined]);
+
+    await expect(newService().isHeld(['a', 'b'])).resolves.toEqual([true, false]);
+    expect(cache.getMany).toHaveBeenCalledWith(['lock:a', 'lock:b']);
   });
 
   it('skips the task when another instance holds the lock', async () => {

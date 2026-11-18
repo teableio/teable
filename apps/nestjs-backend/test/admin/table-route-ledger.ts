@@ -102,8 +102,11 @@ export const TABLE_ROUTE_LEDGER = {
   'POST /api/table/:tableId/aggregation/search-matches': 'v2-only',
   // AirtableImportController
   // Airtable: analyze is host; stream is mixed v2 plus legacy view configuration (A23).
+  // tasks runs the same import as stream in the background; reading a task is host.
+  'GET /api/base/import-airtable/tasks/:taskId': 'host',
   'POST /api/base/import-airtable/analyze': 'host',
   'POST /api/base/import-airtable/stream': 'v2',
+  'POST /api/base/import-airtable/tasks': 'v2',
   // ArchiveController
   // Record archive writes are v2; archive listing/export/reset still use v1.
   'DELETE /api/table/:tableId/archive/items': 'v1:T8416',
@@ -217,9 +220,12 @@ export const TABLE_ROUTE_LEDGER = {
   'PUT /api/table/:tableId/field/:fieldId/plan': 'v2',
   // GoogleSheetImportController
   // Google Sheets creates rows/tables through v2 only; picker/analyze are host.
+  // tasks runs the same import as stream in the background; reading a task is host.
   'GET /api/base/import-google-sheet/picker-config': 'host',
+  'GET /api/base/import-google-sheet/tasks/:taskId': 'host',
   'POST /api/base/import-google-sheet/analyze': 'host',
   'POST /api/base/import-google-sheet/stream': 'v2-only',
+  'POST /api/base/import-google-sheet/tasks': 'v2-only',
   // ImportController
   // Import pipeline; status/analyze are host reads.
   'GET /api/import/analyze': 'host',

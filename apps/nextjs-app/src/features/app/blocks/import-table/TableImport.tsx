@@ -10,6 +10,7 @@ import type {
   INotifyVo,
   IImportStreamProgressEvent,
   IImportSheetSummary,
+  IImportDiagnostics,
   ITableFullVo,
 } from '@teable/openapi';
 import {
@@ -172,20 +173,98 @@ const ImportProgressPanel = ({ progress }: { progress: IImportStreamProgressEven
   );
 };
 
+const ImportDiagnosticsPanel = ({ diagnostics }: { diagnostics: IImportDiagnostics }) => {
+  const { t } = useTranslation(['table']);
+  const rowValidationReason = (code: string) => {
+    switch (code) {
+      case 'validation.field.not_null':
+        return t('table:import.tips.importRowRequired');
+      case 'validation.field.type_mismatch':
+        return t('table:import.tips.importRowTypeMismatch');
+      case 'validation.field.out_of_range':
+        return t('table:import.tips.importRowOutOfRange');
+      case 'validation.field.invalid_date':
+        return t('table:import.tips.importRowInvalidDate');
+      case 'validation.field.invalid_option':
+      case 'validation.field.invalid_options':
+        return t('table:import.tips.importRowInvalidChoice');
+      case 'validation.field.invalid_link_format':
+        return t('table:import.tips.importRowInvalidLink');
+      case 'validation.field.invalid_user_format':
+        return t('table:import.tips.importRowInvalidUser');
+      case 'validation.field.invalid_attachment_format':
+        return t('table:import.tips.importRowInvalidAttachment');
+      default:
+        return t('table:import.tips.importRowInvalidValue');
+    }
+  };
+
+  return (
+    <div className="mt-2 space-y-1 text-sm">
+      {diagnostics.invalidDateCells > 0 && (
+        <p>
+          {t('table:import.tips.importInvalidDateCells', { count: diagnostics.invalidDateCells })}
+        </p>
+      )}
+      {diagnostics.skippedRows > 0 && (
+        <p>{t('table:import.tips.importSkippedRows', { count: diagnostics.skippedRows })}</p>
+      )}
+      {diagnostics.samples.length > 0 && (
+        <details>
+          <summary className="cursor-pointer py-1">
+            {t('table:import.tips.importDiagnosticSamples', { count: diagnostics.samples.length })}
+          </summary>
+          <ul className="list-disc space-y-1 ps-5 text-xs text-muted-foreground">
+            {diagnostics.samples.map((sample, index) => (
+              <li key={index} className="break-words">
+                {sample.reason === 'invalidDate'
+                  ? t('table:import.tips.importDiagnosticDate', {
+                      row: sample.rowNumber,
+                      field: sample.fieldName ?? sample.fieldId,
+                    })
+                  : sample.fieldName || sample.fieldId
+                    ? t('table:import.tips.importDiagnosticRow', {
+                        row: sample.rowNumber,
+                        field: sample.fieldName ?? sample.fieldId,
+                        reason: rowValidationReason(sample.code),
+                      })
+                    : t('table:import.tips.importDiagnosticRowOnly', {
+                        row: sample.rowNumber,
+                        reason: rowValidationReason(sample.code),
+                      })}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+};
+
 const ImportSummaryPanel = ({ sheets }: { sheets: IImportSheetSummary[] }) => {
   const { t } = useTranslation(['table', 'sdk']);
   const hasError = sheets.some((sheet) => Boolean(sheet.error));
   const hasTruncated = sheets.some((sheet) => sheet.truncated);
+  const hasWarnings = sheets.some(
+    (sheet) => sheet.diagnostics?.invalidDateCells || sheet.diagnostics?.skippedRows
+  );
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   return (
     <div className="row-start-2 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden py-1">
       <div>
-        <h3 className="text-base font-medium">
+        <h3 ref={headingRef} tabIndex={-1} className="text-base font-medium">
           {hasError
             ? t('table:import.tips.importFinishedWithErrors')
             : hasTruncated
               ? t('table:import.tips.importFinishedPartial')
-              : t('table:import.tips.importFinished')}
+              : hasWarnings
+                ? t('table:import.tips.importFinishedWithWarnings')
+                : t('table:import.tips.importFinished')}
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('table:import.tips.importSummaryHint')}
@@ -195,13 +274,16 @@ const ImportSummaryPanel = ({ sheets }: { sheets: IImportSheetSummary[] }) => {
         {sheets.map((sheet) => {
           const isError = Boolean(sheet.error);
           const isTruncated = Boolean(sheet.truncated) && !isError;
+          const hasDataWarnings = Boolean(
+            sheet.diagnostics?.invalidDateCells || sheet.diagnostics?.skippedRows
+          );
           return (
             <li
               key={sheet.name}
               className={`rounded-md border px-3 py-2 text-sm ${
                 isError
                   ? 'border-destructive/40 bg-destructive/5'
-                  : isTruncated
+                  : isTruncated || hasDataWarnings
                     ? 'border-amber-500/40 bg-amber-500/5'
                     : 'border-border'
               }`}
@@ -234,6 +316,7 @@ const ImportSummaryPanel = ({ sheets }: { sheets: IImportSheetSummary[] }) => {
                         rowCount: sheet.importedCount,
                       })}
               </div>
+              {sheet.diagnostics && <ImportDiagnosticsPanel diagnostics={sheet.diagnostics} />}
             </li>
           );
         })}
@@ -412,7 +495,18 @@ export const TableImport = (props: ITableImportProps) => {
       return {
         tableId: tables[0].id,
         viewId: tables[0].defaultViewId,
-        sheets: result.done.data.sheets,
+        sheets:
+          result.done.data.sheets ??
+          (result.done.data.diagnostics
+            ? [
+                {
+                  name: Object.values(importRo.worksheets)[0]?.name ?? 'CSV',
+                  importedCount: result.done.importedCount,
+                  truncated: false,
+                  diagnostics: result.done.data.diagnostics,
+                },
+              ]
+            : undefined),
       };
     },
     onSuccess: ({ tableId, viewId, sheets }) => {
@@ -432,7 +526,24 @@ export const TableImport = (props: ITableImportProps) => {
         onProgress: setImportProgress,
       });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result.done.data.diagnostics && tableId) {
+        setImportResult({
+          tableId,
+          sheets: [
+            {
+              name:
+                workSheets[insertConfig.sourceWorkSheetKey]?.name ??
+                insertConfig.sourceWorkSheetKey,
+              importedCount: result.done.importedCount,
+              truncated: false,
+              diagnostics: result.done.data.diagnostics,
+            },
+          ],
+        });
+        setStep(Step.RESULT);
+        return;
+      }
       closeDialog(false);
       const { tableId: routerTableId } = router.query;
       routerTableId !== tableId && router.push(`/base/${base.id}/table/${tableId}`);

@@ -132,6 +132,29 @@ describe('NoopTableSchemaRepository', () => {
 });
 
 describe('NoopUndoRedoStore', () => {
+  it('ignores explicit start and continuation when history recording is disabled', async () => {
+    const store = new NoopUndoRedoStore();
+    const scope = {
+      actorId: ActorId.create('system')._unsafeUnwrap(),
+      tableId: TableId.create(`tbl${'a'.repeat(16)}`)._unsafeUnwrap(),
+      windowId: 'window-1',
+    };
+    const command = createUndoRedoCommand('DeleteRecords', {
+      tableId: scope.tableId.toString(),
+      recordIds: [`rec${'b'.repeat(16)}`],
+    });
+    const entry = {
+      scope,
+      groupId: 'stream',
+      undoCommand: command,
+      redoCommand: command,
+      createdAt: new Date().toISOString(),
+    };
+    expect((await store.append(scope, { ...entry, groupPosition: 'start' })).isOk()).toBe(true);
+    expect((await store.append(scope, { ...entry, groupPosition: 'continue' })).isOk()).toBe(true);
+    expect((await store.list(scope))._unsafeUnwrap()).toEqual([]);
+  });
+
   it('accepts append/undo/redo/list', async () => {
     const store = new NoopUndoRedoStore();
     const actorId = ActorId.create('system')._unsafeUnwrap();

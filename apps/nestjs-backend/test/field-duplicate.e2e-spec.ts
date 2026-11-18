@@ -31,6 +31,7 @@ import { omit, pick } from 'lodash';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 
+import { disableLegacyFieldAdmission } from './utils/disable-legacy-field-admission';
 import {
   createTable,
   permanentDeleteTable,
@@ -310,6 +311,7 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
     let table: ITableFullVo;
     let crossTable: ITableFullVo;
     let otherBase: ICreateBaseVo;
+    let restoreLegacyAdmission: (() => void) | undefined;
     beforeAll(async () => {
       table = await createTable(baseId, {
         name: 'main_table',
@@ -332,8 +334,10 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
           },
         ],
       });
+      restoreLegacyAdmission = disableLegacyFieldAdmission();
     });
     afterAll(async () => {
+      restoreLegacyAdmission?.();
       await permanentDeleteTable(baseId, table.id);
       await permanentDeleteTable(baseId, crossTable.id);
     });
@@ -365,6 +369,9 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
         relationship: Relationship.ManyMany,
         isOneWay: true,
       });
+      expect(
+        (await getFields(table.id)).data.find((field) => field.id === copiedLinkField.id)
+      ).toMatchObject({ options: copiedLinkField.options });
     });
   });
 

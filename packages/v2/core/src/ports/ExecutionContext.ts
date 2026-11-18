@@ -1,11 +1,18 @@
 import { defaultFormulaSourceBudgetLimits } from '@teable/formula';
 import type { TableI18nKey } from '@teable/i18n-keys';
+import { err, type Result } from 'neverthrow';
 
 import type { ActorId } from '../domain/shared/ActorId';
 import type { IDomainContext, IDomainContextConfig } from '../domain/shared/DomainContext';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { TableDataSafetyLimitConfig } from '../domain/shared/TableDataSafetyLimits';
 import type { FormulaSourceBudget } from '../domain/table/fields/types/FormulaExpression';
 import type { ITracer } from './Tracer';
+
+export interface IUnitOfWorkTransactionSavepointHandle {
+  commit(): void;
+  rollback(): Promise<void> | void;
+}
 
 export interface IUnitOfWorkTransaction {
   readonly kind: 'unitOfWorkTransaction';
@@ -15,6 +22,7 @@ export interface IUnitOfWorkTransaction {
   readonly rolledBack?: boolean;
   afterCommit?(handler: UnitOfWorkAfterCommitHandler): void;
   afterRollback?(handler: UnitOfWorkAfterCommitHandler): void;
+  beginSavepoint?(): IUnitOfWorkTransactionSavepointHandle;
 }
 
 export type SameTxHistoryRowBudget = {
@@ -24,11 +32,71 @@ export type SameTxHistoryRowBudget = {
 export type SameTxProjectionContext = Readonly<{
   eventId: string;
   tables: ReadonlyMap<string, { id(): { toString(): string } }>;
+  previousTables?: ReadonlyMap<string, { id(): { toString(): string } }>;
   historyRowBudget?: SameTxHistoryRowBudget;
 }>;
 
 export type UnitOfWorkAfterCommitHandler = () => Promise<void> | void;
 export type UnitOfWorkScope = 'meta' | 'data';
+
+export interface IDomainBatchSavepointHandle {
+  readonly rollbackReason?: DomainError;
+  commit(): void;
+  rollback(): void;
+}
+
+export interface IDomainBatchTransactionScope {
+  readonly scope: UnitOfWorkScope;
+  readonly ownerTransaction: IUnitOfWorkTransaction;
+  readonly rollbackReason?: DomainError;
+  markRollbackOnly(reason: DomainError): void;
+  enqueueAfterCommit(task: UnitOfWorkAfterCommitHandler): void;
+  beginSavepoint?(): IDomainBatchSavepointHandle;
+}
+
+export const isReusableBatchTransactionScope = (
+  batchTransaction: IDomainBatchTransactionScope | undefined
+): batchTransaction is IDomainBatchTransactionScope => {
+  if (!batchTransaction) {
+    return false;
+  }
+  const owner = batchTransaction.ownerTransaction;
+  if (owner.pending !== undefined) {
+    return owner.pending;
+  }
+  return !owner.committed && !owner.rolledBack;
+};
+
+export const createCrossDatabaseBatchError = (
+  batchScope: UnitOfWorkScope,
+  requestedScope: UnitOfWorkScope
+): DomainError =>
+  domainError.invariant({
+    code: 'batch.cross_database_not_atomic',
+    message: `Batch transaction on ${batchScope} database cannot atomically include ${requestedScope} database operations`,
+  });
+
+export const getBatchRollbackError = (context: IExecutionContext): DomainError | undefined =>
+  isReusableBatchTransactionScope(context.batchTransaction)
+    ? context.batchTransaction.rollbackReason
+    : undefined;
+
+export const failBatchResultIfActive = <T>(
+  context: IExecutionContext,
+  result: Result<T, DomainError>
+): Result<T, DomainError> => {
+  if (!isReusableBatchTransactionScope(context.batchTransaction)) {
+    return result;
+  }
+  if (result.isErr()) {
+    context.batchTransaction.markRollbackOnly(result.error);
+    return result;
+  }
+  if (context.batchTransaction.rollbackReason) {
+    return err(context.batchTransaction.rollbackReason);
+  }
+  return result;
+};
 export type ExecutionContextBackgroundTask = () => Promise<void> | void;
 export type ExecutionContextBackgroundTaskScheduler = (
   task: ExecutionContextBackgroundTask
@@ -42,6 +110,7 @@ export interface IExecutionContext {
   actorId: ActorId;
   transaction?: IUnitOfWorkTransaction;
   transactions?: IExecutionContextTransactions;
+  batchTransaction?: IDomainBatchTransactionScope;
   tracer?: ITracer;
   requestId?: string;
   windowId?: string;
@@ -233,5 +302,6 @@ export const withoutTransaction = (context: IExecutionContext): IExecutionContex
   const nextContext: IExecutionContext = { ...context };
   delete nextContext.transaction;
   delete nextContext.transactions;
+  delete nextContext.batchTransaction;
   return nextContext;
 };

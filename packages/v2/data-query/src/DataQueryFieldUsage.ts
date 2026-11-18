@@ -182,7 +182,15 @@ export const collectDataQuerySourceFieldUsages = (
     for (const aggregate of definition.aggregates) {
       const source = sourceOf(aggregate);
       if (aggregate.fieldId !== undefined) record(source, aggregate.fieldId, 'aggregate');
-      if ('expr' in aggregate)
+      if ('distinctBy' in aggregate)
+        for (const expression of aggregate.distinctBy)
+          walkDataQueryFormulaExpression(expression, (node) => {
+            if (node.type === 'field') {
+              record(node.source ?? source, node.fieldId, 'aggregate');
+              record(node.source ?? source, node.fieldId, 'reference');
+            }
+          });
+      if ('expr' in aggregate && aggregate.expr)
         walkDataQueryFormulaExpression(aggregate.expr, (node) => {
           if (node.type === 'field') {
             record(node.source ?? source, node.fieldId, 'aggregate');

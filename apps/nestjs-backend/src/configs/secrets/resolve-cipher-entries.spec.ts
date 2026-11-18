@@ -3,11 +3,19 @@ import { LocalReadTokenCodec } from '../../features/attachments/plugins/local-re
 import { Encryptor } from '../../utils/encryptor';
 import { resolveCipherEntries } from './resolve-cipher-entries';
 import { resolveSecret } from './resolve-secret';
+import type { ISecretSpec } from './secret-specs';
 import { SECRET_SPECS } from './secret-specs';
 
 const ALGORITHM = 'aes-128-cbc';
 const DEFAULT_KEY = SECRET_SPECS.accessTokenEncryptionKey.legacyDefault!;
 const DEFAULT_IV = SECRET_SPECS.accessTokenEncryptionIv.legacyDefault!;
+// What a deployment on the public default SECRET_KEY derives: public too.
+const ON_PUBLIC_SECRET_KEY = { SECRET_KEY: SECRET_SPECS.secretKey.legacyDefault! };
+const derivedOnPublicSecretKey = (keySpec: ISecretSpec, ivSpec: ISecretSpec) => ({
+  algorithm: ALGORITHM,
+  key: resolveSecret(keySpec, ON_PUBLIC_SECRET_KEY),
+  iv: resolveSecret(ivSpec, ON_PUBLIC_SECRET_KEY),
+});
 
 // Same options as auth.config.
 const resolve = (env: Record<string, string | undefined>) =>
@@ -24,11 +32,10 @@ describe('resolveCipherEntries', () => {
     expect(resolve({})).toEqual([{ algorithm: ALGORITHM, key: DEFAULT_KEY, iv: DEFAULT_IV }]);
   });
 
-  it('dedicated pair → single entry; the public default never enters the chain', () => {
+  it('dedicated pair → it encrypts; the public default never enters the chain', () => {
     // Ciphertext forged under the publicly known literal must stay rejected
     // on a deployment that configured its own keys.
     const entries = resolve({
-      SECRET_KEY: 'root',
       BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: 'my-16-char-key00',
       BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: 'my-16-char-iv000',
     });
@@ -37,7 +44,7 @@ describe('resolveCipherEntries', () => {
     ]);
   });
 
-  it('a pinned _OLD pair joins the decrypt tail', () => {
+  it('a pinned _OLD pair joins the decrypt tail, marked as pinned', () => {
     const entries = resolve({
       BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: 'new-key-16-chars',
       BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: 'new-iv-16-chars0',
@@ -46,7 +53,7 @@ describe('resolveCipherEntries', () => {
     });
     expect(entries).toEqual([
       { algorithm: ALGORITHM, key: 'new-key-16-chars', iv: 'new-iv-16-chars0' },
-      { algorithm: ALGORITHM, key: 'old-key-16-chars', iv: 'old-iv-16-chars0' },
+      { algorithm: ALGORITHM, key: 'old-key-16-chars', iv: 'old-iv-16-chars0', pinned: true },
     ]);
   });
 
@@ -61,6 +68,7 @@ describe('resolveCipherEntries', () => {
       algorithm: ALGORITHM,
       key: 'old-key-16-chars',
       iv: 'shared-iv-16char',
+      pinned: true,
     });
   });
 
@@ -92,7 +100,7 @@ describe('resolveCipherEntries', () => {
     });
     expect(entries).toEqual([
       { algorithm: ALGORITHM, key: 'new-key-16-chars', iv: 'new-iv-16-chars0' },
-      { algorithm: ALGORITHM, key: DEFAULT_KEY, iv: DEFAULT_IV },
+      { algorithm: ALGORITHM, key: DEFAULT_KEY, iv: DEFAULT_IV, pinned: true },
     ]);
   });
 
@@ -135,6 +143,7 @@ describe('resolveCipherEntries for a pair derived from SECRET_KEY', () => {
         iv: resolveSecret(SECRET_SPECS.mailEncryptionIv, env),
       },
       legacyPair,
+      derivedOnPublicSecretKey(SECRET_SPECS.mailEncryptionKey, SECRET_SPECS.mailEncryptionIv),
     ]);
 
     // Links sent before the upgrade still open; new ones no longer use the
@@ -157,11 +166,29 @@ describe('resolveCipherEntries for a pair derived from SECRET_KEY', () => {
         iv: resolveSecret(SECRET_SPECS.accessTokenEncryptionIv, env),
       },
       { algorithm: ALGORITHM, key: DEFAULT_KEY, iv: DEFAULT_IV },
+      derivedOnPublicSecretKey(
+        SECRET_SPECS.accessTokenEncryptionKey,
+        SECRET_SPECS.accessTokenEncryptionIv
+      ),
     ]);
     const signEncryptor = (cipherEntries: typeof entries) =>
       new Encryptor<{ sign: string }>({ entries: cipherEntries, encoding: 'base64' });
     const issuedBefore = signEncryptor([entries[1]]).encrypt({ sign: 'random-sign-16ch' });
     expect(signEncryptor(entries).decrypt(issuedBefore)).toEqual({ sign: 'random-sign-16ch' });
+  });
+
+  it('keeps what was issued on the public default SECRET_KEY readable after moving off it', () => {
+    const sentOnPublicSecretKey = encryptor(resolveMail(ON_PUBLIC_SECRET_KEY)).encrypt({
+      id: 'old-link',
+    });
+    expect(encryptor(resolveMail({ SECRET_KEY: 'root' })).decrypt(sentOnPublicSecretKey)).toEqual({
+      id: 'old-link',
+    });
+    // still on it: it is the primary, listed once
+    expect(resolveMail(ON_PUBLIC_SECRET_KEY)).toEqual([
+      derivedOnPublicSecretKey(SECRET_SPECS.mailEncryptionKey, SECRET_SPECS.mailEncryptionIv),
+      legacyPair,
+    ]);
   });
 
   it('stays on the legacy pair alone without SECRET_KEY', () => {
@@ -172,7 +199,6 @@ describe('resolveCipherEntries for a pair derived from SECRET_KEY', () => {
   it('drops the legacy pair once the pair is configured', () => {
     expect(
       resolveMail({
-        SECRET_KEY: 'root',
         BACKEND_MAIL_ENCRYPTION_KEY: 'my-16-char-key00',
         BACKEND_MAIL_ENCRYPTION_IV: 'my-16-char-iv000',
       })
@@ -228,6 +254,85 @@ describe('resolveCipherEntries for the storage pair (no legacy decryption)', () 
       algorithm: ALGORITHM,
       key: 'old-key-16-chars',
       iv: 'old-iv-16-chars0',
+      pinned: true,
     });
+  });
+});
+
+describe('resolveCipherEntries accepting the SECRET_KEY-derived pair ahead of the switch', () => {
+  const dedicatedPublicPair = {
+    BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: DEFAULT_KEY,
+    BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: DEFAULT_IV,
+  };
+  const signEncryptor = (entries: ReturnType<typeof resolve>) =>
+    new Encryptor<{ sign: string }>({ entries, encoding: 'base64' });
+
+  it('lets a deployment still on its dedicated pair open what the switched one issues', () => {
+    // Cloud today: the dedicated pair holds the public values, SECRET_KEY has its own.
+    const before = resolve({ SECRET_KEY: 'root', ...dedicatedPublicPair });
+    const after = resolve({ SECRET_KEY: 'root' });
+    expect(before).toEqual([
+      { algorithm: ALGORITHM, key: DEFAULT_KEY, iv: DEFAULT_IV },
+      { ...after[0], upcoming: true },
+    ]);
+
+    const issuedAfterSwitch = signEncryptor(after).encrypt({ sign: 'new-sign' });
+    expect(signEncryptor(before).decrypt(issuedAfterSwitch)).toEqual({ sign: 'new-sign' });
+    // still encrypting under the dedicated pair until the switch
+    const issuedBefore = signEncryptor(before).encrypt({ sign: 'old-sign' });
+    expect(signEncryptor([after[1]]).decrypt(issuedBefore)).toEqual({ sign: 'old-sign' });
+  });
+
+  it('accepts nothing ahead under a missing or public SECRET_KEY', () => {
+    expect(resolve({ ...dedicatedPublicPair })).toHaveLength(1);
+    expect(
+      resolve({ SECRET_KEY: SECRET_SPECS.secretKey.legacyDefault, ...dedicatedPublicPair })
+    ).toHaveLength(1);
+  });
+
+  it('adds no duplicate when the dedicated pair already holds the derived values', () => {
+    const [derived] = resolve({ SECRET_KEY: 'root' });
+    expect(
+      resolve({
+        SECRET_KEY: 'root',
+        BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: derived.key as string,
+        BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: derived.iv as string,
+      })
+    ).toEqual([{ algorithm: ALGORITHM, key: derived.key, iv: derived.iv }]);
+  });
+
+  it("leaves the storage pair alone (its ciphertext is not in users' hands)", () => {
+    expect(
+      resolveCipherEntries({
+        algorithm: ALGORITHM,
+        keySpec: SECRET_SPECS.storageEncryptionKey,
+        ivSpec: SECRET_SPECS.storageEncryptionIv,
+        env: {
+          SECRET_KEY: 'root',
+          BACKEND_STORAGE_ENCRYPTION_KEY: 'my-16-char-key00',
+          BACKEND_STORAGE_ENCRYPTION_IV: 'my-16-char-iv000',
+        },
+      })
+    ).toEqual([{ algorithm: ALGORITHM, key: 'my-16-char-key00', iv: 'my-16-char-iv000' }]);
+  });
+
+  it('does the same for mail unsubscribe links', () => {
+    const resolveMail = (env: Record<string, string | undefined>) =>
+      resolveCipherEntries({
+        algorithm: ALGORITHM,
+        keySpec: SECRET_SPECS.mailEncryptionKey,
+        ivSpec: SECRET_SPECS.mailEncryptionIv,
+        keepLegacyForDecrypt: true,
+        env,
+      });
+    const mail = (entries: ReturnType<typeof resolveMail>) =>
+      new Encryptor<{ id: string }>({ entries, encoding: 'base64' });
+    const before = resolveMail({
+      SECRET_KEY: 'root',
+      BACKEND_MAIL_ENCRYPTION_KEY: SECRET_SPECS.mailEncryptionKey.legacyDefault,
+      BACKEND_MAIL_ENCRYPTION_IV: SECRET_SPECS.mailEncryptionIv.legacyDefault,
+    });
+    const sentAfterSwitch = mail(resolveMail({ SECRET_KEY: 'root' })).encrypt({ id: 'new-link' });
+    expect(mail(before).decrypt(sentAfterSwitch)).toEqual({ id: 'new-link' });
   });
 });

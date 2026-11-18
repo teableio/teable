@@ -32,6 +32,29 @@ describe('CsvImportAdapter', () => {
   });
 
   describe('parse', () => {
+    it('tracks source record ordinals across blanks, quoted newlines and import batches', async () => {
+      async function* chunks() {
+        yield '\nName,Note\n\n';
+        for (let index = 0; index < 210; index++) {
+          yield `Person ${index},"${'x'.repeat(8192)}\nsecond line"\n\n`;
+        }
+      }
+      const parsed = (
+        await adapter.parse({ type: 'csv', stream: chunks() }, { delimiter: ',' })
+      )._unsafeUnwrap();
+      const iterator = parsed.rowsAsync![Symbol.asyncIterator]();
+      const header = (await iterator.next()).value!;
+      expect(parsed.getSourceRowNumber?.(header)).toBe(2);
+      for (let index = 0; index < 210; index++) {
+        const row = (await iterator.next()).value!;
+        expect(row[0]).toBe(`Person ${index}`);
+        expect(parsed.getSourceRowNumber?.(row)).toBe(4 + index * 2);
+        expect(parsed.getSourceRowNumber?.([...row])).toBeUndefined();
+      }
+      expect((await iterator.next()).done).toBe(true);
+      expect(parsed.getSourceRowNumber?.(header)).toBe(2);
+    });
+
     it('does not collect stream input and preserves positional cells on early return', async () => {
       let pulled = 0;
       let closed = false;

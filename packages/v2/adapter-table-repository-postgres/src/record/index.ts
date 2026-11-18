@@ -20,4 +20,6 @@ export {
   listAttachmentTokensByTableIds,
   mergeAttachmentTableRefs,
 } from './attachments/attachmentTableQueries';
+export { iterateAttachmentTableRefs } from './attachments/attachmentTableQueries';
+export type { AttachmentTableQueryOptions } from './attachments/attachmentTableQueries';
 export type { AttachmentTableRefRow } from './attachments/attachmentTableQueries';

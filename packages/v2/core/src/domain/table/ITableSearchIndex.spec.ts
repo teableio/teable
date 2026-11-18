@@ -9,21 +9,30 @@ import { TableName } from './TableName';
 
 const mapper = new DefaultTableMapper();
 const snapshot: ITableSearchIndex = {
-  version: 1,
+  version: 2,
   dbTableName: 'bseaaaaaaaaaaaaaaaa.tblaaaaaaaaaaaaaaaa',
-  generatedColumnName: '__search_document',
-  indexName: 'idx_search_document',
-  provider: 'pg_trgm',
   searchScope: 'all_fields',
   definitionKey: 'validated-definition',
-  indexUsable: false,
-  fields: [
+  fieldIds: [
     {
       fieldId: 'fldaaaaaaaaaaaaaaaa',
       fieldDbName: 'title',
       textProjection: { kind: 'plain' },
     },
-  ],
+  ].map((field) => field.fieldId),
+  document: {
+    generatedColumnName: '__search_document',
+    indexName: 'idx_search_document',
+    provider: 'pg_trgm',
+    ready: false,
+    fields: [
+      {
+        fieldId: 'fldaaaaaaaaaaaaaaaa',
+        fieldDbName: 'title',
+        textProjection: { kind: 'plain' },
+      },
+    ],
+  },
 };
 const dto: ITablePersistenceDTO = {
   id: 'tblaaaaaaaaaaaaaaaa',
@@ -57,7 +66,12 @@ describe('Table search index serving state', () => {
   });
 
   it('retains an empty configured fallback instead of re-enrolling current table fields', () => {
-    const fallback: ITableSearchIndex = { ...snapshot, searchScope: 'selected_fields', fields: [] };
+    const fallback: ITableSearchIndex = {
+      ...snapshot,
+      searchScope: 'selected_fields',
+      fieldIds: [],
+      document: undefined,
+    };
     const table = mapper.toDomain({ ...dto, searchIndex: fallback })._unsafeUnwrap();
 
     expect(isTableSearchIndex(fallback)).toBe(true);
@@ -103,15 +117,27 @@ describe('Table search index serving state', () => {
   it.each([
     null,
     {},
-    { ...snapshot, version: 2 },
-    { ...snapshot, indexUsable: 'true' },
-    { ...snapshot, indexUsable: true, fields: [] },
-    { ...snapshot, fields: [{ ...snapshot.fields[0], textProjection: { kind: 'date_range' } }] },
+    { ...snapshot, version: 99 },
+    { ...snapshot, document: { ...snapshot.document, ready: 'true' } },
+    { ...snapshot, document: { ...snapshot.document, ready: true, fields: [] } },
     {
       ...snapshot,
-      fields: [
-        { ...snapshot.fields[0], textProjection: { kind: 'rounded_number', precision: -1 } },
-      ],
+      document: {
+        ...snapshot.document,
+        fields: [{ ...snapshot.document!.fields[0], textProjection: { kind: 'date_range' } }],
+      },
+    },
+    {
+      ...snapshot,
+      document: {
+        ...snapshot.document,
+        fields: [
+          {
+            ...snapshot.document!.fields[0],
+            textProjection: { kind: 'rounded_number', precision: -1 },
+          },
+        ],
+      },
     },
   ])('treats invalid persisted state as absent without rejecting the table: %j', (invalid) => {
     const persisted: ITablePersistenceDTO = JSON.parse(

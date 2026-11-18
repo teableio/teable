@@ -6,9 +6,15 @@ import { createTransport } from 'nodemailer';
 import type { SendMailOptions } from 'nodemailer';
 import { CustomHttpException } from '../../custom.exception';
 
+/** Which merge window a notify mail joins; each group's window length is set by the merge processor. */
+export enum MailMergeGroup {
+  Default = 'default',
+  FailureAlert = 'failureAlert',
+}
+
 // In-Reply-To is a Message-ID header: nodemailer only takes a string there, the mailer type also allows an Address
 export type ISendMailOptions = Omit<NestjsSendMailOptions, 'inReplyTo'> &
-  Pick<SendMailOptions, 'inReplyTo'> & { senderName?: string };
+  Pick<SendMailOptions, 'inReplyTo'> & { senderName?: string; mergeGroup?: MailMergeGroup };
 
 /** Truncate a user-provided name for a mail subject; maxLength <= 0 (or NaN) disables. */
 export const truncateMailName = (value: string, maxLength: number): string => {

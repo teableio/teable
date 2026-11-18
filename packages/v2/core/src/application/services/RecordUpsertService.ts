@@ -17,8 +17,13 @@ import { RecordConditionLiteralValue } from '../../domain/table/records/specs/Re
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
+import { NoopLogger } from '../../ports/defaults/NoopLogger';
 import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
+import {
+  isReusableBatchTransactionScope,
+  type IExecutionContext,
+} from '../../ports/ExecutionContext';
+import type { ILogger } from '../../ports/Logger';
 import {
   RecordQueryOperationKind,
   type RecordQueryPluginScope,
@@ -35,6 +40,7 @@ import type {
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import { v2CoreTokens } from '../../ports/tokens';
 import { composeUndoRedoCommands, type UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
+import { runAfterCommitTasksSafely } from './batchTransactionOrchestration';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
 import {
   RecordBatchCreationService,
@@ -317,7 +323,9 @@ export class RecordUpsertService {
     @inject(v2CoreTokens.tableQueryService)
     private readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.recordQueryPluginRunner)
-    private readonly recordQueryPluginRunner: RecordQueryPluginRunner
+    private readonly recordQueryPluginRunner: RecordQueryPluginRunner,
+    @inject(v2CoreTokens.logger)
+    private readonly logger: ILogger = new NoopLogger()
   ) {}
 
   async upsert(
@@ -436,9 +444,19 @@ export class RecordUpsertService {
         );
       }
 
-      await pluginExecution.afterCommit();
-      for (const handler of plan.afterCommitHandlers) {
-        await handler();
+      const afterCommitTasks: Array<() => Promise<void>> = [
+        () => pluginExecution.afterCommit(),
+        ...plan.afterCommitHandlers,
+      ];
+      if (
+        committed.status === 'deferred' &&
+        isReusableBatchTransactionScope(context.batchTransaction)
+      ) {
+        for (const task of afterCommitTasks) {
+          context.batchTransaction.enqueueAfterCommit(task);
+        }
+      } else {
+        await runAfterCommitTasksSafely(afterCommitTasks, 'data', service.logger);
       }
 
       return ok({

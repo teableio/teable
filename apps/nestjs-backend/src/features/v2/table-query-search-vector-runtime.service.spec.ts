@@ -68,9 +68,13 @@ describe('TableQuerySearchVectorRuntimeService', () => {
         makeService({ [env]: 'auto' }).resolveForRecordSearch({ table, search: ['order'] })
       ).toMatchObject({
         kind: 'generated_text',
-        generatedColumnName: '__search_document',
-        provider: 'pg_trgm',
-        coveredFieldIds: [FieldId.create(fieldId)._unsafeUnwrap()],
+        fieldIds: [FieldId.create(fieldId)._unsafeUnwrap()],
+        document: {
+          generatedColumnName: '__search_document',
+          provider: 'pg_trgm',
+          coveredFieldIds: [FieldId.create(fieldId)._unsafeUnwrap()],
+          ready: true,
+        },
       });
     }
   );
@@ -89,17 +93,14 @@ describe('TableQuerySearchVectorRuntimeService', () => {
     const table = withSearchIndex(
       createSearchIndexTable(`tbl${'t'.repeat(16)}`, fieldId),
       [fieldId],
-      { indexUsable: false }
+      { document: { ready: false } }
     );
     expect(
       makeService({ [tableQuerySearchAccessPathRuntimeEnv]: 'auto' }).resolveForRecordSearch({
         table,
         search: ['order'],
       })
-    ).toMatchObject({
-      kind: 'generated_text',
-      indexUsable: false,
-    });
+    ).toMatchObject({ kind: 'generated_text', document: { ready: false } });
   });
 
   it('keeps legacy search when serving metadata is absent', () => {

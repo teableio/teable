@@ -24,6 +24,21 @@ describe('CacheService.getMany', () => {
   });
 });
 
+describe('CacheService TTLs', () => {
+  it('hands the store whole milliseconds, which a Redis PX requires', async () => {
+    const keyv = { set: vi.fn().mockResolvedValue(true) };
+    const service = new CacheService(keyv as unknown as Keyv<any>);
+
+    // 4096.002 s is 4096002.0000000005 ms in floating point
+    await service.setDetail('a' as any, 1 as any, 4096.002);
+    await service.set('b' as any, 1 as any, 4096.002);
+
+    for (const [, , ttl] of keyv.set.mock.calls) {
+      expect(Number.isInteger(ttl)).toBe(true);
+    }
+  });
+});
+
 /**
  * The raw Redis commands (setnx, incr) must land on the same physical key the
  * keyv path reads — the key name comes from the store's own `_getKeyName`,

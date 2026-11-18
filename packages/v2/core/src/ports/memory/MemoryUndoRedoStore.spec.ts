@@ -12,7 +12,7 @@ const buildScope = (): UndoScope => {
   return { actorId, tableId, windowId: 'window-1' };
 };
 
-const buildEntry = (scope: UndoScope, recordId: string): UndoEntry => ({
+const buildEntry = (scope: UndoScope, recordId: string): Omit<UndoEntry, 'groupId'> => ({
   scope,
   undoCommand: createUndoRedoCommand('UpdateRecord', {
     tableId: scope.tableId.toString(),
@@ -34,6 +34,26 @@ const buildEntry = (scope: UndoScope, recordId: string): UndoEntry => ({
 });
 
 describe('MemoryUndoRedoStore', () => {
+  it('requires an established applied start and never stores recording intent', async () => {
+    const store = new MemoryUndoRedoStore();
+    const scope = buildScope();
+    const entry = { ...buildEntry(scope, `rec${'1'.repeat(16)}`), groupId: 'stream' };
+    expect(
+      (await store.append(scope, { ...entry, groupPosition: 'continue' }))._unsafeUnwrapErr().code
+    ).toBe('undo_redo.group_unavailable');
+    expect((await store.list(scope))._unsafeUnwrap()).toEqual([]);
+    (await store.append(scope, { ...entry, groupPosition: 'start' }))._unsafeUnwrap();
+    expect((await store.list(scope))._unsafeUnwrap()).toEqual([entry]);
+    expect((await store.append(scope, { ...entry, groupPosition: 'start' })).isErr()).toBe(true);
+    (await store.undo(scope))._unsafeUnwrap();
+    expect((await store.append(scope, { ...entry, groupPosition: 'continue' })).isErr()).toBe(true);
+    const independent = buildEntry(scope, `rec${'2'.repeat(16)}`);
+    (await store.append(scope, independent))._unsafeUnwrap();
+    (await store.append(scope, { ...entry, groupPosition: 'start' }))._unsafeUnwrap();
+    (await store.append(scope, { ...entry, groupPosition: 'continue' }))._unsafeUnwrap();
+    expect((await store.list(scope))._unsafeUnwrap()).toEqual([independent, entry, entry]);
+  });
+
   it('supports append, undo, redo, and truncates redo tail', async () => {
     const store = new MemoryUndoRedoStore();
     const scope = buildScope();
@@ -82,8 +102,18 @@ describe('MemoryUndoRedoStore', () => {
     const entry1 = { ...buildEntry(scope, `rec${'1'.repeat(16)}`), groupId: 'grp-1' };
     const entry2 = { ...buildEntry(scope, `rec${'2'.repeat(16)}`), groupId: 'grp-1' };
 
-    (await store.append(scope, entry1))._unsafeUnwrap();
-    (await store.append(scope, entry2))._unsafeUnwrap();
+    (await store.append(scope, { ...entry1, groupPosition: 'start' }))._unsafeUnwrap();
+    (await store.append(scope, { ...entry2, groupPosition: 'continue' }))._unsafeUnwrap();
+
+    const reservation = (await store.reserve(scope, 'undo'))._unsafeUnwrap();
+    expect(reservation?.entryCount).toBe(2);
+    expect(
+      (await store.readReservedEntry(scope, reservation!.token, 0))._unsafeUnwrap().scope
+    ).toEqual(scope);
+    expect(
+      (await store.readReservedEntry(scope, reservation!.token, 1))._unsafeUnwrap().scope
+    ).toEqual(scope);
+    (await store.abort(scope, reservation!.token))._unsafeUnwrap();
 
     const undoEntry = (await store.undo(scope))._unsafeUnwrap();
     expect(undoEntry?.undoCommand.type).toBe('Batch');
@@ -213,5 +243,125 @@ describe('MemoryUndoRedoStore', () => {
     if (undoCommand?.type === 'UpdateRecord') {
       expect(undoCommand.payload.recordId).toBe(`rec${'2'.repeat(16)}`);
     }
+  });
+
+  it('checkpoints progress and extends the lease before preserving the group on takeover', async () => {
+    let now = 1_000;
+    const store = new MemoryUndoRedoStore({ now: () => now, leaseMs: 15_000 });
+    const scope = buildScope();
+    const entries = ['1', '2'].map((digit) => ({
+      ...buildEntry(scope, `rec${digit.repeat(16)}`),
+      groupId: 'checkpoint-group',
+    }));
+    for (const [index, entry] of entries.entries()) {
+      (
+        await store.append(scope, { ...entry, groupPosition: index === 0 ? 'start' : 'continue' })
+      )._unsafeUnwrap();
+    }
+
+    const first = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    now = 15_999;
+    (await store.markProgress(scope, first.token, 1))._unsafeUnwrap();
+
+    now = 16_001;
+    const competing = await store.reserve(scope, 'undo');
+    expect(competing._unsafeUnwrapErr().code).toBe('undo_redo.reservation_conflict');
+    expect((await store.readReservedEntry(scope, first.token, 0))._unsafeUnwrap()).toEqual(
+      entries[1]
+    );
+
+    now = 31_000;
+    const takeover = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    expect(takeover.token).not.toBe(first.token);
+    expect(takeover.operationId).toBe(first.operationId);
+    expect(takeover.executedLeafIndex).toBe(1);
+    expect(takeover.mode).toBe('undo');
+    expect(takeover.executionStatus).toBe('reserved');
+    expect(takeover.entryCount).toBe(2);
+    expect((await store.readReservedEntry(scope, takeover.token, 0))._unsafeUnwrap()).toEqual(
+      entries[1]
+    );
+    expect((await store.readReservedEntry(scope, takeover.token, 1))._unsafeUnwrap()).toEqual(
+      entries[0]
+    );
+    expect((await store.readReservedEntry(scope, first.token, 0)).isErr()).toBe(true);
+  });
+
+  it('does not extend the current lease or overwrite progress for a stale checkpoint token', async () => {
+    let now = 1_000;
+    const store = new MemoryUndoRedoStore({ now: () => now, leaseMs: 15_000 });
+    const scope = buildScope();
+    const entry = buildEntry(scope, `rec${'1'.repeat(16)}`);
+    (await store.append(scope, entry))._unsafeUnwrap();
+    const original = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    (await store.markProgress(scope, original.token, 1))._unsafeUnwrap();
+
+    now = 16_001;
+    const current = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    expect(current.token).not.toBe(original.token);
+    expect(current.executedLeafIndex).toBe(1);
+
+    now = 31_000;
+    const rejected = await store.markProgress(scope, original.token, 2);
+    expect(rejected._unsafeUnwrapErr().code).toBe('undo_redo.reservation_conflict');
+    expect((await store.readReservedEntry(scope, current.token, 0))._unsafeUnwrap()).toEqual(entry);
+
+    now = 31_002;
+    const takeover = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    expect(takeover.token).not.toBe(current.token);
+    expect(takeover.token).not.toBe(original.token);
+    expect(takeover.operationId).toBe(original.operationId);
+    expect(takeover.executedLeafIndex).toBe(1);
+    expect(takeover.entryCount).toBe(1);
+    expect(takeover.executionStatus).toBe('reserved');
+  });
+
+  it('reads one reserved entry in replay order and keeps interleaved actions independent', async () => {
+    const store = new MemoryUndoRedoStore();
+    const scope = buildScope();
+    const first = { ...buildEntry(scope, `rec${'1'.repeat(16)}`), groupId: 'stream' };
+    const independent = buildEntry(scope, `rec${'2'.repeat(16)}`);
+    const second = { ...buildEntry(scope, `rec${'3'.repeat(16)}`), groupId: 'stream' };
+    (await store.append(scope, { ...first, groupPosition: 'start' }))._unsafeUnwrap();
+    (await store.append(scope, independent))._unsafeUnwrap();
+    (await store.append(scope, { ...second, groupPosition: 'continue' }))._unsafeUnwrap();
+    const undo = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    expect(undo.entryCount).toBe(2);
+    expect(undo).not.toHaveProperty('entry');
+    expect((await store.readReservedEntry(scope, undo.token, 0))._unsafeUnwrap()).toEqual(second);
+    expect((await store.readReservedEntry(scope, undo.token, 1))._unsafeUnwrap()).toEqual(first);
+    for (const index of [-1, 2, 0.5]) {
+      expect((await store.readReservedEntry(scope, undo.token, index)).isErr()).toBe(true);
+    }
+    (await store.commit(scope, undo.token))._unsafeUnwrap();
+    expect((await store.readReservedEntry(scope, undo.token, 0)).isErr()).toBe(true);
+    const redo = (await store.reserve(scope, 'redo'))._unsafeUnwrap()!;
+    expect((await store.readReservedEntry(scope, redo.token, 0))._unsafeUnwrap()).toEqual(first);
+    expect((await store.readReservedEntry(scope, redo.token, 1))._unsafeUnwrap()).toEqual(second);
+    (await store.abort(scope, redo.token))._unsafeUnwrap();
+    expect((await store.undo(scope))._unsafeUnwrap()).toEqual(independent);
+  });
+
+  it('rejects stale reserved reads after takeover and retains partial group progress on abort', async () => {
+    let now = 1_000;
+    const store = new MemoryUndoRedoStore({ now: () => now, leaseMs: 100 });
+    const scope = buildScope();
+    const entry = buildEntry(scope, `rec${'1'.repeat(16)}`);
+    (await store.append(scope, entry))._unsafeUnwrap();
+    const original = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    (await store.markProgress(scope, original.token, 1))._unsafeUnwrap();
+    (await store.abort(scope, original.token))._unsafeUnwrap();
+    expect((await store.readReservedEntry(scope, original.token, 0)).isErr()).toBe(true);
+    now = 1_101;
+    const takeover = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    expect(takeover.executedLeafIndex).toBe(1);
+    expect(takeover.operationId).toBe(original.operationId);
+    expect((await store.readReservedEntry(scope, original.token, 0)).isErr()).toBe(true);
+    expect((await store.readReservedEntry(scope, takeover.token, 0))._unsafeUnwrap()).toEqual(
+      entry
+    );
+    (await store.markSucceeded(scope, takeover.token))._unsafeUnwrap();
+    (await store.commit(scope, takeover.token))._unsafeUnwrap();
+    expect((await store.undo(scope))._unsafeUnwrap()).toBeNull();
   });
 });

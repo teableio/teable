@@ -527,7 +527,7 @@ describe('PostgresTableSchemaRepository', () => {
       .addColumn('id', 'text', (col) => col.primaryKey())
       .addColumn('base_id', 'text')
       .addColumn('db_table_name', 'text')
-      .addColumn('search_index', 'text')
+      .addColumn('search_index', 'jsonb')
       .addColumn('deleted_time', 'timestamp')
       .addColumn('version', 'integer', (col) => col.defaultTo(1))
       .execute();
@@ -580,15 +580,9 @@ describe('PostgresTableSchemaRepository', () => {
 
     (await repository.insert(context, table))._unsafeUnwrap();
 
-    const updateResult = table.update((mutator) => mutator.removeField(removedFieldId));
-    updateResult._unsafeUnwrap();
-    (
-      await repository.update(
-        context,
-        updateResult._unsafeUnwrap().table,
-        updateResult._unsafeUnwrap().mutateSpec
-      )
-    )._unsafeUnwrap();
+    const update = table.update((mutator) => mutator.removeField(removedFieldId))._unsafeUnwrap();
+    const result = await repository.update(context, update.table, update.mutateSpec);
+    expect(result.isErr() ? result.error : undefined).toBeUndefined();
 
     expect(fieldDiscardCalls).toEqual([
       {

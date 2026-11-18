@@ -257,7 +257,8 @@
       "firstRelease": "İlk yayın",
       "about": "Hakkında",
       "noChangelog": "Genel güncelleme"
-    }
+    },
+    "unavailable": "Bu şablon kullanılamıyor"
   },
   "baseShare": {
     "shareTitle": "Paylaş",
@@ -1312,12 +1313,59 @@
       "successText": "Dışa aktarma verileri hazır",
       "failedText": "Dışa aktarma başarısız oldu, lütfen tekrar deneyin"
     },
+    "baseImport": {
+      "skippedCells": "İçe aktarılan bazı değerler geri yüklenemedi: {{skippedUserCells}} kullanıcı hücresi ve {{skippedLinkCells}} bağlantı hücresi. Geçerli kayıtlar korundu; içe aktarılan projeyi inceleyin.",
+      "relaxedRequiredUserFields": "Çözümlenemeyen kullanıcılar içeren kayıtları korumak için etkilenen {{count}} içe aktarılmış kullanıcı alanının zorunluluk kısıtı kaldırıldı. İçe aktarılan projeyi inceleyin.",
+      "failed": "Proje içe aktarma işlemi, tüm veriler geri yüklenmeden başarısız oldu. İçe aktarılan projeyi inceleyin ve hatayı giderdikten sonra tekrar deneyin."
+    },
     "importantNotice": {
       "title": "Important Notice",
       "acknowledge": "I Understand"
     },
     "oauthApp": {
       "message": "{{app}} uygulamasından: {{text}}"
+    },
+    "category": {
+      "mention": "Bahsetme",
+      "comment": "Yorum",
+      "invite": "Davet",
+      "import": "İçe aktarma",
+      "export": "Dışa aktarma",
+      "automation": "Otomasyon",
+      "routine": "Rutin",
+      "aiTask": "Yapay zekâ alanı",
+      "aiChat": "Yapay zekâ sohbeti",
+      "credit": "Krediler",
+      "billing": "Faturalandırma",
+      "reward": "Ödül",
+      "template": "Şablon",
+      "dataExport": "Veri dışa aktarma",
+      "announcement": "Duyuru",
+      "app": "Uygulama",
+      "system": "Sistem"
+    },
+    "panel": {
+      "unreadCount": "Okunmamış: {{count}}",
+      "markRead": "Okundu olarak işaretle",
+      "markUnread": "Okunmadı olarak işaretle",
+      "allCaughtUp": "Hepsini gördünüz",
+      "emptyTitle": "Henüz bildirim yok",
+      "emptyDescription": "Bahsetmeler, davetler ve içe aktarma, otomasyon ve yapay zekâ görevlerinin sonuçları burada görünür.",
+      "noMatch": "Bu filtrelerle eşleşen bildirim yok",
+      "group": {
+        "today": "Bugün",
+        "yesterday": "Dün",
+        "earlier": "Daha önce"
+      },
+      "filter": {
+        "severity": "Seviye",
+        "title": "Filtrele",
+        "clear": "Filtreleri temizle",
+        "all": "Tümü",
+        "mine": "Sana özel",
+        "system": "Sistem",
+        "unreadOnly": "Yalnızca okunmamış"
+      }
     }
   },
   "role": {
@@ -1347,6 +1395,7 @@
     "resetTrashConfirm": "Çöp kutusunu boşaltmak istediğinizden emin misiniz?",
     "addToTrash": "Çöp kutusuna taşı",
     "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar.",
+    "publishedAppsOffline": "Hemen çevrimdışı olacak yayındaki uygulamalar: {{total}}. Çöp kutusundan geri yüklendikten sonra yeniden yayınlanmaları gerekir.",
     "spaceDescription": "Son {{retentionDays}} gün içinde silinen alanları geri yükle",
     "spaceInnerDescription": "Son {{retentionDays}} gün içinde bu alandan silinen projeleri geri yükle",
     "baseDescription": "Son {{retentionDays}} gün içinde bu projeden silinen kaynakları geri yükle",
@@ -1468,16 +1517,16 @@
       "notify": {
         "template": {
           "approved": {
-            "title": "{{name}} şablonunuz yayında",
-            "message": "{{name}} incelemeyi geçti ve artık {{version}} sürümü olarak herkese açık.",
-            "messageWithNote": "{{name}} incelemeyi geçti ve artık {{version}} sürümü olarak herkese açık. İnceleyenin notu: {{note}}",
-            "messageNoPayout": "{{name}} incelemeyi geçti ve artık {{version}} sürümü olarak herkese açık. Henüz bir ödeme yöntemi belirlemediniz, bu nedenle kazançlarınız sonraki döneme devredilecek; Oluşturucu Merkezi'nden bir ödeme yöntemi ekleyin.",
-            "messageNoPayoutWithNote": "{{name}} incelemeyi geçti ve artık {{version}} sürümü olarak herkese açık. Henüz bir ödeme yöntemi belirlemediniz, bu nedenle kazançlarınız sonraki döneme devredilecek; Oluşturucu Merkezi'nden bir ödeme yöntemi ekleyin. İnceleyenin notu: {{note}}"
+            "title": "{{name}} şablonunuz Şablon Merkezinde",
+            "message": "{{name}} artık Şablon Merkezinde, {{version}} sürümüyle.",
+            "messageWithNote": "{{name}} artık Şablon Merkezinde, {{version}} sürümüyle. İnceleyenin notu: {{note}}",
+            "messageNoPayout": "{{name}} artık Şablon Merkezinde, {{version}} sürümüyle. Henüz bir ödeme yöntemi belirlemediniz, bu nedenle kazançlarınız sonraki döneme devredilecek; Oluşturucu Merkezi'nden bir ödeme yöntemi ekleyin.",
+            "messageNoPayoutWithNote": "{{name}} artık Şablon Merkezinde, {{version}} sürümüyle. Henüz bir ödeme yöntemi belirlemediniz, bu nedenle kazançlarınız sonraki döneme devredilecek; Oluşturucu Merkezi'nden bir ödeme yöntemi ekleyin. İnceleyenin notu: {{note}}"
           },
           "rejected": {
-            "title": "{{name}} şablonunuz geri gönderildi",
-            "message": "{{name}} incelemeyi geçemedi.",
-            "messageWithNote": "{{name}} incelemeyi geçemedi. İnceleyenin notu: {{note}}"
+            "title": "{{name}} şablonunuz şimdilik Şablon Merkezinde değil",
+            "message": "{{name}} şimdilik Şablon Merkezinde değil. Bağlantısı açılmaya devam ediyor; kurulabilir ve paylaşılabilir.",
+            "messageWithNote": "{{name}} şimdilik Şablon Merkezinde değil. Bağlantısı açılmaya devam ediyor; kurulabilir ve paylaşılabilir. İnceleyenin notu: {{note}}"
           }
         },
         "subject": "Bildirim - {{brandName}}",
@@ -1639,6 +1688,9 @@
           },
           "failed": {
             "message": "❌ {{baseName}} dışa aktarma başarısız oldu: {{errorMessage}}"
+          },
+          "cancelled": {
+            "message": "Dışa aktarımı isteyen tüm sekmeler kapatıldığı veya sayfadan ayrıldığı için proje dışa aktarımı iptal edildi. İndirme dosyası oluşturulmadı. Projeyi açıp yeniden dışa aktarın."
           }
         },
         "task": {
@@ -1679,6 +1731,8 @@
         "userDataExport": {
           "buttonText": "Verilerimi indir",
           "failed": "Merhaba {{name}},<br><br>Verilerinizi paketleme işlemini tamamlayamadık:<br><em>{{errorMessage}}</em><br><br>Lütfen yöneticiyle iletişime geçin.",
+          "incompleteTitle": "Veri dışa aktarımı durduruldu — alan silinmedi",
+          "incomplete": "Merhaba {{name}},<br><br>Bu tablolar hazır olmadığı için dışa aktarım durduruldu. Kalıcı silme yapılmadı; alanınız Çöp Kutusu’nda kalıyor.<br><br>{{tables}}<br><br>Bu tablolar kenar çubuğunda gizlenmiş olabilir. Alanı Çöp Kutusu’ndan geri yükleyin ve Hesap ayarlarındaki veri dışa aktarımıyla hazır tabloları yedekleyin. Atlanan tabloları SKIPPED_TABLES.txt içinde kontrol edin. Dışa aktarma ve kalıcı silmeyi yeniden denemeden önce tablo oluşturmayı onarması için yukarıdaki base kimliklerini, tablo kimliklerini ve durumları yöneticinize gönderin. Doğrulanmış yedek olmadan kalıcı olarak silmeyin.",
           "accountDeleted": {
             "title": "Veri dışa aktarımınız hazır",
             "message": "Merhaba {{name}},<br><br>Teable hesabınızı silmeden önce verilerinizin bir kopyasını istediniz. Kopya hazır.<br><br>Aşağıdaki bağlantı {{expiresInDays}} gün boyunca geçerlidir."
@@ -1756,26 +1810,57 @@
   "credit": {
     "title": "Kredi",
     "leftAmount": "Kalan kredi",
-    "winFreeCredits": "Deneyim paylaş",
-    "getCredits": "1000 ücretsiz kredi al",
+    "shareYourWork": "Çalışmanızı paylaşın",
+    "shareYourWorkCash": "Şablon paylaşın, %30 nakit kazanın",
+    "shareYourWorkCredits": "Şablon paylaşın, 1.000 ücretsiz kredi kazanın",
+    "shareWork": {
+      "kicker": "Çalışmanızı paylaşın",
+      "hookCash": "Şablonunuzun getirdiği ücretli kullanıcılardan<br/><figure>%30</figure> nakit kazanın!",
+      "hookCredits": "Haftada iki kez şablon paylaşın,<br/>her seferinde <figure>500</figure> kredi kazanın!",
+      "chip": "Haftanın ilk 2 paylaşımı: her biri 500 kredi",
+      "prompt": {
+        "creditsAndCash": "Paylaşın, kredi ve nakit kazanın",
+        "creditsAndCashRule": "Haftanın ilk 2 paylaşımının her biri için 500 kredi, ayrıca getirdiği ücretli kullanıcılardan %30 nakit",
+        "credits": "Paylaşın, kredi kazanın",
+        "creditsRule": "Haftanın ilk 2 paylaşımının her biri için 500 kredi",
+        "cash": "Paylaşın, nakit kazanın",
+        "cashRule": "Getirdiği ücretli kullanıcılardan %30 nakit",
+        "toX": "X'te paylaş",
+        "toLinkedIn": "LinkedIn'de paylaş"
+      },
+      "installs_one": "{{count}} kurulum",
+      "installs_other": "{{count}} kurulum",
+      "share": "Paylaş",
+      "empty": {
+        "title": "Önce bir projeyi şablona dönüştürün",
+        "hint": "Yayınlar yayınlamaz paylaşabilirsiniz",
+        "make": "Şablon yap",
+        "start": "Sıfırdan başlayın"
+      },
+      "card": {
+        "title": "{{name}} paylaş",
+        "drafting": "Taslak hazırlanıyor…",
+        "again": "Başka bir sürüm",
+        "copy": "Kopyala",
+        "copied": "Kopyalandı",
+        "postX": "X'te paylaş",
+        "postLinkedIn": "LinkedIn'de paylaş",
+        "claimHint": "Paylaştınız mı? Bağlantıyı yapıştırın, <b>500</b> kredi kazanın"
+      },
+      "claim": {
+        "title": "Gönderinin bağlantısını yapıştırın, 500 kredi kazanın",
+        "hint": "Haftanın ilk 2 gönderisi geçerli (X + LinkedIn)",
+        "requireLink": "Gönderide {{name}} bağlantısı var",
+        "requireFollowers": "Hesabın 10+ takipçisi var",
+        "requireRecent": "Son 6 saat içinde paylaşıldı",
+        "button": "500 krediyi alın",
+        "back": "Taslağa dönün"
+      }
+    },
     "winCredit": {
-      "title": "Olumlu bir inceleme paylaşarak kazan",
-      "freeCredits": "1000 ücretsiz kredi",
-      "guidelinesTitle": "Paylaşım kontrol listesi",
-      "tagTeableio": "<bold>@teableio</bold>'yu etiketle",
-      "minCharacters": "<bold>80+</bold> karakter inceleme yaz",
-      "minFollowers": "<bold>10+</bold> takipçiye sahip ol",
-      "limitPerWeek": "Gönderi başına 500 kredi, haftalık en fazla 2 gönderi (X + LinkedIn)",
-      "postOnX": "X'te paylaş",
-      "postOnLinkedIn": "LinkedIn'de paylaş",
-      "preFilledDraft": "🌟 Sizin için önceden doldurulmuş taslak hazır!",
-      "claimTitle": "Kredilerinizi almak için gönderi URL'sini yapıştırın",
-      "userEmail": "Kullanıcı e-postası",
-      "postUrlLabel": "Gönderi URL'si (X veya LinkedIn)",
       "postUrlPlaceholder": "Gönderinizin bağlantısını buraya yapıştırın",
       "invalidUrl": "Lütfen geçerli bir X veya LinkedIn gönderi URL'si girin",
       "claiming": "Talep ediliyor...",
-      "claimCredits": "Kredi talep et",
       "congratulations": "Tebrikler!",
       "claimSuccess": "500 kredi kazandınız!",
       "verifying": "Gönderiniz doğrulanıyor...",
@@ -1793,6 +1878,7 @@
     "minCharCount": "Gönderi en az {{count}} karakter içermelidir",
     "minFollowerCount": "Hesapta en az {{count}} takipçi olmalıdır",
     "mustMention": "Gönderi {{mention}}'dan bahsetmelidir",
+    "mustLinkTemplate": "Gönderide şablonlarınızdan birinin bağlantısı olmalı",
     "fetchSnapshotFailed": "Gönderi anlık görüntüsü alınamadı",
     "snapshotTimeout": "Gönderi anlık görüntüsü beklenirken zaman aşımı oluştu, lütfen daha sonra tekrar deneyin",
     "alreadyClaimedThisWeek": "Bu hesap için bu hafta zaten bir ödül talep ettiniz",
@@ -2093,14 +2179,18 @@
       "connectIntegration": "Cuppy'nin devam etmesi için bir uygulama bağlaman gerekiyor.",
       "pickGoogleSheet": "Cuppy bir sayfa seçmeni bekliyor.",
       "presentTemplates": "Cuppy hazır bir şablon buldu ve kararınızı bekliyor.",
-      "requestCredential": "Cuppy devam etmek için erişim istiyor."
+      "requestCredential": "Cuppy devam etmek için erişim istiyor.",
+      "presentTemplateScope": "Cuppy şablonun neleri alacağını belirledi ve onayınızı bekliyor.",
+      "presentTemplateFindings": "Cuppy yalnızca size ait içerik buldu ve neyin değiştirileceğine karar vermenizi bekliyor."
     },
     "result": {
       "done": "Tamamlandı.",
       "failed": "Çalıştırma başarısız oldu.",
       "creditExhausted": "Durduruldu: AI kredisi kalmadı.",
       "skippedNoCredit": "Bu sefer atlandı: AI kredisi kalmadı.",
+      "skippedNoCreditSummary": "{{count}} rutin daha atlandı: AI kredisi kalmadı.",
       "autoDeactivated": "Arka arkaya beş başarısız çalıştırmadan sonra kapatıldı.",
+      "autoDeactivatedSummary": "{{count}} rutin daha art arda beş başarısız çalışmadan sonra kapatıldı.",
       "summaryTitle": "Teable",
       "summary": "{{count}} sohbette yeni sonuç var."
     }

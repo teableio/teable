@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import {
   CellValueType,
   ColorConfigType,
@@ -68,6 +68,7 @@ import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
+import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
 import { GraphService } from '../../graph/graph.service';
 import { ComputedOrchestratorService } from '../../record/computed/services/computed-orchestrator.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -148,6 +149,9 @@ type CreateFieldsOptions = {
 ])
 export class FieldOpenApiService {
   private readonly logger = new Logger(FieldOpenApiService.name);
+  @Inject(FieldReferenceAdmissionService)
+  private readonly fieldReferenceAdmission!: FieldReferenceAdmissionService;
+
   constructor(
     private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
@@ -2103,7 +2107,7 @@ export class FieldOpenApiService {
 
       // The route only checks the host table; reading a cross-base foreign table
       // needs read access there too.
-      await this.fieldSupplementService.assertForeignTableReadable(tableId, foreignTableId);
+      await this.fieldReferenceAdmission.assertForeignTableReadable(tableId, foreignTableId);
       return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
     }
 
@@ -2114,7 +2118,7 @@ export class FieldOpenApiService {
         return [];
       }
 
-      await this.fieldSupplementService.assertForeignTableReadable(tableId, foreignTableId);
+      await this.fieldReferenceAdmission.assertForeignTableReadable(tableId, foreignTableId);
       return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
     }
 
@@ -2260,7 +2264,7 @@ export class FieldOpenApiService {
     source: IFieldInstance,
     target: IFieldInstance
   ): Promise<IFieldInstance> {
-    const crossSpaceDowngraded = await this.fieldSupplementService.isCrossSpaceField(
+    const crossSpaceDowngraded = await this.fieldReferenceAdmission.isCrossSpaceField(
       sourceTableId,
       source
     );

@@ -49,7 +49,7 @@ export class TemplateOpenApiController {
   async getTemplateList(
     @Query(new ZodValidationPipe(templateListQueryRoSchema)) query?: ITemplateListQueryRo
   ) {
-    return this.templateOpenApiService.getAllTemplateList(query);
+    return this.templateOpenApiService.getAdminTemplateList(query);
   }
 
   @Public()

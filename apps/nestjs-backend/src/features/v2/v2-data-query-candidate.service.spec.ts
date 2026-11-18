@@ -122,7 +122,7 @@ const setup = async (
   for (const method of ['getFieldFromV2', 'listDomainFields', 'hydrateLookupFieldVo']) {
     Object.defineProperty(fields, method, { value: hiddenAcquisition });
   }
-  Object.defineProperty(fields, 'fieldSupplementService', {
+  Object.defineProperty(fields, 'fieldReferenceAdmission', {
     value: { assertSameSpaceLinkTarget: vi.fn(async () => undefined) },
   });
   const authorize = vi.fn(async () =>

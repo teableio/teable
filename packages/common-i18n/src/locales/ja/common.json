@@ -257,7 +257,8 @@
       "firstRelease": "初回リリース",
       "about": "概要",
       "noChangelog": "通常の更新"
-    }
+    },
+    "unavailable": "このテンプレートは現在利用できません"
   },
   "baseShare": {
     "shareTitle": "共有",
@@ -1301,12 +1302,59 @@
       "successText": "エクスポートデータの準備ができました",
       "failedText": "エクスポートに失敗しました。再試行してください"
     },
+    "baseImport": {
+      "skippedCells": "インポートした値の一部を復元できませんでした：ユーザーセル {{skippedUserCells}} 件、リンクセル {{skippedLinkCells}} 件。有効なレコードは保持されています。インポートしたプロジェクトを確認してください。",
+      "relaxedRequiredUserFields": "未解決のユーザーを含むレコードを保持するため、影響を受けたインポート済みユーザーフィールド {{count}} 件の必須制約を解除しました。インポートしたプロジェクトを確認してください。",
+      "failed": "すべてのデータが復元される前に、プロジェクトのインポートに失敗しました。インポートしたプロジェクトを確認し、エラーを解決してから再試行してください。"
+    },
     "importantNotice": {
       "title": "Important Notice",
       "acknowledge": "I Understand"
     },
     "oauthApp": {
       "message": "{{app}} から：{{text}}"
+    },
+    "category": {
+      "mention": "メンション",
+      "comment": "コメント",
+      "invite": "招待",
+      "import": "インポート",
+      "export": "エクスポート",
+      "automation": "オートメーション",
+      "routine": "ルーティン",
+      "aiTask": "AI フィールド",
+      "aiChat": "AI チャット",
+      "credit": "クレジット",
+      "billing": "請求",
+      "reward": "報酬",
+      "template": "テンプレート",
+      "dataExport": "データエクスポート",
+      "announcement": "お知らせ",
+      "app": "アプリ",
+      "system": "システム"
+    },
+    "panel": {
+      "unreadCount": "未読 {{count}} 件",
+      "markRead": "既読にする",
+      "markUnread": "未読にする",
+      "allCaughtUp": "すべて確認済みです",
+      "emptyTitle": "通知はまだありません",
+      "emptyDescription": "メンション、招待、インポート・オートメーション・AI タスクの結果がここに表示されます。",
+      "noMatch": "条件に一致する通知はありません",
+      "group": {
+        "today": "今日",
+        "yesterday": "昨日",
+        "earlier": "それ以前"
+      },
+      "filter": {
+        "severity": "レベル",
+        "title": "フィルター",
+        "clear": "フィルターをクリア",
+        "all": "すべて",
+        "mine": "あなた宛て",
+        "system": "システム",
+        "unreadOnly": "未読のみ"
+      }
     }
   },
   "role": {
@@ -1336,6 +1384,7 @@
     "resetTrashConfirm": "ゴミ箱を空にしてもよろしいですか？",
     "addToTrash": "ゴミ箱に移動",
     "description": "ゴミ箱のデータは依然としてレコード使用量と添付ファイル使用量を占めています。",
+    "publishedAppsOffline": "すぐに公開停止される公開済みの App：{{total}} 個。ゴミ箱から復元した後は、再公開が必要です。",
     "spaceDescription": "過去{{retentionDays}}日以内に削除されたスペースを復元",
     "spaceInnerDescription": "過去{{retentionDays}}日以内にこのスペースから削除されたプロジェクトを復元",
     "baseDescription": "過去{{retentionDays}}日以内にこのプロジェクトから削除されたリソースを復元",
@@ -1457,16 +1506,16 @@
       "notify": {
         "template": {
           "approved": {
-            "title": "テンプレート {{name}} が公開されました",
-            "message": "{{name}} は審査に合格し、バージョン {{version}} として公開されました。",
-            "messageWithNote": "{{name}} は審査に合格し、バージョン {{version}} として公開されました。審査担当者のコメント：{{note}}",
-            "messageNoPayout": "{{name}} は審査に合格し、バージョン {{version}} として公開されました。支払い方法がまだ設定されていないため、収益は繰り越されます。クリエイターセンターで設定してください。",
-            "messageNoPayoutWithNote": "{{name}} は審査に合格し、バージョン {{version}} として公開されました。支払い方法がまだ設定されていないため、収益は繰り越されます。クリエイターセンターで設定してください。審査担当者のコメント：{{note}}"
+            "title": "テンプレート {{name}} がテンプレートセンターに掲載されました",
+            "message": "{{name}} がテンプレートセンターに掲載されました（バージョン {{version}}）。",
+            "messageWithNote": "{{name}} がテンプレートセンターに掲載されました（バージョン {{version}}）。審査担当者のコメント：{{note}}",
+            "messageNoPayout": "{{name}} がテンプレートセンターに掲載されました（バージョン {{version}}）。支払い方法がまだ設定されていないため、収益は繰り越されます。クリエイターセンターで設定してください。",
+            "messageNoPayoutWithNote": "{{name}} がテンプレートセンターに掲載されました（バージョン {{version}}）。支払い方法がまだ設定されていないため、収益は繰り越されます。クリエイターセンターで設定してください。審査担当者のコメント：{{note}}"
           },
           "rejected": {
-            "title": "テンプレート {{name}} が差し戻されました",
-            "message": "{{name}} は審査に合格しませんでした。",
-            "messageWithNote": "{{name}} は審査に合格しませんでした。審査担当者のコメント：{{note}}"
+            "title": "テンプレート {{name}} は現在テンプレートセンターに掲載されていません",
+            "message": "{{name}} は現在テンプレートセンターに掲載されていません。リンクは引き続き開け、インストールやシェアもできます。",
+            "messageWithNote": "{{name}} は現在テンプレートセンターに掲載されていません。リンクは引き続き開け、インストールやシェアもできます。審査担当者のコメント：{{note}}"
           }
         },
         "subject": "通知 - {{brandName}}",
@@ -1628,6 +1677,9 @@
           },
           "failed": {
             "message": "❌ {{baseName}}のエクスポートが失敗しました：{{errorMessage}}"
+          },
+          "cancelled": {
+            "message": "エクスポートを要求したすべてのタブが閉じられたか、別のページに移動したため、プロジェクトのエクスポートをキャンセルしました。ダウンロードファイルは作成されていません。プロジェクトを開いて再度エクスポートしてください。"
           }
         },
         "task": {
@@ -1668,6 +1720,8 @@
         "userDataExport": {
           "buttonText": "データをダウンロード",
           "failed": "{{name}} 様<br><br>データのパッケージ化を完了できませんでした：<br><em>{{errorMessage}}</em><br><br>管理者にお問い合わせください。",
+          "incompleteTitle": "データのエクスポートを停止しました — スペースは削除されていません",
+          "incomplete": "{{name}} 様、<br><br>次のテーブルの準備が完了していないため、エクスポートを停止しました。完全削除は実行されず、スペースはゴミ箱に残っています。<br><br>{{tables}}<br><br>これらのテーブルはサイドバーに表示されない場合があります。ゴミ箱からスペースを復元し、アカウント設定のデータエクスポートで準備済みのテーブルをバックアップしてください。SKIPPED_TABLES.txt で除外されたテーブルを確認してください。上記のベース ID、テーブル ID、状態を管理者に渡し、作成処理を修復してからエクスポートと完全削除を再試行してください。バックアップを確認せずに完全削除しないでください。",
           "accountDeleted": {
             "title": "データのエクスポートの準備ができました",
             "message": "{{name}} 様<br><br>Teable アカウントの削除前にご依頼いただいたデータのコピーの準備ができました。<br><br>以下のリンクの有効期限は {{expiresInDays}} 日間です。"
@@ -1745,26 +1799,56 @@
   "credit": {
     "title": "クレジット",
     "leftAmount": "残りクレジット",
-    "winFreeCredits": "体験を共有",
-    "getCredits": "1000無料クレジットを取得",
+    "shareYourWork": "あなたの成果をシェア",
+    "shareYourWorkCash": "テンプレートをシェアして 30% の現金報酬",
+    "shareYourWorkCredits": "テンプレートをシェアして 1,000 クレジット獲得",
+    "shareWork": {
+      "kicker": "あなたの成果をシェア",
+      "hookCash": "シェアしたテンプレートからの有料ユーザーで<br/><figure>30%</figure> の現金報酬！",
+      "hookCredits": "毎週最初の 2 回のシェアで<br/>各 <figure>500</figure> クレジット！",
+      "chip": "毎週最初の 2 回のシェアで各 500 クレジット",
+      "prompt": {
+        "creditsAndCash": "シェアしてクレジットと現金を獲得",
+        "creditsAndCashRule": "毎週最初の 2 回のシェアで各 500 クレジット、さらに紹介した有料ユーザーから 30% の現金報酬",
+        "credits": "シェアしてクレジットを獲得",
+        "creditsRule": "毎週最初の 2 回のシェアで各 500 クレジット",
+        "cash": "シェアして現金報酬を獲得",
+        "cashRule": "紹介した有料ユーザーから 30% の現金報酬",
+        "toX": "X でシェア",
+        "toLinkedIn": "LinkedIn でシェア"
+      },
+      "installs": "{{count}} 件のインストール",
+      "share": "シェア",
+      "empty": {
+        "title": "まずプロジェクトをテンプレートにしましょう",
+        "hint": "公開すればすぐシェアできます",
+        "make": "テンプレートにする",
+        "start": "白紙から始める"
+      },
+      "card": {
+        "title": "{{name}} をシェア",
+        "drafting": "下書きを作成中…",
+        "again": "別の案",
+        "copy": "コピー",
+        "copied": "コピーしました",
+        "postX": "X に投稿",
+        "postLinkedIn": "LinkedIn に投稿",
+        "claimHint": "投稿したらリンクを貼って <b>500</b> クレジット獲得"
+      },
+      "claim": {
+        "title": "投稿のリンクを貼って 500 クレジット獲得",
+        "hint": "毎週最初の 2 回まで（X + LinkedIn）",
+        "requireLink": "投稿に {{name}} のリンクがある",
+        "requireFollowers": "フォロワー 10 人以上のアカウント",
+        "requireRecent": "6 時間以内の投稿",
+        "button": "500 クレジットを受け取る",
+        "back": "下書きに戻る"
+      }
+    },
     "winCredit": {
-      "title": "ポジティブなレビューを共有して獲得",
-      "freeCredits": "1000無料クレジット",
-      "guidelinesTitle": "共有チェックリスト",
-      "tagTeableio": "<bold>@teableio</bold>をタグ付け",
-      "minCharacters": "<bold>80+</bold>文字のレビューを書く",
-      "minFollowers": "<bold>10+</bold>人のフォロワーを持つ",
-      "limitPerWeek": "投稿ごとに500クレジット、週に最大2投稿（X + LinkedIn）",
-      "postOnX": "Xに投稿",
-      "postOnLinkedIn": "LinkedInに投稿",
-      "preFilledDraft": "🌟 事前入力された下書きが準備されています！",
-      "claimTitle": "投稿URLを貼り付けてクレジットを請求",
-      "userEmail": "ユーザーメール",
-      "postUrlLabel": "投稿URL（XまたはLinkedIn）",
       "postUrlPlaceholder": "投稿のリンクをここに貼り付け",
       "invalidUrl": "有効なXまたはLinkedInの投稿URLを入力してください",
       "claiming": "請求中...",
-      "claimCredits": "クレジットを請求",
       "congratulations": "おめでとうございます！",
       "claimSuccess": "500クレジットを獲得しました！",
       "verifying": "投稿を確認中...",
@@ -1782,6 +1866,7 @@
     "minCharCount": "投稿は少なくとも{{count}}文字必要です",
     "minFollowerCount": "アカウントには少なくとも{{count}}人のフォロワーが必要です",
     "mustMention": "投稿は{{mention}}をメンションする必要があります",
+    "mustLinkTemplate": "投稿にあなたのテンプレートのリンクが必要です",
     "fetchSnapshotFailed": "投稿スナップショットの取得に失敗しました",
     "snapshotTimeout": "投稿スナップショットの待機がタイムアウトしました。しばらくしてからもう一度お試しください",
     "alreadyClaimedThisWeek": "今週すでにこのアカウントの報酬を請求しています",
@@ -2079,14 +2164,18 @@
       "connectIntegration": "続けるにはアプリの接続が必要です。",
       "pickGoogleSheet": "使用するシートを選んでください。",
       "presentTemplates": "Cuppy が既製のテンプレートを見つけました。使うかどうかの判断をお待ちしています。",
-      "requestCredential": "続けるにはアクセス権限が必要です。"
+      "requestCredential": "続けるにはアクセス権限が必要です。",
+      "presentTemplateScope": "Cuppy がテンプレートに含める範囲をまとめました。確認をお待ちしています。",
+      "presentTemplateFindings": "Cuppy があなただけの内容を見つけました。どれを置き換えるかの判断をお待ちしています。"
     },
     "result": {
       "done": "完了しました。",
       "failed": "実行に失敗しました。",
       "creditExhausted": "AI クレジットが不足したため停止しました。",
       "skippedNoCredit": "AI クレジットが不足したため、今回はスキップしました。",
+      "skippedNoCreditSummary": "さらに {{count}} 件のルーティンが、AI クレジット不足でスキップされました。",
       "autoDeactivated": "5 回連続で失敗したため停止しました。",
+      "autoDeactivatedSummary": "さらに {{count}} 件のルーティンが、5 回連続で失敗したため自動的にオフになりました。",
       "summaryTitle": "Teable",
       "summary": "{{count}} 件の会話に新しい結果があります。"
     }

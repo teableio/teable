@@ -1,10 +1,11 @@
 import { randomInt } from 'node:crypto';
-import { randomIntBelow } from './random';
 import type {
+  IDomainBatchTransactionScope,
   IUnitOfWorkOptions,
   IExecutionContext,
   IUnitOfWork,
   IUnitOfWorkTransaction,
+  IUnitOfWorkTransactionSavepointHandle,
   UnitOfWorkScope,
   UnitOfWorkAfterCommitHandler,
   UnitOfWorkOperation,
@@ -13,9 +14,11 @@ import type {
 import {
   activateUnitOfWorkScope,
   bindUnitOfWorkTransaction,
+  createCrossDatabaseBatchError,
   domainError,
   getUnitOfWorkTransaction,
   isDomainError,
+  isReusableBatchTransactionScope,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { sql, type Kysely, type Transaction } from 'kysely';
@@ -25,6 +28,7 @@ import type { Result } from 'neverthrow';
 import type { IV2PostgresDbConfig } from './config';
 import { v2DataDbTokens, v2MetaDbTokens } from './di/tokens';
 import { getPostgresSqlExecutionDiagnostics } from './PostgresSqlExecutionError';
+import { randomIntBelow } from './random';
 
 class UnitOfWorkAbort extends Error {
   constructor(readonly error: DomainError) {
@@ -142,6 +146,28 @@ export class PostgresUnitOfWorkTransaction<DB> implements IUnitOfWorkTransaction
     }
     this.state = 'rolledBack';
   }
+
+  beginSavepoint(): IUnitOfWorkTransactionSavepointHandle {
+    const afterCommitCountBefore = this.afterCommitHandlers.length;
+    const afterRollbackCountBefore = this.afterRollbackHandlers.length;
+    let settled = false;
+    return {
+      commit: () => {
+        settled = true;
+      },
+      rollback: async () => {
+        if (settled || this.state !== 'pending') {
+          return;
+        }
+        settled = true;
+        this.afterCommitHandlers.length = afterCommitCountBefore;
+        const rolledBackHandlers = this.afterRollbackHandlers.splice(afterRollbackCountBefore);
+        for (const handler of rolledBackHandlers) {
+          await handler();
+        }
+      },
+    };
+  }
 }
 
 type PostgresUnitOfWorkTransactionLike<DB> = IUnitOfWorkTransaction & {
@@ -179,13 +205,13 @@ const isReusablePostgresTransaction = <DB>(
   return !transaction.committed && !transaction.rolledBack;
 };
 
-export const getPostgresTransaction = <DB>(
+const getReusablePostgresUnitOfWorkTransaction = <DB>(
   context?: IExecutionContext,
   scope: UnitOfWorkScope = 'data'
-): Transaction<DB> | null => {
+): PostgresUnitOfWorkTransaction<DB> | PostgresUnitOfWorkTransactionLike<DB> | null => {
   const transaction = getUnitOfWorkTransaction(context, scope);
   if (isReusablePostgresTransaction<DB>(transaction)) {
-    return transaction.db as Transaction<DB>;
+    return transaction;
   }
 
   const activeTransaction = context?.transaction;
@@ -194,10 +220,19 @@ export const getPostgresTransaction = <DB>(
     (!activeTransaction?.scope || activeTransaction.scope === scope) &&
     isReusablePostgresTransaction<DB>(activeTransaction)
   ) {
-    return activeTransaction.db as Transaction<DB>;
+    return activeTransaction;
   }
 
   return null;
+};
+
+export const getPostgresTransaction = <DB>(
+  context?: IExecutionContext,
+  scope: UnitOfWorkScope = 'data'
+): Transaction<DB> | null => {
+  return (
+    (getReusablePostgresUnitOfWorkTransaction<DB>(context, scope)?.db as Transaction<DB>) ?? null
+  );
 };
 
 export const resolvePostgresDbOrTx = <DB>(
@@ -319,6 +354,52 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     return work(activateUnitOfWorkScope(context, scope));
   }
 
+  private async trackBatchTransactionOutcome<T>(
+    batchTx: IDomainBatchTransactionScope | undefined,
+    workPromise: Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
+    if (!batchTx) {
+      return workPromise;
+    }
+    try {
+      const result = await workPromise;
+      if (result.isErr()) {
+        batchTx.markRollbackOnly(result.error);
+        return result;
+      }
+      if (batchTx.rollbackReason) {
+        return err(batchTx.rollbackReason);
+      }
+      return result;
+    } catch (error) {
+      batchTx.markRollbackOnly(toUnexpectedUnitOfWorkError(error));
+      throw error;
+    }
+  }
+
+  private async handleRetryableFailure(
+    transaction: PostgresUnitOfWorkTransaction<DB> | undefined,
+    error: unknown,
+    attempt: number,
+    maxRetries: number,
+    retry: boolean
+  ): Promise<Result<never, DomainError> | 'retry'> {
+    await transaction?.runAfterRollbackHandlers();
+    if (error instanceof UnitOfWorkAbort) {
+      if (shouldRetryTransactionAbort(error.error, attempt, maxRetries)) {
+        await sleep(backoffMs(attempt));
+        return 'retry';
+      }
+      return err(error.error);
+    }
+    const sqlState = extractPgSqlState(error);
+    if (retry && attempt < maxRetries && isRetryablePgSqlState(sqlState)) {
+      await sleep(backoffMs(attempt));
+      return 'retry';
+    }
+    return err(toUnexpectedUnitOfWorkError(error));
+  }
+
   private async executeWithRetries<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
@@ -353,18 +434,18 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
         await transactionResult.transaction.runAfterCommitHandlers();
         return transactionResult.workResult;
       } catch (error) {
-        if (error instanceof UnitOfWorkAbort) {
-          if (shouldRetryTransactionAbort(error.error, attempt, maxRetries)) {
-            const delayMs = backoffMs(attempt);
-            attempt += 1;
-            await sleep(delayMs);
-            continue;
-          }
-          await transaction?.runAfterRollbackHandlers();
-          return err(error.error);
+        const outcome = await this.handleRetryableFailure(
+          transaction,
+          error,
+          attempt,
+          maxRetries,
+          retry
+        );
+        if (outcome === 'retry') {
+          attempt += 1;
+          continue;
         }
-        await transaction?.runAfterRollbackHandlers();
-        return err(toUnexpectedUnitOfWorkError(error));
+        return outcome;
       }
     }
   }
@@ -375,12 +456,27 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
     const scope = options?.scope ?? 'data';
+    const batchTx = isReusableBatchTransactionScope(context.batchTransaction)
+      ? context.batchTransaction
+      : undefined;
+    if (batchTx?.rollbackReason) {
+      return err(batchTx.rollbackReason);
+    }
+
     const existingResult = this.runWithExistingTransaction(context, scope, work);
-    if (existingResult) return existingResult;
+    if (existingResult) {
+      return this.trackBatchTransactionOutcome(batchTx, existingResult);
+    }
 
     const sharedTransactionContext = this.reuseSiblingScopeTransaction(context, scope);
     if (sharedTransactionContext) {
-      return work(sharedTransactionContext);
+      return this.trackBatchTransactionOutcome(batchTx, work(sharedTransactionContext));
+    }
+
+    if (batchTx) {
+      const crossDbError = createCrossDatabaseBatchError(batchTx.scope, scope);
+      batchTx.markRollbackOnly(crossDbError);
+      return err(crossDbError);
     }
 
     return this.executeWithRetries(context, work, scope, options?.retry !== false);
@@ -396,8 +492,15 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>
   ): Promise<Result<T, DomainError>> {
-    const transaction = getPostgresTransaction<DB>(context, 'data');
-    if (!transaction) {
+    const batchTx = isReusableBatchTransactionScope(context.batchTransaction)
+      ? context.batchTransaction
+      : undefined;
+    if (batchTx?.rollbackReason) {
+      return err(batchTx.rollbackReason);
+    }
+
+    const uowTransaction = getReusablePostgresUnitOfWorkTransaction<DB>(context, 'data');
+    if (!uowTransaction) {
       return err(
         domainError.infrastructure({
           code: 'unit_of_work.transaction_required',
@@ -405,6 +508,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
         })
       );
     }
+    const transaction = uowTransaction.db as Transaction<DB>;
 
     const name = `v2_sp_${(this.savepointSequence = (this.savepointSequence + 1) % 1_000_000)}_${randomInt(1_000_000)}`;
 
@@ -414,28 +518,43 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       return err(toUnexpectedUnitOfWorkError(error));
     }
 
+    const batchSavepoint = batchTx?.beginSavepoint?.();
+    const txSavepoint = uowTransaction.beginSavepoint?.();
     let result: Result<T, DomainError>;
     try {
       result = await work(context);
     } catch (error) {
       await this.rollbackSavepoint(transaction, name);
+      batchSavepoint?.rollback();
+      await txSavepoint?.rollback();
       throw error;
     }
 
-    if (result.isErr()) {
+    const poisonedInSavepoint = result.isOk() ? batchSavepoint?.rollbackReason : undefined;
+    if (result.isErr() || poisonedInSavepoint) {
+      const failureReason = result.isErr() ? result.error : poisonedInSavepoint!;
       const rollbackResult = await this.rollbackSavepoint(transaction, name);
+      batchSavepoint?.rollback();
+      await txSavepoint?.rollback();
       if (rollbackResult.isErr()) {
+        batchTx?.markRollbackOnly(rollbackResult.error);
         return err(rollbackResult.error);
       }
-      return result;
+      return err(failureReason);
     }
 
     try {
       await sql`release savepoint ${sql.id(name)}`.execute(transaction);
     } catch (error) {
-      return err(toUnexpectedUnitOfWorkError(error));
+      batchSavepoint?.rollback();
+      await txSavepoint?.rollback();
+      const releaseError = toUnexpectedUnitOfWorkError(error);
+      batchTx?.markRollbackOnly(releaseError);
+      return err(releaseError);
     }
 
+    txSavepoint?.commit();
+    batchSavepoint?.commit();
     return result;
   }
 
@@ -463,8 +582,28 @@ const backoffMs = (attempt: number): number => {
   return base + jitter;
 };
 
+const isRetryablePgSqlState = (sqlState: string | undefined): boolean =>
+  sqlState === '40P01' || sqlState === '40001';
+
+const extractPgSqlState = (error: unknown): string | undefined => {
+  const fromDiag = getPostgresSqlExecutionDiagnostics(error)?.postgres?.sqlState;
+  if (fromDiag) return fromDiag;
+  if (typeof error === 'object' && error !== null) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+    const cause = (error as { cause?: unknown }).cause;
+    if (cause) return extractPgSqlState(cause);
+  }
+  return undefined;
+};
+
 const isRetryableTransactionAbort = (error: DomainError): boolean => {
   if (!error.tags.includes('infrastructure')) return false;
+  const sqlState =
+    typeof error.details?.postgresSql === 'object' && error.details.postgresSql !== null
+      ? (error.details.postgresSql as { postgres?: { sqlState?: string } }).postgres?.sqlState
+      : undefined;
+  if (isRetryablePgSqlState(sqlState)) return true;
   const message = error.message.toLowerCase();
   return (
     message.includes('deadlock detected') ||

@@ -7,7 +7,10 @@ import { FieldDeletionSideEffectService } from '../application/services/FieldDel
 import type { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import type { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import type {
+  UndoRedoStackEntryInput,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -472,17 +475,10 @@ class FakeFieldUndoRedoSnapshotService {
 class FakeUndoRedoService {
   entries: Array<{
     tableId: TableId;
-    entry: {
-      undoCommand: UndoRedoCommandData;
-      redoCommand: UndoRedoCommandData;
-    };
+    entry: UndoRedoStackEntryInput;
   }> = [];
 
-  async appendEntry(
-    _: IExecutionContext,
-    tableId: TableId,
-    entry: { undoCommand: UndoRedoCommandData; redoCommand: UndoRedoCommandData }
-  ) {
+  async appendEntry(_: IExecutionContext, tableId: TableId, entry: UndoRedoStackEntryInput) {
     this.entries.push({ tableId, entry });
     return ok(undefined);
   }

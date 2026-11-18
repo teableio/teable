@@ -1,8 +1,8 @@
 import type { IColumnMeta, IFieldVo, IOtOperation, IViewPropertyKeys, IViewVo } from '@teable/core';
-import type { IRecord, MailType, PluginBaseAction } from '@teable/openapi';
+import type { IRecord, PluginBaseAction } from '@teable/openapi';
 import type { ICellContext } from '../features/calculation/utils/changes';
 import type { IOpsMap } from '../features/calculation/utils/compose-maps';
-import type { ISendMailOptions } from '../features/mail-sender/mail-helpers';
+import type { ISourceImportTaskState } from '../features/source-import-task/source-import-task.service';
 import type { ISessionData } from '../types/session';
 
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -37,6 +37,8 @@ export interface ICacheStore {
   // RFC 7591 dynamic client registration, per IP
   [key: `oauth:register-rate:${string}`]: number;
   [key: `reward:claim-gate:${string}`]: string;
+  // Paces the AI drafts of a share post per user: each one is a paid model call.
+  [key: `template-share:draft-gate:${string}`]: string;
   // Poll pacing lives in a side key (TTL = the poll interval), NOT on the
   // state: a pending poll that wrote the state back could clobber a
   // concurrent approval.
@@ -59,12 +61,10 @@ export interface ICacheStore {
   [key: `auth:change-email-code:${string}`]: IEmailCodeCache;
   [key: `auth:change-email-code-attempts:${string}`]: number;
   [key: `query-params:${string}`]: Record<string, unknown>;
-  // Collaborator notify coalescing per `${fromUserId}:${toUserId}:${tableId}`, shared across pods.
-  [key: `collaborator-notify:window:${string}`]: boolean;
-  [key: `collaborator-notify:pending:${string}`]: ICollaboratorNotifyPending;
-  [key: `mail-sender:notify-mail-merge:${string}`]: (ISendMailOptions & {
-    mailType: MailType;
-  })[];
+  // Coalescing, per `${scope}:${key}`: when the open window closes (epoch ms), and the items
+  // buffered behind it.
+  [key: `coalesce:window:${string}`]: number;
+  [key: `coalesce:pending:${string}`]: unknown[];
   [key: `waitlist:invite-code:${string}`]: number;
   [key: `send-mail-rate-limit:${string}`]: boolean;
   [key: `oauth:token-rate:${string}:${string}`]: number;
@@ -105,6 +105,9 @@ export interface ICacheStore {
   // Push: results sent to a user inside the current window. Past the cap the individual
   // cards give way to one "N conversations have news" summary.
   [key: `push:burst:${string}`]: number;
+  // Push: the routine whose alert opened a user's routine-alert window and was pushed at once,
+  // keyed by user and kind, so the summary at its close leaves that routine out.
+  [key: `push:routine-alert-opener:${string}`]: string;
   // Distributed lock keys
   [key: `lock:${string}`]: string;
   [key: `import:result:manifest:${string}`]: {
@@ -116,6 +119,8 @@ export interface ICacheStore {
     errorReportUrl?: string;
   };
   [key: `import:latest-job:${string}`]: string;
+  // Background Airtable / Google Sheets import tasks, polled by the client
+  [key: `import:source-task:${string}`]: ISourceImportTaskState;
   // trash cleanup: per-item backoff after failed cleanup attempts
   [key: `trash-cleanup:skipped:${string}`]: { attempts: number; retryAfter: number };
   // space-load exporter (EE): pg_stat counter baseline + sampling watermarks
@@ -437,18 +442,4 @@ export interface IPluginAuthStore {
   // plugin's higher-privileged bot user (privilege escalation).
   userId: string;
   scopes: PluginBaseAction[];
-}
-
-export interface ICollaboratorNotifyPending {
-  fromUserId: string;
-  toUserId: string;
-  refRecord: {
-    baseId: string;
-    tableId: string;
-    tableName: string;
-    fieldName: string;
-    recordIds: string[];
-    recordTitles: { id: string; title: string }[];
-  };
-  lastAt: number;
 }

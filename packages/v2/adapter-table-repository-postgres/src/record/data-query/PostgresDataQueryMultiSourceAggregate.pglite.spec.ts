@@ -311,6 +311,483 @@ describe('Multi-source and multi-hop aggregates on PGlite', () => {
     return result.value;
   };
 
+  it('V8 collapses relation field and expression values across parents without changing branch sums or weighted averages', async () => {
+    await sql`update ${sql.id('public', contractPhysical)} set value = 100 where __id = 'recC3'`.execute(
+      database.db
+    );
+    await sql`insert into ${sql.id('public', contractPhysical)} (__id, value, status, fk_vendor)
+      values ('recC4', 50, 'open', 'recV2')`.execute(database.db);
+    await sql`update ${sql.id('public', invoicePhysical)} set invoiced = 10 where __id = 'recI4'`.execute(
+      database.db
+    );
+    await sql`insert into ${sql.id('public', vendorContractJunction)} (__fk_vendor, __fk_contract, __order)
+      values ('recV2', 'recC1', 2)`.execute(database.db);
+    const definition = DataQueryDefinition.create({
+      version: 8,
+      kind: 'aggregate',
+      tableId: vendorTableId,
+      relations: {
+        contracts: { linkFieldId: contractsLinkId, tableId: contractTableId },
+        manyContracts: { linkFieldId: manyContractsLinkId, tableId: contractTableId },
+        manyInvoices: {
+          linkFieldId: manyInvoicesLinkId,
+          tableId: invoiceTableId,
+          via: 'manyContracts',
+        },
+      },
+      aggregates: [
+        { source: 'contracts', fieldId: contractValueId, statisticFunc: 'unique', alias: 'values' },
+        {
+          source: 'contracts',
+          expr: {
+            type: 'formula',
+            formula: '{value} * 2',
+            references: { value: { type: 'field', fieldId: contractValueId } },
+          },
+          statisticFunc: 'unique',
+          alias: 'doubledValues',
+        },
+        {
+          source: 'contracts',
+          fieldId: contractValueId,
+          statisticFunc: 'sum',
+          alias: 'contractTotal',
+        },
+        { source: 'manyInvoices', fieldId: invoicedId, statisticFunc: 'unique', alias: 'amounts' },
+        {
+          source: 'manyInvoices',
+          expr: {
+            type: 'formula',
+            formula: '{amount} * 2',
+            references: { amount: { type: 'field', fieldId: invoicedId } },
+          },
+          statisticFunc: 'unique',
+          alias: 'doubledAmounts',
+        },
+        {
+          source: 'manyInvoices',
+          fieldId: invoicedId,
+          statisticFunc: 'sum',
+          alias: 'invoiceTotal',
+        },
+        {
+          source: 'manyInvoices',
+          fieldId: invoicedId,
+          statisticFunc: 'average',
+          alias: 'averageInvoice',
+        },
+        { source: 'manyInvoices', statisticFunc: 'count', alias: 'invoiceCount' },
+      ],
+      groupBy: [{ fieldId: tierId, alias: 'tier' }],
+      sort: [{ alias: 'tier', order: 'asc' }],
+      page: { limit: 10, includeTotal: true },
+    })._unsafeUnwrap();
+    const rows = [
+      {
+        tier: 'A',
+        values: 3,
+        doubledValues: 3,
+        contractTotal: 450,
+        amounts: 3,
+        doubledAmounts: 3,
+        invoiceTotal: 110,
+        averageInvoice: 110 / 6,
+        invoiceCount: 6,
+      },
+      {
+        tier: 'B',
+        values: 0,
+        doubledValues: 0,
+        contractTotal: null,
+        amounts: 0,
+        doubledAmounts: 0,
+        invoiceTotal: null,
+        averageInvoice: null,
+        invoiceCount: 0,
+      },
+    ];
+    expect(resultValue(await executor.executeRelation(context, planFor(definition)))).toEqual({
+      rows,
+      page: { limit: 10, offset: 0, total: 2 },
+    });
+    const legacyUnique = DataQueryDefinition.create({ ...definition.snapshot(), version: 6 });
+    expect(legacyUnique.isErr()).toBe(true);
+    if (legacyUnique.isErr())
+      expect(legacyUnique.error.code).toBe('data_query.relation_aggregate_group_unique');
+    const snapshot = definition.snapshot();
+    if (snapshot.kind !== 'aggregate') throw new Error('Expected aggregate fixture');
+    const legacy = DataQueryDefinition.create({
+      ...snapshot,
+      version: 6,
+      aggregates: snapshot.aggregates.filter((metric) => metric.statisticFunc !== 'unique'),
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(legacy))).rows).toEqual([
+      {
+        tier: 'A',
+        contractTotal: 450,
+        invoiceTotal: 110,
+        averageInvoice: 110 / 6,
+        invoiceCount: 6,
+      },
+      { tier: 'B', contractTotal: null, invoiceTotal: null, averageInvoice: null, invoiceCount: 0 },
+    ]);
+  });
+
+  it('V8 relation tuples include real null components once and exclude empty left-join rows', async () => {
+    await sql`delete from ${sql.id('public', contractPhysical)}`.execute(database.db);
+    await sql`insert into ${sql.id('public', contractPhysical)} (__id, value, status, fk_vendor) values
+      ('recC1', 1, '23', 'recV1'),
+      ('recC2', 12, '3', 'recV1'),
+      ('recC3', null, '3', 'recV2'),
+      ('recC4', null, null, 'recV1'),
+      ('recC5', null, null, 'recV2')`.execute(database.db);
+    const definition = DataQueryDefinition.create({
+      version: 8,
+      kind: 'aggregate',
+      tableId: vendorTableId,
+      relations: { contracts: { linkFieldId: contractsLinkId, tableId: contractTableId } },
+      aggregates: [
+        {
+          source: 'contracts',
+          statisticFunc: 'unique',
+          distinctBy: [
+            {
+              type: 'formula',
+              formula: '{value}',
+              references: { value: { type: 'field', fieldId: contractValueId } },
+            },
+            {
+              type: 'formula',
+              formula: '{status}',
+              references: { status: { type: 'field', fieldId: contractStatusId } },
+            },
+          ],
+          alias: 'pairs',
+        },
+        { source: 'contracts', fieldId: contractValueId, statisticFunc: 'unique', alias: 'values' },
+      ],
+      groupBy: [{ fieldId: tierId, alias: 'tier' }],
+      sort: [{ alias: 'tier', order: 'asc' }],
+      page: { limit: 10 },
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(definition))).rows).toEqual([
+      { tier: 'A', pairs: 4, values: 2 },
+      { tier: 'B', pairs: 0, values: 0 },
+    ]);
+    const empty = DataQueryDefinition.create({
+      ...definition.snapshot(),
+      groupBy: [],
+      sort: [],
+      filter: { fieldId: vendorNameId, operator: 'is', value: 'Absent' },
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(empty))).rows).toEqual([
+      { pairs: 0, values: 0 },
+    ]);
+  });
+
+  it('V8 applies source and metric filters, root WHERE, row policies and masks before relation collapse', async () => {
+    const definition = DataQueryDefinition.create({
+      version: 8,
+      kind: 'aggregate',
+      tableId: vendorTableId,
+      relations: {
+        contracts: {
+          linkFieldId: contractsLinkId,
+          tableId: contractTableId,
+          filter: { fieldId: contractStatusId, operator: 'is', value: 'open' },
+        },
+        manyInvoices: {
+          linkFieldId: manyInvoicesLinkId,
+          tableId: invoiceTableId,
+          via: 'contracts',
+          filter: { fieldId: invoicedId, operator: 'isGreaterEqual', value: 10 },
+        },
+      },
+      aggregates: [
+        { source: 'manyInvoices', fieldId: invoicedId, statisticFunc: 'unique', alias: 'amounts' },
+        {
+          source: 'manyInvoices',
+          fieldId: invoicedId,
+          statisticFunc: 'unique',
+          alias: 'smallAmounts',
+          filter: { fieldId: invoicedId, operator: 'isLess', value: 30 },
+        },
+        {
+          source: 'manyInvoices',
+          statisticFunc: 'unique',
+          alias: 'pairs',
+          distinctBy: [
+            {
+              type: 'formula',
+              formula: '{amount}',
+              references: { amount: { type: 'field', fieldId: invoicedId } },
+            },
+            {
+              type: 'formula',
+              formula: '{status}',
+              references: { status: { type: 'field', fieldId: invoiceStatusId } },
+            },
+          ],
+        },
+      ],
+      filter: { fieldId: tierId, operator: 'is', value: 'A' },
+      page: { limit: 10 },
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(definition))).rows).toEqual([
+      { amounts: 2, smallAmounts: 1, pairs: 2 },
+    ]);
+    const beta = buildRecordConditionSpec(vendor, {
+      fieldId: vendorNameId,
+      operator: 'is',
+      value: 'Beta',
+    })._unsafeUnwrap();
+    expect(
+      resultValue(
+        await executor.executeRelation(context, planFor(definition, { recordSpec: beta }))
+      ).rows
+    ).toEqual([{ amounts: 0, smallAmounts: 0, pairs: 0 }]);
+    const betaOnly = DataQueryDefinition.create({
+      ...definition.snapshot(),
+      filter: { fieldId: vendorNameId, operator: 'is', value: 'Beta' },
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(betaOnly))).rows).toEqual([
+      { amounts: 0, smallAmounts: 0, pairs: 0 },
+    ]);
+    const overTen = buildRecordConditionSpec(invoice, {
+      fieldId: invoicedId,
+      operator: 'isGreater',
+      value: 10,
+    })._unsafeUnwrap();
+    expect(
+      resultValue(
+        await executor.executeRelation(
+          context,
+          planFor(definition, {}, new Map([['manyInvoices', { recordSpec: overTen }]]))
+        )
+      ).rows
+    ).toEqual([{ amounts: 1, smallAmounts: 0, pairs: 1 }]);
+    const underTwenty = buildRecordConditionSpec(invoice, {
+      fieldId: invoicedId,
+      operator: 'isLess',
+      value: 20,
+    })._unsafeUnwrap();
+    expect(
+      resultValue(
+        await executor.executeRelation(
+          context,
+          planFor(
+            definition,
+            {},
+            new Map([
+              ['manyInvoices', { fieldMasks: [{ fieldId: invoicedId, visibleWhen: underTwenty }] }],
+            ])
+          )
+        )
+      ).rows
+    ).toEqual([{ amounts: 1, smallAmounts: 1, pairs: 1 }]);
+    const hiddenLink = await executor.executeRelation(
+      context,
+      planFor(definition, {
+        fieldMasks: [{ fieldId: contractsLinkId, visibleWhen: beta }],
+      })
+    );
+    expect(hiddenLink._unsafeUnwrapErr().code).toBe('data_query.field_forbidden');
+
+    const grouped = DataQueryDefinition.create({
+      ...definition.snapshot(),
+      groupBy: [{ fieldId: tierId, alias: 'tier' }],
+      aggregates: [
+        { source: 'manyInvoices', fieldId: invoicedId, statisticFunc: 'unique', alias: 'amounts' },
+        { source: 'contracts', fieldId: contractValueId, statisticFunc: 'sum', alias: 'contractTotal' },
+        { source: 'manyInvoices', fieldId: invoicedId, statisticFunc: 'sum', alias: 'invoiceTotal' },
+        {
+          source: 'manyInvoices',
+          fieldId: invoicedId,
+          statisticFunc: 'average',
+          alias: 'averageInvoice',
+          filter: { fieldId: invoicedId, operator: 'isLess', value: 30 },
+        },
+        { source: 'manyInvoices', statisticFunc: 'count', alias: 'invoiceCount' },
+        {
+          source: 'manyInvoices',
+          statisticFunc: 'count',
+          alias: 'smallCount',
+          filter: { fieldId: invoicedId, operator: 'isLess', value: 30 },
+        },
+      ],
+    })._unsafeUnwrap();
+    const batchRows = async (
+      rootScope: RecordQueryPluginScope = {},
+      sourceScopes: ReadonlyMap<string, RecordQueryPluginScope> = new Map()
+    ) =>
+      resultValue(await executor.executeRelation(context, planFor(grouped, rootScope, sourceScopes)))
+        .rows;
+    expect(await batchRows()).toEqual([
+      {
+        tier: 'A',
+        amounts: 2,
+        contractTotal: 150,
+        invoiceTotal: 40,
+        averageInvoice: 10,
+        invoiceCount: 2,
+        smallCount: 1,
+      },
+    ]);
+    expect(await batchRows({ recordSpec: beta })).toEqual([
+      {
+        tier: 'A',
+        amounts: 0,
+        contractTotal: 50,
+        invoiceTotal: null,
+        averageInvoice: null,
+        invoiceCount: 0,
+        smallCount: 0,
+      },
+    ]);
+    expect(await batchRows({}, new Map([['manyInvoices', { recordSpec: overTen }]]))).toEqual([
+      {
+        tier: 'A',
+        amounts: 1,
+        contractTotal: 150,
+        invoiceTotal: 30,
+        averageInvoice: null,
+        invoiceCount: 1,
+        smallCount: 0,
+      },
+    ]);
+    expect(
+      await batchRows(
+        {},
+        new Map([
+          ['manyInvoices', { fieldMasks: [{ fieldId: invoicedId, visibleWhen: underTwenty }] }],
+        ])
+      )
+    ).toEqual([
+      {
+        tier: 'A',
+        amounts: 1,
+        contractTotal: 150,
+        invoiceTotal: 10,
+        averageInvoice: 10,
+        invoiceCount: 1,
+        smallCount: 1,
+      },
+    ]);
+  });
+
+  it('V8 preserves user field identities and formula display tuple values under masks', async () => {
+    await sql`update ${sql.id('public', invoicePhysical)} set assignee = jsonb_build_object(
+      'id', assignee #>> '{}', 'name', __id
+    )`.execute(database.db);
+    const definition = DataQueryDefinition.create({
+      version: 8,
+      kind: 'aggregate',
+      tableId: vendorTableId,
+      relations: {
+        contracts: { linkFieldId: contractsLinkId, tableId: contractTableId },
+        manyInvoices: {
+          linkFieldId: manyInvoicesLinkId,
+          tableId: invoiceTableId,
+          via: 'contracts',
+        },
+      },
+      aggregates: [
+        {
+          source: 'manyInvoices',
+          fieldId: invoiceUserId,
+          statisticFunc: 'unique',
+          alias: 'people',
+        },
+        {
+          source: 'manyInvoices',
+          statisticFunc: 'unique',
+          distinctBy: [
+            {
+              type: 'formula',
+              formula: '{person}',
+              references: { person: { type: 'field', fieldId: invoiceUserId } },
+            },
+          ],
+          alias: 'peopleTuples',
+        },
+      ],
+      groupBy: [{ fieldId: tierId, alias: 'tier' }],
+      sort: [{ alias: 'tier', order: 'asc' }],
+      page: { limit: 10 },
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(definition))).rows).toEqual([
+      { tier: 'A', people: 2, peopleTuples: 4 },
+      { tier: 'B', people: 0, peopleTuples: 0 },
+    ]);
+    const visibleWhen = buildRecordConditionSpec(invoice, {
+      fieldId: invoicedId,
+      operator: 'isNot',
+      value: 20,
+    })._unsafeUnwrap();
+    expect(
+      resultValue(
+        await executor.executeRelation(
+          context,
+          planFor(
+            definition,
+            {},
+            new Map([['manyInvoices', { fieldMasks: [{ fieldId: invoiceUserId, visibleWhen }] }]])
+          )
+        )
+      ).rows
+    ).toEqual([
+      { tier: 'A', people: 1, peopleTuples: 4 },
+      { tier: 'B', people: 0, peopleTuples: 0 },
+    ]);
+  });
+
+  it('V8 evaluates whole-group relation distinct HAVING before totals and empty pages', async () => {
+    await sql`update ${sql.id('public', contractPhysical)} set value = 100 where __id = 'recC3'`.execute(
+      database.db
+    );
+    await sql`insert into ${sql.id('public', contractPhysical)} (__id, value, status, fk_vendor)
+      values ('recC4', 50, 'open', 'recV2')`.execute(database.db);
+    const definition = DataQueryDefinition.create({
+      version: 8,
+      kind: 'aggregate',
+      tableId: vendorTableId,
+      relations: { contracts: { linkFieldId: contractsLinkId, tableId: contractTableId } },
+      aggregates: [
+        { source: 'contracts', fieldId: contractValueId, statisticFunc: 'unique', alias: 'values' },
+      ],
+      groupBy: [{ fieldId: tierId, alias: 'tier' }],
+      having: {
+        type: 'formula',
+        formula: '{values} = 3',
+        references: { values: { type: 'output', alias: 'values' } },
+      },
+      page: { limit: 1, includeTotal: true },
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(definition)))).toEqual({
+      rows: [{ tier: 'A', values: 3 }],
+      page: { limit: 1, offset: 0, total: 1 },
+    });
+    const beyond = DataQueryDefinition.create({
+      ...definition.snapshot(),
+      page: { limit: 1, offset: 1, includeTotal: true },
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(beyond)))).toEqual({
+      rows: [],
+      page: { limit: 1, offset: 1, total: 1 },
+    });
+    const zero = DataQueryDefinition.create({
+      ...definition.snapshot(),
+      having: {
+        type: 'formula',
+        formula: '{values} = 4',
+        references: { values: { type: 'output', alias: 'values' } },
+      },
+    })._unsafeUnwrap();
+    expect(resultValue(await executor.executeRelation(context, planFor(zero)))).toEqual({
+      rows: [],
+      page: { limit: 1, offset: 0, total: 0 },
+    });
+  });
   it('v4 isolates formula metric filters across branches and combines filtered averages before HAVING', async () => {
     await sql`insert into ${sql.id('public', invoicePhysical)} (__id, invoiced, status, fk_contract)
       values ('recI5', 15, 'open', 'recC3')`.execute(database.db);

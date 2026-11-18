@@ -66,6 +66,7 @@ import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { TableQueryService } from './TableQueryService';
 import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoStackService';
+import type { UndoEntryGroupInput } from '../../ports/UndoRedoStore';
 
 const DEFAULT_DELETE_QUERY_PAGE_SIZE = 500;
 const MAX_DELETE_STREAM_BUFFERED_EVENTS = 64;
@@ -1146,6 +1147,7 @@ export class DeleteByRangeApplicationService {
     let deletedCount = 0;
     let currentRangeKey: string | undefined;
     let failedRowCountInRange = 0;
+    const undoGroup = { groupId: operation.operationId, attempted: false };
     const operationPluginExecutionResult = await this.runInSpan(
       context,
       'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlugins',
@@ -1383,7 +1385,7 @@ export class DeleteByRangeApplicationService {
                   plan.table,
                   persistedRecordSnapshots,
                   persistedDeletedRecordIds,
-                  operation.operationId
+                  undoGroup
                 )
             );
             if (undoRedoResult.isErr()) {
@@ -1680,11 +1682,15 @@ export class DeleteByRangeApplicationService {
     table: Table,
     recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>,
     deletedRecordIds: ReadonlyArray<string>,
-    groupId?: string
+    group?: { groupId: string; attempted: boolean }
   ): Promise<Result<void, DomainError>> {
     if (!recordSnapshots.length) {
       return ok(undefined);
     }
+    const groupInput: UndoEntryGroupInput = group
+      ? { groupId: group.groupId, groupPosition: group.attempted ? 'continue' : 'start' }
+      : {};
+    if (group) group.attempted = true;
 
     return this.undoRedoStackService.appendRecordDelete(toUndoRedoStackAppendContext(context), {
       tableId: table.id(),
@@ -1700,7 +1706,7 @@ export class DeleteByRangeApplicationService {
         ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
       })),
       deletedRecordIds,
-      groupId,
+      ...groupInput,
     });
   }
 

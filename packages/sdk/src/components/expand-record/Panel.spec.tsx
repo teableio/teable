@@ -130,4 +130,158 @@ describe('Panel (ExpandRecord side panel)', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(rootClose).toHaveBeenCalledTimes(1);
   });
+
+  it('shows only the last of two panels opened side by side, and goes back to the first', () => {
+    const recordClose = vi.fn();
+    const Side = () => {
+      const [draftOpen, setDraftOpen] = useState(false);
+      return (
+        <>
+          <Panel visible onClose={recordClose}>
+            <button onClick={() => setDraftOpen(true)}>add record</button>
+          </Panel>
+          <Panel visible={draftOpen} onClose={() => setDraftOpen(false)}>
+            <input data-testid="draft-field" />
+          </Panel>
+        </>
+      );
+    };
+    render(
+      <ExpandRecordPanelHost>
+        <Side />
+      </ExpandRecordPanelHost>
+    );
+
+    const [record] = panels();
+    fireEvent.click(screen.getByText('add record'));
+    expect(record.className).toContain('invisible');
+    expect(panels()[1].className).not.toContain('invisible');
+
+    // Escape closes the one on top only
+    act(() => {
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+    });
+    expect(recordClose).not.toHaveBeenCalled();
+    expect(panels()).toHaveLength(1);
+    expect(record.className).not.toContain('invisible');
+  });
+
+  it('brings an open panel back on top of one opened beside it later', () => {
+    const Side = () => {
+      const [raiseKey, setRaiseKey] = useState(0);
+      const [recordOpen, setRecordOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setRaiseKey((key) => key + 1)}>add record</button>
+          <button onClick={() => setRecordOpen(true)}>expand record</button>
+          <Panel visible raiseKey={raiseKey}>
+            <input data-testid="draft-field" defaultValue="typed" />
+          </Panel>
+          <Panel visible={recordOpen} onClose={() => setRecordOpen(false)}>
+            <span>record</span>
+          </Panel>
+        </>
+      );
+    };
+    render(
+      <ExpandRecordPanelHost>
+        <Side />
+      </ExpandRecordPanelHost>
+    );
+
+    const draft = screen.getByTestId('draft-field').closest<HTMLElement>('[role="region"]')!;
+    fireEvent.click(screen.getByText('expand record'));
+    const record = screen.getByText('record').closest<HTMLElement>('[role="region"]')!;
+    expect(draft.className).toContain('invisible');
+
+    fireEvent.click(screen.getByText('add record'));
+    expect(draft.className).not.toContain('invisible');
+    expect(record.className).toContain('invisible');
+    // the draft keeps what was typed into it
+    expect(screen.getByTestId<HTMLInputElement>('draft-field').value).toBe('typed');
+  });
+
+  it('brings a record panel back on top when another record is opened into it', () => {
+    const Side = () => {
+      const [recordId, setRecordId] = useState('rec1');
+      const [draftOpen, setDraftOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setDraftOpen(true)}>add record</button>
+          <button onClick={() => setRecordId('rec2')}>expand rec2</button>
+          <Panel visible raiseKey={recordId}>
+            <span>{recordId}</span>
+          </Panel>
+          <Panel visible={draftOpen} onClose={() => setDraftOpen(false)}>
+            <span>draft</span>
+          </Panel>
+        </>
+      );
+    };
+    render(
+      <ExpandRecordPanelHost>
+        <Side />
+      </ExpandRecordPanelHost>
+    );
+
+    fireEvent.click(screen.getByText('add record'));
+    const record = screen.getByText('rec1').closest<HTMLElement>('[role="region"]')!;
+    const draft = screen.getByText('draft').closest<HTMLElement>('[role="region"]')!;
+    expect(record.className).toContain('invisible');
+
+    fireEvent.click(screen.getByText('expand rec2'));
+    expect(record.className).not.toContain('invisible');
+    expect(record).toHaveTextContent('rec2');
+    // the draft stays open under it
+    expect(draft.className).toContain('invisible');
+  });
+
+  it('hides a linked record stacked on the first panel too, and gives it Escape back after', () => {
+    const linkedClose = vi.fn();
+    const Side = () => {
+      const [draftOpen, setDraftOpen] = useState(false);
+      return (
+        <>
+          <Panel visible>
+            <Panel visible onClose={linkedClose}>
+              <button onClick={() => setDraftOpen(true)}>add record</button>
+            </Panel>
+          </Panel>
+          <Panel visible={draftOpen} onClose={() => setDraftOpen(false)}>
+            <input data-testid="draft-field" />
+          </Panel>
+        </>
+      );
+    };
+    render(
+      <ExpandRecordPanelHost>
+        <Side />
+      </ExpandRecordPanelHost>
+    );
+
+    const linked = screen.getByText('add record').closest<HTMLElement>('[role="region"]')!;
+    fireEvent.click(screen.getByText('add record'));
+    expect(linked.className).toContain('invisible');
+
+    act(() => {
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+    });
+    expect(linkedClose).not.toHaveBeenCalled();
+    expect(panels()).toHaveLength(2);
+    expect(linked.className).not.toContain('invisible');
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(linkedClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves Escape alone when told to', () => {
+    const onClose = vi.fn();
+    render(
+      <ExpandRecordPanelHost>
+        <Panel visible closeOnEscape={false} onClose={onClose} />
+      </ExpandRecordPanelHost>
+    );
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });

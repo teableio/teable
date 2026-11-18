@@ -4,7 +4,7 @@ import { dataQueryExpressionLimits } from './DataQueryExpression';
 
 /** The canonical execution contract, shared by native schema/describe consumers. */
 export const dataQueryCapabilities = {
-  definitionVersions: [1, 2, 3, 4, 5, 6],
+  definitionVersions: [1, 2, 3, 4, 5, 6, 8],
   recordsDistinct: {
     version: 6,
     flag: 'distinct: true',
@@ -14,6 +14,19 @@ export const dataQueryCapabilities = {
     nulls: 'ascFirstDescLast',
     jsonEquality: 'structuralObjectsOrderedArrays',
     total: 'distinctTuplesBeforePagination',
+  },
+  distinctAggregate: {
+    version: 8,
+    statisticFunc: 'unique',
+    input: 'distinctBy',
+    maxKeys: 8,
+    grain: 'outputGroup',
+    equality: 'finalizedPublicValues',
+    tupleNulls: 'nullComponentsParticipateIncludingAllNullRows',
+    emptyInput: 0,
+    missingRelationInput: 0,
+    legacyScalarNulls: 'unchanged',
+    relationInputs: 'sameSource',
   },
   relationExistence: {
     version: 5,

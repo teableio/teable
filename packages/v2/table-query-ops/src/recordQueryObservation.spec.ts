@@ -169,10 +169,14 @@ describe('ObservedTableRecordQueryRepository', () => {
       },
       searchAccessPath: {
         kind: 'generated_text',
-        generatedColumnName: '__tqops_search_document',
-        provider: 'pg_trgm',
         searchScope: 'selected_fields',
-        coveredFieldIds: [titleId],
+        fieldIds: [titleId],
+        document: {
+          generatedColumnName: '__tqops_search_document',
+          provider: 'pg_trgm',
+          coveredFieldIds: [titleId],
+          ready: true,
+        },
       },
     });
 

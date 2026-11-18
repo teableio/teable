@@ -13,6 +13,8 @@ import {
   FieldKeyType,
   FieldType,
   getRandomString,
+  NotificationSeverityEnum,
+  NotificationTypeEnum,
   Relationship,
   Role,
   SortFunc,
@@ -44,12 +46,17 @@ import { EventEmitterService } from '../src/event-emitter/event-emitter.service'
 import { Events } from '../src/event-emitter/events';
 import { AttachmentsService } from '../src/features/attachments/attachments.service';
 import { BaseImportCsvQueueProcessor } from '../src/features/base/base-import-processor/base-import-csv.processor';
+import { BaseImportJunctionCsvQueueProcessor } from '../src/features/base/base-import-processor/base-import-junction.processor';
+import { BatchProcessor } from '../src/features/base/BatchProcessor.class';
+import { DataDbClientManager } from '../src/global/data-db-client-manager.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
 import {
   createBase,
   createField,
+  createRecords,
   createTable,
+  getRecord,
   getRecords,
   initApp,
   permanentDeleteBase,
@@ -69,10 +76,8 @@ type ArchiveRows = {
 
 type ImportJob = {
   id: string;
-  attemptsMade: number;
   failedReason?: string;
   getState(): Promise<string>;
-  retry(): Promise<void>;
 };
 
 describe('public V1 .tea import user scope (e2e)', () => {
@@ -91,10 +96,13 @@ describe('public V1 .tea import user scope (e2e)', () => {
   let cookie: string;
   let prisma: PrismaService;
   let processor: BaseImportCsvQueueProcessor;
+  let junctionProcessor: BaseImportJunctionCsvQueueProcessor;
+  let archiveRecordIds: string[] = [];
   let previousForceV2All: string | undefined;
   let sourceBaseId: string;
   let sourceSpaceId: string;
   let sourceArchive: Buffer;
+  let linkedSourceRecordId: string;
   let spaceMember: IUserMeVo;
   let sourceOnlyMember: IUserMeVo;
   let targetBaseMember: IUserMeVo;
@@ -165,6 +173,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
         if (!columns.includes(systemColumn)) columns.push(systemColumn);
       }
       patch({ columns, rows: parsed.data, table });
+      archiveRecordIds = parsed.data.map((row) => row.__id!);
       archive.append(stringify(parsed.data, { header: true, columns }), { name: file.path });
     }
 
@@ -243,22 +252,22 @@ describe('public V1 .tea import user scope (e2e)', () => {
     throw new Error('Import queue job did not reach a terminal state');
   };
 
-  const retryAndWaitForFailure = async (job: ImportJob): Promise<ImportJob> => {
-    const previousAttempts = job.attemptsMade;
-    await job.retry();
+  const waitForImportedData = async (job: ImportJob) => {
+    expect((await waitForTerminalState(job)).state).toBe('completed');
+    const junctionJobId = job.id.replace(/^import_csv_/, 'import_base_junction_csv_');
     const deadline = Date.now() + 20_000;
     while (Date.now() < deadline) {
-      const refreshed = (await processor.queue.getJob(job.id)) as ImportJob | null;
-      if (
-        refreshed &&
-        (await refreshed.getState()) === 'failed' &&
-        refreshed.attemptsMade > previousAttempts
-      ) {
-        return refreshed;
+      const junctionJob = await junctionProcessor.queue.getJob(junctionJobId);
+      if (junctionJob) {
+        const state = await junctionJob.getState();
+        if (state === 'completed' || state === 'failed') {
+          expect(state, junctionJob.failedReason).toBe('completed');
+          return;
+        }
       }
       await delay(25);
     }
-    throw new Error('Retried import queue job did not fail again');
+    throw new Error('Import relationship queue did not complete its computed backfill');
   };
 
   const importArchive = async (archiveBytes: Buffer) => {
@@ -307,6 +316,153 @@ describe('public V1 .tea import user scope (e2e)', () => {
     ).toHaveLength(0);
   };
 
+  const assertImportWarning = async (
+    baseId: string,
+    skippedUserCells: number,
+    forbiddenValues: string[]
+  ) => {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const notifications = await prisma.notification.findMany({
+        where: {
+          toUserId: actorId,
+          type: NotificationTypeEnum.System,
+          severity: NotificationSeverityEnum.Warning,
+          urlPath: `/base/${baseId}`,
+        },
+      });
+      const notification = notifications.find((item) => {
+        const message = JSON.parse(item.messageI18n ?? '{}');
+        return message.context?.skippedUserCells > 0;
+      });
+      if (notification) {
+        expect(JSON.parse(notification.messageI18n!)).toEqual({
+          i18nKey: 'notification.baseImport.skippedCells',
+          context: { skippedUserCells, skippedLinkCells: 0 },
+        });
+        const message = `${notification.message ?? ''} ${notification.messageI18n ?? ''}`;
+        for (const value of forbiddenValues) expect(message).not.toContain(value);
+        expect(message).not.toContain('attacker.invalid');
+        return;
+      }
+      await delay(50);
+    }
+    throw new Error('Missing import user-cell warning notification');
+  };
+
+  const assertImportFailureNotification = async (baseId: string, forbiddenValues: string[]) => {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const notifications = await prisma.notification.findMany({
+        where: {
+          toUserId: actorId,
+          type: NotificationTypeEnum.System,
+          severity: NotificationSeverityEnum.Warning,
+          urlPath: `/base/${baseId}`,
+        },
+      });
+      const notification = notifications.find(
+        (item) => JSON.parse(item.messageI18n ?? '{}').i18nKey === 'notification.baseImport.failed'
+      );
+      if (notification) {
+        expect(JSON.parse(notification.messageI18n!)).toEqual({
+          i18nKey: 'notification.baseImport.failed',
+        });
+        const message = `${notification.message ?? ''} ${notification.messageI18n ?? ''}`;
+        for (const value of forbiddenValues) expect(message).not.toContain(value);
+        expect(message).not.toContain('attacker.invalid');
+        return;
+      }
+      await delay(50);
+    }
+    throw new Error('Missing safe import failure notification');
+  };
+
+  const assertSkippedUserCell = async (
+    baseId: string,
+    rowIndex: number,
+    fieldName: string,
+    forbiddenValues: string[],
+    expectedUsers: IUserCellValue[] = []
+  ) => {
+    const importedTable = requireNamed((await getTableList(baseId)).data, 'Scoped Users');
+    const fields = (await getFields(importedTable.id)).data;
+    const fieldByName = (name: string) => requireNamed(fields, name);
+    const orderBy = [{ fieldId: fieldByName('Title').id, order: SortFunc.Asc }];
+    const records = [
+      ...(
+        await getRecords(importedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          take: chunkSize,
+          orderBy,
+        })
+      ).records,
+      ...(
+        await getRecords(importedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          skip: chunkSize,
+          take: rowCount - chunkSize,
+          orderBy,
+        })
+      ).records,
+    ];
+    expect(records).toHaveLength(rowCount);
+    expect(records.map((record) => record.fields[fieldByName('Title').id])).toEqual(
+      Array.from({ length: rowCount }, (_, index) => `row-${String(index).padStart(3, '0')}`).sort()
+    );
+    const recordsById = new Map(records.map((record) => [record.id, record]));
+    expect(recordsById.size).toBe(rowCount);
+    expect([...recordsById.keys()].sort()).toEqual([...archiveRecordIds].sort());
+    const skippedRecord = recordsById.get(archiveRecordIds[rowIndex]!);
+    expect(skippedRecord, 'Missing the patched archive record').toBeDefined();
+    if (!skippedRecord) throw new Error('Missing the patched archive record');
+    const skippedValue = skippedRecord.fields[fieldByName(fieldName).id];
+    if (fieldName === 'Multiple Users') {
+      expect(skippedValue ?? []).toEqual(expectedUsers);
+    } else {
+      expect(skippedValue ?? null).toBeNull();
+    }
+    expect(
+      await prisma.collaborator.count({
+        where: {
+          resourceId: { in: [spaceId, baseId] },
+          principalId: sourceOnlyMember.id,
+          principalType: PrincipalType.User,
+        },
+      })
+    ).toBe(0);
+    expect(recordsById.get(archiveRecordIds[2]!)!.fields[fieldByName('Actor').id]).toMatchObject({
+      id: actorId,
+      title: actorName,
+      email: actorEmail,
+    });
+    for (const record of records) {
+      expect(record.fields[fieldByName('Space Member').id]).toMatchObject({
+        id: spaceMember.id,
+        title: spaceMember.name,
+        email: spaceMember.email,
+      });
+      expect(record.fields[fieldByName('Created By').id]).toMatchObject({
+        id: actorId,
+        title: actorName,
+      });
+      expect(record.fields[fieldByName('Last Modified By').id] ?? null).toBeNull();
+    }
+    expect(
+      recordsById.get(linkedSourceRecordId)!.fields[fieldByName('Lookup Owners').id]
+    ).toMatchObject({
+      id: actorId,
+      title: actorName,
+      email: actorEmail,
+    });
+    expect(JSON.stringify(records)).not.toContain('FORGED');
+    expect(JSON.stringify(records)).not.toContain('forged');
+    expect(JSON.stringify(records)).not.toContain('FORBIDDEN');
+    expect(JSON.stringify(records)).not.toContain('attacker.invalid');
+    await assertImportWarning(baseId, 1, forbiddenValues);
+    return { recordsById, fieldByName };
+  };
+
   beforeAll(async () => {
     previousForceV2All = process.env.FORCE_V2_ALL;
     process.env.FORCE_V2_ALL = 'false';
@@ -316,6 +472,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
     cookie = appCtx.cookie;
     prisma = app.get(PrismaService);
     processor = app.get(BaseImportCsvQueueProcessor);
+    junctionProcessor = app.get(BaseImportJunctionCsvQueueProcessor);
 
     const orgProbe = await prisma.$queryRaw<{ present: boolean }[]>`
       select to_regclass('organization') is not null as present
@@ -481,6 +638,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
     expect(scopedSourceRecord, 'Missing scoped source record').toBeDefined();
     expect(lookupSourceRecord, 'Missing lookup source record').toBeDefined();
     if (!scopedSourceRecord || !lookupSourceRecord) throw new Error('Missing source record');
+    linkedSourceRecordId = scopedSourceRecord.id;
     await updateRecordByApi(scopedUsers.id, scopedSourceRecord.id, lookupLink.id, {
       id: lookupSourceRecord.id,
     });
@@ -498,6 +656,9 @@ describe('public V1 .tea import user scope (e2e)', () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     for (const baseId of importedBaseIds) {
+      await prisma.notification.deleteMany({
+        where: { toUserId: actorId, urlPath: `/base/${baseId}` },
+      });
       await permanentDeleteBase(baseId).catch(() => undefined);
     }
     importedBaseIds.clear();
@@ -520,6 +681,324 @@ describe('public V1 .tea import user scope (e2e)', () => {
     if (previousForceV2All == null) delete process.env.FORCE_V2_ALL;
     else process.env.FORCE_V2_ALL = previousForceV2All;
   }, 30_000);
+
+  const assertRequiredUserRelaxationWarning = async (baseId: string) => {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const notifications = await prisma.notification.findMany({
+        where: {
+          toUserId: actorId,
+          type: NotificationTypeEnum.System,
+          severity: NotificationSeverityEnum.Warning,
+          urlPath: `/base/${baseId}`,
+        },
+      });
+      const messages = notifications.map(({ messageI18n }) => JSON.parse(messageI18n ?? '{}'));
+      const warning = messages.find(
+        ({ i18nKey }) => i18nKey === 'notification.baseImport.relaxedRequiredUserFields'
+      );
+      if (warning) {
+        expect(warning).toEqual({
+          i18nKey: 'notification.baseImport.relaxedRequiredUserFields',
+          context: { count: 1 },
+        });
+        return;
+      }
+      await delay(25);
+    }
+    throw new Error('Missing required User constraint relaxation warning');
+  };
+
+  const createRequiredUserArchive = async (
+    titles: readonly string[] = ['First', 'Second'],
+    isMultiple = false
+  ) => {
+    const previousForce = process.env.FORCE_V2_ALL;
+    try {
+      process.env.FORCE_V2_ALL = 'true';
+      const source = await createBase({ name: 'Required user source', spaceId });
+      importedBaseIds.add(source.id);
+      const table = await createTable(source.id, {
+        name: 'Scoped Users',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [],
+      });
+      const affected = await createField(table.id, {
+        name: 'Required Actor',
+        type: FieldType.User,
+        notNull: true,
+        options: { isMultiple },
+      });
+      const control = await createField(table.id, {
+        name: 'Required Control',
+        type: FieldType.User,
+        notNull: true,
+      });
+      for (let index = 0; index < titles.length; index += 100) {
+        await createRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: titles.slice(index, index + 100).map((title) => ({
+            fields: {
+              [table.fields[0].id]: title,
+              [affected.id]: isMultiple ? [{ id: actorId }] : { id: actorId },
+              [control.id]: { id: actorId },
+            },
+          })),
+        });
+      }
+      const sourceFields = (await getFields(table.id)).data;
+      expect(sourceFields.find(({ id }) => id === affected.id)?.notNull).toBe(true);
+      expect(sourceFields.find(({ id }) => id === control.id)?.notNull).toBe(true);
+      const awaitExport = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+      const { previewUrl } = await awaitExport(() => exportBase(source.id, { includeData: true }));
+      const response = await fetch(appUrl + previewUrl);
+      expect(response.ok).toBe(true);
+      return { sourceId: source.id, archive: Buffer.from(await response.arrayBuffer()) };
+    } finally {
+      if (previousForce == null) delete process.env.FORCE_V2_ALL;
+      else process.env.FORCE_V2_ALL = previousForce;
+    }
+  };
+
+  const assertCommittedRequiredUserBatch = async (baseId: string, committedIds: string[]) => {
+    const table = (await getTableList(baseId)).data.find(({ name }) => name === 'Scoped Users')!;
+    const fields = (await getFields(table.id)).data;
+    const affected = fields.find(({ name }) => name === 'Required Actor')!;
+    const control = fields.find(({ name }) => name === 'Required Control')!;
+    expect(affected.notNull ?? false).toBe(false);
+    expect(control.notNull).toBe(true);
+    const records = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        take: committedIds.length,
+      })
+    ).records;
+    expect(records).toHaveLength(committedIds.length);
+    expect(records.map(({ id }) => id).sort()).toEqual([...committedIds].sort());
+    expect(
+      records.find(({ id }) => id === committedIds[0])?.fields[affected.id] ?? null
+    ).toBeNull();
+    for (const record of records) {
+      expect(record.fields[control.id]).toMatchObject({
+        id: actorId,
+        title: actorName,
+        email: actorEmail,
+      });
+      if (record.id !== committedIds[0]) {
+        expect(record.fields[affected.id]).toMatchObject({
+          id: actorId,
+          title: actorName,
+          email: actorEmail,
+        });
+      }
+    }
+    const manager = app.get(DataDbClientManager);
+    const compiler = await manager.dataKnexForBase(baseId);
+    const dataPrisma = await manager.dataPrismaForBase(baseId);
+    const [schema, dbTable] = table.dbTableName.split('.');
+    const sql = compiler('information_schema.columns')
+      .select('column_name', 'is_nullable')
+      .where({ table_schema: schema, table_name: dbTable })
+      .whereIn('column_name', [affected.dbFieldName, control.dbFieldName])
+      .toQuery();
+    const columns =
+      await dataPrisma.$queryRawUnsafe<{ column_name: string; is_nullable: string }[]>(sql);
+    expect(columns).toHaveLength(2);
+    expect(
+      columns.find(({ column_name }) => column_name === affected.dbFieldName)?.is_nullable
+    ).toBe('YES');
+    expect(
+      columns.find(({ column_name }) => column_name === control.dbFieldName)?.is_nullable
+    ).toBe('NO');
+    const countSql = compiler
+      .raw('SELECT count(*)::int AS count FROM ??', [table.dbTableName])
+      .toQuery();
+    expect(await dataPrisma.$queryRawUnsafe<{ count: number }[]>(countSql)).toEqual([
+      { count: committedIds.length },
+    ]);
+  };
+
+  it('reports required User relaxation even when a later malformed batch fails closed', async () => {
+    // BatchProcessor awaits each 1000-row handler before accepting the next chunk.
+    const boundary = BatchProcessor.BATCH_SIZE;
+    const { sourceId, archive: requiredArchive } = await createRequiredUserArchive(
+      Array.from({ length: boundary + 1 }, (_, index) => `Required row ${index}`)
+    );
+    const unknownId = 'usr0000000000000000';
+    const unknownEmail = 'required-user-absent@example.invalid';
+    expect(await prisma.user.findUnique({ where: { id: unknownId } })).toBeNull();
+    expect(await prisma.user.findUnique({ where: { email: unknownEmail } })).toBeNull();
+    const recordIds: string[] = [];
+    const archive = await repackTableCsv(requiredArchive, ({ rows, table }) => {
+      const affected = table.fields.find(({ name }) => name === 'Required Actor')!;
+      const control = table.fields.find(({ name }) => name === 'Required Control')!;
+      expect(affected.notNull).toBe(true);
+      expect(control.notNull).toBe(true);
+      expect(rows).toHaveLength(boundary + 1);
+      recordIds.push(...rows.map(({ __id }) => __id));
+      rows[0][affected.dbFieldName] = userCell(unknownId, 'UNKNOWN REQUIRED USER', unknownEmail);
+      rows[boundary][control.dbFieldName] = JSON.stringify({
+        id: 17,
+        title: 'LATE MALFORMED REQUIRED USER',
+      });
+    });
+    const { baseId, job } = await importArchive(archive);
+    expect(baseId).not.toBe(sourceId);
+    const terminal = await waitForTerminalState(job);
+    expect(terminal).toEqual({
+      state: 'failed',
+      failedReason: 'validation.field.invalid_user_format',
+    });
+    const forbiddenValues = [unknownId, unknownEmail, 'LATE MALFORMED REQUIRED USER'];
+    for (const value of forbiddenValues) expect(terminal.failedReason).not.toContain(value);
+    await assertImportFailureNotification(baseId, [...forbiddenValues, actorId, actorEmail]);
+    await assertCommittedRequiredUserBatch(baseId, recordIds.slice(0, boundary));
+    expect(await prisma.user.findUnique({ where: { id: unknownId } })).toBeNull();
+    expect(await prisma.user.findUnique({ where: { email: unknownEmail } })).toBeNull();
+    expect(
+      await prisma.collaborator.count({
+        where: { resourceId: baseId, principalId: unknownId, principalType: PrincipalType.User },
+      })
+    ).toBe(0);
+    await assertRequiredUserRelaxationWarning(baseId);
+  }, 60_000);
+
+  it('relaxes only an affected required User field while retaining records and legal required constraints', async () => {
+    const { sourceId: requiredSourceId, archive: requiredArchive } =
+      await createRequiredUserArchive();
+    const unknownId = 'usr0000000000000000';
+    const unknownEmail = 'required-user-absent@example.invalid';
+    expect(await prisma.user.findUnique({ where: { id: unknownId } })).toBeNull();
+    expect(await prisma.user.findUnique({ where: { email: unknownEmail } })).toBeNull();
+    const preservedIds: string[] = [];
+    const archive = await repackTableCsv(requiredArchive, ({ rows, table }) => {
+      const affected = table.fields.find(({ name }) => name === 'Required Actor')!;
+      const control = table.fields.find(({ name }) => name === 'Required Control')!;
+      expect(affected.notNull).toBe(true);
+      expect(control.notNull).toBe(true);
+      expect(rows).toHaveLength(2);
+      preservedIds.push(...rows.map(({ __id }) => __id));
+      for (const row of rows) {
+        row[affected.dbFieldName] = JSON.stringify({ id: actorId, title: 'forged actor' });
+        row[control.dbFieldName] = JSON.stringify({ id: actorId, title: 'forged control' });
+      }
+      rows[0][affected.dbFieldName] = userCell(unknownId, 'UNKNOWN REQUIRED USER', unknownEmail);
+    });
+    const { baseId, job } = await importArchive(archive);
+    expect(await waitForTerminalState(job)).toMatchObject({ state: 'completed' });
+    expect(baseId).not.toBe(requiredSourceId);
+    const table = (await getTableList(baseId)).data.find(({ name }) => name === 'Scoped Users')!;
+    const fields = (await getFields(table.id)).data;
+    const affected = fields.find(({ name }) => name === 'Required Actor')!;
+    const control = fields.find(({ name }) => name === 'Required Control')!;
+    expect(affected.notNull ?? false).toBe(false);
+    expect(control.notNull).toBe(true);
+    const records = (await getRecords(table.id, { fieldKeyType: FieldKeyType.Id })).records;
+    expect(records).toHaveLength(2);
+    expect(records.map(({ id }) => id).sort()).toEqual([...preservedIds].sort());
+    expect(records.filter((record) => (record.fields[affected.id] ?? null) === null)).toHaveLength(
+      1
+    );
+    expect(records.filter((record) => (record.fields[affected.id] ?? null) !== null)).toHaveLength(
+      1
+    );
+    expect(
+      records.find(({ id }) => id === preservedIds[0])?.fields[affected.id] ?? null
+    ).toBeNull();
+    for (const record of records) {
+      expect(record.fields[control.id]).toMatchObject({
+        id: actorId,
+        title: actorName,
+        email: actorEmail,
+      });
+      if ((record.fields[affected.id] ?? null) !== null) {
+        expect(record.fields[affected.id]).toMatchObject({
+          id: actorId,
+          title: actorName,
+          email: actorEmail,
+        });
+      }
+    }
+    const manager = app.get(DataDbClientManager);
+    const compiler = await manager.dataKnexForBase(baseId);
+    const dataPrisma = await manager.dataPrismaForBase(baseId);
+    const [schema, dbTable] = table.dbTableName.split('.');
+    const sql = compiler('information_schema.columns')
+      .select('column_name', 'is_nullable')
+      .where({ table_schema: schema, table_name: dbTable })
+      .whereIn('column_name', [affected.dbFieldName, control.dbFieldName])
+      .toQuery();
+    const columns =
+      await dataPrisma.$queryRawUnsafe<{ column_name: string; is_nullable: string }[]>(sql);
+    expect(columns).toHaveLength(2);
+    expect(
+      columns.find(({ column_name }) => column_name === affected.dbFieldName)?.is_nullable
+    ).toBe('YES');
+    expect(
+      columns.find(({ column_name }) => column_name === control.dbFieldName)?.is_nullable
+    ).toBe('NO');
+    await assertImportWarning(baseId, 1, [unknownId, unknownEmail, 'UNKNOWN REQUIRED USER']);
+    await assertRequiredUserRelaxationWarning(baseId);
+    expect(await prisma.user.findUnique({ where: { id: unknownId } })).toBeNull();
+    expect(await prisma.user.findUnique({ where: { email: unknownEmail } })).toBeNull();
+  }, 60_000);
+
+  it('keeps a mixed required multi-user field required after filtering', async () => {
+    const { sourceId, archive: requiredArchive } = await createRequiredUserArchive(undefined, true);
+    const preservedIds: string[] = [];
+    const archive = await repackTableCsv(requiredArchive, ({ rows, table }) => {
+      const field = requireNamed(table.fields, 'Required Actor');
+      expect(field.notNull).toBe(true);
+      expect(field.isMultipleCellValue).toBe(true);
+      preservedIds.push(...rows.map(({ __id }) => __id));
+      rows[0][field.dbFieldName] = JSON.stringify([
+        { id: actorId, title: 'forged required actor' },
+        { id: 'usrUnknownV1TeaImport', title: 'FORBIDDEN REQUIRED USER' },
+        { id: actorId, email: 'wrong-pair@example.invalid' },
+      ]);
+      rows[1][field.dbFieldName] = JSON.stringify([]);
+    });
+    const { baseId, job } = await importArchive(archive);
+    expect(await waitForTerminalState(job)).toMatchObject({ state: 'completed' });
+    expect(baseId).not.toBe(sourceId);
+    const table = requireNamed((await getTableList(baseId)).data, 'Scoped Users');
+    const field = requireNamed((await getFields(table.id)).data, 'Required Actor');
+    expect(field.notNull).toBe(true);
+    const records = (await getRecords(table.id, { fieldKeyType: FieldKeyType.Id })).records;
+    expect(records.map(({ id }) => id).sort()).toEqual([...preservedIds].sort());
+    for (const record of records) {
+      expect(record.fields[field.id]).toEqual(
+        record.id === preservedIds[1]
+          ? []
+          : [expect.objectContaining({ id: actorId, title: actorName, email: actorEmail })]
+      );
+    }
+    const manager = app.get(DataDbClientManager);
+    const compiler = await manager.dataKnexForBase(baseId);
+    const dataPrisma = await manager.dataPrismaForBase(baseId);
+    const [schema, dbTable] = table.dbTableName.split('.');
+    const sql = compiler('information_schema.columns')
+      .select('is_nullable')
+      .where({ table_schema: schema, table_name: dbTable, column_name: field.dbFieldName })
+      .toQuery();
+    expect(await dataPrisma.$queryRawUnsafe<{ is_nullable: string }[]>(sql)).toEqual([
+      { is_nullable: 'NO' },
+    ]);
+    await assertImportWarning(baseId, 1, ['FORBIDDEN', 'forged', 'wrong-pair@example.invalid']);
+    const notifications = await prisma.notification.findMany({
+      where: { urlPath: `/base/${baseId}` },
+    });
+    expect(
+      notifications.filter(
+        ({ messageI18n }) =>
+          JSON.parse(messageI18n ?? '{}').i18nKey ===
+          'notification.baseImport.relaxedRequiredUserFields'
+      )
+    ).toEqual([]);
+  }, 60_000);
 
   it('routes the public endpoint to V1 and canonicalizes every legal destination collaborator once per chunk', async () => {
     const archive = await repackTableCsv(sourceArchive, (data) => patchLegalIdentities(data, true));
@@ -575,7 +1054,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
     );
     try {
       const { baseId, job } = await importArchive(archive);
-      expect((await waitForTerminalState(job)).state).toBe('completed');
+      await waitForImportedData(job);
       // The one-row exported source has a complete pair; editable id-only controls
       // remain one destination-scoped lookup per bounded Scoped Users chunk.
       expect(lookupCount).toBe(Math.ceil(rowCount / chunkSize));
@@ -603,8 +1082,11 @@ describe('public V1 .tea import user scope (e2e)', () => {
         ).records,
       ];
       expect(records).toHaveLength(rowCount);
-      const firstRecord = records[0];
-      const blankModifierControl = records[1];
+      const recordsById = new Map(records.map((record) => [record.id, record]));
+      expect(recordsById.size).toBe(rowCount);
+      expect([...recordsById.keys()].sort()).toEqual([...archiveRecordIds].sort());
+      const firstRecord = recordsById.get(linkedSourceRecordId);
+      const blankModifierControl = recordsById.get(archiveRecordIds[1]!);
       expect(firstRecord, 'Missing first imported record').toBeDefined();
       expect(blankModifierControl, 'Missing blank-modifier control record').toBeDefined();
       if (!firstRecord || !blankModifierControl) throw new Error('Missing imported control record');
@@ -712,7 +1194,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
     });
 
     const { baseId, job } = await importArchive(archive);
-    expect((await waitForTerminalState(job)).state).toBe('completed');
+    await waitForImportedData(job);
     const [sourceBaseMeta, importedBaseMeta, targetBases, sourceMembership] = await Promise.all([
       prisma.base.findUniqueOrThrow({ where: { id: sourceBaseId }, select: { spaceId: true } }),
       prisma.base.findUniqueOrThrow({ where: { id: baseId }, select: { spaceId: true } }),
@@ -750,12 +1232,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
     const importedTable = requireNamed((await getTableList(baseId)).data, 'Scoped Users');
     const fields = (await getFields(importedTable.id)).data;
     const fieldByName = (name: string) => requireNamed(fields, name);
-    const records = await getRecords(importedTable.id, {
-      fieldKeyType: FieldKeyType.Id,
-      take: 1,
-      orderBy: [{ fieldId: fieldByName('Title').id, order: SortFunc.Asc }],
-    });
-    const firstRecord = records.records[0];
+    const firstRecord = await getRecord(importedTable.id, archiveRecordIds[0]!);
     expect(firstRecord, 'Missing first imported record').toBeDefined();
     if (!firstRecord) throw new Error('Missing first imported record');
 
@@ -781,7 +1258,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
     });
   }, 30_000);
 
-  it('rejects a destination-scoped id paired with another profile email without exposing a profile', async () => {
+  it('clears a destination-scoped id paired with another profile email and completes with a warning', async () => {
     const archive = await repackTableCsv(sourceArchive, (data) => {
       patchLegalIdentities(data);
       const actorField = requireNamed(data.table.fields, 'Actor');
@@ -796,21 +1273,14 @@ describe('public V1 .tea import user scope (e2e)', () => {
     });
 
     const { baseId, job } = await importArchive(archive);
-    const terminal = await waitForTerminalState(job);
-    expect(terminal.state).toBe('failed');
-    expect(terminal.failedReason).toContain('validation.field.user_not_found');
-    for (const profileValue of [
+    await waitForImportedData(job);
+    await assertSkippedUserCell(baseId, 0, 'Actor', [
       actorId,
-      actorName,
       actorEmail,
       sourceOnlyMember.id,
-      sourceOnlyMember.name,
       sourceOnlyEmail,
       'FORGED SCOPED MISMATCH',
-    ]) {
-      expect(terminal.failedReason).not.toContain(profileValue);
-    }
-    await assertNoRows(baseId);
+    ]);
   }, 30_000);
 
   it('does not let an id-only cell borrow an exact pair for the same user elsewhere in its chunk', async () => {
@@ -834,15 +1304,18 @@ describe('public V1 .tea import user scope (e2e)', () => {
     });
 
     const { baseId, job } = await importArchive(archive);
-    const terminal = await waitForTerminalState(job);
-    expect(terminal.state).toBe('failed');
-    expect(terminal.failedReason).toContain('validation.field.user_not_found');
-    expect(terminal.failedReason).not.toContain(sourceOnlyMember.id);
-    expect(terminal.failedReason).not.toContain(sourceOnlyMember.name);
-    expect(terminal.failedReason).not.toContain(sourceOnlyEmail);
-    expect(terminal.failedReason).not.toContain('FORBIDDEN ID-ONLY PROFILE');
-    expect(terminal.failedReason).not.toContain('FORGED EXACT-PAIR PROFILE');
-    await assertNoRows(baseId);
+    await waitForImportedData(job);
+    const { recordsById, fieldByName } = await assertSkippedUserCell(baseId, 0, 'Actor', [
+      sourceOnlyMember.id,
+      sourceOnlyEmail,
+      'FORBIDDEN ID-ONLY PROFILE',
+      'FORGED EXACT-PAIR PROFILE',
+    ]);
+    expect(recordsById.get(archiveRecordIds[1]!)!.fields[fieldByName('Actor').id]).toMatchObject({
+      id: sourceOnlyMember.id,
+      title: sourceOnlyMember.name,
+      email: sourceOnlyEmail,
+    });
   }, 30_000);
 
   it.each([
@@ -855,7 +1328,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
     ],
     ['unknown user', () => 'usrUnknownV1TeaImport', () => 'unknown-v1-tea@example.com', false, 0],
   ])(
-    'fails the queue and restores no rows for a %s',
+    'clears only the invalid user cell and restores all rows for a %s',
     async (_label, getId, getEmail, useIdOnlySnapshot, targetRowIndex) => {
       const archive = await repackTableCsv(sourceArchive, (data) => {
         patchLegalIdentities(data);
@@ -872,51 +1345,72 @@ describe('public V1 .tea import user scope (e2e)', () => {
       });
 
       const { baseId, job } = await importArchive(archive);
-      const terminal = await waitForTerminalState(job);
-      expect(terminal.state).toBe('failed');
-      expect(terminal.failedReason).toContain('validation.field.user_not_found');
-      expect(terminal.failedReason).not.toContain(getId());
-      expect(terminal.failedReason).not.toContain(getEmail());
-      expect(terminal.failedReason).not.toContain('FORBIDDEN ARCHIVE IDENTITY');
-      if (_label === 'mixed legal and source-base-only outsider chunk') {
-        const failedJob = (await processor.queue.getJob(job.id)) as ImportJob;
-        const retried = await retryAndWaitForFailure(failedJob);
-        expect(['validation.field.user_not_found', 'Base import CSV processing failed']).toContain(
-          retried.failedReason
-        );
-        expect(retried.failedReason).not.toContain(getId());
-        expect(retried.failedReason).not.toContain(getEmail());
+      await waitForImportedData(job);
+      await assertSkippedUserCell(baseId, targetRowIndex, 'Actor', [
+        getId(),
+        getEmail(),
+        'FORBIDDEN ARCHIVE IDENTITY',
+      ]);
+      if (!useIdOnlySnapshot) {
+        expect(
+          await prisma.user.count({ where: { OR: [{ id: getId() }, { email: getEmail() }] } })
+        ).toBe(0);
+        expect(
+          await prisma.collaborator.count({
+            where: { resourceId: { in: [spaceId, baseId] }, principalId: getId() },
+          })
+        ).toBe(0);
       }
-      await assertNoRows(baseId);
     },
     30_000
   );
 
-  it('fails the whole chunk when one multiple-user cell mixes a legal user and outsider', async () => {
-    const archive = await repackTableCsv(sourceArchive, (data) => {
-      patchLegalIdentities(data);
-      const multipleField = requireNamed(data.table.fields, 'Multiple Users');
-      const firstRow = data.rows[0];
-      expect(firstRow, 'Missing first archive row').toBeDefined();
-      if (!firstRow) throw new Error('Missing first archive row');
-      firstRow[multipleField.dbFieldName] = JSON.stringify([
-        { id: actorId, title: actorName, email: actorEmail },
-        {
-          id: sourceOnlyMember.id,
-          title: 'FORBIDDEN MULTIPLE USER',
-        },
-      ]);
-    });
+  it.each([true, false])(
+    'filters unauthorized multi-user members without losing legal members (keep legal: %s)',
+    async (keepLegal) => {
+      const archive = await repackTableCsv(sourceArchive, (data) => {
+        patchLegalIdentities(data);
+        const multipleField = requireNamed(data.table.fields, 'Multiple Users');
+        data.rows[0][multipleField.dbFieldName] = JSON.stringify([
+          ...(keepLegal ? [{ id: actorId, title: 'FORGED LEGAL USER', email: actorEmail }] : []),
+          { id: sourceOnlyMember.id, title: 'FORBIDDEN BARE USER' },
+          { id: actorId, email: sourceOnlyEmail, title: 'FORBIDDEN MISMATCHED USER' },
+          { id: 'usrUnknownV1TeaImport', title: 'FORBIDDEN UNKNOWN USER' },
+          ...(keepLegal
+            ? [
+                { id: sourceOnlyMember.id, email: sourceOnlyEmail, title: 'FORGED EXACT PAIR' },
+                { id: spaceMember.id, title: 'FORGED SCOPED USER' },
+              ]
+            : []),
+        ]);
+      });
 
-    const { baseId, job } = await importArchive(archive);
-    const terminal = await waitForTerminalState(job);
-    expect(terminal.state).toBe('failed');
-    expect(terminal.failedReason).toBe('validation.field.user_not_found');
-    expect(terminal.failedReason).not.toContain(sourceOnlyMember.id);
-    expect(terminal.failedReason).not.toContain(sourceOnlyEmail);
-    expect(terminal.failedReason).not.toContain('FORBIDDEN MULTIPLE USER');
-    await assertNoRows(baseId);
-  }, 30_000);
+      const { baseId, job } = await importArchive(archive);
+      await waitForImportedData(job);
+      await assertSkippedUserCell(
+        baseId,
+        0,
+        'Multiple Users',
+        [sourceOnlyMember.id, sourceOnlyEmail, 'FORBIDDEN', 'FORGED'],
+        keepLegal
+          ? [
+              expect.objectContaining({ id: actorId, title: actorName, email: actorEmail }),
+              expect.objectContaining({
+                id: sourceOnlyMember.id,
+                title: sourceOnlyMember.name,
+                email: sourceOnlyEmail,
+              }),
+              expect.objectContaining({
+                id: spaceMember.id,
+                title: spaceMember.name,
+                email: spaceMember.email,
+              }),
+            ]
+          : []
+      );
+    },
+    30_000
+  );
 
   it.each([
     [
@@ -958,7 +1452,7 @@ describe('public V1 .tea import user scope (e2e)', () => {
     30_000
   );
 
-  it('keeps the first committed chunk but rejects an outsider in the next chunk', async () => {
+  it('restores both chunks and clears only the later outsider cell with a warning', async () => {
     const archive = await repackTableCsv(sourceArchive, (data) => {
       patchLegalIdentities(data);
       const actorField = requireNamed(data.table.fields, 'Actor');
@@ -972,24 +1466,12 @@ describe('public V1 .tea import user scope (e2e)', () => {
     });
 
     const { baseId, job } = await importArchive(archive);
-    const terminal = await waitForTerminalState(job);
-    expect(terminal.state).toBe('failed');
-    expect(terminal.failedReason).toContain('validation.field.user_not_found');
-
-    const importedTable = requireNamed((await getTableList(baseId)).data, 'Scoped Users');
-    const firstChunk = await getRecords(importedTable.id, {
-      fieldKeyType: FieldKeyType.Id,
-      take: chunkSize,
-    });
-    const afterFirstChunk = await getRecords(importedTable.id, {
-      fieldKeyType: FieldKeyType.Id,
-      skip: chunkSize,
-      take: 1,
-    });
-    expect(firstChunk.records).toHaveLength(chunkSize);
-    expect(afterFirstChunk.records).toHaveLength(0);
-    expect(JSON.stringify(firstChunk.records)).not.toContain(sourceOnlyMember.id);
-    expect(JSON.stringify(firstChunk.records)).not.toContain(sourceOnlyEmail);
+    await waitForImportedData(job);
+    await assertSkippedUserCell(baseId, chunkSize, 'Actor', [
+      sourceOnlyMember.id,
+      sourceOnlyEmail,
+      'LATE FORBIDDEN ARCHIVE IDENTITY',
+    ]);
   }, 30_000);
 
   it('fails closed and restores no rows when the destination collaborator lookup returns Err', async () => {
@@ -1014,6 +1496,16 @@ describe('public V1 .tea import user scope (e2e)', () => {
     expect(terminal.failedReason).not.toContain(actorId);
     expect(terminal.failedReason).not.toContain(actorEmail);
     await assertNoRows(baseId);
+    await assertImportFailureNotification(baseId, [
+      'Injected destination lookup failure',
+      'Failed to validate imported user references',
+      actorId,
+      actorEmail,
+      spaceMember.id,
+      spaceMemberEmail,
+      sourceOnlyMember.id,
+      sourceOnlyEmail,
+    ]);
   }, 30_000);
 
   it('fails closed when the complete pair lookup fails without exposing profiles', async () => {
@@ -1041,5 +1533,15 @@ describe('public V1 .tea import user scope (e2e)', () => {
     expect(terminal.failedReason).not.toContain(sourceOnlyMember.id);
     expect(terminal.failedReason).not.toContain(sourceOnlyEmail);
     await assertNoRows(baseId);
+    await assertImportFailureNotification(baseId, [
+      'PRIVATE PAIR LOOKUP DETAILS',
+      'Failed to validate imported user references',
+      'FORGED PAIR LOOKUP',
+      actorId,
+      actorEmail,
+      sourceOnlyMember.id,
+      sourceOnlyMember.name,
+      sourceOnlyEmail,
+    ]);
   }, 30_000);
 });

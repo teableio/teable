@@ -198,7 +198,7 @@ describe('generated data-query OpenAPI contract', () => {
     expect(
       (operation as unknown as Record<string, unknown>)['x-teable-data-query-capabilities']
     ).toMatchObject({
-      definitionVersions: [1, 2, 3, 4, 5, 6],
+      definitionVersions: [1, 2, 3, 4, 5, 6, 8],
       recordsDistinct: { version: 6, grain: 'selectedOutputTuple' },
     });
     for (const quantifier of ['any', 'none']) {
@@ -253,6 +253,37 @@ describe('generated data-query OpenAPI contract', () => {
       parameters: { minimum: 30 },
     };
     expect(acceptsRequest(aggregate), JSON.stringify(acceptsRequest.errors)).toBe(true);
+    const tupleMetric = {
+      alias: 'total',
+      statisticFunc: 'unique',
+      distinctBy: [
+        aggregate.definition.aggregates[0].expr,
+        {
+          type: 'formula',
+          formula: '{amount}',
+          references: { amount: { type: 'field', fieldId: `fld${'b'.repeat(16)}` } },
+        },
+      ],
+    };
+    const v8 = {
+      ...aggregate,
+      definition: { ...aggregate.definition, version: 8, aggregates: [tupleMetric] },
+    };
+    expect(acceptsRequest(v8), JSON.stringify(acceptsRequest.errors)).toBe(true);
+    for (const version of [1, 2, 3, 4, 5, 6, 7]) {
+      expect(acceptsRequest({ ...v8, definition: { ...v8.definition, version } })).toBe(false);
+    }
+    for (const metric of [
+      { ...tupleMetric, fieldId: `fld${'b'.repeat(16)}` },
+      { ...tupleMetric, expr: aggregate.definition.aggregates[0].expr },
+      { ...tupleMetric, statisticFunc: 'sum' },
+      { ...tupleMetric, distinctBy: [] },
+      { ...tupleMetric, distinctBy: Array.from({ length: 9 }, () => tupleMetric.distinctBy[0]) },
+    ]) {
+      expect(
+        acceptsRequest({ ...v8, definition: { ...v8.definition, aggregates: [metric] } })
+      ).toBe(false);
+    }
     for (const version of [1, 2, 3]) {
       expect(
         acceptsRequest({ ...aggregate, definition: { ...aggregate.definition, version } })

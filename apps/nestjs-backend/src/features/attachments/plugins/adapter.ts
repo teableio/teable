@@ -213,11 +213,16 @@ export default abstract class StorageAdapter {
     metadata?: Record<string, unknown>
   ): Promise<{ hash: string; path: string }>;
 
+  /**
+   * Upload a stream, retaining cancellation until transport and multipart cleanup settle.
+   * A cancelled signal prevents new upload work, including after the source reaches EOF.
+   */
   abstract uploadFileStream(
     bucket: string,
     path: string,
     stream: Buffer | ReadableStream,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    signal?: AbortSignal
   ): Promise<{ hash: string; path: string }>;
 
   /**

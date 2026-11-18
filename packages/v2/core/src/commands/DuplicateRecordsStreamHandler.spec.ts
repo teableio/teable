@@ -6,10 +6,15 @@ import { DuplicateRecordsApplicationService } from '../application/services/Dupl
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import type {
+  RecordCreateUndoRedoInput,
+  UndoRedoStackEntryInput,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { createUndoRedoCommand, type UndoEntryGroupInput } from '../ports/UndoRedoStore';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
@@ -340,10 +345,10 @@ class FakeUndoRedoService {
   recordEntryCalls: Array<{
     context: IExecutionContext;
     tableId: string;
-    entry: unknown;
+    entry: UndoRedoStackEntryInput;
   }> = [];
 
-  async recordEntry(context: IExecutionContext, tableId: TableId, entry: unknown) {
+  async recordEntry(context: IExecutionContext, tableId: TableId, entry: UndoRedoStackEntryInput) {
     this.recordEntryCalls.push({
       context,
       tableId: tableId.toString(),
@@ -352,47 +357,31 @@ class FakeUndoRedoService {
     return ok(undefined);
   }
 
-  async recordCreate(
-    context: IExecutionContext,
-    params: {
-      tableId: TableId;
-      createdRecords: ReadonlyArray<{ recordId: string }>;
-      createdRecordIds?: ReadonlyArray<string>;
-      groupId?: string;
-    }
-  ) {
+  async recordCreate(context: IExecutionContext, params: RecordCreateUndoRedoInput) {
+    const group: UndoEntryGroupInput =
+      params.groupId !== undefined
+        ? { groupId: params.groupId, groupPosition: params.groupPosition }
+        : {};
     return this.recordEntry(context, params.tableId, {
-      ...(params.groupId ? { groupId: params.groupId } : {}),
-      undoCommand: {
-        type: 'DeleteRecords',
-        payload: {
-          recordIds: [
-            ...(params.createdRecordIds ?? params.createdRecords.map((record) => record.recordId)),
-          ],
-        },
-      },
-      redoCommand: {
-        type: 'RestoreRecords',
-        payload: {
-          records: [...params.createdRecords],
-        },
-      },
+      ...group,
+      undoCommand: createUndoRedoCommand('DeleteRecords', {
+        tableId: params.tableId.toString(),
+        recordIds: [
+          ...(params.createdRecordIds ?? params.createdRecords.map((record) => record.recordId)),
+        ],
+      }),
+      redoCommand: createUndoRedoCommand('RestoreRecords', {
+        tableId: params.tableId.toString(),
+        records: [...params.createdRecords],
+      }),
     });
   }
 
-  async appendEntry(context: IExecutionContext, tableId: TableId, entry: unknown) {
+  async appendEntry(context: IExecutionContext, tableId: TableId, entry: UndoRedoStackEntryInput) {
     return this.recordEntry(context, tableId, entry);
   }
 
-  async appendRecordCreate(
-    context: IExecutionContext,
-    params: {
-      tableId: TableId;
-      createdRecords: ReadonlyArray<{ recordId: string }>;
-      createdRecordIds?: ReadonlyArray<string>;
-      groupId?: string;
-    }
-  ) {
+  async appendRecordCreate(context: IExecutionContext, params: RecordCreateUndoRedoInput) {
     return this.recordCreate(context, params);
   }
 }
@@ -902,6 +891,10 @@ describe('DuplicateRecordsStreamHandler', () => {
     });
     expect(eventBus.publishManyCalls).toHaveLength(2);
     expect(undoRedoService.recordEntryCalls).toHaveLength(2);
+    expect(undoRedoService.recordEntryCalls.map((call) => call.entry.groupPosition)).toEqual([
+      'start',
+      'continue',
+    ]);
     expect(
       undoRedoService.recordEntryCalls.map(
         (call) =>

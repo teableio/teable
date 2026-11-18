@@ -4,15 +4,13 @@ import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
 import { DataLoaderModule } from '../../data-loader/data-loader.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
+import { FieldReferenceAdmissionModule } from '../../field-reference-admission/field-reference-admission.module';
 import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migration-guard.module';
 import { TableDomainQueryModule } from '../../table-domain';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { ComputedModule } from '../computed/computed.module';
-import { CrossBaseLinkAccessPluginRegistrar } from '../cross-base-link-access.plugin-registrar';
-import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
 import { RecordModule } from '../record.module';
-import { SymmetricFieldTargetSchemaCapabilityProvider } from '../symmetric-field-target-schema-capability.service';
 import { RecordCreateService } from './record-create.service';
 import { RecordDeleteService } from './record-delete.service';
 import { RecordDuplicateService } from './record-duplicate.service';
@@ -25,6 +23,7 @@ import { RecordUpdateService } from './record-update.service';
     RecordModule,
     CalculationModule,
     FieldCalculateModule,
+    FieldReferenceAdmissionModule,
     ViewOpenApiModule,
     ViewModule,
     AttachmentsStorageModule,
@@ -41,16 +40,7 @@ import { RecordUpdateService } from './record-update.service';
     RecordUpdateService,
     RecordDeleteService,
     RecordDuplicateService,
-    CrossBaseLinkAccessService,
-    CrossBaseLinkAccessPluginRegistrar,
-    SymmetricFieldTargetSchemaCapabilityProvider,
   ],
-  exports: [
-    RecordModifyService,
-    RecordModifySharedService,
-    CrossBaseLinkAccessService,
-    CrossBaseLinkAccessPluginRegistrar,
-    SymmetricFieldTargetSchemaCapabilityProvider,
-  ],
+  exports: [RecordModifyService, RecordModifySharedService],
 })
 export class RecordModifyModule {}

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createV2PostgresDb } from '@teable/v2-adapter-db-postgres-pg';
+import { buildIndexedSearchExpression } from '@teable/v2-adapter-db-postgres-shared';
 import {
   BaseId,
   DbFieldName,
@@ -364,12 +365,13 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       const adopted = (await publisher.refresh({} as never, tableId))._unsafeUnwrap();
       expect(adopted).toMatchObject({
         kind: 'generated_text',
-        indexUsable: true,
-        generatedColumnName: payload.generatedColumnName,
+        document: { ready: true, generatedColumnName: payload.generatedColumnName },
       });
       if (adopted?.kind !== 'generated_text')
         throw new Error('Expected generated text access path');
-      expect(adopted.coveredFieldIds.map((id) => id.toString())).toEqual(['fldTqOpsSearchTitle']);
+      expect((adopted.document?.coveredFieldIds ?? []).map((id) => id.toString())).toEqual([
+        'fldTqOpsSearchTitle',
+      ]);
       const after = await sql<{
         oid: string;
       }>`SELECT to_regclass(${`${schemaName}.${payload.indexName}`})::oid::text AS oid`.execute(db);
@@ -413,20 +415,53 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         .raw(`DROP INDEX ${quoteIdentifier(schemaName)}.${quoteIdentifier(payload.indexName)}`)
         .execute(db);
       expect((await publisher.refresh({} as never, tableId))._unsafeUnwrap()).toMatchObject({
-        indexUsable: false,
+        document: { ready: false },
       });
       const fallback = await sql<{
         search_index: ITableSearchIndex;
       }>`SELECT search_index FROM table_meta WHERE id = ${tableId}`.execute(db);
       expect(fallback.rows[0]?.search_index).toMatchObject({
         definitionKey: 'existing',
-        indexUsable: false,
+        document: { ready: false },
       });
+      const residualFields = [
+        {
+          fieldId: 'fldTqOpsSearchTitle',
+          fieldDbName: 'fld_title',
+          textProjection: { kind: 'plain' as const },
+        },
+      ];
+      const missingResidual = {
+        ...fallback.rows[0]!.search_index,
+        residual: {
+          provider: 'pg_trgm' as const,
+          indexName: 'idx_tqops_search_residual_missing',
+          ready: true,
+          fields: residualFields,
+          expression: buildIndexedSearchExpression(residualFields),
+        },
+      };
+      await sql`UPDATE table_query_search_vector_config
+        SET serving_snapshot = ${JSON.stringify(missingResidual)}::jsonb
+        WHERE table_id = ${tableId} AND index_name = ${rebuilt.indexName}`.execute(db);
+      const degraded = (await publisher.refresh({} as never, tableId))._unsafeUnwrap();
+      expect(degraded).toMatchObject({
+        kind: 'generated_text',
+        document: { ready: false },
+        residual: { ready: false, coveredFieldIds: [] },
+      });
+      const persistedDegraded = await sql<{ search_index: ITableSearchIndex }>`
+        SELECT search_index FROM table_meta WHERE id = ${tableId}`.execute(db);
+      expect(persistedDegraded.rows[0]?.search_index.residual?.ready).toBe(false);
       await executor.drop(tableId);
       const cleared = await sql<{
         search_index: ITableSearchIndex | null;
       }>`SELECT search_index FROM table_meta WHERE id = ${tableId}`.execute(db);
       expect(cleared.rows[0]?.search_index).toBeNull();
+      expect((await publisher.refresh({} as never, tableId))._unsafeUnwrap()).toBeUndefined();
+      const unconfigured = await sql<{ search_index: ITableSearchIndex | null }>`
+        SELECT search_index FROM table_meta WHERE id = ${tableId}`.execute(db);
+      expect(unconfigured.rows[0]?.search_index).toBeNull();
       const remainingColumns = await sql<{ attname: string }>`
         SELECT attname FROM pg_attribute WHERE attrelid = to_regclass(${`${schemaName}.records`})
           AND attname IN (${payload.generatedColumnName}, ${rebuilt.generatedColumnName}) AND NOT attisdropped
@@ -492,14 +527,16 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         `.execute(db);
         expect(beforeMetadata.rows[0]?.search_index).toMatchObject({
           definitionKey: 'old',
-          indexUsable: true,
-          fields: [
-            {
-              fieldId: 'fldTqOpsSearchTitle',
-              fieldDbName: 'fld_title',
-              textProjection: { kind: 'plain' },
-            },
-          ],
+          document: {
+            ready: true,
+            fields: [
+              {
+                fieldId: 'fldTqOpsSearchTitle',
+                fieldDbName: 'fld_title',
+                textProjection: { kind: 'plain' },
+              },
+            ],
+          },
         });
         // A newer stale candidate must not hide the active definition.
         await sql`
@@ -569,7 +606,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         if (outcome === 'success') {
           expect(afterMetadata.rows[0]?.search_index).toMatchObject({
             definitionKey: 'next',
-            indexUsable: true,
+            document: { ready: true },
           });
           expect(afterMetadata.rows[0]?.version).toBe(beforeMetadata.rows[0]!.version + 1);
         } else {
@@ -818,6 +855,8 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         indexed_column: recommendation.generatedColumnName,
       });
 
+      if (!recommendation.generatedColumnName)
+        throw new Error('Expected a generated document for the scalar projection fixture');
       const resultCases = [
         { search: 'needle package', expectedRecordIds: ['rec_4242'] },
         { search: 'shipment note', expectedRecordIds: ['rec_4242'] },
@@ -974,6 +1013,8 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       });
       expect(rebuilt._unsafeUnwrap().action).toBe('rebuilt');
       const serving = rebuilt._unsafeUnwrap();
+      if (!serving.generatedColumnName)
+        throw new Error('Expected the rebuilt scalar document to remain available');
 
       await sql
         .raw(
@@ -985,7 +1026,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       const generatedCount = await sql<{ count: string | number }>`
           SELECT count(*) AS count
           FROM ${sql.raw(physicalTableSql)}
-          WHERE ${sql.raw(quoteIdentifier(serving.generatedColumnName))} LIKE lower('%fresh generated search token%')
+          WHERE ${sql.raw(quoteIdentifier(serving.generatedColumnName!))} LIKE lower('%fresh generated search token%')
         `.execute(db);
 
       expect(Number(generatedCount.rows[0]?.count ?? 0)).toBe(1);

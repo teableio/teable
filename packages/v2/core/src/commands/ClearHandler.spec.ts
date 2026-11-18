@@ -3,9 +3,13 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { TableQueryService } from '../application/services/TableQueryService';
+import type {
+  UndoRedoStackEntryInput,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
-import type { DomainError } from '../domain/shared/DomainError';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { isRecordsBatchUpdatedEvent } from '../domain/table/events/RecordsBatchUpdated';
@@ -60,10 +64,19 @@ const noopUndoRedoService = createNoopUndoRedoStackService();
 
 class TrackingUndoRedoService {
   recordEntryCalls = 0;
+  entries: UndoRedoStackEntryInput[] = [];
+  failFirst = false;
 
-  async recordEntry() {
+  async appendEntry(
+    _context: IExecutionContext,
+    _tableId: TableId,
+    entry: UndoRedoStackEntryInput
+  ) {
     this.recordEntryCalls += 1;
-    return ok(undefined);
+    this.entries.push(entry);
+    return this.failFirst && this.recordEntryCalls === 1
+      ? err(domainError.conflict({ message: 'recording failed' }))
+      : ok(undefined);
   }
 }
 
@@ -420,6 +433,48 @@ class FakeUnitOfWork implements IUnitOfWork {
 }
 
 describe('ClearHandler', () => {
+  it.each([false, true])(
+    'starts at the first nonempty clear attempt and consumes a failed start (%s)',
+    async (failFirst) => {
+      const { table, tableId, primaryFieldId } = buildTable();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const queryRepository = new FakeTableRecordQueryRepository();
+      queryRepository.records = [null, 10, 20].map((value, index) => ({
+        id: `rec${String(index).repeat(16)}`,
+        version: 1,
+        fields: { [primaryFieldId.toString()]: value },
+      }));
+      const undoRedoService = new TrackingUndoRedoService();
+      undoRedoService.failFirst = failFirst;
+      const handler = new ClearStreamHandler(
+        new TableQueryService(tableRepository),
+        createRecordWritePluginRunner(),
+        new FakeTableRecordRepository(queryRepository),
+        queryRepository,
+        undoRedoService as unknown as UndoRedoStackService,
+        new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
+      );
+      const command = ClearStreamCommand.create({
+        tableId: tableId.toString(),
+        viewId: table.views()[0]!.id().toString(),
+        ranges: [[0, 2]],
+        type: 'rows',
+        batchSize: 1,
+      })._unsafeUnwrap();
+      const stream = (await handler.handle(createContext(), command))._unsafeUnwrap();
+      const events = [];
+      for await (const event of stream) events.push(event);
+      expect(undoRedoService.entries.map((entry) => entry.groupPosition)).toEqual([
+        'start',
+        'continue',
+      ]);
+      expect(new Set(undoRedoService.entries.map((entry) => entry.groupId)).size).toBe(1);
+      expect(events.filter((event) => event.id === 'error')).toHaveLength(failFirst ? 1 : 0);
+      expect(events.at(-1)).toMatchObject({ id: 'done', clearedCount: 2 });
+    }
+  );
+
   it('clears editable fields and publishes batch updated event', async () => {
     const { table, tableId, primaryFieldId, formulaFieldId } = buildTable();
     const viewId = table.views()[0]!.id();
@@ -558,7 +613,7 @@ describe('ClearHandler', () => {
       createRecordWritePluginRunner(),
       recordRepository,
       recordQueryRepository,
-      undoRedoService as unknown as UndoRedoService,
+      undoRedoService as unknown as UndoRedoStackService,
       new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
     );
 

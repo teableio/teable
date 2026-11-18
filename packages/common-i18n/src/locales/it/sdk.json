@@ -1202,7 +1202,9 @@
       "anchorNotFound": "Nodo di ancoraggio non trovato",
       "nameAlreadyExists": "Il nome esiste già",
       "targetBaseRequired": "Il progetto di destinazione è obbligatorio",
-      "moveBlocked": "Impossibile spostare il nodo nel progetto di destinazione ({{code}})"
+      "moveBlocked": "Impossibile spostare il nodo nel progetto di destinazione ({{code}})",
+      "appSandboxActive": "Un'app da spostare ha un sandbox in esecuzione. Conferma la chiusura per spostarla",
+      "appSandboxCloseFailed": "Impossibile chiudere il sandbox. Non è stato spostato nulla, riprova"
     },
     "routine": {
       "notFound": "Routine non trovata",
@@ -1666,6 +1668,7 @@
     },
     "template": {
       "categoryNotFound": "Categoria del modello non trovata",
+      "notShareable": "Si possono condividere solo modelli pubblicati",
       "snapshotRequired": "Questo modello non può essere pubblicato perché manca l'istantanea",
       "sourceTemplateNotFound": "Modello di origine non trovato",
       "noMinOrderFound": "Nessun ordine minimo trovato",
@@ -1676,9 +1679,14 @@
       "teamIsFlat": "Un team non ha né una categoria superiore né sottocategorie",
       "categoryKeyTaken": "Questa chiave URL è già usata da un'altra categoria",
       "slugTaken": "Questo slug URL è già usato da un altro modello",
-      "guideStepLeftOut": "Il passaggio della guida «{{title}}» apre qualcosa che questo invio non include.",
+      "guideStepLeftOut": "Il passaggio della guida «{{title}}» apre qualcosa che non viene pubblicato.",
       "guideStepStartsTicked": "Il passaggio della guida «{{title}}» è già completato sui record di esempio, quindi partirebbe già spuntato.",
-      "guideNothingToConnect": "Il passaggio della guida «{{title}}» attende il collegamento di account, ma questo progetto non ne richiede: partirebbe già spuntato."
+      "guideNothingToConnect": "Il passaggio della guida «{{title}}» attende il collegamento di account, ma questo progetto non ne richiede: partirebbe già spuntato.",
+      "contentNotReplaced": "Questo progetto modello contiene ancora contenuti che sono solo tuoi ({{count}}). Sostituiscili o segnali come esempio, poi pubblica di nuovo.",
+      "notTemplateProject": "Questo progetto non è un progetto modello.",
+      "coverRequired": "Un modello deve avere un’immagine di copertina",
+      "descriptionRequired": "Un modello deve avere una descrizione",
+      "unavailable": "Questo modello non è disponibile"
     },
     "department": {
       "parentNotFound": "Dipartimento padre non trovato",

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiConfigValueCodec } from './ai-config-encryption';
 import { SECRET_CIPHER_PREFIX } from './secret-value-codec';
 import {
@@ -8,7 +8,6 @@ import {
   encryptOptionalThirdPartyCredential,
   getThirdPartyCredentialCodec,
   ThirdPartyCredentialCodec,
-  isThirdPartyCredentialEncryptionEnabled,
   mapSecretPaths,
 } from './third-party-credential-encryption';
 
@@ -81,27 +80,52 @@ describe('decryptThirdPartyCredential', () => {
   });
 });
 
-describe('encrypt-on-write switch', () => {
+describe('encryptThirdPartyCredential', () => {
+  const rootEnvKey = 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET';
+
+  beforeEach(() => {
+    // An empty value counts as unset, whatever the shell running the tests exports.
+    vi.stubEnv(rootEnvKey, '');
+    vi.stubEnv(`${rootEnvKey}_OLD`, '');
+    vi.stubEnv('SECRET_KEY', '');
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it('writes plaintext while BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED is not true', () => {
-    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED', '');
-    expect(isThirdPartyCredentialEncryptionEnabled()).toBe(false);
+  it('stores the value as it is while the instance only has the public default root', () => {
+    expect(encryptThirdPartyCredential('xoxb-123')).toBe('xoxb-123');
+    expect(encryptOptionalThirdPartyCredential('xoxb-123')).toBe('xoxb-123');
+
+    // pinning the public default explicitly changes nothing
+    vi.stubEnv(rootEnvKey, 'defaultSecretKey');
     expect(encryptThirdPartyCredential('xoxb-123')).toBe('xoxb-123');
   });
 
-  it('encrypts once switched on, and decryption works either way', () => {
-    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED', 'true');
-    const cipher = encryptThirdPartyCredential('xoxb-123');
-    expect(cipher.startsWith(SECRET_CIPHER_PREFIX)).toBe(true);
-    expect(encryptOptionalThirdPartyCredential(null)).toBeNull();
-    // idempotent: re-saving a stored value never double-encrypts
-    expect(encryptThirdPartyCredential(cipher)).toBe(cipher);
+  it.each([rootEnvKey, 'SECRET_KEY'])(
+    'encrypts once %s gives the instance a private root',
+    (envKey) => {
+      vi.stubEnv(envKey, 'private-root');
+      const cipher = encryptThirdPartyCredential('xoxb-123');
 
-    vi.stubEnv('BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_ENABLED', 'false');
-    expect(decryptThirdPartyCredential(cipher)).toBe('xoxb-123');
+      expect(cipher.startsWith(SECRET_CIPHER_PREFIX)).toBe(true);
+      expect(encryptOptionalThirdPartyCredential(null)).toBeNull();
+      // idempotent: re-saving a stored value never double-encrypts
+      expect(encryptThirdPartyCredential(cipher)).toBe(cipher);
+      expect(decryptThirdPartyCredential(cipher)).toBe('xoxb-123');
+    }
+  );
+
+  it('keeps reading what was stored before the root became private', () => {
+    const legacyCipher = getThirdPartyCredentialCodec().encryptValue('under-public-default');
+    vi.stubEnv(rootEnvKey, 'private-root');
+
+    expect(decryptThirdPartyCredential('xoxb-plain')).toBe('xoxb-plain');
+    // a ciphertext of the public default root needs that root pinned into _OLD
+    expect(decryptThirdPartyCredential(legacyCipher)).toBe(legacyCipher);
+    vi.stubEnv(`${rootEnvKey}_OLD`, 'defaultSecretKey');
+    expect(decryptThirdPartyCredential(legacyCipher)).toBe('under-public-default');
   });
 });
 

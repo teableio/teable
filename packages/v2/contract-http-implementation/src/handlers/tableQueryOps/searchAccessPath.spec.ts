@@ -34,6 +34,11 @@ describe('search access path HTTP handlers', () => {
           provider: 'pg_trgm',
           accessPath: 'generated_text',
           coveredFieldCount: 2,
+          serving: true,
+          coveredFieldIds: ['fld-primary', 'fld-formula'],
+          configuredFieldIds: ['fld-primary', 'fld-formula'],
+          documentFieldIds: ['fld-primary'],
+          residualFieldIds: ['fld-formula'],
         })
       ),
     } as TableSearchVectorStatusReader;
@@ -47,7 +52,18 @@ describe('search access path HTTP handlers', () => {
 
     expect(result).toMatchObject({
       status: 200,
-      body: { ok: true, data: { status: { state: 'ready', coveredFieldCount: 2 } } },
+      body: {
+        ok: true,
+        data: {
+          status: {
+            state: 'ready',
+            coveredFieldCount: 2,
+            configuredFieldIds: ['fld-primary', 'fld-formula'],
+            documentFieldIds: ['fld-primary'],
+            residualFieldIds: ['fld-formula'],
+          },
+        },
+      },
     });
     expect(statusReader.read).toHaveBeenCalledWith(context, tableId);
   });

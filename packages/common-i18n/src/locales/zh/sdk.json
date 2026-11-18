@@ -1198,7 +1198,9 @@
       "anchorNotFound": "锚点节点未找到",
       "nameAlreadyExists": "名称已存在",
       "targetBaseRequired": "目标项目不能为空",
-      "moveBlocked": "无法将节点移动到目标项目（{{code}}）"
+      "moveBlocked": "无法将节点移动到目标项目（{{code}}）",
+      "appSandboxActive": "应用的沙箱正在运行，请确认关闭后再移动",
+      "appSandboxCloseFailed": "沙箱关闭失败，未移动，请重试"
     },
     "routine": {
       "notFound": "任务未找到",
@@ -1662,6 +1664,7 @@
     },
     "template": {
       "categoryNotFound": "模板分类不存在",
+      "notShareable": "只有已发布的模板可以分享",
       "snapshotRequired": "此模板无法发布，因为缺少快照",
       "sourceTemplateNotFound": "源模板不存在",
       "noMinOrderFound": "未找到最小排序值",
@@ -1672,9 +1675,14 @@
       "teamIsFlat": "团队不能有上级或细分",
       "categoryKeyTaken": "这个网址标识已被其他分类使用",
       "slugTaken": "这个网址标识已被其他模板使用",
-      "guideStepLeftOut": "引导步骤「{{title}}」要打开的内容不在这次提交里。",
+      "guideStepLeftOut": "引导步骤「{{title}}」要打开的内容不在这次发布里。",
       "guideStepStartsTicked": "引导步骤「{{title}}」在示例数据上已经完成，装好就会是打勾的。",
-      "guideNothingToConnect": "引导步骤「{{title}}」要等用户连接账号，但这个项目不需要任何账号，装好就会是打勾的。"
+      "guideNothingToConnect": "引导步骤「{{title}}」要等用户连接账号，但这个项目不需要任何账号，装好就会是打勾的。",
+      "contentNotReplaced": "这个模板项目里还有 {{count}} 处只属于你的内容，换掉或标为示例后再发布。",
+      "notTemplateProject": "这个项目不是模板项目。",
+      "coverRequired": "模板需要一张封面",
+      "descriptionRequired": "模板需要一段介绍",
+      "unavailable": "模板暂不可用"
     },
     "department": {
       "parentNotFound": "父部门未找到",

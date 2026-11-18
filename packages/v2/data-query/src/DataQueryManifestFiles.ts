@@ -231,6 +231,10 @@ export function generateAppQueryArtifacts(
             definition.kind === 'records'
               ? definition.select.find((item) => item.alias === alias)
               : undefined;
+          const tupleMetric =
+            definition.kind === 'aggregate'
+              ? definition.aggregates.find((item) => item.alias === alias && 'distinctBy' in item)
+              : undefined;
           const joined =
             projection !== undefined &&
             'source' in projection &&
@@ -239,7 +243,9 @@ export function generateAppQueryArtifacts(
           const systemType =
             projection && 'system' in projection
               ? offlineSystemType(projection.system, joined)
-              : 'unknown';
+              : tupleMetric
+                ? 'number | string'
+                : 'unknown';
           return `    ${JSON.stringify(alias)}: ${output ? outputType(output) : systemType};`;
         })
       : fallbackOutputs.length

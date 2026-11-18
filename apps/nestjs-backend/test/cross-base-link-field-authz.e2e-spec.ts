@@ -20,6 +20,7 @@ import {
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
+import { disableLegacyFieldAdmission } from './utils/disable-legacy-field-admission';
 import { getError } from './utils/get-error';
 import {
   createBase,
@@ -53,6 +54,7 @@ describe('Cross-base two-way link field authorization (e2e)', () => {
   let singleDeleteField: IFieldVo;
   let bulkDeleteFields: [IFieldVo, IFieldVo];
   let previousForceV2All: string | undefined;
+  let restoreLegacyAdmission: (() => void) | undefined;
 
   const schemaSnapshot = (fields: IFieldVo[]) =>
     fields
@@ -127,9 +129,11 @@ describe('Cross-base two-way link field authorization (e2e)', () => {
       baseId: foreignBaseId,
       emailBaseInvitationRo: { emails: [email], role: Role.Viewer },
     });
+    restoreLegacyAdmission = disableLegacyFieldAdmission();
   });
 
   afterAll(async () => {
+    restoreLegacyAdmission?.();
     if (spaceId) {
       await permanentDeleteSpace(spaceId).catch(() => undefined);
     }

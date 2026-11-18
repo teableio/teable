@@ -1,8 +1,9 @@
 import { createServer, type Server } from 'node:http';
 import { READ_PATH } from '@teable/openapi';
 import { ATTACHMENT_READ_PATH } from '@teable/v2-utils';
+import axios from 'axios';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { safeFetch } from './ssrf-http';
+import { getSafeAxiosAgents, safeFetch } from './ssrf-http';
 
 /**
  * Exercises the wrapper against a real loopback server (a non-public peer):
@@ -151,6 +152,32 @@ describe('ssrf-http wrappers', () => {
       });
       const res = await safeFetch(`http://127.0.0.1:${port}/api/attachments/read/x`);
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('getSafeAxiosAgents', () => {
+    const savedProxy = process.env.http_proxy;
+    afterEach(() => {
+      if (savedProxy === undefined) delete process.env.http_proxy;
+      else process.env.http_proxy = savedProxy;
+    });
+
+    // axios honours http_proxy unless told otherwise; through a proxy the agents only
+    // vet the proxy's address and the proxy dials the cloud-metadata target for us.
+    it('ignores http_proxy, so the target address is still vetted', async () => {
+      let proxied = 0;
+      server.on('request', () => proxied++);
+      process.env.http_proxy = `http://127.0.0.1:${port}`;
+
+      await expect(
+        // The metadata endpoint only speaks plain HTTP; the request is meant to be refused.
+        // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
+        axios.get(
+          'http://169.254.169.254/latest/meta-data/',
+          getSafeAxiosAgents({ allowPrivateNetwork: true })
+        )
+      ).rejects.toThrow(/cloud metadata/);
+      expect(proxied).toBe(0);
     });
   });
 

@@ -831,10 +831,14 @@ describe('RecordOpenApiV2Service', () => {
     const search = ['order 123'] as [string];
     const accessPath = {
       kind: 'generated_text' as const,
-      generatedColumnName: '__search_document',
-      provider: 'pg_trgm',
       searchScope: 'all_fields' as const,
-      coveredFieldIds: [FieldId.create(noteFieldId)._unsafeUnwrap()],
+      fieldIds: [FieldId.create(noteFieldId)._unsafeUnwrap()],
+      document: {
+        generatedColumnName: '__search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [FieldId.create(noteFieldId)._unsafeUnwrap()],
+        ready: true,
+      },
     };
     tableFindOne.mockResolvedValue({
       isErr: () => false,
@@ -1448,7 +1452,11 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.tableRepository) return { findOne: tableFindOne };
       if (token === v2CoreTokens.recordQueryPluginRunner) return { prepare: pluginPrepare };
       if (token === v2CoreTokens.userLookupService)
-        return { listUsersByIds, listTableUsersByIdentifiers: vi.fn(), listUsersByIdentityPairs: vi.fn() };
+        return {
+          listUsersByIds,
+          listTableUsersByIdentifiers: vi.fn(),
+          listUsersByIdentityPairs: vi.fn(),
+        };
       return undefined;
     });
     execute.mockResolvedValueOnce({
@@ -1745,11 +1753,21 @@ describe('RecordOpenApiV2Service', () => {
       isRegistered: vi.fn().mockReturnValue(true),
       resolve: vi.fn().mockReturnValue({ listUsersByIds }),
     };
-    const records = [{ id: 'rec1', fields: {
-      fldUser: [null, { id: 'usrOne', title: 'Old' }, { id: 'usrOne' },
-        { id: 'usrTwo', title: 'Old Two' }, null],
-      fldOther: [{ id: 'usrHidden', email: 'hidden@example.test' }],
-    } }];
+    const records = [
+      {
+        id: 'rec1',
+        fields: {
+          fldUser: [
+            null,
+            { id: 'usrOne', title: 'Old' },
+            { id: 'usrOne' },
+            { id: 'usrTwo', title: 'Old Two' },
+            null,
+          ],
+          fldOther: [{ id: 'usrHidden', email: 'hidden@example.test' }],
+        },
+      },
+    ];
     const result = await service.hydrateSelectedUserCells(container as never, records, ['fldUser']);
     expect(listUsersByIds).toHaveBeenCalledWith(['usrOne', 'usrTwo'], { includeDeleted: true });
     expect(result[0]!.fields.fldUser).toEqual([
@@ -1767,9 +1785,13 @@ describe('RecordOpenApiV2Service', () => {
   it('keeps selected identities and positions when directory lookup fails', async () => {
     const container = {
       isRegistered: vi.fn().mockReturnValue(true),
-      resolve: vi.fn().mockReturnValue({ listUsersByIds: vi.fn().mockRejectedValue(new Error('offline')) }),
+      resolve: vi
+        .fn()
+        .mockReturnValue({ listUsersByIds: vi.fn().mockRejectedValue(new Error('offline')) }),
     };
-    const records = [{ fields: { fldUser: [null, { id: 'usrOne', title: 'Stored' }, { id: 'usrOne' }] } }];
+    const records = [
+      { fields: { fldUser: [null, { id: 'usrOne', title: 'Stored' }, { id: 'usrOne' }] } },
+    ];
     const result = await service.hydrateSelectedUserCells(container as never, records, ['fldUser']);
     expect(result[0]!.fields.fldUser).toEqual([
       null,
@@ -1816,7 +1838,11 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.tableRepository) return { findOne: tableFindOne };
       if (token === v2CoreTokens.recordQueryPluginRunner) return { prepare: pluginPrepare };
       if (token === v2CoreTokens.userLookupService)
-        return { listUsersByIds, listTableUsersByIdentifiers: vi.fn(), listUsersByIdentityPairs: vi.fn() };
+        return {
+          listUsersByIds,
+          listTableUsersByIdentifiers: vi.fn(),
+          listUsersByIdentityPairs: vi.fn(),
+        };
       return undefined;
     });
     execute.mockResolvedValueOnce({
@@ -1890,7 +1916,11 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.tableRepository) return { findOne: tableFindOne };
       if (token === v2CoreTokens.recordQueryPluginRunner) return { prepare: pluginPrepare };
       if (token === v2CoreTokens.userLookupService)
-        return { listUsersByIds, listTableUsersByIdentifiers: vi.fn(), listUsersByIdentityPairs: vi.fn() };
+        return {
+          listUsersByIds,
+          listTableUsersByIdentifiers: vi.fn(),
+          listUsersByIdentityPairs: vi.fn(),
+        };
       return undefined;
     });
     execute.mockResolvedValueOnce({
@@ -1974,7 +2004,11 @@ describe('RecordOpenApiV2Service', () => {
       if (token === v2CoreTokens.tableRepository) return { findOne: tableFindOne };
       if (token === v2CoreTokens.recordQueryPluginRunner) return { prepare: pluginPrepare };
       if (token === v2CoreTokens.userLookupService)
-        return { listUsersByIds, listTableUsersByIdentifiers: vi.fn(), listUsersByIdentityPairs: vi.fn() };
+        return {
+          listUsersByIds,
+          listTableUsersByIdentifiers: vi.fn(),
+          listUsersByIdentityPairs: vi.fn(),
+        };
       return undefined;
     });
     execute.mockResolvedValueOnce({

@@ -30,12 +30,19 @@ export abstract class IndexBuilderAbstract {
 
   abstract getDropQueryIndexesSql(dbTableName: string): string;
 
-  abstract getQueryIndexName(tableId: string, indexId: string): string;
+  abstract getQueryIndexName(
+    tableId: string,
+    indexId: string,
+    unavailableNames?: ReadonlySet<string>
+  ): string;
+
+  abstract getQueryIndexId(indexName: string): string | undefined;
 
   abstract createQueryIndexSql(
     dbTableName: string,
     index: ITableQueryIndexSpec,
     fieldNamesById: Map<string, string>,
-    tableId: string
+    tableId: string,
+    indexName?: string
   ): string;
 }

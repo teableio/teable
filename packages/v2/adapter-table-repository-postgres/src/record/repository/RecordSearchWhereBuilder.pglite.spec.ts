@@ -1,11 +1,14 @@
-import { PGlite } from '@electric-sql/pglite';
 import {
+  buildIndexedSearchExpression,
+  decodeTableSearchIndex,
   renderGeneratedSearchTextProjectionSql,
-  ensureSearchDocumentFunctions,
-} from '@teable/v2-adapter-table-query-ops-postgres';
+} from '@teable/v2-adapter-db-postgres-shared';
+import { PGlite } from '@electric-sql/pglite';
+import { ensureSearchDocumentFunctions } from '@teable/v2-adapter-table-query-ops-postgres';
 import {
   BaseId,
   DbFieldName,
+  DbTableName,
   FieldId,
   FieldName,
   RecordSearch,
@@ -21,7 +24,10 @@ import {
   UserMultiplicity,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { buildTableSearchAccessPathDefinition } from '@teable/v2-table-query-ops';
+import {
+  buildTableSearchAccessPathDefinition,
+  resolveTableSearchAccessPath,
+} from '@teable/v2-table-query-ops';
 import type { Dialect, SqlBool } from 'kysely';
 import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler, sql } from 'kysely';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -522,6 +528,18 @@ const compileSearchQuery = ({
   return query.compile();
 };
 
+const withPersistedSearchIndex = (table: Table, fullTableName: string, snapshot: unknown): Table =>
+  Table.rehydrate({
+    id: table.id(),
+    baseId: table.baseId(),
+    name: table.name(),
+    fields: table.getFields(),
+    views: table.views(),
+    primaryFieldId: table.primaryFieldId(),
+    dbTableName: DbTableName.rehydrate(fullTableName)._unsafeUnwrap(),
+    searchIndex: decodeTableSearchIndex(snapshot),
+  })._unsafeUnwrap();
+
 describe('RecordSearchWhereBuilder (pglite)', () => {
   let client: PGlite;
   let db: Kysely<V1TeableDatabase>;
@@ -763,10 +781,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
 
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.name],
+      fieldIds: [fixture.fieldIds.name],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [fixture.fieldIds.name],
+        ready: true,
+      },
     };
     const search = RecordSearch.fromTuple(['lPh', fixture.fieldIds.name.toString(), true]);
     const compiled = compileSearchQuery({
@@ -800,10 +822,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     `.execute(db);
     const searchAccessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_bigm',
       searchScope: 'all_fields',
-      coveredFieldIds: [fixture.fieldIds.name],
+      fieldIds: [fixture.fieldIds.name],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_bigm',
+        coveredFieldIds: [fixture.fieldIds.name],
+        ready: true,
+      },
     };
 
     const coveredSearch = RecordSearch.fromTuple(['Alpha', '', true]);
@@ -855,10 +881,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     `.execute(db);
     const searchAccessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_bigm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.name],
+      fieldIds: [fixture.fieldIds.name],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_bigm',
+        coveredFieldIds: [fixture.fieldIds.name],
+        ready: true,
+      },
     };
 
     // An operator-chosen document is an explicit scope: unselected fields are out of scope, and
@@ -883,14 +913,103 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ).resolves.toEqual([]);
   });
 
+  it.each(['empty', 'document', 'residual'] as const)(
+    'preserves decoded selected scope with %s serving coverage and a malformed sibling',
+    async (kind) => {
+      const fixture = await setupSearchFixture({ db, createdSchemas, seed: `decode-${kind}` });
+      await sql`ALTER TABLE ${sql.table(fixture.fullTableName)}
+        ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (lower(COALESCE(col_name, ''))) STORED`.execute(
+        db
+      );
+      const fields = [
+        {
+          fieldId: fixture.fieldIds.name.toString(),
+          fieldDbName: 'col_name',
+          textProjection: { kind: 'plain' as const },
+        },
+      ];
+      const branch = { provider: 'pg_trgm', ready: true, fields, indexName: 'idx_search' };
+      const table = withPersistedSearchIndex(fixture.table, fixture.fullTableName, {
+        version: 2,
+        dbTableName: fixture.fullTableName,
+        definitionKey: 'decoded',
+        searchScope: 'selected_fields',
+        fieldIds: kind === 'empty' ? [] : [fixture.fieldIds.name.toString()],
+        document:
+          kind === 'document'
+            ? { ...branch, generatedColumnName: '__tqops_search_document' }
+            : { ready: 'true' },
+        residual:
+          kind === 'residual'
+            ? { ...branch, expression: buildIndexedSearchExpression(fields) }
+            : { ready: 'true' },
+      });
+      const searchAccessPath = resolveTableSearchAccessPath(table);
+      expect(searchAccessPath).toBeDefined();
+      const query = { db, table, fullTableName: fixture.fullTableName, searchAccessPath };
+      await expect(
+        findMatchingRecordIds({ ...query, search: RecordSearch.fromTuple(['Alpha', '', true]) })
+      ).resolves.toEqual(kind === 'empty' ? [] : [fixture.recordIds.alpha]);
+      await expect(
+        findMatchingRecordIds({
+          ...query,
+          search: RecordSearch.fromTuple(['Visible Owner', '', true]),
+        })
+      ).resolves.toEqual([]);
+      const plan = buildRecordSearchWherePlan(
+        table,
+        { search: RecordSearch.fromTuple(['Alpha', '', true]) },
+        { tableAlias: 't', searchAccessPath }
+      )._unsafeUnwrap();
+      expect(plan.indexedBranches ?? []).toEqual(kind === 'empty' ? [] : [kind]);
+    }
+  );
+
+  it('never executes a noncanonical persisted residual expression', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'decode-untrusted' });
+    const table = withPersistedSearchIndex(fixture.table, fixture.fullTableName, {
+      version: 2,
+      dbTableName: fixture.fullTableName,
+      definitionKey: 'untrusted',
+      searchScope: 'selected_fields',
+      fieldIds: [fixture.fieldIds.name.toString()],
+      residual: {
+        provider: 'pg_trgm',
+        indexName: 'idx_search',
+        ready: true,
+        fields: [
+          {
+            fieldId: fixture.fieldIds.name.toString(),
+            fieldDbName: 'col_name',
+            textProjection: { kind: 'plain' },
+          },
+        ],
+        expression: 'pg_sleep(99)::text',
+      },
+    });
+    const query = {
+      db,
+      table,
+      fullTableName: fixture.fullTableName,
+      search: RecordSearch.fromTuple(['Alpha', '', true]),
+      searchAccessPath: resolveTableSearchAccessPath(table),
+    };
+    expect(compileSearchQuery(query).sql).not.toContain('pg_sleep');
+    await expect(findMatchingRecordIds(query)).resolves.toEqual([fixture.recordIds.alpha]);
+  });
+
   it('searches every field on a short pg_trgm global fallback', async () => {
     const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'global-trgm-short' });
     const searchAccessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'all_fields',
-      coveredFieldIds: [fixture.fieldIds.name],
+      fieldIds: [fixture.fieldIds.name],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [fixture.fieldIds.name],
+        ready: true,
+      },
     };
     const search = RecordSearch.fromTuple(['Vi', '', true]);
     const plan = buildRecordSearchWherePlan(
@@ -936,11 +1055,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     });
     const searchAccessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_missing_document',
-      provider: 'pg_bigm',
       searchScope: 'all_fields',
-      coveredFieldIds: [fixture.fieldIds.name],
-      indexUsable: false,
+      fieldIds: [fixture.fieldIds.name],
+      document: {
+        generatedColumnName: '__tqops_missing_document',
+        provider: 'pg_bigm',
+        coveredFieldIds: [fixture.fieldIds.name],
+        ready: false,
+      },
     };
     const search = (value: string, path = searchAccessPath) =>
       findMatchingRecordIds({
@@ -953,9 +1075,12 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     await expect(search('Alpha')).resolves.toEqual([fixture.recordIds.alpha]);
     // Uncovered fields stay searchable: the document is a prefilter, not the search scope.
     await expect(search('Visible Owner')).resolves.toEqual([fixture.recordIds.alpha]);
-    await expect(search('Alpha', { ...searchAccessPath, coveredFieldIds: [] })).resolves.toEqual([
-      fixture.recordIds.alpha,
-    ]);
+    await expect(
+      search('Alpha', {
+        ...searchAccessPath,
+        document: { ...searchAccessPath.document, coveredFieldIds: [] },
+      })
+    ).resolves.toEqual([fixture.recordIds.alpha]);
   });
 
   it.each([true, false])(
@@ -967,11 +1092,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
       ]);
       const searchAccessPath: IRecordSearchAccessPath = {
         kind: 'generated_text',
-        generatedColumnName: indexUsable ? '__tqops_search_document' : '__tqops_missing_document',
-        provider: 'pg_trgm',
         searchScope: 'all_fields',
-        coveredFieldIds: [fixture.fieldIds.name],
-        indexUsable,
+        fieldIds: [fixture.fieldIds.name],
+        document: {
+          generatedColumnName: indexUsable ? '__tqops_search_document' : '__tqops_missing_document',
+          provider: 'pg_trgm',
+          coveredFieldIds: [fixture.fieldIds.name],
+          ready: indexUsable,
+        },
       };
       for (const [probe, ordinaryIds] of [
         ['Alpha', [fixture.recordIds.alpha]],
@@ -1066,6 +1194,22 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     await expect(
       findMatchingRecordIds({ ...query, requireCompleteFieldScope: true })
     ).resolves.toEqual([twentiethRecordId, twentyFirstRecordId]);
+    const decoded = withPersistedSearchIndex(table, fullTableName, {
+      version: 2,
+      dbTableName: fullTableName,
+      definitionKey: 'degraded-wide',
+      searchScope: 'all_fields',
+      fieldIds: fieldIds.map((id) => id.toString()),
+      document: { ready: 'true' },
+      residual: { ready: 'true' },
+    });
+    await expect(
+      findMatchingRecordIds({
+        ...query,
+        table: decoded,
+        searchAccessPath: resolveTableSearchAccessPath(decoded),
+      })
+    ).resolves.toEqual([twentiethRecordId, twentyFirstRecordId]);
   });
 
   describe.each(['pg_trgm', 'pg_bigm'] as const)('%s scoped date search', (provider) => {
@@ -1091,10 +1235,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
 
         const accessPath: IRecordSearchAccessPath = {
           kind: 'generated_text',
-          generatedColumnName: '__tqops_search_document',
-          provider,
           searchScope: 'selected_fields',
-          coveredFieldIds: [fixture.fieldIds.name],
+          fieldIds: [fixture.fieldIds.name],
+          document: {
+            generatedColumnName: '__tqops_search_document',
+            provider,
+            coveredFieldIds: [fixture.fieldIds.name],
+            ready: true,
+          },
         };
         const fieldIds = dateOnly
           ? [fixture.fieldIds.due]
@@ -1139,10 +1287,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     `.execute(db);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_bigm',
       searchScope: 'all_fields',
-      coveredFieldIds: [fixture.fieldIds.name, fixture.fieldIds.notes],
+      fieldIds: [fixture.fieldIds.name, fixture.fieldIds.notes],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_bigm',
+        coveredFieldIds: [fixture.fieldIds.name, fixture.fieldIds.notes],
+        ready: true,
+      },
     };
     // The probe lives only in the notes column a view hides behind its name column.
     const hiddenProbe = RecordSearch.fromTuple(['shipment foo', '', true]);
@@ -1192,10 +1344,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     `.execute(db);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.name],
+      fieldIds: [fixture.fieldIds.name],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [fixture.fieldIds.name],
+        ready: true,
+      },
     };
     const search = RecordSearch.fromTuple(['Alpha', fixture.fieldIds.name.toString(), true]);
 
@@ -1222,10 +1378,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     const search = RecordSearch.fromTuple(['Al', fixture.fieldIds.name.toString(), true]);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_bigm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.name],
+      fieldIds: [fixture.fieldIds.name],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_bigm',
+        coveredFieldIds: [fixture.fieldIds.name],
+        ready: true,
+      },
     };
 
     const optimized = await findMatchingRecordIds({
@@ -1261,10 +1421,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     const search = RecordSearch.fromTuple(['订单', fixture.fieldIds.name.toString(), true]);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_bigm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.name],
+      fieldIds: [fixture.fieldIds.name],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_bigm',
+        coveredFieldIds: [fixture.fieldIds.name],
+        ready: true,
+      },
     };
 
     const optimized = await findMatchingRecordIds({
@@ -1297,10 +1461,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
       const search = RecordSearch.fromTuple([probe, fixture.fieldIds.name.toString(), true]);
       const accessPath: IRecordSearchAccessPath = {
         kind: 'generated_text',
-        generatedColumnName: '__tqops_search_document',
-        provider: 'pg_bigm',
         searchScope: 'selected_fields',
-        coveredFieldIds: [fixture.fieldIds.name],
+        fieldIds: [fixture.fieldIds.name],
+        document: {
+          generatedColumnName: '__tqops_search_document',
+          provider: 'pg_bigm',
+          coveredFieldIds: [fixture.fieldIds.name],
+          ready: true,
+        },
       };
       const plan = buildRecordSearchWherePlan(
         fixture.table,
@@ -1338,10 +1506,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
         tableAlias: 't',
         searchAccessPath: {
           kind: 'generated_text',
-          generatedColumnName: '__tqops_search_document',
-          provider: 'pg_trgm',
           searchScope: 'selected_fields',
-          coveredFieldIds: [fixture.fieldIds.name],
+          fieldIds: [fixture.fieldIds.name],
+          document: {
+            generatedColumnName: '__tqops_search_document',
+            provider: 'pg_trgm',
+            coveredFieldIds: [fixture.fieldIds.name],
+            ready: true,
+          },
         },
       }
     )._unsafeUnwrap();
@@ -1392,11 +1564,15 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
       const search = RecordSearch.fromTuple([probe, fixture.fieldIds[field].toString(), true]);
       const searchAccessPath: IRecordSearchAccessPath = {
         kind: 'generated_text',
-        generatedColumnName:
-          name === 'invalid document' ? 'invalid.document' : '__tqops_absent_document',
-        provider,
         searchScope: 'selected_fields',
-        coveredFieldIds: [fixture.fieldIds.name],
+        fieldIds: [fixture.fieldIds.name],
+        document: {
+          generatedColumnName:
+            name === 'invalid document' ? 'invalid.document' : '__tqops_absent_document',
+          provider,
+          coveredFieldIds: [fixture.fieldIds.name],
+          ready: true,
+        },
       };
       const plan = buildRecordSearchWherePlan(
         fixture.table,
@@ -1443,12 +1619,16 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     );
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'all_fields',
-      coveredFieldIds: definition.fields.map((field) =>
-        FieldId.create(field.fieldId)._unsafeUnwrap()
-      ),
+      fieldIds: definition.fields.map((field) => FieldId.create(field.fieldId)._unsafeUnwrap()),
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: definition.fields.map((field) =>
+          FieldId.create(field.fieldId)._unsafeUnwrap()
+        ),
+        ready: true,
+      },
     };
     for (const scope of ['', fixture.fieldIds.amount.toString()]) {
       for (const probe of ['1.23', '-2.35', '1.23, -2.35']) {
@@ -1533,12 +1713,16 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     );
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: definition.scope,
-      coveredFieldIds: definition.fields.map((field) =>
-        FieldId.create(field.fieldId)._unsafeUnwrap()
-      ),
+      fieldIds: definition.fields.map((field) => FieldId.create(field.fieldId)._unsafeUnwrap()),
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: definition.fields.map((field) =>
+          FieldId.create(field.fieldId)._unsafeUnwrap()
+        ),
+        ready: true,
+      },
     };
     await sql`UPDATE ${sql.table(fixture.fullTableName)}
       SET col_tags = ${JSON.stringify(['Gamma', '100%_done'])}::jsonb
@@ -1582,10 +1766,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ]);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.notes],
+      fieldIds: [fixture.fieldIds.notes],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [fixture.fieldIds.notes],
+        ready: true,
+      },
     };
 
     // 'foo bar' spans a newline and 'bar baz' spans a tab in the stored cell.
@@ -1620,10 +1808,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ]);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.collaborators],
+      fieldIds: [fixture.fieldIds.collaborators],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [fixture.fieldIds.collaborators],
+        ready: true,
+      },
     };
 
     // 'alice, bob' only matches when the projection joins titles with ', ' —
@@ -1648,10 +1840,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ]);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.owner],
+      fieldIds: [fixture.fieldIds.owner],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [fixture.fieldIds.owner],
+        ready: true,
+      },
     };
 
     await expectGeneratedTextParity(
@@ -1674,10 +1870,14 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ]);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'selected_fields',
-      coveredFieldIds: [fixture.fieldIds.amount],
+      fieldIds: [fixture.fieldIds.amount],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [fixture.fieldIds.amount],
+        ready: true,
+      },
     };
 
     // The oracle matches the ROUND(col, precision) rendering ('1.50'), so the
@@ -1700,15 +1900,24 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ]);
     const accessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'all_fields',
-      coveredFieldIds: [
+      fieldIds: [
         fixture.fieldIds.name,
         fixture.fieldIds.owner,
         fixture.fieldIds.collaborators,
         fixture.fieldIds.tags,
       ],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [
+          fixture.fieldIds.name,
+          fixture.fieldIds.owner,
+          fixture.fieldIds.collaborators,
+          fixture.fieldIds.tags,
+        ],
+        ready: true,
+      },
     };
 
     // Date and checkbox fields produce no all-field predicate, so they no
@@ -1737,15 +1946,24 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     ]);
     const searchAccessPath: IRecordSearchAccessPath = {
       kind: 'generated_text',
-      generatedColumnName: '__tqops_search_document',
-      provider: 'pg_trgm',
       searchScope: 'all_fields',
-      coveredFieldIds: [
+      fieldIds: [
         fixture.fieldIds.name,
         fixture.fieldIds.owner,
         fixture.fieldIds.collaborators,
         fixture.fieldIds.tags,
       ],
+      document: {
+        generatedColumnName: '__tqops_search_document',
+        provider: 'pg_trgm',
+        coveredFieldIds: [
+          fixture.fieldIds.name,
+          fixture.fieldIds.owner,
+          fixture.fieldIds.collaborators,
+          fixture.fieldIds.tags,
+        ],
+        ready: true,
+      },
     };
     // The document joins cells with newlines; this candidate is not a cell match.
     const crossCellProbe = 'Alpha\nVisible Owner';

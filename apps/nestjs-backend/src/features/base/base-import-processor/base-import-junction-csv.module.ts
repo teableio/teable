@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EventJobModule } from '../../../event-emitter/event-job/event-job.module';
 import { StorageModule } from '../../attachments/plugins/storage.module';
+import { NotificationModule } from '../../notification/notification.module';
 import { ComputedModule } from '../../record/computed/computed.module';
 import {
   BaseImportJunctionCsvQueueProcessor,
@@ -13,6 +14,7 @@ import {
     EventJobModule.registerQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE),
     StorageModule,
     ComputedModule,
+    NotificationModule,
   ],
   exports: [BaseImportJunctionCsvQueueProcessor],
 })

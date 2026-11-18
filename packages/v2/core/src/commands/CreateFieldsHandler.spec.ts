@@ -6,7 +6,10 @@ import { FieldCreationSideEffectService } from '../application/services/FieldCre
 import { FieldUndoRedoSnapshotService } from '../application/services/FieldUndoRedoSnapshotService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import type {
+  UndoRedoStackEntryInput,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -149,17 +152,12 @@ class FakeUnitOfWork implements IUnitOfWork {
 
 class TrackingUndoRedoService {
   recordEntryCalls = 0;
-  latestEntry:
-    | {
-        undoCommand: unknown;
-        redoCommand: unknown;
-      }
-    | undefined;
+  latestEntry: UndoRedoStackEntryInput | undefined;
 
   async recordEntry(
     _context: IExecutionContext,
     _tableId: TableId,
-    entry: { undoCommand: unknown; redoCommand: unknown }
+    entry: UndoRedoStackEntryInput
   ) {
     this.recordEntryCalls += 1;
     this.latestEntry = entry;
@@ -169,7 +167,7 @@ class TrackingUndoRedoService {
   async appendEntry(
     _context: IExecutionContext,
     _tableId: TableId,
-    entry: { undoCommand: unknown; redoCommand: unknown }
+    entry: UndoRedoStackEntryInput
   ) {
     this.recordEntryCalls += 1;
     this.latestEntry = entry;

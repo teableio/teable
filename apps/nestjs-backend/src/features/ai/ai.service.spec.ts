@@ -488,3 +488,28 @@ describe('AiService.getModelInstance for image generation', () => {
     expect(requests).toEqual([request]);
   });
 });
+
+describe('AiService.getGatewayReferencePricing', () => {
+  const pricing = (input: string) => ({ input, output: '0' });
+  const models = [
+    { id: 'openai/gpt-4o', pricing: pricing('1') },
+    { id: 'anthropic/claude-3.5-sonnet-20241022', pricing: pricing('2') },
+    { id: 'anthropic/claude-3-5-sonnet', pricing: pricing('3') },
+  ];
+  const service = Object.create(AiService.prototype) as AiService;
+  Object.assign(service, {
+    aiGatewayModelsService: { getGatewayModels: vi.fn().mockResolvedValue(models) },
+    logger: { warn: vi.fn() },
+  });
+
+  it('matches ids ignoring provider prefix, dots, dashes, case and a trailing date', async () => {
+    await expect(service.getGatewayReferencePricing('GPT-4o')).resolves.toEqual(pricing('1'));
+    await expect(service.getGatewayReferencePricing('unknown-model')).resolves.toBeUndefined();
+  });
+
+  it('returns the first matching model in list order', async () => {
+    await expect(service.getGatewayReferencePricing('claude-3.5-sonnet')).resolves.toEqual(
+      pricing('2')
+    );
+  });
+});

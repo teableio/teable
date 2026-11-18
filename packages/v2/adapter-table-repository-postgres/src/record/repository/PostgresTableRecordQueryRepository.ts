@@ -226,6 +226,7 @@ const createRecordSearchAccessPathResolution = (
   return {
     requested: options.searchAccessPath?.kind ?? 'default',
     used: plan.usedAccessPath,
+    ...(plan.indexedBranches ? { indexedBranches: plan.indexedBranches } : {}),
     ...(plan.fallbackReason ? { fallbackReason: plan.fallbackReason } : {}),
   };
 };
@@ -244,7 +245,8 @@ const createRepositoryFindTraceAttributes = (
     : resolution?.fallbackReason
       ? 'fallback'
       : usesGeneratedText && options?.searchAccessPath?.kind === 'generated_text'
-        ? options.searchAccessPath.provider === 'pg_bigm'
+        ? (options.searchAccessPath.document ?? options.searchAccessPath.residual)?.provider ===
+          'pg_bigm'
           ? 'generated_text_bigram'
           : 'generated_text_trigram'
         : usesSearchVector
@@ -288,13 +290,18 @@ const createRepositoryFindTraceAttributes = (
           : undefined,
       fallbackReason: resolution?.fallbackReason,
       generatedColumnName:
-        (usesSearchVector && options?.searchAccessPath?.kind === 'generated_tsvector') ||
-        (usesGeneratedText && options?.searchAccessPath?.kind === 'generated_text')
+        usesSearchVector && options?.searchAccessPath?.kind === 'generated_tsvector'
           ? options.searchAccessPath.generatedColumnName
-          : undefined,
+          : usesGeneratedText &&
+              options?.searchAccessPath?.kind === 'generated_text' &&
+              resolution?.indexedBranches?.includes('document')
+            ? options.searchAccessPath.document?.generatedColumnName
+            : undefined,
       indexProvider:
         usesGeneratedText && options?.searchAccessPath?.kind === 'generated_text'
-          ? options.searchAccessPath.provider
+          ? resolution?.indexedBranches?.includes('document')
+            ? options.searchAccessPath.document?.provider
+            : options.searchAccessPath.residual?.provider
           : undefined,
     }),
   };
@@ -936,6 +943,7 @@ export class PostgresTableRecordQueryRepository
 
           const fieldMaskSqlMap = yield* buildFieldMaskSqlMap(options.fieldMasks, TABLE_ALIAS);
           const fieldMatches = yield* buildRecordSearchFieldMatches(table, options.search, {
+            searchAccessPath: options.searchAccessPath,
             tableAlias: TABLE_ALIAS,
             fieldMaskSqlMap,
           });
@@ -1193,6 +1201,7 @@ export class PostgresTableRecordQueryRepository
                   table,
                   options.searchFieldMatchesSearch ?? options.search,
                   {
+                    searchAccessPath: options.searchAccessPath,
                     tableAlias: TABLE_ALIAS,
                     fieldMaskSqlMap,
                   }

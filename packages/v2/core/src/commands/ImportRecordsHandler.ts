@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { ImportDiagnosticsCollector } from '../application/services/ImportDiagnosticsCollector';
 import { toImportWriteError } from '../application/services/importSourceErrors';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import type { RecordWritePluginExecution } from '../application/services/RecordWritePluginRunner';
@@ -17,7 +18,11 @@ import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { Table } from '../domain/table/Table';
 import * as DomainWriteTransactionPort from '../ports/DomainWriteTransaction';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import type { IImportParseResult, SourceColumnMap } from '../ports/import/IImportSource';
+import type {
+  IImportDiagnostics,
+  IImportParseResult,
+  SourceColumnMap,
+} from '../ports/import/IImportSource';
 import * as IImportSourceRegistryPort from '../ports/import/IImportSourceRegistry';
 import {
   RecordWriteOperationKind,
@@ -38,14 +43,16 @@ import { toAsyncIterable } from './shared/toAsyncIterable';
 export class ImportRecordsResult {
   private constructor(
     readonly totalImported: number,
-    readonly events: ReadonlyArray<DomainWriteTransactionPort.DomainEventSummary>
+    readonly events: ReadonlyArray<DomainWriteTransactionPort.DomainEventSummary>,
+    readonly diagnostics?: IImportDiagnostics
   ) {}
 
   static create(
     totalImported: number,
-    events: ReadonlyArray<DomainWriteTransactionPort.DomainEventSummary>
+    events: ReadonlyArray<DomainWriteTransactionPort.DomainEventSummary>,
+    diagnostics?: IImportDiagnostics
   ): ImportRecordsResult {
-    return new ImportRecordsResult(totalImported, events);
+    return new ImportRecordsResult(totalImported, events, diagnostics);
   }
 }
 
@@ -63,6 +70,12 @@ interface ImportStreamState {
   sourceColumnMap: SourceColumnMap;
   maxRowCount?: number;
   previousPluginExecution: RecordWritePluginExecution;
+  diagnostics: ImportDiagnosticsCollector;
+}
+
+interface ImportFieldValueBatch {
+  readonly fieldValues: ReadonlyArray<RecordWriteFieldValues>;
+  readonly rowNumbers: ReadonlyArray<number>;
 }
 
 /**
@@ -190,6 +203,7 @@ export class ImportRecordsHandler implements ICommandHandler<
           sourceColumnMap,
           maxRowCount,
           previousPluginExecution: operationPluginExecution,
+          diagnostics: new ImportDiagnosticsCollector(),
         };
 
         // 6. Stream insert via insertManyStream.
@@ -246,15 +260,19 @@ export class ImportRecordsHandler implements ICommandHandler<
         );
         const insertResult = committed.value;
 
+        const diagnostics = state.diagnostics.snapshot();
         onProgress?.({
           phase: 'completed',
           processedRows: insertResult.totalInserted,
           currentBatch: state.currentBatch,
           totalRows: insertResult.totalInserted,
+          diagnostics,
         });
         await state.previousPluginExecution.afterCommit();
 
-        return ok(ImportRecordsResult.create(insertResult.totalInserted, committed.events));
+        return ok(
+          ImportRecordsResult.create(insertResult.totalInserted, committed.events, diagnostics)
+        );
       });
     } finally {
       try {
@@ -301,19 +319,39 @@ export class ImportRecordsHandler implements ICommandHandler<
 
   /**
    * Create async generator that yields processed record batches.
-   * Each batch goes through: side effects → create records → resolve links.
+   * Each batch validates row data once, admits valid rows, applies side effects, then resolves links.
    */
   private async *createRecordBatchesStream(
     context: IExecutionContext,
     state: ImportStreamState,
-    fieldValueBatches: AsyncIterable<ReadonlyArray<RecordWriteFieldValues>>,
+    fieldValueBatches: AsyncIterable<ImportFieldValueBatch>,
     typecast: boolean,
     events: DomainWriteTransactionPort.IDomainWriteEventWriter
   ): AsyncGenerator<ReadonlyArray<TableRecord>> {
-    for await (const batchFieldValues of fieldValueBatches) {
+    for await (const sourceBatch of fieldValueBatches) {
+      let batchFieldValues = sourceBatch.fieldValues;
       const chunkIndex = state.currentBatch;
       state.currentBatch++;
 
+      if (batchFieldValues.length === 0) continue;
+
+      const skippedIndexes = new Set<number>();
+      const createResult = state.table.createRecords(batchFieldValues, {
+        typecast,
+        emitRecordCreatedEvents: false,
+        recordValidation: {
+          onInvalidDate: (index, field) =>
+            state.diagnostics.invalidDate(sourceBatch.rowNumbers[index]!, field),
+          onInvalidRecord: (index, error) => {
+            skippedIndexes.add(index);
+            state.diagnostics.invalidRow(sourceBatch.rowNumbers[index]!, error);
+          },
+        },
+      });
+      if (createResult.isErr()) throw createResult.error;
+      if (skippedIndexes.size > 0) {
+        batchFieldValues = batchFieldValues.filter((_row, index) => !skippedIndexes.has(index));
+      }
       if (batchFieldValues.length === 0) continue;
 
       const pluginExecutionResult = await this.preparePluginExecution(
@@ -351,7 +389,8 @@ export class ImportRecordsHandler implements ICommandHandler<
           context,
           state.table,
           batchFieldValues,
-          typecast
+          typecast,
+          { selectOptionOverflow: 'reject' }
         );
         // Throw the DomainError itself: the insert-stream adapter distinguishes
         // source interruptions from caller/input failures by this type.
@@ -375,15 +414,6 @@ export class ImportRecordsHandler implements ICommandHandler<
           const appended = await events.append(updateResult.value.events ?? [], [state.table]);
           if (appended.isErr()) throw appended.error;
         }
-      }
-
-      // Create records for this batch (with typecast)
-      const createResult = state.table.createRecords(batchFieldValues, {
-        typecast,
-        emitRecordCreatedEvents: false,
-      });
-      if (createResult.isErr()) {
-        throw createResult.error;
       }
 
       const resolveResult = await this.recordMutationSpecResolver.resolveCreatedRecords(
@@ -447,14 +477,17 @@ export class ImportRecordsHandler implements ICommandHandler<
     skipFirstNLines: number,
     batchSize: number,
     maxRowCount?: number
-  ): AsyncIterable<ReadonlyArray<RecordWriteFieldValues>> {
+  ): AsyncIterable<ImportFieldValueBatch> {
     for await (const rowBatch of this.createRowBatches(
       parseResult,
       skipFirstNLines,
       batchSize,
       maxRowCount
     )) {
-      yield rowBatch.map((row) => this.rowToFieldValues(row, sourceColumnMap));
+      yield {
+        fieldValues: rowBatch.rows.map((row) => this.rowToFieldValues(row, sourceColumnMap)),
+        rowNumbers: rowBatch.rowNumbers,
+      };
     }
   }
 
@@ -466,8 +499,9 @@ export class ImportRecordsHandler implements ICommandHandler<
     skipFirstNLines: number,
     batchSize: number,
     maxRowCount?: number
-  ): AsyncGenerator<ReadonlyArray<unknown>[]> {
+  ): AsyncGenerator<{ rows: ReadonlyArray<unknown>[]; rowNumbers: number[] }> {
     let batch: ReadonlyArray<unknown>[] = [];
+    let rowNumbers: number[] = [];
     let rowIndex = 0;
     let processedRows = 0;
 
@@ -475,6 +509,7 @@ export class ImportRecordsHandler implements ICommandHandler<
     for await (const row of rows) {
       rowIndex++;
       if (rowIndex <= skipFirstNLines) continue;
+      // Import limits bound source work, including rows later skipped by field validation.
       if (maxRowCount !== undefined && processedRows >= maxRowCount) {
         throw domainError.validation({
           code: tableDataSafetyLimitErrors.rowsPerTableMax.code,
@@ -492,14 +527,16 @@ export class ImportRecordsHandler implements ICommandHandler<
       }
       processedRows++;
       batch.push(row);
+      rowNumbers.push(parseResult.getSourceRowNumber?.(row) ?? rowIndex);
       if (batch.length >= batchSize) {
-        yield batch;
+        yield { rows: batch, rowNumbers };
         batch = [];
+        rowNumbers = [];
       }
     }
 
     if (batch.length > 0) {
-      yield batch;
+      yield { rows: batch, rowNumbers };
     }
   }
 

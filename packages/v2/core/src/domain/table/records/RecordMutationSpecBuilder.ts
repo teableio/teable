@@ -40,6 +40,8 @@ export class RecordMutationSpecBuilder {
   private readonly specs: ICellValueSpec[] = [];
   private readonly errors: DomainError[] = [];
   private typecastMode: boolean = false;
+  private onInvalidDate: ((field: Field) => void) | undefined;
+  private deferSelectOptions = false;
 
   private constructor() {}
 
@@ -67,6 +69,16 @@ export class RecordMutationSpecBuilder {
     return this;
   }
 
+  withValueConversionObserver(onInvalidDate: ((field: Field) => void) | undefined): this {
+    this.onInvalidDate = onInvalidDate;
+    return this;
+  }
+
+  withDeferredSelectOptions(defer: boolean): this {
+    this.deferSelectOptions = defer;
+    return this;
+  }
+
   /**
    * Add a set operation for a field.
    *
@@ -85,7 +97,12 @@ export class RecordMutationSpecBuilder {
   set(field: Field, value: unknown): this {
     if (this.typecastMode) {
       // Use FieldToSpecVisitor for typecast mode
-      const visitor = FieldToSpecVisitor.create(value, true);
+      const visitor = FieldToSpecVisitor.create(
+        value,
+        true,
+        this.onInvalidDate,
+        this.deferSelectOptions
+      );
       const result = field.accept(visitor);
       result.match(
         (spec) => this.specs.push(spec),

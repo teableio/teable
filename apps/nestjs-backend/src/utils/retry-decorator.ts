@@ -64,7 +64,7 @@ function createRetryDecorator(config: IRetryConfig) {
 }
 
 export const retryOnDeadlock = createRetryDecorator({
-  errorCodes: ['40P01', 'P2034'],
+  errorCodes: ['40P01', '40001', 'P2034'],
   errorMessage: 'Database deadlock detected',
   errorCode: HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE,
   loggerName: 'DeadlockRetryDecorator',

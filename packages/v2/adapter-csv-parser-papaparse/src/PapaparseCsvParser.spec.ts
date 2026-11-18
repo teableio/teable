@@ -38,6 +38,43 @@ describe('PapaparseCsvParser', () => {
     vi.restoreAllMocks();
   });
 
+  it.each([
+    { hasHeader: true, delimiter: ',' },
+    { hasHeader: false, delimiter: ',' },
+    { hasHeader: true, delimiter: ';' },
+    { hasHeader: false, delimiter: ';' },
+    { hasHeader: true, delimiter: undefined },
+    { hasHeader: false, delimiter: undefined },
+  ])(
+    'preserves CSV record identity with hasHeader=$hasHeader and delimiter=$delimiter',
+    async ({ hasHeader, delimiter }) => {
+      const csv = '\n Name , Note \n\nAlice,"first\nsecond"\n  ,  \nBob,last'.replaceAll(
+        ',',
+        delimiter ?? ','
+      );
+      const parser = new PapaparseCsvParser();
+      const synchronous = parser
+        .parse({ type: 'string', data: csv }, { delimiter, hasHeader })
+        ._unsafeUnwrap();
+      const asynchronous = (
+        await parser.parseAsync({ type: 'string', data: csv }, { delimiter, hasHeader })
+      )._unsafeUnwrap();
+      for (const parsed of [synchronous, asynchronous]) {
+        const rows = [];
+        for await (const row of parsed.rowsAsync ?? parsed.rows) rows.push(row);
+        expect(rows.map((row) => parsed.getSourceRowNumber?.(row))).toEqual(
+          hasHeader ? [4, 6] : [2, 4, 6]
+        );
+        expect(rows.map((row) => Object.values(row))).toEqual(
+          hasHeader
+            ? [['Alice', 'first\nsecond'], ['Bob', 'last']]
+            : [['Name', 'Note'], ['Alice', 'first\nsecond'], ['Bob', 'last']]
+        );
+        expect(parsed.getSourceRowNumber?.({ ...rows[0] })).toBeUndefined();
+      }
+    }
+  );
+
   it('releases consumed row objects while the stream remains open', async () => {
     setFlagsFromString('--expose_gc');
     const collectGarbage: () => void = runInNewContext('gc');
@@ -56,6 +93,7 @@ describe('PapaparseCsvParser', () => {
     const rememberFirstRow = async () => {
       const first = await iterator.next();
       expect(first.done).toBe(false);
+      expect(parsed.value.getSourceRowNumber?.(first.value)).toBe(2);
       return new WeakRef(first.value);
     };
     const firstRow = await rememberFirstRow();
@@ -67,7 +105,9 @@ describe('PapaparseCsvParser', () => {
         collectGarbage();
       }
       expect(firstRow.deref()).toBeUndefined();
-      expect((await iterator.next()).value.Name).toBe('9001');
+      const laterRow = (await iterator.next()).value;
+      expect(laterRow.Name).toBe('9001');
+      expect(parsed.value.getSourceRowNumber?.(laterRow)).toBe(9003);
     } finally {
       await iterator.return?.();
     }

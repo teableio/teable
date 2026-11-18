@@ -1,4 +1,5 @@
 import type { IBaseJson } from '@teable/openapi';
+import { isWebpThumbnailPath } from '../attachments/utils';
 
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -209,4 +210,33 @@ export const mergeLinkFieldTableMaps = (
     merged[tableId] = [...(merged[tableId] || []), ...fields];
   });
   return merged;
+};
+
+const IMPORT_THUMBNAIL_PREFIX = 'thumbnail__';
+
+// A thumbnail key keeps its dots, so it must be checked to stay one file name
+const isSingleFileName = (key: string) =>
+  key !== '' && key !== '.' && key !== '..' && !/[\\/]/.test(key);
+
+/**
+ * Resolve an attachment entry of an exported archive (name relative to its
+ * attachments directory) to its table storage key. Files are `<token>.<suffix>`;
+ * thumbnails are `thumbnail__<key>.<suffix>`, where `<key>` (e.g. `<token>_lg.webp`)
+ * may contain dots itself, so only the last suffix is dropped. The suffix is the
+ * source file's, so a WebP thumbnail takes its `extension` (for the stored
+ * Content-Type) from its key instead. Returns undefined for a thumbnail whose
+ * key is not a single file name.
+ */
+export const parseImportAttachmentEntryName = (name: string) => {
+  const extension = name.split('.').pop() ?? '';
+  if (!name.startsWith(IMPORT_THUMBNAIL_PREFIX)) {
+    return { isThumbnail: false, key: name.split('.')[0], extension };
+  }
+  const rest = name.slice(IMPORT_THUMBNAIL_PREFIX.length);
+  const suffixIndex = rest.lastIndexOf('.');
+  const key = suffixIndex === -1 ? rest : rest.slice(0, suffixIndex);
+  if (!isSingleFileName(key)) {
+    return undefined;
+  }
+  return { isThumbnail: true, key, extension: isWebpThumbnailPath(key) ? 'webp' : extension };
 };

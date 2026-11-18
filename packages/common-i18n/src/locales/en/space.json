@@ -75,7 +75,9 @@
     "exportTitle": "Export",
     "exportDescription": "Export the current project to a .tea file, which may take some time.",
     "exportStartButton": "Start exporting",
-    "exportSlowTip": "The data volume is large. Export may take a while. You can leave temporarily.",
+    "exportSlowTip": "The data volume is large. Export may take a while.",
+    "exportBusy": "An export is already in progress. Try again shortly.",
+    "exportNavigationWarning": "Leaving or refreshing this page cancels the export unless another tab is still following the same export. Dismissing this dialog does not cancel it.",
     "exportReadyDescription": "Please download the .tea file, {{importHint}}",
     "moveBaseSuccessTitle": "Project moved",
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}",
@@ -220,6 +222,8 @@
   "publishBase": {
     "title": "Publish to Template Center",
     "description": "Publish to the Template Center in one click! Let more people see your ideas.",
+    "configureTitle": "Set up your template",
+    "configureDescription": "Standout templates may be featured in the Template Center",
     "infoTitle": "Listing details",
     "form": {
       "title": "Name",
@@ -231,8 +235,6 @@
       "defaultActiveNode": "Opens by default",
       "descriptionPlaceholder": "What it solves and how to use it",
       "titlePlaceholder": "Give it a name",
-      "cover": "Cover",
-      "coverHint": "16:9, used on the catalogue card and the public page",
       "versionTitle": "Version contents",
       "addChangelog": "Add release notes"
     },
@@ -241,33 +243,32 @@
     "publishSuccess": "Publish success!",
     "previewTips": "Catalogue preview",
     "update": "Update",
-    "submit": "Submit for review",
-    "submitted": "Submitted for review",
+    "submit": "Publish template",
     "review": {
       "status": {
-        "review": "Under review",
-        "rejected": "Sent back",
-        "withdrawn": "Withdrawn"
+        "review": "Under review"
       },
-      "submittedTime": "Submitted {{time}}",
-      "note": "Reviewer note",
-      "checks": "Automatic checks",
       "check": {
         "connectors": "Connections",
         "privacy": "Privacy",
         "estimate": "Run estimate",
-        "trial": "Trial run"
+        "trial": "Trial run",
+        "content": "Content"
       },
       "checkMessage": {
         "connectors": "These connections aren't supported: {{providers}}",
         "privacy": "Records are included; check them for personal data",
         "estimate": "About {{runs}} runs a month, above the free plan's {{free}}",
-        "trial": "Make sure the automations and routines run without connecting any account"
+        "trial": "Make sure the automations and routines run without connecting any account",
+        "content": "Still yours alone: {{count}}",
+        "contentMarked": "Marked as samples: {{count}}"
       },
-      "withdraw": "Withdraw",
-      "withdrawn": "Submission withdrawn.",
-      "live": "Live · v{{version}}",
-      "publicLink": "Public link"
+      "withdraw": "Unpublish",
+      "withdrawn": "Unpublished.",
+      "withdrawConfirmTitle": "Unpublish this template?",
+      "withdrawConfirmDescription": "Its link will stop opening and it will leave the Template Center. Installed copies are not affected, and you can publish it again later.",
+      "live": "Published · v{{version}}",
+      "listed": "In the Template Center"
     },
     "unPublish": "Unlist",
     "unPublishSuccess": "Unlisted.",
@@ -281,7 +282,8 @@
     "invalidImageType": "Please select an image file",
     "tips": {
       "publishValidation": "Name and description are required",
-      "atLeastOneNode": "Select at least one item to include"
+      "atLeastOneNode": "Select at least one item to include",
+      "coverRequired": "Add a cover image"
     },
     "urlCopied": "URL copied to clipboard!",
     "urlCopiedForDiscord": "URL copied to clipboard! You can paste it in Discord.",
@@ -299,13 +301,13 @@
       "notPublished": "Not published",
       "publishFailed": "Publish failed",
       "publishFailedTip1": "Check if the source app can be published successfully",
-      "publishFailedTip2": "Try resubmitting this template",
+      "publishFailedTip2": "Try publishing this template again",
       "ignoreAndContinue": "Ignore & continue",
       "goToFix": "Go to fix",
       "redeploy": "Redeploy",
       "unnamedApp": "Unnamed app"
     },
-    "submitVersion": "Submit v{{version}} for review"
+    "submitVersion": "Publish v{{version}}"
   },
   "dataDb": {
     "create": {
@@ -449,6 +451,7 @@
     "issue": {
       "valuesDropped_one": "{{sheetName}} / {{fieldName}}: {{count}} value dropped ({{reason}})",
       "valuesDropped_other": "{{sheetName}} / {{fieldName}}: {{count}} values dropped ({{reason}})",
+      "rowSamples": "Source rows (up to 100 samples): {{rows}}.",
       "sheetSkipped": "Tab \"{{sheetName}}\" skipped: {{reason}}",
       "columnsTruncated_one": "{{sheetName}}: {{count}} column beyond the column limit was not imported",
       "columnsTruncated_other": "{{sheetName}}: {{count}} columns beyond the column limit were not imported"
@@ -473,5 +476,16 @@
     "fromFileDesc": "Upload a .tea file",
     "fromAirtableDesc": "Pick a base",
     "fromGoogleSheetDesc": "Pick a spreadsheet"
+  },
+  "templateProject": {
+    "make": "Make a template",
+    "new": "New template project",
+    "plural": "Template projects",
+    "projectsTab": "Projects",
+    "empty": "No template projects yet",
+    "trialCopy": "Trial copy",
+    "wholeProject": "Everything in the project ({{count}})",
+    "sampleRecords": "Sample records: {{count}}",
+    "noRecords": "No records"
   }
 }

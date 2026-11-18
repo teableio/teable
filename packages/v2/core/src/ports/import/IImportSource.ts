@@ -41,6 +41,23 @@ export interface IImportParseResult {
    * Includes a header row when the adapter yields it as the first row.
    */
   readonly rowCount?: number;
+  /** Original 1-based source position, including the header, without retaining streamed rows. */
+  readonly getSourceRowNumber?: (row: ReadonlyArray<unknown>) => number | undefined;
+}
+
+/** Counts cover all observed invalid cells, including cells in subsequently skipped rows. */
+export interface IImportDiagnostics {
+  readonly invalidDateCells: number;
+  readonly skippedRows: number;
+  /** At most 100 samples per table/import; never includes raw cell values. */
+  readonly samples: ReadonlyArray<{
+    readonly rowNumber: number;
+    readonly fieldId?: string;
+    readonly fieldName?: string;
+    readonly reason: 'invalidDate' | 'invalidRow';
+    readonly code: string;
+    readonly message: string;
+  }>;
 }
 
 /**
@@ -53,6 +70,8 @@ export interface IImportProgress {
   /** Total data rows for this table/sheet when known. */
   totalRows?: number;
   error?: string;
+  /** Final committed outcome only; intermediate progress never carries diagnostics. */
+  diagnostics?: IImportDiagnostics;
 }
 
 /**
@@ -61,7 +80,7 @@ export interface IImportProgress {
 export interface IImportOptions {
   /** Number of records per batch (default: 500) */
   batchSize?: number;
-  /** Maximum number of data rows to import (after skipping) */
+  /** Maximum source data rows after header skipping, including rows rejected by field validation. */
   maxRowCount?: number;
   /** Skip first N lines (e.g., for header row) */
   skipFirstNLines?: number;

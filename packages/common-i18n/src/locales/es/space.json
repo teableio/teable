@@ -75,7 +75,9 @@
     "exportTitle": "Exportar",
     "exportDescription": "Exportar el proyecto actual a un archivo .tea, lo cual puede tardar un tiempo.",
     "exportStartButton": "Iniciar exportación",
-    "exportSlowTip": "El volumen de datos es grande. La exportación puede tardar un rato. Puede salir temporalmente.",
+    "exportSlowTip": "El volumen de datos es grande. La exportación puede tardar un rato.",
+    "exportBusy": "Ya hay una exportación en curso. Vuelva a intentarlo en breve.",
+    "exportNavigationWarning": "Salir de esta página o actualizarla cancela la exportación, a menos que otra pestaña siga la misma exportación. Cerrar este diálogo no la cancela.",
     "exportReadyDescription": "Por favor descargue el archivo .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Movimiento exitoso",
     "moveBaseSuccessDescription": "{{baseName}} ha sido movido exitosamente a {{spaceName}}",
@@ -223,6 +225,8 @@
   "publishBase": {
     "title": "Publicar en el centro de plantillas",
     "description": "¡Publica el proyecto en el centro de plantillas con un clic! Deja que más personas vean, usen y hagan Remix de tu creatividad, y construyan juntos un negocio más poderoso",
+    "configureTitle": "Configura tu plantilla",
+    "configureDescription": "Las plantillas destacadas pueden aparecer en el centro de plantillas",
     "infoTitle": "Información básica",
     "form": {
       "title": "Título",
@@ -234,8 +238,6 @@
       "defaultActiveNode": "Nodo activo predeterminado",
       "descriptionPlaceholder": "Describe brevemente tu idea...",
       "titlePlaceholder": "Nombra tu trabajo...",
-      "cover": "Portada",
-      "coverHint": "16:9; se usa en la tarjeta del catálogo y en la página pública",
       "versionTitle": "Contenido de la versión",
       "addChangelog": "Añadir notas de la versión"
     },
@@ -244,33 +246,32 @@
     "publishSuccess": "¡Publicación exitosa!",
     "previewTips": "Deja que el mundo vea tu trabajo",
     "update": "Actualizar",
-    "submit": "Enviar a revisión",
-    "submitted": "Enviada a revisión",
+    "submit": "Publicar plantilla",
     "review": {
       "status": {
-        "review": "En revisión",
-        "rejected": "Devuelta",
-        "withdrawn": "Retirada"
+        "review": "En revisión"
       },
-      "submittedTime": "Enviada {{time}}",
-      "note": "Nota del revisor",
-      "checks": "Comprobaciones automáticas",
       "check": {
         "connectors": "Conexiones",
         "privacy": "Privacidad",
         "estimate": "Estimación de ejecuciones",
-        "trial": "Ejecución de prueba"
+        "trial": "Ejecución de prueba",
+        "content": "Contenido"
       },
       "checkMessage": {
         "connectors": "No se puede conectar aquí: {{providers}}",
         "privacy": "Incluye registros; revisa si contienen datos personales",
         "estimate": "Unas {{runs}} ejecuciones al mes, por encima de las {{free}} del plan gratuito",
-        "trial": "Las automatizaciones no necesitan cuenta; asegúrate de que funcionan sin ella"
+        "trial": "Las automatizaciones no necesitan cuenta; asegúrate de que funcionan sin ella",
+        "content": "Aún solo tuyo: {{count}}",
+        "contentMarked": "Marcado como ejemplo: {{count}}"
       },
-      "withdraw": "Retirar",
-      "withdrawn": "Envío retirado.",
+      "withdraw": "Despublicar",
+      "withdrawn": "Plantilla despublicada.",
+      "withdrawConfirmTitle": "¿Despublicar esta plantilla?",
+      "withdrawConfirmDescription": "Su enlace dejará de abrirse y no aparecerá en el centro de plantillas. Las copias instaladas no se ven afectadas y puedes volver a publicarla más adelante.",
       "live": "Publicada · v{{version}}",
-      "publicLink": "Enlace público"
+      "listed": "En el centro de plantillas"
     },
     "unPublish": "Despublicar",
     "unPublishSuccess": "¡Proyecto despublicado con éxito!",
@@ -284,7 +285,8 @@
     "invalidImageType": "Por favor selecciona un archivo de imagen",
     "tips": {
       "publishValidation": "título y descripción son obligatorios",
-      "atLeastOneNode": "Selecciona al menos un nodo para publicar"
+      "atLeastOneNode": "Selecciona al menos un nodo para publicar",
+      "coverRequired": "Añade una imagen de portada"
     },
     "urlCopied": "¡URL copiada al portapapeles!",
     "urlCopiedForDiscord": "¡URL copiada al portapapeles! Puedes pegarla en Discord.",
@@ -308,7 +310,7 @@
       "redeploy": "Redesplegar",
       "unnamedApp": "Aplicación sin nombre"
     },
-    "submitVersion": "Enviar la v{{version}} a revisión"
+    "submitVersion": "Publicar v{{version}}"
   },
   "dataDb": {
     "create": {
@@ -458,6 +460,7 @@
       "valuesDropped_one": "{{sheetName}} / {{fieldName}}: {{count}} valores descartados ({{reason}})",
       "valuesDropped_many": "{{sheetName}} / {{fieldName}}: {{count}} valores descartados ({{reason}})",
       "valuesDropped_other": "{{sheetName}} / {{fieldName}}: {{count}} valores descartados ({{reason}})",
+      "rowSamples": "Filas de origen (hasta 100 ejemplos): {{rows}}.",
       "sheetSkipped": "Pestaña \"{{sheetName}}\" omitida: {{reason}}",
       "columnsTruncated_one": "{{sheetName}}: {{count}} columnas que superan el límite de columnas no se importaron",
       "columnsTruncated_many": "{{sheetName}}: {{count}} columnas que superan el límite de columnas no se importaron",
@@ -483,5 +486,16 @@
     "fromFileDesc": "Sube un archivo .tea",
     "fromAirtableDesc": "Elige una base",
     "fromGoogleSheetDesc": "Elige una hoja de cálculo"
+  },
+  "templateProject": {
+    "make": "Convertir en plantilla",
+    "new": "Nuevo proyecto de plantilla",
+    "plural": "Proyectos de plantilla",
+    "projectsTab": "Proyectos",
+    "empty": "Aún no hay proyectos de plantilla",
+    "trialCopy": "Copia de prueba",
+    "wholeProject": "Todo el proyecto ({{count}})",
+    "sampleRecords": "Registros de ejemplo: {{count}}",
+    "noRecords": "Sin registros"
   }
 }

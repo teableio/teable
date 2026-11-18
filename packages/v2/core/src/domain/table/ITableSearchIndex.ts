@@ -1,29 +1,36 @@
 import type { SearchFieldTextProjection } from './fields/visitors/SearchFieldTextShape';
 
-/** Validated physical search state, loaded with the table rather than discovered during queries. */
-export interface ITableSearchIndex {
-  readonly version: 1;
-  readonly dbTableName: string;
-  readonly generatedColumnName: string;
-  readonly indexName: string;
+export interface ITableSearchField {
+  readonly fieldId: string;
+  readonly fieldDbName: string;
+  readonly textProjection: SearchFieldTextProjection;
+}
+
+export interface ITableSearchBranch {
   readonly provider: 'pg_bigm' | 'pg_trgm';
+  readonly indexName: string;
+  readonly ready: boolean;
+  readonly fields: readonly ITableSearchField[];
+}
+
+/** Validated serving generation. Either physical branch can serve independently. */
+export interface ITableSearchIndex {
+  readonly version: 2;
+  readonly dbTableName: string;
   readonly searchScope: 'all_fields' | 'selected_fields';
   readonly definitionKey: string;
-  readonly indexUsable: boolean;
-  readonly fields: readonly {
-    readonly fieldId: string;
-    readonly fieldDbName: string;
-    readonly textProjection: SearchFieldTextProjection;
-  }[];
+  readonly fieldIds: readonly string[];
+  readonly document?: ITableSearchBranch & { readonly generatedColumnName: string };
+  readonly residual?: ITableSearchBranch & {
+    /** Canonical unqualified immutable SQL, including helper version and member order. */
+    readonly expression: string;
+  };
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const isNonemptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.length > 0;
-
-const isTextProjection = (value: unknown): value is SearchFieldTextProjection => {
+const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
+const isProjection = (value: unknown): value is SearchFieldTextProjection => {
   if (!isObject(value)) return false;
   switch (value.kind) {
     case 'plain':
@@ -37,30 +44,41 @@ const isTextProjection = (value: unknown): value is SearchFieldTextProjection =>
       return (
         typeof value.precision === 'number' &&
         Number.isInteger(value.precision) &&
-        value.precision >= 0
+        value.precision >= 0 &&
+        value.precision <= 20
       );
     default:
       return false;
   }
 };
+const isFields = (value: unknown): value is readonly ITableSearchField[] =>
+  Array.isArray(value) &&
+  value.every(
+    (field) =>
+      isObject(field) &&
+      isString(field.fieldId) &&
+      isString(field.fieldDbName) &&
+      isProjection(field.textProjection)
+  );
+const isBranch = (value: unknown): value is ITableSearchBranch =>
+  isObject(value) &&
+  (value.provider === 'pg_bigm' || value.provider === 'pg_trgm') &&
+  isString(value.indexName) &&
+  typeof value.ready === 'boolean' &&
+  isFields(value.fields) &&
+  (!value.ready || value.fields.length > 0);
 
-/** Legacy, unknown-version, and malformed snapshots are absent, never table-read errors. */
 export const isTableSearchIndex = (value: unknown): value is ITableSearchIndex =>
   isObject(value) &&
-  value.version === 1 &&
-  isNonemptyString(value.dbTableName) &&
-  isNonemptyString(value.generatedColumnName) &&
-  isNonemptyString(value.indexName) &&
-  (value.provider === 'pg_bigm' || value.provider === 'pg_trgm') &&
+  value.version === 2 &&
+  isString(value.dbTableName) &&
   (value.searchScope === 'all_fields' || value.searchScope === 'selected_fields') &&
-  isNonemptyString(value.definitionKey) &&
-  typeof value.indexUsable === 'boolean' &&
-  Array.isArray(value.fields) &&
-  (value.fields.length > 0 || value.indexUsable === false) &&
-  value.fields.every(
-    (field: unknown) =>
-      isObject(field) &&
-      isNonemptyString(field.fieldId) &&
-      isNonemptyString(field.fieldDbName) &&
-      isTextProjection(field.textProjection)
-  );
+  isString(value.definitionKey) &&
+  Array.isArray(value.fieldIds) &&
+  value.fieldIds.every(isString) &&
+  (value.document === undefined ||
+    (isBranch(value.document) &&
+      isObject(value.document) &&
+      isString(value.document.generatedColumnName))) &&
+  (value.residual === undefined ||
+    (isBranch(value.residual) && isObject(value.residual) && isString(value.residual.expression)));

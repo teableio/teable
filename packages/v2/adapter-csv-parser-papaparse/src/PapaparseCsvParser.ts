@@ -54,39 +54,71 @@ export class PapaparseCsvParser implements ICsvParser {
     }
 
     try {
-      const parseResult = Papa.parse<Record<string, string>>(csvString, {
-        delimiter: delimiter || undefined, // undefined 让 papaparse 自动检测
-        header: hasHeader,
-        skipEmptyLines: skipEmptyLines ? 'greedy' : false,
-        transformHeader: (header) => header.trim(),
+      const sourceRows = new WeakMap<Record<string, string>, number>();
+      const rows: Record<string, string>[] = [];
+      const errors: Papa.ParseError[] = [];
+      let headers: string[] | undefined;
+      let sourceRowNumber = 0;
+      // Keep Papa's existing inference over nonempty records, then count raw records.
+      // The preview is bounded; only the final parse retains imported row objects.
+      const format = delimiter
+        ? undefined
+        : Papa.parse<string[]>(csvString, {
+            preview: 1,
+            skipEmptyLines: skipEmptyLines ? 'greedy' : false,
+          });
+      errors.push(...(format?.errors.filter((error) => error.type === 'Delimiter') ?? []));
+      Papa.parse<string[]>(csvString, {
+        delimiter: delimiter || format?.meta.delimiter,
+        header: false,
+        skipEmptyLines: false,
         transform: (value) => value.trim(),
+        step: (result) => {
+          sourceRowNumber++;
+          errors.push(...result.errors);
+          const values = result.data;
+          if (skipEmptyLines && values.every((value) => value === '')) return;
+          if (!headers) {
+            headers = hasHeader
+              ? values
+              : values.map((_, index) => `Column_${index + 1}`);
+            if (hasHeader) {
+              this.deduplicateHeaders(headers);
+              return;
+            }
+          }
+          if (hasHeader && values.length !== headers.length) {
+            const tooMany = values.length > headers.length;
+            errors.push({
+              type: 'FieldMismatch',
+              code: tooMany ? 'TooManyFields' : 'TooFewFields',
+              message: `${tooMany ? 'Too many' : 'Too few'} fields: expected ${headers.length} fields but parsed ${values.length}`,
+              row: rows.length,
+            });
+          }
+          const row = Object.fromEntries(
+            headers.map((header, index) => [header, values[index] ?? ''])
+          );
+          sourceRows.set(row, sourceRowNumber);
+          rows.push(row);
+        },
       });
-
-      if (parseResult.errors.length > 0) {
-        const firstError = parseResult.errors[0];
+      if (errors.length > 0) {
+        const firstError = errors[0];
         return err(
           domainError.validation({
             message: `CSV parse error at row ${firstError.row}: ${firstError.message}`,
             code: 'csv.parse_error',
-            details: { errors: parseResult.errors },
+            details: { errors },
           })
         );
       }
 
-      const rows = hasHeader
-        ? parseResult.data
-        : this.mapRowsToGeneratedHeaders(parseResult.data as unknown as string[][]);
-      const headers: string[] = hasHeader
-        ? (parseResult.meta.fields ?? [])
-        : rows[0]
-          ? Object.keys(rows[0])
-          : [];
-
-      // 创建行的 Iterable
       return ok({
-        headers,
+        headers: headers ?? [],
         rows: this.createRowsIterable(rows),
         rowCount: rows.length,
+        getSourceRowNumber: (row) => sourceRows.get(row),
       });
     } catch (error) {
       return err(
@@ -110,11 +142,14 @@ export class PapaparseCsvParser implements ICsvParser {
     source: CsvSource,
     options?: CsvParseOptions
   ): Promise<Result<CsvParseResult, DomainError>> {
+    const rawSourceRows = new WeakMap<ReadonlyArray<unknown>, number>();
+    const sourceRows = new WeakMap<Record<string, string>, number>();
     const iterator = parseCsvRows(source, {
       delimiter: options?.delimiter,
       encoding: options?.encoding,
       skipEmptyLines: (options?.skipEmptyLines ?? true) ? 'greedy' : false,
       fetchFn: this.fetchFn,
+      onRow: (row, sourceRowNumber) => rawSourceRows.set(row, sourceRowNumber),
     });
     try {
       const first = await iterator.next();
@@ -143,12 +178,12 @@ export class PapaparseCsvParser implements ICsvParser {
               code: 'csv.parse_error',
             });
           }
-          return {
-            done: false,
-            value: Object.fromEntries(
-              headers.map((header, index) => [header, (next.value[index] ?? '').trim()])
-            ),
-          };
+          const value = Object.fromEntries(
+            headers.map((header, index) => [header, (next.value[index] ?? '').trim()])
+          );
+          const sourceRowNumber = rawSourceRows.get(next.value);
+          if (sourceRowNumber !== undefined) sourceRows.set(value, sourceRowNumber);
+          return { done: false, value };
         },
         async return() {
           pending = undefined;
@@ -161,7 +196,7 @@ export class PapaparseCsvParser implements ICsvParser {
           return { done: true, value: undefined };
         },
       };
-      return ok({ headers, rows: [], rowsAsync });
+      return ok({ headers, rows: [], rowsAsync, getSourceRowNumber: (row) => sourceRows.get(row) });
     } catch (error) {
       await iterator.return(undefined);
       return err(domainError.fromUnknown(error, { code: 'csv.parse_failed' }));
@@ -181,20 +216,6 @@ export class PapaparseCsvParser implements ICsvParser {
       }
       counts.set(header, suffix + 1);
     }
-  }
-
-  private mapRowsToGeneratedHeaders(rows: string[][]): Record<string, string>[] {
-    const headers = rows[0]?.map((_, index) => `Column_${index + 1}`) ?? [];
-    return this.mapRowsToHeaders(rows, headers);
-  }
-
-  private mapRowsToHeaders(
-    rows: string[][],
-    headers: ReadonlyArray<string>
-  ): Record<string, string>[] {
-    return rows.map((row) =>
-      Object.fromEntries(headers.map((header, index) => [header, row[index] ?? '']))
-    );
   }
 
   /**

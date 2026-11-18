@@ -49,4 +49,6 @@ export {
   listAttachmentTokensByTableIds,
   mergeAttachmentTableRefs,
 } from './record/attachments/attachmentTableQueries';
+export { iterateAttachmentTableRefs } from './record/attachments/attachmentTableQueries';
+export type { AttachmentTableQueryOptions } from './record/attachments/attachmentTableQueries';
 export type { AttachmentTableRefRow } from './record/attachments/attachmentTableQueries';

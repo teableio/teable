@@ -75,7 +75,9 @@
     "exportTitle": "تصدير",
     "exportDescription": "صدّر المشروع الحالي إلى ملف ‎.tea، وقد يستغرق ذلك بعض الوقت.",
     "exportStartButton": "بدء التصدير",
-    "exportSlowTip": "حجم البيانات كبير. قد يستغرق التصدير بعض الوقت، ويمكنك المغادرة مؤقتًا.",
+    "exportSlowTip": "حجم البيانات كبير. قد يستغرق التصدير بعض الوقت.",
+    "exportBusy": "هناك عملية تصدير قيد التنفيذ بالفعل. حاول مرة أخرى بعد قليل.",
+    "exportNavigationWarning": "تؤدي مغادرة هذه الصفحة أو تحديثها إلى إلغاء التصدير ما لم تكن علامة تبويب أخرى لا تزال تتابع عملية التصدير نفسها. إغلاق مربع الحوار هذا لا يلغي التصدير.",
     "exportReadyDescription": "يُرجى تنزيل ملف ‎.tea، {{importHint}}",
     "moveBaseSuccessTitle": "تم نقل المشروع بنجاح",
     "moveBaseSuccessDescription": "تم نقل {{baseName}} إلى {{spaceName}}",
@@ -235,6 +237,8 @@
   "publishBase": {
     "title": "النشر في مركز القوالب",
     "description": "انشر مشروعك في مركز القوالب بنقرة واحدة! دع المزيد من الأشخاص يرون إبداعك ويستخدمونه ويعيدون تشكيله، ولنبنِ معًا أعمالًا أقوى",
+    "configureTitle": "إعداد معلومات القالب",
+    "configureDescription": "قد تُعرض القوالب المميزة في مركز القوالب",
     "infoTitle": "المعلومات الأساسية",
     "form": {
       "title": "عنوان العمل",
@@ -246,8 +250,6 @@
       "defaultActiveNode": "العقدة النشطة الافتراضية",
       "descriptionPlaceholder": "صف فكرتك باختصار...",
       "titlePlaceholder": "سمِّ عملك...",
-      "cover": "الغلاف",
-      "coverHint": "بنسبة 16:9، تُستخدم في بطاقة الكتالوج والصفحة العامة",
       "versionTitle": "محتويات الإصدار",
       "addChangelog": "إضافة ملاحظات الإصدار"
     },
@@ -256,33 +258,32 @@
     "publishSuccess": "تم النشر بنجاح!",
     "previewTips": "دع العالم يرى عملك",
     "update": "تحديث",
-    "submit": "إرسال للمراجعة",
-    "submitted": "تم الإرسال للمراجعة",
+    "submit": "نشر القالب",
     "review": {
       "status": {
-        "review": "قيد المراجعة",
-        "rejected": "أُعيد للتعديل",
-        "withdrawn": "تم السحب"
+        "review": "قيد المراجعة"
       },
-      "submittedTime": "أُرسل {{time}}",
-      "note": "ملاحظة المراجِع",
-      "checks": "الفحوصات التلقائية",
       "check": {
         "connectors": "الاتصالات",
         "privacy": "الخصوصية",
         "estimate": "تقدير التشغيلات",
-        "trial": "تشغيل تجريبي"
+        "trial": "تشغيل تجريبي",
+        "content": "المحتوى"
       },
       "checkMessage": {
         "connectors": "يتعذّر الربط هنا: {{providers}}",
         "privacy": "السجلات مُضمَّنة؛ تحقّق من خلوّها من البيانات الشخصية",
         "estimate": "نحو {{runs}} تشغيل شهريًا، أي أكثر من {{free}} في الخطة المجانية",
-        "trial": "لا تحتاج الأتمتة إلى أي حساب؛ تأكد من أنها تعمل بدونه"
+        "trial": "لا تحتاج الأتمتة إلى أي حساب؛ تأكد من أنها تعمل بدونه",
+        "content": "ما زال خاصًا بك: {{count}}",
+        "contentMarked": "مُعلَّم كمثال: {{count}}"
       },
-      "withdraw": "سحب",
-      "withdrawn": "تم سحب الطلب.",
-      "live": "متاح · v{{version}}",
-      "publicLink": "الرابط العام"
+      "withdraw": "إلغاء النشر",
+      "withdrawn": "تم إلغاء النشر.",
+      "withdrawConfirmTitle": "إلغاء نشر هذا القالب؟",
+      "withdrawConfirmDescription": "بعد إلغاء النشر لن يفتح رابط القالب ولن يظهر في مركز القوالب. النسخ المثبّتة لا تتأثر، ويمكنك نشره مرة أخرى لاحقًا.",
+      "live": "منشور · v{{version}}",
+      "listed": "معروض في مركز القوالب"
     },
     "unPublish": "إلغاء النشر",
     "unPublishSuccess": "تم إلغاء نشر المشروع بنجاح!",
@@ -296,7 +297,8 @@
     "invalidImageType": "يُرجى اختيار ملف صورة",
     "tips": {
       "publishValidation": "العنوان والوصف مطلوبان",
-      "atLeastOneNode": "اختر عقدة واحدة على الأقل للنشر"
+      "atLeastOneNode": "اختر عقدة واحدة على الأقل للنشر",
+      "coverRequired": "أضف صورة غلاف"
     },
     "urlCopied": "تم نسخ الرابط إلى الحافظة!",
     "urlCopiedForDiscord": "تم نسخ الرابط إلى الحافظة! يمكنك لصقه في Discord.",
@@ -320,7 +322,7 @@
       "redeploy": "إعادة النشر",
       "unnamedApp": "تطبيق بلا اسم"
     },
-    "submitVersion": "إرسال v{{version}} للمراجعة"
+    "submitVersion": "نشر v{{version}}"
   },
   "dataDb": {
     "create": {
@@ -498,6 +500,7 @@
       "valuesDropped_few": "{{sheetName}} / {{fieldName}}: تم إسقاط {{count}} قيمة ({{reason}})",
       "valuesDropped_many": "{{sheetName}} / {{fieldName}}: تم إسقاط {{count}} قيمة ({{reason}})",
       "valuesDropped_other": "{{sheetName}} / {{fieldName}}: تم إسقاط {{count}} قيمة ({{reason}})",
+      "rowSamples": "صفوف المصدر (حتى 100 مثال): {{rows}}.",
       "sheetSkipped": "تم تخطي الورقة \"{{sheetName}}\": {{reason}}",
       "columnsTruncated_zero": "{{sheetName}}: لم يتم استيراد {{count}} عمود تتجاوز الحد الأقصى للأعمدة",
       "columnsTruncated_one": "{{sheetName}}: لم يتم استيراد {{count}} عمود تتجاوز الحد الأقصى للأعمدة",
@@ -516,5 +519,16 @@
     "waitingOAuth": "أكمِل التفويض في النافذة المنبثقة…",
     "connectedAs": "متصل: {{account}}",
     "integrationRequired": "تكامل Google Sheets غير مُعدّ على هذا الخادم. اطلب من المسؤول إعداده."
+  },
+  "templateProject": {
+    "make": "تحويل إلى قالب",
+    "new": "مشروع قالب جديد",
+    "plural": "مشاريع القوالب",
+    "projectsTab": "المشاريع",
+    "empty": "لا توجد مشاريع قوالب بعد",
+    "trialCopy": "نسخة تجريبية",
+    "wholeProject": "كل ما في المشروع ({{count}})",
+    "sampleRecords": "سجلات نموذجية: {{count}}",
+    "noRecords": "لا توجد سجلات"
   }
 }

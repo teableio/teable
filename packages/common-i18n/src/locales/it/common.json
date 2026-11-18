@@ -257,7 +257,8 @@
       "firstRelease": "Prima versione",
       "about": "Informazioni",
       "noChangelog": "Aggiornamento generale"
-    }
+    },
+    "unavailable": "Questo modello non è disponibile"
   },
   "baseShare": {
     "shareTitle": "Condividi",
@@ -1323,12 +1324,59 @@
       "successText": "I dati di esportazione sono pronti",
       "failedText": "Esportazione fallita, riprova"
     },
+    "baseImport": {
+      "skippedCells": "Non è stato possibile ripristinare alcuni valori importati: {{skippedUserCells}} celle utente e {{skippedLinkCells}} celle di collegamento. I record validi sono stati conservati; controlla il progetto importato.",
+      "relaxedRequiredUserFields": "Per conservare i record con utenti non riconosciuti, il vincolo obbligatorio è stato rimosso da {{count}} campi utente importati. Controlla il progetto importato.",
+      "failed": "L'importazione del progetto non è riuscita prima che tutti i dati fossero ripristinati. Controlla il progetto importato e riprova dopo aver risolto l'errore."
+    },
     "importantNotice": {
       "title": "Important Notice",
       "acknowledge": "I Understand"
     },
     "oauthApp": {
       "message": "Da {{app}}: {{text}}"
+    },
+    "category": {
+      "mention": "Menzione",
+      "comment": "Commento",
+      "invite": "Invito",
+      "import": "Importazione",
+      "export": "Esportazione",
+      "automation": "Automazione",
+      "routine": "Routine",
+      "aiTask": "Campo IA",
+      "aiChat": "Chat IA",
+      "credit": "Crediti",
+      "billing": "Fatturazione",
+      "reward": "Ricompensa",
+      "template": "Modello",
+      "dataExport": "Esportazione dati",
+      "announcement": "Annuncio",
+      "app": "App",
+      "system": "Sistema"
+    },
+    "panel": {
+      "unreadCount": "Non lette: {{count}}",
+      "markRead": "Segna come letta",
+      "markUnread": "Segna come non letta",
+      "allCaughtUp": "Sei in pari",
+      "emptyTitle": "Ancora nessuna notifica",
+      "emptyDescription": "Qui compaiono menzioni, inviti e risultati di importazioni, automazioni e attività IA.",
+      "noMatch": "Nessuna notifica corrisponde a questi filtri",
+      "group": {
+        "today": "Oggi",
+        "yesterday": "Ieri",
+        "earlier": "Precedenti"
+      },
+      "filter": {
+        "severity": "Livello",
+        "title": "Filtra",
+        "clear": "Cancella filtri",
+        "all": "Tutte",
+        "mine": "Per te",
+        "system": "Sistema",
+        "unreadOnly": "Solo non lette"
+      }
     }
   },
   "role": {
@@ -1358,6 +1406,7 @@
     "resetTrashConfirm": "Sei sicuro di voler svuotare il cestino?",
     "addToTrash": "Muovi nel cestino",
     "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati.",
+    "publishedAppsOffline": "App pubblicate che andranno subito offline: {{total}}. Dopo il ripristino dal cestino, dovranno essere ripubblicate.",
     "spaceDescription": "Ripristina gli spazi eliminati negli ultimi {{retentionDays}} giorni",
     "spaceInnerDescription": "Ripristina i progetti eliminati da questo spazio negli ultimi {{retentionDays}} giorni",
     "baseDescription": "Ripristina le risorse eliminate da questo progetto negli ultimi {{retentionDays}} giorni",
@@ -1479,16 +1528,16 @@
       "notify": {
         "template": {
           "approved": {
-            "title": "Il tuo modello {{name}} è online",
-            "message": "{{name}} ha superato la revisione ed è ora pubblico come versione {{version}}.",
-            "messageWithNote": "{{name}} ha superato la revisione ed è ora pubblico come versione {{version}}. Nota del revisore: {{note}}",
-            "messageNoPayout": "{{name}} ha superato la revisione ed è ora pubblico come versione {{version}}. Non hai ancora impostato un metodo di pagamento, quindi i guadagni verranno riportati; aggiungine uno nel Centro creatori.",
-            "messageNoPayoutWithNote": "{{name}} ha superato la revisione ed è ora pubblico come versione {{version}}. Non hai ancora impostato un metodo di pagamento, quindi i guadagni verranno riportati; aggiungine uno nel Centro creatori. Nota del revisore: {{note}}"
+            "title": "Il tuo modello {{name}} è nel centro modelli",
+            "message": "{{name}} è ora nel centro modelli, con la versione {{version}}.",
+            "messageWithNote": "{{name}} è ora nel centro modelli, con la versione {{version}}. Nota del revisore: {{note}}",
+            "messageNoPayout": "{{name}} è ora nel centro modelli, con la versione {{version}}. Non hai ancora impostato un metodo di pagamento, quindi i guadagni verranno riportati; aggiungine uno nel Centro creatori.",
+            "messageNoPayoutWithNote": "{{name}} è ora nel centro modelli, con la versione {{version}}. Non hai ancora impostato un metodo di pagamento, quindi i guadagni verranno riportati; aggiungine uno nel Centro creatori. Nota del revisore: {{note}}"
           },
           "rejected": {
-            "title": "Il tuo modello {{name}} è stato rimandato indietro",
-            "message": "{{name}} non ha superato la revisione.",
-            "messageWithNote": "{{name}} non ha superato la revisione. Nota del revisore: {{note}}"
+            "title": "Il tuo modello {{name}} per ora non è nel centro modelli",
+            "message": "{{name}} per ora non è nel centro modelli. Il suo link si apre ancora e si può ancora installare e condividere.",
+            "messageWithNote": "{{name}} per ora non è nel centro modelli. Il suo link si apre ancora e si può ancora installare e condividere. Nota del revisore: {{note}}"
           }
         },
         "subject": "Notifica - {{brandName}}",
@@ -1650,6 +1699,9 @@
           },
           "failed": {
             "message": "❌ Esportazione di {{baseName}} fallita: {{errorMessage}}"
+          },
+          "cancelled": {
+            "message": "L’esportazione è stata annullata perché tutte le schede che l’avevano richiesta sono state chiuse o abbandonate. Non è stato creato alcun file da scaricare. Riapri il progetto ed esportalo di nuovo."
           }
         },
         "task": {
@@ -1690,6 +1742,8 @@
         "userDataExport": {
           "buttonText": "Scarica i miei dati",
           "failed": "Ciao {{name}},<br><br>non siamo riusciti a completare la preparazione dei tuoi dati:<br><em>{{errorMessage}}</em><br><br>Contatta l'amministratore.",
+          "incompleteTitle": "Esportazione interrotta — spazio non eliminato",
+          "incomplete": "Ciao {{name}},<br><br>L’esportazione si è interrotta perché queste tabelle non sono pronte. Non è stata eseguita alcuna eliminazione permanente; lo spazio rimane nel cestino.<br><br>{{tables}}<br><br>Queste tabelle potrebbero essere nascoste nella barra laterale. Ripristina lo spazio dal cestino, quindi esegui il backup delle tabelle pronte con l’esportazione dei dati nelle impostazioni dell’account. Controlla le tabelle omesse in SKIPPED_TABLES.txt. Invia gli ID delle basi e delle tabelle e gli stati sopra indicati all’amministratore per riparare la creazione prima di riprovare l’esportazione con eliminazione permanente. Non eliminare definitivamente senza un backup verificato.",
           "accountDeleted": {
             "title": "La tua esportazione dei dati è pronta",
             "message": "Ciao {{name}},<br><br>hai richiesto una copia dei tuoi dati prima di eliminare il tuo account Teable. È pronta.<br><br>Il link qui sotto è valido per {{expiresInDays}} giorni."
@@ -1767,26 +1821,58 @@
   "credit": {
     "title": "Credito",
     "leftAmount": "Crediti rimanenti",
-    "winFreeCredits": "Condividi esperienza",
-    "getCredits": "Ottieni 1000 crediti gratuiti",
+    "shareYourWork": "Condividi il tuo lavoro",
+    "shareYourWorkCash": "Condividi i modelli, guadagna il 30% in contanti",
+    "shareYourWorkCredits": "Condividi i modelli, ottieni 1.000 crediti gratis",
+    "shareWork": {
+      "kicker": "Condividi il tuo lavoro",
+      "hookCash": "Per gli utenti paganti portati dal tuo modello<br/>ricevi il <figure>30%</figure> in contanti!",
+      "hookCredits": "Condividi un modello due volte a settimana<br/>e ricevi <figure>500</figure> crediti ogni volta!",
+      "chip": "Le tue prime 2 condivisioni della settimana: 500 crediti ciascuna",
+      "prompt": {
+        "creditsAndCash": "Condividilo e guadagna crediti e denaro",
+        "creditsAndCashRule": "500 crediti per ciascuna delle tue prime 2 condivisioni della settimana, più il 30% in contanti dagli utenti paganti che porta",
+        "credits": "Condividilo e guadagna crediti",
+        "creditsRule": "500 crediti per ciascuna delle tue prime 2 condivisioni della settimana",
+        "cash": "Condividilo e guadagna denaro",
+        "cashRule": "Il 30% in contanti dagli utenti paganti che porta",
+        "toX": "Condividi su X",
+        "toLinkedIn": "Condividi su LinkedIn"
+      },
+      "installs_one": "{{count}} installazione",
+      "installs_many": "{{count}} installazioni",
+      "installs_other": "{{count}} installazioni",
+      "share": "Condividi",
+      "empty": {
+        "title": "Prima trasforma un progetto in modello",
+        "hint": "Puoi condividerlo appena lo pubblichi",
+        "make": "Crea modello",
+        "start": "Inizia da zero"
+      },
+      "card": {
+        "title": "Condividi {{name}}",
+        "drafting": "Bozza in corso…",
+        "again": "Un'altra versione",
+        "copy": "Copia",
+        "copied": "Copiato",
+        "postX": "Pubblica su X",
+        "postLinkedIn": "Pubblica su LinkedIn",
+        "claimHint": "Pubblicato? Incolla il link per <b>500</b> crediti"
+      },
+      "claim": {
+        "title": "Incolla il link del post per 500 crediti",
+        "hint": "Valgono i tuoi primi 2 post della settimana (X + LinkedIn)",
+        "requireLink": "Il post rimanda a {{name}}",
+        "requireFollowers": "L'account ha 10+ follower",
+        "requireRecent": "Pubblicato nelle ultime 6 ore",
+        "button": "Ricevi 500 crediti",
+        "back": "Torna alla bozza"
+      }
+    },
     "winCredit": {
-      "title": "Condividi una recensione positiva per guadagnare",
-      "freeCredits": "1000 crediti gratuiti",
-      "guidelinesTitle": "Checklist di condivisione",
-      "tagTeableio": "Tagga <bold>@teableio</bold>",
-      "minCharacters": "Scrivi una recensione di <bold>80+</bold> caratteri",
-      "minFollowers": "Avere <bold>10+</bold> follower",
-      "limitPerWeek": "500 crediti per post, fino a 2 post settimanali (X + LinkedIn)",
-      "postOnX": "Pubblica su X",
-      "postOnLinkedIn": "Pubblica su LinkedIn",
-      "preFilledDraft": "🌟 Bozza precompilata pronta per te!",
-      "claimTitle": "Incolla l'URL del post per richiedere i tuoi crediti",
-      "userEmail": "Email utente",
-      "postUrlLabel": "URL del post (X o LinkedIn)",
       "postUrlPlaceholder": "Incolla qui il link del tuo post",
       "invalidUrl": "Inserisci un URL valido di X o LinkedIn",
       "claiming": "Richiesta in corso...",
-      "claimCredits": "Richiedi crediti",
       "congratulations": "Congratulazioni!",
       "claimSuccess": "Hai richiesto 500 crediti!",
       "verifying": "Verifica del tuo post...",
@@ -1804,6 +1890,7 @@
     "minCharCount": "Il post deve avere almeno {{count}} caratteri",
     "minFollowerCount": "L'account deve avere almeno {{count}} follower",
     "mustMention": "Il post deve menzionare {{mention}}",
+    "mustLinkTemplate": "Il post deve rimandare a uno dei tuoi modelli",
     "fetchSnapshotFailed": "Impossibile recuperare lo snapshot del post",
     "snapshotTimeout": "Tempo scaduto in attesa dello snapshot del post, riprova più tardi",
     "alreadyClaimedThisWeek": "Hai già richiesto una ricompensa per questo account questa settimana",
@@ -2107,14 +2194,18 @@
       "connectIntegration": "Cuppy ha bisogno che tu colleghi un'app.",
       "pickGoogleSheet": "Cuppy ha bisogno che tu scelga un foglio.",
       "presentTemplates": "Cuppy ha trovato un modello già pronto e attende la tua decisione.",
-      "requestCredential": "Cuppy ha bisogno dell'accesso per continuare."
+      "requestCredential": "Cuppy ha bisogno dell'accesso per continuare.",
+      "presentTemplateScope": "Cuppy ha stabilito cosa porta con sé il modello e attende la tua conferma.",
+      "presentTemplateFindings": "Cuppy ha trovato contenuti che sono solo tuoi e attende che tu decida cosa sostituire."
     },
     "result": {
       "done": "Fatto.",
       "failed": "L'esecuzione non è riuscita.",
       "creditExhausted": "Interrotto: crediti AI esauriti.",
       "skippedNoCredit": "Saltato questa volta: crediti AI esauriti.",
+      "skippedNoCreditSummary": "Altre {{count}} routine sono state saltate: crediti IA esauriti.",
       "autoDeactivated": "Disattivato dopo cinque esecuzioni fallite di fila.",
+      "autoDeactivatedSummary": "Altre {{count}} routine sono state disattivate dopo cinque esecuzioni fallite di fila.",
       "summaryTitle": "Teable",
       "summary": "{{count}} conversazioni hanno novità."
     }

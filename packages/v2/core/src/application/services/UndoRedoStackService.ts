@@ -38,6 +38,8 @@ import {
   isSupportedUndoRedoCommandVersion,
   type IUndoRedoStore,
   type UndoEntry,
+  type UndoEntryInput,
+  type UndoEntryGroupInput,
   type UndoRedoArchiveTrashRow,
   type UndoRedoCommandData,
   type UndoRedoCommandLeafData,
@@ -86,27 +88,30 @@ export type RecordDeleteUndoRedoInput = {
   readonly tableId: TableId;
   readonly deletedRecords: ReadonlyArray<RecordStoredSnapshot>;
   readonly deletedRecordIds?: ReadonlyArray<string>;
-  readonly groupId?: string;
   readonly undoCommandsAfter?: ReadonlyArray<UndoRedoCommandLeafData>;
   readonly redoCommandsBefore?: ReadonlyArray<UndoRedoCommandLeafData>;
-};
+} & UndoEntryGroupInput;
 
 export type RecordArchiveUndoRedoInput = {
   readonly tableId: TableId;
   readonly archivedRecords: ReadonlyArray<RecordStoredSnapshot>;
   readonly recordIds: ReadonlyArray<string>;
   readonly archiveRows: ReadonlyArray<UndoRedoArchiveTrashRow>;
-  readonly groupId?: string;
-};
+} & UndoEntryGroupInput;
 
 export type RecordCreateUndoRedoInput = {
   readonly tableId: TableId;
   readonly createdRecords: ReadonlyArray<RecordStoredSnapshot>;
   readonly createdRecordIds?: ReadonlyArray<string>;
-  readonly groupId?: string;
   readonly undoCommandsAfter?: ReadonlyArray<UndoRedoCommandLeafData>;
   readonly redoCommandsBefore?: ReadonlyArray<UndoRedoCommandLeafData>;
-};
+} & UndoEntryGroupInput;
+
+export type UndoRedoStackEntryInput = Omit<
+  UndoEntry,
+  'scope' | 'createdAt' | 'requestId' | 'groupId'
+> &
+  UndoEntryGroupInput;
 
 export type UndoRedoStackMode = NonNullable<
   ExecutionContextPort.IExecutionContext['undoRedo']
@@ -143,19 +148,23 @@ export type UndoRedoReplayProgress = {
   readonly commandCount?: number;
 };
 
+export type UndoRedoReplayResult = {
+  readonly entryCount: number;
+};
+
 export type UndoRedoReplayOptions = {
   readonly onProgress?: (progress: UndoRedoReplayProgress) => void;
   /**
-   * Host veto over the reserved entry, called once before any of its commands
-   * execute. Returning an error aborts the reservation so the entry stays on
-   * the stack; the host uses it to refuse a replay the actor may no longer
-   * perform. Not called for an entry that already executed and only awaits
-   * its cursor commit — a veto cannot take back work that already happened.
+   * Host veto over every selected entry, loaded one at a time before any
+   * commands execute. A veto aborts without moving the cursor. Not called when
+   * every command already succeeded and only the cursor commit remains.
    */
   readonly beforeReplay?: (
     entry: UndoEntry,
     mode: UndoRedoReplayMode
   ) => Promise<Result<void, DomainError>>;
+  /** Best-effort notification, repeated for completed entries on cursor retries. */
+  readonly onEntryReplayed?: (entry: UndoEntry, mode: UndoRedoReplayMode) => Promise<void>;
 };
 
 type UndoRedoReplayProgressState = {
@@ -163,6 +172,7 @@ type UndoRedoReplayProgressState = {
   processedCount: number;
   readonly onProgress?: (progress: UndoRedoReplayProgress) => void;
   executedLeafIndex?: number;
+  leafOffset?: number;
   skipAlreadyExecuted?: boolean;
   onLeafExecuted?: (index: number) => Promise<Result<void, DomainError>>;
 };
@@ -302,7 +312,7 @@ export class UndoRedoStackService {
       }),
     };
 
-    const entry: Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'> = {
+    const entry: UndoRedoStackEntryInput = {
       undoCommand: composeUndoRedoCommands([undoCommand, ...(params.undoCommandsAfter ?? [])]),
       redoCommand: composeUndoRedoCommands([...(params.redoCommandsBefore ?? []), redoCommand]),
       recordVersionBefore: params.recordVersionBefore,
@@ -425,9 +435,13 @@ export class UndoRedoStackService {
     if (!params.deletedRecords.length) {
       return ok(undefined);
     }
+    const group: UndoEntryGroupInput =
+      params.groupId !== undefined
+        ? { groupId: params.groupId, groupPosition: params.groupPosition }
+        : {};
 
     return this.appendEntry(context, params.tableId, {
-      ...(params.groupId ? { groupId: params.groupId } : {}),
+      ...group,
       undoCommand: composeUndoRedoCommands([
         buildUndoRedoCommand('RestoreRecords', {
           tableId: params.tableId.toString(),
@@ -461,9 +475,13 @@ export class UndoRedoStackService {
     if (!params.archivedRecords.length) {
       return ok(undefined);
     }
+    const group: UndoEntryGroupInput =
+      params.groupId !== undefined
+        ? { groupId: params.groupId, groupPosition: params.groupPosition }
+        : {};
 
     return this.appendEntry(context, params.tableId, {
-      ...(params.groupId ? { groupId: params.groupId } : {}),
+      ...group,
       undoCommand: buildUndoRedoCommand('RestoreArchivedRecords', {
         tableId: params.tableId.toString(),
         records: params.archivedRecords.map((snapshot) => toUndoRedoRestoreRecord(snapshot)),
@@ -499,9 +517,13 @@ export class UndoRedoStackService {
 
     const createdRecordIds =
       params.createdRecordIds ?? params.createdRecords.map((snapshot) => snapshot.recordId);
+    const group: UndoEntryGroupInput =
+      params.groupId !== undefined
+        ? { groupId: params.groupId, groupPosition: params.groupPosition }
+        : {};
 
     return this.appendEntry(context, params.tableId, {
-      ...(params.groupId ? { groupId: params.groupId } : {}),
+      ...group,
       undoCommand: composeUndoRedoCommands([
         buildUndoRedoCommand('DeleteRecords', {
           tableId: params.tableId.toString(),
@@ -530,7 +552,7 @@ export class UndoRedoStackService {
   async appendEntry(
     context: UndoRedoStackAppendContext,
     tableId: TableId,
-    entry: Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'>
+    entry: UndoRedoStackEntryInput
   ): Promise<Result<void, DomainError>> {
     if (!shouldAppendUndoRedoEntry(context)) {
       return ok(undefined);
@@ -546,13 +568,12 @@ export class UndoRedoStackService {
       windowId: context.windowId,
     };
 
-    const entryWithScope: UndoEntry = {
+    const entryWithScope: UndoEntryInput = {
       ...entry,
       scope,
       createdAt: new Date().toISOString(),
       requestId: context.requestId,
     };
-
     const appendResult = await this.runInSpan(
       context,
       'teable.UndoRedoStackService.storeAppend',
@@ -581,7 +602,7 @@ export class UndoRedoStackService {
     tableId: TableId,
     windowId?: string,
     options?: UndoRedoReplayOptions
-  ): Promise<Result<UndoEntry | null, DomainError>> {
+  ): Promise<Result<UndoRedoReplayResult | null, DomainError>> {
     return this.applyStackEntry(context, tableId, windowId, 'undo', options);
   }
 
@@ -598,7 +619,7 @@ export class UndoRedoStackService {
     tableId: TableId,
     windowId?: string,
     options?: UndoRedoReplayOptions
-  ): Promise<Result<UndoEntry | null, DomainError>> {
+  ): Promise<Result<UndoRedoReplayResult | null, DomainError>> {
     return this.applyStackEntry(context, tableId, windowId, 'redo', options);
   }
 
@@ -608,9 +629,9 @@ export class UndoRedoStackService {
     windowId: string | undefined,
     mode: 'undo' | 'redo',
     options?: UndoRedoReplayOptions
-  ): Promise<Result<UndoEntry | null, DomainError>> {
+  ): Promise<Result<UndoRedoReplayResult | null, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    return safeTry<UndoEntry | null, DomainError>(async function* () {
+    return safeTry<UndoRedoReplayResult | null, DomainError>(async function* () {
       const scope = yield* service.resolveScope(context, tableId, windowId);
       const reserved = yield* await service.runInSpan(
         context,
@@ -630,93 +651,164 @@ export class UndoRedoStackService {
 
       if (!reserved) return ok(null);
 
-      const commandData = mode === 'undo' ? reserved.entry.undoCommand : reserved.entry.redoCommand;
-
-      if (reserved.executionStatus !== 'succeeded') {
-        if (options?.beforeReplay) {
-          const vetoResult = await options.beforeReplay(reserved.entry, mode);
-          if (vetoResult.isErr()) {
+      let committed = false;
+      try {
+        return await service.withReservationHeartbeat<UndoRedoReplayResult>(
+          scope,
+          reserved.token,
+          async (checkLease) =>
+            safeTry<UndoRedoReplayResult, DomainError>(async function* () {
+              yield* await service.undoRedoStore.renew(scope, reserved.token);
+              if (reserved.executionStatus !== 'succeeded') {
+                let totalCount = 0;
+                let processedCount = 0;
+                let preflightLeafOffset = 0;
+                // Preflight the entire group without retaining its payloads.
+                for (let index = 0; index < reserved.entryCount; index += 1) {
+                  yield* checkLease();
+                  const entry = yield* await service.undoRedoStore.readReservedEntry(
+                    scope,
+                    reserved.token,
+                    index
+                  );
+                  yield* service.validateReplayCommandData(entry.undoCommand);
+                  yield* service.validateReplayCommandData(entry.redoCommand);
+                  if (options?.beforeReplay) yield* await options.beforeReplay(entry, mode);
+                  const command = mode === 'undo' ? entry.undoCommand : entry.redoCommand;
+                  const leafCount = command.type === 'Batch' ? command.payload.length : 1;
+                  const unitCount = service.countReplayUnits(command);
+                  totalCount += unitCount;
+                  if (reserved.executedLeafIndex >= preflightLeafOffset + leafCount) {
+                    processedCount += unitCount;
+                  } else if (command.type === 'Batch') {
+                    const completed = Math.max(0, reserved.executedLeafIndex - preflightLeafOffset);
+                    for (let leaf = 0; leaf < completed; leaf += 1) {
+                      processedCount += service.countReplayUnits(command.payload[leaf]!);
+                    }
+                  }
+                  preflightLeafOffset += leafCount;
+                }
+                const progressState = service.createReplayProgressState(
+                  totalCount,
+                  processedCount,
+                  options
+                );
+                progressState.executedLeafIndex = reserved.executedLeafIndex;
+                progressState.onLeafExecuted = async (index) => {
+                  const progressed = await service.undoRedoStore.markProgress(
+                    scope,
+                    reserved.token,
+                    index
+                  );
+                  if (progressed.isErr()) return err(progressed.error);
+                  return checkLease();
+                };
+                const executeContext = service.buildReplayExecutionContext(
+                  context,
+                  mode,
+                  reserved.operationId
+                );
+                let leafOffset = 0;
+                for (let index = 0; index < reserved.entryCount; index += 1) {
+                  yield* checkLease();
+                  const entry = yield* await service.undoRedoStore.readReservedEntry(
+                    scope,
+                    reserved.token,
+                    index
+                  );
+                  yield* checkLease();
+                  const command = mode === 'undo' ? entry.undoCommand : entry.redoCommand;
+                  const leafCount = command.type === 'Batch' ? command.payload.length : 1;
+                  progressState.leafOffset = leafOffset;
+                  progressState.skipAlreadyExecuted =
+                    command.type !== 'Batch' && reserved.executedLeafIndex > leafOffset;
+                  yield* await service.executeCommandData(executeContext, command, progressState);
+                  leafOffset += leafCount;
+                  if (command.type !== 'Batch' && !progressState.skipAlreadyExecuted) {
+                    yield* await progressState.onLeafExecuted(leafOffset);
+                  }
+                  await service.notifyEntryReplayed(entry, mode, options);
+                }
+                yield* checkLease();
+                yield* await service.undoRedoStore.renew(scope, reserved.token);
+                yield* await service.undoRedoStore.markSucceeded(scope, reserved.token);
+              } else {
+                for (let index = 0; index < reserved.entryCount; index += 1) {
+                  yield* checkLease();
+                  const entry = yield* await service.undoRedoStore.readReservedEntry(
+                    scope,
+                    reserved.token,
+                    index
+                  );
+                  await service.notifyEntryReplayed(entry, mode, options);
+                }
+              }
+              let commitResult: Result<void, DomainError> | undefined;
+              for (let attempt = 0; attempt < 3; attempt += 1) {
+                yield* checkLease();
+                commitResult = await service.undoRedoStore.commit(scope, reserved.token);
+                if (commitResult.isOk()) {
+                  committed = true;
+                  return ok({ entryCount: reserved.entryCount });
+                }
+              }
+              return err(
+                commitResult?.isErr()
+                  ? commitResult.error
+                  : domainError.unexpected({ message: 'Undo/redo cursor commit failed' })
+              );
+            })
+        );
+      } catch (error) {
+        return err(domainError.unexpected({ message: describeError(error) }));
+      } finally {
+        if (!committed) {
+          try {
             await service.undoRedoStore.abort(scope, reserved.token);
-            return err(vetoResult.error);
+          } catch {
+            // Cleanup must not replace the original failure or persisted leaf progress.
           }
         }
-        yield* await service.undoRedoStore.renew(scope, reserved.token);
-        const executeContext = service.buildReplayExecutionContext(
-          context,
-          mode,
-          reserved.operationId
-        );
-        const progressState: UndoRedoReplayProgressState = service.createReplayProgressState(
-          commandData,
-          options
-        ) ?? {
-          totalCount: 0,
-          processedCount: 0,
-        };
-        progressState.executedLeafIndex = reserved.executedLeafIndex;
-        progressState.skipAlreadyExecuted =
-          commandData.type !== 'Batch' && reserved.executedLeafIndex >= 1;
-        progressState.onLeafExecuted = async (index) => {
-          await service.undoRedoStore.renew(scope, reserved.token);
-          return service.undoRedoStore.markProgress(scope, reserved.token, index);
-        };
-
-        const executeResult = await service.withReservationHeartbeat(scope, reserved.token, () =>
-          service.executeCommandData(executeContext, commandData, progressState)
-        );
-        if (executeResult.isErr()) {
-          await service.undoRedoStore.abort(scope, reserved.token);
-          return err(executeResult.error);
-        }
-        if (commandData.type !== 'Batch') {
-          const progressed = await service.undoRedoStore.markProgress(scope, reserved.token, 1);
-          if (progressed.isErr()) {
-            await service.undoRedoStore.abort(scope, reserved.token);
-            return err(progressed.error);
-          }
-        }
-
-        await service.undoRedoStore.renew(scope, reserved.token);
-        const succeeded = await service.undoRedoStore.markSucceeded(scope, reserved.token);
-        if (succeeded.isErr()) {
-          await service.undoRedoStore.abort(scope, reserved.token);
-          return err(succeeded.error);
-        }
       }
-
-      const maxCommitAttempts = 3;
-      let commitResult: Result<void, DomainError> | undefined;
-      for (let attempt = 0; attempt < maxCommitAttempts; attempt += 1) {
-        commitResult = await service.undoRedoStore.commit(scope, reserved.token);
-        if (commitResult.isOk()) {
-          break;
-        }
-      }
-      if (!commitResult || commitResult.isErr()) {
-        return err(
-          commitResult?.error ??
-            domainError.unexpected({ message: 'Undo/redo cursor commit failed' })
-        );
-      }
-
-      return ok(reserved.entry);
     });
+  }
+
+  private async notifyEntryReplayed(
+    entry: UndoEntry,
+    mode: UndoRedoReplayMode,
+    options?: UndoRedoReplayOptions
+  ): Promise<void> {
+    try {
+      await options?.onEntryReplayed?.(entry, mode);
+    } catch {
+      // Notifications cannot fail an already executed replay.
+    }
   }
 
   private async withReservationHeartbeat<T>(
     scope: UndoScope,
     token: string,
-    work: () => Promise<T>
-  ): Promise<T> {
+    work: (checkLease: () => Result<void, DomainError>) => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
     const intervalMs = this.replayConfig.reservationRenewIntervalMs ?? 2_000;
+    let heartbeatFailure: DomainError | undefined;
+    const checkLease = (): Result<void, DomainError> =>
+      heartbeatFailure ? err(heartbeatFailure) : ok(undefined);
     if (intervalMs <= 0) {
-      return work();
+      return work(checkLease);
     }
     const timer = setInterval(() => {
-      void this.undoRedoStore.renew(scope, token);
+      void this.undoRedoStore.renew(scope, token).then(
+        (result) => {
+          if (result.isErr()) heartbeatFailure = result.error;
+        },
+        (error: unknown) => {
+          heartbeatFailure = domainError.unexpected({ message: describeError(error) });
+        }
+      );
     }, intervalMs);
     try {
-      return await work();
+      return await work(checkLease);
     } finally {
       clearInterval(timer);
     }
@@ -726,87 +818,69 @@ export class UndoRedoStackService {
     commandData: UndoRedoCommandData
   ): Result<CommandBusPort.IPublicCommand, DomainError> {
     const versionResult = this.ensureSupportedCommandVersion(commandData);
-    if (versionResult.isErr()) {
-      return err(versionResult.error);
-    }
+    if (versionResult.isErr()) return err(versionResult.error);
 
     switch (commandData.type) {
-      case 'UpdateRecord': {
+      case 'UpdateRecord':
         return UpdateRecordCommand.create(commandData.payload);
-      }
-      case 'SetButtonValue': {
+      case 'SetButtonValue':
         return SetButtonValueCommand.create(commandData.payload);
-      }
-      case 'UpdateRecords': {
+      case 'UpdateRecords':
         return UpdateRecordsCommand.create(commandData.payload);
-      }
-      case 'DeleteRecords': {
+      case 'DeleteRecords':
         return DeleteRecordsCommand.create(commandData.payload);
-      }
-      case 'RestoreRecords': {
-        // requireTrashRowReason: the entry embeds full snapshots; a replay after the
-        // user emptied the recycle bin must not resurrect the purged records. Only
-        // deployments whose delete path writes trash markers enable this — see
-        // IUndoRedoReplayConfig.restorePurgeGuard.
+      case 'RestoreRecords':
         return RestoreRecordsCommand.create(
           commandData.payload,
           this.replayConfig.restorePurgeGuard
             ? { requireTrashRowReason: RECORD_REMOVAL_REASON.Deleted }
             : {}
         );
-      }
-      case 'RestoreArchivedRecords': {
-        // The kept attachment reference rows must go before the insert rebuilds them,
-        // and the restore's trash cleanup removes the archive snapshot rows.
-        // requireTrashRowReason: same purge guard as RestoreRecords, against the
-        // archived snapshot rows (permanently deleted archive items stay deleted).
+      case 'RestoreArchivedRecords':
         return RestoreRecordsCommand.create(commandData.payload, {
           cleanupAttachmentRefs: true,
           requireTrashRowReason: RECORD_REMOVAL_REASON.Archived,
         });
-      }
-      case 'ArchiveRecords': {
-        // Redo carries the rows the undo removed so the handler re-persists them
-        // instead of rebuilding snapshots from the current row values.
+      case 'ArchiveRecords':
         return ArchiveRecordsCommand.create(
           { tableId: commandData.payload.tableId, recordIds: commandData.payload.recordIds },
           { archiveRows: commandData.payload.archiveRows }
         );
-      }
-      case 'ApplyRecordOrders': {
+      case 'ApplyRecordOrders':
         return ApplyRecordOrdersCommand.create(commandData.payload);
-      }
-      case 'DeleteField': {
+      case 'DeleteField':
         return DeleteFieldCommand.create(commandData.payload);
-      }
-      case 'ApplyFieldSnapshot': {
+      case 'ApplyFieldSnapshot':
         return ApplyFieldSnapshotCommand.create(commandData.payload);
-      }
-      case 'ReplayFieldTypeConversion': {
+      case 'ReplayFieldTypeConversion':
         return ReplayFieldTypeConversionCommand.create(commandData.payload);
-      }
-      case 'ApplyViewSnapshot': {
+      case 'ApplyViewSnapshot':
         return ApplyViewSnapshotCommand.create(commandData.payload);
-      }
-      case 'DeleteView': {
+      case 'DeleteView':
         return DeleteViewCommand.create(commandData.payload);
-      }
-      case 'EnableViewShare': {
+      case 'EnableViewShare':
         return EnableViewShareCommand.create(commandData.payload);
-      }
-      case 'DisableViewShare': {
+      case 'DisableViewShare':
         return DisableViewShareCommand.create(commandData.payload);
-      }
-      case 'Batch': {
+      case 'Batch':
         return err(domainError.validation({ message: 'Batch undo/redo command must be expanded' }));
-      }
       default:
-        return err(
-          domainError.validation({
-            message: 'Unsupported undo/redo command type',
-          })
-        );
+        return err(domainError.validation({ message: 'Unsupported undo/redo command type' }));
     }
+  }
+
+  private validateReplayCommandData(commandData: UndoRedoCommandData): Result<void, DomainError> {
+    const versionResult = this.ensureSupportedCommandVersion(commandData);
+    if (versionResult.isErr()) return err(versionResult.error);
+    if (commandData.type === 'Batch') {
+      for (const leaf of commandData.payload) {
+        const result = this.createCommand(leaf);
+        if (result.isErr()) return err(result.error);
+      }
+      return ok(undefined);
+    }
+    const result = this.createCommand(commandData);
+    return result.isErr() ? err(result.error) : ok(undefined);
   }
 
   private async executeCommandData(
@@ -855,13 +929,14 @@ export class UndoRedoStackService {
     progressState?: UndoRedoReplayProgressState
   ): Promise<Result<void, DomainError>> {
     let pendingUpdates: UndoRedoUpdateCommandData[] = [];
-    const startIndex = progressState?.executedLeafIndex ?? 0;
+    const leafOffset = progressState?.leafOffset ?? 0;
+    const startIndex = Math.max(0, (progressState?.executedLeafIndex ?? 0) - leafOffset);
 
     const markLeaf = async (index: number): Promise<Result<void, DomainError>> => {
       if (!progressState?.onLeafExecuted) {
         return ok(undefined);
       }
-      return progressState.onLeafExecuted(index);
+      return progressState.onLeafExecuted(leafOffset + index);
     };
 
     const flushPendingUpdates = async (nextIndex: number): Promise<Result<void, DomainError>> => {
@@ -943,22 +1018,16 @@ export class UndoRedoStackService {
   }
 
   private createReplayProgressState(
-    commandData: UndoRedoCommandData,
+    totalCount: number,
+    processedCount: number,
     options?: UndoRedoReplayOptions
-  ): UndoRedoReplayProgressState | undefined {
-    if (!options?.onProgress) {
-      return undefined;
-    }
+  ): UndoRedoReplayProgressState {
     const state: UndoRedoReplayProgressState = {
-      totalCount: this.countReplayUnits(commandData),
-      processedCount: 0,
-      onProgress: options.onProgress,
+      totalCount,
+      processedCount,
+      onProgress: options?.onProgress,
     };
-    options.onProgress({
-      phase: 'preparing',
-      totalCount: state.totalCount,
-      processedCount: 0,
-    });
+    options?.onProgress?.({ phase: 'preparing', totalCount, processedCount });
     return state;
   }
 
@@ -984,24 +1053,21 @@ export class UndoRedoStackService {
   }
 
   private countReplayUnits(commandData: UndoRedoCommandData): number {
+    if (commandData.type === 'Batch') {
+      return commandData.payload.reduce(
+        (total, command) => total + this.countReplayUnits(command),
+        0
+      );
+    }
     switch (commandData.type) {
-      case 'Batch':
-        return commandData.payload.reduce(
-          (total, command) => total + this.countReplayUnits(command),
-          0
-        );
       case 'UpdateRecords':
-        return commandData.payload.records.length;
-      case 'DeleteRecords':
-        return commandData.payload.recordIds.length;
       case 'RestoreRecords':
-        return commandData.payload.records.length;
-      case 'ArchiveRecords':
-        return commandData.payload.recordIds.length;
       case 'RestoreArchivedRecords':
-        return commandData.payload.records.length;
       case 'ApplyRecordOrders':
         return commandData.payload.records.length;
+      case 'DeleteRecords':
+      case 'ArchiveRecords':
+        return commandData.payload.recordIds.length;
       default:
         return 1;
     }
@@ -1155,7 +1221,7 @@ export class UndoRedoStackService {
 
     return err(
       domainError.validation({
-        message: `Unsupported undo/redo command version for ${commandData.type}: ${commandData.version}, expected ${undoRedoCommandVersions[commandData.type]}`,
+        message: `Unsupported undo/redo command version for ${commandData?.type}: ${commandData?.version}, expected ${undoRedoCommandVersions[commandData?.type]}`,
         localization: { i18nKey: 'httpErrors.undoRedo.unsupportedCommandVersion' },
       })
     );

@@ -10,6 +10,7 @@ import type {
   IPluginViewOptions,
 } from '@teable/core';
 import {
+  attachmentCellValueSchema,
   Colors,
   FieldKeyType,
   FieldType,
@@ -32,6 +33,7 @@ import type {
 } from '@teable/openapi';
 import {
   createField,
+  uploadAttachment,
   getFields,
   installViewPlugin,
   exportBase,
@@ -1385,6 +1387,21 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
           },
         })
       ).data;
+      const attachmentField = (
+        await createField(projectsTable.id, {
+          name: 'Roundtrip attachment',
+          type: FieldType.Attachment,
+        })
+      ).data;
+      const notesField = (
+        await createField(projectsTable.id, {
+          name: 'Roundtrip notes',
+          type: FieldType.LongText,
+        })
+      ).data;
+      const projectNotes = 'line one, "quoted"\n第二行';
+      const attachmentContent = Buffer.from('synthetic attachment, "quoted"\n第二行\n');
+      const projectName = 'Apollo, "quoted"';
 
       const projectRecord = (
         await createRecords(projectsTable.id, {
@@ -1392,13 +1409,21 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
           records: [
             {
               fields: {
-                [projectNameField.id]: 'Apollo',
+                [projectNameField.id]: projectName,
                 [budgetField.id]: 21,
+                [notesField.id]: projectNotes,
               },
             },
           ],
         })
       ).records[0];
+      await uploadAttachment(
+        projectsTable.id,
+        projectRecord.id,
+        attachmentField.id,
+        attachmentContent,
+        { filename: 'roundtrip-fixture.txt' }
+      );
       await createRecords(tasksTable.id, {
         fieldKeyType: FieldKeyType.Id,
         records: [{ fields: { [projectLinkField.id]: [{ id: projectRecord.id }] } }],
@@ -1476,6 +1501,23 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         importedDoubledBudget.id,
         42
       );
+      const importedPrimaryField = importedProjectFields.find(({ isPrimary }) => isPrimary)!;
+      expect(importedProjectRecord?.fields[importedPrimaryField.id]).toBe(projectName);
+      const importedNotes = importedProjectFields.find(({ name }) => name === notesField.name)!;
+      expect(importedProjectRecord?.fields[importedNotes.id]).toBe(projectNotes);
+      const importedAttachmentField = importedProjectFields.find(
+        ({ name }) => name === attachmentField.name
+      )!;
+      const importedAttachment = attachmentCellValueSchema.parse(
+        importedProjectRecord?.fields[importedAttachmentField.id]
+      )[0]!;
+      expect(importedAttachment.name).toBe('roundtrip-fixture.txt');
+      expect(importedAttachment.presignedUrl).toEqual(expect.any(String));
+      const attachmentResponse = await fetch(new URL(importedAttachment.presignedUrl!, appUrl), {
+        headers: { Cookie: cookie },
+      });
+      expect(attachmentResponse.ok).toBe(true);
+      expect(await attachmentResponse.text()).toBe(attachmentContent.toString('utf8'));
       const importedTaskRecords = await getRecords(importedTasks.id, {
         fieldKeyType: FieldKeyType.Name,
       });

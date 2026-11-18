@@ -54,6 +54,7 @@ describe('v2 http importRecords (e2e)', () => {
       });
 
       expect(result.totalImported).toBe(2);
+      expect(result.diagnostics).toBeUndefined();
 
       // Verify records
       const records = await ctx.listRecords(table.id);
@@ -109,6 +110,56 @@ describe('v2 http importRecords (e2e)', () => {
   });
 
   describe('date field typecast', () => {
+    it.each([false, true])('reports invalid dates and preserves later batches with required=%s', async (required) => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId, name: `Import bad dates required ${required}`,
+        fields: [
+          { type: 'singleLineText', name: 'Event' },
+          { type: 'date', name: 'Date', notNull: required },
+        ],
+      });
+      const eventFieldId = table.fields.find((field) => field.name === 'Event')!.id;
+      const dateFieldId = table.fields.find((field) => field.name === 'Date')!.id;
+      const rows = Array.from({ length: 605 }, (_, index) =>
+        `event ${index},${index < 104 || index === 500 ? '+010000-01-01T00:00:00.000Z' : '2025-04-01'}`
+      );
+      const result = await ctx.importRecords({
+        tableId: table.id, fileType: 'csv',
+        sourceColumnMap: { [eventFieldId]: 0, [dateFieldId]: 1 },
+        csvData: ['Event,Date', ...rows].join('\n'),
+        options: { typecast: true, batchSize: 500 },
+      });
+
+      expect(result.totalImported).toBe(required ? 500 : 605);
+      expect(result.diagnostics).toMatchObject({ invalidDateCells: 105, skippedRows: required ? 105 : 0 });
+      expect(result.diagnostics!.samples).toHaveLength(100);
+      expect(result.diagnostics!.samples[0]).toMatchObject({ rowNumber: 2, fieldId: dateFieldId, reason: 'invalidDate' });
+      expect(JSON.stringify(result.diagnostics)).not.toContain('+010000');
+      const records = await ctx.listRecords(table.id, { limit: 1000 });
+      expect(records).toHaveLength(result.totalImported);
+      expect(records.find((record) => record.fields[eventFieldId] === 'event 604')!.fields[dateFieldId]).toBe('2025-04-01T00:00:00.000Z');
+      const first = records.find((record) => record.fields[eventFieldId] === 'event 0');
+      if (required) expect(first).toBeUndefined();
+      else expect(first!.fields[dateFieldId] ?? null).toBeNull();
+    });
+
+    it('reports original record numbers across blank and quoted multiline CSV records', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId, name: 'Import source date positions',
+        fields: [{ type: 'singleLineText', name: 'Event' }, { type: 'date', name: 'Date' }],
+      });
+      const eventFieldId = table.fields.find((field) => field.name === 'Event')!.id;
+      const dateFieldId = table.fields.find((field) => field.name === 'Date')!.id;
+      const result = await ctx.importRecords({
+        tableId: table.id, fileType: 'csv',
+        sourceColumnMap: { [eventFieldId]: 0, [dateFieldId]: 1 },
+        csvData: 'Event,Date\n\n"two\nlines",+010000-01-01T00:00:00.000Z\ntail,2025-04-01',
+        options: { typecast: true },
+      });
+      expect(result.totalImported).toBe(2);
+      expect(result.diagnostics!.samples[0]).toMatchObject({ rowNumber: 3, reason: 'invalidDate' });
+    });
+
     it('should typecast date strings to proper date values', async () => {
       const table = await ctx.createTable({
         baseId: ctx.baseId,

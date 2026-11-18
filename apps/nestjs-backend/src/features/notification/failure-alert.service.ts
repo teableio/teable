@@ -4,6 +4,7 @@ import { CacheService } from '../../cache/cache.service';
 import type { ICacheStore } from '../../cache/types';
 import type { I18nPath } from '../../types/i18n.generated';
 import { second } from '../../utils/second';
+import { MailMergeGroup } from '../mail-sender/mail-helpers';
 import { isFailureStreakSummary, shouldSendFailureNotification } from './failure-alert-backoff';
 import { NotificationService } from './notification.service';
 
@@ -64,7 +65,8 @@ export class FailureAlertService {
       toUserId,
       message: title,
       severity,
-      emailConfig: { title, message },
+      // Alerts from every resource a user owns share one hourly mail window.
+      emailConfig: { title, message, mergeGroup: MailMergeGroup.FailureAlert },
     });
   }
 }

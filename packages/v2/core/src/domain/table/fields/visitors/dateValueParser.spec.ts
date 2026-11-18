@@ -96,8 +96,35 @@ describe('parseDateValue', () => {
   });
 
   it.each([
+    '20026-04-20',
+    '21020-11-11',
+    '46332',
+    '+020026-04-20T00:00:00.000Z',
+    '0000-01-01T00:00:00.000Z',
+    '-000001-01-01T00:00:00.000Z',
+    '9999-12-31T23:59:59.999-01:00',
+    '0001-01-01T00:00:00.000+01:00',
+    new Date('+020026-04-20T00:00:00.000Z'),
+    new Date('0000-01-01T00:00:00.000Z'),
+    new Date('+020026-04-20T00:00:00.000Z').getTime(),
+    new Date('0000-01-01T00:00:00.000Z').getTime(),
+    new Date(NaN),
+    NaN,
+  ])('rejects dates outside the supported AD year range: %s', (input) => {
+    expect(parseDateValue(createDateField('utc'), input)).toBeUndefined();
+  });
+
+  it('rejects an otherwise valid local date when its timezone overflows the supported year', () => {
+    expect(
+      parseDateValue(createDateField('America/New_York'), '9999-12-31T23:59:59.999')
+    ).toBeUndefined();
+  });
+
+  it.each([
     ['2024-02-29', '2024-02-29T00:00:00.000Z'],
     ['2026-12-31 23:59:59', '2026-12-31T23:59:59.000Z'],
+    ['0001-01-01T00:00:00.000Z', '0001-01-01T00:00:00.000Z'],
+    ['9999-12-31T23:59:59.999Z', '9999-12-31T23:59:59.999Z'],
   ])('accepts valid calendar boundary %s', (input, expected) => {
     expect(parseDateValue(createDateField('utc'), input)).toBe(expected);
   });

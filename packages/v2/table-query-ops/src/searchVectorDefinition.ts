@@ -2,6 +2,8 @@ import {
   domainError,
   SearchDocumentFieldContributionVisitor,
   searchFieldTextProjectionKey,
+  isSearchFieldTextProjection,
+  resolveSearchFieldTextShape,
   type DomainError,
   type SearchDocumentFieldContribution,
   type SearchFieldTextProjection,
@@ -27,6 +29,7 @@ export type TableSearchAccessPathDefinition = {
   readonly indexKind: 'gin_trgm' | 'gin_bigm' | 'gin_tsvector' | 'none';
   readonly definitionKey: string;
   readonly fields: readonly TableSearchDocumentFieldDefinition[];
+  readonly residualFields: readonly TableSearchDocumentFieldDefinition[];
   readonly skippedFields: readonly SearchDocumentFieldContribution[];
 };
 
@@ -161,7 +164,18 @@ export const resolveTableSearchDocumentCoverage = (
   const collected = collectSearchDocumentFields(table, undefined);
   if (collected.isErr()) return err(collected.error);
 
-  const searchableFieldIds = collected.value.fields.map((field) => field.fieldId);
+  const residualIds = collected.value.skippedFields
+    .filter((field) => field.skippedReason === 'generated_column_dependency')
+    .flatMap((saved) => {
+      const field = table.getFields().find((field) => field.id().toString() === saved.fieldId);
+      if (!field) return [];
+      const shape = resolveSearchFieldTextShape(field);
+      return shape.isOk() && isSearchFieldTextProjection(shape.value) ? [saved.fieldId] : [];
+    });
+  const searchableFieldIds = [
+    ...collected.value.fields.map((field) => field.fieldId),
+    ...residualIds,
+  ];
   const covered = new Set(coveredFieldIds);
   return ok({
     searchableFieldIds,
@@ -191,6 +205,29 @@ export const buildTableSearchAccessPathDefinition = (
     : fields;
 
   const tableId = table.id().toString();
+  const residualFields: TableSearchDocumentFieldDefinition[] = [];
+  if (semantics === 'substring') {
+    const candidates = new Set([
+      ...unusableFields.map((field) => field.fieldId),
+      ...skippedFields
+        .filter((field) => field.skippedReason === 'generated_column_dependency')
+        .map((field) => field.fieldId),
+    ]);
+    for (const field of table.getFields()) {
+      if (!candidates.has(field.id().toString())) continue;
+      const shape = resolveSearchFieldTextShape(field);
+      const name = field.dbFieldName().andThen((value) => value.value());
+      if (shape.isErr()) return err(shape.error);
+      if (name.isErr() || !isSearchFieldTextProjection(shape.value)) continue;
+      residualFields.push({
+        fieldId: field.id().toString(),
+        fieldType: field.type().toString(),
+        fieldDbName: name.value,
+        textProjection: shape.value,
+        included: true,
+      });
+    }
+  }
   return ok({
     tableId,
     baseId: table.baseId().toString(),
@@ -199,23 +236,31 @@ export const buildTableSearchAccessPathDefinition = (
     ...(semantics === 'lexical' ? { languageConfig } : {}),
     scope: selectedIds ? 'selected_fields' : 'all_fields',
     accessPath:
-      usableFields.length > 0
+      usableFields.length + residualFields.length > 0
         ? semantics === 'substring'
           ? 'generated_text'
           : 'generated_tsvector'
         : 'none',
-    indexKind: resolveIndexKind(provider, usableFields.length > 0),
-    definitionKey: buildDefinitionKey(tableId, resolvedOptions.value, usableFields),
+    indexKind: resolveIndexKind(provider, usableFields.length + residualFields.length > 0),
+    definitionKey: buildDefinitionKey(tableId, resolvedOptions.value, [
+      ...usableFields,
+      ...residualFields,
+    ]),
     fields: usableFields,
+    residualFields,
     skippedFields: [
-      ...skippedFields,
-      ...unusableFields.map((field) => ({
-        fieldId: field.fieldId,
-        fieldType: field.fieldType,
-        ...(field.valueType ? { valueType: field.valueType } : {}),
-        included: false as const,
-        skippedReason: 'generated_column_dependency' as const,
-      })),
+      ...skippedFields.filter(
+        (field) => !residualFields.some((residual) => residual.fieldId === field.fieldId)
+      ),
+      ...unusableFields
+        .filter((field) => !residualFields.some((residual) => residual.fieldId === field.fieldId))
+        .map((field) => ({
+          fieldId: field.fieldId,
+          fieldType: field.fieldType,
+          ...(field.valueType ? { valueType: field.valueType } : {}),
+          included: false as const,
+          skippedReason: 'generated_column_dependency' as const,
+        })),
     ],
   });
 };

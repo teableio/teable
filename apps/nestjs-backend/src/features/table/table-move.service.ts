@@ -26,6 +26,15 @@ type IMovedTable = {
 };
 
 type IRenamedRelation = { oldName: string; newName: string };
+type IAssociatedRelation = IRenamedRelation & { kind: 'INDEX' | 'SEQUENCE' };
+
+type IPhysicalRelation = {
+  schema: string;
+  name: string;
+  kind: string;
+  ownerSchema: string | null;
+  ownerName: string | null;
+};
 
 /**
  * Everything a same-space, same-data-database table move needs, computed up
@@ -37,6 +46,8 @@ export type ITableMovePlan = {
   tables: IMovedTable[];
   /** junction tables hosted by link fields on the moved tables */
   junctions: IRenamedRelation[];
+  /** Indexes and owned sequences whose basenames must change before SET SCHEMA. */
+  associatedRelations: IAssociatedRelation[];
   sourceReadonlyRole?: string;
   targetReadonlyRole?: string;
 };
@@ -61,17 +72,20 @@ const COMPUTED_STATUS_PENDING = ['pending', 'processing'];
 /**
  * Moves tables between two projects of the same space.
  *
- * Physical tables live in a per-project Postgres schema (`${baseId}.${name}`),
- * so a move is `ALTER TABLE ... SET SCHEMA` plus a rewrite of every persisted
- * string that embeds the old schema-qualified name (link/lookup
- * `fkHostTableName`, the undo log) and of every `base_id` column that scopes
- * per-table runtime state on the data database (computed outbox, query
- * observation). Link semantics follow `prepareLinkField`: `options.baseId` is
- * present exactly when the two ends live in different projects.
+ * Physical tables live in a per-project Postgres schema (`${baseId}.${name}`).
+ * A move preserves basenames when free, otherwise reserves names against both
+ * projects' physical namespaces, including indexes and owned sequences that
+ * Postgres moves implicitly. The same plan drives the DDL and every persisted
+ * reference to the qualified table name (link/lookup `fkHostTableName`, the undo
+ * log), plus per-table runtime state on the data database. Link semantics follow
+ * `prepareLinkField`: `options.baseId` is present exactly when the two ends live
+ * in different projects.
  *
- * The physical phase runs first in its own data-database transaction, the
- * metadata phase inside the caller's transaction; on a metadata failure the
- * caller rolls the physical phase back (same shape as `updateDbTableName`).
+ * The caller stages metadata first and runs the physical phase last. Shared
+ * data/metadata transactions roll back together. A separate data database
+ * commits independently; a propagated metadata commit failure triggers a
+ * best-effort inverse physical move. This is not a distributed transaction:
+ * an uncertain commit outcome or failed compensation still needs recovery.
  */
 @Injectable()
 // Untraced guard: countPendingComputedTasks — Reads the v2 computed outbox, not legacy execution.
@@ -226,16 +240,55 @@ export class TableMoveService {
       where: { id: { in: tableIds }, baseId: sourceBaseId, deletedTime: null },
       select: { id: true, name: true, version: true, dbTableName: true },
     });
+    const existingRelations = rows.length
+      ? await this.databaseRouter.queryDataPrismaForBase<IPhysicalRelation[]>(
+          sourceBaseId,
+          `select n.nspname as "schema", c.relname as "name", c.relkind::text as "kind",
+                  owner_namespace.nspname as "ownerSchema", owner_table.relname as "ownerName"
+           from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           left join pg_index i on i.indexrelid = c.oid
+           left join pg_depend d on c.relkind = 'S' and d.classid = 'pg_class'::regclass
+             and d.objid = c.oid and d.refclassid = 'pg_class'::regclass
+             and d.refobjsubid > 0 and d.deptype in ('a', 'i')
+           left join pg_class owner_table on owner_table.oid = coalesce(i.indrelid, d.refobjid)
+           left join pg_namespace owner_namespace on owner_namespace.oid = owner_table.relnamespace
+           where n.nspname = any($1::text[])`,
+          [sourceBaseId, targetBaseId]
+        )
+      : [];
+    // Tables, indexes and sequences share a namespace. Reserve in the source
+    // too, since a collision is renamed there before it can enter the target.
+    const unavailableNames = new Set(existingRelations.map((relation) => relation.name));
+    const targetNames = new Set(
+      existingRelations
+        .filter((relation) => relation.schema === targetBaseId)
+        .map((relation) => relation.name)
+    );
+    const reserveName = (name: string, fallback: string) => {
+      let reserved = name;
+      if (targetNames.has(reserved)) {
+        reserved = fallback;
+        let suffix = 0;
+        while (unavailableNames.has(reserved)) reserved = `${fallback}_${++suffix}`;
+      }
+      unavailableNames.add(reserved);
+      targetNames.add(reserved);
+      return reserved;
+    };
     const tables: IMovedTable[] = rows.map((row) => {
       const [, tableName] = this.dbProvider.splitTableName(row.dbTableName);
+      const newTableName = reserveName(tableName, row.id);
       return {
         id: row.id,
         name: row.name,
         version: row.version,
         oldDbTableName: row.dbTableName,
-        newDbTableName: this.dbProvider.joinDbTableName(targetBaseId, tableName),
+        newDbTableName: this.dbProvider.joinDbTableName(targetBaseId, newTableName),
       };
     });
+    const ownerIds = new Map(
+      tables.map((table) => [this.dbProvider.splitTableName(table.oldDbTableName)[1], table.id])
+    );
 
     // A junction is hosted by the field that created it (`junction_${fieldId}...`),
     // so it follows that field's table.
@@ -255,11 +308,25 @@ export class TableMoveService {
       if (!host) continue;
       const [schema, name] = this.dbProvider.splitTableName(host);
       if (schema !== sourceBaseId || !name.startsWith(`junction_${field.id}`)) continue;
+      ownerIds.set(name, field.id);
       junctionMap.set(host, {
         oldName: host,
-        newName: this.dbProvider.joinDbTableName(targetBaseId, name),
+        newName: this.dbProvider.joinDbTableName(
+          targetBaseId,
+          reserveName(name, `junction_${field.id}`)
+        ),
       });
     }
+
+    const associatedRelations = this.planAssociatedRelations(
+      sourceBaseId,
+      targetBaseId,
+      existingRelations,
+      ownerIds,
+      targetNames,
+      unavailableNames,
+      reserveName
+    );
 
     const bases = await prisma.base.findMany({
       where: { id: { in: [sourceBaseId, targetBaseId] } },
@@ -273,9 +340,50 @@ export class TableMoveService {
       targetBaseId,
       tables,
       junctions: [...junctionMap.values()],
+      associatedRelations,
       sourceReadonlyRole: roleFor(sourceBaseId),
       targetReadonlyRole: roleFor(targetBaseId),
     };
+  }
+
+  private planAssociatedRelations(
+    sourceBaseId: string,
+    targetBaseId: string,
+    relations: readonly IPhysicalRelation[],
+    ownerIds: ReadonlyMap<string, string>,
+    targetNames: ReadonlySet<string>,
+    unavailableNames: ReadonlySet<string>,
+    reserveName: (name: string, fallback: string) => string
+  ): IAssociatedRelation[] {
+    const associatedRelations: IAssociatedRelation[] = [];
+    const indexBuilder = this.dbProvider.searchIndex();
+    for (const relation of relations) {
+      if (
+        relation.schema !== sourceBaseId ||
+        relation.ownerSchema !== sourceBaseId ||
+        !relation.ownerName
+      ) {
+        continue;
+      }
+      const ownerId = ownerIds.get(relation.ownerName);
+      if (!ownerId) continue;
+      const kind = relation.kind === 'S' ? 'SEQUENCE' : 'INDEX';
+      const queryIndexId =
+        kind === 'INDEX' && targetNames.has(relation.name)
+          ? indexBuilder.getQueryIndexId(relation.name)
+          : undefined;
+      const fallback = queryIndexId
+        ? indexBuilder.getQueryIndexName(ownerId, queryIndexId, unavailableNames)
+        : `${ownerId}_${kind.toLowerCase()}`;
+      const name = reserveName(relation.name, fallback);
+      if (name === relation.name) continue;
+      associatedRelations.push({
+        kind,
+        oldName: this.dbProvider.joinDbTableName(sourceBaseId, relation.name),
+        newName: this.dbProvider.joinDbTableName(targetBaseId, name),
+      });
+    }
+    return associatedRelations;
   }
 
   // ---------------------------------------------------------------------------
@@ -289,12 +397,87 @@ export class TableMoveService {
   /** Best effort: logs instead of throwing so the original error surfaces. */
   async rollbackPhysicalMove(plan: ITableMovePlan): Promise<void> {
     try {
+      // The default route participated in the metadata transaction and already
+      // rolled back with it. Only an independently committed data phase needs
+      // inverse DDL after the metadata commit fails.
+      if (await this.databaseRouter.isMetaFallbackForBase(plan.sourceBaseId)) return;
       await this.runPhysical(plan, 'backward');
     } catch (error) {
       this.logger.error(
-        `[move-node] failed to roll back physical table move ${plan.sourceBaseId} -> ${
-          plan.targetBaseId
-        }: ${error instanceof Error ? error.message : String(error)}`
+        {
+          message: '[move-node] failed to roll back physical table move',
+          error: error instanceof Error ? error.message : String(error),
+          sourceBaseId: plan.sourceBaseId,
+          targetBaseId: plan.targetBaseId,
+          tables: plan.tables.map(({ id, oldDbTableName, newDbTableName }) => ({
+            id,
+            oldDbTableName,
+            newDbTableName,
+          })),
+          junctions: plan.junctions,
+          associatedRelations: plan.associatedRelations,
+          sourceReadonlyRole: plan.sourceReadonlyRole,
+          targetReadonlyRole: plan.targetReadonlyRole,
+        },
+        error instanceof Error ? error.stack : undefined
+      );
+    }
+  }
+
+  private async movePhysicalRelation(
+    prisma: IDataPrismaQueryExecutor,
+    { oldName, newName }: IRenamedRelation,
+    direction: 'forward' | 'backward'
+  ): Promise<void> {
+    const [oldSchema, oldBasename] = this.dbProvider.splitTableName(oldName);
+    const [newSchema, newBasename] = this.dbProvider.splitTableName(newName);
+    if (oldBasename === newBasename) {
+      await prisma.$executeRawUnsafe(this.dbProvider.setTableSchema(oldName, newName));
+      return;
+    }
+    if (direction === 'forward') {
+      await prisma.$executeRawUnsafe(
+        this.knex
+          .raw('ALTER TABLE ??.?? RENAME TO ??', [oldSchema, oldBasename, newBasename])
+          .toQuery()
+      );
+      await prisma.$executeRawUnsafe(
+        this.dbProvider.setTableSchema(
+          this.dbProvider.joinDbTableName(oldSchema, newBasename),
+          newName
+        )
+      );
+    } else {
+      // The target still owns the conflicting basename: leave its schema
+      // before restoring the source table's original name.
+      await prisma.$executeRawUnsafe(
+        this.dbProvider.setTableSchema(
+          oldName,
+          this.dbProvider.joinDbTableName(newSchema, oldBasename)
+        )
+      );
+      await prisma.$executeRawUnsafe(
+        this.knex
+          .raw('ALTER TABLE ??.?? RENAME TO ??', [newSchema, oldBasename, newBasename])
+          .toQuery()
+      );
+    }
+  }
+
+  private async renameAssociatedRelations(
+    prisma: IDataPrismaQueryExecutor,
+    relations: IAssociatedRelation[],
+    direction: 'forward' | 'backward'
+  ): Promise<void> {
+    // Forward renames precede SET SCHEMA; compensation restores names only
+    // after their owning tables have returned to the source schema.
+    for (const { oldName, newName, kind } of relations) {
+      const [schema, oldBasename] = this.dbProvider.splitTableName(oldName);
+      const [, newBasename] = this.dbProvider.splitTableName(newName);
+      const [from, to] =
+        direction === 'forward' ? [oldBasename, newBasename] : [newBasename, oldBasename];
+      await prisma.$executeRawUnsafe(
+        this.knex.raw(`ALTER ${kind} ??.?? RENAME TO ??`, [schema, from, to]).toQuery()
       );
     }
   }
@@ -314,8 +497,14 @@ export class TableMoveService {
     await this.databaseRouter.dataPrismaTransactionForBase(
       plan.sourceBaseId,
       async (prisma) => {
-        for (const { oldName, newName } of relations) {
-          await prisma.$executeRawUnsafe(this.dbProvider.setTableSchema(oldName, newName));
+        if (direction === 'forward') {
+          await this.renameAssociatedRelations(prisma, plan.associatedRelations, direction);
+        }
+        for (const relation of relations) {
+          await this.movePhysicalRelation(prisma, relation, direction);
+        }
+        if (direction === 'backward') {
+          await this.renameAssociatedRelations(prisma, plan.associatedRelations, direction);
         }
 
         const roleExists = async (role: string) => {

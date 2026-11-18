@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { PassThrough } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
 import { FieldType } from '@teable/core';
 import type { IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
@@ -71,81 +73,7 @@ describe('BaseImportCsvQueueProcessor', () => {
     expect(recomputeForTables).toHaveBeenCalledWith(['tblTarget']);
   });
 
-  it('isolates concurrent CSV chunk transaction slots while inheriting job attribution', async () => {
-    const cls = new ClsService(new AsyncLocalStorage());
-    const processor = Object.create(BaseImportCsvQueueProcessor.prototype) as {
-      handleBaseImportCsvInScope: (job: { data: Record<string, unknown> }) => Promise<void>;
-      handleChunk: ReturnType<typeof vi.fn>;
-      cls: ClsService;
-      storageAdapter: { downloadFile: ReturnType<typeof vi.fn> };
-      persistedComputedBackfillService: { recomputeForTables: ReturnType<typeof vi.fn> };
-      logger: { log: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
-    };
-    const { promise: bothChunksEntered, resolve: releaseChunks } = Promise.withResolvers<void>();
-    const contexts: object[] = [];
-    let enteredChunks = 0;
-    processor.cls = cls;
-    processor.storageAdapter = {
-      downloadFile: vi.fn().mockResolvedValue(
-        createCsvZipStream({
-          'tables/tblFirst.csv': '__id,Name\nrecFirst,Alpha',
-          'tables/tblSecond.csv': '__id,Name\nrecSecond,Beta',
-        })
-      ),
-    };
-    processor.handleChunk = vi.fn(async (chunk: Record<string, string>[]) => {
-      const initialDataTxId = cls.get('dataTx.id');
-      contexts.push(cls.get('dataTx'));
-      enteredChunks += 1;
-      if (enteredChunks === 2) releaseChunks();
-      expect(initialDataTxId).toBeUndefined();
-      expect(cls.get('user.id')).toBe('usrImport');
-      expect(cls.get('audit.operationId')).toBe('operationImport');
-      expect(cls.get('origin.byApi')).toBe(true);
-      const chunkId = chunk[0]!.__id;
-      cls.set('dataTx.id', chunkId);
-      cls.set('tx.id', chunkId);
-      await bothChunksEntered;
-      expect(cls.get('dataTx.id')).toBe(chunkId);
-      expect(cls.get('tx.id')).toBe(chunkId);
-    });
-    processor.persistedComputedBackfillService = { recomputeForTables: vi.fn() };
-    processor.logger = { log: vi.fn(), error: vi.fn() };
-
-    await cls.runWith(
-      {
-        user: { id: 'usrImport' },
-        audit: { operationId: 'operationImport' },
-        origin: { byApi: true },
-        tx: {},
-        dataTx: {},
-      },
-      () =>
-        processor.handleBaseImportCsvInScope({
-          data: {
-            path: 'import.zip',
-            userId: 'usrImport',
-            baseId: 'bseImport',
-            tableIdMap: { tblFirst: 'tblTargetFirst', tblSecond: 'tblTargetSecond' },
-            fieldIdMap: {},
-            viewIdMap: {},
-            fkMap: {},
-            structure: {
-              tables: [
-                { id: 'tblFirst', fields: [] },
-                { id: 'tblSecond', fields: [] },
-              ],
-            },
-          },
-        })
-    );
-
-    expect(processor.handleChunk).toHaveBeenCalledTimes(2);
-    expect(contexts[0]).not.toBe(contexts[1]);
-    expect(processor.persistedComputedBackfillService.recomputeForTables).toHaveBeenCalledOnce();
-  });
-
-  it('drains active CSV chunks before clearing the job marker for retry', async () => {
+  it('drains an active chunk after a parser failure before accepting a retry', async () => {
     const processor = Object.create(BaseImportCsvQueueProcessor.prototype) as {
       process: (job: { id: string; data: Record<string, unknown> }) => Promise<void>;
       handleBaseImportCsv: ReturnType<typeof vi.fn>;
@@ -154,109 +82,106 @@ describe('BaseImportCsvQueueProcessor', () => {
       processedJobs: Set<string>;
       cls: ClsService;
       storageAdapter: { downloadFile: ReturnType<typeof vi.fn> };
+      notificationService: { sendCommonNotify: ReturnType<typeof vi.fn> };
       persistedComputedBackfillService: { recomputeForTables: ReturnType<typeof vi.fn> };
       logger: { log: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
     };
-    const originalError = new Error('first chunk rejected');
-    const retryError = new Error('retry rejected');
-    const { promise: bothChunksEntered, resolve: markBothChunksEntered } =
+    const { promise: activeChunkEntered, resolve: markActiveChunkEntered } =
       Promise.withResolvers<void>();
-    const { promise: entryPipelineRejected, resolve: markEntryPipelineRejected } =
+    const { promise: downloadClosed, resolve: markDownloadClosed } = Promise.withResolvers<void>();
+    const { promise: releaseActiveChunk, resolve: finishActiveChunk } =
       Promise.withResolvers<void>();
-    const { promise: releaseDelayedChunk, resolve: finishDelayedChunk } =
-      Promise.withResolvers<void>();
-    let enteredChunks = 0;
-    let delayedChunkFinished = false;
-    const delayedCsv = [
-      '__id,Name',
-      ...Array.from({ length: 1001 }, (_, index) => `recDelayed${index},Beta${index}`),
-    ].join('\n');
+    const firstDownload = new PassThrough();
+    firstDownload.once('close', markDownloadClosed);
+    const firstArchive = await buffer(
+      createCsvZipStream({
+        'tables/tblActive.csv': '__id,Name\nrecActive,Alpha',
+      })
+    );
+    const endDirectoryOffset = firstArchive.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+    expect(endDirectoryOffset).toBeGreaterThanOrEqual(0);
+    const centralDirectoryOffset = firstArchive.readUInt32LE(endDirectoryOffset + 16);
+    const completedRecords: string[] = [];
+    let downloads = 0;
     processor.processedJobs = new Set();
     processor.cls = new ClsService(new AsyncLocalStorage());
     processor.storageAdapter = {
-      downloadFile: vi.fn().mockResolvedValue(
-        createCsvZipStream({
-          'tables/tblFail.csv': '__id,Name\nrecFail,Alpha',
-          'tables/tblDelayed.csv': delayedCsv,
-        })
-      ),
-    };
-    processor.handleChunk = vi.fn(async (chunk: Record<string, string>[]) => {
-      enteredChunks += 1;
-      if (enteredChunks === 2) markBothChunksEntered();
-      await bothChunksEntered;
-      if (chunk[0]!.__id === 'recFail') {
-        throw originalError;
-      }
-      await releaseDelayedChunk;
-      delayedChunkFinished = true;
-    });
-    processor.persistedComputedBackfillService = { recomputeForTables: vi.fn() };
-    processor.logger = {
-      log: vi.fn(),
-      error: vi.fn((message: string) => {
-        if (message.startsWith('import csv import error:')) markEntryPipelineRejected();
+      downloadFile: vi.fn(async () => {
+        downloads += 1;
+        return downloads === 1
+          ? firstDownload
+          : createCsvZipStream({ 'tables/tblActive.csv': '__id,Name\nrecRetry,Retry' });
       }),
     };
-    processor.handleBaseImportCsv = vi
-      .fn()
-      .mockImplementationOnce((job) => processor.handleBaseImportCsvInScope(job))
-      .mockImplementationOnce(async () => {
-        expect(delayedChunkFinished).toBe(true);
-        throw retryError;
-      });
+    processor.handleChunk = vi.fn(async (chunk: Record<string, string>[]) => {
+      const recordIds = chunk.map((record) => record.__id!);
+      if (recordIds.includes('recActive')) {
+        markActiveChunkEntered();
+        await releaseActiveChunk;
+      }
+      completedRecords.push(...recordIds);
+    });
+    processor.notificationService = {
+      sendCommonNotify: vi.fn().mockResolvedValue({ sentCount: 1 }),
+    };
+    processor.persistedComputedBackfillService = { recomputeForTables: vi.fn() };
+    processor.logger = { log: vi.fn(), error: vi.fn() };
+    processor.handleBaseImportCsv = vi.fn((job) => processor.handleBaseImportCsvInScope(job));
     const job = {
       id: 'import-job',
       data: {
         path: 'import.zip',
         userId: 'usrImport',
         baseId: 'bseImport',
-        tableIdMap: { tblFail: 'tblTargetFail', tblDelayed: 'tblTargetDelayed' },
+        tableIdMap: { tblActive: 'tblTargetActive' },
         fieldIdMap: {},
         viewIdMap: {},
         fkMap: {},
         structure: {
-          tables: [
-            { id: 'tblFail', fields: [] },
-            { id: 'tblDelayed', fields: [] },
-          ],
+          tables: [{ id: 'tblActive', fields: [] }],
         },
       },
     };
 
-    const firstResult = processor.process(job).then(
-      () => undefined,
-      (error: unknown) => error
-    );
     let firstSettled = false;
-    void firstResult.then(() => {
-      firstSettled = true;
-    });
-    await entryPipelineRejected;
-    const { promise: nextTurn, resolve: finishTurn } = Promise.withResolvers<void>();
-    setTimeout(finishTurn, 0);
-    await nextTurn;
-    expect(firstSettled).toBe(false);
-    expect(processor.processedJobs.has(job.id)).toBe(true);
-    const duplicateResult = await processor.process(job).then(
-      () => 'skipped',
-      () => 'overlapped'
+    const firstResult = processor.process(job).then(
+      () => {
+        firstSettled = true;
+        return undefined;
+      },
+      (error: unknown) => {
+        firstSettled = true;
+        return error;
+      }
     );
-    expect(duplicateResult).toBe('skipped');
-    expect(processor.handleBaseImportCsv).toHaveBeenCalledTimes(1);
+    try {
+      // Supply one complete real ZIP entry, but keep the download open before
+      // its central directory so the parser is still waiting for another header.
+      firstDownload.write(firstArchive.subarray(0, centralDirectoryOffset));
+      await activeChunkEntered;
+      // An invalid next-header signature triggers the real unzipper error path
+      // independently of the already-started chunk's blocked work.
+      firstDownload.write(Buffer.alloc(4));
+      await downloadClosed;
+      await expect(processor.process(job)).resolves.toBeUndefined();
+      expect(downloads).toBe(1);
+      expect(firstSettled).toBe(false);
+      expect(completedRecords).toEqual([]);
 
-    finishDelayedChunk();
-    const firstFailure = await firstResult;
-    expect(firstFailure).toBeInstanceOf(Error);
-    expect((firstFailure as Error).message).toBe('Base import CSV processing failed');
-    expect(processor.logger.error).toHaveBeenCalledWith(
-      'Process base import csv failed: first chunk rejected',
-      originalError.stack
-    );
-    expect(delayedChunkFinished).toBe(true);
-    expect(processor.handleChunk).toHaveBeenCalledTimes(2);
-    await expect(processor.process(job)).rejects.toThrow('Base import CSV processing failed');
-    expect(processor.handleBaseImportCsv).toHaveBeenCalledTimes(2);
+      finishActiveChunk();
+      const firstFailure = await firstResult;
+      expect(firstFailure).toBeInstanceOf(Error);
+      expect((firstFailure as Error).message).toBe('Base import CSV processing failed');
+      expect(completedRecords).toEqual(['recActive']);
+
+      await expect(processor.process(job)).resolves.toBeUndefined();
+      expect(downloads).toBe(2);
+      expect(completedRecords).toEqual(['recActive', 'recRetry']);
+    } finally {
+      finishActiveChunk();
+      firstDownload.destroy();
+      await firstResult;
+    }
   });
 
   it('does not write record history when importing base records', async () => {

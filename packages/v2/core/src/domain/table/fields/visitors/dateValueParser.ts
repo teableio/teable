@@ -175,6 +175,13 @@ const parseFieldFormatting = (
   };
 };
 
+// Teable's date contract uses four-digit AD years. Expanded ISO years and year zero
+// can be valid JavaScript Dates but cannot be sent through our timestamptz writes.
+const toSupportedDateISOString = (date: Date): string | undefined => {
+  const year = date.getUTCFullYear();
+  return Number.isNaN(year) || year < 1 || year > 9999 ? undefined : date.toISOString();
+};
+
 const parseDateStringWithTimeZone = (value: string, timeZone: string): string | undefined => {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -182,7 +189,7 @@ const parseDateStringWithTimeZone = (value: string, timeZone: string): string | 
   const components = parseDateComponents(trimmed);
   if (!components) {
     const parsed = new Date(trimmed);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+    return toSupportedDateISOString(parsed);
   }
 
   if (!isValidCalendarComponents(components)) {
@@ -192,7 +199,7 @@ const parseDateStringWithTimeZone = (value: string, timeZone: string): string | 
   const hasTimeZoneSuffix = /(?:z|[+-]\d{2}:\d{2})$/i.test(trimmed);
   if (hasTimeZoneSuffix) {
     const parsed = new Date(trimmed);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+    return toSupportedDateISOString(parsed);
   }
 
   const utcBase = new Date(
@@ -208,23 +215,23 @@ const parseDateStringWithTimeZone = (value: string, timeZone: string): string | 
   );
 
   const normalizedTimeZone = normalizeTimeZone(timeZone);
-  if (normalizedTimeZone === 'UTC') return utcBase.toISOString();
+  if (normalizedTimeZone === 'UTC') return toSupportedDateISOString(utcBase);
 
   const offsetMinutes = getTimeZoneOffsetMinutes(utcBase, normalizedTimeZone);
   const adjusted = new Date(utcBase.getTime() - offsetMinutes * 60000);
-  return adjusted.toISOString();
+  return toSupportedDateISOString(adjusted);
 };
 
 export const parseDateValue = (field: DateField, value: unknown): string | null | undefined => {
   if (value == null) return null;
 
   if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+    return toSupportedDateISOString(value);
   }
 
   if (typeof value === 'number') {
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+    return toSupportedDateISOString(parsed);
   }
 
   if (typeof value !== 'string') return undefined;
@@ -240,7 +247,7 @@ export const parseDateValue = (field: DateField, value: unknown): string | null 
   // Round-trip equality rejects rolled-over invalid dates (2026-02-30 → March).
   if (CANONICAL_ISO_UTC_PATTERN.test(trimmed)) {
     const parsed = new Date(trimmed);
-    if (!Number.isNaN(parsed.getTime()) && parsed.toISOString() === trimmed) {
+    if (toSupportedDateISOString(parsed) === trimmed) {
       return trimmed;
     }
   }

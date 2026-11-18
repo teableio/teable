@@ -61,7 +61,26 @@ const Harness = () => {
 
 const coverPreview = () => screen.queryByAltText('published project preview');
 
+const openDialog = async () => {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <Harness />
+    </QueryClientProvider>
+  );
+  fireEvent.click(screen.getByText('open publish'));
+  await screen.findByText('publishBase.title');
+  const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+  return { input, pick: vi.spyOn(input, 'click') };
+};
+
 describe('PublishBaseDialog cover', () => {
+  it('is picked in one place, the catalogue preview', async () => {
+    const { pick } = await openDialog();
+    expect(screen.getAllByText('publishBase.uploadCover')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'publishBase.uploadCover' }));
+    expect(pick).toHaveBeenCalledOnce();
+  });
+
   it('drops an unpublished cover preview when the dialog is closed and reopened T7195', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

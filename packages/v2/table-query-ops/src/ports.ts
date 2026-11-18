@@ -303,7 +303,7 @@ export type ReconcileTableSearchAccessPathResult = {
   readonly action: 'created' | 'rebuilt' | 'verified' | 'dropped';
   readonly tableId: string;
   readonly definitionKey: string;
-  readonly generatedColumnName: string;
+  readonly generatedColumnName?: string;
   readonly indexName: string;
   readonly languageConfig: string;
   readonly semantics?: 'substring' | 'lexical';
@@ -346,6 +346,9 @@ export type TableSearchVectorStatus = {
    */
   readonly serving: boolean;
   readonly coveredFieldIds: readonly string[];
+  readonly configuredFieldIds?: readonly string[];
+  readonly documentFieldIds?: readonly string[];
+  readonly residualFieldIds?: readonly string[];
   readonly searchScope?: 'all_fields' | 'selected_fields';
   /**
    * Searchable fields the *published* coverage does not include. Only meaningful while `serving`

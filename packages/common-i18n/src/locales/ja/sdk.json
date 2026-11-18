@@ -1194,7 +1194,9 @@
       "anchorNotFound": "アンカーノードが見つかりません",
       "nameAlreadyExists": "名前がすでに存在します",
       "targetBaseRequired": "移動先のプロジェクトは必須です",
-      "moveBlocked": "ノードを移動先のプロジェクトへ移動できません ({{code}})"
+      "moveBlocked": "ノードを移動先のプロジェクトへ移動できません ({{code}})",
+      "appSandboxActive": "移動するアプリのサンドボックスが実行中です。閉じることを確認してから移動してください",
+      "appSandboxCloseFailed": "サンドボックスを閉じられませんでした。何も移動されていません。再試行してください"
     },
     "routine": {
       "notFound": "ルーティンが見つかりません",
@@ -1658,6 +1660,7 @@
     },
     "template": {
       "categoryNotFound": "テンプレートカテゴリが見つかりません",
+      "notShareable": "公開中のテンプレートのみシェアできます",
       "snapshotRequired": "スナップショットがないため、このテンプレートを公開できませんでした",
       "sourceTemplateNotFound": "ソーステンプレートが見つかりません",
       "noMinOrderFound": "最小順序が見つかりません",
@@ -1668,9 +1671,14 @@
       "teamIsFlat": "チームには上位カテゴリもサブカテゴリもありません",
       "categoryKeyTaken": "このURLキーは他のカテゴリで使われています",
       "slugTaken": "このURLスラッグは他のテンプレートで使われています",
-      "guideStepLeftOut": "ガイドのステップ「{{title}}」が開く内容は、今回の申請に含まれていません。",
+      "guideStepLeftOut": "ガイドのステップ「{{title}}」が開く内容は、今回の公開に含まれていません。",
       "guideStepStartsTicked": "ガイドのステップ「{{title}}」はサンプルデータ上ですでに完了しているため、インストール直後からチェック済みになります。",
-      "guideNothingToConnect": "ガイドのステップ「{{title}}」はアカウントの連携を待ちますが、このプロジェクトに必要なアカウントはないため、インストール直後からチェック済みになります。"
+      "guideNothingToConnect": "ガイドのステップ「{{title}}」はアカウントの連携を待ちますが、このプロジェクトに必要なアカウントはないため、インストール直後からチェック済みになります。",
+      "contentNotReplaced": "このテンプレートプロジェクトには、あなただけの内容が {{count}} 件残っています。置き換えるかサンプルとして指定してから、もう一度公開してください。",
+      "notTemplateProject": "このプロジェクトはテンプレートプロジェクトではありません。",
+      "coverRequired": "テンプレートにはカバー画像が必要です",
+      "descriptionRequired": "テンプレートには説明が必要です",
+      "unavailable": "このテンプレートは現在利用できません"
     },
     "department": {
       "parentNotFound": "親部門が見つかりません",

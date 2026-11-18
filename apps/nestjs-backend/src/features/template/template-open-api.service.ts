@@ -15,6 +15,7 @@ import {
   ShortLinkType,
   TemplateCategoryKind,
   TemplateListSort,
+  isUnreleasedSubmission,
 } from '@teable/openapi';
 import { isEqual, isNumber, omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -38,10 +39,13 @@ import { buildBaseNodeDefaultUrl } from '../base-node/base-node-url.helper';
 import {
   firstPublishHistory,
   listedTemplateWhere,
+  liveTemplateWhere,
   TEMPLATE_CACHE_TTL,
   templateIdOrSlugWhere,
+  unreleasedSubmissionWhere,
 } from '../model/template';
 import { ShortLinkService } from '../short-link/short-link.service';
+import { detailManifest } from './template-permalink.helper';
 import { ensureTemplateSlug, slugFromName } from './template-slug';
 import {
   lockTemplateSnapshotSwap,
@@ -51,6 +55,9 @@ import {
 
 // Snapshotting a template's source base (with its records) into the template space.
 const TEMPLATE_SNAPSHOT_ACTION = 'template.snapshot.create';
+
+const snapshotBaseIdOf = (snapshot: string | null): string | undefined =>
+  snapshot ? (JSON.parse(snapshot) as { baseId?: string }).baseId : undefined;
 
 /** Template fields an update may change, other than the publish flag (its own row). */
 const TEMPLATE_UPDATE_KEYS = [
@@ -111,13 +118,24 @@ export class TemplateOpenApiService {
     return template;
   }
 
-  async getAllTemplateList(query?: ITemplateListQueryRo) {
+  /** The templates the admin table manages: every one, or with `listed` what the template centre lists. */
+  async getAdminTemplateList(query?: ITemplateListQueryRo) {
+    return this.getAllTemplateList(query, query?.listed ? this.catalogueWhere() : {});
+  }
+
+  /** What the template centre lists: publishing lists a template here, unless the edition reviews. */
+  protected catalogueWhere(): Prisma.TemplateWhereInput {
+    return listedTemplateWhere();
+  }
+
+  async getAllTemplateList(query?: ITemplateListQueryRo, where: Prisma.TemplateWhereInput = {}) {
     const { skip = 0, take = 300 } = query ?? {};
     const prisma = this.prismaService.txClient();
 
     this.validateTakeCount(take);
 
     const res = await prisma.template.findMany({
+      where,
       orderBy: {
         order: 'asc',
       },
@@ -176,7 +194,7 @@ export class TemplateOpenApiService {
 
     const res = await prisma.template.findMany({
       where: {
-        ...listedTemplateWhere(),
+        ...this.catalogueWhere(),
         AND: [
           featured === true
             ? { featured: true }
@@ -298,15 +316,20 @@ export class TemplateOpenApiService {
 
   async deleteTemplate(templateId: string) {
     return await this.prismaService
-      .txClient()
-      .template.delete({
-        where: {
-          id: templateId,
-        },
+      .$tx(async (prisma) => {
+        const template = await prisma.template.delete({ where: { id: templateId } });
+        // The snapshot it served goes to the trash with it: nothing else would ever purge it.
+        const snapshotBaseId = snapshotBaseIdOf(template.snapshot);
+        if (snapshotBaseId) {
+          await retireTemplateSnapshot(prisma, snapshotBaseId, this.cls.get('user.id'));
+        }
+        return template;
       })
       .then(async (res) => {
-        if (res.baseId) {
-          await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
+        for (const baseId of [res.baseId, snapshotBaseIdOf(res.snapshot)]) {
+          if (baseId) {
+            await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(baseId));
+          }
         }
         // Clear permalink cache
         await this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId));
@@ -367,7 +390,13 @@ export class TemplateOpenApiService {
           ...updateTemplateRo,
           categoryId: updateTemplateRo.categoryId,
           cover: newCover as string | null | undefined,
-          ...(updateTemplateRo.isPublished && !originalTemplate.history
+          // A template that goes out starts its history; so does one taken off the catalogue
+          // that was published before histories existed: the history is what keeps its links
+          // opening once it is no longer listed.
+          ...((updateTemplateRo.isPublished ||
+            (updateTemplateRo.isPublished === false && originalTemplate.isPublished)) &&
+          originalTemplate.snapshot &&
+          !originalTemplate.history
             ? {
                 history: firstPublishHistory(
                   originalTemplate.version
@@ -884,13 +913,17 @@ export class TemplateOpenApiService {
 
   async getTemplateDetailById(templateId: string) {
     const prisma = this.prismaService.txClient();
-    // The route is public (no session is resolved on it), so only published
-    // templates are visible by id; otherwise drafts and their creator would leak
-    // to anyone who guesses an id. Admins manage drafts through the admin routes.
+    // The route is public (no session is resolved on it), so only templates a link can open are
+    // visible by id: published ones, listed or not, and a submission from before publishing went
+    // live on submit that its author already shares. Drafts and templates their author took down
+    // would otherwise leak to anyone who guesses an id. Admins manage drafts through the admin
+    // routes.
     const template = await prisma.template.findFirst({
       where: {
-        ...templateIdOrSlugWhere(templateId),
-        isPublished: true,
+        AND: [
+          templateIdOrSlugWhere(templateId),
+          { OR: [liveTemplateWhere(), unreleasedSubmissionWhere()] },
+        ],
       },
     });
     if (!template) {
@@ -918,12 +951,36 @@ export class TemplateOpenApiService {
 
     return {
       ...omit(withSlug, ['review']),
+      manifest: detailManifest(template),
       cover: {
         ...newCover,
       },
-      snapshot: template.snapshot ? JSON.parse(template.snapshot) : undefined,
+      snapshot: this.detailSnapshot(template),
       createdBy: creator,
     };
+  }
+
+  /** What the detail opens: the published snapshot, or for a template not live yet its submission. */
+  private detailSnapshot(template: { snapshot: string | null; review: Prisma.JsonValue }) {
+    if (!isUnreleasedSubmission(template)) {
+      return template.snapshot ? JSON.parse(template.snapshot) : undefined;
+    }
+    const review = template.review as { snapshotBaseId?: string; submittedTime?: string };
+    return review.snapshotBaseId
+      ? { baseId: review.snapshotBaseId, snapshotTime: review.submittedTime }
+      : undefined;
+  }
+
+  /**
+   * Template links resolve through caches (the /t permalink and every short link of it): when
+   * what they open changes, as on a submission, an approval, a refusal or a withdrawal, the next
+   * visit must not get the old answer.
+   */
+  async clearLinkCaches(templateId: string) {
+    await Promise.all([
+      this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId)),
+      this.shortLinkService.clearResolutionCache(ShortLinkType.Template, templateId),
+    ]);
   }
 
   async getTemplateByBaseId(baseId: string) {

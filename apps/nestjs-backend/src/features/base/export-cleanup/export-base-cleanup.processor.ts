@@ -9,6 +9,7 @@ import type { NestWorkerOptions } from '../../../utils/nest-worker-options';
 import { Processor } from '../../../utils/queue-processor';
 import { second } from '../../../utils/second';
 import StorageAdapter from '../../attachments/plugins/adapter';
+import { LocalStorage } from '../../attachments/plugins/local';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { parseExportLinkExpiresIn } from './export-base-path';
 
@@ -69,6 +70,10 @@ export class ExportBaseCleanupProcessor extends WorkerHost {
   }
 
   async cleanupExpired(now = new Date()): Promise<IExportBaseCleanupResult> {
+    const staging =
+      this.storageAdapter instanceof LocalStorage
+        ? await this.storageAdapter.cleanupStaleExportUploads(now)
+        : { deleted: 0, failed: 0 };
     const legacyLinkExpiresInMs = Math.max(
       second(this.storageConfig.tokenExpireIn) * 1000,
       LEGACY_MIN_LINK_EXPIRES_IN_MS
@@ -78,8 +83,7 @@ export class ExportBaseCleanupProcessor extends WorkerHost {
       bucket,
       `${StorageAdapter.getDir(UploadType.ExportBase)}/`
     );
-    let deleted = 0;
-    let failed = 0;
+    let { deleted, failed } = staging;
     for (const { key, lastModified } of objects) {
       // no date, no proof the link is gone
       if (!lastModified) continue;

@@ -5,6 +5,7 @@ import {
   Get,
   Logger,
   NotFoundException,
+  Param,
   Post,
   Res,
 } from '@nestjs/common';
@@ -12,10 +13,15 @@ import { HttpErrorCode, type Action } from '@teable/core';
 import {
   importGoogleSheetAnalyzeRoSchema,
   importGoogleSheetRoSchema,
+  importGoogleSheetTaskRoSchema,
   type IGoogleSheetPickerConfigVo,
   type IImportGoogleSheetAnalyzeRo,
   type IImportGoogleSheetAnalyzeVo,
   type IImportGoogleSheetRo,
+  type IImportGoogleSheetTaskRo,
+  type IImportGoogleSheetTaskVo,
+  type IImportGoogleSheetVo,
+  type IImportTaskSubmitVo,
 } from '@teable/openapi';
 import { Response as ExpressResponse } from 'express';
 import { ClsService } from 'nestjs-cls';
@@ -24,6 +30,7 @@ import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { PermissionService } from '../auth/permission.service';
+import { SourceImportTaskService } from '../source-import-task/source-import-task.service';
 import { GoogleSheetApiError } from './google-sheet-api.client';
 import {
   GoogleSheetImportPartialError,
@@ -53,7 +60,8 @@ export class GoogleSheetImportController {
   constructor(
     private readonly googleSheetImportService: GoogleSheetImportService,
     private readonly permissionService: PermissionService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly importTaskService: SourceImportTaskService
   ) {}
 
   /**
@@ -137,13 +145,8 @@ export class GoogleSheetImportController {
     }
   }
 
-  @TokenAccess()
-  @Post('import-google-sheet/stream')
-  async importStream(
-    @Body(new ZodValidationPipe(importGoogleSheetRoSchema))
-    importGoogleSheetRo: IImportGoogleSheetRo,
-    @Res() res: ExpressResponse
-  ) {
+  /** Everything an import request must pass before any work starts, shared by the stream and the task route. */
+  private async authorizeImport(importGoogleSheetRo: IImportGoogleSheetRo): Promise<void> {
     // Authorize the real write target before doing anything: importing into an
     // existing base needs table-import rights on THAT base — not base|create on
     // whatever space the caller passes — while creating a new base needs
@@ -166,6 +169,94 @@ export class GoogleSheetImportController {
       this.cls.get('accessTokenId')
     );
     await this.assertIntegrationScope(importGoogleSheetRo.integrationId);
+  }
+
+  /**
+   * A partial failure keeps everything imported before the error; unwrap the
+   * underlying cause for the message and return the partial result so the
+   * client can keep it instead of reporting a total loss.
+   */
+  private describeImportFailure(importGoogleSheetRo: IImportGoogleSheetRo, error: unknown) {
+    const cause = error instanceof GoogleSheetImportPartialError ? error.cause : error;
+    const reason = formatGoogleSheetImportError(cause);
+    const partial = error instanceof GoogleSheetImportPartialError ? error.partial : undefined;
+    this.logger.warn(
+      `[google-sheet-import] failed spreadsheet=${importGoogleSheetRo.spreadsheetId} ` +
+        `target=${importGoogleSheetRo.baseId ?? 'new'} ` +
+        `partialTables=${partial ? Object.keys(partial.tableIdMap).length : 0} reason=${reason}`
+    );
+    return { reason, partial };
+  }
+
+  /**
+   * Starts the import in the background and returns its task id at once, so the
+   * client polls with short requests instead of holding one connection open for
+   * the whole import. Asking again for the same spreadsheet, tabs and target
+   * while it runs returns the running task.
+   */
+  @TokenAccess()
+  @Post('import-google-sheet/tasks')
+  async createImportTask(
+    @Body(new ZodValidationPipe(importGoogleSheetTaskRoSchema))
+    taskRo: IImportGoogleSheetTaskRo
+  ): Promise<IImportTaskSubmitVo> {
+    const { force, ...importGoogleSheetRo } = taskRo;
+    await this.authorizeImport(importGoogleSheetRo);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- credentials stay out of the digest
+    const { accessToken, integrationId, ...request } = importGoogleSheetRo;
+    return this.importTaskService.submit<IImportGoogleSheetVo>({
+      source: 'google-sheet',
+      userId: this.cls.get('user.id'),
+      scope: {
+        spreadsheetId: importGoogleSheetRo.spreadsheetId,
+        // Different tabs of one spreadsheet are different imports.
+        sheetIds: importGoogleSheetRo.sheetIds
+          ? [...importGoogleSheetRo.sheetIds].sort((a, b) => a - b)
+          : 'all',
+        // Where the import goes, not how it is imported: a retry with other
+        // options still finds the running task, another destination does not.
+        target: importGoogleSheetRo.baseId
+          ? { baseId: importGoogleSheetRo.baseId }
+          : { spaceId: importGoogleSheetRo.spaceId, baseName: importGoogleSheetRo.baseName },
+      },
+      fingerprint: request,
+      force,
+      run: (report, setBaseId) =>
+        this.googleSheetImportService.importSpreadsheet(
+          importGoogleSheetRo,
+          report,
+          undefined,
+          setBaseId
+        ),
+      toFailure: (error) => {
+        const { reason, partial } = this.describeImportFailure(importGoogleSheetRo, error);
+        return {
+          error: { message: reason, ...(partial ? { partial } : {}) },
+          // Without a partial result nothing was kept: a new base that got no table is deleted again.
+          baseId: partial?.base.id ?? null,
+        };
+      },
+    });
+  }
+
+  @TokenAccess()
+  @Get('import-google-sheet/tasks/:taskId')
+  async getImportTask(@Param('taskId') taskId: string): Promise<IImportGoogleSheetTaskVo> {
+    return this.importTaskService.get<IImportGoogleSheetVo>(
+      'google-sheet',
+      this.cls.get('user.id'),
+      taskId
+    ) as Promise<IImportGoogleSheetTaskVo>;
+  }
+
+  @TokenAccess()
+  @Post('import-google-sheet/stream')
+  async importStream(
+    @Body(new ZodValidationPipe(importGoogleSheetRoSchema))
+    importGoogleSheetRo: IImportGoogleSheetRo,
+    @Res() res: ExpressResponse
+  ) {
+    await this.authorizeImport(importGoogleSheetRo);
 
     const sseHeartbeatMs = 15_000;
     res.setHeader('Content-Type', 'text/event-stream');
@@ -197,17 +288,7 @@ export class GoogleSheetImportController {
       );
       sendEvent({ type: 'done', data: result });
     } catch (error) {
-      // A partial failure keeps everything imported before the error; unwrap
-      // the underlying cause for the message and attach the partial result so
-      // the client can keep it instead of reporting a total loss.
-      const cause = error instanceof GoogleSheetImportPartialError ? error.cause : error;
-      const reason = formatGoogleSheetImportError(cause);
-      const partial = error instanceof GoogleSheetImportPartialError ? error.partial : undefined;
-      this.logger.warn(
-        `[google-sheet-import] failed spreadsheet=${importGoogleSheetRo.spreadsheetId} ` +
-          `target=${importGoogleSheetRo.baseId ?? 'new'} ` +
-          `partialTables=${partial ? Object.keys(partial.tableIdMap).length : 0} reason=${reason}`
-      );
+      const { reason, partial } = this.describeImportFailure(importGoogleSheetRo, error);
       sendEvent({ type: 'error', message: reason, ...(partial ? { partial } : {}) });
     } finally {
       clearInterval(heartbeat);

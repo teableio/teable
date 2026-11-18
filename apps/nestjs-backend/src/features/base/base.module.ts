@@ -23,6 +23,7 @@ import { BaseDataDbMoveService } from './base-data-db-move.service';
 import { BaseDuplicatePreviewRegistrar } from './base-duplicate-preview.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
+import { BaseExportCoordinatorModule } from './base-export-coordinator.module';
 import { BaseExportV2Service } from './base-export-v2.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportAttachmentsCsvModule } from './base-import-processor/base-import-attachments-csv.module';
@@ -57,6 +58,7 @@ import { BaseService } from './base.service';
     BaseImportAttachmentsCsvModule,
     GraphModule,
     V2Module,
+    BaseExportCoordinatorModule,
     SpaceDataDbCopyModule,
     SpaceDataDbMigrationGuardModule,
   ],

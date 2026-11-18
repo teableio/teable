@@ -19,12 +19,32 @@ export const importStreamProgressEventSchema = z.object({
   batchProcessedCount: z.number(),
 });
 
+export const importDiagnosticsSchema = z.object({
+  invalidDateCells: z.number().int().nonnegative(),
+  skippedRows: z.number().int().nonnegative(),
+  samples: z
+    .array(
+      z.object({
+        rowNumber: z.number().int().positive(),
+        fieldId: z.string().optional(),
+        fieldName: z.string().optional(),
+        reason: z.enum(['invalidDate', 'invalidRow']),
+        code: z.string(),
+        message: z.string(),
+      })
+    )
+    .max(100),
+});
+
+export type IImportDiagnostics = z.infer<typeof importDiagnosticsSchema>;
+
 export const importSheetSummarySchema = z.object({
   name: z.string(),
   importedCount: z.number(),
   truncated: z.boolean(),
   error: z.string().optional(),
   localization: localizationSchema.optional(),
+  diagnostics: importDiagnosticsSchema.optional(),
 });
 
 export const importStreamDoneEventSchema = z.object({
@@ -36,6 +56,7 @@ export const importStreamDoneEventSchema = z.object({
     tables: z.array(z.unknown()).optional(),
     tableId: z.string().optional(),
     sheets: z.array(importSheetSummarySchema).optional(),
+    diagnostics: importDiagnosticsSchema.optional(),
   }),
 });
 
@@ -67,6 +88,7 @@ export type IImportStreamDoneEvent = z.infer<typeof importStreamDoneEventSchema>
     tables?: ITableFullVo[];
     tableId?: string;
     sheets?: IImportSheetSummary[];
+    diagnostics?: IImportDiagnostics;
   };
 };
 export type IImportStreamErrorEvent = z.infer<typeof importStreamErrorEventSchema>;

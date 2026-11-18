@@ -587,8 +587,8 @@ export interface TableQueryOpsSearchAccessPathRecommendationSummary {
   readonly provider: 'pg_bigm' | 'pg_trgm';
   readonly providerCapability: TableQueryOpsSearchProviderCapabilitySummary;
   readonly providerCapabilities: readonly TableQueryOpsSearchProviderCapabilitySummary[];
-  readonly generatedColumnName: string;
-  readonly generatedTextColumnName: string;
+  readonly generatedColumnName?: string;
+  readonly generatedTextColumnName?: string;
   readonly indexName: string;
   readonly indexKind: 'gin_bigm' | 'gin_trgm';
   readonly accessPath: 'generated_text';

@@ -75,7 +75,9 @@
     "exportTitle": "エクスポート",
     "exportDescription": "現在のプロジェクトを .tea ファイルにエクスポートします。時間がかかる場合があります。",
     "exportStartButton": "エクスポート開始",
-    "exportSlowTip": "データ量が多いため、エクスポートに時間がかかる場合があります。一時的にページを離れても構いません。",
+    "exportSlowTip": "データ量が多いため、エクスポートに時間がかかる場合があります。",
+    "exportBusy": "エクスポートがすでに進行中です。しばらくしてから再試行してください。",
+    "exportNavigationWarning": "このページを離れるか再読み込みすると、別のタブで同じエクスポートを引き続き表示していない限り、エクスポートがキャンセルされます。このダイアログを閉じてもキャンセルされません。",
     "exportReadyDescription": ".tea ファイルをダウンロードしてください。{{importHint}}",
     "moveBaseSuccessTitle": "移動成功",
     "moveBaseSuccessDescription": "{{baseName}}は{{spaceName}}に正常に移動されました",
@@ -215,6 +217,8 @@
   "publishBase": {
     "title": "テンプレートセンターに公開",
     "description": "ワンクリックでテンプレートセンターにプロジェクトを公開！あなたの創造性をより多くの人に見てもらい、利用してもらい、Remixしてもらい、共により強力なビジネスを築きましょう。",
+    "configureTitle": "テンプレート情報を設定",
+    "configureDescription": "優れたテンプレートはテンプレートセンターに掲載されることがあります",
     "infoTitle": "基本情報",
     "form": {
       "title": "タイトル",
@@ -226,8 +230,6 @@
       "defaultActiveNode": "デフォルトのアクティブノード",
       "descriptionPlaceholder": "アイデアを簡単に説明してください...",
       "titlePlaceholder": "作品に名前を付ける...",
-      "cover": "カバー",
-      "coverHint": "16:9。カタログのカードと公開ページで使用されます",
       "versionTitle": "バージョンの内容",
       "addChangelog": "リリースノートを追加"
     },
@@ -236,33 +238,32 @@
     "publishSuccess": "公開しました！",
     "previewTips": "あなたの作品を世界に見せましょう",
     "update": "更新",
-    "submit": "審査に提出",
-    "submitted": "審査に提出しました",
+    "submit": "テンプレートを公開",
     "review": {
       "status": {
-        "review": "審査中",
-        "rejected": "差し戻し",
-        "withdrawn": "取り下げ済み"
+        "review": "審査中"
       },
-      "submittedTime": "{{time}} に提出",
-      "note": "審査担当者のコメント",
-      "checks": "自動チェック",
       "check": {
         "connectors": "接続",
         "privacy": "プライバシー",
         "estimate": "実行量の見積もり",
-        "trial": "試運転"
+        "trial": "試運転",
+        "content": "内容"
       },
       "checkMessage": {
         "connectors": "ここでは接続できません：{{providers}}",
         "privacy": "レコードが含まれています。個人データが含まれていないか確認してください",
         "estimate": "月あたり約 {{runs}} 回の実行で、無料プランの {{free}} 回を超えます",
-        "trial": "オートメーションはアカウントを必要としません。アカウントなしで実行できることを確認してください"
+        "trial": "オートメーションはアカウントを必要としません。アカウントなしで実行できることを確認してください",
+        "content": "あなただけの内容が {{count}} 件残っています",
+        "contentMarked": "サンプルとして指定：{{count}} 件"
       },
-      "withdraw": "取り下げる",
-      "withdrawn": "提出を取り下げました。",
+      "withdraw": "公開を取り消す",
+      "withdrawn": "公開を取り消しました。",
+      "withdrawConfirmTitle": "公開を取り消しますか？",
+      "withdrawConfirmDescription": "取り消すとテンプレートのリンクは開けなくなり、テンプレートセンターにも表示されなくなります。インストール済みのコピーには影響せず、あとで再公開できます。",
       "live": "公開中 · v{{version}}",
-      "publicLink": "公開リンク"
+      "listed": "テンプレートセンターに掲載中"
     },
     "unPublish": "公開停止",
     "unPublishSuccess": "プロジェクトの公開を停止しました！",
@@ -276,7 +277,8 @@
     "invalidImageType": "画像ファイルを選択してください",
     "tips": {
       "publishValidation": "タイトルと説明は必須です",
-      "atLeastOneNode": "公開するノードを少なくとも1つ選択してください"
+      "atLeastOneNode": "公開するノードを少なくとも1つ選択してください",
+      "coverRequired": "カバー画像を追加してください"
     },
     "urlCopied": "URLをクリップボードにコピーしました！",
     "urlCopiedForDiscord": "URLをクリップボードにコピーしました！Discordに貼り付けることができます。",
@@ -300,7 +302,7 @@
       "redeploy": "再デプロイ",
       "unnamedApp": "無名のアプリ"
     },
-    "submitVersion": "v{{version}} を審査に提出"
+    "submitVersion": "v{{version}} を公開"
   },
   "dataDb": {
     "create": {
@@ -438,6 +440,7 @@
     "partialImported": "エラー発生前に {{count}} 個のテーブルが完全にインポートされ、保持されています",
     "issue": {
       "valuesDropped": "{{sheetName}} / {{fieldName}}：{{count}} 件の値が破棄されました（{{reason}}）",
+      "rowSamples": "元データの行（最大 100 件のサンプル）：{{rows}}。",
       "sheetSkipped": "シート「{{sheetName}}」はスキップされました：{{reason}}",
       "columnsTruncated": "{{sheetName}}：列数の上限を超えた {{count}} 列はインポートされませんでした"
     },
@@ -461,5 +464,16 @@
     "fromFileDesc": ".tea ファイルをアップロード",
     "fromAirtableDesc": "base を選択",
     "fromGoogleSheetDesc": "スプレッドシートを選択"
+  },
+  "templateProject": {
+    "make": "テンプレートにする",
+    "new": "新しいテンプレートプロジェクト",
+    "plural": "テンプレートプロジェクト",
+    "projectsTab": "プロジェクト",
+    "empty": "テンプレートプロジェクトはまだありません",
+    "trialCopy": "試用コピー",
+    "wholeProject": "プロジェクト内のすべて（{{count}} 件）",
+    "sampleRecords": "サンプルレコード {{count}} 件",
+    "noRecords": "レコードなし"
   }
 }

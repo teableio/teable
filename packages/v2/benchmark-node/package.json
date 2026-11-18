@@ -47,7 +47,7 @@
     "@teable/v2-table-templates": "workspace:*",
     "express": "4.22.3",
     "fastify": "5.12.7",
-    "hono": "4.13.13"
+    "hono": "4.13.19"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

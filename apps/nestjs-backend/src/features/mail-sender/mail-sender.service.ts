@@ -273,11 +273,12 @@ export class MailSenderService implements OnModuleDestroy {
     transporterName?: MailTransporterType,
     type?: MailType
   ) {
-    const mergeNotifyType = [MailType.System, MailType.Notify, MailType.Common];
-    const checkNotify =
-      type && transporterName === MailTransporterType.Notify && mergeNotifyType.includes(type);
-    const checkTo = mailOptions.to && isString(mailOptions.to);
-    if (checkNotify && checkTo) {
+    // Only a mail that names its merge group is merged; the rest go out as they are.
+    if (
+      mailOptions.mergeGroup &&
+      transporterName === MailTransporterType.Notify &&
+      isString(mailOptions.to)
+    ) {
       this.eventEmitterService.emit(Events.NOTIFY_MAIL_MERGE, {
         payload: { ...mailOptions, mailType: type },
       });

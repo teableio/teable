@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { isSameTxProjectionHandlerForEvent } from '../../application/projections/SameTxProjection';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { IEventBus } from '../EventBus';
@@ -58,7 +59,9 @@ export class MemoryEventBus implements IEventBus {
     const dispatchScope = createEventDispatchScope();
     for (const event of events) {
       const eventType = (event as { constructor: EventType<IDomainEvent> }).constructor;
-      const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>);
+      const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>).filter(
+        (handlerToken) => !isSameTxProjectionHandlerForEvent(event, handlerToken)
+      );
       for (const handlerToken of handlers) {
         try {
           const handler = this.handlerResolver.resolve(

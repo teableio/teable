@@ -186,10 +186,14 @@ describe('AggregateTableRecordsHandler', () => {
       await tableRepository.insert(context, table);
       const accessPath: IRecordSearchAccessPath = {
         kind: 'generated_text',
-        generatedColumnName: '__tqops_document',
-        provider: 'pg_trgm',
         searchScope: 'all_fields',
-        coveredFieldIds: [textFieldId, numberFieldId],
+        fieldIds: [textFieldId, numberFieldId],
+        document: {
+          generatedColumnName: '__tqops_document',
+          provider: 'pg_trgm',
+          coveredFieldIds: [textFieldId, numberFieldId],
+          ready: true,
+        },
       };
       const input = {
         tableId: table.id().toString(),

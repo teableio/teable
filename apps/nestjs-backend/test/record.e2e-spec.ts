@@ -4,11 +4,13 @@ import type { IButtonFieldCellValue, IFieldRo, IFieldVo, ISelectFieldOptions } f
 import {
   CellFormat,
   Colors,
+  DriverClient,
   FieldKeyType,
   FieldType,
   generateWorkflowId,
   Relationship,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
   axios,
   buttonClick,
@@ -19,6 +21,7 @@ import {
   type ITableFullVo,
 } from '@teable/openapi';
 import { vi } from 'vitest';
+import { CanaryService } from '../src/features/canary/canary.service';
 import {
   X_TEABLE_V2_FEATURE_HEADER,
   X_TEABLE_V2_HEADER,
@@ -66,6 +69,72 @@ describe('OpenAPI RecordController (e2e)', () => {
     afterEach(async () => {
       await permanentDeleteTable(baseId, table.id);
     });
+
+    it.skipIf(globalThis.testConfig.driver !== DriverClient.Pg).each(['40P01', '40001'])(
+      'retries a v1 PATCH after COMMIT fails once with SQLSTATE %s',
+      async (code) => {
+        const prisma = app.get(PrismaService);
+        const field = table.fields[0];
+        const recordId = table.records[0].id;
+        const suffix = crypto.randomUUID().replace(/-/g, '');
+        const schema = table.dbTableName.split('.')[0];
+        const physicalTable = table.dbTableName
+          .split('.')
+          .map((name) => `"${name.replaceAll('"', '""')}"`)
+          .join('.');
+        const sequence = `"${schema}"."commit_retry_${suffix}"`;
+        const triggerFunction = `"${schema}"."reject_commit_${suffix}"`;
+        const trigger = `reject_commit_${suffix}`;
+        // FORCE_V2_ALL overrides canary headers in CI. Pin only routing here;
+        // the legacy controller, service, transaction and PostgreSQL stay real.
+        const route = vi
+          .spyOn(app.get(CanaryService), 'shouldUseV2ForBaseWithReason')
+          .mockResolvedValue({ useV2: false, reason: 'disabled' });
+        const legacyUpdate = vi.spyOn(app.get(RecordOpenApiService), 'updateRecord');
+
+        try {
+          await prisma.$executeRawUnsafe(`CREATE SEQUENCE ${sequence}`);
+          await prisma.$executeRawUnsafe(`
+            CREATE FUNCTION ${triggerFunction}() RETURNS trigger
+            LANGUAGE plpgsql AS $$
+            BEGIN
+              IF nextval('${sequence}'::regclass) = 1 THEN
+                RAISE EXCEPTION USING ERRCODE = '${code}', MESSAGE = 'first COMMIT rejected';
+              END IF;
+              RETURN NEW;
+            END;
+            $$
+          `);
+          await prisma.$executeRawUnsafe(`
+            CREATE CONSTRAINT TRIGGER "${trigger}"
+            AFTER UPDATE ON ${physicalTable}
+            DEFERRABLE INITIALLY DEFERRED
+            FOR EACH ROW
+            WHEN (NEW.__id = '${recordId}'
+              AND OLD."${field.dbFieldName}" IS DISTINCT FROM NEW."${field.dbFieldName}")
+            EXECUTE FUNCTION ${triggerFunction}()
+          `);
+
+          const result = await updateRecordByApi(table.id, recordId, field.id, 'committed retry');
+          expect(legacyUpdate).toHaveBeenCalled();
+          expect(result.fields[field.id]).toBe('committed retry');
+          expect((await getRecord(table.id, recordId)).fields[field.id]).toBe('committed retry');
+          expect(
+            await prisma.$queryRawUnsafe<Array<{ attempts: number }>>(
+              `SELECT last_value::integer AS attempts FROM ${sequence}`
+            )
+          ).toEqual([{ attempts: 2 }]);
+        } finally {
+          route.mockRestore();
+          legacyUpdate.mockRestore();
+          try {
+            await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS ${triggerFunction}() CASCADE`);
+          } finally {
+            await prisma.$executeRawUnsafe(`DROP SEQUENCE IF EXISTS ${sequence}`);
+          }
+        }
+      }
+    );
 
     it('should get records', async () => {
       const result = await getRecords(table.id);

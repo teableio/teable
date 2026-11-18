@@ -1,10 +1,13 @@
 import { brotliDecompressSync, gzipSync, gunzipSync } from 'node:zlib';
 import type Keyv from 'keyv';
 import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 
 import type {
   IUndoRedoStore,
+  DomainError,
   UndoEntry,
+  UndoEntryInput,
   UndoRedoListOptions,
   UndoRedoCommandData,
   UndoRedoReplayMode,
@@ -13,7 +16,10 @@ import type {
 } from '@teable/v2-core';
 import { composeUndoRedoCommands, domainError, flattenUndoRedoCommands } from '@teable/v2-core';
 
-type StoredUndoEntry = Omit<UndoEntry, 'scope'>;
+type StoredUndoEntry = Omit<UndoEntry, 'scope'> & {
+  /** Durable evidence of an explicitly started interaction across cache loss. */
+  groupStartSequence?: number;
+};
 
 type LegacyUndoRedoState = {
   entries: StoredUndoEntry[];
@@ -24,6 +30,7 @@ type StoredReservation = {
   token: string;
   mode: UndoRedoReplayMode;
   cursorAfterCommit: number;
+  entryCount: number;
   operationId: string;
   executionStatus: 'reserved' | 'succeeded';
   leaseUntil: number;
@@ -63,17 +70,81 @@ type CompressedValue =
       data: string;
     };
 
+type StoredGroup = {
+  ranges: Array<{ startSequence: number; endSequence: number }>;
+  groupId?: string;
+  expiresAt?: number;
+  groupStartSequence?: number;
+  /** A missing legacy reference may belong here; never replay a suffix. */
+  unavailable?: boolean;
+};
+
 type LoadedState = {
-  format: 'empty' | 'inline' | 'split';
+  groups: StoredGroup[];
   entryIds: string[];
-  entries: StoredUndoEntry[];
   cursor: number;
   nextSequence: number;
   revision: number;
   reservation?: StoredReservation;
+  inline?: { entries: StoredUndoEntry[]; expiresAt: number | null };
+};
+
+type GroupedUndoRedoState = Omit<LoadedState, 'inline'> & { format: 'split-v1' };
+
+const isGroupedUndoRedoState = (value: unknown): value is GroupedUndoRedoState => {
+  if (!isSplitUndoRedoState(value)) return false;
+  const candidate = value as Partial<GroupedUndoRedoState>;
+  if (
+    !Array.isArray(candidate.groups) ||
+    !Number.isInteger(value.cursor) ||
+    value.cursor < 0 ||
+    value.cursor > value.entryIds.length
+  )
+    return false;
+  let entryIndex = 0;
+  let cursorAtBoundary = value.cursor === 0;
+  for (const group of candidate.groups) {
+    if (
+      !group ||
+      !Array.isArray(group.ranges) ||
+      group.ranges.length === 0 ||
+      (group.groupId !== undefined && typeof group.groupId !== 'string') ||
+      (group.expiresAt !== undefined && !Number.isFinite(group.expiresAt)) ||
+      (group.groupStartSequence !== undefined &&
+        (!Number.isSafeInteger(group.groupStartSequence) || group.groupStartSequence < 1)) ||
+      (group.unavailable !== undefined && typeof group.unavailable !== 'boolean')
+    )
+      return false;
+    if (
+      group.groupStartSequence !== undefined &&
+      group.ranges[0]?.startSequence !== group.groupStartSequence &&
+      !group.unavailable
+    )
+      return false;
+    for (const range of group.ranges) {
+      if (
+        !range ||
+        !Number.isSafeInteger(range.startSequence) ||
+        !Number.isSafeInteger(range.endSequence) ||
+        range.startSequence < 1 ||
+        range.endSequence <= range.startSequence
+      )
+        return false;
+      for (let sequence = range.startSequence; sequence < range.endSequence; sequence += 1) {
+        if (value.entryIds[entryIndex++] !== String(sequence)) return false;
+      }
+    }
+    if (entryIndex === value.cursor) cursorAtBoundary = true;
+  }
+  return entryIndex === value.entryIds.length && cursorAtBoundary;
 };
 
 const DEFAULT_COMPRESSION_THRESHOLD_BYTES = 16 * 1024;
+// Keep the legacy ID-list protocol bounded without truncating a logical group.
+// Numeric sequence references have at most 16 digits; the ID list alone stays
+// below 640 KiB at this limit, independent of record snapshot size.
+// This is a per-scope reference bound, not a global Redis byte budget.
+const MAX_ENTRY_REFERENCES = 32_768;
 const LOCK_TTL_SECONDS = 15;
 const LOCK_EXTEND_INTERVAL_MS = 5_000;
 const DEFAULT_LOCK_ATTEMPTS = 50;
@@ -150,7 +221,8 @@ const isStoredReservation = (value: unknown): value is StoredReservation => {
   return (
     typeof candidate.token === 'string' &&
     (candidate.mode === 'undo' || candidate.mode === 'redo') &&
-    typeof candidate.cursorAfterCommit === 'number'
+    typeof candidate.cursorAfterCommit === 'number' &&
+    (candidate.entryCount === undefined || typeof candidate.entryCount === 'number')
   );
 };
 
@@ -158,6 +230,7 @@ const toStoredReservation = (value: StoredReservation): StoredReservation => ({
   token: value.token,
   mode: value.mode,
   cursorAfterCommit: value.cursorAfterCommit,
+  entryCount: typeof value.entryCount === 'number' ? value.entryCount : 0,
   operationId: value.operationId || value.token,
   executionStatus: value.executionStatus === 'succeeded' ? 'succeeded' : 'reserved',
   leaseUntil:
@@ -194,37 +267,14 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     this.lockRetryDelayMs = options?.lockRetryDelayMs ?? DEFAULT_LOCK_RETRY_DELAY_MS;
   }
 
-  async append(scope: UndoScope, entry: UndoEntry, expectedRevision?: number) {
+  async append(scope: UndoScope, entry: UndoEntryInput, expectedRevision?: number) {
     return this.enqueueScope(scope, () => this.appendUnlocked(scope, entry, expectedRevision));
   }
 
-  private async appendUnlocked(scope: UndoScope, entry: UndoEntry, expectedRevision?: number) {
-    const strippedEntry = this.stripScope(entry);
-    const meta = await this.readPersistedValue(this.scopeKey(scope));
-    if (isSplitUndoRedoState(meta)) {
-      const healed = this.commitSucceededMeta(meta);
-      if (this.isLiveReservation(healed.reservation)) {
-        return err(
-          domainError.conflict({
-            code: 'undo_redo.reservation_conflict',
-            message: 'Undo/redo reservation already held for this window',
-            localization: { i18nKey: 'httpErrors.undoRedo.inProgress' },
-          })
-        );
-      }
-      const revision = healed.revision ?? 0;
-      if (expectedRevision !== undefined && expectedRevision !== revision) {
-        return err(
-          domainError.conflict({
-            code: 'undo_redo.revision_conflict',
-            message: 'Undo/redo stack revision does not match',
-          })
-        );
-      }
-      return this.appendSplitEntry(scope, strippedEntry, { ...healed, revision });
-    }
-
-    const state = await this.loadState(scope);
+  private async appendUnlocked(scope: UndoScope, entry: UndoEntryInput, expectedRevision?: number) {
+    const loaded = await this.loadState(scope);
+    if (loaded.isErr()) return err(loaded.error);
+    const state = loaded.value;
     this.commitSucceededLoaded(state);
     if (this.isLiveReservation(state.reservation)) {
       return err(
@@ -243,45 +293,8 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
         })
       );
     }
-    const keptEntries =
-      state.cursor < state.entries.length
-        ? state.entries.slice(0, state.cursor)
-        : [...state.entries];
-    const keptEntryIds =
-      state.cursor < state.entryIds.length
-        ? state.entryIds.slice(0, state.cursor)
-        : [...state.entryIds];
-
-    let nextSequence = Math.max(
-      state.nextSequence,
-      keptEntryIds.reduce((max, entryId) => Math.max(max, Number(entryId) || 0), 0) + 1
-    );
-
-    const nextEntryId = String(nextSequence++);
-    keptEntries.push(strippedEntry);
-    keptEntryIds.push(nextEntryId);
-
-    let limitedEntries = keptEntries;
-    let limitedEntryIds = keptEntryIds;
-    let cursor = keptEntries.length;
-
-    if (this.maxEntries && this.maxEntries > 0 && keptEntries.length > this.maxEntries) {
-      const droppedCount = keptEntries.length - this.maxEntries;
-      limitedEntries = keptEntries.slice(droppedCount);
-      limitedEntryIds = keptEntryIds.slice(droppedCount);
-      cursor = limitedEntries.length;
-    }
-
-    await this.persistAllEntries(scope, limitedEntryIds, limitedEntries);
-    await this.persistMeta(scope, {
-      format: 'split-v1',
-      entryIds: limitedEntryIds,
-      cursor,
-      nextSequence,
-      revision: state.revision + 1,
-    });
-
-    return ok(undefined);
+    const { scope: _scope, groupPosition, ...recorded } = entry;
+    return this.appendGroupedEntry(scope, recorded, state, groupPosition);
   }
 
   async undo(scope: UndoScope) {
@@ -293,11 +306,79 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   async list(scope: UndoScope, options?: UndoRedoListOptions) {
-    const state = await this.loadState(scope);
+    const envelope = await this.keyv.get(this.scopeKey(scope), { raw: true });
+    const raw = await this.maybeDecompress(envelope?.value);
+    if (isSplitUndoRedoState(raw) && raw.entryIds.length > MAX_ENTRY_REFERENCES) {
+      return err(
+        domainError.conflict({
+          code: 'undo_redo.capacity_exceeded',
+          message: 'Undo/redo history entry reference capacity exceeded',
+        })
+      );
+    }
     const offset = Math.max(0, options?.offset ?? 0);
-    const limit = options?.limit;
-    const end = limit === undefined ? state.entries.length : offset + Math.max(0, limit);
-    return ok(state.entries.slice(offset, end).map((entry) => this.attachScope(scope, entry)));
+    const end = options?.limit === undefined ? undefined : offset + Math.max(0, options.limit);
+    if (isLegacyUndoRedoState(raw)) {
+      if (raw.entries.length > MAX_ENTRY_REFERENCES) {
+        return err(
+          domainError.conflict({
+            code: 'undo_redo.capacity_exceeded',
+            message: 'Undo/redo history entry reference capacity exceeded',
+          })
+        );
+      }
+      const entries: UndoEntry[] = [];
+      for (const value of raw.entries.slice(offset, end)) {
+        const entry = await this.decodeEntryValue(scope, value);
+        if (entry.isErr()) return err(entry.error);
+        entries.push(entry.value);
+      }
+      return ok(entries);
+    }
+    const entries: UndoEntry[] = [];
+    if (isGroupedUndoRedoState(raw)) {
+      let skip = offset;
+      let remaining = options?.limit === undefined ? Infinity : Math.max(0, options.limit);
+      for (const group of raw.groups) {
+        if (this.isExpired(group)) continue;
+        for (const range of group.ranges) {
+          const count = range.endSequence - range.startSequence;
+          if (skip >= count) {
+            skip -= count;
+            continue;
+          }
+          for (
+            let sequence = range.startSequence + skip;
+            sequence < range.endSequence && remaining > 0;
+            sequence += 1
+          ) {
+            const value = await this.keyv.get(this.entryKey(scope, sequence));
+            const entry = await this.decodeEntryValue(scope, value);
+            if (entry.isErr()) return err(entry.error);
+            entries.push(entry.value);
+            remaining -= 1;
+          }
+          skip = 0;
+          if (remaining <= 0) break;
+        }
+        if (remaining <= 0) break;
+      }
+    } else if (isSplitUndoRedoState(raw)) {
+      for (const entryId of raw.entryIds.slice(offset, end)) {
+        const value = await this.keyv.get(this.entryKey(scope, Number(entryId)));
+        const entry = await this.decodeEntryValue(scope, value);
+        if (entry.isErr()) return err(entry.error);
+        entries.push(entry.value);
+      }
+    } else if (envelope !== undefined) {
+      return err(
+        domainError.conflict({
+          code: 'undo_redo.unsupported_format',
+          message: 'Undo/redo history metadata is unsupported or unavailable',
+        })
+      );
+    }
+    return ok(entries);
   }
 
   async reserve(scope: UndoScope, mode: UndoRedoReplayMode) {
@@ -305,7 +386,9 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   private async reserveUnlocked(scope: UndoScope, mode: UndoRedoReplayMode) {
-    const state = await this.loadState(scope);
+    const loaded = await this.loadState(scope);
+    if (loaded.isErr()) return err(loaded.error);
+    const state = loaded.value;
     if (state.reservation?.executionStatus === 'succeeded') {
       if (state.reservation.mode === mode) {
         return ok(this.toPublicReservation(scope, state, state.reservation));
@@ -340,30 +423,20 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
       return ok(this.toPublicReservation(scope, state, reservation));
     }
 
-    if (mode === 'undo') {
-      if (state.cursor <= 0) {
-        return ok(null);
+    let target = this.groupAtEntryIndex(state, mode === 'undo' ? state.cursor - 1 : state.cursor);
+    if (!state.reservation) {
+      while (target && this.isExpired(target.group)) {
+        state.cursor = mode === 'undo' ? target.startIndex : target.endIndex;
+        target = this.groupAtEntryIndex(state, mode === 'undo' ? state.cursor - 1 : state.cursor);
       }
-      const group = this.resolveUndoGroup(state.entries, state.cursor - 1);
-      const takeover = this.reservationTakeover(state.reservation, mode);
-      const reservation = this.createReservation(
-        mode,
-        group.startIndex,
-        takeover.operationId,
-        takeover.executedLeafIndex
-      );
-      await this.persistReservation(scope, state, reservation);
-      return ok(this.toPublicReservation(scope, state, reservation));
     }
-
-    if (state.cursor >= state.entries.length) {
-      return ok(null);
-    }
-    const group = this.resolveRedoGroup(state.entries, state.cursor);
+    if (!target) return ok(null);
+    if (target.group.unavailable) return err(this.entryMissing());
     const takeover = this.reservationTakeover(state.reservation, mode);
     const reservation = this.createReservation(
       mode,
-      group.endIndex,
+      mode === 'undo' ? target.startIndex : target.endIndex,
+      this.groupEntryCount(target.group),
       takeover.operationId,
       takeover.executedLeafIndex
     );
@@ -382,8 +455,14 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   private async markProgressUnlocked(scope: UndoScope, token: string, executedLeafIndex: number) {
-    const state = await this.loadState(scope);
-    if (state.reservation?.token !== token) {
+    const loaded = await this.loadState(scope);
+    if (loaded.isErr()) return err(loaded.error);
+    const state = loaded.value;
+    if (
+      state.reservation?.token !== token ||
+      !state.reservation ||
+      !this.isLiveReservation(state.reservation)
+    ) {
       return err(
         domainError.conflict({
           code: 'undo_redo.reservation_conflict',
@@ -394,6 +473,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     await this.persistReservation(scope, state, {
       ...state.reservation,
       executedLeafIndex,
+      leaseUntil: this.now() + this.leaseMs,
     });
     return ok(undefined);
   }
@@ -403,8 +483,14 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   private async renewUnlocked(scope: UndoScope, token: string) {
-    const state = await this.loadState(scope);
-    if (state.reservation?.token !== token) {
+    const loaded = await this.loadState(scope);
+    if (loaded.isErr()) return err(loaded.error);
+    const state = loaded.value;
+    if (
+      state.reservation?.token !== token ||
+      !state.reservation ||
+      !this.isLiveReservation(state.reservation)
+    ) {
       return err(
         domainError.conflict({
           code: 'undo_redo.reservation_conflict',
@@ -420,8 +506,14 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   private async markSucceededUnlocked(scope: UndoScope, token: string) {
-    const state = await this.loadState(scope);
-    if (state.reservation?.token !== token) {
+    const loaded = await this.loadState(scope);
+    if (loaded.isErr()) return err(loaded.error);
+    const state = loaded.value;
+    if (
+      state.reservation?.token !== token ||
+      !state.reservation ||
+      !this.isLiveReservation(state.reservation)
+    ) {
       return err(
         domainError.conflict({
           code: 'undo_redo.reservation_conflict',
@@ -441,8 +533,14 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   private async commitUnlocked(scope: UndoScope, token: string) {
-    const state = await this.loadState(scope);
-    if (state.reservation?.token !== token) {
+    const loaded = await this.loadState(scope);
+    if (loaded.isErr()) return err(loaded.error);
+    const state = loaded.value;
+    if (
+      state.reservation?.token !== token ||
+      !state.reservation ||
+      !this.isLiveReservation(state.reservation)
+    ) {
       return err(
         domainError.conflict({
           code: 'undo_redo.reservation_conflict',
@@ -459,7 +557,9 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   private async abortUnlocked(scope: UndoScope, token: string) {
-    const state = await this.loadState(scope);
+    const loaded = await this.loadState(scope);
+    if (loaded.isErr()) return err(loaded.error);
+    const state = loaded.value;
     if (!state.reservation) {
       return ok(undefined);
     }
@@ -491,22 +591,105 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   private toPublicReservation(
-    scope: UndoScope,
+    _scope: UndoScope,
     state: LoadedState,
     reservation: StoredReservation
   ): UndoRedoReservation {
-    const storedEntry =
-      reservation.mode === 'undo'
-        ? this.composeGroupedEntry(this.resolveUndoGroup(state.entries, state.cursor - 1).entries)
-        : this.composeGroupedEntry(this.resolveRedoGroup(state.entries, state.cursor).entries);
+    const group = this.groupAtEntryIndex(
+      state,
+      reservation.mode === 'undo' ? state.cursor - 1 : state.cursor
+    )!.group;
     return {
       token: reservation.token,
       mode: reservation.mode,
-      entry: this.attachScope(scope, storedEntry),
+      entryCount: this.groupEntryCount(group),
       operationId: reservation.operationId,
       executionStatus: reservation.executionStatus,
       executedLeafIndex: reservation.executedLeafIndex,
     };
+  }
+
+  async readReservedEntry(scope: UndoScope, token: string, entryIndex: number) {
+    return this.enqueueScope(scope, async () => {
+      const loaded = await this.loadState(scope);
+      if (loaded.isErr()) return err(loaded.error);
+      const state = loaded.value;
+      const reservation = state.reservation;
+      const group = reservation
+        ? this.groupAtEntryIndex(
+            state,
+            reservation.mode === 'undo' ? state.cursor - 1 : state.cursor
+          )?.group
+        : undefined;
+      if (
+        !reservation ||
+        reservation.token !== token ||
+        !reservation.inFlight ||
+        !this.isLiveReservation(reservation) ||
+        !Number.isInteger(entryIndex) ||
+        entryIndex < 0 ||
+        !group ||
+        entryIndex >= this.groupEntryCount(group)
+      ) {
+        return err(
+          domainError.conflict({
+            code: 'undo_redo.reservation_conflict',
+            message: 'Undo/redo reservation or entry index does not match',
+          })
+        );
+      }
+      if (group.unavailable || this.isExpired(group)) return err(this.entryMissing());
+      let offset =
+        reservation.mode === 'undo' ? this.groupEntryCount(group) - 1 - entryIndex : entryIndex;
+      let sequence = 0;
+      for (const range of group.ranges) {
+        const count = range.endSequence - range.startSequence;
+        if (offset < count) {
+          sequence = range.startSequence + offset;
+          break;
+        }
+        offset -= count;
+      }
+      const raw = await this.keyv.get(this.entryKey(scope, sequence), { raw: true });
+      return this.decodeEntryValue(scope, raw?.value);
+    });
+  }
+
+  private groupEntryCount(group: StoredGroup): number {
+    return group.ranges.reduce((sum, range) => sum + range.endSequence - range.startSequence, 0);
+  }
+
+  private groupAtEntryIndex(state: LoadedState, index: number) {
+    let startIndex = 0;
+    for (const group of state.groups) {
+      const endIndex = startIndex + this.groupEntryCount(group);
+      if (index >= startIndex && index < endIndex) return { group, startIndex, endIndex };
+      startIndex = endIndex;
+    }
+    return undefined;
+  }
+
+  private groupEntryIds(groups: ReadonlyArray<StoredGroup>): string[] {
+    const entryIds: string[] = [];
+    for (const group of groups) {
+      for (const range of group.ranges) {
+        for (let sequence = range.startSequence; sequence < range.endSequence; sequence += 1) {
+          entryIds.push(String(sequence));
+        }
+      }
+    }
+    return entryIds;
+  }
+
+  private isExpired(group: StoredGroup): boolean {
+    return group.expiresAt !== undefined && group.expiresAt <= this.now();
+  }
+
+  private entryMissing() {
+    return domainError.notFound({
+      code: 'undo_redo.entry_missing',
+      message: 'Reserved undo/redo entry has expired or is unavailable',
+    });
   }
 
   private isLiveReservation(reservation: StoredReservation | undefined): boolean {
@@ -517,19 +700,6 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
       return true;
     }
     return reservation.leaseUntil > this.now();
-  }
-
-  private commitSucceededMeta(meta: SplitUndoRedoState): SplitUndoRedoState {
-    if (meta.reservation?.executionStatus !== 'succeeded') {
-      return meta;
-    }
-    return {
-      format: meta.format,
-      entryIds: meta.entryIds,
-      cursor: meta.reservation.cursorAfterCommit,
-      nextSequence: meta.nextSequence,
-      revision: (meta.revision ?? 0) + 1,
-    };
   }
 
   private commitSucceededLoaded(state: LoadedState): void {
@@ -557,6 +727,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   private createReservation(
     mode: UndoRedoReplayMode,
     cursorAfterCommit: number,
+    entryCount: number,
     operationId?: string,
     executedLeafIndex = 0
   ): StoredReservation {
@@ -564,6 +735,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
       token: crypto.randomUUID(),
       mode,
       cursorAfterCommit,
+      entryCount,
       operationId: operationId ?? crypto.randomUUID(),
       executionStatus: 'reserved',
       leaseUntil: this.now() + this.leaseMs,
@@ -668,99 +840,283 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     if (!reserved.value) {
       return ok(null);
     }
-    const committed = await this.commit(scope, reserved.value.token);
-    if (committed.isErr()) {
-      return err(committed.error);
+    // Inspection helpers retain their historical composed return value. The
+    // command executor uses readReservedEntry and never takes this eager path.
+    const entries: StoredUndoEntry[] = [];
+    for (let index = 0; index < reserved.value.entryCount; index += 1) {
+      const entry = await this.readReservedEntry(scope, reserved.value.token, index);
+      if (entry.isErr()) {
+        await this.abort(scope, reserved.value.token);
+        return err(entry.error);
+      }
+      entries.push(this.stripScope(entry.value));
     }
-    return ok(reserved.value.entry);
+    if (mode === 'undo') entries.reverse();
+    const committed = await this.commit(scope, reserved.value.token);
+    if (committed.isErr()) return err(committed.error);
+    return ok(this.attachScope(scope, this.composeGroupedEntry(entries)));
   }
 
-  private async appendSplitEntry(
+  private async appendGroupedEntry(
     scope: UndoScope,
     entry: StoredUndoEntry,
-    state: SplitUndoRedoState
+    state: LoadedState,
+    groupPosition?: 'start' | 'continue'
   ) {
-    let entryIds =
-      state.cursor < state.entryIds.length
-        ? state.entryIds.slice(0, state.cursor)
-        : [...state.entryIds];
-
-    if (state.cursor < state.entryIds.length) {
-      await this.deleteEntryKeys(scope, state.entryIds.slice(state.cursor));
+    let appliedCount = 0;
+    let appliedGroupCount = 0;
+    while (appliedCount < state.cursor) {
+      appliedCount += this.groupEntryCount(state.groups[appliedGroupCount++]!);
     }
-
-    let nextSequence = state.nextSequence;
-    const nextEntryId = String(nextSequence++);
-    entryIds.push(nextEntryId);
-
-    if (this.maxEntries && this.maxEntries > 0 && entryIds.length > this.maxEntries) {
-      const droppedCount = entryIds.length - this.maxEntries;
-      const droppedEntryIds = entryIds.slice(0, droppedCount);
-      await this.deleteEntryKeys(scope, droppedEntryIds);
-      entryIds = entryIds.slice(droppedCount);
+    const appliedGroups = state.groups.slice(0, appliedGroupCount);
+    const matching = entry.groupId
+      ? appliedGroups.filter((group) => group.groupId === entry.groupId)
+      : [];
+    const sequence = state.nextSequence;
+    const established = matching.length === 1 ? matching[0] : undefined;
+    if (
+      entry.groupId &&
+      (groupPosition === 'start'
+        ? state.groups.some((group) => group.groupId === entry.groupId)
+        : groupPosition !== 'continue' ||
+          !established ||
+          established.groupStartSequence === undefined ||
+          established.unavailable ||
+          this.isExpired(established) ||
+          state.groups.slice(appliedGroupCount).some((group) => group.groupId === entry.groupId))
+    ) {
+      return err(
+        domainError.conflict({
+          code: 'undo_redo.group_unavailable',
+          message: 'Undo/redo group start or continuation is unavailable',
+        })
+      );
     }
-
-    await this.persistEntryValue(scope, nextEntryId, entry);
-    await this.persistMeta(scope, {
-      format: 'split-v1',
-      entryIds,
-      cursor: entryIds.length,
-      nextSequence,
-      revision: (state.revision ?? 0) + 1,
-    });
-
+    const groups = appliedGroups.filter((group) => !matching.includes(group));
+    const discarded = state.groups.slice(appliedGroupCount);
+    const deadlines = matching.flatMap((group) =>
+      group.expiresAt === undefined ? [] : [group.expiresAt]
+    );
+    const group: StoredGroup = {
+      ranges: matching.flatMap((fragment) => fragment.ranges.map((range) => ({ ...range }))),
+      ...(entry.groupId
+        ? {
+            groupId: entry.groupId,
+            groupStartSequence:
+              groupPosition === 'start' ? sequence : established!.groupStartSequence!,
+          }
+        : {}),
+      ...(deadlines.length
+        ? { expiresAt: Math.min(...deadlines) }
+        : this.ttlMs && this.ttlMs > 0 && matching.length === 0
+          ? { expiresAt: this.now() + this.ttlMs }
+          : {}),
+    };
+    const tail = group.ranges.at(-1);
+    if (tail?.endSequence === sequence) tail.endSequence += 1;
+    else group.ranges.push({ startSequence: sequence, endSequence: sequence + 1 });
+    groups.push(group);
+    let count = groups.reduce((sum, candidate) => sum + this.groupEntryCount(candidate), 0);
+    if (this.maxEntries && this.maxEntries > 0) {
+      while (groups.length > 1 && count > this.maxEntries) {
+        // An unresolved legacy reference may belong to another old group.
+        // maxEntries is soft for uncertain history, just as for a whole large
+        // group: preserve its references and original expiry rather than
+        // invent a boundary. The hard reference ceiling can reject new writes
+        // before persistence; it does not promise globally bounded Redis bytes.
+        if (groups[0]?.unavailable) break;
+        const removed = groups.shift()!;
+        count -= this.groupEntryCount(removed);
+        discarded.push(removed);
+      }
+    }
+    if (count > MAX_ENTRY_REFERENCES) {
+      return err(
+        domainError.conflict({
+          code: 'undo_redo.capacity_exceeded',
+          message: 'Undo/redo history entry reference capacity exceeded',
+        })
+      );
+    }
+    if (group.groupStartSequence !== undefined) entry.groupStartSequence = group.groupStartSequence;
+    await this.persistValue(this.entryKey(scope, sequence), entry, group.expiresAt ?? null);
+    if (this.isExpired(group)) return err(this.entryMissing());
+    const entryIds = this.groupEntryIds(groups);
+    await this.persistMeta(
+      scope,
+      {
+        format: 'split-v1',
+        groups,
+        entryIds,
+        cursor: entryIds.length,
+        nextSequence: sequence + 1,
+        revision: state.revision + 1,
+      },
+      state.inline
+    );
+    for (const removed of discarded) {
+      for (const range of removed.ranges) {
+        for (let prior = range.startSequence; prior < range.endSequence; prior += 1) {
+          await this.keyv.delete(this.entryKey(scope, prior));
+        }
+      }
+    }
     return ok(undefined);
   }
 
-  private async loadState(scope: UndoScope): Promise<LoadedState> {
-    const raw = await this.readPersistedValue(this.scopeKey(scope));
-
-    if (isSplitUndoRedoState(raw)) {
-      const entries: StoredUndoEntry[] = [];
-      const entryIds: string[] = [];
-
-      for (const entryId of raw.entryIds) {
-        const entry = await this.readPersistedValue(this.entryKey(scope, entryId));
-        if (!isStoredUndoEntry(entry)) {
-          continue;
-        }
-        entryIds.push(entryId);
-        entries.push(entry);
-      }
-
-      return {
-        format: 'split',
-        entryIds,
-        entries,
-        cursor: Math.min(raw.cursor, entries.length),
-        nextSequence: Math.max(raw.nextSequence, entryIds.length + 1),
+  private async loadState(scope: UndoScope) {
+    const envelope = await this.keyv.get(this.scopeKey(scope), { raw: true });
+    const raw = await this.maybeDecompress(envelope?.value);
+    if (
+      (isSplitUndoRedoState(raw) && raw.entryIds.length > MAX_ENTRY_REFERENCES) ||
+      (isLegacyUndoRedoState(raw) && raw.entries.length > MAX_ENTRY_REFERENCES)
+    ) {
+      return err(
+        domainError.conflict({
+          code: 'undo_redo.capacity_exceeded',
+          message: 'Undo/redo history entry reference capacity exceeded',
+        })
+      );
+    }
+    if (isGroupedUndoRedoState(raw)) {
+      return ok<LoadedState>({
+        groups: raw.groups,
+        entryIds: raw.entryIds,
+        cursor: raw.cursor,
+        nextSequence: raw.nextSequence,
         revision: raw.revision ?? 0,
         ...(isStoredReservation(raw.reservation)
           ? { reservation: toStoredReservation(raw.reservation) }
           : {}),
-      };
+      });
     }
-
-    if (isLegacyUndoRedoState(raw)) {
-      const entries = raw.entries.filter(isStoredUndoEntry);
-      return {
-        format: 'inline',
-        entryIds: entries.map((_, index) => String(index + 1)),
-        entries,
-        cursor: Math.min(raw.cursor, entries.length),
-        nextSequence: entries.length + 1,
-        revision: 0,
-      };
+    if (!isSplitUndoRedoState(raw) && !isLegacyUndoRedoState(raw)) {
+      if (envelope !== undefined) {
+        return err(
+          domainError.conflict({
+            code: 'undo_redo.unsupported_format',
+            message: 'Undo/redo history metadata is unsupported or unavailable',
+          })
+        );
+      }
+      return ok<LoadedState>({ groups: [], entryIds: [], cursor: 0, nextSequence: 1, revision: 0 });
     }
-
-    return {
-      format: 'empty',
-      entryIds: [],
-      entries: [],
-      cursor: 0,
-      nextSequence: 1,
-      revision: 0,
+    // Group ranges are a disposable cache beside the original split-v1 entry
+    // list and entry-index cursor. Old writers drop the cache; reconstruct it
+    // one payload at a time without copying blobs or refreshing their expiry.
+    // The reference ceiling is checked before this per-reference payload scan.
+    // Another old-writer cache drop can incur it again. It does not claim a
+    // constant-memory bound for legacy inline history or one oversized blob.
+    const inline = isLegacyUndoRedoState(raw) ? raw.entries : undefined;
+    const split = isSplitUndoRedoState(raw) ? raw : undefined;
+    const reservation =
+      split && isStoredReservation(split.reservation)
+        ? toStoredReservation(split.reservation)
+        : undefined;
+    const groups: StoredGroup[] = [];
+    const applied = new Map<StoredGroup, boolean>();
+    const missing: Array<{ sequence: number; isApplied: boolean }> = [];
+    const historyExpiresAt = typeof envelope?.expires === 'number' ? envelope.expires : undefined;
+    const count = inline ? inline.length : split!.entryIds.length;
+    for (let index = 0; index < count; index += 1) {
+      const sequence = split ? Number(split.entryIds[index]!) : index + 1;
+      const prior = split
+        ? await this.keyv.get(this.entryKey(scope, sequence), { raw: true })
+        : envelope;
+      if (!Number.isSafeInteger(sequence) || sequence < 1) return err(this.entryMissing());
+      const entry = await this.decodeStoredEntryValue(inline ? inline[index] : prior?.value);
+      const isApplied = index < raw.cursor;
+      if (entry.isErr()) {
+        // Keep the original reference and cursor position. Missing payloads
+        // cannot reveal group identity, including across interleaved actions.
+        const group: StoredGroup = {
+          ranges: [{ startSequence: sequence, endSequence: sequence + 1 }],
+          unavailable: true,
+          ...(historyExpiresAt !== undefined ? { expiresAt: historyExpiresAt } : {}),
+        };
+        groups.push(group);
+        applied.set(group, isApplied);
+        missing.push({ sequence, isApplied });
+        continue;
+      }
+      const groupId = entry.value.groupId;
+      const groupStartSequence = entry.value.groupStartSequence;
+      const last = groups.at(-1);
+      // Preserve an active baseline reservation's contiguous original target.
+      const existing = groupId
+        ? reservation
+          ? last?.groupId === groupId &&
+            last.groupStartSequence === groupStartSequence &&
+            applied.get(last) === isApplied
+            ? groups.length - 1
+            : -1
+          : groups.findIndex(
+              (group) =>
+                group.groupId === groupId &&
+                group.groupStartSequence === groupStartSequence &&
+                applied.get(group) === isApplied
+            )
+        : -1;
+      const group: StoredGroup =
+        existing >= 0
+          ? groups[existing]!
+          : {
+              ranges: [],
+              ...(groupId ? { groupId } : {}),
+              ...(groupStartSequence !== undefined ? { groupStartSequence } : {}),
+            };
+      if (existing >= 0 && isApplied) groups.splice(existing, 1);
+      if (existing < 0 || isApplied) groups.push(group);
+      applied.set(group, isApplied);
+      const payloadExpiresAt = typeof prior?.expires === 'number' ? prior.expires : undefined;
+      const deadline = Math.min(payloadExpiresAt ?? Infinity, historyExpiresAt ?? Infinity);
+      if (Number.isFinite(deadline))
+        group.expiresAt = Math.min(group.expiresAt ?? Infinity, deadline);
+      const tail = group.ranges.at(-1);
+      if (tail?.endSequence === sequence) tail.endSequence += 1;
+      else group.ranges.push({ startSequence: sequence, endSequence: sequence + 1 });
+    }
+    for (const group of groups) {
+      if (!group.groupId) continue;
+      const start = group.groupStartSequence;
+      const lastSequence = group.ranges.at(-1)!.endSequence - 1;
+      if (
+        (start !== undefined &&
+          (!Number.isSafeInteger(start) ||
+            start < 1 ||
+            group.ranges[0]!.startSequence !== start)) ||
+        missing.some(
+          (hole) =>
+            start === undefined ||
+            (hole.isApplied === applied.get(group) &&
+              hole.sequence >= start &&
+              hole.sequence <= lastSequence)
+        )
+      ) {
+        group.unavailable = true;
+      }
+    }
+    const orderedGroups = [
+      ...groups.filter((group) => applied.get(group)),
+      ...groups.filter((group) => !applied.get(group)),
+    ];
+    const state: LoadedState = {
+      groups: orderedGroups,
+      entryIds: this.groupEntryIds(orderedGroups),
+      cursor: raw.cursor,
+      nextSequence: split?.nextSequence ?? count + 1,
+      revision: split?.revision ?? 0,
+      ...(reservation ? { reservation } : {}),
+      ...(inline
+        ? {
+            inline: {
+              entries: inline,
+              expiresAt: typeof envelope?.expires === 'number' ? envelope.expires : null,
+            },
+          }
+        : {}),
     };
+    return ok(state);
   }
 
   private async persistAfterCursorChange(
@@ -768,17 +1124,18 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     state: LoadedState,
     cursor: number
   ): Promise<void> {
-    if (state.format !== 'split') {
-      await this.persistAllEntries(scope, state.entryIds, state.entries);
-    }
-
-    await this.persistMeta(scope, {
-      format: 'split-v1',
-      entryIds: state.entryIds,
-      cursor,
-      nextSequence: state.nextSequence,
-      revision: state.revision + 1,
-    });
+    await this.persistMeta(
+      scope,
+      {
+        format: 'split-v1',
+        groups: state.groups,
+        entryIds: state.entryIds,
+        cursor,
+        nextSequence: state.nextSequence,
+        revision: state.revision + 1,
+      },
+      state.inline
+    );
   }
 
   private async persistReservation(
@@ -786,60 +1143,8 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     state: LoadedState,
     reservation: StoredReservation | undefined
   ): Promise<void> {
-    if (state.format !== 'split') {
-      await this.persistAllEntries(scope, state.entryIds, state.entries);
-    }
-
-    await this.persistMeta(scope, {
-      format: 'split-v1',
-      entryIds: state.entryIds,
-      cursor: state.cursor,
-      nextSequence: state.nextSequence,
-      revision: state.revision,
-      ...(reservation ? { reservation } : {}),
-    });
-  }
-
-  private resolveUndoGroup(entries: StoredUndoEntry[], currentIndex: number) {
-    const current = entries[currentIndex]!;
-    const groupId = current.groupId;
-    if (!groupId) {
-      return {
-        startIndex: currentIndex,
-        entries: [current],
-      };
-    }
-
-    let startIndex = currentIndex;
-    while (startIndex > 0 && entries[startIndex - 1]?.groupId === groupId) {
-      startIndex -= 1;
-    }
-
-    return {
-      startIndex,
-      entries: entries.slice(startIndex, currentIndex + 1),
-    };
-  }
-
-  private resolveRedoGroup(entries: StoredUndoEntry[], cursor: number) {
-    const current = entries[cursor]!;
-    const groupId = current.groupId;
-    if (!groupId) {
-      return {
-        endIndex: cursor + 1,
-        entries: [current],
-      };
-    }
-
-    let endIndex = cursor + 1;
-    while (endIndex < entries.length && entries[endIndex]?.groupId === groupId) {
-      endIndex += 1;
-    }
-
-    return {
-      endIndex,
-      entries: entries.slice(cursor, endIndex),
-    };
+    const { inline, ...metadata } = state;
+    await this.persistMeta(scope, { ...metadata, format: 'split-v1', reservation }, inline);
   }
 
   private composeGroupedEntry(entries: ReadonlyArray<StoredUndoEntry>): StoredUndoEntry {
@@ -861,89 +1166,81 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     };
   }
 
-  private async persistMeta(scope: UndoScope, state: SplitUndoRedoState): Promise<void> {
+  private async persistMeta(
+    scope: UndoScope,
+    state: GroupedUndoRedoState,
+    inline?: LoadedState['inline']
+  ): Promise<void> {
+    // Admission has already applied retention and the reference ceiling. Only
+    // retained legacy inline entries are split; rejected appends write nothing.
+    if (inline) {
+      for (const entryId of state.entryIds) {
+        const entry = inline.entries[Number(entryId) - 1];
+        if (entry)
+          await this.persistValue(this.entryKey(scope, Number(entryId)), entry, inline.expiresAt);
+      }
+    }
     await this.persistValue(this.scopeKey(scope), state);
   }
 
-  private async persistAllEntries(
-    scope: UndoScope,
-    entryIds: ReadonlyArray<string>,
-    entries: ReadonlyArray<StoredUndoEntry>
+  private async persistValue(
+    key: string,
+    value: unknown,
+    expiresAt?: number | null
   ): Promise<void> {
-    for (let index = 0; index < entryIds.length; index += 1) {
-      const entryId = entryIds[index];
-      const entry = entries[index];
-      if (!entryId || !entry) {
-        continue;
-      }
-      await this.persistEntryValue(scope, entryId, entry);
-    }
-  }
-
-  private async persistEntryValue(
-    scope: UndoScope,
-    entryId: string,
-    entry: StoredUndoEntry
-  ): Promise<void> {
-    await this.persistValue(this.entryKey(scope, entryId), entry);
-  }
-
-  private async persistValue(key: string, value: unknown): Promise<void> {
-    const persisted = this.maybeCompress(value);
-    if (this.ttlMs && this.ttlMs > 0) {
-      await this.keyv.set(key, persisted, this.ttlMs);
+    const persisted = await this.maybeCompress(value);
+    const ttlMs =
+      expiresAt === undefined
+        ? this.ttlMs
+        : expiresAt === null
+          ? undefined
+          : expiresAt - this.now();
+    if (ttlMs !== undefined && ttlMs <= 0 && expiresAt !== undefined) return;
+    if (ttlMs && ttlMs > 0) {
+      await this.keyv.set(key, persisted, ttlMs);
       return;
     }
-
     await this.keyv.set(key, persisted);
   }
 
-  private async readPersistedValue(key: string): Promise<unknown> {
-    const raw = await this.keyv.get(key);
-    return this.maybeDecompress(raw);
+  private async decodeEntryValue(
+    scope: UndoScope,
+    value: unknown
+  ): Promise<Result<UndoEntry, DomainError>> {
+    const decoded = await this.decodeStoredEntryValue(value);
+    if (decoded.isErr()) return err(decoded.error);
+    return ok(this.attachScope(scope, decoded.value));
+  }
+
+  private async decodeStoredEntryValue(
+    value: unknown
+  ): Promise<Result<StoredUndoEntry, DomainError>> {
+    const decoded = await this.maybeDecompress(value);
+    if (!isStoredUndoEntry(decoded)) return err(this.entryMissing());
+    return ok(decoded);
   }
 
   private maybeCompress(value: unknown): unknown {
-    if (!value || typeof value !== 'object') {
-      return value;
-    }
-
+    if (!value || typeof value !== 'object') return value;
     const serialized = JSON.stringify(value);
-    if (Buffer.byteLength(serialized, 'utf8') < this.compressionThresholdBytes) {
-      return value;
-    }
-
+    const inputByteLength = Buffer.byteLength(serialized, 'utf8');
+    if (inputByteLength < this.compressionThresholdBytes) return value;
     const compressed = gzipSync(Buffer.from(serialized, 'utf8'));
-    if (compressed.byteLength >= Buffer.byteLength(serialized, 'utf8')) {
-      return value;
-    }
-
-    return {
-      format: 'gz64-json',
-      data: compressed.toString('base64'),
-    } satisfies CompressedValue;
+    if (compressed.byteLength >= inputByteLength) return value;
+    return { format: 'gz64-json', data: compressed.toString('base64') } satisfies CompressedValue;
   }
 
   private maybeDecompress(value: unknown): unknown {
-    if (!isCompressedValue(value)) {
-      return value;
-    }
-
+    if (!isCompressedValue(value)) return value;
     try {
       const compressedBuffer = Buffer.from(value.data, 'base64');
       const decompressed =
         value.format === 'br64-json'
-          ? brotliDecompressSync(compressedBuffer).toString('utf8')
-          : gunzipSync(compressedBuffer).toString('utf8');
-      return JSON.parse(decompressed) as unknown;
+          ? brotliDecompressSync(compressedBuffer)
+          : gunzipSync(compressedBuffer);
+      return JSON.parse(decompressed.toString('utf8')) as unknown;
     } catch {
       return undefined;
-    }
-  }
-
-  private async deleteEntryKeys(scope: UndoScope, entryIds: ReadonlyArray<string>): Promise<void> {
-    for (const entryId of entryIds) {
-      await this.keyv.delete(this.entryKey(scope, entryId));
     }
   }
 
@@ -954,8 +1251,14 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
 
   private attachScope(scope: UndoScope, entry: StoredUndoEntry): UndoEntry {
     return {
-      ...entry,
       scope,
+      undoCommand: entry.undoCommand,
+      redoCommand: entry.redoCommand,
+      groupId: entry.groupId,
+      recordVersionBefore: entry.recordVersionBefore,
+      recordVersionAfter: entry.recordVersionAfter,
+      createdAt: entry.createdAt,
+      requestId: entry.requestId,
     };
   }
 
@@ -963,7 +1266,7 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     return `${this.keyPrefix}:${scope.actorId.toString()}:${scope.tableId.toString()}:${scope.windowId}`;
   }
 
-  private entryKey(scope: UndoScope, entryId: string): string {
-    return `${this.scopeKey(scope)}:entry:${entryId}`;
+  private entryKey(scope: UndoScope, sequence: number): string {
+    return `${this.scopeKey(scope)}:entry:${sequence}`;
   }
 }

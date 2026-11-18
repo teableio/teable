@@ -165,6 +165,29 @@ describe('useGridAsyncRecords', () => {
     await waitFor(() => expect(getSearchMatches).toHaveBeenCalledTimes(2));
   });
 
+  it('keeps server matches when a column outside a limited search scope is hidden', async () => {
+    mockedUseSearch.mockReturnValue({ searchQuery: ['alpha', 'fldA,fldB', false] } as never);
+    mockedUseView.mockReturnValue({ id: 'viwTest', columnMeta: {} } as never);
+    mockedUseFields.mockReturnValue([{ id: 'fldA' }, { id: 'fldB' }, { id: 'fldC' }] as never);
+    mockedUseRecords.mockReturnValue(mockUseRecordsResult([createRecord('recA')]));
+
+    const { rerender } = renderHook(() => useGridAsyncRecords());
+    await waitFor(() => expect(getSearchMatches).toHaveBeenCalledTimes(1));
+
+    mockedUseView.mockReturnValue({
+      id: 'viwTest',
+      columnMeta: { fldC: { hidden: true } },
+    } as never);
+    mockedUseFields.mockReturnValue([{ id: 'fldA' }, { id: 'fldB' }] as never);
+    rerender();
+    await act(async () => {});
+    expect(getSearchMatches).toHaveBeenCalledTimes(1);
+
+    mockedUseFields.mockReturnValue([{ id: 'fldA' }] as never);
+    rerender();
+    await waitFor(() => expect(getSearchMatches).toHaveBeenCalledTimes(2));
+  });
+
   it('retries a failed server-match request and restores highlighting', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockedUseSearch.mockReturnValue({ searchQuery: ['alpha', '', false] } as never);

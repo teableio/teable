@@ -4,13 +4,20 @@ import type { Action } from '@teable/core';
 import { HttpErrorCode } from '@teable/core';
 import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IRedoVo, IUndoRedoStreamEvent, IUndoVo } from '@teable/openapi';
-import { domainError, TableId, toUndoRedoStackReplayContext, v2CoreTokens } from '@teable/v2-core';
+import {
+  domainError,
+  flattenUndoRedoCommands,
+  TableId,
+  toUndoRedoStackReplayContext,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import type {
   DomainError,
   UndoEntry,
   UndoRedoCommandData,
   UndoRedoReplayMode,
   UndoRedoReplayProgress,
+  UndoRedoReplayResult,
   UndoRedoStackService as V2UndoRedoStackService,
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
@@ -56,8 +63,9 @@ const collectV2RestoredRecordIds = (command: UndoRedoCommandData): string[] => {
 
 const describeV2Entry = (entry: UndoEntry, mode: UndoRedoReplayMode): string => {
   const command = mode === 'undo' ? entry.undoCommand : entry.redoCommand;
-  const leaves = command.type === 'Batch' ? command.payload : [command];
-  return leaves.map((leaf) => leaf.type).join('+');
+  return flattenUndoRedoCommands(command)
+    .map((leaf) => leaf.type)
+    .join('+');
 };
 
 const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
@@ -75,7 +83,7 @@ type IUndoRedoResponse<T extends IUndoVo | IRedoVo> = {
 type IUndoRedoMode = 'undo' | 'redo';
 
 type IV2Replay = {
-  result: Result<UndoEntry | null, DomainError>;
+  result: Result<UndoRedoReplayResult | null, DomainError>;
   // The host exception raised by the permission gate, carried out of the
   // Result-only engine so the caller can rethrow it (403) instead of
   // reporting a `failed` replay.
@@ -445,10 +453,8 @@ export class UndoRedoService {
     };
   }
 
-  // Runs one v2 stack replay with the permission gate installed. The gate runs
-  // inside the engine's reservation (`beforeReplay`), so the entry that gets
-  // checked is exactly the one about to be replayed — group-composed and
-  // race-free — and a veto aborts the reservation without consuming it.
+  // The engine preflights the reserved group one entry at a time before replay.
+  // A veto aborts the reservation without consuming any entry.
   private async replayV2(
     tableId: string,
     windowId: string,
@@ -494,7 +500,15 @@ export class UndoRedoService {
     };
 
     const replayContext = toUndoRedoStackReplayContext(context);
-    const options = { onProgress, beforeReplay };
+    const options = {
+      onProgress,
+      beforeReplay,
+      onEntryReplayed: async (entry: UndoEntry, replayMode: UndoRedoReplayMode) => {
+        if (replayMode === 'undo') {
+          await this.markV2RestoredTombstones(tableId, entry.undoCommand);
+        }
+      },
+    };
     const result =
       mode === 'undo'
         ? await stackService.applyUndo(replayContext, tableIdResult.value, windowId, options)
@@ -545,10 +559,6 @@ export class UndoRedoService {
       return undefined;
     }
 
-    if (mode === 'undo') {
-      await this.markV2RestoredTombstones(tableId, replay.result.value.undoCommand);
-    }
-
     return {
       body: {
         status: 'fulfilled',
@@ -592,10 +602,6 @@ export class UndoRedoService {
             localization: replayResult.error.localization,
           });
           return;
-        }
-
-        if (mode === 'undo' && replayResult.value) {
-          await this.markV2RestoredTombstones(tableId, replayResult.value.undoCommand);
         }
 
         queue.push({

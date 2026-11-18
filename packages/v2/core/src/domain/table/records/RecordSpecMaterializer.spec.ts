@@ -83,6 +83,36 @@ describe('materializeRecordSpec', () => {
     expect(recordToFieldValues(materialized)).toEqual([]);
   });
 
+  it('observes ordered required presence without materializing pending lookup values', () => {
+    const pendingLink = SetLinkValueByTitleSpec.create(textFieldId, tableId, ['Example']);
+    const pendingUser = SetUserValueByIdentifierSpec.create(numberFieldId, ['me'], false);
+    const emptyLink = SetLinkValueByTitleSpec.create(notesFieldId, tableId, []);
+    const emptyUser = SetUserValueByIdentifierSpec.create(numberFieldId, [], false);
+    const assignments: Array<[string, boolean]> = [];
+    const spec = and(
+      and(pendingLink, ClearFieldValueSpec.create(textField)),
+      and(and(emptyLink, pendingUser), emptyUser)
+    );
+
+    const record = materializeRecordSpec({
+      id: recordId,
+      tableId,
+      spec,
+      onFieldValuePresence: (fieldId, present) => {
+        assignments.push([fieldId.toString(), present]);
+      },
+    })._unsafeUnwrap();
+
+    expect(assignments).toEqual([
+      [textFieldId.toString(), true],
+      [textFieldId.toString(), false],
+      [notesFieldId.toString(), false],
+      [numberFieldId.toString(), true],
+      [numberFieldId.toString(), false],
+    ]);
+    expect(recordToFieldValues(record)).toEqual([{ fieldId: textFieldId.toString(), value: null }]);
+  });
+
   it('merges spec cells into an existing record without moving untouched fields', () => {
     const baseRecord = TableRecord.create({
       id: recordId,

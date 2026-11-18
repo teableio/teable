@@ -27,4 +27,5 @@ export enum LocalStorageKeys {
   WinCreditTriggerVisible = 'ls_win_credit_trigger_visible',
   Sidebar = 'ls_sidebar',
   SpaceBaseListViewMode = 'ls_space_base_list_view_mode',
+  NotificationFilter = 'ls_notification_filter',
 }

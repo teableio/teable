@@ -1,20 +1,24 @@
 import type { Prisma, PrismaService } from '@teable/db-main-prisma';
 import { ResourceType } from '@teable/openapi';
 
+/**
+ * Sends a live snapshot to the trash, where the retention cleanup purges it and what it
+ * deployed. One that is retired already keeps its trash entry and its purge date.
+ */
 export const retireTemplateSnapshot = async (
   prisma: Prisma.TransactionClient,
   snapshotBaseId: string,
   deletedBy: string
 ): Promise<void> => {
+  const deletedTime = new Date();
+  const { count } = await prisma.base.updateMany({
+    where: { id: snapshotBaseId, deletedTime: null },
+    data: { deletedTime },
+  });
+  if (!count) return;
   const snapshotBase = await prisma.base.findUniqueOrThrow({
     where: { id: snapshotBaseId },
     select: { spaceId: true },
-  });
-  const deletedTime = new Date();
-
-  await prisma.base.update({
-    where: { id: snapshotBaseId },
-    data: { deletedTime },
   });
   await prisma.trash.upsert({
     // Prisma generates this key name from the compound unique index.

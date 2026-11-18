@@ -75,10 +75,7 @@ import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { generateFilterItem } from '../../utils/filter';
-import {
-  generateTableThumbnailPath,
-  getTableThumbnailToken,
-} from '../../utils/generate-thumbnail-path';
+import { getTableThumbnailToken } from '../../utils/generate-thumbnail-path';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -2020,7 +2017,8 @@ export class RecordService {
   private async getCachePreviewUrlTokenMap(
     records: ISnapshotBase<IRecord>[],
     fields: IFieldInstance[],
-    fieldKeyType: FieldKeyType
+    fieldKeyType: FieldKeyType,
+    thumbnailPathTokenMap: Record<string, { sm?: string; lg?: string } | undefined>
   ) {
     const previewToken: string[] = [];
     for (const field of fields) {
@@ -2030,13 +2028,9 @@ export class RecordService {
           const cellValue = this.normalizeAttachmentCellValue(record.data.fields[fieldKey]);
           if (cellValue == null) continue;
           cellValue.forEach((item) => {
-            if (item.mimetype.startsWith('image/') && item.width && item.height) {
-              const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(item.path);
-              previewToken.push(
-                getTableThumbnailToken(smThumbnailPath),
-                getTableThumbnailToken(lgThumbnailPath)
-              );
-            }
+            const { sm, lg } = thumbnailPathTokenMap[item.token] ?? {};
+            if (sm) previewToken.push(getTableThumbnailToken(sm));
+            if (lg) previewToken.push(getTableThumbnailToken(lg));
             previewToken.push(item.token);
           });
         }
@@ -2112,11 +2106,16 @@ export class RecordService {
       if (records.length === 0 || !fields.some((f) => f.type === FieldType.Attachment)) {
         return records;
       }
-      const cacheTokenUrlMap = await this.getCachePreviewUrlTokenMap(records, fields, fieldKeyType);
       const thumbnailPathTokenMap = await this.getThumbnailPathTokenMap(
         records,
         fields,
         fieldKeyType
+      );
+      const cacheTokenUrlMap = await this.getCachePreviewUrlTokenMap(
+        records,
+        fields,
+        fieldKeyType,
+        thumbnailPathTokenMap
       );
       for (const field of fields) {
         if (field.type === FieldType.Attachment) {
@@ -2286,7 +2285,6 @@ export class RecordService {
         let smThumbnailUrl: string | undefined;
         let lgThumbnailUrl: string | undefined;
         const isImg = isImage(mimetype);
-        const thumbnailMimetype = resolveThumbnailMimetype(mimetype);
         if (thumbnailPathTokenMap?.[token]) {
           const { sm: smThumbnailPath, lg: lgThumbnailPath } = thumbnailPathTokenMap[token]!;
           if (smThumbnailPath) {
@@ -2294,7 +2292,7 @@ export class RecordService {
               cacheTokenUrlMap?.[getTableThumbnailToken(smThumbnailPath)] ??
               (await this.attachmentStorageService.getTableThumbnailUrl(
                 smThumbnailPath,
-                thumbnailMimetype
+                resolveThumbnailMimetype(mimetype, smThumbnailPath)
               ));
           }
           if (lgThumbnailPath) {
@@ -2302,7 +2300,7 @@ export class RecordService {
               cacheTokenUrlMap?.[getTableThumbnailToken(lgThumbnailPath)] ??
               (await this.attachmentStorageService.getTableThumbnailUrl(
                 lgThumbnailPath,
-                thumbnailMimetype
+                resolveThumbnailMimetype(mimetype, lgThumbnailPath)
               ));
           }
         }

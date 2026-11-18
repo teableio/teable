@@ -4,12 +4,17 @@ import { describe, expect, it } from 'vitest';
 
 import { DeleteByRangeApplicationService } from '../application/services/DeleteByRangeApplicationService';
 import { TableQueryService } from '../application/services/TableQueryService';
-import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import type {
+  RecordDeleteUndoRedoInput,
+  UndoRedoStackEntryInput,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { createUndoRedoCommand, type UndoEntryGroupInput } from '../ports/UndoRedoStore';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
@@ -345,59 +350,48 @@ class FakeUndoRedoService {
   recordEntryCalls: Array<{
     context: IExecutionContext;
     tableId: string;
-    entry: unknown;
+    entry: UndoRedoStackEntryInput;
   }> = [];
   deletedRecordCounts: number[] = [];
+  failFirst = false;
 
-  async recordEntry(context: IExecutionContext, tableId: TableId, entry: unknown) {
+  async recordEntry(context: IExecutionContext, tableId: TableId, entry: UndoRedoStackEntryInput) {
     this.recordEntryCalls.push({
       context,
       tableId: tableId.toString(),
       entry,
     });
-    return ok(undefined);
+    return this.failFirst && this.recordEntryCalls.length === 1
+      ? err(domainError.conflict({ message: 'recording failed' }))
+      : ok(undefined);
   }
 
-  async recordDelete(
-    context: IExecutionContext,
-    params: {
-      tableId: TableId;
-      deletedRecords: ReadonlyArray<{ recordId: string }>;
-      deletedRecordIds?: ReadonlyArray<string>;
-      groupId?: string;
-    }
-  ) {
+  async recordDelete(context: IExecutionContext, params: RecordDeleteUndoRedoInput) {
     this.deletedRecordCounts.push(params.deletedRecords.length);
+    const group: UndoEntryGroupInput =
+      params.groupId !== undefined
+        ? { groupId: params.groupId, groupPosition: params.groupPosition }
+        : {};
     return this.recordEntry(context, params.tableId, {
-      ...(params.groupId ? { groupId: params.groupId } : {}),
-      undoCommand: {
-        payload: {
-          records: [...params.deletedRecords],
-        },
-      },
-      redoCommand: {
-        payload: {
-          recordIds: [
-            ...(params.deletedRecordIds ?? params.deletedRecords.map((record) => record.recordId)),
-          ],
-        },
-      },
+      ...group,
+      undoCommand: createUndoRedoCommand('RestoreRecords', {
+        tableId: params.tableId.toString(),
+        records: [...params.deletedRecords],
+      }),
+      redoCommand: createUndoRedoCommand('DeleteRecords', {
+        tableId: params.tableId.toString(),
+        recordIds: [
+          ...(params.deletedRecordIds ?? params.deletedRecords.map((record) => record.recordId)),
+        ],
+      }),
     });
   }
 
-  async appendEntry(context: IExecutionContext, tableId: TableId, entry: unknown) {
+  async appendEntry(context: IExecutionContext, tableId: TableId, entry: UndoRedoStackEntryInput) {
     return this.recordEntry(context, tableId, entry);
   }
 
-  async appendRecordDelete(
-    context: IExecutionContext,
-    params: {
-      tableId: TableId;
-      deletedRecords: ReadonlyArray<{ recordId: string }>;
-      deletedRecordIds?: ReadonlyArray<string>;
-      groupId?: string;
-    }
-  ) {
+  async appendRecordDelete(context: IExecutionContext, params: RecordDeleteUndoRedoInput) {
     return this.recordDelete(context, params);
   }
 }
@@ -425,6 +419,38 @@ const createHandler = (args: {
 };
 
 describe('DeleteByRangeStreamHandler', () => {
+  it('does not restart the group after its first undo recording attempt fails', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = ['a', 'b'].map((letter) => ({
+      id: `rec${letter.repeat(16)}`,
+      fields: { title: letter },
+      version: 1,
+    }));
+    queryRepository.total = 2;
+    const undoRedoService = new FakeUndoRedoService();
+    undoRedoService.failFirst = true;
+    const { handler } = createHandler({ tableRepository, queryRepository, undoRedoService });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 1]],
+      type: 'rows',
+      batchSize: 1,
+    })._unsafeUnwrap();
+    const stream = (await handler.handle(createContext(), command))._unsafeUnwrap();
+    const events = [];
+    for await (const event of stream) events.push(event);
+    expect(undoRedoService.recordEntryCalls.map((call) => call.entry.groupPosition)).toEqual([
+      'start',
+      'continue',
+    ]);
+    expect(events.filter((event) => event.id === 'error')).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({ id: 'done', deletedCount: 2 });
+  });
+
   it('streams progress events and a final done event', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
@@ -498,6 +524,10 @@ describe('DeleteByRangeStreamHandler', () => {
     ).toEqual([[], []]);
     expect(eventBus.publishManyCalls).toHaveLength(2);
     expect(undoRedoService.recordEntryCalls).toHaveLength(2);
+    expect(undoRedoService.recordEntryCalls.map((call) => call.entry.groupPosition)).toEqual([
+      'start',
+      'continue',
+    ]);
     expect(
       undoRedoService.recordEntryCalls.map(
         (call) =>

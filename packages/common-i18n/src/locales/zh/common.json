@@ -257,7 +257,8 @@
       "firstRelease": "首次上线",
       "about": "详细介绍",
       "noChangelog": "常规更新"
-    }
+    },
+    "unavailable": "模板暂不可用"
   },
   "baseShare": {
     "shareTitle": "分享",
@@ -1281,7 +1282,7 @@
     "unread": "未读",
     "read": "已读",
     "markAs": "将此通知标记为{{status}}",
-    "markAllAsRead": "全部标记为已读",
+    "markAllAsRead": "全部已读",
     "noUnread": "没有{{status}}通知",
     "noAttention": "没有需要关注的通知",
     "noSeverity": "没有{{severity}}通知",
@@ -1301,12 +1302,59 @@
       "successText": "导出数据已就绪",
       "failedText": "导出失败，请重试"
     },
+    "baseImport": {
+      "skippedCells": "部分导入值未能恢复：{{skippedUserCells}} 个用户单元格、{{skippedLinkCells}} 个关联单元格。有效记录已保留，请检查导入的项目。",
+      "relaxedRequiredUserFields": "已对 {{count}} 个受影响的导入用户字段取消必填约束，以保留含无法识别用户的记录。请检查导入的项目。",
+      "failed": "项目导入失败，部分数据可能尚未恢复。请检查导入的项目，解决错误后重试。"
+    },
     "importantNotice": {
       "title": "重要通知",
       "acknowledge": "我已知晓"
     },
     "oauthApp": {
       "message": "来自 {{app}}：{{text}}"
+    },
+    "category": {
+      "mention": "提及",
+      "comment": "评论",
+      "invite": "邀请",
+      "import": "导入",
+      "export": "导出",
+      "automation": "自动化",
+      "routine": "任务",
+      "aiTask": "AI 字段",
+      "aiChat": "AI 对话",
+      "credit": "算力",
+      "billing": "账单",
+      "reward": "奖励",
+      "template": "模板",
+      "dataExport": "数据导出",
+      "announcement": "公告",
+      "app": "应用",
+      "system": "系统"
+    },
+    "panel": {
+      "unreadCount": "{{count}} 条未读",
+      "markRead": "标为已读",
+      "markUnread": "标为未读",
+      "allCaughtUp": "未读都看完了",
+      "emptyTitle": "还没有通知",
+      "emptyDescription": "有人提及或邀请你、导入、自动化和 AI 任务有结果时，会出现在这里。",
+      "noMatch": "没有符合筛选条件的通知",
+      "group": {
+        "today": "今天",
+        "yesterday": "昨天",
+        "earlier": "更早"
+      },
+      "filter": {
+        "severity": "级别",
+        "title": "筛选",
+        "clear": "清除筛选",
+        "all": "全部",
+        "mine": "与我相关",
+        "system": "系统",
+        "unreadOnly": "只看未读"
+      }
     }
   },
   "role": {
@@ -1336,6 +1384,7 @@
     "resetTrashConfirm": "确定要清空回收站吗？",
     "addToTrash": "移到回收站",
     "description": "回收站中的数据依然会占用记录用量和附件用量。",
+    "publishedAppsOffline": "{{total}} 个已发布的应用会立即下线，从回收站恢复后需要重新发布。",
     "spaceDescription": "恢复过去{{retentionDays}}天内删除的空间",
     "spaceInnerDescription": "恢复过去{{retentionDays}}天内从该空间中删除的项目",
     "baseDescription": "恢复过去{{retentionDays}}天内从该项目中删除的资源",
@@ -1457,16 +1506,16 @@
       "notify": {
         "template": {
           "approved": {
-            "title": "你的模板《{{name}}》已上架",
-            "message": "《{{name}}》通过审核，已公开为第 {{version}} 版。",
-            "messageWithNote": "《{{name}}》通过审核，已公开为第 {{version}} 版。审核备注：{{note}}",
-            "messageNoPayout": "《{{name}}》通过审核，已公开为第 {{version}} 版。你还没有填写收款方式，收益会先结转；请到创作者中心填写。",
-            "messageNoPayoutWithNote": "《{{name}}》通过审核，已公开为第 {{version}} 版。你还没有填写收款方式，收益会先结转；请到创作者中心填写。审核备注：{{note}}"
+            "title": "你的模板《{{name}}》已收录到模板中心",
+            "message": "《{{name}}》已收录到模板中心，展示的是第 {{version}} 版。",
+            "messageWithNote": "《{{name}}》已收录到模板中心，展示的是第 {{version}} 版。审核备注：{{note}}",
+            "messageNoPayout": "《{{name}}》已收录到模板中心，展示的是第 {{version}} 版。你还没有填写收款方式，收益会先结转；请到创作者中心填写。",
+            "messageNoPayoutWithNote": "《{{name}}》已收录到模板中心，展示的是第 {{version}} 版。你还没有填写收款方式，收益会先结转；请到创作者中心填写。审核备注：{{note}}"
           },
           "rejected": {
-            "title": "你的模板《{{name}}》被退回",
-            "message": "《{{name}}》未通过审核。",
-            "messageWithNote": "《{{name}}》未通过审核。审核备注：{{note}}"
+            "title": "你的模板《{{name}}》暂未收录到模板中心",
+            "message": "《{{name}}》暂未收录到模板中心，链接仍可打开、安装和分享。",
+            "messageWithNote": "《{{name}}》暂未收录到模板中心，链接仍可打开、安装和分享。审核备注：{{note}}"
           }
         },
         "subject": "通知 - {{brandName}}",
@@ -1636,11 +1685,16 @@
           },
           "failed": {
             "message": "❌ {{baseName}} 导出失败：{{errorMessage}}"
+          },
+          "cancelled": {
+            "message": "请求此次导出的所有标签页均已关闭或离开，项目导出已取消，未生成下载文件。请重新打开项目后再次导出。"
           }
         },
         "userDataExport": {
           "buttonText": "下载我的数据",
           "failed": "{{name}} 你好，<br><br>你的数据打包未能完成：<br><em>{{errorMessage}}</em><br><br>请联系管理员。",
+          "incompleteTitle": "数据导出已停止，空间未被永久删除",
+          "incomplete": "{{name}} 你好，<br><br>以下表尚未就绪，导出已停止。未执行永久删除，空间仍在回收站中。<br><br>{{tables}}<br><br>这些表可能不会显示在侧栏中。请先从回收站恢复空间，再通过账号设置中的数据导出备份正常表，并检查 SKIPPED_TABLES.txt 中列出的遗漏表。请将上方的项目 ID、表 ID 和状态交给管理员，修复建表状态后再重试“导出后永久删除”。在确认备份完整之前，请勿直接永久删除空间。",
           "accountDeleted": {
             "title": "你的数据导出已就绪",
             "message": "{{name}} 你好，<br><br>你在删除 Teable 账号前要求保留一份数据副本，现在已经打包好了。<br><br>下方链接 {{expiresInDays}} 天内有效。"
@@ -1745,26 +1799,56 @@
   "credit": {
     "title": "算力",
     "leftAmount": "剩余算力",
-    "winFreeCredits": "分享体验",
-    "getCredits": "获取 1000 免费算力",
+    "shareYourWork": "分享你的工作",
+    "shareYourWorkCash": "分享模板，赚 30% 现金分成",
+    "shareYourWorkCredits": "分享模板，领 1000 免费算力",
+    "shareWork": {
+      "kicker": "分享你的工作",
+      "hookCash": "分享模板带来的付费用户，<br/>可获得 <figure>30%</figure> 现金分成！",
+      "hookCredits": "每周前两次分享模板，<br/>各领 <figure>500</figure> 算力！",
+      "chip": "每周前两次分享，各领 500 算力",
+      "prompt": {
+        "creditsAndCash": "分享出去，领算力和现金",
+        "creditsAndCashRule": "每周前两次分享各领 500 算力，带来付费用户再分你 30% 现金",
+        "credits": "分享出去，领算力",
+        "creditsRule": "每周前两次分享各领 500 算力",
+        "cash": "分享出去，赚现金分成",
+        "cashRule": "带来付费用户，分你 30% 现金",
+        "toX": "分享到 X",
+        "toLinkedIn": "分享到 LinkedIn"
+      },
+      "installs": "{{count}} 次安装",
+      "share": "分享",
+      "empty": {
+        "title": "先把一个项目做成模板",
+        "hint": "发布完就能分享",
+        "make": "做成模板",
+        "start": "从空白开始"
+      },
+      "card": {
+        "title": "分享 {{name}}",
+        "drafting": "正在起草…",
+        "again": "换一版",
+        "copy": "复制",
+        "copied": "已复制",
+        "postX": "发到 X",
+        "postLinkedIn": "发到 LinkedIn",
+        "claimHint": "发出后贴回帖子链接，领 <b>500</b> 算力"
+      },
+      "claim": {
+        "title": "贴回帖子链接，领 500 算力",
+        "hint": "每周前两次可领（X + LinkedIn）",
+        "requireLink": "帖子里有 {{name}} 的链接",
+        "requireFollowers": "账号 10+ 粉丝",
+        "requireRecent": "6 小时内发的",
+        "button": "领取 500 算力",
+        "back": "返回草稿"
+      }
+    },
     "winCredit": {
-      "title": "分享使用体验",
-      "freeCredits": "获取免费 1000 算力",
-      "guidelinesTitle": "分享要求",
-      "tagTeableio": "标记 <bold>@teableio</bold>",
-      "minCharacters": "撰写 <bold>80+</bold> 字符的评价",
-      "minFollowers": "拥有 <bold>10+</bold> 粉丝数",
-      "limitPerWeek": "每个帖子 500 算力，每周最多 2 次（X + LinkedIn）",
-      "postOnX": "发布到 X",
-      "postOnLinkedIn": "发布到 LinkedIn",
-      "preFilledDraft": "🌟 已为你准备好预填草稿！",
-      "claimTitle": "粘贴帖子链接领取算力",
-      "userEmail": "用户邮箱",
-      "postUrlLabel": "帖子链接 (X 或 LinkedIn)",
       "postUrlPlaceholder": "在此粘贴你的帖子链接",
       "invalidUrl": "请输入有效的 X 或 LinkedIn 帖子链接",
       "claiming": "领取中…",
-      "claimCredits": "领取算力",
       "congratulations": "恭喜！",
       "claimSuccess": "你已成功领取 500 算力！",
       "verifying": "正在验证你的帖子…",
@@ -1782,6 +1866,7 @@
     "minCharCount": "帖子内容至少需要 {{count}} 个字符",
     "minFollowerCount": "账号至少需要 {{count}} 位粉丝",
     "mustMention": "帖子必须提及 {{mention}}",
+    "mustLinkTemplate": "帖子里要有你的模板链接",
     "fetchSnapshotFailed": "获取帖子快照失败",
     "snapshotTimeout": "等待帖子快照超时，请稍后重试",
     "alreadyClaimedThisWeek": "你本周已为此账号领取过奖励",
@@ -2079,14 +2164,18 @@
       "connectIntegration": "Cuppy 需要你先连接一个应用。",
       "pickGoogleSheet": "Cuppy 需要你选一个表格。",
       "presentTemplates": "Cuppy 找到了现成的模板，等你决定是否安装。",
-      "requestCredential": "Cuppy 需要访问权限才能继续。"
+      "requestCredential": "Cuppy 需要访问权限才能继续。",
+      "presentTemplateScope": "Cuppy 圈好了模板要带走的内容，等你确认。",
+      "presentTemplateFindings": "Cuppy 找到了只属于你的内容，等你决定换掉哪些。"
     },
     "result": {
       "done": "已完成。",
       "failed": "这次运行失败了。",
       "creditExhausted": "AI 算力用完了，已停下。",
       "skippedNoCredit": "AI 算力不够，这次跳过了。",
+      "skippedNoCreditSummary": "另有 {{count}} 个例程因 AI 算力不够被跳过。",
       "autoDeactivated": "连续失败 5 次，已自动关停。",
+      "autoDeactivatedSummary": "另有 {{count}} 个例程连续失败 5 次，已自动关停。",
       "summaryTitle": "Teable",
       "summary": "{{count}} 个对话有新结果。"
     }

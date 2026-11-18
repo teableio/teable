@@ -257,7 +257,8 @@
       "firstRelease": "First release",
       "about": "About",
       "noChangelog": "General update"
-    }
+    },
+    "unavailable": "This template is unavailable"
   },
   "baseShare": {
     "shareTitle": "Share",
@@ -1292,7 +1293,7 @@
     "unread": "Unread",
     "read": "Read",
     "markAs": "Mark this notification as {{status}}",
-    "markAllAsRead": "Mark all as read",
+    "markAllAsRead": "Mark all read",
     "noUnread": "No {{status}} notifications",
     "noAttention": "No notifications need attention",
     "noSeverity": "No {{severity}} notifications",
@@ -1312,12 +1313,59 @@
       "successText": "Export data is ready",
       "failedText": "Export failed, please retry"
     },
+    "baseImport": {
+      "skippedCells": "Some imported values could not be restored: {{skippedUserCells}} user cells and {{skippedLinkCells}} link cells. Valid records were kept; review the imported project.",
+      "relaxedRequiredUserFields": "Required constraints were removed from imported user fields ({{count}} affected) to retain records with unresolved users. Review the imported project.",
+      "failed": "Project import failed before all data was restored. Review the imported project and try again after resolving the error."
+    },
     "importantNotice": {
       "title": "Important notice",
       "acknowledge": "I understand"
     },
     "oauthApp": {
       "message": "From {{app}}: {{text}}"
+    },
+    "category": {
+      "mention": "Mention",
+      "comment": "Comment",
+      "invite": "Invitation",
+      "import": "Import",
+      "export": "Export",
+      "automation": "Automation",
+      "routine": "Routine",
+      "aiTask": "AI field",
+      "aiChat": "AI chat",
+      "credit": "Credits",
+      "billing": "Billing",
+      "reward": "Reward",
+      "template": "Template",
+      "dataExport": "Data export",
+      "announcement": "Announcement",
+      "app": "App",
+      "system": "System"
+    },
+    "panel": {
+      "unreadCount": "{{count}} unread",
+      "markRead": "Mark as read",
+      "markUnread": "Mark as unread",
+      "allCaughtUp": "You're all caught up",
+      "emptyTitle": "No notifications yet",
+      "emptyDescription": "Mentions, invitations and results of imports, automations and AI tasks show up here.",
+      "noMatch": "No notifications match these filters",
+      "group": {
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "earlier": "Earlier"
+      },
+      "filter": {
+        "severity": "Level",
+        "title": "Filter",
+        "clear": "Clear filters",
+        "all": "All",
+        "mine": "For you",
+        "system": "System",
+        "unreadOnly": "Unread only"
+      }
     }
   },
   "role": {
@@ -1347,6 +1395,7 @@
     "resetTrashConfirm": "Are you sure you want to empty the trash?",
     "addToTrash": "Move to trash",
     "description": "Items in the trash still count toward record and attachment usage.",
+    "publishedAppsOffline": "Published apps that go offline right away: {{total}}. After a restore from the trash, they have to be published again.",
     "spaceDescription": "Restore spaces deleted within the past {{retentionDays}} days",
     "spaceInnerDescription": "Restore projects deleted from this space within the past {{retentionDays}} days",
     "baseDescription": "Restore resources deleted from this project within the past {{retentionDays}} days",
@@ -1468,16 +1517,16 @@
       "notify": {
         "template": {
           "approved": {
-            "title": "Your template {{name}} is live",
-            "message": "{{name}} passed review and is now public as version {{version}}.",
-            "messageWithNote": "{{name}} passed review and is now public as version {{version}}. Reviewer's note: {{note}}",
-            "messageNoPayout": "{{name}} passed review and is now public as version {{version}}. You have not set a payout method yet, so earnings will be carried over; add one in the Creator Center.",
-            "messageNoPayoutWithNote": "{{name}} passed review and is now public as version {{version}}. You have not set a payout method yet, so earnings will be carried over; add one in the Creator Center. Reviewer's note: {{note}}"
+            "title": "Your template {{name}} is in the Template Center",
+            "message": "{{name}} is now in the Template Center, showing version {{version}}.",
+            "messageWithNote": "{{name}} is now in the Template Center, showing version {{version}}. Reviewer's note: {{note}}",
+            "messageNoPayout": "{{name}} is now in the Template Center, showing version {{version}}. You have not set a payout method yet, so earnings will be carried over; add one in the Creator Center.",
+            "messageNoPayoutWithNote": "{{name}} is now in the Template Center, showing version {{version}}. You have not set a payout method yet, so earnings will be carried over; add one in the Creator Center. Reviewer's note: {{note}}"
           },
           "rejected": {
-            "title": "Your template {{name}} was sent back",
-            "message": "{{name}} did not pass review.",
-            "messageWithNote": "{{name}} did not pass review. Reviewer's note: {{note}}"
+            "title": "Your template {{name}} is not in the Template Center for now",
+            "message": "{{name}} is not in the Template Center for now. Its link still opens, and it can still be installed and shared.",
+            "messageWithNote": "{{name}} is not in the Template Center for now. Its link still opens, and it can still be installed and shared. Reviewer's note: {{note}}"
           }
         },
         "subject": "Notify - {{brandName}}",
@@ -1647,11 +1696,16 @@
           },
           "failed": {
             "message": "❌ {{baseName}} export failed: {{errorMessage}}"
+          },
+          "cancelled": {
+            "message": "The project export was cancelled because all tabs requesting it were closed or navigated away. No download was created. Reopen the project and export again."
           }
         },
         "userDataExport": {
           "buttonText": "Download my data",
           "failed": "Hi {{name}},<br><br>We could not finish packing your data:<br><em>{{errorMessage}}</em><br><br>Please contact the administrator.",
+          "incompleteTitle": "Data export stopped — space not deleted",
+          "incomplete": "Hi {{name}},<br><br>Your export stopped because these tables are not ready. No permanent deletion was performed; your space remains in Trash.<br><br>{{tables}}<br><br>These tables may be hidden from the sidebar. Restore the space from Trash, then use the data export in Account settings to back up ready tables. Check SKIPPED_TABLES.txt for omitted tables. Send the base IDs, table IDs and states above to your administrator to repair provisioning before trying export and permanent deletion again. Do not permanently delete without a verified backup.",
           "accountDeleted": {
             "title": "Your data export is ready",
             "message": "Hi {{name}},<br><br>You asked for a copy of your data before deleting your Teable account. It is ready.<br><br>The link below works for {{expiresInDays}} days."
@@ -1756,26 +1810,57 @@
   "credit": {
     "title": "Credit",
     "leftAmount": "Credits left",
-    "winFreeCredits": "Share experience",
-    "getCredits": "Get 1000 free credits",
+    "shareYourWork": "Share your work",
+    "shareYourWorkCash": "Share templates, earn 30% cash",
+    "shareYourWorkCredits": "Share templates, get 1,000 free credits",
+    "shareWork": {
+      "kicker": "Share your work",
+      "hookCash": "Paying users your template brings in<br/>earn you <figure>30%</figure> in cash!",
+      "hookCredits": "Share a template twice a week,<br/>get <figure>500</figure> credits each time!",
+      "chip": "Your first 2 shares each week: 500 credits each",
+      "prompt": {
+        "creditsAndCash": "Share it, earn credits and cash",
+        "creditsAndCashRule": "500 credits for each of your first 2 shares a week, plus 30% in cash from paying users it brings",
+        "credits": "Share it, earn credits",
+        "creditsRule": "500 credits for each of your first 2 shares a week",
+        "cash": "Share it, earn cash",
+        "cashRule": "30% in cash from paying users it brings",
+        "toX": "Share on X",
+        "toLinkedIn": "Share on LinkedIn"
+      },
+      "installs_one": "{{count}} install",
+      "installs_other": "{{count}} installs",
+      "share": "Share",
+      "empty": {
+        "title": "Make a project into a template first",
+        "hint": "You can share it as soon as you publish",
+        "make": "Make a template",
+        "start": "Start from scratch"
+      },
+      "card": {
+        "title": "Share {{name}}",
+        "drafting": "Drafting…",
+        "again": "Try another",
+        "copy": "Copy",
+        "copied": "Copied",
+        "postX": "Post on X",
+        "postLinkedIn": "Post on LinkedIn",
+        "claimHint": "Posted? Paste the link back for <b>500</b> credits"
+      },
+      "claim": {
+        "title": "Paste your post's link for 500 credits",
+        "hint": "Your first 2 posts each week count (X + LinkedIn)",
+        "requireLink": "The post links to {{name}}",
+        "requireFollowers": "The account has 10+ followers",
+        "requireRecent": "Posted in the last 6 hours",
+        "button": "Claim 500 credits",
+        "back": "Back to the draft"
+      }
+    },
     "winCredit": {
-      "title": "Share a positive review to earn",
-      "freeCredits": "1000 free credits",
-      "guidelinesTitle": "Sharing checklist",
-      "tagTeableio": "Tag <bold>@teableio</bold>",
-      "minCharacters": "Write a review of <bold>80+</bold> characters",
-      "minFollowers": "Have <bold>10+</bold> followers",
-      "limitPerWeek": "500 credits per post, up to 2 posts weekly (X + LinkedIn)",
-      "postOnX": "Post on X",
-      "postOnLinkedIn": "Post on LinkedIn",
-      "preFilledDraft": "🌟 Pre-filled draft ready for you!",
-      "claimTitle": "Paste post URL to claim your credits",
-      "userEmail": "User email",
-      "postUrlLabel": "Post URL (X or LinkedIn)",
       "postUrlPlaceholder": "Paste the link to your post here",
       "invalidUrl": "Please enter a valid X or LinkedIn post URL",
       "claiming": "Claiming…",
-      "claimCredits": "Claim credits",
       "congratulations": "Congratulations!",
       "claimSuccess": "You have claimed 500 credits!",
       "verifying": "Verifying your post…",
@@ -1793,6 +1878,7 @@
     "minCharCount": "Post must have at least {{count}} characters",
     "minFollowerCount": "Account must have at least {{count}} followers",
     "mustMention": "Post must mention {{mention}}",
+    "mustLinkTemplate": "The post must link to one of your templates",
     "fetchSnapshotFailed": "Failed to fetch post snapshot",
     "snapshotTimeout": "Timed out waiting for the post snapshot, please try again later",
     "alreadyClaimedThisWeek": "You have already claimed a reward for this account this week",
@@ -2093,14 +2179,18 @@
       "connectIntegration": "Cuppy needs you to connect an app to continue.",
       "pickGoogleSheet": "Cuppy needs you to choose a sheet.",
       "presentTemplates": "Cuppy found a ready-made template and is waiting for your call.",
-      "requestCredential": "Cuppy needs access to continue."
+      "requestCredential": "Cuppy needs access to continue.",
+      "presentTemplateScope": "Cuppy worked out what the template takes and is waiting for you to confirm.",
+      "presentTemplateFindings": "Cuppy found content that is only yours and is waiting for you to decide what to replace."
     },
     "result": {
       "done": "Finished.",
       "failed": "The run failed.",
       "creditExhausted": "Stopped: no AI credits left.",
       "skippedNoCredit": "Skipped this time: no AI credits left.",
+      "skippedNoCreditSummary": "{{count}} more routines were skipped: no AI credits left.",
       "autoDeactivated": "Turned off after five failed runs in a row.",
+      "autoDeactivatedSummary": "{{count}} more routines were turned off after five failed runs in a row.",
       "summaryTitle": "Teable",
       "summary": "New results in {{count}} conversations"
     }

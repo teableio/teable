@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
   Param,
   Patch,
   Post,
@@ -54,6 +55,7 @@ import {
 import type {
   CreateBaseInvitationLinkVo,
   EmailInvitationVo,
+  ExportBaseProgressCallback,
   IBaseDataDbMoveJobStatusVo,
   IBaseErdVo,
   ICreateBaseVo,
@@ -75,6 +77,7 @@ import type {
 } from '@teable/openapi';
 import { Response as ExpressResponse } from 'express';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
@@ -89,6 +92,7 @@ import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { getErrorLocalization } from '../v2/v2-http-error';
 import { BaseDuplicateService } from './base-duplicate.service';
+import { observeBaseExportDisconnect } from './base-export-stream';
 import { BaseExportV2Service } from './base-export-v2.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportService, formatBaseImportError } from './base-import.service';
@@ -541,14 +545,29 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get(':baseId/export')
-  async exportBase(@Param('baseId') baseId: string, @Query('includeData') includeData?: string) {
+  async exportBase(
+    @Param('baseId') baseId: string,
+    @Query('includeData') includeData: string | undefined,
+    @Res({ passthrough: true }) res: ExpressResponse
+  ) {
     const includeDataValue =
       includeData === undefined ? true : !['false', '0'].includes(includeData.toLowerCase());
-    await this.baseService.getBaseById(baseId);
-    if (await this.baseService.shouldUseV2BaseExport(baseId)) {
-      return await this.baseExportV2Service.exportBaseZip(baseId, includeDataValue);
+    const { signal, dispose } = observeBaseExportDisconnect(res);
+
+    try {
+      await this.baseService.getBaseById(baseId);
+      if (await this.baseService.shouldUseV2BaseExport(baseId)) {
+        return await this.baseExportV2Service.exportBaseZip(
+          baseId,
+          includeDataValue,
+          undefined,
+          signal
+        );
+      }
+      return await this.baseExportService.exportBaseZip(baseId, includeDataValue, undefined, signal);
+    } finally {
+      dispose();
     }
-    return await this.baseExportService.exportBaseZip(baseId, includeDataValue);
   }
 
   @Permissions('base|read')
@@ -579,21 +598,23 @@ export class BaseController {
       res.write(': ping\n\n');
       (res as ExpressResponse & { flush?: () => void }).flush?.();
     }, sseHeartbeatMs);
-    res.on('close', () => clearInterval(heartbeat));
+    const stopHeartbeat = () => clearInterval(heartbeat);
+    res.once('close', stopHeartbeat);
+    const { signal, dispose } = observeBaseExportDisconnect(res);
 
     try {
       await this.baseService.getBaseById(baseId);
-      const exporter = (await this.baseService.shouldUseV2BaseExport(baseId))
-        ? this.baseExportV2Service.exportBaseZip.bind(this.baseExportV2Service)
-        : this.baseExportService.exportBaseZip.bind(this.baseExportService);
-      const result = await exporter(baseId, includeDataValue, (phase, detail, event) => {
+      const onProgress: ExportBaseProgressCallback = (phase, detail, event) => {
         sendEvent({
           type: 'progress',
           ...event,
           phase,
           detail: event?.detail ?? detail,
         });
-      });
+      };
+      const result = (await this.baseService.shouldUseV2BaseExport(baseId))
+        ? await this.baseExportV2Service.exportBaseZip(baseId, includeDataValue, onProgress, signal)
+        : await this.baseExportService.exportBaseZip(baseId, includeDataValue, onProgress, signal);
       if (!result) {
         throw new Error('Export project stream ended without result');
       }
@@ -602,8 +623,13 @@ export class BaseController {
       sendEvent({
         type: 'error',
         message: error instanceof Error ? error.message : 'Unknown export error',
+        status: error instanceof HttpException ? error.getStatus() : 500,
+        code: error instanceof CustomHttpException ? error.code : undefined,
+        data: error instanceof CustomHttpException ? error.data : undefined,
       });
     } finally {
+      dispose();
+      res.removeListener('close', stopHeartbeat);
       clearInterval(heartbeat);
       res.end();
     }

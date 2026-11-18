@@ -6,10 +6,12 @@ import type { ApplyFieldSnapshotCommand } from '../../commands/ApplyFieldSnapsho
 import type { ApplyRecordOrdersCommand } from '../../commands/ApplyRecordOrdersCommand';
 import type { ApplyViewSnapshotCommand } from '../../commands/ApplyViewSnapshotCommand';
 import type { DeleteFieldCommand } from '../../commands/DeleteFieldCommand';
+import type { DeleteRecordsCommand } from '../../commands/DeleteRecordsCommand';
 import type { DeleteViewCommand } from '../../commands/DeleteViewCommand';
 import type { DisableViewShareCommand } from '../../commands/DisableViewShareCommand';
 import type { EnableViewShareCommand } from '../../commands/EnableViewShareCommand';
 import type { ReplayFieldTypeConversionCommand } from '../../commands/ReplayFieldTypeConversionCommand';
+import type { RestoreRecordsCommand } from '../../commands/RestoreRecordsCommand';
 import type { SetButtonValueCommand } from '../../commands/SetButtonValueCommand';
 import type { UpdateRecordCommand } from '../../commands/UpdateRecordCommand';
 import type { UpdateRecordsCommand } from '../../commands/UpdateRecordsCommand';
@@ -262,11 +264,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    const undoEntry = undoResult._unsafeUnwrap();
-    if (undoEntry?.undoCommand.type !== 'UpdateRecord') {
-      throw new Error('Expected UpdateRecord undo command');
-    }
-    expect(undoEntry.undoCommand.payload.recordId).toBe(recordId.toString());
+    expect(undoResult._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.lastContext?.undoRedo?.mode).toBe('undo');
     expect(bus.lastContext?.undoRedo?.operationId).toEqual(expect.any(String));
     const undoCommand = bus.lastCommand as UpdateRecordCommand;
@@ -279,11 +277,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    const redoEntry = redoResult._unsafeUnwrap();
-    if (redoEntry?.redoCommand.type !== 'UpdateRecord') {
-      throw new Error('Expected UpdateRecord redo command');
-    }
-    expect(redoEntry.redoCommand.payload.recordId).toBe(recordId.toString());
+    expect(redoResult._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.lastContext?.undoRedo?.mode).toBe('redo');
     expect(bus.lastContext?.undoRedo?.operationId).toEqual(expect.any(String));
     const redoCommand = bus.lastCommand as UpdateRecordCommand;
@@ -447,7 +441,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    expect(undoResult._unsafeUnwrap()?.undoCommand.type).toBe('ApplyRecordOrders');
+    expect(undoResult._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.lastContext?.undoRedo?.mode).toBe('undo');
     const applied = bus.lastCommand as ApplyRecordOrdersCommand;
     expect(applied.tableId.toString()).toBe(tableId.toString());
@@ -488,7 +482,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    expect(undoResult._unsafeUnwrap()?.undoCommand.type).toBe('DeleteField');
+    expect(undoResult._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.lastContext?.undoRedo?.mode).toBe('undo');
     const deleteFieldCommand = bus.lastCommand as DeleteFieldCommand;
     expect(deleteFieldCommand.fieldId.toString()).toBe(fieldId);
@@ -498,7 +492,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    expect(redoResult._unsafeUnwrap()?.redoCommand.type).toBe('ApplyFieldSnapshot');
+    expect(redoResult._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.lastContext?.undoRedo?.mode).toBe('redo');
     const applyFieldSnapshotCommand = bus.lastCommand as ApplyFieldSnapshotCommand;
     expect(applyFieldSnapshotCommand.snapshot.field.id).toBe(fieldId);
@@ -621,7 +615,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    expect(undoResult._unsafeUnwrap()?.undoCommand.type).toBe('ReplayFieldTypeConversion');
+    expect(undoResult._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.lastContext?.undoRedo?.mode).toBe('undo');
     const replayCommand = bus.lastCommand as ReplayFieldTypeConversionCommand;
     expect(replayCommand.snapshot.field.id).toBe(fieldId);
@@ -724,7 +718,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    expect(firstUndo._unsafeUnwrap()?.recordVersionBefore).toBe(2);
+    expect(firstUndo._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect((bus.lastCommand as UpdateRecordCommand).fieldValues.get('fld1')).toBe('v1');
 
     const secondUndo = await service.applyUndo(
@@ -732,7 +726,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    expect(secondUndo._unsafeUnwrap()?.recordVersionBefore).toBe(1);
+    expect(secondUndo._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect((bus.lastCommand as UpdateRecordCommand).fieldValues.get('fld1')).toBe('v0');
 
     const redo = await service.applyRedo(
@@ -740,7 +734,7 @@ describe('UndoRedoStackService', () => {
       tableId,
       context.windowId
     );
-    expect(redo._unsafeUnwrap()?.recordVersionAfter).toBe(2);
+    expect(redo._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect((bus.lastCommand as UpdateRecordCommand).fieldValues.get('fld1')).toBe('v1');
 
     await service.appendRecordUpdate(toUndoRedoStackAppendContext(context), {
@@ -943,7 +937,8 @@ describe('UndoRedoStackService', () => {
     const context = buildContext();
     const { tableId, recordId } = buildRecordIds();
 
-    await service.appendEntry(toUndoRedoStackAppendContext(context), tableId, {
+    const scope = buildScope(context, tableId);
+    const invalidEntry: Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId' | 'groupId'> = {
       undoCommand: {
         ...createUndoRedoCommand('UpdateRecord', {
           tableId: tableId.toString(),
@@ -961,25 +956,37 @@ describe('UndoRedoStackService', () => {
         fieldKeyType: 'id',
         typecast: false,
       }),
-    });
+    };
 
-    const result = await service.applyUndo(
-      toUndoRedoStackReplayContext(context),
+    const appended = await service.appendEntry(
+      toUndoRedoStackAppendContext(context),
       tableId,
-      context.windowId
+      invalidEntry
     );
-    expect(result.isErr()).toBe(true);
-    expect(result._unsafeUnwrapErr().message).toContain('Unsupported undo/redo command version');
+    expect(appended.isOk()).toBe(true);
     expect(bus.commands).toHaveLength(0);
+    const history = (await store.list(scope))._unsafeUnwrap();
+    expect(history).toHaveLength(1);
 
-    const retried = await service.applyUndo(
-      toUndoRedoStackReplayContext(context),
-      tableId,
-      context.windowId
-    );
-    expect(retried.isErr()).toBe(true);
-    expect(retried._unsafeUnwrapErr().message).toContain('Unsupported undo/redo command version');
-    expect(bus.commands).toHaveLength(0);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await service.applyUndo(
+        toUndoRedoStackReplayContext(context),
+        tableId,
+        context.windowId
+      );
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('Unsupported undo/redo command version');
+      expect(bus.commands).toHaveLength(0);
+      expect((await store.list(scope))._unsafeUnwrap()).toEqual(history);
+
+      const reservation = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+      expect(reservation.executedLeafIndex).toBe(0);
+      expect((await store.readReservedEntry(scope, reservation.token, 0))._unsafeUnwrap()).toEqual(
+        history[0]
+      );
+      (await store.abort(scope, reservation.token))._unsafeUnwrap();
+      expect((await store.reserve(scope, 'redo'))._unsafeUnwrap()).toBeNull();
+    }
   });
 
   it('keeps the stack entry undoable when command replay fails', async () => {
@@ -1014,7 +1021,7 @@ describe('UndoRedoStackService', () => {
       context.windowId
     );
     expect(retried.isOk()).toBe(true);
-    expect(retried._unsafeUnwrap()?.undoCommand.type).toBe('UpdateRecord');
+    expect(retried._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.commands).toHaveLength(2);
     const retriedCommand = bus.lastCommand as UpdateRecordCommand;
     expect(retriedCommand.fieldValues.get('fld1')).toBe('old');
@@ -1061,7 +1068,7 @@ describe('UndoRedoStackService', () => {
       context.windowId
     );
     expect(retried.isOk()).toBe(true);
-    expect(retried._unsafeUnwrap()?.undoCommand.type).toBe('Batch');
+    expect(retried._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.commands).toHaveLength(3);
   });
 
@@ -1117,7 +1124,7 @@ describe('UndoRedoStackService', () => {
       context.windowId
     );
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()?.undoCommand.type).toBe('UpdateRecord');
+    expect(result._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.commands).toHaveLength(1);
 
     const redo = await service.applyRedo(
@@ -1161,43 +1168,108 @@ describe('UndoRedoStackService', () => {
       context.windowId
     );
     expect(retried.isOk()).toBe(true);
-    expect(retried._unsafeUnwrap()?.undoCommand.type).toBe('UpdateRecord');
+    expect(retried._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.commands).toHaveLength(1);
   });
 
-  it('renews the reservation so a long replay is not taken over', async () => {
-    class RecordingStore extends MemoryUndoRedoStore {
-      renewCalls = 0;
-
-      override async renew(scope: UndoScope, token: string) {
-        this.renewCalls += 1;
-        return super.renew(scope, token);
-      }
+  it('checkpoints each replayed leaf so the group cannot be taken over at the original expiry', async () => {
+    let now = 1_000;
+    const store = new MemoryUndoRedoStore({ now: () => now, leaseMs: 15_000 });
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoStackService(store, bus, {
+      restorePurgeGuard: false,
+      reservationRenewIntervalMs: 0,
+    });
+    const context = buildContext();
+    const { tableId } = buildRecordIds();
+    const scope = buildScope(context, tableId);
+    const chunks = ['c', 'd'].map((letter) => [
+      { recordId: `rec${letter.repeat(16)}`, fields: { fld1: letter }, version: 1 },
+    ]);
+    for (const deletedRecords of chunks) {
+      (
+        await service.appendRecordDelete(toUndoRedoStackAppendContext(context), {
+          tableId,
+          groupId: 'checkpoint-group',
+          groupPosition: deletedRecords === chunks[0] ? 'start' : 'continue',
+          deletedRecords,
+        })
+      )._unsafeUnwrap();
     }
 
-    const store = new RecordingStore();
-    const bus = new FakeCommandBus();
-    const service = new UndoRedoStackService(store, bus);
-    const context = buildContext();
-    const { tableId, recordId } = buildRecordIds();
-
-    await service.appendRecordUpdate(toUndoRedoStackAppendContext(context), {
-      tableId,
-      recordId,
-      oldValues: { fld1: 'old' },
-      newValues: { fld1: 'new' },
-      recordVersionBefore: 1,
-      recordVersionAfter: 2,
-    });
+    bus.beforeExecute = async () => {
+      if (bus.commands.length === 1) {
+        now = 15_999;
+        return;
+      }
+      now = 16_001;
+      const competing = await store.reserve(scope, 'undo');
+      expect(competing._unsafeUnwrapErr().code).toBe('undo_redo.reservation_conflict');
+    };
 
     const result = await service.applyUndo(
       toUndoRedoStackReplayContext(context),
       tableId,
       context.windowId
     );
-    expect(result.isOk()).toBe(true);
-    expect(store.renewCalls).toBeGreaterThan(0);
-    expect(bus.commands).toHaveLength(1);
+    expect(result._unsafeUnwrap()).toEqual({ entryCount: 2 });
+    expect(bus.commands.map((command) => (command as RestoreRecordsCommand).records)).toEqual([
+      chunks[1],
+      chunks[0],
+    ]);
+    expect(
+      (
+        await service.applyUndo(toUndoRedoStackReplayContext(context), tableId, context.windowId)
+      )._unsafeUnwrap()
+    ).toBeNull();
+    const redo = (await store.reserve(scope, 'redo'))._unsafeUnwrap()!;
+    expect(redo.entryCount).toBe(2);
+    (await store.abort(scope, redo.token))._unsafeUnwrap();
+  });
+
+  it('stops replay on a checkpoint failure without consuming the cursor', async () => {
+    class FailingCheckpointStore extends MemoryUndoRedoStore {
+      override async markProgress(_scope: UndoScope, _token: string, _executedLeafIndex: number) {
+        return err(domainError.unexpected({ message: 'checkpoint failed' }));
+      }
+    }
+
+    const store = new FailingCheckpointStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoStackService(store, bus, {
+      restorePurgeGuard: false,
+      reservationRenewIntervalMs: 0,
+    });
+    const context = buildContext();
+    const { tableId } = buildRecordIds();
+    const scope = buildScope(context, tableId);
+    for (const letter of ['e', 'f']) {
+      (
+        await service.appendRecordDelete(toUndoRedoStackAppendContext(context), {
+          tableId,
+          groupId: 'failed-checkpoint-group',
+          groupPosition: letter === 'e' ? 'start' : 'continue',
+          deletedRecords: [
+            { recordId: `rec${letter.repeat(16)}`, fields: { fld1: letter }, version: 1 },
+          ],
+        })
+      )._unsafeUnwrap();
+    }
+
+    const result = await service.applyUndo(
+      toUndoRedoStackReplayContext(context),
+      tableId,
+      context.windowId
+    );
+    expect(result._unsafeUnwrapErr().message).toBe('checkpoint failed');
+    expect(
+      bus.commands.map((command) => (command as RestoreRecordsCommand).records[0]?.fields.fld1)
+    ).toEqual(['f']);
+    expect((await store.reserve(scope, 'redo'))._unsafeUnwrap()).toBeNull();
+    const pending = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    expect(pending.entryCount).toBe(2);
+    expect(pending.executedLeafIndex).toBe(0);
+    (await store.abort(scope, pending.token))._unsafeUnwrap();
   });
 
   it('does not re-execute when markSucceeded fails after the command already ran', async () => {
@@ -1291,6 +1363,7 @@ describe('UndoRedoStackService', () => {
       recordVersionAfter: 2,
     });
 
+    const [storedEntry] = (await store.list(buildScope(context, tableId)))._unsafeUnwrap();
     const seen: Array<{ type: string; mode: string }> = [];
     const vetoed = await service.applyUndo(
       toUndoRedoStackReplayContext(context),
@@ -1298,6 +1371,8 @@ describe('UndoRedoStackService', () => {
       context.windowId,
       {
         beforeReplay: async (entry, mode) => {
+          expect(entry).toEqual(storedEntry);
+          expect(entry.requestId).toBe(context.requestId);
           seen.push({ type: entry.undoCommand.type, mode });
           return err(domainError.forbidden({ message: 'no longer allowed' }));
         },
@@ -1316,7 +1391,424 @@ describe('UndoRedoStackService', () => {
       { beforeReplay: async () => ok(undefined) }
     );
     expect(allowed.isOk()).toBe(true);
-    expect(allowed._unsafeUnwrap()?.undoCommand.type).toBe('UpdateRecord');
+    expect(allowed._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.commands).toHaveLength(1);
+  });
+
+  it('lets the host veto a later grouped entry before any entry is replayed', async () => {
+    const store = new MemoryUndoRedoStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoStackService(store, bus);
+    const context = buildContext();
+    const { tableId } = buildRecordIds();
+    const scope = buildScope(context, tableId);
+    for (const letter of ['m', 'n']) {
+      (
+        await service.appendRecordDelete(
+          toUndoRedoStackAppendContext({ ...context, requestId: `req-${letter}` }),
+          {
+            tableId,
+            groupId: 'veto-group',
+            groupPosition: letter === 'm' ? 'start' : 'continue',
+            deletedRecords: [{ recordId: `rec${letter.repeat(16)}`, fields: { fld1: letter } }],
+          }
+        )
+      )._unsafeUnwrap();
+    }
+    const history = (await store.list(scope))._unsafeUnwrap();
+    const entries = [...history].reverse();
+    const seen: UndoEntry[] = [];
+    const vetoed = await service.applyUndo(
+      toUndoRedoStackReplayContext(context),
+      tableId,
+      context.windowId,
+      {
+        beforeReplay: async (entry, mode) => {
+          expect(mode).toBe('undo');
+          expect(bus.commands).toHaveLength(0);
+          expect(entry).toEqual(entries[seen.length]);
+          seen.push(entry);
+          return entry.requestId === 'req-m'
+            ? err(domainError.forbidden({ message: 'older chunk no longer allowed' }))
+            : ok(undefined);
+        },
+      }
+    );
+    expect(vetoed._unsafeUnwrapErr().message).toBe('older chunk no longer allowed');
+    expect(seen).toEqual(entries);
+    expect(seen.map((entry) => entry.requestId)).toEqual(['req-n', 'req-m']);
+    expect(bus.commands).toHaveLength(0);
+    expect((await store.list(scope))._unsafeUnwrap()).toEqual(history);
+
+    const allowed = await service.applyUndo(
+      toUndoRedoStackReplayContext(context),
+      tableId,
+      context.windowId,
+      { beforeReplay: async () => ok(undefined) }
+    );
+    expect(allowed._unsafeUnwrap()).toEqual({ entryCount: 2 });
+    expect(
+      bus.commands.map((command) => (command as RestoreRecordsCommand).records[0]?.fields.fld1)
+    ).toEqual(['n', 'm']);
+  });
+
+  it('restores grouped delete chunks exactly and redoes in original order despite interleaved actions', async () => {
+    class LazyOnlyStore extends MemoryUndoRedoStore {
+      override async list() {
+        return err(domainError.unexpected({ message: 'Replay must not load the history window' }));
+      }
+    }
+    const store = new LazyOnlyStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoStackService(store, bus);
+    const context = buildContext();
+    const { tableId, recordId } = buildRecordIds();
+    const snapshots = ['c', 'd', 'e'].map((letter, index) => ({
+      recordId: `rec${letter.repeat(16)}`,
+      fields: { text: `exact-${letter}`, empty: null, nested: [letter, { n: index }] },
+      version: index + 2,
+      orders: { [`viw${'f'.repeat(16)}`]: 0.125 + index },
+      autoNumber: index + 10,
+      createdTime: '2026-01-01T00:00:00.000Z',
+      createdBy: 'actor-original',
+      lastModifiedTime: '2026-02-01T00:00:00.000Z',
+      lastModifiedBy: 'actor-editor',
+    }));
+    const chunks = [snapshots.slice(0, 2), snapshots.slice(2)];
+    (
+      await service.appendRecordDelete(toUndoRedoStackAppendContext(context), {
+        tableId,
+        groupId: 'delete-interaction',
+        groupPosition: 'start',
+        deletedRecords: chunks[0]!,
+      })
+    )._unsafeUnwrap();
+    (
+      await service.appendRecordUpdate(toUndoRedoStackAppendContext(context), {
+        tableId,
+        recordId,
+        oldValues: { fld1: 'independent-old' },
+        newValues: { fld1: 'independent-new' },
+        recordVersionBefore: 1,
+        recordVersionAfter: 2,
+      })
+    )._unsafeUnwrap();
+    (
+      await service.appendRecordDelete(toUndoRedoStackAppendContext(context), {
+        tableId,
+        groupId: 'delete-interaction',
+        groupPosition: 'continue',
+        deletedRecords: chunks[1]!,
+      })
+    )._unsafeUnwrap();
+    const observed: string[] = [];
+    const undo = await service.applyUndo(
+      toUndoRedoStackReplayContext(context),
+      tableId,
+      context.windowId,
+      {
+        onEntryReplayed: async (entry) => {
+          observed.push(entry.groupId!);
+        },
+      }
+    );
+    expect(undo._unsafeUnwrap()).toEqual({ entryCount: 2 });
+    expect(bus.commands.map((command) => (command as RestoreRecordsCommand).records)).toEqual([
+      chunks[1],
+      chunks[0],
+    ]);
+    expect(observed).toEqual(['delete-interaction', 'delete-interaction']);
+    bus.commands.length = 0;
+    expect(
+      (
+        await service.applyRedo(toUndoRedoStackReplayContext(context), tableId, context.windowId)
+      )._unsafeUnwrap()
+    ).toEqual({ entryCount: 2 });
+    expect(
+      bus.commands.map((command) => {
+        const recordIds = (command as DeleteRecordsCommand).recordIds;
+        expect(recordIds).toBeDefined();
+        return recordIds!.map(String);
+      })
+    ).toEqual(chunks.map((chunk) => chunk.map((snapshot) => snapshot.recordId)));
+    (
+      await service.applyUndo(toUndoRedoStackReplayContext(context), tableId, context.windowId)
+    )._unsafeUnwrap();
+    (
+      await service.applyUndo(toUndoRedoStackReplayContext(context), tableId, context.windowId)
+    )._unsafeUnwrap();
+    expect((bus.lastCommand as UpdateRecordCommand).fieldValues.get('fld1')).toBe(
+      'independent-old'
+    );
+  });
+
+  it.each([
+    { malformed: 'records', side: 'undoCommand' },
+    { malformed: 'records', side: 'redoCommand' },
+    { malformed: 'record version', side: 'undoCommand' },
+    { malformed: 'record version', side: 'redoCommand' },
+  ] as const)(
+    'rejects malformed $malformed in a later grouped $side before the first mutation',
+    async ({ malformed, side }) => {
+      const store = new MemoryUndoRedoStore();
+      const bus = new FakeCommandBus();
+      const service = new UndoRedoStackService(store, bus);
+      const context = buildContext();
+      const { tableId, recordId } = buildRecordIds();
+      const scope = buildScope(context, tableId);
+      const valid = createUndoRedoCommand('RestoreRecords', {
+        tableId: tableId.toString(),
+        records: [{ recordId: recordId.toString(), fields: { fld1: 'retained' }, version: 2 }],
+      });
+      // Legacy history can contain structurally invalid data despite the persisted TypeScript type.
+      const invalid = {
+        ...valid,
+        payload: {
+          ...valid.payload,
+          records:
+            malformed === 'records' ? null : [{ ...valid.payload.records[0]!, version: 'invalid' }],
+        },
+      } as unknown as typeof valid;
+      (
+        await store.append(scope, {
+          scope,
+          groupId: 'malformed-metadata',
+          groupPosition: 'start',
+          undoCommand: side === 'undoCommand' ? invalid : valid,
+          redoCommand: side === 'redoCommand' ? invalid : valid,
+          createdAt: '2026-01-01T00:00:00Z',
+        })
+      )._unsafeUnwrap();
+      (
+        await store.append(scope, {
+          scope,
+          groupId: 'malformed-metadata',
+          groupPosition: 'continue',
+          undoCommand: valid,
+          redoCommand: valid,
+          createdAt: '2026-01-01T00:00:01Z',
+        })
+      )._unsafeUnwrap();
+      const history = (await store.list(scope))._unsafeUnwrap();
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const rejected = await service.applyUndo(
+          toUndoRedoStackReplayContext(context),
+          tableId,
+          context.windowId
+        );
+        expect(rejected.isErr()).toBe(true);
+        expect(rejected._unsafeUnwrapErr().code).not.toBe('undo_redo.reservation_conflict');
+        expect(bus.commands).toHaveLength(0);
+        expect((await store.list(scope))._unsafeUnwrap()).toEqual(history);
+
+        const reservation = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+        expect(reservation.executedLeafIndex).toBe(0);
+        expect(
+          (await store.readReservedEntry(scope, reservation.token, 0))._unsafeUnwrap()
+        ).toEqual(history[1]);
+        expect(
+          (await store.readReservedEntry(scope, reservation.token, 1))._unsafeUnwrap()
+        ).toEqual(history[0]);
+        (await store.abort(scope, reservation.token))._unsafeUnwrap();
+        expect((await store.reserve(scope, 'redo'))._unsafeUnwrap()).toBeNull();
+      }
+    }
+  );
+
+  it('rejects a malformed later batch leaf before executing the valid first leaf', async () => {
+    const store = new MemoryUndoRedoStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoStackService(store, bus);
+    const context = buildContext();
+    const { tableId, recordId } = buildRecordIds();
+    const scope = buildScope(context, tableId);
+    const valid = createUndoRedoCommand('RestoreRecords', {
+      tableId: tableId.toString(),
+      records: [{ recordId: recordId.toString(), fields: { fld1: 'valid' }, version: 2 }],
+    });
+    const malformed = {
+      ...valid,
+      payload: {
+        ...valid.payload,
+        records: [{ ...valid.payload.records[0]!, version: 'invalid' }],
+      },
+    } as unknown as typeof valid;
+    (
+      await store.append(scope, {
+        scope,
+        undoCommand: createUndoRedoCommand('Batch', [valid, malformed]),
+        redoCommand: valid,
+        createdAt: '2026-01-01T00:00:00Z',
+      })
+    )._unsafeUnwrap();
+    const history = (await store.list(scope))._unsafeUnwrap();
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const rejected = await service.applyUndo(
+        toUndoRedoStackReplayContext(context),
+        tableId,
+        context.windowId
+      );
+      expect(rejected.isErr()).toBe(true);
+      expect(rejected._unsafeUnwrapErr().code).not.toBe('undo_redo.reservation_conflict');
+      expect(bus.commands).toHaveLength(0);
+      expect((await store.list(scope))._unsafeUnwrap()).toEqual(history);
+      const reservation = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+      expect(reservation.executedLeafIndex).toBe(0);
+      (await store.abort(scope, reservation.token))._unsafeUnwrap();
+      expect((await store.reserve(scope, 'redo'))._unsafeUnwrap()).toBeNull();
+    }
+  });
+
+  it('preflights malformed older entries before executing and resumes grouped partial failures by leaf', async () => {
+    const store = new MemoryUndoRedoStore();
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoStackService(store, bus);
+    const context = buildContext();
+    const { tableId } = buildRecordIds();
+    const scope = buildScope(context, tableId);
+    const commands = ['h', 'i', 'j'].map((letter) =>
+      createUndoRedoCommand('RestoreRecords', {
+        tableId: tableId.toString(),
+        records: [{ recordId: `rec${letter.repeat(16)}`, fields: { fld1: letter } }],
+      })
+    );
+    const malformed = { ...commands[0]!, version: 999 };
+    (
+      await store.append(scope, {
+        scope,
+        groupId: 'malformed',
+        groupPosition: 'start',
+        undoCommand: malformed,
+        redoCommand: commands[0]!,
+        createdAt: '2026-01-01T00:00:00Z',
+      })
+    )._unsafeUnwrap();
+    (
+      await store.append(scope, {
+        scope,
+        groupId: 'malformed',
+        groupPosition: 'continue',
+        undoCommand: commands[1]!,
+        redoCommand: commands[1]!,
+        createdAt: '2026-01-01T00:00:01Z',
+      })
+    )._unsafeUnwrap();
+    expect(
+      (
+        await service.applyUndo(toUndoRedoStackReplayContext(context), tableId, context.windowId)
+      ).isErr()
+    ).toBe(true);
+    expect(bus.commands).toHaveLength(0);
+    const reservation = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
+    expect(reservation.executedLeafIndex).toBe(0);
+    (await store.abort(scope, reservation.token))._unsafeUnwrap();
+
+    const partialContext = { ...context, windowId: 'partial-window' };
+    const partialScope = buildScope(partialContext, tableId);
+    for (const command of [createUndoRedoCommand('Batch', commands.slice(0, 2)), commands[2]!]) {
+      (
+        await store.append(partialScope, {
+          scope: partialScope,
+          groupId: 'partial',
+          groupPosition: command.type === 'Batch' ? 'start' : 'continue',
+          undoCommand: command,
+          redoCommand: command,
+          createdAt: '2026-01-01T00:00:00Z',
+        })
+      )._unsafeUnwrap();
+    }
+    bus.failAfterRemaining = 3;
+    expect(
+      (
+        await service.applyUndo(
+          toUndoRedoStackReplayContext(partialContext),
+          tableId,
+          partialContext.windowId
+        )
+      ).isErr()
+    ).toBe(true);
+    const retried = await service.applyUndo(
+      toUndoRedoStackReplayContext(partialContext),
+      tableId,
+      partialContext.windowId
+    );
+    expect(retried._unsafeUnwrap()).toEqual({ entryCount: 2 });
+    expect(
+      bus.commands.map((command) => (command as RestoreRecordsCommand).records[0]?.fields.fld1)
+    ).toEqual(['j', 'h', 'i', 'i']);
+    expect(
+      (
+        await service.applyUndo(
+          toUndoRedoStackReplayContext(partialContext),
+          tableId,
+          partialContext.windowId
+        )
+      )._unsafeUnwrap()
+    ).toBeNull();
+  });
+
+  it('preflights every grouped entry and repeats bounded notifications on cursor-only retries', async () => {
+    const store = new FlakyCommitStore(3);
+    const bus = new FakeCommandBus();
+    const service = new UndoRedoStackService(store, bus);
+    const context = buildContext();
+    const { tableId } = buildRecordIds();
+    for (const letter of ['k', 'l']) {
+      (
+        await service.appendRecordDelete(toUndoRedoStackAppendContext(context), {
+          tableId,
+          groupId: 'notification-group',
+          groupPosition: letter === 'k' ? 'start' : 'continue',
+          deletedRecords: [{ recordId: `rec${letter.repeat(16)}`, fields: { fld1: letter } }],
+        })
+      )._unsafeUnwrap();
+    }
+    const history = (await store.list(buildScope(context, tableId)))._unsafeUnwrap();
+    const entries = [...history].reverse();
+    const preflighted: UndoEntry[] = [];
+    const seen: string[] = [];
+    const options = {
+      beforeReplay: async (entry: UndoEntry) => {
+        seen.push('preflight');
+        expect(bus.commands).toHaveLength(0);
+        expect(entry.undoCommand.type).toBe('RestoreRecords');
+        expect(entry).toEqual(entries[preflighted.length]);
+        expect(entry.requestId).toBe(context.requestId);
+        preflighted.push(entry);
+        return ok(undefined);
+      },
+      onEntryReplayed: async (entry: UndoEntry) => {
+        if (entry.undoCommand.type === 'RestoreRecords') {
+          seen.push(entry.undoCommand.payload.records[0]!.recordId);
+        }
+      },
+    };
+    expect(
+      (
+        await service.applyUndo(
+          toUndoRedoStackReplayContext(context),
+          tableId,
+          context.windowId,
+          options
+        )
+      ).isErr()
+    ).toBe(true);
+    expect(bus.commands).toHaveLength(2);
+    expect(
+      (
+        await service.applyUndo(
+          toUndoRedoStackReplayContext(context),
+          tableId,
+          context.windowId,
+          options
+        )
+      )._unsafeUnwrap()
+    ).toEqual({ entryCount: 2 });
+    expect(bus.commands).toHaveLength(2);
+    const ids = [`rec${'l'.repeat(16)}`, `rec${'k'.repeat(16)}`];
+    expect(seen).toEqual(['preflight', 'preflight', ...ids, ...ids]);
+    expect(preflighted).toEqual(entries);
   });
 });

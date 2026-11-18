@@ -1,10 +1,12 @@
 import type { MailerService } from '@nestjs-modules/mailer';
 import { HttpErrorCode } from '@teable/core';
 import type { IMailTransportConfig } from '@teable/openapi';
-import { CollaboratorType, MailTransporterType } from '@teable/openapi';
+import { CollaboratorType, MailTransporterType, MailType } from '@teable/openapi';
 import { createTransport } from 'nodemailer';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IMailConfig } from '../../configs/mail.config';
+import { Events } from '../../event-emitter/events';
+import { MailMergeGroup } from './mail-helpers';
 import { MailSenderService } from './mail-sender.service';
 
 vi.mock('nodemailer', () => ({
@@ -206,7 +208,10 @@ describe('MailSenderService delivery error classification', () => {
     command: 'DATA',
   });
 
-  const createService = (settings: Record<string, unknown> = {}) => {
+  const createService = (
+    settings: Record<string, unknown> = {},
+    eventEmitterService: unknown = {}
+  ) => {
     const mailService = {
       templateAdapter: {},
       initTemplateAdapter: vi.fn(),
@@ -226,7 +231,7 @@ describe('MailSenderService delivery error classification', () => {
       mailConfig,
       stub(),
       settingOpenApiService as never,
-      stub(),
+      eventEmitterService as never,
       stub(),
       stub()
     );
@@ -264,6 +269,37 @@ describe('MailSenderService delivery error classification', () => {
         { shouldThrow: true, transporterName: MailTransporterType.Automation }
       )
     ).rejects.toBe(smtpRejection);
+  });
+
+  it('sends a notify mail that names no merge group straight away, so its failure surfaces', async () => {
+    const emit = vi.fn();
+    const service = createService({}, { emit });
+
+    await expect(
+      service.sendMail(
+        { to: 'a@example.com' },
+        { shouldThrow: true, type: MailType.Notify, transporterName: MailTransporterType.Notify }
+      )
+    ).rejects.toBe(smtpRejection);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('hands a mail that names a merge group to the merge', async () => {
+    const emit = vi.fn();
+    const service = createService({}, { emit });
+
+    await expect(
+      service.sendMail(
+        { to: 'a@example.com', mergeGroup: MailMergeGroup.FailureAlert },
+        { type: MailType.System, transporterName: MailTransporterType.Notify }
+      )
+    ).resolves.toBe(true);
+    expect(emit).toHaveBeenCalledWith(Events.NOTIFY_MAIL_MERGE, {
+      payload: expect.objectContaining({
+        to: 'a@example.com',
+        mergeGroup: MailMergeGroup.FailureAlert,
+      }),
+    });
   });
 });
 

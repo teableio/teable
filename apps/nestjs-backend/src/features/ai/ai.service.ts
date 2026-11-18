@@ -77,6 +77,24 @@ export interface IResolvedModelMapping {
   mapped: boolean;
 }
 
+// Gateway model ids match when they are equal after dropping the provider prefix, dots,
+// dashes and case, or when they differ only by a trailing date (8+ digits). Equal ids are
+// also equal once the date is stripped, so a single key covers both; the first model in
+// list order wins, as Array.find did.
+const gatewayModelMatchKey = (id: string) =>
+  id
+    .split('/')
+    .pop()!
+    .replaceAll('.', '')
+    .replaceAll('-', '')
+    .toLowerCase()
+    .replace(/(?<!\d)\d{8,}$/, '');
+
+const gatewayModelIndexes = new WeakMap<
+  readonly IGatewayApiModel[],
+  Map<string, IGatewayApiModel>
+>();
+
 @Injectable()
 export class AiService implements OnModuleInit {
   private readonly logger = new Logger(AiService.name);
@@ -999,15 +1017,17 @@ export class AiService implements OnModuleInit {
    */
   private async getGatewayApiModel(modelId: string): Promise<IGatewayApiModel | undefined> {
     const models = await this.aiGatewayModelsService.getGatewayModels();
-    const normalize = (s: string) =>
-      s.split('/').pop()!.replaceAll('.', '').replaceAll('-', '').toLowerCase();
-    const stripDateSuffix = (s: string) => s.replace(/(?<!\d)\d{8,}$/, '');
-    return models.find((m) => {
-      const a = normalize(modelId);
-      const b = normalize(m.id);
-      if (a === b) return true;
-      return stripDateSuffix(a) === stripDateSuffix(b);
-    });
+    // The list object is shared until its next reload, so the index is built once per list.
+    let index = gatewayModelIndexes.get(models);
+    if (!index) {
+      index = new Map();
+      for (const model of models) {
+        const key = gatewayModelMatchKey(model.id);
+        if (!index.has(key)) index.set(key, model);
+      }
+      gatewayModelIndexes.set(models, index);
+    }
+    return index.get(gatewayModelMatchKey(modelId));
   }
 
   /**

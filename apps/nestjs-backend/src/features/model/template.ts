@@ -1,16 +1,32 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
+import { TemplateReviewStatus } from '@teable/openapi';
 import type { ITemplateHistoryEntry, ITemplateVo } from '@teable/openapi';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateTemplateCacheKeyByBaseId } from '../../performance-cache/generate-keys';
 
 /**
- * Listed in the catalogue: published through a review (history) or promoted by an admin
- * (featured). Built on demand: specs load this module with the Prisma client mocked away.
+ * Listed in the catalogue where publishing lists a template (the community edition): published
+ * through the publish flow (it has a history) or promoted by an admin (featured); templates
+ * published before histories existed stay hidden unless featured. Where a review lists templates
+ * (EE) the catalogue is what is featured instead. Built on demand: specs load this module with
+ * the Prisma client mocked away. Whether the template is out at all is `liveTemplateWhere`.
  */
 export const listedTemplateWhere = (): Prisma.TemplateWhereInput => ({
   isPublished: true,
   OR: [{ featured: true }, { history: { not: Prisma.DbNull } }],
+});
+
+/** Published, listed or not: the rows `isTemplateLive` tells apart one by one. */
+export const liveTemplateWhere = (): Prisma.TemplateWhereInput => ({
+  snapshot: { not: null },
+  OR: [{ isPublished: true }, { history: { not: Prisma.DbNull } }],
+});
+
+/** The rows `isUnreleasedSubmission` tells apart one by one. */
+export const unreleasedSubmissionWhere = (): Prisma.TemplateWhereInput => ({
+  snapshot: null,
+  review: { path: ['status'], equals: TemplateReviewStatus.Review },
 });
 
 /** The public routes take the id or the slug: the official site links templates by slug. */
@@ -54,11 +70,22 @@ export class TemplateModel {
     };
   }
 
-  /** The template whose pending submission froze this base. */
+  /**
+   * The template whose submission, still waiting for review, froze this base. A refused or
+   * withdrawn submission keeps its snapshot id on the row, but its snapshot is retired.
+   */
   async getPendingTemplateRawByBaseId(baseId: string) {
-    return this.prismaService.txClient().template.findFirst({
+    const template = await this.prismaService.txClient().template.findFirst({
       where: { review: { path: ['snapshotBaseId'], equals: baseId } },
-      select: { id: true },
+      select: { id: true, isPublished: true, snapshot: true, review: true },
     });
+    const status = (template?.review as { status?: string } | null | undefined)?.status;
+    return template && status === TemplateReviewStatus.Review
+      ? {
+          id: template.id,
+          // never live: no snapshot was ever published for it
+          firstSubmission: !template.isPublished && !template.snapshot,
+        }
+      : null;
   }
 }

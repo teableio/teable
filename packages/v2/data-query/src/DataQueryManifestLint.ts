@@ -97,14 +97,19 @@ const definitionShape = (definition: DataQueryDefinitionInput): string =>
     version: definition.version,
     kind: definition.kind,
     distinct:
-      definition.version === 6 && definition.kind === 'records' ? definition.distinct : undefined,
+      (definition.version === 6 || definition.version === 8) && definition.kind === 'records'
+        ? definition.distinct
+        : undefined,
     tableId: definition.tableId,
     recordId: definition.kind === 'records' ? (definition.recordId ?? null) : undefined,
     relations: definition.version !== 1 ? (definition.relations ?? {}) : undefined,
     select: definition.kind === 'records' ? definition.select : undefined,
     aggregates: definition.kind === 'aggregate' ? definition.aggregates : undefined,
     groupBy: definition.kind === 'aggregate' ? (definition.groupBy ?? []) : undefined,
-    ...((definition.version === 4 || definition.version === 5 || definition.version === 6) &&
+    ...((definition.version === 4 ||
+      definition.version === 5 ||
+      definition.version === 6 ||
+      definition.version === 8) &&
     definition.kind === 'aggregate'
       ? { having: definition.having }
       : {}),

@@ -35,7 +35,7 @@
     "@teable/v2-contract-http-hono": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-headless-runtime": "workspace:*",
-    "hono": "4.13.13"
+    "hono": "4.13.19"
   },
   "devDependencies": {
     "@teable/v2-contract-http": "workspace:*",

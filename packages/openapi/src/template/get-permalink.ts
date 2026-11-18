@@ -2,11 +2,13 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { linkPreviewSchema } from './link-preview';
 
 export const GET_TEMPLATE_PERMALINK = '/template/permalink/{identifier}';
 
 export const templatePermalinkVoSchema = z.object({
   redirectUrl: z.string(),
+  preview: linkPreviewSchema.optional(),
 });
 
 export type ITemplatePermalinkVo = z.infer<typeof templatePermalinkVoSchema>;

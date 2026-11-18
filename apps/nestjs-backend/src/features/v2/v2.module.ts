@@ -7,6 +7,7 @@ import { ShareDbModule } from '../../share-db/share-db.module';
 import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
 import { CalculationModule } from '../calculation/calculation.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
+import { FieldReferenceAdmissionModule } from '../field-reference-admission/field-reference-admission.module';
 import { NotificationModule } from '../notification/notification.module';
 import { RecordModule } from '../record/record.module';
 import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
@@ -152,6 +153,7 @@ export const toV2HttpError = (
     ShareDbModule,
     CollaboratorModule,
     NotificationModule,
+    FieldReferenceAdmissionModule,
     RecordModule,
     ViewModule,
     SpaceDataDbMigrationGuardModule,

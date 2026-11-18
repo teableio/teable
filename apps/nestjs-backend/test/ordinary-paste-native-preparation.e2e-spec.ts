@@ -20,6 +20,7 @@ import {
 } from '@teable/openapi';
 import { DEFAULT_TABLE_DATA_SAFETY_LIMITS } from '@teable/v2-core';
 import * as fieldFactory from '../src/features/field/model/factory';
+import { disableLegacyFieldAdmission } from './utils/disable-legacy-field-admission';
 import {
   createField,
   createTable,
@@ -35,14 +36,17 @@ describe('ordinary native paste preparation retirement (real HTTP)', () => {
   let app: INestApplication;
   let cookie: string;
   const baseId = globalThis.testConfig.baseId;
+  let restoreLegacyAdmission: (() => void) | undefined;
 
   beforeAll(async () => {
     const context = await initApp();
     app = context.app;
     cookie = context.cookie;
+    restoreLegacyAdmission = disableLegacyFieldAdmission();
   });
 
   afterAll(async () => {
+    restoreLegacyAdmission?.();
     await app.close();
   });
 

@@ -1,4 +1,5 @@
 import {
+  decodeTableSearchIndex,
   getPostgresTransaction,
   resolvePostgresDbOrTx,
   setTableComputedDownstreamHint,
@@ -1990,7 +1991,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       ...(row.description !== null ? { description: row.description } : {}),
       ...(row.icon !== null ? { icon: row.icon } : {}),
       dbTableName: row.db_table_name ?? undefined,
-      searchIndex: core.isTableSearchIndex(row.search_index) ? row.search_index : undefined,
+      searchIndex: decodeTableSearchIndex(row.search_index),
       primaryFieldId,
       fields: fieldRows.map((f) => this.deserializeFieldDto(f)),
       views: [...viewsResult.value],
