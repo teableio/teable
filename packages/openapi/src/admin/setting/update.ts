@@ -31,6 +31,7 @@ export enum LLMProviderType {
   COHERE = 'cohere',
   MISTRAL = 'mistral',
   DEEPSEEK = 'deepseek',
+  MINIMAX = 'minimax',
   QWEN = 'qwen',
   ZHIPU = 'zhipu',
   LINGYIWANWU = 'lingyiwanwu',
@@ -87,6 +88,13 @@ export const modelConfigSchema = z.object({
 });
 
 export type IModelConfig = z.infer<typeof modelConfigSchema>;
+
+export const MINIMAX_IMAGE_MODEL_IDS = ['image-01', 'image-01-live'] as const;
+
+export const MINIMAX_IMAGE_ENDPOINTS = [
+  { region: 'global_en', url: 'https://api.minimax.io/v1/image_generation' },
+  { region: 'cn_zh', url: 'https://api.minimaxi.com/v1/image_generation' },
+] as const;
 
 export const llmProviderSchema = z.object({
   type: z.enum(LLMProviderType),
