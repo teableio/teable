@@ -4,8 +4,10 @@ import type { Result } from 'neverthrow';
 import { isSameTxProjectionHandlerForEvent } from '../../application/projections/SameTxProjection';
 import { domainError, isDomainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { DomainEventName } from '../../domain/shared/DomainEventName';
 import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
 import { isRecordsBatchUpdatedEvent } from '../../domain/table/events/RecordsBatchUpdated';
+import { RecordsDeleted } from '../../domain/table/events/RecordsDeleted';
 import { isRecordUpdatedEvent } from '../../domain/table/events/RecordUpdated';
 import type { IEventBus } from '../EventBus';
 import type { EventType, IEventDispatchScope, IEventHandler } from '../EventHandler';
@@ -17,6 +19,7 @@ import {
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IClassToken, IHandlerResolver } from '../HandlerResolver';
 import { TeableSpanAttributes } from '../Tracer';
+import { BackgroundTaskTracker } from './BackgroundTaskTracker';
 
 export type AsyncEventBusScheduler = (task: () => Promise<void>) => void;
 
@@ -31,6 +34,7 @@ export type AsyncMemoryEventBusOptions = Readonly<{
   onError?: (error: AsyncEventBusError) => void;
   largeBatchProjectionSerialThreshold?: number;
   recordPublishedEvents?: boolean;
+  backgroundTasks?: BackgroundTaskTracker;
 }>;
 
 const DEFAULT_LARGE_BATCH_PROJECTION_SERIAL_THRESHOLD = 1000;
@@ -93,6 +97,7 @@ export class AsyncMemoryEventBus implements IEventBus {
   private nextSeq = 0;
   private processedSeq = -1;
   private readonly recordPublishedEvents: boolean;
+  private readonly backgroundTasks: BackgroundTaskTracker;
 
   private shouldAwait(events: ReadonlyArray<IDomainEvent>): boolean {
     if (!events.length) return false;
@@ -133,6 +138,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     private readonly options: AsyncMemoryEventBusOptions = {}
   ) {
     this.recordPublishedEvents = options.recordPublishedEvents ?? true;
+    this.backgroundTasks = options.backgroundTasks ?? new BackgroundTaskTracker();
   }
 
   private shouldDispatchProjectionGroupConcurrently(event: IDomainEvent): boolean {
@@ -148,11 +154,32 @@ export class AsyncMemoryEventBus implements IEventBus {
       return event.records.length <= threshold;
     }
 
+    if (
+      event instanceof RecordsDeleted ||
+      (event.name.equals(DomainEventName.recordsDeleted()) &&
+        'recordSnapshots' in event &&
+        Array.isArray((event as { recordSnapshots?: unknown }).recordSnapshots))
+    ) {
+      const deletedEvent = event as RecordsDeleted;
+      return (
+        Math.max(deletedEvent.recordSnapshots.length, deletedEvent.recordIds.length) <= threshold
+      );
+    }
+
     return true;
   }
 
   events(): ReadonlyArray<IDomainEvent> {
     return [...this.publishedEvents];
+  }
+
+  /** Queued events plus the event currently being dispatched. */
+  pendingCount(): number {
+    return this.nextSeq - this.processedSeq - 1;
+  }
+
+  pendingBackgroundTaskCount(): number {
+    return this.backgroundTasks.pendingCount();
   }
 
   /** Wait for the current event sequence and any events enqueued by its handlers. */
@@ -161,8 +188,9 @@ export class AsyncMemoryEventBus implements IEventBus {
     for (;;) {
       const targetSeq = this.nextSeq - 1;
       await this.waitUntilProcessed(targetSeq);
+      await this.backgroundTasks.settled();
       if (this.drainError) throw this.drainError;
-      if (targetSeq === this.nextSeq - 1) return;
+      if (targetSeq === this.nextSeq - 1 && this.pendingBackgroundTaskCount() === 0) return;
     }
   }
 
@@ -245,13 +273,14 @@ export class AsyncMemoryEventBus implements IEventBus {
     preferContextBackgroundTask: boolean
   ): number {
     const contextSnapshot = snapshotExecutionContext(context);
+    const dispatchContext = this.backgroundTasks.context(contextSnapshot);
     const dispatchScope = createEventDispatchScope();
     let targetSeq = this.processedSeq;
     for (const event of events) {
       const seq = this.nextSeq;
       this.nextSeq += 1;
       targetSeq = seq;
-      this.queue.push({ context: contextSnapshot, dispatchScope, event, seq });
+      this.queue.push({ context: dispatchContext, dispatchScope, event, seq });
     }
     if (!this.draining) {
       this.draining = true;

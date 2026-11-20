@@ -26,6 +26,7 @@ import {
   type FieldOperationSideEffect,
 } from './FieldOperationSideEffectPluginSupport';
 import type { IForeignTableLoaderService } from './ForeignTableLoaderService';
+import { isLinkTextConversionBatchField } from './LinkTextConversionBatch';
 
 /** The metadata read set shared by conversion preparation and observational host admission. */
 export const collectFieldConversionForeignTableReferences = (
@@ -155,12 +156,18 @@ export class FieldConversionPreparationService {
         const detachedUpdatedField = yield* detachedUpdate.table.getField((field) =>
           field.id().equals(command.fieldId)
         );
-        plannedSideEffects = yield* collectFieldUpdateSideEffects(
-          detachedTable,
-          detachedUpdatedField,
-          detachedPreviousField,
-          foreignTables
-        );
+        plannedSideEffects = isLinkTextConversionBatchField(
+          context,
+          table.id().toString(),
+          command.fieldId.toString()
+        )
+          ? []
+          : yield* collectFieldUpdateSideEffects(
+              detachedTable,
+              detachedUpdatedField,
+              detachedPreviousField,
+              foreignTables
+            );
       }
       let affectedCellCount: number | null = requiresDataRewrite ? null : 0;
       if (requiresDataRewrite && options?.aggregationRepository) {

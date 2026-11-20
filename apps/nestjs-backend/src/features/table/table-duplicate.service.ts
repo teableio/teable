@@ -45,6 +45,7 @@ import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
 import { TableService } from './table.service';
+import { TableDuplicatePolicyService } from './table-duplicate-policy.service';
 
 type IDataPrismaExecutor = {
   $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
@@ -102,7 +103,8 @@ export class TableDuplicateService {
     @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
     @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly duplicatePolicy: TableDuplicatePolicyService
   ) {}
 
   private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
@@ -563,52 +565,14 @@ export class TableDuplicateService {
     tableId: string,
     fieldId: string
   ): Promise<ICrossSpaceTableAffectedField[]> {
-    return (await this.previewCrossSpaceAffectedFields(tableId)).filter(
-      (f) => f.fieldId === fieldId
-    );
+    return this.duplicatePolicy.previewFieldDuplicateCrossSpace(tableId, fieldId);
   }
 
   async previewCrossSpaceAffectedFields(
     sourceTableId: string,
     targetTableId: string = sourceTableId
   ): Promise<ICrossSpaceTableAffectedField[]> {
-    if (isCrossSpaceReferenceAllowed()) return [];
-    const prisma = this.prismaService.txClient();
-
-    const fieldsRaw = await prisma.field.findMany({
-      where: { tableId: sourceTableId, deletedTime: null },
-    });
-    if (!fieldsRaw.length) return [];
-
-    const foreignTableIds = Array.from(
-      new Set(
-        fieldsRaw
-          .map((f) => extractForeignTableId(f))
-          .filter((ft): ft is string => !!ft && ft !== targetTableId)
-      )
-    );
-    if (foreignTableIds.length === 0) return [];
-
-    const rows = await prisma.tableMeta.findMany({
-      where: { id: { in: [targetTableId, ...foreignTableIds] }, deletedTime: null },
-      select: { id: true, base: { select: { spaceId: true } } },
-    });
-    const spaceMap = new Map(rows.map((r) => [r.id, r.base.spaceId]));
-    const targetSpace = spaceMap.get(targetTableId);
-    if (!targetSpace) return [];
-
-    const affected = collectCrossSpaceAffectedFieldIds({
-      fields: fieldsRaw,
-      isForeignInternal: (ft) => ft === targetTableId,
-      isForeignCrossSpace: (ft) => {
-        const s = spaceMap.get(ft);
-        return Boolean(s && s !== targetSpace);
-      },
-    });
-
-    return fieldsRaw
-      .filter((f) => affected.has(f.id))
-      .map((f) => ({ fieldId: f.id, fieldName: f.name, type: f.type }));
+    return this.duplicatePolicy.previewCrossSpaceAffectedFields(sourceTableId, targetTableId);
   }
 
   private async identifyCrossSpaceFieldIds(

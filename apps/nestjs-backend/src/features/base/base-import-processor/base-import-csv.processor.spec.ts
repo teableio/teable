@@ -7,6 +7,7 @@ import type { IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
 import Knex from 'knex';
 import { ClsService } from 'nestjs-cls';
+import type { Mock } from 'vitest';
 import { vi } from 'vitest';
 
 import { BaseImportCsvQueueProcessor } from './base-import-csv.processor';
@@ -39,6 +40,7 @@ describe('BaseImportCsvQueueProcessor', () => {
       handleChunk: ReturnType<typeof vi.fn>;
       storageAdapter: { downloadFile: ReturnType<typeof vi.fn> };
       cls: ClsService;
+      prismaService: { base: { findUniqueOrThrow: ReturnType<typeof vi.fn> } };
       persistedComputedBackfillService: { recomputeForTables: ReturnType<typeof vi.fn> };
       logger: { log: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
     };
@@ -48,6 +50,9 @@ describe('BaseImportCsvQueueProcessor', () => {
       downloadFile: vi
         .fn()
         .mockResolvedValue(createCsvZipStream({ 'tables/tblSource.csv': '__id,Name\nrec1,Alpha' })),
+    };
+    processor.prismaService = {
+      base: { findUniqueOrThrow: vi.fn().mockResolvedValue({ v2Enabled: false }) },
     };
     processor.handleChunk = vi.fn(async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -73,6 +78,163 @@ describe('BaseImportCsvQueueProcessor', () => {
     expect(recomputeForTables).toHaveBeenCalledWith(['tblTarget']);
   });
 
+  it('isolates serialized CSV chunk transaction slots while inheriting job attribution', async () => {
+    const cls = new ClsService(new AsyncLocalStorage());
+    const processor = Object.create(BaseImportCsvQueueProcessor.prototype) as {
+      handleBaseImportCsvInScope: (job: { data: Record<string, unknown> }) => Promise<void>;
+      handleChunk: ReturnType<typeof vi.fn>;
+      cls: ClsService;
+      storageAdapter: { downloadFile: ReturnType<typeof vi.fn> };
+      prismaService: { base: { findUniqueOrThrow: ReturnType<typeof vi.fn> } };
+      persistedComputedBackfillService: { recomputeForTables: ReturnType<typeof vi.fn> };
+      logger: { log: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+    };
+    const contexts: object[] = [];
+    let activeChunks = 0;
+    processor.cls = cls;
+    processor.storageAdapter = {
+      downloadFile: vi.fn().mockResolvedValue(
+        createCsvZipStream({
+          'tables/tblFirst.csv': '__id,Name\nrecFirst,Alpha',
+          'tables/tblSecond.csv': '__id,Name\nrecSecond,Beta',
+        })
+      ),
+    };
+    processor.prismaService = {
+      base: { findUniqueOrThrow: vi.fn().mockResolvedValue({ v2Enabled: false }) },
+    };
+    processor.handleChunk = vi.fn(async (chunk: Record<string, string>[]) => {
+      const initialDataTxId = cls.get('dataTx.id');
+      expect(cls.get('tx.id')).toBeUndefined();
+      contexts.push(cls.get('dataTx'));
+      activeChunks += 1;
+      expect(activeChunks).toBe(1);
+      expect(initialDataTxId).toBeUndefined();
+      expect(cls.get('user.id')).toBe('usrImport');
+      expect(cls.get('audit.operationId')).toBe('operationImport');
+      expect(cls.get('origin.byApi')).toBe(true);
+      const chunkId = chunk[0]!.__id;
+      cls.set('dataTx.id', chunkId);
+      cls.set('tx.id', chunkId);
+      // Chunks in one job serialize their DDL. Yield without waiting for a
+      // later chunk, which cannot start until this one has finished.
+      await Promise.resolve();
+      expect(cls.get('dataTx.id')).toBe(chunkId);
+      expect(cls.get('tx.id')).toBe(chunkId);
+      activeChunks -= 1;
+    });
+    processor.persistedComputedBackfillService = { recomputeForTables: vi.fn() };
+    processor.logger = { log: vi.fn(), error: vi.fn() };
+
+    const jobContext = {
+      user: { id: 'usrImport' },
+      audit: { operationId: 'operationImport' },
+      origin: { byApi: true },
+      tx: {},
+      dataTx: {},
+    };
+    await cls.runWith(jobContext, () =>
+      processor.handleBaseImportCsvInScope({
+        data: {
+          path: 'import.zip',
+          userId: 'usrImport',
+          baseId: 'bseImport',
+          tableIdMap: { tblFirst: 'tblTargetFirst', tblSecond: 'tblTargetSecond' },
+          fieldIdMap: {},
+          viewIdMap: {},
+          fkMap: {},
+          structure: {
+            tables: [
+              { id: 'tblFirst', fields: [] },
+              { id: 'tblSecond', fields: [] },
+            ],
+          },
+        },
+      })
+    );
+
+    expect(processor.handleChunk).toHaveBeenCalledTimes(2);
+    expect(contexts[0]).not.toBe(contexts[1]);
+    expect(jobContext.tx).toEqual({});
+    expect(jobContext.dataTx).toEqual({});
+    expect(processor.persistedComputedBackfillService.recomputeForTables).toHaveBeenCalledOnce();
+  });
+
+  it('keeps concurrent CSV jobs attributed to their own CLS scope', async () => {
+    const cls = new ClsService(new AsyncLocalStorage());
+    const processor = Object.create(BaseImportCsvQueueProcessor.prototype) as {
+      handleBaseImportCsvInScope: (job: { data: Record<string, unknown> }) => Promise<void>;
+      handleChunk: Mock;
+      cls: ClsService;
+      storageAdapter: { downloadFile: Mock };
+      prismaService: { base: { findUniqueOrThrow: Mock } };
+      persistedComputedBackfillService: { recomputeForTables: Mock };
+      logger: { log: Mock; error: Mock };
+    };
+    const transactionContexts: object[] = [];
+    processor.cls = cls;
+    processor.storageAdapter = {
+      downloadFile: vi.fn(async (_bucket: string, path: string) =>
+        createCsvZipStream({ 'tables/tblSource.csv': `__id,Name\nrec${path},Alpha` })
+      ),
+    };
+    processor.prismaService = {
+      base: { findUniqueOrThrow: vi.fn().mockResolvedValue({ v2Enabled: false }) },
+    };
+    processor.handleChunk = vi.fn(
+      async (chunk: Record<string, string>[], { userId }: { userId: string }) => {
+        transactionContexts.push(cls.get('dataTx'), cls.get('tx'));
+        expect(cls.get('dataTx.id')).toBeUndefined();
+        expect(cls.get('tx.id')).toBeUndefined();
+        expect(cls.get('user.id')).toBe(userId);
+        expect(cls.get('audit.operationId')).toBe(`operation${userId}`);
+        const chunkId = chunk[0]!.__id;
+        cls.set('dataTx.id', chunkId);
+        cls.set('tx.id', chunkId);
+        await Promise.resolve();
+        expect(cls.get('dataTx.id')).toBe(chunkId);
+        expect(cls.get('tx.id')).toBe(chunkId);
+        expect(cls.get('user.id')).toBe(userId);
+        expect(cls.get('audit.operationId')).toBe(`operation${userId}`);
+      }
+    );
+    processor.persistedComputedBackfillService = { recomputeForTables: vi.fn() };
+    processor.logger = { log: vi.fn(), error: vi.fn() };
+    const jobContexts = ['usrFirst', 'usrSecond'].map((userId) => ({
+      user: { id: userId },
+      audit: { operationId: `operation${userId}` },
+      tx: {},
+      dataTx: {},
+    }));
+
+    await Promise.all(
+      jobContexts.map((context) =>
+        cls.runWith(context, () =>
+          processor.handleBaseImportCsvInScope({
+            data: {
+              path: context.user.id,
+              userId: context.user.id,
+              baseId: `bse${context.user.id}`,
+              tableIdMap: { tblSource: `tbl${context.user.id}` },
+              fieldIdMap: {},
+              viewIdMap: {},
+              fkMap: {},
+              structure: { tables: [{ id: 'tblSource', fields: [] }] },
+            },
+          })
+        )
+      )
+    );
+
+    expect(processor.handleChunk).toHaveBeenCalledTimes(2);
+    expect(new Set(transactionContexts).size).toBe(4);
+    for (const context of jobContexts) {
+      expect(context.tx).toEqual({});
+      expect(context.dataTx).toEqual({});
+    }
+    expect(processor.persistedComputedBackfillService.recomputeForTables).toHaveBeenCalledTimes(2);
+  });
+
   it('drains an active chunk after a parser failure before accepting a retry', async () => {
     const processor = Object.create(BaseImportCsvQueueProcessor.prototype) as {
       process: (job: { id: string; data: Record<string, unknown> }) => Promise<void>;
@@ -83,6 +245,7 @@ describe('BaseImportCsvQueueProcessor', () => {
       cls: ClsService;
       storageAdapter: { downloadFile: ReturnType<typeof vi.fn> };
       notificationService: { sendCommonNotify: ReturnType<typeof vi.fn> };
+      prismaService: { base: { findUniqueOrThrow: ReturnType<typeof vi.fn> } };
       persistedComputedBackfillService: { recomputeForTables: ReturnType<typeof vi.fn> };
       logger: { log: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
     };
@@ -123,6 +286,9 @@ describe('BaseImportCsvQueueProcessor', () => {
     });
     processor.notificationService = {
       sendCommonNotify: vi.fn().mockResolvedValue({ sentCount: 1 }),
+    };
+    processor.prismaService = {
+      base: { findUniqueOrThrow: vi.fn().mockResolvedValue({ v2Enabled: false }) },
     };
     processor.persistedComputedBackfillService = { recomputeForTables: vi.fn() };
     processor.logger = { log: vi.fn(), error: vi.fn() };

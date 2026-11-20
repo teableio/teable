@@ -34,6 +34,7 @@ import { NotificationService } from '../../notification/notification.service';
 import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { BaseImportComputedService } from '../base-import-computed.service';
 import {
   notifyBaseImportFailure,
   notifyBaseImportWarnings,
@@ -90,6 +91,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     private readonly prismaService: PrismaService,
     private readonly baseImportJunctionCsvQueueProcessor: BaseImportJunctionCsvQueueProcessor,
     private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
+    private readonly baseImportComputedService: BaseImportComputedService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -371,7 +373,13 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     })
       .then(async () => {
         if (!this.hasLinkImports(structure)) {
-          await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
+          const base = await this.prismaService.base.findUniqueOrThrow({
+            where: { id: baseId },
+            select: { v2Enabled: true },
+          });
+          await (
+            base.v2Enabled ? this.baseImportComputedService : this.persistedComputedBackfillService
+          ).recomputeForTables(Object.values(tableIdMap));
         }
       })
       .catch(async (error: unknown) => {

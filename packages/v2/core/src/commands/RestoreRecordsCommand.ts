@@ -30,6 +30,12 @@ export type IRestoreRecordsCommandInput = z.input<typeof restoreRecordsInputSche
 
 export type RestoreRecordInput = z.infer<typeof restoreRecordsInputSchema>['records'][number];
 
+export interface IDeferredSelfReferentialLinkRecord {
+  recordId: string;
+  fields: Record<string, unknown>;
+  cleanupTrash?: boolean;
+}
+
 export interface IRestoreRecordsCommandOptions {
   /**
    * Delete the attachments_table reference rows of the restored records before
@@ -51,6 +57,28 @@ export interface IRestoreRecordsCommandOptions {
    * HTTP contract — internal callers only.
    */
   requireTrashRowReason?: IRecordRemovalReason;
+  /**
+   * Internal collector used by multi-chunk undo replay so Phase 1 inserts every
+   * record across all chunks before Phase 2 links self-referential FKs. Never
+   * accepted from the HTTP contract — internal callers only.
+   */
+  deferSelfReferentialLinks?: IDeferredSelfReferentialLinkRecord[];
+  /**
+   * Internal hook populated when the handler resolves the target table's
+   * self-referential link field ids.
+   */
+  onTableSelfLinkFieldsResolved?: (selfLinkFieldIds: ReadonlySet<string>) => void;
+  /**
+   * Internal flag indicating Phase 2 of a two-phase self-referential link
+   * restore against records already inserted in Phase 1. Never accepted from
+   * the HTTP contract — internal callers only.
+   */
+  selfReferentialLinksOnly?: boolean;
+  /**
+   * Trash record ids whose `record_trash` / `table_trash` cleanup was deferred
+   * from Phase 1 until Phase 2 completes. Internal callers only.
+   */
+  cleanupTrashRecordIds?: ReadonlyArray<string>;
 }
 
 export class RestoreRecordsCommand {
@@ -58,7 +86,11 @@ export class RestoreRecordsCommand {
     readonly tableId: TableId,
     readonly records: ReadonlyArray<RestoreRecordInput>,
     readonly cleanupAttachmentRefs?: boolean,
-    readonly requireTrashRowReason?: IRecordRemovalReason
+    readonly requireTrashRowReason?: IRecordRemovalReason,
+    readonly deferSelfReferentialLinks?: IDeferredSelfReferentialLinkRecord[],
+    readonly onTableSelfLinkFieldsResolved?: (selfLinkFieldIds: ReadonlySet<string>) => void,
+    readonly selfReferentialLinksOnly?: boolean,
+    readonly cleanupTrashRecordIds?: ReadonlyArray<string>
   ) {}
 
   static create(
@@ -81,7 +113,11 @@ export class RestoreRecordsCommand {
           tableId,
           parsed.data.records,
           options?.cleanupAttachmentRefs,
-          options?.requireTrashRowReason
+          options?.requireTrashRowReason,
+          options?.deferSelfReferentialLinks,
+          options?.onTableSelfLinkFieldsResolved,
+          options?.selfReferentialLinksOnly,
+          options?.cleanupTrashRecordIds
         )
     );
   }

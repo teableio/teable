@@ -6,9 +6,9 @@ import { FieldType, IdPrefix, RecordOpBuilder, Tables } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import { RawOpType } from '../../../../share-db/interface';
+import { RawOpStagingService } from '../../../../share-db/raw-op-staging.service';
 import { V1EngineService } from '../../../../tracing/decorators/v1-engine';
 import { Timing } from '../../../../utils/timing';
-import { BatchService } from '../../../calculation/batch.service';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
 import type { IFieldInstance } from '../../../field/model/factory';
 import { InjectRecordQueryBuilder, type IRecordQueryBuilder } from '../../query-builder';
@@ -36,7 +36,7 @@ export class ComputedEvaluatorService {
   constructor(
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
     private readonly recordComputedUpdateService: RecordComputedUpdateService,
-    private readonly batchService: BatchService,
+    private readonly rawOpStagingService: RawOpStagingService,
     private readonly prismaService: PrismaService
   ) {}
 
@@ -393,7 +393,7 @@ export class ComputedEvaluatorService {
 
     if (!opDataList.length) return 0;
 
-    this.batchService.saveRawOps(
+    this.rawOpStagingService.saveRawOps(
       tableId,
       RawOpType.Edit,
       IdPrefix.Record,

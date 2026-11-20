@@ -1,8 +1,8 @@
 import { HttpErrorCode } from '@teable/core';
 import { describe, expect, it, vi } from 'vitest';
-import { ShareSocketService } from './share-socket.service';
+import { ShareSocketService, scopeSearchToVisibleFields } from './share-socket.service';
 
-const createService = (useV2 = false) => {
+const createService = (_useV2 = false) => {
   const viewService = {
     getDocIdsByQuery: vi.fn(),
     getSnapshotBulk: vi.fn(),
@@ -11,13 +11,7 @@ const createService = (useV2 = false) => {
     getView: vi.fn(),
     getSnapshotBulk: vi.fn(),
   };
-  const service = new ShareSocketService(
-    viewService as never,
-    viewOpenApiV2Service as never,
-    {} as never,
-    {} as never,
-    { get: vi.fn().mockReturnValue(useV2) } as never
-  );
+  const service = new ShareSocketService(viewOpenApiV2Service as never, {} as never, {} as never);
   return { service, viewService, viewOpenApiV2Service };
 };
 
@@ -28,39 +22,26 @@ const shareInfo = {
 } as never;
 
 describe('ShareSocketService View reads', () => {
-  it('loads the shared View through the v2 Table aggregate without using ViewService', async () => {
-    const { service, viewService, viewOpenApiV2Service } = createService(true);
-    viewOpenApiV2Service.getView.mockResolvedValue({ id: 'viwShared' });
-    viewOpenApiV2Service.getSnapshotBulk.mockResolvedValue([{ id: 'viwShared' }]);
+  it.each([true, false])(
+    'loads the shared View natively regardless of feature flag (%s)',
+    async (useV2) => {
+      const { service, viewService, viewOpenApiV2Service } = createService(useV2);
+      viewOpenApiV2Service.getView.mockResolvedValue({ id: 'viwShared' });
+      viewOpenApiV2Service.getSnapshotBulk.mockResolvedValue([{ id: 'viwShared' }]);
 
-    await expect(service.getViewDocIdsByQuery(shareInfo)).resolves.toEqual({
-      ids: ['viwShared'],
-    });
-    await expect(service.getViewSnapshotBulk(shareInfo, ['viwShared'])).resolves.toEqual([
-      { id: 'viwShared' },
-    ]);
+      await expect(service.getViewDocIdsByQuery(shareInfo)).resolves.toEqual({
+        ids: ['viwShared'],
+      });
+      await expect(service.getViewSnapshotBulk(shareInfo, ['viwShared'])).resolves.toEqual([
+        { id: 'viwShared' },
+      ]);
 
-    expect(viewOpenApiV2Service.getView).toHaveBeenCalledWith('tblShared', 'viwShared');
-    expect(viewOpenApiV2Service.getSnapshotBulk).toHaveBeenCalledWith('tblShared', ['viwShared']);
-    expect(viewService.getDocIdsByQuery).not.toHaveBeenCalled();
-    expect(viewService.getSnapshotBulk).not.toHaveBeenCalled();
-  });
-
-  it('keeps the legacy path only when the v2 feature is disabled', async () => {
-    const { service, viewService, viewOpenApiV2Service } = createService(false);
-    viewService.getDocIdsByQuery.mockResolvedValue({ ids: ['viwShared'] });
-    viewService.getSnapshotBulk.mockResolvedValue([{ id: 'viwShared' }]);
-
-    await service.getViewDocIdsByQuery(shareInfo);
-    await service.getViewSnapshotBulk(shareInfo, ['viwShared']);
-
-    expect(viewService.getDocIdsByQuery).toHaveBeenCalledWith('tblShared', {
-      includeIds: ['viwShared'],
-    });
-    expect(viewService.getSnapshotBulk).toHaveBeenCalledWith('tblShared', ['viwShared']);
-    expect(viewOpenApiV2Service.getView).not.toHaveBeenCalled();
-    expect(viewOpenApiV2Service.getSnapshotBulk).not.toHaveBeenCalled();
-  });
+      expect(viewOpenApiV2Service.getView).toHaveBeenCalledWith('tblShared', 'viwShared');
+      expect(viewOpenApiV2Service.getSnapshotBulk).toHaveBeenCalledWith('tblShared', ['viwShared']);
+      expect(viewService.getDocIdsByQuery).not.toHaveBeenCalled();
+      expect(viewService.getSnapshotBulk).not.toHaveBeenCalled();
+    }
+  );
 
   it('rejects a missing shared View before either persistence path', async () => {
     const { service, viewService, viewOpenApiV2Service } = createService(true);
@@ -94,17 +75,12 @@ describe('ShareSocketService View reads', () => {
 
 describe('ShareSocketService record snapshot projection', () => {
   it('intersects a requested projection with the server-owned shared-field allow-list', async () => {
-    const getFieldsByQuery = vi.fn().mockResolvedValue([{ id: 'fldVisible', isPrimary: true }]);
-    const getSnapshotBulk = vi.fn().mockResolvedValue([]);
+    const getFields = vi.fn().mockResolvedValue([{ id: 'fldVisible', isPrimary: true }]);
+    const getSocketSnapshotBulk = vi.fn().mockResolvedValue([]);
     const service = new ShareSocketService(
       {} as never,
-      {} as never,
-      { getFieldsByQuery } as never,
-      {
-        getDiffIdsByIdAndFilter: vi.fn().mockResolvedValue([]),
-        getSnapshotBulk,
-      } as never,
-      { get: vi.fn() } as never
+      { getDiffIdsByIdAndFilter: vi.fn().mockResolvedValue([]), getSocketSnapshotBulk } as never,
+      { getFields } as never
     );
 
     await service.getRecordSnapshotBulk(
@@ -123,18 +99,13 @@ describe('ShareSocketService record snapshot projection', () => {
       { fldVisible: true, fldSecret: true }
     );
 
-    expect(getSnapshotBulk).toHaveBeenCalledWith(
-      'tblShared',
-      ['recVisible'],
-      { fldVisible: true },
-      undefined,
-      undefined,
-      true
-    );
+    expect(getSocketSnapshotBulk).toHaveBeenCalledWith('tblShared', ['recVisible'], {
+      fldVisible: true,
+    });
   });
 });
 
-const createFieldService = (useV2 = false) => {
+const createFieldService = (_useV2 = false) => {
   const fieldService = {
     getFieldsByQuery: vi.fn(),
     getSnapshotBulk: vi.fn(),
@@ -143,15 +114,7 @@ const createFieldService = (useV2 = false) => {
     getFields: vi.fn(),
     getSnapshotBulk: vi.fn(),
   };
-  const service = new ShareSocketService(
-    {} as never,
-    {} as never,
-    fieldService as never,
-    {} as never,
-    { get: vi.fn().mockReturnValue(useV2) } as never,
-    {} as never,
-    fieldOpenApiV2Service as never
-  );
+  const service = new ShareSocketService({} as never, {} as never, fieldOpenApiV2Service as never);
   return { service, fieldService, fieldOpenApiV2Service };
 };
 
@@ -162,45 +125,31 @@ const fieldShareInfo = {
 } as never;
 
 describe('ShareSocketService Field reads', () => {
-  it('loads shared field snapshots through v2 without using FieldService', async () => {
-    const { service, fieldService, fieldOpenApiV2Service } = createFieldService(true);
-    fieldOpenApiV2Service.getFields.mockResolvedValue([{ id: 'fldTitle', isPrimary: true }]);
-    fieldOpenApiV2Service.getSnapshotBulk.mockResolvedValue([
-      { id: 'fldTitle', v: 1, type: 'json0', data: { id: 'fldTitle' } },
-    ]);
+  it.each([true, false])(
+    'loads shared field snapshots natively regardless of feature flag (%s)',
+    async (useV2) => {
+      const { service, fieldService, fieldOpenApiV2Service } = createFieldService(useV2);
+      fieldOpenApiV2Service.getFields.mockResolvedValue([{ id: 'fldTitle', isPrimary: true }]);
+      fieldOpenApiV2Service.getSnapshotBulk.mockResolvedValue([
+        { id: 'fldTitle', v: 1, type: 'json0', data: { id: 'fldTitle' } },
+      ]);
 
-    await expect(service.getFieldDocIdsByQuery(fieldShareInfo)).resolves.toEqual({
-      ids: ['fldTitle'],
-    });
-    await expect(service.getFieldSnapshotBulk(fieldShareInfo, ['fldTitle'])).resolves.toEqual([
-      { id: 'fldTitle', v: 1, type: 'json0', data: { id: 'fldTitle' } },
-    ]);
+      await expect(service.getFieldDocIdsByQuery(fieldShareInfo)).resolves.toEqual({
+        ids: ['fldTitle'],
+      });
+      await expect(service.getFieldSnapshotBulk(fieldShareInfo, ['fldTitle'])).resolves.toEqual([
+        { id: 'fldTitle', v: 1, type: 'json0', data: { id: 'fldTitle' } },
+      ]);
 
-    expect(fieldOpenApiV2Service.getFields).toHaveBeenCalledWith('tblShared', {
-      viewId: 'viwShared',
-      filterHidden: true,
-    });
-    expect(fieldOpenApiV2Service.getSnapshotBulk).toHaveBeenCalledWith('tblShared', ['fldTitle']);
-    expect(fieldService.getFieldsByQuery).not.toHaveBeenCalled();
-    expect(fieldService.getSnapshotBulk).not.toHaveBeenCalled();
-  });
-
-  it('keeps the legacy field path only when the v2 feature is disabled', async () => {
-    const { service, fieldService, fieldOpenApiV2Service } = createFieldService(false);
-    fieldService.getFieldsByQuery.mockResolvedValue([{ id: 'fldTitle', isPrimary: true }]);
-    fieldService.getSnapshotBulk.mockResolvedValue([{ id: 'fldTitle' }]);
-
-    await service.getFieldDocIdsByQuery(fieldShareInfo);
-    await service.getFieldSnapshotBulk(fieldShareInfo, ['fldTitle']);
-
-    expect(fieldService.getFieldsByQuery).toHaveBeenCalledWith('tblShared', {
-      viewId: 'viwShared',
-      filterHidden: true,
-    });
-    expect(fieldService.getSnapshotBulk).toHaveBeenCalledWith('tblShared', ['fldTitle']);
-    expect(fieldOpenApiV2Service.getFields).not.toHaveBeenCalled();
-    expect(fieldOpenApiV2Service.getSnapshotBulk).not.toHaveBeenCalled();
-  });
+      expect(fieldOpenApiV2Service.getFields).toHaveBeenCalledWith('tblShared', {
+        viewId: 'viwShared',
+        filterHidden: true,
+      });
+      expect(fieldOpenApiV2Service.getSnapshotBulk).toHaveBeenCalledWith('tblShared', ['fldTitle']);
+      expect(fieldService.getFieldsByQuery).not.toHaveBeenCalled();
+      expect(fieldService.getSnapshotBulk).not.toHaveBeenCalled();
+    }
+  );
 
   it('rejects snapshot IDs outside the shared field allow-list before v2 persistence', async () => {
     const { service, fieldService, fieldOpenApiV2Service } = createFieldService(true);
@@ -213,5 +162,60 @@ describe('ShareSocketService Field reads', () => {
     );
     expect(fieldOpenApiV2Service.getSnapshotBulk).not.toHaveBeenCalled();
     expect(fieldService.getSnapshotBulk).not.toHaveBeenCalled();
+  });
+});
+
+describe('ShareSocketService visible-field search scoping', () => {
+  it('bounds field-less search to visibleFieldIds while keeping explicit search fields intact', () => {
+    expect(scopeSearchToVisibleFields(['secret'], ['fldPrimary', 'fldVisible'])).toEqual([
+      'secret',
+      'fldPrimary,fldVisible',
+    ]);
+    expect(scopeSearchToVisibleFields(['secret', '', true], ['fldPrimary'])).toEqual([
+      'secret',
+      'fldPrimary',
+      true,
+    ]);
+    expect(
+      scopeSearchToVisibleFields(['secret', 'fldVisible'], ['fldPrimary', 'fldVisible'])
+    ).toEqual(['secret', 'fldVisible']);
+    expect(scopeSearchToVisibleFields(['secret'], undefined)).toEqual(['secret']);
+    expect(scopeSearchToVisibleFields(['secret'], [])).toBeUndefined();
+  });
+
+  it('pins field-less socket doc-id searches on link shares to exposed fields', async () => {
+    const getFields = vi.fn().mockResolvedValue([
+      { id: 'fldPrimary', isPrimary: true },
+      { id: 'fldVisible', isPrimary: false },
+      { id: 'fldHidden', isPrimary: false },
+    ]);
+    const getSocketDocIds = vi.fn().mockResolvedValue({ ids: [] });
+    const service = new ShareSocketService(
+      {} as never,
+      { getSocketDocIds } as never,
+      { getFields } as never
+    );
+
+    await service.getRecordDocIdsByQuery(
+      {
+        shareId: 'fldLink',
+        tableId: 'tblForeign',
+        shareMeta: { includeRecords: true },
+        linkOptions: {
+          foreignTableId: 'tblForeign',
+          filterByViewId: 'viwCandidates',
+          visibleFieldIds: ['fldVisible'],
+        },
+      } as never,
+      { search: ['secret'] } as never
+    );
+
+    expect(getSocketDocIds).toHaveBeenCalledWith(
+      'tblForeign',
+      expect.objectContaining({
+        search: ['secret', 'fldPrimary,fldVisible'],
+        projection: ['fldPrimary', 'fldVisible'],
+      })
+    );
   });
 });

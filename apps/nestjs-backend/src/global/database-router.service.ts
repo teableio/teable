@@ -113,6 +113,18 @@ export class DatabaseRouter {
     return await this.dataDbClientManager.dataKnexForBase(baseId, options);
   }
 
+  withDataKnexTransactionForBase<T>(
+    baseId: string,
+    options: IDataDbRoutingOptions,
+    work: (transaction: Knex.Transaction) => Promise<T>
+  ): Promise<T> {
+    return this.dataDbClientManager.withDataKnexConnectionForBase(
+      baseId,
+      (knex, connection) => knex.transaction(work, { connection }),
+      options
+    );
+  }
+
   async dataPrismaForBase(baseId: string, options?: IDataDbRoutingOptions) {
     return await this.dataDbClientManager.dataPrismaForBase(baseId, options);
   }

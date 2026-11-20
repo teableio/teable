@@ -14,6 +14,8 @@ export type RealtimeApplyChangeOptions = {
 };
 
 export type RealtimeEnsureOptions = {
+  /** The document version before creation or restoration; defaults to zero. */
+  version?: number;
   /**
    * The caller only guards a following applyChange on a document that is
    * already persisted, so no collection query can gain a new member. Engines

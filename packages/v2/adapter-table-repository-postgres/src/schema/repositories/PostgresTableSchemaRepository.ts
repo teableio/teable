@@ -872,6 +872,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         tableName,
         tableId: table.id().toString(),
         table,
+        context,
         tableLocationsById,
         recordUpdateCollector: {
           add: (update) => {

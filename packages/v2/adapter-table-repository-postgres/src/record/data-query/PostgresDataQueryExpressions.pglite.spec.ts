@@ -2183,4 +2183,55 @@ describe('scalar expressions through the native query service', () => {
       },
     ]);
   });
+  it('ranks masked native outputs and counts top-N rows before pagination', async () => {
+    await sql`insert into ${sql.id('public', physicalTable)}
+      (__id, title, quantity, unit_price, discount, __auto_number, email, paid) values
+      ('recD', 'A', 10, 1, null, 4, null, false),
+      ('recE', 'A', 10, 1, null, 5, null, false),
+      ('recF', 'MASKED', 999, 1, null, 6, null, false)`.execute(database.db);
+    const table = new DefaultTableMapper().toDomain(tableDto)._unsafeUnwrap();
+    const visibleScore = buildRecordConditionSpec(table, {
+      fieldId: titleId,
+      operator: 'is',
+      value: 'A',
+    })._unsafeUnwrap();
+    const definition = DataQueryDefinition.create({
+      version: 9,
+      tableId,
+      kind: 'records',
+      select: [
+        {
+          expr: formula('IF({title} = "MASKED", "A", "A")', {
+            title: reference(titleId),
+          }),
+          alias: 'partition',
+        },
+        { fieldId: quantityId, alias: 'score' },
+        { system: 'id', alias: 'id' },
+      ],
+      topN: {
+        partitionBy: ['partition'],
+        orderBy: [{ alias: 'score', order: 'desc', nulls: 'last' }],
+        limit: 1,
+      },
+      page: { limit: 1, includeTotal: true },
+    })._unsafeUnwrap();
+    const maskedService = scopedService({
+      fieldMasks: [{ fieldId: quantityId, visibleWhen: visibleScore }],
+    });
+
+    expect((await maskedService.execute(context, definition))._unsafeUnwrap()).toMatchObject({
+      rows: [{ partition: 'A', score: 10, id: 'recD' }],
+      page: { total: 1 },
+    });
+
+    const emptyPage = DataQueryDefinition.create({
+      ...definition.snapshot(),
+      page: { limit: 1, offset: 1, includeTotal: true },
+    })._unsafeUnwrap();
+    expect((await maskedService.execute(context, emptyPage))._unsafeUnwrap()).toMatchObject({
+      rows: [],
+      page: { total: 1 },
+    });
+  });
 });

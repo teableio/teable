@@ -1,6 +1,7 @@
 import {
   BaseId,
   domainError,
+  FieldCreated,
   FieldDeleted,
   FieldId,
   FieldName,
@@ -32,6 +33,25 @@ const makeTable = () => {
 };
 
 describe('TableSearchVectorSchemaMaintenanceProjection', () => {
+  it('schedules newly created fields without waiting for a search', async () => {
+    const table = makeTable();
+    const scheduler = { schedule: vi.fn().mockResolvedValue(ok(undefined)) };
+    const projection = new TableSearchVectorSchemaMaintenanceProjection(
+      { findOne: vi.fn().mockResolvedValue(ok(table)) } as never,
+      scheduler as never,
+      { warn: vi.fn() } as never
+    );
+    await projection.handle(
+      {} as never,
+      FieldCreated.create({
+        tableId: table.id(),
+        baseId: table.baseId(),
+        fieldId: table.primaryFieldId(),
+      })
+    );
+    expect(scheduler.schedule).toHaveBeenCalledWith({}, { table, reason: 'field_created' });
+  });
+
   it('loads the latest table aggregate and schedules schema maintenance', async () => {
     const table = makeTable();
     const context = {} as never;

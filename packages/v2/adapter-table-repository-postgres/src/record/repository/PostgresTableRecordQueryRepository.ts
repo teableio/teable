@@ -1009,6 +1009,304 @@ export class PostgresTableRecordQueryRepository
     }
   }
 
+  private async prepareRead(
+    context: IExecutionContext,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryOptions,
+    output?: { readonly fieldIds?: ReadonlyArray<FieldId>; readonly omitOrder?: boolean }
+  ) {
+    return safeTry(
+      async function* (this: PostgresTableRecordQueryRepository) {
+        const readQuerySource = this.getRecordReadQuerySource(options);
+        // Create query builder via manager (it handles prepare)
+        const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+          mode: resolveQueryMode(table, options?.mode),
+          sourceTableName: readQuerySource?.tableName,
+        });
+        const fieldMaskSqlMap = yield* buildFieldMaskSqlMap(options?.fieldMasks, TABLE_ALIAS);
+        queryBuilder.fieldMaskSql?.(fieldMaskSqlMap);
+
+        if (options?.projectionFieldIds !== undefined) {
+          queryBuilder.select(options.projectionFieldIds);
+        }
+        // Ids-only reads keep filter/search/order semantics but select just
+        // the record id column; incompatible extras (search matches, group
+        // metadata, order columns) are skipped below.
+        if (options?.idsOnly) {
+          queryBuilder.idsOnly?.();
+        }
+        if (options?.valuesOnly) {
+          queryBuilder.valuesOnly?.();
+        }
+
+        const dbTableName = yield* table.dbTableName();
+        const tableName = yield* dbTableName.value();
+        const sourceTableName = readQuerySource?.tableName ?? tableName;
+        const [schemaName, tableNameOnly] = tableName.split('.');
+        const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+
+        const orderBy = options?.orderBy;
+        const explicitRecordIdsOrder = options?.recordIdsOrder;
+        if (!output?.omitOrder && !explicitRecordIdsOrder?.length) {
+          if (orderBy && orderBy.length > 0) {
+            await this.applyQueryOrderBy(
+              queryBuilder,
+              orderBy,
+              dynamicDb,
+              schemaName,
+              tableNameOnly
+            );
+          } else if (!options?.valuesOnly) {
+            // Default ordering by auto_number
+            queryBuilder.orderBy('__auto_number', 'asc');
+          }
+        }
+
+        // Apply pagination if provided. Cursor pages must not use OFFSET.
+        const cursorSeekPlan = output
+          ? null
+          : yield* await this.resolveCursorSeekPlan(
+              table,
+              orderBy,
+              dynamicDb,
+              schemaName,
+              tableNameOnly,
+              fieldMaskSqlMap
+            );
+        // The page boundary rule lives in core; this read only honors it by
+        // fetching the probe row.
+        const pageLimit = options?.pagination?.limit().toNumber();
+        const pageFetchLimit = recordPageProbeLimit(pageLimit);
+        if (options?.cursor) {
+          if (cursorSeekPlan === null) {
+            return err(
+              domainError.validation({
+                message: CURSOR_ORDER_BY_ERROR,
+              })
+            );
+          }
+          const parsedCursor = parseCursorToken(options.cursor);
+          if (parsedCursor == null) {
+            return err(
+              domainError.validation({
+                message: 'Invalid list records cursor',
+              })
+            );
+          }
+          if (pageFetchLimit !== undefined) {
+            queryBuilder.limit(pageFetchLimit);
+          }
+          if (cursorSeekPlan === 'auto-number') {
+            if (parsedCursor.kind !== 'auto-number') {
+              return err(
+                domainError.validation({
+                  message: CURSOR_STALE_ERROR,
+                })
+              );
+            }
+            queryBuilder.whereExpression(
+              sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor.autoNumber}` as Expression<SqlBool>
+            );
+          } else {
+            if (parsedCursor.kind !== 'values') {
+              return err(
+                domainError.validation({
+                  message: CURSOR_STALE_ERROR,
+                })
+              );
+            }
+            const cursorValues = resolveCursorValues(cursorSeekPlan, parsedCursor.entries);
+            if (!cursorValues) {
+              return err(
+                domainError.validation({
+                  message: CURSOR_STALE_ERROR,
+                })
+              );
+            }
+            queryBuilder.whereExpression(
+              buildValueSeekPredicate(
+                TABLE_ALIAS,
+                cursorSeekPlan,
+                cursorValues
+              ) as Expression<SqlBool>
+            );
+          }
+        } else if (options?.pagination && pageFetchLimit !== undefined) {
+          queryBuilder.limit(pageFetchLimit);
+          queryBuilder.offset(options.pagination.offset().toNumber());
+        }
+
+        // Apply filter spec if provided
+        if (spec) {
+          queryBuilder.where(spec);
+        }
+
+        const whereClause = spec
+          ? buildRecordWhereClause(spec, { tableAlias: TABLE_ALIAS })
+          : ok(null);
+        if (whereClause.isErr()) {
+          return err(whereClause.error);
+        }
+        const searchWhereSpan = context.tracer?.startSpan(
+          'teable.table.query.build_search_where',
+          createRepositoryFindTraceAttributes(table, options, 'repository.record_find')
+        );
+        const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
+          tableAlias: TABLE_ALIAS,
+          searchAccessPath: options?.searchAccessPath,
+          fieldMaskSqlMap,
+          requireCompleteFieldScope:
+            options?.includeSearchFieldMatches === true && options.searchIndexMode === 'view',
+        });
+        if (searchWherePlan.isErr()) {
+          searchWhereSpan?.end();
+          return err(searchWherePlan.error);
+        }
+        if (searchWherePlan.value.condition !== null) {
+          queryBuilder.whereExpression(searchWherePlan.value.condition);
+        }
+        const searchAccessPath = createRecordSearchAccessPathResolution(
+          options,
+          searchWherePlan.value
+        );
+        const searchFieldMatches =
+          options?.includeSearchFieldMatches && !options.idsOnly
+            ? yield* buildRecordSearchFieldMatches(
+                table,
+                options.searchFieldMatchesSearch ?? options.search,
+                {
+                  searchAccessPath: options.searchAccessPath,
+                  tableAlias: TABLE_ALIAS,
+                  fieldMaskSqlMap,
+                }
+              )
+            : [];
+        const actualSearchAttributes = createRepositoryFindTraceAttributes(
+          table,
+          options,
+          'repository.record_find',
+          searchAccessPath
+        );
+        searchWhereSpan?.setAttributes(actualSearchAttributes);
+        searchWhereSpan?.end();
+
+        // Query order columns if requested
+        let orderColumns: string[] = [];
+        if (options?.includeOrders && !options.idsOnly) {
+          // Query for order columns
+          const orderColumnsResult = await sql<{ column_name: string }>`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_schema = ${schemaName}
+              AND table_name = ${tableNameOnly}
+              AND column_name LIKE '__row_%'
+            `.execute(dynamicDb);
+
+          orderColumns = orderColumnsResult.rows.map((r) => r.column_name);
+        }
+
+        // Build the query
+        let builtQuery = yield* queryBuilder.build();
+        if (!output?.omitOrder && explicitRecordIdsOrder?.length) {
+          const orderedRecordIds = explicitRecordIdsOrder.map((recordId) => recordId.toString());
+          builtQuery = builtQuery.orderBy(
+            sql`array_position(${orderedRecordIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
+          );
+        }
+
+        // Add order columns to the query if requested
+        if (orderColumns.length > 0) {
+          for (const col of orderColumns) {
+            builtQuery = builtQuery.select(sql.ref(`${TABLE_ALIAS}.${col}`).as(col));
+          }
+        }
+
+        // Cursor pages carry the value of every order key forward, so a paginated row
+        // query projects each one under a stable alias — independent of the field
+        // projection and of whether the caller asked for order columns.
+        if (Array.isArray(cursorSeekPlan) && options?.pagination && !options?.idsOnly) {
+          for (const [index, key] of cursorSeekPlan.entries()) {
+            builtQuery = builtQuery.select(
+              sql.ref(`${TABLE_ALIAS}.${key.column}`).as(cursorValueAlias(index))
+            );
+          }
+        }
+
+        if (output) {
+          // Host SQL sources expose the response projection, never private
+          // mask dependencies. Predicates still refer to the same base alias.
+          const outputIds =
+            output.fieldIds === undefined
+              ? undefined
+              : new Set(output.fieldIds.map((fieldId) => fieldId.toString()));
+          builtQuery = builtQuery
+            .clearSelect()
+            .select(
+              [
+                '__id',
+                '__version',
+                '__auto_number',
+                '__created_time',
+                '__created_by',
+                '__last_modified_time',
+                '__last_modified_by',
+              ].map((column) => sql.ref(`${TABLE_ALIAS}.${column}`).as(column))
+            );
+          for (const field of table.getFields()) {
+            if (outputIds && !outputIds.has(field.id().toString())) continue;
+            const column = yield* field.dbFieldName().andThen((name) => name.value());
+            const { expression } = yield* buildStoredFieldValueExpression(
+              field,
+              TABLE_ALIAS,
+              column
+            );
+            const mask = fieldMaskSqlMap?.get(field.id().toString());
+            builtQuery = builtQuery.select(
+              (mask ? maskValueExpression(mask, expression) : expression).as(column)
+            );
+          }
+        } else if (options?.lockForUpdate) {
+          builtQuery = builtQuery
+            .clearOrderBy()
+            .orderBy(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`, 'asc')
+            .forNoKeyUpdate(TABLE_ALIAS);
+        }
+        const compiled = this.withRecordReadQuerySource(builtQuery.compile(), readQuerySource);
+        return ok({
+          readQuerySource,
+          fieldMaskSqlMap,
+          sourceTableName,
+          dynamicDb,
+          cursorSeekPlan,
+          pageLimit,
+          whereClause,
+          searchWherePlan,
+          searchAccessPath,
+          searchFieldMatches,
+          actualSearchAttributes,
+          orderColumns,
+          compiled,
+          queryBuilder,
+        });
+      }.bind(this)
+    );
+  }
+
+  /** Compile a native read for a host SQL source without loading record ids or rows. */
+  async compileRead(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordQueryOptions,
+    output: { readonly fieldIds?: ReadonlyArray<FieldId>; readonly omitOrder?: boolean }
+  ) {
+    return (await this.prepareRead(context, table, spec, options, output)).map(({ compiled }) => ({
+      sql: compiled.sql,
+      parameters: compiled.parameters,
+    }));
+  }
+
   async find(
     context: IExecutionContext,
     table: Table,
@@ -1024,6 +1322,17 @@ export class PostgresTableRecordQueryRepository
     const executeFind = async (): Promise<Result<ITableRecordQueryResult, DomainError>> => {
       return await safeTry<ITableRecordQueryResult, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
+          if (
+            options?.lockForUpdate &&
+            (options.mode !== 'stored' || !getPostgresTransaction<DynamicDB>(context, 'data'))
+          ) {
+            return err(
+              domainError.unexpected({
+                code: 'record.lock_requires_stored_transactional_read',
+                message: 'Record locking requires a stored read in a data transaction.',
+              })
+            );
+          }
           if (options?.recordIndexId !== undefined) {
             const recordId = options.recordIndexId;
             let indexesResult: Result<ReadonlyMap<string, number>, DomainError>;
@@ -1045,221 +1354,23 @@ export class PostgresTableRecordQueryRepository
             const index = indexes.get(recordId);
             return ok({ records: [], total: 0, recordIndex: index == null ? null : index - 1 });
           }
-          const readQuerySource = this.getRecordReadQuerySource(options);
-          // Create query builder via manager (it handles prepare)
-          const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
-            mode: resolveQueryMode(table, options?.mode),
-            sourceTableName: readQuerySource?.tableName,
-          });
-          const fieldMaskSqlMap = yield* buildFieldMaskSqlMap(options?.fieldMasks, TABLE_ALIAS);
-          queryBuilder.fieldMaskSql?.(fieldMaskSqlMap);
-
-          if (options?.projectionFieldIds !== undefined) {
-            queryBuilder.select(options.projectionFieldIds);
-          }
-          // Ids-only reads keep filter/search/order semantics but select just
-          // the record id column; incompatible extras (search matches, group
-          // metadata, order columns) are skipped below.
-          if (options?.idsOnly) {
-            queryBuilder.idsOnly?.();
-          }
-          if (options?.valuesOnly) {
-            queryBuilder.valuesOnly?.();
-          }
-
-          const dbTableName = yield* table.dbTableName();
-          const tableName = yield* dbTableName.value();
-          const sourceTableName = readQuerySource?.tableName ?? tableName;
-          const [schemaName, tableNameOnly] = tableName.split('.');
-          const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
-
-          const orderBy = options?.orderBy;
-          const explicitRecordIdsOrder = options?.recordIdsOrder;
-          if (!explicitRecordIdsOrder?.length) {
-            if (orderBy && orderBy.length > 0) {
-              await this.applyQueryOrderBy(
-                queryBuilder,
-                orderBy,
-                dynamicDb,
-                schemaName,
-                tableNameOnly
-              );
-            } else if (!options?.valuesOnly) {
-              // Default ordering by auto_number
-              queryBuilder.orderBy('__auto_number', 'asc');
-            }
-          }
-
-          // Apply pagination if provided. Cursor pages must not use OFFSET.
-          const cursorSeekPlan = yield* await this.resolveCursorSeekPlan(
-            table,
-            orderBy,
-            dynamicDb,
-            schemaName,
-            tableNameOnly,
-            fieldMaskSqlMap
-          );
-          // The page boundary rule lives in core; this read only honors it by
-          // fetching the probe row.
-          const pageLimit = options?.pagination?.limit().toNumber();
-          const pageFetchLimit = recordPageProbeLimit(pageLimit);
-          if (options?.cursor) {
-            if (cursorSeekPlan === null) {
-              return err(
-                domainError.validation({
-                  message: CURSOR_ORDER_BY_ERROR,
-                })
-              );
-            }
-            const parsedCursor = parseCursorToken(options.cursor);
-            if (parsedCursor == null) {
-              return err(
-                domainError.validation({
-                  message: 'Invalid list records cursor',
-                })
-              );
-            }
-            if (pageFetchLimit !== undefined) {
-              queryBuilder.limit(pageFetchLimit);
-            }
-            if (cursorSeekPlan === 'auto-number') {
-              if (parsedCursor.kind !== 'auto-number') {
-                return err(
-                  domainError.validation({
-                    message: CURSOR_STALE_ERROR,
-                  })
-                );
-              }
-              queryBuilder.whereExpression(
-                sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor.autoNumber}` as Expression<SqlBool>
-              );
-            } else {
-              if (parsedCursor.kind !== 'values') {
-                return err(
-                  domainError.validation({
-                    message: CURSOR_STALE_ERROR,
-                  })
-                );
-              }
-              const cursorValues = resolveCursorValues(cursorSeekPlan, parsedCursor.entries);
-              if (!cursorValues) {
-                return err(
-                  domainError.validation({
-                    message: CURSOR_STALE_ERROR,
-                  })
-                );
-              }
-              queryBuilder.whereExpression(
-                buildValueSeekPredicate(
-                  TABLE_ALIAS,
-                  cursorSeekPlan,
-                  cursorValues
-                ) as Expression<SqlBool>
-              );
-            }
-          } else if (options?.pagination && pageFetchLimit !== undefined) {
-            queryBuilder.limit(pageFetchLimit);
-            queryBuilder.offset(options.pagination.offset().toNumber());
-          }
-
-          // Apply filter spec if provided
-          if (spec) {
-            queryBuilder.where(spec);
-          }
-
-          const whereClause = spec
-            ? buildRecordWhereClause(spec, { tableAlias: TABLE_ALIAS })
-            : ok(null);
-          if (whereClause.isErr()) {
-            return err(whereClause.error);
-          }
-          const searchWhereSpan = context.tracer?.startSpan(
-            'teable.table.query.build_search_where',
-            createRepositoryFindTraceAttributes(table, options, 'repository.record_find')
-          );
-          const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
-            tableAlias: TABLE_ALIAS,
-            searchAccessPath: options?.searchAccessPath,
+          const {
+            readQuerySource,
             fieldMaskSqlMap,
-            requireCompleteFieldScope:
-              options?.includeSearchFieldMatches === true && options.searchIndexMode === 'view',
-          });
-          if (searchWherePlan.isErr()) {
-            searchWhereSpan?.end();
-            return err(searchWherePlan.error);
-          }
-          if (searchWherePlan.value.condition !== null) {
-            queryBuilder.whereExpression(searchWherePlan.value.condition);
-          }
-          const searchAccessPath = createRecordSearchAccessPathResolution(
-            options,
-            searchWherePlan.value
-          );
-          const searchFieldMatches =
-            options?.includeSearchFieldMatches && !options.idsOnly
-              ? yield* buildRecordSearchFieldMatches(
-                  table,
-                  options.searchFieldMatchesSearch ?? options.search,
-                  {
-                    searchAccessPath: options.searchAccessPath,
-                    tableAlias: TABLE_ALIAS,
-                    fieldMaskSqlMap,
-                  }
-                )
-              : [];
-          const actualSearchAttributes = createRepositoryFindTraceAttributes(
-            table,
-            options,
-            'repository.record_find',
-            searchAccessPath
-          );
-          searchWhereSpan?.setAttributes(actualSearchAttributes);
-          searchWhereSpan?.end();
+            sourceTableName,
+            dynamicDb,
+            cursorSeekPlan,
+            pageLimit,
+            whereClause,
+            searchWherePlan,
+            searchAccessPath,
+            searchFieldMatches,
+            actualSearchAttributes,
+            orderColumns,
+            compiled,
+            queryBuilder,
+          } = yield* await this.prepareRead(context, table, spec, options);
           span?.setAttributes(actualSearchAttributes);
-
-          // Query order columns if requested
-          let orderColumns: string[] = [];
-          if (options?.includeOrders && !options.idsOnly) {
-            // Query for order columns
-            const orderColumnsResult = await sql<{ column_name: string }>`
-              SELECT column_name
-              FROM information_schema.columns
-              WHERE table_schema = ${schemaName}
-              AND table_name = ${tableNameOnly}
-              AND column_name LIKE '__row_%'
-            `.execute(dynamicDb);
-
-            orderColumns = orderColumnsResult.rows.map((r) => r.column_name);
-          }
-
-          // Build the query
-          let builtQuery = yield* queryBuilder.build();
-          if (explicitRecordIdsOrder?.length) {
-            const orderedRecordIds = explicitRecordIdsOrder.map((recordId) => recordId.toString());
-            builtQuery = builtQuery.orderBy(
-              sql`array_position(${orderedRecordIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
-            );
-          }
-
-          // Add order columns to the query if requested
-          if (orderColumns.length > 0) {
-            for (const col of orderColumns) {
-              builtQuery = builtQuery.select(sql.ref(`${TABLE_ALIAS}.${col}`).as(col));
-            }
-          }
-
-          // Cursor pages carry the value of every order key forward, so a paginated row
-          // query projects each one under a stable alias — independent of the field
-          // projection and of whether the caller asked for order columns.
-          if (Array.isArray(cursorSeekPlan) && options?.pagination && !options?.idsOnly) {
-            for (const [index, key] of cursorSeekPlan.entries()) {
-              builtQuery = builtQuery.select(
-                sql.ref(`${TABLE_ALIAS}.${key.column}`).as(cursorValueAlias(index))
-              );
-            }
-          }
-
-          const compiled = this.withRecordReadQuerySource(builtQuery.compile(), readQuerySource);
           this.logger.debug(`find:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
             parameters: compiled.parameters,
           });

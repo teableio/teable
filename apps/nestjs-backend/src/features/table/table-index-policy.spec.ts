@@ -12,7 +12,7 @@ vi.mock('@sentry/nestjs', () => ({
 }));
 
 import type { IFieldInstance } from '../field/model/factory';
-import { selectSearchIndexFields, TableIndexService } from './table-index.service';
+import { selectSearchIndexFields, TableIndexService } from '../table-index/table-index.service';
 
 const tableId = 'tblSearchIndexPolicy';
 const dbTableName = 'bseSearchIndexPolicy.tblSearchIndexPolicy';
@@ -83,7 +83,7 @@ const createService = (input?: {
     prismaService as never,
     databaseRouter as never,
     { bigTransactionTimeout: 1000 } as never,
-    { searchIndex: () => searchIndexBuilder } as never,
+    searchIndexBuilder as never,
     undefined,
     undefined,
     undefined

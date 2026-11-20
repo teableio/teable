@@ -38,6 +38,7 @@ export interface IPasteLinkAutoResolveInput {
   readonly editableColumns: ReadonlyArray<IPasteLinkAutoResolveColumn>;
   readonly rowDataList: ReadonlyArray<ReadonlyArray<unknown>>;
   readonly existingResolvedValues?: ResolvedLinkValueLookupMap;
+  readonly linkTitleTableState?: ReadonlyMap<string, Table>;
 }
 
 export interface IPasteLinkAutoResolveResult {
@@ -119,6 +120,10 @@ export class PasteLinkAutoResolveService {
       }
 
       const foreignTableCache = new Map<string, Table>();
+      // Each mutation batch sees schema changes made by the previous batch, including
+      // choices created on a foreign primary field. Only our expansion owns pending tables.
+      const loadTable = (id: TableId) =>
+        service.loadForeignTable(context, foreignTableCache, id, input.linkTitleTableState);
       const resolveResults = yield* await service.linkTitleResolverService.resolve(
         context,
         entries.map((entry) => ({
@@ -126,7 +131,9 @@ export class PasteLinkAutoResolveService {
           foreignTableId: entry.linkField.foreignTableId(),
           lookupFieldId: entry.linkField.lookupFieldId(),
           titles: entry.titles,
-        }))
+        })),
+        undefined,
+        loadTable
       );
 
       const resolvedValues: ResolvedLinkValueLookupMap = new Map();
@@ -168,11 +175,7 @@ export class PasteLinkAutoResolveService {
 
       for (const group of missingByGroup.values()) {
         const firstEntry = entries[group.entryIndexes[0]!]!;
-        const foreignTable = yield* await service.loadForeignTable(
-          context,
-          foreignTableCache,
-          firstEntry.linkField.foreignTableId()
-        );
+        const foreignTable = yield* await loadTable(firstEntry.linkField.foreignTableId());
         // A missing title asks the paste to create a foreign row. Validation
         // refuses that when creation cannot work (non-primary display, computed
         // primary, required fields), so the user sees the reason instead of a
@@ -330,7 +333,8 @@ export class PasteLinkAutoResolveService {
   private async loadForeignTable(
     context: IExecutionContext,
     cache: Map<string, Table>,
-    foreignTableId: TableId
+    foreignTableId: TableId,
+    transactionTables?: ReadonlyMap<string, Table>
   ): Promise<Result<Table, DomainError>> {
     const foreignTableIdStr = foreignTableId.toString();
     const cached = cache.get(foreignTableIdStr);
@@ -338,7 +342,8 @@ export class PasteLinkAutoResolveService {
       return ok(cached);
     }
 
-    const tableResult = await this.tableQueryService.getById(context, foreignTableId);
+    const state = transactionTables?.has(foreignTableIdStr) ? 'activeWithPending' : 'active';
+    const tableResult = await this.tableQueryService.getById(context, foreignTableId, state);
     if (tableResult.isErr()) {
       return tableResult;
     }

@@ -17,7 +17,12 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 
-import { makePhysicalTableSql, quoteIdentifier, toInfrastructureError } from './helpers';
+import {
+  getTablePhysicalName,
+  makePhysicalTableSql,
+  quoteIdentifier,
+  toInfrastructureError,
+} from './helpers';
 import { PostgresTableSearchVectorExecutor, toSearchGenerationError } from './searchVector';
 import type { UnknownPostgresDatabase } from './types';
 
@@ -32,13 +37,15 @@ const manualSearchVectorTaskKinds: Partial<Record<ExecutablePhase1RemediationKin
   create_search_vector: true,
   rebuild_search_vector: true,
 };
+const PRODUCT_SEARCH_LARGE_TABLE_ROWS = 50_000;
 
 export class PostgresTableQueryRemediationExecutor implements TableQueryRemediationExecutor {
   constructor(
     private readonly metaDb: Kysely<UnknownPostgresDatabase>,
     private readonly dataDb: Kysely<UnknownPostgresDatabase>,
     private readonly tableRepository?: ITableRepository,
-    private readonly searchVectorReconciler?: TableSearchVectorReconciler
+    private readonly searchVectorReconciler?: TableSearchVectorReconciler,
+    private readonly isConnectionUnavailable?: (error: unknown) => boolean
   ) {}
 
   async execute(
@@ -53,12 +60,17 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     try {
       result = await this.executeTask(context, input);
     } catch (error) {
-      result = err(toSearchGenerationError(error));
+      result = err(
+        ((task.kind === 'rebuild_search_access_path' || task.kind === 'rebuild_search_vector') &&
+          isSchemaMaintenancePayload(task.payload) &&
+          this.coverageConnectionError(error)) ||
+          toSearchGenerationError(error)
+      );
     }
     if (
       result.isErr() &&
       manualSearchVectorTaskKinds[task.kind] &&
-      !isSchemaMaintenancePayload(task.payload) &&
+      result.error.code !== 'table_query_ops.search_maintenance_deferred' &&
       (result.error.code === 'table_query_ops.search_target_changed' ||
         task.attempts >= task.maxAttempts)
     ) {
@@ -77,6 +89,22 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     return result;
   }
 
+  private coverageConnectionError(error: unknown): DomainError | undefined {
+    if (!this.isConnectionUnavailable?.(error)) return undefined;
+    const message =
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error &&
+      typeof error.message === 'string'
+        ? error.message
+        : String(error);
+    return domainError.conflict({
+      code: 'table_query_ops.search_maintenance_deferred',
+      message: `Search coverage connection unavailable: ${message}`,
+      cause: error,
+    });
+  }
+
   private async executeTask(
     context: IExecutionContext,
     input: { readonly task: TableQueryRemediationTask; readonly allowManualIndexExecution: boolean }
@@ -84,10 +112,16 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     const task = input.task.snapshot();
     const adminPayload = readAdminSearchPayload(task.payload);
     if (adminPayload) {
-      return this.executeAdminSearchReconciliation(context, task.tableId, {
-        ...adminPayload,
-        execution: adminPayload.mode === 'drop' ? undefined : this.searchExecutionOwner(input.task),
-      });
+      const { largeTableConfirmed, ...options } = adminPayload;
+      return this.executeAdminSearchReconciliation(
+        context,
+        task.tableId,
+        {
+          ...options,
+          execution: options.mode === 'drop' ? undefined : this.searchExecutionOwner(input.task),
+        },
+        largeTableConfirmed
+      );
     }
     if (task.kind === 'manual_investigation') {
       return ok({ skipped: true, reason: 'manual investigation task' });
@@ -96,13 +130,13 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
       (task.kind === 'rebuild_search_access_path' || task.kind === 'rebuild_search_vector') &&
       isSchemaMaintenancePayload(task.payload)
     ) {
-      return this.executeSearchVectorSchemaMaintenance(context, task);
+      return this.executeSearchVectorSchemaMaintenance(context, input.task);
     }
     // Policy-driven reclaim: drops only advisor-managed objects (the reconciler
     // enforces the __tqops_search_* naming contract), so it runs without the
     // manual-index-execution gate, like schema maintenance.
     if (task.kind === 'drop_search_access_path') {
-      return this.executeSearchAccessPathDrop(context, task);
+      return this.executeSearchAccessPathDrop(context, input.task);
     }
     if (
       !input.allowManualIndexExecution &&
@@ -149,7 +183,8 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
   private async executeAdminSearchReconciliation(
     context: IExecutionContext,
     rawTableId: string,
-    adminPayload: Omit<ReconcileTableSearchVectorInput, 'table'>
+    adminPayload: Omit<ReconcileTableSearchVectorInput, 'table'>,
+    largeTableConfirmed: boolean
   ): Promise<Result<unknown, DomainError>> {
     if (!this.tableRepository || !this.searchVectorReconciler)
       return err(
@@ -166,6 +201,26 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
           ? { ...table.error, code: 'table_query_ops.search_target_changed' }
           : table.error
       );
+    if (
+      adminPayload.productSwitch === true &&
+      adminPayload.mode !== 'drop' &&
+      !largeTableConfirmed
+    ) {
+      const physical = getTablePhysicalName(table.value);
+      if (physical.isErr()) return err(physical.error);
+      const tableSql = makePhysicalTableSql(physical.value.schema, physical.value.tableName);
+      const large = await sql<{ large: boolean }>`SELECT EXISTS (
+        SELECT 1 FROM ${sql.raw(tableSql)} OFFSET ${PRODUCT_SEARCH_LARGE_TABLE_ROWS - 1} LIMIT 1
+      ) AS large`.execute(this.dataDb);
+      if (large.rows[0]?.large) {
+        return err(
+          domainError.conflict({
+            code: 'table_query_ops.search_confirmation_required',
+            message: 'Confirmation is required for tables with 50000 or more records',
+          })
+        );
+      }
+    }
     const result = await this.searchVectorReconciler.reconcile(context, {
       table: table.value,
       ...adminPayload,
@@ -253,8 +308,9 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
 
   private async executeSearchAccessPathDrop(
     context: IExecutionContext,
-    task: ReturnType<TableQueryRemediationTask['snapshot']>
+    value: TableQueryRemediationTask
   ): Promise<Result<unknown, DomainError>> {
+    const task = value.snapshot();
     if (!this.tableRepository || !this.searchVectorReconciler) {
       return err(
         domainError.infrastructure({
@@ -279,13 +335,16 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
       table: table.value,
       mode: 'drop',
       expectedDefinitionKey: scopeKey,
+      reclaim: true,
+      execution: this.searchExecutionOwner(value),
     });
   }
 
   private async executeSearchVectorSchemaMaintenance(
     context: IExecutionContext,
-    task: ReturnType<TableQueryRemediationTask['snapshot']>
+    value: TableQueryRemediationTask
   ): Promise<Result<unknown, DomainError>> {
+    const task = value.snapshot();
     if (!this.tableRepository || !this.searchVectorReconciler) {
       return err(
         domainError.infrastructure({
@@ -293,13 +352,41 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
         })
       );
     }
+    const current = await sql<{ version: number }>`SELECT version FROM table_meta
+      WHERE id = ${task.tableId} AND deleted_time IS NULL`.execute(this.metaDb);
+    if (!current.rows[0])
+      return err(
+        domainError.conflict({
+          code: 'table_query_ops.search_target_changed',
+          message: 'Search maintenance table no longer exists',
+        })
+      );
 
     const tableId = TableId.create(task.tableId);
     if (tableId.isErr()) return err(tableId.error);
     const table = await this.tableRepository.findOne(context, TableByIdSpec.create(tableId.value));
-    if (table.isErr()) return err(table.error);
+    if (table.isErr())
+      return err(
+        this.coverageConnectionError(table.error) ??
+          (table.error.tags.includes('not-found')
+            ? { ...table.error, code: 'table_query_ops.search_target_changed' }
+            : table.error)
+      );
 
-    return this.searchVectorReconciler.maintainAfterSchemaChange(context, table.value);
+    const payload = task.payload as {
+      readonly configKey?: string;
+      readonly configScope?: 'all_fields' | 'selected_fields';
+    };
+    return this.searchVectorReconciler.maintainAfterSchemaChange(
+      context,
+      table.value,
+      this.searchExecutionOwner(value),
+      {
+        definitionKey: payload.configKey,
+        searchScope: payload.configScope,
+        tableVersion: current.rows[0].version,
+      }
+    );
   }
 
   private async findTableMeta(tableId: string): Promise<TableMetaRow | undefined> {
@@ -315,7 +402,9 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
 
 const readAdminSearchPayload = (
   payload: unknown
-): Omit<ReconcileTableSearchVectorInput, 'table'> | undefined => {
+):
+  | (Omit<ReconcileTableSearchVectorInput, 'table'> & { largeTableConfirmed: boolean })
+  | undefined => {
   if (
     !payload ||
     typeof payload !== 'object' ||
@@ -324,6 +413,8 @@ const readAdminSearchPayload = (
   )
     return undefined;
   const value = payload as Record<string, unknown>;
+  if (value.productSwitch === true && value.mode === 'drop' && !value.productDropSnapshot)
+    throw new Error('Product search drop requires an admitted snapshot');
   if (!['create', 'rebuild', 'drop'].includes(String(value.mode)))
     throw new Error('Invalid queued search operation');
   if (
@@ -341,6 +432,11 @@ const readAdminSearchPayload = (
     throw new Error('Invalid queued search field IDs');
   return {
     mode: value.mode as 'create' | 'rebuild' | 'drop',
+    largeTableConfirmed: value.largeTableConfirmed === true,
+    ...(value.productSwitch === true ? { productSwitch: true } : {}),
+    ...(value.productSwitch === true && value.mode === 'drop'
+      ? { productDropSnapshot: value.productDropSnapshot }
+      : {}),
     expectedDefinitionKey: value.expectedDefinitionKey as string | undefined,
     provider: value.provider as 'pg_bigm' | 'pg_trgm' | undefined,
     fieldIds: value.fieldIds as string[] | undefined,

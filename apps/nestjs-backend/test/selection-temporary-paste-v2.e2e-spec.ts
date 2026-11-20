@@ -1,15 +1,17 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import type { ISelectFieldOptions } from '@teable/core';
-import { FieldType, Relationship } from '@teable/core';
-import { axios, X_CANARY_HEADER } from '@teable/openapi';
+import { FieldType, Relationship, Role } from '@teable/core';
+import { axios, createBase, emailBaseInvitation, X_CANARY_HEADER } from '@teable/openapi';
 import { SelectionService } from '../src/features/selection/selection.service';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   createField,
   createTable,
   getField,
   getRecords,
   initApp,
+  permanentDeleteBase,
   permanentDeleteTable,
 } from './utils/init-app';
 
@@ -78,6 +80,85 @@ describe('Selection temporaryPaste (native v2 HTTP)', () => {
     const options = (await getField(table.id, table.fields[2].id)).options as ISelectFieldOptions;
     expect(options.choices.map((choice) => choice.name)).toEqual(['new-choice']);
     expect((await getRecords(table.id)).records).toEqual(before.records);
+  });
+
+  it('keeps valid prefill cells when an editor cannot create select choices', async () => {
+    const email = 'temporary-paste-editor@example.com';
+    const editor = await createNewUserAxios({ email, password: '12345678' });
+    const { data: base } = await createBase({
+      spaceId: globalThis.testConfig.spaceId,
+      name: 'temporary paste editor',
+    });
+    try {
+      await emailBaseInvitation({
+        baseId: base.id,
+        emailBaseInvitationRo: { role: Role.Editor, emails: [email] },
+      });
+      const table = await createTable(base.id, {
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: { choices: [{ name: 'Open' }] },
+          },
+          { name: 'Tags', type: FieldType.MultipleSelect, options: { choices: [{ name: 'Red' }] } },
+          { name: 'Amount', type: FieldType.Number },
+          { name: 'Day', type: FieldType.Date },
+        ],
+        records: [{ fields: { Title: 'saved' } }],
+      });
+      const [title, status, tags, amount, day] = table.fields;
+      const before = await getRecords(table.id);
+      const path = `/table/${table.id}/selection/temporaryPaste`;
+      const config = { headers: { [X_CANARY_HEADER]: 'true' }, validateStatus: () => true };
+      const ranges = [
+        [0, 0],
+        [0, 0],
+      ];
+      const mixed = await editor.patch(
+        path,
+        {
+          projection: table.fields.map((field) => field.id),
+          ranges,
+          content: 'draft\tNew\tRed,Blue\t3\t2026-03-08\nnext\tOpen\tRed\t4\t2026-03-09',
+        },
+        config
+      );
+      expect(mixed.status, JSON.stringify(mixed.data)).toBe(200);
+      expect(mixed.headers['x-teable-v2']).toBe('true');
+      expect(mixed.data).toEqual([
+        {
+          fields: {
+            [title.id]: 'draft',
+            [tags.id]: ['Red'],
+            [amount.id]: 3,
+            [day.id]: expect.stringContaining('2026-03-08'),
+          },
+        },
+        {
+          fields: {
+            [title.id]: 'next',
+            [status.id]: 'Open',
+            [tags.id]: ['Red'],
+            [amount.id]: 4,
+            [day.id]: expect.stringContaining('2026-03-09'),
+          },
+        },
+      ]);
+      const onlyNew = await editor.patch(
+        path,
+        { ranges, projection: [status.id], content: 'New' },
+        config
+      );
+      expect(onlyNew.status).toBe(403);
+      for (const field of [status, tags]) {
+        expect((await getField(table.id, field.id)).options).toEqual(field.options);
+      }
+      expect((await getRecords(table.id)).records).toEqual(before.records);
+    } finally {
+      await permanentDeleteBase(base.id);
+    }
   });
 
   it('honors a viewless ordered projection without changing persisted values', async () => {

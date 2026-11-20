@@ -202,7 +202,8 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
   async resolve(
     context: IExecutionContext,
     requests: ReadonlyArray<LinkTitleResolveRequest>,
-    readRecords?: LinkTitleRecordReader
+    readRecords?: LinkTitleRecordReader,
+    loadTable?: (tableId: TableId) => Promise<Result<Table, DomainError>>
   ): Promise<Result<ReadonlyArray<LinkTitleResolveResult>, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
@@ -226,7 +227,9 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
 
       for (const [foreignTableIdStr, tableRequests] of byForeignTable) {
         const foreignTableId = tableRequests[0]!.request.foreignTableId;
-        const foreignTable = yield* await service.loadForeignTable(context, foreignTableId);
+        const foreignTable = yield* await (loadTable
+          ? loadTable(foreignTableId)
+          : service.loadForeignTable(context, foreignTableId));
         const primaryFieldId = foreignTable.primaryFieldId();
 
         // Different link fields into the same table may display different

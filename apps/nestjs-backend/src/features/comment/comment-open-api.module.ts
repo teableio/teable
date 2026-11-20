@@ -4,9 +4,8 @@ import { AttachmentsStorageModule } from '../attachments/attachments-storage.mod
 import { CanaryModule } from '../canary/canary.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { NotificationModule } from '../notification/notification.module';
-import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
-import { RecordModule } from '../record/record.module';
-import { TableQuerySearchVectorRuntimeService } from '../v2/table-query-search-vector-runtime.service';
+import { RecordOpenApiV2Module } from '../record/open-api/record-open-api-v2.module';
+import { RecordStorageModule } from '../record-storage/record-storage.module';
 import { V2Module } from '../v2/v2.module';
 import { CommentOpenApiV2Service } from './comment-open-api-v2.service';
 import { CommentOpenApiController } from './comment-open-api.controller';
@@ -17,14 +16,14 @@ import { CommentOpenApiService } from './comment-open-api.service';
     CanaryModule,
     CollaboratorModule,
     NotificationModule,
-    RecordOpenApiModule,
+    RecordOpenApiV2Module,
     AttachmentsStorageModule,
-    RecordModule,
+    RecordStorageModule,
     ShareDbModule,
     V2Module,
   ],
   controllers: [CommentOpenApiController],
-  providers: [CommentOpenApiService, CommentOpenApiV2Service, TableQuerySearchVectorRuntimeService],
+  providers: [CommentOpenApiService, CommentOpenApiV2Service],
   exports: [CommentOpenApiService, CommentOpenApiV2Service],
 })
 export class CommentOpenApiModule {}

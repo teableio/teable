@@ -24,14 +24,15 @@ export type ComputedReliabilityIssue = {
 export class PostgresComputedReliabilityStore {
   constructor(private readonly db: Kysely<DynamicDB>) {}
 
-  async isReady(): Promise<boolean> {
+  async isReady(caller: 'projection' | 'reader' | 'worker' | 'store' = 'store'): Promise<boolean> {
     const result = await sql
       .raw<{
         ready: boolean;
       }>(
         computedReliabilityReadinessSql(
           resolveTableSql(this.db, 'computed_reliability_issue').compile(this.db).sql,
-          resolveTableSql(this.db, 'computed_reliability_scope').compile(this.db).sql
+          resolveTableSql(this.db, 'computed_reliability_scope').compile(this.db).sql,
+          caller
         )
       )
       .execute(this.db);
@@ -50,6 +51,13 @@ export class PostgresComputedReliabilityStore {
     /** Restrict captured references when only these fields failed in a completed task. */
     fieldIds?: ReadonlyArray<string>;
   }): Promise<void> {
+    return this.recordFailureWithReadiness(input, () => this.isReady('worker'));
+  }
+
+  private async recordFailureWithReadiness(
+    input: Parameters<PostgresComputedReliabilityStore['recordFailure']>[0],
+    isReady: () => Promise<boolean>
+  ): Promise<void> {
     if (!this.db.isTransaction) {
       await this.db
         .transaction()
@@ -76,7 +84,7 @@ export class PostgresComputedReliabilityStore {
       );
     };
     await applyBudget();
-    await this.recordFailureInTransaction(input, applyBudget);
+    await this.recordFailureInTransaction(input, applyBudget, isReady);
     // Errors deliberately propagate: the owner must roll back task and evidence together.
     await sql`select set_config('lock_timeout', ${String(previous.get('lock_timeout') ?? 0)}, true),
       set_config('statement_timeout', ${String(previous.get('statement_timeout') ?? 0)}, true)`.execute(
@@ -86,9 +94,10 @@ export class PostgresComputedReliabilityStore {
 
   private async recordFailureInTransaction(
     input: Parameters<PostgresComputedReliabilityStore['recordFailure']>[0],
-    applyBudget: () => Promise<void>
+    applyBudget: () => Promise<void>,
+    isReady: () => Promise<boolean>
   ): Promise<void> {
-    if (!(await this.isReady())) return;
+    if (!(await isReady())) return;
     await applyBudget();
     const id = `issue:${input.taskId}`;
     const refs = await sql<{ table_id: string; field_id: string }>`select table_id, field_id
@@ -257,6 +266,23 @@ export class PostgresComputedReliabilityStore {
     return closed.rows.length;
   }
 
+  /** Apply the failure and success evidence of one completed task in the same transaction. */
+  async settleCompletedTask(input: {
+    failure?: Parameters<PostgresComputedReliabilityStore['recordFailure']>[0];
+    success?: Parameters<PostgresComputedReliabilityStore['resolveCoveredIssues']>[0];
+  }): Promise<void> {
+    if (!this.db.isTransaction) {
+      await this.db
+        .transaction()
+        .execute((trx) => new PostgresComputedReliabilityStore(trx).settleCompletedTask(input));
+      return;
+    }
+    let readiness: Promise<boolean> | undefined;
+    const isReady = () => (readiness ??= this.isReady('worker'));
+    if (input.failure) await this.recordFailureWithReadiness(input.failure, isReady);
+    if (input.success) await this.resolveCoveredIssuesWithReadiness(input.success, isReady);
+  }
+
   /**
    * Close open, fully-scoped issues whose every (table, field) is in this
    * successful compute. Unknown-scope issues and partial coverage stay open.
@@ -266,6 +292,13 @@ export class PostgresComputedReliabilityStore {
     baseId: string;
     succeededTargets: ReadonlyArray<{ tableId: string; fieldId: string }>;
   }): Promise<number> {
+    return this.resolveCoveredIssuesWithReadiness(input, () => this.isReady('worker'));
+  }
+
+  private async resolveCoveredIssuesWithReadiness(
+    input: Parameters<PostgresComputedReliabilityStore['resolveCoveredIssues']>[0],
+    isReady: () => Promise<boolean>
+  ): Promise<number> {
     const uniqueTargets = [
       ...new Map(
         input.succeededTargets.map((target) => [`${target.tableId}:${target.fieldId}`, target])
@@ -277,7 +310,7 @@ export class PostgresComputedReliabilityStore {
         .transaction()
         .execute((trx) => new PostgresComputedReliabilityStore(trx).resolveCoveredIssues(input));
     }
-    if (!(await this.isReady())) return 0;
+    if (!(await isReady())) return 0;
     const settings = await sql<{
       name: string;
       setting: string;

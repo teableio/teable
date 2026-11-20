@@ -1,10 +1,12 @@
 import {
   v2CoreTokens,
+  type DomainError,
   type ICommandBus,
   type IExecutionContext,
   type ILogger,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
+import type { Result } from 'neverthrow';
 import {
   AnalyzeAndRecommendTableQueryCommand,
   DecideTableQueryRecommendationCommand,
@@ -44,6 +46,14 @@ export type TableQueryOpsExecutionResolver = (
   tableId: string
 ) => Promise<{ container: DependencyContainer; context: IExecutionContext }>;
 
+/** The host could not acquire a connection to the task's current database route. */
+export class TableQueryOpsExecutionUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = 'TableQueryOpsExecutionUnavailableError';
+  }
+}
+
 const startExclusiveInterval = (
   intervalMs: number,
   run: () => Promise<void>
@@ -59,6 +69,32 @@ const startExclusiveInterval = (
   const timer = setInterval(tick, intervalMs);
   tick();
   return { stop: () => clearInterval(timer) };
+};
+
+// The second slot is maintenance-only; manual execution stays serial.
+const startTaskInterval = (
+  intervalMs: number,
+  maxConcurrent: number,
+  run: (slot: number) => Promise<void>,
+  logger: ILogger | undefined
+): TableQueryOpsRunnerHandle => {
+  const slots = Array.from({ length: maxConcurrent }, () => false);
+  let stopped = false;
+  const tick = () => {
+    const slot = slots.indexOf(false);
+    if (stopped || slot < 0) return;
+    slots[slot] = true;
+    void Promise.resolve().then(() => stopped ? undefined : run(slot)).catch((error: unknown) => {
+      logger?.warn('Table query ops task worker failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }).finally(() => {
+      slots[slot] = false;
+    });
+  };
+  const timer = setInterval(tick, intervalMs);
+  tick();
+  return { stop: () => { stopped = true; clearInterval(timer); } };
 };
 
 export const startTableQueryOpsAnalyzerIfEnabled = (
@@ -82,8 +118,13 @@ export const startTableQueryOpsTaskWorkerIfEnabled = (
     v2TableOpsTokens.taskWorkerConfig
   );
   if (!config.enabled) return undefined;
-  return startExclusiveInterval(config.intervalMs, () =>
-    runTaskWorkerOnce(container, context, config, config.scope ?? 'all', resolveExecution)
+  return startTaskInterval(
+    config.intervalMs,
+    config.scope === 'manual_search' ? 1 : 2,
+    (slot) => runTaskWorkerOnce(container, context, config,
+      slot === 1 && (config.scope ?? 'all') === 'all' ? 'search_maintenance' : config.scope ?? 'all',
+      resolveExecution),
+    resolveOptionalLogger(container)
   );
 };
 
@@ -110,8 +151,11 @@ export const startTableQueryOpsManualSearchTaskWorker = (
       'drop_search_access_path',
     ],
   };
-  return startExclusiveInterval(config.intervalMs, () =>
-    runTaskWorkerOnce(container, context, config, 'manual_search', resolveExecution)
+  return startTaskInterval(
+    config.intervalMs,
+    1,
+    () => runTaskWorkerOnce(container, context, config, 'manual_search', resolveExecution),
+    resolveOptionalLogger(container)
   );
 };
 
@@ -496,10 +540,50 @@ const runTaskWorkerOnce = async (
       ? await resolveExecution(claimed.value.snapshot().tableId)
       : { container, context };
   } catch (error) {
+    const task = claimed.value.snapshot();
     const started = claimed.value.start(config.workerId, clock.now());
-    if (started.isOk()) {
-      const failed = started.value.fail(`Task routing failed: ${String(error)}`, clock.now());
-      if (failed.isOk()) await taskRepository.save(context, failed.value);
+    if (started.isErr()) {
+      logger?.warn('Table query ops task worker failed to start routed task', {
+        taskId: task.id,
+        error: started.error.message,
+      });
+      return;
+    }
+    const trigger = (task.payload as { trigger?: string } | null)?.trigger;
+    const maintenance =
+      ((task.kind === 'rebuild_search_access_path' || task.kind === 'rebuild_search_vector') &&
+        trigger === 'schema_change') ||
+      (task.kind === 'drop_search_access_path' && trigger === 'reclaim');
+    const diagnostic = `Task routing failed: ${String(error)}`;
+    let transition: Result<TableQueryRemediationTask, DomainError>;
+    if (maintenance && error instanceof TableQueryOpsExecutionUnavailableError) {
+      // Deferred saves are fenced against the stored running reservation, including
+      // fresh tasks whose refunded attempt count returns to zero.
+      const running = await taskRepository.save(context, started.value);
+      if (running.isErr()) {
+        logger?.warn('Table query ops task worker failed to persist routed task', {
+          taskId: task.id,
+          error: running.error.message,
+        });
+        return;
+      }
+      transition = running.value.deferMaintenance(diagnostic, task.attempts, clock.now());
+    } else {
+      transition = started.value.fail(diagnostic, clock.now());
+    }
+    if (transition.isErr()) {
+      logger?.warn('Table query ops task worker failed to transition routed task', {
+        taskId: task.id,
+        error: transition.error.message,
+      });
+      return;
+    }
+    const saved = await taskRepository.save(context, transition.value);
+    if (saved.isErr()) {
+      logger?.warn('Table query ops task worker failed to persist routed task', {
+        taskId: task.id,
+        error: saved.error.message,
+      });
     }
     return;
   }

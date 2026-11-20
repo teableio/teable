@@ -80,9 +80,10 @@ export class TableQueryService {
   @TraceSpan()
   async getById(
     context: ExecutionContextPort.IExecutionContext,
-    tableId: TableId
+    tableId: TableId,
+    state: 'active' | 'activeWithPending' = 'active'
   ): Promise<Result<Table, DomainError>> {
-    return this.getByIdWithState(context, tableId, 'active');
+    return this.getByIdWithState(context, tableId, state);
   }
 
   /** Diagnose only failed record operations, after their transaction has rolled back. */
@@ -175,7 +176,10 @@ export class TableQueryService {
     state: TableRepositoryPort.TableQueryState
   ): Promise<Result<Table, DomainError>> {
     const spec = TableByIdSpec.create(tableId);
-    const tableResult = await this.tableRepository.findOne(context, spec, { state });
+    const tableResult = await this.tableRepository.findOne(context, spec, {
+      state,
+      excludePendingFields: true,
+    });
 
     if (tableResult.isErr()) {
       if (isNotFoundError(tableResult.error)) {

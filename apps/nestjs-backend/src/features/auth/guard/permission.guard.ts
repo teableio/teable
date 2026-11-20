@@ -138,7 +138,8 @@ export class PermissionGuard {
 
   protected async baseSharePermissionCheck(context: ExecutionContext, shareId: string) {
     await this.ensureBaseShareAuth(context, shareId);
-    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
+    const { baseId, tableId } = context.switchToHttp().getRequest().params ?? {};
+    const resourceId = this.getResourceId(context) || tableId || this.defaultResourceId(context);
     if (!resourceId) {
       throw new CustomHttpException(
         `Project share permission check ID does not exist`,
@@ -162,6 +163,9 @@ export class PermissionGuard {
       resourceId,
       permissions
     );
+    if (baseId && this.cls.get('baseShare')?.baseId !== baseId) {
+      throw new ForbiddenException('Project share does not cover the requested project');
+    }
     this.cls.set('baseShareId', shareId);
     // Preserve logged-in user identity for allowEdit; fall back to anonymous
     const currentUserId = this.cls.get('user.id');

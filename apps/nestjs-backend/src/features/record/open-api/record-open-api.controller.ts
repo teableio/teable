@@ -77,6 +77,7 @@ import { RecordService } from '../record.service';
 import { ShareViewScopeService } from '../share-view-scope.service';
 import { AccessTokenTakeLimitPipe } from './access-token-take-limit.pipe';
 import { FieldKeyPipe } from './field-key.pipe';
+import { RecordHistoryReadService } from './record-history-read.service';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
 import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
@@ -99,7 +100,8 @@ export class RecordOpenApiController {
     // community implementations, so scope enforcement must be reachable.
     protected readonly shareViewScopeService: ShareViewScopeService,
     protected readonly spaceDataDbMigrationGuardService: SpaceDataDbMigrationGuardService,
-    protected readonly permissionService: PermissionService
+    protected readonly permissionService: PermissionService,
+    protected readonly recordHistoryReadService: RecordHistoryReadService
   ) {}
 
   @UseV2Feature('getRecordHistory')
@@ -110,7 +112,7 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Query(new ZodValidationPipe(getRecordHistoryQuerySchema)) query: IGetRecordHistoryQuery
   ) {
-    return this.recordOpenApiService.getRecordHistory(tableId, recordId, query);
+    return this.recordHistoryReadService.getRecordHistory(tableId, recordId, query);
   }
 
   @UseV2Feature('getRecordHistory')
@@ -120,7 +122,7 @@ export class RecordOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getRecordHistoryQuerySchema)) query: IGetRecordHistoryQuery
   ) {
-    return this.recordOpenApiService.getRecordHistory(tableId, undefined, query);
+    return this.recordHistoryReadService.getRecordHistory(tableId, undefined, query);
   }
 
   @UseV2Feature('getRecords')

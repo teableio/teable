@@ -96,10 +96,20 @@ const fallbackSchema = z
   })
   .strict();
 
+/** A fixed library revision an App may call; never a credential or a definition. */
+export const dataQueryLibraryPinSchema = z
+  .object({
+    id: z.string().regex(/^qlb[0-9a-f]{16}$/),
+    revision: z.number().int().positive(),
+  })
+  .strict();
+export type DataQueryLibraryPin = z.infer<typeof dataQueryLibraryPinSchema>;
+
 const dataQueryManifestQuerySchema = z
   .object({
-    mode: z.enum(['structured', 'auto', 'sql-query']).optional(),
+    mode: z.enum(['structured', 'auto', 'sql-query', 'library']).optional(),
     definition: dataQueryDefinitionInputSchema.optional(),
+    library: dataQueryLibraryPinSchema.optional(),
     result: z.enum(['many', 'one']).optional(),
     fallback: fallbackSchema.optional(),
   })
@@ -115,6 +125,27 @@ const validateManifestMode = (
   context: z.RefinementCtx
 ) => {
   const mode = query.mode ?? 'structured';
+  if (mode === 'library') {
+    if (!query.library)
+      addManifestIssue(
+        context,
+        ['queries', queryId, 'library'],
+        'Library queries require a fixed revision'
+      );
+    if (query.definition || query.fallback)
+      addManifestIssue(
+        context,
+        ['queries', queryId],
+        'Library queries cannot include a definition or fallback'
+      );
+    return;
+  }
+  if (query.library)
+    addManifestIssue(
+      context,
+      ['queries', queryId, 'library'],
+      'Only library queries can include a library reference'
+    );
   if (mode === 'structured' && !query.definition)
     addManifestIssue(
       context,
@@ -241,6 +272,12 @@ const validateManifestResult = (
   query: DataQueryManifestQuery,
   context: z.RefinementCtx
 ) => {
+  if (query.result === 'one' && query.definition?.version === 7)
+    addManifestIssue(
+      context,
+      ['queries', queryId, 'result'],
+      'Cursor queries require a many-result envelope'
+    );
   if (query.result === 'one' && query.definition?.page?.includeTotal === true)
     addManifestIssue(
       context,

@@ -7,13 +7,18 @@ import { FieldOpenApiService } from './field-open-api.service';
 
 describe('FieldOpenApiService', () => {
   let service: FieldOpenApiService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, FieldOpenApiModule],
     }).compile();
 
     service = module.get<FieldOpenApiService>(FieldOpenApiService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

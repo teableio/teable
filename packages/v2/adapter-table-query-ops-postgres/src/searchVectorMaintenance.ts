@@ -11,8 +11,33 @@ import { err, ok, type Result } from 'neverthrow';
 import { toInfrastructureError } from './helpers';
 import type { UnknownPostgresDatabase } from './types';
 
+export type SearchMaintenanceOptions = {
+  readonly windowUtc?: string;
+  readonly knownSmallRowCap?: number;
+  readonly allowUnknownOrLargeRewrite?: boolean;
+  /** Host connection taxonomy, shared with cold-route execution resolution. */
+  readonly isConnectionUnavailable?: (error: unknown) => boolean;
+};
+
+export const isSearchMaintenanceWindow = (windowUtc: string | undefined, now: Date): boolean => {
+  const match = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(windowUtc ?? '');
+  if (!match) return false;
+  const [, startHour, startMinute, endHour, endMinute] = match.map(Number);
+  if (startHour > 23 || endHour > 23 || startMinute > 59 || endMinute > 59) return false;
+  const start = startHour * 60 + startMinute;
+  const end = endHour * 60 + endMinute;
+  const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return start < end
+    ? minute >= start && minute < end
+    : start > end && (minute >= start || minute < end);
+};
+
+export class SearchMaintenanceDeferred extends Error {}
+
 type SearchVectorConfigRow = {
   readonly id: string;
+  readonly candidate_key: string;
+  readonly search_scope: 'all_fields' | 'selected_fields';
 };
 
 type QueuedTaskRow = {
@@ -46,11 +71,11 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler implements Tabl
         `.execute(trx);
 
         const config = await sql<SearchVectorConfigRow>`
-          SELECT id
+          SELECT id, candidate_key, search_scope
           FROM table_query_search_vector_config
           WHERE table_id = ${tableId}
             AND status IN ('ready', 'stale', 'rebuild_pending')
-          ORDER BY last_modified_time DESC NULLS LAST, created_time DESC NULLS LAST, id DESC
+          ORDER BY (status = 'ready') DESC, last_modified_time DESC NULLS LAST, created_time DESC NULLS LAST, id DESC
           LIMIT 1
         `.execute(trx);
         const activeConfig = config.rows[0];
@@ -76,8 +101,10 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler implements Tabl
           WHERE table_id = ${tableId}
             AND kind IN ('rebuild_search_access_path', 'rebuild_search_vector')
             AND status = 'queued'
+            AND attempts = 0
             AND payload ->> 'trigger' = 'schema_change'
-            AND (locked_at IS NULL OR locked_at < now() - interval '60 seconds')
+            AND locked_at IS NULL AND locked_by IS NULL
+            AND execution_state IS NULL
           ORDER BY created_time DESC
           LIMIT 1
         `.execute(trx);
@@ -88,6 +115,8 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler implements Tabl
             SET payload = ${JSON.stringify({
               trigger: 'schema_change',
               reason: input.reason,
+              configKey: activeConfig.candidate_key,
+              configScope: activeConfig.search_scope,
             })}::jsonb,
                 last_modified_time = now()
             WHERE id = ${existing.id}
@@ -103,7 +132,12 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler implements Tabl
           tableId,
           baseId,
           kind: 'rebuild_search_access_path',
-          payload: { trigger: 'schema_change', reason: input.reason },
+          payload: {
+            trigger: 'schema_change',
+            reason: input.reason,
+            configKey: activeConfig.candidate_key,
+            configScope: activeConfig.search_scope,
+          },
           now: new Date(),
         })._unsafeUnwrap();
         const snapshot = task.snapshot();

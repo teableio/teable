@@ -20,7 +20,7 @@ import { PostgresComputedReliabilityStore } from '../../reliability/PostgresComp
 import type { ComputedOutboxWakeup, IComputedOutboxWakeupPublisher } from '../ComputedOutboxWakeup';
 import { ComputedUpdateOutbox } from '../ComputedUpdateOutbox';
 import type { ComputedUpdateOutboxTaskInput } from '../ComputedUpdateOutboxPayload';
-import { buildSeedTaskInput } from '../ComputedUpdateSeedPayload';
+import { buildSeedTaskInput, deserializeSeedPayload } from '../ComputedUpdateSeedPayload';
 import {
   defaultComputedUpdateOutboxConfig,
   type ComputedUpdateOutboxConfig,
@@ -1300,6 +1300,47 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     ]);
   });
 
+  it('persists delete capture proof through seed merge, claim and dead-letter', async () => {
+    const outbox = createTestOutbox(db, undefined, { seedInlineLimit: 1 });
+    const makeTask = (record: number, proof?: string[]) =>
+      buildSeedTaskInput({
+        baseId: BaseId.create(PRIMARY_BASE_ID)._unsafeUnwrap(),
+        seedTableId: TableId.create(PRIMARY_SEED_TABLE_ID)._unsafeUnwrap(),
+        seedRecordIds: [createRecordId(record)],
+        extraSeedRecords: [],
+        capturedDeleteLinkFieldIds: proof,
+        changedFieldIds: [],
+        changeType: 'delete',
+        hasher: new NoopHasher(),
+        runId: 'capture-proof',
+      });
+    const first = (await outbox.enqueueSeedTask(makeTask(1, ['a', 'b'])))._unsafeUnwrap();
+    (await outbox.enqueueSeedTask(makeTask(2, ['b', 'c'])))._unsafeUnwrap();
+    const claimed = (
+      await outbox.claimById({ taskId: first.taskId, workerId: 'proof-worker' })
+    )._unsafeUnwrap() as SeedOutboxItem;
+    expect(claimed.capturedDeleteLinkFieldIds).toEqual(['b']);
+    expect(deserializeSeedPayload(claimed)._unsafeUnwrap().capturedDeleteLinkFieldIds).toEqual([
+      'b',
+    ]);
+    expect(
+      (await outbox.markFailed(claimed, 'failure', {}, { directDeadLetter: true }))._unsafeUnwrap()
+    ).toBe(true);
+    const archived = await db
+      .selectFrom('computed_update_dead_letter')
+      .select('dirty_stats')
+      .where('id', '=', first.taskId)
+      .executeTakeFirstOrThrow();
+    expect(archived.dirty_stats).toMatchObject({ capturedDeleteLinkFieldIds: ['b'] });
+
+    const next = (await outbox.enqueueSeedTask(makeTask(3, ['a'])))._unsafeUnwrap();
+    (await outbox.enqueueSeedTask(makeTask(4)))._unsafeUnwrap();
+    const legacyMerged = (
+      await outbox.claimById({ taskId: next.taskId, workerId: 'proof-worker' })
+    )._unsafeUnwrap() as SeedOutboxItem;
+    expect(legacyMerged.capturedDeleteLinkFieldIds).toBeUndefined();
+  });
+
   it('preserves every seed after an inline spill followed by smaller batches', async () => {
     const publisher = new RecordingWakeupPublisher();
     const outbox = createTestOutbox(db, publisher, { seedInlineLimit: 3 });
@@ -1339,9 +1380,14 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     expect(publisher.wakeups[0]!.taskId).toBe(rows[0]!.id);
   });
 
-  it.each(['claimById', 'claimBatch'] as const)(
-    'bounds spilled insert seeds before %s hydration without losing lineage or extra seeds',
-    async (claimMethod) => {
+  it.each([
+    ['claimById', 'insert'],
+    ['claimBatch', 'insert'],
+    ['claimById', 'delete'],
+    ['claimBatch', 'delete'],
+  ] as const)(
+    'bounds spilled %s %s seeds without losing lineage or extra seeds',
+    async (claimMethod, changeType) => {
       const outbox = createTestOutbox(db, undefined, {
         seedInlineLimit: 1,
         maxSeedRecordsPerTask: 2,
@@ -1360,12 +1406,14 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
               recordIds: foreignIds.map(createRecordId),
             },
           ],
+          capturedDeleteLinkFieldIds:
+            changeType === 'delete' ? [`fld${'d'.repeat(16)}`] : undefined,
           beforeImageRecords: primaryIds.map((id) => ({
             recordId: createRecordId(id),
             fieldValuesByDbName: { previous: `before-${id}` },
           })),
           changedFieldIds: [FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap()],
-          changeType: 'insert',
+          changeType,
           hasher: new NoopHasher(),
           runId: 'bounded-claim-lineage',
         }),
@@ -1401,6 +1449,7 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
         expect(keys.length).toBeLessThanOrEqual(2);
         expect(seed.runId).toBe(task.runId);
         expect(seed.sourceChangedAt).toEqual(sourceChangedAt);
+        expect(seed.capturedDeleteLinkFieldIds).toEqual(task.capturedDeleteLinkFieldIds);
         expect(seed.beforeImageRecords).toEqual(
           seed.seedRecordIds.map((recordId) => ({
             recordId,
@@ -1522,7 +1571,11 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       planHash,
       seedRecordIds: [firstRecordId],
       affectedFieldIds: [firstFieldId.toString()],
-      dirtyStats: { changeType: 'update', beforeImageRecords: [] },
+      dirtyStats: {
+        changeType: 'delete',
+        beforeImageRecords: [],
+        capturedDeleteLinkFieldIds: ['a', 'b'],
+      },
       createdAt: new Date(now.getTime() - 10_000),
       updatedAt: new Date(now.getTime() - 10_000),
     });
@@ -1533,7 +1586,11 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       planHash,
       seedRecordIds: [secondRecordId],
       affectedFieldIds: [secondFieldId.toString()],
-      dirtyStats: { changeType: 'update', beforeImageRecords: [] },
+      dirtyStats: {
+        changeType: 'delete',
+        beforeImageRecords: [],
+        capturedDeleteLinkFieldIds: ['b', 'c'],
+      },
       lockedAt: new Date(now.getTime() - 100),
       lockedBy: leaseOwner,
       createdAt: new Date(now.getTime() - 1_000),
@@ -1549,9 +1606,10 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       seedTableId: PRIMARY_SEED_TABLE_ID,
       seedRecordIds: [secondRecordId],
       extraSeedRecords: [],
+      capturedDeleteLinkFieldIds: ['b', 'c'],
       beforeImageRecords: [],
       changedFieldIds: [secondFieldId.toString()],
-      changeType: 'update',
+      changeType: 'delete',
       runId: 'run-processing',
       planHash,
       status: 'processing',
@@ -1577,12 +1635,13 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
 
     const rows = await db
       .selectFrom('computed_update_outbox')
-      .select(['id', 'status', 'affected_field_ids'])
+      .select(['id', 'status', 'affected_field_ids', 'dirty_stats'])
       .execute();
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toBe('cuo-pending-seed');
     expect(rows[0].status).toBe('pending');
     expect(rows[0].affected_field_ids).toEqual([firstFieldId.toString(), secondFieldId.toString()]);
+    expect(rows[0].dirty_stats).toMatchObject({ capturedDeleteLinkFieldIds: ['b'] });
 
     const seedRows = await db
       .selectFrom('computed_update_outbox_seed')
@@ -3424,6 +3483,79 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       vi.unstubAllEnvs();
     });
 
+    it('checks readiness once when completion records a failure and resolves a successful field', async () => {
+      vi.stubEnv('COMPUTED_RELIABILITY_ENABLED', 'true');
+      try {
+        for (const statement of computedReliabilitySchemaSql
+          .split(';')
+          .filter((part) => part.trim())) {
+          await sql.raw(statement).execute(db);
+        }
+        await sql`create table if not exists computed_task_field_ref(task_id text,field_id text,table_id text)`.execute(
+          db
+        );
+        const successfulFieldId = `fld${'d'.repeat(16)}`;
+        const store = new PostgresComputedReliabilityStore(db as unknown as Kysely<DynamicDB>);
+        await store.recordFailure({
+          taskId: 'cuo-previous-failure',
+          baseId: PRIMARY_BASE_ID,
+          sourceTableId: PRIMARY_SEED_TABLE_ID,
+          error: 'previous error',
+          targets: [{ tableId: PRIMARY_SEED_TABLE_ID, fieldId: successfulFieldId }],
+        });
+        await insertOutboxRow(db, {
+          id: 'cuo-mixed-completion',
+          status: 'pending',
+          affectedFieldIds: [FIELD_ID, successfulFieldId],
+          steps: [{ tableId: PRIMARY_SEED_TABLE_ID, fieldIds: [FIELD_ID, successfulFieldId] }],
+        });
+        const statements: string[] = [];
+        const observed = db.withPlugin({
+          transformQuery(args) {
+            statements.push(new PostgresQueryCompiler().compileQuery(args.node).sql);
+            return args.node;
+          },
+          async transformResult(args) {
+            return args.result;
+          },
+        });
+        const outbox = createTestOutbox(observed, undefined, { runHistoryEnabled: false });
+        const task = (
+          await outbox.claimById({ taskId: 'cuo-mixed-completion', workerId: 'worker' })
+        )._unsafeUnwrap()!;
+        statements.length = 0;
+        expect(
+          (
+            await outbox.markDone(task, undefined, {
+              fieldErrors: [
+                {
+                  fieldId: FIELD_ID,
+                  error: { message: 'field error', context: { tableId: PRIMARY_SEED_TABLE_ID } },
+                },
+              ],
+            })
+          )._unsafeUnwrap()
+        ).toBe(true);
+        expect(
+          statements.filter((statement) => statement.includes('WITH relation_names(kind,parts)'))
+        ).toHaveLength(1);
+        const issues = await store.listIssues();
+        expect(issues.find((issue) => issue.task_id === 'cuo-previous-failure')).toMatchObject({
+          status: 'resolved',
+        });
+        expect(issues.find((issue) => issue.task_id === 'cuo-mixed-completion')).toMatchObject({
+          status: 'open',
+          scope_complete: true,
+          error: 'field error',
+        });
+        expect(await store.getFieldSummaries(PRIMARY_SEED_TABLE_ID)).toMatchObject([
+          { fieldId: FIELD_ID, reliability: { unresolvedCount: 1 } },
+        ]);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
     it('claims a fresh continuation inside the enqueue transaction', async () => {
       await insertPredecessor();
       const publisher = new RecordingWakeupPublisher();
@@ -3632,6 +3764,354 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
       if (claimed && 'seedRecordIds' in claimed) {
         expect([...claimed.seedRecordIds].sort()).toEqual(['rec1', 'rec2', 'rec3']);
       }
+    });
+
+    it('leaves oversized spilled relay input pending for bounded preparation', async () => {
+      await insertPredecessor();
+      const outbox = createTestOutbox(db, undefined, {
+        maxSeedRecordsPerTask: 2,
+        stageMaxDirtyRecords: 2,
+      });
+      const outcome = (
+        await outbox.enqueueOrMerge(
+          {
+            ...createContinuationInput('oversized-relay'),
+            seedRecordIds: ['rec1', 'rec2', 'rec3'],
+          },
+          undefined,
+          relayOptions
+        )
+      )._unsafeUnwrap();
+      expect(outcome.claimed).toBeUndefined();
+      expect(
+        await db
+          .selectFrom('computed_update_outbox')
+          .select('status')
+          .where('id', '=', outcome.taskId)
+          .executeTakeFirstOrThrow()
+      ).toEqual({ status: 'pending' });
+      expect(
+        await db
+          .selectFrom('computed_update_outbox_seed')
+          .select('record_id')
+          .where('task_id', '=', outcome.taskId)
+          .orderBy('record_id')
+          .execute()
+      ).toEqual(['rec1', 'rec2', 'rec3'].map((record_id) => ({ record_id })));
+    });
+
+    it('bootstraps an oversized delete continuation directly into a recoverable frontier', async () => {
+      const outbox = createTestOutbox(db, undefined, {
+        maxSeedRecordsPerTask: 2,
+        stageMaxDirtyRecords: 2,
+        workerLane: 'delete-test-lane',
+        stageMaxCollectedSeedIds: 20,
+      });
+      await sql`create table if not exists computed_update_dead_letter_seed (
+        task_id text not null, table_id text not null, record_id text not null,
+        primary key (task_id, table_id, record_id)
+      )`.execute(db);
+      const beforeImageRecords = [{ recordId: 'rec1', fieldValuesByDbName: { old_value: 'old' } }];
+      const queued = (
+        await outbox.enqueueOrMerge({
+          ...createContinuationInput('delete-direct-frontier'),
+          predecessorTaskId: PREDECESSOR_ID,
+          changeType: 'delete',
+          seedRecordIds: ['rec1', 'rec2', 'rec1'],
+          extraSeedRecords: [
+            { tableId: PRIMARY_SEED_TABLE_ID, recordIds: ['rec2', 'rec3'] },
+            { tableId: PRIMARY_TARGET_TABLE_ID, recordIds: ['rec1', 'rec4'] },
+          ],
+          beforeImageRecords,
+        })
+      )._unsafeUnwrap();
+
+      expect(
+        await db
+          .selectFrom('computed_update_outbox_seed')
+          .select('record_id')
+          .where('task_id', '=', queued.taskId)
+          .execute()
+      ).toEqual([]);
+      expect(
+        await db
+          .selectFrom('computed_update_outbox')
+          .select('worker_lane')
+          .where('id', '=', queued.taskId)
+          .executeTakeFirstOrThrow()
+      ).toEqual({ worker_lane: 'delete-test-lane' });
+      const ledger = await db
+        .selectFrom('computed_update_stage_ledger')
+        .select(['kind', 'table_id', 'record_id'])
+        .where('scope_id', '=', queued.taskId)
+        .execute();
+      const expected = [
+        { table_id: PRIMARY_SEED_TABLE_ID, record_id: 'rec1' },
+        { table_id: PRIMARY_SEED_TABLE_ID, record_id: 'rec2' },
+        { table_id: PRIMARY_SEED_TABLE_ID, record_id: 'rec3' },
+        { table_id: PRIMARY_TARGET_TABLE_ID, record_id: 'rec1' },
+        { table_id: PRIMARY_TARGET_TABLE_ID, record_id: 'rec4' },
+      ];
+      for (const kind of ['frontier', 'rerun-source']) {
+        expect(
+          ledger
+            .filter((row) => row.kind === kind)
+            .map(({ table_id, record_id }) => ({
+              table_id,
+              record_id,
+            }))
+        ).toEqual(expect.arrayContaining(expected));
+        expect(ledger.filter((row) => row.kind === kind)).toHaveLength(expected.length);
+      }
+      expect(ledger.filter((row) => row.kind === 'rerun-input-v1')).toEqual([
+        { kind: 'rerun-input-v1', table_id: '', record_id: '' },
+      ]);
+      const frontierSeq = await db
+        .selectFrom('computed_update_stage_ledger')
+        .select('seq')
+        .where('scope_id', '=', queued.taskId)
+        .where('kind', '=', 'frontier')
+        .execute();
+      // Retirement uses seq <= the consumed head, so ties could lose queued rows.
+      expect(new Set(frontierSeq.map((row) => String(row.seq))).size).toBe(expected.length);
+
+      // A broker claim yields on preparation pages. An immediate claim proves
+      // that no intermediate seed pages remain to migrate.
+      const claimed = (
+        await outbox.claimById({
+          taskId: queued.taskId,
+          workerId: 'broker',
+          yieldAfterPreparation: true,
+        })
+      )._unsafeUnwrap();
+      expect(claimed).toMatchObject({
+        id: queued.taskId,
+        status: 'processing',
+        seedRecordIds: [],
+        extraSeedRecords: [],
+        ledgerScopeId: queued.taskId,
+        beforeImageRecords,
+      });
+      if (!claimed) throw new Error('Expected the continuation to be claimed');
+      expect(
+        (
+          await outbox.markFailed(claimed, 'failure', {}, { directDeadLetter: true })
+        )._unsafeUnwrap()
+      ).toBe(true);
+      const archive = await sql<{ table_id: string; record_id: string }>`
+        select table_id, record_id from computed_update_dead_letter_seed where task_id = ${queued.taskId}
+      `.execute(db);
+      expect(archive.rows).toHaveLength(expected.length);
+      expect(archive.rows).toEqual(expect.arrayContaining(expected));
+      const dead = await db
+        .selectFrom('computed_update_dead_letter')
+        .select('dirty_stats')
+        .where('id', '=', queued.taskId)
+        .executeTakeFirstOrThrow();
+      expect(dead.dirty_stats).toMatchObject({
+        rerunInputs: { version: 1, complete: true, seedCount: '5' },
+      });
+    });
+
+    it.each([
+      'root',
+      'inherited-scope',
+      'partial-budget',
+      'seed-all-cursor',
+      'at-seed-limit',
+      'above-collection-cap',
+    ] as const)('keeps %s delete tasks on the ordinary seed path', async (kind) => {
+      const outbox = createTestOutbox(db, undefined, {
+        maxSeedRecordsPerTask: kind === 'at-seed-limit' ? 3 : 2,
+        stageMaxDirtyRecords: 2,
+        stageMaxCollectedSeedIds: kind === 'above-collection-cap' ? 2 : 20,
+      });
+      const queued = (
+        await outbox.enqueueOrMerge({
+          ...createContinuationInput(`delete-ordinary-${kind}`),
+          changeType: 'delete',
+          predecessorTaskId: kind === 'root' ? undefined : PREDECESSOR_ID,
+          seedRecordIds: ['rec1', 'rec2', 'rec3'],
+          ...(kind === 'inherited-scope' ? { ledgerScopeId: 'cuo-existing-scope' } : {}),
+          ...(kind === 'partial-budget'
+            ? { partialStageBudget: { maxSteps: 1, maxFields: 1, maxEdges: 1 } }
+            : {}),
+          ...(kind === 'seed-all-cursor'
+            ? { seedAllCursors: { [PRIMARY_SEED_TABLE_ID]: 'rec1' } }
+            : {}),
+        })
+      )._unsafeUnwrap();
+      expect(
+        await db
+          .selectFrom('computed_update_outbox_seed')
+          .select('record_id')
+          .where('task_id', '=', queued.taskId)
+          .orderBy('record_id')
+          .execute()
+      ).toEqual(['rec1', 'rec2', 'rec3'].map((record_id) => ({ record_id })));
+      expect(
+        await db
+          .selectFrom('computed_update_stage_ledger')
+          .select('kind')
+          .where('scope_id', '=', queued.taskId)
+          .execute()
+      ).toEqual([]);
+    });
+
+    it.each(['batch', 'by-id'] as const)(
+      'continues brokerless %s claims across committed preparation pages',
+      async (mode) => {
+        const outbox = createTestOutbox(db, undefined, {
+          maxSeedRecordsPerTask: 2,
+          stageMaxDirtyRecords: 2,
+        });
+        const queued = (
+          await outbox.enqueueOrMerge({
+            ...createContinuationInput(`poll-${mode}`),
+            seedRecordIds: ['rec1', 'rec2', 'rec3', 'rec4', 'rec5'],
+          })
+        )._unsafeUnwrap();
+        const task =
+          mode === 'batch'
+            ? (await outbox.claimBatch({ workerId: 'poller', limit: 1 }))._unsafeUnwrap()[0]
+            : (
+                await outbox.claimById({ taskId: queued.taskId, workerId: 'poller' })
+              )._unsafeUnwrap();
+        expect(task).toMatchObject({ id: queued.taskId, status: 'processing', seedRecordIds: [] });
+        const captured = await db
+          .selectFrom('computed_update_stage_ledger')
+          .select('record_id')
+          .where('scope_id', '=', queued.taskId)
+          .where('kind', '=', 'frontier')
+          .orderBy('record_id')
+          .execute();
+        expect(captured.map((row) => row.record_id)).toEqual([
+          'rec1',
+          'rec2',
+          'rec3',
+          'rec4',
+          'rec5',
+        ]);
+        expect(
+          await db
+            .selectFrom('computed_update_outbox_seed')
+            .select('record_id')
+            .where('task_id', '=', queued.taskId)
+            .execute()
+        ).toEqual([]);
+      }
+    );
+
+    it.each(['batch', 'by-id'] as const)(
+      'prepares only one page inside a caller-owned %s transaction',
+      async (mode) => {
+        const outbox = createTestOutbox(db, undefined, {
+          maxSeedRecordsPerTask: 2,
+          stageMaxDirtyRecords: 2,
+        });
+        const queued = (
+          await outbox.enqueueOrMerge({
+            ...createContinuationInput(`caller-transaction-${mode}`),
+            seedRecordIds: ['rec1', 'rec2', 'rec3', 'rec4', 'rec5'],
+          })
+        )._unsafeUnwrap();
+        await db.transaction().execute(async (trx) => {
+          const context = { transaction: new PostgresUnitOfWorkTransaction(trx as never, 'data') };
+          if (mode === 'batch') {
+            expect(
+              (await outbox.claimBatch({ workerId: 'caller', limit: 1 }, context))._unsafeUnwrap()
+            ).toEqual([]);
+          } else {
+            expect(
+              (
+                await outbox.claimById({ taskId: queued.taskId, workerId: 'caller' }, context)
+              )._unsafeUnwrap()
+            ).toBeNull();
+          }
+          expect(
+            await trx
+              .selectFrom('computed_update_outbox_seed')
+              .select('record_id')
+              .where('task_id', '=', queued.taskId)
+              .orderBy('record_id')
+              .execute()
+          ).toEqual(['rec3', 'rec4', 'rec5'].map((record_id) => ({ record_id })));
+        });
+      }
+    );
+
+    it('reselects normal pending priority after committing a preparation page', async () => {
+      let admitted = false;
+      const publisher: IComputedOutboxWakeupPublisher = {
+        async publish(wakeup) {
+          if (wakeup.cause === 'replay' && !admitted) {
+            admitted = true;
+            await insertOutboxRow(db, {
+              id: 'lightweight-during-preparation',
+              status: 'pending',
+              estimatedComplexity: 0,
+            });
+          }
+          return { status: 'accepted' };
+        },
+      };
+      const outbox = createTestOutbox(db, publisher, {
+        maxSeedRecordsPerTask: 2,
+        stageMaxDirtyRecords: 2,
+      });
+      const queued = (
+        await outbox.enqueueOrMerge({
+          ...createContinuationInput('fair-preparation'),
+          estimatedComplexity: 100,
+          seedRecordIds: ['rec1', 'rec2', 'rec3', 'rec4', 'rec5'],
+        })
+      )._unsafeUnwrap();
+      const tasks = (await outbox.claimBatch({ workerId: 'poller', limit: 1 }))._unsafeUnwrap();
+      expect(tasks.map((task) => task.id)).toEqual(['lightweight-during-preparation']);
+      expect(
+        await db
+          .selectFrom('computed_update_outbox_seed')
+          .select('record_id')
+          .where('task_id', '=', queued.taskId)
+          .orderBy('record_id')
+          .execute()
+      ).toEqual(['rec3', 'rec4', 'rec5'].map((record_id) => ({ record_id })));
+    });
+
+    it('yields one broker preparation page without publishing a duplicate replay', async () => {
+      const publisher = new RecordingWakeupPublisher();
+      const outbox = createTestOutbox(db, publisher, {
+        maxSeedRecordsPerTask: 2,
+        stageMaxDirtyRecords: 2,
+      });
+      const queued = (
+        await outbox.enqueueOrMerge({
+          ...createContinuationInput('broker-preparation'),
+          seedRecordIds: ['rec1', 'rec2', 'rec3', 'rec4', 'rec5'],
+        })
+      )._unsafeUnwrap();
+      const wakeupsBeforeClaim = publisher.wakeups.length;
+      expect(
+        (
+          await outbox.claimById({
+            taskId: queued.taskId,
+            workerId: 'broker',
+            yieldAfterPreparation: true,
+          })
+        )._unsafeUnwrap()
+      ).toBeNull();
+      expect(publisher.wakeups).toHaveLength(wakeupsBeforeClaim);
+      expect((await outbox.getTaskClaimEligibility(queued.taskId))._unsafeUnwrap()).toEqual({
+        status: 'eligible',
+      });
+      expect(
+        await db
+          .selectFrom('computed_update_outbox_seed')
+          .select('record_id')
+          .where('task_id', '=', queued.taskId)
+          .orderBy('record_id')
+          .execute()
+      ).toEqual(['rec3', 'rec4', 'rec5'].map((record_id) => ({ record_id })));
     });
   });
 });

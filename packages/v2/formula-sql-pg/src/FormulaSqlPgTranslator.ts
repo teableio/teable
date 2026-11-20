@@ -71,8 +71,8 @@ type FormulaSqlPgTranslatorCommonOptions = {
   budget?: FormulaCompileBudget;
   tableAlias: string;
   timeZone?: string;
-  /** Per-REPT intermediate UTF-8 bytes; omitted for stored formula semantics. */
-  maxReptBytes?: number;
+  /** UTF-8 bytes per guarded text-producing operation. Stored formulas omit this limit. */
+  maxIntermediateTextBytes?: number;
   /**
    * PostgreSQL version type validation strategy.
    * Required parameter - must be injected from the DI container.
@@ -108,20 +108,21 @@ export class FormulaSqlPgTranslator {
   readonly tableAlias: string;
   readonly typeValidationStrategy: IPgTypeValidationStrategy;
   readonly timeZone: string;
-  readonly maxReptBytes: number | undefined;
+  readonly maxIntermediateTextBytes: number | undefined;
   private readonly options: FormulaSqlPgTranslatorOptions;
   private readonly fieldById?: ReadonlyMap<string, Field>;
   private readonly fieldByName?: ReadonlyMap<string, Field>;
   private readonly compileBudgetOptions: FormulaCompileBudgetOptions | undefined;
   private readonly budget?: FormulaCompileBudget;
   constructor(options: FormulaSqlPgTranslatorOptions) {
+    const maxIntermediateTextBytes = options.maxIntermediateTextBytes;
     if (
-      options.maxReptBytes !== undefined &&
-      (!Number.isSafeInteger(options.maxReptBytes) || options.maxReptBytes < 1)
+      maxIntermediateTextBytes !== undefined &&
+      (!Number.isSafeInteger(maxIntermediateTextBytes) || maxIntermediateTextBytes < 1)
     ) {
-      throw new Error('Invalid formula repetition byte limit');
+      throw new Error('Invalid formula intermediate text byte limit');
     }
-    this.maxReptBytes = options.maxReptBytes;
+    this.maxIntermediateTextBytes = maxIntermediateTextBytes;
     if (options.compileBudget) assertFormulaCompileBudgetOptions(options.compileBudget);
     if (
       options.budget &&

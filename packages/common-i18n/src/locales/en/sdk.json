@@ -471,6 +471,7 @@
       "userNotificationsSend": "Send notifications to the current user",
       "recordHistoryRead": "Read record history",
       "baseQuery": "Query project",
+      "baseSaveQuery": "Save and share queries",
       "instanceRead": "Read instance",
       "instanceUpdate": "Update instance",
       "enterpriseRead": "Read enterprise configuration",
@@ -1085,6 +1086,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "This button field is already bound to the automation {{name}}[{{id}}]. Please select another button field.",
+      "buttonTriggerFilterNotMatched": "This record doesn't meet the automation's trigger conditions",
       "triggerNotFound": "Automation must have a trigger node",
       "nodeNotFound": "{{nodeId}} node not found",
       "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
@@ -1743,7 +1745,8 @@
         "dnsMisconfigured": "Access link setup failed: the domain DNS is not configured correctly"
       },
       "customDomainNotConfigured": "No custom domain configured",
-      "vercelTokenNotConfigured": "Vercel token is not configured in App Builder settings"
+      "vercelTokenNotConfigured": "Vercel token is not configured in App Builder settings",
+      "deleteSandboxCloseFailed": "Couldn't close the sandbox. Nothing was deleted; try again"
     },
     "reward": {
       "notFound": "Reward not found",

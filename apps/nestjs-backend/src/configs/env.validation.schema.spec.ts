@@ -92,6 +92,7 @@ describe('envValidationSchema', () => {
   it.each([
     'V2_TABLE_QUERY_OPS_ENABLED',
     'V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED',
+    'V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_WINDOW_UTC',
     'V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME',
     'V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED',
     'V2_TABLE_QUERY_OPS_AUTO_ACCEPT',
@@ -116,6 +117,7 @@ describe('envValidationSchema', () => {
     expect(error).toBeUndefined();
     expect(value.V2_TABLE_QUERY_OPS_ENABLED).toBeUndefined();
     expect(value.V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED).toBeUndefined();
+    expect(value.V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_WINDOW_UTC).toBeUndefined();
     expect(value.V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED).toBeUndefined();
   });
 
@@ -135,6 +137,46 @@ describe('envValidationSchema', () => {
       })
     );
     expect(error).toBeDefined();
+  });
+
+  it.each(['00:00-23:59', '01:30-04:45', '23:30-02:15', '23:59-00:00'])(
+    'accepts a valid UTC search maintenance window: %s',
+    (windowUtc) => {
+      const { error, value } = envValidationSchema.validate(
+        createEnv({
+          PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+          V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_WINDOW_UTC: windowUtc,
+        })
+      );
+      expect(error).toBeUndefined();
+      expect(value.V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_WINDOW_UTC).toBe(windowUtc);
+    }
+  );
+
+  it.each([
+    'invalid',
+    '1:30-04:45',
+    '01:30-4:45',
+    '01:30/04:45',
+    '24:00-02:00',
+    '01:00-24:00',
+    '01:60-02:00',
+    '01:00-02:60',
+    '00:00-00:00',
+    '12:34-12:34',
+    '01:30-04:45:00',
+    ' 01:30-04:45',
+    '01:30-04:45 ',
+    '01:30-04:45\n',
+    ' ',
+  ])('rejects an invalid UTC search maintenance window: %s', (windowUtc) => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable',
+        V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_WINDOW_UTC: windowUtc,
+      })
+    );
+    expect(error?.details[0].path).toEqual(['V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_WINDOW_UTC']);
   });
 
   it('defaults computed concurrency to two before config factories read validated env', () => {

@@ -31,6 +31,7 @@ import {
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
+  BackgroundTaskTracker,
   BaseId,
   compileDurableSubscriptionCatalog,
   DefaultTableMapper,
@@ -195,11 +196,17 @@ const createSetupTimer = (scope: string) => {
 
   return async <T>(label: string, run: () => Promise<T>) => {
     const startedAt = Date.now();
+    console.info(`[v2-test-setup] ${scope}:${label} pid=${process.pid} start 0ms`);
+    let completed = false;
     try {
-      return await run();
+      const result = await run();
+      completed = true;
+      return result;
     } finally {
       const elapsed = Date.now() - startedAt;
-      console.info(`[v2-test-setup] ${scope}:${label} ${elapsed}ms`);
+      console.info(
+        `[v2-test-setup] ${scope}:${label} pid=${process.pid} ${completed ? 'complete' : 'failed'} ${elapsed}ms`
+      );
     }
   };
 };
@@ -310,11 +317,13 @@ export const createV2NodeTestContainer = async (
   const pgImage = process.env.TEABLE_V2_TEST_PG_IMAGE ?? 'postgres:16-alpine';
 
   if (shouldStartContainer && !shouldUsePglite) {
-    pgContainer = await new PostgreSqlContainer(pgImage)
-      .withDatabase('teable_v2_test')
-      .withUsername('teable')
-      .withPassword('teable')
-      .start();
+    pgContainer = await time('postgres-container', async () =>
+      new PostgreSqlContainer(pgImage)
+        .withDatabase('teable_v2_test')
+        .withUsername('teable')
+        .withPassword('teable')
+        .start()
+    );
     connectionString = pgContainer.getConnectionUri();
   }
 
@@ -455,6 +464,7 @@ export const createV2NodeTestContainer = async (
   // The bus choice must happen here, before the eager singletons resolved below
   // (ComputedUpdateWorker/Outbox) capture it by constructor injection — a
   // replace-after-build at a call site would split events across two buses.
+  const backgroundTasks = new BackgroundTaskTracker();
   const eventBus = new MemoryEventBus(c);
 
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
@@ -493,6 +503,7 @@ export const createV2NodeTestContainer = async (
       new TargetedLegacyEventDispatcher(c, spyLogger),
       sameTxDispatcher,
       spyLogger,
+      backgroundTasks,
       undefined,
       c.resolve(v2CoreTokens.eventBus),
       new NodeImportEventSpoolFactory()

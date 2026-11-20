@@ -75,7 +75,7 @@ import { RecordOpenApiService } from '../../record/open-api/record-open-api.serv
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../../record/query-builder';
 import { RecordService } from '../../record/record.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
-import { TableIndexService } from '../../table/table-index.service';
+import { TableIndexService } from '../../table-index/table-index.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { FieldConvertingService } from '../field-calculate/field-converting.service';
@@ -140,8 +140,6 @@ type CreateFieldsOptions = {
   'updateField',
   'performConvertField',
   'convertField',
-  'convertCrossSpaceLinkToText',
-  'cleanOrphanCrossSpaceLinkStorage',
   'getFilterLinkRecords',
   'duplicateField',
   'duplicateFieldData',
@@ -1698,7 +1696,6 @@ export class FieldOpenApiService {
     modifiedOps,
     supplementChange,
     dependentFieldIds,
-    skipLinkDestructive,
   }: {
     tableId: string;
     newField: IFieldInstance;
@@ -1710,13 +1707,6 @@ export class FieldOpenApiService {
       oldField: IFieldInstance;
     };
     dependentFieldIds?: string[];
-    /**
-     * Internal flag set by `convertCrossSpaceLinkToText`: when true, the link
-     * cleanup path skips dropping the junction/FK and skips the symmetric
-     * partner cascade, so both sides of a two-way link can be converted
-     * independently and each preserves its own values.
-     */
-    skipLinkDestructive?: boolean;
   }): Promise<{ compatibilityIssue: boolean }> {
     let encounteredCompatibilityIssue = false;
 
@@ -1791,12 +1781,7 @@ export class FieldOpenApiService {
         await this.fieldViewSyncService.convertDependenciesByFieldIds(sTid, sNew, sOld);
         await this.syncConditionalFiltersByFieldChanges(sNew, sOld);
       }
-      await this.fieldConvertingService.deleteOrCreateSupplementLink(
-        tableId,
-        newField,
-        oldField,
-        skipLinkDestructive
-      );
+      await this.fieldConvertingService.deleteOrCreateSupplementLink(tableId, newField, oldField);
       await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
       if (supplementChange) {
         const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
@@ -2016,83 +2001,6 @@ export class FieldOpenApiService {
 
     // Keep API response consistent with getField/getFields by filtering out meta
     return omit(newFieldVo, ['meta']) as IFieldVo;
-  }
-
-  /**
-   * Cross-space variant of convertField for Link fields only. Performs the
-   * same Link → SingleLineText conversion that convertField would, but skips
-   * two destructive steps inside `linkToOther`:
-   *
-   *  - `cleanForeignKey` (which would drop the junction/FK and break the
-   *    symmetric partner's read path)
-   *  - the symmetric-partner cascade delete (which would remove the partner
-   *    field outright in the other base)
-   *
-   * The result is that each Link field can be converted independently while
-   * preserving its own current display values. The orchestrator (moveBase)
-   * is expected to walk affected fields in deepest-first order so dependent
-   * lookup/rollup fields are already converted via the regular `convertField`
-   * path before any Link gets here — that's why `dependentFieldIds` is left
-   * empty.
-   *
-   * Returns the original link options so the orchestrator can call
-   * `cleanOrphanCrossSpaceLinkStorage` after every paired field has been
-   * converted, dropping the now-orphaned junction/FK in a single sweep.
-   *
-   * Not exposed via REST; called internally from base.service.ts.
-   */
-  async convertCrossSpaceLinkToText(
-    tableId: string,
-    fieldId: string
-  ): Promise<{ field: IFieldVo; oldLinkOptions: ILinkFieldOptions }> {
-    await this.assertTableWritable(tableId);
-    return this.prismaService.$tx(
-      async () => {
-        // Pass `options: {}` explicitly so stageAnalysis assigns the empty
-        // default to the new SingleLineText field. Without this the new field
-        // ends up with `options: null`, which crashes any UI/grid code that
-        // does `const { showAs } = field.options`.
-        const analysisResult = await this.fieldConvertingService.stageAnalysis(tableId, fieldId, {
-          type: FieldType.SingleLineText,
-          options: {},
-        });
-        const { newField, oldField } = analysisResult;
-        const oldLinkOptions = oldField.options as ILinkFieldOptions;
-
-        await this.performConvertField({
-          tableId,
-          newField,
-          oldField,
-          modifiedOps: analysisResult.modifiedOps,
-          supplementChange: analysisResult.supplementChange,
-          dependentFieldIds: [],
-          skipLinkDestructive: true,
-        });
-
-        const newFieldVo = instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
-        return {
-          field: omit(newFieldVo, ['meta']) as IFieldVo,
-          oldLinkOptions,
-        };
-      },
-      { timeout: this.thresholdConfig.bigTransactionTimeout }
-    );
-  }
-
-  /**
-   * Drops the junction table (M:N) or FK column (N:1 / 1:1 / one-way variants)
-   * that backed a previously-converted cross-space Link. Intended to run after
-   * every paired Link in a move has been converted via
-   * `convertCrossSpaceLinkToText`, since at that point no field references the
-   * junction/FK any more.
-   *
-   * Idempotent in the typical case where both sides of a symmetric pair pass
-   * options pointing at the same storage — callers should still dedupe by
-   * storage key to avoid second-call errors. Errors are propagated so the
-   * caller can decide whether to log-and-continue or fail.
-   */
-  async cleanOrphanCrossSpaceLinkStorage(options: ILinkFieldOptions): Promise<void> {
-    await this.fieldSupplementService.cleanForeignKey(options);
   }
 
   async getFilterLinkRecords(tableId: string, fieldId: string) {

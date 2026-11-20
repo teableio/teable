@@ -1,5 +1,6 @@
 import { Field } from '../../fields/Field';
 import { FieldType } from '../../fields/FieldType';
+import type { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
 import { FieldValueTypeVisitor } from '../../fields/visitors/FieldValueTypeVisitor';
 import { CheckboxConditionSpec } from './CheckboxConditionSpec';
 import { ConditionalLookupConditionSpec } from './ConditionalLookupConditionSpec';
@@ -124,12 +125,18 @@ export const conditionNullMatchForSpec = (
     return checkboxIsFalseNullMatch(value);
   }
 
-  // ConditionalLookup: numeric/date operators are dispatched as isEmpty in SQL.
-  if (
-    conditionSpec instanceof ConditionalLookupConditionSpec &&
-    ARRAY_LIKE_COMPARISON_OPS.has(operator)
-  ) {
-    return 'true';
+  // ConditionalLookup: numeric/date operators are dispatched as isEmpty in SQL,
+  // and checkbox-backed conditional lookups match CheckboxConditionSpec NULL semantics.
+  if (conditionSpec instanceof ConditionalLookupConditionSpec) {
+    if (ARRAY_LIKE_COMPARISON_OPS.has(operator)) {
+      return 'true';
+    }
+    if (operator === 'is' && field.type().equals(FieldType.conditionalLookup())) {
+      const innerResult = (field as ConditionalLookupField).innerField();
+      if (innerResult.isOk() && innerResult.value.type().equals(FieldType.checkbox())) {
+        return checkboxIsFalseNullMatch(value);
+      }
+    }
   }
 
   return conditionNullMatch(field, operator, value);

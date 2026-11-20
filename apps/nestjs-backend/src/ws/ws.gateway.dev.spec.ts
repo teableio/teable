@@ -137,6 +137,7 @@ describe('DevWsGateway', () => {
       expect(sockjs.default.createServer).toHaveBeenCalledWith({
         prefix: '/socket',
         transports: ['websocket', 'xhr-streaming'],
+        websocket: true,
         response_limit: 2 * 1024 * 1024,
         log: expect.any(Function),
         // negotiation and compression itself are covered by sockjs-options.spec.ts

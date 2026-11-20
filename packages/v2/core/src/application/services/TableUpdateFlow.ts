@@ -759,6 +759,17 @@ export class TableUpdateFlow {
           newVersion: versionChange.newVersion,
         });
       }
+      if (event instanceof ViewDeleted) {
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (event.oldVersion != null || !versionChange) return event;
+        return ViewDeleted.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          oldVersion: versionChange.oldVersion,
+        });
+      }
 
       if (event instanceof ViewRenamed) {
         if (event.oldVersion != null && event.newVersion != null) {

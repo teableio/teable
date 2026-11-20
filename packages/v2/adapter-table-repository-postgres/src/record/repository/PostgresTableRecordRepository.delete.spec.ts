@@ -25,6 +25,7 @@ import {
 } from 'kysely';
 import { describe, expect, it, vi } from 'vitest';
 
+import { getUndoCaptureBatchId, setUndoCaptureBatchId } from '../../shared/undoCapture';
 import type {
   ComputedFieldUpdater,
   ComputedUpdatePlanner,
@@ -43,28 +44,40 @@ import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 type RowProvider = (compiledQuery: CompiledQuery) => unknown[];
 
 type RecordingSessionState = {
+  inTransaction?: boolean;
   undoBatchId?: string;
+  txUndoBatchId?: string;
 };
 
 class RecordingConnection implements DatabaseConnection {
   constructor(
+    private readonly queries: CompiledQuery[],
     private readonly rowProvider?: RowProvider,
     private readonly sessionState: RecordingSessionState = {}
   ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+    this.queries.push(compiledQuery);
     if (compiledQuery.sql.includes("set_config('teable.undo_batch_id'")) {
       const batchId = compiledQuery.parameters[0];
-      this.sessionState.undoBatchId =
-        typeof batchId === 'string' && batchId.length > 0 ? batchId : undefined;
+      const isLocal = Boolean(compiledQuery.parameters[1]);
+      const normalized = typeof batchId === 'string' && batchId.length > 0 ? batchId : undefined;
+      if (this.sessionState.inTransaction) {
+        this.sessionState.txUndoBatchId = normalized;
+      } else if (!isLocal) {
+        this.sessionState.undoBatchId = normalized;
+      }
       return {
-        rows: [{ set_config: this.sessionState.undoBatchId ?? '' }] as R[],
+        rows: [{ set_config: normalized ?? '' }] as R[],
       };
     }
 
     if (compiledQuery.sql.includes("current_setting('teable.undo_batch_id', true)")) {
+      const active = this.sessionState.inTransaction
+        ? this.sessionState.txUndoBatchId
+        : this.sessionState.undoBatchId;
       return {
-        rows: [{ batch_id: this.sessionState.undoBatchId ?? null }] as R[],
+        rows: [{ batch_id: active ?? null }] as R[],
       };
     }
 
@@ -78,6 +91,7 @@ class RecordingConnection implements DatabaseConnection {
 }
 
 class RecordingDriver implements Driver {
+  readonly queries: CompiledQuery[] = [];
   private readonly sessionState: RecordingSessionState = {};
 
   constructor(private readonly rowProvider?: RowProvider) {}
@@ -87,18 +101,24 @@ class RecordingDriver implements Driver {
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.rowProvider, this.sessionState);
+    return new RecordingConnection(this.queries, this.rowProvider, this.sessionState);
   }
 
   async beginTransaction(): Promise<void> {
-    return undefined;
+    this.sessionState.inTransaction = true;
+    this.sessionState.txUndoBatchId = this.sessionState.undoBatchId;
   }
+
   async commitTransaction(): Promise<void> {
-    return undefined;
+    this.sessionState.inTransaction = false;
+    this.sessionState.txUndoBatchId = undefined;
   }
+
   async rollbackTransaction(): Promise<void> {
-    return undefined;
+    this.sessionState.inTransaction = false;
+    this.sessionState.txUndoBatchId = undefined;
   }
+
   async releaseConnection(): Promise<void> {
     return undefined;
   }
@@ -160,7 +180,7 @@ const createRecordingDb = (rowProvider?: RowProvider) => {
       createQueryCompiler: () => new PostgresQueryCompiler(),
     },
   });
-  return { db };
+  return { db, driver };
 };
 
 type MockLogger = ILogger & {
@@ -309,6 +329,109 @@ const ACTOR_ID = 'usr_test';
 // =============================================================================
 
 describe('PostgresTableRecordRepository.deleteMany', () => {
+  it('skips __undo_log capture and set_config when no outer undo batch is active', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const { db, driver } = createRecordingDb(
+      createSnapshotRowProvider(tableName, [{ __id: recordId.toString(), col_name: 'Alice' }])
+    );
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+    expect(driver.queries.some((q) => q.sql.includes('__undo_log'))).toBe(false);
+    expect(driver.queries.some((q) => q.sql.includes("set_config('teable.undo_batch_id'"))).toBe(
+      false
+    );
+  });
+
+  it('temporarily suspends an active outer undo batch id during DELETE and restores it', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const batchIdDuringDelete: Array<string | undefined> = [];
+    const baseProvider = createSnapshotRowProvider(tableName, [
+      { __id: recordId.toString(), col_name: 'Alice' },
+    ]);
+    const driverHolder: { driver?: RecordingDriver } = {};
+    const { db, driver } = createRecordingDb((q) => {
+      if (q.sql.startsWith('delete ') && q.sql.includes(`from ${tableName}`)) {
+        const lastSet = [...(driverHolder.driver?.queries ?? [])]
+          .reverse()
+          .find((entry) => entry.sql.includes("set_config('teable.undo_batch_id'"));
+        const raw = lastSet?.parameters[0];
+        batchIdDuringDelete.push(typeof raw === 'string' && raw.length > 0 ? raw : undefined);
+      }
+      return baseProvider(q);
+    });
+    driverHolder.driver = driver;
+
+    await setUndoCaptureBatchId(db, 'outer-batch', { local: false });
+    const repo = createRepository(db, table);
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+
+    expect(result.isOk()).toBe(true);
+    expect(batchIdDuringDelete).toEqual([undefined]);
+    expect(await getUndoCaptureBatchId(db)).toBe('outer-batch');
+  });
+
   it('maps required before-image values for delete propagation', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
@@ -560,5 +683,67 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
     }
 
     vi.useRealTimers();
+  });
+
+  it('surfaces SQL errors instead of 25P02 when DELETE fails under an active outer undo batch id', async () => {
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    table
+      .getField((field) => field.id().equals(nameFieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const specBuilder = TableRecord.specs('or');
+    specBuilder.recordId(recordId);
+    const deleteSpec = specBuilder.build()._unsafeUnwrap();
+
+    const tableName = `"bse${'a'.repeat(16)}"."tbl${'b'.repeat(16)}"`;
+    const baseProvider = createSnapshotRowProvider(tableName, [
+      { __id: recordId.toString(), col_name: 'Alice' },
+    ]);
+    let txAborted = false;
+    const { db } = createRecordingDb((q) => {
+      if (q.sql.startsWith('delete ') && q.sql.includes(`from ${tableName}`)) {
+        txAborted = true;
+        throw Object.assign(new Error('statement timeout'), { code: '57014' });
+      }
+      if (txAborted && q.sql.includes("set_config('teable.undo_batch_id'")) {
+        throw Object.assign(
+          new Error(
+            'current transaction is aborted, commands ignored until end of transaction block'
+          ),
+          { code: '25P02' }
+        );
+      }
+      return baseProvider(q);
+    });
+
+    await setUndoCaptureBatchId(db, 'outer-batch', { local: false });
+    const repo = createRepository(db, table);
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('statement timeout');
+    }
   });
 });

@@ -859,10 +859,12 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
             skipDistinctFilter: input.skipDistinctFilter,
             countChangedFieldsForVersion: fields.length > 1,
           });
-          yield* checkFormulaSqlBudget(compiled.sql, {
-            ...this.formulaCompileBudget,
-            mode: 'observe',
-          });
+          // Apply the fusion cap to each SQL statement, not to the outbox task's field set.
+          yield* checkFormulaSqlBudget(
+            compiled.sql,
+            { ...this.formulaCompileBudget, mode: 'observe' },
+            fields.length > 1 ? undefined : 0
+          );
 
           this.logger.debug('computed:backfillMany:sql', {
             tableId: input.table.id().toString(),

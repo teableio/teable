@@ -6,13 +6,18 @@ import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 describe('AggregationOpenApiService', () => {
   let service: AggregationOpenApiService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, AggregationOpenApiModule],
     }).compile();
 
     service = module.get<AggregationOpenApiService>(AggregationOpenApiService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

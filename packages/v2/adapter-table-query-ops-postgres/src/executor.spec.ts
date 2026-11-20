@@ -90,13 +90,17 @@ describe('PostgresTableQueryRemediationExecutor', () => {
   it('pins a reclaim drop to the candidate that completed its grace period', async () => {
     const table = {} as never;
     const reconcile = vi.fn().mockResolvedValue(ok({ action: 'dropped' }));
+    const lockedAt = new Date('2026-07-20T00:00:00.000Z');
     const task = TableQueryRemediationTask.createQueued({
       tableId: 'tblTqOpsText0000001',
       baseId: 'bseExample',
       kind: 'drop_search_access_path',
       payload: { trigger: 'reclaim', scopeKey: 'search:all' },
-      now: new Date('2026-07-20T00:00:00.000Z'),
-    })._unsafeUnwrap();
+      now: lockedAt,
+    })
+      ._unsafeUnwrap()
+      .start('reclaim-worker', lockedAt)
+      ._unsafeUnwrap();
     const executor = new PostgresTableQueryRemediationExecutor(
       {} as never,
       {} as never,
@@ -114,6 +118,8 @@ describe('PostgresTableQueryRemediationExecutor', () => {
       table,
       mode: 'drop',
       expectedDefinitionKey: 'search:all',
+      reclaim: true,
+      execution: { taskId: task.snapshot().id, workerId: 'reclaim-worker', lockedAt },
     });
   });
 });

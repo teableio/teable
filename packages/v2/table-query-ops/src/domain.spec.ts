@@ -103,6 +103,110 @@ describe('TableQueryRemediationTask ownership and cancellation', () => {
     expect(generic.start('replacement', now).isErr()).toBe(true);
   });
 
+  it('resumes reserved running reclamation without admitting a generic running drop', () => {
+    const snapshot = {
+      ...queued().snapshot(),
+      status: 'running' as const,
+      kind: 'drop_search_access_path' as const,
+      attempts: 3,
+      lockedAt: now,
+      lockedBy: 'replacement',
+      payload: { trigger: 'reclaim', scopeKey: 'retired' },
+    };
+    const recovered = TableQueryRemediationTask.rehydrate(snapshot)._unsafeUnwrap();
+    expect(recovered.start('replacement', now)._unsafeUnwrap().snapshot()).toMatchObject({
+      status: 'running',
+      attempts: 3,
+      lockedAt: now,
+      lockedBy: 'replacement',
+    });
+    expect(recovered.start('departed', now).isErr()).toBe(true);
+    expect(recovered.start('replacement', new Date(now.getTime() + 60_001)).isErr()).toBe(true);
+    expect(
+      TableQueryRemediationTask.rehydrate({
+        ...snapshot,
+        payload: { trigger: 'admin_search_access_path' },
+      })
+        ._unsafeUnwrap()
+        .start('replacement', now)
+        .isErr()
+    ).toBe(true);
+  });
+
+  it('refunds fresh retirement waits and resumes a charged last attempt without widening its budget', () => {
+    const task = TableQueryRemediationTask.rehydrate({
+      ...queued().snapshot(),
+      kind: 'drop_search_access_path',
+      payload: { trigger: 'reclaim', scopeKey: 'retired' },
+    })._unsafeUnwrap();
+    let waiting = task;
+    for (let round = 0; round < 4; round += 1) {
+      waiting = waiting
+        .start('owner', now)
+        ._unsafeUnwrap()
+        .deferMaintenance('Table lock unavailable', 0, now)
+        ._unsafeUnwrap();
+      expect(waiting.snapshot()).toMatchObject({
+        status: 'queued',
+        attempts: 0,
+        maxAttempts: 3,
+        resumeAttempt: false,
+      });
+    }
+    const recovered = TableQueryRemediationTask.rehydrate({
+      ...task.snapshot(),
+      status: 'running',
+      attempts: 3,
+      lockedAt: now,
+      lockedBy: 'owner',
+    })
+      ._unsafeUnwrap()
+      .start('owner', now)
+      ._unsafeUnwrap();
+    waiting = recovered.deferMaintenance('Table lock unavailable', 3, now)._unsafeUnwrap();
+    expect(waiting.snapshot()).toMatchObject({
+      status: 'queued',
+      attempts: 3,
+      maxAttempts: 3,
+      resumeAttempt: true,
+    });
+    expect(waiting.start('other', now).isErr()).toBe(true);
+    expect(waiting.start('owner', new Date(now.getTime() + 60_001)).isErr()).toBe(true);
+    const resumed = waiting.start('owner', now)._unsafeUnwrap();
+    expect(resumed.snapshot()).toMatchObject({
+      status: 'running',
+      attempts: 3,
+      resumeAttempt: false,
+    });
+    expect(resumed.fail('Permission denied', now)._unsafeUnwrap().start('owner', now).isErr()).toBe(
+      true
+    );
+    expect(recovered.deferMaintenance('Invalid count', 1, now).isErr()).toBe(true);
+    for (const replacement of [
+      { kind: 'create_search_access_path' as const, payload: { trigger: 'reclaim' } },
+      { kind: 'drop_search_access_path' as const, payload: { trigger: 'schema_change' } },
+      {
+        kind: 'drop_search_access_path' as const,
+        payload: { trigger: 'admin_search_access_path' },
+      },
+    ]) {
+      const invalid = TableQueryRemediationTask.rehydrate({
+        ...waiting.snapshot(),
+        ...replacement,
+      })._unsafeUnwrap();
+      expect(invalid.start('owner', now).isErr()).toBe(true);
+      expect(
+        TableQueryRemediationTask.rehydrate({
+          ...recovered.snapshot(),
+          ...replacement,
+        })
+          ._unsafeUnwrap()
+          .deferMaintenance('Invalid task', 3, now)
+          .isErr()
+      ).toBe(true);
+    }
+  });
+
   it('terminalizes a permanent failure without inventing attempts', () => {
     const running = queued().start('owner', now)._unsafeUnwrap();
     const terminal = running.fail('approved target changed', now, false)._unsafeUnwrap();
@@ -111,6 +215,22 @@ describe('TableQueryRemediationTask ownership and cancellation', () => {
     const retryable = running.fail('connection interrupted', now)._unsafeUnwrap();
     expect(retryable.snapshot()).toMatchObject({ status: 'failed', attempts: 1, maxAttempts: 3 });
     expect(retryable.start('owner', now)._unsafeUnwrap().snapshot().attempts).toBe(2);
+  });
+
+  it('clears a previous waiting error after maintenance succeeds', () => {
+    const waiting = TableQueryRemediationTask.rehydrate({
+      ...queued().snapshot(),
+      kind: 'rebuild_search_access_path',
+      payload: { trigger: 'schema_change' },
+      lastError: 'Search maintenance is waiting for its UTC maintenance window',
+    })._unsafeUnwrap();
+    const completed = waiting.start('owner', now)._unsafeUnwrap().succeed({ ready: true }, now);
+    expect(completed._unsafeUnwrap().snapshot()).toMatchObject({
+      status: 'succeeded',
+      attempts: 1,
+      result: { ready: true },
+      lastError: undefined,
+    });
   });
 
   it('uses the live reservation boundary and preserves history on cancellation', () => {

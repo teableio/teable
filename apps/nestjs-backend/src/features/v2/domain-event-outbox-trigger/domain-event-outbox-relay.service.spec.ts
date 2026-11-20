@@ -283,7 +283,15 @@ describe('DomainEventOutboxRelayService', () => {
 
   it('fails closed on cache errors without starving other targets or delivery', async () => {
     const relay = createRelay();
-    relay.cache.setnx.mockRejectedValueOnce(new Error('cache unavailable'));
+    const admit = relay.cache.setnx.getMockImplementation()!;
+    let unavailable = true;
+    relay.cache.setnx.mockImplementation(async (key, value, ttl) => {
+      if (key === 'lock:domain-event:maintenance:pace:meta-fallback' && unavailable) {
+        unavailable = false;
+        throw new Error('cache unavailable');
+      }
+      return admit(key, value, ttl);
+    });
     relay.service.onModuleInit();
 
     await vi.advanceTimersByTimeAsync(60_000);

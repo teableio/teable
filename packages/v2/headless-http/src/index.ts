@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { createV2HonoMiddleware } from '@teable/v2-contract-http-hono';
+import { createDataQueryFetchHandler } from '@teable/v2-contract-http-openapi';
 import { ActorId, type IExecutionContext, type IRealtimeEngine } from '@teable/v2-core';
 import type { IHeadlessRuntime } from '@teable/v2-headless-runtime';
 import { Hono } from 'hono';
@@ -158,6 +159,23 @@ export const createHeadlessHttpApp = <TRealtime extends IRealtimeEngine>(
     } catch {
       return c.json(internalErrorBody, 500);
     }
+  });
+
+  const queryPrefix = '/api/v2';
+  const dataQuery = createDataQueryFetchHandler({
+    service: runtime.dataQuery,
+    createExecutionContext: () => {
+      const context = storage.getStore();
+      if (!context) throw new Error('Headless execution context is missing');
+      return context;
+    },
+  });
+  app.use(`${queryPrefix}/queries/*`, async (c, next) => {
+    const url = new URL(c.req.url);
+    url.pathname = url.pathname.slice(queryPrefix.length);
+    const result = await dataQuery.handle(new Request(url, c.req.raw));
+    if (result.matched) return result.response;
+    return next();
   });
 
   app.use(

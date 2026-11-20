@@ -13,13 +13,18 @@ import { PluginService } from './plugin.service';
 
 describe('PluginService', () => {
   let service: PluginService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, PluginModule],
     }).compile();
 
     service = module.get<PluginService>(PluginService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

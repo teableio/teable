@@ -162,6 +162,55 @@ export const retireStageLedgerFrontierHead = async (
 };
 
 /**
+ * Retire queued frontier sources whose tables are neither inputs nor outputs of
+ * the active stage plan. When `preserveAsConsumed` is set, move them to
+ * `'consumed'` so deferred continuations can still collect them.
+ */
+export const retireIrrelevantStageLedgerFrontier = async (
+  db: Kysely<DynamicDB>,
+  scopeId: string,
+  relevantTableIds: ReadonlyArray<string>,
+  options?: { preserveAsConsumed?: boolean }
+): Promise<Result<number, DomainError>> => {
+  if (relevantTableIds.length === 0) return ok(0);
+  try {
+    const uniqueTableIds = [...new Set(relevantTableIds)];
+    const tableFilter = sql.join(uniqueTableIds.map((tableId) => sql`${tableId}`));
+    if (options?.preserveAsConsumed) {
+      const stageLedger = resolveTableSql(db, STAGE_LEDGER_TABLE);
+      const moved = await db.executeQuery(
+        sql<{ retired: string | number | bigint }>`
+          with moved as (
+            delete from ${stageLedger}
+            where scope_id = ${scopeId}
+              and kind = 'frontier'
+              and table_id not in (${tableFilter})
+            returning scope_id, table_id, record_id, seq
+          ),
+          preserved as (
+            insert into ${stageLedger} (scope_id, kind, table_id, record_id, seq)
+            select scope_id, 'consumed', table_id, record_id, seq
+            from moved
+            on conflict (scope_id, kind, table_id, record_id) do nothing
+          )
+          select count(*) as retired from moved
+        `.compile(db)
+      );
+      return ok(Number(moved.rows[0]?.retired ?? 0));
+    }
+    const result = await db
+      .deleteFrom(STAGE_LEDGER_TABLE)
+      .where('scope_id', '=', scopeId)
+      .where('kind', '=', 'frontier')
+      .where('table_id', 'not in', uniqueTableIds)
+      .executeTakeFirst();
+    return ok(Number(result.numDeletedRows ?? 0));
+  } catch (error) {
+    return err(infrastructureError('Failed to retire irrelevant stage ledger frontier', error));
+  }
+};
+
+/**
  * Push explicit seed groups onto the frontier queue HEAD (floor-entry seed
  * migration): they seed before older queue rows, preserving the pre-migration
  * ordering where explicit seeds were the batch's first sources.
@@ -239,7 +288,7 @@ export const appendStageLedgerPartialBatch = async (
   db: Kysely<DynamicDB>,
   scopeId: string,
   stepTableIds: ReadonlyArray<string>,
-  options: { appendFrontier: boolean }
+  options: { appendFrontier: boolean; frontierSourceTableIds?: ReadonlyArray<string> }
 ): Promise<
   Result<
     {
@@ -257,7 +306,13 @@ export const appendStageLedgerPartialBatch = async (
     const stageLedger = resolveTableSql(db, STAGE_LEDGER_TABLE);
     const tableFilter = sql.join(stepTableIds.map((tableId) => sql`${tableId}`));
     let newFrontierRows = 0;
-    if (options.appendFrontier) {
+    const frontierTableIds = options.frontierSourceTableIds
+      ? [...new Set(options.frontierSourceTableIds)].filter((tableId) =>
+          stepTableIds.includes(tableId)
+        )
+      : stepTableIds;
+    if (options.appendFrontier && frontierTableIds.length > 0) {
+      const frontierTableFilter = sql.join(frontierTableIds.map((tableId) => sql`${tableId}`));
       const frontier = await db.executeQuery(
         sql`
           insert into ${stageLedger} (scope_id, kind, table_id, record_id, seq)
@@ -267,7 +322,7 @@ export const appendStageLedgerPartialBatch = async (
               where scope_id = ${scopeId} and kind = 'frontier'
             ), 0) + row_number() over (order by d.table_id, d.record_id)
           from ${sql.table(DIRTY_TABLE)} as d
-          where d.table_id in (${tableFilter})
+          where d.table_id in (${frontierTableFilter})
             and not exists (
               select 1 from ${stageLedger} as l
               where l.scope_id = ${scopeId} and l.kind = 'excluded'
@@ -281,7 +336,7 @@ export const appendStageLedgerPartialBatch = async (
       // every generation. Rows already excluded were not newly appended sources.
       await sql`insert into ${stageLedger}(scope_id,kind,table_id,record_id)
         select ${scopeId},'rerun-source',d.table_id,d.record_id from ${sql.table(DIRTY_TABLE)} d
-        where d.table_id in (${tableFilter}) and not exists (
+        where d.table_id in (${frontierTableFilter}) and not exists (
           select 1 from ${stageLedger} l where l.scope_id=${scopeId} and l.kind='excluded'
             and l.table_id=d.table_id and l.record_id=d.record_id
         ) on conflict do nothing`.execute(db);
@@ -346,6 +401,8 @@ export const collectStageOutputSeedGroups = async (
     /** Only completed stages may substitute proven actual output rows. */
     valueFrontierFields?: ReadonlyArray<{ tableId: string; fieldIds: ReadonlyArray<string> }>;
     allowConsumedPruning?: boolean;
+    /** Input seed tables deferred out of this stage; preserve up to exactIdsTotalCap before seedAll fallback. */
+    carriedSourceTableIds?: ReadonlyArray<string>;
   }
 ): Promise<
   Result<
@@ -478,13 +535,19 @@ export const collectStageOutputSeedGroups = async (
       .map((row) => ({ tableId: String(row.table_id), count: Number(row.cnt) }))
       .filter((table) => table.count > 0);
 
+    const carriedSourceSet = new Set(options.carriedSourceTableIds ?? []);
+    const thresholdForTable = (tableId: string): number =>
+      carriedSourceSet.has(tableId)
+        ? Math.max(options.seedAllThreshold, options.exactIdsTotalCap)
+        : options.seedAllThreshold;
+
     const seedAllTableIds = tables
-      .filter((table) => table.count >= options.seedAllThreshold)
+      .filter((table) => table.count >= thresholdForTable(table.tableId))
       .map((table) => table.tableId);
     // Ascending count keeps the most tables in exact-id form under the cap;
     // the largest under-threshold tables convert to whole-table seeds first.
     const exactCandidates = tables
-      .filter((table) => table.count < options.seedAllThreshold)
+      .filter((table) => table.count < thresholdForTable(table.tableId))
       .sort((left, right) => left.count - right.count);
     const groups: Array<{ tableId: string; recordIds: string[] }> = [];
     let fetchedTotal = 0;

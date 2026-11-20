@@ -340,21 +340,15 @@ describe('Folder delete to trash (e2e)', () => {
     // The restore gave the table a new node.
     await deleteBaseNode(baseId, nodeOf(await nodes(), table.resourceId)!.id);
     const service = app.get(TrashService);
-    // The decision as the request made it, from the first entry, before the lock.
-    const spy = vi.spyOn(service, 'getRestoreTableV2Decision').mockResolvedValue({
-      useV2: true,
-      reason: 'env_force_v2_all',
-      baseId,
-      tableId: table.resourceId,
-    });
 
+    // The v2 restore, as the controller routes it, of the entry the request read.
     const error = await app
       .get<ClsService<IClsStore>>(ClsService)
-      .runWith({ user: { id: globalThis.testConfig.userId } } as unknown as IClsStore, () =>
-        service.restoreTrashV2(first.id)
+      .runWith(
+        { user: { id: globalThis.testConfig.userId }, useV2: true } as unknown as IClsStore,
+        () => service.restoreTrash(first.id)
       )
       .catch((e: { status?: number }) => e);
-    spy.mockRestore();
 
     expect((error as { status?: number }).status).toBe(404);
     expect(
@@ -371,10 +365,10 @@ describe('Folder delete to trash (e2e)', () => {
     ];
     await deleteBaseNode(baseId, folder.id);
     const entry = await trashEntry(await baseTrash(), folder.resourceId);
-    // On the prototype: the edition's TrashService, the one the routes use, extends this one.
+    // On the prototype: it reaches the instance the routes use, whichever module made it.
     const proto = TrashService.prototype as unknown as {
       getRestoreTableV2Decision: (...args: unknown[]) => Promise<unknown>;
-      restoreFolderItem: (...args: unknown[]) => Promise<unknown>;
+      restoreResource: (...args: unknown[]) => Promise<unknown>;
     };
     const decision = vi.spyOn(proto, 'getRestoreTableV2Decision').mockResolvedValue({
       useV2: true,
@@ -382,14 +376,16 @@ describe('Folder delete to trash (e2e)', () => {
       baseId,
       tableId: folder.resourceId,
     });
-    const restoreFolderItem = proto.restoreFolderItem;
+    const restoreResource = proto.restoreResource;
     let calls = 0;
-    const item = vi.spyOn(proto, 'restoreFolderItem').mockImplementation(async function (
+    const item = vi.spyOn(proto, 'restoreResource').mockImplementation(async function (
       this: unknown,
       ...args: unknown[]
     ) {
-      if (++calls > 1) throw new Error('restore failed');
-      return restoreFolderItem.apply(this, args);
+      // The folder entry itself comes through here first; its second table fails.
+      const [item] = args as [{ resourceType: TrashType }];
+      if (item.resourceType !== TrashType.Folder && ++calls > 1) throw new Error('restore failed');
+      return restoreResource.apply(this, args);
     });
 
     const error = await getError(() => restoreTrash(entry.id)).finally(() => {

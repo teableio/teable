@@ -37,6 +37,7 @@ import {
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
   AsyncMemoryEventBus,
+  BackgroundTaskTracker,
   DomainWriteTransaction,
   FieldCreated,
   FieldUpdated,
@@ -56,12 +57,14 @@ import {
   SameTxProjectionDispatcher,
   TableCreated,
   TargetedLegacyEventDispatcher,
+  ViewDeleted,
   compileDurableSubscriptionCatalog,
   recordProjectionCodecs,
   registerV2CoreServices,
   StaticTableDataSafetyLimitPlugin,
   TableDataSafetyLimitCommandBusMiddleware,
   v2CoreTokens,
+  viewDeletedProjectionCodec,
   type ICommandBusMiddleware,
   type IComputedOutboxAdmin,
   type IHasher,
@@ -157,6 +160,7 @@ export interface IV2NodePgContainerOptions {
       | 'observationBuffer'
       | 'observationDb'
       | 'observationDisabled'
+      | 'searchMaintenance'
       | 'observationPublisher'
       | 'observationReader'
       | 'observationSink'
@@ -269,6 +273,7 @@ const registerTableQueryOpsDependencies = async (
     dataDb,
     observationDb: tableQueryOps.observationDb,
     observationDisabled: tableQueryOps.observationDisabled,
+    searchMaintenance: tableQueryOps.searchMaintenance,
     observationPublisher: tableQueryOps.observationPublisher,
     observationReader: tableQueryOps.observationReader,
     observationSink: tableQueryOps.observationSink,
@@ -371,9 +376,11 @@ export const registerV2NodePgDependencies = async (
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
+  const backgroundTasks = new BackgroundTaskTracker();
   c.registerInstance(
     v2CoreTokens.eventBus,
     new AsyncMemoryEventBus(c, {
+      backgroundTasks,
       recordPublishedEvents: false,
       onError: ({ error, event, handlerName }) => {
         const eventName = event.name.toString();
@@ -397,11 +404,15 @@ export const registerV2NodePgDependencies = async (
     TableCreated,
     FieldCreated,
     FieldUpdated,
+    ViewDeleted,
   ]);
   if (catalogResult.isErr()) {
     throw new Error(catalogResult.error.message);
   }
-  const codecResult = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+  const codecResult = ProjectionMessageCodecRegistry.create([
+    ...recordProjectionCodecs,
+    viewDeletedProjectionCodec,
+  ]);
   if (codecResult.isErr()) {
     throw new Error(codecResult.error.message);
   }
@@ -421,6 +432,7 @@ export const registerV2NodePgDependencies = async (
       new TargetedLegacyEventDispatcher(c, logger),
       sameTxDispatcher,
       logger,
+      backgroundTasks,
       undefined,
       c.resolve(v2CoreTokens.eventBus),
       new NodeImportEventSpoolFactory()
@@ -570,8 +582,20 @@ export const createV2NodePgContainer = async (
   options: IV2NodePgContainerOptions = {}
 ): Promise<DependencyContainer> => {
   const c = container.createChildContainer();
-  await registerV2NodePgDependencies(c, options);
-  return c;
+  try {
+    await registerV2NodePgDependencies(c, options);
+    return c;
+  } catch (error) {
+    try {
+      await disposeV2NodePgContainer(c);
+    } catch (cleanupError) {
+      throw new Error(
+        `Failed to initialize PostgreSQL container; cleanup also failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+        { cause: error }
+      );
+    }
+    throw error;
+  }
 };
 
 const disposedContainers = new WeakSet<DependencyContainer>();

@@ -147,6 +147,7 @@ export interface IClsStore extends ClsStore {
   /** Scoped host preview work must not initialize schemas or promote background workers. */
   v2PreviewReadOnly?: boolean;
   interactiveQueryAbort?: AbortSignal;
+  requestAbortSignal?: AbortSignal;
   v2Reason?: IV2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check
   windowId?: string; // Window ID from x-window-id header for undo/redo tracking

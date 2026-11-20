@@ -46,7 +46,7 @@ import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { isLinkCellValue } from '../../calculation/utils/detect-link';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { ComputedOrchestratorService } from '../../record/computed/services/computed-orchestrator.service';
-import { TableIndexService } from '../../table/table-index.service';
+import { TableIndexService } from '../../table-index/table-index.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
@@ -1477,15 +1477,9 @@ export class FieldConvertingService {
   async deleteOrCreateSupplementLink(
     tableId: string,
     newField: IFieldInstance,
-    oldField: IFieldInstance,
-    skipDestructive?: boolean
+    oldField: IFieldInstance
   ) {
-    await this.fieldConvertingLinkService.deleteOrCreateSupplementLink(
-      tableId,
-      newField,
-      oldField,
-      skipDestructive
-    );
+    await this.fieldConvertingLinkService.deleteOrCreateSupplementLink(tableId, newField, oldField);
   }
 
   private needTempleCloseFieldConstraint(newField: IFieldInstance, oldField: IFieldInstance) {

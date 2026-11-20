@@ -209,7 +209,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
                     mode: preparation.mode,
                   });
                   if (preparation.mode === 'permanent') {
-                    yield* table.markDeleted();
+                    yield* table.markDeleted({ sourceState: preparation.sourceState });
                   } else {
                     yield* table.markTrashed();
                   }

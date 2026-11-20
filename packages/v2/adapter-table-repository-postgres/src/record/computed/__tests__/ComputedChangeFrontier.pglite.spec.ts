@@ -1,11 +1,29 @@
 import {
+  ActorId,
+  BaseId,
   CellValueMultiplicity,
   CellValueType,
+  DbFieldName,
+  DbTableName,
+  FieldId,
+  FieldName,
+  FormulaExpression,
   FormulaField,
   FormulaMeta,
+  LinkFieldConfig,
+  LookupOptions,
   RecordId,
+  Table,
+  TableId,
+  TableName,
+  domainError,
+  ok,
+  type ILogger,
+  type ITableRepository,
 } from '@teable/v2-core';
+import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import { sql } from 'kysely';
+import { err } from 'neverthrow';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPGliteDb } from '../../../schema/visitors/__tests__/helpers/createPGliteDb';
 import {
@@ -15,11 +33,12 @@ import {
   recordStageValueChanges,
   supportsValueFrontier,
 } from '../ComputedChangeFrontier';
-import type { StepChangeData } from '../ComputedFieldUpdater';
+import { ComputedFieldUpdater, type StepChangeData } from '../ComputedFieldUpdater';
 import {
   appendStageLedgerPartialBatch,
   collectStageOutputSeedGroups,
   clearStageLedger,
+  retireIrrelevantStageLedgerFrontier,
   retireStageLedgerFrontierHead,
   pushStageLedgerFrontierHead,
   seedStageLedgerFrontierHead,
@@ -418,5 +437,287 @@ describe.each(['public', 'frontier_internal'])('durable actual-value frontier in
     ).rejects.toThrow('retry');
     expect((await created.pglite.query(`SELECT * FROM ${frontierTable}`)).rows).toEqual([]);
     expect(await collectedIds()).toEqual(['rollback']);
+  });
+
+  it('retires irrelevant frontier tables while preserving relevant frontier and rerun-source rows', async () => {
+    const unrelatedTableId = 'tblzzzzzzzzzzzzzzzz';
+    (
+      await pushStageLedgerFrontierHead(created.db, scopeId, [
+        { tableId, recordIds: ['keep-a'] },
+        { tableId: unrelatedTableId, recordIds: ['drop-a'] },
+      ])
+    )._unsafeUnwrap();
+
+    const deletedCount = (
+      await retireIrrelevantStageLedgerFrontier(created.db, scopeId, [tableId], {
+        preserveAsConsumed: false,
+      })
+    )._unsafeUnwrap();
+    expect(deletedCount).toBe(1);
+
+    const remainingAfterDelete = await created.pglite.query<{
+      kind: string;
+      table_id: string;
+      record_id: string;
+    }>(`SELECT kind, table_id, record_id FROM ${ledgerTable} ORDER BY kind, table_id, record_id`);
+    expect(remainingAfterDelete.rows).toEqual([
+      { kind: 'frontier', table_id: tableId, record_id: 'keep-a' },
+      { kind: 'rerun-input-v1', table_id: '', record_id: '' },
+      { kind: 'rerun-source', table_id: tableId, record_id: 'keep-a' },
+      { kind: 'rerun-source', table_id: unrelatedTableId, record_id: 'drop-a' },
+    ]);
+
+    const secondUnrelated = 'tblzzzzzzzzzzzzzzzy';
+    (
+      await pushStageLedgerFrontierHead(created.db, scopeId, [
+        { tableId: secondUnrelated, recordIds: ['preserve-b'] },
+      ])
+    )._unsafeUnwrap();
+    const movedCount = (
+      await retireIrrelevantStageLedgerFrontier(created.db, scopeId, [tableId], {
+        preserveAsConsumed: true,
+      })
+    )._unsafeUnwrap();
+    expect(movedCount).toBe(1);
+
+    const collected = (
+      await collectStageOutputSeedGroups(created.db, scopeId, [secondUnrelated], {
+        seedAllThreshold: 100,
+        exactIdsTotalCap: 100,
+        includeConsumedSources: true,
+      })
+    )._unsafeUnwrap();
+    expect(collected.groups).toEqual([{ tableId: secondUnrelated, recordIds: ['preserve-b'] }]);
+  });
+
+  it('fast-forwards empty frontier slices in prepareDirtyState until a slice produces dirty outputs', async () => {
+    const baseIdStr = `bse${'f'.repeat(16)}`;
+    const ordersIdStr = `tbl${'g'.repeat(16)}`;
+    const customersIdStr = `tbl${'h'.repeat(16)}`;
+    const xIdStr = `fld${'j'.repeat(16)}`;
+    const roundedIdStr = `fld${'k'.repeat(16)}`;
+    const nameIdStr = `fld${'m'.repeat(16)}`;
+    const linkIdStr = `fld${'n'.repeat(16)}`;
+    const lookupIdStr = `fld${'p'.repeat(16)}`;
+    const fkCol = `__fk_${linkIdStr}`;
+
+    const baseId = BaseId.create(baseIdStr)._unsafeUnwrap();
+    const ordersId = TableId.create(ordersIdStr)._unsafeUnwrap();
+    const customersId = TableId.create(customersIdStr)._unsafeUnwrap();
+    const xId = FieldId.create(xIdStr)._unsafeUnwrap();
+    const roundedId = FieldId.create(roundedIdStr)._unsafeUnwrap();
+    const nameId = FieldId.create(nameIdStr)._unsafeUnwrap();
+    const linkId = FieldId.create(linkIdStr)._unsafeUnwrap();
+    const lookupId = FieldId.create(lookupIdStr)._unsafeUnwrap();
+
+    const ordersBuilder = Table.builder()
+      .withId(ordersId)
+      .withBaseId(baseId)
+      .withName(TableName.create('FastForwardOrders')._unsafeUnwrap())
+      .withDbTableName(DbTableName.rehydrate(`${baseIdStr}.${ordersIdStr}`)._unsafeUnwrap());
+    ordersBuilder
+      .field()
+      .number()
+      .withId(xId)
+      .withName(FieldName.create('X')._unsafeUnwrap())
+      .done();
+    ordersBuilder
+      .field()
+      .formula()
+      .withId(roundedId)
+      .withName(FieldName.create('Rounded')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create(`ROUND({${xIdStr}}, 0)`)._unsafeUnwrap())
+      .withResultType({
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      })
+      .done();
+    ordersBuilder.view().defaultGrid().done();
+    const orders = ordersBuilder.build()._unsafeUnwrap();
+    orders
+      .getField((f) => f.id().equals(xId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_x')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    orders
+      .getField((f) => f.id().equals(roundedId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_rounded')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: ordersIdStr,
+      lookupFieldId: xIdStr,
+      fkHostTableName: `${baseIdStr}.${customersIdStr}`,
+      selfKeyName: '__id',
+      foreignKeyName: fkCol,
+    })._unsafeUnwrap();
+    const lookupOptions = LookupOptions.create({
+      linkFieldId: linkIdStr,
+      lookupFieldId: roundedIdStr,
+      foreignTableId: ordersIdStr,
+    })._unsafeUnwrap();
+
+    const customersBuilder = Table.builder()
+      .withId(customersId)
+      .withBaseId(baseId)
+      .withName(TableName.create('FastForwardCustomers')._unsafeUnwrap())
+      .withDbTableName(DbTableName.rehydrate(`${baseIdStr}.${customersIdStr}`)._unsafeUnwrap());
+    customersBuilder
+      .field()
+      .singleLineText()
+      .withId(nameId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    customersBuilder
+      .field()
+      .link()
+      .withId(linkId)
+      .withName(FieldName.create('Order')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    customersBuilder
+      .field()
+      .lookup()
+      .withId(lookupId)
+      .withName(FieldName.create('RoundedLookup')._unsafeUnwrap())
+      .withLookupOptions(lookupOptions)
+      .withInnerField(orders.getField((f) => f.id().equals(roundedId))._unsafeUnwrap())
+      .done();
+    customersBuilder.view().defaultGrid().done();
+    const customers = customersBuilder.build()._unsafeUnwrap();
+    customers
+      .getField((f) => f.id().equals(nameId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    customers
+      .getField((f) => f.id().equals(linkId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
+      ._unsafeUnwrap();
+    customers
+      .getField((f) => f.id().equals(lookupId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate('col_lookup')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    await created.pglite.exec(`
+      CREATE SCHEMA IF NOT EXISTS "${baseIdStr}";
+      DROP TABLE IF EXISTS "${baseIdStr}"."${customersIdStr}";
+      DROP TABLE IF EXISTS "${baseIdStr}"."${ordersIdStr}";
+      CREATE TABLE "${baseIdStr}"."${ordersIdStr}" (
+        __id text PRIMARY KEY,
+        __version integer NOT NULL,
+        col_x double precision,
+        col_rounded double precision
+      );
+      CREATE TABLE "${baseIdStr}"."${customersIdStr}" (
+        __id text PRIMARY KEY,
+        __version integer NOT NULL,
+        col_name text,
+        col_link jsonb,
+        "${fkCol}" text,
+        col_lookup jsonb
+      );
+      INSERT INTO "${baseIdStr}"."${ordersIdStr}" VALUES
+        ('rec_ff_1', 1, 1.1, 1),
+        ('rec_ff_2', 1, 2.1, 2),
+        ('rec_ff_3', 1, 3.1, 3),
+        ('rec_ff_4', 1, 4.1, 4),
+        ('rec_ff_5', 1, 5.1, 5),
+        ('rec_ff_6', 1, 6.1, 6),
+        ('rec_ff_7', 1, 7.1, 7);
+      INSERT INTO "${baseIdStr}"."${customersIdStr}" VALUES
+        ('rec_cus_6', 1, 'c6', NULL, 'rec_ff_6', NULL);
+    `);
+
+    const logger: ILogger = {
+      child: () => logger,
+      scope: () => logger,
+      debug: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+      error: () => undefined,
+    };
+    const tableRepo: ITableRepository = {
+      insert: async () => err(domainError.notImplemented({ message: 'unused' })),
+      insertMany: async () => err(domainError.notImplemented({ message: 'unused' })),
+      findOne: async () => err(domainError.notImplemented({ message: 'unused' })),
+      find: async () => ok([orders, customers]),
+      updateOne: async () => err(domainError.notImplemented({ message: 'unused' })),
+      delete: async () => err(domainError.notImplemented({ message: 'unused' })),
+      restore: async () => err(domainError.notImplemented({ message: 'unused' })),
+    };
+
+    const scopeId = 'cuo_ff_prepare_1';
+    await sql`
+      insert into ${sql.table(ledgerTable)} (scope_id, kind, table_id, record_id, seq)
+      select ${scopeId}, 'frontier', ${ordersIdStr}, 'rec_ff_' || seq, seq
+      from generate_series(1, 7) as seeds(seq)
+    `.execute(created.db);
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: ordersId,
+      seedRecordIds: [],
+      extraSeedRecords: [],
+      changedFieldIds: [xId],
+      steps: [{ tableId: customersId, fieldIds: [lookupId], level: 0 }],
+      edges: [
+        {
+          fromTableId: ordersId,
+          toTableId: customersId,
+          fromFieldId: roundedId,
+          toFieldId: lookupId,
+          linkFieldId: linkId,
+          propagationMode: 'linkTraversal',
+          order: 0,
+        },
+      ],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    await created.db.transaction().execute(async (trx) => {
+      const updater = new ComputedFieldUpdater(
+        tableRepo,
+        logger,
+        trx,
+        undefined,
+        new Pg16TypeValidationStrategy()
+      );
+      const preparedResult = await updater.prepareDirtyState(
+        plan,
+        { actorId: ActorId.create('usr_ff_test')._unsafeUnwrap() },
+        {
+          maxDirtyRecords: 2,
+          dirtyBudgetMode: 'partial',
+          ledgerScopeId: scopeId,
+        }
+      );
+      if (preparedResult.isErr()) throw new Error(preparedResult.error.message);
+      const prepared = preparedResult._unsafeUnwrap();
+      expect(prepared.dirtyStats).toHaveLength(2);
+      expect(prepared.dirtyStats).toEqual(
+        expect.arrayContaining([
+          { tableId: ordersIdStr, recordCount: 1 },
+          { tableId: customersIdStr, recordCount: 1 },
+        ])
+      );
+      expect(prepared.propagationStats.dirtyBudget).toMatchObject({
+        status: 'partial',
+        frontierMaxSeq: '6',
+        frontierConsumed: 1,
+      });
+      const remaining = await sql<{ record_id: string }>`
+        select record_id from ${sql.table(ledgerTable)}
+        where scope_id = ${scopeId} and kind = 'frontier' order by seq
+      `.execute(trx);
+      expect(remaining.rows.map((row) => row.record_id)).toEqual(['rec_ff_6', 'rec_ff_7']);
+    });
   });
 });

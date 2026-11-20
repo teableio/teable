@@ -716,6 +716,82 @@ describe('ComputedUpdateWorker', () => {
       expect(maxSeeds).toBe(defaultComputedUpdateOutboxConfig.maxSeedRecordsPerTask);
       expect(splitComputedTaskForSeedRecordLimit(task, maxSeeds)).toEqual([]);
     });
+
+    it('never re-splits stage continuations across downstream levels', () => {
+      const seedRecordIds = Array.from(
+        { length: 12 },
+        (_, index) => `rec${index.toString().padStart(16, '0')}`
+      );
+      const linkEdges = [
+        {
+          fromFieldId: FIELD_ID,
+          toFieldId: FIELD_ID,
+          fromTableId: TABLE_ID,
+          toTableId: TABLE_ID,
+          linkFieldId: FIELD_ID,
+          propagationMode: 'linkTraversal' as const,
+          order: 0,
+        },
+      ];
+      const config = {
+        ...defaultComputedUpdateOutboxConfig,
+        maxConcurrentProcessingPerSeedTable: 4,
+      };
+
+      for (const override of [
+        { predecessorTaskId: 'cuo_parent_chunk_1', planHash: 'recomputed-without-chunk-marker' },
+        { stageDepth: 1, planHash: 'recomputed-without-chunk-marker' },
+        { planHash: 'abc123:run:cur123:stage:1:from:cuo123' },
+      ]) {
+        const continuation = createMockTask({
+          seedRecordIds,
+          edges: linkEdges,
+          dirtyStats: [{ tableId: TABLE_ID, recordCount: 3000 }],
+          ...override,
+        });
+        const maxSeeds = resolveEffectiveMaxSeedRecordsPerTask(continuation, config);
+        expect(maxSeeds).toBe(config.maxSeedRecordsPerTask);
+        expect(splitComputedTaskForSeedRecordLimit(continuation, maxSeeds)).toEqual([]);
+      }
+    });
+
+    it('keeps root fanout splitting enabled when host chunked write stamps orchestration.scope=chunk', () => {
+      const seedRecordIds = Array.from(
+        { length: 12 },
+        (_, index) => `rec${index.toString().padStart(16, '0')}`
+      );
+      const task = createMockTask({
+        seedRecordIds,
+        edges: [
+          {
+            fromFieldId: FIELD_ID,
+            toFieldId: FIELD_ID,
+            fromTableId: TABLE_ID,
+            toTableId: TABLE_ID,
+            linkFieldId: FIELD_ID,
+            propagationMode: 'linkTraversal' as const,
+            order: 0,
+          },
+        ],
+        dirtyStats: [{ tableId: TABLE_ID, recordCount: 3000 }],
+        orchestration: {
+          operationId: 'opr_1',
+          groupId: 'opr_1',
+          totalRecordCount: 12,
+          totalChunkCount: 2,
+          chunkIndex: 0,
+          scope: 'chunk' as const,
+        },
+      });
+      const config = {
+        ...defaultComputedUpdateOutboxConfig,
+        maxConcurrentProcessingPerSeedTable: 4,
+      };
+
+      const maxSeeds = resolveEffectiveMaxSeedRecordsPerTask(task, config);
+      expect(maxSeeds).toBe(config.fanoutSeedSplitMaxSeeds);
+      expect(splitComputedTaskForSeedRecordLimit(task, maxSeeds).length).toBeGreaterThan(1);
+    });
   });
 
   describe('runOnce', () => {

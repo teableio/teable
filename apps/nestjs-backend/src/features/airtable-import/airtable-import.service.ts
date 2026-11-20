@@ -46,7 +46,7 @@ import { BaseNodeService } from '../base-node/base-node.service';
 import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
-import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
+import { ViewOpenApiV2Service } from '../view/open-api/view-open-api-v2.service';
 import { AirtableApiClient, AirtableIteratorExpiredError } from './airtable-api.client';
 import { AirtableLinkRowSpill, type ISpilledLinkRow } from './airtable-link-spill';
 import {
@@ -72,6 +72,7 @@ import {
   mapAirtableFilter,
   mapAirtableViewConfig,
   type IImportFieldMeta,
+  type IMappedViewConfig,
   type IViewConfigMapperContext,
 } from './airtable-view-config-mapper';
 import type { IAirtableAttachment, IAirtableRecord, IAirtableTable } from './airtable.types';
@@ -128,7 +129,7 @@ export class AirtableImportService {
     private readonly tableOpenApiV2Service: TableOpenApiV2Service,
     private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
     private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
-    private readonly viewOpenApiService: ViewOpenApiService,
+    private readonly viewOpenApiV2Service: ViewOpenApiV2Service,
     private readonly attachmentsService: AttachmentsService,
     private readonly prismaService: PrismaService,
     private readonly aiService: AiService,
@@ -503,7 +504,7 @@ export class AirtableImportService {
       if (columnMetaRo.length === 0) continue;
       for (const viewId of viewIds) {
         try {
-          await this.viewOpenApiService.updateViewColumnMeta(
+          await this.viewOpenApiV2Service.updateColumnMeta(
             tableId,
             viewId,
             columnMetaRo as IColumnMetaRo
@@ -717,7 +718,7 @@ export class AirtableImportService {
 
   private async applyMappedViewConfig(
     target: IViewConfigTarget,
-    mapped: ReturnType<typeof mapAirtableViewConfig>,
+    mapped: IMappedViewConfig,
     issues: IImportAirtableIssue[]
   ) {
     const apply = async (label: string, run: () => Promise<unknown>) => {
@@ -738,39 +739,39 @@ export class AirtableImportService {
       }
     };
 
-    if (mapped.filter) {
-      await apply('filters', () =>
-        this.viewOpenApiService.setViewProperty(
+    if (mapped.columnMeta) {
+      await apply('column visibility and order', () =>
+        this.viewOpenApiV2Service.updateColumnMeta(
           target.tableId,
           target.teableViewId,
-          'filter',
-          mapped.filter
+          mapped.columnMeta!
         )
+      );
+    }
+    if (mapped.filter) {
+      await apply('filters', () =>
+        this.viewOpenApiV2Service.updateFilter(target.tableId, target.teableViewId, {
+          filter: mapped.filter!,
+        })
       );
     }
     if (mapped.sort) {
       await apply('sorting', () =>
-        this.viewOpenApiService.setViewProperty(
-          target.tableId,
-          target.teableViewId,
-          'sort',
-          mapped.sort
-        )
+        this.viewOpenApiV2Service.updateSort(target.tableId, target.teableViewId, {
+          sort: mapped.sort!,
+        })
       );
     }
     if (mapped.group) {
       await apply('grouping', () =>
-        this.viewOpenApiService.setViewProperty(
-          target.tableId,
-          target.teableViewId,
-          'group',
-          mapped.group
-        )
+        this.viewOpenApiV2Service.updateGroup(target.tableId, target.teableViewId, {
+          group: mapped.group!,
+        })
       );
     }
     if (mapped.options) {
       await apply('view options', () =>
-        this.viewOpenApiService.patchViewOptions(
+        this.viewOpenApiV2Service.updateOptions(
           target.tableId,
           target.teableViewId,
           mapped.options as IViewOptions

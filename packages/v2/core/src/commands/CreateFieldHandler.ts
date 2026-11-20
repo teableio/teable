@@ -24,6 +24,10 @@ import { ViewId } from '../domain/table/views/ViewId';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TeableSpanAttributes, createTeableSpanAttributes, type ISpan } from '../ports/Tracer';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -32,6 +36,7 @@ import type { ResolvedTableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { CreateFieldCommand } from './CreateFieldCommand';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
+import { withFieldCreationCoordination } from './withFieldCreationCoordination';
 
 export class CreateFieldResult {
   private constructor(
@@ -97,11 +102,25 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
-    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
+    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
   async handle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: CreateFieldCommand
+  ): Promise<Result<CreateFieldResult, DomainError>> {
+    return withFieldCreationCoordination(
+      context,
+      command.tableId,
+      this.tableSchemaCoordination,
+      () => this.execute(context, command)
+    );
+  }
+
+  private async execute(
     context: ExecutionContextPort.IExecutionContext,
     command: CreateFieldCommand
   ): Promise<Result<CreateFieldResult, DomainError>> {
@@ -127,15 +146,7 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
         spanAttrs
       );
       const tableSpec = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
-      const preloadedTable = command.preloadedTable;
-      let table =
-        preloadedTable?.baseId().toString() === command.baseId.toString() &&
-        preloadedTable.id().toString() === command.tableId.toString()
-          ? preloadedTable
-          : undefined;
-      if (!table) {
-        table = yield* await handler.tableRepository.findOne(context, tableSpec);
-      }
+      const table = yield* await handler.tableRepository.findOne(context, tableSpec);
       const domainContext = ExecutionContextPort.getDomainContext(context);
       const existingNames = table.getFields().map((field) => field.name().toString());
       const resolvedField = yield* await withCreateFieldSpan(

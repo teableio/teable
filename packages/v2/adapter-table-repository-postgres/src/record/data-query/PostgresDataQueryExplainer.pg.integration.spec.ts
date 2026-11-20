@@ -9,6 +9,7 @@ import {
   RecordQueryPluginRunner,
   TableId,
   type IRecordQueryPlugin,
+  type RecordQueryPluginScope,
   type ITablePersistenceDTO,
 } from '@teable/v2-core';
 import {
@@ -325,6 +326,129 @@ describePg('PostgresDataQueryExplainer (Postgres)', () => {
       expect(serialized).not.toContain('Index Cond');
       expect(serialized).not.toContain('Relation Name');
       expect(value).not.toHaveProperty('rows');
+    }
+  );
+
+  it.each([false, true])(
+    'explains scoped authenticated V7 continuations without exposing the signing key (relation=%s)',
+    async (relation) => {
+      const table = new DefaultTableMapper().toDomain(dto)._unsafeUnwrap();
+      const cursorSigningKey = 'explain-test-cursor-signing-key';
+      const visibleWhen = buildRecordConditionSpec(table, {
+        fieldId: titleId.toString(),
+        operator: 'contains',
+        value: 'common',
+      })._unsafeUnwrap();
+      const changedVisibility = buildRecordConditionSpec(table, {
+        fieldId: titleId.toString(),
+        operator: 'is',
+        value: 'rare',
+      })._unsafeUnwrap();
+      const scope: RecordQueryPluginScope = {
+        recordSpec: visibleWhen,
+        readableFieldIds: new Set([titleId.toString(), managerId]),
+        fieldMasks: [{ fieldId: titleId.toString(), visibleWhen }],
+      };
+      const definition = DataQueryDefinition.create({
+        version: 7,
+        kind: 'records',
+        tableId: tableId.toString(),
+        parameters: { after: { type: 'string' } },
+        select: [{ fieldId: titleId.toString(), alias: 'title' }],
+        sort: [{ fieldId: titleId.toString(), order: 'asc' }],
+        ...(relation
+          ? { relations: { manager: { linkFieldId: managerId, tableId: tableId.toString() } } }
+          : {}),
+        page: { limit: 1, after: { type: 'parameter', name: 'after' } },
+      })._unsafeUnwrap();
+      const binding = DataQueryRelationBinding.prepare(
+        definition,
+        table,
+        relation ? new Map([['manager', table]]) : new Map()
+      )._unsafeUnwrap();
+      const query = definition.bind({})._unsafeUnwrap();
+      const plan = {
+        query,
+        rootTable: table,
+        rootScope: scope,
+        sources: binding.sources.map((source) => ({
+          alias: source.alias,
+          table,
+          linkFieldId: source.linkFieldId,
+          scope,
+        })),
+        plan: binding.plan,
+      };
+      const executor = new PostgresDataQueryExecutor(db, { cursorSigningKey });
+      const first = (
+        await (relation
+          ? executor.executeRelation(context, plan)
+          : executor.execute(context, table, query, scope))
+      )._unsafeUnwrap();
+      expect(first.rows).toEqual([{ title: 'common' }]);
+      if (!first.page || !('nextCursor' in first.page) || !first.page.nextCursor)
+        throw new Error('Expected a signed continuation');
+      const continuation = definition.bind({ after: first.page.nextCursor })._unsafeUnwrap();
+      const captured: CapturedStatement[] = [];
+      const capturingDb = createCapturingDb(db.getExecutor(), captured);
+      try {
+        const explainer = new PostgresDataQueryExplainer(capturingDb, { cursorSigningKey });
+        const result = (
+          await (relation
+            ? explainer.explainRelation(context, { ...plan, query: continuation })
+            : explainer.explain(context, table, continuation, scope))
+        )._unsafeUnwrap();
+        expect(result.plan.mode).toBe('generic');
+        expect(result.hostScope.fieldMaskCount).toBe(relation ? 2 : 1);
+        expect(JSON.stringify(result)).not.toContain(cursorSigningKey);
+        expect(JSON.stringify(captured)).not.toContain(cursorSigningKey);
+        expect(businessReads(captured, 'explain_records')).toEqual([]);
+        const scopedExecutor = new PostgresDataQueryExecutor(capturingDb, { cursorSigningKey });
+        for (const changedScope of [
+          { ...scope, recordSpec: changedVisibility },
+          { ...scope, fieldMasks: [] },
+          { ...scope, readableFieldIds: undefined },
+        ]) {
+          const changedPlan = { ...plan, query: continuation, rootScope: changedScope };
+          const execution = await (relation
+            ? scopedExecutor.executeRelation(context, changedPlan)
+            : scopedExecutor.execute(context, table, continuation, changedScope));
+          expect(execution._unsafeUnwrapErr().code).toBe('data_query.invalid_cursor');
+          const explained = await (relation
+            ? explainer.explainRelation(context, changedPlan)
+            : explainer.explain(context, table, continuation, changedScope));
+          expect(explained._unsafeUnwrapErr().code).toBe('data_query.invalid_cursor');
+          if (relation) {
+            const changedSourcePlan = {
+              ...plan,
+              query: continuation,
+              sources: plan.sources.map((source) => ({ ...source, scope: changedScope })),
+            };
+            const sourceExecution = await scopedExecutor.executeRelation(
+              context,
+              changedSourcePlan
+            );
+            expect(sourceExecution._unsafeUnwrapErr().code).toBe('data_query.invalid_cursor');
+            const sourceExplain = await explainer.explainRelation(context, changedSourcePlan);
+            expect(sourceExplain._unsafeUnwrapErr().code).toBe('data_query.invalid_cursor');
+          }
+        }
+        expect(businessReads(captured, 'explain_records')).toEqual([]);
+        const wrongKey = new PostgresDataQueryExplainer(capturingDb, {
+          cursorSigningKey: 'wrong-explain-key',
+        });
+        const wrong = await (relation
+          ? wrongKey.explainRelation(context, { ...plan, query: continuation })
+          : wrongKey.explain(context, table, continuation, scope));
+        expect(wrong._unsafeUnwrapErr().code).toBe('data_query.invalid_cursor');
+        const unconfigured = new PostgresDataQueryExplainer(capturingDb);
+        const missing = await (relation
+          ? unconfigured.explainRelation(context, plan)
+          : unconfigured.explain(context, table, query, scope));
+        expect(missing._unsafeUnwrapErr().code).toBe('data_query.cursor_not_configured');
+      } finally {
+        await capturingDb.destroy();
+      }
     }
   );
 

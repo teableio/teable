@@ -3,10 +3,19 @@ import { DbFieldType, FieldType, HttpErrorCode } from '@teable/core';
 import { BaseDuplicateMode, type IBaseJson, type ImportBaseRo } from '@teable/openapi';
 import type { RestoreRecordInput } from '@teable/v2-core';
 import archiver from 'archiver';
+import {
+  DummyDriver,
+  Kysely,
+  PostgresAdapter,
+  PostgresIntrospector,
+  PostgresQueryCompiler,
+} from 'kysely';
 import { vi } from 'vitest';
 import { CustomHttpException } from '../../custom.exception';
 
-import { BaseImportService, formatBaseImportError } from './base-import.service';
+import { BaseImportService } from './base-import.service';
+import { BaseImportV2Service } from './base-import-v2.service';
+import { formatBaseImportError } from './base-import-contract';
 
 interface IRestoreRecordInputBuilder {
   toRestoreRecordInput(
@@ -34,7 +43,7 @@ interface IRestoreRecordInputBuilder {
 interface IProcessStructureService {
   processStructure(
     zipStream: Readable,
-    importBaseRo: Pick<ImportBaseRo, 'spaceId'>,
+    importBaseRo: Pick<ImportBaseRo, 'spaceId'> & Partial<Pick<ImportBaseRo, 'notify'>>,
     onProgress?: (...args: unknown[]) => void
   ): Promise<unknown>;
   createBaseStructure: ReturnType<typeof vi.fn>;
@@ -60,6 +69,7 @@ interface IImportBaseV2Service {
   importTableDataV2: ReturnType<typeof vi.fn>;
   importTableLinkFieldsV2: ReturnType<typeof vi.fn>;
   audit: unknown;
+  computed: { recomputeForTables: ReturnType<typeof vi.fn> };
   cls: unknown;
 }
 
@@ -70,7 +80,7 @@ const textCellValue = 'plain text';
 const importedBaseName = 'Imported base';
 
 const createService = () =>
-  Object.create(BaseImportService.prototype) as IRestoreRecordInputBuilder;
+  Object.create(BaseImportV2Service.prototype) as IRestoreRecordInputBuilder;
 
 const createZipStream = (structure: IBaseJson) => {
   const archive = archiver('zip', { zlib: { level: 0 } });
@@ -121,7 +131,7 @@ describe('BaseImportService', () => {
     it('rejects import before downloading files or opening a transaction when the space is migrating', async () => {
       const service = Object.create(BaseImportService.prototype) as {
         importBase: BaseImportService['importBase'];
-        importBaseV2: BaseImportService['importBaseV2'];
+        importBaseV2: BaseImportV2Service['importBaseV2'];
         audit: { withOperation: ReturnType<typeof vi.fn> };
         cls: { get: ReturnType<typeof vi.fn> };
         spaceDataDbMigrationGuard: { assertSpaceWritable: ReturnType<typeof vi.fn> };
@@ -144,7 +154,8 @@ describe('BaseImportService', () => {
       const onProgress = vi.fn();
 
       await expect(service.importBase(importRo, onProgress)).rejects.toBe(freezeError);
-      await expect(service.importBaseV2(importRo, onProgress)).rejects.toBe(freezeError);
+      const nativeService = Object.assign(Object.create(BaseImportV2Service.prototype), service);
+      await expect(nativeService.importBaseV2(importRo, onProgress)).rejects.toBe(freezeError);
 
       expect(service.spaceDataDbMigrationGuard.assertSpaceWritable).toHaveBeenCalledTimes(2);
       expect(service.spaceDataDbMigrationGuard.assertSpaceWritable).toHaveBeenCalledWith(
@@ -177,7 +188,10 @@ describe('BaseImportService', () => {
       service.createBaseStructure = vi.fn().mockResolvedValue(expectedResult);
 
       await expect(
-        service.processStructure(createZipStream(structure), { spaceId: 'spcImport' })
+        service.processStructure(createZipStream(structure), {
+          spaceId: 'spcImport',
+          notify: { path: 'imports/base.tea' },
+        })
       ).resolves.toBe(expectedResult);
 
       expect(service.createBaseStructure).toHaveBeenCalledWith(
@@ -298,7 +312,12 @@ describe('BaseImportService', () => {
       endlessTableData.write('id,name\n');
       archive.append(endlessTableData, { name: 'tables/tblA.csv' });
 
-      await expect(service.processStructure(archive, { spaceId: 'spcImport' })).resolves.toEqual({
+      await expect(
+        service.processStructure(archive, {
+          spaceId: 'spcImport',
+          notify: { path: 'imports/base.tea' },
+        })
+      ).resolves.toEqual({
         base: { id: 'bseImported' },
       });
       expect(archive.destroyed).toBe(true);
@@ -382,7 +401,7 @@ describe('BaseImportService', () => {
     } as Pick<ImportBaseRo, 'spaceId' | 'notify'>;
 
     const createPreviewService = (zipStream: Readable) => {
-      const service = Object.create(BaseImportService.prototype) as IPreviewImportBaseService;
+      const service = Object.create(BaseImportV2Service.prototype) as IPreviewImportBaseService;
       service.storageAdapter = { downloadFile: vi.fn().mockResolvedValue(zipStream) };
       return service;
     };
@@ -627,7 +646,7 @@ describe('BaseImportService', () => {
         nodes: [],
       } as unknown as IBaseJson;
       const importedBase = { id: 'bseImported', name: 'Source base', spaceId: 'spcImport' };
-      const service = Object.create(BaseImportService.prototype) as IImportBaseV2Service;
+      const service = Object.create(BaseImportV2Service.prototype) as IImportBaseV2Service;
 
       service.storageAdapter = {
         downloadFile: vi.fn().mockReturnValue({}),
@@ -644,6 +663,7 @@ describe('BaseImportService', () => {
       service.importAttachmentsV2 = vi.fn().mockResolvedValue(undefined);
       service.importTableDataV2 = vi.fn().mockResolvedValue(undefined);
       service.importTableLinkFieldsV2 = vi.fn().mockResolvedValue(undefined);
+      service.computed = { recomputeForTables: vi.fn().mockResolvedValue(undefined) };
       service.audit = {
         withOperation: vi.fn((_resolved, run: () => Promise<unknown>) => run()),
       };
@@ -704,7 +724,7 @@ describe('BaseImportService', () => {
         nodes: [],
       } as unknown as IBaseJson;
       const getContainerForSpace = vi.fn();
-      const service = Object.create(BaseImportService.prototype) as IImportBaseV2Service;
+      const service = Object.create(BaseImportV2Service.prototype) as IImportBaseV2Service;
 
       service.storageAdapter = {
         downloadFile: vi.fn().mockReturnValue({}),
@@ -728,6 +748,158 @@ describe('BaseImportService', () => {
 
       expect(getContainerForSpace).not.toHaveBeenCalled();
       expect(service.createBaseV2).not.toHaveBeenCalled();
+    });
+
+    it('emits computed_backfill_failed and includes base and table ids when computed backfill fails', async () => {
+      const tableIdMap = { tblSource1: 'tblDest1' };
+      const fieldIdMap = { fld1: 'fld2' };
+      const viewIdMap = { viw1: 'viw2' };
+      const commandBus = {
+        execute: vi.fn().mockResolvedValue({
+          isErr: () => false,
+          value: {
+            tableIdMap,
+            fieldIdMap,
+            viewIdMap,
+          },
+        }),
+      };
+      const db = {};
+      const context = {};
+      const container = {
+        resolve: vi.fn((token: unknown) => {
+          const tokenText = String(token);
+          if (tokenText.includes('commandBus')) return commandBus;
+          if (tokenText.includes('queryBus')) return {};
+          if (tokenText.includes('tableRecordRepository')) return {};
+          if (tokenText.includes('unitOfWork')) return {};
+          return db;
+        }),
+      };
+      const structure = {
+        id: 'bseSource',
+        name: 'Source base',
+        icon: 'icon',
+        tables: [{ id: 'tblSource1', name: 'Orders', fields: [], views: [] }],
+        plugins: {},
+        folders: [],
+        nodes: [],
+      } as unknown as IBaseJson;
+      const importedBase = { id: 'bseImported', name: 'Source base', spaceId: 'spcImport' };
+      const service = Object.create(BaseImportV2Service.prototype) as IImportBaseV2Service;
+
+      service.storageAdapter = {
+        downloadFile: vi.fn().mockReturnValue({}),
+      };
+      service.readDotTeaStructure = vi.fn().mockResolvedValue(structure);
+      service.v2ContainerService = {
+        getContainerForSpace: vi.fn().mockResolvedValue(container),
+      };
+      service.v2ContextFactory = {
+        createContext: vi.fn().mockResolvedValue(context),
+      };
+      service.createBaseV2 = vi.fn().mockResolvedValue(importedBase);
+      service.restoreBaseExtrasV2 = vi.fn().mockResolvedValue({});
+      service.importAttachmentsV2 = vi.fn().mockResolvedValue(undefined);
+      service.importTableDataV2 = vi.fn().mockResolvedValue(undefined);
+      service.importTableLinkFieldsV2 = vi.fn().mockResolvedValue(undefined);
+      service.computed = {
+        recomputeForTables: vi.fn().mockRejectedValue(new Error('statement timeout')),
+      };
+      service.audit = {
+        withOperation: vi.fn((_resolved, run: () => Promise<unknown>) => run()),
+      };
+      service.cls = {
+        get: vi.fn().mockReturnValue('usrImport'),
+      };
+      const onProgress = vi.fn();
+
+      let thrown: unknown;
+      try {
+        await service.importBaseV2(
+          {
+            spaceId: 'spcImport',
+            notify: { path: 'import.tea' } as ImportBaseRo['notify'],
+          },
+          onProgress
+        );
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(CustomHttpException);
+      expect(thrown).toMatchObject({
+        code: HttpErrorCode.INTERNAL_SERVER_ERROR,
+        data: {
+          baseId: 'bseImported',
+          affectedTableIds: ['tblDest1'],
+          affectedTables: [{ sourceTableId: 'tblSource1', tableId: 'tblDest1', name: 'Orders' }],
+        },
+      });
+      expect((thrown as Error).message).toContain('bseImported');
+      expect((thrown as Error).message).toContain('tblDest1');
+      expect((thrown as Error).message).toContain('statement timeout');
+      expect(onProgress).toHaveBeenCalledWith({
+        phase: 'computed_backfill_failed',
+        detail: expect.stringContaining('bseImported'),
+      });
+    });
+
+    it('preserves webp thumbnail keys and content-type via parseImportAttachmentEntryName', async () => {
+      const archive = archiver('zip', { zlib: { level: 0 } });
+      archive.append(Buffer.from('webp-bytes'), {
+        name: 'attachments/thumbnail__tok123_sm.webp.jpg',
+      });
+      archive.append(Buffer.from('bad-bytes'), {
+        name: 'attachments/thumbnail__../../etc/passwd.png',
+      });
+      void archive.finalize();
+
+      const uploadFileStream = vi.fn(
+        (_bucket: string, _path: string, stream: Readable) =>
+          new Promise<void>((resolve, reject) => {
+            stream.once('end', resolve);
+            stream.once('error', reject);
+            stream.resume();
+          })
+      );
+      const warn = vi.fn();
+      const service = Object.create(BaseImportV2Service.prototype) as unknown as {
+        storageAdapter: {
+          downloadFile: ReturnType<typeof vi.fn>;
+          uploadFileStream: typeof uploadFileStream;
+        };
+        logger: { warn: typeof warn };
+        importAttachmentFilesV2(db: Kysely<unknown>, path: string): Promise<void>;
+      };
+      service.storageAdapter = {
+        downloadFile: vi.fn().mockResolvedValue(archive),
+        uploadFileStream,
+      };
+      service.logger = { warn };
+
+      const db = new Kysely<unknown>({
+        dialect: {
+          createAdapter: () => new PostgresAdapter(),
+          createDriver: () => new DummyDriver(),
+          createIntrospector: (instance) => new PostgresIntrospector(instance),
+          createQueryCompiler: () => new PostgresQueryCompiler(),
+        },
+      });
+
+      await service.importAttachmentFilesV2(db, 'import.tea');
+
+      expect(uploadFileStream).toHaveBeenCalledTimes(1);
+      expect(uploadFileStream).toHaveBeenCalledWith(
+        expect.any(String),
+        'table/tok123_sm.webp',
+        expect.anything(),
+        {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'image/webp',
+        }
+      );
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('thumbnail__../../etc/passwd.png'));
     });
   });
 

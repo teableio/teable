@@ -8,14 +8,15 @@ import { BasePageRouter } from './BasePageRouter';
 export const BaseSideBar = (props: {
   renderWinFreeCredit?: (spaceId: string) => React.ReactNode;
   renderAnnouncementCard?: () => React.ReactNode;
+  moreItems?: React.ReactNode;
 }) => {
-  const { renderWinFreeCredit, renderAnnouncementCard } = props;
+  const { renderWinFreeCredit, renderAnnouncementCard, moreItems } = props;
   const base = useBase();
   const { project: templateProjectHost } = useContext(TemplateHostContext);
   return (
     <>
       {templateProjectHost?.renderSidebarBlock(base)}
-      <BasePageRouter />
+      <BasePageRouter moreItems={moreItems} />
       {/* <TableList /> */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <BaseNodeTree />

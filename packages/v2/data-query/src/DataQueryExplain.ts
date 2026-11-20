@@ -61,7 +61,7 @@ export interface DataQueryExplainTiming {
 }
 
 export interface DataQueryExplainResult {
-  /** Caller-authored statement with placeholders; host predicates are summarized below. */
+  /** Caller-authored exhaustive diagnostic statement; host predicates are summarized below. */
   readonly sql: string;
   readonly sqlScope: 'caller';
   readonly hostScope: DataQueryExplainHostScope;

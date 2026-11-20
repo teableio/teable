@@ -50,7 +50,7 @@ import type { DateFieldDto } from '../field/model/field-dto/date-field.dto';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
 import { RecordPermissionService } from '../record/record-permission.service';
 import { RecordService } from '../record/record.service';
-import { TableIndexService } from '../table/table-index.service';
+import { TableIndexService } from '../table-index/table-index.service';
 import type {
   IAggregationService,
   ICustomFieldStats,

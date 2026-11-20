@@ -27,6 +27,7 @@
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo",
     "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "test-unit": "vitest run --silent --bail 1",
     "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {

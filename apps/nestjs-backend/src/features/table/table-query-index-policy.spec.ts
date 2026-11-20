@@ -16,8 +16,8 @@ vi.mock('@sentry/nestjs', () => ({
   captureException: vi.fn(),
 }));
 
-import { IndexBuilderPostgres } from '../../db-provider/search-query/search-index-builder.postgres';
-import { TableIndexService } from './table-index.service';
+import { IndexBuilderPostgres } from '../table-index/search-index-builder.postgres';
+import { TableIndexService } from '../table-index/table-index.service';
 
 const tableId = 'tblQueryIndexPolicy';
 const dbTableName = 'bseQueryIndexPolicy.tblQueryIndexPolicy';
@@ -373,7 +373,7 @@ const createWorld = (input?: { policy?: ITableQueryIndexPolicyVo | null; fields?
     prismaService as never,
     databaseRouter as never,
     { bigTransactionTimeout: 5000 } as never,
-    { searchIndex: () => builder } as never,
+    builder,
     undefined,
     undefined,
     undefined

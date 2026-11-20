@@ -15,6 +15,90 @@ const request: ExecuteDataQueryRequest = {
 };
 
 describe('opt-in data query HTTP client', () => {
+  it.each([
+    { limit: 2, nextCursor: 'opaque-cursor+/=' },
+    { limit: 2, nextCursor: null },
+    { limit: 2, nextCursor: 'opaque-cursor+/=', total: 3 },
+    { limit: 2, nextCursor: null, total: 0 },
+  ])('transports V7 cursor parameters and preserves the page response %j', async (page) => {
+    const input: ExecuteDataQueryRequest = {
+      definition: {
+        version: 7,
+        kind: 'records',
+        tableId: request.definition.tableId,
+        select: [{ fieldId: `fld${'b'.repeat(16)}`, alias: 'title' }],
+        parameters: {
+          title: { type: 'string' },
+          cursor: { type: 'string' },
+          size: { type: 'number' },
+        },
+        page: {
+          limit: { type: 'parameter', name: 'size' },
+          after: { type: 'parameter', name: 'cursor' },
+          ...('total' in page ? { includeTotal: true } : {}),
+        },
+      },
+      parameters: { title: 'Visible order', size: 2, cursor: 'previous-cursor+/=' },
+    };
+    const body = { ok: true, data: { rows: [{ title: 'Visible order' }], page } };
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(body));
+    const client = createDataQueryHttpClient({ baseUrl: 'https://host/api/v2', fetch: fetcher });
+    expect(await client.execute(input)).toEqual(body);
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toEqual(input);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits the cursor parameter on the first V7 page without inventing an offset or total', async () => {
+    const input: ExecuteDataQueryRequest = {
+      definition: {
+        version: 7,
+        kind: 'records',
+        tableId: request.definition.tableId,
+        select: [{ system: 'id', alias: 'id' }],
+        parameters: { cursor: { type: 'string' } },
+        page: { limit: 1, after: { type: 'parameter', name: 'cursor' } },
+      },
+    };
+    const body = { ok: true, data: { rows: [], page: { limit: 1, nextCursor: null } } };
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(body));
+    const client = createDataQueryHttpClient({ baseUrl: 'https://host/api/v2', fetch: fetcher });
+    expect(await client.execute(input)).toEqual(body);
+    expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toEqual(input);
+  });
+
+  it.each([
+    { limit: 1 },
+    { limit: 1, nextCursor: 1 },
+    { limit: 1, nextCursor: null, offset: 0 },
+    { limit: 1, nextCursor: null, total: -1 },
+    { limit: 1, nextCursor: null, total: null },
+  ])('rejects malformed cursor page metadata %j', async (page) => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({ ok: true, data: { rows: [], page } })
+    );
+    const client = createDataQueryHttpClient({ baseUrl: 'https://host/api/v2', fetch: fetcher });
+    expect(await client.execute(request)).toMatchObject({
+      ok: false,
+      error: { code: 'data_query.invalid_response' },
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves invalid cursor errors without restarting pagination or falling back', async () => {
+    const body = {
+      ok: false,
+      error: {
+        code: 'data_query.invalid_cursor',
+        message: 'Invalid structured query cursor',
+        tags: ['validation'],
+      },
+    };
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(body, { status: 400 }));
+    const client = createDataQueryHttpClient({ baseUrl: 'https://host/api/v2', fetch: fetcher });
+    expect(await client.execute(request)).toEqual(body);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it('transports the canonical V6 records DISTINCT request without rewriting the tuple or later-page total', async () => {
     const input: ExecuteDataQueryRequest = {
       definition: {

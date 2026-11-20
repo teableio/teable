@@ -4490,6 +4490,9 @@ importers:
       '@teable/v2-contract-http-hono':
         specifier: workspace:*
         version: link:../contract-http-hono
+      '@teable/v2-contract-http-openapi':
+        specifier: workspace:*
+        version: link:../contract-http-openapi
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
@@ -4557,9 +4560,15 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
+      '@teable/v2-data-query':
+        specifier: workspace:*
+        version: link:../data-query
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
+      '@teable/v2-formula-sql-pg':
+        specifier: workspace:*
+        version: link:../formula-sql-pg
       '@teable/v2-import':
         specifier: workspace:*
         version: link:../import

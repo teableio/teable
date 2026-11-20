@@ -413,6 +413,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "Guardar y compartir consultas",
       "spaceCreate": "Crear espacio",
       "spaceDelete": "Eliminar espacio",
       "spaceRead": "Leer espacio",
@@ -1084,6 +1085,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Este campo de botón ya está vinculado a {{name}}[{{id}}] este proceso de automatización, por favor seleccione otro campo de botón",
+      "buttonTriggerFilterNotMatched": "Este registro no cumple las condiciones de activación de la automatización",
       "triggerNotFound": "La automatización debe tener un nodo disparador",
       "nodeNotFound": "{{nodeId}} nodo no encontrado",
       "triggerTestFailed": "Prueba de trigger falló, por favor verifica la configuración del trigger",
@@ -1742,7 +1744,8 @@
         "dnsMisconfigured": "Error al configurar el enlace de acceso: el DNS del dominio no está configurado correctamente"
       },
       "customDomainNotConfigured": "No hay ningún dominio personalizado configurado",
-      "vercelTokenNotConfigured": "El token de Vercel no está configurado en los ajustes de App Builder"
+      "vercelTokenNotConfigured": "El token de Vercel no está configurado en los ajustes de App Builder",
+      "deleteSandboxCloseFailed": "No se pudo cerrar el sandbox. No se eliminó nada, inténtalo de nuevo"
     },
     "reward": {
       "notFound": "Recompensa no encontrada",

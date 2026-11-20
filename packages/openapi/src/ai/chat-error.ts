@@ -15,6 +15,8 @@ export enum ChatErrorCode {
   SANDBOX_UNAVAILABLE = 'sandbox_unavailable',
   /** We shut the sandbox down on purpose (account deactivated, reset) while a reply ran on it. */
   SANDBOX_DESTROYED = 'sandbox_destroyed',
+  /** The sandbox ran out of memory and the kernel killed the agent engine while a reply ran on it. */
+  SANDBOX_OUT_OF_MEMORY = 'sandbox_out_of_memory',
 
   // Model errors
   MODEL_NOT_SUPPORTED = 'model_not_supported',

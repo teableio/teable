@@ -1,3 +1,4 @@
+import knex from 'knex';
 import { describe, expect, it, vi } from 'vitest';
 import { DatabaseViewService } from './database-view.service';
 
@@ -23,15 +24,18 @@ describe('DatabaseViewService', () => {
       generateDatabaseViewName: vi.fn().mockReturnValue('tblA_view'),
       refreshDatabaseView: vi.fn().mockReturnValue('refresh materialized view'),
     };
-    const recordQueryBuilderService = {
-      prepareView: vi.fn().mockResolvedValue({ qb: {} }),
+    const recordQueryPlanService = {
+      compileDatabaseView: vi.fn().mockResolvedValue({
+        sql: 'select * from "bseTest"."orders"',
+        parameters: [],
+      }),
     };
     const service = new DatabaseViewService(
       dbProvider as never,
-      recordQueryBuilderService as never,
+      knex({ client: 'pg' }),
       metaPrisma as never,
       databaseRouter as never,
-      {} as never
+      recordQueryPlanService as never
     );
 
     await service.createView({ id: 'tblA', dbTableName: 'bseTest.orders' } as never);

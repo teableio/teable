@@ -48,15 +48,29 @@ const canUseColumnMetaSnapshot = (
 const reserveViewColumnMetaRealtimeProjection = (
   scope: RealtimeProjectionScope,
   event: ViewColumnMetaUpdated
-): (() => void) | undefined => {
-  const key = `${event.baseId.toString()}:${event.tableId.toString()}:${event.viewId.toString()}`;
+): { previous?: Promise<void>; release: () => void } | undefined => {
+  const viewKey = `${event.baseId.toString()}:${event.tableId.toString()}:${event.viewId.toString()}`;
+  // A shared final snapshot can serve every event, but ShareDB still needs each
+  // persisted version, including later events that carry a frozen boundary change.
+  const key = `${viewKey}:${event.oldVersion ?? 'unversioned'}`;
   const pendingKeys = scope.viewColumnMetaRealtimePendingKeys;
-  if (pendingKeys.has(key)) {
-    return undefined;
-  }
+  if (pendingKeys.has(key)) return undefined;
   pendingKeys.add(key);
-  return () => {
-    pendingKeys.delete(key);
+  const previous = scope.viewColumnMetaRealtimeTails.get(viewKey);
+  let resolveCompletion!: () => void;
+  const completion = new Promise<void>((resolve) => {
+    resolveCompletion = resolve;
+  });
+  scope.viewColumnMetaRealtimeTails.set(viewKey, completion);
+  return {
+    previous,
+    release: () => {
+      pendingKeys.delete(key);
+      if (scope.viewColumnMetaRealtimeTails.get(viewKey) === completion) {
+        scope.viewColumnMetaRealtimeTails.delete(viewKey);
+      }
+      resolveCompletion();
+    },
   };
 };
 
@@ -79,8 +93,8 @@ export class ViewColumnMetaUpdatedRealtimeProjection implements IEventHandler<Vi
   ): Promise<Result<void, DomainError>> {
     const { realtimeEngine, tableRepository, tableMapper } = this;
     const projectionScope = getRealtimeProjectionScope(dispatchScope);
-    const releasePending = reserveViewColumnMetaRealtimeProjection(projectionScope, event);
-    if (!releasePending) {
+    const reservation = reserveViewColumnMetaRealtimeProjection(projectionScope, event);
+    if (!reservation) {
       return ok(undefined);
     }
 
@@ -90,6 +104,7 @@ export class ViewColumnMetaUpdatedRealtimeProjection implements IEventHandler<Vi
       (context, scope) =>
         safeTry(async function* () {
           try {
+            if (reservation.previous) await reservation.previous;
             const snapshot = yield* (
               await loadRealtimeTableSnapshot(context, {
                 baseId: event.baseId,
@@ -137,7 +152,7 @@ export class ViewColumnMetaUpdatedRealtimeProjection implements IEventHandler<Vi
                 value: viewDto.options,
               });
             }
-            return realtimeEngine.applyChange(
+            return await realtimeEngine.applyChange(
               context,
               viewDocId,
               withPersistedViewAuditChanges(viewDto, viewChanges),
@@ -146,7 +161,7 @@ export class ViewColumnMetaUpdatedRealtimeProjection implements IEventHandler<Vi
               }
             );
           } finally {
-            releasePending();
+            reservation.release();
           }
         }),
       projectionScope

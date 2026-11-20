@@ -21,6 +21,7 @@ import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
   listTableRecordsOkResponseSchema,
+  updateFieldOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
@@ -998,6 +999,202 @@ describe('[C14][S19] computed outbox recovery (e2e)', () => {
       expect(await pendingOutboxStatuses(owner)).toEqual([]);
     }
   }, 120_000);
+
+  it('backfills separate formula statements after a date field conversion exceeds the fusion budget', async () => {
+    let enforceReducedCteLimit = false;
+    const harness = await createHarness({
+      computedUpdate: {
+        mode: 'async',
+        fieldBackfillConfig: { mode: 'async' },
+      },
+      formulaCompileBudget: {
+        policyVersion: 1,
+        policy: {
+          check: (metric, attempted) =>
+            enforceReducedCteLimit && metric === 'materializedCtes' && attempted > 0
+              ? { metric, attempted, max: 0 }
+              : undefined,
+        },
+      },
+    });
+    const nameId = createFieldId();
+    const sourceDateId = createFieldId();
+    const convertedDateId = createFieldId();
+    const formattedDateId = createFieldId();
+    const firstOutputId = createFieldId();
+    const secondOutputId = createFieldId();
+    const formatted = `{${formattedDateId}}`;
+    const table = await createTable(harness, {
+      baseId: harness.baseId,
+      name: 'Formula backfill after date conversion',
+      fields: [
+        { type: 'singleLineText', id: nameId, name: 'Name', isPrimary: true },
+        { type: 'date', id: sourceDateId, name: 'Source date' },
+        { type: 'date', id: convertedDateId, name: 'Effective date' },
+        {
+          type: 'formula',
+          id: formattedDateId,
+          name: 'Formatted date',
+          options: {
+            expression: `DATETIME_FORMAT({${convertedDateId}}, "YYYY/MM/DD")`,
+            timeZone: 'UTC',
+          },
+        },
+        {
+          type: 'formula',
+          id: firstOutputId,
+          name: 'Encoded date',
+          options: {
+            expression: `IF(AND(LEN(${formatted}) > 0, LEFT(${formatted}, 1) = "2"), ENCODE_URL_COMPONENT(${formatted}), "")`,
+          },
+        },
+        {
+          type: 'formula',
+          id: secondOutputId,
+          name: 'Query parameter',
+          options: {
+            expression: `IF(FIND("/", ${formatted}) > 0, "date=" & ENCODE_URL_COMPONENT(${formatted}), "")`,
+          },
+        },
+      ],
+    });
+    const record = await createRecord(harness, table.id, {
+      [nameId]: 'Record',
+      [sourceDateId]: '2025-01-07T12:00:00.000Z',
+      [convertedDateId]: '2025-01-02T12:00:00.000Z',
+    });
+    await harness.testContainer.processOutbox();
+
+    expect(await listRecordsWithoutDrain(harness, table.id)).toMatchObject([
+      {
+        id: record.id,
+        fields: {
+          [firstOutputId]: '2025%2F01%2F02',
+          [secondOutputId]: 'date=2025%2F01%2F02',
+        },
+      },
+    ]);
+
+    const response = await fetch(`${harness.baseUrl}/tables/updateField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: table.id,
+        fieldId: convertedDateId,
+        field: {
+          type: 'formula',
+          options: { expression: `DATE_ADD({${sourceDateId}}, 1, "days")`, timeZone: 'UTC' },
+          updateMode: 'full',
+        },
+      }),
+    });
+    const body = await response.json();
+    expect(response.status, JSON.stringify(body)).toBe(200);
+    expect(updateFieldOkResponseSchema.parse(body).ok).toBe(true);
+
+    const db = harness.testContainer.db;
+    const tasks = await db
+      .selectFrom('computed_update_outbox')
+      .select('affected_field_ids')
+      .where('base_id', '=', harness.baseId)
+      .where('seed_table_id', '=', table.id)
+      .where('change_type', '=', 'field-backfill')
+      .execute();
+    expect(tasks.map((task) => [...task.affected_field_ids].sort())).toContainEqual(
+      [firstOutputId, secondOutputId].sort()
+    );
+
+    // A single URL encoder needs a materialized CTE. Lower the limit only once
+    // the conversion has queued the work, so initial record computation can finish.
+    enforceReducedCteLimit = true;
+    await harness.testContainer.processOutbox();
+    const deadLetters = await db
+      .selectFrom('computed_update_dead_letter')
+      .select('id')
+      .where('base_id', '=', harness.baseId)
+      .where('seed_table_id', '=', table.id)
+      .execute();
+    expect(deadLetters).toEqual([]);
+    expect(await pendingOutboxStatuses(harness)).toEqual([]);
+    expect(await listRecordsWithoutDrain(harness, table.id)).toMatchObject([
+      {
+        id: record.id,
+        fields: {
+          [firstOutputId]: '2025%2F01%2F08',
+          [secondOutputId]: 'date=2025%2F01%2F08',
+        },
+      },
+    ]);
+  }, 120_000);
+
+  it.each(['sync', 'async'] as const)(
+    'recomputes an admitted single-field formula on %s record writes above the fusion CTE limit',
+    async (mode) => {
+      const harness = await createHarness({
+        computedUpdate: { mode, fieldBackfillConfig: { mode: 'async' } },
+        formulaCompileBudget: {
+          policyVersion: 1,
+          policy: {
+            // Force the fusion limit below the CTE count of a single URL encoder.
+            check: (metric, attempted) =>
+              metric === 'materializedCtes' && attempted > 0
+                ? { metric, attempted, max: 0 }
+                : undefined,
+          },
+        },
+      });
+      const nameId = createFieldId();
+      const formulaId = createFieldId();
+      const table = await createTable(harness, {
+        baseId: harness.baseId,
+        name: 'Single formula above the fusion budget',
+        fields: [{ type: 'singleLineText', id: nameId, name: 'Name', isPrimary: true }],
+      });
+      const existing = await createRecord(harness, table.id, { [nameId]: 'initial/value' });
+      const response = await fetch(`${harness.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: harness.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            id: formulaId,
+            name: 'Encoded name',
+            options: { expression: `ENCODE_URL_COMPONENT({${nameId}})` },
+          },
+        }),
+      });
+      const body = await response.json();
+      expect(response.status, JSON.stringify(body)).toBe(200);
+      expect(createFieldOkResponseSchema.parse(body).ok).toBe(true);
+      await harness.testContainer.processOutbox();
+
+      const readFormula = async (recordId: string) => {
+        const rows = await listRecordsWithoutDrain(harness, table.id);
+        return rows.find((row) => row.id === recordId)?.fields[formulaId];
+      };
+      expect(await readFormula(existing.id)).toBe('initial%2Fvalue');
+
+      const created = await createRecord(harness, table.id, { [nameId]: 'new/value' });
+      if (mode === 'async') await harness.testContainer.processOutbox();
+      expect(await readFormula(created.id)).toBe('new%2Fvalue');
+
+      await updateRecord(harness, table.id, existing.id, { [nameId]: 'updated/value' });
+      if (mode === 'async') await harness.testContainer.processOutbox();
+      expect(await readFormula(existing.id)).toBe('updated%2Fvalue');
+
+      const deadLetters = await harness.testContainer.db
+        .selectFrom('computed_update_dead_letter')
+        .select('id')
+        .where('base_id', '=', harness.baseId)
+        .where('seed_table_id', '=', table.id)
+        .execute();
+      expect(deadLetters).toEqual([]);
+      expect(await pendingOutboxStatuses(harness)).toEqual([]);
+    },
+    120_000
+  );
 
   it.each(['before commit', 'after commit'] as const)(
     'recovers exact staged values after failure %s and duplicate continuation delivery',

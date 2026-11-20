@@ -16,7 +16,7 @@ import { v2TableOpsTokens, type TableSearchVectorStatus } from '@teable/v2-table
 import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import { TableIndexService } from './table-index.service';
+import { TableIndexService } from '../table-index/table-index.service';
 
 const tableId = 'tblSearchVectorTest';
 

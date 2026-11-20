@@ -306,6 +306,7 @@ export type ClaimBatchParams = {
   workerId: string;
   limit: number;
   now?: Date;
+  maxPreparationPages?: number;
 };
 
 export type EnqueueOrMergeOptions = {
@@ -365,6 +366,8 @@ export type ClaimByIdParams = {
   workerId: string;
   now?: Date;
   allowProcessingTakeover?: boolean;
+  /** Broker admissions commit one preparation page and re-arm the durable task. */
+  yieldAfterPreparation?: boolean;
 };
 
 export type OutboxTaskClaimEligibility =

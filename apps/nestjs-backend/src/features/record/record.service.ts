@@ -57,7 +57,7 @@ import type {
   IRecordStatusVo,
   IRecordsVo,
 } from '@teable/openapi';
-import { DEFAULT_MAX_SEARCH_FIELD_COUNT, GroupPointType, UploadType } from '@teable/openapi';
+import { DEFAULT_MAX_SEARCH_FIELD_COUNT, GroupPointType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { chunk, get, difference, keyBy, orderBy, uniq, uniqBy, toNumber } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -70,6 +70,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { RawOpType } from '../../share-db/interface';
+import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
 import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
@@ -77,21 +78,18 @@ import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { generateFilterItem } from '../../utils/filter';
 import { getTableThumbnailToken } from '../../utils/generate-thumbnail-path';
 import { Timing } from '../../utils/timing';
-import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
-import StorageAdapter from '../attachments/plugins/adapter';
+import { AttachmentCellValueService } from '../attachments/attachment-cell-value.service';
 import {
   getFreshPreviewCacheUrl,
   getPreviewCacheKey,
   getPublicFullStorageUrl,
 } from '../attachments/plugins/utils';
-import { resolveThumbnailMimetype } from '../attachments/utils';
-import { BatchService } from '../calculation/batch.service';
 import { DataLoaderService } from '../data-loader/data-loader.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
-import { TableIndexService } from '../table/table-index.service';
+import { TableIndexService } from '../table-index/table-index.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 import { RecordPermissionService } from './record-permission.service';
@@ -102,7 +100,6 @@ type IGeneratedColumnStateRow = {
   column_name: string;
   is_generated: string | null;
 };
-type IAttachmentCellValueLike = IAttachmentCellValue | IAttachmentCellValue[number];
 type IRecordsPresignedUrlContext = {
   tableId?: string;
   viewQueryDbTableName?: string;
@@ -144,7 +141,6 @@ export interface IRecordQueryInternalOptions {
 // Untraced host: hydrateSelectedUserCells — Host user-profile hydration, independent of the record engine.
 // Untraced host: creditCheck — Host row-credit policy; counts are annotated downstream.
 // Untraced host: invalidateAttachmentPresignedUrlCache — Host attachment URL cache invalidation.
-// Untraced host: getAttachmentPresignedCellValue — Host attachment URL signing and preview enrichment.
 @V1EngineService([
   'getAllRecordCount',
   'getDbValueMatrix',
@@ -188,10 +184,10 @@ export class RecordService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
-    private readonly batchService: BatchService,
+    private readonly rawOpStagingService: RawOpStagingService,
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
-    private readonly attachmentStorageService: AttachmentsStorageService,
+    private readonly attachmentCellValueService: AttachmentCellValueService,
     private readonly recordPermissionService: RecordPermissionService,
     private readonly tableIndexService: TableIndexService,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
@@ -1522,7 +1518,7 @@ export class RecordService {
       version: recordRawMap[recordId].version,
     }));
 
-    this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Record, dataList);
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Record, dataList);
 
     await this.batchDel(tableId, recordIds);
   }
@@ -1640,7 +1636,7 @@ export class RecordService {
       version: snapshot.__version == null ? 0 : snapshot.__version - 1,
     }));
 
-    this.batchService.saveRawOps(table.id, RawOpType.Create, IdPrefix.Record, dataList);
+    this.rawOpStagingService.saveRawOps(table.id, RawOpType.Create, IdPrefix.Record, dataList);
   }
 
   @Timing()
@@ -2025,7 +2021,9 @@ export class RecordService {
       if (field.type === FieldType.Attachment) {
         const fieldKey = field[fieldKeyType];
         for (const record of records) {
-          const cellValue = this.normalizeAttachmentCellValue(record.data.fields[fieldKey]);
+          const cellValue = this.attachmentCellValueService.normalizeAttachmentCellValue(
+            record.data.fields[fieldKey]
+          );
           if (cellValue == null) continue;
           cellValue.forEach((item) => {
             const { sm, lg } = thumbnailPathTokenMap[item.token] ?? {};
@@ -2063,7 +2061,9 @@ export class RecordService {
       if (field.type === FieldType.Attachment) {
         const fieldKey = field[fieldKeyType];
         for (const record of records) {
-          const cellValue = this.normalizeAttachmentCellValue(record.data.fields[fieldKey]);
+          const cellValue = this.attachmentCellValueService.normalizeAttachmentCellValue(
+            record.data.fields[fieldKey]
+          );
           if (cellValue == null) continue;
           cellValue.forEach((item) => {
             if (isImage(item.mimetype) || isPdf(item.mimetype)) {
@@ -2121,12 +2121,15 @@ export class RecordService {
         if (field.type === FieldType.Attachment) {
           const fieldKey = field[fieldKeyType];
           for (const record of records) {
-            const cellValue = this.normalizeAttachmentCellValue(record.data.fields[fieldKey]);
-            const presignedCellValue = await this.getAttachmentPresignedCellValue(
-              cellValue,
-              cacheTokenUrlMap,
-              thumbnailPathTokenMap
+            const cellValue = this.attachmentCellValueService.normalizeAttachmentCellValue(
+              record.data.fields[fieldKey]
             );
+            const presignedCellValue =
+              await this.attachmentCellValueService.getAttachmentPresignedCellValue(
+                cellValue,
+                cacheTokenUrlMap,
+                thumbnailPathTokenMap
+              );
             if (presignedCellValue == null) continue;
 
             record.data.fields[fieldKey] = presignedCellValue;
@@ -2138,14 +2141,6 @@ export class RecordService {
       this.captureRecordSnapshotPresignedUrlError(error, records, fields, fieldKeyType, context);
       throw error;
     }
-  }
-
-  private normalizeAttachmentCellValue(cellValue: unknown): IAttachmentCellValue | null {
-    if (cellValue == null) {
-      return null;
-    }
-
-    return Array.isArray(cellValue) ? cellValue : [cellValue as IAttachmentCellValue[number]];
   }
 
   private captureRecordSnapshotPresignedUrlError(
@@ -2256,63 +2251,6 @@ export class RecordService {
 
   async invalidateAttachmentPresignedUrlCache(tokens: string[]) {
     await Promise.all(tokens.map((token) => this.cacheService.del(getPreviewCacheKey(token))));
-  }
-
-  async getAttachmentPresignedCellValue(
-    cellValue: IAttachmentCellValueLike | null,
-    cacheTokenUrlMap?: Record<string, string>,
-    thumbnailPathTokenMap?: Record<string, { sm?: string; lg?: string } | undefined>
-  ) {
-    const normalizedCellValue = this.normalizeAttachmentCellValue(cellValue);
-    if (normalizedCellValue == null) {
-      return null;
-    }
-    return await Promise.all(
-      normalizedCellValue.map(async (item) => {
-        const { path, mimetype, token } = item;
-        const presignedUrl =
-          cacheTokenUrlMap?.[token] ??
-          (await this.attachmentStorageService.getPreviewUrlByPath(
-            StorageAdapter.getBucket(UploadType.Table),
-            path,
-            token,
-            undefined,
-            {
-              'Content-Type': mimetype,
-              'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(item.name)}`,
-            }
-          ));
-        let smThumbnailUrl: string | undefined;
-        let lgThumbnailUrl: string | undefined;
-        const isImg = isImage(mimetype);
-        if (thumbnailPathTokenMap?.[token]) {
-          const { sm: smThumbnailPath, lg: lgThumbnailPath } = thumbnailPathTokenMap[token]!;
-          if (smThumbnailPath) {
-            smThumbnailUrl =
-              cacheTokenUrlMap?.[getTableThumbnailToken(smThumbnailPath)] ??
-              (await this.attachmentStorageService.getTableThumbnailUrl(
-                smThumbnailPath,
-                resolveThumbnailMimetype(mimetype, smThumbnailPath)
-              ));
-          }
-          if (lgThumbnailPath) {
-            lgThumbnailUrl =
-              cacheTokenUrlMap?.[getTableThumbnailToken(lgThumbnailPath)] ??
-              (await this.attachmentStorageService.getTableThumbnailUrl(
-                lgThumbnailPath,
-                resolveThumbnailMimetype(mimetype, lgThumbnailPath)
-              ));
-          }
-        }
-
-        return {
-          ...item,
-          presignedUrl,
-          smThumbnailUrl: isImg ? smThumbnailUrl || presignedUrl : smThumbnailUrl,
-          lgThumbnailUrl: isImg ? lgThumbnailUrl || presignedUrl : lgThumbnailUrl,
-        };
-      })
-    );
   }
 
   private async getSnapshotBulkInner(
@@ -2904,19 +2842,31 @@ export class RecordService {
     recordIds: string[],
     filter?: IFilter | null
   ): Promise<string[]> {
-    const { queryBuilder, alias } = await this.buildFilterSortQuery(
-      tableId,
-      {
-        filter,
-      },
-      true
-    );
-    queryBuilder.whereIn(`${alias}.__id`, recordIds);
-    const result = await this.databaseRouter.queryDataPrismaForTable<{ __id: string }[]>(
-      tableId,
-      queryBuilder.toQuery()
-    );
-    return result.map((r) => r.__id);
+    if (!recordIds.length) {
+      return [];
+    }
+
+    const chunkSize = 2_000;
+    const matchedIds: string[] = [];
+    for (let offset = 0; offset < recordIds.length; offset += chunkSize) {
+      const sliceIds = recordIds.slice(offset, offset + chunkSize);
+      const { queryBuilder, alias } = await this.buildFilterSortQuery(
+        tableId,
+        {
+          filter,
+        },
+        true
+      );
+      queryBuilder.whereIn(`${alias}.__id`, sliceIds);
+      const result = await this.databaseRouter.queryDataPrismaForTable<{ __id: string }[]>(
+        tableId,
+        queryBuilder.toQuery()
+      );
+      for (const row of result) {
+        matchedIds.push(row.__id);
+      }
+    }
+    return matchedIds;
   }
 
   async getDiffIdsByIdAndFilter(tableId: string, recordIds: string[], filter?: IFilter | null) {
@@ -2968,7 +2918,9 @@ export class RecordService {
         let value = field.convertDBValue2CellValue(fieldValue);
 
         if (field.type === FieldType.Attachment) {
-          value = await this.getAttachmentPresignedCellValue(value as IAttachmentCellValue);
+          value = await this.attachmentCellValueService.getAttachmentPresignedCellValue(
+            value as IAttachmentCellValue
+          );
         }
 
         groupPoints.push({

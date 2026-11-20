@@ -119,9 +119,6 @@ export class ShareController {
   @Get('/:shareId/view')
   async getShareView(@Request() req?: any): Promise<ShareViewGetVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.getShareViewV2(shareInfo);
-    }
     return this.shareService.getShareView(shareInfo);
   }
 
@@ -138,9 +135,6 @@ export class ShareController {
     query?: IShareViewAggregationsRo
   ): Promise<IAggregationVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.getViewAggregationsV2(shareInfo, query);
-    }
     return this.shareService.getViewAggregations(shareInfo, query);
   }
 
@@ -157,9 +151,6 @@ export class ShareController {
     query?: IShareViewRowCountRo
   ): Promise<IRowCountVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.getViewRowCountV2(shareInfo, query);
-    }
     return this.shareService.getViewRowCount(shareInfo, query);
   }
 
@@ -176,9 +167,6 @@ export class ShareController {
     query?: IShareViewRecordsRo
   ): Promise<IRecordsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.getViewRecordsV2(shareInfo, query);
-    }
     return this.shareService.getViewRecords(shareInfo, query);
   }
 
@@ -207,9 +195,7 @@ export class ShareController {
     shareViewCopyRo: IShareViewCopyQuery
   ): Promise<ICopyVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    const result = req.useV2
-      ? await this.shareService.copyV2(shareInfo, shareViewCopyRo)
-      : await this.shareService.copy(shareInfo, shareViewCopyRo);
+    const result = await this.shareService.copy(shareInfo, shareViewCopyRo);
     // Bulk data leaves through a public link, often anonymously: one row per copy.
     await this.audit.emitAtomic({
       action: 'shared.view.copy',
@@ -237,9 +223,6 @@ export class ShareController {
     query?: IShareViewGroupPointsRo
   ): Promise<IGroupPointsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.getViewGroupPointsV2(shareInfo, query);
-    }
     return this.shareService.getViewGroupPoints(shareInfo, query);
   }
 
@@ -256,9 +239,6 @@ export class ShareController {
     query: IShareViewCalendarDailyCollectionRo
   ): Promise<ICalendarDailyCollectionVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.getViewCalendarDailyCollectionV2(shareInfo, query);
-    }
     return this.shareService.getViewCalendarDailyCollection(shareInfo, query);
   }
 
@@ -273,9 +253,6 @@ export class ShareController {
     shareViewLinkRecordsRo: IShareViewLinkRecordsRo
   ): Promise<IShareViewLinkRecordsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.getViewLinkRecordsV2(shareInfo, shareViewLinkRecordsRo);
-    }
     return this.shareService.getViewLinkRecords(shareInfo, shareViewLinkRecordsRo);
   }
 
@@ -288,9 +265,6 @@ export class ShareController {
     @Query(new ZodValidationPipe(shareViewCollaboratorsRoSchema)) query: IShareViewCollaboratorsRo
   ): Promise<IShareViewCollaboratorsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    if (req.useV2) {
-      return this.shareService.getViewCollaboratorsV2(shareInfo, query);
-    }
     return this.shareService.getViewCollaborators(shareInfo, query);
   }
 
@@ -309,9 +283,6 @@ export class ShareController {
       shareInfo.tableId,
       queryRo
     );
-    if (req.useV2) {
-      return this.shareService.getShareSearchCountV2(shareInfo, queryRo);
-    }
     return this.shareService.getShareSearchCount(shareInfo, queryRo);
   }
 
@@ -367,9 +338,6 @@ export class ShareController {
       shareInfo.tableId,
       queryRo
     );
-    if (req.useV2) {
-      return this.shareService.getShareSearchIndexV2(shareInfo, queryRo);
-    }
     return this.shareService.getShareSearchIndex(shareInfo, queryRo);
   }
 

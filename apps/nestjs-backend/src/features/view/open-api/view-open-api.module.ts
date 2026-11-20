@@ -8,7 +8,7 @@ import { ShortLinkModule } from '../../short-link/short-link.module';
 import { TableDomainQueryModule } from '../../table-domain';
 import { V2Module } from '../../v2/v2.module';
 import { ViewModule } from '../view.module';
-import { ViewOpenApiV2Service } from './view-open-api-v2.service';
+import { ViewOpenApiV2Module } from './view-open-api-v2.module';
 import { ViewOpenApiController } from './view-open-api.controller';
 import { ViewOpenApiService } from './view-open-api.service';
 
@@ -23,9 +23,10 @@ import { ViewOpenApiService } from './view-open-api.service';
     V2Module,
     CanaryModule,
     ShortLinkModule,
+    ViewOpenApiV2Module,
   ],
   controllers: [ViewOpenApiController],
-  providers: [ViewOpenApiService, ViewOpenApiV2Service],
-  exports: [ViewOpenApiService, ViewOpenApiV2Service],
+  providers: [ViewOpenApiService],
+  exports: [ViewOpenApiService, ViewOpenApiV2Module],
 })
 export class ViewOpenApiModule {}

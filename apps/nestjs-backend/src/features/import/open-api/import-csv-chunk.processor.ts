@@ -90,13 +90,18 @@ export const TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY = Math.max(
 );
 
 @Injectable()
-@Processor(TABLE_IMPORT_CSV_CHUNK_QUEUE, {
-  concurrency: TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY,
-  lockDuration: 600000,
-  lockRenewTime: 300000,
-  stalledInterval: 30000,
-  maxStalledCount: 2,
-})
+@Processor(
+  TABLE_IMPORT_CSV_CHUNK_QUEUE,
+  {
+    concurrency: TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY,
+    lockDuration: 600000,
+    lockRenewTime: 300000,
+    stalledInterval: 30000,
+    maxStalledCount: 2,
+  },
+  // Active chunk jobs enqueue CSV jobs and wait for their completion, including during shutdown.
+  [TABLE_IMPORT_CSV_QUEUE]
+)
 export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv-chunk';
 

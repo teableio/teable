@@ -6,13 +6,18 @@ import { ViewOpenApiService } from './view-open-api.service';
 
 describe('ViewOpenApiService', () => {
   let service: ViewOpenApiService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, ViewOpenApiModule],
     }).compile();
 
     service = module.get<ViewOpenApiService>(ViewOpenApiService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

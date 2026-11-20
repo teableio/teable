@@ -1,3 +1,5 @@
+import { types as nodeTypes } from 'node:util';
+
 import {
   ConditionalLookupField,
   isConditionalRollupField,
@@ -24,15 +26,58 @@ const physicalKeys: Readonly<Record<string, true>> = {
   orderColumnName: true,
   dbForeignTableName: true,
 };
-const canonical = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(canonical);
+type CursorSchemaState = { contract: unknown; isCanonical: boolean };
+
+// Array.map passes an index as its second argument, never cursor detection state.
+const canonicalEntry = (value: unknown): unknown => canonical(value);
+const canonical = (value: unknown, cursorState?: CursorSchemaState): unknown => {
+  if (Array.isArray(value)) {
+    if (!cursorState) return value.map(canonicalEntry);
+    // A custom map/species may produce state that needs the cursor's prototype handling.
+    let ordinaryArray = false;
+    try {
+      ordinaryArray =
+        !nodeTypes.isProxy(value) &&
+        Object.getPrototypeOf(value) === Array.prototype &&
+        !Object.hasOwn(value, 'constructor') &&
+        !Object.hasOwn(value, 'map');
+    } catch {
+      // Recognition is optional; proxy inspection must not reject otherwise bindable state.
+    }
+    if (!ordinaryArray) {
+      cursorState.isCanonical = false;
+      return value.map(canonicalEntry);
+    }
+    return value.map((entry) => canonical(entry, cursorState));
+  }
   if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value)
-        .filter(([key, child]) => !Object.hasOwn(physicalKeys, key) && child !== undefined)
-        .sort(([left], [right]) => (left < right ? -1 : left === right ? 0 : 1))
-        .map(([key, child]) => [key, canonical(child)])
-    );
+    const state: Record<string, unknown> = {};
+    const entries = Object.entries(value)
+      .filter(([key, child]) => !Object.hasOwn(physicalKeys, key) && child !== undefined)
+      .sort(([left], [right]) => (left < right ? -1 : left === right ? 0 : 1));
+    for (const [key, child] of entries) {
+      const result = canonical(child, cursorState);
+      if (key === '__proto__') {
+        Object.defineProperty(state, key, {
+          value: result,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
+      } else {
+        state[key] = result;
+      }
+    }
+    return state;
+  }
+  if (
+    cursorState &&
+    value !== null &&
+    typeof value !== 'string' &&
+    typeof value !== 'boolean' &&
+    !(typeof value === 'number' && Number.isFinite(value))
+  ) {
+    cursorState.isCanonical = false;
   }
   return value;
 };
@@ -62,13 +107,13 @@ const logicalFieldContract = (field: Field): Result<Record<string, unknown>, Dom
     });
   });
 
-/** Fingerprints the used logical field contracts, not unrelated metadata or stored values. */
-export const dataQuerySchemaSignature = async (
+const logicalSchemaContract = (
   plan: BoundDataQueryPlan,
   tables: ReadonlyMap<string, ITableReadModel>,
-  outputs: ReadonlyArray<DataQueryOutput>
-): Promise<Result<string, DomainError>> => {
-  const contract = safeTry(function* () {
+  outputs: ReadonlyArray<DataQueryOutput>,
+  cursorState?: CursorSchemaState
+): Result<unknown, DomainError> =>
+  safeTry(function* () {
     const fields: unknown[] = [];
     const usages = [...plan.usage].sort((left, right) =>
       left.source === right.source
@@ -87,55 +132,84 @@ export const dataQuerySchemaSignature = async (
       });
     }
     return ok(
-      canonical({
-        version: 1,
-        ...(plan.definitionVersion >= 3
-          ? {
-              definitionVersion: plan.definitionVersion,
-              formulaLanguage: plan.formulaLanguage,
-            }
-          : {}),
-        ...(plan.definitionVersion === 6 || plan.definitionVersion === 8
-          ? { resultGrain: plan.resultGrain }
-          : {}),
-        ...(plan.definitionVersion === 8
-          ? {
-              distinctAggregates: plan.aggregates
-                .filter((metric) => metric.distinctExpressions)
-                .map((metric) => ({
-                  alias: metric.alias,
-                  source: metric.source,
-                  keys: metric.distinctExpressions!.map((key) => ({
-                    formula: key.formula,
-                    recordSource: key.recordSource,
-                    timeZone: key.timeZone,
-                    references: Object.fromEntries(
-                      Object.entries(key.references).map(([alias, reference]) => [
-                        alias,
-                        reference.kind === 'field'
-                          ? {
-                              kind: reference.kind,
-                              source: reference.source,
-                              fieldId: reference.fieldId,
-                            }
-                          : reference.kind === 'system'
+      canonical(
+        {
+          version: 1,
+          ...(plan.definitionVersion >= 3
+            ? {
+                definitionVersion: plan.definitionVersion,
+                formulaLanguage: plan.formulaLanguage,
+              }
+            : {}),
+          ...(plan.definitionVersion >= 6 ? { resultGrain: plan.resultGrain } : {}),
+          ...(plan.definitionVersion === 9 ? { topN: plan.topN } : {}),
+          ...(plan.definitionVersion === 8
+            ? {
+                distinctAggregates: plan.aggregates
+                  .filter((metric) => metric.distinctExpressions)
+                  .map((metric) => ({
+                    alias: metric.alias,
+                    source: metric.source,
+                    keys: metric.distinctExpressions!.map((key) => ({
+                      formula: key.formula,
+                      recordSource: key.recordSource,
+                      timeZone: key.timeZone,
+                      references: Object.fromEntries(
+                        Object.entries(key.references).map(([alias, reference]) => [
+                          alias,
+                          reference.kind === 'field'
                             ? {
                                 kind: reference.kind,
                                 source: reference.source,
-                                system: reference.system,
+                                fieldId: reference.fieldId,
                               }
-                            : { kind: reference.kind, name: reference.name },
-                      ])
-                    ),
+                            : reference.kind === 'system'
+                              ? {
+                                  kind: reference.kind,
+                                  source: reference.source,
+                                  system: reference.system,
+                                }
+                              : { kind: reference.kind, name: reference.name },
+                        ])
+                      ),
+                    })),
                   })),
-                })),
-            }
-          : {}),
-        fields,
-        outputs,
-      })
+              }
+            : {}),
+          fields,
+          outputs,
+        },
+        cursorState
+      )
     );
   });
+
+/** Logical schema state shared by schema diagnostics and cursor invalidation. */
+export const dataQueryLogicalSchemaContract = (
+  plan: BoundDataQueryPlan,
+  tables: ReadonlyMap<string, ITableReadModel>,
+  outputs: ReadonlyArray<DataQueryOutput>
+): Result<unknown, DomainError> => logicalSchemaContract(plan, tables, outputs);
+
+/** Recognizes cursor-safe JSON while building the schema, without another traversal. */
+export const dataQueryCursorSchemaContract = (
+  plan: BoundDataQueryPlan,
+  tables: ReadonlyMap<string, ITableReadModel>
+): Result<{ contract: unknown; isCanonical: boolean }, DomainError> => {
+  const state: CursorSchemaState = { contract: undefined, isCanonical: true };
+  return logicalSchemaContract(plan, tables, [], state).map((contract) => {
+    state.contract = contract;
+    return state;
+  });
+};
+
+/** Fingerprints the used logical field contracts, not unrelated metadata or stored values. */
+export const dataQuerySchemaSignature = async (
+  plan: BoundDataQueryPlan,
+  tables: ReadonlyMap<string, ITableReadModel>,
+  outputs: ReadonlyArray<DataQueryOutput>
+): Promise<Result<string, DomainError>> => {
+  const contract = dataQueryLogicalSchemaContract(plan, tables, outputs);
   if (contract.isErr()) return err(contract.error);
   const digest = await globalThis.crypto.subtle.digest(
     'SHA-256',

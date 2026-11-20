@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { collectFilterLinkReferences } from '../domain/table/methods/viewFilterLinkReferences';
 import { Table } from '../domain/table/Table';
@@ -27,7 +28,9 @@ export class GetFieldFilterLinkRecordsHandler implements IQueryHandler<
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.logger)
-    private readonly logger: LoggerPort.ILogger
+    private readonly logger: LoggerPort.ILogger,
+    @inject(v2CoreTokens.recordQueryPluginRunner)
+    private readonly recordQueryPluginRunner: RecordQueryPluginRunner
   ) {}
 
   async handle(
@@ -84,7 +87,8 @@ export class GetFieldFilterLinkRecordsHandler implements IQueryHandler<
       context,
       this.tableRepository,
       this.tableRecordQueryRepository,
-      references
+      references,
+      this.recordQueryPluginRunner
     );
     if (groupsResult.isErr()) return err(groupsResult.error);
 

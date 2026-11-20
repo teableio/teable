@@ -71,6 +71,10 @@ export const createFieldExplainDryRunEnvironment = (input: {
     input.tableMapper ?? new DefaultTableMapper()
   );
   container.registerInstance(v2CoreTokens.tableUpdateFlow, tableUpdateFlow);
+  container.registerInstance(
+    v2CoreTokens.fieldOperationPluginRunner,
+    createNoopFieldOperationPluginRunner()
+  );
   container.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService);
   container.register(
     v2CoreTokens.fieldCrossTableUpdateSideEffectService,

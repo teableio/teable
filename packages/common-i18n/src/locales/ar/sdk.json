@@ -428,6 +428,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "حفظ الاستعلامات ومشاركتها",
       "spaceCreate": "إنشاء مساحة",
       "spaceDelete": "حذف مساحة",
       "spaceRead": "قراءة المساحة",
@@ -1099,6 +1100,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "حقل الزر هذا مرتبط بالفعل بعملية الأتمتة {{name}}[{{id}}]، يُرجى اختيار حقل زر آخر",
+      "buttonTriggerFilterNotMatched": "هذا السجل لا يستوفي شروط تشغيل الأتمتة",
       "triggerNotFound": "يجب أن تحتوي الأتمتة على عقدة مُشغِّل",
       "nodeNotFound": "العقدة {{nodeId}} غير موجودة",
       "triggerTestFailed": "فشل اختبار المُشغِّل، يُرجى التحقق من إعدادات المُشغِّل",
@@ -1757,7 +1759,8 @@
         "dnsMisconfigured": "فشل إعداد رابط الوصول: إعدادات DNS للنطاق غير صحيحة"
       },
       "customDomainNotConfigured": "لم يتم إعداد نطاق مخصص",
-      "vercelTokenNotConfigured": "رمز Vercel غير مُعدّ في إعدادات App Builder"
+      "vercelTokenNotConfigured": "رمز Vercel غير مُعدّ في إعدادات App Builder",
+      "deleteSandboxCloseFailed": "تعذّر إغلاق البيئة المعزولة. لم يُحذف أي شيء، حاول مرة أخرى"
     },
     "reward": {
       "notFound": "المكافأة غير موجودة",

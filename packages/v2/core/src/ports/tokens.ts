@@ -77,6 +77,7 @@ export const v2CoreTokens = {
   viewOperationPlugins: Symbol('v2.core.viewOperationPlugins'),
   viewPluginCreationService: Symbol('v2.core.viewPluginCreationService'),
   viewPluginRepository: Symbol('v2.core.viewPluginRepository'),
+  viewTrashSnapshotReader: Symbol('v2.core.viewTrashSnapshotReader'),
   tableDataSafetyLimitComposer: Symbol('v2.core.tableDataSafetyLimitComposer'),
   tableDataSafetyLimitPlugins: Symbol('v2.core.tableDataSafetyLimitPlugins'),
   tableMapper: Symbol('v2.core.tableMapper'),

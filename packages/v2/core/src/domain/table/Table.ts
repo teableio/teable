@@ -1044,7 +1044,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
     return this.viewsValue.map((v) => v.id());
   }
 
-  markDeleted(): Result<void, DomainError> {
+  markDeleted(options?: { sourceState?: 'active' | 'trashed' }): Result<void, DomainError> {
     this.addDomainEvent(
       TableDeleted.create({
         tableId: this.id(),
@@ -1052,6 +1052,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
         tableName: this.nameValue,
         fieldIds: this.fieldIds(),
         viewIds: this.viewIds(),
+        sourceState: options?.sourceState,
       })
     );
     return ok(undefined);

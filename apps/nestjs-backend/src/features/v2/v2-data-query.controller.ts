@@ -8,6 +8,7 @@ import type { Request, Response } from 'express';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { getBaseShareHeader, getShareViewHeader, getTemplateHeader } from '../auth/utils';
 import { V2DataQueryExceptionFilter } from './v2-data-query-http';
+import { ObserveDataQuery } from './v2-data-query-observability.interceptor';
 import { V2DataQueryService } from './v2-data-query.service';
 
 @ApiExcludeController()
@@ -18,6 +19,7 @@ export class V2DataQueryController {
 
   @Post('validate')
   @TokenAccess()
+  @ObserveDataQuery('validate')
   async validate(
     @Body() request: unknown,
     @Req() httpRequest: Request,
@@ -37,6 +39,7 @@ export class V2DataQueryController {
 
   @Post('execute')
   @TokenAccess()
+  @ObserveDataQuery('execute')
   async execute(
     @Body() request: unknown,
     @Req() httpRequest: Request,

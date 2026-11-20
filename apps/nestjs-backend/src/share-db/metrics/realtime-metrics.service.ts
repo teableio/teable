@@ -34,6 +34,9 @@ export class RealtimeMetricsService {
   private readonly connectionErrors = this.meter.createCounter('realtime.connections.errors', {
     description: 'Total number of WebSocket connection errors',
   });
+  private readonly idleClosesTotal = this.meter.createCounter('realtime.connections.idle_closed', {
+    description: 'Connections closed by the server after the client went silent',
+  });
   private readonly sessionsActive = this.meter.createUpDownCounter('realtime.sessions.active', {
     description: 'Number of active user sessions (deduplicated by user)',
   });
@@ -46,6 +49,10 @@ export class RealtimeMetricsService {
   recordConnectionClose(): void {
     this.connectionsActive.add(-1);
     this.disconnectsTotal.add(1);
+  }
+
+  recordIdleClose(): void {
+    this.idleClosesTotal.add(1);
   }
 
   recordConnectionError(): void {

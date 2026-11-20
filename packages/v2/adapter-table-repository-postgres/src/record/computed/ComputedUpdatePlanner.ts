@@ -79,6 +79,8 @@ export type PlanStageContext = {
   seedTableId: TableId;
   seedRecordIds: ReadonlyArray<RecordId>;
   extraSeedRecords: ReadonlyArray<ComputedSeedGroup>;
+  /** Parent links whose complete pre-delete membership was collected into extra seeds. */
+  capturedDeleteLinkFieldIds?: ReadonlyArray<string>;
   beforeImageRecords?: ReadonlyArray<ComputedBeforeImageRecord>;
   changedFieldIds: ReadonlyArray<FieldId>;
   changeType: 'insert' | 'update' | 'delete';
@@ -520,6 +522,12 @@ export class ComputedUpdatePlanner {
                     symmetricFieldId: meta.id.toString(),
                     // Keep the same junction table info (symmetric link uses the same junction)
                     fkHostTableName: meta.options?.fkHostTableName,
+                    ...(meta.options?.foreignKeyName
+                      ? { selfKeyName: meta.options.foreignKeyName }
+                      : {}),
+                    ...(meta.options?.selfKeyName
+                      ? { foreignKeyName: meta.options.selfKeyName }
+                      : {}),
                     // Reverse the relationship
                     relationship: reverseRelationship(meta.options?.relationship),
                   };
@@ -932,6 +940,9 @@ export class ComputedUpdatePlanner {
                   .filter((group) => group.recordIds.length > 0)
                   .map((group) => group.tableId.toString())
               ),
+              context.capturedDeleteLinkFieldIds?.length
+                ? new Set(context.capturedDeleteLinkFieldIds)
+                : undefined,
               impactSeedFieldIds,
               context.changeType,
               countSeedRecords(context.seedRecordIds, context.extraSeedRecords) > 0,
@@ -1721,6 +1732,7 @@ const buildPropagationEdges = (
   }>,
   seedTableId: TableId,
   extraSeedTableIds: ReadonlySet<string>,
+  capturedDeleteLinkFieldIds: ReadonlySet<string> | undefined,
   changedFieldIds: ReadonlyArray<FieldId>,
   changeType: 'insert' | 'update' | 'delete',
   hasSeedRecords: boolean,
@@ -1809,10 +1821,24 @@ const buildPropagationEdges = (
     if (
       changeType === 'delete' &&
       edge.fromTableId.equals(seedTableId) &&
-      !edge.toTableId.equals(seedTableId) &&
-      extraSeedTableIds.has(edge.toTableId.toString())
+      !edge.toTableId.equals(seedTableId)
     ) {
-      continue;
+      const lookup = meta.type === 'lookup' || meta.type === 'rollup' ? meta.lookupOptions : null;
+      const linkId = edge.linkFieldId?.toString() ?? lookup?.linkFieldId;
+      const link = lookup?.filterFieldIds?.length && linkId ? fieldsById.get(linkId) : undefined;
+      if (link?.options?.relationship === 'oneMany' && link.options.isOneWay !== true) {
+        // Different links can feed the same parent table. Only this link's capture
+        // proves that an empty parent set (or a chunk with no parents) is complete.
+        if (
+          link.tableId.equals(edge.toTableId) &&
+          link.options.foreignTableId === seedTableId.toString() &&
+          capturedDeleteLinkFieldIds?.has(link.id.toString())
+        ) {
+          continue;
+        }
+      } else if (extraSeedTableIds.has(edge.toTableId.toString())) {
+        continue;
+      }
     }
 
     const isConditionalField =
@@ -1853,10 +1879,11 @@ const buildPropagationEdges = (
         !seedTableRecomputesOwnConditional;
       const canUseBeforeImage =
         beforeImageRecords.length > 0 && edge.fromTableId.equals(seedTableId);
+      const sourceRowsDeleted = changeType === 'delete' && edge.fromTableId.equals(seedTableId);
       const requiresOldMatchTracking =
-        changeType === 'delete' ||
+        sourceRowsDeleted ||
         !filterFieldsInConditionalTables ||
-        (changeType === 'update' && filterFieldsChanged);
+        (changeType !== 'insert' && filterFieldsChanged);
       const isSameTableDelete =
         changeType === 'delete' &&
         edge.fromTableId.equals(seedTableId) &&
@@ -1977,18 +2004,19 @@ const buildPropagationEdges = (
       const filterFieldIds = new Set(lookupOptions?.filterFieldIds ?? []);
       const filterDto = lookupOptions?.filterDto;
 
-      // Filtered lookup/rollup fields are still bounded by the link relation itself:
-      // when a foreign record changes, only host records linked to that foreign record
-      // can be affected. For UPDATE we can therefore keep linkTraversal even when the
-      // changed field participates in the filter. DELETE remains conservative because
-      // some link layouts need the deleted source row to traverse precisely.
+      // Only sources on the mutation table may have disappeared. Downstream
+      // records survive and can still be traversed through their live links.
       if (filterFieldIds.size > 0) {
-        const filterFieldsChanged = [...filterFieldIds].some((id) => changedFieldIdSet.has(id));
+        const filterMayChange = [...filterFieldIds].some(
+          (id) => changedFieldIdSet.has(id) || computedFieldIds.has(id)
+        );
         const linkMeta = fieldsById.get(linkFieldId.toString());
         const canTraverseDelete =
-          linkMeta != null && canTraverseFilteredDeleteWithoutSourceRecord(linkMeta);
+          linkMeta != null &&
+          !edge.toTableId.equals(seedTableId) &&
+          canTraverseFilteredDeleteWithoutSourceRecord(linkMeta);
 
-        if (changeType === 'delete' && !canTraverseDelete) {
+        if (changeType === 'delete' && edge.fromTableId.equals(seedTableId) && !canTraverseDelete) {
           addPropagationEdge({
             fromFieldId: edge.fromFieldId,
             toFieldId: edge.toFieldId,
@@ -2002,7 +2030,7 @@ const buildPropagationEdges = (
           continue;
         }
 
-        // Filter fields not changed - use linkTraversal with filter
+        // Traverse both sides of a membership change, including filters computed by this plan.
         addPropagationEdge({
           fromFieldId: edge.fromFieldId,
           toFieldId: edge.toFieldId,
@@ -2011,7 +2039,7 @@ const buildPropagationEdges = (
           linkFieldId,
           propagationMode: 'linkTraversal',
           filterCondition:
-            !filterFieldsChanged && filterDto
+            changeType !== 'delete' && !filterMayChange && filterDto
               ? { foreignTableId: edge.fromTableId, filterDto }
               : undefined,
           order: levels.get(toId) ?? 0,
@@ -2168,11 +2196,27 @@ const reverseRelationship = (
 const canTraverseFilteredDeleteWithoutSourceRecord = (linkMeta: FieldMeta): boolean => {
   if (linkMeta.type !== 'link' || !linkMeta.options) return false;
 
-  const { relationship, isOneWay } = linkMeta.options;
-  return (
+  const { relationship, isOneWay, fkHostTableName, foreignKeyName, targetDbTableName } =
+    linkMeta.options;
+  if (
     relationship === 'manyMany' ||
     relationship === 'manyOne' ||
-    relationship === 'oneOne' ||
     (relationship === 'oneMany' && isOneWay === true)
-  );
+  ) {
+    return true;
+  }
+  if (relationship === 'oneOne') {
+    if (typeof foreignKeyName === 'string' && foreignKeyName.length > 0) {
+      return foreignKeyName !== '__id';
+    }
+    if (typeof fkHostTableName === 'string' && fkHostTableName.length > 0) {
+      if (typeof targetDbTableName === 'string' && targetDbTableName.length > 0) {
+        return fkHostTableName === targetDbTableName;
+      }
+      const targetTableKey = linkMeta.tableId.toString();
+      return fkHostTableName === targetTableKey || fkHostTableName.endsWith(`.${targetTableKey}`);
+    }
+    return isOneWay === true;
+  }
+  return false;
 };

@@ -41,6 +41,7 @@ export const baseActions = [
   'base|table_export',
   'base|authority_matrix_config',
   'base|query_data',
+  'base|save_query',
 ] as const;
 export const baseActionSchema = z.enum(baseActions);
 export type BaseAction = z.infer<typeof baseActionSchema>;

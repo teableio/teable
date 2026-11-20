@@ -430,6 +430,9 @@ const prepareSeedRerun = (
       ...(archived.beforeImageRecords !== undefined
         ? { beforeImageRecords: archived.beforeImageRecords }
         : {}),
+      ...(originalChangeType === 'delete' && Array.isArray(archived.capturedDeleteLinkFieldIds)
+        ? { capturedDeleteLinkFieldIds: archived.capturedDeleteLinkFieldIds }
+        : {}),
       ...(archived.cyclePolicy !== undefined ? { cyclePolicy: archived.cyclePolicy } : {}),
       ...(archived.orchestration !== undefined ? { orchestration: archived.orchestration } : {}),
       ...(traceCarrier ?? {}),

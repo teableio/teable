@@ -42,7 +42,7 @@ import type {
 } from './types';
 
 const distinctSortAlias = (
-  value: Extract<DataQueryDefinitionInput, { version: 6 | 8; kind: 'records' }>,
+  value: Extract<DataQueryDefinitionInput, { version: 6 | 7 | 8; kind: 'records' }>,
   target: Exclude<DataQuerySortResolved, { alias: string }>
 ): string | undefined => {
   const source = 'source' in target ? target.source : 'root';
@@ -498,6 +498,18 @@ const v6Schema = z.discriminatedUnion('kind', [
     .strict(),
   v5Schema.options[1].extend({ version: z.literal(6) }).strict(),
 ]);
+const v7Schema = v6Schema.options[0]
+  .extend({
+    version: z.literal(7),
+    page: z
+      .object({
+        limit: z.union([z.number().int().min(1).max(1000), referenceSchema]),
+        after: referenceSchema,
+        includeTotal: z.boolean().optional(),
+      })
+      .strict(),
+  })
+  .strict();
 const v8MetricSchema = z.union([
   v4MetricSchema,
   z
@@ -522,20 +534,44 @@ const v8Schema = z.discriminatedUnion('kind', [
     })
     .strict(),
 ]);
+const topNOrderSchema = z
+  .object({ alias: aliasSchema, order: orderSchema, nulls: sortNullsSchema.optional() })
+  .strict();
+const topNSchema = z
+  .object({
+    partitionBy: z.array(aliasSchema).min(1).max(8),
+    orderBy: z.array(topNOrderSchema).min(1).max(8),
+    limit: z.number().int().min(1).max(1000),
+  })
+  .strict()
+  .refine((value) => new Set(value.partitionBy).size === value.partitionBy.length)
+  .refine(
+    (value) => new Set(value.orderBy.map((item) => item.alias)).size === value.orderBy.length
+  );
+const v9Schema = v5Schema.options[0].extend({ version: z.literal(9), topN: topNSchema }).strict();
+export const dataQueryDefinitionSchema = z.union([
+  v1Schema,
+  v2Schema,
+  v3Schema,
+  v4Schema,
+  v5Schema,
+  v6Schema,
+  v7Schema,
+  v8Schema,
+  v9Schema,
+]);
+
 export const dataQueryDefinitionInputSchema: z.ZodType<
   DataQueryDefinitionInput,
   DataQueryDefinitionInput
-> = z.preprocess(
-  (raw: DataQueryDefinitionInput, context) => {
-    const bounded = validateDataQueryDefinitionInputBounds(raw);
-    if (bounded.isErr()) {
-      context.addIssue({ code: 'custom', message: bounded.error.message });
-      return z.NEVER;
-    }
-    return raw;
-  },
-  z.union([v1Schema, v2Schema, v3Schema, v4Schema, v5Schema, v6Schema, v8Schema])
-);
+> = z.preprocess((raw: DataQueryDefinitionInput, context) => {
+  const bounded = validateDataQueryDefinitionInputBounds(raw);
+  if (bounded.isErr()) {
+    context.addIssue({ code: 'custom', message: bounded.error.message });
+    return z.NEVER;
+  }
+  return raw;
+}, dataQueryDefinitionSchema);
 
 export const isParameterReference = (value: unknown): value is DataQueryParameterReference =>
   value !== null && typeof value === 'object' && 'type' in value && value.type === 'parameter';
@@ -678,6 +714,7 @@ export const dataQueryParameterUsage = (definition: DataQueryDefinitionInput): P
   for (const value of [definition.page?.limit, definition.page?.offset]) {
     if (isParameterReference(value)) record(value, false);
   }
+  if (definition.version === 7) record(definition.page.after, true);
   if (definition.kind === 'records' && isParameterReference(definition.recordId)) {
     record(definition.recordId, false);
   }
@@ -918,11 +955,11 @@ export const validateDataQueryDefinitionInputBounds = (raw: unknown): Result<voi
       return err(queryError('invalid_definition', 'Query definitions must contain plain data'));
     if (raw !== null && typeof raw === 'object') {
       const version = Object.getOwnPropertyDescriptor(raw, 'version')?.value;
-      if (typeof version === 'number' && ![1, 2, 3, 4, 5, 6, 8].includes(version))
+      if (typeof version === 'number' && ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(version))
         return err(
           queryError('unsupported_version', 'Structured query definition version is not supported')
         );
-      if (version === 3 || version === 4 || version === 5 || version === 6 || version === 8)
+      if (typeof version === 'number' && version >= 3 && version <= 9)
         return validateExpressionSyntaxBounds(raw);
     }
     return ok(undefined);
@@ -946,7 +983,8 @@ class BoundDataQueryValue implements BoundDataQuery {
     readonly sort: ReadonlyArray<DataQuerySortResolved>,
     readonly includeTotal: boolean,
     readonly recordId?: string,
-    readonly expressionParameters?: Readonly<Record<string, RecordFilterValue>>
+    readonly expressionParameters?: Readonly<Record<string, RecordFilterValue>>,
+    readonly cursor?: { readonly after?: string }
   ) {
     if (token !== boundQueryToken)
       throw new Error('Bound queries must be created by definition.bind');
@@ -954,6 +992,7 @@ class BoundDataQueryValue implements BoundDataQuery {
     freezeQueryValue(relationFilters);
     freezeQueryValue(sort);
     freezeQueryValue(expressionParameters);
+    freezeQueryValue(cursor);
     Object.freeze(this);
   }
 
@@ -1062,6 +1101,20 @@ const pageParameterReferences = (
         queryError('page_parameter', 'Pagination requires a non-nullable number parameter')
       );
     }
+  }
+  if (page?.after) {
+    references.push(page.after);
+    const parameter = parameters[page.after.name];
+    if (
+      parameter &&
+      (parameter.type !== 'string' || parameter.nullable || parameter.default !== undefined)
+    )
+      return err(
+        queryError(
+          'cursor_parameter',
+          'Cursor pagination requires a non-nullable string parameter without a default'
+        )
+      );
   }
   return ok(references);
 };
@@ -1265,7 +1318,7 @@ const validateDistinctSort = (
   sort: DataQuerySort
 ): Result<void, DomainError> => {
   if (
-    (value.version !== 6 && value.version !== 8) ||
+    (value.version !== 6 && value.version !== 7 && value.version !== 8) ||
     value.kind !== 'records' ||
     !value.distinct ||
     'alias' in sort
@@ -1441,7 +1494,14 @@ const validateRelations = (value: DataQueryDefinitionInput): Result<void, Domain
       return err(queryError('join_source_unknown', 'Existence requires a declared relation'));
     return ok(undefined);
   };
-  if ((value.version === 5 || value.version === 6 || value.version === 8) && value.filter) {
+  if (
+    (value.version === 5 ||
+      value.version === 6 ||
+      value.version === 7 ||
+      value.version === 8 ||
+      value.version === 9) &&
+    value.filter
+  ) {
     const result = validateExistence(value.filter);
     if (result.isErr()) return result;
   }
@@ -1589,6 +1649,21 @@ const aggregateParameterReferences = (
     return ok(references);
   });
 
+const validateTopN = (
+  value: DataQueryDefinitionInput,
+  aliases: ReadonlySet<string>
+): Result<void, DomainError> => {
+  if (value.version !== 9) return ok(undefined);
+  if (
+    value.topN.partitionBy.some((alias) => !aliases.has(alias)) ||
+    value.topN.orderBy.some(({ alias }) => !aliases.has(alias))
+  )
+    return err(queryError('top_n_alias', 'Top-N keys must reference selected output aliases'));
+  if (value.sort?.some((sort) => !('alias' in sort) || !aliases.has(sort.alias)))
+    return err(queryError('top_n_sort', 'Version 9 outer sorting must use selected aliases'));
+  return ok(undefined);
+};
+
 const validateDefinition = (value: DataQueryDefinitionInput): Result<void, DomainError> =>
   safeTry(function* () {
     const relations = validateRelations(value);
@@ -1597,9 +1672,11 @@ const validateDefinition = (value: DataQueryDefinitionInput): Result<void, Domai
     yield* validateDataQueryParameterDefaults(parameters);
     const outputs =
       value.kind === 'records' ? value.select : [...(value.groupBy ?? []), ...value.aggregates];
-    if (new Set(outputs.map((output) => output.alias)).size !== outputs.length) {
+    const aliases = new Set(outputs.map((output) => output.alias));
+    if (aliases.size !== outputs.length) {
       return err(queryError('duplicate_alias', 'Output aliases must be unique'));
     }
+    yield* validateTopN(value, aliases);
     if (value.kind === 'aggregate') {
       const invalidGroup = (value.groupBy ?? []).findIndex((group) => group.arrayDistinct === true);
       if (invalidGroup >= 0) {
@@ -1623,6 +1700,13 @@ const validateDefinition = (value: DataQueryDefinitionInput): Result<void, Domai
     if (references.some((reference) => !Object.hasOwn(parameters, reference.name))) {
       return err(queryError('unknown_parameter', 'Query references an undeclared parameter'));
     }
+    if (
+      value.version === 7 &&
+      references.filter((reference) => reference.name === value.page.after.name).length !== 1
+    )
+      return err(
+        queryError('cursor_parameter', 'The cursor parameter may only be used by page.after')
+      );
     yield* validateRecordIdParameter(value, parameters);
     return ok(undefined);
   });
@@ -1783,7 +1867,11 @@ const bindDistinctSorts = (
   value: DataQueryDefinitionInput,
   sort: DataQuerySortResolved[]
 ): Result<DataQuerySortResolved[], DomainError> => {
-  if ((value.version !== 6 && value.version !== 8) || value.kind !== 'records' || !value.distinct)
+  if (
+    (value.version !== 6 && value.version !== 7 && value.version !== 8) ||
+    value.kind !== 'records' ||
+    !value.distinct
+  )
     return ok(sort);
   for (let index = 0; index < sort.length; index++) {
     const item = sort[index]!;
@@ -1841,6 +1929,7 @@ const definitionPathKeys: Readonly<Record<string, true>> = {
   page: true,
   limit: true,
   offset: true,
+  after: true,
   includeTotal: true,
   sort: true,
   order: true,
@@ -1954,6 +2043,18 @@ const definitionIssuePath = (
   return best.length ? best.join('.') : undefined;
 };
 
+const bindCursor = (
+  value: DataQueryDefinitionInput,
+  parameters: ParameterValues
+): Result<string | undefined, DomainError> => {
+  if (value.version !== 7) return ok(undefined);
+  const after = parameters.get(value.page.after.name);
+  if (after === undefined) return ok(undefined);
+  return typeof after === 'string' && after.length > 0
+    ? ok(after)
+    : err(queryError('invalid_cursor', 'Invalid structured query cursor'));
+};
+
 export class DataQueryDefinition {
   private constructor(private readonly value: DataQueryDefinitionInput) {
     Object.freeze(this);
@@ -1985,6 +2086,11 @@ export class DataQueryDefinition {
     return structuredClone(this.value);
   }
 
+  /** The validated definition is deeply frozen; snapshot() returns an independent mutable copy. */
+  readonlySnapshot(): Readonly<DataQueryDefinitionInput> {
+    return this.value;
+  }
+
   bind(input: Readonly<Record<string, unknown>>): Result<BoundDataQuery, DomainError> {
     try {
       return safeTry(
@@ -1995,6 +2101,7 @@ export class DataQueryDefinition {
             dataQueryOptionalParameters(this.value)
           );
           const { limit, offset } = yield* bindPage(this.value.page, values);
+          const after = yield* bindCursor(this.value, values);
           // Undefined is absence (optional leaves/items are skipped); null stays an explicit value.
           const filter = yield* resolveDataQueryFilter(
             this.value.version === 1 || this.value.version === 2 ? this.value.filter : undefined,
@@ -2029,7 +2136,12 @@ export class DataQueryDefinition {
               sort,
               this.value.page?.includeTotal === true,
               recordId,
-              this.value.version >= 3 ? Object.fromEntries(values) : undefined
+              this.value.version >= 3 ? Object.fromEntries(values) : undefined,
+              this.value.version === 7
+                ? after === undefined
+                  ? {}
+                  : { after: after as string }
+                : undefined
             )
           );
         }.bind(this)

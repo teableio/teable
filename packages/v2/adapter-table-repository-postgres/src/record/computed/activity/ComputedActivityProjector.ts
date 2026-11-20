@@ -9,6 +9,7 @@ import {
   ComputedActivityBatchChanged,
   domainError,
   emptyComputeReliability,
+  sameComputeReliability,
   FieldId,
   getUnitOfWorkTransaction,
   registerAfterCommit,
@@ -37,6 +38,7 @@ import type {
   ComputedRuntimeConfig,
 } from '../../../config/runtimeConfig';
 import { defaultComputedRuntimeConfig } from '../../../config/runtimeConfig';
+import { resolveTableName } from '../../../shared/sqlIdentifiers';
 import { isComputedReliabilityVisible } from '../reliability/config';
 import { PostgresComputedReliabilityStore } from '../reliability/PostgresComputedReliabilityStore';
 import {
@@ -251,6 +253,43 @@ const storedActivityTargets = (
   }
   return ok(targets);
 };
+const hasNoVisibleReliabilityScope = async (trx: DbLike, tableId: string): Promise<boolean> => {
+  const scopeName = resolveTableName(trx, 'computed_reliability_scope');
+  // The parser resolves a FROM relation before evaluating a CASE. Inspect the
+  // catalog separately so an unmigrated database can finish this transaction.
+  const compatible = await sql<{ readable: boolean }>`select exists (
+    select 1 from parse_ident(${scopeName}) parts(name)
+    join pg_class c on c.relname = name[cardinality(name)]
+    join pg_namespace n on n.oid = c.relnamespace
+    join pg_attribute a on a.attrelid = c.oid and a.attname = 'table_id'
+    where ((cardinality(name) = 2 and n.nspname = name[1])
+        or (cardinality(name) = 1 and pg_table_is_visible(c.oid)))
+      and c.relkind in ('r','p') and not c.relrowsecurity and not c.relforcerowsecurity
+      and not a.attisdropped and a.atttypid = 'text'::regtype
+      and has_schema_privilege(n.oid,'USAGE') and has_table_privilege(c.oid,'SELECT')
+  ) as readable`.execute(trx);
+  if (!compatible.rows[0]?.readable) return false;
+  const result = await sql<{ no_scope: boolean }>`select not exists (
+    select 1 from ${sql.raw(scopeName)} s where s.table_id = ${tableId}
+  ) and exists (
+    select 1 from pg_class c where c.oid = to_regclass(${scopeName})
+      and c.relkind in ('r','p') and not c.relrowsecurity and not c.relforcerowsecurity
+  ) as no_scope`.execute(trx);
+  return result.rows[0]?.no_scope === true;
+};
+
+const reliabilitySyncWouldBeNoop = (
+  activity: ComputedActivity,
+  targets: ReadonlyArray<FieldComputeTarget & { baseId?: BaseId }>
+): boolean =>
+  targets.every((target) => {
+    const field = activity.getField(target.fieldId);
+    return Boolean(
+      field &&
+      field.status().toString() !== 'failed' &&
+      sameComputeReliability(field.reliability(), emptyComputeReliability())
+    );
+  });
 
 @injectable()
 export class ComputedActivityProjector implements IComputedActivityProjector {
@@ -826,6 +865,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         const activityResult = await this.loadActivity(trx, loadTargets);
         if (activityResult.isErr()) return err(activityResult.error);
         const activity = activityResult.value;
+        let readiness: Promise<boolean> | undefined;
+        const isReady = () =>
+          (readiness ??= new PostgresComputedReliabilityStore(trx).isReady('projection'));
 
         if (params.enqueued && newEnqueuedTargets.length > 0 && enqueuedBaseId) {
           activity.noteEnqueueMetrics({
@@ -841,7 +883,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
             trx,
             activity,
             newEnqueuedTargets,
-            now
+            now,
+            undefined,
+            isReady
           );
           if (synced.isErr()) return err(synced.error);
         }
@@ -851,7 +895,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
             trx,
             activity,
             externalClaimedTargets,
-            now
+            now,
+            undefined,
+            isReady
           );
           if (synced.isErr()) return err(synced.error);
         }
@@ -875,7 +921,9 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
             trx,
             activity,
             [...doneTargets, ...errorTargets],
-            now
+            now,
+            undefined,
+            isReady
           );
           if (synced.isErr()) return err(synced.error);
         }
@@ -963,9 +1011,10 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         const activityFieldIds = new Set(fieldRows.map((row) => String(row.field_id)));
         const reliabilityStore = new PostgresComputedReliabilityStore(trx);
         const reliabilityVisible = isComputedReliabilityVisible(params.baseId, this.reliability);
-        const failureTargets = reliabilityVisible
-          ? await reliabilityStore.getFieldSummaries(tableId.toString())
-          : [];
+        const failureTargets =
+          reliabilityVisible && (await reliabilityStore.isReady('projection'))
+            ? await reliabilityStore.getFieldSummaries(tableId.toString(), true)
+            : [];
         const orphanRefRows = (
           await trx
             .selectFrom(TASK_FIELD_REF_TABLE)
@@ -1463,7 +1512,23 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
         // only mark fields dirty, and changedSnapshot() persists a field only
         // when syncFromTaskRefs advanced its generation. Every event target is
         // in `targets`, so every touched field gets its sync here.
-        const synced = await this.syncActivityFromTaskRefs(dbTrx, activity, targets, new Date());
+        const reliabilityStore = new PostgresComputedReliabilityStore(dbTrx as Kysely<DynamicDB>);
+        const synced = await this.syncActivityFromTaskRefs(
+          dbTrx,
+          activity,
+          targets,
+          new Date(),
+          undefined,
+          async () => {
+            if (
+              reliabilitySyncWouldBeNoop(activity, targets) &&
+              (await hasNoVisibleReliabilityScope(dbTrx, lockTarget.tableId.toString()))
+            ) {
+              return false;
+            }
+            return reliabilityStore.isReady('projection');
+          }
+        );
         if (synced.isErr()) throw new ComputedActivityAbort(synced.error);
         return this.persistSnapshot(dbTrx, activity);
       });
@@ -1660,7 +1725,8 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     loadedReliability?: ReadonlyMap<
       string,
       Awaited<ReturnType<PostgresComputedReliabilityStore['getFieldSummaries']>>
-    >
+    >,
+    isReady?: () => Promise<boolean>
   ): Promise<Result<void, DomainError>> {
     if (targets.length === 0) return ok(undefined);
 
@@ -1705,8 +1771,10 @@ export class ComputedActivityProjector implements IComputedActivityProjector {
     activity.syncFromTaskRefs({ targets: resolved, now });
     const store = new PostgresComputedReliabilityStore(trx);
     if (
-      resolved.some((target) => isComputedReliabilityVisible(target.baseId.toString(), this.reliability)) &&
-      (loadedReliability || (await store.isReady()))
+      resolved.some((target) =>
+        isComputedReliabilityVisible(target.baseId.toString(), this.reliability)
+      ) &&
+      (loadedReliability || (await (isReady ? isReady() : store.isReady('projection'))))
     ) {
       for (const tableId of new Set(resolved.map((target) => target.tableId.toString()))) {
         const summaries = new Map(

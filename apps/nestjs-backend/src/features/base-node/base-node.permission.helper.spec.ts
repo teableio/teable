@@ -1,4 +1,3 @@
-import type { TableAction } from '@teable/core';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { describe, expect, it } from 'vitest';
 import { filterAutoHiddenFolders, filterVisibleNodes } from './base-node.permission.helper';
@@ -50,12 +49,14 @@ describe('filterVisibleNodes', () => {
     node('dRoot', BaseNodeResourceType.Dashboard),
   ];
   const permissionSet = new Set(['base|read', 'table|read']);
-  const tablePermissionMap: Record<string, TableAction[]> = { restGranted: ['table|read'] };
+  const nodePermissionMaps = {
+    [BaseNodeResourceType.Table]: { restGranted: ['table|read' as const] },
+  };
 
   it('keeps what the matrix grants and drops the folders left with nothing readable', () => {
     const visible = filterVisibleNodes(nodes, {
       permissionSet,
-      tablePermissionMap,
+      nodePermissionMaps,
       hideInaccessibleFolders: true,
     });
 
@@ -63,7 +64,7 @@ describe('filterVisibleNodes', () => {
   });
 
   it('keeps every folder the base role reads when not asked to hide them', () => {
-    const visible = filterVisibleNodes(nodes, { permissionSet, tablePermissionMap });
+    const visible = filterVisibleNodes(nodes, { permissionSet, nodePermissionMaps });
 
     expect(visible.map(({ id }) => id)).toEqual(['fShown', 'tGranted', 'fHidden', 'dRoot']);
   });

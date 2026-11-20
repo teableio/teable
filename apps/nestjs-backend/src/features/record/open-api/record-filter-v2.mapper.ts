@@ -1,8 +1,24 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/cognitive-complexity */
-import { CellValueType, FieldType, isMeTag } from '@teable/core';
 import {
+  CellValueType,
+  extractFieldIdsFromFilter,
+  FieldType,
+  getFilterOperatorMapping,
+  isMeTag,
+} from '@teable/core';
+import type { IFilterSet } from '@teable/core';
+import {
+  ConditionalLookupField,
+  type CreatedTimeField,
+  domainError,
   type DomainError,
+  FieldType as V2FieldType,
+  FieldValueTypeVisitor,
+  isDateField,
+  type ITableReadModel,
+  type LastModifiedTimeField,
+  LookupField,
   type RecordFilter,
   type RecordFilterDateValue,
   type RecordFilterGroup,
@@ -10,7 +26,7 @@ import {
   type RecordFilterOperator,
   type RecordFilterValue,
 } from '@teable/v2-core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, safeTry, type Result } from 'neverthrow';
 
 export interface IRecordFilterFieldMeta {
   readonly type: string;
@@ -215,9 +231,9 @@ const normalizeV2FilterNode = (
 };
 
 const mapV1FilterItem = (
-  filter: LegacyFilterItem
+  filter: LegacyFilterItem,
+  operator = normalizeV1Operator(filter.operator)
 ): Result<RecordFilterNode | null, DomainError> => {
-  const operator = normalizeV1Operator(filter.operator);
   const rawValue = 'value' in filter ? filter.value : null;
   const legacyDateRangeCondition = mapLegacyDateRangeCondition(filter.fieldId, operator, rawValue);
   if (legacyDateRangeCondition.isErr()) return err(legacyDateRangeCondition.error);
@@ -425,4 +441,81 @@ export const normalizeLegacyRecordFilterForV2 = (
   mapFilter(filter).map((mapped) => {
     if (!mapped) return mapped;
     return normalizeMappedNode(mapped, fieldMetaById, currentUserId) ?? undefined;
+  });
+
+type TriggerFilterFieldMeta = IRecordFilterFieldMeta & {
+  type: FieldType;
+  cellValueType: CellValueType;
+  isMultipleCellValue: boolean;
+};
+
+const normalizeTriggerFilter = (
+  filter: IFilterSet,
+  fieldMetaById: ReadonlyMap<string, TriggerFilterFieldMeta>,
+  currentUserId: string
+): Result<RecordFilter, DomainError> => {
+  const items: RecordFilterNode[] = [];
+  for (const item of filter.filterSet) {
+    if ('filterSet' in item) {
+      const group = normalizeTriggerFilter(item, fieldMetaById, currentUserId);
+      if (group.isErr()) return err(group.error);
+      if (group.value) items.push(group.value);
+      continue;
+    }
+
+    const field = fieldMetaById.get(item.fieldId);
+    const operator = item.isSymbol
+      ? field &&
+        Object.entries(getFilterOperatorMapping(field)).find(
+          ([, symbol]) => symbol === item.operator
+        )?.[0]
+      : item.operator;
+    const mapped = operator ? mapV1FilterItem(item, operator as RecordFilterOperator) : ok(null);
+    if (mapped.isErr()) return err(mapped.error);
+    const normalized =
+      mapped.value && normalizeMappedNode(mapped.value, fieldMetaById, currentUserId);
+    if (!normalized) {
+      return err(
+        domainError.validation({
+          message: 'Invalid automation trigger filter condition',
+          details: { fieldId: item.fieldId, operator: item.operator },
+        })
+      );
+    }
+    items.push(normalized);
+  }
+  return ok(items.length ? { conjunction: filter.conjunction, items } : null);
+};
+
+/** A trigger must never run with a partially translated filter. */
+export const normalizeLegacyTriggerFilterForV2 = (
+  table: ITableReadModel,
+  filter: IFilterSet,
+  currentUserId: string
+): Result<RecordFilter, DomainError> =>
+  safeTry(function* () {
+    const fieldMetaById = new Map<string, TriggerFilterFieldMeta>();
+    const visitor = new FieldValueTypeVisitor();
+    for (const fieldId of extractFieldIdsFromFilter(filter)) {
+      const field = yield* table.getField((candidate) => candidate.id().toString() === fieldId);
+      const { cellValueType, isMultipleCellValue } = yield* field.accept(visitor);
+      const source =
+        field instanceof LookupField || field instanceof ConditionalLookupField
+          ? yield* field.innerField()
+          : field;
+      const sourceType = source.type();
+      const formatting = isDateField(source)
+        ? source.formatting()
+        : sourceType.equals(V2FieldType.createdTime()) ||
+            sourceType.equals(V2FieldType.lastModifiedTime())
+          ? (source as CreatedTimeField | LastModifiedTimeField).formatting()
+          : undefined;
+      fieldMetaById.set(fieldId, {
+        type: sourceType.toString() as FieldType,
+        cellValueType: cellValueType.toString() as CellValueType,
+        isMultipleCellValue: isMultipleCellValue.toBoolean(),
+        options: formatting && { formatting: { timeZone: formatting.timeZone().toString() } },
+      });
+    }
+    return normalizeTriggerFilter(filter, fieldMetaById, currentUserId);
   });

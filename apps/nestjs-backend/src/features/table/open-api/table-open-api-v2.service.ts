@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { CellFormat, FieldKeyType, FieldType, HttpErrorCode } from '@teable/core';
+import { CellFormat, FieldKeyType, FieldType, HttpErrorCode, IdPrefix } from '@teable/core';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, IRecord, ISnapshotBase } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import {
@@ -25,29 +25,35 @@ import {
   executeRestoreTableEndpoint,
   executeUpdateTablePropertiesEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
-import { BaseId, GetDefaultViewIdQuery, v2CoreTokens } from '@teable/v2-core';
-import type {
-  GetDefaultViewIdResult,
-  ICommandBus,
-  IExecutionContext,
-  IQueryBus,
+import {
+  BaseId,
+  GetDefaultViewIdQuery,
+  RenameTableStorageCommand,
+  v2CoreTokens,
+  type GetDefaultViewIdResult,
+  type ICommandBus,
+  type IExecutionContext,
+  type IQueryBus,
+  type TableStorageRenameResult,
 } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
-import { InjectDbProvider } from '../../../db-provider/db.provider';
-import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events, TableUpdateEvent, type IChangeTable } from '../../../event-emitter/events';
-import { DatabaseRouter } from '../../../global/database-router.service';
+import type { IRawOpMap } from '../../../share-db/interface';
+import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
-import { RecordHistoryColdStorageService } from '../../record-history-cold/record-history-cold-storage.service';
+import { PermissionService } from '../../auth/permission.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
+import { TableLifecycleCleanupService } from '../../table-lifecycle/table-lifecycle-cleanup.service';
+import { TrustedRetentionContextService } from '../../table-lifecycle/trusted-retention-context.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
-import { TableDuplicateService } from '../table-duplicate.service';
+import { TableDuplicatePolicyService } from '../table-duplicate-policy.service';
+import { TableSnapshotReadService } from '../table-snapshot-read.service';
 import { TABLE_PERMANENT_DELETE_ACTION } from './table-audit.constants';
 import { mapLegacyCreateTableToV2Input } from './table-open-api-v2.mapper';
 
@@ -55,59 +61,24 @@ const internalServerError = 'Internal server error';
 
 @Injectable()
 export class TableOpenApiV2Service {
+  private readonly logger = new Logger(TableOpenApiV2Service.name);
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly prismaService: PrismaService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    private readonly tableDuplicateLegacyService: TableDuplicateService,
+    private readonly tableDuplicatePolicyService: TableDuplicatePolicyService,
+    private readonly tableSnapshotReadService: TableSnapshotReadService,
+    private readonly shareDbService: ShareDbService,
     private readonly audit: AuditScope,
     private readonly cls: ClsService<IClsStore>,
-    private readonly databaseRouter: DatabaseRouter,
-    private readonly recordHistoryColdStorage: RecordHistoryColdStorageService,
+    private readonly trustedRetention: TrustedRetentionContextService,
+    private readonly tableLifecycleCleanup: TableLifecycleCleanupService,
+    private readonly permissionService: PermissionService,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
     @Optional() private readonly eventEmitterService?: EventEmitterService
   ) {}
-
-  private readonly logger = new Logger(TableOpenApiV2Service.name);
-
-  /**
-   * the v2 permanent-delete flow drops the physical table via the command
-   * bus but leaves record_history buffer rows and the cold prefix behind
-   * (the v1 cleanTablesRelatedData hook never runs on this path) — clean
-   * both here, best-effort: leftovers are safe (discovery skips orphan
-   * buffer rows; a stray prefix only costs storage until the reaper).
-   */
-  private async cleanupRecordHistoryAfterPermanentDelete(
-    baseId: string,
-    tableId: string
-  ): Promise<void> {
-    try {
-      const routed = await this.databaseRouter.dataPrismaForBase(baseId);
-      const dataPrisma =
-        'txClient' in routed && typeof routed.txClient === 'function' ? routed.txClient() : routed;
-      await dataPrisma.recordHistory.deleteMany({ where: { tableId } });
-    } catch (error) {
-      this.logger.warn(`failed to clean record_history buffer for ${tableId}: ${error}`);
-    }
-    await this.recordHistoryColdStorage
-      .deleteTablePrefix(tableId)
-      .catch((error) =>
-        this.logger.warn(`failed to delete cold history prefix for ${tableId}: ${error}`)
-      );
-  }
-
-  /**
-   * the v2 command only drops rows on the data DB; comments live on the meta
-   * DB keyed by table id and have no cascade, so purge them here.
-   */
-  private async cleanupCommentsAfterPermanentDelete(tableId: string): Promise<void> {
-    const metaPrisma = this.prismaService.txClient();
-    await metaPrisma.comment.deleteMany({ where: { tableId } });
-    await metaPrisma.commentSubscription.deleteMany({ where: { tableId } });
-  }
 
   private async assertBaseWritable(baseId: string) {
     await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
@@ -115,6 +86,99 @@ export class TableOpenApiV2Service {
 
   private async assertTableWritable(tableId: string) {
     await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
+
+  async updateDbTableName(baseId: string, tableId: string, name: string): Promise<void> {
+    await this.assertBaseWritable(baseId);
+    const current = await this.prismaService.tableMeta.findFirst({
+      where: { id: tableId, baseId, deletedTime: null },
+      select: { name: true, description: true, icon: true, order: true },
+    });
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const command = RenameTableStorageCommand.create({
+      baseId,
+      tableId,
+      dbTableName: `${baseId}.${name}`,
+    });
+    if (command.isErr())
+      throwV2Error(
+        mapDomainErrorToHttpError(command.error),
+        mapDomainErrorToHttpStatus(command.error)
+      );
+    const result = await container
+      .resolve<ICommandBus>(v2CoreTokens.commandBus)
+      .execute<RenameTableStorageCommand, TableStorageRenameResult>(context, command.value);
+    if (result.isErr()) {
+      if (result.error.code === 'table.db_table_name_exists') {
+        throw new CustomHttpException(
+          `dbTableName ${name} already exists`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: { i18nKey: 'httpErrors.table.dbTableNameAlreadyExists' },
+          }
+        );
+      }
+      if (result.error.tags.includes('not-found')) {
+        throw new CustomHttpException(`table ${tableId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: { i18nKey: 'httpErrors.table.notFound' },
+        });
+      }
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+    const change = result.value;
+    if (this.cls.isActive()) {
+      this.cls.set('dataLoaderCache.fieldData', undefined);
+      this.cls.set('dataLoaderCache.tableData', undefined);
+    }
+    const map: IRawOpMap = {
+      [`${IdPrefix.Table}_${baseId}`]: {
+        [tableId]: {
+          src: this.cls.getId() || 'unknown',
+          seq: 1,
+          m: { ts: Date.now() },
+          v: change.previousVersion,
+          op: [
+            { p: ['dbTableName'], oi: change.dbTableName, od: change.previousDbTableName },
+            { p: ['version'], oi: change.previousVersion + 1, od: change.previousVersion },
+            { p: ['lastModifiedBy'], oi: change.lastModifiedBy, od: change.previousLastModifiedBy },
+            {
+              p: ['lastModifiedTime'],
+              oi: change.lastModifiedTime,
+              od: change.previousLastModifiedTime,
+            },
+          ],
+        },
+      },
+    };
+    if (!this.shareDbService.shareDbAdapter.closed) {
+      try {
+        await this.shareDbService.publishOpsMap([map]);
+      } catch (error) {
+        this.logger.error(`Failed to publish table storage op: tableId=${tableId}`, error);
+      }
+    }
+    const user = this.cls.get('user');
+    await this.eventEmitterService?.emitAsync(
+      Events.TABLE_UPDATE,
+      new TableUpdateEvent(
+        {
+          baseId,
+          table: {
+            id: tableId,
+            name: { oldValue: current?.name, newValue: current?.name },
+            description: { oldValue: current?.description, newValue: current?.description },
+            icon: { oldValue: current?.icon, newValue: current?.icon },
+            order: { oldValue: current?.order, newValue: current?.order },
+            dbTableName: { oldValue: change.previousDbTableName, newValue: change.dbTableName },
+          } as IChangeTable,
+        },
+        { user: user ? { id: user.id, name: user.name, email: user.email } : undefined }
+      )
+    );
   }
 
   async getDefaultViewId(tableId: string): Promise<{ id: string }> {
@@ -170,8 +234,14 @@ export class TableOpenApiV2Service {
       );
     }
 
+    const visibleIds = await this.permissionService.getBaseShareVisibleResourceIds(baseId, 'table');
     const tables = await this.prismaService.tableMeta.findMany({
-      where: { baseId, deletedTime: null, provisionState: ProvisionState.ready },
+      where: {
+        baseId,
+        deletedTime: null,
+        provisionState: ProvisionState.ready,
+        ...(visibleIds ? { id: { in: [...visibleIds] } } : {}),
+      },
       orderBy: { order: 'asc' },
       select: {
         id: true,
@@ -198,29 +268,12 @@ export class TableOpenApiV2Service {
     }));
   }
 
-  async getSnapshotBulk(baseId: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {
-    const tables = await this.prismaService.tableMeta.findMany({
-      where: { baseId, id: { in: ids }, deletedTime: null, provisionState: ProvisionState.ready },
-      orderBy: { order: 'asc' },
-    });
-
-    const defaultViewIdByTableId = await this.getDefaultViewIds(tables.map((table) => table.id));
-
-    return tables
-      .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
-      .map((table) => ({
-        id: table.id,
-        v: table.version,
-        type: 'json0',
-        data: {
-          ...table,
-          description: table.description ?? undefined,
-          icon: table.icon ?? undefined,
-          lastModifiedTime:
-            table.lastModifiedTime?.toISOString() || table.createdTime.toISOString(),
-          defaultViewId: defaultViewIdByTableId.get(table.id),
-        } as ITableVo,
-      }));
+  async getSnapshotBulk(
+    baseId: string,
+    ids: string[],
+    options: { ignoreDefaultViewId?: boolean } = {}
+  ): Promise<ISnapshotBase<ITableVo>[]> {
+    return this.tableSnapshotReadService.getSnapshotBulk(baseId, ids, options);
   }
 
   private async getDefaultViewIds(tableIds: string[]): Promise<Map<string, string>> {
@@ -241,21 +294,7 @@ export class TableOpenApiV2Service {
   }
 
   async getDocIds(baseId: string, projectionTableIds?: string[]): Promise<{ ids: string[] }> {
-    const tables = await this.prismaService.tableMeta.findMany({
-      where: {
-        deletedTime: null,
-        baseId,
-        provisionState: ProvisionState.ready,
-        ...(projectionTableIds
-          ? {
-              id: { in: projectionTableIds },
-            }
-          : {}),
-      },
-      select: { id: true },
-      orderBy: { order: 'asc' },
-    });
-    return { ids: tables.map((table) => table.id) };
+    return this.tableSnapshotReadService.getDocIdsByQuery(baseId, { projectionTableIds });
   }
 
   async updateName(baseId: string, tableId: string, name: string): Promise<void> {
@@ -365,8 +404,8 @@ export class TableOpenApiV2Service {
       id: table.id,
       name: table.name,
       dbTableName,
-      ...(table.description !== undefined ? { description: table.description } : {}),
-      ...(table.icon !== undefined ? { icon: table.icon } : {}),
+      description: table.description ?? undefined,
+      icon: table.icon ?? undefined,
       ...(defaultViewId ? { defaultViewId } : {}),
     };
   }
@@ -374,10 +413,11 @@ export class TableOpenApiV2Service {
   private async overlayTableMeta(table: ITableVo, tableId: string): Promise<ITableVo> {
     const meta = await this.prismaService.tableMeta.findUnique({
       where: { id: tableId },
-      select: { order: true, lastModifiedTime: true },
+      select: { order: true, lastModifiedTime: true, icon: true, description: true },
     });
     return {
       ...table,
+      ...(meta ? { icon: meta.icon ?? undefined, description: meta.description ?? undefined } : {}),
       ...(meta?.order != null ? { order: meta.order } : {}),
       ...(meta?.lastModifiedTime ? { lastModifiedTime: meta.lastModifiedTime.toISOString() } : {}),
     };
@@ -386,11 +426,7 @@ export class TableOpenApiV2Service {
   private async collectCrossSpaceAffectedFields(
     tableId: string
   ): Promise<Array<{ fieldId: string; fieldName: string; type: string }>> {
-    // Delegate to the v1 service so cross-space link, conditional lookup,
-    // conditional rollup, and their transitive lookup/rollup dependents are
-    // all detected consistently with the duplicate-check endpoint. v2 refuses
-    // to silently downgrade those fields.
-    return this.tableDuplicateLegacyService.previewCrossSpaceAffectedFields(tableId);
+    return this.tableDuplicatePolicyService.previewCrossSpaceAffectedFields(tableId);
   }
 
   /** Read-only host policy shared by v2 execution and operation preview. */
@@ -471,39 +507,66 @@ export class TableOpenApiV2Service {
     );
   }
 
+  async permanentDeleteTables(baseId: string, tableIds: string[]): Promise<void> {
+    for (const tableId of tableIds) {
+      if (this.cls.get('user.id')) {
+        await this.deleteTable(baseId, tableId, 'permanent');
+      } else {
+        await this.executeDeleteTable(baseId, tableId, 'permanent');
+      }
+    }
+  }
+
   private async executeDeleteTable(
     baseId: string,
     tableId: string,
     mode: 'soft' | 'permanent'
   ): Promise<void> {
     await this.assertBaseWritable(baseId);
-    const container = await this.v2ContainerService.getContainerForBase(baseId);
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext(container);
+    // Prove the expired root and target using metadata before opening a customer database.
+    const retentionContainer =
+      mode === 'permanent' && !this.cls.get('user.id') && this.trustedRetention.hasActive()
+        ? await this.v2ContainerService.getContainer()
+        : undefined;
+    const retentionContext = retentionContainer
+      ? await this.trustedRetention.createContextForTable(baseId, tableId, retentionContainer)
+      : undefined;
+    const purgeState =
+      mode === 'permanent'
+        ? await this.tableLifecycleCleanup.captureNativePurgeState(tableId)
+        : undefined;
 
-    const result = await executeDeleteTableEndpoint(
-      context,
-      {
+    try {
+      const container = await this.v2ContainerService.getContainerForBase(baseId);
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+      const context = retentionContext ?? (await this.v2ContextFactory.createContext(container));
+      const result = await executeDeleteTableEndpoint(
+        context,
+        { baseId, tableId, mode },
+        commandBus
+      );
+      if (!result.body.ok) {
+        throwV2Error(result.body.error, result.status);
+      }
+      if (result.status !== 200) {
+        throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    } catch (error) {
+      if (!retentionContainer || !purgeState) throw error;
+      // Admission may have changed while the routed connection or command was failing.
+      await this.trustedRetention.createContextForTable(baseId, tableId, retentionContainer);
+      await this.tableLifecycleCleanup.cleanupUnavailableRetainedTable(
         baseId,
         tableId,
-        mode,
-      },
-      commandBus
-    );
-
-    if (result.status === 200 && result.body.ok) {
-      if (mode === 'permanent') {
-        await this.cleanupRecordHistoryAfterPermanentDelete(baseId, tableId);
-        await this.cleanupCommentsAfterPermanentDelete(tableId);
-      }
+        purgeState,
+        error
+      );
       return;
     }
 
-    if (!result.body.ok) {
-      throwV2Error(result.body.error, result.status);
+    if (purgeState) {
+      await this.tableLifecycleCleanup.cleanupAfterNativePurge(baseId, tableId, purgeState);
     }
-
-    throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   async restoreTable(baseId: string, tableId: string): Promise<void> {
@@ -743,12 +806,12 @@ export class TableOpenApiV2Service {
       return dbTableName;
     }
 
-    const legacyPrefix = this.dbProvider.generateDbTableName(baseId, '');
+    const legacyPrefix = `${baseId}.`;
     if (dbTableName.startsWith(legacyPrefix)) {
       return dbTableName;
     }
 
-    return this.dbProvider.generateDbTableName(baseId, dbTableName);
+    return `${legacyPrefix}${dbTableName}`;
   }
 
   private async populateLegacyLinkLookupFieldIds(

@@ -1,10 +1,13 @@
 /* eslint-disable require-yield */
 import { PGlite } from '@electric-sql/pglite';
+import { PostgresUnitOfWorkTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
   BaseId,
   DbFieldName,
+  FieldId,
   FieldName,
+  LinkFieldConfig,
   RecordByIdsSpec,
   RecordId,
   Table,
@@ -287,11 +290,15 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
   let pglite: PGlite;
   let db: Kysely<V1TeableDatabase>;
   const createdSchemas: string[] = [];
+  const queries: string[] = [];
 
   beforeAll(async () => {
     pglite = await PGlite.create();
     db = new Kysely<V1TeableDatabase>({
       dialect: new KyselyPGliteDialect(pglite),
+      log: (event) => {
+        if (event.level === 'query') queries.push(event.query.sql);
+      },
     });
 
     await sql`
@@ -310,6 +317,7 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
       await sql`DROP SCHEMA IF EXISTS ${sql.id(schemaName)} CASCADE`.execute(db);
     }
     createdSchemas.length = 0;
+    queries.length = 0;
   });
 
   afterAll(async () => {
@@ -627,5 +635,165 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
         __last_modified_by: 'seed',
       },
     ]);
+  });
+
+  it('replaces two junctions in four statements for 250 changed source rows', async () => {
+    const targets = await createTableWithStorage(db, 'junction-targets');
+    createdSchemas.push(targets.schemaName);
+    const targetTableName = `${targets.schemaName}.${targets.tableName}`;
+    const { table: sourceFixture, schemaName, tableName } = await createTableWithStorage(
+      db,
+      'junction-sources'
+    );
+    createdSchemas.push(schemaName);
+    const sourceTableName = `${schemaName}.${tableName}`;
+    const builder = Table.builder()
+      .withBaseId(sourceFixture.baseId())
+      .withId(sourceFixture.id())
+      .withName(sourceFixture.name());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+
+    const [retained, removed, added] = ['retained', 'removed', 'added'].map((title) => ({
+      id: createId('rec', title),
+      title,
+    }));
+    const initial = [retained, removed];
+    const replacement = [added, retained];
+    const links = ['a', 'b'].map((suffix) => ({
+      fieldId: createId('fld', `link-${suffix}`),
+      column: `col_link_${suffix}`,
+      junction: `${schemaName}.junction_${suffix}`,
+      isOneWay: suffix === 'a',
+    }));
+    for (const link of links) {
+      builder
+        .field()
+        .link()
+        .withId(FieldId.create(link.fieldId)._unsafeUnwrap())
+        .withName(FieldName.create(link.column)._unsafeUnwrap())
+        .withConfig(
+          LinkFieldConfig.create({
+            relationship: 'manyMany',
+            foreignTableId: targets.table.id().toString(),
+            lookupFieldId: targets.titleFieldId,
+            fkHostTableName: link.junction,
+            selfKeyName: 'source_id',
+            foreignKeyName: 'target_id',
+            isOneWay: link.isOneWay,
+          })._unsafeUnwrap()
+        )
+        .done();
+    }
+    const table = builder.view().defaultGrid().done().build()._unsafeUnwrap();
+    const [title, ...linkFields] = table.getFields();
+    title.setDbFieldName(DbFieldName.rehydrate('col_title')._unsafeUnwrap())._unsafeUnwrap();
+    for (const [index, field] of linkFields.entries()) {
+      field.setDbFieldName(DbFieldName.rehydrate(links[index].column)._unsafeUnwrap())._unsafeUnwrap();
+    }
+
+    const recordIds = Array.from({ length: 252 }, (_, i) =>
+      createId('rec', `source-${i.toString().padStart(3, '0')}`)
+    );
+    const noopId = recordIds[250];
+    const existingIds = recordIds.slice(0, 251);
+    await sql`
+      insert into ${sql.table(targetTableName)}
+        (__id, __created_time, __created_by, __last_modified_time, __last_modified_by, __version)
+      select id, now(), 'seed', now(), 'seed', 1
+      from unnest(${[retained.id, removed.id, added.id]}::text[]) as ids(id)
+    `.execute(db);
+    await sql`
+      insert into ${sql.table(sourceTableName)}
+        (__id, __created_time, __created_by, __last_modified_time, __last_modified_by, __version)
+      select id, now(), 'seed', now(), 'seed', 1
+      from unnest(${existingIds}::text[]) as ids(id)
+    `.execute(db);
+
+    const getNoopEdges = (junction: string) =>
+      sql<{ id: number }>`
+        select id from ${sql.table(junction)} where source_id = ${noopId} order by id
+      `.execute(db);
+    const originalNoopEdges = [];
+    for (const link of links) {
+      await sql`
+        alter table ${sql.table(sourceTableName)} add column ${sql.id(link.column)} jsonb
+      `.execute(db);
+      await sql`
+        update ${sql.table(sourceTableName)} set ${sql.id(link.column)} = ${JSON.stringify(initial)}::jsonb
+      `.execute(db);
+      await sql`
+        create table ${sql.table(link.junction)} (
+          id serial primary key,
+          source_id text references ${sql.table(sourceTableName)} (__id),
+          target_id text references ${sql.table(targetTableName)} (__id),
+          __order integer not null,
+          unique (source_id, target_id)
+        )
+      `.execute(db);
+      await sql`
+        insert into ${sql.table(link.junction)} (source_id, target_id, __order)
+        select id, edge.target_id, edge.position
+        from unnest(${existingIds}::text[]) as ids(id)
+        cross join (values (${retained.id}::text, 1), (${removed.id}::text, 2)) as edge(target_id, position)
+      `.execute(db);
+      originalNoopEdges.push((await getNoopEdges(link.junction)).rows);
+    }
+
+    const updates = recordIds.map((id, index) =>
+      table
+        .updateRecord(
+          RecordId.create(id)._unsafeUnwrap(),
+          new Map([
+            [links[0].fieldId, id === noopId ? initial : replacement],
+            [links[1].fieldId, id === noopId ? initial : index < 125 ? null : replacement],
+          ])
+        )
+        ._unsafeUnwrap()
+    );
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const writeStart = queries.length;
+    const result = await db.transaction().execute((trx) =>
+      repository.updateManyStream(
+        {
+          actorId: ActorId.create('tester')._unsafeUnwrap(),
+          transaction: new PostgresUnitOfWorkTransaction(trx, 'data'),
+        },
+        table,
+        (function* () {
+          yield ok(updates);
+        })(),
+        { skipComputedUpdates: true }
+      )
+    );
+    expect(result._unsafeUnwrap().totalUpdated).toBe(250);
+    const junctionWrites = queries.slice(writeStart).filter(
+      (query) => /^(delete from|insert into)\b/i.test(query) && /"junction_[ab]"/.test(query)
+    );
+    expect(junctionWrites).toHaveLength(4);
+
+    for (const [index, link] of links.entries()) {
+      expect((await getNoopEdges(link.junction)).rows).toEqual(originalNoopEdges[index]);
+      const { rows } = await sql<{ source_id: string; targets: string[] }>`
+        select source_id, array_agg(target_id order by __order) as targets
+        from ${sql.table(link.junction)}
+        group by source_id
+      `.execute(db);
+      const bySource = new Map(rows.map((row) => [row.source_id, row.targets]));
+      expect(bySource.size).toBe(index === 0 ? 251 : 126);
+      for (const [sourceIndex, sourceId] of existingIds.entries()) {
+        const expected =
+          sourceId === noopId
+            ? [retained.id, removed.id]
+            : index === 1 && sourceIndex < 125
+              ? undefined
+              : [added.id, retained.id];
+        expect(bySource.get(sourceId)).toEqual(expected);
+      }
+    }
   });
 });

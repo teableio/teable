@@ -12,6 +12,7 @@ import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
 import { CheckboxConditionSpec } from './CheckboxConditionSpec';
+import type { ConditionalLookupConditionSpec } from './ConditionalLookupConditionSpec';
 import {
   conditionNullMatch,
   conditionNullMatchForSpec,
@@ -90,6 +91,41 @@ describe('conditionNullMatch', () => {
       ._unsafeUnwrap();
     expect(lookupSpec).toBeInstanceOf(CheckboxConditionSpec);
     expect(conditionNullMatchForSpec(lookupSpec)).toBe('true');
+
+    const conditionalDoneLookup = ConditionalLookupField.create({
+      id: FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap(),
+      name: FieldName.create('Conditional Done')._unsafeUnwrap(),
+      innerField: done,
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: TableId.create(`tbl${'g'.repeat(16)}`)
+          ._unsafeUnwrap()
+          .toString(),
+        lookupFieldId: done.id().toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: done.id().toString(), operator: 'isNotEmpty' }],
+          },
+        },
+      })._unsafeUnwrap(),
+      isMultipleCellValue: true,
+    })._unsafeUnwrap();
+    expect(
+      conditionNullMatchForSpec(
+        conditionalDoneLookup
+          .spec()
+          .create({ operator: 'is', value: falseLit })
+          ._unsafeUnwrap() as ConditionalLookupConditionSpec
+      )
+    ).toBe('true');
+    expect(
+      conditionNullMatchForSpec(
+        conditionalDoneLookup
+          .spec()
+          .create({ operator: 'is', value: trueLit })
+          ._unsafeUnwrap() as ConditionalLookupConditionSpec
+      )
+    ).toBe('false');
 
     // Non-checkbox field form: ordinary equality stays UNKNOWN.
     expect(conditionNullMatch(title, 'is', falseLit)).toBe('unknown');

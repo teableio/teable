@@ -1811,4 +1811,97 @@ describe('UndoRedoStackService', () => {
     expect(seen).toEqual(['preflight', 'preflight', ...ids, ...ids]);
     expect(preflighted).toEqual(entries);
   });
+
+  it('defers notifications until Phase 2 flushes self-referential links across grouped RestoreRecords entries', async () => {
+    const store = new MemoryUndoRedoStore();
+    const seen: string[] = [];
+    const dispatched: Array<{
+      selfReferentialLinksOnly?: boolean;
+      cleanupTrashRecordIds?: ReadonlyArray<string>;
+      recordIds: ReadonlyArray<string>;
+      fields: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    }> = [];
+    const selfLinkFieldId = `fld${'s'.repeat(16)}`;
+    const parentId = `rec${'p'.repeat(16)}`;
+    const childId = `rec${'c'.repeat(16)}`;
+
+    const bus: ICommandBus = {
+      async execute<TCommand, TResult>(
+        _context: IExecutionContext,
+        command: TCommand
+      ): Promise<Result<TResult, DomainError>> {
+        const restore = command as unknown as RestoreRecordsCommand;
+        seen.push(restore.selfReferentialLinksOnly ? 'phase2' : 'phase1');
+        dispatched.push({
+          selfReferentialLinksOnly: restore.selfReferentialLinksOnly,
+          cleanupTrashRecordIds: restore.cleanupTrashRecordIds,
+          recordIds: restore.records.map((r) => r.recordId),
+          fields: restore.records.map((r) => r.fields),
+        });
+        restore.onTableSelfLinkFieldsResolved?.(new Set([selfLinkFieldId]));
+        if (!restore.selfReferentialLinksOnly && restore.deferSelfReferentialLinks) {
+          for (const rec of restore.records) {
+            const linkValue = rec.fields[selfLinkFieldId];
+            if (linkValue !== undefined) {
+              restore.deferSelfReferentialLinks.push({
+                recordId: rec.recordId,
+                fields: { [selfLinkFieldId]: linkValue },
+                cleanupTrash: true,
+              });
+            }
+          }
+        }
+        return ok(undefined as TResult);
+      },
+    };
+
+    const service = new UndoRedoStackService(store, bus);
+    const context = buildContext();
+    const { tableId } = buildRecordIds();
+
+    (
+      await service.appendRecordDelete(toUndoRedoStackAppendContext(context), {
+        tableId,
+        groupId: 'self-link-group',
+        groupPosition: 'start',
+        deletedRecords: [{ recordId: parentId, fields: { fldTitle: 'Parent' } }],
+      })
+    )._unsafeUnwrap();
+    (
+      await service.appendRecordDelete(toUndoRedoStackAppendContext(context), {
+        tableId,
+        groupId: 'self-link-group',
+        groupPosition: 'continue',
+        deletedRecords: [
+          {
+            recordId: childId,
+            fields: { fldTitle: 'Child', [selfLinkFieldId]: { id: parentId, title: 'Parent' } },
+          },
+        ],
+      })
+    )._unsafeUnwrap();
+
+    const replayResult = await service.applyUndo(
+      toUndoRedoStackReplayContext(context),
+      tableId,
+      context.windowId,
+      {
+        onEntryReplayed: async (entry) => {
+          if (entry.undoCommand.type === 'RestoreRecords') {
+            seen.push(`notify:${entry.undoCommand.payload.records[0]!.recordId}`);
+          }
+        },
+      }
+    );
+
+    expect(replayResult._unsafeUnwrap()).toEqual({ entryCount: 2 });
+    expect(seen).toEqual(['phase1', 'phase1', `notify:${parentId}`, 'phase2', `notify:${childId}`]);
+    expect(dispatched).toHaveLength(3);
+    expect(dispatched[2]).toEqual({
+      selfReferentialLinksOnly: true,
+      cleanupTrashRecordIds: [childId],
+      recordIds: [childId],
+      fields: [{ [selfLinkFieldId]: { id: parentId, title: 'Parent' } }],
+    });
+  });
 });

@@ -1388,17 +1388,24 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     const normalizeResult = (value: string) =>
       hasTextResult ? this.coerceToTextComparable(value) : value;
 
-    const normalizeCaseValue = (value: string) =>
-      hasTextResult ? this.coerceToTextComparable(value) : value;
-
-    const baseExpr = hasTextResult ? this.coerceToTextComparable(expression, 0) : expression;
-
-    let caseStatement = `CASE ${baseExpr}`;
-
-    for (const caseItem of cases) {
-      caseStatement += ` WHEN ${normalizeCaseValue(caseItem.case)} THEN ${normalizeResult(
-        caseItem.result
-      )}`;
+    const numericSelector = isTrustedNumeric(this.getParamInfo(0));
+    const compareAsText = numericSelector
+      ? cases.some((_, index) => !isTrustedNumeric(this.getParamInfo(index * 2 + 1)))
+      : hasTextResult;
+    // Keep a simple CASE so a nested selector is emitted once. Mixed matches share a text key.
+    const comparisonOperand = (value: string, index: number) => {
+      if (!compareAsText) return value;
+      if (!numericSelector) return this.coerceToTextComparable(value, index === 0 ? 0 : undefined);
+      if (isTrustedNumeric(this.getParamInfo(index))) {
+        // Canonicalize signed zero and discard the scale of numeric literals before casting to text.
+        return `((${value})::double precision + 0::double precision)::text`;
+      }
+      return this.ensureTextCollation(this.coerceToTextComparable(value, index));
+    };
+    let caseStatement = `CASE ${comparisonOperand(expression, 0)}`;
+    for (const [index, caseItem] of cases.entries()) {
+      const match = comparisonOperand(caseItem.case, index * 2 + 1);
+      caseStatement += ` WHEN ${match} THEN ${normalizeResult(caseItem.result)}`;
     }
 
     if (defaultResult) {

@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BullModule } from '@nestjs/bullmq';
-import type { ModuleMetadata } from '@nestjs/common';
+import type { ModuleMetadata, OnModuleDestroy } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DiscoveryService, HttpAdapterHost, ModuleRef } from '@nestjs/core';
 import { SentryModule } from '@sentry/nestjs/setup';
 import Redis from 'ioredis';
 import type { ICacheConfig } from './configs/cache.config';
@@ -55,7 +56,9 @@ import { TrashModule } from './features/trash/trash.module';
 import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
 import { UserModule } from './features/user/user.module';
 import { ComputedOutboxWakeupConsumerModule } from './features/v2/computed-outbox-trigger/computed-outbox-wakeup-consumer.module';
+import { ComputedReliabilityReconciliationService } from './features/v2/computed-outbox-trigger/computed-reliability-reconciliation.service';
 import { DomainEventWakeupConsumerModule } from './features/v2/domain-event-outbox-trigger/domain-event-wakeup-consumer.module';
+import { V2ContainerService } from './features/v2/v2-container.service';
 import { V2DataQueryModule } from './features/v2/v2-data-query.module';
 import { V2DataQueryExplainModule } from './features/v2/v2-data-query-explain.module';
 import { V2Module } from './features/v2/v2.module';
@@ -63,6 +66,7 @@ import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { LoggerModule } from './logger/logger.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { drainRootEvents } from './utils/root-event-drain';
 import { WsModule } from './ws/ws.module';
 
 export const appModules = {
@@ -157,7 +161,21 @@ export const appModules = {
   ],
   controllers: [],
 })
-export class AppModule {
+export class AppModule implements OnModuleDestroy {
+  constructor(
+    private readonly moduleRef: ModuleRef,
+    private readonly httpAdapterHost: HttpAdapterHost
+  ) {}
+
+  onModuleDestroy(): Promise<void> {
+    return drainRootEvents(
+      this.moduleRef.get(V2ContainerService, { strict: false }),
+      this.httpAdapterHost.httpAdapter?.getHttpServer(),
+      this.moduleRef.get(DiscoveryService, { strict: false }),
+      this.moduleRef.get(ComputedReliabilityReconciliationService, { strict: false })
+    );
+  }
+
   static register(customModuleMetadata: ModuleMetadata) {
     return {
       module: AppModule,

@@ -5,6 +5,9 @@ import { sql, type Kysely, type RawBuilder } from 'kysely';
 
 type Row = Record<string, unknown>;
 
+/** Exact stored SQL types, excluding legacy numeric families and computed values. */
+export type ProjectionStorageType = 'text' | 'boolean' | 'numeric' | 'bigint';
+
 // Use PostgreSQL's soft input check before conversion. It follows float8's
 // actual rounding boundaries, including subnormals, rather than approximate
 // decimal min/max clamps. JSON.parse turns overflow into nonfinite (wire null)
@@ -57,28 +60,42 @@ const finalizeComposite = (
 export const finalizeValue = (
   value: RawBuilder<unknown>,
   metric: boolean,
-  strategy: IPgTypeValidationStrategy
+  strategy: IPgTypeValidationStrategy,
+  normalization: 'sql' | 'driver' = 'sql',
+  storageType?: ProjectionStorageType
 ): RawBuilder<unknown> => {
+  // Native text/boolean values have no precision, composite or timestamp branch.
+  // to_jsonb also preserves SQL NULL and their canonical DISTINCT tuple types.
+  if (!metric && (storageType === 'text' || storageType === 'boolean'))
+    return sql`to_jsonb(${value})`;
   // All branches use text/JSON casts, so PostgreSQL can type-check the CASE for
   // any admitted native scalar, JSON or SQL-array projection.
   const text = sql`(${value})::text`;
   const json = sql`to_jsonb(${value})`;
-  const metricText = sql`"__dq_metric"."value"`;
-  const numericMetric = sql`(select case
+  let numericValue: RawBuilder<unknown>;
+  if (metric) {
+    const metricText = sql`"__dq_metric"."value"`;
+    numericValue = sql`(select case
     when ${metricText} in ('NaN', 'Infinity', '-Infinity') then to_jsonb(${metricText})
     when not ${sql.raw(strategy.isValidForType('"__dq_metric"."value"', 'double precision'))} then
       case when abs((${metricText})::numeric) < 1 then to_jsonb(0) else to_jsonb(${metricText}) end
     when trunc((${metricText})::double precision) = (${metricText})::double precision and abs((${metricText})::double precision) > 9007199254740991::double precision then to_jsonb(${metricText})
     else to_jsonb((${metricText})::double precision) end
     from (select ${text} as "value" offset 0) as "__dq_metric")`;
+  } else {
+    numericValue = sql`to_jsonb(${text})`;
+  }
   return sql`nullif(case when ${value} is null then null::jsonb
-    when pg_typeof(${value})::text = 'numeric' then ${metric ? numericMetric : sql`to_jsonb(${text})`}
-    when pg_typeof(${value})::text = 'bigint' then ${metric ? numericMetric : sql`to_jsonb(${text})`}
+    when pg_typeof(${value})::text in ('numeric', 'bigint') then ${numericValue}
     when pg_typeof(${value})::text in ('timestamp with time zone', 'timestamp without time zone') then
       to_jsonb(to_char(date_trunc('milliseconds', (${text})::timestamptz) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
     when pg_typeof(${value})::text in ('double precision', 'real') and ${text} in ('NaN', 'Infinity', '-Infinity') then null::jsonb
-    when jsonb_typeof(${json}) in ('array', 'object') then ${finalizeComposite(json, strategy)}
-    when jsonb_typeof(${json}) = 'number' and pg_typeof(${value})::text in ('json', 'jsonb') then ${finalizeJsonNumber(sql`${json} #>> '{}'`, strategy)}
+    ${
+      normalization === 'sql'
+        ? sql`when jsonb_typeof(${json}) in ('array', 'object') then ${finalizeComposite(json, strategy)}
+    when jsonb_typeof(${json}) = 'number' and pg_typeof(${value})::text in ('json', 'jsonb') then ${finalizeJsonNumber(sql`${json} #>> '{}'`, strategy)}`
+        : sql``
+    }
     else ${json} end, 'null'::jsonb)`;
 };
 
@@ -88,11 +105,12 @@ export const compileDistinctRecords = (
   projected: RawBuilder<unknown>,
   plan: BoundDataQueryPlan,
   bound: BoundDataQuery,
-  strategy: IPgTypeValidationStrategy
+  strategy: IPgTypeValidationStrategy,
+  projectionStorageTypes?: ReadonlyMap<string, ProjectionStorageType | undefined>
 ) => {
   const finalized = plan.projections.map((projection) => {
-    const value = sql`${sql.id('projected', projection.alias)}`;
-    return sql`${finalizeValue(value, projection.kind === 'aggregate', strategy)} as ${sql.id(projection.alias)}`;
+    const value = sql.id('projected', projection.alias);
+    return sql`${finalizeValue(value, projection.kind === 'aggregate', strategy, 'sql', projectionStorageTypes?.get(projection.alias))} as ${sql.id(projection.alias)}`;
   });
   // Fence the completed public projection so formulas and lateral metrics are
   // evaluated once per source row, before physical-type normalization and dedup.
@@ -106,7 +124,7 @@ export const compileDistinctRecords = (
     if (!sorts.some((sort) => sort.alias === projection.alias))
       sorts.push({ alias: projection.alias, order: 'asc' });
   const orders = sorts.flatMap((sort) => {
-    const value = sql`${sql.id('tuples', sort.alias)}`;
+    const value = sql.id('tuples', sort.alias);
     const direction = sort.order === 'asc' ? sql`asc` : sql`desc`;
     const nulls =
       (sort.nulls ?? (sort.order === 'asc' ? 'first' : 'last')) === 'first'

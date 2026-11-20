@@ -190,6 +190,9 @@ preparation and policy checks against current state.
   still waits for commit; rollback publishes neither readiness nor mutation events.
   Once ready state is committed, a failed ready projection is logged without turning the persisted
   mutation into a failed response. Lifecycle persistence failures remain errors.
+- Standalone `CreateField` and `CreateFields` take the target table's exclusive schema lease
+  before loading the write snapshot and hold it through schema persistence. Nested commands
+  retain the owning transaction's lock order and optimistic version checks.
 - `SchemaOperationRunnerService.ts` - Role: durable schema repair scheduling; Purpose: retry
   `view.version_conflict` with the existing bounded backoff because each repair reloads metadata.
   Keep optimistic version checks intact; business conflicts and unsupported repairs remain terminal.

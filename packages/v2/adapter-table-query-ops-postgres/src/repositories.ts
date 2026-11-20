@@ -606,6 +606,8 @@ export class PostgresTableQueryDecisionLogRepository {
 }
 
 export class PostgresTableQueryRemediationTaskRepository {
+  private nextLegacyCoverageScan = 0;
+
   constructor(private readonly db: Kysely<TableQueryOpsDatabase>) {}
 
   async findById(
@@ -638,7 +640,7 @@ export class PostgresTableQueryRemediationTaskRepository {
         await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`table-query-ops:submit:${snapshot.tableId}`}, 0))`.execute(
           trx
         );
-        return snapshot.status === 'queued' && snapshot.attempts === 0
+        return snapshot.status === 'queued' && snapshot.attempts === 0 && !snapshot.lockedBy
           ? this.saveQueued(trx, task)
           : this.saveExecutionTransition(trx, task);
       });
@@ -665,9 +667,25 @@ export class PostgresTableQueryRemediationTaskRepository {
       )
       .executeTakeFirst();
     if (existing) return rowToTask(existing);
-    const active = await trx
+    const payload = snapshot.payload as {
+      trigger?: string;
+      executionMode?: string;
+      mode?: string;
+    } | null;
+    const manualSearch =
+      payload?.trigger === 'admin_search_access_path' &&
+      payload.executionMode === 'manual' &&
+      ((snapshot.kind === 'rebuild_search_access_path' && payload.mode === 'rebuild') ||
+        (snapshot.kind === 'drop_search_access_path' && payload.mode === 'drop'));
+    if (manualSearch) {
+      await sql`SELECT pg_advisory_xact_lock(
+        hashtext('teable.table_query_ops.search_vector_maintenance'), hashtext(${snapshot.tableId}::text))`.execute(
+        trx
+      );
+    }
+    const activeTasks = await trx
       .selectFrom('table_query_remediation_task')
-      .select('id')
+      .selectAll()
       .where('table_id', '=', snapshot.tableId)
       .where((eb) =>
         eb.or([
@@ -678,7 +696,27 @@ export class PostgresTableQueryRemediationTaskRepository {
           ]),
         ])
       )
-      .executeTakeFirst();
+      .where(sql<boolean>`NOT (kind = 'drop_search_access_path' AND payload->>'trigger' IS NOT DISTINCT FROM 'reclaim'
+        AND status = 'queued' AND locked_at IS NULL AND locked_by IS NULL AND NOT EXISTS (
+          SELECT 1 FROM table_query_search_vector_config config
+          WHERE config.table_id = table_query_remediation_task.table_id
+            AND config.candidate_key = table_query_remediation_task.payload->>'scopeKey'
+            AND config.status = 'disabled' AND config.reclaim_drop_after <= now()
+            AND config.reclaim_drop_queued_at IS NOT NULL
+        ))`)
+      .execute();
+    const superseded = activeTasks.filter(
+      (row) =>
+        manualSearch &&
+        row.status === 'queued' &&
+        row.attempts === 0 &&
+        row.locked_at === null &&
+        row.locked_by === null &&
+        row.execution_state === null &&
+        ['rebuild_search_access_path', 'rebuild_search_vector'].includes(row.kind) &&
+        (row.payload as { trigger?: string } | null)?.trigger === 'schema_change'
+    );
+    const active = activeTasks.find((row) => !superseded.includes(row));
     if (active)
       return err(
         domainError.conflict({
@@ -690,6 +728,17 @@ export class PostgresTableQueryRemediationTaskRepository {
           },
         })
       );
+    if (superseded.length) {
+      await trx
+        .updateTable('table_query_remediation_task')
+        .set({ status: 'cancelled', last_modified_time: snapshot.createdTime })
+        .where(
+          'id',
+          'in',
+          superseded.map((row) => row.id)
+        )
+        .execute();
+    }
     await trx
       .insertInto('table_query_remediation_task')
       .values({
@@ -703,6 +752,7 @@ export class PostgresTableQueryRemediationTaskRepository {
         result: snapshot.result == null ? null : toJsonb(snapshot.result),
         attempts: snapshot.attempts,
         max_attempts: snapshot.maxAttempts,
+        resume_attempt: snapshot.resumeAttempt ?? false,
         locked_at: snapshot.lockedAt ?? null,
         locked_by: snapshot.lockedBy ?? null,
         last_error: snapshot.lastError ?? null,
@@ -720,7 +770,13 @@ export class PostgresTableQueryRemediationTaskRepository {
   ): Promise<Result<TableQueryRemediationTask, DomainError>> {
     const snapshot = task.snapshot();
     const isStarting = snapshot.status === 'running';
-    if (!isStarting && snapshot.status !== 'succeeded' && snapshot.status !== 'failed') {
+    const isDeferred = snapshot.status === 'queued';
+    if (
+      !isStarting &&
+      !isDeferred &&
+      snapshot.status !== 'succeeded' &&
+      snapshot.status !== 'failed'
+    ) {
       return err(domainError.conflict({ message: 'Use cancelQueued to cancel a task' }));
     }
     if (!snapshot.lockedBy || !snapshot.lockedAt) {
@@ -731,15 +787,33 @@ export class PostgresTableQueryRemediationTaskRepository {
     const owned = sql`locked_by = ${snapshot.lockedBy} AND locked_at = ${snapshot.lockedAt}`;
     const priorState = isStarting
       ? sql`((status IN ('queued', 'failed')
-          AND attempts = ${snapshot.attempts - 1} AND attempts < max_attempts
+          AND ((attempts = ${snapshot.attempts - 1} AND NOT resume_attempt AND attempts < max_attempts) OR
+            (status = 'queued'
+              AND ((payload->>'trigger' = 'schema_change'
+                AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector'))
+                OR (kind = 'drop_search_access_path' AND payload->>'trigger' = 'reclaim'))
+              AND resume_attempt AND attempts > 0 AND attempts = ${snapshot.attempts}))
           AND (${owned} OR (locked_by IS NULL AND locked_at IS NULL)))
           OR (status = 'running' AND attempts = ${snapshot.attempts} AND ${owned}
-            AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector')))
+            AND (kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector')
+              OR (kind = 'drop_search_access_path' AND payload->>'trigger' = 'reclaim'))))
           AND ${snapshot.lockedAt}::timestamptz >= ${reservationCutoff}::timestamptz`
-      : sql`(${owned}) AND (
+      : isDeferred
+        ? sql`(${owned}) AND status = 'running'
+            AND attempts BETWEEN ${snapshot.attempts} AND ${snapshot.attempts + 1}
+            AND ((kind IN ('rebuild_search_access_path', 'rebuild_search_vector') AND payload->>'trigger' = 'schema_change')
+              OR (kind = 'drop_search_access_path' AND payload->>'trigger' = 'reclaim'))
+            AND ${snapshot.resumeAttempt ?? false} = (attempts > 0 AND attempts = ${snapshot.attempts})`
+        : sql`(${owned}) AND (
           (status = 'running' AND attempts = ${snapshot.attempts})
           OR (${snapshot.status === 'failed'} AND status IN ('queued', 'failed')
-            AND attempts = ${snapshot.attempts - 1} AND locked_at >= ${reservationCutoff})
+            AND locked_at >= ${reservationCutoff}
+            AND ((attempts = ${snapshot.attempts - 1} AND NOT resume_attempt)
+              OR (status = 'queued' AND resume_attempt AND attempts > 0
+                AND attempts = ${snapshot.attempts}
+                AND ((payload->>'trigger' = 'schema_change'
+                  AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector'))
+                  OR (kind = 'drop_search_access_path' AND payload->>'trigger' = 'reclaim')))))
         )`;
     const capacity = isStarting
       ? sql`AND NOT EXISTS (
@@ -750,13 +824,25 @@ export class PostgresTableQueryRemediationTaskRepository {
         ) AND (SELECT count(*) FROM table_query_remediation_task AS active
           WHERE active.id <> ${snapshot.id}
             AND (active.status = 'running' OR (active.status IN ('queued', 'failed')
-              AND active.locked_at >= ${reservationCutoff}))) < 2`
+              AND active.locked_at >= ${reservationCutoff}))) < 2
+        AND (NOT ((${(snapshot.payload as { trigger?: string } | null)?.trigger ?? null} IS NOT DISTINCT FROM 'schema_change'
+            AND ${snapshot.kind} IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector'))
+          OR (${snapshot.kind} = 'drop_search_access_path' AND ${((snapshot.payload as { trigger?: string } | null)?.trigger ?? null)} IS NOT DISTINCT FROM 'reclaim'))
+          OR NOT EXISTS (
+            SELECT 1 FROM table_query_remediation_task AS active
+            WHERE active.id <> ${snapshot.id}
+              AND coalesce((SELECT space_id FROM base WHERE id = active.base_id), active.base_id) =
+                coalesce((SELECT space_id FROM base WHERE id = ${snapshot.baseId}), ${snapshot.baseId})
+              AND (active.status = 'running' OR (active.status IN ('queued', 'failed')
+                AND active.locked_at >= ${reservationCutoff}))
+          ))`
       : sql``;
     const updated = await sql<TableQueryOpsDatabase['table_query_remediation_task']>`
       UPDATE table_query_remediation_task
       SET status = ${snapshot.status},
           result = ${snapshot.result == null ? null : toJsonb(snapshot.result)},
           attempts = ${snapshot.attempts},
+          resume_attempt = ${snapshot.resumeAttempt ?? false},
           max_attempts = LEAST(max_attempts, ${snapshot.maxAttempts}),
           locked_at = ${isStarting ? snapshot.lockedAt : null},
           locked_by = ${isStarting ? snapshot.lockedBy : null},
@@ -803,6 +889,7 @@ export class PostgresTableQueryRemediationTaskRepository {
             result: snapshot.result == null ? null : toJsonb(snapshot.result),
             attempts: snapshot.attempts,
             max_attempts: snapshot.maxAttempts,
+            resume_attempt: snapshot.resumeAttempt ?? false,
             locked_at: snapshot.lockedAt ?? null,
             locked_by: snapshot.lockedBy ?? null,
             last_error: snapshot.lastError ?? null,
@@ -888,7 +975,7 @@ export class PostgresTableQueryRemediationTaskRepository {
         await sql`SELECT pg_advisory_xact_lock(hashtextextended('table-query-ops:claim', 0))`.execute(
           trx
         );
-        return sql<TableQueryOpsDatabase['table_query_remediation_task']>`
+        const claimed = await sql<TableQueryOpsDatabase['table_query_remediation_task']>`
         UPDATE table_query_remediation_task
         SET locked_by = ${input.workerId},
             locked_at = ${input.now},
@@ -898,8 +985,10 @@ export class PostgresTableQueryRemediationTaskRepository {
           FROM table_query_remediation_task
           WHERE (status IN ('queued', 'failed') OR (
               status = 'running'
-              AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector')
-              AND (execution_state IS NOT NULL OR (payload ->> 'trigger' = 'admin_search_access_path' AND payload ->> 'executionMode' = 'manual'))
+              AND ((kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector')
+                AND (execution_state IS NOT NULL OR payload->>'trigger' = 'schema_change'
+                  OR (payload ->> 'trigger' = 'admin_search_access_path' AND payload ->> 'executionMode' = 'manual')))
+                OR (kind = 'drop_search_access_path' AND payload->>'trigger' = 'reclaim'))
             ))
             AND (
               ${input.scope === 'all'}
@@ -915,6 +1004,34 @@ export class PostgresTableQueryRemediationTaskRepository {
                 AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'drop_search_access_path')
               )
             )
+            AND (payload->>'trigger' IS DISTINCT FROM 'reclaim' OR (
+              kind = 'drop_search_access_path' AND EXISTS (
+                SELECT 1 FROM table_query_search_vector_config config
+                WHERE config.table_id = table_query_remediation_task.table_id
+                  AND config.candidate_key = table_query_remediation_task.payload->>'scopeKey'
+                  AND config.status = 'disabled' AND (
+                    (config.reclaim_drop_after <= ${input.now} AND config.reclaim_drop_queued_at IS NOT NULL)
+                    OR ((table_query_remediation_task.status = 'running'
+                        OR (table_query_remediation_task.status = 'queued'
+                          AND table_query_remediation_task.resume_attempt
+                          AND table_query_remediation_task.attempts > 0))
+                      AND config.reclaim_drop_after IS NULL AND config.serving_snapshot IS NULL
+                      AND config.last_inspection->'staleReasons' @> '["reclaimed_after_grace"]'::jsonb)
+                  )
+                  AND ((config.serving_snapshot IS NULL AND config.reclaim_drop_after IS NULL
+                    AND config.last_inspection->'staleReasons' @> '["reclaimed_after_grace"]'::jsonb)
+                    OR NOT EXISTS (SELECT 1 FROM table_meta serving
+                    WHERE serving.id = config.table_id AND (
+                      serving.search_index->>'definitionKey' = config.candidate_key
+                      OR ((config.generated_column_name IS NULL
+                        OR serving.search_index->>'indexName' = config.index_name
+                        OR serving.search_index->>'generatedColumnName' = config.generated_column_name
+                        OR serving.search_index->'document'->>'indexName' = config.index_name
+                        OR serving.search_index->'document'->>'generatedColumnName' = config.generated_column_name)
+                        AND (config.serving_snapshot->'residual'->>'indexName' IS NULL
+                          OR serving.search_index->'residual'->>'indexName' = config.serving_snapshot->'residual'->>'indexName')))))
+              )
+            ))
             AND NOT EXISTS (
               SELECT 1 FROM table_query_remediation_task AS active
               WHERE active.table_id = table_query_remediation_task.table_id
@@ -924,6 +1041,17 @@ export class PostgresTableQueryRemediationTaskRepository {
             AND (SELECT count(*) FROM table_query_remediation_task AS active
               WHERE active.id <> table_query_remediation_task.id
                 AND (active.status = 'running' OR (active.status IN ('queued', 'failed') AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)}))) < 2
+            AND (NOT ((payload->>'trigger' IS NOT DISTINCT FROM 'schema_change'
+                AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector'))
+              OR (kind = 'drop_search_access_path' AND payload->>'trigger' IS NOT DISTINCT FROM 'reclaim'))
+              OR NOT EXISTS (
+                SELECT 1 FROM table_query_remediation_task AS active
+                WHERE active.id <> table_query_remediation_task.id
+                  AND coalesce((SELECT space_id FROM base WHERE id = active.base_id), active.base_id) =
+                    coalesce((SELECT space_id FROM base WHERE id = table_query_remediation_task.base_id), table_query_remediation_task.base_id)
+                  AND (active.status = 'running' OR (active.status IN ('queued', 'failed')
+                    AND active.locked_at >= ${new Date(input.now.getTime() - 60_000)}))
+              ))
             AND (kind = ANY(${input.allowedKinds}) OR payload ->> 'trigger' IN ('admin_search_access_path', 'admin_index'))
             AND (
               ${input.allowManualIndexExecution}
@@ -940,16 +1068,55 @@ export class PostgresTableQueryRemediationTaskRepository {
               )
               OR payload ->> 'trigger' IN ('schema_change', 'reclaim', 'admin_search_access_path', 'admin_index')
             )
-            AND (attempts < max_attempts OR status = 'running')
+            AND (attempts < max_attempts OR status = 'running' OR
+              (status = 'queued' AND resume_attempt AND attempts > 0
+                AND ((payload->>'trigger' = 'schema_change'
+                  AND kind IN ('create_search_access_path', 'rebuild_search_access_path', 'create_search_vector', 'rebuild_search_vector'))
+                  OR (kind = 'drop_search_access_path' AND payload->>'trigger' = 'reclaim'))))
             AND (locked_at IS NULL OR locked_at < ${new Date(input.now.getTime() - 60_000)})
             AND (status <> 'running' OR pg_try_advisory_xact_lock(
               hashtext('teable.table_query_ops.search_vector'), hashtext(table_id)))
-          ORDER BY created_time ASC
+          ORDER BY CASE WHEN payload->>'trigger' = 'schema_change'
+              OR (kind = 'drop_search_access_path' AND payload->>'trigger' = 'reclaim')
+            THEN coalesce(last_modified_time, created_time) ELSE created_time END ASC
           FOR UPDATE SKIP LOCKED
           LIMIT 1
         )
         RETURNING *
         `.execute(trx);
+        // Scan at most once per 30 seconds per repository, only when no task was
+        // claimed. One exhausted legacy task is made resumable per idle scan.
+        if (!claimed.rows.length && input.now.getTime() >= this.nextLegacyCoverageScan &&
+          (input.scope === 'all' || input.scope === 'search_maintenance')) {
+          await sql`
+            UPDATE table_query_remediation_task AS task
+            SET status = 'queued', resume_attempt = true,
+                payload = jsonb_set(task.payload, '{legacyConnectionRecovery}', 'true'::jsonb),
+                last_modified_time = ${input.now}
+            WHERE task.id = (
+              SELECT failed.id FROM table_query_remediation_task AS failed
+              WHERE failed.status = 'failed' AND failed.attempts >= failed.max_attempts
+                AND failed.attempts > 0 AND failed.locked_at IS NULL AND failed.locked_by IS NULL
+                AND failed.kind IN ('rebuild_search_access_path', 'rebuild_search_vector')
+                AND failed.kind = ANY(${input.allowedKinds})
+                AND failed.payload->>'trigger' = 'schema_change'
+                AND failed.payload->>'legacyConnectionRecovery' IS NULL
+                AND failed.last_error ~ '^(connect ECONNREFUSED [^;]+|database "[^"]+" is not currently accepting connections|timeout exceeded when trying to connect)(; task-owned search cleanup failed: (connect ECONNREFUSED [^;]+|database "[^"]+" is not currently accepting connections|timeout exceeded when trying to connect))?$'
+                AND EXISTS (SELECT 1 FROM table_query_search_vector_config AS config
+                  JOIN table_meta AS meta ON meta.id = config.table_id AND meta.deleted_time IS NULL
+                  WHERE config.table_id = failed.table_id AND config.status = 'rebuild_pending'
+                    AND config.candidate_key = failed.payload->>'configKey'
+                    AND config.search_scope = failed.payload->>'configScope')
+                AND NOT EXISTS (SELECT 1 FROM table_query_remediation_task AS active
+                  WHERE active.table_id = failed.table_id AND active.id <> failed.id
+                    AND active.status IN ('queued', 'running'))
+              ORDER BY failed.kind, failed.created_time, failed.id
+              FOR UPDATE SKIP LOCKED LIMIT 1
+            )
+          `.execute(trx);
+          this.nextLegacyCoverageScan = input.now.getTime() + 30_000;
+        }
+        return claimed;
       });
       const row = result.rows[0];
       if (!row) return ok(undefined);
@@ -1091,6 +1258,7 @@ const rowToTask = (
     result: row.result ?? undefined,
     attempts: row.attempts,
     maxAttempts: row.max_attempts,
+    resumeAttempt: row.resume_attempt ?? false,
     lockedAt: row.locked_at ?? undefined,
     lockedBy: row.locked_by ?? undefined,
     lastError: row.last_error ?? undefined,

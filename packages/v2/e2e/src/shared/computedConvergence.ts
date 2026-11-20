@@ -141,6 +141,11 @@ export const createConvergenceHarness = async (profile: ExecutionProfile) => {
         await request('deleteRecords', { tableId: table.id, recordIds: [recordId] }, 'DELETE')
       );
     },
+    async deleteRecords(table: ConvergenceTable, recordIds: string[]) {
+      deleteRecordsOkResponseSchema.parse(
+        await request('deleteRecords', { tableId: table.id, recordIds }, 'DELETE')
+      );
+    },
     async drain() {
       for (let round = 0; round < 300; round++) {
         await testContainer.processOutboxOnce();

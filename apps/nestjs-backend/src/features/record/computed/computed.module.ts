@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '@teable/db-main-prisma';
 import { DbProvider } from '../../../db-provider/db.provider';
 import { CalculationModule } from '../../calculation/calculation.module';
+import { RawOpStagingModule } from '../../../share-db/raw-op-staging.module';
 import { TableDomainQueryModule } from '../../table-domain/table-domain-query.module';
 import { RecordQueryBuilderModule } from '../query-builder';
 import { RecordModule } from '../record.module';
@@ -18,6 +19,7 @@ import { RecordComputedUpdateService } from './services/record-computed-update.s
     RecordQueryBuilderModule,
     RecordModule,
     CalculationModule,
+    RawOpStagingModule,
     TableDomainQueryModule,
   ],
   providers: [

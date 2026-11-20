@@ -10,7 +10,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe default adapters.
-- `NoopButtonClickWorkflowService.ts` - Role: IButtonClickWorkflowService default; Purpose: no workflow run. Table Button field only — not a host-hook template.
+- `NoopButtonClickWorkflowService.ts` - Role: IButtonClickWorkflowService default; Purpose: no trigger filter, no workflow run. Table Button field only — not a host-hook template.
 - `NoopComputedOutboxAdmin.ts` - Role: IComputedOutboxAdmin default; Purpose: empty reads, not-implemented writes.
 - `NoopEventBus.ts` - Role: IEventBus default; Purpose: ignore event publishing.
 - `NoopLogger.ts` - Role: ILogger default; Purpose: swallow log output.

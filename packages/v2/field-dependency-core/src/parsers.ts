@@ -147,6 +147,10 @@ export const parseLinkOptions = (
   if (symmetricFieldId.isErr()) return err(symmetricFieldId.error);
   const fkHostTableName = readOptionalString(value, 'fkHostTableName');
   if (fkHostTableName.isErr()) return err(fkHostTableName.error);
+  const selfKeyName = readOptionalString(value, 'selfKeyName');
+  if (selfKeyName.isErr()) return err(selfKeyName.error);
+  const foreignKeyName = readOptionalString(value, 'foreignKeyName');
+  if (foreignKeyName.isErr()) return err(foreignKeyName.error);
   const relationship = readOptionalString(value, 'relationship');
   if (relationship.isErr()) return err(relationship.error);
 
@@ -156,6 +160,8 @@ export const parseLinkOptions = (
     ...(isOneWay.value !== undefined ? { isOneWay: isOneWay.value } : {}),
     ...(symmetricFieldId.value ? { symmetricFieldId: symmetricFieldId.value } : {}),
     ...(fkHostTableName.value ? { fkHostTableName: fkHostTableName.value } : {}),
+    ...(selfKeyName.value ? { selfKeyName: selfKeyName.value } : {}),
+    ...(foreignKeyName.value ? { foreignKeyName: foreignKeyName.value } : {}),
     ...(relationship.value ? { relationship: relationship.value as LinkRelationship } : {}),
   });
 };

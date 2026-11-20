@@ -619,12 +619,15 @@ describe('ShareDbRealtimeEngine', () => {
     (
       await engine.ensure(context, docId, { id: 'viw_test' }, { expectExisting: true })
     )._unsafeUnwrap();
+    (await engine.ensure(context, docId, { id: 'viw_test' }, { version: 12 }))._unsafeUnwrap();
 
     // a genuine create reaches collection query subscriptions and doc subscribers
     expect(published[0]?.channels).toEqual(['viw_tbl_test', 'viw_tbl_test.viw_test']);
     // an existing doc cannot join any collection query, so query pollers stay quiet
     expect(published[1]?.channels).toEqual(['viw_tbl_test.viw_test']);
     expect(published[1]?.op).toMatchObject({ create: { type: 'json0' }, v: 0 });
+    expect(published[2]?.channels).toEqual(['viw_tbl_test', 'viw_tbl_test.viw_test']);
+    expect(published[2]?.op).toMatchObject({ create: { type: 'json0' }, v: 12 });
   });
 
   it('publishes collection-only invalidation without a synthetic document', async () => {

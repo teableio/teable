@@ -12,7 +12,6 @@ import {
   type PreviewIssue,
   type PreviewMeasure,
   type PreviewOptions,
-  type PreviewResourceKind,
 } from '@teable/v2-command-explain';
 import {
   BaseId,
@@ -29,6 +28,7 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
+import { resourceDescriptorOf } from '../resource/resource-descriptor';
 import { getTableDeletePreviewAuthorization } from '../v2/v2-delete-preview-resource-authorization';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
 import { BaseNodeMoveService } from './base-node-move.service';
@@ -59,12 +59,6 @@ export const parseFolderDeletePreviewInput = (
           message: 'Expected { baseId, nodeId }, nodeId being the folder node ID or folder ID.',
         })
       );
-};
-
-const resourceKinds: Partial<Record<BaseNodeResourceType, PreviewResourceKind>> = {
-  [BaseNodeResourceType.Table]: 'table',
-  [BaseNodeResourceType.Workflow]: 'workflow',
-  [BaseNodeResourceType.App]: 'app',
 };
 
 const exact = (value: number, unit: string) => ({ basis: 'exact' as const, value, unit });
@@ -180,13 +174,13 @@ export class FolderDeletePreviewPlanner implements IHostPreviewAdapter<FolderDel
       return shown
         ? {
             visibility: 'authorized',
-            kind: resourceKinds[item.resourceType] ?? 'host',
+            kind: resourceDescriptorOf(item.resourceType)?.folderDeletePreviewKind ?? 'host',
             id: item.resourceId,
             name: item.name,
           }
         : {
             visibility: 'redacted',
-            kind: resourceKinds[item.resourceType] ?? 'host',
+            kind: resourceDescriptorOf(item.resourceType)?.folderDeletePreviewKind ?? 'host',
             quantity: exact(1, item.resourceType),
             reason: 'resource-not-authorized',
           };

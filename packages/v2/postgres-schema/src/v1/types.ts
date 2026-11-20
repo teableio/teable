@@ -66,6 +66,11 @@ export interface V1TableMetaTable {
   db_table_name: string;
   db_view_name: string | null;
   search_index: ColumnType<unknown, unknown, unknown>;
+  query_index_policy: ColumnType<
+    Record<string, unknown> | null,
+    Record<string, unknown> | null | undefined,
+    Record<string, unknown> | null
+  >;
   provision_state: V1ProvisionStateColumn;
   version: number;
   order: number;

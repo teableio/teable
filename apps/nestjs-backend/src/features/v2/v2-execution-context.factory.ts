@@ -29,9 +29,14 @@ export class V2ExecutionContextFactory {
 
   /**
    * Creates a complete execution context with actorId, tracer, and requestId.
+   * Request abort signals are opt-in for streaming endpoints so synchronous
+   * REST mutations remain atomic even if the client disconnects mid-request.
    * @throws HttpException if user.id is not available or ActorId creation fails
    */
-  async createContext(container?: DependencyContainer): Promise<IExecutionContext> {
+  async createContext(
+    container?: DependencyContainer,
+    options?: { useRequestAbortSignal?: boolean }
+  ): Promise<IExecutionContext> {
     container ??= await this.v2ContainerService.getContainer();
     const tracer = container.resolve<ITracer>(v2CoreTokens.tracer);
     const tableLimits = container.isRegistered(v2CoreTokens.tableDataSafetyLimits)
@@ -61,6 +66,9 @@ export class V2ExecutionContextFactory {
     // Get windowId from CLS for undo/redo tracking
     const windowId = this.cls.get('windowId');
     const scheduleBackgroundTask = this.cls.get('scheduleV2BackgroundTask');
+    const requestAbortSignal = options?.useRequestAbortSignal
+      ? this.cls.get('requestAbortSignal')
+      : undefined;
     const permissions = this.cls.get('permissions');
     const allowSelectOptionAutoCreate = Array.isArray(permissions)
       ? permissions.includes('field|update')
@@ -73,6 +81,7 @@ export class V2ExecutionContextFactory {
 
     const context: IExecutionContext = {
       actorId: actorIdResult.value,
+      ...(requestAbortSignal ? { abortSignal: requestAbortSignal } : {}),
       tracer,
       requestId,
       windowId,

@@ -13,6 +13,7 @@ import type { LinkExclusivityConstraint } from '../../visitors/LinkExclusivityCo
 import type { CompiledSqlStatement, LinkedRecordLockInfo } from '../insert';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
 
+import type { JunctionTableReplacement } from './junctionTableMutations';
 import {
   buildExtraSeedRecordsFromLinkChanges,
   buildLinkedRecordLocksFromLinkChanges,
@@ -56,10 +57,12 @@ export interface BatchRecordUpdateDataResult {
   columnUpdateData: Map<string, Array<{ recordId: string; value: unknown }>>;
 
   /**
-   * Additional SQL statements (junction table operations, FK updates).
-   * These are compiled immediately as they're not easily batchable.
+   * Additional SQL statements for foreign keys stored on record tables.
    */
   additionalStatements: CompiledSqlStatement[];
+
+  /** Junction replacements to apply after the actual UPDATE result is known. */
+  junctionTableReplacements: ReadonlyArray<JunctionTableReplacement>;
 
   /**
    * Attachment table replacements to apply after the actual UPDATE result is known.
@@ -166,6 +169,7 @@ export class BatchRecordUpdateBuilder {
         return ok({
           columnUpdateData: new Map(),
           additionalStatements: [],
+          junctionTableReplacements: [],
           attachmentTableReplacements: [],
           linkedRecordLocks: [],
           impact: {
@@ -187,6 +191,7 @@ export class BatchRecordUpdateBuilder {
 
       // Step 1: Process each record's mutation
       const allAdditionalStatements: CompiledSqlStatement[] = [];
+      const junctionTableReplacements: JunctionTableReplacement[] = [];
       const attachmentTableReplacements: AttachmentTableReplaceInput[] = [];
       const allChangedFieldIds = new Set<string>();
       const allLinkedRecordLocks: LinkedRecordLockInfo[] = [];
@@ -224,6 +229,7 @@ export class BatchRecordUpdateBuilder {
           fillLinkTitles: context.fillLinkTitles,
           fillLinkTitleForeignTables: context.fillLinkTitleForeignTables,
           deferAttachmentTableReplace: true,
+          deferredJunctionReplacements: junctionTableReplacements,
         });
 
         // Accept the mutation spec
@@ -342,6 +348,7 @@ export class BatchRecordUpdateBuilder {
       return ok({
         columnUpdateData,
         additionalStatements: allAdditionalStatements,
+        junctionTableReplacements,
         attachmentTableReplacements,
         linkedRecordLocks,
         impact,

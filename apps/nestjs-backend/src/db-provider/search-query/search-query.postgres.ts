@@ -6,11 +6,11 @@ import { type Knex } from 'knex';
 import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IRecordQueryFilterContext } from '../../features/record/query-builder/record-query-builder.interface';
+import { FieldFormatter } from '../../features/table-index/search-index-builder.postgres';
 import { escapePostgresRegex } from '../../utils/postgres-regex-escape';
 import { escapeLikeWildcards } from '../../utils/sql-like-escape';
 import { SearchQueryAbstract } from './abstract';
 import { getDateSearchRange } from './date-search-range.util';
-import { FieldFormatter } from './search-index-builder.postgres';
 import type { ISearchCellValueType } from './types';
 
 export class SearchQueryPostgres extends SearchQueryAbstract {

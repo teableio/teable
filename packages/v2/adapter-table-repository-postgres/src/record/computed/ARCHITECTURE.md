@@ -57,6 +57,12 @@ The check is deliberately after the current level's dirty-count resolution. Gene
 - Whole-table seed promotion covers surviving rows, not deleted sources. Retain
   relevant before-image IDs alongside whole-table markers through enqueue and
   retry merging, so later edges can still match deleted rows' old values.
+- For a two-way one-to-many link whose foreign key disappears with the deleted
+  child, the delete writer captures the old parents as extra seeds. The seed
+  payload lists each fully read parent link in `capturedDeleteLinkFieldIds`,
+  including links with zero parents. Merging deletes intersects these field IDs
+  and unions the parent records. Filtered lookups and rollups use those seeds
+  for covered links and keep the full refresh for an unknown scope.
 
 The convergence gate checks command-input-derived values against raw stored cells
 for every fixture row, including unrelated rows and link titles. It does not use
@@ -238,6 +244,13 @@ even when some exact seeds remain. Ordinary non-partial exact-input archives rem
 Propagation target tables (`step.tableId`, `edge.toTableId`) do not have to appear in exact seed
 membership. A complete historical A-only seed can legitimately propagate to B; eligibility rejects
 unknown partial/cursor/lineage state, not the absence of pre-materialized output records.
+
+A fresh planned delete continuation can initialize `frontier`, `rerun-source`, and the
+`rerun-input-v1` marker in its enqueue transaction. This applies when the task has a predecessor,
+staging is enabled, and the deduplicated input exceeds `maxSeedRecordsPerTask` but fits within
+`stageMaxCollectedSeedIds`. Each input keeps the same sequence in the two ledger roles. The new
+task owns the scope and claims it with a one-step budget. Larger inputs retain paged preparation,
+and continuations with an existing checkpoint follow the existing scope's progress.
 
 Only restored planned tasks receive `plannedRerun` metadata. Before their first claim hydrates seed
 rows, the outbox transfers the complete normalized membership SQL-side into task-owned frontier and

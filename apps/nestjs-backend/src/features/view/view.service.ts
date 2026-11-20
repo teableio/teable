@@ -48,10 +48,10 @@ import { DatabaseRouter } from '../../global/database-router.service';
 import { CUSTOM_KNEX, DATA_KNEX } from '../../global/knex/knex.module';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
+import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
 import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
-import { BatchService } from '../calculation/batch.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
@@ -98,7 +98,7 @@ type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext
 export class ViewService implements IReadonlyAdapterService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
-    private readonly batchService: BatchService,
+    private readonly rawOpStagingService: RawOpStagingService,
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
@@ -397,7 +397,7 @@ export class ViewService implements IReadonlyAdapterService {
       // create op (mirrors TableService.restoreTable): an edit op on the
       // revived doc is skipped by DocListQueryPollSkipStrategy and would leave
       // view list subscriptions without the restored view
-      this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
+      this.rawOpStagingService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
         { docId: viewId, version },
       ]);
     });
@@ -511,7 +511,7 @@ export class ViewService implements IReadonlyAdapterService {
   async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
     const viewRaw = await this.createDbView(tableId, viewRo);
 
-    this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
       { docId: viewRaw.id, version: 0, data: viewRaw },
     ]);
 
@@ -562,7 +562,7 @@ export class ViewService implements IReadonlyAdapterService {
 
     await this.del(viewToDelete.version + 1, tableId, viewId);
 
-    this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.View, [
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Del, IdPrefix.View, [
       { docId: viewId, version: viewToDelete.version },
     ]);
   }
@@ -611,7 +611,7 @@ export class ViewService implements IReadonlyAdapterService {
       data: { version: viewRaw.version + 1, ...updateInput },
     });
 
-    this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, [
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, [
       {
         docId: viewId,
         version: viewRaw.version,
@@ -732,7 +732,7 @@ export class ViewService implements IReadonlyAdapterService {
       };
     });
 
-    this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, opDataList);
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, opDataList);
   }
 
   async create(tableId: string, view: IViewVo) {

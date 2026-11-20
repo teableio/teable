@@ -7,6 +7,7 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
 import createKnex from 'knex';
+import { Kysely, PostgresDialect } from 'kysely';
 import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
@@ -933,27 +934,26 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
   });
 
   it('preserves serving and reclaim state on a same-database metadata-only base move', async () => {
-    await withRoutingMetadata(async (client, transaction) => {
-      const txClient = {
-        ...transaction,
-        base: {
-          update: async ({ where, data }: { where: { id: string }; data: { spaceId: string } }) =>
-            client.query('UPDATE base SET space_id = $1 WHERE id = $2', [data.spaceId, where.id]),
-        },
-        userBaseOrder: {
-          deleteMany: async () => ({ count: 0 }),
-        },
-      };
-      const prisma = {
-        txClient: () => txClient,
-        $tx: async (run: () => Promise<void>) => {
-          await client.query('BEGIN');
-          await run();
-          await client.query('COMMIT');
-        },
-      };
+    await withRoutingMetadata(async (client) => {
+      await client.query('CREATE TEMP TABLE user_base_order (base_id text)');
+      // Keep Kysely on this connection so the move uses the same temporary
+      // metadata and real PostgreSQL transaction as the routing-state assertions.
+      const metaDb = new Kysely<never>({
+        dialect: new PostgresDialect({
+          pool: {
+            connect: async () => ({ query: client.query.bind(client), release: () => undefined }),
+            end: async () => undefined,
+          } as never,
+        }),
+      });
+      const withConversions = vi.fn(
+        async (
+          _baseId: string,
+          _conversions: unknown[],
+          apply: (context: unknown, db: unknown) => Promise<void>
+        ) => metaDb.transaction().execute((tx) => apply({}, tx))
+      );
       const baseService = new BaseService(
-        prisma as never,
         {} as never,
         {} as never,
         {} as never,
@@ -965,6 +965,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         {} as never,
         {} as never,
         {} as never,
+        { withConversions } as never,
         {} as never,
         {} as never,
         {} as never,
@@ -994,6 +995,8 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         (await client.query(`SELECT space_id FROM base WHERE id = 'bsemove'`)).rows[0].space_id
       ).toBe('spcoutside');
       expect(await readState()).toEqual(before);
+      expect(withConversions).toHaveBeenCalledWith('bsemove', [], expect.any(Function));
+      await metaDb.destroy();
     });
   });
 

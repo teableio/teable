@@ -1,14 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
   ArchiveRecordsCommand,
+  CreateFieldCommand,
   CreateRecordsCommand,
   DeleteRecordsCommand,
   RECORD_REMOVAL_REASON,
+  UpdateRecordCommand,
   v2CoreTokens,
   type ArchiveRecordsResult,
+  type CreateFieldResult,
   type CreateRecordsResult,
   type DeleteRecordsResult,
   type IUndoRedoStore,
+  type UpdateRecordResult,
 } from '@teable/v2-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -18,6 +22,9 @@ import {
   disposeHarness,
   fetchRowById,
   findField,
+  getFieldDbName,
+  listRows,
+  loadTable,
   type UndoRedoDbHarness,
 } from '../../shared/undoRedoDbTestKit';
 
@@ -372,5 +379,111 @@ describe('undo-redo/deleteRecords (db)', () => {
     await harness.undo(table.id().toString());
     expect(harness.probe.names()).toEqual(['UndoCommand', 'RestoreRecordsCommand']);
     expect(await fetchRowById(harness.db, table, recordId)).toBeUndefined();
+  });
+
+  it('restores multi-batch (>500) self-referential links, increments __version, and cleans table_trash before record_trash lands', async () => {
+    if (!harness) throw new Error('Missing harness');
+
+    const table = await createBasicTable(harness, 'Undo MultiBatch SelfLink');
+    const titleField = findField(table, 'Title');
+    const tableId = table.id().toString();
+    const parentFieldId = `fld${'p'.repeat(16)}`;
+
+    await harness.execute<CreateFieldCommand, CreateFieldResult>(
+      CreateFieldCommand.create({
+        baseId: harness.testContainer.baseId.toString(),
+        tableId,
+        field: {
+          id: parentFieldId,
+          type: 'link',
+          name: 'Parent',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: tableId,
+            lookupFieldId: titleField.id().toString(),
+          },
+        },
+      })._unsafeUnwrap()
+    );
+
+    const updatedTable = await loadTable(harness, table);
+    const parentDbName = getFieldDbName(updatedTable, 'Parent');
+    const titleFieldIdStr = titleField.id().toString();
+
+    const batchA = await harness.execute<CreateRecordsCommand, CreateRecordsResult>(
+      CreateRecordsCommand.create({
+        tableId,
+        records: Array.from({ length: 251 }, (_, index) => ({
+          fields: { [titleFieldIdStr]: `Row A-${index}` },
+        })),
+      })._unsafeUnwrap()
+    );
+    const batchB = await harness.execute<CreateRecordsCommand, CreateRecordsResult>(
+      CreateRecordsCommand.create({
+        tableId,
+        records: Array.from({ length: 251 }, (_, index) => ({
+          fields: { [titleFieldIdStr]: `Row B-${index}` },
+        })),
+      })._unsafeUnwrap()
+    );
+
+    const parentId = batchA.records[0]!.id().toString();
+    const childId = batchB.records[250]!.id().toString();
+
+    await harness.execute<UpdateRecordCommand, UpdateRecordResult>(
+      UpdateRecordCommand.create({
+        tableId,
+        recordId: childId,
+        fields: { [parentFieldId]: { id: parentId } },
+      })._unsafeUnwrap()
+    );
+
+    const preDeleteChild = await fetchRowById(harness.db, updatedTable, childId);
+    expect(Number(preDeleteChild?.__version)).toBe(2);
+
+    const allIds = [...batchA.records, ...batchB.records].map((record) => record.id().toString());
+    await harness.execute<DeleteRecordsCommand, DeleteRecordsResult>(
+      DeleteRecordsCommand.create({
+        tableId,
+        recordIds: allIds,
+      })._unsafeUnwrap()
+    );
+
+    const recordTrashRows = await harness.db
+      .selectFrom('record_trash')
+      .select('id')
+      .where('table_id', '=', tableId)
+      .execute();
+    const tableTrashBeforeUndo = await harness.db
+      .selectFrom('table_trash')
+      .select('id')
+      .where('table_id', '=', tableId)
+      .where('resource_type', '=', 'record')
+      .execute();
+    expect(recordTrashRows).toHaveLength(0);
+    expect(tableTrashBeforeUndo.length).toBeGreaterThanOrEqual(1);
+
+    await harness.undo(tableId);
+
+    const restoredRows = await listRows(harness.db, updatedTable);
+    expect(restoredRows).toHaveLength(502);
+
+    const restoredChild = await fetchRowById(harness.db, updatedTable, childId);
+    expect(restoredChild).toBeDefined();
+    const rawParent = restoredChild?.[parentDbName];
+    const parsedParent = (typeof rawParent === 'string' ? JSON.parse(rawParent) : rawParent) as
+      | { id?: string }
+      | null
+      | undefined;
+    expect(parsedParent?.id).toBe(parentId);
+    expect(Number(restoredChild?.__version)).toBe(3);
+
+    const tableTrashAfterUndo = await harness.db
+      .selectFrom('table_trash')
+      .select('id')
+      .where('table_id', '=', tableId)
+      .where('resource_type', '=', 'record')
+      .execute();
+    expect(tableTrashAfterUndo).toHaveLength(0);
   });
 });

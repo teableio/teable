@@ -141,6 +141,7 @@ type DataQueryDefinitionBase = {
   page?: {
     limit: number | DataQueryParameterReference;
     offset?: number | DataQueryParameterReference;
+    after?: never;
     /** Opt-in: also return the unpaginated total for the same scope and filters. */
     includeTotal?: boolean;
   };
@@ -233,6 +234,20 @@ type WithDistinct<T> =
       ? Omit<T, 'version'> & { version: 6 }
       : never;
 export type DataQueryDefinitionV6Input = WithDistinct<DataQueryDefinitionV5Input>;
+/** Cursor definitions are records queries; older versions retain offset pagination. */
+export type DataQueryDefinitionV7Input = Omit<
+  Extract<DataQueryDefinitionV6Input, { kind: 'records' }>,
+  'version' | 'page'
+> & {
+  version: 7;
+  page: {
+    limit: number | DataQueryParameterReference;
+    offset?: never;
+    /** Required declaration; omit only its runtime parameter value on the first page. */
+    after: DataQueryParameterReference;
+    includeTotal?: boolean;
+  };
+};
 /** COUNT DISTINCT over finalized public scalar tuples; null components compare equal. */
 export type DataQueryDistinctAggregate = {
   source?: string;
@@ -244,18 +259,29 @@ export type DataQueryDistinctAggregate = {
   filter?: DataQueryPredicateV3;
 };
 export type DataQueryAggregateV8 = DataQueryAggregateV4 | DataQueryDistinctAggregate;
-/** Version 7 is reserved for the independent cursor protocol. */
+/** V8 adds whole-group distinct aggregates; cursor pagination stays a V7 feature. */
 export type DataQueryDefinitionV8Input =
   | (Omit<Extract<DataQueryDefinitionV6Input, { kind: 'records' }>, 'version'> & { version: 8 })
   | (Omit<Extract<DataQueryDefinitionV6Input, { kind: 'aggregate' }>, 'version' | 'aggregates'> & {
       version: 8;
       aggregates: [DataQueryAggregateV8, ...DataQueryAggregateV8[]];
     });
+export type DataQueryTopN = {
+  partitionBy: string[];
+  orderBy: { alias: string; order: DataQuerySortOrder; nulls?: DataQuerySortNulls }[];
+  limit: number;
+};
+export type DataQueryDefinitionV9Input = Omit<
+  Extract<DataQueryDefinitionV5Input, { kind: 'records' }>,
+  'version'
+> & { version: 9; topN: DataQueryTopN };
 export type DataQueryDefinitionInput =
   | DataQueryDefinitionV4Input
   | DataQueryDefinitionV5Input
   | DataQueryDefinitionV6Input
+  | DataQueryDefinitionV7Input
   | DataQueryDefinitionV8Input
+  | DataQueryDefinitionV9Input
   | ((DataQueryDefinitionBase &
       ({ version: 1 } | { version: 2; relations?: Record<string, DataQueryRelation> })) &
       DataQueryDefinitionBody)
@@ -296,6 +322,8 @@ export type BoundDataQuery = {
   /** Fully resolved sorts: parameterized items are replaced by validated concrete targets. */
   readonly sort: ReadonlyArray<DataQuerySortResolved>;
   readonly includeTotal: boolean;
+  /** Present for V7 even on its initial page. */
+  readonly cursor?: { readonly after?: string };
 };
 export const dataQueryFieldUsageValues = [
   'projection',

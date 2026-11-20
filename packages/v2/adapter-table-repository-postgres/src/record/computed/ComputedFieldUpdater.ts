@@ -45,15 +45,15 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import {
-  resolveColumnType,
-  resolveColumnName,
-} from '../../schema/visitors/PostgresTableSchemaFieldColumn';
-import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
-import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
-import {
   defaultComputedRuntimeConfig,
   type ComputedRuntimeConfig,
 } from '../../config/runtimeConfig';
+import {
+  resolveColumnType,
+  resolveColumnName,
+} from '../../schema/visitors/PostgresTableSchemaFieldColumn';
+import { resolveTableSql, toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
+import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB, QB } from '../query-builder';
 import { ComputedTableRecordQueryBuilder } from '../query-builder/computed';
@@ -72,6 +72,7 @@ import {
   clearStageLedger,
   collectStageOutputSeedGroups,
   pushStageLedgerFrontierHead,
+  retireIrrelevantStageLedgerFrontier,
   retireStageLedgerFrontierHead,
   stageLedgerHasFrontier,
   seedStageLedgerFrontierHead,
@@ -669,6 +670,14 @@ export class ComputedFieldUpdater {
        * computed_update_stage_ledger instead of plan-carried record arrays.
        */
       ledgerScopeId?: string;
+      /** Preserve retired frontier rows as 'consumed' when the stage still has deferred work. */
+      preserveConsumedFrontier?: boolean;
+      /**
+       * Whether prepareDirtyState should retire/preserve frontier rows whose
+       * tableId is outside this stage's relevant tables. Set on stage entry and
+       * floor retries; partial continuations of the same stage skip the scan.
+       */
+      retireIrrelevantFrontier?: boolean;
       /**
        * When true (async worker only), oversized non-link computed cells are
        * reverted to their previous value so the rest of the cascade can commit.
@@ -820,6 +829,8 @@ export class ComputedFieldUpdater {
             maxDirtyRecords: options?.maxDirtyRecords,
             dirtyBudgetMode: options?.dirtyBudgetMode,
             ledgerScopeId: options?.ledgerScopeId,
+            preserveConsumedFrontier: options?.preserveConsumedFrontier,
+            retireIrrelevantFrontier: options?.retireIrrelevantFrontier,
             deferValueGatedEdges: collectChanges,
           });
           const dirtyBudget = prepared.propagationStats.dirtyBudget;
@@ -1227,6 +1238,14 @@ export class ComputedFieldUpdater {
       dirtyBudgetMode?: 'abort' | 'partial';
       /** @see execute — durable stage ledger scope for staged executions. */
       ledgerScopeId?: string;
+      /** Preserve retired frontier rows as 'consumed' when the stage still has deferred work. */
+      preserveConsumedFrontier?: boolean;
+      /**
+       * Whether prepareDirtyState should retire/preserve frontier rows whose
+       * tableId is outside this stage's relevant tables. Set on stage entry and
+       * floor retries; partial continuations of the same stage skip the scan.
+       */
+      retireIrrelevantFrontier?: boolean;
       /** Delay eligible linkTraversal edges until formula RETURNING. */
       deferValueGatedEdges?: boolean;
     }
@@ -1307,6 +1326,20 @@ export class ComputedFieldUpdater {
         let seedingConsumed = 0;
         let frontierConsumed = 0;
         let frontierMaxSeq: string | undefined;
+        let frontierRemainder = false;
+        const stageStepTableIds = [...new Set(plan.steps.map((step) => step.tableId.toString()))];
+        const stageOutputTableIds = [
+          ...new Set([
+            ...stageStepTableIds,
+            ...plan.edges.map((edge) => edge.toTableId.toString()),
+          ]),
+        ];
+        const stageRelevantTableIds = [
+          ...new Set([
+            ...stageOutputTableIds,
+            ...plan.edges.map((edge) => edge.fromTableId.toString()),
+          ]),
+        ];
         const advancedSeedAllCursors: Record<string, string> = {};
         const wholeTableSeededTables = new Set<string>();
         let seedAllBudgetOutcome: DirtyPropagationStats['dirtyBudget'];
@@ -1432,6 +1465,21 @@ export class ComputedFieldUpdater {
                 if (extraResult.isErr()) return extraResult;
               }
             }
+            if (
+              Boolean(options?.retireIrrelevantFrontier) &&
+              partialMode &&
+              exclusionScopeId !== undefined &&
+              seedAllBudgetOutcome?.status !== 'exceeded' &&
+              stageRelevantTableIds.length > 0
+            ) {
+              const retireIrrelevantResult = await retireIrrelevantStageLedgerFrontier(
+                db,
+                exclusionScopeId,
+                stageRelevantTableIds,
+                { preserveAsConsumed: options?.preserveConsumedFrontier }
+              );
+              if (retireIrrelevantResult.isErr()) return err(retireIrrelevantResult.error);
+            }
             // Frontier queue: sources for the next self-referential generations,
             // stored seq-ordered in the run ledger. Only a budget-bounded HEAD
             // seeds per batch (sharing the seeding pool with whole-table slices)
@@ -1464,11 +1512,12 @@ export class ComputedFieldUpdater {
               if (headResult.isErr()) return err(headResult.error);
               frontierConsumed = headResult.value.consumed;
               frontierMaxSeq = headResult.value.maxSeq ?? undefined;
+              frontierRemainder = headResult.value.remainder;
               seedingConsumed += frontierConsumed;
               // An unseeded queue remainder is a seeding truncation: without the
               // partial outcome the stage would complete and drop the queue,
               // losing the remaining sources' propagation entirely.
-              if (partialMode && headResult.value.remainder && !seedAllBudgetOutcome) {
+              if (partialMode && frontierRemainder && !seedAllBudgetOutcome) {
                 seedAllBudgetOutcome = {
                   status: 'partial',
                   propagatedDirtyRecords: seedingConsumed,
@@ -1521,6 +1570,7 @@ export class ComputedFieldUpdater {
           ...(exclusionScopeId !== undefined ? { exclusionScopeId } : {}),
         };
 
+        const MAX_EMPTY_FRONTIER_FAST_FORWARD_ROUNDS = 31;
         const propagationStats = (yield* await runWithSpan(
           'teable.ComputedFieldUpdater.propagateDirtyRecords',
           async () => {
@@ -1545,14 +1595,113 @@ export class ComputedFieldUpdater {
                 exclusionScopeId,
               }
             );
-            if (propagateResult.isErr() || !seedAllBudgetOutcome) return propagateResult;
+            if (propagateResult.isErr()) return propagateResult;
+            let stats = propagateResult.value;
+            const isPropagationTruncated = (
+              outcome: DirtyPropagationStats['dirtyBudget']
+            ): boolean =>
+              outcome?.status === 'partial' &&
+              (outcome.truncated === 'propagation' || outcome.truncated === 'both');
 
-            const stats = propagateResult.value;
+            const fastForwardDeadlineMs = Date.now() + 5_000;
+            let fastForwardRounds = 0;
+            while (
+              fastForwardRounds < MAX_EMPTY_FRONTIER_FAST_FORWARD_ROUNDS &&
+              Date.now() < fastForwardDeadlineMs &&
+              partialMode &&
+              maxDirtyRecords !== undefined &&
+              partialSeedingBudget !== undefined &&
+              exclusionScopeId !== undefined &&
+              wholeTableSeededTables.size === 0 &&
+              plan.seedRecordIds.length === 0 &&
+              plan.extraSeedRecords.length === 0 &&
+              valueGatedEdges.length === 0 &&
+              stageOutputTableIds.length > 0 &&
+              !isPropagationTruncated(stats.dirtyBudget) &&
+              frontierRemainder &&
+              frontierMaxSeq !== undefined
+            ) {
+              const outputConditions = [
+                ...(stageStepTableIds.length > 0
+                  ? [
+                      sql`table_id in (${sql.join(stageStepTableIds.map((tableId) => sql`${tableId}`))})`,
+                    ]
+                  : []),
+                ...(stageOutputTableIds.length > 0
+                  ? [
+                      sql`(generation > 0 and table_id in (${sql.join(stageOutputTableIds.map((tableId) => sql`${tableId}`))}))`,
+                    ]
+                  : []),
+              ];
+              const hasOutput =
+                outputConditions.length > 0
+                  ? await db.executeQuery(
+                      sql<{ one: number }>`
+                        select 1 as one
+                        from ${sql.table(DIRTY_TABLE)}
+                        where ${sql.join(outputConditions, sql` or `)}
+                        limit 1
+                      `.compile(db)
+                    )
+                  : { rows: [] };
+              if (hasOutput.rows.length > 0) break;
+
+              const retireResult = await retireStageLedgerFrontierHead(
+                db,
+                exclusionScopeId,
+                frontierMaxSeq,
+                { preserveAsConsumed: options?.preserveConsumedFrontier }
+              );
+              if (retireResult.isErr()) return err(retireResult.error);
+              const resetResult = await db
+                .executeQuery(sql`truncate table ${sql.table(DIRTY_TABLE)}`.compile(db))
+                .then(() => ok(undefined))
+                .catch((error) => err(domainError.infrastructure({ message: String(error) })));
+              if (resetResult.isErr()) return err(resetResult.error);
+
+              const nextHeadResult = await seedStageLedgerFrontierHead(
+                db,
+                exclusionScopeId,
+                partialSeedingBudget
+              );
+              if (nextHeadResult.isErr()) return err(nextHeadResult.error);
+              frontierConsumed = nextHeadResult.value.consumed;
+              frontierMaxSeq = nextHeadResult.value.maxSeq ?? undefined;
+              frontierRemainder = nextHeadResult.value.remainder;
+              seedingConsumed = frontierConsumed;
+              seedAllBudgetOutcome = frontierRemainder
+                ? {
+                    status: 'partial',
+                    propagatedDirtyRecords: seedingConsumed,
+                    truncated: 'seeding',
+                  }
+                : undefined;
+              if (frontierConsumed === 0) {
+                stats = emptyDirtyPropagationStats();
+                break;
+              }
+
+              const nextPropagateResult = await propagateDirtyRecords(
+                db,
+                edgesToPropagate,
+                tableById,
+                storageColumnCache,
+                context,
+                {
+                  maxDirtyRecords: Math.max(1, maxDirtyRecords - seedingConsumed),
+                  dirtyBudgetMode: options?.dirtyBudgetMode,
+                  exclusionScopeId,
+                }
+              );
+              if (nextPropagateResult.isErr()) return nextPropagateResult;
+              stats = nextPropagateResult.value;
+              fastForwardRounds += 1;
+            }
+
+            if (!seedAllBudgetOutcome) return ok(stats);
+
             const propagationOutcome = stats.dirtyBudget;
-            const propagationTruncated =
-              propagationOutcome?.status === 'partial' &&
-              (propagationOutcome.truncated === 'propagation' ||
-                propagationOutcome.truncated === 'both');
+            const propagationTruncated = isPropagationTruncated(propagationOutcome);
             return ok({
               ...stats,
               dirtyBudget: {
@@ -2399,16 +2548,12 @@ export class ComputedFieldUpdater {
             return ok(undefined);
           };
 
+          // The formula planner checks the exact UPDATE statements before returning them.
           if (collectChanges) {
             const mergedRecordChanges = new Map<string, RecordChangeData>();
 
             for (let i = 0; i < queryPlans.length; i++) {
-              const {
-                selectQuery,
-                fieldIds: chunkFieldIds,
-                returning,
-                formulaBudget,
-              } = queryPlans[i];
+              const { selectQuery, fieldIds: chunkFieldIds, returning } = queryPlans[i];
               const compiledResult =
                 returning ??
                 (yield* updateBuilder.buildWithReturning({
@@ -2417,8 +2562,6 @@ export class ComputedFieldUpdater {
                   selectQuery,
                   incrementVersion: !deferVersion,
                 }));
-              if (formulaBudget)
-                yield* checkFormulaSqlBudget(compiledResult.compiled.sql, formulaBudget);
               executedSqls.push({
                 sql: compiledResult.compiled.sql,
                 parameterCount: compiledResult.compiled.parameters.length,
@@ -2547,12 +2690,7 @@ export class ComputedFieldUpdater {
 
           const versionRecordIds = new Set<string>();
           for (let i = 0; i < queryPlans.length; i++) {
-            const {
-              selectQuery,
-              fieldIds: chunkFieldIds,
-              compiled: preparedQuery,
-              formulaBudget,
-            } = queryPlans[i];
+            const { selectQuery, fieldIds: chunkFieldIds, compiled: preparedQuery } = queryPlans[i];
             const compiled =
               preparedQuery ??
               (yield* updateBuilder.build({
@@ -2562,7 +2700,6 @@ export class ComputedFieldUpdater {
                 incrementVersion: !deferVersion,
                 returnRecordIds: deferVersion,
               }));
-            if (formulaBudget) yield* checkFormulaSqlBudget(compiled.sql, formulaBudget);
             executedSqls.push({
               sql: compiled.sql,
               parameterCount: compiled.parameters.length,
@@ -3182,6 +3319,7 @@ export class ComputedFieldUpdater {
       scopeId: string;
       stepTableIds: ReadonlyArray<TableId>;
       appendFrontier: boolean;
+      frontierSourceTableIds?: ReadonlyArray<string>;
       /** Highest consumed frontier seq; null when propagation truncated (no retire). */
       retireFrontierUpToSeq: string | null;
       /** Ledger lifecycle: 'carry-sources' while deferred edge chunks remain. */
@@ -3213,7 +3351,12 @@ export class ComputedFieldUpdater {
       db,
       params.scopeId,
       params.stepTableIds.map((tableId) => tableId.toString()),
-      { appendFrontier: params.appendFrontier }
+      {
+        appendFrontier: params.appendFrontier,
+        ...(params.frontierSourceTableIds
+          ? { frontierSourceTableIds: params.frontierSourceTableIds }
+          : {}),
+      }
     );
     if (appended.isErr()) return err(appended.error);
     return ok({
@@ -3241,6 +3384,7 @@ export class ComputedFieldUpdater {
       settlementMode: ComputedStageLedgerSettlementMode;
       valueFrontierFields?: ReadonlyArray<{ tableId: string; fieldIds: ReadonlyArray<string> }>;
       allowConsumedPruning?: boolean;
+      carriedSourceTableIds?: ReadonlyArray<string>;
     }
   ): Promise<
     Result<
@@ -3259,6 +3403,7 @@ export class ComputedFieldUpdater {
         includeConsumedSources: params.settlementMode === 'carry-sources',
         valueFrontierFields: params.valueFrontierFields,
         allowConsumedPruning: params.allowConsumedPruning,
+        carriedSourceTableIds: params.carriedSourceTableIds,
       }
     );
     if (collected.isErr()) return err(collected.error);
@@ -3498,7 +3643,7 @@ const seedAllDirtyRecordsForTableBounded = async (
     if (exclusionScopeId !== undefined) {
       src = src.where(
         sql<boolean>`not exists (
-          select 1 from ${sql.table(STAGE_LEDGER_TABLE)} as processed_target
+          select 1 from ${resolveTableSql(db, STAGE_LEDGER_TABLE)} as processed_target
           where processed_target.scope_id = ${exclusionScopeId}
             and processed_target.kind = 'excluded'
             and processed_target.table_id = ${sql.lit(table.id().toString())}
@@ -3784,7 +3929,7 @@ const runBudgetedPropagationInsert = async (
   if (exclusionScopeId !== undefined) {
     src = src.where(
       sql<boolean>`not exists (
-        select 1 from ${sql.table(STAGE_LEDGER_TABLE)} as processed_target
+        select 1 from ${resolveTableSql(db, STAGE_LEDGER_TABLE)} as processed_target
         where processed_target.scope_id = ${exclusionScopeId}
           and processed_target.kind = 'excluded'
           and processed_target.table_id = propagated.${sql.raw(DIRTY_TABLE_ID_COL)}

@@ -5,11 +5,17 @@ import { DATA_QUERY_ARTIFACT_GENERATOR_VERSION } from './DataQueryArtifactProven
 import { DataQueryDefinition } from './DataQueryDefinition';
 import { dataQueryManifestJsonSchema, type DataQueryManifest } from './DataQueryManifest';
 import {
+  compareAppQueryContracts,
   generateAppQueryArtifacts,
   generatedClientState,
   parseDataQueryManifestText,
   withGeneratedClientDigest,
 } from './DataQueryManifestFiles';
+import {
+  queryLibraryPinNeedsPreview,
+  queryLibraryPreviewEvidenceKey,
+  queryLibrarySourceDigest,
+} from './QueryLibraryPreviewEvidence';
 
 const todo = `schemaVersion: 1
 queries:
@@ -47,6 +53,90 @@ queries:
 `;
 
 describe('generated client integrity', () => {
+  it('requires a live contract and emits a fixed library run without embedding its definition', () => {
+    const parsed = parseDataQueryManifestText(
+      `schemaVersion: 1\nqueries:\n  sales:\n    mode: library\n    library: { id: qlb0123456789abcdef, revision: 2 }\n`
+    );
+    if (parsed.isErr()) throw new Error(parsed.error.message);
+    expect(generateAppQueryArtifacts(parsed.value).isErr()).toBe(true);
+    const source = parseDataQueryManifestText(todo)._unsafeUnwrap().queries.getTodos.definition!;
+    const generated = generateAppQueryArtifacts(parsed.value, {
+      sales: {
+        definition: source,
+        outputs: [
+          {
+            alias: 'id',
+            cellValueType: 'string',
+            wireType: 'string',
+            isMultipleCellValue: false,
+            nullable: false,
+          },
+          {
+            alias: 'title',
+            cellValueType: 'string',
+            wireType: 'string',
+            isMultipleCellValue: false,
+            nullable: true,
+          },
+        ],
+      },
+    })._unsafeUnwrap();
+    expect(generated.module).toContain('qlb0123456789abcdef');
+    expect(generated.module).toContain('/query-library/');
+    expect(generated.module).toContain(
+      '/base/${encodeURIComponent(baseId!)}/query-library/${encodeURIComponent(library.id)}/revisions/${library.revision}/run'
+    );
+    expect(generated.module).not.toContain(source.tableId);
+    expect(generated.module).toContain('"completed"?: boolean');
+  });
+  it('reports incompatible changes when upgrading a pinned revision', () => {
+    const definition =
+      parseDataQueryManifestText(todo)._unsafeUnwrap().queries.getTodos.definition!;
+    const output = {
+      alias: 'amount',
+      cellValueType: 'number' as const,
+      wireType: 'numberOrString' as const,
+      isMultipleCellValue: false,
+      nullable: false,
+    };
+    const previous = { definition, outputs: [output], result: 'many' as const };
+    const next = {
+      definition: { ...definition, parameters: { region: { type: 'string' as const } } },
+      outputs: [{ ...output, nullable: true }],
+      result: 'one' as const,
+    };
+    expect(compareAppQueryContracts(previous, next)).toEqual(
+      expect.arrayContaining([
+        { path: 'parameters.completed', change: 'removed' },
+        { path: 'parameters.region', change: 'required_added' },
+        { path: 'outputs.amount', change: 'changed' },
+        { path: 'result', change: 'changed' },
+      ])
+    );
+  });
+
+  describe('query library preview evidence', () => {
+    it('keys evidence to source and keeps the published-pin exception exact', () => {
+      const files = [{ path: 'app.ts', content: 'one' }];
+      const digest = queryLibrarySourceDigest(files);
+      expect(queryLibrarySourceDigest([{ path: 'app.ts', content: 'two' }])).not.toBe(digest);
+      const base = {
+        baseId: 'base',
+        appId: 'app',
+        localName: 'sales',
+        pin: { id: 'qlb0123456789abcdef', revision: 2 },
+        sourceDigest: digest,
+      };
+      expect(queryLibraryPreviewEvidenceKey(base)).toBe(queryLibraryPreviewEvidenceKey(base));
+      expect(queryLibraryPreviewEvidenceKey(base)).not.toBe(
+        queryLibraryPreviewEvidenceKey({ ...base, appId: 'other' })
+      );
+      expect(queryLibraryPinNeedsPreview(base.pin, base.pin, digest, digest)).toBe(false);
+      expect(queryLibraryPinNeedsPreview(base.pin, base.pin, digest, 'different')).toBe(true);
+      expect(queryLibraryPinNeedsPreview(base.pin, undefined, digest, undefined)).toBe(true);
+    });
+  });
+
   it('detects body edits, reseals host transforms and accepts pre-digest clients', () => {
     const module = artifacts().module;
     expect(generatedClientState(module)).toBe('current');

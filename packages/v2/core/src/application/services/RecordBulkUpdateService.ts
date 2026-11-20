@@ -75,6 +75,7 @@ import {
   prepareBulkRecordExplicitScope,
   prepareBulkRecordSelector,
   resolveBulkRecordUpdates,
+  type BulkRecordExplicitScope,
 } from './BulkRecordPreparationService';
 import { FieldKeyResolverService } from './FieldKeyResolverService';
 import {
@@ -930,11 +931,11 @@ export class RecordBulkUpdateService {
       yield* await traceRecordBulkUpdatePhase(context, 'pluginGuard', resolvedTraceAttributes, () =>
         pluginExecution.guard()
       );
-      const pluginRecordSpec = yield* await traceRecordBulkUpdatePhase(
+      const pluginScope = yield* await traceRecordBulkUpdatePhase(
         context,
         'pluginGetRecordSpec',
         resolvedTraceAttributes,
-        () => pluginExecution.getRecordSpec()
+        () => pluginExecution.getScope()
       );
       const activeSpan = context.tracer?.getActiveSpan();
       activeSpan?.setAttributes({
@@ -943,80 +944,97 @@ export class RecordBulkUpdateService {
         'record.update.resolvedTotalFieldAssignments': resolvedSummary.totalFieldAssignments,
       });
 
-      const currentRecordsResult = yield* await traceRecordBulkUpdatePhase(
-        context,
-        'loadExplicitCurrentRecords',
-        resolvedTraceAttributes,
-        () =>
-          loadBulkRecordExplicitScope(
-            context,
-            input.table,
-            resolvedUpdates.map((update) => update.recordId),
-            service.tableRecordQueryRepository,
-            Boolean(input.order)
-          )
+      const requiresLockedScope = Boolean(
+        pluginScope?.recordSpec ||
+        (pluginScope?.resolveUpdateFieldIdsForRecord &&
+          resolvedUpdates.some((update) => update.fieldValues.size > 0))
       );
-      const explicitAuthorization = yield* await traceRecordBulkUpdatePhase(
-        context,
-        'filterAuthorizedExplicitUpdates',
-        {
-          ...resolvedTraceAttributes,
-          'record.update.loadedCurrentRecordCount': currentRecordsResult.records.length,
-        },
-        () =>
-          prepareBulkRecordExplicitScope(
-            input.table,
-            resolvedUpdates,
-            currentRecordsResult,
-            pluginRecordSpec
-          )
-      );
-      if (
-        explicitAuthorization.missingRecordIds.length > 0 ||
-        explicitAuthorization.pluginFilteredRecordIds.length > 0
-      ) {
-        service.logger.debug('RecordBulkUpdateService.explicitUpdatesSkipped', {
-          tableId: input.table.id().toString(),
-          missingRecordIds: explicitAuthorization.missingRecordIds.map((id) => id.toString()),
-          pluginFilteredRecordIds: explicitAuthorization.pluginFilteredRecordIds.map((id) =>
-            id.toString()
-          ),
+      const prepareAuthorization = (readContext: IExecutionContext, lockForUpdate: boolean) =>
+        safeTry<BulkRecordExplicitScope, DomainError>(async function* () {
+          const loaded = yield* await traceRecordBulkUpdatePhase(
+            readContext,
+            'loadExplicitCurrentRecords',
+            resolvedTraceAttributes,
+            () =>
+              loadBulkRecordExplicitScope(
+                readContext,
+                input.table,
+                resolvedUpdates.map((update) => update.recordId),
+                service.tableRecordQueryRepository,
+                { includeOrders: Boolean(input.order), lockForUpdate }
+              )
+          );
+          return await traceRecordBulkUpdatePhase(
+            readContext,
+            'filterAuthorizedExplicitUpdates',
+            {
+              ...resolvedTraceAttributes,
+              'record.update.loadedCurrentRecordCount': loaded.records.length,
+            },
+            () =>
+              prepareBulkRecordExplicitScope(
+                input.table,
+                resolvedUpdates,
+                loaded,
+                pluginScope?.recordSpec,
+                pluginScope?.resolveUpdateFieldIdsForRecord
+              )
+          );
         });
-      }
-      const authorizedUpdates = explicitAuthorization.authorizedUpdates;
-      activeSpan?.setAttributes({
-        'record.update.authorizedRecordCount': authorizedUpdates.length,
-        'record.update.missingRecordCount': explicitAuthorization.missingRecordIds.length,
-        'record.update.pluginFilteredRecordCount':
-          explicitAuthorization.pluginFilteredRecordIds.length,
+      const emptyResult = (): BulkUpdateWriteResult => ({
+        updatedCount: 0,
+        tableEvents: [],
+        extraEvents: [],
+        eventData: [],
+        sideEffectUndoRedoPlan: emptyUndoRedoPlan(),
+        orderUndoCommands: [],
+        orderRedoCommands: [],
+        records: [],
       });
 
-      if (authorizedUpdates.length === 0) {
-        return ok({
-          updatedCount: 0,
-          tableEvents: [],
-          extraEvents: [],
-          eventData: [],
-          events: [],
-          sideEffectUndoRedoPlan: emptyUndoRedoPlan(),
-          orderUndoCommands: [],
-          orderRedoCommands: [],
-          pluginExecution,
-          records: [],
-        });
+      // Order-column preparation can require online DDL before acquiring row locks.
+      const initialAuthorization =
+        !requiresLockedScope || input.order
+          ? yield* await prepareAuthorization(context, false)
+          : undefined;
+      if (initialAuthorization?.authorizedUpdates.length === 0) {
+        return ok({ ...emptyResult(), pluginExecution, events: [] });
       }
 
-      if (input.order) {
+      if (input.order && initialAuthorization) {
         yield* await service.recordReorderService.prepareOrders(
           context,
           input.table,
           input.order,
-          authorizedUpdates.length
+          initialAuthorization.authorizedUpdates.length
         );
       }
 
       const transactionBody = async (transactionContext: IExecutionContext) =>
         safeTry<DomainWriteDecision<BulkUpdateWriteResult>, DomainError>(async function* () {
+          // Recheck scoped writes against the rows locked by this write transaction.
+          const explicitAuthorization =
+            requiresLockedScope || !initialAuthorization
+              ? yield* await prepareAuthorization(transactionContext, true)
+              : initialAuthorization;
+          const { authorizedUpdates, missingRecordIds, pluginFilteredRecordIds } =
+            explicitAuthorization;
+          if (missingRecordIds.length > 0 || pluginFilteredRecordIds.length > 0) {
+            service.logger.debug('RecordBulkUpdateService.explicitUpdatesSkipped', {
+              tableId: input.table.id().toString(),
+              missingRecordIds: missingRecordIds.map((id) => id.toString()),
+              pluginFilteredRecordIds: pluginFilteredRecordIds.map((id) => id.toString()),
+            });
+          }
+          activeSpan?.setAttributes({
+            'record.update.authorizedRecordCount': authorizedUpdates.length,
+            'record.update.missingRecordCount': missingRecordIds.length,
+            'record.update.pluginFilteredRecordCount': pluginFilteredRecordIds.length,
+          });
+          if (authorizedUpdates.length === 0) {
+            return ok(toBulkUpdateWrite(input.table, emptyResult()));
+          }
+
           const fieldUpdateTargets = authorizedUpdates.filter(
             (update) => update.fieldValues.size > 0
           );
@@ -1024,9 +1042,8 @@ export class RecordBulkUpdateService {
             ...resolvedTraceAttributes,
             'record.update.authorizedRecordCount': authorizedUpdates.length,
             'record.update.fieldUpdateTargetCount': fieldUpdateTargets.length,
-            'record.update.missingRecordCount': explicitAuthorization.missingRecordIds.length,
-            'record.update.pluginFilteredRecordCount':
-              explicitAuthorization.pluginFilteredRecordIds.length,
+            'record.update.missingRecordCount': missingRecordIds.length,
+            'record.update.pluginFilteredRecordCount': pluginFilteredRecordIds.length,
           };
           const preparedWrite = yield* await traceRecordBulkUpdatePhase(
             transactionContext,
@@ -1369,8 +1386,7 @@ export class RecordBulkUpdateService {
                     transactionContext,
                     preparedWrite.tableForWrite,
                     readbackRecordIds,
-                    service.tableRecordQueryRepository,
-                    false
+                    service.tableRecordQueryRepository
                   );
                   if (readbackResult.isErr()) return err(readbackResult.error);
                   for (const record of readbackResult.value.records) {

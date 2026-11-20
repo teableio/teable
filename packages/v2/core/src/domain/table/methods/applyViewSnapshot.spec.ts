@@ -197,4 +197,88 @@ describe('Table.applyViewSnapshot', () => {
       visible: false,
     });
   });
+
+  it('preserves share configuration undo while the current link remains active', () => {
+    const originalTable = buildTable();
+    const viewId = originalTable.views()[0]!.id();
+    const sharedTable = originalTable.enableViewShare(viewId)._unsafeUnwrap().updateResult.table;
+    const sharedView = sharedTable.getView(viewId)._unsafeUnwrap();
+    const snapshot = captureViewSnapshot(sharedView)._unsafeUnwrap();
+    const changedTable = sharedTable
+      .updateViewShareMeta(viewId, { password: 'new-password', allowCopy: false })
+      ._unsafeUnwrap().updateResult!.table;
+
+    const result = changedTable
+      .applyViewSnapshot(rehydrateViewSnapshot(snapshot)._unsafeUnwrap())
+      ._unsafeUnwrap();
+    const restored = result.updateResult!.table.getView(viewId)._unsafeUnwrap();
+
+    expect(restored.shareId()).toBe(sharedView.shareId());
+    expect(restored.enableShare()).toBe(true);
+    expect(restored.shareMeta()).toEqual(sharedView.shareMeta());
+  });
+
+  it('replays noncredential metadata without reviving a historical password when no link exists', () => {
+    const table = buildTable();
+    const target = table.views()[0]!;
+    const snapshot = captureViewSnapshot(target)._unsafeUnwrap();
+    const historicalView = rehydrateViewSnapshot({
+      ...snapshot,
+      name: 'Restored configuration',
+      properties: {
+        enableShare: true,
+        shareId: `shr${'r'.repeat(16)}`,
+        shareMeta: { password: 'revoked-password', allowCopy: true },
+      },
+    })._unsafeUnwrap();
+
+    const result = table.applyViewSnapshot(historicalView)._unsafeUnwrap();
+    const restored = result.updateResult!.table.getView(target.id())._unsafeUnwrap();
+
+    expect(restored.name().toString()).toBe('Restored configuration');
+    expect(restored.shareId()).toBeUndefined();
+    expect(restored.enableShare()).toBeUndefined();
+    expect(restored.shareMeta()).toEqual({ allowCopy: true });
+  });
+
+  it('restores absent share configuration on an unshared view', () => {
+    const table = buildTable();
+    const target = table.views()[0]!;
+    const snapshot = captureViewSnapshot(target)._unsafeUnwrap();
+    const changedTable = table
+      .updateViewShareMeta(target.id(), { allowCopy: true, submit: { requireLogin: true } })
+      ._unsafeUnwrap().updateResult!.table;
+
+    const result = changedTable
+      .applyViewSnapshot(rehydrateViewSnapshot(snapshot)._unsafeUnwrap())
+      ._unsafeUnwrap();
+    const restored = result.updateResult!.table.getView(target.id())._unsafeUnwrap();
+
+    expect(restored.shareId()).toBeUndefined();
+    expect(restored.enableShare()).toBeUndefined();
+    expect(restored.shareMeta()).toBeUndefined();
+  });
+
+  it('retains the current preconfigured password when no link identity exists', () => {
+    const table = buildTable();
+    const viewId = table.views()[0]!.id();
+    const configuredTable = table
+      .updateViewShareMeta(viewId, { password: 'historical-password', allowCopy: true })
+      ._unsafeUnwrap().updateResult!.table;
+    const snapshot = captureViewSnapshot(
+      configuredTable.getView(viewId)._unsafeUnwrap()
+    )._unsafeUnwrap();
+    const changedTable = configuredTable
+      .updateViewShareMeta(viewId, { password: 'current-password', allowCopy: false })
+      ._unsafeUnwrap().updateResult!.table;
+
+    const result = changedTable
+      .applyViewSnapshot(rehydrateViewSnapshot(snapshot)._unsafeUnwrap())
+      ._unsafeUnwrap();
+    const restored = result.updateResult!.table.getView(viewId)._unsafeUnwrap();
+
+    expect(restored.shareId()).toBeUndefined();
+    expect(restored.enableShare()).toBeUndefined();
+    expect(restored.shareMeta()).toEqual({ password: 'current-password', allowCopy: true });
+  });
 });

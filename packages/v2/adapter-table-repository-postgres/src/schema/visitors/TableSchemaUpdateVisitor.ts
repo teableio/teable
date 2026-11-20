@@ -122,6 +122,7 @@ import {
   type FieldConversionParams,
 } from './FieldTypeConversionVisitor';
 import { FieldValueDuplicateVisitor } from './FieldValueDuplicateVisitor';
+import { isLinkTextConversionBatchField, type IExecutionContext } from '@teable/v2-core';
 import { resolveColumnType } from './PostgresTableSchemaFieldColumn';
 import { PostgresTableSchemaFieldCreateVisitor } from './PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldDeleteVisitor } from './PostgresTableSchemaFieldDeleteVisitor';
@@ -132,6 +133,7 @@ type TableSchemaUpdateVisitorParams = {
   tableName: string;
   tableId: string;
   table: Table;
+  context?: IExecutionContext;
   tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
   recordUpdateCollector?: {
     add(update: RecordUpdateDTO): void;
@@ -1366,6 +1368,11 @@ export class TableSchemaUpdateVisitor
         tableLocationsById: visitor.params.tableLocationsById,
         fieldsById: yield* visitor.buildCurrentTableFieldMetadataById(),
         typeValidationStrategy: visitor.params.typeValidationStrategy,
+        preserveLinkStorage: isLinkTextConversionBatchField(
+          visitor.params.context,
+          visitor.params.tableId,
+          newField.id().toString()
+        ),
       };
 
       const conversionStatements = yield* generateFieldConversionStatements(

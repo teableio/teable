@@ -4,6 +4,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import type { IFieldLoaderData, IFieldLoaderItem } from '../../../types/data-loader';
+import { FieldCacheService } from '../../field-cache/field-cache.service';
 import { TableCommonLoader } from './table-common-loader';
 
 @Injectable()
@@ -13,7 +14,8 @@ export class FieldLoaderService extends TableCommonLoader<IFieldLoaderItem> {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly fieldCacheService: FieldCacheService
   ) {
     super({
       filterDataByParentId: (tableId: string) => this.getFieldsInCache(tableId),
@@ -83,36 +85,7 @@ export class FieldLoaderService extends TableCommonLoader<IFieldLoaderItem> {
   }
 
   invalidateTables(tableIds: string | string[]) {
-    if (!this.cls.isActive() || !this.isEnable?.()) {
-      return;
-    }
-
-    const ids = (Array.isArray(tableIds) ? tableIds : [tableIds]).filter(Boolean);
-    if (!ids.length) {
-      return;
-    }
-
-    const loaderData = this.cls.get('dataLoaderCache.fieldData');
-    if (!loaderData) {
-      return;
-    }
-
-    const { dataMap, fullParentIds } = loaderData;
-
-    if (fullParentIds?.length) {
-      loaderData.fullParentIds = fullParentIds.filter((parentId) => !ids.includes(parentId));
-    }
-
-    if (dataMap?.size) {
-      const tableIdSet = new Set(ids);
-      for (const [fieldId, field] of dataMap.entries()) {
-        if (field?.tableId && tableIdSet.has(field.tableId)) {
-          dataMap.delete(fieldId);
-        }
-      }
-    }
-
-    this.cls.set('dataLoaderCache.fieldData', loaderData);
+    this.fieldCacheService.invalidateTables(tableIds);
   }
 
   resetStat() {

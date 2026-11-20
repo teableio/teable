@@ -66,8 +66,8 @@ describe('SWITCH branch storage normalization', () => {
     expect(result.isArray).toBe(false);
     expect(result.results[0]?.valueSql).not.toBe('numeric_a');
     expect(result.results[1]?.valueSql).not.toBe('numeric_b');
-    expect(result.defaultValueSql).toBeDefined();
-    expect(result.defaultValueSql).toContain('jsonb_array_elements');
+    expect(result.defaultResult?.valueSql).toBeDefined();
+    expect(result.defaultResult?.valueSql).toContain('jsonb_array_elements');
   });
 
   it('keeps raw branches when results and default share the seed type', () => {
@@ -81,7 +81,7 @@ describe('SWITCH branch storage normalization', () => {
 
     expect(result.type).toBe('number');
     expect(result.results.map((branch) => branch.valueSql)).toEqual(['numeric_a', 'numeric_b']);
-    expect(result.defaultValueSql).toBe('numeric_default');
+    expect(result.defaultResult?.valueSql).toBe('numeric_default');
   });
 
   it('keeps raw branches when the default is a blank literal', () => {
@@ -92,7 +92,7 @@ describe('SWITCH branch storage normalization', () => {
 
     expect(result.type).toBe('number');
     expect(result.results[0]?.valueSql).toBe('numeric_a');
-    expect(result.defaultValueSql).toBe(`''`);
+    expect(result.defaultResult?.valueSql).toBe(`''`);
   });
 
   // T6998: string-literal result branches with a number-typed default must not
@@ -111,8 +111,8 @@ describe('SWITCH branch storage normalization', () => {
 
     expect(result.type).toBe('string');
     expect(result.isArray).toBe(false);
-    expect(result.defaultValueSql).toBeDefined();
-    expect(result.defaultValueSql).not.toBe('numeric_default');
-    expect(result.defaultValueSql).toContain('numeric_default');
+    expect(result.defaultResult?.valueSql).toBeDefined();
+    expect(result.defaultResult?.valueSql).not.toBe('numeric_default');
+    expect(result.defaultResult?.valueSql).toContain('numeric_default');
   });
 });
