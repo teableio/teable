@@ -396,8 +396,17 @@ export class SelectionService {
     >
   ): Promise<string[]> {
     const { selection, ...queryRo } = selectionRo;
-    if (selection.recordIds) {
-      return selection.recordIds;
+    const selectionWithAliases = selection as typeof selection & {
+      excludedRecordIds?: string[];
+      allRecords?: boolean;
+    };
+    const excludedIds = new Set(
+      selectionWithAliases.excludeRecordIds ?? selectionWithAliases.excludedRecordIds ?? []
+    );
+    if (!selectionWithAliases.allRecords && selection.recordIds) {
+      return excludedIds.size > 0
+        ? selection.recordIds.filter((recordId) => !excludedIds.has(recordId))
+        : selection.recordIds;
     }
 
     const result = await this.recordService.getDocIdsByQuery(
@@ -410,7 +419,6 @@ export class SelectionService {
       },
       true
     );
-    const excludedIds = new Set(selection.excludeRecordIds ?? []);
     return result.ids.filter((recordId) => !excludedIds.has(recordId));
   }
 

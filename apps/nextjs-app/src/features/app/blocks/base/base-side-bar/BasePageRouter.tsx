@@ -18,14 +18,14 @@ import { UpgradeWrapper } from '@/features/app/components/billing/UpgradeWrapper
 import { ShareBaseDialog } from '@/features/app/components/collaborator/share/ShareBaseDialog';
 import { tableConfig } from '@/features/i18n/table.config';
 
-const MoreMenu = () => {
+const MoreMenu = ({ children }: { children?: React.ReactNode }) => {
   const router = useRouter();
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
 
   const canUpdateBase = Boolean(basePermission?.['base|update']);
-  if (!canUpdateBase) {
+  if (!canUpdateBase && !children) {
     return null;
   }
 
@@ -59,26 +59,29 @@ const MoreMenu = () => {
             </Button>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem asChild>
-          <Button
-            variant="ghost"
-            size="xs"
-            asChild
-            className="my-[2px] w-full justify-start text-sm"
-          >
-            <Link href={`/base/${baseId}/design`} className="font-normal">
-              <Settings className="size-4 shrink-0" />
-              <p className="truncate">{t('common:noun.design')}</p>
-              <div className="grow basis-0"></div>
-            </Link>
-          </Button>
-        </DropdownMenuItem>
+        {canUpdateBase && (
+          <DropdownMenuItem asChild>
+            <Button
+              variant="ghost"
+              size="xs"
+              asChild
+              className="my-[2px] w-full justify-start text-sm"
+            >
+              <Link href={`/base/${baseId}/design`} className="font-normal">
+                <Settings className="size-4 shrink-0" />
+                <p className="truncate">{t('common:noun.design')}</p>
+                <div className="grow basis-0"></div>
+              </Link>
+            </Button>
+          </DropdownMenuItem>
+        )}
+        {children}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 };
 
-export const BasePageRouter = () => {
+export const BasePageRouter = ({ moreItems }: { moreItems?: React.ReactNode }) => {
   const router = useRouter();
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -138,7 +141,7 @@ export const BasePageRouter = () => {
           );
         })}
         <ShareBaseDialog />
-        <MoreMenu />
+        <MoreMenu>{moreItems}</MoreMenu>
       </ul>
     </div>
   );

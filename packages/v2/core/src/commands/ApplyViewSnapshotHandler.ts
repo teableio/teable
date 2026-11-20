@@ -96,7 +96,7 @@ export class ApplyViewSnapshotHandler implements ICommandHandler<
                   name: snapshotView.name().toString(),
                   description: snapshotView.description(),
                   isLocked: snapshotView.isLocked(),
-                  shareMeta: snapshotView.shareMeta(),
+                  shareMeta: restoredView.shareMeta(),
                   order: command.snapshot.order,
                   columnMeta: snapshotColumnMeta,
                   filter: snapshotQueryDefaults.filter(),

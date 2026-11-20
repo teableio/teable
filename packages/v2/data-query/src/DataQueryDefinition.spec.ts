@@ -133,6 +133,12 @@ describe('DataQueryDefinition', () => {
       filter: { fieldId, operator: 'isAnyOf', value: { type: 'parameter', name: 'names' } },
     })._unsafeUnwrap();
     defaults.push('injected');
+    const readonlySnapshot = definition.readonlySnapshot();
+    expect(Reflect.set(readonlySnapshot, 'tableId', 'changed')).toBe(false);
+    expect(Reflect.set(readonlySnapshot.parameters!.names, 'default', ['changed'])).toBe(false);
+    if (readonlySnapshot.kind === 'records') {
+      expect(Reflect.set(readonlySnapshot.select[0], 'alias', 'changed')).toBe(false);
+    }
     const snapshot = definition.snapshot();
     snapshot.parameters!.names.default = ['changed'];
     if (snapshot.kind === 'records') snapshot.select[0].alias = 'changed';
@@ -216,6 +222,70 @@ describe('DataQueryDefinition', () => {
         select: [{ fieldId, alias: 'a "quoted" output' }],
       }).isOk()
     ).toBe(true);
+  });
+
+  it('admits bounded version 9 ranking over selected outputs', () => {
+    const definition = {
+      version: 9,
+      kind: 'records',
+      tableId,
+      select: [
+        { fieldId, alias: 'team' },
+        { system: 'id', alias: 'rowId' },
+      ],
+      topN: { partitionBy: ['team'], orderBy: [{ alias: 'rowId', order: 'desc' }], limit: 10 },
+      sort: [{ alias: 'team', order: 'asc' }],
+      page: { limit: 20, offset: 40, includeTotal: true },
+    };
+    const query = DataQueryDefinition.create(definition)._unsafeUnwrap();
+    expect(query.snapshot()).toMatchObject({ version: 9, topN: definition.topN });
+    expect(query.bind({})._unsafeUnwrap()).toMatchObject({
+      limit: 20,
+      offset: 40,
+      includeTotal: true,
+    });
+    for (const invalid of [
+      { ...definition, kind: 'aggregate' },
+      { ...definition, topN: undefined },
+      { ...definition, topN: { ...definition.topN, partitionBy: [] } },
+      { ...definition, topN: { ...definition.topN, partitionBy: ['missing'] } },
+      { ...definition, topN: { ...definition.topN, partitionBy: ['team', 'team'] } },
+      {
+        ...definition,
+        topN: { ...definition.topN, partitionBy: Array.from({ length: 9 }, (_, i) => `key${i}`) },
+      },
+      { ...definition, topN: { ...definition.topN, orderBy: [] } },
+      {
+        ...definition,
+        topN: { ...definition.topN, orderBy: [{ alias: 'missing', order: 'asc' }] },
+      },
+      {
+        ...definition,
+        topN: {
+          ...definition.topN,
+          orderBy: Array.from({ length: 9 }, (_, i) => ({ alias: `key${i}`, order: 'asc' })),
+        },
+      },
+      {
+        ...definition,
+        topN: {
+          ...definition.topN,
+          orderBy: [
+            { alias: 'rowId', order: 'asc' },
+            { alias: 'rowId', order: 'desc' },
+          ],
+        },
+      },
+      { ...definition, topN: { ...definition.topN, limit: 0 } },
+      { ...definition, topN: { ...definition.topN, limit: 1001 } },
+      { ...definition, topN: { ...definition.topN, limit: 1.5 } },
+      { ...definition, topN: { ...definition.topN, limit: { type: 'parameter', name: 'n' } } },
+      { ...definition, topN: { ...definition.topN, extra: true } },
+      { ...definition, sort: [{ fieldId, order: 'asc' }] },
+      { ...definition, page: { limit: 10, after: { type: 'parameter', name: 'cursor' } } },
+      { ...definition, distinct: true },
+    ])
+      expect(DataQueryDefinition.create(invalid).isErr()).toBe(true);
   });
 
   it('never truncates grouping and restricts group ordering to grouped fields', () => {

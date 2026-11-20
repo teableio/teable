@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { IndexBuilderPostgres } from './search-index-builder.postgres';
+import { IndexBuilderPostgres } from '../../features/table-index/search-index-builder.postgres';
 
 const builder = new IndexBuilderPostgres();
 const fieldNamesById = new Map([

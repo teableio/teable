@@ -19,6 +19,7 @@ import { sql, type RawBuilder } from 'kysely';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
 const formulaInputAlias = '__dq_formula_inputs';
+const maxIntermediateTextBytes = 1024 * 1024;
 
 export interface DataQueryExpressionSqlContext {
   resolveFormulaField(
@@ -89,7 +90,7 @@ export const compileDataQueryFormulaExpression = (
       tableAlias: rowAlias,
       typeValidationStrategy: context.typeValidationStrategy,
       compileBudget: { ...context.formulaCompileBudget, mode: 'enforce' },
-      maxReptBytes: 1024 * 1024,
+      maxIntermediateTextBytes,
       ...(expression.timeZone !== undefined ? { timeZone: expression.timeZone } : {}),
     });
     const translated = yield* translator.translateExpression(expression.formula);
@@ -140,7 +141,7 @@ export const compileDataQueryHavingExpression = (
       references,
       typeValidationStrategy: context.typeValidationStrategy,
       compileBudget: { ...context.formulaCompileBudget, mode: 'enforce' },
-      maxReptBytes: 1024 * 1024,
+      maxIntermediateTextBytes,
       ...(expression.timeZone !== undefined ? { timeZone: expression.timeZone } : {}),
     });
     const translated = yield* translator.translateExpression(expression.formula);

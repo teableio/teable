@@ -7,6 +7,7 @@ import type { Action } from '@teable/core';
 import {
   APP_ROBOT_ID,
   AUTOMATION_ROBOT_ID,
+  HttpErrorCode,
   Role,
   TemplatePermissions,
   getPermissions,
@@ -24,6 +25,7 @@ import { PermissionService } from './permission.service';
 
 describe('PermissionService', () => {
   let service: PermissionService;
+  let module: TestingModule;
   let prismaServiceMock: DeepMockProxy<PrismaService>;
   let clsServiceMock: DeepMockProxy<ClsService<IClsStore>>;
 
@@ -31,7 +33,7 @@ describe('PermissionService', () => {
     prismaServiceMock = mockDeep<PrismaService>();
     clsServiceMock = mockDeep<ClsService<IClsStore>>();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, PermissionModule],
     })
       .overrideProvider(PrismaService)
@@ -43,9 +45,98 @@ describe('PermissionService', () => {
     service = module.get<PermissionService>(PermissionService);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await module.close();
     mockReset(prismaServiceMock);
     mockReset(clsServiceMock);
+  });
+
+  describe('Base share scope', () => {
+    const baseId = 'bseShared';
+    const shareId = 'shrFixture';
+    const sharedTableId = 'tblShared';
+    const siblingTableId = 'tblSibling';
+
+    beforeEach(() => {
+      prismaServiceMock.tableMeta.findUnique.mockResolvedValue({ baseId } as never);
+      prismaServiceMock.baseNode.findMany.mockResolvedValue([
+        { id: 'bnoFolder', parentId: null, resourceType: 'folder', resourceId: null },
+        { id: 'bnoNested', parentId: 'bnoFolder', resourceType: 'folder', resourceId: null },
+        { id: 'bnoShared', parentId: 'bnoNested', resourceType: 'table', resourceId: sharedTableId },
+        { id: 'bnoSibling', parentId: null, resourceType: 'table', resourceId: siblingTableId },
+      ] as never);
+    });
+
+    it.each(['bnoShared', 'bnoFolder'])(
+      'uses the scope rooted at %s for table reads',
+      async (nodeId) => {
+        prismaServiceMock.baseShare.findFirst.mockResolvedValue({ baseId, nodeId } as never);
+        prismaServiceMock.field.findMany.mockResolvedValue([
+          { options: JSON.stringify({ foreignTableId: siblingTableId }) },
+        ] as never);
+
+        await expect(service.getBaseSharePermissions(shareId, sharedTableId)).resolves.toContain(
+          'record|read'
+        );
+        await expect(service.getBaseSharePermissions(shareId, siblingTableId)).rejects.toMatchObject({
+          code: HttpErrorCode.RESTRICTED_RESOURCE,
+        });
+      }
+    );
+
+    it('bounds editor permissions to the selected subtree', async () => {
+      prismaServiceMock.baseShare.findFirst.mockResolvedValue({
+        baseId,
+        nodeId: 'bnoFolder',
+        allowEdit: true,
+      } as never);
+      clsServiceMock.get.mockImplementation(((key: string) =>
+        key === 'user.id' ? 'usrEditor' : undefined) as typeof clsServiceMock.get);
+
+      await expect(
+        service.validBaseSharePermissions(shareId, sharedTableId, ['record|update'])
+      ).resolves.toContain('record|update');
+      await expect(
+        service.validBaseSharePermissions(shareId, siblingTableId, ['record|update'])
+      ).rejects.toMatchObject({ code: HttpErrorCode.RESTRICTED_RESOURCE });
+    });
+
+    it.each([false, true])(
+      'requires a whole-project share for project queries (edit: %s)',
+      async (allowEdit) => {
+        clsServiceMock.get.mockImplementation(((key: string) =>
+          key === 'user.id' ? 'usrEditor' : undefined) as typeof clsServiceMock.get);
+        prismaServiceMock.baseShare.findFirst.mockResolvedValue({
+          baseId,
+          nodeId: 'bnoFolder',
+          allowEdit,
+        } as never);
+        await expect(
+          service.validBaseSharePermissions(shareId, baseId, ['base|query_data'])
+        ).rejects.toMatchObject({ code: HttpErrorCode.RESTRICTED_RESOURCE });
+
+        prismaServiceMock.baseShare.findFirst.mockResolvedValue({
+          baseId,
+          nodeId: null,
+          allowEdit,
+        } as never);
+        await expect(
+          service.validBaseSharePermissions(shareId, baseId, ['base|query_data'])
+        ).resolves.toContain('base|query_data');
+      }
+    );
+
+    it('allows live tables within a whole-base share', async () => {
+      prismaServiceMock.baseShare.findFirst.mockResolvedValue({ baseId, nodeId: null } as never);
+
+      await expect(service.getBaseSharePermissions(shareId, siblingTableId)).resolves.toContain(
+        'record|read'
+      );
+      prismaServiceMock.tableMeta.findUnique.mockResolvedValue({ baseId: 'bseOther' } as never);
+      await expect(service.getBaseSharePermissions(shareId, siblingTableId)).rejects.toMatchObject({
+        code: HttpErrorCode.RESTRICTED_RESOURCE,
+      });
+    });
   });
 
   describe('getRoleBySpaceId', () => {

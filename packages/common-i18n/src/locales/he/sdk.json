@@ -413,6 +413,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "שמירה ושיתוף של שאילתות",
       "spaceCreate": "יצירת מרחב",
       "spaceDelete": "מחיקת מרחב",
       "spaceRead": "קריאת מרחב",
@@ -1084,6 +1085,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "שדה הכפתור הזה כבר משויך לאוטומציה {{name}}[{{id}}], יש לבחור שדה כפתור אחר",
+      "buttonTriggerFilterNotMatched": "רשומה זו אינה עומדת בתנאי ההפעלה של האוטומציה",
       "triggerNotFound": "לאוטומציה חייב להיות צומת טריגר",
       "nodeNotFound": "הצומת {{nodeId}} לא נמצא",
       "triggerTestFailed": "בדיקת הטריגר נכשלה, יש לבדוק את תצורת הטריגר",
@@ -1742,7 +1744,8 @@
         "dnsMisconfigured": "הגדרת קישור הגישה נכשלה: ה-DNS של הדומיין לא הוגדר כראוי"
       },
       "customDomainNotConfigured": "לא הוגדר דומיין מותאם אישית",
-      "vercelTokenNotConfigured": "אסימון Vercel לא הוגדר בהגדרות App Builder"
+      "vercelTokenNotConfigured": "אסימון Vercel לא הוגדר בהגדרות App Builder",
+      "deleteSandboxCloseFailed": "לא ניתן לסגור את ה-sandbox. שום דבר לא נמחק, נסה שוב"
     },
     "reward": {
       "notFound": "התגמול לא נמצא",

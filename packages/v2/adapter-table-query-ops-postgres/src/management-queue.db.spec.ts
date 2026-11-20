@@ -72,6 +72,8 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
       pg: { connectionString: url.toString(), pool: { max: 6 } },
     });
     await ensureTableQueryOpsSchema(db);
+    await sql`CREATE TABLE table_meta (id text PRIMARY KEY, search_index jsonb)`.execute(db);
+    await sql`CREATE TABLE base (id text PRIMARY KEY, space_id text NOT NULL)`.execute(db);
     repository = new PostgresTableQueryRemediationTaskRepository(db);
   });
   beforeEach(async () => {
@@ -120,6 +122,110 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
       results.filter((result) => result.isErr()).map((result) => result._unsafeUnwrapErr().code)
     ).toEqual(['table_query_ops.table_task_conflict']);
   });
+
+  it.each(['rebuild', 'drop'] as const)(
+    'admits manual %s over unstarted automatic maintenance only',
+    async (mode) => {
+      const automatic = queued(
+        'tqt_automatic',
+        'tblManual',
+        { trigger: 'schema_change' },
+        'rebuild_search_access_path'
+      );
+      unwrapTaskResult(await repository.save(context, automatic));
+      const manual = queued(
+        'tqt_manual',
+        'tblManual',
+        {
+          trigger: 'admin_search_access_path',
+          executionMode: 'manual',
+          mode,
+        },
+        mode === 'drop' ? 'drop_search_access_path' : 'rebuild_search_access_path'
+      );
+      expect(unwrapTaskResult(await repository.save(context, manual)).snapshot().id).toBe(
+        'tqt_manual'
+      );
+      expect(
+        unwrapTaskResult(await repository.findById(context, 'tqt_automatic')).snapshot().status
+      ).toBe('cancelled');
+    }
+  );
+
+  it.each(['reserved', 'started', 'frozen', 'running'] as const)(
+    'preserves %s automatic work when manual admission conflicts',
+    async (state) => {
+      const automatic = queued(
+        'tqt_automatic',
+        'tblManual',
+        { trigger: 'schema_change' },
+        'rebuild_search_access_path'
+      );
+      unwrapTaskResult(await repository.save(context, automatic));
+      await db
+        .updateTable('table_query_remediation_task')
+        .set({
+          ...(state === 'reserved' ? { locked_by: 'worker', locked_at: new Date() } : {}),
+          ...(state === 'started' ? { attempts: 1 } : {}),
+          ...(state === 'frozen' ? { execution_state: { kind: 'search_generation' } } : {}),
+          ...(state === 'running' ? { status: 'running' } : {}),
+        })
+        .where('id', '=', 'tqt_automatic')
+        .execute();
+      const result = await repository.save(
+        context,
+        queued(
+          'tqt_manual',
+          'tblManual',
+          {
+            trigger: 'admin_search_access_path',
+            executionMode: 'manual',
+            mode: 'rebuild',
+          },
+          'rebuild_search_access_path'
+        )
+      );
+      expect(result.isErr() ? result.error.code : undefined).toBe(
+        'table_query_ops.table_task_conflict'
+      );
+      expect(
+        unwrapTaskResult(await repository.findById(context, 'tqt_automatic')).snapshot().status
+      ).not.toBe('cancelled');
+    }
+  );
+
+  it.each(['create_filter_index', 'create_sort_index', 'create_search_access_path'] as const)(
+    'does not discard coverage to admit an unrelated %s task',
+    async (kind) => {
+      const automatic = queued(
+        'tqt_automatic',
+        'tblManual',
+        { trigger: 'schema_change' },
+        'rebuild_search_access_path'
+      );
+      unwrapTaskResult(await repository.save(context, automatic));
+      const result = await repository.save(
+        context,
+        queued(
+          'tqt_unrelated',
+          'tblManual',
+          {
+            trigger:
+              kind === 'create_search_access_path' ? 'admin_search_access_path' : 'admin_index',
+            executionMode: 'manual',
+            mode: 'create',
+          },
+          kind
+        )
+      );
+      expect(result.isErr() ? result.error.code : undefined).toBe(
+        'table_query_ops.table_task_conflict'
+      );
+      expect(
+        unwrapTaskResult(await repository.findById(context, 'tqt_automatic')).snapshot().status
+      ).toBe('queued');
+    }
+  );
 
   it('bounds global execution and prevents same-table maintenance overlap', async () => {
     await repository.save(context, queued('tqt_a', 'tblA'));
@@ -257,6 +363,97 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
     ).toEqual({ recovered: true });
   });
 
+  it.each([
+    ['all', 'schema_change', 'rebuild_search_access_path'],
+    ['search_maintenance', 'schema_change', 'rebuild_search_access_path'],
+    ['all', 'reclaim', 'drop_search_access_path'],
+    ['search_maintenance', 'reclaim', 'drop_search_access_path'],
+  ] as const)(
+    'recovers journal-less %s %s work on its last attempt with live-session fencing',
+    async (scope, trigger, kind) => {
+      const task = queued(
+        'tqt_schema_orphan',
+        'tblSchemaOrphan',
+        { trigger, ...(trigger === 'reclaim' ? { scopeKey: 'retired' } : {}) },
+        kind
+      );
+      if (trigger === 'reclaim')
+        await sql`INSERT INTO table_query_search_vector_config
+          (id, base_id, table_id, candidate_key, generated_column_name, index_name,
+            field_ids, field_db_names, status, reclaim_drop_after, reclaim_drop_queued_at)
+          VALUES ('retired', 'bseExample', 'tblSchemaOrphan', 'retired', 'retired_column',
+            'retired_index', '[]'::jsonb, '[]'::jsonb, 'disabled', now() - interval '1 second', now())`.execute(
+          db
+        );
+      unwrapTaskResult(await repository.save(context, task));
+      const running = unwrapTaskResult(
+        await repository.save(context, unwrapTaskResult(task.start('departed', new Date())))
+      );
+      await db
+        .updateTable('table_query_remediation_task')
+        .set({
+          attempts: running.snapshot().maxAttempts,
+          locked_at: new Date(Date.now() - 120_000),
+        })
+        .where('id', '=', task.snapshot().id)
+        .execute();
+      const departed = unwrapTaskResult(await repository.findById(context, task.snapshot().id));
+      await db.connection().execute(async (session) => {
+        await sql`SELECT pg_advisory_lock(hashtext('teable.table_query_ops.search_vector'), hashtext('tblSchemaOrphan'))`.execute(
+          session
+        );
+        try {
+          expect(
+            unwrapTaskResult(await claim('replacement', new Date(), scope, [kind]))
+          ).toBeUndefined();
+        } finally {
+          await sql`SELECT pg_advisory_unlock(hashtext('teable.table_query_ops.search_vector'), hashtext('tblSchemaOrphan'))`.execute(
+            session
+          );
+        }
+      });
+      const claimed = unwrapTaskResult(await claim('replacement', new Date(), scope, [kind]))!;
+      expect(claimed.snapshot()).toMatchObject({ status: 'running', attempts: 3 });
+      const resumed = unwrapTaskResult(
+        await repository.save(context, unwrapTaskResult(claimed.start('replacement', new Date())))
+      );
+      const deferred = unwrapTaskResult(
+        await repository.save(
+          context,
+          unwrapTaskResult(resumed.deferMaintenance('Maintenance unavailable', 3, new Date()))
+        )
+      );
+      expect(deferred.snapshot()).toMatchObject({
+        status: 'queued',
+        attempts: 3,
+        maxAttempts: 3,
+        resumeAttempt: true,
+      });
+      expect(deferred.snapshot().lockedAt).toBeUndefined();
+      expect(deferred.snapshot().lockedBy).toBeUndefined();
+      expect(
+        (
+          await repository.save(
+            context,
+            unwrapTaskResult(departed.succeed({ stale: true }, new Date()))
+          )
+        ).isErr()
+      ).toBe(true);
+      const reclaimed = unwrapTaskResult(await claim('next-window', new Date(), scope, [kind]))!;
+      expect(reclaimed.snapshot().id).toBe(task.snapshot().id);
+      const completed = unwrapTaskResult(
+        await repository.save(context, unwrapTaskResult(reclaimed.start('next-window', new Date())))
+      );
+      expect(completed.snapshot().attempts).toBe(3);
+      unwrapTaskResult(
+        await repository.save(
+          context,
+          unwrapTaskResult(completed.succeed({ recovered: true }, new Date()))
+        )
+      );
+    }
+  );
+
   it('recovers an interrupted last search attempt without taking another capacity slot or recovering generic work', async () => {
     for (const [id, tableId, kind] of [
       ['tqt_last_search', 'tblLastSearch', 'rebuild_search_access_path'],
@@ -380,9 +577,16 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
       queued(
         'tqt_reclaim_drop',
         'tblMaintenanceReclaim',
-        { trigger: 'reclaim' },
+        { trigger: 'reclaim', scopeKey: 'retired' },
         'drop_search_access_path'
       )
+    );
+    await sql`INSERT INTO table_query_search_vector_config
+      (id, base_id, table_id, candidate_key, generated_column_name, index_name,
+        field_ids, field_db_names, status, reclaim_drop_after, reclaim_drop_queued_at)
+      VALUES ('retired', 'bseExample', 'tblMaintenanceReclaim', 'retired', 'retired_column',
+        'retired_index', '[]'::jsonb, '[]'::jsonb, 'disabled', now() - interval '1 second', now())`.execute(
+      db
     );
     const claimed = await Promise.all([
       claim('maintenance', new Date(), 'search_maintenance', kinds),
@@ -583,6 +787,43 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
     ).toBe(true);
   });
 
+  it('requeues deferred maintenance without spending attempts or retaining a reservation', async () => {
+    const task = queued(
+      'tqt_waiting_maintenance',
+      'tblWaiting',
+      { trigger: 'schema_change' },
+      'rebuild_search_access_path'
+    );
+    unwrapTaskResult(await repository.save(context, task));
+    const running = unwrapTaskResult(
+      await repository.save(context, unwrapTaskResult(task.start('waiting-worker', new Date())))
+    );
+    const waiting = unwrapTaskResult(
+      TableQueryRemediationTask.rehydrate({
+        ...running.snapshot(),
+        status: 'queued',
+        attempts: 0,
+        lastError: 'Search coverage is waiting for its UTC maintenance window',
+      })
+    );
+    const saved = unwrapTaskResult(await repository.save(context, waiting));
+    expect(saved.snapshot()).toMatchObject({ status: 'queued', attempts: 0 });
+    expect(saved.snapshot().lockedAt).toBeUndefined();
+    expect(saved.snapshot().lockedBy).toBeUndefined();
+    expect((await repository.save(context, waiting)).isErr()).toBe(true);
+    const claimed = unwrapTaskResult(
+      await repository.claimNextAccepted(context, {
+        workerId: 'next-window-worker',
+        scope: 'search_maintenance',
+        now: new Date(),
+        allowedKinds: ['rebuild_search_access_path'],
+        allowManualIndexExecution: false,
+        allowPolicyIndexExecution: false,
+      })
+    );
+    expect(claimed?.snapshot().id).toBe(task.snapshot().id);
+  });
+
   it('never coalesces a schema change into a live reservation or cancelled history', async () => {
     const tableId = `tbl${'S'.repeat(16)}`;
     const baseId = `bse${'S'.repeat(16)}`;
@@ -627,7 +868,12 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
     expect(next.taskId).not.toBe(first.taskId);
     expect(
       (await repository.findById(context, first.taskId))._unsafeUnwrap().snapshot().payload
-    ).toEqual({ trigger: 'schema_change', reason: 'field_created' });
+    ).toEqual({
+      trigger: 'schema_change',
+      reason: 'field_created',
+      configKey: 'candidate',
+      configScope: 'all_fields',
+    });
     expect(
       (
         await repository.cancelQueued(context, { taskId: first.taskId, tableId, now: new Date() })
@@ -642,6 +888,23 @@ const unwrapTaskResult = <T>(result: Result<T, DomainError>): T => {
     )._unsafeUnwrap()!;
     expect(replacement.status).toBe('queued');
     expect(replacement.taskId).not.toBe(next.taskId);
+    await sql`UPDATE table_query_remediation_task SET execution_state = '{"kind":"search_generation"}'::jsonb
+      WHERE id = ${replacement.taskId}`.execute(db);
+    const afterFrozen = unwrapTaskResult(
+      await scheduler.schedule(context, { table, reason: 'field_created' })
+    )!;
+    expect(afterFrozen.status).toBe('queued');
+    expect(afterFrozen.taskId).not.toBe(replacement.taskId);
+    await db
+      .updateTable('table_query_remediation_task')
+      .set({ attempts: 1 })
+      .where('id', '=', afterFrozen.taskId)
+      .execute();
+    const afterStarted = unwrapTaskResult(
+      await scheduler.schedule(context, { table, reason: 'field_updated' })
+    )!;
+    expect(afterStarted.status).toBe('queued');
+    expect(afterStarted.taskId).not.toBe(afterFrozen.taskId);
     expect(
       (await repository.findById(context, next.taskId))._unsafeUnwrap().snapshot()
     ).toMatchObject({

@@ -109,7 +109,8 @@ const setup = (validation: boolean) => {
     { getContainer, getPreviewContainer, getContainerForRoutingSnapshot } as never,
     { createContext } as never,
     cls,
-    { prepareAuthorizedCandidate } as never
+    { prepareAuthorizedCandidate } as never,
+    { dataQueryCursorSigningKey: 'host-test-cursor-key' } as never
   );
   return {
     cls,
@@ -173,6 +174,32 @@ describe('V2DataQueryService readonly validation acquisition', () => {
       }
     }
   );
+
+  it('requires a declared V7 continuation binding while validating the first page without its value', async () => {
+    const fixture = setup(true);
+    const cursorDefinition = {
+      ...definition,
+      version: 7,
+      parameters: { cursor: { type: 'string' } },
+      page: { limit: 2, after: { type: 'parameter', name: 'cursor' } },
+    };
+    await fixture.cls.runWith(actor, async () => {
+      for (const invalid of [
+        { ...cursorDefinition, page: undefined },
+        { ...cursorDefinition, page: { limit: 2 } },
+        { ...cursorDefinition, parameters: {} },
+      ]) {
+        const response = await fixture.service.validate({ definition: invalid });
+        expect(response.status).toBe(400);
+        expect(response.body.ok).toBe(false);
+      }
+      const response = await fixture.service.validate({ definition: cursorDefinition });
+      expect(response.status).toBe(200);
+      expect(response.body.ok).toBe(true);
+    });
+    expect(fixture.getContainerForRoutingSnapshot).not.toHaveBeenCalled();
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
 
   it('retains normal metadata and admitted routing acquisition for execution', async () => {
     const fixture = setup(false);

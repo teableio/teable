@@ -13,6 +13,7 @@ import { SessionModule } from './session.module';
 
 describe('SessionStoreService', () => {
   let sessionStoreService: SessionStoreService;
+  let module: TestingModule;
   const cacheService = mockDeep<CacheService>();
   const authConfig = mockDeep<IAuthConfig>({
     session: { expiresIn: '1d' },
@@ -22,7 +23,7 @@ describe('SessionStoreService', () => {
   const callbackMock = vitest.fn();
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, SessionModule],
     })
       .overrideProvider(SessionStoreService)
@@ -36,7 +37,8 @@ describe('SessionStoreService', () => {
     sessionStoreService = module.get<SessionStoreService>(SessionStoreService);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await module.close();
     vitest.resetAllMocks();
     mockReset(cacheService);
     mockReset(authConfig);
@@ -48,6 +50,14 @@ describe('SessionStoreService', () => {
   });
 
   describe('setCache', () => {
+    beforeEach(() => {
+      vitest.useFakeTimers({ now: new Date('2026-01-01T00:00:00Z'), toFake: ['Date'] });
+    });
+
+    afterEach(() => {
+      vitest.useRealTimers();
+    });
+
     it('should set cache correctly', async () => {
       cacheService.get.mockResolvedValue({ 'session-id': 1234567890 });
 

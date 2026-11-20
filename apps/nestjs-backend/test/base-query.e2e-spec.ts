@@ -18,7 +18,9 @@ import { createTable, BaseQueryColumnType, BaseQueryJoinType } from '@teable/ope
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+import { ClsService } from 'nestjs-cls';
 import { BaseQueryService } from '../src/features/base/base-query/base-query.service';
+import type { IClsStore } from '../src/types/cls';
 import { initApp } from './utils/init-app';
 
 dayjs.extend(utc);
@@ -51,7 +53,17 @@ describe('BaseSqlQuery e2e', () => {
     baseQuery: IBaseQuery,
     cellFormat: CellFormat = CellFormat.Text
   ) => {
-    return await baseQueryService.baseQuery(baseId, baseQuery, cellFormat);
+    return app.get(ClsService).runWith(
+      {
+        user: {
+          id: globalThis.testConfig.userId,
+          name: globalThis.testConfig.userName,
+          email: globalThis.testConfig.email,
+          isAdmin: null,
+        },
+      } as IClsStore,
+      () => baseQueryService.baseQuery(baseId, baseQuery, cellFormat)
+    );
   };
 
   describe('Iterate through each query capability', () => {

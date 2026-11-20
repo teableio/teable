@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { RecordModule } from '../record/record.module';
+import { RecordStorageModule } from '../record-storage/record-storage.module';
 import { RecordCommentCleanupService } from './record-comment-cleanup.service';
 
 @Module({
-  imports: [RecordModule],
+  imports: [RecordStorageModule],
   providers: [RecordCommentCleanupService],
   exports: [RecordCommentCleanupService],
 })

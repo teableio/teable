@@ -6,13 +6,18 @@ import { AggregationService } from './aggregation.service';
 
 describe('AggregateService', () => {
   let service: AggregationService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, AggregationModule],
     }).compile();
 
     service = module.get<AggregationService>(AggregationService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

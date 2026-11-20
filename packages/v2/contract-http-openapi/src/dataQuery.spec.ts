@@ -31,8 +31,8 @@ const context: IExecutionContext = {
   actorId: ActorId.create('reader')._unsafeUnwrap(),
 };
 
-const post = (body: unknown) =>
-  new Request('https://host/queries/execute', {
+const post = (body: unknown, operation: 'execute' | 'explain' = 'execute') =>
+  new Request(`https://host/queries/${operation}`, {
     method: 'POST',
     headers: new Headers([
       ['Authorization', 'Bearer secret'],
@@ -150,6 +150,21 @@ describe('generated data-query OpenAPI contract', () => {
     };
     expect(acceptsRequest(inline)).toBe(true);
     expect(acceptsRequest(input)).toBe(true);
+    const ranked = {
+      ...inline,
+      definition: {
+        ...inline.definition,
+        version: 9,
+        select: [...inline.definition.select, { system: 'createdTime', alias: 'created' }],
+        topN: { partitionBy: ['title'], orderBy: [{ alias: 'created', order: 'desc' }], limit: 3 },
+      },
+    };
+    expect(acceptsRequest(ranked), JSON.stringify(acceptsRequest.errors)).toBe(true);
+    for (const version of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      expect(acceptsRequest({ ...ranked, definition: { ...ranked.definition, version } })).toBe(
+        false
+      );
+    }
     const expression = {
       definition: {
         version: 3,
@@ -187,6 +202,45 @@ describe('generated data-query OpenAPI contract', () => {
       definition: { ...expression.definition, version: 6, distinct: true },
     };
     expect(acceptsRequest(unique)).toBe(true);
+    const cursor = {
+      definition: {
+        ...unique.definition,
+        version: 7,
+        parameters: {
+          suffix: { type: 'string' },
+          cursor: { type: 'string' },
+          size: { type: 'number' },
+        },
+        page: {
+          limit: { type: 'parameter', name: 'size' },
+          after: { type: 'parameter', name: 'cursor' },
+          includeTotal: true,
+        },
+      },
+      parameters: { suffix: '!', size: 2 },
+    };
+    expect(acceptsRequest(cursor), JSON.stringify(acceptsRequest.errors)).toBe(true);
+    expect(
+      acceptsRequest({ ...cursor, parameters: { ...cursor.parameters, cursor: 'opaque+/=' } })
+    ).toBe(true);
+    expect(
+      acceptsRequest({ ...cursor, definition: { ...cursor.definition, page: { limit: 2 } } })
+    ).toBe(false);
+    for (const page of [
+      undefined,
+      { limit: 2, offset: 0 },
+      { limit: 2, after: 'literal-cursor' },
+      { limit: 2, after: null },
+      { limit: 2, after: { type: 'parameter', name: 'cursor', extra: true } },
+    ]) {
+      expect(acceptsRequest({ ...cursor, definition: { ...cursor.definition, page } })).toBe(false);
+    }
+    // Cursor pages are specific to V7.
+    for (const version of [1, 2, 3, 4, 5, 6, 8, 9]) {
+      expect(acceptsRequest({ ...cursor, definition: { ...cursor.definition, version } })).toBe(
+        false
+      );
+    }
     for (const version of [1, 2, 3, 4, 5])
       expect(
         acceptsRequest({ ...unique, definition: { ...inline.definition, version, distinct: true } })
@@ -198,7 +252,7 @@ describe('generated data-query OpenAPI contract', () => {
     expect(
       (operation as unknown as Record<string, unknown>)['x-teable-data-query-capabilities']
     ).toMatchObject({
-      definitionVersions: [1, 2, 3, 4, 5, 6, 8],
+      definitionVersions: [1, 2, 3, 4, 5, 6, 7, 8, 9],
       recordsDistinct: { version: 6, grain: 'selectedOutputTuple' },
     });
     for (const quantifier of ['any', 'none']) {
@@ -253,6 +307,9 @@ describe('generated data-query OpenAPI contract', () => {
       parameters: { minimum: 30 },
     };
     expect(acceptsRequest(aggregate), JSON.stringify(acceptsRequest.errors)).toBe(true);
+    expect(
+      acceptsRequest({ ...aggregate, definition: { ...aggregate.definition, version: 7 } })
+    ).toBe(false);
     const tupleMetric = {
       alias: 'total',
       statisticFunc: 'unique',
@@ -270,7 +327,8 @@ describe('generated data-query OpenAPI contract', () => {
       definition: { ...aggregate.definition, version: 8, aggregates: [tupleMetric] },
     };
     expect(acceptsRequest(v8), JSON.stringify(acceptsRequest.errors)).toBe(true);
-    for (const version of [1, 2, 3, 4, 5, 6, 7]) {
+    // Only V8 aggregate definitions accept tuple metrics.
+    for (const version of [1, 2, 3, 4, 5, 6, 7, 9]) {
       expect(acceptsRequest({ ...v8, definition: { ...v8.definition, version } })).toBe(false);
     }
     for (const metric of [
@@ -380,12 +438,25 @@ describe('generated data-query OpenAPI contract', () => {
         data: { rows: [{ title: 'Alpha' }], page: { limit: 1, offset: 0, total: 3 } },
       })
     ).toBe(true);
+    for (const page of [
+      { limit: 1, nextCursor: 'opaque-cursor+/=' },
+      { limit: 1, nextCursor: null },
+      { limit: 1, nextCursor: 'opaque-cursor+/=', total: 3 },
+      { limit: 1, nextCursor: null, total: 0 },
+    ]) {
+      expect(acceptsSuccess({ ok: true, data: { rows: [], page } })).toBe(true);
+    }
     for (const invalid of [
       { ok: true },
       { ok: true, data: { rows: 'not an array' } },
       { ok: false, data: { rows: [] } },
       { ok: true, data: { rows: [], page: { limit: 1, offset: 0 } } },
       { ok: true, data: { rows: [], page: { limit: 1, offset: 0, total: -1 } } },
+      { ok: true, data: { rows: [], page: { limit: 1 } } },
+      { ok: true, data: { rows: [], page: { limit: 1, nextCursor: 42 } } },
+      { ok: true, data: { rows: [], page: { limit: 1, nextCursor: null, offset: 0 } } },
+      { ok: true, data: { rows: [], page: { limit: 1, nextCursor: null, total: -1 } } },
+      { ok: true, data: { rows: [], page: { limit: 1, nextCursor: null, total: null } } },
     ]) {
       expect(acceptsSuccess(invalid)).toBe(false);
     }
@@ -405,6 +476,64 @@ describe('generated data-query OpenAPI contract', () => {
 });
 
 describe('opt-in data query Fetch adapter', () => {
+  it.each([
+    { limit: 1, nextCursor: 'opaque-next+/=' },
+    { limit: 1, nextCursor: null },
+    { limit: 1, nextCursor: null, total: 0 },
+  ])('passes V7 cursor requests and pages through the authenticated boundary %j', async (page) => {
+    const cursorInput: ExecuteDataQueryRequest = {
+      definition: {
+        version: 7,
+        kind: 'records',
+        tableId: input.definition.tableId,
+        select: [{ system: 'id', alias: 'id' }],
+        parameters: { cursor: { type: 'string' } },
+        page: {
+          limit: 1,
+          after: { type: 'parameter', name: 'cursor' },
+          ...('total' in page ? { includeTotal: true } : {}),
+        },
+      },
+      parameters: { cursor: 'opaque-previous+/=' },
+    };
+    const data = { rows: [], page };
+    const execute = vi.fn(async () => ok(data));
+    const authenticate = vi.fn(() => context);
+    const handler = createDataQueryFetchHandler({
+      service: { execute, validate: vi.fn(async () => ok({ outputs: [] })) },
+      createExecutionContext: authenticate,
+    });
+    const request = post(cursorInput);
+    const response = await responseOf(handler, request);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, data });
+    expect(authenticate).toHaveBeenCalledWith(request);
+    expect(execute).toHaveBeenCalledWith(context, cursorInput);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves an invalid cursor domain error without restarting execution', async () => {
+    const execute = vi.fn(async () =>
+      err(
+        domainError.validation({
+          code: 'data_query.invalid_cursor',
+          message: 'Invalid structured query cursor',
+        })
+      )
+    );
+    const handler = createDataQueryFetchHandler({
+      service: { execute, validate: vi.fn(async () => ok({ outputs: [] })) },
+      createExecutionContext: () => context,
+    });
+    const response = await responseOf(handler, post(input));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: { code: 'data_query.invalid_cursor' },
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
   it('authenticates validation and returns descriptions without executing', async () => {
     const execute = vi.fn(async () => ok({ rows: [] }));
     const validate = vi.fn(async () =>
@@ -747,6 +876,33 @@ describe('opt-in data query Fetch adapter', () => {
     expect(body.error).not.toHaveProperty('details');
     expect(body.error).not.toHaveProperty('localization');
   });
+
+  it.each(['execute', 'explain'] as const)(
+    'reports missing cursor signing configuration on %s without exposing internal diagnostics',
+    async (operation) => {
+      const missingKey = async () =>
+        err(
+          domainError.infrastructure({
+            code: 'data_query.cursor_not_configured',
+            message: 'private diagnostic',
+            details: { connection: 'private diagnostic' },
+          })
+        );
+      const handler = createDataQueryFetchHandler({
+        service: { execute: missingKey, validate: vi.fn() },
+        explainService: { explain: missingKey },
+        createExecutionContext: () => context,
+      });
+      const response = await responseOf(handler, post(input, operation));
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error.code).toBe('data_query.cursor_not_configured');
+      for (const setting of ['SECRET_KEY', 'BACKEND_JWT_SECRET', 'BACKEND_SESSION_SECRET']) {
+        expect(body.error.message).toContain(setting);
+      }
+      expect(JSON.stringify(body)).not.toContain('private diagnostic');
+    }
+  );
 
   it('preserves timeout status and code without forwarding internal diagnostics', async () => {
     const handler = createDataQueryFetchHandler({

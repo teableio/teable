@@ -1644,13 +1644,51 @@ describe('Undo Redo (e2e)', () => {
 
       const shareMetaUndo = await undo(table.id);
       expect(shareMetaUndo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
-      expect((await getView(table.id, view.id)).data.shareMeta).toEqual(view.shareMeta);
+      const afterUndo = (await getView(table.id, view.id)).data;
+      expect(afterUndo.shareMeta).toEqual(view.shareMeta);
+      expect(afterUndo.shareId).toBe(view.shareId);
+      expect(afterUndo.enableShare).toBe(view.enableShare);
 
       const shareMetaRedo = await redo(table.id);
       expect(shareMetaRedo.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
-      expect((await getView(table.id, view.id)).data.shareMeta).toEqual(shareMeta);
+      const afterRedo = (await getView(table.id, view.id)).data;
+      expect(afterRedo.shareMeta).toEqual(shareMeta);
+      expect(afterRedo.shareId).toBe(view.shareId);
+      expect(afterRedo.enableShare).toBe(view.enableShare);
     }
   );
+
+  describe.skipIf(!isForceV2)('share configuration replay keeps the current lifecycle', () => {
+    it.each(['active', 'disabled'] as const)(
+      'roundtrips configuration on a %s link',
+      async (state) => {
+        const viewId = table.views[0].id;
+        await enableShareView({ tableId: table.id, viewId });
+        if (state === 'disabled') await disableShareView({ tableId: table.id, viewId });
+        const before = (await getView(table.id, viewId)).data;
+        const shareMeta = { ...before.shareMeta, allowCopy: false, includeRecords: false };
+        const updated = await updateViewShareMeta(table.id, viewId, shareMeta);
+        expect(updated.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+        const undone = await undo(table.id);
+        expect(undone.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+        const afterUndo = (await getView(table.id, viewId)).data;
+        expect(afterUndo.shareMeta).toEqual(before.shareMeta);
+        expect(afterUndo.shareId).toBe(before.shareId);
+        expect(afterUndo.enableShare).toBe(before.enableShare);
+
+        const redone = await redo(table.id);
+        expect(redone.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+        const afterRedo = (await getView(table.id, viewId)).data;
+        expect(afterRedo.shareMeta).toEqual(shareMeta);
+        expect(afterRedo.shareId).toBe(before.shareId);
+        expect(afterRedo.enableShare).toBe(before.enableShare);
+        if (state === 'disabled') {
+          await expect(getShareView(before.shareId!)).rejects.toThrow();
+        }
+      }
+    );
+  });
 
   // v1 manual sort never registered an undo operation, so this half of the
   // contract only exists on the v2 engine.

@@ -1981,6 +1981,11 @@
     "sandboxUnavailableNotConfigured": "El entorno de ejecución del agente de IA no está configurado en esta instancia. Contacta con tu administrador.",
     "agentStartFailed": "El motor de IA no pudo iniciarse. Inténtalo de nuevo o inicia una sesión nueva.",
     "agentSessionLost": "Algo salió mal. Vuelve a enviar tu mensaje.",
+    "sandboxDestroyed": "El entorno de Cuppy se cerró y la respuesta se detuvo",
+    "sandboxOutOfMemory": "Cuppy se detuvo a mitad del trabajo",
+    "sandboxOutOfMemoryDescription": "Este paso necesitó más recursos de los que Cuppy tiene disponibles. No es por nada que hayas hecho. Selecciona Continuar y Cuppy revisará hasta dónde llegó antes de seguir.",
+    "sandboxOutOfMemoryAction": "Continuar",
+    "sandboxOutOfMemoryPrompt": "Tu última respuesta se detuvo porque usó más memoria de la disponible. Revisa tu progreso antes de continuar e intenta no ejecutar varias tareas a la vez.",
     "idleTimeout": "La ejecución del comando superó el límite de tiempo ({{seconds}} s). Reinténtalo.",
     "danglingToolUse": "La sesión anterior se interrumpió y se reparó automáticamente. Vuelve a enviar tu mensaje.",
     "versionSaveFailed": "No se pudo guardar la versión",
@@ -2248,7 +2253,9 @@
     "menuItem": "Abrir en la app de Teable"
   },
   "appDelete": {
-    "offlineWarning": "Esta aplicación está publicada. Al eliminarla se desconecta de inmediato: su enlace público deja de funcionar, se libera cualquier dominio personalizado y se eliminan sus ajustes de inicio de sesión. Tras restaurarla, vuelve a publicarla."
+    "offlineWarning": "Esta aplicación está publicada. Al eliminarla se desconecta de inmediato: su enlace público deja de funcionar, se libera cualquier dominio personalizado y se eliminan sus ajustes de inicio de sesión. Tras restaurarla, vuelve a publicarla.",
+    "closeAndDelete": "Cerrar sandbox y eliminar",
+    "closingAndDeleting": "Cerrando sandbox y eliminando…"
   },
   "folderDelete": {
     "title": "¿Seguro que quieres eliminar la carpeta «{{name}}»?",
@@ -2282,6 +2289,10 @@
       "customDomain": "Se libera el dominio personalizado {{domain}}",
       "loginConfig": "Se eliminan sus ajustes de inicio de sesión",
       "afterRestore": "Tras restaurarla, vuelve a publicarla, vuelve a vincular el dominio y configura de nuevo el inicio de sesión."
+    },
+    "appGenerating": {
+      "tip": "Generando; su sandbox se cerrará antes de eliminarla",
+      "detail": "Esta aplicación está generando. Su sandbox se cerrará antes de eliminarla e interrumpirá la generación en curso."
     }
   }
 }

@@ -36,13 +36,13 @@ import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
+import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
 import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
-import { BatchService } from '../calculation/batch.service';
 
 import { DataLoaderService } from '../data-loader/data-loader.service';
 import { TableDomainQueryService } from '../table-domain/table-domain-query.service';
@@ -90,7 +90,7 @@ type IOpContext = ISetFieldPropertyOpContext;
 export class FieldService implements IReadonlyAdapterService {
   private readonly logger = new Logger(FieldService.name);
   constructor(
-    private readonly batchService: BatchService,
+    private readonly rawOpStagingService: RawOpStagingService,
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     private readonly dataLoaderService: DataLoaderService,
@@ -1239,7 +1239,7 @@ export class FieldService implements IReadonlyAdapterService {
       data: data.ops,
     }));
 
-    this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
   }
 
   async batchDeleteFields(
@@ -1274,7 +1274,7 @@ export class FieldService implements IReadonlyAdapterService {
       version: fieldRawMap[fieldId].version,
     }));
 
-    this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Field, dataList);
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Field, dataList);
 
     await this.deleteMany(
       tableId,
@@ -1306,7 +1306,7 @@ export class FieldService implements IReadonlyAdapterService {
     // 2. save field meta in db
     await this.dbCreateMultipleField(tableId, fields);
 
-    this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
 
   // write field at once database operation
@@ -1328,7 +1328,7 @@ export class FieldService implements IReadonlyAdapterService {
     // 2. save field meta in db
     await this.dbCreateMultipleFields(tableId, fields);
 
-    this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
 
   async create(tableId: string, snapshot: IFieldVo) {

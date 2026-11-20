@@ -1,12 +1,15 @@
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable/core';
 import { ResourceType } from '@teable/openapi';
+import { knex as createKnex } from 'knex';
 import { describe, expect, it, vi } from 'vitest';
+import { TableLifecycleCleanupService } from '../../table-lifecycle/table-lifecycle-cleanup.service';
 import { TableOpenApiService } from './table-open-api.service';
 
 const ordersTable = 'bseTest.orders';
 const renamedOrdersTable = 'bseTest.orders_renamed';
 const selectLinkFieldsSql = 'select link fields';
 const selectLookupFieldsSql = 'select lookup fields';
+const lifecycleDataKnex = createKnex({ client: 'pg' });
 
 describe('TableOpenApiService.prepareFields', () => {
   it('prepares same-batch link fields before dependent lookup and rollup fields', async () => {
@@ -286,9 +289,9 @@ describe('TableOpenApiService.createTable', () => {
       {} as never,
       {} as never,
       {} as never,
-      { invalidateDroppedTable } as never,
       {} as never,
-      { deleteTablePrefix: async () => undefined } as never
+      {} as never,
+      { invalidateDroppedTable } as never
     );
 
     await expect(
@@ -306,7 +309,7 @@ describe('TableOpenApiService.createTable', () => {
   });
 });
 
-describe('TableOpenApiService.cleanTablesRelatedData', () => {
+describe('TableLifecycleCleanupService.cleanTablesRelatedData', () => {
   it('routes metadata cleanup to meta prisma and trash/history cleanup to data prisma', async () => {
     const metaTxClient = {
       field: { deleteMany: vi.fn().mockResolvedValue(undefined) },
@@ -332,24 +335,9 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
       isMetaFallbackForBase: vi.fn().mockResolvedValue(false),
     };
 
-    const service = new TableOpenApiService(
+    const service = new TableLifecycleCleanupService(
       prismaService as never,
       databaseRouter as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
       {} as never,
       {} as never,
       { deleteTablePrefix: async () => undefined } as never
@@ -419,24 +407,9 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
       isMetaFallbackForBase: vi.fn().mockResolvedValue(false),
     };
 
-    const service = new TableOpenApiService(
+    const service = new TableLifecycleCleanupService(
       prismaService as never,
       databaseRouter as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
       {} as never,
       {} as never,
       { deleteTablePrefix: async () => undefined } as never
@@ -455,7 +428,7 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
   });
 });
 
-describe('TableOpenApiService.dropTables', () => {
+describe('TableLifecycleCleanupService.dropTables', () => {
   it('loads table metadata from meta prisma and executes physical drops on data prisma', async () => {
     const executeRawUnsafe = vi.fn().mockResolvedValue(undefined);
     const metaTxClient = {
@@ -464,7 +437,7 @@ describe('TableOpenApiService.dropTables', () => {
           {
             id: 'tblA',
             baseId: 'bseTest',
-            dbTableName: '"bseTest"."tblA"',
+            dbTableName: 'bseTest.tblA',
             version: 3,
             deletedTime: null,
           },
@@ -475,40 +448,23 @@ describe('TableOpenApiService.dropTables', () => {
       txClient: vi.fn().mockReturnValue(metaTxClient),
     };
     const databaseRouter = {
+      dataKnex: () => lifecycleDataKnex,
       executeDataPrismaForTable: vi.fn(async (_tableId: string, sql: string) =>
         executeRawUnsafe(sql)
       ),
     };
-    const batchService = {
+    const rawOpStagingService = {
       saveRawOps: vi.fn().mockResolvedValue(undefined),
-    };
-    const dbProvider = {
-      dropTable: vi.fn().mockReturnValue('drop table "bseTest"."tblA"'),
     };
     const tableMutationCacheInvalidator = {
       invalidateDroppedTable: vi.fn().mockResolvedValue(undefined),
     };
 
-    const service = new TableOpenApiService(
+    const service = new TableLifecycleCleanupService(
       prismaService as never,
       databaseRouter as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      batchService as never,
-      dbProvider as never,
-      {} as never,
-      {} as never,
-      {} as never,
+      rawOpStagingService as never,
       tableMutationCacheInvalidator as never,
-      {} as never,
       { deleteTablePrefix: async () => undefined } as never
     );
 
@@ -518,12 +474,17 @@ describe('TableOpenApiService.dropTables', () => {
       where: { id: { in: ['tblA'] } },
       select: { dbTableName: true, version: true, id: true, baseId: true, deletedTime: true },
     });
-    expect(batchService.saveRawOps).toHaveBeenCalledWith('bseTest', 'del', 'tbl', [
+    expect(rawOpStagingService.saveRawOps).toHaveBeenCalledWith('bseTest', 'del', 'tbl', [
       { docId: 'tblA', version: 3 },
     ]);
-    expect(executeRawUnsafe).toHaveBeenCalledWith('drop table "bseTest"."tblA"');
+    expect(executeRawUnsafe).toHaveBeenCalledWith('DROP TABLE IF EXISTS "bseTest"."tblA" CASCADE');
+    expect(databaseRouter.executeDataPrismaForTable).toHaveBeenCalledWith(
+      'tblA',
+      'DROP TABLE IF EXISTS "bseTest"."tblA" CASCADE',
+      { useTransaction: true }
+    );
     expect(tableMutationCacheInvalidator.invalidateDroppedTable).toHaveBeenCalledWith(
-      '"bseTest"."tblA"'
+      'bseTest.tblA'
     );
   });
 
@@ -534,7 +495,7 @@ describe('TableOpenApiService.dropTables', () => {
           {
             id: 'tblA',
             baseId: 'bseTest',
-            dbTableName: '"bseTest"."tblA"',
+            dbTableName: 'bseTest.tblA',
             version: 3,
             deletedTime: new Date(),
           },
@@ -542,32 +503,18 @@ describe('TableOpenApiService.dropTables', () => {
       },
     };
     const databaseRouter = {
+      dataKnex: () => lifecycleDataKnex,
       executeDataPrismaForTable: vi.fn().mockRejectedValue(dropError),
       isMetaFallbackForBase: vi.fn().mockResolvedValue(isMetaFallback),
     };
     const tableMutationCacheInvalidator = {
       invalidateDroppedTable: vi.fn().mockResolvedValue(undefined),
     };
-    const service = new TableOpenApiService(
+    const service = new TableLifecycleCleanupService(
       { txClient: vi.fn().mockReturnValue(metaTxClient) } as never,
       databaseRouter as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
       { saveRawOps: vi.fn() } as never,
-      { dropTable: vi.fn().mockReturnValue('drop table "bseTest"."tblA"') } as never,
-      {} as never,
-      {} as never,
-      {} as never,
       tableMutationCacheInvalidator as never,
-      {} as never,
       { deleteTablePrefix: async () => undefined } as never
     );
     return { service, databaseRouter, tableMutationCacheInvalidator };
@@ -581,7 +528,7 @@ describe('TableOpenApiService.dropTables', () => {
 
     await expect(service.dropTables(['tblA'])).resolves.toBeUndefined();
     expect(tableMutationCacheInvalidator.invalidateDroppedTable).toHaveBeenCalledWith(
-      '"bseTest"."tblA"'
+      'bseTest.tblA'
     );
   });
 
@@ -607,7 +554,7 @@ describe('TableOpenApiService.dropTables', () => {
   });
 });
 
-describe('TableOpenApiService.cleanTablesRelatedData', () => {
+describe('TableLifecycleCleanupService.cleanTablesRelatedData', () => {
   const buildService = (
     dataDbError?: Error,
     {
@@ -640,24 +587,9 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
         : vi.fn().mockResolvedValue(dataPrisma),
       isMetaFallbackForBase: vi.fn().mockResolvedValue(isMetaFallback),
     };
-    const service = new TableOpenApiService(
+    const service = new TableLifecycleCleanupService(
       { txClient: vi.fn().mockReturnValue(metaTxClient) } as never,
       databaseRouter as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
       {} as never,
       {} as never,
       { deleteTablePrefix: async () => undefined } as never

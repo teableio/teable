@@ -2,10 +2,10 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
-import type { ButtonClicked } from '../../domain/table/events/ButtonClicked';
 import type {
-  ButtonClickWorkflowResult,
+  ButtonClickWorkflowTarget,
   IButtonClickWorkflowService,
+  PreparedButtonClickWorkflow,
 } from '../ButtonClickWorkflowService';
 import type { IExecutionContext } from '../ExecutionContext';
 
@@ -14,10 +14,10 @@ import type { IExecutionContext } from '../ExecutionContext';
  * command. Do not copy this Noop as a host-hook (folder, billing, sidebar).
  */
 export class NoopButtonClickWorkflowService implements IButtonClickWorkflowService {
-  async trigger(
+  async prepare(
     _context: IExecutionContext,
-    _event: ButtonClicked
-  ): Promise<Result<ButtonClickWorkflowResult, DomainError>> {
-    return ok({ runId: '' });
+    _target: ButtonClickWorkflowTarget
+  ): Promise<Result<PreparedButtonClickWorkflow, DomainError>> {
+    return ok({ filter: null, run: async () => ok({ runId: '' }) });
   }
 }

@@ -92,6 +92,36 @@ describe('PermissionGuard', () => {
     };
   };
 
+  it('checks the table resource when a share grants access through a project table route', async () => {
+    class SharePermissionGuard extends PermissionGuard {
+      checkShare(context: ExecutionContext) {
+        return this.baseSharePermissionCheck(context, 'shrFixture');
+      }
+    }
+
+    const baseId = 'bseFixture';
+    const context = createContext();
+    context.switchToHttp = (() => ({
+      getRequest: () => ({ params: { baseId, tableId } }),
+    })) as typeof context.switchToHttp;
+    const reflector = {
+      getAllAndOverride: vi.fn((key: string) => (key === 'permissions' ? ['table|read'] : undefined)),
+    } as unknown as Reflector;
+    const cls = {
+      get: vi.fn((key: string) => (key === 'baseShare' ? { baseId } : undefined)),
+      set: vi.fn(),
+    } as unknown as ClsService<IClsStore>;
+    const validBaseSharePermissions = vi.fn().mockResolvedValue(['table|read']);
+    const permissionService = {
+      baseShareRequiresPassword: vi.fn().mockResolvedValue(false),
+      validBaseSharePermissions,
+    } as unknown as PermissionService;
+
+    const guard = new SharePermissionGuard(reflector, cls, permissionService);
+    await expect(guard.checkShare(context)).resolves.toBe(true);
+    expect(validBaseSharePermissions).toHaveBeenCalledWith('shrFixture', tableId, ['table|read']);
+  });
+
   it('keeps table update as the primary permission for alternative permission routes', async () => {
     const validPermissions = vi.fn().mockResolvedValue(tableUpdatePermissions);
     const { guard, cls } = createGuard({

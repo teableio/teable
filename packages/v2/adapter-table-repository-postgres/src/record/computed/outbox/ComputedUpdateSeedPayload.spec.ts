@@ -64,4 +64,26 @@ describe('ComputedUpdateSeedPayload', () => {
       col_status: 'new',
     });
   });
+
+  it('retains only capture proof shared by both merged tasks, including legacy tasks', () => {
+    const base: ComputedUpdateSeedPayload = {
+      taskType: 'seed',
+      baseId: `bse${'a'.repeat(16)}`,
+      seedTableId: `tbl${'b'.repeat(16)}`,
+      seedRecordIds: [],
+      extraSeedRecords: [],
+      beforeImageRecords: [],
+      changedFieldIds: [],
+      changeType: 'delete',
+    };
+    const first = { ...base, capturedDeleteLinkFieldIds: ['fld-a', 'fld-b'] };
+    const second = { ...base, capturedDeleteLinkFieldIds: ['fld-b', 'fld-c'] };
+    expect(mergeSeedPayloads(first, second).capturedDeleteLinkFieldIds).toEqual(['fld-b']);
+    expect(mergeSeedPayloads(first, base).capturedDeleteLinkFieldIds).toBeUndefined();
+    expect(mergeSeedPayloads(base, first).capturedDeleteLinkFieldIds).toBeUndefined();
+    expect(
+      mergeSeedPayloads(first, { ...base, capturedDeleteLinkFieldIds: [] })
+        .capturedDeleteLinkFieldIds
+    ).toEqual([]);
+  });
 });

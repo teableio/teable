@@ -4,7 +4,7 @@ import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
 import { FieldReferenceAdmissionModule } from '../../field-reference-admission/field-reference-admission.module';
 import { ComputedModule } from '../../record/computed/computed.module';
-import { TableIndexService } from '../../table/table-index.service';
+import { TableIndexModule } from '../../table-index/table-index.module';
 import { TableDomainQueryModule } from '../../table-domain';
 import { ViewModule } from '../../view/view.module';
 import { FieldModule } from '../field.module';
@@ -26,6 +26,7 @@ import { LinkFieldQueryService } from './link-field-query.service';
     CollaboratorModule,
     TableDomainQueryModule,
     ComputedModule,
+    TableIndexModule,
   ],
   providers: [
     DbProvider,
@@ -34,7 +35,6 @@ import { LinkFieldQueryService } from './link-field-query.service';
     FieldConvertingService,
     FieldSupplementService,
     FieldConvertingLinkService,
-    TableIndexService,
     FieldViewSyncService,
     FormulaFieldService,
     LinkFieldQueryService,

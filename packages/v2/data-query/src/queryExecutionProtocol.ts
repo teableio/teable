@@ -31,18 +31,26 @@ export const executeDataQueryEnvelopeSchema = guardDataQueryPlainInput(
 
 export type ExecuteDataQueryRequest = z.infer<typeof executeDataQueryRequestSchema>;
 
-export const dataQueryPageSchema = z
+const dataQueryOffsetPageSchema = z
   .object({
     limit: z.number().int().min(1).max(1000),
     offset: z.number().int().min(0).max(2147483647),
     total: z.number().int().nonnegative(),
   })
   .strict();
+export const dataQueryCursorPageSchema = z
+  .object({
+    limit: z.number().int().min(1).max(1000),
+    nextCursor: z.string().min(1).nullable(),
+    total: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+export const dataQueryPageSchema = z.union([dataQueryOffsetPageSchema, dataQueryCursorPageSchema]);
 
 export const queryExecutionResultSchema = z
   .object({
     rows: z.array(z.record(z.string(), z.json())),
-    /** Omitted unless the definition opts in with page.includeTotal. */
+    /** V7 continuation envelope, or opt-in totals for offset definitions. */
     page: dataQueryPageSchema.optional(),
   })
   .strict();

@@ -11,18 +11,46 @@ import {
 import { describe, expect, it } from 'vitest';
 
 import { toQualifiedIdentifierLiteral } from './sqlIdentifiers';
-import { ensureUndoCaptureInfrastructure, matchesUndoCaptureTableName } from './undoCapture';
+import {
+  clearUndoLogRows,
+  ensureUndoCaptureInfrastructure,
+  loadAndClearUndoLogRows,
+  matchesUndoCaptureTableName,
+  runWithoutUndoCapture,
+} from './undoCapture';
 
 type RowProvider = (compiledQuery: CompiledQuery) => unknown[];
+
+type RecordingDriverState = {
+  inTransaction: boolean;
+  sessionBatchId?: string;
+  txBatchId?: string;
+};
 
 class RecordingConnection implements DatabaseConnection {
   constructor(
     private readonly queries: CompiledQuery[],
-    private readonly rowProvider: RowProvider
+    private readonly rowProvider: RowProvider,
+    private readonly state: RecordingDriverState
   ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
+    if (compiledQuery.sql.includes("set_config('teable.undo_batch_id'")) {
+      const val = compiledQuery.parameters[0];
+      const isLocal = Boolean(compiledQuery.parameters[1]);
+      const normalized = typeof val === 'string' && val.length > 0 ? val : undefined;
+      if (this.state.inTransaction) {
+        this.state.txBatchId = normalized;
+      } else if (!isLocal) {
+        this.state.sessionBatchId = normalized;
+      }
+      return { rows: [{ set_config: normalized ?? '' }] as R[] };
+    }
+    if (compiledQuery.sql.includes("current_setting('teable.undo_batch_id', true)")) {
+      const active = this.state.inTransaction ? this.state.txBatchId : this.state.sessionBatchId;
+      return { rows: [{ batch_id: active ?? null }] as R[] };
+    }
     return { rows: this.rowProvider(compiledQuery) as R[] };
   }
 
@@ -33,6 +61,7 @@ class RecordingConnection implements DatabaseConnection {
 
 class RecordingDriver implements Driver {
   readonly queries: CompiledQuery[] = [];
+  readonly state: RecordingDriverState = { inTransaction: false };
 
   constructor(private readonly rowProvider: RowProvider) {}
 
@@ -41,19 +70,22 @@ class RecordingDriver implements Driver {
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.queries, this.rowProvider);
+    return new RecordingConnection(this.queries, this.rowProvider, this.state);
   }
 
   async beginTransaction(): Promise<void> {
-    return undefined;
+    this.state.inTransaction = true;
+    this.state.txBatchId = this.state.sessionBatchId;
   }
 
   async commitTransaction(): Promise<void> {
-    return undefined;
+    this.state.inTransaction = false;
+    this.state.txBatchId = undefined;
   }
 
   async rollbackTransaction(): Promise<void> {
-    return undefined;
+    this.state.inTransaction = false;
+    this.state.txBatchId = undefined;
   }
 
   async releaseConnection(): Promise<void> {
@@ -250,5 +282,110 @@ describe('matchesUndoCaptureTableName', () => {
       true
     );
     expect(matchesUndoCaptureTableName('other_table', 'bseTestBase.ledger_rows')).toBe(false);
+  });
+});
+
+describe('runWithoutUndoCapture', () => {
+  it('runs work directly without set_config when no batch id is active', async () => {
+    const { db, driver } = createRecordingDb((q) => {
+      if (q.sql.includes("current_setting('teable.undo_batch_id', true)")) {
+        return [{ batch_id: null }];
+      }
+      return [];
+    });
+
+    try {
+      const result = await runWithoutUndoCapture(db, async () => 'ok');
+      expect(result).toBe('ok');
+      expect(driver.queries.some((q) => q.sql.includes('set_config'))).toBe(false);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('temporarily clears an active batch id and restores it in finally using tx-aware is_local', async () => {
+    const seenInside: Array<string | undefined> = [];
+    const { db, driver } = createRecordingDb(() => []);
+    driver.state.sessionBatchId = 'batch_session';
+
+    try {
+      // Session-level GUC outside tx -> clears & restores with is_local = false
+      await runWithoutUndoCapture(db, async () => {
+        seenInside.push(driver.state.sessionBatchId);
+      });
+      expect(seenInside).toEqual([undefined]);
+      expect(driver.state.sessionBatchId).toBe('batch_session');
+      expect(
+        driver.queries
+          .filter((q) => q.sql.includes("set_config('teable.undo_batch_id'"))
+          .map((q) => q.parameters)
+      ).toEqual([
+        ['', false],
+        ['batch_session', false],
+      ]);
+
+      // Transaction-local GUC inside db.transaction() -> clears & restores with is_local = true
+      await db.transaction().execute(async (trx) => {
+        await runWithoutUndoCapture(trx, async () => {
+          seenInside.push(driver.state.txBatchId);
+        });
+      });
+      expect(seenInside).toEqual([undefined, undefined]);
+      expect(
+        driver.queries
+          .filter((q) => q.sql.includes("set_config('teable.undo_batch_id'"))
+          .slice(-2)
+          .map((q) => q.parameters)
+      ).toEqual([
+        ['', true],
+        ['batch_session', true],
+      ]);
+
+      await expect(
+        runWithoutUndoCapture(db, async () => {
+          throw new Error('boom');
+        })
+      ).rejects.toThrow('boom');
+      expect(driver.state.sessionBatchId).toBe('batch_session');
+    } finally {
+      await db.destroy();
+    }
+  });
+});
+
+describe('loadAndClearUndoLogRows & clearUndoLogRows', () => {
+  it('selects old_tuple directly without to_jsonb("__undo_log") when the column exists', async () => {
+    const { db, driver } = createRecordingDb((q) => {
+      if (q.sql.includes('information_schema.columns')) {
+        return [{ exists: true }];
+      }
+      if (q.sql.includes('DELETE FROM "__undo_log"')) {
+        return [
+          { id: '1', operation: 'UPDATE', table_name: 't', record_id: 'r1', old_tuple: null },
+        ];
+      }
+      return [];
+    });
+
+    try {
+      const rows = await loadAndClearUndoLogRows(db, 'b1', { rootDb: db });
+      expect(rows).toHaveLength(1);
+      const deleteQuery = driver.queries.find((q) => q.sql.includes('DELETE FROM "__undo_log"'));
+      expect(deleteQuery?.sql).toContain('"old_tuple"');
+      expect(deleteQuery?.sql).not.toContain('to_jsonb("__undo_log")');
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('deletes undo log rows without returning payloads in clearUndoLogRows', async () => {
+    const { db, driver } = createRecordingDb(() => []);
+    try {
+      await clearUndoLogRows(db, 'b1');
+      const deleteQuery = driver.queries.find((q) => q.sql.includes('DELETE FROM "__undo_log"'));
+      expect(deleteQuery?.sql).not.toContain('RETURNING');
+    } finally {
+      await db.destroy();
+    }
   });
 });

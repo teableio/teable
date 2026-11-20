@@ -28,6 +28,16 @@ fails fast. A request with no actor and no `defaultActorId` is rejected with 401
 `allowAnonymousActor: true` opts back into the legacy `system` actor. `/health`
 (liveness) and `/ready` (database probe) bypass identity.
 
+## Structured queries
+
+`POST /api/v2/queries/validate` takes `{ definition }` and checks it against
+the runtime's tables. `POST /api/v2/queries/execute` takes
+`{ definition, parameters?, queryId? }` and returns the query rows. Both
+routes use the same actor resolution as the table routes. Hosts using a custom
+resolver apply their own authorization to these requests as well.
+
+## HTTP responses and runtime operations
+
 Every adapter-owned response uses `{ok,data}` / `{ok:false,error}`, including
 404, resolver failures, and internal errors; unexpected messages and stacks are
 not reflected. Drain routes return structured reports:

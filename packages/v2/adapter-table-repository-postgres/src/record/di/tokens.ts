@@ -16,9 +16,7 @@ export const v2RecordRepositoryPostgresTokens = {
   computedUpdateRuntimeConfig: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedUpdateRuntimeConfig'
   ),
-  computedRuntimeConfig: Symbol(
-    'v2.adapter.recordRepositoryPostgres.computedRuntimeConfig'
-  ),
+  computedRuntimeConfig: Symbol('v2.adapter.recordRepositoryPostgres.computedRuntimeConfig'),
   computedUpdateHybridConfig: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedUpdateHybridConfig'
   ),
@@ -47,4 +45,7 @@ export const v2RecordRepositoryPostgresTokens = {
     'v2.adapter.recordRepositoryPostgres.domainEventWakeupPublisher'
   ),
   domainEventOutboxWorker: Symbol('v2.adapter.recordRepositoryPostgres.domainEventOutboxWorker'),
+  metadataDomainEventOutboxWorker: Symbol(
+    'v2.adapter.recordRepositoryPostgres.metadataDomainEventOutboxWorker'
+  ),
 } as const;

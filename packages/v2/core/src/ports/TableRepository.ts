@@ -34,6 +34,8 @@ export type TableFindOneOptions = Pick<TableFindOptions, 'state'> & {
   lock?: TableLockMode;
   /** Zero probes once without waiting; omitted uses the repository default. */
   provisionWaitMs?: number;
+  /** Omit legacy fields awaiting physical storage when reading a pending table for record I/O. */
+  excludePendingFields?: boolean;
 };
 
 export type FieldVersionChange = {

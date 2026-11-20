@@ -1,7 +1,18 @@
+// Keep SQL trace attribution low-cardinality and independent of runtime identifiers.
+const probeComments = {
+  projection: '/* reliability_readiness:projection */',
+  reader: '/* reliability_readiness:reader */',
+  worker: '/* reliability_readiness:worker */',
+  maintenance: '/* reliability_readiness:maintenance */',
+  admin: '/* reliability_readiness:admin */',
+  store: '/* reliability_readiness:store */',
+} as const;
+
 /** Relation names come from each adapter's schema-aware identifier compiler. */
 export const computedReliabilityReadinessSql = (
   issueRelation: string,
-  scopeRelation: string
+  scopeRelation: string,
+  caller: keyof typeof probeComments = 'store'
 ): string => {
   const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
   const columns = [
@@ -57,5 +68,5 @@ export const computedReliabilityReadinessSql = (
           JOIN pg_attribute a ON a.attrelid=r.oid AND a.attnum=key.attnum
           WHERE key.position<=idx.indnkeyatts) @> expected.names))
     AND NOT EXISTS(SELECT 1 FROM required_privileges expected JOIN relations r USING(kind)
-      WHERE r.oid IS NULL OR NOT has_table_privilege(r.oid,expected.privilege)) AS ready`;
+      WHERE r.oid IS NULL OR NOT has_table_privilege(r.oid,expected.privilege)) AS ready ${probeComments[caller]}`;
 };

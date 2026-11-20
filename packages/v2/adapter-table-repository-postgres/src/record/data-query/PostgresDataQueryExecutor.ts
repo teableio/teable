@@ -8,6 +8,7 @@ import {
   type IExecutionContext,
   type LastModifiedByField,
   type ITableReadModel,
+  type LookupField,
   type RecordQueryPluginScope,
   type Table,
 } from '@teable/v2-core';
@@ -16,10 +17,12 @@ import {
   dataQueryAccessForSource,
   bindDataQueryExpressionLegacyFilter,
   DataQueryBinding,
+  createDataQueryCursorBinding,
   isBoundDataQuery,
   traceDataQueryStage,
   validateDataQueryFilter,
   type BoundDataQuery,
+  type BoundDataQueryPlan,
   type BoundDataQueryFormulaExpression,
   type BoundDataQueryPredicate,
   type DataQueryBucket,
@@ -60,12 +63,18 @@ import { buildRecordWhereClause } from '../repository/buildRecordWhereClause';
 import { buildTableRecordAggregationExpression } from '../repository/TableRecordAggregationSql';
 import { compileDataQueryDistinctTuple } from './compileDataQueryDistinctTuple';
 import {
+  compileCursorRecords,
+  finishCursorRecords,
+  type CursorColumns,
+  type CursorOrder,
+} from './compileCursorRecords';
+import {
   compileDataQueryPredicate,
   compileDataQueryHavingExpression,
   compileDataQueryFormulaExpression,
   type DataQueryExpressionSqlContext,
 } from './compileDataQueryExpression';
-import { compileDistinctRecords } from './compileDistinctRecords';
+import { compileDistinctRecords, type ProjectionStorageType } from './compileDistinctRecords';
 import { dataQueryExecutionError } from './dataQueryExecutionError';
 import { normalizeDataQueryValue } from './normalizeDataQueryValue';
 
@@ -77,6 +86,29 @@ const systemColumns: Readonly<Record<DataQuerySystemField, string>> = {
   lastModifiedTime: '__last_modified_time',
   autoNumber: '__auto_number',
   version: '__version',
+};
+const projectionFieldStorageType = (
+  field: Field | undefined,
+  projectionDbType?: Result<string, DomainError>
+): ProjectionStorageType | undefined => {
+  if (!field || field.computed().toBoolean() || !field.hasDbFieldType()) return undefined;
+  const dbType = projectionDbType ?? field.dbFieldType().andThen((type) => type.value());
+  if (dbType.isErr()) return undefined;
+  // REAL is a persisted family that also admits legacy numeric/bigint columns.
+  // INTEGER stays unknown: its public value is a number, unlike native bigint.
+  switch (dbType.value.trim().toUpperCase()) {
+    case 'TEXT':
+      return 'text';
+    case 'BOOLEAN':
+      return 'boolean';
+    case 'NUMERIC':
+    case 'DECIMAL':
+      return 'numeric';
+    case 'BIGINT':
+      return 'bigint';
+    default:
+      return undefined;
+  }
 };
 
 const failure = (code: string, message: string): DomainError =>
@@ -226,6 +258,82 @@ const buildArrayDistinctExpression = (
   else ${expression}
 end`;
 
+type BoundTopN = NonNullable<BoundDataQueryPlan['topN']>;
+
+type TopNOuterOrder = readonly {
+  readonly alias: string;
+  readonly order: 'asc' | 'desc';
+  readonly nulls?: 'first' | 'last';
+}[];
+
+const uniqueInternalAlias = (prefix: string, used: ReadonlySet<string>): string => {
+  let alias = prefix;
+  let suffix = 0;
+  while (used.has(alias)) alias = `${prefix}_${++suffix}`;
+  return alias;
+};
+
+const compileTopNQueries = (
+  db: Kysely<V1TeableDatabase>,
+  base: RawBuilder<unknown>,
+  outputAliases: readonly string[],
+  rootIdAlias: string,
+  topN: BoundTopN,
+  outerOrder: TopNOuterOrder,
+  limit: number,
+  offset: number,
+  includeTotal: boolean
+): { rows: CompiledQuery<Row>; count?: CompiledQuery<{ total: unknown }> } => {
+  const used = new Set([...outputAliases, rootIdAlias]);
+  const selectedAlias = uniqueInternalAlias('__teable_topn_selected', used);
+  used.add(selectedAlias);
+  const rankAlias = uniqueInternalAlias('__teable_topn_rank', used);
+  const orderSql = (orders: TopNOuterOrder, sourceAlias: string): RawBuilder<unknown>[] =>
+    orders.map(({ alias, order, nulls }) => {
+      const nullOrder = nulls ?? (order === 'asc' ? 'first' : 'last');
+      return order === 'asc'
+        ? nullOrder === 'first'
+          ? sql`${sql.id(sourceAlias, alias)} asc nulls first`
+          : sql`${sql.id(sourceAlias, alias)} asc nulls last`
+        : nullOrder === 'first'
+          ? sql`${sql.id(sourceAlias, alias)} desc nulls first`
+          : sql`${sql.id(sourceAlias, alias)} desc nulls last`;
+    });
+  const rankOrders = orderSql(topN.orderBy, selectedAlias);
+  rankOrders.push(sql`${sql.id(selectedAlias, rootIdAlias)} asc`);
+  const partition = topN.partitionBy.map((alias) => sql.id(selectedAlias, alias));
+  const partitionClause = partition.length ? sql`partition by ${sql.join(partition)}` : sql``;
+  const rankOrderClause = sql`order by ${sql.join(rankOrders)}`;
+  const ranked = sql`select ${sql`${sql.id(selectedAlias)}.*`},
+      row_number() over (${partitionClause} ${rankOrderClause}) as ${sql.id(rankAlias)}
+    from (${base}) as ${sql.id(selectedAlias)}`;
+  const outerOrders = outerOrder.length
+    ? orderSql(outerOrder, 'ranked')
+    : [
+        ...orderSql(
+          topN.partitionBy.map((alias) => ({
+            alias,
+            order: 'asc' as const,
+            nulls: 'first' as const,
+          })),
+          'ranked'
+        ),
+        ...orderSql(topN.orderBy, 'ranked'),
+      ];
+  outerOrders.push(sql`${sql.id('ranked', rootIdAlias)} asc`);
+  const publicSelections = outputAliases.map((alias) => sql.id('ranked', alias));
+  const rows = sql<Row>`select ${sql.join(publicSelections)} from (${ranked}) as ${sql.id('ranked')}
+    where ${sql.id('ranked', rankAlias)} <= ${topN.limit}
+    order by ${sql.join(outerOrders)} limit ${limit} offset ${offset}`.compile(db);
+  if (!includeTotal) return { rows };
+  const count = sql<{
+    total: unknown;
+  }>`select count(*) as ${sql.id('total')} from (${ranked}) as ${sql.id(
+    'ranked'
+  )} where ${sql.id('ranked', rankAlias)} <= ${topN.limit}`.compile(db);
+  return { rows, count };
+};
+
 /** pg returns count(*) as a string; never let an unsafe total silently round. */
 const parseTotal = (value: unknown): number | undefined => {
   if (typeof value === 'number')
@@ -246,6 +354,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
   private readonly statementTimeoutMs: number;
   private readonly typeValidationStrategy: IPgTypeValidationStrategy;
   private readonly formulaCompileBudget: FormulaCompileBudgetConfig;
+  private readonly cursorSigningKey?: string;
 
   constructor(
     private readonly db: Kysely<V1TeableDatabase>,
@@ -253,6 +362,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       statementTimeoutMs?: number;
       typeValidationStrategy?: IPgTypeValidationStrategy;
       formulaCompileBudget?: FormulaCompileBudgetConfig;
+      cursorSigningKey?: string;
     } = {}
   ) {
     const timeout = options.statementTimeoutMs ?? 4000;
@@ -265,6 +375,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     this.typeValidationStrategy =
       options.typeValidationStrategy ?? new Pg16TypeValidationStrategy();
     this.formulaCompileBudget = options.formulaCompileBudget ?? defaultFormulaCompileBudgetConfig;
+    this.cursorSigningKey = options.cursorSigningKey;
   }
 
   private prepareBinding(
@@ -280,19 +391,31 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         });
   }
 
-  /** Diagnostic output only: execute never accepts a compiled statement. */
+  /**
+   * Diagnostic output only: execute never accepts a compiled statement.
+   * cursorBindingScope retains authenticated policy context for caller-only explain SQL;
+   * it affects cursor authentication only, never emitted predicates or execution scopes.
+   */
   compile(
     context: IExecutionContext,
     table: ITableReadModel,
     query: BoundDataQuery,
     scope: RecordQueryPluginScope,
-    binding?: DataQueryBinding
+    binding?: DataQueryBinding,
+    cursorBindingScope: RecordQueryPluginScope = scope,
+    cursorPublicNormalization: 'sql' | 'driver' = 'sql'
   ): Result<CompiledQuery<Row>, DomainError> {
     const prepared = this.prepareBinding(context, table, query, binding);
     if (prepared.isErr()) return err(prepared.error);
-    return this.buildQueries(context, table, query, scope, prepared.value).map(
-      (queries) => queries.rows
-    );
+    return this.buildQueries(
+      context,
+      table,
+      query,
+      scope,
+      prepared.value,
+      cursorBindingScope,
+      cursorPublicNormalization
+    ).map((queries) => queries.rows);
   }
 
   private buildQueries(
@@ -300,18 +423,24 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     table: ITableReadModel,
     query: BoundDataQuery,
     scope: RecordQueryPluginScope,
-    binding: DataQueryBinding
+    binding: DataQueryBinding,
+    cursorBindingScope: RecordQueryPluginScope = scope,
+    cursorPublicNormalization: 'sql' | 'driver' = 'sql',
+    deferRemainingRows = false
   ): Result<
     {
       rows: CompiledQuery<Row>;
+      compileRemainingRows?: (remaining: number) => CompiledQuery<Row>;
       count?: CompiledQuery<{ total: unknown }>;
       constantTotal?: number;
+      cursor?: CursorColumns;
     },
     DomainError
   > {
     try {
       const db = this.db;
       const typeValidationStrategy = this.typeValidationStrategy;
+      const cursorSigningKey = this.cursorSigningKey;
       const formulaCompileBudget = this.formulaCompileBudget;
       return safeTry(function* () {
         if (!isBoundDataQuery(query)) {
@@ -400,6 +529,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         }
         const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
         const orders: RawBuilder<unknown>[] = [];
+        const cursorOrders: CursorOrder[] = [];
         const addOrder = (
           expression: RawBuilder<unknown>,
           direction: 'asc' | 'desc',
@@ -408,19 +538,26 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         ) => {
           const nullOrder =
             nulls ?? (matchNulls ? (direction === 'asc' ? 'first' : 'last') : undefined);
-          orders.push(
-            direction === 'asc'
-              ? nullOrder === 'first'
-                ? sql`${expression} asc nulls first`
-                : nullOrder === 'last'
-                  ? sql`${expression} asc nulls last`
-                  : sql`${expression} asc`
-              : nullOrder === 'first'
-                ? sql`${expression} desc nulls first`
-                : nullOrder === 'last'
-                  ? sql`${expression} desc nulls last`
-                  : sql`${expression} desc`
-          );
+          if (query.cursor)
+            cursorOrders.push({
+              expression,
+              direction,
+              nulls: nullOrder ?? (direction === 'asc' ? 'last' : 'first'),
+            });
+          else
+            orders.push(
+              direction === 'asc'
+                ? nullOrder === 'first'
+                  ? sql`${expression} asc nulls first`
+                  : nullOrder === 'last'
+                    ? sql`${expression} asc nulls last`
+                    : sql`${expression} asc`
+                : nullOrder === 'first'
+                  ? sql`${expression} desc nulls first`
+                  : nullOrder === 'last'
+                    ? sql`${expression} desc nulls last`
+                    : sql`${expression} desc`
+            );
         };
         if (plan.kind === 'records') {
           if (plan.projections.some((projection) => projection.kind === 'aggregate')) {
@@ -431,6 +568,10 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           // Keep native outputs for DATE ordering; other aliases sort by their
           // selected labels without expanding expensive expressions a second time.
           const outputValues = new Map<string, RawBuilder<unknown>>();
+          const outputStorageTypes =
+            query.cursor || plan.resultGrain === 'distinctTuple'
+              ? new Map<string, ProjectionStorageType | undefined>()
+              : undefined;
           for (const projection of plan.projections) {
             if (projection.kind === 'expression') {
               outputValues.set(
@@ -445,6 +586,10 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             }
             if (projection.kind === 'system') {
               outputValues.set(projection.alias, sql.id('t', projection.column));
+              outputStorageTypes?.set(
+                projection.alias,
+                projection.column === '__id' ? 'text' : undefined
+              );
               continue;
             }
             if (projection.kind !== 'field' || projection.column === null)
@@ -462,19 +607,63 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 ? buildArrayDistinctExpression(expression)
                 : expression
             );
+            if (projection.bucket === undefined && !projection.arrayDistinct) {
+              const field = fields.get(projection.fieldId);
+              outputStorageTypes?.set(projection.alias, projectionFieldStorageType(field));
+            }
           }
-          const selections = plan.projections.map((projection) => {
-            const value = outputValues.get(projection.alias)!;
-            return sql`${value} as ${sql.id(projection.alias)}`;
-          });
-          if (plan.resultGrain === 'distinctTuple') {
+          const selections = query.cursor
+            ? undefined
+            : plan.projections.map((projection) => {
+                const value = outputValues.get(projection.alias)!;
+                return sql`${value} as ${sql.id(projection.alias)}`;
+              });
+          if (plan.topN) {
+            const outputAliases = plan.projections.map((projection) => projection.alias);
+            const outerOrder: {
+              alias: string;
+              order: 'asc' | 'desc';
+              nulls?: 'first' | 'last';
+            }[] = [];
+            for (const sort of query.sort) {
+              if (!('alias' in sort) || !outputValues.has(sort.alias)) {
+                return err(
+                  failure('invalid_sort', 'Top-N outer sorting requires selected output aliases')
+                );
+              }
+              outerOrder.push({ alias: sort.alias, order: sort.order, nulls: sort.nulls });
+            }
+            const rootIdAlias = uniqueInternalAlias(
+              '__teable_topn_root_id',
+              new Set(outputAliases)
+            );
+            const base = sql`select ${sql.join([
+              ...selections!,
+              sql`${sql.id('t', '__id')} as ${sql.id(rootIdAlias)}`,
+            ])} from ${from} ${where}`;
+            return ok(
+              compileTopNQueries(
+                db,
+                base,
+                outputAliases,
+                rootIdAlias,
+                plan.topN,
+                outerOrder,
+                query.limit,
+                query.offset,
+                query.includeTotal
+              )
+            );
+          }
+          if (plan.resultGrain === 'distinctTuple' && !query.cursor) {
             return ok(
               compileDistinctRecords(
                 db,
-                sql`select ${sql.join(selections)} from ${from} ${where}`,
+                sql`select ${sql.join(selections!)} from ${from} ${where}`,
                 plan,
                 query,
-                typeValidationStrategy
+                typeValidationStrategy,
+                outputStorageTypes
               )
             );
           }
@@ -484,7 +673,14 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               if (!value) {
                 return err(failure('invalid_sort', 'A sort alias is not a selected query output'));
               }
-              addOrder(sql.id(sort.alias), sort.order, true, sort.nulls);
+              if (query.cursor) {
+                cursorOrders.push({
+                  expression: value,
+                  alias: sort.alias,
+                  direction: sort.order,
+                  nulls: sort.nulls ?? (sort.order === 'asc' ? 'first' : 'last'),
+                });
+              } else addOrder(sql.id(sort.alias), sort.order, true, sort.nulls);
               continue;
             }
             if ('system' in sort) {
@@ -514,8 +710,36 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               )
             );
           }
+          if (query.cursor) {
+            const cursorBinding = yield* createDataQueryCursorBinding({
+              context,
+              plan,
+              query,
+              scopes: new Map([['root', cursorBindingScope]]),
+              tables: new Map([['root', table]]),
+            });
+            return compileCursorRecords(
+              db,
+              sql`from ${from} ${where}`,
+              plan.projections.map((projection) => ({
+                alias: projection.alias,
+                expression: outputValues.get(projection.alias)!,
+                metric: projection.kind === 'aggregate',
+                storageType: outputStorageTypes?.get(projection.alias),
+              })),
+              sql`${sql.id('t', '__id')}`,
+              cursorOrders,
+              plan.resultGrain === 'distinctTuple',
+              query,
+              cursorBinding,
+              typeValidationStrategy,
+              cursorPublicNormalization,
+              cursorSigningKey,
+              deferRemainingRows
+            );
+          }
           addOrder(sql.id('t', '__id'), 'asc');
-          const rows = sql<Row>`select ${sql.join(selections)} from ${from} ${where}
+          const rows = sql<Row>`select ${sql.join(selections!)} from ${from} ${where}
             order by ${sql.join(orders)} limit ${query.limit} offset ${query.offset}`.compile(db);
           return ok({
             rows,
@@ -778,15 +1002,23 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       return err(failure('compile_failed', 'Unable to compile data query'));
     }
   }
+  /**
+   * cursorBindingScopes preserves authenticated policy context while explaining caller-only SQL.
+   * It affects cursor authentication only; execution omits it and binds the actual plan scopes.
+   */
   async compileRelation(
     context: IExecutionContext,
-    plan: DataQueryRelationPlan
+    plan: DataQueryRelationPlan,
+    cursorBindingScopes?: ReadonlyMap<string, RecordQueryPluginScope>,
+    cursorPublicNormalization: 'sql' | 'driver' = 'sql'
   ): Promise<
     Result<
       {
         rows: CompiledQuery<Row>;
+        compileRemainingRows?: (remaining: number) => CompiledQuery<Row>;
         count?: CompiledQuery<{ total: unknown }>;
         constantTotal?: number;
+        cursor?: CursorColumns;
       },
       DomainError
     >
@@ -795,25 +1027,32 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       context,
       'compile.relation',
       { 'teable.component': 'repository' },
-      async () => this.buildRelationQueries(context, plan)
+      async () =>
+        this.buildRelationQueries(context, plan, cursorBindingScopes, cursorPublicNormalization)
     );
   }
 
   private buildRelationQueries(
     context: IExecutionContext,
-    plan: DataQueryRelationPlan
+    plan: DataQueryRelationPlan,
+    cursorBindingScopes?: ReadonlyMap<string, RecordQueryPluginScope>,
+    cursorPublicNormalization: 'sql' | 'driver' = 'sql',
+    deferRemainingRows = false
   ): Result<
     {
       rows: CompiledQuery<Row>;
+      compileRemainingRows?: (remaining: number) => CompiledQuery<Row>;
       count?: CompiledQuery<{ total: unknown }>;
       /** An ungrouped aggregate returns exactly one row. */
       constantTotal?: number;
+      cursor?: CursorColumns;
     },
     DomainError
   > {
     try {
       const db = this.db;
       const typeValidationStrategy = this.typeValidationStrategy;
+      const cursorSigningKey = this.cursorSigningKey;
       const formulaCompileBudget = this.formulaCompileBudget;
       return safeTry(function* () {
         if (!isBoundDataQuery(plan.query)) {
@@ -1225,9 +1464,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           if (!anchorParentAlias) {
             return err(failure('invalid_relation_plan', 'A relation parent source is missing'));
           }
-          const froms: RawBuilder<unknown>[] = batch
-            ? [rootFrom, ...joins]
-            : [anchor.from];
+          const froms: RawBuilder<unknown>[] = batch ? [rootFrom, ...joins] : [anchor.from];
           // Root selection must precede metric formula projection and dedup,
           // including recordId, authorization scope and any/none predicates.
           const conditions: RawBuilder<unknown>[] = batch ? [...predicates] : [];
@@ -1240,10 +1477,12 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               const junctionFrom = storage.schema
                 ? sql`${sql.id(storage.schema, storage.tableName)} as ${sql.id(junctionAlias)}`
                 : sql`${sql.id(storage.tableName)} as ${sql.id(junctionAlias)}`;
-              froms.push(sql`cross join ${junctionFrom} join ${hop.from} on ${sql.id(
-                junctionAlias,
-                storage.foreignKeyName
-              )} = ${sql.id(hop.sqlAlias, '__id')}`);
+              froms.push(
+                sql`cross join ${junctionFrom} join ${hop.from} on ${sql.id(
+                  junctionAlias,
+                  storage.foreignKeyName
+                )} = ${sql.id(hop.sqlAlias, '__id')}`
+              );
               link = sql`${sql.id(junctionAlias, storage.selfKeyName)} = ${sql.id(parent, '__id')}`;
             } else {
               link = parent ? membership(hop, parent) : undefined;
@@ -1665,10 +1904,12 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                   const junctionFrom = storage.schema
                     ? sql`${sql.id(storage.schema, storage.tableName)} as ${sql.id(junctionAlias)}`
                     : sql`${sql.id(storage.tableName)} as ${sql.id(junctionAlias)}`;
-                  froms.push(sql`cross join ${junctionFrom} join ${hop.from} on ${sql.id(
-                    junctionAlias,
-                    storage.foreignKeyName
-                  )} = ${sql.id(hop.sqlAlias, '__id')}`);
+                  froms.push(
+                    sql`cross join ${junctionFrom} join ${hop.from} on ${sql.id(
+                      junctionAlias,
+                      storage.foreignKeyName
+                    )} = ${sql.id(hop.sqlAlias, '__id')}`
+                  );
                   link = sql`${sql.id(junctionAlias, storage.selfKeyName)} = ${sql.id(parent, '__id')}`;
                 } else {
                   froms.push(sql`cross join ${hop.from}`);
@@ -1863,51 +2104,114 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             )
           );
         }
-        const selections = boundPlan.projections.map((projection) => {
+        const outputValues = new Map<string, RawBuilder<unknown>>();
+        const outputStorageTypes =
+          plan.query.cursor || boundPlan.resultGrain === 'distinctTuple'
+            ? new Map<string, ProjectionStorageType | undefined>()
+            : undefined;
+        for (const projection of boundPlan.projections) {
           if (projection.kind === 'expression') {
             const value = expressionSelections.get(projection.alias)!;
-            return sql`${value} as ${sql.id(projection.alias)}`;
+            outputValues.set(projection.alias, value);
+            continue;
           }
           if (projection.kind === 'aggregate') {
             const aggregateAlias = aggregateAliases.get(projection.source);
             if (!aggregateAlias) throw new Error('Missing relation aggregate source');
-            return sql`${sql.id(aggregateAlias, projection.alias)} as ${sql.id(projection.alias)}`;
+            outputValues.set(projection.alias, sql`${sql.id(aggregateAlias, projection.alias)}`);
+            continue;
           }
           const source = projection.source;
           const sqlAlias = source === 'root' ? rootAlias : sqlAliases.get(source)!;
           if (projection.kind === 'system') {
             const expression = sql`${sql.id(sqlAlias, projection.column)}`;
-            return sql`${expression} as ${sql.id(projection.alias)}`;
+            outputValues.set(projection.alias, expression);
+            outputStorageTypes?.set(
+              projection.alias,
+              projection.column === '__id' ? 'text' : undefined
+            );
+            continue;
           }
-          const values =
+          const sourceBinding =
             source === 'root'
-              ? rootValues
-              : sqlSources.find((candidate) => candidate.alias === source)?.values;
+              ? undefined
+              : sqlSources.find((candidate) => candidate.alias === source);
+          const values = source === 'root' ? rootValues : sourceBinding?.values;
           const stored = values?.get(projection.fieldId);
           if (!stored || projection.column === null) throw new Error('Missing relation projection');
           const expression =
             projection.bucket !== undefined
               ? buildBucketExpression(stored, projection.bucket)
               : stored;
-          return sql`${
+          outputValues.set(
+            projection.alias,
             projection.arrayDistinct === true
               ? buildArrayDistinctExpression(expression)
               : expression
-          } as ${sql.id(projection.alias)}`;
-        });
-        if (boundPlan.resultGrain === 'distinctTuple') {
+          );
+          if (projection.bucket === undefined && !projection.arrayDistinct) {
+            const field = (source === 'root' ? rootFields : sourceBinding?.fields)?.get(
+              projection.fieldId
+            );
+            outputStorageTypes?.set(projection.alias, projectionFieldStorageType(field));
+          }
+        }
+        const selections = plan.query.cursor
+          ? undefined
+          : boundPlan.projections.map(
+              (projection) =>
+                sql`${outputValues.get(projection.alias)!} as ${sql.id(projection.alias)}`
+            );
+        if (boundPlan.resultGrain === 'distinctTuple' && !plan.query.cursor) {
           return ok(
             compileDistinctRecords(
               db,
-              sql`select ${sql.join(selections)} from ${rootFrom} ${sql.join([...joins, ...manyLaterals], sql` `)} ${where}`,
+              sql`select ${sql.join(selections!)} from ${rootFrom} ${sql.join([...joins, ...manyLaterals], sql` `)} ${where}`,
               boundPlan,
               plan.query,
-              typeValidationStrategy
+              typeValidationStrategy,
+              outputStorageTypes
+            )
+          );
+        }
+        if (boundPlan.topN) {
+          const outputAliases = boundPlan.projections.map((projection) => projection.alias);
+          const outerOrder: {
+            alias: string;
+            order: 'asc' | 'desc';
+            nulls?: 'first' | 'last';
+          }[] = [];
+          for (const sort of plan.query.sort) {
+            if (!('alias' in sort) || !outputAliases.includes(sort.alias)) {
+              return err(
+                failure('invalid_sort', 'Top-N outer sorting requires selected output aliases')
+              );
+            }
+            outerOrder.push({ alias: sort.alias, order: sort.order, nulls: sort.nulls });
+          }
+          const rootIdAlias = uniqueInternalAlias('__teable_topn_root_id', new Set(outputAliases));
+          const base = sql`select ${sql.join([
+            ...selections!,
+            sql`${sql.id(rootAlias, '__id')} as ${sql.id(rootIdAlias)}`,
+          ])} from ${rootFrom}
+            ${sql.join([...joins, ...manyLaterals], sql` `)} ${where}`;
+          return ok(
+            compileTopNQueries(
+              db,
+              base,
+              outputAliases,
+              rootIdAlias,
+              boundPlan.topN,
+              outerOrder,
+              plan.query.limit,
+              plan.query.offset,
+              plan.query.includeTotal
             )
           );
         }
 
         const orders: RawBuilder<unknown>[] = [];
+        const cursorOrders: CursorOrder[] = [];
         const addOrder = (
           expression: RawBuilder<unknown>,
           direction: 'asc' | 'desc',
@@ -1916,19 +2220,26 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         ) => {
           const nullOrder =
             nulls ?? (matchNulls ? (direction === 'asc' ? 'first' : 'last') : undefined);
-          orders.push(
-            direction === 'asc'
-              ? nullOrder === 'first'
-                ? sql`${expression} asc nulls first`
-                : nullOrder === 'last'
-                  ? sql`${expression} asc nulls last`
-                  : sql`${expression} asc`
-              : nullOrder === 'first'
-                ? sql`${expression} desc nulls first`
-                : nullOrder === 'last'
-                  ? sql`${expression} desc nulls last`
-                  : sql`${expression} desc`
-          );
+          if (plan.query.cursor)
+            cursorOrders.push({
+              expression,
+              direction,
+              nulls: nullOrder ?? (direction === 'asc' ? 'last' : 'first'),
+            });
+          else
+            orders.push(
+              direction === 'asc'
+                ? nullOrder === 'first'
+                  ? sql`${expression} asc nulls first`
+                  : nullOrder === 'last'
+                    ? sql`${expression} asc nulls last`
+                    : sql`${expression} asc`
+                : nullOrder === 'first'
+                  ? sql`${expression} desc nulls first`
+                  : nullOrder === 'last'
+                    ? sql`${expression} desc nulls last`
+                    : sql`${expression} desc`
+            );
         };
         for (const sort of plan.query.sort) {
           if ('source' in sort) {
@@ -1980,7 +2291,23 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             continue;
           }
           if ('alias' in sort) {
-            addOrder(sql.id(sort.alias), sort.order, boundPlan.definitionVersion >= 3, sort.nulls);
+            if (plan.query.cursor) {
+              const value = outputValues.get(sort.alias);
+              if (!value)
+                return err(failure('invalid_sort', 'A cursor sort alias is not selected'));
+              cursorOrders.push({
+                expression: value,
+                alias: sort.alias,
+                direction: sort.order,
+                nulls: sort.nulls ?? (sort.order === 'asc' ? 'first' : 'last'),
+              });
+            } else
+              addOrder(
+                sql.id(sort.alias),
+                sort.order,
+                boundPlan.definitionVersion >= 3,
+                sort.nulls
+              );
             continue;
           }
           if ('system' in sort) {
@@ -2011,8 +2338,44 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
             )
           );
         }
+        if (plan.query.cursor) {
+          const cursorBinding = yield* createDataQueryCursorBinding({
+            context,
+            plan: boundPlan,
+            query: plan.query,
+            scopes:
+              cursorBindingScopes ??
+              new Map([
+                ['root', plan.rootScope],
+                ...plan.sources.map((source) => [source.alias, source.scope] as const),
+              ]),
+            tables: new Map([
+              ['root', plan.rootTable],
+              ...plan.sources.map((source) => [source.alias, source.table] as const),
+            ]),
+          });
+          return compileCursorRecords(
+            db,
+            sql`from ${rootFrom} ${sql.join([...joins, ...manyLaterals], sql` `)} ${where}`,
+            boundPlan.projections.map((projection) => ({
+              alias: projection.alias,
+              expression: outputValues.get(projection.alias)!,
+              metric: projection.kind === 'aggregate',
+              storageType: outputStorageTypes?.get(projection.alias),
+            })),
+            sql`${sql.id(rootAlias, '__id')}`,
+            cursorOrders,
+            boundPlan.resultGrain === 'distinctTuple',
+            plan.query,
+            cursorBinding,
+            typeValidationStrategy,
+            cursorPublicNormalization,
+            cursorSigningKey,
+            deferRemainingRows
+          );
+        }
         addOrder(sql.id(rootAlias, '__id'), 'asc');
-        const rows = sql<Row>`select ${sql.join(selections)} from ${rootFrom}
+        const rows = sql<Row>`select ${sql.join(selections!)} from ${rootFrom}
           ${sql.join([...joins, ...manyLaterals], sql` `)} ${where}
           order by ${sql.join(orders)} limit ${plan.query.limit} offset ${plan.query.offset}`.compile(
           db
@@ -2032,8 +2395,15 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     context: IExecutionContext,
     plan: DataQueryRelationPlan
   ): Promise<Result<DataQueryResult, DomainError>> {
-    const compiled = await this.compileRelation(context, plan);
-    if (compiled.isErr()) return err(compiled.error);
+    if (plan.query.cursor && !this.cursorSigningKey)
+      return err(
+        domainError.infrastructure({
+          code: 'data_query.cursor_not_configured',
+          message: 'Data query cursor signing is not configured',
+        })
+      );
+    const compiled = plan.query.cursor ? undefined : await this.compileRelation(context, plan);
+    if (compiled?.isErr()) return err(compiled.error);
     try {
       const read = await traceDataQueryStage(
         context,
@@ -2049,35 +2419,72 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         },
         async () => {
           try {
-            const queries = compiled.value;
-            return ok(
-              await this.db.transaction().execute(async (transaction) => {
+            const builder = this.db.transaction();
+            const readOnly = plan.query.cursor
+              ? builder.setIsolationLevel('repeatable read').setAccessMode('read only')
+              : builder;
+            return await readOnly.execute(async (transaction) => {
+              if (!plan.query.cursor) {
                 await transaction.executeQuery(
                   sql`set transaction isolation level repeatable read`.compile(this.db)
                 );
                 await transaction.executeQuery(sql`set transaction read only`.compile(this.db));
-                await transaction.executeQuery(
-                  sql`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)`.compile(
-                    this.db
-                  )
+              }
+              const settings = await transaction.executeQuery(
+                sql<{
+                  extra_float_digits?: unknown;
+                }>`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)${plan.query.cursor ? sql`, current_setting('extra_float_digits')::integer as extra_float_digits` : sql``}`.compile(
+                  this.db
+                )
+              );
+              const precision = settings.rows[0]?.extra_float_digits;
+              const normalization =
+                typeof precision === 'number' &&
+                Number.isInteger(precision) &&
+                precision > 0 &&
+                precision <= 3
+                  ? 'driver'
+                  : 'sql';
+              const selected =
+                compiled ??
+                (await traceDataQueryStage(
+                  context,
+                  'compile.relation',
+                  { 'teable.component': 'repository' },
+                  async () =>
+                    this.buildRelationQueries(context, plan, undefined, normalization, true)
+                ));
+              if (selected.isErr()) return err(selected.error);
+              const queries = selected.value;
+              const pages = await transaction.executeQuery(queries.rows);
+              const remaining = plan.query.limit + 1 - pages.rows.length;
+              const compileRemainingRows = queries.compileRemainingRows;
+              if (compileRemainingRows && remaining > 0) {
+                const remainingRows = await traceDataQueryStage(
+                  context,
+                  'compile.relation',
+                  { 'teable.component': 'repository' },
+                  async () => ok(compileRemainingRows(remaining))
                 );
-                const pages = await transaction.executeQuery(queries.rows);
-                if (!plan.query.includeTotal) return { pages, total: undefined };
-                if (queries.constantTotal !== undefined) {
-                  return { pages, total: queries.constantTotal };
-                }
-                if (!queries.count) throw new Error('Missing count query');
-                const counted = await transaction.executeQuery(queries.count);
-                return { pages, total: parseTotal(counted.rows[0]?.total) };
-              })
-            );
+                if (remainingRows.isErr()) return err(remainingRows.error);
+                const remainder = await transaction.executeQuery(remainingRows.value);
+                pages.rows.push(...remainder.rows);
+              }
+              const cursor = queries.cursor;
+              if (!plan.query.includeTotal) return ok({ pages, total: undefined, cursor });
+              if (queries.constantTotal !== undefined)
+                return ok({ pages, total: queries.constantTotal, cursor });
+              if (!queries.count) throw new Error('Missing count query');
+              const counted = await transaction.executeQuery(queries.count);
+              return ok({ pages, total: parseTotal(counted.rows[0]?.total), cursor });
+            });
           } catch (error) {
             return err(dataQueryExecutionError(error, plan.plan.definitionVersion >= 3));
           }
         }
       );
       if (read.isErr()) return err(read.error);
-      const { pages, total } = read.value;
+      const { pages, total, cursor } = read.value;
       if (plan.query.includeTotal && total === undefined) {
         return err(
           domainError.infrastructure({
@@ -2086,6 +2493,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           })
         );
       }
+      if (cursor)
+        return finishCursorRecords(pages.rows, plan.query, cursor, total, this.cursorSigningKey);
       const statistics = new Map(
         plan.plan.kind === 'records'
           ? plan.plan.projections
@@ -2132,13 +2541,22 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
     const prepared = this.prepareBinding(context, table, query, binding);
     if (prepared.isErr()) return err(prepared.error);
     const bound = prepared.value;
-    const compiled = await traceDataQueryStage(
-      context,
-      'compile',
-      { 'teable.component': 'repository' },
-      async () => this.buildQueries(context, table, query, scope, bound)
-    );
-    if (compiled.isErr()) return err(compiled.error);
+    if (query.cursor && !this.cursorSigningKey)
+      return err(
+        domainError.infrastructure({
+          code: 'data_query.cursor_not_configured',
+          message: 'Data query cursor signing is not configured',
+        })
+      );
+    const compiled = query.cursor
+      ? undefined
+      : await traceDataQueryStage(
+          context,
+          'compile',
+          { 'teable.component': 'repository' },
+          async () => this.buildQueries(context, table, query, scope, bound)
+        );
+    if (compiled?.isErr()) return err(compiled.error);
     try {
       const read = await traceDataQueryStage(
         context,
@@ -2153,38 +2571,85 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
         },
         async () => {
           try {
-            const queries = compiled.value;
             // Rows and the total must share one snapshot: READ COMMITTED would give each
             // statement its own, letting a concurrent commit change the count mid-page.
-            return ok(
-              await this.db.transaction().execute(async (transaction) => {
-                // Compiling through the outer handle keeps these statements on the real
-                // transaction while recording remains possible for tests.
+            const builder = this.db.transaction();
+            const readOnly = query.cursor
+              ? builder.setIsolationLevel('repeatable read').setAccessMode('read only')
+              : builder;
+            return await readOnly.execute(async (transaction) => {
+              // Compiling through the outer handle keeps these statements on the real
+              // transaction while recording remains possible for tests.
+              if (!query.cursor) {
                 await transaction.executeQuery(
                   sql`set transaction isolation level repeatable read`.compile(this.db)
                 );
                 await transaction.executeQuery(sql`set transaction read only`.compile(this.db));
-                await transaction.executeQuery(
-                  sql`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)`.compile(
-                    this.db
-                  )
+              }
+              const settings = await transaction.executeQuery(
+                sql<{
+                  extra_float_digits?: unknown;
+                }>`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)${query.cursor ? sql`, current_setting('extra_float_digits')::integer as extra_float_digits` : sql``}`.compile(
+                  this.db
+                )
+              );
+              const precision = settings.rows[0]?.extra_float_digits;
+              const normalization =
+                typeof precision === 'number' &&
+                Number.isInteger(precision) &&
+                precision > 0 &&
+                precision <= 3
+                  ? 'driver'
+                  : 'sql';
+              const selected =
+                compiled ??
+                (await traceDataQueryStage(
+                  context,
+                  'compile',
+                  { 'teable.component': 'repository' },
+                  async () =>
+                    this.buildQueries(
+                      context,
+                      table,
+                      query,
+                      scope,
+                      bound,
+                      scope,
+                      normalization,
+                      true
+                    )
+                ));
+              if (selected.isErr()) return err(selected.error);
+              const queries = selected.value;
+              const pages = await transaction.executeQuery(queries.rows);
+              const remaining = query.limit + 1 - pages.rows.length;
+              const compileRemainingRows = queries.compileRemainingRows;
+              if (compileRemainingRows && remaining > 0) {
+                const remainingRows = await traceDataQueryStage(
+                  context,
+                  'compile',
+                  { 'teable.component': 'repository' },
+                  async () => ok(compileRemainingRows(remaining))
                 );
-                const pages = await transaction.executeQuery(queries.rows);
-                if (!query.includeTotal) return { pages, total: undefined };
-                if (queries.constantTotal !== undefined)
-                  return { pages, total: queries.constantTotal };
-                if (!queries.count) throw new Error('Missing count query');
-                const counted = await transaction.executeQuery(queries.count);
-                return { pages, total: parseTotal(counted.rows[0]?.total) };
-              })
-            );
+                if (remainingRows.isErr()) return err(remainingRows.error);
+                const remainder = await transaction.executeQuery(remainingRows.value);
+                pages.rows.push(...remainder.rows);
+              }
+              const cursor = queries.cursor;
+              if (!query.includeTotal) return ok({ pages, total: undefined, cursor });
+              if (queries.constantTotal !== undefined)
+                return ok({ pages, total: queries.constantTotal, cursor });
+              if (!queries.count) throw new Error('Missing count query');
+              const counted = await transaction.executeQuery(queries.count);
+              return ok({ pages, total: parseTotal(counted.rows[0]?.total), cursor });
+            });
           } catch (error) {
             return err(dataQueryExecutionError(error, bound.plan.definitionVersion >= 3));
           }
         }
       );
       if (read.isErr()) return err(read.error);
-      const { pages, total } = read.value;
+      const { pages, total, cursor } = read.value;
       if (query.includeTotal && total === undefined) {
         return err(
           domainError.infrastructure({
@@ -2193,6 +2658,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           })
         );
       }
+      if (cursor)
+        return finishCursorRecords(pages.rows, query, cursor, total, this.cursorSigningKey);
       const aggregates = new Map(
         bound.plan.kind === 'aggregate'
           ? bound.plan.aggregates.map(

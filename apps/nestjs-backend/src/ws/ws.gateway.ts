@@ -9,12 +9,14 @@ import sockjs from 'sockjs';
 import { recordCompressionNegotiation } from '../share-db/metrics/compression-metrics';
 import { RealtimeMetricsService } from '../share-db/metrics/realtime-metrics.service';
 import { ShareDbService } from '../share-db/share-db.service';
-import { createSockjsServerOptions } from './sockjs-options';
+import type { IRealtimeTransportConfig } from './sockjs-options';
+import { createSockjsServerOptions, resolveRealtimeTransportConfig } from './sockjs-options';
 
 @Injectable()
 export class WsGateway implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WsGateway.name);
   private sockjsServer: sockjs.Server | null = null;
+  private transportConfig: IRealtimeTransportConfig = resolveRealtimeTransportConfig();
   private readonly activeConnections = new Set<sockjs.Connection>();
 
   // Track user → connections for session lifecycle metrics
@@ -33,22 +35,29 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     const httpServer = this.httpAdapterHost.httpAdapter.getHttpServer() as http.Server;
+    this.transportConfig = resolveRealtimeTransportConfig();
 
     this.sockjsServer = sockjs.createServer(
-      createSockjsServerOptions((severity: string, message: string) => {
-        if (severity === 'error') {
-          this.logger.error(message);
-        } else if (severity === 'info') {
-          this.logger.log(message);
-        } else {
-          this.logger.debug(message);
-        }
-      })
+      createSockjsServerOptions(
+        (severity: string, message: string) => {
+          if (severity === 'error') {
+            this.logger.error(message);
+          } else if (severity === 'info') {
+            this.logger.log(message);
+          } else {
+            this.logger.debug(message);
+          }
+        },
+        { disableWebsocket: this.transportConfig.disableWebsocket }
+      )
     );
 
     this.sockjsServer.on('connection', this.handleConnection);
     this.sockjsServer.installHandlers(httpServer);
-    this.logger.log('WsGateway (SockJS) initialized');
+    this.logger.log(
+      `WsGateway (SockJS) initialized (websocket: ${!this.transportConfig.disableWebsocket}, ` +
+        `idle timeout: ${this.transportConfig.idleTimeoutMs / 1000}s)`
+    );
   }
 
   private readonly handleConnection = (conn: sockjs.Connection) => {
@@ -68,6 +77,7 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`sockjs:on:close (active: ${this.activeConnections.size})`);
     });
+    this.closeWhenIdle(conn);
 
     try {
       const stream = new WebSocketJSONStream(conn as unknown as AdaptableWebSocket, {
@@ -104,6 +114,31 @@ export class WsGateway implements OnModuleInit, OnModuleDestroy {
       this.activeConnections.delete(conn);
     }
   };
+
+  /**
+   * Close the session once the client has sent nothing for the idle timeout
+   * (see IRealtimeTransportConfig.idleTimeoutMs for why the transport's own
+   * heartbeat is not enough). The client reconnects on its own if it is
+   * actually still there.
+   */
+  private closeWhenIdle(conn: sockjs.Connection) {
+    const { idleTimeoutMs } = this.transportConfig;
+    if (idleTimeoutMs <= 0) return;
+
+    const timer = setTimeout(() => {
+      this.realtimeMetrics?.recordIdleClose();
+      this.logger.debug(
+        `sockjs:idle-close no client message for ${idleTimeoutMs / 1000}s (transport: ${conn.protocol})`
+      );
+      // sockjs writes the code into the close frame verbatim, so it must be a number;
+      // @types/sockjs declares it as a string.
+      conn.close(4000 as unknown as string, 'Idle timeout');
+    }, idleTimeoutMs);
+    timer.unref();
+
+    conn.on('data', () => timer.refresh());
+    conn.on('close', () => clearTimeout(timer));
+  }
 
   /**
    * Defer user binding since ShareDB auth middleware resolves userId asynchronously.

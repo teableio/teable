@@ -1,5 +1,5 @@
 import { err, ok } from 'neverthrow';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
@@ -62,7 +62,11 @@ import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMap
 import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 import type { RealtimeDocId } from '../../ports/RealtimeDocId';
-import type { IRealtimeEngine, RealtimeApplyChangeOptions } from '../../ports/RealtimeEngine';
+import type {
+  IRealtimeEngine,
+  RealtimeApplyChangeOptions,
+  RealtimeEnsureOptions,
+} from '../../ports/RealtimeEngine';
 import type { ITableRepository } from '../../ports/TableRepository';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { FieldCreatedRealtimeProjection } from './FieldCreatedRealtimeProjection';
@@ -170,6 +174,7 @@ const buildTableDto = (table: Table): ITablePersistenceDTO => {
 
 class FakeRealtimeEngine implements IRealtimeEngine {
   ensures: Array<{ docId: RealtimeDocId; initial: unknown }> = [];
+  ensureOptions: Array<RealtimeEnsureOptions | undefined> = [];
   changes: Array<{
     docId: RealtimeDocId;
     change: RealtimeChange | ReadonlyArray<RealtimeChange>;
@@ -180,8 +185,14 @@ class FakeRealtimeEngine implements IRealtimeEngine {
   invalidations: Array<{ collection: string; change: RealtimeChange }> = [];
   computeActivityNotifications: string[] = [];
 
-  async ensure(_context: IExecutionContext, docId: RealtimeDocId, initial: unknown) {
+  async ensure(
+    _context: IExecutionContext,
+    docId: RealtimeDocId,
+    initial: unknown,
+    options?: RealtimeEnsureOptions
+  ) {
     this.ensures.push({ docId, initial });
+    this.ensureOptions.push(options);
     return ok(undefined);
   }
 
@@ -1245,12 +1256,15 @@ describe('Realtime projections', () => {
           baseId: table.baseId(),
           tableId: table.id(),
           viewId: view.id(),
+          oldVersion: 11,
+          newVersion: 12,
         })
       )
     )._unsafeUnwrap();
     await realtimeTasks[0]!();
 
     expect(engine.ensures[0]?.initial).toMatchObject({ filter, sort, group });
+    expect(engine.ensureOptions[0]).toEqual({ version: 11 });
   });
 
   it('removes the View document on View deletion', async () => {
@@ -2192,12 +2206,16 @@ describe('Realtime projections', () => {
     expect(engine.changes[0]?.options).toEqual({ version: 7 });
   });
 
-  it('coalesces pending view column meta realtime updates for the same view', async () => {
+  it('publishes every committed view column meta version including later frozen options', async () => {
     const table = buildTable('c', 'd', 'v');
     const viewId = table.views()[0]?.id() ?? ViewId.create(`viw${'v'.repeat(16)}`)._unsafeUnwrap();
     const engine = new FakeRealtimeEngine();
     const repository = new FakeTableRepository(table);
-    const mapper = new FakeTableMapper(buildTableDto);
+    const options = { frozenFieldId: table.primaryFieldId().toString() };
+    const mapper = new FakeTableMapper((table) => {
+      const dto = buildTableDto(table);
+      return { ...dto, views: dto.views.map((view) => ({ ...view, options })) };
+    });
     const projection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
     const context = createContext();
     const dispatchScope = createEventDispatchScope();
@@ -2224,6 +2242,7 @@ describe('Realtime projections', () => {
         fieldId: table.primaryFieldId(),
         oldVersion: 8,
         newVersion: 9,
+        optionsChange: { previousOptions: {}, nextOptions: options },
       }),
       dispatchScope
     );
@@ -2231,12 +2250,38 @@ describe('Realtime projections', () => {
     firstResult._unsafeUnwrap();
     secondResult._unsafeUnwrap();
 
-    expect(realtimeTasks).toHaveLength(1);
-    await realtimeTasks[0]!();
+    expect(realtimeTasks).toHaveLength(2);
+    let startFirstChange!: () => void;
+    const firstChangeStarted = new Promise<void>((resolve) => {
+      startFirstChange = resolve;
+    });
+    let allowFirstChange!: () => void;
+    const firstChangeAllowed = new Promise<void>((resolve) => {
+      allowFirstChange = resolve;
+    });
+    const applyChange = engine.applyChange.bind(engine);
+    const applySpy = vi.spyOn(engine, 'applyChange').mockImplementationOnce(async (...args) => {
+      startFirstChange();
+      await firstChangeAllowed;
+      return applyChange(...args);
+    });
+    const runningTasks = realtimeTasks.map((task) => task());
+    await firstChangeStarted;
+    try {
+      expect(applySpy).toHaveBeenCalledTimes(1);
+      expect(engine.changes).toHaveLength(0);
+    } finally {
+      allowFirstChange();
+    }
+    await Promise.all(runningTasks);
 
     expect(repository.findOneCount).toBe(1);
-    expect(engine.changes).toHaveLength(1);
-    expect(engine.changes[0]?.options).toEqual({ version: 7 });
+    expect(engine.changes).toHaveLength(2);
+    expect(engine.changes.map(({ options }) => options)).toEqual([{ version: 7 }, { version: 8 }]);
+    expect(engine.changes[1]?.change).toEqual([
+      { type: 'set', path: ['columnMeta'], value: buildTableDto(table).views[0]?.columnMeta },
+      { type: 'set', path: ['options'], value: options },
+    ]);
   });
 
   it('reuses a cached snapshot for repeated view column meta updates after a field is deleted', async () => {

@@ -123,7 +123,8 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const editingEnable = Boolean(
     (!readonly && isEditing && activeCell) || enableReadonlyCustomEditor
   );
-  const width = editorWidth ?? coordInstance.getColumnWidth(columnIndex);
+  // editorWidth is a floor: an editor never ends up narrower than the cell it opens from
+  const width = Math.max(editorWidth ?? 0, coordInstance.getColumnWidth(columnIndex));
   const height = activeCellBound?.height ?? coordInstance.getRowHeight(rowIndex);
   const editorRef = useRef<IEditorRef | null>(null);
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);

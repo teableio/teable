@@ -1,12 +1,13 @@
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry, type Result } from 'neverthrow';
 
-import type { DomainError } from '../../domain/shared/DomainError';
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { OffsetPagination } from '../../domain/shared/pagination/OffsetPagination';
 import { PageLimit } from '../../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../../domain/shared/pagination/PageOffset';
 import { composeAndSpecsOrUndefined } from '../../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type { FieldId } from '../../domain/table/fields/FieldId';
 import type { FieldKeyType } from '../../domain/table/fields/FieldKeyType';
 import type { RecordWriteSideEffects } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type { RecordId } from '../../domain/table/records/RecordId';
@@ -15,7 +16,11 @@ import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpe
 import { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { RecordWriteFieldValues } from '../../ports/RecordWritePlugin';
+import {
+  RecordWriteOperationKind,
+  type RecordWriteFieldValues,
+  type RecordWriteScopedFieldIdsResolver,
+} from '../../ports/RecordWritePlugin';
 import type {
   ITableRecordQueryRepository,
   ITableRecordQueryResult,
@@ -79,12 +84,13 @@ export const resolveBulkRecordUpdates = (
   return ok(resolved);
 };
 
-/** Pure scope interpretation; execution and preview deliberately share missing/forbidden decisions. */
+/** Shared row targeting, with field authorization when preparing an explicit write. */
 export const prepareBulkRecordExplicitScope = (
   table: Table,
   updates: ReadonlyArray<BulkRecordResolvedUpdate>,
   loaded: ITableRecordQueryResult,
-  recordSpec?: BulkRecordConditionSpec
+  recordSpec?: BulkRecordConditionSpec,
+  resolveUpdateFieldIdsForRecord?: RecordWriteScopedFieldIdsResolver
 ): Result<BulkRecordExplicitScope, DomainError> => {
   const currentRecords = new Map(loaded.records.map((record) => [record.id, record]));
   const authorizedUpdates: BulkRecordAuthorizedUpdate[] = [];
@@ -96,16 +102,39 @@ export const prepareBulkRecordExplicitScope = (
       missingRecordIds.push(update.recordId);
       continue;
     }
-    if (recordSpec) {
+    const resolveFields = update.fieldValues.size > 0 ? resolveUpdateFieldIdsForRecord : undefined;
+    if (recordSpec || resolveFields) {
       const record = TableRecord.fromRawFieldValues({
         id: currentRecord.id,
         tableId: table.id(),
         fields: currentRecord.fields,
       });
       if (record.isErr()) return err(record.error);
-      if (!recordSpec.isSatisfiedBy(record.value)) {
+      if (recordSpec && !recordSpec.isSatisfiedBy(record.value)) {
         pluginFilteredRecordIds.push(update.recordId);
         continue;
+      }
+      const allowedFieldIds = resolveFields?.(record.value);
+      if (allowedFieldIds) {
+        let deniedFieldIds: string[] | undefined;
+        for (const fieldId of update.fieldValues.keys()) {
+          if (!allowedFieldIds.has(fieldId)) {
+            (deniedFieldIds ??= []).push(fieldId);
+          }
+        }
+        if (deniedFieldIds) {
+          return err(
+            domainError.forbidden({
+              code: 'record_write_plugin.update_fields_forbidden',
+              message: 'Record write target includes fields outside the allowed scope.',
+              details: {
+                operation: RecordWriteOperationKind.updateMany,
+                tableId: table.id().toString(),
+                deniedFieldIds,
+              },
+            })
+          );
+        }
       }
     }
     authorizedUpdates.push({ ...update, currentRecord });
@@ -131,18 +160,55 @@ export const prepareBulkRecordSelector = (
   }));
 };
 
+const BULK_EXPLICIT_SCOPE_BATCH_SIZE = 500;
+
+export type LoadBulkRecordExplicitScopeOptions = {
+  readonly includeOrders?: boolean;
+  readonly lockForUpdate?: boolean;
+  readonly projectionFieldIds?: ReadonlyArray<FieldId>;
+};
+
 export const loadBulkRecordExplicitScope = async (
   context: IExecutionContext,
   table: Table,
   recordIds: ReadonlyArray<RecordId>,
   repository: ITableRecordQueryRepository,
-  includeOrders = false
-): Promise<Result<ITableRecordQueryResult, DomainError>> =>
-  repository.find(context, table, RecordByIdsSpec.create(recordIds), {
-    mode: 'stored',
+  options: LoadBulkRecordExplicitScopeOptions = {}
+): Promise<Result<ITableRecordQueryResult, DomainError>> => {
+  const { includeOrders = false, lockForUpdate, projectionFieldIds } = options;
+  const queryOptions = {
+    mode: 'stored' as const,
     includeOrders,
     includeTotal: false,
+    ...(lockForUpdate ? { lockForUpdate: true } : {}),
+    ...(projectionFieldIds ? { projectionFieldIds } : {}),
+  };
+
+  // The repository orders row locks globally within a query. Keep locking reads together.
+  if (lockForUpdate || recordIds.length <= BULK_EXPLICIT_SCOPE_BATCH_SIZE) {
+    return repository.find(context, table, RecordByIdsSpec.create(recordIds), queryOptions);
+  }
+
+  const allRecords: TableRecordReadModel[] = [];
+  for (let offset = 0; offset < recordIds.length; offset += BULK_EXPLICIT_SCOPE_BATCH_SIZE) {
+    const batchIds = recordIds.slice(offset, offset + BULK_EXPLICIT_SCOPE_BATCH_SIZE);
+    const pageResult = await repository.find(
+      context,
+      table,
+      RecordByIdsSpec.create(batchIds),
+      queryOptions
+    );
+    if (pageResult.isErr()) {
+      return err(pageResult.error);
+    }
+    allRecords.push(...pageResult.value.records);
+  }
+
+  return ok({
+    records: allRecords,
+    total: allRecords.length,
   });
+};
 
 export type BulkRecordPreparationFacts = {
   readonly requestedCount: number | null;

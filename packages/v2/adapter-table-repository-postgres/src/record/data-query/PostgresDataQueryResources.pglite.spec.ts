@@ -63,7 +63,7 @@ const definition = (formula: string) =>
 
 // Baseline expansions never exceed about 1 MiB: no timeout/OOM repro is needed.
 // The public service executes the canonical translator's SQL in PostgreSQL.
-describe('query formula repetition resource limits', () => {
+describe('query formula intermediate text resource limits', () => {
   let database: PGliteTestDb;
   let service: DataQueryService;
 
@@ -218,18 +218,81 @@ describe('query formula repetition resource limits', () => {
     ).toEqual([{ result: '界🙂界🙂' }]);
   });
 
+  it.each([
+    ['a multi-character match', 'SUBSTITUTE("aaa", "aa", "x")', 'xa'],
+    ['an empty needle', 'SUBSTITUTE("abc", "", "x")', 'abc'],
+    ['no matches despite a large replacement', 'SUBSTITUTE("aa", "x", REPT("x", 1048576))', 'aa'],
+    ['a shrinking replacement', 'SUBSTITUTE("界界x", "界", "")', 'x'],
+    ['null input', 'SUBSTITUTE(BLANK(), "x", "y")', null],
+    ['concat blanks', 'CONCATENATE("a", BLANK(), "b")', 'ab'],
+    ['operator concat blanks', 'BLANK() & (BLANK() & BLANK())', ''],
+    ['operator concat order', '{title} & (BLANK() & "🙂" & "z")', 'a🙂z'],
+    ['first concat operand error', '"a" & (ERROR("first") & ERROR("second"))', '#ERROR: first'],
+    ['exact concat byte limit', 'LEN(REPT("🙂", 262143) & ("界" & "a"))', 262145],
+    ['lazy concat branch', 'IF(1, "safe", REPT("🙂", 262143) & ("界" & "ab"))', 'safe'],
+  ])('preserves %s with a query text budget', async (_name, formula, expected) => {
+    expect((await service.execute(context, definition(formula)))._unsafeUnwrap().rows).toEqual([
+      { result: expected },
+    ]);
+  });
+
+  it.each([
+    'LEN(CONCATENATE(REPT("a", 1048576), "b"))',
+    'LEN(REPT("a", 1048576) & "b")',
+    'LEN(REPT("🙂", 262143) & ("界" & "ab"))',
+    'LEN(REGEXP_REPLACE(REPT("a", 262145), "a", "🙂"))',
+  ])('rejects an oversized intermediate consumed by LEN', async (formula) => {
+    expect((await service.execute(context, definition(formula)))._unsafeUnwrapErr()).toMatchObject({
+      code: 'data_query.expression_resource_limit',
+    });
+  });
+
+  it('concatenates more parts than PostgreSQL accepts as individual arguments', async () => {
+    const parts = [...Array<string>(51).fill('{title}'), ...Array<string>(50).fill('"b"')];
+    const formula = `(${parts.slice(0, 51).join(' & ')}) & (${parts.slice(51).join(' & ')})`;
+    expect((await service.execute(context, definition(formula)))._unsafeUnwrap().rows).toEqual([
+      { result: 'a'.repeat(51) + 'b'.repeat(50) },
+    ]);
+  });
+
+  it.each([
+    ['aéa', '(a)(z)?', String.raw`\1\\\2\&`, 'a\\aéa\\a'],
+    ['é', '', 'x', 'xéx'],
+    ['abc', 'z', 'replacement', 'abc'],
+  ])(
+    'preserves native regex replacement in the exact-size path',
+    async (value, pattern, replacement, expected) => {
+      const translator = new FormulaSqlPgTranslator({
+        references: new Map(),
+        tableAlias: 'input',
+        typeValidationStrategy: new Pg16TypeValidationStrategy(),
+        maxIntermediateTextBytes: Buffer.byteLength(expected),
+      });
+      const args = [value, pattern, replacement].map((arg) => JSON.stringify(arg)).join(', ');
+      const expression = translator.translateExpression(`REGEXP_REPLACE(${args})`)._unsafeUnwrap();
+      const rendered = translator
+        .renderExpression(expression, (result) => result.valueSql)
+        ._unsafeUnwrap();
+      expect((await sql`select ${sql.raw(rendered)} as result`.execute(database.db)).rows).toEqual([
+        { result: expected },
+      ]);
+    }
+  );
+
   it('leaves stored formula translation outside the query byte cap', async () => {
     const translator = new FormulaSqlPgTranslator({
       references: new Map(),
       tableAlias: 'stored',
       typeValidationStrategy: new Pg16TypeValidationStrategy(),
     });
-    const expression = translator.translateExpression('LEN(REPT("a", 1048577))')._unsafeUnwrap();
+    const expression = translator
+      .translateExpression('LEN(SUBSTITUTE(REPT("a", 524289), "a", "bb"))')
+      ._unsafeUnwrap();
     const rendered = translator
       .renderExpression(expression, (value) => value.valueSql)
       ._unsafeUnwrap();
     expect((await sql`select ${sql.raw(rendered)} as result`.execute(database.db)).rows).toEqual([
-      { result: 1048577 },
+      { result: 1048578 },
     ]);
   });
 

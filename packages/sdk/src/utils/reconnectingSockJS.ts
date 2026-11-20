@@ -28,6 +28,12 @@ export interface IReconnectingSockJSOptions {
   /** Reconnection delay multiplier. Default: 1.5 */
   reconnectDecay?: number;
   /**
+   * How long a connection must stay open before the backoff starts over, in ms.
+   * Default: 30000. Resetting on open instead let a proxy that accepts the
+   * WebSocket and then cuts it drive a reconnect every second, forever.
+   */
+  stableConnectionMs?: number;
+  /**
    * Transport types to use in order of preference.
    * SockJS will try each transport in order and fallback to the next if it fails.
    * Default: ['websocket', 'xhr-streaming']
@@ -79,6 +85,7 @@ export class ReconnectingSockJS {
   private readonly reconnectInterval: number;
   private readonly maxReconnectInterval: number;
   private readonly reconnectDecay: number;
+  private readonly stableConnectionMs: number;
   private readonly transports: ISockJSTransport[];
   private readonly timeout: number;
   private readonly debug: boolean;
@@ -89,6 +96,7 @@ export class ReconnectingSockJS {
   private reconnectAttempts = 0;
   private forcedClose = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private stableTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Event handlers
   onopen: IEventHandler<Event> = null;
@@ -102,6 +110,7 @@ export class ReconnectingSockJS {
     this.reconnectInterval = options.reconnectInterval ?? 1000;
     this.maxReconnectInterval = options.maxReconnectInterval ?? 30000;
     this.reconnectDecay = options.reconnectDecay ?? 1.5;
+    this.stableConnectionMs = options.stableConnectionMs ?? 30000;
     this.transports = options.transports ?? ['websocket', 'xhr-streaming'];
     this.timeout = options.timeout ?? 5000;
     this.debug = options.debug ?? false;
@@ -146,6 +155,7 @@ export class ReconnectingSockJS {
   reconnect(): void {
     this.log('Manual reconnect triggered');
     this.clearReconnectTimer();
+    this.clearStableTimer();
     // First, clean up the old socket to avoid race conditions.
     const oldSocket = this.socket;
     this.socket = null;
@@ -165,6 +175,7 @@ export class ReconnectingSockJS {
     this.log('Destroying instance');
     this.forcedClose = true;
     this.clearReconnectTimer();
+    this.clearStableTimer();
     // First disable the event trigger, then perform cleanup.
     if (this.socket) {
       const oldSocket = this.socket;
@@ -199,12 +210,17 @@ export class ReconnectingSockJS {
 
   private readonly handleOpen = (event: Event): void => {
     this.log('Connection opened');
-    this.reconnectAttempts = 0;
+    this.clearStableTimer();
+    this.stableTimer = setTimeout(() => {
+      this.stableTimer = null;
+      this.reconnectAttempts = 0;
+    }, this.stableConnectionMs);
     this.onopen?.(event);
   };
 
   private readonly handleClose = (event: CloseEvent): void => {
     this.log('Connection closed (code: ' + event.code + ', reason: ' + event.reason + ')');
+    this.clearStableTimer();
     // Clean up old socket references
     this.cleanupSocket();
     this.socket = null;
@@ -253,6 +269,13 @@ export class ReconnectingSockJS {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  private clearStableTimer(): void {
+    if (this.stableTimer) {
+      clearTimeout(this.stableTimer);
+      this.stableTimer = null;
     }
   }
 

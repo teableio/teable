@@ -160,6 +160,36 @@ describe('computation reliability reconciliation', () => {
     manager.listComputedOutboxMaintenanceTargets.mockRejectedValueOnce(new Error('offline'));
     await expect(service.runOnce()).resolves.toBeUndefined();
   });
+  it('waits for an active sweep on stop and never admits another sweep', async () => {
+    let finish!: (targets: []) => void;
+    const inventory = new Promise<[]>((resolve) => {
+      finish = resolve;
+    });
+    const manager = {
+      listComputedOutboxMaintenanceTargets: vi.fn(() => inventory),
+      listByodbBoundBaseIds: vi.fn().mockResolvedValue([]),
+    };
+    const service = new ComputedReliabilityReconciliationService(
+      manager as never,
+      {} as never,
+      cache as never
+    );
+    const run = service.runOnce();
+    let stopped = false;
+    const stopping = service.stop().then(() => {
+      stopped = true;
+    });
+    await Promise.resolve();
+    expect(stopped).toBe(false);
+    await service.runOnce();
+    expect(manager.listComputedOutboxMaintenanceTargets).toHaveBeenCalledTimes(1);
+    finish([]);
+    await Promise.all([run, stopping]);
+    expect(stopped).toBe(true);
+    await service.runOnce();
+    expect(manager.listComputedOutboxMaintenanceTargets).toHaveBeenCalledTimes(1);
+  });
+
   it('limits retention selection to closed issues older than 30 days', async () => {
     const query = {
       whereIn: vi.fn().mockReturnThis(),

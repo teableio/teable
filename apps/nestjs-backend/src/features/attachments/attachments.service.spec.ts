@@ -16,9 +16,10 @@ import type { LocalStorage } from './plugins/local';
 
 describe('AttachmentsService', () => {
   let service: AttachmentsService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [AttachmentsModule, GlobalModule],
     })
       .useMocker((token) => {
@@ -31,7 +32,8 @@ describe('AttachmentsService', () => {
     service = module.get<AttachmentsService>(AttachmentsService);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await module.close();
     vi.restoreAllMocks();
   });
 

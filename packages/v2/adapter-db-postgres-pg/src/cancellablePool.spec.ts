@@ -8,7 +8,7 @@ import { PostgresQueryCancelledError, runWithPostgresQueryCancellation } from '.
 
 vi.mock('./cancelRequest', () => ({ cancelPostgresQuery: vi.fn() }));
 
-const createPool = () => {
+const createPool = (statementDeadlineMs?: number) => {
   const client = Object.assign(new EventEmitter(), {
     query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
     release: vi.fn(),
@@ -17,13 +17,33 @@ const createPool = () => {
   const pool = createCancellablePool(
     raw as unknown as Pool,
     class {} as unknown as PostgresProtocolConnectionConstructor,
-    false
+    false,
+    statementDeadlineMs
   );
   return { client, pool };
 };
 
 describe('leased PostgreSQL client failures', () => {
   afterEach(() => vi.clearAllMocks());
+
+  it('destroys a maintenance lease even when the underlying query never settles', async () => {
+    const { client, pool } = createPool(20);
+    client.query.mockReturnValueOnce(
+      Promise.withResolvers<{ rows: never[]; rowCount: number }>().promise
+    );
+    const lease = await pool.connect();
+    await expect(lease.query('SELECT 1', [])).rejects.toMatchObject({
+      code: 'TABLE_QUERY_OPS_STATEMENT_TIMEOUT',
+    });
+    expect(client.release).toHaveBeenCalledExactlyOnceWith(true);
+    lease.release();
+    expect(client.release).toHaveBeenCalledTimes(1);
+    await expect(lease.query('SELECT 2', [])).rejects.toMatchObject({
+      code: 'TABLE_QUERY_OPS_STATEMENT_TIMEOUT',
+    });
+    client.emit('end');
+    expect(client.listenerCount('error')).toBe(0);
+  });
 
   it.each([undefined, new AbortController().signal])(
     'retains a between-statement failure and destroys only once with scope %s',

@@ -12,7 +12,10 @@ import { DeleteViewCommand } from '../../commands/DeleteViewCommand';
 import { DisableViewShareCommand } from '../../commands/DisableViewShareCommand';
 import { EnableViewShareCommand } from '../../commands/EnableViewShareCommand';
 import { ReplayFieldTypeConversionCommand } from '../../commands/ReplayFieldTypeConversionCommand';
-import { RestoreRecordsCommand } from '../../commands/RestoreRecordsCommand';
+import {
+  RestoreRecordsCommand,
+  type IDeferredSelfReferentialLinkRecord,
+} from '../../commands/RestoreRecordsCommand';
 import { SetButtonValueCommand } from '../../commands/SetButtonValueCommand';
 import { UpdateRecordCommand } from '../../commands/UpdateRecordCommand';
 import { UpdateRecordsCommand } from '../../commands/UpdateRecordsCommand';
@@ -175,6 +178,9 @@ type UndoRedoReplayProgressState = {
   leafOffset?: number;
   skipAlreadyExecuted?: boolean;
   onLeafExecuted?: (index: number) => Promise<Result<void, DomainError>>;
+  deferredSelfLinksByTableId?: Map<string, IDeferredSelfReferentialLinkRecord[]>;
+  skippedSelfLinkCandidatesByTableId?: Map<string, IDeferredSelfReferentialLinkRecord[]>;
+  tableSelfLinkFieldIds?: Map<string, ReadonlySet<string>>;
 };
 
 export const toUndoRedoStackAppendContext = (
@@ -207,6 +213,21 @@ export const toUndoRedoStackReplayContext = (
 
 const resolveUndoRedoStackMode = (context: UndoRedoStackAppendContext): UndoRedoStackMode =>
   context.stackMode ?? 'normal';
+
+const isStoredLinkItemCandidate = (item: unknown): boolean =>
+  typeof item === 'object' &&
+  item !== null &&
+  'id' in item &&
+  typeof (item as { id?: unknown }).id === 'string' &&
+  (item as { id: string }).id.startsWith('rec') &&
+  !('path' in item);
+
+const isStoredLinkFieldCandidateValue = (value: unknown): boolean => {
+  if (Array.isArray(value)) {
+    return value.length > 0 && value.every(isStoredLinkItemCandidate);
+  }
+  return isStoredLinkItemCandidate(value);
+};
 
 /**
  * Whether this append may reach the store. Callers build undo/redo payloads before appending,
@@ -663,6 +684,7 @@ export class UndoRedoStackService {
                 let totalCount = 0;
                 let processedCount = 0;
                 let preflightLeafOffset = 0;
+                let restoreCommandCount = 0;
                 // Preflight the entire group without retaining its payloads.
                 for (let index = 0; index < reserved.entryCount; index += 1) {
                   yield* checkLease();
@@ -675,6 +697,7 @@ export class UndoRedoStackService {
                   yield* service.validateReplayCommandData(entry.redoCommand);
                   if (options?.beforeReplay) yield* await options.beforeReplay(entry, mode);
                   const command = mode === 'undo' ? entry.undoCommand : entry.redoCommand;
+                  restoreCommandCount += service.countRestoreCommands(command);
                   const leafCount = command.type === 'Batch' ? command.payload.length : 1;
                   const unitCount = service.countReplayUnits(command);
                   totalCount += unitCount;
@@ -693,6 +716,11 @@ export class UndoRedoStackService {
                   processedCount,
                   options
                 );
+                if (restoreCommandCount > 1) {
+                  progressState.deferredSelfLinksByTableId = new Map();
+                  progressState.skippedSelfLinkCandidatesByTableId = new Map();
+                  progressState.tableSelfLinkFieldIds = new Map();
+                }
                 progressState.executedLeafIndex = reserved.executedLeafIndex;
                 progressState.onLeafExecuted = async (index) => {
                   const progressed = await service.undoRedoStore.markProgress(
@@ -709,6 +737,7 @@ export class UndoRedoStackService {
                   reserved.operationId
                 );
                 let leafOffset = 0;
+                const deferredNotifyEntries: UndoEntry[] = [];
                 for (let index = 0; index < reserved.entryCount; index += 1) {
                   yield* checkLease();
                   const entry = yield* await service.undoRedoStore.readReservedEntry(
@@ -722,12 +751,96 @@ export class UndoRedoStackService {
                   progressState.leafOffset = leafOffset;
                   progressState.skipAlreadyExecuted =
                     command.type !== 'Batch' && reserved.executedLeafIndex > leafOffset;
+                  const deferredCountBefore = service.countDeferredSelfLinkRecords(progressState);
                   yield* await service.executeCommandData(executeContext, command, progressState);
                   leafOffset += leafCount;
                   if (command.type !== 'Batch' && !progressState.skipAlreadyExecuted) {
                     yield* await progressState.onLeafExecuted(leafOffset);
                   }
-                  await service.notifyEntryReplayed(entry, mode, options);
+                  if (service.countDeferredSelfLinkRecords(progressState) > deferredCountBefore) {
+                    deferredNotifyEntries.push(entry);
+                  } else {
+                    await service.notifyEntryReplayed(entry, mode, options);
+                  }
+                }
+                const phase2TableIds = new Set<string>([
+                  ...(progressState.deferredSelfLinksByTableId?.keys() ?? []),
+                  ...(progressState.skippedSelfLinkCandidatesByTableId?.keys() ?? []),
+                ]);
+                if (phase2TableIds.size > 0) {
+                  yield* checkLease();
+                  for (const deferredTableId of phase2TableIds) {
+                    const knownSelfLinkFields =
+                      progressState.tableSelfLinkFieldIds?.get(deferredTableId);
+                    if (knownSelfLinkFields && knownSelfLinkFields.size === 0) {
+                      continue;
+                    }
+                    const byRecordId = new Map<string, IDeferredSelfReferentialLinkRecord>();
+                    for (const skipped of progressState.skippedSelfLinkCandidatesByTableId?.get(
+                      deferredTableId
+                    ) ?? []) {
+                      const filteredFields: Record<string, unknown> = {};
+                      for (const [fieldId, value] of Object.entries(skipped.fields)) {
+                        if (!knownSelfLinkFields || knownSelfLinkFields.has(fieldId)) {
+                          filteredFields[fieldId] = value;
+                        }
+                      }
+                      if (Object.keys(filteredFields).length > 0) {
+                        byRecordId.set(skipped.recordId, {
+                          recordId: skipped.recordId,
+                          fields: filteredFields,
+                          ...(skipped.cleanupTrash ? { cleanupTrash: true } : {}),
+                        });
+                      }
+                    }
+                    for (const deferred of progressState.deferredSelfLinksByTableId?.get(
+                      deferredTableId
+                    ) ?? []) {
+                      const prev = byRecordId.get(deferred.recordId);
+                      byRecordId.set(deferred.recordId, {
+                        recordId: deferred.recordId,
+                        fields: prev
+                          ? { ...prev.fields, ...deferred.fields }
+                          : { ...deferred.fields },
+                        ...(prev?.cleanupTrash || deferred.cleanupTrash
+                          ? { cleanupTrash: true }
+                          : {}),
+                      });
+                    }
+                    const deferredRecords = [...byRecordId.values()];
+                    if (!deferredRecords.length) {
+                      continue;
+                    }
+                    const cleanupTrashRecordIds = deferredRecords
+                      .filter((entry) => entry.cleanupTrash)
+                      .map((entry) => entry.recordId);
+                    const linkCommand = RestoreRecordsCommand.create(
+                      {
+                        tableId: deferredTableId,
+                        records: deferredRecords.map(({ recordId, fields }) => ({
+                          recordId,
+                          fields,
+                        })),
+                      },
+                      {
+                        selfReferentialLinksOnly: true,
+                        ...(cleanupTrashRecordIds.length > 0 ? { cleanupTrashRecordIds } : {}),
+                      }
+                    );
+                    if (linkCommand.isErr()) {
+                      return err(linkCommand.error);
+                    }
+                    const linkResult = await service.commandBus.execute(
+                      executeContext,
+                      linkCommand.value
+                    );
+                    if (linkResult.isErr()) {
+                      return err(linkResult.error);
+                    }
+                  }
+                }
+                for (const deferredEntry of deferredNotifyEntries) {
+                  await service.notifyEntryReplayed(deferredEntry, mode, options);
                 }
                 yield* checkLease();
                 yield* await service.undoRedoStore.renew(scope, reserved.token);
@@ -815,7 +928,8 @@ export class UndoRedoStackService {
   }
 
   private createCommand(
-    commandData: UndoRedoCommandData
+    commandData: UndoRedoCommandData,
+    progressState?: UndoRedoReplayProgressState
   ): Result<CommandBusPort.IPublicCommand, DomainError> {
     const versionResult = this.ensureSupportedCommandVersion(commandData);
     if (versionResult.isErr()) return err(versionResult.error);
@@ -829,18 +943,47 @@ export class UndoRedoStackService {
         return UpdateRecordsCommand.create(commandData.payload);
       case 'DeleteRecords':
         return DeleteRecordsCommand.create(commandData.payload);
-      case 'RestoreRecords':
-        return RestoreRecordsCommand.create(
-          commandData.payload,
-          this.replayConfig.restorePurgeGuard
-            ? { requireTrashRowReason: RECORD_REMOVAL_REASON.Deleted }
-            : {}
+      case 'RestoreRecords': {
+        const deferSelfReferentialLinks = this.getDeferredSelfLinksCollector(
+          progressState,
+          commandData.payload.tableId
         );
-      case 'RestoreArchivedRecords':
+        const onTableSelfLinkFieldsResolved = progressState?.tableSelfLinkFieldIds
+          ? (selfLinkFieldIds: ReadonlySet<string>) => {
+              progressState.tableSelfLinkFieldIds!.set(
+                commandData.payload.tableId,
+                selfLinkFieldIds
+              );
+            }
+          : undefined;
+        return RestoreRecordsCommand.create(commandData.payload, {
+          ...(this.replayConfig.restorePurgeGuard
+            ? { requireTrashRowReason: RECORD_REMOVAL_REASON.Deleted }
+            : {}),
+          ...(deferSelfReferentialLinks ? { deferSelfReferentialLinks } : {}),
+          ...(onTableSelfLinkFieldsResolved ? { onTableSelfLinkFieldsResolved } : {}),
+        });
+      }
+      case 'RestoreArchivedRecords': {
+        const deferSelfReferentialLinks = this.getDeferredSelfLinksCollector(
+          progressState,
+          commandData.payload.tableId
+        );
+        const onTableSelfLinkFieldsResolved = progressState?.tableSelfLinkFieldIds
+          ? (selfLinkFieldIds: ReadonlySet<string>) => {
+              progressState.tableSelfLinkFieldIds!.set(
+                commandData.payload.tableId,
+                selfLinkFieldIds
+              );
+            }
+          : undefined;
         return RestoreRecordsCommand.create(commandData.payload, {
           cleanupAttachmentRefs: true,
           requireTrashRowReason: RECORD_REMOVAL_REASON.Archived,
+          ...(deferSelfReferentialLinks ? { deferSelfReferentialLinks } : {}),
+          ...(onTableSelfLinkFieldsResolved ? { onTableSelfLinkFieldsResolved } : {}),
         });
+      }
       case 'ArchiveRecords':
         return ArchiveRecordsCommand.create(
           { tableId: commandData.payload.tableId, recordIds: commandData.payload.recordIds },
@@ -905,10 +1048,11 @@ export class UndoRedoStackService {
         }
 
         if (progressState?.skipAlreadyExecuted) {
+          this.collectSkippedRestoreSelfLinks(commandData, progressState);
           return ok(undefined);
         }
 
-        const command = this.createCommand(commandData);
+        const command = this.createCommand(commandData, progressState);
         if (command.isErr()) {
           return err(command.error);
         }
@@ -951,6 +1095,12 @@ export class UndoRedoStackService {
       }
       return markLeaf(nextIndex);
     };
+
+    if (startIndex > 0 && progressState?.skippedSelfLinkCandidatesByTableId) {
+      for (let i = 0; i < Math.min(startIndex, commands.length); i += 1) {
+        this.collectSkippedRestoreSelfLinks(commands[i]!, progressState);
+      }
+    }
 
     for (let i = startIndex; i < commands.length; i += 1) {
       const nested = commands[i]!;
@@ -1175,6 +1325,122 @@ export class UndoRedoStackService {
     }
 
     return attributes;
+  }
+
+  private countRestoreCommands(commandData: UndoRedoCommandData): number {
+    if (commandData.type === 'RestoreRecords' || commandData.type === 'RestoreArchivedRecords') {
+      return 1;
+    }
+    if (commandData.type === 'Batch') {
+      let count = 0;
+      for (const leaf of commandData.payload) {
+        if (leaf.type === 'RestoreRecords' || leaf.type === 'RestoreArchivedRecords') {
+          count += 1;
+        }
+      }
+      return count;
+    }
+    return 0;
+  }
+
+  private getDeferredSelfLinksCollector(
+    progressState: UndoRedoReplayProgressState | undefined,
+    tableId: string
+  ): IDeferredSelfReferentialLinkRecord[] | undefined {
+    const map = progressState?.deferredSelfLinksByTableId;
+    if (!map) {
+      return undefined;
+    }
+    let collector = map.get(tableId);
+    if (!collector) {
+      collector = [];
+      map.set(tableId, collector);
+    }
+    return collector;
+  }
+
+  private getSkippedSelfLinkCandidatesCollector(
+    progressState: UndoRedoReplayProgressState | undefined,
+    tableId: string
+  ): IDeferredSelfReferentialLinkRecord[] | undefined {
+    const map = progressState?.skippedSelfLinkCandidatesByTableId;
+    if (!map) {
+      return undefined;
+    }
+    let collector = map.get(tableId);
+    if (!collector) {
+      collector = [];
+      map.set(tableId, collector);
+    }
+    return collector;
+  }
+
+  private countDeferredSelfLinkRecords(
+    progressState: UndoRedoReplayProgressState | undefined
+  ): number {
+    let count = 0;
+    if (progressState?.deferredSelfLinksByTableId) {
+      for (const records of progressState.deferredSelfLinksByTableId.values()) {
+        count += records.length;
+      }
+    }
+    if (progressState?.skippedSelfLinkCandidatesByTableId) {
+      for (const records of progressState.skippedSelfLinkCandidatesByTableId.values()) {
+        count += records.length;
+      }
+    }
+    return count;
+  }
+
+  private collectSkippedRestoreSelfLinks(
+    commandData: UndoRedoCommandData,
+    progressState: UndoRedoReplayProgressState | undefined
+  ): void {
+    if (!progressState?.skippedSelfLinkCandidatesByTableId) {
+      return;
+    }
+    if (commandData.type === 'RestoreRecords' || commandData.type === 'RestoreArchivedRecords') {
+      const knownSelfLinkFields = progressState.tableSelfLinkFieldIds?.get(
+        commandData.payload.tableId
+      );
+      if (knownSelfLinkFields && knownSelfLinkFields.size === 0) {
+        return;
+      }
+      const collector = this.getSkippedSelfLinkCandidatesCollector(
+        progressState,
+        commandData.payload.tableId
+      );
+      if (!collector) {
+        return;
+      }
+      for (const record of commandData.payload.records) {
+        if (!record.fields) {
+          continue;
+        }
+        const linkFields: Record<string, unknown> = {};
+        for (const [fieldId, value] of Object.entries(record.fields)) {
+          if (knownSelfLinkFields && !knownSelfLinkFields.has(fieldId)) {
+            continue;
+          }
+          if (isStoredLinkFieldCandidateValue(value)) {
+            linkFields[fieldId] = value;
+          }
+        }
+        if (Object.keys(linkFields).length > 0) {
+          collector.push({
+            recordId: record.recordId,
+            fields: linkFields,
+            cleanupTrash: true,
+          });
+        }
+      }
+      return;
+    }
+    if (commandData.type === 'Batch') {
+      for (const leaf of commandData.payload) {
+        this.collectSkippedRestoreSelfLinks(leaf, progressState);
+      }
+    }
   }
 
   private async runInSpan<T>(

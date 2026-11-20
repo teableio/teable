@@ -7,6 +7,7 @@ import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldDuplicateModule } from '../field/field-duplicate/field-duplicate.module';
 import { FieldModule } from '../field/field.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
+import { FieldOpenApiV2Module } from '../field/open-api/field-open-api-v2.module';
 import { GraphModule } from '../graph/graph.module';
 import { InvitationModule } from '../invitation/invitation.module';
 import { NotificationModule } from '../notification/notification.module';
@@ -15,8 +16,8 @@ import { RecordModule } from '../record/record.module';
 import { SpaceDataDbCopyModule } from '../space/space-data-db-copy.module';
 import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
-import { TableDuplicateService } from '../table/table-duplicate.service';
 import { TableModule } from '../table/table.module';
+import { TableLifecycleModule } from '../table-lifecycle/table-lifecycle.module';
 import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
 import { BaseDataDbMoveService } from './base-data-db-move.service';
@@ -25,14 +26,17 @@ import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportCoordinatorModule } from './base-export-coordinator.module';
 import { BaseExportV2Service } from './base-export-v2.service';
+import { BaseExportStructureService } from './base-export-structure.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportAttachmentsCsvModule } from './base-import-processor/base-import-attachments-csv.module';
 import { BaseImportAttachmentsModule } from './base-import-processor/base-import-attachments.module';
 import { BaseImportCsvModule } from './base-import-processor/base-import-csv.module';
+import { BaseImportComputedModule } from './base-import-computed.module';
+import { BaseImportV2Service } from './base-import-v2.service';
 import { BaseImportService } from './base-import.service';
 import { BASE_META_MOVE_SERVICE } from './base-meta-move.service';
 import { BasePersonalOrderService } from './base-personal-order.service';
-import { BaseQueryService } from './base-query/base-query.service';
+import { BaseQueryModule } from './base-query/base-query.module';
 import { BaseController } from './base.controller';
 import { BaseService } from './base.service';
 
@@ -43,6 +47,7 @@ import { BaseService } from './base.service';
     CollaboratorModule,
     FieldModule,
     FieldOpenApiModule,
+    FieldOpenApiV2Module,
     FieldDuplicateModule,
     TableModule,
     ViewOpenApiModule,
@@ -54,8 +59,11 @@ import { BaseService } from './base.service';
     AttachmentsStorageModule,
     NotificationModule,
     BaseImportAttachmentsModule,
+    BaseImportComputedModule,
+    BaseQueryModule,
     BaseImportCsvModule,
     BaseImportAttachmentsCsvModule,
+    TableLifecycleModule,
     GraphModule,
     V2Module,
     BaseExportCoordinatorModule,
@@ -70,12 +78,12 @@ import { BaseService } from './base.service';
     BaseDataDbMoveService,
     BaseExportService,
     BaseExportV2Service,
+    BaseExportStructureService,
+    BaseImportV2Service,
     BaseImportService,
     BaseDuplicatePreviewRegistrar,
     BaseDuplicateService,
     BaseDuplicateV2Service,
-    BaseQueryService,
-    TableDuplicateService,
   ],
   exports: [
     BaseService,
@@ -86,8 +94,11 @@ import { BaseService } from './base.service';
     BaseDuplicateV2Service,
     BaseExportService,
     BaseExportV2Service,
+    BaseExportStructureService,
+    BaseImportComputedModule,
+    BaseImportV2Service,
     BaseImportService,
-    BaseQueryService,
+    BaseQueryModule,
   ],
 })
 export class BaseModule {}

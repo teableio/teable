@@ -1340,4 +1340,40 @@ describe('Postgres relation data query on PGlite', () => {
       { id: 'recD', dottedName: null, unicodeName: null, nulName: null },
     ]);
   });
+  it('ranks masked relation output values before outer sorting and totals', async () => {
+    const visibleName = buildRecordConditionSpec(target, {
+      fieldId: targetNameId,
+      operator: 'is',
+      value: 'One',
+    })._unsafeUnwrap();
+    const result = await executeExpressions(
+      {
+        version: 9,
+        kind: 'records',
+        tableId: rootTableId,
+        relations: { owner: { linkFieldId: linkId, tableId: targetTableId } },
+        select: [
+          { system: 'id', alias: 'id' },
+          { fieldId: titleId, alias: 'title' },
+          { source: 'owner', fieldId: targetNameId, alias: 'ownerName' },
+        ],
+        topN: {
+          partitionBy: ['ownerName'],
+          orderBy: [{ alias: 'title', order: 'desc' }],
+          limit: 1,
+        },
+        sort: [{ alias: 'title', order: 'asc' }],
+        page: { limit: 10, includeTotal: true },
+      },
+      { fieldMasks: [{ fieldId: targetNameId, visibleWhen: visibleName }] }
+    );
+
+    expect(result._unsafeUnwrap()).toMatchObject({
+      rows: [
+        { id: 'recA', title: 'Alpha', ownerName: 'One' },
+        { id: 'recC', title: 'Gamma', ownerName: null },
+      ],
+      page: { total: 2 },
+    });
+  });
 });

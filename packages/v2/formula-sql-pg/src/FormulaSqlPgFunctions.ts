@@ -11,6 +11,7 @@ import {
   FormulaSqlPgExpressionBuilder,
   IS_SAME_UNIT_ALIASES,
   IS_SAME_UNIT_SQL,
+  type CoercedSwitchResults,
 } from './FormulaSqlPgExpressionBuilder';
 import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 import {
@@ -873,10 +874,12 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
       this.budget
     );
-    const valueSql = this.budget.sql`CONCAT(${this.budget.join(
-      parts.map((p) => p.valueSql),
-      ', '
-    )})`;
+    const values = parts.map((part) => part.valueSql);
+    const maxBytes = this.translator.maxIntermediateTextBytes;
+    const valueSql =
+      maxBytes === undefined || values.length === 0
+        ? this.budget.sql`CONCAT(${this.budget.join(values, ', ')})`
+        : this.budgetedConcat(values, maxBytes);
     return makeExpr(
       guardValueSql(valueSql, errorCondition, this.budget),
       'string',
@@ -1070,14 +1073,59 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
       this.budget
     );
-    const valueSql = this.budget
-      .sql`REGEXP_REPLACE(${text.valueSql}, ${regex.valueSql}, ${repl.valueSql}, 'g')`;
+    const maxBytes = this.translator.maxIntermediateTextBytes;
+    const valueSql =
+      maxBytes === undefined
+        ? this.budget.sql`REGEXP_REPLACE(${text.valueSql}, ${regex.valueSql}, ${repl.valueSql}, 'g')`
+        : this.budgetedRegexpReplace(text.valueSql, regex.valueSql, repl.valueSql, maxBytes);
     return makeExpr(
       guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
       errorMessage
+    );
+  }
+
+  private budgetedRegexpReplace(
+    value: string,
+    pattern: string,
+    replacement: string,
+    maxBytes: number
+  ): string {
+    const replacementToken = sqlStringLiteral(String.raw`\\([\\&1-9])`, this.budget);
+    // Erasing matches measures unmatched bytes. Replacing with one ASCII byte
+    // counts matches, including empty ones. A single backreference reproduces
+    // only bytes from its match, so none of these probes builds the final result.
+    const keptBytes = this.budget.sql`OCTET_LENGTH(REGEXP_REPLACE(_rx.value, _rx.pattern, '', 'g'))::bigint`;
+    const matchCount = this.budget.sql`OCTET_LENGTH(REGEXP_REPLACE(_rx.value, _rx.pattern, 'x', 'g'))::bigint - _base.kept`;
+    const exactBytes = this.budget.sql`(SELECT _base.kept + (_rx_size.repl_bytes - _tokens.removed) * (${matchCount})
+      + _tokens.expanded
+      FROM (SELECT ${keptBytes} AS kept OFFSET 0) AS _base
+      CROSS JOIN LATERAL (
+        SELECT COALESCE(SUM(refs.copies * CASE WHEN refs.marker = CHR(92) THEN 1 ELSE 2 END), 0) AS removed,
+          COALESCE(SUM(CASE WHEN refs.marker <> CHR(92) THEN refs.copies *
+            (OCTET_LENGTH(REGEXP_REPLACE(_rx.value, _rx.pattern, CHR(92) || refs.marker, 'g'))::bigint
+              - _base.kept) ELSE 0 END), 0) AS expanded
+        FROM (SELECT groups[1] AS marker, COUNT(*) AS copies
+          FROM REGEXP_MATCHES(_rx.repl, ${replacementToken}, 'g') AS tokens(groups)
+          GROUP BY groups[1]) AS refs
+      ) AS _tokens)`;
+    return this.guardTextAllocation(
+      maxBytes,
+      this.budget.sql`REGEXP_REPLACE(_rx.value, _rx.pattern, _rx.repl, 'g')`,
+      this.budget.sql`CASE
+        WHEN _rx.value IS NULL OR _rx.pattern IS NULL OR _rx.repl IS NULL THEN NULL
+        WHEN _rx_size.input_bytes * (1 + CASE WHEN STRPOS(_rx.repl, CHR(92)) > 0
+          THEN _rx_size.repl_bytes / 2 ELSE 0 END)
+          + (_rx_size.input_bytes + 1) * _rx_size.repl_bytes <= ${maxBytes}
+          THEN _rx_size.input_bytes
+        ELSE ${exactBytes}
+      END`,
+      this.budget.sql`(SELECT (${value})::text AS value, (${pattern})::text AS pattern,
+        (${replacement})::text AS repl OFFSET 0) AS _rx
+      CROSS JOIN LATERAL (SELECT OCTET_LENGTH(_rx.value)::bigint AS input_bytes,
+        OCTET_LENGTH(_rx.repl)::bigint AS repl_bytes OFFSET 0) AS _rx_size`
     );
   }
 
@@ -1096,14 +1144,47 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
       this.budget
     );
-    const valueSql = this.budget
-      .sql`REPLACE(${text.valueSql}, ${search.valueSql}, ${replacement.valueSql})`;
+    const maxBytes = this.translator.maxIntermediateTextBytes;
+    const valueSql =
+      maxBytes === undefined
+        ? this.budget.sql`REPLACE(${text.valueSql}, ${search.valueSql}, ${replacement.valueSql})`
+        : this.budgetedSubstitute(text.valueSql, search.valueSql, replacement.valueSql, maxBytes);
     return makeExpr(
       guardValueSql(valueSql, errorCondition, this.budget),
       'string',
       false,
       errorCondition,
       errorMessage
+    );
+  }
+
+  private budgetedSubstitute(
+    value: string,
+    search: string,
+    replacement: string,
+    maxBytes: number
+  ): string {
+    // The upper bound avoids scanning the input twice for ordinary replacements.
+    // If it cannot prove the result fits, measure bytes removed by the same literal
+    // matcher. Its scratch result is no larger than the existing input.
+    return this.guardTextAllocation(
+      maxBytes,
+      this.budget.sql`REPLACE(_sub.value, _sub.needle, _sub.replacement)`,
+      this.budget.sql`CASE
+        WHEN _sub.replacement IS NULL THEN NULL
+        WHEN _lengths.needle = 0 OR _lengths.needle > _lengths.input OR _lengths.delta = 0
+          THEN _lengths.input
+        WHEN _lengths.input + (_lengths.input / _lengths.needle) * GREATEST(_lengths.delta, 0) <= ${maxBytes}
+          THEN _lengths.input
+        ELSE _lengths.input + ((_lengths.input - OCTET_LENGTH(REPLACE(_sub.value, _sub.needle, '')))
+          / _lengths.needle) * _lengths.delta
+      END`,
+      this.budget.sql`(SELECT (${value})::text AS value, (${search})::text AS needle,
+        (${replacement})::text AS replacement OFFSET 0) AS _sub
+      CROSS JOIN LATERAL (SELECT OCTET_LENGTH(_sub.value)::bigint AS input,
+        OCTET_LENGTH(_sub.needle)::bigint AS needle,
+        OCTET_LENGTH(_sub.replacement)::bigint - OCTET_LENGTH(_sub.needle) AS delta
+        OFFSET 0) AS _lengths`
     );
   }
 
@@ -1202,26 +1283,17 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
       this.budget
     );
-    const maxBytes = this.translator.maxReptBytes;
-    let valueSql: string;
-    if (maxBytes === undefined) {
-      valueSql = this.budget.sql`REPEAT(${text.valueSql}, ${count.valueSql}::integer)`;
-    } else {
-      // Check each intermediate before REPEAT allocates it, even under LEN/LEFT.
-      // Numeric multiplication cannot overflow; use the existing integer count cast
-      // so fractional, negative, zero and NULL behavior stays PostgreSQL-compatible.
-      const oversized = this.budget
-        .sql`(OCTET_LENGTH(_rept.value)::numeric * GREATEST(_rept.count, 0) > ${maxBytes})`;
-      // REPEAT('xx', INT_MAX) deterministically raises SQLSTATE 54000 in its size
-      // check, before allocating. Keep that native failure inside this invocation
-      // rather than silently returning NULL or requiring a database helper function.
-      // OFFSET 0 evaluates the inputs once and prevents planner constant folding
-      // from raising this error inside an unused IF/SWITCH branch.
-      valueSql = this.budget.sql`(SELECT REPEAT(
-        CASE WHEN ${oversized} THEN 'xx' ELSE _rept.value END,
-        CASE WHEN ${oversized} THEN 2147483647 ELSE _rept.count END
-      ) FROM (SELECT ${text.valueSql} AS value, ${count.valueSql}::integer AS count OFFSET 0) AS _rept)`;
-    }
+    const maxBytes = this.translator.maxIntermediateTextBytes;
+    const valueSql =
+      maxBytes === undefined
+        ? this.budget.sql`REPEAT(${text.valueSql}, ${count.valueSql}::integer)`
+        : this.guardTextAllocation(
+            maxBytes,
+            this.budget.sql`REPEAT(_rept.value, _rept.count)`,
+            this.budget.sql`OCTET_LENGTH(_rept.value)::bigint * GREATEST(_rept.count, 0)`,
+            this.budget.sql`(SELECT (${text.valueSql})::text AS value,
+              ${count.valueSql}::integer AS count OFFSET 0) AS _rept`
+          );
     return makeExpr(
       guardValueSql(valueSql, errorCondition, this.budget),
       'string',
@@ -1385,6 +1457,13 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       casePairs.map((pair) => pair.result),
       defaultResult
     );
+    if (this.translator.maxIntermediateTextBytes !== undefined) {
+      return this.lazySwitch(
+        expression,
+        casePairs.map((pair) => pair.match),
+        mergedResults
+      );
+    }
     const errorExprs = [
       expression,
       ...casePairs.map((pair) => pair.match),
@@ -1397,19 +1476,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       this.budget
     );
 
-    const normalizedExpression = this.coerceToString(expression);
+    const compare = this.switchComparator(expression);
     const casesSql = this.budget.join(
       casePairs.map((pair, index) => {
-        const matchText = this.coerceToString(pair.match);
         const resultSql = mergedResults.results[index]?.valueSql ?? pair.result.valueSql;
-        return this.budget
-          .sql`WHEN ${normalizedExpression.valueSql} = ${matchText.valueSql} THEN ${resultSql}`;
+        return this.budget.sql`WHEN ${compare(pair.match)} THEN ${resultSql}`;
       }),
       ' '
     );
-    const defaultSql = defaultResult
-      ? (mergedResults.defaultValueSql ?? defaultResult.valueSql)
-      : 'NULL';
+    const defaultSql = mergedResults.defaultResult?.valueSql ?? 'NULL';
     const valueSql = guardValueSql(
       this.budget.sql`(CASE ${casesSql} ELSE ${defaultSql} END)`,
       errorCondition,
@@ -1423,6 +1498,82 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       errorMessage,
       undefined,
       mergedResults.storageKind
+    );
+  }
+
+  private switchComparator(selector: SqlExpr): (match: SqlExpr) => string {
+    const numericSelector = selector.valueType === 'number' && !selector.isArray;
+    let selectorNumber: SqlExpr | undefined;
+    let selectorText: SqlExpr | undefined;
+    return (match) => {
+      if (numericSelector && match.valueType === 'number' && !match.isArray) {
+        selectorNumber ??= this.coerceToNumber(selector, 'switch');
+        const matchNumber = this.coerceToNumber(match, 'switch');
+        return this.budget.sql`${selectorNumber.valueSql} = ${matchNumber.valueSql}`;
+      }
+      selectorText ??= this.coerceToString(selector);
+      return this.budget.sql`${selectorText.valueSql} = ${this.coerceToString(match).valueSql}`;
+    };
+  }
+
+  private lazySwitch(
+    expression: SqlExpr,
+    matches: SqlExpr[],
+    merged: CoercedSwitchResults
+  ): SqlExpr {
+    const compare = this.switchComparator(expression);
+    const arms = matches.map((match, index) => ({
+      match,
+      when: compare(match),
+      result: merged.results[index],
+    }));
+    const fallback = merged.defaultResult;
+    const valueCases = this.budget.join(
+      arms.map(({ when, result }) => this.budget.sql`WHEN ${when} THEN ${result.valueSql}`),
+      ' '
+    );
+    const value = arms.length
+      ? this.budget.sql`(CASE ${valueCases} ELSE ${fallback?.valueSql ?? 'NULL'} END)`
+      : (fallback?.valueSql ?? 'NULL');
+    const message = buildErrorLiteral('TYPE', 'switch_branch_mismatch', this.budget);
+    const hasError =
+      fallback?.errorConditionSql ||
+      expression.errorConditionSql ||
+      arms.some(({ match }) => match.errorConditionSql) ||
+      arms.some(({ result }) => result.errorConditionSql);
+
+    // Check each match before comparing it. Stop at the first selected result,
+    // including when its type conversion has its own error condition.
+    const selectMetadata = (key: 'errorConditionSql' | 'errorMessageSql', defaultSql: string) => {
+      const parts: string[] = [];
+      if (expression.errorConditionSql) {
+        parts.push(
+          this.budget
+            .sql`WHEN ${expression.errorConditionSql} THEN ${expression[key] ?? defaultSql}`
+        );
+      }
+      for (const { match, when, result } of arms) {
+        if (match.errorConditionSql) {
+          parts.push(
+            this.budget.sql`WHEN ${match.errorConditionSql} THEN ${match[key] ?? defaultSql}`
+          );
+        }
+        parts.push(this.budget.sql`WHEN ${when} THEN ${result[key] ?? defaultSql}`);
+      }
+      const otherwise = fallback?.[key] ?? defaultSql;
+      return parts.length
+        ? this.budget.sql`(CASE ${this.budget.join(parts, ' ')} ELSE ${otherwise} END)`
+        : otherwise;
+    };
+    const errorCondition = hasError ? selectMetadata('errorConditionSql', 'FALSE') : undefined;
+    return makeExpr(
+      guardValueSql(value, errorCondition, this.budget),
+      merged.type,
+      merged.isArray,
+      errorCondition,
+      hasError ? selectMetadata('errorMessageSql', message) : undefined,
+      undefined,
+      merged.storageKind
     );
   }
 

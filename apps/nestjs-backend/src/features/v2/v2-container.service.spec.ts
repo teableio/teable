@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { Writable } from 'node:stream';
+
 import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
@@ -8,11 +10,30 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type { IV2NodePgContainerOptions } from '@teable/v2-container-node';
-import { v2CoreTokens } from '@teable/v2-core';
+import {
+  BackgroundTaskTracker,
+  ActorId,
+  AsyncMemoryEventBus,
+  BaseId,
+  EventHandler,
+  RecordCreated,
+  RecordId,
+  TableId,
+  v2CoreTokens,
+  type IDomainEvent,
+  type IEventHandler,
+} from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
+import type * as TableQueryOpsModule from '@teable/v2-table-query-ops';
+import {
+  TableQueryOpsExecutionUnavailableError,
+  type TableQueryOpsExecutionResolver,
+} from '@teable/v2-table-query-ops';
 import { ClsService } from 'nestjs-cls';
 import { PinoLogger } from 'nestjs-pino';
+import { ok } from 'neverthrow';
 import type { Pool } from 'pg';
+import { pinoHttp } from 'pino-http';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../attachments/attachments-storage.service', () => ({
@@ -73,7 +94,10 @@ vi.mock('@teable/v2-import', () => ({
   registerV2ImportServices: mocks.registerV2ImportServices,
 }));
 
-vi.mock('@teable/v2-table-query-ops', () => ({
+vi.mock('@teable/v2-table-query-ops', async () => ({
+  TableQueryOpsExecutionUnavailableError: (
+    await vi.importActual<typeof TableQueryOpsModule>('@teable/v2-table-query-ops')
+  ).TableQueryOpsExecutionUnavailableError,
   executablePhase1RemediationKindValues: [
     'create_search_index',
     'create_search_access_path',
@@ -109,10 +133,6 @@ vi.mock('../../cache/cache.service', () => ({
   CacheService: class CacheService {},
 }));
 
-vi.mock('./v2-command-bus-tracing.middleware', () => ({
-  CommandBusTracingMiddleware: class CommandBusTracingMiddleware {},
-}));
-
 vi.mock('./v2-query-bus-tracing.middleware', () => ({
   QueryBusTracingMiddleware: class QueryBusTracingMiddleware {},
 }));
@@ -132,6 +152,14 @@ class TestProjectionRegistrar implements IV2ProjectionRegistrar {
   registerProjections = vi.fn();
 }
 
+const createGate = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+};
+
 const createProviderWrapper = (instance: object, staticTree = true): InstanceWrapper<object> =>
   ({
     instance,
@@ -142,12 +170,21 @@ const createProviderWrapper = (instance: object, staticTree = true): InstanceWra
     isDependencyTreeStatic: () => staticTree,
   }) as InstanceWrapper<object>;
 
-const createContainerMock = (): DependencyContainer => {
+const createContainerMock = (
+  eventBus = new AsyncMemoryEventBus({
+    resolve: () => {
+      throw new Error('Unexpected event handler');
+    },
+  })
+): DependencyContainer => {
   const db = { destroy: vi.fn() };
   return {
     isRegistered: vi.fn(),
     registerInstance: vi.fn(),
     resolve: vi.fn((token: symbol) => {
+      if (token === v2CoreTokens.eventBus) {
+        return eventBus;
+      }
       if (token === v2MetaDbTokens.db || token === v2DataDbTokens.db) {
         return db;
       }
@@ -171,7 +208,15 @@ const createContainerMock = (): DependencyContainer => {
   } as unknown as DependencyContainer;
 };
 
-const createService = (providers: InstanceWrapper[] = []) => {
+const createPinoLogger = () => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+});
+
+const createService = (providers: InstanceWrapper[] = [], pinoLogger?: PinoLogger) => {
+  const pinoLoggerMock = createPinoLogger();
   const configService = {
     getOrThrow: vi.fn().mockReturnValue('postgres://test'),
     get: vi.fn().mockReturnValue(undefined),
@@ -203,7 +248,7 @@ const createService = (providers: InstanceWrapper[] = []) => {
 
   const service = new V2ContainerService(
     configService as never,
-    { warn: vi.fn() } as unknown as PinoLogger,
+    pinoLogger ?? (pinoLoggerMock as unknown as PinoLogger),
     shareDbService as never,
     cacheService as never,
     attachmentsStorageService as never,
@@ -233,6 +278,7 @@ const createService = (providers: InstanceWrapper[] = []) => {
     pgPoolRegistry,
     tableQueryObservationRuntime,
     discoveryService,
+    pinoLogger: pinoLoggerMock,
   };
 };
 
@@ -305,6 +351,150 @@ describe('V2ContainerService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+  });
+
+  it('routes workers to a cached isolated maintenance container and disposes it', async () => {
+    const requestContainer = createContainerMock();
+    const maintenanceContainer = createContainerMock();
+    mocks.createV2NodePgContainer
+      .mockResolvedValueOnce(requestContainer)
+      .mockResolvedValueOnce(maintenanceContainer);
+    const { service, configService, dataDbClientManager } = createService();
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_MAINTENANCE_STATEMENT_DEADLINE_MS') return '120000';
+      return undefined;
+    });
+    dataDbClientManager.getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'isolated-route',
+      url: 'postgres://data-db',
+    });
+
+    await service.getContainer();
+    const resolveExecution = mocks.startTableQueryOpsTaskWorkerIfEnabled.mock
+      .calls[0][2] as TableQueryOpsExecutionResolver;
+    expect((await resolveExecution('tblRoutingTarget')).container).toBe(maintenanceContainer);
+    expect((await resolveExecution('tblRoutingTarget')).container).toBe(maintenanceContainer);
+    expect(() => service.getComputedWriter(maintenanceContainer)).toThrow(
+      'Computed writer has no active data pool'
+    );
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledTimes(2);
+    expect(mocks.createV2NodePgContainer.mock.calls[1][0]).toMatchObject({
+      ensureSchema: false,
+      dataConnectionString: 'postgres://data-db',
+      metaDbDependencies: { maintenanceStatementDeadlineMs: 120_000 },
+      dataDbDependencies: { maintenanceStatementDeadlineMs: 120_000 },
+      schemaCoordination: false,
+    });
+    expect(mocks.startTableQueryOpsTaskWorkerIfEnabled).toHaveBeenCalledTimes(1);
+
+    await service.onModuleDestroy();
+    expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledWith(maintenanceContainer);
+  });
+
+  it.each([
+    [
+      'refused connection',
+      Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+    ],
+    ['lost connection', Object.assign(new Error('connection failure'), { code: '08006' })],
+    [
+      'database rejecting connections',
+      Object.assign(new Error('database "pr4559_data" is not currently accepting connections'), {
+        code: '55000',
+      }),
+    ],
+    [
+      'startup refusal',
+      Object.assign(new Error('the database system is starting up'), { code: '57P03' }),
+    ],
+    ['connection timeout', Object.assign(new Error('connect ETIMEDOUT'), { code: 'ETIMEDOUT' })],
+    [
+      'maintenance statement deadline',
+      Object.assign(new Error('maintenance statement deadline'), {
+        code: 'TABLE_QUERY_OPS_STATEMENT_TIMEOUT',
+      }),
+    ],
+    ['exhausted pool', Object.assign(new Error('pool exhausted'), { code: 'P2024' })],
+    [
+      'wrapped connection failure',
+      new Error('Failed to initialize database', {
+        cause: Object.assign(new Error('connection failure'), { code: '08006' }),
+      }),
+    ],
+  ] as const)(
+    'defers maintenance routing for a %s with the original cause',
+    async (_label, failure) => {
+      mocks.createV2NodePgContainer.mockResolvedValue(createContainerMock());
+      const { service, configService, dataDbClientManager } = createService();
+      configService.get.mockImplementation((key: string) =>
+        key === 'V2_TABLE_QUERY_OPS_ENABLED' ? 'true' : undefined
+      );
+      await service.getContainer();
+      dataDbClientManager.getDataDatabaseForTable.mockRejectedValue(failure);
+      const resolveExecution = mocks.startTableQueryOpsTaskWorkerIfEnabled.mock
+        .calls[0][2] as TableQueryOpsExecutionResolver;
+      const rejected = await resolveExecution('tblRoutingTarget').catch((error: unknown) => error);
+      expect(rejected).toBeInstanceOf(TableQueryOpsExecutionUnavailableError);
+      if (!(rejected instanceof TableQueryOpsExecutionUnavailableError)) throw rejected;
+      expect(rejected.cause).toBe(failure);
+      expect(rejected).toMatchObject({ message: failure.message, cause: failure });
+    }
+  );
+
+  it.each([
+    [
+      'authentication failure',
+      Object.assign(new Error('password authentication failed'), { code: '28P01' }),
+    ],
+    [
+      'deleted database',
+      Object.assign(new Error('database "removed" does not exist'), { code: '3D000' }),
+    ],
+    [
+      'missing table',
+      Object.assign(new Error('relation "missing" does not exist'), { code: '42P01' }),
+    ],
+    [
+      'missing schema',
+      Object.assign(new Error('schema "missing" does not exist'), { code: '3F000' }),
+    ],
+    [
+      'deleted pooler tenant',
+      Object.assign(new Error('Tenant or user not found'), { code: 'ENOTFOUND' }),
+    ],
+    [
+      'statement timeout',
+      Object.assign(new Error('canceling statement due to statement timeout'), { code: '57014' }),
+    ],
+    ['retryable SQL failure', Object.assign(new Error('deadlock detected'), { code: '40P01' })],
+    [
+      'other object state',
+      Object.assign(new Error('object is not in prerequisite state'), { code: '55000' }),
+    ],
+    [
+      'untyped unavailable message',
+      new Error('database "pr4559_data" is not currently accepting connections'),
+    ],
+    ['missing configuration', new Error('Data database connection has no encrypted URL')],
+    ['unknown failure', new Error('unrecognized routing failure')],
+    [
+      'wrapped permanent failure',
+      new Error('Failed to initialize database', {
+        cause: Object.assign(new Error('password authentication failed'), { code: '28P01' }),
+      }),
+    ],
+  ] as const)('keeps a %s as a bounded routing failure', async (_label, failure) => {
+    mocks.createV2NodePgContainer.mockResolvedValue(createContainerMock());
+    const { service, configService, dataDbClientManager } = createService();
+    configService.get.mockImplementation((key: string) =>
+      key === 'V2_TABLE_QUERY_OPS_ENABLED' ? 'true' : undefined
+    );
+    await service.getContainer();
+    dataDbClientManager.getDataDatabaseForTable.mockRejectedValue(failure);
+    const resolveExecution = mocks.startTableQueryOpsTaskWorkerIfEnabled.mock
+      .calls[0][2] as TableQueryOpsExecutionResolver;
+    await expect(resolveExecution('tblRoutingTarget')).rejects.toBe(failure);
   });
 
   it('discovers projection registrars and initializes the shared container during bootstrap', async () => {
@@ -1282,6 +1472,291 @@ describe('V2ContainerService', () => {
     expect(registrar.registerProjections).not.toHaveBeenCalled();
   });
 
+  it('keeps pools alive until active and queued events finish during shutdown', async () => {
+    const template = RecordCreated.create({
+      baseId: BaseId.generate()._unsafeUnwrap(),
+      tableId: TableId.generate()._unsafeUnwrap(),
+      recordId: RecordId.generate()._unsafeUnwrap(),
+      fieldValues: [],
+    });
+    class ShutdownEvent implements IDomainEvent {
+      readonly name = template.name;
+      readonly occurredAt = template.occurredAt;
+    }
+    const entered = createGate();
+    const release = createGate();
+    const delivered: number[] = [];
+    @EventHandler(ShutdownEvent)
+    class ShutdownHandler implements IEventHandler<ShutdownEvent> {
+      async handle() {
+        if (delivered.length === 0) {
+          entered.resolve();
+          await release.promise;
+        }
+        expect(mocks.disposeV2NodePgContainer).not.toHaveBeenCalled();
+        delivered.push(delivered.length + 1);
+        if (delivered.length === 1) {
+          await eventBus.publish(
+            { actorId: ActorId.create('usrTestShutdown')._unsafeUnwrap() },
+            new ShutdownEvent()
+          );
+        }
+        return ok(undefined);
+      }
+    }
+    const handler = new ShutdownHandler();
+    const scheduled: Array<() => Promise<void>> = [];
+    const eventBus = new AsyncMemoryEventBus(
+      { resolve: <T>() => handler as T },
+      { schedule: (task) => scheduled.push(task), recordPublishedEvents: false }
+    );
+    const container = createContainerMock(eventBus);
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service } = createService();
+    await service.getContainer();
+    await eventBus.publishMany({ actorId: ActorId.create('usrTestShutdown')._unsafeUnwrap() }, [
+      new ShutdownEvent(),
+      new ShutdownEvent(),
+    ]);
+    const dispatch = scheduled.shift()!();
+    await entered.promise;
+    const settling = createGate();
+    const settle = eventBus.settled.bind(eventBus);
+    vi.spyOn(eventBus, 'settled').mockImplementation(() => {
+      settling.resolve();
+      return settle();
+    });
+    const shutdown = service.onModuleDestroy();
+    try {
+      expect(
+        await Promise.race([
+          settling.promise.then(() => 'draining'),
+          shutdown.then(() => 'destroyed'),
+        ])
+      ).toBe('draining');
+      expect(mocks.disposeV2NodePgContainer).not.toHaveBeenCalled();
+    } finally {
+      release.resolve();
+      await dispatch;
+      await shutdown;
+    }
+    expect(delivered).toEqual([1, 2, 3]);
+    expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledWith(container);
+  });
+
+  it('uses one deadline for all runtimes and reports queued events before cleanup', async () => {
+    const scheduled: Array<() => Promise<void>> = [];
+    const eventBuses = [0, 1].map(
+      () =>
+        new AsyncMemoryEventBus(
+          { resolve: () => undefined as never },
+          { schedule: (task) => scheduled.push(task), recordPublishedEvents: false }
+        )
+    );
+    const containers = eventBuses.map((events) => createContainerMock(events));
+    mocks.createV2NodePgContainer
+      .mockResolvedValueOnce(containers[0])
+      .mockResolvedValueOnce(containers[1]);
+    const { service, configService, dataDbClientManager, pinoLogger } = createService();
+    configService.get.mockImplementation((key: string) =>
+      key === 'V2_EVENT_BUS_SHUTDOWN_TIMEOUT_MS' ? '20' : undefined
+    );
+    dataDbClientManager.getDataDatabaseForSpace.mockResolvedValue({
+      cacheKey: 'spc-byodb',
+      url: 'postgres://data-db',
+      internalSchema: 'teable_meta_x',
+      isMetaFallback: false,
+    });
+    await service.getContainer();
+    await service.getContainerForSpace('spc1');
+    for (const events of eventBuses) {
+      await events.publish(
+        { actorId: ActorId.create('usrTestShutdown')._unsafeUnwrap() },
+        RecordCreated.create({
+          baseId: BaseId.generate()._unsafeUnwrap(),
+          tableId: TableId.generate()._unsafeUnwrap(),
+          recordId: RecordId.generate()._unsafeUnwrap(),
+          fieldValues: [],
+        })
+      );
+    }
+    vi.useFakeTimers();
+    try {
+      const shutdown = service.onModuleDestroy();
+      await vi.advanceTimersByTimeAsync(19);
+      expect(mocks.disposeV2NodePgContainer).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await shutdown;
+      expect(pinoLogger.error).toHaveBeenCalledWith(
+        {
+          timeoutMs: 20,
+          pendingEvents: 2,
+          pendingBackgroundTasks: 0,
+          pendingCommands: 0,
+          pendingProducers: 0,
+          context: V2ContainerService.name,
+        },
+        'V2 event bus shutdown drain timed out'
+      );
+      expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledTimes(2);
+      await service.drainEvents();
+      expect(pinoLogger.error).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits for an untraced command to publish its event before final settlement', async () => {
+    const eventBus = new AsyncMemoryEventBus({ resolve: () => undefined as never });
+    mocks.createV2NodePgContainer.mockResolvedValue(createContainerMock(eventBus));
+    const { service } = createService();
+    await service.getContainer();
+    const [options] = mocks.createV2NodePgContainer.mock.calls[0];
+    const commands = options.commandBusMiddlewares[0];
+    const release = createGate();
+    const context = { actorId: ActorId.create('usrTestShutdown')._unsafeUnwrap() };
+    const settled = vi.spyOn(eventBus, 'settled');
+    const command = commands.handle(context, {}, async () => {
+      await release.promise;
+      await eventBus.publish(
+        context,
+        RecordCreated.create({
+          baseId: BaseId.generate()._unsafeUnwrap(),
+          tableId: TableId.generate()._unsafeUnwrap(),
+          recordId: RecordId.generate()._unsafeUnwrap(),
+          fieldValues: [],
+        })
+      );
+      return ok(undefined);
+    });
+    const shutdown = service.onModuleDestroy();
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
+    expect(mocks.disposeV2NodePgContainer).not.toHaveBeenCalled();
+    release.resolve();
+    await command;
+    await shutdown;
+    expect(settled).toHaveBeenCalled();
+    expect(eventBus.pendingCount()).toBe(0);
+    expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledOnce();
+  });
+
+  it.each(['timeout', 'failure'] as const)(
+    'serializes %s diagnostics through the production pino logger',
+    async (outcome) => {
+      const eventBus = new AsyncMemoryEventBus(
+        { resolve: () => undefined as never },
+        { schedule: () => undefined, recordPublishedEvents: false }
+      );
+      mocks.createV2NodePgContainer.mockResolvedValue(createContainerMock(eventBus));
+      const lines: string[] = [];
+      const destination = new Writable({
+        write(chunk, _encoding, callback) {
+          lines.push(chunk.toString());
+          callback();
+        },
+      });
+      // Object.create skips PinoLogger's constructor, which would initialize the shared
+      // root logger; the fields below are what call() reads on the argument-forwarding path.
+      const pinoLogger = Object.assign(Object.create(PinoLogger.prototype) as PinoLogger, {
+        context: '',
+        contextName: 'context',
+        errorKey: 'err',
+      });
+      const logger = vi
+        .spyOn(pinoLogger, 'logger', 'get')
+        .mockReturnValue(pinoHttp({ level: 'error' }, destination).logger);
+      const { service, configService } = createService([], pinoLogger);
+      configService.get.mockImplementation((key: string) =>
+        key === 'V2_EVENT_BUS_SHUTDOWN_TIMEOUT_MS' ? '20' : undefined
+      );
+      await service.getContainer();
+      await eventBus.publish(
+        { actorId: ActorId.create('usrTestShutdown')._unsafeUnwrap() },
+        RecordCreated.create({
+          baseId: BaseId.generate()._unsafeUnwrap(),
+          tableId: TableId.generate()._unsafeUnwrap(),
+          recordId: RecordId.generate()._unsafeUnwrap(),
+          fieldValues: [],
+        })
+      );
+      if (outcome === 'failure') {
+        vi.spyOn(eventBus, 'settled').mockRejectedValueOnce(new Error('drain failed'));
+      }
+      vi.useFakeTimers();
+      try {
+        const shutdown = service.onModuleDestroy();
+        if (outcome === 'timeout') {
+          await vi.advanceTimersByTimeAsync(20);
+        }
+        await shutdown;
+        const records = lines
+          .join('')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => JSON.parse(line));
+        expect(records).toContainEqual(
+          expect.objectContaining({
+            level: 50,
+            context: V2ContainerService.name,
+            ...(outcome === 'timeout' ? { timeoutMs: 20 } : {}),
+            pendingEvents: 1,
+            pendingBackgroundTasks: 0,
+            pendingCommands: 0,
+            pendingProducers: 0,
+            msg: `V2 event bus shutdown drain ${outcome === 'timeout' ? 'timed out' : 'failed'}`,
+            ...(outcome === 'failure'
+              ? {
+                  err: expect.objectContaining({
+                    type: 'Error',
+                    message: 'drain failed',
+                    stack: expect.any(String),
+                  }),
+                }
+              : {}),
+          })
+        );
+      } finally {
+        logger.mockRestore();
+        vi.useRealTimers();
+      }
+    }
+  );
+
+  it('waits for nested direct background dispatch after the command returns', async () => {
+    const backgroundTasks = new BackgroundTaskTracker();
+    const eventBus = new AsyncMemoryEventBus(
+      { resolve: () => undefined as never },
+      { backgroundTasks, recordPublishedEvents: false }
+    );
+    mocks.createV2NodePgContainer.mockResolvedValue(createContainerMock(eventBus));
+    const { service } = createService();
+    await service.getContainer();
+    const [options] = mocks.createV2NodePgContainer.mock.calls[0] as [IV2NodePgContainerOptions];
+    const commands = options.commandBusMiddlewares![0];
+    const releaseNested = createGate();
+    const nestedStarted = createGate();
+    const context = backgroundTasks.context({
+      actorId: ActorId.create('usrTestShutdown')._unsafeUnwrap(),
+    });
+    const command = commands.handle(context, {}, async () => {
+      context.scheduleBackgroundTask!(async () => {
+        nestedStarted.resolve();
+        await releaseNested.promise;
+      });
+      return ok(undefined);
+    });
+    const shutdown = service.onModuleDestroy();
+    await command;
+    await nestedStarted.promise;
+    expect(eventBus.pendingBackgroundTaskCount()).toBe(1);
+    expect(mocks.disposeV2NodePgContainer).not.toHaveBeenCalled();
+    releaseNested.resolve();
+    await shutdown;
+    expect(eventBus.pendingBackgroundTaskCount()).toBe(0);
+    expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledOnce();
+  });
+
   it('destroys the shared V2 db driver during shutdown', async () => {
     const destroy = vi.fn().mockResolvedValue(undefined);
     const db = { destroy };
@@ -1289,6 +1764,9 @@ describe('V2ContainerService', () => {
       isRegistered: vi.fn(),
       registerInstance: vi.fn(),
       resolve: vi.fn((token: symbol) => {
+        if (token === v2CoreTokens.eventBus) {
+          return createContainerMock().resolve(v2CoreTokens.eventBus);
+        }
         if (token === v2MetaDbTokens.db || token === v2DataDbTokens.db) {
           return db;
         }
@@ -1317,5 +1795,183 @@ describe('V2ContainerService', () => {
     expect(mocks.disposeV2NodePgContainer).toHaveBeenCalledWith(container);
     expect(destroy).not.toHaveBeenCalled();
     expect(tableQueryObservationRuntime.dispose).toHaveBeenCalledOnce();
+  });
+
+  describe('getComputedWriter', () => {
+    it('keys writer endpoints by host, port, and database across URL and libpq DSNs', async () => {
+      const { service, configService, dataDbClientManager, pgPoolRegistry } = createService();
+      configService.get.mockImplementation((key: string) =>
+        key === 'PRISMA_META_DATABASE_URL' ? 'postgres://meta-host:5432/meta_db' : undefined
+      );
+
+      const makePool = (opts?: { host?: string; port?: number; database?: string; max?: number }) =>
+        ({
+          connect: vi.fn(),
+          end: vi.fn().mockResolvedValue(undefined),
+          idleCount: 0,
+          totalCount: 0,
+          waitingCount: 0,
+          on: vi.fn(),
+          options: opts,
+        }) as unknown as Pool;
+
+      const pools = new Map<string, Pool>([
+        ['postgres://meta-host:5432/meta_db', makePool({ max: 10 })],
+        ['postgres://pg-host:5432/tenant_a', makePool({ max: 10 })],
+        [
+          'postgres://other-user:secret@PG-HOST:5432/tenant_a?sslmode=require',
+          makePool({ max: 10 }),
+        ],
+        ['postgres://pg-host:5432/tenant_b', makePool({ max: 10 })],
+        [
+          'host=pg-host port=5432 dbname=tenant_c user=app',
+          makePool({ host: 'pg-host', port: 5432, max: 10 }),
+        ],
+        [
+          'host=pg-host port=5432 dbname=tenant_d user=app',
+          makePool({ host: 'pg-host', port: 5432, max: 10 }),
+        ],
+        ['dbname=opaque_a', makePool({ max: 10 })],
+        ['dbname=opaque_b', makePool({ max: 10 })],
+      ]);
+
+      vi.spyOn(pgPoolRegistry, 'acquire').mockImplementation((dsn: string) => ({
+        pool: pools.get(dsn) ?? makePool({ max: 10 }),
+        release: vi.fn().mockResolvedValue(undefined),
+      }));
+
+      const makeContainer = () => createContainerMock();
+      mocks.createV2NodePgContainer
+        .mockResolvedValueOnce(makeContainer())
+        .mockResolvedValueOnce(makeContainer())
+        .mockResolvedValueOnce(makeContainer())
+        .mockResolvedValueOnce(makeContainer())
+        .mockResolvedValueOnce(makeContainer())
+        .mockResolvedValueOnce(makeContainer())
+        .mockResolvedValueOnce(makeContainer());
+
+      const bindUrl = (id: string, url: string) => {
+        dataDbClientManager.getDataDatabaseForBase.mockResolvedValueOnce({
+          cacheKey: id,
+          url,
+          isMetaFallback: false,
+          connectionId: id,
+        });
+      };
+
+      await service.getContainer();
+      bindUrl('bse_a1', 'postgres://pg-host:5432/tenant_a');
+      const containerA1 = await service.getContainerForBase('bse_a1');
+      bindUrl('bse_a2', 'postgres://other-user:secret@PG-HOST:5432/tenant_a?sslmode=require');
+      const containerA2 = await service.getContainerForBase('bse_a2');
+      bindUrl('bse_b', 'postgres://pg-host:5432/tenant_b');
+      const containerB = await service.getContainerForBase('bse_b');
+      bindUrl('bse_c', 'host=pg-host port=5432 dbname=tenant_c user=app');
+      const containerC = await service.getContainerForBase('bse_c');
+      bindUrl('bse_d', 'host=pg-host port=5432 dbname=tenant_d user=app');
+      const containerD = await service.getContainerForBase('bse_d');
+      bindUrl('bse_o1', 'dbname=opaque_a');
+      const containerO1 = await service.getContainerForBase('bse_o1');
+      bindUrl('bse_o2', 'dbname=opaque_b');
+      const containerO2 = await service.getContainerForBase('bse_o2');
+
+      const writerA1 = service.getComputedWriter(containerA1);
+      const writerA2 = service.getComputedWriter(containerA2);
+      const writerB = service.getComputedWriter(containerB);
+      const writerC = service.getComputedWriter(containerC);
+      const writerD = service.getComputedWriter(containerD);
+      const writerO1 = service.getComputedWriter(containerO1);
+      const writerO2 = service.getComputedWriter(containerO2);
+
+      expect(writerA1.key).toBe(writerA2.key);
+      expect(writerA1.key).not.toBe(writerB.key);
+      expect(writerC.key).not.toBe(writerD.key);
+      expect(writerO1.key).not.toBe(writerO2.key);
+    });
+
+    it('enforces writer concurrency=1 and pool headroom on small BYODB pools', async () => {
+      const { service, configService, dataDbClientManager, pgPoolRegistry } = createService();
+      configService.get.mockImplementation((key: string) =>
+        key === 'PRISMA_META_DATABASE_URL' ? 'postgres://meta-host:5432/meta_db' : undefined
+      );
+
+      const poolState = new Map<
+        string,
+        { max: number; totalCount: number; idleCount: number; waitingCount: number }
+      >([
+        ['bse_p1', { max: 1, totalCount: 0, idleCount: 0, waitingCount: 0 }],
+        ['bse_p2', { max: 2, totalCount: 0, idleCount: 0, waitingCount: 0 }],
+        ['bse_p6', { max: 6, totalCount: 0, idleCount: 0, waitingCount: 0 }],
+      ]);
+
+      vi.spyOn(pgPoolRegistry, 'acquire').mockImplementation((dsn: string) => {
+        const id = dsn.split('/').pop() ?? '';
+        const state = poolState.get(id) ?? {
+          max: 10,
+          totalCount: 0,
+          idleCount: 0,
+          waitingCount: 0,
+        };
+        const pool = {
+          connect: vi.fn(),
+          end: vi.fn().mockResolvedValue(undefined),
+          on: vi.fn(),
+          options: { max: state.max },
+          get totalCount() {
+            return state.totalCount;
+          },
+          get idleCount() {
+            return state.idleCount;
+          },
+          get waitingCount() {
+            return state.waitingCount;
+          },
+        } as unknown as Pool;
+        return { pool, release: vi.fn().mockResolvedValue(undefined) };
+      });
+
+      mocks.createV2NodePgContainer
+        .mockResolvedValueOnce(createContainerMock())
+        .mockResolvedValueOnce(createContainerMock())
+        .mockResolvedValueOnce(createContainerMock())
+        .mockResolvedValueOnce(createContainerMock());
+
+      await service.getContainer();
+
+      const loadWriter = async (baseId: string) => {
+        dataDbClientManager.getDataDatabaseForBase.mockResolvedValueOnce({
+          cacheKey: baseId,
+          url: `postgres://pg-host:5432/${baseId}`,
+          isMetaFallback: false,
+          connectionId: baseId,
+        });
+        const container = await service.getContainerForBase(baseId);
+        return service.getComputedWriter(container);
+      };
+
+      const writer1 = await loadWriter('bse_p1');
+      expect(writer1.maxConcurrency).toBe(1);
+      expect(writer1.hasWaiters()).toBe(false);
+      poolState.get('bse_p1')!.totalCount = 1;
+      expect(writer1.hasWaiters()).toBe(true);
+
+      const writer2 = await loadWriter('bse_p2');
+      expect(writer2.maxConcurrency).toBe(1);
+      poolState.get('bse_p2')!.totalCount = 1;
+      poolState.get('bse_p2')!.idleCount = 1;
+      expect(writer2.hasWaiters()).toBe(false);
+      poolState.get('bse_p2')!.totalCount = 2;
+      poolState.get('bse_p2')!.idleCount = 1;
+      expect(writer2.hasWaiters()).toBe(true);
+
+      const writer6 = await loadWriter('bse_p6');
+      expect(writer6.maxConcurrency).toBe(3);
+      poolState.get('bse_p6')!.totalCount = 5;
+      poolState.get('bse_p6')!.idleCount = 1;
+      expect(writer6.hasWaiters()).toBe(false);
+      poolState.get('bse_p6')!.totalCount = 6;
+      poolState.get('bse_p6')!.idleCount = 1;
+      expect(writer6.hasWaiters()).toBe(true);
+    });
   });
 });

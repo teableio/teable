@@ -13,6 +13,7 @@ import {
   IGetUserLastVisitListBaseNodeRo,
   IUpdateUserLastVisitRo,
   LastVisitResourceType,
+  TrashType,
   getUserLastVisitBaseNodeRoSchema,
   getUserLastVisitListBaseNodeRoSchema,
   getUserLastVisitRoSchema,
@@ -22,20 +23,20 @@ import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { PermissionService } from '../../auth/permission.service';
+import { RESOURCE_DESCRIPTORS } from '../../resource/resource-descriptor';
+import { BASE_NODE_VISIT_TYPES } from './last-visit-types';
 import { LastVisitService } from './last-visit.service';
 
 /**
- * What the caller must hold on `parentResourceId` before a lookup may answer: a base for the
- * node types, a table for its views. Space lookups read only the caller's own visit rows.
+ * What the caller must hold on `parentResourceId` before a lookup may answer: reading the base
+ * for the node types, the table for its views. Space lookups read only the caller's own visit rows.
  */
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const PARENT_READ_PERMISSION: Partial<Record<LastVisitResourceType, Action>> = {
-  [LastVisitResourceType.Table]: 'base|read',
-  [LastVisitResourceType.Dashboard]: 'base|read',
-  [LastVisitResourceType.Workflow]: 'base|read',
-  [LastVisitResourceType.App]: 'base|read',
-  [LastVisitResourceType.Routine]: 'base|read',
-  [LastVisitResourceType.View]: 'table|read',
+const parentReadPermission = (type: LastVisitResourceType): Action | undefined => {
+  if (type === LastVisitResourceType.View)
+    return RESOURCE_DESCRIPTORS[TrashType.Table].actions.read;
+  if (BASE_NODE_VISIT_TYPES.includes(type))
+    return RESOURCE_DESCRIPTORS[TrashType.Base].actions.read;
+  return undefined;
 };
 
 @Controller('api/user/last-visit')
@@ -66,7 +67,7 @@ export class LastVisitController {
   async getUserLastVisit(
     @Query(new ZodValidationPipe(getUserLastVisitRoSchema)) params: IGetUserLastVisitRo
   ): Promise<IUserLastVisitVo | undefined> {
-    const permission = PARENT_READ_PERMISSION[params.resourceType];
+    const permission = parentReadPermission(params.resourceType);
     if (!(await this.canReadParent(permission, params.parentResourceId))) {
       return undefined;
     }

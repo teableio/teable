@@ -11,9 +11,9 @@ Declaration: If the folder I belong to changes, please update me.
 
 ## Boundaries
 
-- Authentication stays in the host/actor header; this package has no auth.
-- `startHeadlessServer` forwards the host-provided `resolveActorId` callback to
-  the HTTP adapter; it does not interpret credentials or permissions.
+- The process entry maps the configured local bearer token to one actor.
+- `startHeadlessServer` forwards `resolveIdentity` or `resolveActorId` to the
+  HTTP adapter. The embedding host owns caller authorization.
 - The PostgreSQL flavor does not embed PGlite assets and reads PGlite only
   through `TEABLE_PGLITE_DIR` (no wasm/data beside the binary). The PGlite flavor
   embeds the wasm module and Postgres data bundle and injects them as
@@ -24,8 +24,8 @@ Declaration: If the folder I belong to changes, please update me.
 
 - `src/index.ts` - backend resolution and `startHeadlessServer`.
 - `src/cli.ts` - process entry, signals, help.
-- `src/cli-main.ts` - shared argument/env handling with an injectable backend
-  resolver.
+- `src/cli-main.ts` - shared argument/env handling, local bearer authentication,
+  and injectable backend resolution.
 - `src/embedded-pglite.ts` - embedded-asset backend resolution for the PGlite
   flavor.
 - `src/embedded-pglite-assets.ts` - reads `pglite.wasm`/`pglite.data` from
@@ -36,6 +36,8 @@ Declaration: If the folder I belong to changes, please update me.
 - `scripts/build-bun-pglite.mjs` - locates `pglite.wasm`/`pglite.data` in the
   installed PGlite package, passes them as `--asset` to
   `bun build --compile`, and writes `dist/teable-headless-pglite`.
+- `scripts/smoke-data-query.mjs` - exercises structured queries against the
+  compiled PGlite binary through HTTP and the Teable CLI.
 
 ## Binaries
 

@@ -115,6 +115,8 @@ export const dataQueryContract = {
       path: DATA_QUERY_EXECUTE_PATH,
       successStatus: 200,
       summary: 'Execute an inline structured data query (requires the native data-query gate)',
+      description:
+        'Version 7 records require page and page.after, without offset. Reference a declared non-nullable string parameter without a default in page.after; omit only its runtime value for the first page, then pass the opaque nextCursor unchanged. Version 7 responses include page.limit and page.nextCursor (null at the end), with page.total only when includeTotal is true. Versions 1–6 retain their existing offset and optional total contract.',
       tags: ['data-query'],
       spec: (operation) => {
         // ORPC does not expose Zod schemas in the generated document by default.

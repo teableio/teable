@@ -18,8 +18,10 @@ export interface IFolderDeleteListItem {
   fieldCountAtLeast: boolean;
   shareCount: number;
   appOffline?: { publicLink: boolean; customDomain?: string; loginConfig: boolean };
+  /** An app whose generation the delete stops, closing its sandbox first. */
+  generating: boolean;
   blocked: boolean;
-  /** Field effects of a table, or the app going offline: what the list sorts and badges by. */
+  /** Field effects of a table, the app going offline or stopping: what the list sorts by. */
   impactCount: number;
 }
 
@@ -39,6 +41,8 @@ export interface IFolderDeletePresentation {
   shares: { total: number; names: string[] };
   blockedNames: string[];
   unreadAppNames: string[];
+  /** Whether confirming stops a generation, so the button says it closes sandboxes. */
+  stopsGeneration: boolean;
 }
 
 const exactValue = (effect: PreviewEffect, key: string) => {
@@ -69,6 +73,7 @@ const toItem = (effect: PreviewEffect, index: number): IFolderDeleteListItem => 
     fieldCount: minimumValue(effect, 'fields'),
     fieldCountAtLeast: effect.measures.fields?.basis === 'range',
     shareCount: exactValue(effect, 'shares'),
+    generating: false,
     blocked: false,
     impactCount: minimumValue(effect, 'fields'),
   };
@@ -110,6 +115,14 @@ const collectOutsideReferences = (
     ];
   });
 
+/** Notes what the delete does to the app beyond the trash; false when the effect is not one. */
+const applyAppEffect = (app: IFolderDeleteListItem, effect: PreviewEffect) => {
+  if (effect.code === 'folder.delete.app.offline') app.appOffline = toAppOffline(effect);
+  else if (effect.code === 'folder.delete.app.generating') app.generating = true;
+  else return false;
+  return true;
+};
+
 // Blocked items first, then the ones with something to say, then the rest.
 const rank = (item: IFolderDeleteListItem) =>
   item.blocked ? 2 : item.impactCount > 0 || item.permanent ? 1 : 0;
@@ -127,9 +140,7 @@ export const buildFolderDeletePresentation = (
   );
   for (const effect of effects) {
     const app = byResourceId.get(authorized(effect.resource)?.id ?? '');
-    if (effect.code !== 'folder.delete.app.offline' || !app) continue;
-    app.appOffline = toAppOffline(effect);
-    app.impactCount += 1;
+    if (app && applyAppEffect(app, effect)) app.impactCount += 1;
   }
   const blockedNames: string[] = [];
   for (const blocker of preview.blockers) {
@@ -160,5 +171,6 @@ export const buildFolderDeletePresentation = (
       .filter((warning) => warning.code === 'folder.delete.app_source_unread')
       .map((warning) => resourceName(warning.resource))
       .filter(Boolean),
+    stopsGeneration: inside.some((item) => item.generating),
   };
 };

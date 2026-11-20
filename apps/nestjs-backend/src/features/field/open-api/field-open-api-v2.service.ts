@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
-import { Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
+import { Inject, Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import {
   checkFieldNotNullValidationEnabled,
   checkFieldUniqueValidationEnabled,
@@ -17,6 +17,7 @@ import {
   type IFieldRo,
   type IFieldVo,
   type IGetFieldsQuery,
+  type IOtOperation,
   type ISnapshotBase,
   type IUpdateFieldRo,
 } from '@teable/core';
@@ -84,10 +85,9 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { isNotHiddenField } from '../../../utils/is-not-hidden-field';
-import type { IOpsMap } from '../../calculation/utils/compose-maps';
-import { DataLoaderService } from '../../data-loader/data-loader.service';
+import { FieldCacheService } from '../../field-cache/field-cache.service';
 import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
-import { TableIndexService } from '../../table/table-index.service';
+import { TableIndexService } from '../../table-index/table-index.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
@@ -198,14 +198,16 @@ const getTableIdText = (table: Table): string | undefined => {
 @Injectable()
 export class FieldOpenApiV2Service {
   constructor(
+    @Inject(V2ContainerService)
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
-    private readonly dataLoaderService: DataLoaderService,
+    private readonly fieldCacheService: FieldCacheService,
     private readonly cls: ClsService<IClsStore>,
     private readonly fieldReferenceAdmission: FieldReferenceAdmissionService,
     private readonly prismaService: PrismaService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @Optional()
+    @Inject(TableIndexService)
     private readonly tableIndexService?: TableIndexService
   ) {}
 
@@ -298,7 +300,7 @@ export class FieldOpenApiV2Service {
       new Set(tableIds.filter((id) => typeof id === 'string' && id.length > 0))
     );
     if (!ids.length) return;
-    this.dataLoaderService.field.invalidateTables(ids);
+    this.fieldCacheService.invalidateTables(ids);
   }
 
   async getFilterLinkRecords(
@@ -2115,18 +2117,13 @@ export class FieldOpenApiV2Service {
       context,
       'createCreateFieldCommand',
       async () =>
-        CreateFieldCommand.create(
-          {
-            baseId: table.baseId().toString(),
-            tableId,
-            field: v2Field,
-            ...(typeof legacyViewId === 'string' ? { viewId: legacyViewId } : {}),
-            ...(normalizedOrder ? { order: normalizedOrder } : {}),
-          },
-          {
-            preloadedTable: table,
-          }
-        ),
+        CreateFieldCommand.create({
+          baseId: table.baseId().toString(),
+          tableId,
+          field: v2Field,
+          ...(typeof legacyViewId === 'string' ? { viewId: legacyViewId } : {}),
+          ...(normalizedOrder ? { order: normalizedOrder } : {}),
+        }),
       {
         [TeableSpanAttributes.TABLE_ID]: tableId,
       }
@@ -2830,7 +2827,7 @@ export class FieldOpenApiV2Service {
   }
 
   async replayModifiedOps(
-    modifiedOps: IOpsMap,
+    modifiedOps: Readonly<Record<string, Readonly<Record<string, readonly IOtOperation[]>>>>,
     direction: 'old' | 'new',
     undoRedoMode: 'undo' | 'redo'
   ): Promise<void> {

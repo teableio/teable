@@ -1,36 +1,36 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
+  PostgresTableRecordQueryRepository,
+  v2RecordRepositoryPostgresTokens,
+  type TableRecordQueryBuilderManager,
+} from '@teable/v2-adapter-table-repository-postgres';
+import {
   createV2NodeTestContainer,
   type IV2NodeTestContainer,
 } from '@teable/v2-container-node-test';
 import {
   ActorId,
-  CreateTableCommand,
   CreateFieldCommand,
-  UpdateFieldCommand,
+  CreateTableCommand,
   DeleteFieldCommand,
+  NoopLogger,
+  RecordByIdsSpec,
+  RecordSearch,
   TableByIdSpec,
   TableId,
-  RecordSearch,
-  RecordByIdsSpec,
+  UpdateFieldCommand,
   v2CoreTokens,
-  NoopLogger,
-  type Table,
-  type ICommandBus,
-  type ITableRepository,
-  type ITableRecordCountQueryRepository,
-  type DomainError,
-  type CreateTableResult,
   type CreateFieldResult,
-  type UpdateFieldResult,
+  type CreateTableResult,
   type DeleteFieldResult,
+  type DomainError,
+  type ICommandBus,
   type ITableRecordCountOptions,
+  type ITableRecordCountQueryRepository,
+  type ITableRepository,
+  type Table,
+  type UpdateFieldResult,
 } from '@teable/v2-core';
-import {
-  PostgresTableRecordQueryRepository,
-  v2RecordRepositoryPostgresTokens,
-  type TableRecordQueryBuilderManager,
-} from '@teable/v2-adapter-table-repository-postgres';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
   registerV2TableOps,
@@ -42,17 +42,18 @@ import {
 } from '@teable/v2-table-query-ops';
 import { CompiledQuery, PostgresQueryCompiler, sql, type Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { getTablePhysicalName, makePhysicalTableSql, quoteIdentifier } from './helpers';
 import { registerV2TableOpsPostgresAdapter } from './register';
+import { createResidualSearchIndex, inspectResidualSearchIndex } from './searchResidual';
 import {
+  PostgresTableSearchVectorAdvisor,
   PostgresTableSearchVectorExecutor,
   PostgresTableSearchVectorReconciler,
   readSubstringSearchCapabilities,
 } from './searchVector';
 import { PostgresTableSearchAccessPathMetadataPublisher } from './searchVectorMetadata';
-import { createResidualSearchIndex, inspectResidualSearchIndex } from './searchResidual';
-import { getTablePhysicalName, makePhysicalTableSql, quoteIdentifier } from './helpers';
 import type { UnknownPostgresDatabase } from './types';
 
 type ObservedSearch = {
@@ -82,6 +83,7 @@ const expectOk = <T>(result: Result<T, DomainError>): T => {
     let db: Kysely<UnknownPostgresDatabase>;
     let reconciler: PostgresTableSearchVectorReconciler;
     let publisher: PostgresTableSearchAccessPathMetadataPublisher;
+    const fixtureTableIds: string[] = [];
     const captured: CompiledQuery<unknown>[] = [];
 
     beforeAll(async () => {
@@ -121,6 +123,11 @@ const expectOk = <T>(result: Result<T, DomainError>): T => {
     afterAll(async () => {
       await test?.dispose();
     });
+    afterEach(async () => {
+      if (!fixtureTableIds.length) return;
+      await sql`DELETE FROM table_query_remediation_task
+        WHERE table_id = ANY(${fixtureTableIds.splice(0)}::text[])`.execute(test.metaDb);
+    });
 
     const load = async (table: Table) =>
       expectOk(
@@ -154,6 +161,7 @@ const expectOk = <T>(result: Result<T, DomainError>): T => {
           )
         )
       );
+      fixtureTableIds.push(table.id().toString());
       const physical = expectOk(getTablePhysicalName(table));
       const relation = makePhysicalTableSql(physical.schema, physical.tableName);
       const field = (name: string) =>
@@ -545,6 +553,471 @@ const expectOk = <T>(result: Result<T, DomainError>): T => {
       );
       expectOk(await reconciler.reconcile(context, { table, mode: 'drop' }));
     }, 120_000);
+
+    it('reclaims the unused document independently while retaining a serving residual and all external references', async () => {
+      const native = await fixture();
+      await sql
+        .raw(`DELETE FROM ${native.relation} WHERE __id LIKE 'residual_filler_%'`)
+        .execute(db);
+      await sql.raw(`ANALYZE ${native.relation}`).execute(db);
+      const meta = test.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      expectOk(
+        await reconciler.reconcile(context, {
+          table: native.table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      let table = await load(native.table);
+      const old = table.searchIndex()!;
+      const tableId = table.id().toString();
+      table = expectOk(
+        await commands.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          expectOk(
+            CreateFieldCommand.create({
+              baseId: table.baseId().toString(),
+              tableId,
+              field: { type: 'singleLineText', name: 'Additional document' },
+            })
+          )
+        )
+      ).table;
+      const next = (
+        await new PostgresTableSearchVectorAdvisor(db, meta).analyze(context, {
+          table,
+          provider: 'pg_trgm',
+          searchScope: 'all_fields',
+          maxRecommendations: 1,
+        })
+      ).recommendations[0]!;
+      const now = new Date();
+      const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const hhmm = (value: number) =>
+        `${Math.floor(value / 60)
+          .toString()
+          .padStart(2, '0')}:${(value % 60).toString().padStart(2, '0')}`;
+      const executor = new PostgresTableSearchVectorExecutor(meta, db);
+      await executor.execute({
+        tableId,
+        maintenance: {
+          configKey: old.definitionKey,
+          searchScope: 'all_fields',
+          expansion: true,
+          options: {
+            windowUtc: `${hhmm((minute + 1410) % 1440)}-${hhmm((minute + 30) % 1440)}`,
+            allowUnknownOrLargeRewrite: true,
+          },
+        },
+        payload: {
+          candidateKey: next.candidateKey,
+          fields: next.coveredFields.map((field) => ({
+            ...field,
+            fieldDbName: field.fieldDbName!,
+          })),
+          provider: next.provider,
+          operatorClass: next.operatorClass,
+          languageConfig: next.languageConfig,
+          generatedColumnName: next.generatedColumnName,
+          indexName: next.indexName,
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+          searchScope: 'all_fields',
+          rebuild: true,
+        },
+      });
+      table = await load(table);
+      const published = table.searchIndex()!;
+      expect(published.document!.generatedColumnName).not.toBe(old.document!.generatedColumnName);
+      // Model a persisted generation that reuses an unchanged residual branch.
+      const serving = {
+        ...published,
+        residual: { ...published.residual!, indexName: old.residual!.indexName },
+      };
+      await sql`UPDATE table_meta SET search_index = ${JSON.stringify(serving)}::jsonb WHERE id = ${tableId}`.execute(
+        meta
+      );
+      await sql`UPDATE table_query_search_vector_config SET serving_snapshot = ${JSON.stringify(serving)}::jsonb
+        WHERE table_id = ${tableId} AND candidate_key = ${published.definitionKey}`.execute(meta);
+      table = await load(table);
+      expect(table.searchIndex()!.residual!.indexName).toBe(old.residual!.indexName);
+      await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() - interval '1 second'
+        WHERE table_id = ${tableId} AND candidate_key = ${old.definitionKey}`.execute(meta);
+      await sql`UPDATE table_meta SET search_index = ${JSON.stringify(old)}::jsonb WHERE id = ${tableId}`.execute(
+        meta
+      );
+      await expect(executor.drop(tableId, old.definitionKey)).rejects.toThrow('referenced');
+      await sql`UPDATE table_meta SET search_index = ${JSON.stringify(serving)}::jsonb WHERE id = ${tableId}`.execute(
+        meta
+      );
+      await sql`INSERT INTO table_query_search_vector_config SELECT
+        (jsonb_populate_record(NULL::table_query_search_vector_config,
+          to_jsonb(source) || jsonb_build_object('id', ${`foreign_ref_${tableId}`}::text, 'candidate_key', 'external-config-reference'))).*
+        FROM table_query_search_vector_config source WHERE table_id = ${tableId} AND candidate_key = ${old.definitionKey}`.execute(
+        meta
+      );
+      await expect(executor.drop(tableId, old.definitionKey)).rejects.toThrow('referenced');
+      await sql`DELETE FROM table_query_search_vector_config WHERE table_id = ${tableId} AND candidate_key = 'external-config-reference'`.execute(
+        meta
+      );
+      const foreignIndex = `${quoteIdentifier(native.physical.schema)}.${quoteIdentifier(`foreign_${tableId}`)}`;
+      await sql
+        .raw(
+          `CREATE INDEX ${quoteIdentifier(`foreign_${tableId}`)} ON ${native.relation} (${quoteIdentifier(old.document!.generatedColumnName)})`
+        )
+        .execute(db);
+      await expect(executor.drop(tableId, old.definitionKey)).rejects.toThrow();
+      expect(
+        (
+          await sql<{ present: boolean }>`SELECT EXISTS (SELECT 1 FROM pg_attribute
+        WHERE attrelid = to_regclass(${native.relation}) AND attname = ${old.document!.generatedColumnName}
+          AND NOT attisdropped) AS present`.execute(db)
+        ).rows[0].present
+      ).toBe(true);
+      await sql.raw(`DROP INDEX ${foreignIndex}`).execute(db);
+      await expect(executor.drop(tableId, old.definitionKey)).rejects.toThrow('referenced');
+      expect(
+        (
+          await sql<{ present: boolean }>`SELECT EXISTS (SELECT 1 FROM pg_attribute
+        WHERE attrelid = to_regclass(${native.relation}) AND attname = ${old.document!.generatedColumnName}
+          AND NOT attisdropped) AS present`.execute(db)
+        ).rows[0].present
+      ).toBe(false);
+      expect(
+        (
+          await sql<{
+            present: boolean;
+          }>`SELECT to_regclass(${`${quoteIdentifier(native.physical.schema)}.${quoteIdentifier(old.residual!.indexName)}`}) IS NOT NULL AS present`.execute(
+            db
+          )
+        ).rows[0].present
+      ).toBe(true);
+      const retained = (
+        await sql<{
+          serving_snapshot: unknown;
+          reclaim_drop_queued_at: Date;
+          reclaim_drop_after: Date;
+        }>`
+        SELECT serving_snapshot, reclaim_drop_queued_at, reclaim_drop_after FROM table_query_search_vector_config
+        WHERE table_id = ${tableId} AND candidate_key = ${old.definitionKey}`.execute(meta)
+      ).rows[0];
+      expect(retained.serving_snapshot).not.toBeNull();
+      expect(retained.reclaim_drop_queued_at).not.toBeNull();
+      expect(retained.reclaim_drop_after).not.toBeNull();
+      expect((await load(table)).searchIndex()).toEqual(serving);
+      expect(
+        await observe(table, {
+          search: { search: RecordSearch.fromTuple(['residualunique', '', true]) },
+          searchAccessPath: resolveTableSearchAccessPath(table),
+        })
+      ).toMatchObject({ ids: ['residual_row_a'], count: 1, cells: 1 });
+      await sql`DELETE FROM table_query_remediation_task WHERE table_id = ${tableId}`.execute(meta);
+    }, 120_000);
+
+    it('retires a residual-only physical generation after its persisted grace deadline', async () => {
+      const native = await fixture();
+      const meta = test.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      expectOk(
+        await reconciler.reconcile(context, {
+          table: native.table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          fieldIds: [native.field('Code').id().toString(), native.field('Rounded').id().toString()],
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+        })
+      );
+      const table = await load(native.table);
+      const old = table.searchIndex()!;
+      const next = (
+        await new PostgresTableSearchVectorAdvisor(db, meta).analyze(context, {
+          table,
+          fieldIds: [native.field('Rounded').id().toString()],
+          provider: 'pg_trgm',
+          searchScope: 'selected_fields',
+          maxRecommendations: 1,
+        })
+      ).recommendations[0]!;
+      const executor = new PostgresTableSearchVectorExecutor(meta, db);
+      await executor.execute({
+        tableId: table.id().toString(),
+        maintenance: {
+          configKey: old.definitionKey,
+          searchScope: 'selected_fields',
+          expansion: false,
+          options: {},
+        },
+        payload: {
+          candidateKey: next.candidateKey,
+          fields: next.coveredFields.map((field) => ({
+            ...field,
+            fieldDbName: field.fieldDbName!,
+          })),
+          provider: next.provider,
+          operatorClass: next.operatorClass,
+          languageConfig: next.languageConfig,
+          indexName: next.indexName,
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          searchScope: 'selected_fields',
+          rebuild: true,
+        },
+      });
+      const serving = await load(table);
+      expect(serving.searchIndex()!.document).toBeUndefined();
+      const tasks = (
+        await sql<{
+          payload: { scopeKey: string };
+        }>`SELECT payload FROM table_query_remediation_task
+        WHERE table_id = ${table.id().toString()} AND payload->>'trigger' = 'reclaim'`.execute(meta)
+      ).rows;
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].payload.scopeKey).toBe(old.definitionKey);
+      await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() - interval '1 second'
+        WHERE table_id = ${table.id().toString()} AND candidate_key = ${old.definitionKey}`.execute(
+        meta
+      );
+      await sql`UPDATE table_query_remediation_task SET status = 'running', attempts = 1,
+        locked_by = 'departed-reclaim', locked_at = now() - interval '2 minutes'
+        WHERE table_id = ${table.id().toString()} AND payload->>'trigger' = 'reclaim'`.execute(
+        meta
+      );
+      const repository = test.container.resolve<TableQueryRemediationTaskRepository>(
+        v2TableOpsTokens.taskRepository
+      );
+      const departedId = (
+        await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+        WHERE table_id = ${table.id().toString()} AND payload->>'trigger' = 'reclaim'`.execute(meta)
+      ).rows[0].id;
+      const departed = expectOk(await repository.findById(context, departedId));
+      await executor.drop(table.id().toString(), old.definitionKey);
+      expect(
+        (
+          await sql<{
+            present: boolean;
+          }>`SELECT to_regclass(${`${quoteIdentifier(native.physical.schema)}.${quoteIdentifier(old.residual!.indexName)}`}) IS NOT NULL AS present`.execute(
+            db
+          )
+        ).rows[0].present
+      ).toBe(false);
+      expect((await load(table)).searchIndex()).toEqual(serving.searchIndex());
+      expect(
+        await observe(serving, {
+          search: { search: RecordSearch.fromTuple(['123.46', '', true]) },
+          searchAccessPath: resolveTableSearchAccessPath(serving),
+        })
+      ).toMatchObject({ ids: ['residual_row_a'], count: 1, cells: 1 });
+      // Metadata cleanup committed, but the old worker died before its success receipt.
+      const resumed = expectOk(
+        await repository.claimNextAccepted(context, {
+          scope: 'search_maintenance',
+          workerId: 'residual-restart',
+          now: new Date(),
+          allowedKinds: ['drop_search_access_path'],
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+        })
+      );
+      expect(resumed).toBeDefined();
+      const completed = expectOk(
+        await commands.execute<RunTableQueryRemediationTaskCommand, TableQueryRemediationTask>(
+          context,
+          new RunTableQueryRemediationTaskCommand(resumed!.snapshot().id, false, 'residual-restart')
+        )
+      );
+      expect(completed.snapshot()).toMatchObject({ status: 'succeeded', attempts: 1 });
+      expect(
+        (
+          await repository.save(context, expectOk(departed.succeed({ obsolete: true }, new Date())))
+        ).isErr()
+      ).toBe(true);
+      await sql`DELETE FROM table_query_remediation_task WHERE table_id = ${table.id().toString()}`.execute(
+        meta
+      );
+    }, 120_000);
+
+    it.for(['residual-only', 'hybrid'] as const)(
+      'retires canonical and unjournaled %s rebuilds after successor maintenance without touching current objects',
+      { timeout: 120_000 },
+      async (kind) => {
+        const native = await fixture();
+        const meta = test.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+        let table = native.table;
+        const tableId = table.id().toString();
+        const fieldIds = [
+          ...(kind === 'hybrid' ? [native.field('Title').id().toString()] : []),
+          native.field('Code').id().toString(),
+          native.field('Rounded').id().toString(),
+        ];
+        const reconcile = async (mode: 'create' | 'rebuild') => {
+          expectOk(
+            await reconciler.reconcile(context, {
+              table,
+              mode,
+              provider: 'pg_trgm',
+              fieldIds,
+              validationMode: 'real_ddl',
+              requirePlanImprovement: false,
+              allowLargeTableRewrite: true,
+            })
+          );
+          table = await load(table);
+          return table.searchIndex()!;
+        };
+        const canonical = await reconcile('create');
+        const firstShadow = await reconcile('rebuild');
+        const firstIndex = firstShadow.document?.indexName ?? firstShadow.residual!.indexName;
+        const shadow = await reconcile('rebuild');
+        const canonicalIndex = canonical.document?.indexName ?? canonical.residual!.indexName;
+        const shadowIndex = shadow.document?.indexName ?? shadow.residual!.indexName;
+        const suffix = shadowIndex.slice(-13);
+        expect(suffix).toMatch(/^_[a-f0-9]{12}$/);
+        expect(shadowIndex).toBe(`${firstIndex.slice(0, 50)}${suffix}`);
+        if (kind === 'hybrid') {
+          expect(shadow.document!.generatedColumnName).toBe(
+            `${firstShadow.document!.generatedColumnName.slice(0, 50)}${suffix}`
+          );
+          expect(shadow.residual!.indexName).not.toBe(canonical.residual!.indexName);
+        } else {
+          expect(shadow.document).toBeUndefined();
+        }
+        expect(
+          (
+            await sql<{ count: number }>`SELECT count(*)::int AS count
+              FROM table_query_remediation_task WHERE table_id = ${tableId}
+                AND execution_state->>'kind' = 'search_generation'`.execute(meta)
+          ).rows[0].count
+        ).toBe(0);
+
+        // Change only formatting: the old indexes remain physically intact while
+        // schema maintenance builds a different logical definition.
+        await sql`UPDATE field
+          SET options = ${JSON.stringify({ formatting: { type: 'decimal', precision: 1 } })}
+          WHERE id = ${native.field('Rounded').id().toString()}`.execute(meta);
+        await sql`UPDATE table_meta SET version = version + 1 WHERE id = ${tableId}`.execute(meta);
+        expectOk(await publisher.refresh(context, tableId));
+        table = await load(table);
+        expectOk(await reconciler.maintainAfterSchemaChange(context, table));
+        table = await load(table);
+        const current = table.searchIndex()!;
+        expect(current.definitionKey).not.toBe(shadow.definitionKey);
+        const retired = (
+          await sql<{
+            candidate_key: string;
+            index_name: string;
+            reclaim_drop_after: Date;
+          }>`SELECT candidate_key, index_name, reclaim_drop_after
+            FROM table_query_search_vector_config WHERE table_id = ${tableId} AND status = 'disabled'
+            ORDER BY candidate_key`.execute(meta)
+        ).rows;
+        expect(retired).toHaveLength(3);
+        expect(retired.map((row) => row.index_name).sort()).toEqual(
+          [canonicalIndex, firstIndex, shadowIndex].sort()
+        );
+        const executor = new PostgresTableSearchVectorExecutor(meta, db);
+        const presence = async (snapshot: typeof shadow) =>
+          (
+            await sql<{
+              column_present: boolean;
+              document_present: boolean;
+              residual_present: boolean;
+            }>`SELECT
+              EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${native.relation})
+                AND attname = ${snapshot.document?.generatedColumnName ?? null} AND NOT attisdropped) AS column_present,
+              to_regclass(${snapshot.document ? `${quoteIdentifier(native.physical.schema)}.${quoteIdentifier(snapshot.document.indexName)}` : null}) IS NOT NULL AS document_present,
+              to_regclass(${`${quoteIdentifier(native.physical.schema)}.${quoteIdentifier(snapshot.residual!.indexName)}`}) IS NOT NULL AS residual_present`.execute(
+              db
+            )
+          ).rows[0];
+        const present = {
+          column_present: kind === 'hybrid',
+          document_present: kind === 'hybrid',
+          residual_present: true,
+        };
+        for (const row of retired) {
+          expect(row.reclaim_drop_after.getTime()).toBeGreaterThan(Date.now());
+          expect((await executor.drop(tableId, row.candidate_key)).hadManagedObjects).toBe(false);
+        }
+        expect(await presence(canonical)).toEqual(present);
+        expect(await presence(firstShadow)).toEqual(present);
+        expect(await presence(shadow)).toEqual(present);
+        await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() - interval '1 second'
+          WHERE table_id = ${tableId} AND status = 'disabled'`.execute(meta);
+
+        // Catalog-compatible objects with only a managed prefix are insufficient
+        // provenance, even when the retained config and snapshot name them.
+        const shadowConfig = retired.find((row) => row.index_name === shadowIndex)!;
+        const forgedIndex = `${shadowIndex.slice(0, 46)}_unproven`;
+        const forgedSnapshot = {
+          ...shadow,
+          ...(shadow.document
+            ? { document: { ...shadow.document, indexName: forgedIndex } }
+            : { residual: { ...shadow.residual!, indexName: forgedIndex } }),
+        };
+        await sql
+          .raw(
+            `ALTER INDEX ${quoteIdentifier(native.physical.schema)}.${quoteIdentifier(shadowIndex)} RENAME TO ${quoteIdentifier(forgedIndex)}`
+          )
+          .execute(db);
+        await sql`UPDATE table_query_search_vector_config
+          SET index_name = ${forgedIndex}, serving_snapshot = ${JSON.stringify(forgedSnapshot)}::jsonb
+          WHERE table_id = ${tableId} AND candidate_key = ${shadowConfig.candidate_key}`.execute(
+          meta
+        );
+        await expect(executor.drop(tableId, shadowConfig.candidate_key)).rejects.toThrow(
+          'artifact ownership or definition cannot be proven'
+        );
+        expect(await presence(forgedSnapshot)).toEqual(present);
+        await sql
+          .raw(
+            `ALTER INDEX ${quoteIdentifier(native.physical.schema)}.${quoteIdentifier(forgedIndex)} RENAME TO ${quoteIdentifier(shadowIndex)}`
+          )
+          .execute(db);
+        await sql`UPDATE table_query_search_vector_config
+          SET index_name = ${shadowIndex}, serving_snapshot = ${JSON.stringify(shadow)}::jsonb
+          WHERE table_id = ${tableId} AND candidate_key = ${shadowConfig.candidate_key}`.execute(
+          meta
+        );
+
+        await sql`UPDATE table_meta SET search_index = ${JSON.stringify(shadow)}::jsonb
+          WHERE id = ${tableId}`.execute(meta);
+        await expect(executor.drop(tableId, shadowConfig.candidate_key)).rejects.toThrow(
+          'referenced'
+        );
+        expect(await presence(shadow)).toEqual(present);
+        await sql`UPDATE table_meta SET search_index = ${JSON.stringify(current)}::jsonb
+          WHERE id = ${tableId}`.execute(meta);
+
+        for (const row of retired)
+          expect((await executor.drop(tableId, row.candidate_key)).hadManagedObjects).toBe(true);
+        const absent = { column_present: false, document_present: false, residual_present: false };
+        expect(await presence(canonical)).toEqual(absent);
+        expect(await presence(firstShadow)).toEqual(absent);
+        expect(await presence(shadow)).toEqual(absent);
+        expect(await presence(current)).toEqual(present);
+        expect((await load(table)).searchIndex()).toEqual(current);
+        expect(
+          await observe(table, {
+            search: { search: RecordSearch.fromTuple(['123.5', '', true]) },
+            searchAccessPath: resolveTableSearchAccessPath(table),
+          })
+        ).toMatchObject({ ids: ['residual_row_a'], count: 1, cells: 1 });
+        expect(
+          (
+            await sql<{ count: number }>`SELECT count(*)::int AS count
+              FROM table_query_search_vector_config WHERE table_id = ${tableId} AND status = 'disabled'
+                AND serving_snapshot IS NULL AND reclaim_drop_after IS NULL
+                AND last_inspection->'staleReasons' @> '["reclaimed_after_grace"]'::jsonb`.execute(
+              meta
+            )
+          ).rows[0].count
+        ).toBe(3);
+      }
+    );
 
     it('repairs residual rename and deletion through schema commands and queued maintenance', async () => {
       const native = await fixture();

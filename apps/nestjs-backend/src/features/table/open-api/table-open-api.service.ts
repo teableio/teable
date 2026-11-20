@@ -43,10 +43,7 @@ import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
-import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
-import { handleBestEffortDataDbDropError } from '../../../global/data-db-runtime-error';
 import { DatabaseRouter } from '../../../global/database-router.service';
-import { RawOpType } from '../../../share-db/interface';
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { baseDisplayName } from '../../../utils/base-name';
@@ -63,8 +60,8 @@ import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
-import { RecordHistoryColdStorageService } from '../../record-history-cold/record-history-cold-storage.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
+import { TableLifecycleCleanupService } from '../../table-lifecycle/table-lifecycle-cleanup.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableService } from '../table.service';
@@ -72,7 +69,6 @@ import { TABLE_PERMANENT_DELETE_ACTION } from './table-audit.constants';
 import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidator';
 
 @Injectable()
-// Untraced host: cleanupColdHistoryPrefixes — Host cold-history object-storage cleanup.
 // Untraced host: getPermission — Host role and permission resolution.
 // Untraced host: getPermissionByRole — Host role-to-permission mapping.
 @V1EngineService([
@@ -84,10 +80,6 @@ import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidato
   'getDeleteTableReferences',
   'detachLink',
   'permanentDeleteTables',
-  'dropTables',
-  'cleanTaskRelatedData',
-  'cleanReferenceFieldIds',
-  'cleanTablesRelatedData',
   'deleteTable',
   'restoreTable',
   'sqlQuery',
@@ -118,9 +110,9 @@ export class TableOpenApiService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
-    private readonly tableMutationCacheInvalidator: TableMutationCacheInvalidator,
+    private readonly tableLifecycleCleanup: TableLifecycleCleanupService,
     private readonly audit: AuditScope,
-    private readonly recordHistoryColdStorage: RecordHistoryColdStorageService,
+    private readonly tableMutationCacheInvalidator: TableMutationCacheInvalidator,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
@@ -423,13 +415,17 @@ export class TableOpenApiService {
   }
 
   async getTables(baseId: string, includeTableIds?: string[]): Promise<ITableVo[]> {
+    const visibleIds = await this.permissionService.getBaseShareVisibleResourceIds(baseId, 'table');
+    const tableIdsInScope = visibleIds
+      ? includeTableIds?.filter((id) => visibleIds.has(id)) ?? [...visibleIds]
+      : includeTableIds;
     const tablesMeta = await this.prismaService.txClient().tableMeta.findMany({
       orderBy: { order: 'asc' },
       where: {
         baseId,
         deletedTime: null,
         provisionState: ProvisionState.ready,
-        id: includeTableIds ? { in: includeTableIds } : undefined,
+        id: tableIdsInScope ? { in: tableIdsInScope } : undefined,
       },
     });
     const tableIds = tablesMeta.map((tableMeta) => tableMeta.id);
@@ -601,213 +597,18 @@ export class TableOpenApiService {
 
     const result = await this.prismaService.$tx(
       async () => {
-        await this.dropTables(tableIds);
-        await this.cleanTaskRelatedData(tableIds);
-        await this.cleanTablesRelatedData(baseId, tableIds, { useTransaction: true });
+        await this.tableLifecycleCleanup.dropTables(tableIds);
+        await this.tableLifecycleCleanup.cleanTaskRelatedData(tableIds);
+        await this.tableLifecycleCleanup.cleanTablesRelatedData(baseId, tableIds, {
+          useTransaction: true,
+        });
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
-    await this.cleanupColdHistoryPrefixes(tableIds);
+    await this.tableLifecycleCleanup.cleanupColdHistoryPrefixes(tableIds);
     return result;
-  }
-
-  /**
-   * Best-effort removal of the tables' cold-history prefixes on the private
-   * bucket. The delete is irreversible, so it must only run AFTER the DB purge
-   * transaction has committed — never inside it (a rollback would restore the
-   * table without its cold history). An S3 miss never fails the purge;
-   * leftover prefixes are reconciled by ops tooling against table existence.
-   */
-  async cleanupColdHistoryPrefixes(tableIds: string[]) {
-    for (const tableId of tableIds) {
-      await this.recordHistoryColdStorage
-        .deleteTablePrefix(tableId)
-        .catch((error) =>
-          this.logger.warn(`failed to delete cold history prefix for ${tableId}: ${error}`)
-        );
-    }
-  }
-
-  async dropTables(tableIds: string[]) {
-    const tables = await this.prismaService.txClient().tableMeta.findMany({
-      where: { id: { in: tableIds } },
-      select: { dbTableName: true, version: true, id: true, baseId: true, deletedTime: true },
-    });
-    for (const table of tables) {
-      if (!table.deletedTime) {
-        this.batchService.saveRawOps(table.baseId, RawOpType.Del, IdPrefix.Table, [
-          { docId: table.id, version: table.version },
-        ]);
-      }
-      try {
-        await this.databaseRouter.executeDataPrismaForTable(
-          table.id,
-          this.dbProvider.dropTable(table.dbTableName),
-          { useTransaction: true }
-        );
-      } catch (error) {
-        handleBestEffortDataDbDropError({
-          error,
-          isMetaFallback: await this.databaseRouter.isMetaFallbackForBase(table.baseId, {
-            useTransaction: true,
-          }),
-          logger: this.logger,
-          target: `table ${table.id}`,
-        });
-      }
-      try {
-        await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
-      } catch (error) {
-        handleBestEffortDataDbDropError({
-          error,
-          isMetaFallback: await this.databaseRouter.isMetaFallbackForBase(table.baseId, {
-            useTransaction: true,
-          }),
-          logger: this.logger,
-          target: `mutation cache for table ${table.id}`,
-        });
-      }
-    }
-  }
-
-  async cleanTaskRelatedData(tableIds: string[]) {
-    const alternativeFields = await this.prismaService.txClient().field.findMany({
-      where: { tableId: { in: tableIds } },
-      select: { id: true },
-    });
-    const alternativeFieldIds = alternativeFields.map((field) => field.id);
-
-    // clean task reference for fields
-    await this.prismaService.txClient().taskReference.deleteMany({
-      where: {
-        OR: [
-          { fromFieldId: { in: alternativeFieldIds } },
-          { toFieldId: { in: alternativeFieldIds } },
-        ],
-      },
-    });
-
-    // clean task for table
-    await this.prismaService.txClient().task.deleteMany({
-      where: {
-        OR: tableIds.map((tableId) => ({
-          snapshot: {
-            contains: `"tableId":"${tableId}"`,
-          },
-        })),
-      },
-    });
-  }
-
-  async cleanReferenceFieldIds(tableIds: string[]) {
-    // Every dependency edge that touches a dropped table dangles once its field rows go,
-    // so the endpoint list must not be pre-filtered by type: a lookup field keeps only its
-    // inner type, which hid a number-typed lookup and its plain source from a
-    // Link/Formula filter and left the edge behind after a permanent wipe (T7365).
-    const fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId: { in: tableIds } },
-      select: { id: true },
-    });
-    const fieldIds = fields.map((field) => field.id);
-    await this.prismaService.txClient().reference.deleteMany({
-      where: { OR: [{ fromFieldId: { in: fieldIds } }, { toFieldId: { in: fieldIds } }] },
-    });
-  }
-
-  async cleanTablesRelatedData(
-    baseId: string,
-    tableIds: string[],
-    routingOptions?: IDataDbRoutingOptions,
-    options?: { skipExternalDataDbCleanup?: boolean }
-  ) {
-    const metaPrisma = this.prismaService.txClient();
-
-    // delete field for table
-    await metaPrisma.field.deleteMany({
-      where: { tableId: { in: tableIds } },
-    });
-
-    // delete view for table
-    await metaPrisma.view.deleteMany({
-      where: { tableId: { in: tableIds } },
-    });
-
-    // comments live on the meta DB keyed by table id, with no cascade from tableMeta
-    await metaPrisma.comment.deleteMany({
-      where: { tableId: { in: tableIds } },
-    });
-    await metaPrisma.commentSubscription.deleteMany({
-      where: { tableId: { in: tableIds } },
-    });
-
-    // clean attachment for table
-    await metaPrisma.attachmentsTable.deleteMany({
-      where: { tableId: { in: tableIds } },
-    });
-
-    // clear ops for view/field/record
-    await metaPrisma.ops.deleteMany({
-      where: { collection: { in: tableIds } },
-    });
-
-    // clean ops for table
-    await metaPrisma.ops.deleteMany({
-      where: { collection: baseId, docId: { in: tableIds } },
-    });
-
-    await metaPrisma.tableMeta.deleteMany({
-      where: { id: { in: tableIds } },
-    });
-
-    // A validated forced BYODB space removal leaves all external physical data behind,
-    // including history/trash. Never resolve that client: resolution may migrate/connect.
-    if (!options?.skipExternalDataDbCleanup) {
-      // Nested so a missing bound relation does not prevent purging the others.
-      const bestEffort = async (target: string, purge: () => Promise<unknown>) => {
-        try {
-          await purge();
-        } catch (error) {
-          handleBestEffortDataDbDropError({
-            error,
-            isMetaFallback: await this.databaseRouter.isMetaFallbackForBase(baseId, routingOptions),
-            logger: this.logger,
-            target,
-          });
-        }
-      };
-      const tables = tableIds.join(', ');
-      await bestEffort(`data database for base ${baseId}`, async () => {
-        const routedDataPrisma = await this.databaseRouter.dataPrismaForBase(
-          baseId,
-          routingOptions
-        );
-        const dataPrisma =
-          'txClient' in routedDataPrisma && typeof routedDataPrisma.txClient === 'function'
-            ? routedDataPrisma.txClient()
-            : routedDataPrisma;
-        const where = { tableId: { in: tableIds } };
-
-        await bestEffort(`attachment refs for tables ${tables}`, () =>
-          dataPrisma.attachmentsTable.deleteMany({ where })
-        );
-        await bestEffort(`record history for tables ${tables}`, () =>
-          dataPrisma.recordHistory.deleteMany({ where })
-        );
-        await bestEffort(`table trash for tables ${tables}`, () =>
-          dataPrisma.tableTrash.deleteMany({ where })
-        );
-        await bestEffort(`record trash for tables ${tables}`, () =>
-          dataPrisma.recordTrash.deleteMany({ where })
-        );
-      });
-    }
-
-    // clean trash for table
-    await metaPrisma.trash.deleteMany({
-      where: { resourceId: { in: tableIds }, resourceType: ResourceType.Table },
-    });
   }
 
   async deleteTable(baseId: string, tableId: string) {

@@ -1,27 +1,18 @@
-import {
-  apiErrorResponseDtoSchema,
-  createFieldOkResponseSchema,
-  type ITableDto,
-} from '@teable/v2-contract-http';
+import { createFieldOkResponseSchema, type ITableDto } from '@teable/v2-contract-http';
 import {
   FieldOperationKind,
   ok,
   v2CoreTokens,
   type ICreateFieldCommandInput,
   type IFieldOperationPlugin,
+  type ITableSchemaCoordination,
 } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-/**
- * T8446: two source links generate reciprocal fields from the same source-table
- * name. Overlap their real HTTP requests after metadata loading, without changing
- * names, snapshots, persistence, or PostgreSQL's locking behavior. A precise
- * optimistic conflict is safe only if neither endpoint leaves a partial field.
- * The caller then explicitly retries that rejected creation with fresh metadata.
- */
+/** T8446: concurrent creates from the same source must both keep their reciprocal field. */
 const installCreationBarrier = (ctx: SharedTestContext, tableId: string) => {
   const { promise, resolve } = Promise.withResolvers<void>();
   const candidates = new Map<string, string>();
@@ -55,19 +46,6 @@ const installCreationBarrier = (ctx: SharedTestContext, tableId: string) => {
   };
 };
 
-const countSchemaWaiters = async (ctx: SharedTestContext): Promise<number> => {
-  const result = await sql<{ count: string }>`
-    SELECT count(*)::text AS count
-    FROM pg_locks locks
-    JOIN pg_stat_activity activity ON activity.pid = locks.pid
-    WHERE locks.locktype = 'advisory'
-      AND NOT locks.granted
-      AND activity.datname = current_database()
-      AND activity.application_name = 'teable-v2-schema-coordination'
-  `.execute(ctx.testContainer.db);
-  return Number(result.rows[0]?.count ?? 0);
-};
-
 const readPhysicalColumns = async (ctx: SharedTestContext, tableId: string) => {
   const result = await sql<{ column_name: string }>`
     SELECT column_name
@@ -99,7 +77,7 @@ describe('[T8446] concurrent field column ownership (e2e, postgres)', () => {
     ctx = await getSharedTestContext({ dbMode: 'postgres' });
   }, 120_000);
 
-  it('keeps concurrent symmetric fields isolated, including conflict rollback and explicit retry', async () => {
+  it('keeps both concurrent symmetric field creations isolated', async () => {
     const owners = await ctx.createTable({
       baseId: ctx.baseId,
       name: 'Owners',
@@ -133,6 +111,15 @@ describe('[T8446] concurrent field column ownership (e2e, postgres)', () => {
       } satisfies ICreateFieldCommandInput,
     }));
     const barrier = installCreationBarrier(ctx, items.id);
+    const coordination = ctx.testContainer.container.resolve<ITableSchemaCoordination>(
+      v2CoreTokens.tableSchemaCoordination
+    );
+    const acquire = coordination.acquire.bind(coordination);
+    let contenders = 0;
+    const observeAcquisition = vi.spyOn(coordination, 'acquire').mockImplementation((...args) => {
+      if (args[1].includes(items.id) && args[2] === 'exclusive') contenders += 1;
+      return acquire(...args);
+    });
     let settledRequests = 0;
     const pending = attempts.map((attempt) =>
       fetch(`${ctx.baseUrl}/tables/createField`, {
@@ -147,11 +134,10 @@ describe('[T8446] concurrent field column ownership (e2e, postgres)', () => {
     let responses: Response[];
     try {
       await vi.waitFor(
-        async () => {
-          if (barrier.candidates.size === 2 || settledRequests > 0) return;
-          // An implementation that leases before loading metadata must be allowed
-          // to serialize instead of deadlocking at this test-only rendezvous.
-          expect(await countSchemaWaiters(ctx)).toBeGreaterThan(0);
+        () => {
+          if (settledRequests > 0) return;
+          expect(Math.max(barrier.candidates.size, contenders)).toBe(2);
+          expect(barrier.candidates.size).toBeGreaterThan(0);
         },
         { timeout: 10_000, interval: 25 }
       );
@@ -160,58 +146,21 @@ describe('[T8446] concurrent field column ownership (e2e, postgres)', () => {
     } finally {
       barrier.remove();
       await Promise.allSettled(pending);
+      observeAcquisition.mockRestore();
     }
     expect(barrier.candidates.size).toBe(2);
 
-    const succeeded: typeof attempts = [];
-    const conflicted: typeof attempts = [];
     for (const [index, response] of responses.entries()) {
-      const attempt = attempts[index]!;
       const body: unknown = await response.json();
-      if (response.ok) {
-        const table = createFieldOkResponseSchema.parse(body).data.table;
-        expect(table.fields.some((field) => field.name === attempt.name)).toBe(true);
-        succeeded.push(attempt);
-      } else {
-        // The current v2 HTTP contract maps generic domain conflicts to 400.
-        expect(response.status, JSON.stringify(body)).toBe(400);
-        expect(apiErrorResponseDtoSchema.parse(body).error.code).toBe('view.version_conflict');
-        conflicted.push(attempt);
-      }
-    }
-    expect(succeeded.length).toBeGreaterThan(0);
-
-    const itemsBeforeRetry = await ctx.getTableById(items.id);
-    const ownersBeforeRetry = await ctx.getTableById(owners.id);
-    const sourceLinks = itemsBeforeRetry.fields.filter((field) => field.type === 'link');
-    const reciprocalLinks = ownersBeforeRetry.fields.filter((field) => field.type === 'link');
-    expect(sourceLinks.map((field) => field.name).sort()).toEqual(
-      succeeded.map((attempt) => attempt.name).sort()
-    );
-    expect(reciprocalLinks).toHaveLength(succeeded.length);
-    expect(reciprocalLinks.map((field) => field.options.symmetricFieldId).sort()).toEqual(
-      sourceLinks.map((field) => field.id).sort()
-    );
-    await expectUniqueColumnOwners(ctx, itemsBeforeRetry);
-    await expectUniqueColumnOwners(ctx, ownersBeforeRetry);
-
-    for (const attempt of conflicted) {
-      const candidateId = barrier.candidates.get(attempt.requestId)!;
-      const partialFields = await ctx.testContainer.db
-        .selectFrom('field')
-        .select('id')
-        .where('id', '=', candidateId)
-        .execute();
-      expect(partialFields).toEqual([]);
-      expect(
-        (await readPhysicalColumns(ctx, items.id)).some((name) => name.includes(candidateId))
-      ).toBe(false);
-      // This is a new caller action, not an automatic retry hiding a failed write.
-      await ctx.createField(attempt.payload);
+      expect(response.status, JSON.stringify(body)).toBe(200);
+      const table = createFieldOkResponseSchema.parse(body).data.table;
+      expect(table.fields.some((field) => field.name === attempts[index]!.name)).toBe(true);
     }
 
     const itemsAfterCreate = await ctx.getTableById(items.id);
     const ownersAfterCreate = await ctx.getTableById(owners.id);
+    expect(itemsAfterCreate.fields.filter((field) => field.type === 'link')).toHaveLength(2);
+    expect(ownersAfterCreate.fields.filter((field) => field.type === 'link')).toHaveLength(2);
     const primary = itemsAfterCreate.fields.find((field) => field.name === 'Primary owner');
     const secondary = itemsAfterCreate.fields.find((field) => field.name === 'Secondary owner');
     if (primary?.type !== 'link' || secondary?.type !== 'link') {

@@ -6,14 +6,19 @@ import { OAuthModule } from './oauth.module';
 
 describe('OauthController', () => {
   let controller: OAuthController;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, OAuthModule],
       controllers: [OAuthController],
     }).compile();
 
     controller = module.get<OAuthController>(OAuthController);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

@@ -185,6 +185,33 @@ describe('Table.createViewSelectionCopyPlan', () => {
     expect(plan.fields).toHaveLength(1);
   });
 
+  it('excludes records when shared includeRecords is omitted while keeping non-shared copy included', () => {
+    const fixture = buildTable({ allowCopy: true });
+    const sharedPlan = fixture.table
+      .createViewSelectionCopyPlan({
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+      })
+      ._unsafeUnwrap();
+    const hostPlan = fixture.table
+      .createViewSelectionCopyPlan({
+        viewId: fixture.viewId,
+        sharedView: false,
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+      })
+      ._unsafeUnwrap();
+
+    expect(sharedPlan.recordsIncluded).toBe(false);
+    expect(sharedPlan.fields).toHaveLength(1);
+    expect(hostPlan.recordsIncluded).toBe(true);
+  });
+
   it('preserves disjoint row and column ranges in request order', () => {
     const fixture = buildTable({ allowCopy: true, includeRecords: true });
     const rows = fixture.table

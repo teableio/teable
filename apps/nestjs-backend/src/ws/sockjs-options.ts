@@ -54,18 +54,61 @@ const permessageDeflate = instrumentDeflate(
   })
 );
 
+export interface IRealtimeTransportConfig {
+  /**
+   * `SOCKJS_DISABLE_WEBSOCKET` — escape hatch for deployments whose proxy lets a
+   * WebSocket open and then cuts it. `/socket/info` then advertises no
+   * websocket, so clients go straight to xhr-streaming. That gives up the
+   * permessage-deflate savings above and adds a POST per client message, so it
+   * is off by default.
+   */
+  disableWebsocket: boolean;
+  /**
+   * `SOCKJS_IDLE_TIMEOUT_SECONDS` — close a session that has sent nothing for
+   * this long; `0` turns it off. SockJS's own heartbeat only proves the hop
+   * next to the server is alive: a proxy that answers the WebSocket ping itself
+   * keeps a session whose browser left long ago, so those piled up without
+   * bound. The SDK pings every 10s (`useConnection`), but Chrome fires timers
+   * in a tab hidden for 5+ minutes only once a minute, and the SDK closes the
+   * socket itself after 10 minutes away; the default leaves twice that minute.
+   */
+  idleTimeoutMs: number;
+}
+
+export const DEFAULT_IDLE_TIMEOUT_SECONDS = 120;
+
+export const resolveRealtimeTransportConfig = (
+  env: Record<string, string | undefined> = process.env
+): IRealtimeTransportConfig => {
+  const disable = env.SOCKJS_DISABLE_WEBSOCKET?.trim().toLowerCase();
+  const rawIdle = env.SOCKJS_IDLE_TIMEOUT_SECONDS?.trim();
+  const idleSeconds = rawIdle ? Number(rawIdle) : NaN;
+  return {
+    disableWebsocket: disable === '1' || disable === 'true',
+    idleTimeoutMs:
+      Number.isFinite(idleSeconds) && idleSeconds >= 0
+        ? Math.floor(idleSeconds * 1000)
+        : DEFAULT_IDLE_TIMEOUT_SECONDS * 1000,
+  };
+};
+
 /**
  * SockJS server configuration for collaborative data sync (similar to Airtable)
  * - transports: Only websocket and xhr-streaming (xhr-polling excluded for performance)
  * - response_limit: 2MB to handle large batch operations (table sync, bulk row updates)
+ * - websocket: false when `SOCKJS_DISABLE_WEBSOCKET` is set (see IRealtimeTransportConfig)
  *
  * Note: compression applies to the websocket transport only. The xhr-streaming
  * fallback is unaffected — it would need HTTP-level compression instead.
  */
-export const createSockjsServerOptions = (log: ISockjsLog) =>
+export const createSockjsServerOptions = (
+  log: ISockjsLog,
+  { disableWebsocket = false }: Partial<Pick<IRealtimeTransportConfig, 'disableWebsocket'>> = {}
+) =>
   ({
     prefix: '/socket',
     transports: ['websocket', 'xhr-streaming'],
+    websocket: !disableWebsocket,
     response_limit: 2 * 1024 * 1024, // 2MB for large collaborative payloads
     log,
     faye_server_options: { extensions: [permessageDeflate] },

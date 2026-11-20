@@ -25,6 +25,7 @@ import { createFieldInstanceByRaw } from '../../field/model/factory';
 import type { LinkFieldDto } from '../../field/model/field-dto/link-field.dto';
 import { NotificationService } from '../../notification/notification.service';
 import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
+import { BaseImportComputedService } from '../base-import-computed.service';
 import { notifyBaseImportFailure, notifyBaseImportWarnings } from '../base-import-warnings';
 import { BatchProcessor } from '../BatchProcessor.class';
 
@@ -71,13 +72,14 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
+    private readonly baseImportComputedService: BaseImportComputedService,
+    private readonly cls: ClsService<IClsStore>,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE)
     public readonly queue: Queue<IBaseImportJunctionCsvJob>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly notificationService: NotificationService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly notificationService: NotificationService
   ) {
     super();
   }
@@ -94,6 +96,10 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
     const { path, baseId, userId, tableIdMap, fieldIdMap, structure } = job.data;
 
     try {
+      const base = await this.prismaService.base.findUniqueOrThrow({
+        where: { id: baseId },
+        select: { v2Enabled: true },
+      });
       await this.cls.run(async () => {
         this.cls.set('user.id', userId);
         const links = await this.getImportedLinks(baseId, tableIdMap, fieldIdMap, structure);
@@ -101,7 +107,9 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
         const skippedLinkCells =
           fallback.skippedCells +
           (await this.clearDanglingLinks(baseId, links, fallback.junctions));
-        await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
+        await (
+          base.v2Enabled ? this.baseImportComputedService : this.persistedComputedBackfillService
+        ).recomputeForTables(Object.values(tableIdMap));
         await notifyBaseImportWarnings(this.notificationService, baseId, userId, {
           skippedUserCells: 0,
           skippedLinkCells,

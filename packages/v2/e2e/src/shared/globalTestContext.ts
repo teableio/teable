@@ -227,11 +227,17 @@ const createSetupTimer = (scope: string) => {
 
   return async <T>(label: string, run: () => Promise<T>) => {
     const startedAt = Date.now();
+    console.info(`[v2-test-setup] ${scope}:${label} pid=${process.pid} start 0ms`);
+    let completed = false;
     try {
-      return await run();
+      const result = await run();
+      completed = true;
+      return result;
     } finally {
       const elapsed = Date.now() - startedAt;
-      console.info(`[v2-test-setup] ${scope}:${label} ${elapsed}ms`);
+      console.info(
+        `[v2-test-setup] ${scope}:${label} pid=${process.pid} ${completed ? 'complete' : 'failed'} ${elapsed}ms`
+      );
     }
   };
 };

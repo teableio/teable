@@ -28,7 +28,9 @@ import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import type { RecordFilter } from '../queries/RecordFilterDto';
 import {
+  buildRecordConditionSpec,
   buildSanitizedRecordConditionSpec,
   replaceCurrentUserTagInFilter,
 } from '../queries/RecordFilterMapper';
@@ -168,6 +170,12 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
           })
         );
       }
+      const workflow = yield* await handler.buttonClickWorkflowService.prepare(context, {
+        table,
+        fieldId: command.fieldId,
+        workflowId: plan.workflowId(),
+      });
+      yield* await handler.checkTriggerFilter(context, table, command, workflow.filter);
 
       const committed = yield* await handler.domainWriteTransaction.execute(
         context,
@@ -250,10 +258,7 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
         }
       );
       await pluginExecution.afterCommit();
-      const workflowResult = yield* await handler.buttonClickWorkflowService.trigger(
-        context,
-        buttonClicked
-      );
+      const workflowResult = yield* await workflow.run(buttonClicked);
 
       const responseRecord = yield* TableRecord.fromRawFieldValues({
         id: command.recordId.toString(),
@@ -270,6 +275,38 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
         )
       );
     });
+  }
+
+  /** Rejects a click on a record outside the trigger filter, so it is never counted. */
+  private async checkTriggerFilter(
+    context: IExecutionContext,
+    table: Table,
+    command: ClickButtonCommand,
+    filter: RecordFilter
+  ): Promise<Result<void, DomainError>> {
+    if (!filter) return ok(undefined);
+    const triggerCondition = buildRecordConditionSpec(table, filter);
+    if (triggerCondition.isErr()) return err(triggerCondition.error);
+    const spec = RecordConditionSpecBuilder.create()
+      .recordId(command.recordId)
+      .addConditionSpec(triggerCondition.value)
+      .build();
+    if (spec.isErr()) return err(spec.error);
+    const result = await this.tableRecordQueryRepository.find(context, table, spec.value, {
+      mode: 'stored',
+      includeTotal: false,
+      idsOnly: true,
+    });
+    if (result.isErr()) return err(result.error);
+    if (result.value.records.length) return ok(undefined);
+    return err(
+      domainError.validation({
+        code: 'button.trigger_filter_not_matched',
+        message: 'The record does not meet the trigger conditions of the button automation.',
+        localization: { i18nKey: 'httpErrors.automation.buttonTriggerFilterNotMatched' },
+        details: { recordId: command.recordId.toString(), fieldId: command.fieldId.toString() },
+      })
+    );
   }
 
   private async loadCurrentRecord(

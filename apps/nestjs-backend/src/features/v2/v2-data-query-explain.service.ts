@@ -25,6 +25,7 @@ import {
 import type { Kysely } from 'kysely';
 import { ClsService } from 'nestjs-cls';
 import { err, ok } from 'neverthrow';
+import { BaseConfig, type IBaseConfig } from '../../configs/base.config';
 import type { IDataDbRoutingSnapshot } from '../../global/data-db-client-manager.service';
 import { withPgParameterRedaction } from '../../tracing-db-context';
 import type { IClsStore } from '../../types/cls';
@@ -53,7 +54,8 @@ export class V2DataQueryExplainService {
   constructor(
     private readonly containers: V2ContainerService,
     private readonly contexts: V2ExecutionContextFactory,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {}
 
   async explain(raw: unknown): Promise<IEndpointResult<ExplainDataQueryResponseDto>> {
@@ -78,10 +80,10 @@ export class V2DataQueryExplainService {
             );
             if (route.isErr()) return err(route.error);
             const dataContainer = route.value;
-            return await new PostgresDataQueryExplainer(
-              dataContainer.resolve(v2DataDbTokens.db),
-              resolveDataQueryFormulaSqlOptions(dataContainer)
-            ).explain(executionContext, table, query, scope, binding);
+            return await new PostgresDataQueryExplainer(dataContainer.resolve(v2DataDbTokens.db), {
+              ...resolveDataQueryFormulaSqlOptions(dataContainer),
+              cursorSigningKey: this.baseConfig.dataQueryCursorSigningKey,
+            }).explain(executionContext, table, query, scope, binding);
           } catch (error) {
             return err(dataQueryHostError(error));
           }
@@ -98,10 +100,10 @@ export class V2DataQueryExplainService {
             );
             if (route.isErr()) return err(route.error);
             const dataContainer = route.value;
-            return await new PostgresDataQueryExplainer(
-              dataContainer.resolve(v2DataDbTokens.db),
-              resolveDataQueryFormulaSqlOptions(dataContainer)
-            ).explainRelation(executionContext, plan);
+            return await new PostgresDataQueryExplainer(dataContainer.resolve(v2DataDbTokens.db), {
+              ...resolveDataQueryFormulaSqlOptions(dataContainer),
+              cursorSigningKey: this.baseConfig.dataQueryCursorSigningKey,
+            }).explainRelation(executionContext, plan);
           } catch (error) {
             return err(dataQueryHostError(error));
           }

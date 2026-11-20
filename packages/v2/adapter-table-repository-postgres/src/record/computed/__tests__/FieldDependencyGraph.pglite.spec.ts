@@ -153,6 +153,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
       .addColumn('id', 'varchar', (col) => col.primaryKey())
       .addColumn('base_id', 'varchar', (col) => col.notNull())
       .addColumn('name', 'varchar')
+      .addColumn('db_table_name', 'varchar')
       .addColumn('provision_state', 'varchar', (col) => col.defaultTo('ready'))
       .addColumn('deleted_time', 'timestamp')
       .execute();

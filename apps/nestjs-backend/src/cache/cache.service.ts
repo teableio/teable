@@ -31,6 +31,23 @@ if not raw or cjson.decode(raw).value ~= ARGV[1] then return 0 end
 return redis.call('DEL', KEYS[1])
 `;
 
+const ADJUST_ENVELOPE_COUNT_SCRIPT = `
+local raw = redis.call('GET', KEYS[1])
+if not raw then return 0 end
+local ok, env = pcall(cjson.decode, raw)
+if not ok or type(env) ~= 'table' or type(env.value) ~= 'table' or type(env.value.count) ~= 'number' then
+  return 0
+end
+if type(env.expires) == 'number' and env.expires <= tonumber(ARGV[2]) then
+  return 0
+end
+local pttl = redis.call('PTTL', KEYS[1])
+if pttl <= 0 then return 0 end
+env.value.count = math.max(0, env.value.count + tonumber(ARGV[1]))
+redis.call('SET', KEYS[1], cjson.encode(env), 'PX', pttl)
+return 1
+`;
+
 @Injectable()
 export class CacheService<T extends ICacheStore = ICacheStore> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,5 +248,43 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
   async ttl<TKey extends keyof T>(key: TKey): Promise<number> {
     const redis = this.getRedisClient();
     return redis.ttl(this.getRedisKey(key as string));
+  }
+
+  /**
+   * Atomically adjust `value.count` (clamped at 0) inside a Keyv `{ value, expires }`
+   * envelope on Redis while preserving its existing TTL and `expires`.
+   * Returns `true` when Redis handled the key atomically (or the key was already
+   * absent/expired), and `false` when no Redis client is available so callers can
+   * fall back to `get`/`set` on in-memory stores.
+   */
+  async adjustEnvelopeCount<TKey extends keyof T>(key: TKey, delta: number): Promise<boolean> {
+    if (delta === 0) {
+      return true;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = this.cacheManager.opts?.store as any;
+    const redis = store?.redis || store?.client;
+    if (!redis || typeof redis.eval !== 'function') {
+      return false;
+    }
+    await redis.eval(
+      ADJUST_ENVELOPE_COUNT_SCRIPT,
+      1,
+      this.getRedisKey(key as string),
+      delta,
+      Date.now()
+    );
+    return true;
+  }
+
+  /**
+   * Atomically decrement `value.count` inside a Keyv `{ value, expires }` envelope
+   * on Redis while preserving its existing TTL and `expires`.
+   */
+  async decrementEnvelopeCount<TKey extends keyof T>(key: TKey, delta: number): Promise<boolean> {
+    if (delta <= 0) {
+      return true;
+    }
+    return this.adjustEnvelopeCount(key, -delta);
   }
 }

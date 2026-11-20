@@ -192,9 +192,19 @@ export type BoundDataQueryPlan = {
   readonly aggregates: ReadonlyArray<BoundDataQueryPlanAggregate>;
   readonly groupBy: ReadonlyArray<BoundDataQueryPlanGroup>;
   readonly sort: ReadonlyArray<BoundDataQueryPlanSort>;
+  readonly topN?: {
+    readonly partitionBy: ReadonlyArray<string>;
+    readonly orderBy: ReadonlyArray<{
+      readonly alias: string;
+      readonly order: DataQuerySortOrder;
+      readonly nulls?: DataQuerySortNulls;
+    }>;
+    readonly limit: number;
+  };
   readonly page?: {
     readonly limit: number | { readonly parameter: string };
     readonly offset?: number | { readonly parameter: string };
+    readonly after?: { readonly parameter: string };
     readonly includeTotal: boolean;
   };
   readonly parameters: ReadonlyArray<BoundDataQueryPlanParameter>;
@@ -571,7 +581,9 @@ export const buildBoundDataQueryPlan = (
       definition.version === 4 ||
       definition.version === 5 ||
       definition.version === 6 ||
-      definition.version === 8
+      definition.version === 7 ||
+      definition.version === 8 ||
+      definition.version === 9
     )
       for (const [source, relation] of Object.entries(definition.relations ?? {}))
         if (relation.filter) {
@@ -597,7 +609,8 @@ export const buildBoundDataQueryPlan = (
       resultGrain:
         definition.kind === 'aggregate'
           ? 'group'
-          : (definition.version === 6 || definition.version === 8) && definition.distinct
+          : (definition.version === 6 || definition.version === 7 || definition.version === 8) &&
+              definition.distinct
             ? 'distinctTuple'
             : 'record',
       tableId: definition.tableId,
@@ -606,6 +619,7 @@ export const buildBoundDataQueryPlan = (
       projections,
       aggregates,
       groupBy,
+      ...(definition.version === 9 ? { topN: definition.topN } : {}),
       sort: (definition.sort ?? []).map((sort) => planSort(sort, sources)),
       ...(definition.page
         ? {
@@ -621,6 +635,9 @@ export const buildBoundDataQueryPlan = (
                         ? definition.page.offset
                         : { parameter: definition.page.offset.name },
                   }
+                : {}),
+              ...(definition.version === 7
+                ? { after: { parameter: definition.page.after.name } }
                 : {}),
               includeTotal: definition.page.includeTotal === true,
             },

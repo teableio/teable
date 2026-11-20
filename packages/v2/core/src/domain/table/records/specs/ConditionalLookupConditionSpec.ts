@@ -3,10 +3,21 @@ import { match } from 'ts-pattern';
 
 import type { DomainError } from '../../../shared/DomainError';
 import type { Field } from '../../fields/Field';
+import { FieldType } from '../../fields/FieldType';
+import type { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
+import type { TableRecord } from '../TableRecord';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
 import type { RecordConditionOperator } from './RecordConditionOperators';
-import { RecordValueConditionSpec } from './RecordConditionSpec';
-import type { RecordConditionValue } from './RecordConditionValues';
+import { evaluateCheckboxLiteralCondition, RecordValueConditionSpec } from './RecordConditionSpec';
+import { isRecordConditionLiteralValue, type RecordConditionValue } from './RecordConditionValues';
+
+const isCheckboxConditionalLookup = (field: Field): boolean => {
+  if (!field.type().equals(FieldType.conditionalLookup())) {
+    return false;
+  }
+  const innerResult = (field as ConditionalLookupField).innerField();
+  return innerResult.isOk() && innerResult.value.type().equals(FieldType.checkbox());
+};
 
 /**
  * Condition specification for ConditionalLookup fields.
@@ -30,6 +41,21 @@ export class ConditionalLookupConditionSpec extends RecordValueConditionSpec<Rec
     value?: RecordConditionValue
   ): ConditionalLookupConditionSpec {
     return new ConditionalLookupConditionSpec(field, operator, value);
+  }
+
+  override isSatisfiedBy(record: TableRecord): boolean {
+    const value = this.value();
+    if (
+      this.operator() === 'is' &&
+      isCheckboxConditionalLookup(this.field()) &&
+      value &&
+      isRecordConditionLiteralValue(value) &&
+      typeof value.toValue() === 'boolean'
+    ) {
+      const recordValue = record.fields().get(this.field().id())?.toValue();
+      return evaluateCheckboxLiteralCondition(recordValue, value.toValue() as boolean);
+    }
+    return super.isSatisfiedBy(record);
   }
 
   accept(v: ITableRecordConditionSpecVisitor): Result<void, DomainError> {

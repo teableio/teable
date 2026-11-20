@@ -405,6 +405,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "クエリを保存して共有",
       "spaceCreate": "スペースを作成",
       "spaceDelete": "スペースを削除",
       "spaceRead": "スペースを読み取り",
@@ -1076,6 +1077,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください",
+      "buttonTriggerFilterNotMatched": "このレコードはオートメーションのトリガー条件を満たしていません",
       "triggerNotFound": "自動化にはトリガーノードが必要です",
       "nodeNotFound": "{{nodeId}} ノードが見つかりません",
       "triggerTestFailed": "トリガーテストが失敗しました。トリガーの設定を確認してください",
@@ -1734,7 +1736,8 @@
         "dnsMisconfigured": "アクセスリンクの設定に失敗しました：ドメインの DNS が正しく設定されていません"
       },
       "customDomainNotConfigured": "カスタムドメインが設定されていません",
-      "vercelTokenNotConfigured": "App Builder の設定に Vercel トークンが設定されていません"
+      "vercelTokenNotConfigured": "App Builder の設定に Vercel トークンが設定されていません",
+      "deleteSandboxCloseFailed": "サンドボックスを閉じられませんでした。何も削除されていません。再試行してください"
     },
     "reward": {
       "notFound": "リワードが見つかりません",

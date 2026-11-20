@@ -1967,6 +1967,11 @@
     "sandboxUnavailableNotConfigured": "The AI agent runtime is not configured on this instance. Contact a system admin to set it up.",
     "agentStartFailed": "The AI engine failed to start. Please try again or start a new session.",
     "agentSessionLost": "Something went wrong. Please send your message again.",
+    "sandboxDestroyed": "Cuppy's environment was shut down and the reply stopped",
+    "sandboxOutOfMemory": "Cuppy stopped partway through",
+    "sandboxOutOfMemoryDescription": "This step used more resources than Cuppy has available. It's nothing you did. Select Continue and Cuppy will check where it left off, then carry on.",
+    "sandboxOutOfMemoryAction": "Continue",
+    "sandboxOutOfMemoryPrompt": "Your last reply stopped because it used more memory than is available. Check your progress before continuing, and try not to run several tasks at once.",
     "idleTimeout": "Command execution exceeded the time limit ({{seconds}}s). Please retry.",
     "danglingToolUse": "The previous session was interrupted and has been auto-repaired. Please retry your message.",
     "versionSaveFailed": "Version save failed",
@@ -2233,7 +2238,9 @@
     "menuItem": "Open in the Teable app"
   },
   "appDelete": {
-    "offlineWarning": "This app is published. Deleting it takes it offline at once: its public link stops working, any custom domain is released and its sign-in settings are deleted. After restoring it, publish it again."
+    "offlineWarning": "This app is published. Deleting it takes it offline at once: its public link stops working, any custom domain is released and its sign-in settings are deleted. After restoring it, publish it again.",
+    "closeAndDelete": "Close sandbox and delete",
+    "closingAndDeleting": "Closing sandbox and deleting…"
   },
   "folderDelete": {
     "title": "Are you sure you want to delete the folder \"{{name}}\"?",
@@ -2267,6 +2274,10 @@
       "customDomain": "The custom domain {{domain}} is released",
       "loginConfig": "Its sign-in settings are deleted",
       "afterRestore": "After restoring it, publish it again, bind the domain again and set up sign-in again."
+    },
+    "appGenerating": {
+      "tip": "Generating; its sandbox will be closed before the delete",
+      "detail": "This app is generating. Its sandbox will be closed before the delete, interrupting the generation in progress."
     }
   }
 }

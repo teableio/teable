@@ -12,6 +12,7 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CrossSpaceLinkConversionRecoveryService } from '../table-lifecycle/cross-space-link-conversion-recovery.service';
 import type { V2ContainerService } from './v2-container.service';
 import { V2SchemaOperationRunnerService } from './v2-schema-operation-runner.service';
 
@@ -83,6 +84,7 @@ const createService = ({
   runResults?: OkResult<SchemaOperationRunNextResult>[];
 } = {}) => {
   const runner = {
+    registerHandler: vi.fn(),
     claimNext: vi.fn(),
     runOperation: vi.fn(),
   };
@@ -92,6 +94,7 @@ const createService = ({
   runner.claimNext.mockResolvedValue(idleClaim);
 
   const scopedRunner = {
+    registerHandler: vi.fn(),
     claimNext: vi.fn(),
     runOperation: vi.fn(),
   };
@@ -126,14 +129,19 @@ const createService = ({
   const configService = {
     get: vi.fn((key: string) => config[key]),
   } as unknown as ConfigService;
+  const recovery = {
+    type: 'host.cross_space_link_conversion',
+    run: vi.fn(),
+  } as unknown as CrossSpaceLinkConversionRecoveryService;
 
   return {
-    service: new V2SchemaOperationRunnerService(v2ContainerService, configService),
+    service: new V2SchemaOperationRunnerService(v2ContainerService, configService, recovery),
     v2ContainerService,
     container,
     scopedContainer,
     runner,
     scopedRunner,
+    recovery,
   };
 };
 
@@ -154,7 +162,7 @@ describe('V2SchemaOperationRunnerService', () => {
 
   it('starts on bootstrap and drains runnable schema operations until idle', async () => {
     const failure = domainError.infrastructure({ message: 'repair failed' });
-    const { service, runner, scopedRunner, v2ContainerService } = createService({
+    const { service, runner, scopedRunner, v2ContainerService, recovery } = createService({
       claimResults: [
         okClaim({ status: 'claimed', operation: operation('sgoCompleted') }),
         okClaim({ status: 'claimed', operation: operation('sgoFailed') }),
@@ -178,6 +186,14 @@ describe('V2SchemaOperationRunnerService', () => {
     await service.onApplicationBootstrap();
     await vi.advanceTimersByTimeAsync(0);
 
+    expect(runner.registerHandler).toHaveBeenCalledWith(recovery);
+    expect(scopedRunner.registerHandler).toHaveBeenCalledWith(recovery);
+    expect(runner.registerHandler.mock.invocationCallOrder[0]).toBeLessThan(
+      runner.claimNext.mock.invocationCallOrder[0]
+    );
+    expect(scopedRunner.registerHandler.mock.invocationCallOrder[0]).toBeLessThan(
+      scopedRunner.runOperation.mock.invocationCallOrder[0]
+    );
     expect(runner.claimNext).toHaveBeenCalledTimes(3);
     expect(runner.claimNext.mock.calls[0][0].actorId.toString()).toBe('system');
     expect(runner.claimNext.mock.calls[0][0].requestId).toMatch(/^schema-operation-/);

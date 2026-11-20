@@ -1,4 +1,5 @@
 import type {
+  IColumnMetaRo,
   IDateTimeFieldOperator,
   IFilter,
   IFilterItem,
@@ -43,6 +44,7 @@ export interface IMappedViewConfig {
   filter?: IFilter;
   sort?: ISort;
   group?: IGroup;
+  columnMeta?: IColumnMetaRo;
   options?: Record<string, unknown>;
 }
 
@@ -387,10 +389,32 @@ export const mapAirtableViewConfig = (params: {
   // For kanban the single group level is the stack field, not a row grouping.
   const group = teableViewType === ViewType.Kanban ? undefined : mapGroups(config, ctx);
   const options = mapOptions(teableViewType, config, ctx, onDrop);
+  const columnMeta: IColumnMetaRo = [];
+  for (const [order, column] of (config.columnOrder ?? []).entries()) {
+    const field = ctx.resolveField(column.columnId);
+    if (!field) {
+      onDrop(`column "${column.columnId}" could not be mapped`);
+      continue;
+    }
+    columnMeta.push({
+      fieldId: field.fieldId,
+      columnMeta: {
+        order,
+        hidden: column.visibility === false,
+        ...(typeof column.width === 'number' ? { width: column.width } : {}),
+      },
+    });
+  }
 
   for (const reason of droppedReasons) {
     issues.push({ code: 'viewConfigDegraded', tableName, viewName, reason });
   }
 
-  return { filter: filter ?? undefined, sort, group, options };
+  return {
+    filter: filter ?? undefined,
+    sort,
+    group,
+    options,
+    columnMeta: columnMeta.length ? columnMeta : undefined,
+  };
 };

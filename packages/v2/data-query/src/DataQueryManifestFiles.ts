@@ -17,7 +17,13 @@ import {
 import type { DataQueryParameterDefinition, DataQueryOutput } from './types';
 
 export type AppQueryDescriptions = Readonly<
-  Record<string, { outputs: ReadonlyArray<DataQueryOutput> }>
+  Record<
+    string,
+    {
+      outputs: ReadonlyArray<DataQueryOutput>;
+      definition?: NonNullable<DataQueryManifest['queries'][string]['definition']>;
+    }
+  >
 >;
 
 const inspectYamlMap = (node: YAMLMap, path: string, depth: number): string | undefined => {
@@ -193,15 +199,29 @@ export function generateAppQueryArtifacts(
   if (parsed.isErr()) return err(parsed.error);
   const manifest = parsed.value;
   const ids = Object.keys(manifest.queries).sort();
+  for (const id of ids) {
+    if (manifest.queries[id].mode === 'library' && !descriptions?.[id]?.definition) {
+      return err(
+        queryError(
+          'manifest_library_live_required',
+          `queries.${id}: library references require --live`
+        )
+      );
+    }
+  }
   const rows: string[] = [];
   const parameters: string[] = [];
   const functions: string[] = [];
-  const usesPage = Object.values(manifest.queries).some(
-    (query) => query.definition?.page?.includeTotal === true
+  const resolvedDefinition = (id: string) =>
+    manifest.queries[id].definition ?? descriptions?.[id]?.definition;
+  const usesCursor = ids.some((id) => resolvedDefinition(id)?.version === 7);
+  const usesPage = ids.some(
+    (id) =>
+      resolvedDefinition(id)?.version === 7 || resolvedDefinition(id)?.page?.includeTotal === true
   );
   for (const id of ids) {
     const query = manifest.queries[id];
-    const definition = query.definition;
+    const definition = resolvedDefinition(id);
     const aliases = definition
       ? definition.kind === 'records'
         ? definition.select.map((projection) => projection.alias)
@@ -280,14 +300,17 @@ export function generateAppQueryArtifacts(
     const optional = parameterEntries.every(([name, parameter]) =>
       isOptionalParameter(name, parameter)
     );
-    const withPage = definition?.page?.includeTotal === true;
+    const withPage = definition?.version === 7 || definition?.page?.includeTotal === true;
     // Existing queries must keep byte-identical generated modules: only opted-in totals
     // change the call shape, so already-generated clients still pass the save gate.
-    const returnType = withPage
-      ? `QueryPageResult<QueryRows[${JSON.stringify(id)}]>`
-      : query.result === 'one'
-        ? `QueryRows[${JSON.stringify(id)}] | null`
-        : `Array<QueryRows[${JSON.stringify(id)}]>`;
+    const returnType =
+      definition?.version === 7
+        ? `QueryPageResult<QueryRows[${JSON.stringify(id)}], QueryCursorPage${definition.page?.includeTotal === true ? ' & { total: number }' : ''}>`
+        : withPage
+          ? `QueryPageResult<QueryRows[${JSON.stringify(id)}]${usesCursor ? ', QueryOffsetPage' : ''}>`
+          : query.result === 'one'
+            ? `QueryRows[${JSON.stringify(id)}] | null`
+            : `Array<QueryRows[${JSON.stringify(id)}]>`;
     const signature = `  ${JSON.stringify(id)}: (parameters: QueryParameters[${JSON.stringify(
       id
     )}]${optional ? ' = {}' : ''}): Promise<${returnType}>`;
@@ -375,16 +398,33 @@ export type QueryRows = {
 ${rows.join('\n')}
 };
 ${
-  usesPage
-    ? `export type QueryPage = { limit: number; offset: number; total: number };
+  usesCursor
+    ? `export type QueryOffsetPage = { limit: number; offset: number; total: number };
+export type QueryCursorPage = { limit: number; nextCursor: string | null; total?: number };
+export type QueryPage = QueryOffsetPage | QueryCursorPage;
+export type QueryPageResult<Row, Page extends QueryPage = QueryPage> = { rows: Array<Row>; page: Page };
+const isQueryPage = (value: unknown): value is QueryPage =>
+  isObject(value) && typeof value.limit === 'number' && Number.isInteger(value.limit) && value.limit >= 1 && value.limit <= 1000 &&
+  ((typeof value.offset === 'number' && Number.isInteger(value.offset) && value.offset >= 0 && value.offset <= 2147483647 &&
+    typeof value.total === 'number' && Number.isInteger(value.total) && value.total >= 0 &&
+    Object.keys(value).every((key) => ['limit', 'offset', 'total'].includes(key))) ||
+   ((value.nextCursor === null || (typeof value.nextCursor === 'string' && value.nextCursor.length >= 1)) &&
+    (value.total === undefined || (typeof value.total === 'number' && Number.isInteger(value.total) && value.total >= 0)) &&
+    Object.keys(value).every((key) => ['limit', 'nextCursor', 'total'].includes(key))));
+const cursorQueries: Record<QueryId, boolean> = ${JSON.stringify(Object.fromEntries(ids.map((id) => [id, resolvedDefinition(id)?.version === 7])))};
+const totalQueries: Record<QueryId, boolean> = ${JSON.stringify(Object.fromEntries(ids.map((id) => [id, resolvedDefinition(id)?.page?.includeTotal === true])))};
+`
+    : usesPage
+      ? `export type QueryPage = { limit: number; offset: number; total: number };
 export type QueryPageResult<Row> = { rows: Array<Row>; page: QueryPage };
 const isQueryPage = (value: unknown): value is QueryPage =>
   isObject(value) && typeof value.limit === 'number' && typeof value.offset === 'number' &&
   typeof value.total === 'number';
 `
-    : ''
+      : ''
 }const definitions = ${json(definitions, orderedRelations)};
 const fallbacks = ${json(fallbacks)};
+const libraries = ${json(Object.fromEntries(ids.map((id) => [id, manifest.queries[id].library ?? null])))};
 
 export class QueryError extends Error {
   constructor(public readonly code: string, public readonly queryId: QueryId) {
@@ -518,16 +558,19 @@ ${
     ? `async function execute<K extends QueryId>(
   queryId: K, parameters: QueryParameters[K], one: boolean, withPage = false
 ): Promise<QueryRows[K] | Array<QueryRows[K]> | QueryPageResult<QueryRows[K]> | null> {
-  if (definitions[queryId] === null) {
+  if (definitions[queryId] === null && libraries[queryId] === null) {
     // The SQL fallback cannot produce a same-scope total, so never fake one.
     if (withPage) throw new QueryError('data_query.unsupported_include_total', queryId);
     return executeLegacy(queryId, parameters, one, 'sql_query_by_design');
   }
   let response: unknown;
   try {
-    response = await request<unknown>('/v2/queries/execute', {
+    const library = libraries[queryId] as { id: string; revision: number } | null;
+    const { baseId } = getConfig();
+    if (library && !baseId) throw new Error('TEABLE_BASE_ID is not configured');
+    response = await request<unknown>(library ? \`/base/\${encodeURIComponent(baseId!)}/query-library/\${encodeURIComponent(library.id)}/revisions/\${library.revision}/run\` : '/v2/queries/execute', {
       method: 'POST', acceptErrorResponse: true,
-      body: { queryId, definition: definitions[queryId], parameters },
+      body: library ? { parameters } : { queryId, definition: definitions[queryId], parameters },
     });
   } catch {
     throw new QueryError('data_query.transport_failed', queryId);
@@ -543,6 +586,14 @@ ${
   if (one && rows.length > 1) throw new QueryError('data_query.cardinality', queryId);
   if (withPage) {
     if (!isQueryPage(response.data.page)) throw new QueryError('data_query.invalid_response', queryId);
+${
+  usesCursor
+    ? `    if (cursorQueries[queryId] && !('nextCursor' in response.data.page)) throw new QueryError('data_query.invalid_response', queryId);
+    if (!cursorQueries[queryId] && !('offset' in response.data.page)) throw new QueryError('data_query.invalid_response', queryId);
+    if (totalQueries[queryId] && typeof response.data.page.total !== 'number') throw new QueryError('data_query.invalid_response', queryId);
+`
+    : ''
+}\
     return { rows, page: response.data.page } as QueryPageResult<QueryRows[K]>;
   }
   return (one ? rows[0] ?? null : rows) as QueryRows[K] | Array<QueryRows[K]>;
@@ -551,13 +602,16 @@ ${
     : `async function execute<K extends QueryId, One extends boolean>(
   queryId: K, parameters: QueryParameters[K], one: One
 ): Promise<One extends true ? QueryRows[K] | null : Array<QueryRows[K]>> {
-  if (definitions[queryId] === null)
+  if (definitions[queryId] === null && libraries[queryId] === null)
     return executeLegacy(queryId, parameters, one, 'sql_query_by_design');
   let response: unknown;
   try {
-    response = await request<unknown>('/v2/queries/execute', {
+    const library = libraries[queryId] as { id: string; revision: number } | null;
+    const { baseId } = getConfig();
+    if (library && !baseId) throw new Error('TEABLE_BASE_ID is not configured');
+    response = await request<unknown>(library ? \`/base/\${encodeURIComponent(baseId!)}/query-library/\${encodeURIComponent(library.id)}/revisions/\${library.revision}/run\` : '/v2/queries/execute', {
       method: 'POST', acceptErrorResponse: true,
-      body: { queryId, definition: definitions[queryId], parameters },
+      body: library ? { parameters } : { queryId, definition: definitions[queryId], parameters },
     });
   } catch {
     throw new QueryError('data_query.transport_failed', queryId);
@@ -582,4 +636,81 @@ ${functions.join('\n')}
   const digest = createHash('sha256').update(body).digest('hex');
   const module = `${DATA_QUERY_GENERATED_CLIENT_HEADER}\n${GENERATED_CLIENT_DIGEST_PREFIX}${digest}\n${body}`;
   return ok({ module, schema: `${json(dataQueryManifestJsonSchema())}\n` });
+}
+
+/** Differences an App author must inspect before accepting a different fixed revision. */
+export function compareAppQueryContracts(
+  previous: {
+    definition: NonNullable<DataQueryManifest['queries'][string]['definition']>;
+    outputs: readonly DataQueryOutput[];
+    result: 'one' | 'many';
+  },
+  next: {
+    definition: NonNullable<DataQueryManifest['queries'][string]['definition']>;
+    outputs: readonly DataQueryOutput[];
+    result: 'one' | 'many';
+  }
+): Array<{ path: string; change: string }> {
+  const changes: Array<{ path: string; change: string }> = [];
+  const before = previous.definition.parameters ?? {};
+  const after = next.definition.parameters ?? {};
+  const beforeOptional = dataQueryOptionalParameters(previous.definition);
+  const afterOptional = dataQueryOptionalParameters(next.definition);
+  for (const [name, parameter] of Object.entries(before)) {
+    const updated = after[name];
+    if (!updated) changes.push({ path: `parameters.${name}`, change: 'removed' });
+    else if (
+      parameter.type !== updated.type ||
+      (parameter.nullable && !updated.nullable) ||
+      ((parameter.default !== undefined || beforeOptional.has(name)) &&
+        updated.default === undefined &&
+        !afterOptional.has(name))
+    ) {
+      changes.push({ path: `parameters.${name}`, change: 'narrowed' });
+    }
+  }
+  for (const [name, parameter] of Object.entries(after)) {
+    if (
+      !Object.hasOwn(before, name) &&
+      parameter.default === undefined &&
+      !afterOptional.has(name)
+    ) {
+      changes.push({ path: `parameters.${name}`, change: 'required_added' });
+    }
+  }
+  for (const output of previous.outputs) {
+    const updated = next.outputs.find((candidate) => candidate.alias === output.alias);
+    if (!updated) changes.push({ path: `outputs.${output.alias}`, change: 'removed' });
+    else if (
+      output.wireType !== updated.wireType ||
+      (!output.nullable && updated.nullable) ||
+      output.isMultipleCellValue !== updated.isMultipleCellValue
+    ) {
+      changes.push({ path: `outputs.${output.alias}`, change: 'changed' });
+    }
+  }
+  const oldPage =
+    previous.definition.version === 7
+      ? 'cursor'
+      : previous.definition.page?.includeTotal
+        ? 'offset'
+        : 'none';
+  const newPage =
+    next.definition.version === 7
+      ? 'cursor'
+      : next.definition.page?.includeTotal
+        ? 'offset'
+        : 'none';
+  if (oldPage !== newPage) changes.push({ path: 'page', change: 'changed' });
+  if (
+    previous.result !== next.result ||
+    (next.result === 'one' &&
+      (next.definition.version === 7 ||
+        next.definition.page?.includeTotal === true ||
+        next.definition.kind !== 'records' ||
+        next.definition.recordId === undefined))
+  ) {
+    changes.push({ path: 'result', change: 'changed' });
+  }
+  return changes;
 }

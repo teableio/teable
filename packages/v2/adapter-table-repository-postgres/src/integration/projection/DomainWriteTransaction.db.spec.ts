@@ -2,6 +2,7 @@ import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   ActorId,
+  BackgroundTaskTracker,
   DomainWriteTransaction,
   ProjectionMessageCodecRegistry,
   RecordCreated,
@@ -127,7 +128,8 @@ describe('DomainWriteTransaction (db)', () => {
       failingJournal,
       noopLegacyDispatcher,
       { dispatch: async () => ok(undefined) },
-      container.resolve<ILogger>(v2CoreTokens.logger)
+      container.resolve<ILogger>(v2CoreTokens.logger),
+      new BackgroundTaskTracker()
     );
     const markerId = `marker-append-fail-${crypto.randomUUID()}`;
 
@@ -208,7 +210,8 @@ describe('DomainWriteTransaction (db)', () => {
           );
         },
       },
-      container.resolve<ILogger>(v2CoreTokens.logger)
+      container.resolve<ILogger>(v2CoreTokens.logger),
+      new BackgroundTaskTracker()
     );
     const markerId = `marker-same-tx-fail-${crypto.randomUUID()}`;
 

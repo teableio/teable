@@ -1,3 +1,4 @@
+import { createV2PostgresPgliteDb } from '@teable/v2-adapter-db-postgres-pglite';
 import {
   ActorId,
   buildRecordConditionSpec,
@@ -7,13 +8,11 @@ import {
   type Table,
 } from '@teable/v2-core';
 import { DataQueryDefinition } from '@teable/v2-data-query';
-import { sql } from 'kysely';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import { sql, type TransactionSettings } from 'kysely';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  createPGliteDb,
-  type PGliteTestDb,
-} from '../../schema/visitors/__tests__/helpers/createPGliteDb';
+import type { PGliteTestDb } from '../../schema/visitors/__tests__/helpers/createPGliteDb';
 import { PostgresDataQueryExecutor } from './PostgresDataQueryExecutor';
 
 const tableId = `tbl${'q'.repeat(16)}`;
@@ -98,12 +97,16 @@ const optionalLeaf = (optional = true) => ({
 });
 
 describe('Postgres data query extensions on PGlite', () => {
-  let database: PGliteTestDb;
+  let database: Pick<PGliteTestDb, 'db'>;
   let table: Table;
   let executor: PostgresDataQueryExecutor;
 
   beforeEach(async () => {
-    database = await createPGliteDb();
+    database = {
+      db: await createV2PostgresPgliteDb<V1TeableDatabase>({
+        pg: { connectionString: 'memory://' },
+      }),
+    };
     const foreign = mapper.toDomain(foreignDto())._unsafeUnwrap();
     table = mapper.toDomain(hostDto())._unsafeUnwrap();
     const lookup = table
@@ -145,6 +148,57 @@ describe('Postgres data query extensions on PGlite', () => {
 
   afterEach(async () => {
     await database.db.destroy();
+  });
+
+  it.each<[TransactionSettings, string, string]>([
+    [{}, 'read committed', 'off'],
+    [{ isolationLevel: 'serializable' }, 'serializable', 'off'],
+    [{ accessMode: 'read only' }, 'read committed', 'on'],
+    [{ accessMode: 'read write' }, 'read committed', 'off'],
+    [{ isolationLevel: 'repeatable read', accessMode: 'read only' }, 'repeatable read', 'on'],
+  ])('applies PGlite transaction settings %j', async (settings, isolation, readOnly) => {
+    let builder = database.db.transaction();
+    if (settings.isolationLevel) {
+      builder = builder.setIsolationLevel(settings.isolationLevel);
+    }
+    if (settings.accessMode) {
+      builder = builder.setAccessMode(settings.accessMode);
+    }
+    await builder.execute(async (transaction) => {
+      const result = await sql<{ isolation: string; read_only: string }>`select
+        current_setting('transaction_isolation') as isolation,
+        current_setting('transaction_read_only') as read_only`.execute(transaction);
+      expect(result.rows).toEqual([{ isolation, read_only: readOnly }]);
+    });
+  });
+
+  it('rejects writes in read-only transactions and rolls back before reusing the connection', async () => {
+    await expect(
+      database.db
+        .transaction()
+        .setIsolationLevel('repeatable read')
+        .setAccessMode('read only')
+        .execute(async (transaction) => {
+          // Even if read-only regresses, this statement cannot change fixture rows.
+          await sql`delete from ${sql.id('public', physicalTable)} where false`.execute(
+            transaction
+          );
+        })
+    ).rejects.toMatchObject({ code: '25006' });
+
+    await database.db.transaction().execute(async (transaction) => {
+      const settings = await sql<{ isolation: string; read_only: string }>`select
+        current_setting('transaction_isolation') as isolation,
+        current_setting('transaction_read_only') as read_only`.execute(transaction);
+      expect(settings.rows).toEqual([{ isolation: 'read committed', read_only: 'off' }]);
+      const write = await sql`delete from ${sql.id('public', physicalTable)} where false`.execute(
+        transaction
+      );
+      expect(write.numAffectedRows).toBe(0n);
+    });
+    const result = await sql<{ count: string }>`select count(*)::text as count
+      from ${sql.id('public', physicalTable)}`.execute(database.db);
+    expect(result.rows).toEqual([{ count: '4' }]);
   });
 
   it('prunes absent optional leaves in and/or/not and keeps required predicates', async () => {

@@ -14,6 +14,7 @@ import {
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
+import { z } from 'zod';
 
 export type DomainEventClaimIdentity = Readonly<{
   consumerId: string;
@@ -84,6 +85,35 @@ const DOMAIN_EVENT_RECONCILE_BATCH = 1000;
 const DOMAIN_EVENT_MAINTENANCE_BUDGET_MS = 5_000;
 const DOMAIN_EVENT_LEASE_MS = 120_000;
 
+export type MetadataDomainEventWorkerOptions = Readonly<{
+  transactionScope: 'meta';
+  destinationInboxExists: (
+    delivery: Readonly<{
+      eventId: string;
+      consumerId: string;
+      message: ProjectionMessageJson;
+    }>
+  ) => Promise<boolean>;
+}>;
+
+const metadataEnvelopeSchema = z
+  .object({
+    projectionEnvelopeVersion: z.literal(1),
+    payload: z.unknown(),
+    context: z
+      .object({
+        actorId: z.string().min(1),
+        requestId: z.string().optional(),
+        windowId: z.string().optional(),
+        undoRedoMode: z.enum(['undo', 'redo', 'normal']).optional(),
+        correlationId: z.string().optional(),
+        causationId: z.string().optional(),
+      })
+      .strict(),
+    occurredAt: z.string().datetime(),
+  })
+  .strict();
+
 export class DomainEventOutboxWorker {
   private readonly claimIdentities: ReadonlyArray<DomainEventClaimIdentity>;
 
@@ -96,7 +126,8 @@ export class DomainEventOutboxWorker {
     private readonly codecs: IProjectionMessageCodecRegistry,
     private readonly logger: ILogger,
     private readonly schema?: string,
-    claimIdentities?: ReadonlyArray<DomainEventClaimIdentity>
+    claimIdentities?: ReadonlyArray<DomainEventClaimIdentity>,
+    private readonly metadataOptions?: MetadataDomainEventWorkerOptions
   ) {
     this.claimIdentities = claimIdentities ?? deriveClaimIdentities(handlers, codecs);
   }
@@ -393,11 +424,23 @@ export class DomainEventOutboxWorker {
     const liveDelivery = owned.value;
     const remainingMs = liveDelivery.remainingMs;
 
-    if (await this.inboxExists(liveDelivery)) {
+    const isMetadata = this.metadataOptions?.transactionScope === 'meta';
+    const envelope = isMetadata
+      ? metadataEnvelopeSchema.safeParse(liveDelivery.payload)
+      : undefined;
+    if (envelope && !envelope.success) {
+      return this.markFailed(liveDelivery, {
+        code: 'domain_event.metadata_context_invalid',
+        retryability: 'terminal',
+        message: 'Metadata delivery requires its original persisted actor and occurrence time',
+      });
+    }
+    const persisted = envelope?.success ? envelope.data : undefined;
+    if (!isMetadata && (await this.inboxExists(liveDelivery))) {
       return this.markSucceeded(liveDelivery);
     }
 
-    const payload = liveDelivery.payload as ProjectionMessageJson;
+    const payload = (persisted ? persisted.payload : liveDelivery.payload) as ProjectionMessageJson;
     const decoded = this.codecs.decode(
       liveDelivery.messageName,
       liveDelivery.schemaVersion,
@@ -412,6 +455,26 @@ export class DomainEventOutboxWorker {
             : 'terminal',
         message: decoded.error.message,
       });
+    }
+
+    if (this.metadataOptions) {
+      try {
+        if (
+          await this.metadataOptions.destinationInboxExists({
+            eventId: liveDelivery.eventId,
+            consumerId: liveDelivery.consumerId,
+            message: decoded.value,
+          })
+        ) {
+          return this.markSucceeded(liveDelivery);
+        }
+      } catch (error) {
+        return this.markFailed(liveDelivery, {
+          code: 'domain_event.inbox_lookup_failed',
+          retryability: 'retryable',
+          message: error instanceof Error ? error.message : 'Failed to verify destination inbox',
+        });
+      }
     }
 
     const handler = this.handlers.get(liveDelivery.consumerId);
@@ -434,8 +497,8 @@ export class DomainEventOutboxWorker {
       consumerGeneration: 1,
       replayGeneration: 0,
       invocationAttempt: liveDelivery.attempts,
-      actorId: 'system',
-      occurredAt: new Date(),
+      ...(persisted ? persisted.context : { actorId: 'system' }),
+      occurredAt: persisted ? new Date(persisted.occurredAt) : new Date(),
       dispatchScope: createEventDispatchScope(),
       leaseSignal: abort.signal,
     };
@@ -459,7 +522,25 @@ export class DomainEventOutboxWorker {
       handled.value.kind === 'applied' &&
       handled.value.effectReceipt.kind === 'destination-inbox'
     ) {
-      if (!(await this.inboxExists(liveDelivery))) {
+      let inboxExists: boolean;
+      if (this.metadataOptions) {
+        try {
+          inboxExists = await this.metadataOptions.destinationInboxExists({
+            eventId: liveDelivery.eventId,
+            consumerId: liveDelivery.consumerId,
+            message: decoded.value,
+          });
+        } catch (error) {
+          return this.markFailed(liveDelivery, {
+            code: 'domain_event.inbox_lookup_failed',
+            retryability: 'retryable',
+            message: error instanceof Error ? error.message : 'Failed to verify destination inbox',
+          });
+        }
+      } else {
+        inboxExists = await this.inboxExists(liveDelivery);
+      }
+      if (!inboxExists) {
         return this.markFailed(liveDelivery, {
           code: 'domain_event.inbox_missing',
           retryability: 'terminal',

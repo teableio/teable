@@ -1169,6 +1169,7 @@ export class TableQueryRemediationTask {
       readonly result?: unknown;
       readonly attempts: number;
       readonly maxAttempts: number;
+      readonly resumeAttempt?: boolean;
       readonly lockedAt?: Date;
       readonly lockedBy?: string;
       readonly lastError?: string;
@@ -1197,6 +1198,7 @@ export class TableQueryRemediationTask {
         payload: input.payload,
         attempts: 0,
         maxAttempts: 3,
+        resumeAttempt: false,
         createdTime: input.now,
       })
     );
@@ -1209,16 +1211,23 @@ export class TableQueryRemediationTask {
   }
 
   start(workerId: string, now: Date): Result<TableQueryRemediationTask, DomainError> {
+    const trigger = (this.props.payload as { trigger?: string } | null)?.trigger;
+    const reclaim = this.props.kind === 'drop_search_access_path' && trigger === 'reclaim';
     const recoveringSearch =
-      this.props.status === 'running' &&
-      [
+      ((this.props.status === 'running' &&
+        this.props.lockedBy === workerId &&
+        this.props.lockedAt !== undefined) ||
+        (this.props.status === 'queued' &&
+          this.props.resumeAttempt === true &&
+          this.props.attempts > 0 &&
+          (trigger === 'schema_change' || reclaim))) &&
+      ([
         'create_search_access_path',
         'rebuild_search_access_path',
         'create_search_vector',
         'rebuild_search_vector',
-      ].includes(this.props.kind) &&
-      this.props.lockedBy === workerId &&
-      this.props.lockedAt !== undefined;
+      ].includes(this.props.kind) ||
+        reclaim);
     if (this.props.status !== 'queued' && this.props.status !== 'failed' && !recoveringSearch) {
       return err(
         domainError.conflict({ message: 'Only queued, failed or reserved search tasks can start' })
@@ -1238,6 +1247,7 @@ export class TableQueryRemediationTask {
         ...this.props,
         status: 'running',
         attempts: this.props.attempts + (recoveringSearch ? 0 : 1),
+        resumeAttempt: false,
         lockedBy: workerId,
         lockedAt: this.props.lockedAt ?? now,
         lastModifiedTime: now,
@@ -1254,6 +1264,7 @@ export class TableQueryRemediationTask {
         ...this.props,
         status: 'succeeded',
         result,
+        lastError: undefined,
         lastModifiedTime: now,
       })
     );
@@ -1273,6 +1284,39 @@ export class TableQueryRemediationTask {
         status: 'failed',
         lastError: errorMessage,
         maxAttempts: retryable ? this.props.maxAttempts : this.props.attempts,
+        lastModifiedTime: now,
+      })
+    );
+  }
+
+  deferMaintenance(
+    errorMessage: string,
+    attempts: number,
+    now: Date
+  ): Result<TableQueryRemediationTask, DomainError> {
+    if (
+      this.props.status !== 'running' ||
+      !(
+        (['rebuild_search_access_path', 'rebuild_search_vector'].includes(this.props.kind) &&
+          (this.props.payload as { trigger?: string } | null)?.trigger === 'schema_change') ||
+        (this.props.kind === 'drop_search_access_path' &&
+          (this.props.payload as { trigger?: string } | null)?.trigger === 'reclaim')
+      ) ||
+      !Number.isInteger(attempts) ||
+      attempts < this.props.attempts - 1 ||
+      attempts > this.props.attempts
+    ) {
+      return err(
+        domainError.conflict({ message: 'Only running search maintenance can be deferred' })
+      );
+    }
+    return ok(
+      new TableQueryRemediationTask({
+        ...this.props,
+        status: 'queued',
+        attempts,
+        resumeAttempt: attempts > 0 && attempts === this.props.attempts,
+        lastError: errorMessage,
         lastModifiedTime: now,
       })
     );

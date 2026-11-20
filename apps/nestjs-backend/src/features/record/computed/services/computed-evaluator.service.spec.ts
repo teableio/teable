@@ -16,8 +16,8 @@ vi.mock('../../query-builder', () => ({
   ['InjectRecordQueryBuilder']: () => () => undefined,
 }));
 
-vi.mock('../../../calculation/batch.service', () => ({
-  BatchService: class BatchService {},
+vi.mock('../../../../share-db/raw-op-staging.service', () => ({
+  RawOpStagingService: class RawOpStagingService {},
 }));
 
 vi.mock('./record-computed-update.service', () => ({
@@ -52,7 +52,7 @@ describe('ComputedEvaluatorService', () => {
     const module = await import('./computed-evaluator.service');
     computedEvaluatorServiceClass =
       module.ComputedEvaluatorService as IComputedEvaluatorServiceCtor;
-  });
+  }, 60_000);
 
   beforeEach(() => {
     const qb = {

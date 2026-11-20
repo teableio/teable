@@ -1359,9 +1359,11 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
   120_000
 );
 
-it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
-  'bounds the first planned rerun claim before hydrating archived membership and computes every row',
-  async () => {
+it
+  .runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')
+  .each(['by-id', 'batch', 'legacy', 'exhausted-by-id', 'exhausted-batch'] as const)(
+  'resumes an interrupted planned rerun through %s and computes every archived row',
+  async (claimMode) => {
     const runtime = await createV2NodeTestContainer({
       connectionString: process.env.TEABLE_V2_TEST_DATABASE_URL,
       computedUpdate: {
@@ -1481,9 +1483,127 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
           1000
         )
       ).toMatchObject({ status: 'recovered' });
-      const firstClaim = (
-        await outbox.claimById({ taskId: original.id, workerId: 'bounded-rerun' })
-      )._unsafeUnwrap();
+      // Stop after the first committed page, just as a broker admission followed
+      // by a process exit would. The remaining five IDs must survive the restart.
+      expect(
+        (
+          await outbox.claimById({
+            taskId: original.id,
+            workerId: 'interrupted-preparation',
+            yieldAfterPreparation: true,
+          })
+        )._unsafeUnwrap()
+      ).toBeNull();
+      const interrupted = await runtime.db
+        .selectFrom('computed_update_outbox')
+        .select(['status', 'dirty_stats', 'seed_record_ids', 'attempts'])
+        .where('id', '=', original.id)
+        .executeTakeFirstOrThrow();
+      expect(interrupted).toMatchObject({
+        status: 'pending',
+        seed_record_ids: null,
+        attempts: 0,
+        dirty_stats: { preparingFrontier: true, plannedRerun: true },
+      });
+      const membership = await sql<{ kind: string; recordId: string; seq: string }>`
+        select kind, record_id as "recordId", seq::text from computed_update_stage_ledger
+        where scope_id=${original.id} and kind in ('frontier','rerun-source')
+        order by kind, record_id`.execute(runtime.db);
+      const orderedIds = records.map((record) => record.id().toString()).sort();
+      for (const kind of ['frontier', 'rerun-source']) {
+        const page = membership.rows.filter((row) => row.kind === kind);
+        expect(page.map((row) => row.recordId)).toEqual(orderedIds.slice(0, 2));
+        expect(page.every((row) => BigInt(row.seq) < 0n)).toBe(true);
+      }
+      const suffix = await runtime.db
+        .selectFrom('computed_update_outbox_seed')
+        .select('record_id')
+        .where('task_id', '=', original.id)
+        .orderBy('record_id')
+        .execute();
+      expect(suffix.map((row) => row.record_id)).toEqual(orderedIds.slice(2));
+
+      if (claimMode.startsWith('exhausted-')) {
+        // Crash during the next admission and exhaust its lease budget. Recovery
+        // must archive the union of the committed page and the remaining seeds.
+        await sql`update computed_update_outbox set status='processing',
+          attempts=max_attempts-1,locked_at=${new Date(0)},locked_by='lost-admission'
+          where id=${original.id}`.execute(runtime.db);
+        if (claimMode === 'exhausted-by-id') {
+          expect(
+            (await outbox.claimById({ taskId: original.id, workerId: 'exhausted' }))._unsafeUnwrap()
+          ).toBeNull();
+        } else {
+          expect(
+            (await outbox.claimBatch({ workerId: 'exhausted', limit: 1 }))._unsafeUnwrap()
+          ).toEqual([]);
+        }
+        const archived = await sql<{ recordId: string }>`select record_id as "recordId"
+          from computed_update_dead_letter_seed where task_id=${original.id} order by record_id`.execute(
+          runtime.db
+        );
+        expect(archived.rows.map((row) => row.recordId)).toEqual(orderedIds);
+        const dead = await runtime.db
+          .selectFrom('computed_update_dead_letter')
+          .select('dirty_stats')
+          .where('id', '=', original.id)
+          .executeTakeFirstOrThrow();
+        expect(dead.dirty_stats).toMatchObject({
+          rerunInputs: { version: 1, complete: true, seedCount: '7' },
+        });
+        expect(
+          await runtime.db
+            .selectFrom('computed_update_stage_ledger')
+            .select('scope_id')
+            .where('scope_id', '=', original.id)
+            .execute()
+        ).toEqual([]);
+        expect(
+          await manager.recoverComputedOutboxMaintenanceAnomaly(
+            {
+              cacheKey: 'bounded',
+              url: runtime.connectionString,
+              isMetaFallback: true,
+              storage: 'default',
+            },
+            original.id,
+            'dead',
+            1000
+          )
+        ).toMatchObject({ status: 'recovered' });
+      } else if (claimMode === 'legacy') {
+        // Exact old plannedRerun preparation: its row_number restarts at one for
+        // the remaining suffix. New pages must not share those sequence values.
+        await runtime.db.transaction().execute(async (trx) => {
+          const row = await trx
+            .selectFrom('computed_update_outbox')
+            .select('dirty_stats')
+            .where('id', '=', original.id)
+            .forUpdate()
+            .executeTakeFirstOrThrow();
+          expect(row.dirty_stats).toMatchObject({ plannedRerun: true });
+          await sql`insert into computed_update_stage_ledger(scope_id,kind,table_id,record_id,seq)
+            select ${original.id},kind,table_id,record_id,
+              row_number() over(partition by kind order by table_id,record_id)
+            from computed_update_outbox_seed cross join (values ('frontier'),('rerun-source')) as kinds(kind)
+            where task_id=${original.id} on conflict do nothing`.execute(trx);
+          await sql`insert into computed_update_stage_ledger(scope_id,kind,table_id,record_id)
+            values(${original.id},'rerun-input-v1','','') on conflict do nothing`.execute(trx);
+          await sql`update computed_update_outbox set seed_record_ids='[]'::jsonb,
+            dirty_stats=(dirty_stats-'plannedRerun') || jsonb_build_object('ledgerScopeId',${original.id}::text)
+            where id=${original.id}`.execute(trx);
+          await trx
+            .deleteFrom('computed_update_outbox_seed')
+            .where('task_id', '=', original.id)
+            .execute();
+        });
+      }
+      const firstClaim =
+        claimMode === 'batch'
+          ? (await outbox.claimBatch({ workerId: 'bounded-rerun', limit: 1 }))._unsafeUnwrap()[0]
+          : (
+              await outbox.claimById({ taskId: original.id, workerId: 'bounded-rerun' })
+            )._unsafeUnwrap();
       if (!firstClaim || !('steps' in firstClaim)) throw new Error('Expected planned rerun');
       const hydratedCount =
         firstClaim.seedRecordIds.length +
@@ -1496,6 +1616,20 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
         runtime.db
       );
       expect(retained.rows[0].count).toBe(7);
+      const frontier = await sql<{
+        count: number;
+        distinctSeq: number;
+      }>`select count(*)::int as count,
+        count(distinct seq)::int as "distinctSeq" from computed_update_stage_ledger
+        where scope_id=${firstClaim.id} and kind='frontier'`.execute(runtime.db);
+      expect(frontier.rows).toEqual([{ count: 7, distinctSeq: 7 }]);
+      expect(
+        await runtime.db
+          .selectFrom('computed_update_outbox_seed')
+          .select('record_id')
+          .where('task_id', '=', firstClaim.id)
+          .execute()
+      ).toEqual([]);
       (
         await outbox.releaseForRetry({
           task: firstClaim,
@@ -1560,7 +1694,7 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1').each(['public', 'byod
         await sql`set local search_path to ${sql.id(schema)},public`.execute(trx);
         await sql`alter table ${sql.id(schema, 'computed_update_stage_ledger')}
           drop constraint computed_update_stage_ledger_kind_check,
-          add constraint computed_update_stage_ledger_kind_check check(kind in ('excluded','frontier','consumed'))`.execute(
+          add constraint computed_update_stage_ledger_kind_check check(kind in ('excluded','frontier','consumed')) not valid`.execute(
           trx
         );
         await sql`savepoint before_new_kind`.execute(trx);

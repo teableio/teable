@@ -28,6 +28,7 @@ describe('TableService write freeze', () => {
       prismaService as never,
       {} as never,
       batchService as never,
+      {} as never,
       { driver: 'pg' } as never,
       {} as never,
       migrationGuard as never

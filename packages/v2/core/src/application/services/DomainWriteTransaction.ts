@@ -36,6 +36,7 @@ import type {
   LegacyEventDispatchReport,
 } from '../../ports/LegacyEventDispatcher';
 import type { ILogger } from '../../ports/Logger';
+import type { BackgroundTaskTracker } from '../../ports/memory/BackgroundTaskTracker';
 import type {
   EncodedProjectionMessage,
   IProjectionMessageCodecRegistry,
@@ -100,6 +101,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     private readonly legacyDispatcher: ILegacyEventDispatcher,
     private readonly sameTxDispatcher: ISameTxProjectionDispatcher,
     private readonly logger: ILogger,
+    private readonly backgroundTasks: BackgroundTaskTracker,
     private readonly generateId: ProjectionMessageIdGenerator = () => generateUuid(),
     private readonly publishedEventLog?: {
       recordPublished?(events: ReadonlyArray<IDomainEvent>): void;
@@ -233,7 +235,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     }
 
     const committed = transactionResult.value;
-    const dispatchContext = withoutTransaction(context);
+    const dispatchContext = this.backgroundTasks.context(withoutTransaction(context));
 
     if (scopeResolution.kind === 'inBatch') {
       if (

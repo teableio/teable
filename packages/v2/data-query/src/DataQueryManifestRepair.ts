@@ -233,7 +233,7 @@ const sourceOf = (item: object): string =>
   'source' in item && typeof item.source === 'string' ? item.source : 'root';
 
 type Relations = NonNullable<
-  Extract<MutableDefinition, { version: 2 | 3 | 4 | 5 | 6 | 8 }>['relations']
+  Extract<MutableDefinition, { version: 2 | 3 | 4 | 5 | 6 | 7 | 8 }>['relations']
 >;
 
 const relationsOf = (definition: MutableDefinition): Relations =>
@@ -338,7 +338,11 @@ const existenceTouchesChange = (
   kind: DataQuerySchemaChange['kind']
 ): boolean => {
   if (
-    (definition.version !== 5 && definition.version !== 6 && definition.version !== 8) ||
+    (definition.version !== 5 &&
+      definition.version !== 6 &&
+      definition.version !== 7 &&
+      definition.version !== 8 &&
+      definition.version !== 9) ||
     !definition.filter
   )
     return false;
@@ -673,10 +677,24 @@ const planQuery = (
     reasons.add('table_deleted');
     return outcome('manual');
   }
+  // Removing or replacing a selected ranking key changes which records survive.
+  if (
+    definition.version === 9 &&
+    (kind === 'field_deleted' ||
+      kind === 'table_deleted' ||
+      kind === 'field_replaced' ||
+      (kind === 'field_updated' && target.typeChanged)) &&
+    ['projection', 'aggregate', 'reference', 'relation'].some((usage) =>
+      semanticUsages.has(usage as DataQueryFieldUsage)
+    )
+  ) {
+    reasons.add('group_semantics_changed');
+    return outcome('manual');
+  }
   // Every selected component defines the tuple grain. Even compatible replacement
   // can change equality; never silently rewrite or prune that contract.
   if (
-    (definition.version === 6 || definition.version === 8) &&
+    (definition.version === 6 || definition.version === 7 || definition.version === 8) &&
     definition.kind === 'records' &&
     definition.distinct &&
     (kind === 'field_deleted' ||

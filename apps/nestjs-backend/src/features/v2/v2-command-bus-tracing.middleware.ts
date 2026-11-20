@@ -40,7 +40,44 @@ const extractCommandIds = (
 };
 
 export class CommandBusTracingMiddleware implements ICommandBusMiddleware {
+  private pending = 0;
+  private idle?: { promise: Promise<void>; resolve: () => void };
+
+  pendingCount(): number {
+    return this.pending;
+  }
+
+  settled(): Promise<void> {
+    if (this.pending === 0) return Promise.resolve();
+    if (!this.idle) {
+      let resolve!: () => void;
+      // The backend's ES2022 library does not declare Promise.withResolvers.
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      this.idle = { promise, resolve };
+    }
+    return this.idle.promise;
+  }
+
   async handle<TCommand, TResult>(
+    context: IExecutionContext,
+    command: TCommand,
+    next: CommandBusNext<TCommand, TResult>
+  ) {
+    this.pending += 1;
+    try {
+      return await this.execute(context, command, next);
+    } finally {
+      this.pending -= 1;
+      if (this.pending === 0) {
+        this.idle?.resolve();
+        this.idle = undefined;
+      }
+    }
+  }
+
+  private async execute<TCommand, TResult>(
     context: IExecutionContext,
     command: TCommand,
     next: CommandBusNext<TCommand, TResult>

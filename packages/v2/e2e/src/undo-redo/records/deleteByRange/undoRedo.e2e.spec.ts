@@ -217,6 +217,77 @@ describe('undo-redo/deleteByRange (e2e)', () => {
     expect(Number(restored?.fields[formulaFieldId])).toBe(1);
   });
 
+  it('[Y5650] streams deletion of a required self-link cycle larger than one batch', async () => {
+    const table = await createBasicTable(ctx, 'Required Self-link Stream Delete');
+    try {
+      const titleId = findFieldId(table, 'Title');
+      const withLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        field: {
+          type: 'link',
+          name: 'Parent',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: table.id,
+            lookupFieldId: titleId,
+            isOneWay: true,
+          },
+        },
+      });
+      const parentId = findFieldId(withLink, 'Parent');
+      const largeRingSize = 250;
+      const rowCount = largeRingSize + 2;
+      const records = await ctx.createRecords(
+        table.id,
+        Array.from({ length: rowCount }, (_, index) => ({ fields: { [titleId]: `Row ${index}` } }))
+      );
+      await ctx.updateRecords({
+        tableId: table.id,
+        records: records.map((record, index) => {
+          const nextIndex =
+            index < largeRingSize ? (index + 1) % largeRingSize : 2 * largeRingSize + 1 - index;
+          return { id: record.id, fields: { [parentId]: { id: records[nextIndex]!.id } } };
+        }),
+      });
+      await ctx.drainOutbox();
+      await ctx.updateField({
+        baseId: ctx.baseId,
+        tableId: table.id,
+        fieldId: parentId,
+        field: { notNull: true },
+      });
+
+      const result = await getCommandBus(ctx).execute(
+        buildUndoRedoContext(),
+        DeleteByRangeStreamCommand.create({
+          tableId: table.id,
+          viewId: getViewId(table),
+          type: 'rows',
+          ranges: [[0, rowCount - 1]],
+          targetRecordIds: records.map((record) => record.id),
+          batchSize: 200,
+        })._unsafeUnwrap()
+      );
+      const events = await collectStreamEvents(result._unsafeUnwrap());
+      expect(events.filter((event) => event.id === 'error')).toEqual([]);
+      const committedBatchSizes = events.flatMap((event) =>
+        event.id === 'progress' && event.phase === 'deleting' && event.batchDeletedCount > 0
+          ? [event.batchDeletedCount]
+          : []
+      );
+      expect(committedBatchSizes.sort((a, b) => a - b)).toEqual([2, largeRingSize]);
+      expect(events.at(-1)).toMatchObject({
+        id: 'done',
+        totalCount: rowCount,
+        deletedCount: rowCount,
+      });
+      expect(await ctx.listRecords(table.id)).toEqual([]);
+    } finally {
+      await ctx.deleteTable(table.id, { mode: 'permanent' });
+    }
+  });
+
   it('commits successful streamed chunks, preserves failed chunks, and undoes only deleted rows', async () => {
     const table = await createBasicTable(ctx, 'Undo E2E DeleteByRange Stream Partial Failure');
     const viewId = getViewId(table);

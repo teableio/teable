@@ -13,6 +13,7 @@ import { LocalStrategy } from './local.strategy';
 
 describe('LocalStrategy', () => {
   let localStrategy: LocalStrategy;
+  let module: TestingModule;
   const authService = mockDeep<LocalAuthService>();
   const cacheService = mockDeep<CacheService>();
   const testEmail = 'test@test.com';
@@ -28,7 +29,7 @@ describe('LocalStrategy', () => {
   } as unknown as Request;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, UserModule],
       providers: [LocalStrategy, LocalAuthService],
     })
@@ -41,7 +42,8 @@ describe('LocalStrategy', () => {
     localStrategy = module.get<LocalStrategy>(LocalStrategy);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await module.close();
     vitest.resetAllMocks();
     mockReset(authService);
     mockReset(cacheService);

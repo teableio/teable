@@ -55,7 +55,6 @@ async function queryWithError(error: HttpError, locale: IRequesterLocale = {}) {
     {} as never,
     {} as never,
     {} as never,
-    undefined,
     i18n as never
   );
   const backend = new ShareDB({ db: adapter });

@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { TableTrashType, TrashType } from '@teable/openapi';
+import { SettingKey, TableTrashType, TrashType } from '@teable/openapi';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { BaseTrashHandler } from '../base/base.trash-handler';
+import { FolderTrashHandler } from '../base-node/folder/folder.trash-handler';
+import { DashboardTrashHandler } from '../dashboard/dashboard.trash-handler';
+import { SpaceTrashHandler } from '../space/space.trash-handler';
+import { TableTrashHandler } from '../table/table.trash-handler';
+import { TrustedRetentionContextService } from '../table-lifecycle/trusted-retention-context.service';
+import { TrashResourceHandlerRegistry } from './resource/trash-resource-handler.registry';
 import { TrashService } from './trash.service';
 
 describe('TrashService audit rows', () => {
@@ -10,10 +17,12 @@ describe('TrashService audit rows', () => {
   };
   const txClient = {
     trash: {
+      findUnique: vi.fn().mockResolvedValue(null),
       findUniqueOrThrow: vi.fn(),
       deleteMany: vi.fn(async () => ({ count: 1 })),
     },
     space: { update: vi.fn() },
+    base: { findUnique: vi.fn(async () => ({ spaceId: 'spc1', v2Enabled: true })) },
     // What a trash row names is deleted here: no resource is found in use.
     tableMeta: { findUnique: vi.fn(async () => null), findMany: vi.fn(async () => []) },
     dashboard: { findUnique: vi.fn(async () => null), findMany: vi.fn(async () => []) },
@@ -37,6 +46,7 @@ describe('TrashService audit rows', () => {
   const spaceService = { permanentDeleteSpace: vi.fn() };
   const baseService = { permanentDeleteBase: vi.fn() };
   const tableOpenApiService = { permanentDeleteTables: vi.fn() };
+  const tableOpenApiV2Service = { permanentDeleteTables: vi.fn() };
   const permissionService = { validPermissions: vi.fn() };
 
   const createService = () => {
@@ -47,9 +57,6 @@ describe('TrashService audit rows', () => {
       {} as never,
       permissionService as never,
       spaceService as never,
-      baseService as never,
-      tableOpenApiService as never,
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -69,6 +76,20 @@ describe('TrashService audit rows', () => {
       {} as never
     );
     (service as any).audit = audit;
+    const cls = { get: vi.fn().mockReturnValue(undefined) };
+    (service as any).resourceHandlers = new TrashResourceHandlerRegistry([
+      new TableTrashHandler(
+        prismaService as never,
+        cls as never,
+        tableOpenApiService as never,
+        tableOpenApiV2Service as never,
+        { shouldUseV2ForBaseWithReason: vi.fn(async () => ({ useV2: true })) } as never
+      ),
+      new DashboardTrashHandler(prismaService as never),
+      new FolderTrashHandler(prismaService as never, cls as never, permissionService as never),
+      new SpaceTrashHandler(prismaService as never, spaceService as never),
+      new BaseTrashHandler(prismaService as never, baseService as never),
+    ]);
     return service;
   };
 
@@ -108,7 +129,7 @@ describe('TrashService audit rows', () => {
       });
       const service = createService();
       vi.spyOn(service as any, 'assertParentNotTrashed').mockResolvedValue(undefined);
-      vi.spyOn(service, 'restoreResource').mockResolvedValue(undefined);
+      vi.spyOn(service as any, 'restoreResource').mockResolvedValue([]);
       prismaService.base.findUnique.mockResolvedValue({ name: 'CRM', spaceId: 'spc1' });
 
       await service.restoreTrash('trh2');
@@ -129,7 +150,7 @@ describe('TrashService audit rows', () => {
       });
       const service = createService();
       vi.spyOn(service as any, 'assertParentNotTrashed').mockResolvedValue(undefined);
-      vi.spyOn(service, 'restoreResource').mockResolvedValue(undefined);
+      vi.spyOn(service as any, 'restoreResource').mockResolvedValue([]);
 
       await service.restoreTrash('trh3');
 
@@ -144,7 +165,7 @@ describe('TrashService audit rows', () => {
         parentId: null,
       });
       const service = createService();
-      vi.spyOn(service, 'restoreResource').mockRejectedValue(new Error('boom'));
+      vi.spyOn(service as any, 'restoreResource').mockRejectedValue(new Error('boom'));
 
       await expect(service.restoreTrash('trh1')).rejects.toThrow('boom');
       expect(audit.emitAtomic).not.toHaveBeenCalled();
@@ -154,7 +175,10 @@ describe('TrashService audit rows', () => {
   describe('permanent delete', () => {
     // The purge reads its row again under the project's lock.
     beforeEach(() => {
-      prismaService.trash.findUnique.mockResolvedValue({ id: 'trh1' });
+      prismaService.trash.findUnique.mockImplementation(() =>
+        prismaService.trash.findUniqueOrThrow()
+      );
+      txClient.trash.findUnique.mockImplementation(() => prismaService.trash.findUniqueOrThrow());
     });
 
     it('writes base.permanent-delete with the name read before the purge', async () => {
@@ -180,7 +204,7 @@ describe('TrashService audit rows', () => {
     });
 
     it('writes space.permanent-delete, flagged when a BYODB space is force removed', async () => {
-      prismaService.trash.findUnique.mockResolvedValue({
+      prismaService.trash.findUniqueOrThrow.mockResolvedValue({
         id: 'trh1',
         resourceId: 'spc1',
         resourceType: TrashType.Space,
@@ -210,7 +234,8 @@ describe('TrashService audit rows', () => {
 
       await createService().delete('trh1');
 
-      expect(tableOpenApiService.permanentDeleteTables).toHaveBeenCalledWith('bse1', ['tbl1']);
+      expect(tableOpenApiV2Service.permanentDeleteTables).toHaveBeenCalledWith('bse1', ['tbl1']);
+      expect(tableOpenApiService.permanentDeleteTables).not.toHaveBeenCalled();
       expect(audit.emitAtomic).not.toHaveBeenCalled();
     });
 
@@ -220,9 +245,23 @@ describe('TrashService audit rows', () => {
         resourceId: 'bse1',
         resourceType: TrashType.Base,
         parentId: 'spc1',
+        deletedTime: new Date(0),
       });
 
-      await createService().delete('trh1', true);
+      const retention = new TrustedRetentionContextService(
+        prismaService as never,
+        {
+          getSetting: vi.fn(async () => ({
+            [SettingKey.TRASH_CLEANUP_ENABLED_AT]: new Date(0).toISOString(),
+          })),
+        } as never,
+        { retention: 1000 } as never
+      );
+      const service = createService();
+      Object.assign(service, { trustedRetentionContextService: retention });
+      const capability = await retention.issueForExpiredTrash('trh1');
+
+      await service.delete('trh1', true, undefined, capability);
 
       expect(baseService.permanentDeleteBase).toHaveBeenCalledWith('bse1', true);
       expect(prismaService.base.findUnique).not.toHaveBeenCalled();

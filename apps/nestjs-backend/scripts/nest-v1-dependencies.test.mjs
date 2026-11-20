@@ -272,6 +272,45 @@ test('allows local same-named symbols, host services, v2 adapters and legacy int
   assert.deepEqual(collectDependencies(f.root), []);
 });
 
+test('host seams still expose nested legacy imports, injections and module registration', (t) => {
+  const f = fixture(t);
+  const hostService = `${ce}/features/field/open-api/field-dependency-read.service.ts`;
+  const hostModule = `${ce}/features/table/table-move.module.ts`;
+  f.write(
+    hostService,
+    `
+    import { RecordService } from '../../record/record.service';
+    export class FieldDependencyReadService { constructor(records: RecordService) {} }
+  `
+  );
+  f.write(
+    hostModule,
+    `
+    import { RecordService } from '../record/record.service';
+    @Module({ providers: [RecordService] })
+    export class TableMoveModule {}
+  `
+  );
+  f.write(
+    `${ce}/features/v2/host.ts`,
+    `
+    import { FieldDependencyReadService } from '../field/open-api/field-dependency-read.service';
+    import { TableMoveModule } from '../table/table-move.module';
+    @Module({ imports: [TableMoveModule], providers: [FieldDependencyReadService] })
+    export class Consumer {}
+  `
+  );
+  assert.deepEqual(
+    byKey(collectDependencies(f.root)),
+    byKey([
+      edge(hostService),
+      edge(hostService, 'injection', 'FieldDependencyReadService'),
+      edge(hostModule),
+      edge(hostModule, 'provider', 'TableMoveModule:providers'),
+    ])
+  );
+});
+
 test('tracks query-builder interface and custom injection decorator identities', (t) => {
   const f = fixture(t);
   const target = `${ce}/features/record/query-builder/index.ts`;

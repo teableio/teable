@@ -11,6 +11,10 @@ import type { FormulaSqlPgTranslator } from './FormulaSqlPgTranslator';
 import { buildErrorLiteral } from './PgSqlHelpers';
 import { makeExpr, type SqlExpr } from './SqlExpression';
 
+type PendingNode =
+  | { node: FormulaExpressionNode; expanded: false }
+  | { node: FormulaExpressionNode; expanded: true; concatInputs?: FormulaExpressionNode[] };
+
 /** Lower each shared graph node once, retaining type metadata alongside SQL references. */
 export class FormulaSqlPgLowering {
   readonly bindings: FormulaSqlPgBindings;
@@ -67,28 +71,28 @@ export class FormulaSqlPgLowering {
     if (!this.uses.size) this.countUses(node);
     const cached = this.lowered.get(node.id);
     if (cached) return cached;
-    const pending: Array<{ node: FormulaExpressionNode; expanded: boolean }> = [
-      { node, expanded: false },
-    ];
+    const pending: PendingNode[] = [{ node, expanded: false }];
     while (pending.length) {
       const entry = pending.pop()!;
       const current = entry.node;
       if (this.lowered.has(current.id)) continue;
       if (!entry.expanded) {
-        pending.push({ node: current, expanded: true });
-        this.scheduleInputs(current, pending);
+        const concatInputs = this.concatInputs(current);
+        pending.push({ node: current, expanded: true, concatInputs });
+        this.scheduleInputs(current, pending, concatInputs);
         continue;
       }
-      this.lowered.set(current.id, this.bindNode(current));
+      this.lowered.set(current.id, this.bindNode(current, entry.concatInputs));
     }
     return this.lowered.get(node.id)!;
   }
 
   private scheduleInputs(
     node: FormulaExpressionNode,
-    pending: Array<{ node: FormulaExpressionNode; expanded: boolean }>
+    pending: PendingNode[],
+    concatInputs?: FormulaExpressionNode[]
   ): void {
-    const fused = this.arrayFusionInputs(node);
+    const fused = concatInputs ?? this.arrayFusionInputs(node);
     if (fused) {
       for (let index = fused.length - 1; index >= 0; index--)
         pending.push({ node: fused[index], expanded: false });
@@ -111,8 +115,10 @@ export class FormulaSqlPgLowering {
     }
   }
 
-  private bindNode(node: FormulaExpressionNode): SqlExpr {
-    const expression = this.lowerNode(node);
+  private bindNode(node: FormulaExpressionNode, concatInputs?: FormulaExpressionNode[]): SqlExpr {
+    const expression = concatInputs
+      ? this.functionsFor(node.timeZone).applyStringConcat(concatInputs.map((part) => this.lower(part)))
+      : this.lowerNode(node);
     const shared = (this.uses.get(node.id) ?? 0) > 1;
     return {
       ...expression,
@@ -141,6 +147,34 @@ export class FormulaSqlPgLowering {
       else if (current.kind === 'binary') pending.push(current.right, current.left);
       else if (current.kind === 'call') for (const arg of current.args) pending.push(arg);
     }
+  }
+
+  private concatInputs(node: FormulaExpressionNode): FormulaExpressionNode[] | undefined {
+    if (
+      this.translator.maxIntermediateTextBytes === undefined ||
+      node.kind !== 'binary' ||
+      node.operator !== '&'
+    ) {
+      return undefined;
+    }
+    // The sum of nonnegative operand sizes bounds every intermediate concat.
+    // Keep independently consumed nodes and time-zone boundaries intact.
+    const inputs: FormulaExpressionNode[] = [];
+    const pending = [node.right, node.left];
+    while (pending.length) {
+      const current = pending.pop()!;
+      if (
+        current.kind === 'binary' &&
+        current.operator === '&' &&
+        current.timeZone === node.timeZone &&
+        this.uses.get(current.id) === 1
+      ) {
+        pending.push(current.right, current.left);
+      } else {
+        inputs.push(current);
+      }
+    }
+    return inputs;
   }
 
   private arrayFusionInputs(

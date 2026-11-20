@@ -43,7 +43,7 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
   const { confirm } = useConfirm();
   const { t } = useTranslation();
 
-  const { mutateAsync: buttonClickFn } = useMutation({
+  const { mutate: buttonClickFn } = useMutation({
     mutationFn: (ro: { tableId: string; recordId: string; fieldId: string; name: string }) =>
       shareId
         ? shareViewButtonClickApi(shareId, ro.recordId, ro.fieldId)
@@ -210,7 +210,7 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
         loading: true,
         name: ro.name,
       });
-      return buttonClickFn(ro);
+      buttonClickFn(ro);
     },
     [buttonClickFn, setRunning, confirm, t]
   );

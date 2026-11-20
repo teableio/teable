@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpException,
   Param,
@@ -91,11 +92,13 @@ import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.inte
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { getErrorLocalization } from '../v2/v2-http-error';
-import { BaseDuplicateService } from './base-duplicate.service';
+import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { observeBaseExportDisconnect } from './base-export-stream';
 import { BaseExportV2Service } from './base-export-v2.service';
 import { BaseExportService } from './base-export.service';
-import { BaseImportService, formatBaseImportError } from './base-import.service';
+import { formatBaseImportError } from './base-import-contract';
+import { BaseImportV2Service } from './base-import-v2.service';
+import { BaseImportService } from './base-import.service';
 import { BasePersonalOrderService } from './base-personal-order.service';
 import { BaseService } from './base.service';
 
@@ -106,9 +109,10 @@ export class BaseController {
     private readonly baseExportService: BaseExportService,
     private readonly baseExportV2Service: BaseExportV2Service,
     private readonly baseImportService: BaseImportService,
+    private readonly baseImportV2Service: BaseImportV2Service,
     private readonly collaboratorService: CollaboratorService,
     private readonly invitationService: InvitationService,
-    private readonly baseDuplicateService: BaseDuplicateService,
+    private readonly baseDuplicateService: BaseDuplicateV2Service,
     private readonly cls: ClsService<IClsStore>,
     private readonly basePersonalOrderService: BasePersonalOrderService
   ) {}
@@ -136,7 +140,7 @@ export class BaseController {
     importBaseRo: ImportBaseRo
   ): Promise<IImportBaseVo> {
     if (this.cls.get('useV2')) {
-      return await this.baseImportService.importBaseV2(importBaseRo);
+      return await this.baseImportV2Service.importBaseV2(importBaseRo);
     }
     return await this.baseImportService.importBase(importBaseRo);
   }
@@ -148,7 +152,7 @@ export class BaseController {
     @Body(new ZodValidationPipe(importBaseRoSchema))
     importBaseRo: ImportBaseRo
   ): Promise<IImportBasePreviewVo> {
-    return await this.baseImportService.previewImportBase(importBaseRo);
+    return await this.baseImportV2Service.previewImportBase(importBaseRo);
   }
 
   @Post('import-stream')
@@ -184,7 +188,7 @@ export class BaseController {
 
     try {
       const importer = this.cls.get('useV2')
-        ? this.baseImportService.importBaseV2.bind(this.baseImportService)
+        ? this.baseImportV2Service.importBaseV2.bind(this.baseImportV2Service)
         : this.baseImportService.importBase.bind(this.baseImportService);
       const result = await importer(
         importBaseRo,
@@ -543,6 +547,12 @@ export class BaseController {
     };
   }
 
+  private assertWholeBaseExportScope() {
+    if (this.cls.get('baseShare')?.nodeId) {
+      throw new ForbiddenException('Project export requires access to the entire project');
+    }
+  }
+
   @Permissions('base|read')
   @Get(':baseId/export')
   async exportBase(
@@ -550,6 +560,7 @@ export class BaseController {
     @Query('includeData') includeData: string | undefined,
     @Res({ passthrough: true }) res: ExpressResponse
   ) {
+    this.assertWholeBaseExportScope();
     const includeDataValue =
       includeData === undefined ? true : !['false', '0'].includes(includeData.toLowerCase());
     const { signal, dispose } = observeBaseExportDisconnect(res);
@@ -564,7 +575,12 @@ export class BaseController {
           signal
         );
       }
-      return await this.baseExportService.exportBaseZip(baseId, includeDataValue, undefined, signal);
+      return await this.baseExportService.exportBaseZip(
+        baseId,
+        includeDataValue,
+        undefined,
+        signal
+      );
     } finally {
       dispose();
     }
@@ -577,6 +593,7 @@ export class BaseController {
     @Query('includeData') includeData: string | undefined,
     @Res() res: ExpressResponse
   ) {
+    this.assertWholeBaseExportScope();
     const includeDataValue =
       includeData === undefined ? true : !['false', '0'].includes(includeData.toLowerCase());
     const sseHeartbeatMs = 15_000;

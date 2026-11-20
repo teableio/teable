@@ -64,6 +64,7 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    return503OnClosing: true,
     ...nestModuleIdOptions,
     ...nestRouteDiagnosticsOptions,
   });

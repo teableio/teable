@@ -3,8 +3,7 @@ import { ShareController } from './share.controller';
 
 const createController = (userId?: string) => {
   const shareService = {
-    copy: vi.fn().mockResolvedValue({ content: 'v1' }),
-    copyV2: vi.fn().mockResolvedValue({ content: 'v2' }),
+    copy: vi.fn().mockResolvedValue({ content: 'v2' }),
   };
   const audit = { emitAtomic: vi.fn().mockResolvedValue(undefined) };
   const cls = { get: vi.fn((key: string) => (key === 'user.id' ? userId : undefined)) };
@@ -28,7 +27,7 @@ describe('ShareController copy audit', () => {
       controller.copy({ shareInfo, useV2: true }, { ranges: [[0, 0]] } as never)
     ).resolves.toEqual({ content: 'v2' });
 
-    expect(shareService.copyV2).toHaveBeenCalled();
+    expect(shareService.copy).toHaveBeenCalled();
     expect(audit.emitAtomic).toHaveBeenCalledWith({
       action: 'shared.view.copy',
       resourceId: 'shr1',

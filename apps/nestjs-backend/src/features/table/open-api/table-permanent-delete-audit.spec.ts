@@ -67,11 +67,19 @@ describe('permanent table delete audit', () => {
 
   describe('v2', () => {
     const createService = () => {
-      const args: unknown[] = Array.from({ length: 11 }, () => ({}));
-      args[2] = prismaService;
-      args[5] = audit;
-      args[9] = undefined;
-      return new (TableOpenApiV2Service as any)(...args) as TableOpenApiV2Service;
+      return new TableOpenApiV2Service(
+        {} as never,
+        {} as never,
+        prismaService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        audit as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
     };
 
     it('writes table.permanent-delete after a permanent delete', async () => {

@@ -36,15 +36,23 @@ import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
-import { DashboardService } from '../dashboard/dashboard.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import type { ITableMovePlan } from '../table/table-move.service';
 import { TableMoveService } from '../table/table-move.service';
 import { BaseDependencyGraphService, nodeKey, parseNodeKey } from './base-dependency-graph.service';
 import type { INodeKey } from './base-dependency-graph.service';
+import type {
+  IBaseNodeMoveExtension,
+  IBaseNodeMovePermissionProvider,
+} from './base-node-move.hooks';
+import {
+  BASE_NODE_MOVE_EXTENSION,
+  BASE_NODE_MOVE_PERMISSION_PROVIDER,
+} from './base-node-move.hooks';
 import { checkBaseNodePermission } from './base-node.permission.helper';
 import { presenceHandler } from './helper';
 import { PROJECT_NODE_LOCK_TTL_SECONDS, projectNodeLockName } from './project-node-lock';
+import { BaseNodeResourceHandlerRegistry } from './resource/base-node-resource-handler.registry';
 import type { IBaseNodePermissionContext, IBaseNodeVisibilityContext } from './types';
 import { BaseNodeAction } from './types';
 
@@ -80,6 +88,20 @@ export type IMoveNodeContext = {
   droppedPermissionRuleCount: number;
   /** moved apps whose sandbox is running */
   sandboxApps: IMoveBaseNodeItem[];
+  /** work that must wait for the commit; each runs once, its failure logged and not thrown */
+  postCommitTasks: (() => Promise<void>)[];
+};
+
+/** The tables a resource names that end up across projects: exactly one of its two ends moves. */
+export const crossingTables = (
+  ctx: IMoveNodeContext,
+  resourceMoves: boolean,
+  referenced: Iterable<string>
+): string[] => {
+  const moved = new Set(ctx.tableIds);
+  return [...new Set(referenced)].filter((tableId) =>
+    resourceMoves ? !moved.has(tableId) : moved.has(tableId)
+  );
 };
 
 /**
@@ -87,9 +109,8 @@ export type IMoveNodeContext = {
  * project of the same space.
  *
  * The node tree part is trivial; the work is re-homing each resource, which is
- * type-specific and edition-specific. Community handles folders, tables and
- * dashboards; the enterprise edition extends the protected hooks for
- * workflows, apps, routines and its permission matrix.
+ * type-specific and edition-specific: each kind's node handler re-homes its own,
+ * and an edition's permission provider and move extension add the rest.
  */
 @Injectable()
 export class BaseNodeMoveService {
@@ -102,9 +123,9 @@ export class BaseNodeMoveService {
     protected readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     protected readonly shareDbService: ShareDbService,
     protected readonly tableMoveService: TableMoveService,
-    protected readonly dashboardService: DashboardService,
     protected readonly collaboratorService: CollaboratorService,
     protected readonly dependencyGraphService: BaseDependencyGraphService,
+    protected readonly nodeHandlers: BaseNodeResourceHandlerRegistry,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @Inject(AuditScope) protected readonly audit: AuditScope,
     @Optional()
@@ -112,7 +133,13 @@ export class BaseNodeMoveService {
     protected readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
     @Optional()
     @Inject(DistributedLockService)
-    protected readonly distributedLockService?: DistributedLockService
+    protected readonly distributedLockService?: DistributedLockService,
+    @Optional()
+    @Inject(BASE_NODE_MOVE_PERMISSION_PROVIDER)
+    protected readonly permissionProvider?: IBaseNodeMovePermissionProvider,
+    @Optional()
+    @Inject(BASE_NODE_MOVE_EXTENSION)
+    protected readonly moveExtension?: IBaseNodeMoveExtension
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -201,6 +228,7 @@ export class BaseNodeMoveService {
       uninspectableApps: [],
       droppedPermissionRuleCount: 0,
       sandboxApps: [],
+      postCommitTasks: [],
     };
     ctx.uninspectableApps = await this.readAppSources(ctx);
     const deleted = new Set(nodes.map((node) => node.resourceId));
@@ -217,7 +245,9 @@ export class BaseNodeMoveService {
   async getPermissionContextOutsideRoute(
     baseId: string
   ): Promise<IBaseNodeVisibilityContext | undefined> {
-    return this.getTargetPermissionContext(baseId);
+    const context = await this.getTargetPermissionContext(baseId);
+    if (!this.permissionProvider) return context;
+    return this.permissionProvider.getPermissionContextOutsideRoute(baseId, context);
   }
 
   /**
@@ -283,7 +313,7 @@ export class BaseNodeMoveService {
     try {
       await this.prismaService.$tx(
         async () => {
-          await this.moveResources(ctx, plan, ro);
+          await this.moveResources(ctx, plan);
           await this.ensurePluginCollaborators(ctx);
           await this.moveShares(ctx);
           await this.moveNodeRows(ctx, placement);
@@ -386,6 +416,7 @@ export class BaseNodeMoveService {
       uninspectableApps: [],
       droppedPermissionRuleCount: 0,
       sandboxApps: [],
+      postCommitTasks: [],
     };
 
     // --- base level ---------------------------------------------------------
@@ -811,25 +842,11 @@ export class BaseNodeMoveService {
   // ---------------------------------------------------------------------------
 
   /** Type-specific re-homing, inside the metadata transaction. */
-  protected async moveResources(
-    ctx: IMoveNodeContext,
-    plan: ITableMovePlan,
-    _ro: IMoveBaseNodeRo
-  ): Promise<void> {
-    const prisma = this.prismaService.txClient();
-    const folderIds = ctx.resourceIds.get(BaseNodeResourceType.Folder) ?? [];
-    if (folderIds.length > 0) {
-      await prisma.baseNodeFolder.updateMany({
-        where: { id: { in: folderIds }, baseId: ctx.sourceBaseId },
-        data: { baseId: ctx.targetBaseId, lastModifiedBy: this.cls.get('user.id') },
-      });
+  protected async moveResources(ctx: IMoveNodeContext, plan: ITableMovePlan): Promise<void> {
+    for (const handler of this.nodeHandlers.all()) {
+      await handler.moveResources?.(ctx, plan);
     }
-
-    await this.tableMoveService.applyMetaMove(plan);
-
-    for (const id of ctx.resourceIds.get(BaseNodeResourceType.Dashboard) ?? []) {
-      await this.dashboardService.moveDashboardToBase(ctx.sourceBaseId, ctx.targetBaseId, id);
-    }
+    await this.moveExtension?.afterResourcesMoved(ctx);
   }
 
   /**
@@ -962,6 +979,19 @@ export class BaseNodeMoveService {
         presence.submit({ event: 'flush' });
       });
     }
+    await this.permissionProvider?.afterMoveCommitted(ctx);
+    await this.moveExtension?.afterMoveCommitted(ctx);
+    for (const task of ctx.postCommitTasks) {
+      try {
+        await task();
+      } catch (error) {
+        this.logger.warn(
+          `[move-node] post-commit task failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -969,11 +999,10 @@ export class BaseNodeMoveService {
   // ---------------------------------------------------------------------------
 
   protected getSupportedResourceTypes(): BaseNodeResourceType[] {
-    return [
-      BaseNodeResourceType.Folder,
-      BaseNodeResourceType.Table,
-      BaseNodeResourceType.Dashboard,
-    ];
+    return this.nodeHandlers
+      .all()
+      .filter((handler) => handler.moveResources)
+      .map((handler) => handler.type);
   }
 
   protected async resolveResourceNames(
@@ -981,51 +1010,47 @@ export class BaseNodeMoveService {
     type: BaseNodeResourceType,
     ids: string[]
   ): Promise<Map<string, string>> {
-    const prisma = this.prismaService.txClient();
-    const select = { id: true, name: true } as const;
-    let rows: { id: string; name: string }[] = [];
-    switch (type) {
-      case BaseNodeResourceType.Folder:
-        rows = await prisma.baseNodeFolder.findMany({ where: { baseId, id: { in: ids } }, select });
-        break;
-      case BaseNodeResourceType.Table:
-        rows = await prisma.tableMeta.findMany({ where: { baseId, id: { in: ids } }, select });
-        break;
-      case BaseNodeResourceType.Dashboard:
-        rows = await prisma.dashboard.findMany({
-          where: { baseId, id: { in: ids }, deletedTime: null },
-          select,
-        });
-        break;
-      default:
-        rows = [];
-    }
-    return new Map(rows.map((r) => [r.id, r.name]));
+    return (await this.nodeHandlers.get(type)?.getNames?.(baseId, ids)) ?? new Map();
   }
 
   /** Permissions the caller holds in the source project (already resolved by the guard). */
-  protected async getSourcePermissionContext(_baseId: string): Promise<IBaseNodePermissionContext> {
-    return { permissionSet: new Set(this.cls.get('permissions') ?? []) };
+  protected async getSourcePermissionContext(baseId: string): Promise<IBaseNodePermissionContext> {
+    const base = { permissionSet: new Set<string>(this.cls.get('permissions') ?? []) };
+    if (!this.permissionProvider) return base;
+    return this.permissionProvider.getSourcePermissionContext(baseId, base);
   }
 
   /** Permissions the caller holds in the target project; undefined when they have none. */
   protected async getTargetPermissionContext(
     targetBaseId: string
   ): Promise<IBaseNodePermissionContext | undefined> {
-    try {
-      const permissions = (await this.permissionService.getPermissions(
-        targetBaseId,
-        this.cls.get('accessTokenId')
-      )) as Action[];
-      return { permissionSet: new Set(permissions) };
-    } catch {
-      return undefined;
-    }
+    const byRole = async () => {
+      try {
+        const permissions = (await this.permissionService.getPermissions(
+          targetBaseId,
+          this.cls.get('accessTokenId')
+        )) as Action[];
+        return { permissionSet: new Set<string>(permissions) };
+      } catch {
+        return undefined;
+      }
+    };
+    if (!this.permissionProvider) return byRole();
+    return this.permissionProvider.getTargetPermissionContext(targetBaseId, byRole);
   }
 
-  /** Resources staying behind that reference a moved table by id. */
-  protected async collectDependents(_ctx: IMoveNodeContext): Promise<IMoveBaseNodeDependent[]> {
-    return [];
+  /**
+   * References that will cross projects after the move, in both directions: resources staying
+   * in the source that use a moved table, and moved ones whose table stays behind.
+   */
+  protected async collectDependents(ctx: IMoveNodeContext): Promise<IMoveBaseNodeDependent[]> {
+    if (ctx.tableIds.length === 0 && ctx.resourceIds.size === 0) return [];
+    const dependents: IMoveBaseNodeDependent[] = [];
+    for (const handler of this.nodeHandlers.all()) {
+      dependents.push(...((await handler.listMoveDependents?.(ctx)) ?? []));
+    }
+    dependents.push(...((await this.moveExtension?.collectDependents(ctx)) ?? []));
+    return dependents;
   }
 
   /**
@@ -1038,30 +1063,32 @@ export class BaseNodeMoveService {
    * that statement — by the time the questions below see an app they cannot
    * tell "nothing found" from "never looked".
    */
-  protected async readAppSources(_ctx: IMoveNodeContext): Promise<IMoveBaseNodeEmbeddedIdApp[]> {
-    return [];
+  protected async readAppSources(ctx: IMoveNodeContext): Promise<IMoveBaseNodeEmbeddedIdApp[]> {
+    return (await this.moveExtension?.readAppSources(ctx)) ?? [];
   }
 
   /** Moved apps whose own source names the project they are leaving. */
-  protected async inspectMovedApps(_ctx: IMoveNodeContext): Promise<IMoveBaseNodeEmbeddedIdApp[]> {
-    return [];
+  protected async inspectMovedApps(ctx: IMoveNodeContext): Promise<IMoveBaseNodeEmbeddedIdApp[]> {
+    return (await this.moveExtension?.inspectMovedApps(ctx)) ?? [];
   }
 
   /** Permission rules bound to the moved nodes in the source project that will be dropped. */
-  protected async countDroppedPermissionRules(_ctx: IMoveNodeContext): Promise<number> {
-    return 0;
+  protected async countDroppedPermissionRules(ctx: IMoveNodeContext): Promise<number> {
+    return (await this.permissionProvider?.countDroppedPermissionRules(ctx)) ?? 0;
   }
 
   /** Moved apps whose sandbox is running. */
-  protected async collectSandboxApps(_ctx: IMoveNodeContext): Promise<IMoveBaseNodeItem[]> {
-    return [];
+  protected async collectSandboxApps(ctx: IMoveNodeContext): Promise<IMoveBaseNodeItem[]> {
+    return (await this.moveExtension?.collectSandboxApps(ctx)) ?? [];
   }
 
   /** Runs once the move is certain to be attempted, before anything changes; may refuse it. */
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  protected async beforeMove(_ctx: IMoveNodeContext, _ro: IMoveBaseNodeRo): Promise<void> {}
+  protected async beforeMove(ctx: IMoveNodeContext, ro: IMoveBaseNodeRo): Promise<void> {
+    await this.moveExtension?.beforeMove(ctx, ro);
+  }
 
   /** Runs inside the metadata transaction after every row has been re-homed. */
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  protected async afterMetaMove(_ctx: IMoveNodeContext): Promise<void> {}
+  protected async afterMetaMove(ctx: IMoveNodeContext): Promise<void> {
+    await this.permissionProvider?.afterMetaMove(ctx);
+  }
 }

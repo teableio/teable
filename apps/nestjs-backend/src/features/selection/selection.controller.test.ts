@@ -83,9 +83,11 @@ describe('SelectionController', () => {
       destroyed: false,
       setHeader: vi.fn(),
       flushHeaders: vi.fn(),
-      write: vi.fn(),
+      write: vi.fn().mockReturnValue(true),
       end: vi.fn(),
       on: vi.fn(),
+      once: vi.fn(),
+      off: vi.fn(),
       flush: vi.fn(),
     }) as unknown as Response & {
       setHeader: ReturnType<typeof vi.fn>;
@@ -93,6 +95,8 @@ describe('SelectionController', () => {
       write: ReturnType<typeof vi.fn>;
       end: ReturnType<typeof vi.fn>;
       on: ReturnType<typeof vi.fn>;
+      once: ReturnType<typeof vi.fn>;
+      off: ReturnType<typeof vi.fn>;
     };
 
   const collectSseEvents = (response: ReturnType<typeof createMockSseResponse>) => {
@@ -733,6 +737,27 @@ describe('SelectionController', () => {
         pasteByIdStreamRo
       );
       expectNoMutation();
+    });
+  });
+
+  it('routes deleteByIdStream to legacy selectionService.deleteById when useV2 is false', async () => {
+    cls.get.mockImplementation((key) => (key === 'useV2' ? false : undefined));
+    selectionService.deleteById.mockResolvedValue({ ids: ['recLegacy1', 'recLegacy2'] });
+    const response = createMockSseResponse();
+    const ro = { selection: { recordIds: ['recLegacy1', 'recLegacy2'] } } as ISelectionIdsRo;
+
+    await controller.deleteByIdStream('tblLegacy', ro, response as never, 'win-legacy');
+    const events = collectSseEvents(response);
+
+    expect(selectionService.deleteById).toHaveBeenCalledWith('tblLegacy', ro, {
+      windowId: 'win-legacy',
+    });
+    expect(recordOpenApiV2Service.deleteByIdStream).not.toHaveBeenCalled();
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 2,
+      deletedCount: 2,
+      data: { deletedCount: 2, deletedRecordIds: ['recLegacy1', 'recLegacy2'] },
     });
   });
 });

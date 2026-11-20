@@ -811,7 +811,7 @@ export class PostgresComputedActivityReader implements IComputedActivityReader {
         state.reliabilityLoaded = true;
         const store = new PostgresComputedReliabilityStore(db);
         if (visible) {
-          if (await store.isReady()) {
+          if (await store.isReady('reader')) {
             state.tableReliability = await store.getTableSummary(tableId, readableFieldIds, true);
             state.reliabilityEntries = await store.getFieldSummaries(tableId, true);
           } else {

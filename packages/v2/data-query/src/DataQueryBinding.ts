@@ -868,7 +868,7 @@ export class DataQueryRelationBinding {
     // rejected boundary, and splitting it would scatter one contract across helpers.
     // eslint-disable-next-line sonarjs/cognitive-complexity
     return safeTry(function* () {
-      const snapshot = definition.snapshot();
+      const snapshot = definition.readonlySnapshot();
       if (snapshot.version === 1) {
         return err(
           queryError('join_version', 'Relation binding requires definition version 2 or later')
@@ -1429,7 +1429,7 @@ export class DataQueryBinding {
     options: DataQueryBindingPrepareOptions = {}
   ): Result<DataQueryAuthorizationPreparation<DataQueryBinding>, DomainError> {
     return safeTry(function* () {
-      const snapshot = definition.snapshot();
+      const snapshot = definition.readonlySnapshot();
       if (snapshot.tableId !== table.id().toString())
         return err(queryError('table_mismatch', 'Query table does not match the loaded table'));
       const filterValidation = validateDefinitionFilters(snapshot, table);

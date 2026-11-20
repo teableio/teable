@@ -821,6 +821,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           actorId: context.actorId,
           tracer: context.tracer,
           requestId: context.requestId,
+          maxPreparationPages: Number.POSITIVE_INFINITY,
         });
 
         if (result.isErr()) {

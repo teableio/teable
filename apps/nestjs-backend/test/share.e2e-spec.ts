@@ -85,10 +85,16 @@ import type {
   ShareViewAuthVo,
   ShareViewGetVo,
 } from '@teable/openapi';
+import {
+  type ITableRecordAggregationQueryRepository,
+  type ITableRecordCalendarQueryRepository,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import { map } from 'lodash';
 import { vi } from 'vitest';
 import { CacheService } from '../src/cache/cache.service';
 import type { ICacheStore } from '../src/cache/types';
+import { AggregationService } from '../src/features/aggregation/aggregation.service';
 import {
   X_TEABLE_V2_FEATURE_HEADER,
   X_TEABLE_V2_HEADER,
@@ -99,7 +105,8 @@ import { FieldService } from '../src/features/field/field.service';
 import { RecordOpenApiService } from '../src/features/record/open-api/record-open-api.service';
 import { RecordService } from '../src/features/record/record.service';
 import { SelectionService } from '../src/features/selection/selection.service';
-import { ShareService } from '../src/features/share/share.service';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
+import { ViewService } from '../src/features/view/view.service';
 import { x_20 } from './data-helpers/20x';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
@@ -156,7 +163,8 @@ describe('OpenAPI ShareController (e2e)', () => {
   let recordService: RecordService;
   let recordOpenApiService: RecordOpenApiService;
   let selectionService: SelectionService;
-  let shareService: ShareService;
+  const aggregationService = AggregationService.prototype;
+  const viewService = ViewService.prototype;
   let collaboratorService: CollaboratorService;
   let prismaService: PrismaService;
   let previousForceV2All: string | undefined;
@@ -173,7 +181,6 @@ describe('OpenAPI ShareController (e2e)', () => {
     recordService = app.get(RecordService);
     recordOpenApiService = app.get(RecordOpenApiService);
     selectionService = app.get(SelectionService);
-    shareService = app.get(ShareService);
     collaboratorService = app.get(CollaboratorService);
     prismaService = app.get(PrismaService);
     anonymousUser = createAnonymousUserAxios(appCtx.appUrl);
@@ -207,8 +214,8 @@ describe('OpenAPI ShareController (e2e)', () => {
   describe('api/:shareId/view (GET)', async () => {
     it('uses only v2 Table/Field/Record reads once the feature is selected', async () => {
       const legacyShareSpy = vi
-        .spyOn(shareService, 'getShareView')
-        .mockRejectedValue(new Error('legacy ShareService metadata path must not be used'));
+        .spyOn(viewService, 'getViewById')
+        .mockRejectedValue(new Error('legacy ViewService metadata path must not be used'));
       const legacyFieldSpy = vi
         .spyOn(fieldService, 'getFieldsByQuery')
         .mockRejectedValue(new Error('legacy FieldService must not be used'));
@@ -691,7 +698,7 @@ describe('OpenAPI ShareController (e2e)', () => {
 
     it('uses the v2 Table/Record query without legacy aggregation or Field reads', async () => {
       const legacyRowCountSpy = vi
-        .spyOn(shareService, 'getViewRowCount')
+        .spyOn(aggregationService, 'performRowCount')
         .mockRejectedValue(new Error('legacy AggregationService path must not be used'));
       const legacyFieldSpy = vi
         .spyOn(fieldService, 'getFieldInstances')
@@ -881,7 +888,7 @@ describe('OpenAPI ShareController (e2e)', () => {
 
     it('uses the pure v2 Table/Record chain and returns totals plus grouped prefixes', async () => {
       const legacyAggregationSpy = vi
-        .spyOn(shareService, 'getViewAggregations')
+        .spyOn(aggregationService, 'performAggregation')
         .mockRejectedValue(new Error('legacy AggregationService path must not be used'));
       const legacyFieldSpy = vi
         .spyOn(fieldService, 'getFieldInstances')
@@ -1104,7 +1111,7 @@ describe('OpenAPI ShareController (e2e)', () => {
     describe('api/:shareId/view/group-points (GET)', () => {
       it('uses only the v2 Table/Record chain and preserves multi-level group order', async () => {
         const legacyGroupSpy = vi
-          .spyOn(shareService, 'getViewGroupPoints')
+          .spyOn(aggregationService, 'getGroupPoints')
           .mockRejectedValue(new Error('legacy group-points path must not be used'));
         const legacyFieldSpy = vi
           .spyOn(fieldService, 'getFieldInstances')
@@ -1291,7 +1298,7 @@ describe('OpenAPI ShareController (e2e)', () => {
 
     it('uses only the v2 aggregate and Record query for filtered search counts', async () => {
       const legacySearchSpy = vi
-        .spyOn(shareService, 'getShareSearchCount')
+        .spyOn(aggregationService, 'getSearchCount')
         .mockRejectedValue(new Error('legacy search-count path must not be used'));
       const legacyFieldSpy = vi
         .spyOn(fieldService, 'getFieldInstances')
@@ -1421,7 +1428,7 @@ describe('OpenAPI ShareController (e2e)', () => {
 
     it('uses the v2 aggregate and Record repository without the legacy aggregation path', async () => {
       const legacySearchSpy = vi
-        .spyOn(shareService, 'getShareSearchIndex')
+        .spyOn(aggregationService, 'getRecordIndexBySearchOrder')
         .mockRejectedValue(new Error('legacy search-index path must not be used'));
       try {
         const result = await getShareViewSearchIndex(searchShareId, {
@@ -1810,7 +1817,9 @@ describe('OpenAPI ShareController (e2e)', () => {
     });
 
     it('must not return hidden columns in the calendar daily collection records', async () => {
-      const legacyCalendarSpy = vi.spyOn(shareService, 'getViewCalendarDailyCollection');
+      const legacyCalendarSpy = vi
+        .spyOn(aggregationService, 'getCalendarDailyCollection')
+        .mockRejectedValue(new Error('legacy calendar aggregation must not be used'));
       const legacyFieldSpy = vi.spyOn(recordService, 'getFieldsByProjection');
       const legacyRecordSpy = vi.spyOn(recordService, 'getRecordsById');
       try {
@@ -1924,6 +1933,21 @@ describe('OpenAPI ShareController (e2e)', () => {
         includeRecords: false,
         includeHiddenField: false,
       });
+      const container = await app.get(V2ContainerService).getContainerForTable(leakTableId);
+      const repository = container.resolve<ITableRecordCalendarQueryRepository>(
+        v2CoreTokens.tableRecordQueryRepository
+      );
+      const calendarSpy = vi
+        .spyOn(repository, 'calendarDailyCollection')
+        .mockRejectedValue(
+          new Error('record calendar reads must not run when includeRecords is false')
+        );
+      const findSpy = vi
+        .spyOn(repository, 'find')
+        .mockRejectedValue(new Error('record reads must not run when includeRecords is false'));
+      const streamSpy = vi.spyOn(repository, 'findStream').mockImplementation(() => {
+        throw new Error('record streams must not run when includeRecords is false');
+      });
       try {
         const result = await apiGetShareViewCalendarDailyCollection(leakShareId, {
           startDateFieldId: dueFieldId,
@@ -1932,7 +1956,13 @@ describe('OpenAPI ShareController (e2e)', () => {
           endDate: '2022-03-12T16:00:00.000Z',
         });
         expect(result.data).toEqual({ countMap: {}, records: [] });
+        expect(calendarSpy).not.toHaveBeenCalled();
+        expect(findSpy).not.toHaveBeenCalled();
+        expect(streamSpy).not.toHaveBeenCalled();
       } finally {
+        calendarSpy.mockRestore();
+        findSpy.mockRestore();
+        streamSpy.mockRestore();
         await apiUpdateViewShareMeta(leakTableId, leakViewId, {
           includeRecords: true,
           includeHiddenField: false,
@@ -2581,7 +2611,7 @@ describe('OpenAPI ShareController (e2e)', () => {
       });
       it('should return link records', async () => {
         const legacyShareSpy = vi
-          .spyOn(shareService, 'getViewLinkRecords')
+          .spyOn(recordService, 'getRecordsFields')
           .mockRejectedValue(new Error('legacy shared Link Records path must not be used'));
         const legacyFieldSpy = vi
           .spyOn(fieldService, 'getField')
@@ -2838,7 +2868,7 @@ describe('OpenAPI ShareController (e2e)', () => {
 
       it('should return the value that exists and there will be no duplicates of the', async () => {
         const legacyShareSpy = vi
-          .spyOn(shareService, 'getViewCollaborators')
+          .spyOn(recordService, 'getRecordsCollaborators')
           .mockRejectedValue(new Error('legacy collaborator path must not be used'));
         const legacyFieldSpy = vi
           .spyOn(fieldService, 'getField')
@@ -3286,8 +3316,8 @@ describe('OpenAPI ShareController (e2e)', () => {
 
     it('returns exact clipboard content/header through the isolated v2 chain', async () => {
       const legacyCopySpy = vi
-        .spyOn(shareService, 'copy')
-        .mockRejectedValue(new Error('legacy ShareService.copy must not be used'));
+        .spyOn(recordService, 'getRecordsFields')
+        .mockRejectedValue(new Error('legacy clipboard RecordService path must not be used'));
       const legacySelectionSpy = vi
         .spyOn(selectionService, 'copy')
         .mockRejectedValue(new Error('legacy SelectionService.copy must not be used'));
@@ -3458,6 +3488,21 @@ describe('OpenAPI ShareController (e2e)', () => {
         allowCopy: true,
         includeRecords: false,
       });
+      const container = await app.get(V2ContainerService).getContainerForTable(copyTable.id);
+      const repository = container.resolve<ITableRecordAggregationQueryRepository>(
+        v2CoreTokens.tableRecordQueryRepository
+      );
+      const findSpy = vi
+        .spyOn(repository, 'find')
+        .mockRejectedValue(new Error('record reads must not run when includeRecords is false'));
+      const aggregateSpy = vi
+        .spyOn(repository, 'aggregate')
+        .mockRejectedValue(
+          new Error('record aggregation must not run when includeRecords is false')
+        );
+      const streamSpy = vi.spyOn(repository, 'findStream').mockImplementation(() => {
+        throw new Error('record streams must not run when includeRecords is false');
+      });
       try {
         const result = await getCopy({
           ranges: JSON.stringify([
@@ -3467,7 +3512,13 @@ describe('OpenAPI ShareController (e2e)', () => {
         });
         expect(result.data.content).toBe('');
         expect(result.data.header.map((field) => field.id)).toEqual([textFieldId]);
+        expect(findSpy).not.toHaveBeenCalled();
+        expect(aggregateSpy).not.toHaveBeenCalled();
+        expect(streamSpy).not.toHaveBeenCalled();
       } finally {
+        findSpy.mockRestore();
+        aggregateSpy.mockRestore();
+        streamSpy.mockRestore();
         await apiUpdateViewShareMeta(copyTable.id, copyViewId, {
           allowCopy: true,
           includeRecords: true,
@@ -3837,6 +3888,113 @@ describe('OpenAPI ShareController (e2e)', () => {
       const candidateIds = candidate.data.records.map((r) => r.id);
       expect(candidateIds).toContain(inViewId);
       expect(candidateIds).not.toContain(outOfViewId);
+    });
+
+    it('bounds field-less share searches to exposed columns across link and view shares', async () => {
+      const primary = table2.fields[0];
+      const visibleField = await createField(table2.id, {
+        name: 'Visible Link Column',
+        type: FieldType.SingleLineText,
+      });
+      const hiddenField = await createField(table2.id, {
+        name: 'Hidden Link Column',
+        type: FieldType.SingleLineText,
+      });
+      await apiCreateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [primary.id]: 'visible-title',
+              [visibleField.data.id]: 'visible-detail',
+              [hiddenField.data.id]: 'hidden-column-secret',
+            },
+          },
+        ],
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'restricted visible fields link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          visibleFieldIds: [visibleField.data.id],
+        },
+      });
+      const hostShare = await apiEnableShareView({
+        tableId: table1.id,
+        viewId: table1.defaultViewId!,
+      });
+      const headers = { [SHARE_VIEW_ID_HEADER]: hostShare.data.shareId };
+      const hiddenSearch: [string, string, boolean] = ['hidden-column-secret', '', true];
+      const visibleSearch: [string, string, boolean] = ['visible-detail', '', true];
+
+      const hiddenRecords = await anonymousUser.get(
+        urlBuilder(SHARE_VIEW_RECORDS, { shareId: linkField.data.id }),
+        { headers, params: { search: hiddenSearch } }
+      );
+      expect(hiddenRecords.data.records).toHaveLength(0);
+
+      const hiddenRowCount = await anonymousUser.get(
+        urlBuilder(SHARE_VIEW_ROW_COUNT, { shareId: linkField.data.id }),
+        { headers, params: { search: hiddenSearch } }
+      );
+      expect(hiddenRowCount.data.rowCount).toBe(0);
+
+      const hiddenDocIds = await anonymousUser.post(
+        `/share/${linkField.data.id}/socket/record/doc-ids`,
+        { search: hiddenSearch },
+        { headers }
+      );
+      expect(hiddenDocIds.data.ids).toHaveLength(0);
+
+      const visibleRecords = await anonymousUser.get(
+        urlBuilder(SHARE_VIEW_RECORDS, { shareId: linkField.data.id }),
+        { headers, params: { search: visibleSearch } }
+      );
+      expect(visibleRecords.data.records).toHaveLength(1);
+
+      const visibleDocIds = await anonymousUser.post(
+        `/share/${linkField.data.id}/socket/record/doc-ids`,
+        { search: visibleSearch },
+        { headers }
+      );
+      expect(visibleDocIds.data.ids).toHaveLength(1);
+
+      await apiUpdateViewColumnMeta(table2.id, table2.defaultViewId!, [
+        { fieldId: hiddenField.data.id, columnMeta: { hidden: true } },
+      ]);
+      const viewShare = await apiEnableShareView({
+        tableId: table2.id,
+        viewId: table2.defaultViewId!,
+      });
+
+      const hiddenSearchCount = await anonymousUser.get(
+        urlBuilder(GET_SHARE_VIEW_SEARCH_COUNT, { shareId: viewShare.data.shareId }),
+        { params: { search: hiddenSearch } }
+      );
+      expect(hiddenSearchCount.data.count).toBe(0);
+
+      const hiddenSearchIndex = await anonymousUser.get(
+        urlBuilder(GET_SHARE_VIEW_SEARCH_INDEX, { shareId: viewShare.data.shareId }),
+        { params: { take: 10, search: hiddenSearch } }
+      );
+      expect(hiddenSearchIndex.data).toBe('');
+
+      const visibleSearchCount = await anonymousUser.get(
+        urlBuilder(GET_SHARE_VIEW_SEARCH_COUNT, { shareId: viewShare.data.shareId }),
+        { params: { search: visibleSearch } }
+      );
+      expect(visibleSearchCount.data.count).toBe(1);
+
+      const visibleSearchIndex = await anonymousUser.get(
+        urlBuilder(GET_SHARE_VIEW_SEARCH_INDEX, { shareId: viewShare.data.shareId }),
+        { params: { take: 10, search: visibleSearch } }
+      );
+      expect(visibleSearchIndex.data).toEqual([
+        expect.objectContaining({ index: 1, fieldId: visibleField.data.id }),
+      ]);
     });
   });
 

@@ -59,13 +59,14 @@ export const captureViewSnapshot = (view: View): Result<ViewSnapshotValue, Domai
     });
   });
 
-export const rehydrateViewSnapshot = (snapshot: ViewSnapshotValue): Result<View, DomainError> =>
+const rehydrateView = (
+  snapshot: ViewSnapshotValue,
+  propertiesValue: ViewPropertiesValue
+): Result<View, DomainError> =>
   safeTry<View, DomainError>(function* () {
     const id = yield* ViewId.create(snapshot.id);
     const name = yield* ViewName.create(snapshot.name);
-    // Sanitize again so undo entries captured before this invariant was added
-    // cannot restore a stale shareId.
-    const properties = yield* ViewProperties.rehydrate(replaySafeProperties(snapshot.properties));
+    const properties = yield* ViewProperties.rehydrate(propertiesValue);
     const view = yield* createView({
       id,
       name,
@@ -90,3 +91,12 @@ export const rehydrateViewSnapshot = (snapshot: ViewSnapshotValue): Result<View,
 
     return ok(view);
   });
+
+export const rehydrateViewSnapshot = (snapshot: ViewSnapshotValue): Result<View, DomainError> =>
+  // Old undo entries may contain credentials. Never replay those lifecycle values.
+  rehydrateView(snapshot, replaySafeProperties(snapshot.properties));
+
+/** Only RestoreViewHandler may supply the retained server-owned trash snapshot. */
+export const rehydrateViewTrashSnapshot = (
+  snapshot: ViewSnapshotValue
+): Result<View, DomainError> => rehydrateView(snapshot, snapshot.properties);

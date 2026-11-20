@@ -59,7 +59,10 @@ import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
 import { TableBaseScopeGuard } from '../guard/table-base-scope.guard';
 import { TableDuplicateService } from '../table-duplicate.service';
-import { TableIndexService } from '../table-index.service';
+import { TableDuplicatePolicyService } from '../table-duplicate-policy.service';
+import { TableMetadataOrderService } from './table-metadata-order.service';
+import { FieldDependencyReadService } from '../../field/open-api/field-dependency-read.service';
+import { TableIndexService } from '../../table-index/table-index.service';
 import { TablePermissionService } from '../table-permission.service';
 import { TableService } from '../table.service';
 import { TableOpenApiV2Service } from './table-open-api-v2.service';
@@ -78,6 +81,9 @@ export class TableController {
     private readonly tablePermissionService: TablePermissionService,
     private readonly tableOpenApiV2Service: TableOpenApiV2Service,
     private readonly tableDuplicateService: TableDuplicateService,
+    private readonly tableDuplicatePolicyService: TableDuplicatePolicyService,
+    private readonly tableMetadataOrderService: TableMetadataOrderService,
+    private readonly fieldDependencyReadService: FieldDependencyReadService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -165,12 +171,20 @@ export class TableController {
   }
 
   @Permissions('table|update')
+  @UseV2Feature('updateTable')
   @Put(':tableId/db-table-name')
   async updateDbTableName(
     @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(dbTableNameRoSchema)) dbTableNameRo: IDbTableNameRo
   ) {
+    if (this.cls.get('useV2')) {
+      return this.tableOpenApiV2Service.updateDbTableName(
+        baseId,
+        tableId,
+        dbTableNameRo.dbTableName
+      );
+    }
     return await this.tableOpenApiService.updateDbTableName(
       baseId,
       tableId,
@@ -179,12 +193,16 @@ export class TableController {
   }
 
   @Permissions('table|update')
+  @UseV2Feature('updateTable')
   @Put(':tableId/order')
   async updateOrder(
     @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo
   ) {
+    if (this.cls.get('useV2')) {
+      return this.tableMetadataOrderService.updateOrder(baseId, tableId, updateOrderRo);
+    }
     return await this.tableOpenApiService.updateOrder(baseId, tableId, updateOrderRo);
   }
 
@@ -218,31 +236,40 @@ export class TableController {
   }
 
   @Permissions('table|read')
+  @UseV2Feature('getTable')
   @Get(':tableId/delete-references')
   async getDeleteTableReferences(
+    @Param('baseId') baseId: string,
     @Param('tableId') tableId: string
   ): Promise<ITableDeleteReferencesVo> {
+    if (this.cls.get('useV2')) {
+      return this.fieldDependencyReadService.getDeleteTableReferences(baseId, tableId);
+    }
     return await this.tableOpenApiService.getDeleteTableReferences(tableId);
   }
 
   @Permissions('table|read')
+  @UseV2Feature('duplicateTable')
   @Get(':tableId/duplicate-check')
   async duplicateTableCheck(@Param('tableId') tableId: string): Promise<IDuplicateTableCheckVo> {
-    const affectedFields =
-      await this.tableDuplicateService.previewCrossSpaceAffectedFields(tableId);
+    const service = this.cls.get('useV2')
+      ? this.tableDuplicatePolicyService
+      : this.tableDuplicateService;
+    const affectedFields = await service.previewCrossSpaceAffectedFields(tableId);
     return { affectedFields };
   }
 
   @Permissions('field|create')
+  @UseV2Feature('duplicateField')
   @Get(':tableId/field/:fieldId/duplicate-check')
   async duplicateFieldCheck(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string
   ): Promise<IDuplicateFieldCheckVo> {
-    const affectedFields = await this.tableDuplicateService.previewFieldDuplicateCrossSpace(
-      tableId,
-      fieldId
-    );
+    const service = this.cls.get('useV2')
+      ? this.tableDuplicatePolicyService
+      : this.tableDuplicateService;
+    const affectedFields = await service.previewFieldDuplicateCrossSpace(tableId, fieldId);
     return { affectedFields };
   }
 

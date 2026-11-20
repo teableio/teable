@@ -34,6 +34,8 @@ export const TABLE_ROUTE_CONTROLLERS: Record<string, true> = {
   RecordController: true,
   SelectionController: true,
   ShareController: true,
+  SearchAccelerationSwitchController: true,
+  ShareSearchAccelerationStatusController: true,
   TableController: true,
   TemplateController: true,
   TemplateInstallController: true,
@@ -63,6 +65,9 @@ export const TABLE_ROUTE_PATH_PATTERNS: RegExp[] = [
 export const TABLE_ROUTE_EDITIONS: Record<string, 'EE'> = {
   'DELETE /api/table/:tableId/archive/items': 'EE',
   'DELETE /api/table/:tableId/archive/reset': 'EE',
+  'PUT /api/base/:baseId/table/:tableId/search-acceleration': 'EE',
+  'GET /api/base/:baseId/table/:tableId/search-acceleration-status': 'EE',
+  'GET /api/share/:shareId/search-acceleration-status': 'EE',
   'GET /api/table/:tableId/archive/items': 'EE',
   'POST /api/table/:tableId/archive/export-stream': 'EE',
   'POST /api/table/:tableId/record/archive': 'EE',
@@ -317,6 +322,8 @@ export const TABLE_ROUTE_LEDGER = {
   'PATCH /api/table/:tableId/selection/temporaryPaste': 'v2',
   'POST /api/table/:tableId/selection/copy-by-id': 'v2',
   'POST /api/table/:tableId/selection/delete-by-id': 'v2',
+  // ShareSearchAccelerationStatusController
+  'GET /api/share/:shareId/search-acceleration-status': 'host',
   // ShareController
   // Shared-view routes; view access/auth can select v2, sockets are ShareDB host transport.
   'GET /api/share/:shareId/socket/field/doc-ids': 'v2',
@@ -356,6 +363,7 @@ export const TABLE_ROUTE_LEDGER = {
   'GET /api/base/:baseId/table/:tableId/index/policy': 'host',
   'GET /api/base/:baseId/table/:tableId/index/query-policy': 'host',
   'GET /api/base/:baseId/table/:tableId/permission': 'host',
+  'GET /api/base/:baseId/table/:tableId/search-acceleration-status': 'host',
   'GET /api/base/:baseId/table/:tableId/search-vector-status': 'host',
   'GET /api/base/:baseId/table/socket/doc-ids': 'v2',
   'GET /api/base/:baseId/table/socket/snapshot-bulk': 'v2',
@@ -370,6 +378,7 @@ export const TABLE_ROUTE_LEDGER = {
   'PUT /api/base/:baseId/table/:tableId/index/query-policy': 'host',
   'PUT /api/base/:baseId/table/:tableId/name': 'v2',
   'PUT /api/base/:baseId/table/:tableId/order': 'host',
+  'PUT /api/base/:baseId/table/:tableId/search-acceleration': 'host',
   // TemplateController
   // Template catalogue and metadata (host); snapshot is v2-only.
   'DELETE /api/template/:templateId': 'host',

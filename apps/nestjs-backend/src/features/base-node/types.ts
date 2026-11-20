@@ -1,4 +1,5 @@
-import type { RoutineAction, AppAction, AutomationAction, TableAction } from '@teable/core';
+import type { Action } from '@teable/core';
+import type { BaseNodeResourceType } from '@teable/openapi';
 
 export enum BaseNodeAction {
   Read = 'base_node|read',
@@ -7,12 +8,17 @@ export enum BaseNodeAction {
   Delete = 'base_node|delete',
 }
 
+/**
+ * What the authority matrix grants a restricted member, per kind and resource. A kind with a map
+ * here is decided by it alone; the rest by the member's base role.
+ */
+export type IBaseNodePermissionMaps = Partial<
+  Record<BaseNodeResourceType, Record<string, Action[]>>
+>;
+
 export type IBaseNodePermissionContext = {
-  tablePermissionMap?: Record<string, TableAction[]>;
   permissionSet: Set<string>;
-  appPermissionMap?: Record<string, AppAction[]>;
-  workflowPermissionMap?: Record<string, AutomationAction[]>;
-  routinePermissionMap?: Record<string, RoutineAction[]>;
+  nodePermissionMaps?: IBaseNodePermissionMaps;
 };
 
 /** What decides which nodes the caller sees: in the node tree, and in what is said about them. */

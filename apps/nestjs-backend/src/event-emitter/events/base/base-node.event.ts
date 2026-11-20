@@ -1,7 +1,8 @@
 import { BaseNodeResourceType, type IBaseNodeVo, type IDeleteBaseNodeVo } from '@teable/openapi';
 import { match } from 'ts-pattern';
+import { resourceDescriptorOf } from '../../../features/resource/resource-descriptor';
 import { AppEventFactory } from '../app/app.event';
-import type { IEventContext } from '../core-event';
+import type { CoreEvent, IEventContext } from '../core-event';
 import { DashboardEventFactory } from '../dashboard/dashboard.event';
 import { Events } from '../event.enum';
 import { RoutineEventFactory } from '../routine/routine.event';
@@ -12,191 +13,51 @@ type IBaseNodeCreatePayload = { baseId: string; node: IBaseNodeVo };
 type IBaseNodeDeletePayload = { baseId: string; node: IDeleteBaseNodeVo };
 type IBaseNodeUpdatePayload = IBaseNodeCreatePayload;
 
-// base node event to resource event(folder, dashboard, workflow, app); table event is handled by ops2Event;
+/** The factory of each node kind's own events; a table's are raised from its ops instead. */
+const NODE_EVENT_FACTORIES: Partial<
+  Record<
+    BaseNodeResourceType,
+    { create(name: string, payload: never, context: IEventContext): CoreEvent | null }
+  >
+> = {
+  [BaseNodeResourceType.Folder]: BaseFolderEventFactory,
+  [BaseNodeResourceType.Dashboard]: DashboardEventFactory,
+  [BaseNodeResourceType.Workflow]: WorkflowEventFactory,
+  [BaseNodeResourceType.App]: AppEventFactory,
+  [BaseNodeResourceType.Routine]: RoutineEventFactory,
+};
+
+// base node event to the resource's own event, named and shaped as its descriptor says
 export class BaseNodeEventFactory {
   static create(
     name: string,
     payload: IBaseNodeCreatePayload | IBaseNodeDeletePayload | IBaseNodeUpdatePayload,
     context: IEventContext
-  ) {
+  ): CoreEvent | null {
+    const { baseId, node } = payload;
+    const factory = NODE_EVENT_FACTORIES[node.resourceType as BaseNodeResourceType];
+    const nodeEvents = resourceDescriptorOf(node.resourceType)?.nodeEvents;
+    if (!factory || !nodeEvents) return null;
+    const key = nodeEvents.payloadKey;
+    const resource = (event: Events) => {
+      const { resourceId, resourceMeta } = node as IBaseNodeVo;
+      return factory.create(
+        event,
+        { baseId, [key]: { id: resourceId, ...resourceMeta } } as never,
+        context
+      );
+    };
     return match(name)
-      .with(Events.BASE_NODE_CREATE, () => {
-        const { baseId, node } = payload as IBaseNodeCreatePayload;
-        const { resourceId, resourceType, resourceMeta } = node;
-        switch (resourceType) {
-          case BaseNodeResourceType.Folder:
-            return BaseFolderEventFactory.create(
-              Events.BASE_FOLDER_CREATE,
-              {
-                baseId,
-                folder: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-          case BaseNodeResourceType.Dashboard:
-            return DashboardEventFactory.create(
-              Events.DASHBOARD_CREATE,
-              {
-                baseId,
-                dashboard: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-          case BaseNodeResourceType.Workflow:
-            return WorkflowEventFactory.create(
-              Events.WORKFLOW_CREATE,
-              {
-                baseId,
-                workflow: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-          case BaseNodeResourceType.App:
-            return AppEventFactory.create(
-              Events.APP_CREATE,
-              {
-                baseId,
-                app: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-          case BaseNodeResourceType.Routine:
-            return RoutineEventFactory.create(
-              Events.ROUTINE_CREATE,
-              {
-                baseId,
-                routine: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-
-          default:
-            return null;
-        }
-      })
-      .with(Events.BASE_NODE_UPDATE, () => {
-        const { baseId, node } = payload as IBaseNodeUpdatePayload;
-        const { resourceId, resourceType, resourceMeta } = node;
-        switch (resourceType) {
-          case BaseNodeResourceType.Folder:
-            return BaseFolderEventFactory.create(
-              Events.BASE_FOLDER_UPDATE,
-              {
-                baseId,
-                folder: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-          case BaseNodeResourceType.Dashboard:
-            return DashboardEventFactory.create(
-              Events.DASHBOARD_UPDATE,
-              {
-                baseId,
-                dashboard: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-          case BaseNodeResourceType.Workflow:
-            return WorkflowEventFactory.create(
-              Events.WORKFLOW_UPDATE,
-              {
-                baseId,
-                workflow: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-          case BaseNodeResourceType.App:
-            return AppEventFactory.create(
-              Events.APP_UPDATE,
-              {
-                baseId,
-                app: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-          case BaseNodeResourceType.Routine:
-            return RoutineEventFactory.create(
-              Events.ROUTINE_UPDATE,
-              {
-                baseId,
-                routine: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-              },
-              context
-            );
-
-          default:
-            return null;
-        }
-      })
+      .with(Events.BASE_NODE_CREATE, () => resource(nodeEvents.create))
+      .with(Events.BASE_NODE_UPDATE, () => resource(nodeEvents.update))
       .with(Events.BASE_NODE_DELETE, () => {
-        const { baseId, node } = payload as IBaseNodeDeletePayload;
-        const { resourceId, resourceType, permanent } = node;
-        switch (resourceType) {
-          case BaseNodeResourceType.Folder:
-            return BaseFolderEventFactory.create(
-              Events.BASE_FOLDER_DELETE,
-              { baseId, folderId: resourceId },
-              context
-            );
-          case BaseNodeResourceType.Dashboard:
-            return DashboardEventFactory.create(
-              Events.DASHBOARD_DELETE,
-              { baseId, dashboardId: resourceId, permanent },
-              context
-            );
-          case BaseNodeResourceType.Workflow:
-            return WorkflowEventFactory.create(
-              Events.WORKFLOW_DELETE,
-              { baseId, workflowId: resourceId, permanent },
-              context
-            );
-          case BaseNodeResourceType.App:
-            return AppEventFactory.create(
-              Events.APP_DELETE,
-              { baseId, appId: resourceId, permanent },
-              context
-            );
-          case BaseNodeResourceType.Routine:
-            return RoutineEventFactory.create(
-              Events.ROUTINE_DELETE,
-              { baseId, routineId: resourceId, permanent },
-              context
-            );
-          default:
-            return null;
-        }
+        const { resourceId, permanent } = node as IDeleteBaseNodeVo;
+        return factory.create(
+          nodeEvents.delete,
+          { baseId, [`${key}Id`]: resourceId, permanent } as never,
+          context
+        );
       })
-
       .otherwise(() => null);
   }
 }

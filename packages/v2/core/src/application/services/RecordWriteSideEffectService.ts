@@ -69,17 +69,22 @@ const stripRejectedSelectValues = (
 ): void => {
   if (rejectedNamesByFieldId.size === 0) return;
 
+  const rejectedFieldTypes = new Map<string, FieldType>();
+  for (const field of table.getFields()) {
+    const id = field.id().toString();
+    if (rejectedNamesByFieldId.has(id)) rejectedFieldTypes.set(id, field.type());
+  }
+
   for (const record of recordFieldValues) {
     const mutable = mutableFieldValues(record);
     if (!mutable) continue;
 
-    for (const [fieldId, value] of [...mutable.entries()]) {
+    for (const [fieldId, value] of mutable) {
       const rejectedNames = rejectedNamesByFieldId.get(fieldId);
       if (!rejectedNames || rejectedNames.size === 0) continue;
 
-      const fieldResult = table.getField((field) => field.id().toString() === fieldId);
-      if (fieldResult.isErr()) continue;
-      const fieldType = fieldResult.value.type();
+      const fieldType = rejectedFieldTypes.get(fieldId);
+      if (!fieldType) continue;
 
       if (fieldType.equals(FieldType.singleSelect())) {
         const name = normalizeCellDisplayValue(value);
@@ -240,7 +245,10 @@ export class RecordWriteSideEffectService {
     table: Table,
     recordFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>>,
     typecast: boolean,
-    options?: { selectOptionOverflow?: 'reject' | 'isolate' }
+    options?: {
+      selectOptionOverflow?: 'reject' | 'isolate';
+      skipUnauthorizedSelectOptions?: boolean;
+    }
   ): Result<RecordWriteSideEffectResult, DomainError> {
     if (!typecast) return ok({ table, effects: [] });
 
@@ -249,6 +257,17 @@ export class RecordWriteSideEffectService {
     const effects = effectsResult.value;
     if (effects.length === 0) return ok({ table, effects });
     if (context.config?.allowSelectOptionAutoCreate === false) {
+      if (options?.skipUnauthorizedSelectOptions) {
+        const rejected: IsolatedSelectNames = new Map();
+        for (const effect of effects) {
+          const names = effect.options.map((option) => option.name().toString());
+          rejected.set(effect.fieldId.toString(), new Set(names));
+        }
+        stripRejectedSelectValues(table, recordFieldValues, rejected);
+        // A select editor also uses temporary paste to create a single choice.
+        // Keep its permission error when the request has nothing else to prefill.
+        if (hasRemainingFieldValues(recordFieldValues)) return ok({ table, effects: [] });
+      }
       return err(
         domainError.forbidden({
           code: 'permission.field.update_required_for_select_options',

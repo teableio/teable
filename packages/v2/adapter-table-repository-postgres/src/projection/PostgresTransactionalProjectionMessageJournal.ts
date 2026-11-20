@@ -1,5 +1,6 @@
 import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import {
+  activateUnitOfWorkScope,
   domainError,
   getUnitOfWorkTransaction,
   utf8ByteLength,
@@ -70,25 +71,32 @@ export class PostgresTransactionalProjectionMessageJournal implements ITransacti
     context: IExecutionContext,
     messages: ReadonlyArray<ProjectionMessageDraft>
   ): Promise<Result<ReadonlyArray<ProjectionMessageRef>, DomainError>> {
-    const transaction = getPostgresTransaction(context) as
-      | import('kysely').Transaction<V1TeableDatabase>
-      | undefined;
-    if (!transaction) {
-      return err(
-        domainError.infrastructure({
-          code: 'domain_event.transaction_required',
-          message: 'Projection journal requires an active data transaction',
-        })
-      );
-    }
-
     const refs: ProjectionMessageRef[] = [];
-    const wakeups: DomainEventWakeup[] = [];
+    const wakeupsByScope = new Map<'data' | 'meta', DomainEventWakeup[]>();
     for (const message of messages) {
       if (message.mode === 'shadow') {
         continue;
       }
-      const payloadJson = serializeProjectionPayload(message.payload);
+      const scope = message.route.transactionScope;
+      const transaction = getPostgresTransaction<V1TeableDatabase>(context, scope);
+      if (!transaction) {
+        return err(
+          domainError.infrastructure({
+            code: 'domain_event.transaction_required',
+            message: `Projection journal requires an active ${scope} transaction`,
+          })
+        );
+      }
+      const payloadJson = serializeProjectionPayload(
+        scope === 'meta'
+          ? {
+              projectionEnvelopeVersion: 1,
+              payload: message.payload,
+              context: message.context,
+              occurredAt: message.occurredAt.toISOString(),
+            }
+          : message.payload
+      );
       const payloadBytes = utf8ByteLength(payloadJson);
       const tooLarge = projectionPayloadTooLargeError(payloadBytes);
       if (tooLarge) {
@@ -123,13 +131,20 @@ export class PostgresTransactionalProjectionMessageJournal implements ITransacti
         } as never)
         .execute();
       refs.push({ eventId: message.eventId });
+      let wakeups = wakeupsByScope.get(scope);
+      if (!wakeups) {
+        wakeups = [];
+        wakeupsByScope.set(scope, wakeups);
+      }
       wakeups.push({ eventId: message.eventId, baseId });
     }
 
-    if (getUnitOfWorkTransaction(context, 'data')) {
-      registerAfterCommit(context, () => {
-        void this.publishWakeups(wakeups);
-      });
+    for (const [scope, wakeups] of wakeupsByScope) {
+      if (getUnitOfWorkTransaction(context, scope)) {
+        registerAfterCommit(activateUnitOfWorkScope(context, scope), () => {
+          void this.publishWakeups(wakeups);
+        });
+      }
     }
 
     return ok(refs);

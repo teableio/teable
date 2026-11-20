@@ -409,6 +409,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "Sorguları kaydet ve paylaş",
       "spaceCreate": "Alan oluştur",
       "spaceDelete": "Alan sil",
       "spaceRead": "Alan oku",
@@ -1080,6 +1081,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",
+      "buttonTriggerFilterNotMatched": "Bu kayıt otomasyonun tetikleme koşullarını karşılamıyor",
       "triggerNotFound": "Otomasyon bir tetikleyici düğümüne sahip olmalı",
       "nodeNotFound": "{{nodeId}} düğümü bulunamadı",
       "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
@@ -1738,7 +1740,8 @@
         "dnsMisconfigured": "Erişim bağlantısı ayarlanamadı: alan adının DNS yapılandırması doğru değil"
       },
       "customDomainNotConfigured": "Özel alan adı yapılandırılmamış",
-      "vercelTokenNotConfigured": "App Builder ayarlarında Vercel tokenı yapılandırılmamış"
+      "vercelTokenNotConfigured": "App Builder ayarlarında Vercel tokenı yapılandırılmamış",
+      "deleteSandboxCloseFailed": "Sanal alan kapatılamadı. Hiçbir şey silinmedi, tekrar deneyin"
     },
     "reward": {
       "notFound": "Ödül bulunamadı",

@@ -10,10 +10,24 @@ import type { BoundDataQueryPlan } from './BoundDataQueryPlan';
 import type { DataQueryBinding } from './DataQueryBinding';
 import type { BoundDataQuery } from './types';
 
+export type DataQueryOffsetPage = {
+  readonly limit: number;
+  readonly offset: number;
+  readonly total: number;
+  readonly nextCursor?: never;
+};
+export type DataQueryCursorPage = {
+  readonly limit: number;
+  readonly nextCursor: string | null;
+  readonly offset?: never;
+  readonly total?: number;
+};
+export type QueryPage = DataQueryOffsetPage | DataQueryCursorPage;
+
 export interface DataQueryResult {
   readonly rows: ReadonlyArray<Readonly<Record<string, unknown>>>;
-  /** Present only for `page.includeTotal`; `total` ignores limit/offset. */
-  readonly page?: { readonly limit: number; readonly offset: number; readonly total: number };
+  /** Offset totals remain opt-in; V7 always returns its continuation envelope. */
+  readonly page?: QueryPage;
 }
 
 export type DataQueryRelationPlanSource = {

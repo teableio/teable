@@ -208,8 +208,11 @@ export const registerV2RecordRepositoryPostgresAdapter = (
     });
   }
 
-  c.register(v2CoreTokens.tableRecordQueryRepository, PostgresTableRecordQueryRepository, {
+  c.register(PostgresTableRecordQueryRepository, PostgresTableRecordQueryRepository, {
     lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableRecordQueryRepository, {
+    useToken: PostgresTableRecordQueryRepository,
   });
 
   c.register(v2CoreTokens.tableRecordRepository, PostgresTableRecordRepository, {

@@ -35,13 +35,6 @@ interface IBaseNodeCacheItem {
   resourceId: string | null;
 }
 
-/**
- * How a resource was admitted to a base share: `direct` when it sits inside the
- * shared scope, `linked` when it is only reachable because a table in scope has a
- * link field pointing at it. Linked admission is read-only (see getBaseSharePermissions).
- */
-type IBaseShareMatch = 'direct' | 'linked' | false;
-
 const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
 
 /**
@@ -687,9 +680,7 @@ export class PermissionService {
     // in the base is reachable, but the base-membership check MUST still run —
     // otherwise a share created for one base could be replayed with another base's
     // id to gain cross-base read/write/export access.
-    const resourceMatch = await this.checkResourceBelongsToShare(resourceId, baseId, nodeId);
-
-    if (!resourceMatch) {
+    if (!(await this.checkResourceBelongsToShare(resourceId, baseId, nodeId))) {
       this.logger.warn(
         `[BaseShare] Resource ${resourceId} is not accessible via share ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
       );
@@ -702,20 +693,16 @@ export class PermissionService {
     // Set base share in cls for downstream services to use
     this.cls.set('baseShare', { baseId, nodeId });
 
-    // When allowEdit is enabled and user is logged in, grant editor-level permissions
-    // excluding invite/share/privacy-sensitive actions. A table admitted only because a
-    // shared table links to it lies outside the shared node: it is exposed so link cells
-    // can be resolved and displayed, and stays read-only whatever allowEdit says.
-    if (resourceMatch === 'direct' && baseShare.allowEdit && !this.isAnonymous()) {
-      return getPermissions(Role.Editor).filter((p) => !shareExcludedPermissions.has(p));
-    }
-
-    // Otherwise return template permissions (read-only), with record|copy if allowCopy is enabled
-    const permissions = [...TemplatePermissions];
-    if (baseShare.allowCopy) {
+    const canEdit = baseShare.allowEdit && !this.isAnonymous();
+    const permissions = canEdit
+      ? getPermissions(Role.Editor).filter((permission) => !shareExcludedPermissions.has(permission))
+      : [...TemplatePermissions];
+    if (!canEdit && baseShare.allowCopy) {
       permissions.push('record|copy');
     }
-    return permissions;
+    return nodeId
+      ? permissions.filter((permission) => permission !== 'base|query_data')
+      : permissions;
   }
 
   /**
@@ -730,13 +717,12 @@ export class PermissionService {
     resourceId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<IBaseShareMatch> {
+  ): Promise<boolean> {
     const prefix = resourceId.substring(0, 3);
-    const direct = (belongs: boolean): IBaseShareMatch => (belongs ? 'direct' : false);
 
     switch (prefix) {
       case IdPrefix.Base:
-        return direct(resourceId === baseId);
+        return resourceId === baseId;
       case IdPrefix.Table:
         return this.checkTableBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.View:
@@ -744,11 +730,11 @@ export class PermissionService {
       case IdPrefix.Field:
         return this.checkFieldBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.Dashboard:
-        return direct(await this.checkDashboardBelongsToShare(resourceId, baseId, nodeId));
+        return this.checkDashboardBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.App:
-        return direct(await this.checkAppBelongsToShare(resourceId, baseId, nodeId));
+        return this.checkAppBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.Routine:
-        return direct(await this.checkRoutineBelongsToShare(resourceId, baseId, nodeId));
+        return this.checkRoutineBelongsToShare(resourceId, baseId, nodeId);
       default:
         return false;
     }
@@ -761,7 +747,7 @@ export class PermissionService {
     tableId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<IBaseShareMatch> {
+  ): Promise<boolean> {
     const table = await this.prismaService.tableMeta.findUnique({
       where: { id: tableId, deletedTime: null },
       select: { baseId: true },
@@ -775,78 +761,7 @@ export class PermissionService {
       return false;
     }
 
-    // Whole-base share: any table within the shared base is accessible.
-    if (!nodeId) {
-      return 'direct';
-    }
-
-    const result = await this.isTableAllowedByNodeId(baseId, tableId, nodeId);
-    if (result) {
-      this.logger.debug(`[BaseShare] Table belongs check: nodeId=${nodeId}, result=${result}`);
-      return 'direct';
-    }
-
-    // Fallback: check if the table is a foreign table of a link field in a shared table.
-    // This lets link field targets be read even when they are outside the shared node;
-    // the 'linked' match keeps that access read-only.
-    const linkedResult = await this.isTableLinkedFromSharedNode(baseId, tableId, nodeId);
-    this.logger.debug(
-      `[BaseShare] Table linked from shared node check: tableId=${tableId}, result=${linkedResult}`
-    );
-    return linkedResult ? 'linked' : false;
-  }
-
-  /**
-   * Check if a table is referenced as a foreign table by any link field
-   * in the shared node's tables. This allows link field foreign tables
-   * to be accessible even if they're not directly under the shared node.
-   */
-  private async isTableLinkedFromSharedNode(
-    baseId: string,
-    foreignTableId: string,
-    nodeId: string
-  ): Promise<boolean> {
-    // Get all nodes (cached)
-    const allNodes = await this.getBaseNodesWithCache(baseId);
-    const allowedNodeIds = this.collectDescendantNodeIds(allNodes, nodeId);
-
-    // Collect table IDs that are under the shared node
-    const sharedTableIds: string[] = [];
-    for (const node of allNodes) {
-      if (
-        allowedNodeIds.has(node.id) &&
-        node.resourceType.toLowerCase() === 'table' &&
-        node.resourceId
-      ) {
-        sharedTableIds.push(node.resourceId);
-      }
-    }
-
-    if (sharedTableIds.length === 0) {
-      return false;
-    }
-
-    // Find link fields in shared tables
-    const linkFields = await this.prismaService.field.findMany({
-      where: {
-        tableId: { in: sharedTableIds },
-        type: 'link',
-        deletedTime: null,
-      },
-      select: {
-        options: true,
-      },
-    });
-
-    // Check if any link field references the target foreign table
-    return linkFields.some((field) => {
-      try {
-        const options = field.options ? JSON.parse(field.options) : null;
-        return options?.foreignTableId === foreignTableId;
-      } catch {
-        return false;
-      }
-    });
+    return !nodeId || this.isTableAllowedByNodeId(baseId, tableId, nodeId);
   }
 
   /**
@@ -856,7 +771,7 @@ export class PermissionService {
     viewId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<IBaseShareMatch> {
+  ): Promise<boolean> {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, deletedTime: null },
       select: { tableId: true },
@@ -876,7 +791,7 @@ export class PermissionService {
     fieldId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<IBaseShareMatch> {
+  ): Promise<boolean> {
     const field = await this.prismaService.field.findUnique({
       where: { id: fieldId, deletedTime: null },
       select: { tableId: true },
@@ -976,22 +891,22 @@ export class PermissionService {
   }
 
   /**
-   * Resource ids of one base-node type (table, dashboard, ...) that the current
-   * request's base share exposes, or null when the request is not a node-scoped
-   * share (no share, or a whole-base one) and nothing needs filtering. Routes
-   * mounted under /base/:baseId are authorized against the base id alone, so
-   * services listing node resources apply the node restriction with this.
+   * Resource IDs of one base-node type exposed by the current base share.
+   * Null means unrestricted by node scope. An empty set allows no resources.
    */
   async getBaseShareVisibleResourceIds(
     baseId: string,
     resourceType: string
   ): Promise<Set<string> | null> {
     const baseShare = this.cls.get('baseShare');
-    if (!baseShare?.nodeId) {
+    if (!baseShare) {
       return null;
     }
     if (baseShare.baseId !== baseId) {
       return new Set();
+    }
+    if (!baseShare.nodeId) {
+      return null;
     }
     const allNodes = await this.getBaseNodesWithCache(baseId);
     const allowedNodeIds = this.collectDescendantNodeIds(allNodes, baseShare.nodeId);
@@ -1040,16 +955,19 @@ export class PermissionService {
     allNodes: { id: string; parentId: string | null }[],
     nodeId: string
   ): Set<string> {
-    const allowedNodeIds = new Set<string>();
-    const collectDescendants = (currentNodeId: string) => {
-      allowedNodeIds.add(currentNodeId);
-      for (const node of allNodes) {
-        if (node.parentId === currentNodeId) {
-          collectDescendants(node.id);
-        }
-      }
-    };
-    collectDescendants(nodeId);
+    const childrenByParent = new Map<string, string[]>();
+    for (const node of allNodes) {
+      if (node.parentId === null) continue;
+      const children = childrenByParent.get(node.parentId);
+      if (children) children.push(node.id);
+      else childrenByParent.set(node.parentId, [node.id]);
+    }
+    const allowedNodeIds = new Set([nodeId]);
+    for (const id of allowedNodeIds) {
+      const children = childrenByParent.get(id);
+      if (!children) continue;
+      for (const childId of children) allowedNodeIds.add(childId);
+    }
     return allowedNodeIds;
   }
 
@@ -1095,43 +1013,14 @@ export class PermissionService {
     tableId: string,
     nodeId: string
   ): Promise<boolean> {
-    this.logger.log(`[BaseShare] isTableAllowedByNodeId: tableId=${tableId}, nodeId=${nodeId}`);
-
-    // Get all nodes in the base (with caching)
     const allNodes = await this.getBaseNodesWithCache(baseId);
-
-    // Build a map for quick lookup
-    const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
-
-    // Collect all descendant node IDs from the shared nodeId
     const allowedNodeIds = this.collectDescendantNodeIds(allNodes, nodeId);
-
-    this.logger.log(
-      `[BaseShare] Allowed node IDs (shared + descendants): ${JSON.stringify([...allowedNodeIds])}`
+    return allNodes.some(
+      (node) =>
+        node.resourceType.toLowerCase() === 'table' &&
+        node.resourceId === tableId &&
+        allowedNodeIds.has(node.id)
     );
-
-    // Check if the shared node itself is a table with the target tableId
-    const sharedNode = nodeMap.get(nodeId);
-    if (
-      sharedNode &&
-      sharedNode.resourceType.toLowerCase() === 'table' &&
-      sharedNode.resourceId === tableId
-    ) {
-      this.logger.log(`[BaseShare] Shared node is the target table`);
-      return true;
-    }
-
-    // Check if tableId belongs to any of the allowed nodes
-    for (const allowedId of allowedNodeIds) {
-      const node = nodeMap.get(allowedId);
-      if (node && node.resourceType.toLowerCase() === 'table' && node.resourceId === tableId) {
-        this.logger.log(`[BaseShare] tableId found in allowed descendant nodes`);
-        return true;
-      }
-    }
-
-    this.logger.log(`[BaseShare] tableId not found in allowed nodes`);
-    return false;
   }
 
   async validBaseSharePermissions(shareId: string, resourceId: string, permissions: Action[]) {

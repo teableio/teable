@@ -37,10 +37,10 @@ one live Node/Bun owner and is released only after the database closes; replacin
 the binary with the same directory then keeps the data. For an ephemeral
 in-process database in tests, use the SDK with `dataDir: "memory://"`.
 
-The CLI defaults to `127.0.0.1`. Its actor header is identity mapping, not
-authentication or authorization. Do not set `HOST=0.0.0.0` or expose the server
-to an untrusted network without a trusted auth gateway. There are no users,
-permissions, audit, file endpoints, or remote realtime subscriptions.
+The CLI defaults to `127.0.0.1`. Set `TEABLE_HEADLESS_TOKEN` to require a
+local bearer token on API requests. Use a trusted gateway to authorize requests
+if you expose the server to an untrusted network. User management, per-user
+permissions, audit, file endpoints, and remote realtime stay in the host.
 
 ## Why tsdown before Bun
 
@@ -62,6 +62,34 @@ it falls back to the same environment resolution as the PostgreSQL flavor. The
 CLI remains loopback-only by default. `TEABLE_ACTOR_HEADER` maps an actor; it
 does not authenticate callers.
 
-Programmatic hosts can pass `resolveActorId` to `startHeadlessServer`; it is
-forwarded unchanged to `createHeadlessHttpApp`. The CLI never verifies a token or
-grants a preview/write permission itself.
+Programmatic hosts can pass `resolveIdentity` or `resolveActorId` to
+`startHeadlessServer`. The server forwards the configured resolver to
+`createHeadlessHttpApp`.
+
+## Run a structured query
+
+Start the PGlite binary with a local token available in both the server and
+client environments:
+
+```bash
+TEABLE_PGLITE_DIR=./data TEABLE_HEADLESS_TOKEN="$TEABLE_HEADLESS_TOKEN" \
+  ./community/packages/v2/headless-cli/dist/teable-headless-pglite
+```
+
+Point the existing Teable CLI at the server. Put the query definition and
+parameter values in `query.json`, using field and table IDs from the local
+database.
+
+```bash
+TEABLE_TOKEN="$TEABLE_HEADLESS_TOKEN" teable query execute \
+  --endpoint http://127.0.0.1:3000 --request @query.json
+```
+
+Requests with the configured bearer token run as `TEABLE_DEFAULT_ACTOR` or
+the runtime's bootstrap actor (`usr_headless` by default). The token mode
+rejects missing or invalid credentials even if a request includes an actor
+header. `/health` and `/ready` remain accessible for probes.
+
+Set `TEABLE_DATA_QUERY_CURSOR_SIGNING_KEY` to a private random value and reuse
+it when restarting the server to continue existing query cursors. With the
+default instance-specific key, each restart starts a new cursor sequence.

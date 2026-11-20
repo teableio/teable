@@ -11,13 +11,18 @@ import { applyFieldPropertyOpsAndCreateInstance } from './model/factory';
 
 describe('FieldService', () => {
   let service: FieldService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, FieldModule],
     }).compile();
 
     service = module.get<FieldService>(FieldService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

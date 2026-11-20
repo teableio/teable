@@ -97,13 +97,15 @@ const definitionShape = (definition: DataQueryDefinitionInput): string =>
     version: definition.version,
     kind: definition.kind,
     distinct:
-      (definition.version === 6 || definition.version === 8) && definition.kind === 'records'
+      (definition.version === 6 || definition.version === 7 || definition.version === 8) &&
+      definition.kind === 'records'
         ? definition.distinct
         : undefined,
     tableId: definition.tableId,
     recordId: definition.kind === 'records' ? (definition.recordId ?? null) : undefined,
     relations: definition.version !== 1 ? (definition.relations ?? {}) : undefined,
     select: definition.kind === 'records' ? definition.select : undefined,
+    topN: definition.version === 9 ? definition.topN : undefined,
     aggregates: definition.kind === 'aggregate' ? definition.aggregates : undefined,
     groupBy: definition.kind === 'aggregate' ? (definition.groupBy ?? []) : undefined,
     ...((definition.version === 4 ||
@@ -161,6 +163,7 @@ const duplicateFindings = (manifest: DataQueryManifest): DataQueryLintFinding[] 
     const identity = canonicalJson({
       mode: query.mode ?? (query.definition ? 'structured' : 'sql-query'),
       definition: query.definition ?? null,
+      library: query.library ?? null,
       result: query.result ?? 'many',
       fallback: query.fallback ?? null,
     });

@@ -124,4 +124,39 @@ describe('buildFolderDeletePresentation', () => {
     expect(result.items[0]).toMatchObject({ name: 'Board', blocked: true });
     expect(result.blockedNames).toEqual(['Board']);
   });
+
+  it('marks an app whose generation the delete stops, among the items with an impact', () => {
+    const quiet = buildFolderDeletePresentation(preview(effects));
+    expect(quiet.stopsGeneration).toBe(false);
+    expect(quiet.items.every((item) => !item.generating)).toBe(true);
+
+    const result = buildFolderDeletePresentation(
+      preview([
+        ...effects,
+        {
+          code: 'folder.delete.item.app',
+          kind: 'resource.trash',
+          resource: ref('app', 'appBuilding', 'Building'),
+          measures: {},
+        },
+        {
+          code: 'folder.delete.app.generating',
+          kind: 'host.effect',
+          resource: ref('app', 'appBuilding', 'Building'),
+          measures: {},
+        },
+      ])
+    );
+
+    expect(result.stopsGeneration).toBe(true);
+    expect(result.items.map((item) => item.name)).toEqual([
+      'Leads',
+      'Board',
+      'Portal',
+      'Building',
+      'Budget',
+    ]);
+    expect(result.items[3].generating).toBe(true);
+    expect(result.items[3].appOffline).toBeUndefined();
+  });
 });

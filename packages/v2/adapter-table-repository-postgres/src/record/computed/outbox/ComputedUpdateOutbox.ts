@@ -591,6 +591,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       baseId: string;
       availableAt?: Date;
       cause: ComputedOutboxWakeupCause;
+      wakeupId?: string;
       traceparent?: string;
       tracestate?: string;
     },
@@ -603,6 +604,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       baseId: params.baseId,
       ...(params.availableAt ? { availableAt: params.availableAt } : {}),
       cause: params.cause,
+      ...(params.wakeupId ? { wakeupId: params.wakeupId } : {}),
       ...(carrier?.traceparent ? { traceparent: carrier.traceparent } : {}),
       ...(carrier?.tracestate ? { tracestate: carrier.tracestate } : {}),
     });
@@ -977,7 +979,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     }
 
     const claimOwner = createClaimOwner(relayClaim.workerId);
-    await trx
+    const relayRow = await trx
       .updateTable(OUTBOX_TABLE)
       .set({
         status: 'processing',
@@ -986,18 +988,28 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         updated_at: now,
       })
       .where('id', '=', taskId)
-      .execute();
+      .where((eb) =>
+        eb.or([
+          eb('seed_record_ids', 'is not', null),
+          eb.not(
+            eb.exists(
+              eb
+                .selectFrom(OUTBOX_SEED_TABLE)
+                .select(sql<number>`1`.as('one'))
+                .where('task_id', '=', taskId)
+                .offset(Math.max(1, Math.trunc(this.config.maxSeedRecordsPerTask)))
+                .limit(1)
+            )
+          ),
+        ])
+      )
+      .returningAll()
+      .executeTakeFirst();
+    // Only oversized spilled inputs need preparation in separate transactions.
+    if (!relayRow) return ok(null);
 
-    // Re-read through the same materialization path as claimById so the item
-    // the worker processes is byte-identical to a relay-claimed one.
-    const row = (await trx
-      .selectFrom(OUTBOX_TABLE)
-      .selectAll()
-      .where('id', '=', taskId)
-      .executeTakeFirst()) as OutboxRow | undefined;
-    if (!row) return ok(null);
-    const seedMap = await this.loadSeedRecords(trx, [row]);
-    const claimed = toAnyOutboxItem(row, seedMap.get(taskId) ?? []);
+    const seedMap = await this.loadSeedRecords(trx, [relayRow]);
+    const claimed = toAnyOutboxItem(relayRow as OutboxRow, seedMap.get(taskId) ?? []);
 
     if (params.skipActivityProjection) {
       return ok({ claimed, activity: null });
@@ -1746,45 +1758,136 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     row: OutboxRow,
     now: Date,
     afterCommit: Array<() => Promise<void>>,
-    context?: IExecutionContext
-  ): Promise<Result<OutboxRow, DomainError>> {
+    context?: IExecutionContext,
+    publishPreparationWakeup = true
+  ): Promise<Result<OutboxRow | null, DomainError>> {
     const metadata = parseJsonValue(row.dirty_stats);
+    const maxSeeds = Math.max(1, Math.trunc(this.config.maxSeedRecordsPerTask));
     if (
       row.seed_record_ids === null &&
       ['insert', 'update', 'delete'].includes(String(row.change_type)) &&
       metadata &&
       typeof metadata === 'object' &&
-      !Array.isArray(metadata) &&
-      'plannedRerun' in metadata &&
-      metadata.plannedRerun === true
+      !Array.isArray(metadata)
     ) {
-      // An archived scope may contain millions of source rows. Transfer membership
-      // SQL-side before loadSeedRecords; existing dirty-budget frontier consumption
-      // bounds the worker, without materializing all IDs or independently splitting
-      // a current-stage plan whose sources must remain in one serial scope.
+      const restoring = 'plannedRerun' in metadata && metadata.plannedRerun === true;
+      const preparing = 'preparingFrontier' in metadata && metadata.preparingFrontier === true;
       const scopeId = String(row.id);
-      const ledger = resolveTableSql(trx, STAGE_LEDGER_TABLE);
       const seeds = resolveTableSql(trx, OUTBOX_SEED_TABLE);
-      await sql`insert into ${ledger}(scope_id,kind,table_id,record_id,seq)
-        select ${scopeId},kind,table_id,record_id,
-          row_number() over(partition by kind order by table_id,record_id)
-        from ${seeds} cross join (values ('frontier'),('rerun-source')) as kinds(kind)
-        where task_id=${scopeId}
-        on conflict do nothing`.execute(trx);
-      await sql`insert into ${ledger}(scope_id,kind,table_id,record_id)
-        values(${scopeId},'rerun-input-v1','','') on conflict do nothing`.execute(trx);
-      const { plannedRerun: _plannedRerun, ...planMetadata } = metadata;
-      const dirtyStats = toJsonValue({ ...planMetadata, ledgerScopeId: scopeId });
-      await trx
-        .updateTable(OUTBOX_TABLE)
-        .set({ seed_record_ids: toJsonValue([]), dirty_stats: dirtyStats })
-        .where('id', '=', scopeId)
-        .execute();
-      await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', scopeId).execute();
-      return ok({ ...row, seed_record_ids: [], dirty_stats: dirtyStats });
+      const large =
+        !restoring &&
+        !preparing &&
+        !hasProtectedMergeState(metadata) &&
+        this.config.stageMaxDirtyRecords > 0 &&
+        (
+          await sql`select 1 from ${seeds} where task_id=${scopeId}
+          limit 1 offset ${maxSeeds}`.execute(trx)
+        ).rows.length > 0;
+      if (restoring || preparing || large) {
+        // The locked task owns both tables. Move one page per claim transaction,
+        // preserving replay membership even after the executor retires its frontier.
+        // Older consumers finish plannedRerun with positive row_number() values.
+        // Reserve negative seq for our pages so their seq-based retirement cannot
+        // discard an unprocessed row sharing a sequence number after a takeover.
+        const ledger = resolveTableSql(trx, STAGE_LEDGER_TABLE);
+        const pageSize =
+          this.config.stageMaxDirtyRecords > 0
+            ? Math.min(maxSeeds, this.config.stageMaxDirtyRecords)
+            : maxSeeds;
+        await sql`with page as (
+          select table_id, record_id from ${seeds} where task_id=${scopeId}
+          order by table_id, record_id limit ${pageSize}
+        ), moved as (
+          delete from ${seeds} s using page p where s.task_id=${scopeId}
+            and (s.table_id,s.record_id)=(p.table_id,p.record_id) returning s.table_id,s.record_id
+        ), numbered as (
+          select table_id, record_id,
+            least(coalesce((select min(seq) from ${ledger}
+              where scope_id=${scopeId} and kind='frontier'),0),0) -
+            row_number() over (order by table_id,record_id) as seq
+          from moved
+        ) insert into ${ledger}(scope_id,kind,table_id,record_id,seq)
+          select ${scopeId},kind,table_id,record_id,seq from numbered
+          cross join (values ('frontier'),('rerun-source')) as kinds(kind)
+          on conflict do nothing`.execute(trx);
+        // Capture is complete across the ledger and remaining durable seeds even
+        // if this process dies after the page commits but before the next claim.
+        await sql`insert into ${ledger}(scope_id,kind,table_id,record_id)
+          values(${scopeId},'rerun-input-v1','','') on conflict do nothing`.execute(trx);
+        const planMetadata = { ...metadata } as Record<string, unknown>;
+        delete planMetadata.plannedRerun;
+        delete planMetadata.preparingFrontier;
+        const budget = parsePartialStageBudget(metadata) ?? {
+          maxSteps: 1,
+          maxFields: this.config.stageMaxFields,
+          maxEdges: this.config.stageMaxEdges,
+        };
+        const progress = { ...planMetadata, ledgerScopeId: scopeId, partialStageBudget: budget };
+        const remaining =
+          await sql`select 1 from ${seeds} where task_id=${scopeId} limit 1`.execute(trx);
+        const currentPlanHash = String(row.plan_hash ?? '');
+        const frontierPrefix = `frontier:${scopeId}:`;
+        if (remaining.rows.length) {
+          const frontierPlanHash = currentPlanHash.startsWith(frontierPrefix)
+            ? currentPlanHash
+            : `${frontierPrefix}${currentPlanHash}`;
+          await trx
+            .updateTable(OUTBOX_TABLE)
+            .set({
+              status: DEFAULT_STATUS,
+              locked_at: null,
+              locked_by: null,
+              next_run_at: now,
+              plan_hash: frontierPlanHash,
+              dirty_stats: toJsonValue({
+                ...progress,
+                preparingFrontier: true,
+                plannedRerun: true,
+              }),
+            })
+            .where('id', '=', scopeId)
+            .execute();
+          // Broker admissions re-arm through their eligibility handler. Other
+          // callers retain an after-commit wakeup if they exit between pages.
+          if (publishPreparationWakeup) {
+            const publishContext = withoutTransaction(this.resolvePublishContext(context));
+            afterCommit.push(() =>
+              this.scheduleWakeup(
+                {
+                  taskId: scopeId,
+                  baseId: String(row.base_id),
+                  cause: 'replay',
+                  wakeupId: `cuwd-prep-${scopeId}-${Math.floor(now.getTime() / 1000)}`,
+                  ...parseTracePropagationCarrier(metadata),
+                },
+                publishContext
+              )
+            );
+          }
+          return ok(null);
+        }
+        const restoredPlanHash = currentPlanHash.startsWith(frontierPrefix)
+          ? currentPlanHash.slice(frontierPrefix.length)
+          : undefined;
+        const dirtyStats = toJsonValue(progress);
+        await trx
+          .updateTable(OUTBOX_TABLE)
+          .set({
+            seed_record_ids: toJsonValue([]),
+            dirty_stats: dirtyStats,
+            ...(restoredPlanHash !== undefined ? { plan_hash: restoredPlanHash } : {}),
+          })
+          .where('id', '=', scopeId)
+          .execute();
+        return ok({
+          ...row,
+          seed_record_ids: [],
+          dirty_stats: dirtyStats,
+          ...(restoredPlanHash !== undefined ? { plan_hash: restoredPlanHash } : {}),
+        });
+      }
     }
     if (row.change_type !== SEED_CHANGE_TYPE || row.seed_record_ids !== null) return ok(row);
-    const maxSeeds = Math.max(1, Math.trunc(this.config.maxSeedRecordsPerTask));
     const count = await trx
       .selectFrom(OUTBOX_SEED_TABLE)
       .select(sql<number>`count(*)::integer`.as('count'))
@@ -1926,6 +2029,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       activity: ComputedActivityProjectionResult | null;
       deadLetterActivities: ReadonlyArray<ComputedActivityProjectionResult | null>;
       afterCommit?: Array<() => Promise<void>>;
+      preparationProgress?: boolean;
     };
     const executeClaim = async (): Promise<Result<ClaimBatchResult, DomainError>> => {
       const now = params.now ?? new Date();
@@ -2169,7 +2273,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               context
             );
             if (bounded.isErr()) return err(bounded.error);
-            boundedRows.push(bounded.value);
+            if (bounded.value) boundedRows.push(bounded.value);
           }
           const seedMap = await this.loadSeedRecords(trx, boundedRows);
           const tasks = boundedRows.map((row) =>
@@ -2214,6 +2318,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             activity: activityResult.value,
             deadLetterActivities,
             afterCommit,
+            preparationProgress: boundedRows.length < rows.length,
           });
         },
         {
@@ -2225,23 +2330,42 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
-      let result: Result<ClaimBatchResult, DomainError>;
-      if (span && context?.tracer) {
-        result = await context.tracer.withSpan(span, executeClaim);
-      } else {
-        result = await executeClaim();
-      }
-      if (result.isErr()) return err(result.error);
-      await this.publishActivityChanged(result.value.activity, context);
-      for (const deadLetterActivity of result.value.deadLetterActivities) {
-        await this.publishActivityChanged(deadLetterActivity, context);
-      }
       const transaction = getUnitOfWorkTransaction(context, 'data');
-      for (const notify of result.value.afterCommit ?? []) {
-        if (transaction?.afterCommit) transaction.afterCommit(notify);
-        else if (!transaction) await notify();
+      const maxPreparationPages =
+        params.maxPreparationPages === undefined
+          ? 32
+          : params.maxPreparationPages === Number.POSITIVE_INFINITY
+            ? Number.POSITIVE_INFINITY
+            : Number.isFinite(params.maxPreparationPages)
+              ? Math.max(1, Math.trunc(params.maxPreparationPages))
+              : 32;
+      for (let preparationPages = 0; ;) {
+        const result =
+          span && context?.tracer
+            ? await context.tracer.withSpan(span, executeClaim)
+            : await executeClaim();
+        if (result.isErr()) return err(result.error);
+        await this.publishActivityChanged(result.value.activity, context);
+        for (const deadLetterActivity of result.value.deadLetterActivities) {
+          await this.publishActivityChanged(deadLetterActivity, context);
+        }
+        for (const notify of result.value.afterCommit ?? []) {
+          if (transaction?.afterCommit) transaction.afterCommit(notify);
+          else if (!transaction) await notify();
+        }
+        // A preparation page is progress, not an empty queue. Each next round
+        // commits separately and repeats normal fairness/concurrency selection.
+        // Never turn a caller-owned transaction into an unbounded drain.
+        preparationPages += 1;
+        if (
+          result.value.tasks.length ||
+          !result.value.preparationProgress ||
+          preparationPages >= maxPreparationPages ||
+          getPostgresTransaction(context)
+        ) {
+          return ok(result.value.tasks);
+        }
       }
-      return ok(result.value.tasks);
     } finally {
       span?.end();
     }
@@ -2346,6 +2470,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       task: AnyOutboxItem | null;
       activity: ComputedActivityProjectionResult | null;
       afterCommit?: Array<() => Promise<void>>;
+      preparationProgress?: boolean;
     } | null;
     const executeClaim = async (): Promise<Result<ClaimByIdResult, DomainError>> => {
       const now = params.now ?? new Date();
@@ -2474,9 +2599,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             claimedRow,
             now,
             afterCommit,
-            context
+            context,
+            !params.yieldAfterPreparation
           );
           if (bounded.isErr()) return err(bounded.error);
+          if (!bounded.value) {
+            return ok({ task: null, activity: null, afterCommit, preparationProgress: true });
+          }
           const seedMap = await this.loadSeedRecords(trx, [bounded.value]);
 
           if (String(row.status) === 'processing') {
@@ -2523,21 +2652,26 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
-      let result: Result<ClaimByIdResult, DomainError>;
-      if (span && context?.tracer) {
-        result = await context.tracer.withSpan(span, executeClaim);
-      } else {
-        result = await executeClaim();
-      }
-      if (result.isErr()) return err(result.error);
-      if (!result.value) return ok(null);
-      await this.publishActivityChanged(result.value.activity, context);
       const transaction = getUnitOfWorkTransaction(context, 'data');
-      for (const notify of result.value.afterCommit ?? []) {
-        if (transaction?.afterCommit) transaction.afterCommit(notify);
-        else if (!transaction) await notify();
+      for (;;) {
+        const result =
+          span && context?.tracer
+            ? await context.tracer.withSpan(span, executeClaim)
+            : await executeClaim();
+        if (result.isErr()) return err(result.error);
+        if (!result.value) return ok(null);
+        await this.publishActivityChanged(result.value.activity, context);
+        for (const notify of result.value.afterCommit ?? []) {
+          if (transaction?.afterCommit) transaction.afterCommit(notify);
+          else if (!transaction) await notify();
+        }
+        if (
+          !result.value.preparationProgress ||
+          params.yieldAfterPreparation ||
+          getPostgresTransaction(context)
+        )
+          return ok(result.value.task);
       }
-      return ok(result.value.task);
     } finally {
       span?.end();
     }
@@ -2866,45 +3000,41 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
           await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
 
-          if (
-            fieldErrors?.length &&
-            isComputedReliabilityEnabled(String(deleted[0].base_id), this.reliability)
-          ) {
-            const reliability = new PostgresComputedReliabilityStore(trx);
-            await reliability.recordFailure({
-              taskId,
-              baseId: String(deleted[0].base_id),
-              sourceTableId: String(deleted[0].seed_table_id),
-              error: fieldErrors.map((item) => item.error.message).join('; '),
-              errorCode: fieldErrors.length === 1 ? fieldErrors[0].error.code : undefined,
-              fieldIds: fieldErrors.map((item) => item.fieldId),
-              targets: fieldErrors.flatMap((item) => {
-                const tableId = item.error.context?.tableId;
-                return typeof tableId === 'string' ? [{ tableId, fieldId: item.fieldId }] : [];
-              }),
-            });
-          }
-
           if (isComputedReliabilityEnabled(String(deleted[0].base_id), this.reliability)) {
+            const baseId = String(deleted[0].base_id);
             const taskForTargets =
               typeof taskOrId === 'string' ? toOutboxItem(deleted[0] as OutboxRow, []) : taskOrId;
             const targets = resolveFieldTargetsFromOutboxItem(taskForTargets);
-            if (targets.isOk()) {
-              const failedFieldIds: Record<string, true> = {};
-              for (const item of fieldErrors ?? []) {
-                failedFieldIds[item.fieldId] = true;
-              }
-              const succeededTargets = targets.value
-                .filter((target) => !failedFieldIds[target.fieldId.toString()])
-                .map((target) => ({
-                  tableId: target.tableId.toString(),
-                  fieldId: target.fieldId.toString(),
-                }));
-              await new PostgresComputedReliabilityStore(trx).resolveCoveredIssues({
-                baseId: String(deleted[0].base_id),
-                succeededTargets,
-              });
-            }
+            const failedFieldIds = new Set((fieldErrors ?? []).map((item) => item.fieldId));
+            const succeededTargets = targets.isOk()
+              ? targets.value
+                  .filter((target) => !failedFieldIds.has(target.fieldId.toString()))
+                  .map((target) => ({
+                    tableId: target.tableId.toString(),
+                    fieldId: target.fieldId.toString(),
+                  }))
+              : [];
+            await new PostgresComputedReliabilityStore(trx).settleCompletedTask({
+              ...(fieldErrors?.length
+                ? {
+                    failure: {
+                      taskId,
+                      baseId,
+                      sourceTableId: String(deleted[0].seed_table_id),
+                      error: fieldErrors.map((item) => item.error.message).join('; '),
+                      errorCode: fieldErrors.length === 1 ? fieldErrors[0].error.code : undefined,
+                      fieldIds: fieldErrors.map((item) => item.fieldId),
+                      targets: fieldErrors.flatMap((item) => {
+                        const tableId = item.error.context?.tableId;
+                        return typeof tableId === 'string'
+                          ? [{ tableId, fieldId: item.fieldId }]
+                          : [];
+                      }),
+                    },
+                  }
+                : {}),
+              success: { baseId, succeededTargets },
+            });
           }
 
           await this.insertRunHistory(
@@ -4055,6 +4185,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     return ok(terminalActivity.value);
   }
 
+  private get computedSeedInlineLimit(): number {
+    return this.config.stageMaxDirtyRecords > 0
+      ? Math.min(this.config.seedInlineLimit, Math.max(1, this.config.maxSeedRecordsPerTask))
+      : this.config.seedInlineLimit;
+  }
+
   private async insertOutbox(
     trx: Kysely<DynamicDB> | Transaction<DynamicDB>,
     task: ComputedUpdateOutboxTaskInput,
@@ -4066,16 +4202,27 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     if (task.beforeImageRecords.length > 0) seedAllSet.delete(task.seedTableId);
     const seedGroups = buildSeedGroupsFromTask(task).filter((g) => !seedAllSet.has(g.tableId));
     const seedCount = countSeedRecords(seedGroups);
-    const useSeedTable = seedCount > this.config.seedInlineLimit;
+    const newTaskId = createOutboxId();
+    // A fresh, bounded delete continuation already has its complete stage input in memory.
+    // Initialize the same durable checkpoint a paged claim would finish constructing.
+    const initializeFrontier =
+      task.changeType === 'delete' &&
+      Boolean(task.predecessorTaskId) &&
+      !hasProtectedMergeState(task) &&
+      this.config.stageMaxDirtyRecords > 0 &&
+      seedCount > this.config.maxSeedRecordsPerTask &&
+      seedCount <= this.config.stageMaxCollectedSeedIds;
+    const inlineSeeds = initializeFrontier ? [] : seedGroups;
+    const useSeedTable = !initializeFrontier && seedCount > this.computedSeedInlineLimit;
 
     const record = await trx
       .insertInto(OUTBOX_TABLE)
       .values({
-        id: createOutboxId(),
+        id: newTaskId,
         base_id: task.baseId,
         worker_lane: this.config.workerLane,
         seed_table_id: task.seedTableId,
-        seed_record_ids: useSeedTable ? null : toJsonValue(seedGroups),
+        seed_record_ids: useSeedTable ? null : toJsonValue(inlineSeeds),
         change_type: task.changeType,
         steps: toJsonValue(task.steps),
         edges: toJsonValue(task.edges),
@@ -4098,8 +4245,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             task.seedAllCursors && Object.keys(task.seedAllCursors).length > 0
               ? task.seedAllCursors
               : undefined,
-          ledgerScopeId: task.ledgerScopeId,
-          partialStageBudget: task.partialStageBudget,
+          ledgerScopeId: initializeFrontier ? newTaskId : task.ledgerScopeId,
+          partialStageBudget: initializeFrontier
+            ? {
+                maxSteps: 1,
+                maxFields: this.config.stageMaxFields,
+                maxEdges: this.config.stageMaxEdges,
+              }
+            : task.partialStageBudget,
           terminalFieldErrors: task.terminalFieldErrors,
           sourceFieldIds: task.sourceFieldIds?.length ? [...task.sourceFieldIds] : undefined,
           traceparent: task.traceparent,
@@ -4123,7 +4276,24 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const taskId = String(record.id);
 
-    if (useSeedTable) {
+    if (initializeFrontier) {
+      const tableIds: string[] = [];
+      const recordIds: string[] = [];
+      for (const group of seedGroups) {
+        for (const recordId of group.recordIds) {
+          tableIds.push(group.tableId);
+          recordIds.push(recordId);
+        }
+      }
+      const ledger = resolveTableSql(trx, STAGE_LEDGER_TABLE);
+      await sql`insert into ${ledger} (scope_id, kind, table_id, record_id, seq)
+        select ${taskId}, kinds.kind, input.table_id, input.record_id, input.seq
+        from (
+          select table_id, record_id, -row_number() over (order by table_id, record_id) as seq
+          from unnest(${tableIds}::text[], ${recordIds}::text[]) as seeds(table_id, record_id)
+        ) as input cross join (values ('frontier'), ('rerun-source')) as kinds(kind)
+        union all select ${taskId}, 'rerun-input-v1', '', '', 0`.execute(trx);
+    } else if (useSeedTable) {
       await this.upsertSeedRows(trx, taskId, flattenSeedGroups(seedGroups));
     }
 
@@ -4220,7 +4390,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       task.sourceChangedAt
     );
 
-    const seedInlineLimit = this.config.seedInlineLimit;
+    const seedInlineLimit = this.computedSeedInlineLimit;
     const mergedSeedCount = countSeedRecords(mergedSeedGroups);
     const useSeedTable = existing.seed_record_ids === null || mergedSeedCount > seedInlineLimit;
 
@@ -4622,6 +4792,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           changeType: mergedPayload.changeType,
           impact: mergedPayload.impact ?? null,
           beforeImageRecords: mergedPayload.beforeImageRecords,
+          capturedDeleteLinkFieldIds: mergedPayload.capturedDeleteLinkFieldIds,
           orchestration: mergedPayload.orchestration,
         }),
         origin_run_ids: mergedSeedOriginRunIds,
@@ -4696,6 +4867,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         changeType: task.changeType,
         impact: task.impact ?? null,
         beforeImageRecords: task.beforeImageRecords,
+        capturedDeleteLinkFieldIds: task.capturedDeleteLinkFieldIds,
         orchestration: task.orchestration,
         traceparent: task.traceparent,
         tracestate: task.tracestate,
@@ -5222,6 +5394,7 @@ const seedOutboxItemToTaskInput = (task: SeedOutboxItem): ComputedUpdateSeedTask
   seedTableId: task.seedTableId,
   seedRecordIds: task.seedRecordIds,
   extraSeedRecords: task.extraSeedRecords,
+  capturedDeleteLinkFieldIds: task.capturedDeleteLinkFieldIds,
   beforeImageRecords: task.beforeImageRecords,
   changedFieldIds: task.changedFieldIds,
   changeType: task.changeType,
@@ -5618,6 +5791,7 @@ const toSeedOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): See
     seedTableId,
     seedRecordIds,
     extraSeedRecords,
+    capturedDeleteLinkFieldIds: parseCapturedDeleteLinkFieldIds(row.dirty_stats),
     beforeImageRecords: parseBeforeImageRecordDtos(row.dirty_stats),
     changedFieldIds: parseStringArray(row.affected_field_ids),
     changeType,
@@ -5655,6 +5829,7 @@ const parseSeedPayloadFromRow = (row: OutboxRow): ComputedUpdateSeedTaskInput =>
     seedTableId,
     seedRecordIds,
     extraSeedRecords,
+    capturedDeleteLinkFieldIds: parseCapturedDeleteLinkFieldIds(row.dirty_stats),
     beforeImageRecords: parseBeforeImageRecordDtos(row.dirty_stats),
     changedFieldIds: parseStringArray(row.affected_field_ids),
     changeType: parseSeedChangeType(row.dirty_stats) ?? 'update',
@@ -5667,6 +5842,14 @@ const parseSeedPayloadFromRow = (row: OutboxRow): ComputedUpdateSeedTaskInput =>
     predecessorTaskId: row.predecessor_task_id ? String(row.predecessor_task_id) : undefined,
     planHash: String(row.plan_hash),
   };
+};
+
+const parseCapturedDeleteLinkFieldIds = (value: unknown): string[] | undefined => {
+  const parsed = parseJsonValue(value);
+  if (!parsed || typeof parsed !== 'object' || !('capturedDeleteLinkFieldIds' in parsed))
+    return undefined;
+  const ids = parsed.capturedDeleteLinkFieldIds;
+  return Array.isArray(ids) && ids.every((id) => typeof id === 'string') ? ids : undefined;
 };
 
 /**
@@ -5876,6 +6059,7 @@ const buildDeadLetterValues = (
         changeType: seedTask.changeType,
         impact: seedTask.impact ?? null,
         beforeImageRecords: seedTask.beforeImageRecords,
+        capturedDeleteLinkFieldIds: seedTask.capturedDeleteLinkFieldIds,
         orchestration: seedTask.orchestration,
         traceparent: seedTask.traceparent,
         tracestate: seedTask.tracestate,

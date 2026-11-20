@@ -12,6 +12,18 @@ const definition = {
 const recordId = `rec${'b'.repeat(16)}`;
 
 describe('canonical named query manifest', () => {
+  it('accepts a fixed library pin and rejects inline or latest alternatives', () => {
+    const library = { id: 'qlb0123456789abcdef', revision: 2 };
+    const parse = (query: unknown) =>
+      parseDataQueryManifest({ schemaVersion: 1, queries: { sales: query } });
+    expect(parse({ mode: 'library', library }).isOk()).toBe(true);
+    expect(parse({ mode: 'library', library, definition }).isErr()).toBe(true);
+    expect(parse({ mode: 'library', library: { id: library.id, latest: true } }).isErr()).toBe(
+      true
+    );
+    expect(parse({ mode: 'structured', library, definition }).isErr()).toBe(true);
+  });
+
   it('keeps format version distinct and accepts many by default or targeted one', () => {
     const manifest = {
       schemaVersion: 1,

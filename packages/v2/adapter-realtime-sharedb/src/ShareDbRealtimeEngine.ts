@@ -49,7 +49,7 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
       op: undefined,
       src: this.toProjectionSource(context.requestId),
       seq: 1,
-      v: 0,
+      v: options?.version ?? 0,
       m: {
         ts: Date.now(),
       },

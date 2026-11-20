@@ -283,6 +283,11 @@ export type ReconcileTableSearchAccessPathInput = {
   // table's config — the table-level kill switch for the indexed search path.
   readonly mode: 'create' | 'rebuild' | 'drop';
   readonly expectedDefinitionKey?: string;
+  /** Only running, worker-owned reclaim tasks may defer retirement waits. */
+  readonly reclaim?: boolean;
+  /** Product switch drop must recheck its admitted metadata snapshot under physical locks. */
+  readonly productDropSnapshot?: unknown;
+  readonly productSwitch?: boolean;
   readonly semantics?: 'substring' | 'lexical';
   readonly provider?: 'pg_trgm' | 'pg_bigm' | 'tsvector';
   readonly languageConfig?: string;
@@ -321,7 +326,13 @@ export interface TableSearchAccessPathReconciler {
 
   maintainAfterSchemaChange(
     context: IExecutionContext,
-    table: Table
+    table: Table,
+    execution?: ReconcileTableSearchAccessPathInput['execution'],
+    expected?: {
+      readonly definitionKey?: string;
+      readonly searchScope?: 'all_fields' | 'selected_fields';
+      readonly tableVersion: number;
+    }
   ): Promise<Result<ReconcileTableSearchAccessPathResult | undefined, DomainError>>;
 }
 

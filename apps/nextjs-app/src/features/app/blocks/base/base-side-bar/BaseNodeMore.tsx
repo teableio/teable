@@ -63,7 +63,6 @@ import { useTranslation } from 'next-i18next';
 import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { FolderDeleteConfirmDialog } from '@/features/app/components/folder-delete-confirm-dialog';
-import { LoginAppWarning } from '@/features/app/components/LoginAppWarning';
 import { OperationPreviewPanel } from '@/features/app/components/operation-preview';
 import type { OperationPreviewPanelProps } from '@/features/app/components/operation-preview/OperationPreviewPanel';
 import {
@@ -76,6 +75,7 @@ import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { tableConfig } from '@/features/i18n/table.config';
+import { AppDeleteConfirmDialog } from '@overridable/AppDeleteConfirmDialog';
 import { TableArchiveDialog } from '@overridable/TableArchiveDialog';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { TableImport } from '../../import-table';
@@ -231,8 +231,6 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
     onClose: () => void;
     onConfirm: () => void;
   }) => ReactNode;
-  /** Shown in the plain delete confirm under its question. */
-  deleteWarning?: ReactNode;
 }
 
 /** Whether any of a menu group's entries shows. */
@@ -289,7 +287,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     star,
     onMakeTemplate,
     renderDeleteDialog,
-    deleteWarning,
+    resourceType,
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -326,8 +324,9 @@ const CommonOperation = (props: ICommonOperationProps) => {
     setIsDeleting(true);
     setDeleteProgress(undefined);
     try {
-      // Only a dialog of its own (a folder's) has somewhere to show the progress.
-      await onDelete?.(deletePermanent, renderDeleteDialog ? setDeleteProgress : undefined);
+      // Only a folder's own dialog has somewhere to show the progress.
+      const showsProgress = renderDeleteDialog && resourceType === BaseNodeResourceType.Folder;
+      await onDelete?.(deletePermanent, showsProgress ? setDeleteProgress : undefined);
       setDeletePermanent(null);
       setDeleteProgress(undefined);
     } catch {
@@ -384,7 +383,6 @@ const CommonOperation = (props: ICommonOperationProps) => {
         onOpenChange={(open) => !open && setDeletePermanent(null)}
         title={`${t('common:actions.delete')} ${nodeTypeLabel.toLowerCase()}`}
         description={t('common:actions.deleteTip', { name: nodeName })}
-        content={deleteWarning}
         cancelText={t('common:actions.cancel')}
         confirmText={deletePermanent ? t('common:actions.delete') : t('common:trash.addToTrash')}
         confirmLoading={isDeleting}
@@ -697,11 +695,17 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
       canShare={canShare}
-      deleteWarning={
-        published ? (
-          <LoginAppWarning message={t('common:appDelete.offlineWarning')} apps={[]} />
-        ) : undefined
-      }
+      renderDeleteDialog={({ isDeleting, onClose, onConfirm }) => (
+        <AppDeleteConfirmDialog
+          open
+          appId={props.resourceId}
+          appName={node?.resourceMeta?.name ?? ''}
+          published={published}
+          isDeleting={isDeleting}
+          onOpenChange={(open) => !open && onClose()}
+          onConfirm={onConfirm}
+        />
+      )}
     />
   );
 };

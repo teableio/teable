@@ -176,6 +176,7 @@ export type FieldDependencyGraphLoadOptions = {
 type FieldMetadataRow = {
   id: string;
   table_id: string;
+  table_db_table_name?: string | null;
   type: string;
   is_computed: boolean | null;
   is_lookup: boolean | null;
@@ -627,6 +628,7 @@ export class FieldDependencyGraph {
         .select([
           'f.id as id',
           'f.table_id as table_id',
+          't.db_table_name as table_db_table_name',
           'f.type as type',
           'f.is_computed as is_computed',
           'f.is_lookup as is_lookup',
@@ -706,8 +708,12 @@ export class FieldDependencyGraph {
           if (parsed.isErr()) return err(parsed.error);
 
           // If symmetric relationship is broken, treat as one-way link
-          if (parsed.value && !row.symmetric_valid) {
-            options = ok({ ...parsed.value, symmetricFieldId: undefined });
+          if (parsed.value) {
+            options = ok({
+              ...parsed.value,
+              ...(row.table_db_table_name ? { targetDbTableName: row.table_db_table_name } : {}),
+              ...(!row.symmetric_valid ? { symmetricFieldId: undefined } : {}),
+            });
           } else {
             options = parsed;
           }
@@ -1466,6 +1472,7 @@ export class FieldDependencyGraph {
       .select([
         'f.id as id',
         'f.table_id as table_id',
+        't.db_table_name as table_db_table_name',
         'f.type as type',
         'f.is_computed as is_computed',
         'f.is_lookup as is_lookup',
@@ -1553,8 +1560,12 @@ export class FieldDependencyGraph {
           if (parsed.isErr()) return err(parsed.error);
 
           // If symmetric relationship is broken, treat as one-way link
-          if (parsed.value && !row.symmetric_valid) {
-            options = ok({ ...parsed.value, symmetricFieldId: undefined });
+          if (parsed.value) {
+            options = ok({
+              ...parsed.value,
+              ...(row.table_db_table_name ? { targetDbTableName: row.table_db_table_name } : {}),
+              ...(!row.symmetric_valid ? { symmetricFieldId: undefined } : {}),
+            });
           } else {
             options = parsed;
           }

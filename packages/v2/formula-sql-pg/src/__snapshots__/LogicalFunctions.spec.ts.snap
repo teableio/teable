@@ -3245,25 +3245,6 @@ exports[`logical functions > 'Switch' with 'attachment' 1`] = `
 }
 `;
 
-exports[`logical functions > 'Switch' with 'autoNumber' 1`] = `
-{
-  "fieldType": "autoNumber",
-  "formula": "SWITCH({AutoNumber}, 10, "ten", "other")",
-  "funcId": "Switch",
-  "inputs": {
-    "AutoNumber": {
-      "fieldName": "AutoNumber",
-      "fieldType": "autoNumber",
-      "formattedValue": "1",
-      "formatting": undefined,
-      "rawValue": "1",
-    },
-  },
-  "result": "other",
-  "sql": "(CASE WHEN ("t"."AutoNumber")::text = (10)::text THEN 'ten' ELSE 'other' END)",
-}
-`;
-
 exports[`logical functions > 'Switch' with 'button' 1`] = `
 {
   "fieldType": "button",
@@ -3350,28 +3331,6 @@ exports[`logical functions > 'Switch' with 'conditionalLookup' 1`] = `
 }
 `;
 
-exports[`logical functions > 'Switch' with 'conditionalRollup' 1`] = `
-{
-  "fieldType": "conditionalRollup",
-  "formula": "SWITCH({ConditionalRollupType}, 10, "ten", "other")",
-  "funcId": "Switch",
-  "inputs": {
-    "ConditionalRollupType": {
-      "fieldName": "ConditionalRollupType",
-      "fieldType": "conditionalRollup",
-      "formattedValue": "",
-      "formatting": {
-        "precision": 2,
-        "type": "decimal",
-      },
-      "rawValue": null,
-    },
-  },
-  "result": "other",
-  "sql": "(CASE WHEN trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) = (10)::text THEN 'ten' ELSE 'other' END)",
-}
-`;
-
 exports[`logical functions > 'Switch' with 'createdBy' 1`] = `
 {
   "fieldType": "createdBy",
@@ -3437,28 +3396,6 @@ exports[`logical functions > 'Switch' with 'date' 1`] = `
   },
   "result": "other",
   "sql": "(CASE WHEN TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') = (10)::text THEN 'ten' ELSE 'other' END)",
-}
-`;
-
-exports[`logical functions > 'Switch' with 'formula' 1`] = `
-{
-  "fieldType": "formula",
-  "formula": "SWITCH({FormulaType}, 10, "ten", "other")",
-  "funcId": "Switch",
-  "inputs": {
-    "FormulaType": {
-      "fieldName": "FormulaType",
-      "fieldType": "formula",
-      "formattedValue": "10",
-      "formatting": {
-        "precision": 2,
-        "type": "decimal",
-      },
-      "rawValue": null,
-    },
-  },
-  "result": "other",
-  "sql": "(CASE WHEN trim(to_char((10)::numeric, '999999990D00')) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
 
@@ -3609,69 +3546,6 @@ exports[`logical functions > 'Switch' with 'multipleSelect' 1`] = `
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
     ) = (10)::text THEN 'ten' ELSE 'other' END) AS value) SELECT (SELECT value FROM "__formula_0"))",
-}
-`;
-
-exports[`logical functions > 'Switch' with 'number' 1`] = `
-{
-  "fieldType": "number",
-  "formula": "SWITCH({Number}, 10, "ten", "other")",
-  "funcId": "Switch",
-  "inputs": {
-    "Number": {
-      "fieldName": "Number",
-      "fieldType": "number",
-      "formattedValue": "10",
-      "formatting": {
-        "precision": 2,
-        "type": "decimal",
-      },
-      "rawValue": "10",
-    },
-  },
-  "result": "other",
-  "sql": "(CASE WHEN trim(to_char(("t"."Number")::numeric, '999999990D00')) = (10)::text THEN 'ten' ELSE 'other' END)",
-}
-`;
-
-exports[`logical functions > 'Switch' with 'rating' 1`] = `
-{
-  "fieldType": "rating",
-  "formula": "SWITCH({Rating}, 10, "ten", "other")",
-  "funcId": "Switch",
-  "inputs": {
-    "Rating": {
-      "fieldName": "Rating",
-      "fieldType": "rating",
-      "formattedValue": "4",
-      "formatting": undefined,
-      "rawValue": "4",
-    },
-  },
-  "result": "other",
-  "sql": "(CASE WHEN ("t"."Rating")::text = (10)::text THEN 'ten' ELSE 'other' END)",
-}
-`;
-
-exports[`logical functions > 'Switch' with 'rollup' 1`] = `
-{
-  "fieldType": "rollup",
-  "formula": "SWITCH({RollupType}, 10, "ten", "other")",
-  "funcId": "Switch",
-  "inputs": {
-    "RollupType": {
-      "fieldName": "RollupType",
-      "fieldType": "rollup",
-      "formattedValue": "",
-      "formatting": {
-        "precision": 2,
-        "type": "decimal",
-      },
-      "rawValue": null,
-    },
-  },
-  "result": "other",
-  "sql": "(CASE WHEN trim(to_char(("t"."RollupType")::numeric, '999999990D00')) = (10)::text THEN 'ten' ELSE 'other' END)",
 }
 `;
 

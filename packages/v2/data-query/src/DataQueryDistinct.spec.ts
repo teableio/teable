@@ -76,6 +76,49 @@ const tupleAggregate = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+describe('V9 Top-N binding', () => {
+  it('binds ranking aliases to projected field dependencies and checks read access', () => {
+    const input = {
+      version: 9,
+      kind: 'records',
+      tableId,
+      select: [
+        { fieldId: titleId, alias: 'team' },
+        { fieldId: amountId, alias: 'score' },
+      ],
+      topN: { partitionBy: ['team'], orderBy: [{ alias: 'score', order: 'desc' }], limit: 2 },
+    };
+    const table = mapper.toDomain(dto())._unsafeUnwrap();
+    const definition = DataQueryDefinition.create(input)._unsafeUnwrap();
+    const binding = DataQueryBinding.prepare(definition, table)._unsafeUnwrap();
+    expect(binding.plan.topN).toEqual(input.topN);
+    expect(binding.plan.usage).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'root',
+          fieldId: titleId,
+          usages: expect.arrayContaining(['projection']),
+        }),
+        expect.objectContaining({
+          source: 'root',
+          fieldId: amountId,
+          usages: expect.arrayContaining(['projection']),
+        }),
+      ])
+    );
+    expect(
+      assertDataQueryAccess(dataQueryAccessForSource(binding.plan, 'root'), {
+        readableFieldIds: new Set([titleId]),
+      }).isErr()
+    ).toBe(true);
+    expect(
+      assertDataQueryAccess(dataQueryAccessForSource(binding.plan, 'root'), {
+        readableFieldIds: new Set([titleId, amountId]),
+      }).isOk()
+    ).toBe(true);
+  });
+});
+
 describe('V6 records DISTINCT canonical contract', () => {
   it('admits only the opt-in true flag in V6 records and leaves every historical schema strict', () => {
     expect(DataQueryDefinition.create(records()).isOk()).toBe(true);
@@ -94,7 +137,7 @@ describe('V6 records DISTINCT canonical contract', () => {
     ).toBe(true);
     expect(DataQueryDefinition.create(records({ version: 999 })).isErr()).toBe(true);
     expect(dataQueryCapabilities.definitionVersions).toContain(6);
-    expect(DATA_QUERY_DEPENDENCY_ANALYZER_VERSION).toBe(12);
+    expect(DATA_QUERY_DEPENDENCY_ANALYZER_VERSION).toBe(13);
   });
 
   it('binds literal and parameter targets to selected aliases and validates absent optional allow-lists', () => {
@@ -349,7 +392,15 @@ describe('V6 records DISTINCT canonical contract', () => {
       { alias: 'pairs', cellValueType: 'number', nullable: false },
     ]);
     expect(DataQueryDefinition.create(records({ version: 8 })).isOk()).toBe(true);
-    expect(DataQueryDefinition.create(records({ version: 7 })).isErr()).toBe(true);
+    expect(
+      DataQueryDefinition.create(
+        records({
+          version: 7,
+          parameters: { cursor: { type: 'string' } },
+          page: { limit: 2, after: { type: 'parameter', name: 'cursor' } },
+        })
+      ).isOk()
+    ).toBe(true);
   });
 
   it('rejects mixed tuple metrics, invalid arity and old versions without widening scalar unique', () => {
@@ -693,7 +744,7 @@ describe('V6 records DISTINCT canonical contract', () => {
     });
     expect(executeDataQueryRequestSchema.safeParse({ definition: input }).success).toBe(true);
     expect(JSON.stringify(queryExecutionJsonSchema())).toContain('distinctBy');
-    expect(dataQueryCapabilities.definitionVersions).toEqual([1, 2, 3, 4, 5, 6, 8]);
+    expect(dataQueryCapabilities.definitionVersions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(dataQueryCapabilities.distinctAggregate).toMatchObject({
       version: 8,
       grain: 'outputGroup',
