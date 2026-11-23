@@ -21,9 +21,12 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../attachments/attachments-storage.service', () => ({
   AttachmentsStorageService: class AttachmentsStorageService {},
 }));
-vi.mock('../attachments/plugins/adapter', () => ({
-  default: { getBucket: () => 'table-bucket' },
-}));
+vi.mock('../attachments/plugins/adapter', async (importOriginal) => {
+  const { default: actual } =
+    await importOriginal<typeof import('../attachments/plugins/adapter')>();
+  // getDir stays real: the signer asks it which dirs are backend-only
+  return { default: { getBucket: () => 'table-bucket', getDir: actual.getDir } };
+});
 
 import type { CacheService } from '../../cache/cache.service';
 import { V2AttachmentUrlSignerService } from './v2-attachment-url-signer.service';

@@ -35,6 +35,12 @@ export const archiveComputedRerunSeeds = async (
         on conflict do nothing`.execute(db);
     }
   }
+  // Preparation commits one page at a time. An interrupted claim can own both
+  // transferred ledger rows and an untransferred durable seed suffix.
+  const seeds = resolveTableSql(db, 'computed_update_outbox_seed');
+  await sql`insert into ${archive}(task_id,table_id,record_id)
+    select ${task.id}, table_id, record_id from ${seeds} where task_id=${task.id}
+    on conflict do nothing`.execute(db);
   await sql`insert into ${archive}(task_id,table_id,record_id)
     select ${task.id}, table_id, record_id from ${ledger}
     where scope_id=${scopeId} and kind in ('rerun-source','frontier','consumed','excluded')

@@ -115,7 +115,7 @@ export interface IDomainWriteTransaction {
    */
   savepoint<T>(
     context: IExecutionContext,
-    work: () => Promise<Result<T, DomainError>>
+    work: (context: IExecutionContext) => Promise<Result<T, DomainError>>
   ): Promise<Result<T, DomainError>>;
 }
 

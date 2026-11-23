@@ -1,48 +1,15 @@
-/* eslint-disable sonarjs/no-duplicate-string */
-import type { TableAction, AppAction, AutomationAction, RoutineAction } from '@teable/core';
 import { HttpErrorCode } from '@teable/core';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
+import { ResourceLevel, resourceDescriptorOf } from '../resource/resource-descriptor';
 import type { IBaseNodePermissionContext, IBaseNodeVisibilityContext } from './types';
 import { BaseNodeAction } from './types';
 
-const map: Record<BaseNodeResourceType, Record<BaseNodeAction, string>> = {
-  [BaseNodeResourceType.Folder]: {
-    [BaseNodeAction.Read]: 'base|read',
-    [BaseNodeAction.Create]: 'base|update',
-    [BaseNodeAction.Update]: 'base|update',
-    [BaseNodeAction.Delete]: 'base|update',
-  },
-  [BaseNodeResourceType.Table]: {
-    [BaseNodeAction.Read]: 'table|read',
-    [BaseNodeAction.Create]: 'table|create',
-    [BaseNodeAction.Update]: 'table|update',
-    [BaseNodeAction.Delete]: 'table|delete',
-  },
-  [BaseNodeResourceType.Dashboard]: {
-    [BaseNodeAction.Read]: 'base|read',
-    [BaseNodeAction.Create]: 'base|update',
-    [BaseNodeAction.Update]: 'base|update',
-    [BaseNodeAction.Delete]: 'base|update',
-  },
-  [BaseNodeResourceType.Workflow]: {
-    [BaseNodeAction.Read]: 'automation|read',
-    [BaseNodeAction.Create]: 'automation|create',
-    [BaseNodeAction.Update]: 'automation|update',
-    [BaseNodeAction.Delete]: 'automation|delete',
-  },
-  [BaseNodeResourceType.App]: {
-    [BaseNodeAction.Read]: 'app|read',
-    [BaseNodeAction.Create]: 'app|create',
-    [BaseNodeAction.Update]: 'app|update',
-    [BaseNodeAction.Delete]: 'app|delete',
-  },
-  [BaseNodeResourceType.Routine]: {
-    [BaseNodeAction.Read]: 'routine|read',
-    [BaseNodeAction.Create]: 'routine|create',
-    [BaseNodeAction.Update]: 'routine|update',
-    [BaseNodeAction.Delete]: 'routine|delete',
-  },
+const ACTION_OF: Record<BaseNodeAction, 'read' | 'create' | 'update' | 'delete'> = {
+  [BaseNodeAction.Read]: 'read',
+  [BaseNodeAction.Create]: 'create',
+  [BaseNodeAction.Update]: 'update',
+  [BaseNodeAction.Delete]: 'delete',
 };
 
 export const checkBaseNodePermission = (
@@ -50,32 +17,15 @@ export const checkBaseNodePermission = (
   action: BaseNodeAction,
   permissionContext: IBaseNodePermissionContext
 ): boolean => {
-  const { resourceType } = node;
-  const { resourceId } = node;
-  const {
-    tablePermissionMap,
-    permissionSet,
-    appPermissionMap,
-    workflowPermissionMap,
-    routinePermissionMap,
-  } = permissionContext;
-  // A type the map does not know (a row written by a newer edition, or a
-  // corrupt one) has no permission anyone could hold; it must not throw.
-  const checkAction = map[resourceType]?.[action];
-  if (!checkAction) return false;
-  if (resourceType === BaseNodeResourceType.Table && tablePermissionMap) {
-    return tablePermissionMap[resourceId]?.includes(checkAction as TableAction) ?? false;
-  }
-  if (resourceType === BaseNodeResourceType.App && appPermissionMap) {
-    return appPermissionMap[resourceId]?.includes(checkAction as AppAction) ?? false;
-  }
-  if (resourceType === BaseNodeResourceType.Workflow && workflowPermissionMap) {
-    return workflowPermissionMap[resourceId]?.includes(checkAction as AutomationAction) ?? false;
-  }
-  if (resourceType === BaseNodeResourceType.Routine && routinePermissionMap) {
-    return routinePermissionMap[resourceId]?.includes(checkAction as RoutineAction) ?? false;
-  }
-  return permissionSet.has(checkAction);
+  const { resourceType, resourceId } = node;
+  const descriptor = resourceDescriptorOf(resourceType);
+  // A type no edition knows (a row written by a newer edition, or a corrupt one) has no
+  // permission anyone could hold; it must not throw.
+  if (descriptor?.level !== ResourceLevel.Node) return false;
+  const checkAction = descriptor.actions[ACTION_OF[action]];
+  const grants = permissionContext.nodePermissionMaps?.[resourceType];
+  if (grants) return grants[resourceId]?.includes(checkAction) ?? false;
+  return permissionContext.permissionSet.has(checkAction);
 };
 
 /** As much of a node as deciding who may see it takes. */

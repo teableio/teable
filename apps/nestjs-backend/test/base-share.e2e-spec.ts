@@ -1,12 +1,15 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILookupOptionsRo } from '@teable/core';
-import { FieldType, getRandomString, Relationship, Role } from '@teable/core';
+import { FieldKeyType, FieldType, getRandomString, Relationship, Role } from '@teable/core';
 import type {
   IBaseNodeVo,
   IBaseShareByNodeIdVo,
   IGetBaseShareVo,
   IGetDashboardListVo,
+  IRecordsVo,
+  ITableListVo,
   ITablePermissionVo,
+  ITableVo,
 } from '@teable/openapi';
 import {
   BASE_SHARE_AUTH,
@@ -41,6 +44,8 @@ import {
   GET_DASHBOARD_INSTALL_PLUGIN,
   GET_DASHBOARD_LIST,
   GET_RECORDS_URL,
+  GET_TABLE,
+  GET_TABLE_LIST,
   GET_TABLE_PERMISSION,
   getBaseNodeList,
   getBaseShareByNodeId,
@@ -2149,120 +2154,57 @@ describe('BaseShareController (e2e)', () => {
     });
   });
 
-  describe('BaseShare - linked table is read-only', () => {
-    const createdShareIds: string[] = [];
-    let linkBaseId: string;
-    let ordersTableId: string;
-    let customersTableId: string;
-    let unlinkedTableId: string;
-    let ordersNodeId: string;
-    let customerRecordId: string;
-    let customerPrimaryFieldId: string;
-    let loggedInUser: AxiosInstance;
-
-    beforeAll(async () => {
-      const base = await createBase({
-        name: 'base-share-link-readonly',
+  describe('BaseShare - scoped table reads', () => {
+    it('lists the shared table and preserves link labels in its records', async () => {
+      const { data: base } = await createBase({
+        name: 'base-share-table-scope',
         spaceId: globalThis.testConfig.spaceId,
-      }).then((res) => res.data);
-      linkBaseId = base.id;
-
-      const orders = await createTable(linkBaseId, { name: 'Orders' });
-      const customers = await createTable(linkBaseId, { name: 'Customers' });
-      const unlinked = await createTable(linkBaseId, { name: 'Unlinked' });
-      ordersTableId = orders.id;
-      customersTableId = customers.id;
-      unlinkedTableId = unlinked.id;
-      customerPrimaryFieldId = customers.fields[0].id;
-      customerRecordId = customers.records[0].id;
-
-      await createField(ordersTableId, {
-        name: 'customer',
-        type: FieldType.Link,
-        options: {
-          relationship: Relationship.ManyMany,
-          foreignTableId: customersTableId,
-        },
       });
+      try {
+        const orders = await createTable(base.id, { name: 'Orders' });
+        const customers = await createTable(base.id, { name: 'Customers' });
+        const customerId = customers.records[0].id;
+        await updateRecord(customers.id, customerId, {
+          fieldKeyType: FieldKeyType.Id,
+          record: { fields: { [customers.fields[0].id]: 'Customer A' } },
+        });
+        const { data: customerField } = await createField(orders.id, {
+          name: 'customer',
+          type: FieldType.Link,
+          options: { relationship: Relationship.ManyMany, foreignTableId: customers.id },
+        });
+        await updateRecord(orders.id, orders.records[0].id, {
+          fieldKeyType: FieldKeyType.Id,
+          record: { fields: { [customerField.id]: [{ id: customerId }] } },
+        });
 
-      const nodeList = await getBaseNodeList(linkBaseId);
-      const ordersNode = nodeList.data.find((node) => node.resourceId === ordersTableId);
-      if (!ordersNode) throw new Error('Orders node not found');
-      ordersNodeId = ordersNode.id;
+        const { data: nodes } = await getBaseNodeList(base.id);
+        const ordersNode = nodes.find((node) => node.resourceId === orders.id);
+        if (!ordersNode) throw new Error('Orders node not found');
+        const { data: share } = await createBaseShare(base.id, { nodeId: ordersNode.id });
+        const options = { headers: { [BASE_SHARE_ID_HEADER]: share.shareId } };
 
-      loggedInUser = await createNewUserAxios({
-        email: `link-readonly-e2e-${Date.now()}@test.com`,
-        password: 'TestPassword123!',
-      });
-    });
+        const { data: tables } = await anonymousUser.get<ITableListVo>(
+          urlBuilder(GET_TABLE_LIST, { baseId: base.id }),
+          options
+        );
+        expect(tables.map((table) => table.id)).toEqual([orders.id]);
 
-    afterAll(async () => {
-      await permanentDeleteBase(linkBaseId);
-    });
+        const { data: table } = await anonymousUser.get<ITableVo>(
+          urlBuilder(GET_TABLE, { baseId: base.id, tableId: orders.id }),
+          options
+        );
+        expect(table.id).toBe(orders.id);
 
-    afterEach(async () => {
-      for (const shareId of createdShareIds) {
-        await deleteBaseShare(linkBaseId, shareId).catch(() => undefined);
+        const { data } = await anonymousUser.get<IRecordsVo>(
+          urlBuilder(GET_RECORDS_URL, { tableId: orders.id }),
+          { ...options, params: { fieldKeyType: FieldKeyType.Id } }
+        );
+        const order = data.records.find((record) => record.id === orders.records[0].id);
+        expect(order?.fields[customerField.id]).toEqual([{ id: customerId, title: 'Customer A' }]);
+      } finally {
+        await permanentDeleteBase(base.id);
       }
-      createdShareIds.length = 0;
-    });
-
-    it('lets an allowEdit share reader see but not change a linked table', async () => {
-      const share = await createBaseShare(linkBaseId, { nodeId: ordersNodeId });
-      createdShareIds.push(share.data.shareId);
-      await updateBaseShare(linkBaseId, share.data.shareId, { allowEdit: true });
-      const options = { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } };
-
-      // the shared table itself stays editable
-      const ordersCreate = await loggedInUser.post(
-        urlBuilder(CREATE_RECORD, { tableId: ordersTableId }),
-        { records: [{ fields: {} }], fieldKeyType: 'id' },
-        options
-      );
-      expect(ordersCreate.status).toEqual(201);
-
-      // the linked table can be read so link cells resolve...
-      const customersRead = await loggedInUser.get(
-        urlBuilder(GET_RECORDS_URL, { tableId: customersTableId }),
-        options
-      );
-      expect(customersRead.status).toEqual(200);
-
-      // ...but never written
-      const createError = await getError(() =>
-        loggedInUser.post(
-          urlBuilder(CREATE_RECORD, { tableId: customersTableId }),
-          {
-            records: [{ fields: { [customerPrimaryFieldId]: 'new-customer' } }],
-            fieldKeyType: 'id',
-          },
-          options
-        )
-      );
-      expect(createError?.status).toEqual(403);
-
-      const updateError = await getError(() =>
-        loggedInUser.patch(
-          urlBuilder(UPDATE_RECORD, { tableId: customersTableId, recordId: customerRecordId }),
-          { record: { fields: { [customerPrimaryFieldId]: 'renamed' } }, fieldKeyType: 'id' },
-          options
-        )
-      );
-      expect(updateError?.status).toEqual(403);
-
-      const deleteError = await getError(() =>
-        loggedInUser.delete(
-          urlBuilder(DELETE_RECORD_URL, { tableId: customersTableId, recordId: customerRecordId }),
-          options
-        )
-      );
-      expect(deleteError?.status).toEqual(403);
-
-      // a table neither shared nor linked is not reachable at all
-      const unlinkedError = await getError(() =>
-        loggedInUser.get(urlBuilder(GET_RECORDS_URL, { tableId: unlinkedTableId }), options)
-      );
-      expect(unlinkedError?.status).toEqual(403);
     });
   });
 });

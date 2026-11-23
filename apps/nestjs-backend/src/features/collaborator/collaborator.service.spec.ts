@@ -23,9 +23,10 @@ describe('CollaboratorService', () => {
   let collaboratorService: CollaboratorService;
   let clsService: ClsService<IClsStore>;
   let eventEmitter: EventEmitter2;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [CollaboratorModule, GlobalModule],
     })
       .overrideProvider(PrismaService)
@@ -43,6 +44,10 @@ describe('CollaboratorService', () => {
     prismaService.$tx.mockImplementation(async (fn, _options) => {
       return await fn(prismaService);
     });
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   describe('createSpaceCollaborator', () => {

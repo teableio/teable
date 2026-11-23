@@ -10,6 +10,7 @@ import {
   type Dialect,
   type Driver,
   type QueryResult,
+  type TransactionSettings,
 } from 'kysely';
 
 class PGliteDriver implements Driver {
@@ -23,8 +24,22 @@ class PGliteDriver implements Driver {
     return new PGliteConnection(this.#client);
   }
 
-  async beginTransaction(connection: DatabaseConnection): Promise<void> {
-    await connection.executeQuery(CompiledQuery.raw('BEGIN'));
+  async beginTransaction(
+    connection: DatabaseConnection,
+    settings: TransactionSettings
+  ): Promise<void> {
+    if (settings.isolationLevel || settings.accessMode) {
+      let sql = 'start transaction';
+      if (settings.isolationLevel) {
+        sql += ` isolation level ${settings.isolationLevel}`;
+      }
+      if (settings.accessMode) {
+        sql += ` ${settings.accessMode}`;
+      }
+      await connection.executeQuery(CompiledQuery.raw(sql));
+    } else {
+      await connection.executeQuery(CompiledQuery.raw('BEGIN'));
+    }
   }
 
   async commitTransaction(connection: DatabaseConnection): Promise<void> {

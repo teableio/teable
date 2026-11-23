@@ -2,7 +2,7 @@ import { DefaultTableMapper } from '@teable/v2-core';
 import type { ITablePersistenceDTO } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
-import { mapTableToDto, tableDtoSchema } from './dto';
+import { fieldDtoSchema, mapTableToDto, tableDtoSchema } from './dto';
 
 describe('mapTableToDto', () => {
   it('maps direct link fields without requiring link db config', () => {
@@ -464,5 +464,31 @@ describe('mapTableToDto', () => {
         defaultValue: 'Details',
       },
     });
+  });
+});
+
+describe('fieldDtoSchema', () => {
+  it.each(['formula', 'rollup', 'conditionalRollup', 'singleSelect', 'multipleSelect', 'link'])(
+    'requires options for a healthy %s field',
+    (type) => {
+      const field = { id: 'fldField', name: 'Field', type };
+      for (const status of [{}, { isComputed: true }, { isLookup: true }]) {
+        expect(fieldDtoSchema.safeParse({ ...field, ...status }).success).toBe(false);
+        expect(fieldDtoSchema.safeParse({ ...field, ...status, hasError: false }).success).toBe(false);
+      }
+      expect(fieldDtoSchema.safeParse({ ...field, hasError: true }).success).toBe(false);
+    }
+  );
+
+  it.each(['rollup', 'conditionalRollup'])('requires config for a healthy %s field', (type) => {
+    expect(
+      fieldDtoSchema.safeParse({
+        id: 'fldField',
+        name: 'Field',
+        type,
+        isComputed: true,
+        options: { expression: 'countall({values})' },
+      }).success
+    ).toBe(false);
   });
 });

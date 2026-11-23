@@ -1,4 +1,4 @@
-import type { DomainError, IImportDiagnostics, ImportCsvResult } from '@teable/v2-core';
+import type { DomainError, ImportCsvResult } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -10,7 +10,8 @@ import {
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
 } from '../shared/http';
-import { importDiagnosticsDtoSchema } from '../shared/importDiagnostics';
+import type { IImportDiagnosticsDto } from '../shared/importDiagnostics';
+import { importDiagnosticsDtoSchema, mapImportDiagnosticsToDto } from '../shared/importDiagnostics';
 import type { ITableDto } from './dto';
 import { mapTableToDto, tableDtoSchema } from './dto';
 
@@ -18,7 +19,7 @@ export interface IImportCsvResponseDataDto {
   table: ITableDto;
   totalImported: number;
   events: Array<IDomainEventDto>;
-  diagnostics?: IImportDiagnostics;
+  diagnostics?: IImportDiagnosticsDto;
 }
 
 export type IImportCsvOkResponseDto = IApiOkResponseDto<IImportCsvResponseDataDto>;
@@ -45,6 +46,6 @@ export const mapImportCsvResultToDto = (
     table,
     totalImported: result.totalImported,
     events: [...result.events],
-    diagnostics: result.diagnostics,
+    diagnostics: mapImportDiagnosticsToDto(result.diagnostics),
   }));
 };

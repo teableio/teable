@@ -44,7 +44,8 @@ describe('AccessTokenService', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await module.close();
     vitest.resetAllMocks();
     mockReset(prismaService);
     mockReset(performanceCacheService);

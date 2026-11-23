@@ -13,6 +13,7 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 
 import { V2ContainerService } from './v2-container.service';
+import { CrossSpaceLinkConversionRecoveryService } from '../table-lifecycle/cross-space-link-conversion-recovery.service';
 
 const enabledKey = 'V2_SCHEMA_OPERATION_RUNNER_ENABLED';
 const pollIntervalMsKey = 'V2_SCHEMA_OPERATION_RUNNER_POLL_INTERVAL_MS';
@@ -56,7 +57,8 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
 
   constructor(
     private readonly v2ContainerService: V2ContainerService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly pairRecovery: CrossSpaceLinkConversionRecoveryService
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -74,6 +76,7 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
     this.runner = container.resolve<SchemaOperationRunnerService>(
       v2CoreTokens.schemaOperationRunnerService
     );
+    this.runner.registerHandler(this.pairRecovery);
     this.stopped = false;
     this.schedule(0);
     this.logger.log(
@@ -220,9 +223,11 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
       this.logger.error(`V2 schema operation runner service is not registered for base ${baseId}`);
       return undefined;
     }
-    return container.resolve<SchemaOperationRunnerService>(
+    const runner = container.resolve<SchemaOperationRunnerService>(
       v2CoreTokens.schemaOperationRunnerService
     );
+    runner.registerHandler(this.pairRecovery);
+    return runner;
   }
 
   private createContext(): IExecutionContext {

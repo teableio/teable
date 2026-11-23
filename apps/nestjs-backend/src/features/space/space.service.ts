@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { join } from 'node:path';
-import { Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { IRole } from '@teable/core';
 import {
   HttpErrorCode,
@@ -24,6 +24,7 @@ import type {
 } from '@teable/openapi';
 import {
   ResourceType,
+  TrashType,
   CollaboratorType,
   PrincipalType,
   IntegrationType,
@@ -50,8 +51,10 @@ import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
+import { BaseNodeResourceHandlerRegistry } from '../base-node/resource/base-node-resource-handler.registry';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { queueClearCacheKeys } from '../model/helper';
+import { resourceDescriptorOf } from '../resource/resource-descriptor';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
 import { normalizeSpaceAIIntegrationConfig } from './ai-integration-config';
@@ -65,6 +68,10 @@ import { SpaceDataDbMigrationGuardService } from './space-data-db-migration-guar
 
 @Injectable()
 export class SpaceService {
+  @Optional()
+  @Inject(BaseNodeResourceHandlerRegistry)
+  protected readonly nodeHandlers?: BaseNodeResourceHandlerRegistry;
+
   constructor(
     protected readonly prismaService: PrismaService,
     protected readonly cls: ClsService<IClsStore>,
@@ -453,15 +460,15 @@ export class SpaceService {
     });
   }
 
-  protected getTableMapping(): Record<
-    string,
-    { table: string; hasDeletedTime: boolean; hasIcon?: boolean }
-  > {
-    return {
-      [ResourceType.Base]: { table: 'base', hasDeletedTime: true, hasIcon: true },
-      [ResourceType.Table]: { table: 'table_meta', hasDeletedTime: true, hasIcon: true },
-      [ResourceType.Dashboard]: { table: 'dashboard', hasDeletedTime: true, hasIcon: false },
-    };
+  /** What a space search lists: projects, and the edition's node kinds that have a name. */
+  private getTableMapping(): Record<string, { table: string; hasIcon?: boolean }> {
+    const kinds = [TrashType.Base, ...(this.nodeHandlers?.all() ?? []).map(({ type }) => type)];
+    return Object.fromEntries(
+      kinds.flatMap((kind) => {
+        const table = resourceDescriptorOf(kind)?.dbTable;
+        return table?.spaceSearch ? [[kind, { table: table.name, hasIcon: table.hasIcon }]] : [];
+      })
+    );
   }
 
   /**
@@ -507,7 +514,7 @@ export class SpaceService {
       const mapping = tableMapping[resourceType];
       if (!mapping) return null;
 
-      const { table, hasDeletedTime, hasIcon } = mapping;
+      const { table, hasIcon } = mapping;
       const isBase = resourceType === ResourceType.Base;
 
       let subQuery = this.knex(table).select(
@@ -528,9 +535,7 @@ export class SpaceService {
         subQuery = subQuery.whereIn('base_id', baseIds);
       }
 
-      if (hasDeletedTime) {
-        subQuery = subQuery.whereNull('deleted_time');
-      }
+      subQuery = subQuery.whereNull('deleted_time');
 
       return subQuery;
     };
@@ -684,6 +689,7 @@ export class SpaceService {
         });
     }
 
+    const coldHistoryCleanups: (() => Promise<void>)[] = [];
     await this.prismaService.$tx(
       async (prisma) => {
         if (options?.force) {
@@ -711,17 +717,24 @@ export class SpaceService {
           }
         }
 
-        const bases = await prisma.base.findMany({
-          where: { spaceId },
-          select: { id: true },
-        });
-
-        for (const { id } of bases) {
-          await this.baseService.permanentDeleteBase(
-            id,
-            ignorePermissionCheck,
-            options?.force ? { skipExternalDataDbCleanup: true } : undefined
+        // Admit the whole batch before any Base can drop data in a separate database.
+        const bases = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT "id" FROM "base" WHERE "space_id" = ${spaceId} FOR NO KEY UPDATE SKIP LOCKED
+        `;
+        if (bases.length !== (await prisma.base.count({ where: { spaceId } }))) {
+          throw new CustomHttpException(
+            `Space ${spaceId} has a busy project and cannot be permanently deleted`,
+            HttpErrorCode.CONFLICT
           );
+        }
+
+        const purgeOptions = {
+          skipExternalDataDbCleanup: options?.force,
+          deferColdHistoryCleanup: (cleanup: () => Promise<void>) =>
+            coldHistoryCleanups.push(cleanup),
+        };
+        for (const { id } of bases) {
+          await this.baseService.permanentDeleteBase(id, ignorePermissionCheck, purgeOptions);
         }
 
         await this.cleanSpaceRelatedData(spaceId);
@@ -730,6 +743,9 @@ export class SpaceService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+    for (const cleanup of coldHistoryCleanups) {
+      await cleanup();
+    }
   }
 
   async cleanSpaceRelatedData(spaceId: string) {

@@ -257,7 +257,8 @@ describe('stored computed formula parity with query formulas (PGlite)', () => {
 
   const createOutputParityFixture = async (
     formulas: readonly { alias: string; expression: string; timeZone?: string }[],
-    prefix = 'output'
+    prefix = 'output',
+    numberPrecision?: number
   ) => {
     const source = {
       title: fieldId(`${prefix}Title`),
@@ -275,7 +276,14 @@ describe('stored computed formula parity with query formulas (PGlite)', () => {
       fields: [
         { type: 'singleLineText', id: source.title, name: 'Title', isPrimary: true },
         { type: 'checkbox', id: source.done, name: 'Done' },
-        { type: 'number', id: source.num, name: 'Num' },
+        {
+          type: 'number',
+          id: source.num,
+          name: 'Num',
+          ...(numberPrecision === undefined
+            ? {}
+            : { options: { formatting: { type: 'decimal', precision: numberPrecision } } }),
+        },
         { type: 'date', id: source.date, name: 'Date' },
         ...projections.map(({ fieldId: id, alias, expression, timeZone }) => ({
           type: 'formula' as const,
@@ -438,6 +446,33 @@ describe('stored computed formula parity with query formulas (PGlite)', () => {
         sorted.rows.map((row) => row.id).filter((id) => numericBranchIds.includes(String(id)))
       ).toEqual(order === 'asc' ? numericBranchIds : numericBranchIds.reverse());
     }
+  });
+
+  it('matches numeric SWITCH operands by value in stored and inline formulas', async () => {
+    const num = `{${fieldId('switchNum')}}`;
+    const done = `{${fieldId('switchDone')}}`;
+    const title = `{${fieldId('switchTitle')}}`;
+    const { definition, persisted } = await createOutputParityFixture(
+      [
+        { alias: 'numeric', expression: `SWITCH(${num}, 2, 1, 10, 3, 4)` },
+        { alias: 'mixed', expression: `SWITCH(${num}, 2.00, "x", 2, "later", 10, ${title}, "z")` },
+        { alias: 'rounded', expression: `SWITCH(${num}, 2.004, "wrong", "default")` },
+        { alias: 'nullable', expression: `SWITCH(IF(${done}, BLANK(), ${num}), 0, 0, 10, 1, 2)` },
+      ],
+      'switch',
+      2
+    );
+
+    expect(
+      persisted.map(({ numeric, mixed, rounded, nullable }) => [numeric, mixed, rounded, nullable])
+    ).toEqual([
+      [4, 'z', 'default', 2],
+      [1, 'x', 'default', 2],
+      [3, 'Gamma', 'default', 1],
+      [4, 'z', 'default', 2],
+    ]);
+    const result = await queryService.execute(readContext, definition());
+    expect(result._unsafeUnwrap().rows).toEqual(persisted);
   });
 
   it('matches persisted WORKDAY timestamps across zero, positive, negative, weekend and holiday inputs', async () => {

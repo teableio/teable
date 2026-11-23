@@ -1,4 +1,3 @@
-import { ViewOpBuilder } from '@teable/core';
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,10 +17,6 @@ vi.mock('@teable/v2-adapter-db-postgres-pg', () => ({
 
 vi.mock('./v2-container.service', () => ({
   V2ContainerService: class V2ContainerService {},
-}));
-
-vi.mock('./v2-view-compat.service', () => ({
-  V2ViewCompatService: class V2ViewCompatService {},
 }));
 
 import { v2CoreTokens } from '@teable/v2-core';
@@ -206,7 +201,7 @@ const createSnapshotItem = (fieldId: string, table: unknown = { kind: 'domainTab
 });
 
 describe('V2FieldDeleteSnapshotSink', () => {
-  it('prepares an explicit completion with v2 delete snapshots, frozen view ops, and references', async () => {
+  it('prepares an explicit completion with v2 delete snapshots and references', async () => {
     const tableMapper = createTableMapper();
     const { db, query } = createReferenceDb([
       {
@@ -215,10 +210,8 @@ describe('V2FieldDeleteSnapshotSink', () => {
       },
     ]);
     const sink = new V2FieldDeleteSnapshotSink(
-      tableMapper as never,
       db as never,
-      createV2ContainerService(createInsertDb().db, tableMapper) as never,
-      { batchUpdateViewByOps: vi.fn() } as never
+      createV2ContainerService(createInsertDb().db, tableMapper) as never
     );
     const context = {
       actorId: { toString: () => 'usrCompatWriter00001' },
@@ -249,7 +242,7 @@ describe('V2FieldDeleteCompatService', () => {
     const metaDb = createReferenceDb().db;
     const dataDb = createReferenceDb().db;
     const container = createRegistrationContainer({ tableMapper, metaDb, dataDb });
-    const service = new V2FieldDeleteCompatService({} as never, {} as never);
+    const service = new V2FieldDeleteCompatService({} as never);
 
     service.registerProjections(container as never);
 
@@ -267,52 +260,29 @@ describe('V2FieldDeleteCompatCompletion', () => {
     const { db, query } = createInsertDb();
     const tableMapper = createTableMapper();
     const v2ContainerService = createV2ContainerService(db, tableMapper);
-    const v2ViewCompatService = {
-      batchUpdateViewByOps: vi.fn(),
-    };
-    const completion = new V2FieldDeleteCompatCompletion(
-      v2ContainerService as never,
-      v2ViewCompatService as never,
-      {
-        tableId: 'tblCompatTable0001',
-        userId: 'usrCompatWriter00001',
-        operationId: 'opCompatDelete000001',
-        frozenFieldOps: {},
-        snapshots: [createSnapshotItem('fldCompatA00000001')],
-        referencesByFieldId: new Map([['fldCompatA00000001', ['fldDependent0000001']]]),
-      }
-    );
+    const completion = new V2FieldDeleteCompatCompletion(v2ContainerService as never, {
+      tableId: 'tblCompatTable0001',
+      userId: 'usrCompatWriter00001',
+      operationId: 'opCompatDelete000001',
+      snapshots: [createSnapshotItem('fldCompatA00000001')],
+      referencesByFieldId: new Map([['fldCompatA00000001', ['fldDependent0000001']]]),
+    });
 
     expect(completion).toBeDefined();
     expect(v2ContainerService.getContainerForTable).not.toHaveBeenCalled();
-    expect(v2ViewCompatService.batchUpdateViewByOps).not.toHaveBeenCalled();
     expect(db.insertInto).not.toHaveBeenCalled();
     expect(query.values).not.toHaveBeenCalled();
   });
 
-  it('uses v2 view compat and table_trash writes when completion runs', async () => {
+  it('writes v2 deletion snapshots to table_trash when completion runs', async () => {
     const { db, query } = createInsertDb();
     const tableMapper = createTableMapper();
-    const v2ViewCompatService = {
-      batchUpdateViewByOps: vi.fn().mockResolvedValue(undefined),
-    };
-    const frozenFieldOps = {
-      viwCompat000000001: [
-        ViewOpBuilder.editor.setViewProperty.build({
-          key: 'options',
-          oldValue: { frozenFieldId: 'fldCompatA00000001' },
-          newValue: { frozenFieldId: 'fldCompatB00000001' },
-        }),
-      ],
-    };
     const completion = new V2FieldDeleteCompatCompletion(
       createV2ContainerService(db, tableMapper) as never,
-      v2ViewCompatService as never,
       {
         tableId: 'tblCompatTable0001',
         userId: 'usrCompatWriter00001',
         operationId: 'opCompatDelete000001',
-        frozenFieldOps,
         snapshots: [createSnapshotItem('fldCompatA00000001')],
         referencesByFieldId: new Map([['fldCompatA00000001', ['fldDependent0000001']]]),
       }
@@ -323,11 +293,6 @@ describe('V2FieldDeleteCompatCompletion', () => {
     const result = await completion.complete(executionContext);
 
     expect(result._unsafeUnwrap()).toBeUndefined();
-    expect(v2ViewCompatService.batchUpdateViewByOps).toHaveBeenCalledWith(
-      'tblCompatTable0001',
-      frozenFieldOps,
-      executionContext
-    );
     expect(db.insertInto).toHaveBeenCalledWith('table_trash');
     expect(query.values).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -369,13 +334,9 @@ describe('V2FieldDeleteCompatCompletion', () => {
     const completion = new V2FieldDeleteCompatCompletion(
       createV2ContainerService(db, tableMapper) as never,
       {
-        batchUpdateViewByOps: vi.fn(),
-      } as never,
-      {
         tableId: 'tblCompatTable0001',
         userId: 'usrCompatWriter00001',
         operationId: 'opCompatDelete000002',
-        frozenFieldOps: {},
         snapshots: [
           createSnapshotItem('fldCompatA00000001', table),
           createSnapshotItem('fldCompatB00000001', table),
@@ -409,13 +370,9 @@ describe('V2FieldDeleteCompatCompletion', () => {
     const completion = new V2FieldDeleteCompatCompletion(
       createV2ContainerService(db, tableMapper) as never,
       {
-        batchUpdateViewByOps: vi.fn(),
-      } as never,
-      {
         tableId: 'tblCompatTable0001',
         userId: 'usrCompatWriter00001',
         operationId: 'opCompatDelete000002',
-        frozenFieldOps: {},
         snapshots: [
           {
             table: { kind: 'domainTable' },

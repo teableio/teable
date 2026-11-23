@@ -63,6 +63,7 @@ export const accessTokenScopeMap: Record<
   'table_record_history|read': { group: Data, level: R },
   'table|trash_read': { group: Data, level: R },
   'table|archive_read': { group: Data, level: R },
+  'base|save_query': { group: Data, level: W },
   'record|create': { group: Data, level: W },
   'record|update': { group: Data, level: W },
   'record|delete': { group: Data, level: W },

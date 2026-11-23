@@ -1,5 +1,6 @@
 import type {
   ApplyViewManualSortResult,
+  ApplyViewSnapshotResult,
   CreateViewResult,
   DomainError,
   GetViewFilterLinkRecordsResult,
@@ -36,6 +37,14 @@ export type IViewMutationEndpointResult =
   | { status: HttpErrorStatus; body: IApiErrorResponseDto };
 
 export const viewMutationOkResponseSchema = apiOkResponseDtoSchema(viewMutationResponseDataSchema);
+
+export const applyViewSnapshotResponseDataSchema = z.object({ table: tableDtoSchema });
+export type IApplyViewSnapshotResponseDataDto = z.infer<typeof applyViewSnapshotResponseDataSchema>;
+export const applyViewSnapshotOkResponseSchema = apiOkResponseDtoSchema(applyViewSnapshotResponseDataSchema);
+export const mapApplyViewSnapshotResultToDto = (
+  result: ApplyViewSnapshotResult
+): Result<IApplyViewSnapshotResponseDataDto, DomainError> =>
+  mapTableToDto(result.table).map((table) => ({ table }));
 
 export const viewShareMutationResponseDataSchema = z.object({
   viewId: z.string(),

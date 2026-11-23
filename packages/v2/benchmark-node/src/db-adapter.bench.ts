@@ -1,9 +1,13 @@
 import type { AddressInfo } from 'node:net';
+
 import { serve } from '@hono/node-server';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresDb } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresJsDb } from '@teable/v2-adapter-db-postgres-postgresjs';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
+import {
+  createStandaloneExecutionContext,
+  createV2NodeTestContainer,
+} from '@teable/v2-container-node-test';
 import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { createV2HonoApp } from '@teable/v2-contract-http-hono';
@@ -64,9 +68,11 @@ const setupTarget = async (adapter: IDbAdapter): Promise<IBenchTarget> => {
     registerDb: adapter.registerDb,
   });
   testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
+  const executionContext = await createStandaloneExecutionContext(testContainer);
 
   const app = createV2HonoApp({
     createContainer: () => testContainer.container,
+    createExecutionContext: () => executionContext,
   });
   const server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' });
   await new Promise<void>((resolve) => server.once('listening', () => resolve()));

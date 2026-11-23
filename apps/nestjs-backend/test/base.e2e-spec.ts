@@ -46,6 +46,9 @@ import {
   USER_ME,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
+import { sql } from 'kysely';
+import { vi } from 'vitest';
+import { CrossSpaceLinkConversionRecoveryService } from '../src/features/table-lifecycle/cross-space-link-conversion-recovery.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import {
@@ -841,6 +844,54 @@ describe('OpenAPI BaseController (e2e)', () => {
     afterEach(async () => {
       await permanentDeleteBase(movingBaseId);
       await permanentDeleteBase(peerBaseId);
+    });
+
+    it('returns a retryable conflict and preserves the caller timeouts on the next move', async () => {
+      if (globalThis.testConfig.driver !== DriverClient.Pg) return;
+      const peer = (await createTable(peerBaseId, { name: 'peer' })).data;
+      const moving = (await createTable(movingBaseId, { name: 'moving' })).data;
+      const link = await createField(moving.id, {
+        name: 'link',
+        type: FieldType.Link,
+        options: {
+          baseId: peerBaseId,
+          relationship: Relationship.ManyOne,
+          foreignTableId: peer.id,
+        },
+      });
+      const recovery = app.get(CrossSpaceLinkConversionRecoveryService);
+      const prepare = recovery.prepareBackups.bind(recovery);
+      const backup = vi.spyOn(recovery, 'prepareBackups');
+      try {
+        for (const [code, domainCode] of [
+          ['55P03', 'base.move_busy'],
+          ['57014', 'base.move_interrupted'],
+        ]) {
+          backup.mockRejectedValueOnce(Object.assign(new Error('injected timeout'), { code }));
+          const failure = await getError(() => moveBase(movingBaseId, targetSpaceId));
+          expect(failure).toMatchObject({ status: 409, data: { domainCode } });
+        }
+        expect((await getFields(moving.id)).find(({ id }) => id === link.id)?.type).toBe(
+          FieldType.Link
+        );
+
+        backup.mockImplementationOnce(async (receipt, db) => {
+          await sql`SELECT set_config('lock_timeout', '7s', true),
+            set_config('statement_timeout', '90s', true)`.execute(db);
+          await prepare(receipt, db);
+          const { rows } = await sql<{ lockMs: number; statementMs: number }>`
+            SELECT (SELECT setting::int FROM pg_settings WHERE name = 'lock_timeout') AS "lockMs",
+              (SELECT setting::int FROM pg_settings WHERE name = 'statement_timeout') AS "statementMs"
+          `.execute(db);
+          expect(rows[0]).toEqual({ lockMs: 7000, statementMs: 90000 });
+        });
+        expect((await moveBase(movingBaseId, targetSpaceId)).status).toBe(200);
+        expect((await getFields(moving.id)).find(({ id }) => id === link.id)?.type).toBe(
+          FieldType.SingleLineText
+        );
+      } finally {
+        backup.mockRestore();
+      }
     });
 
     it('preserves link, lookups, and the symmetric partner after move', async () => {

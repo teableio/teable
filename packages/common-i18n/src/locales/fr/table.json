@@ -1,4 +1,27 @@
 {
+  "searchAcceleration": {
+    "title": "Accélération de la recherche",
+    "stateLabel": "Paramètre",
+    "state": {
+      "disabled": "Désactivée",
+      "preparing": "Préparation en cours",
+      "enabled": "Activée",
+      "disabling": "Désactivation en cours",
+      "failed": "Échec"
+    },
+    "serving": "Les données de recherche sont préparées pour les champs couverts.",
+    "notServing": "Vous pouvez toujours effectuer des recherches dans cette table sans accélération.",
+    "enable": "Activer",
+    "disable": "Désactiver",
+    "resetOff": "Réinitialiser à l’état désactivé",
+    "permissionError": "Impossible de vérifier votre autorisation à modifier ce paramètre.",
+    "readOnly": "Seuls les propriétaires de l’espace et les créateurs autorisés à mettre à jour cette table peuvent modifier ce paramètre.",
+    "statusError": "Impossible de charger le paramètre. Vous pouvez continuer à effectuer des recherches dans cette table.",
+    "changeError": "Impossible de modifier le paramètre. Réessayez.",
+    "confirmTitle": "Activer l’accélération pour cette grande table ?",
+    "confirmDetail": "Cette table contient au moins 50 000 enregistrements. La préparation peut prendre du temps. Vous pouvez continuer vos recherches pendant ce temps.",
+    "confirm": "Confirmer et activer"
+  },
   "computeActivity": {
     "currentCalculations": "Calculs actuels",
     "thisTableOnly": "Cette table uniquement",

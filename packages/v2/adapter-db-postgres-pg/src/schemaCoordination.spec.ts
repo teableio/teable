@@ -59,7 +59,11 @@ describe('V2PgTableSchemaCoordination', () => {
     await container?.stop();
   });
 
-  it('grants shared leases to concurrent holders and blocks exclusive until they release', async () => {
+  it('grants concurrent shared leases and blocks an exclusive lease from another pool', async () => {
+    const otherPool = new V2PgTableSchemaCoordination({
+      connectionString: container!.getConnectionUri(),
+      applicationName: `${APPLICATION_NAME}-cross-pool`,
+    });
     let first: AcquireResult | undefined;
     let second: AcquireResult | undefined;
     let exclusivePromise: Promise<AcquireResult> | undefined;
@@ -70,8 +74,8 @@ describe('V2PgTableSchemaCoordination', () => {
       const firstLease = first._unsafeUnwrap();
       const secondLease = second._unsafeUnwrap();
 
-      exclusivePromise = coordination.acquire(createContext(), [TABLE_A], 'exclusive');
-      await waitForAdvisoryWaiter(observer);
+      exclusivePromise = otherPool.acquire(createContext(), [TABLE_A], 'exclusive');
+      await waitForAdvisoryWaiter(observer, `${APPLICATION_NAME}-cross-pool`);
 
       await firstLease.release();
       let exclusiveSettled = false;
@@ -96,19 +100,24 @@ describe('V2PgTableSchemaCoordination', () => {
         const exclusive = await exclusivePromise;
         if (exclusive.isOk()) await exclusive.value.release();
       }
+      await otherPool.destroy();
     }
   });
 
-  it('blocks a shared lease until the exclusive holder releases', async () => {
+  it('blocks a shared lease from another pool until the exclusive holder releases', async () => {
+    const otherPool = new V2PgTableSchemaCoordination({
+      connectionString: container!.getConnectionUri(),
+      applicationName: `${APPLICATION_NAME}-cross-pool`,
+    });
     let exclusive: AcquireResult | undefined;
     let sharedPromise: Promise<AcquireResult> | undefined;
 
     try {
       exclusive = await coordination.acquire(createContext(), [TABLE_A], 'exclusive');
       const exclusiveLease = exclusive._unsafeUnwrap();
-      sharedPromise = coordination.acquire(createContext(), [TABLE_A], 'shared');
+      sharedPromise = otherPool.acquire(createContext(), [TABLE_A], 'shared');
 
-      await waitForAdvisoryWaiter(observer);
+      await waitForAdvisoryWaiter(observer, `${APPLICATION_NAME}-cross-pool`);
 
       await exclusiveLease.release();
       const shared = (await sharedPromise)._unsafeUnwrap();
@@ -120,6 +129,7 @@ describe('V2PgTableSchemaCoordination', () => {
         const shared = await sharedPromise;
         if (shared.isOk()) await shared.value.release();
       }
+      await otherPool.destroy();
     }
   });
 
@@ -156,6 +166,48 @@ describe('V2PgTableSchemaCoordination', () => {
       expect(queued.mode).toBe('shared');
       await queued.release();
     } finally {
+      await local.destroy();
+    }
+  }, 20_000);
+
+  it('allows another table to acquire while both lease modes queue on one table', async () => {
+    const local = new V2PgTableSchemaCoordination({
+      connectionString: container!.getConnectionUri(),
+      maxConnections: 2,
+      connectionTimeoutMillis: 2_000,
+      applicationName: `${APPLICATION_NAME}-table-queue`,
+    });
+    const context = createContext();
+    const abort = new AbortController();
+    let holder: ICoordinationLease | undefined;
+    let queued: Promise<AcquireResult> | undefined;
+    let cancelled: Promise<AcquireResult> | undefined;
+    let shared: Promise<AcquireResult> | undefined;
+    try {
+      holder = (await local.acquire(context, [TABLE_A], 'exclusive'))._unsafeUnwrap();
+      cancelled = local.acquire(context, [TABLE_A], 'exclusive', abort.signal);
+      queued = local.acquire(context, [TABLE_A], 'exclusive');
+      shared = local.acquire(context, [TABLE_A], 'shared');
+
+      const other = (await local.acquire(context, [TABLE_B], 'exclusive'))._unsafeUnwrap();
+      await other.release();
+      abort.abort();
+      expect((await cancelled)._unsafeUnwrapErr().code).toBe('schema_coordination.cancelled');
+
+      await holder.release();
+      const successor = (await queued)._unsafeUnwrap();
+      expect(successor.tableIds).toEqual([TABLE_A]);
+      await successor.release();
+      const reader = (await shared)._unsafeUnwrap();
+      expect(reader.mode).toBe('shared');
+      await reader.release();
+    } finally {
+      abort.abort();
+      await holder?.release();
+      for (const pending of [cancelled, queued, shared]) {
+        const result = await pending;
+        if (result?.isOk()) await result.value.release();
+      }
       await local.destroy();
     }
   }, 20_000);

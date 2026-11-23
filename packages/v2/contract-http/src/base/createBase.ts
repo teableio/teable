@@ -1,49 +1,32 @@
-import type { CreateBaseResult, ICreateBaseCommandInput, DomainError } from '@teable/v2-core';
-import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
-import type { IDomainEventDto } from '../shared/domainEvent';
-import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent';
 import {
   apiOkResponseDtoSchema,
-  type HttpErrorStatus,
   type IApiErrorResponseDto,
-  type IApiOkResponseDto,
   type IApiResponseDto,
 } from '../shared/http';
-import type { IBaseDto } from './dto';
-import { mapBaseToDto, baseDtoSchema } from './dto';
 
-export type ICreateBaseRequestDto = ICreateBaseCommandInput;
-
-export interface ICreateBaseResponseDataDto {
-  base: IBaseDto;
-  events: Array<IDomainEventDto>;
-}
-
-export type ICreateBaseResponseDto = IApiResponseDto<ICreateBaseResponseDataDto>;
-
-export type ICreateBaseOkResponseDto = IApiOkResponseDto<ICreateBaseResponseDataDto>;
-export type ICreateBaseErrorResponseDto = IApiErrorResponseDto;
-
-export type ICreateBaseEndpointResult =
-  | { status: 201; body: ICreateBaseOkResponseDto }
-  | { status: HttpErrorStatus; body: ICreateBaseErrorResponseDto };
-
-export const createBaseResponseDataSchema = z.object({
-  base: baseDtoSchema,
-  events: z.array(domainEventDtoSchema),
+export const createBaseInputSchema = z.object({
+  spaceId: z.string(),
+  name: z.string().optional(),
+  icon: z.string().optional(),
 });
 
+export type ICreateBaseRequestDto = z.infer<typeof createBaseInputSchema>;
+
+export const createBaseResponseDataSchema = z.object({
+  base: z.object({
+    id: z.string(),
+    name: z.string().nullable(),
+    spaceId: z.string(),
+    icon: z.string().nullable().optional(),
+  }),
+});
+
+export type ICreateBaseResponseDataDto = z.infer<typeof createBaseResponseDataSchema>;
+export type ICreateBaseResponseDto = IApiResponseDto<ICreateBaseResponseDataDto>;
 export const createBaseOkResponseSchema = apiOkResponseDtoSchema(createBaseResponseDataSchema);
+export type ICreateBaseOkResponseDto = z.infer<typeof createBaseOkResponseSchema>;
+export type ICreateBaseErrorResponseDto = IApiErrorResponseDto;
 
 export { apiErrorResponseDtoSchema as createBaseErrorResponseSchema } from '../shared/http';
-
-export const mapCreateBaseResultToDto = (
-  result: CreateBaseResult
-): Result<ICreateBaseResponseDataDto, DomainError> => {
-  return mapBaseToDto(result.base).map((base) => ({
-    base,
-    events: result.events.map(mapDomainEventToDto),
-  }));
-};

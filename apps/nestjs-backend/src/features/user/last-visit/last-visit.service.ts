@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { HttpErrorCode, type IRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -22,28 +22,17 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import type {
-  RoutineDeleteEvent,
   BaseDeleteEvent,
   SpaceDeleteEvent,
-  DashboardDeleteEvent,
-  WorkflowDeleteEvent,
-  AppDeleteEvent,
   TableDeleteEvent,
   ViewDeleteEvent,
 } from '../../../event-emitter/events';
 import { Events } from '../../../event-emitter/events';
 import { LastVisitUpdateEvent } from '../../../event-emitter/events/last-visit/last-visit.event';
 import type { IClsStore } from '../../../types/cls';
+import { resourceDescriptorOf } from '../../resource/resource-descriptor';
+import { BASE_NODE_VISIT_TYPES, NODE_VISIT_TYPES } from './last-visit-types';
 import { mergeBaseVisitRows } from './merge-base-visit-rows';
-
-/** The node types a project's tree lists; their visits are kept per project. */
-const BASE_NODE_VISIT_TYPES: string[] = [
-  LastVisitResourceType.Table,
-  LastVisitResourceType.Dashboard,
-  LastVisitResourceType.Workflow,
-  LastVisitResourceType.App,
-  LastVisitResourceType.Routine,
-];
 
 /**
  * Visits kept per project and node type: enough for the project's recently opened list (six
@@ -52,13 +41,36 @@ const BASE_NODE_VISIT_TYPES: string[] = [
 const RECENT_BASE_NODE_VISITS = 6;
 
 @Injectable()
-export class LastVisitService {
+export class LastVisitService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(LastVisitService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly cls: ClsService<IClsStore>,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
+
+  /** A node kind's delete clears its visits, on the event its descriptor names. */
+  onApplicationBootstrap() {
+    for (const resourceType of NODE_VISIT_TYPES) {
+      const { delete: event, payloadKey } = resourceDescriptorOf(resourceType)!.nodeEvents!;
+      this.eventEmitter.on(
+        event,
+        ({ payload }: { payload: Record<string, string> }) =>
+          this.clearNodeVisits(resourceType, payload[`${payloadKey}Id`]).catch((error: Error) =>
+            this.logger.error(error.message, error.stack)
+          ),
+        { async: true }
+      );
+    }
+  }
+
+  private async clearNodeVisits(resourceType: LastVisitResourceType, resourceId: string) {
+    await this.prismaService.userLastVisit.deleteMany({ where: { resourceId, resourceType } });
+    this.eventEmitterService.emitAsync(Events.LAST_VISIT_CLEAR, {});
+  }
 
   async getUserLastVisitBaseNode(
     userId: string,
@@ -481,163 +493,19 @@ export class LastVisitService {
     }
   }
 
-  async dashboardVisit(userId: string, parentResourceId: string) {
+  /** A project's last visited node of a kind; before any visit, the first by the kind's order. */
+  async nodeVisit(userId: string, parentResourceId: string, resourceType: LastVisitResourceType) {
+    const { dbTable, lastVisit } = resourceDescriptorOf(resourceType)!;
     const query = this.knex
       .select({
         resourceId: 'ulv.resource_id',
       })
       .from('user_last_visit as ulv')
-      .leftJoin('dashboard as v', function () {
-        this.on('v.id', '=', 'ulv.resource_id');
-      })
-      .where('ulv.user_id', userId)
-      .where('ulv.resource_type', LastVisitResourceType.Dashboard)
-      .where('ulv.parent_resource_id', parentResourceId)
-      .whereNotNull('v.id')
-      .whereNull('v.deleted_time')
-      .orderBy('ulv.last_visit_time', 'desc')
-      .limit(1);
-
-    const sql = query.toQuery();
-
-    const results = await this.prismaService.$queryRawUnsafe<IUserLastVisitVo[]>(sql);
-    const lastVisit = results[0];
-
-    if (lastVisit) {
-      return {
-        resourceId: lastVisit.resourceId,
-        resourceType: LastVisitResourceType.Dashboard,
-      };
-    }
-
-    const dashboard = await this.prismaService.dashboard.findFirst({
-      select: {
-        id: true,
-      },
-      where: {
-        baseId: parentResourceId,
-        deletedTime: null,
-      },
-    });
-
-    if (dashboard) {
-      return {
-        resourceId: dashboard.id,
-        resourceType: LastVisitResourceType.Dashboard,
-      };
-    }
-  }
-
-  async workflowVisit(userId: string, parentResourceId: string) {
-    const query = this.knex
-      .select({
-        resourceId: 'ulv.resource_id',
-      })
-      .from('user_last_visit as ulv')
-      .leftJoin('workflow as v', function () {
-        this.on('v.id', '=', 'ulv.resource_id').andOnNull('v.deleted_time');
-      })
-      .where('ulv.user_id', userId)
-      .where('ulv.resource_type', LastVisitResourceType.Workflow)
-      .where('ulv.parent_resource_id', parentResourceId)
-      .whereNotNull('v.id')
-      .orderBy('ulv.last_visit_time', 'desc')
-      .limit(1)
-      .toQuery();
-
-    const results = await this.prismaService.$queryRawUnsafe<IUserLastVisitVo[]>(query);
-    const lastVisit = results[0];
-
-    if (lastVisit) {
-      return {
-        resourceId: lastVisit.resourceId,
-        resourceType: LastVisitResourceType.Workflow,
-      };
-    }
-
-    const workflowQuery = this.knex('workflow')
-      .select({
-        id: 'id',
-      })
-      .where('base_id', parentResourceId)
-      .whereNull('deleted_time')
-      .orderBy('order', 'asc')
-      .limit(1)
-      .toQuery();
-
-    const workflowResults =
-      await this.prismaService.$queryRawUnsafe<{ id: string }[]>(workflowQuery);
-    const workflow = workflowResults[0];
-
-    if (workflow) {
-      return {
-        resourceId: workflow.id,
-        resourceType: LastVisitResourceType.Workflow,
-      };
-    }
-  }
-
-  async appVisit(userId: string, parentResourceId: string) {
-    const query = this.knex
-      .select({
-        resourceId: 'ulv.resource_id',
-      })
-      .from('user_last_visit as ulv')
-      .leftJoin('app as a', function () {
-        this.on('a.id', '=', 'ulv.resource_id').andOnNull('a.deleted_time');
-      })
-      .where('ulv.user_id', userId)
-      .where('ulv.resource_type', LastVisitResourceType.App)
-      .where('ulv.parent_resource_id', parentResourceId)
-      .whereNotNull('a.id')
-      .orderBy('ulv.last_visit_time', 'desc')
-      .limit(1)
-      .toQuery();
-
-    const results = await this.prismaService.$queryRawUnsafe<IUserLastVisitVo[]>(query);
-    const lastVisit = results[0];
-
-    if (lastVisit) {
-      return {
-        resourceId: lastVisit.resourceId,
-        resourceType: LastVisitResourceType.App,
-      };
-    }
-
-    const appQuery = this.knex('app')
-      .select({
-        id: 'id',
-      })
-      .where('base_id', parentResourceId)
-      .whereNull('deleted_time')
-      .orderBy('last_modified_time', 'desc')
-      .limit(1)
-      .toQuery();
-
-    const appResults = await this.prismaService.$queryRawUnsafe<{ id: string }[]>(appQuery);
-    const app = appResults[0];
-
-    if (app) {
-      return {
-        resourceId: app.id,
-        resourceType: LastVisitResourceType.App,
-      };
-    }
-
-    return undefined;
-  }
-
-  async routineVisit(userId: string, parentResourceId: string) {
-    const query = this.knex
-      .select({
-        resourceId: 'ulv.resource_id',
-      })
-      .from('user_last_visit as ulv')
-      .leftJoin('routine as r', function () {
+      .leftJoin(`${dbTable!.name} as r`, function () {
         this.on('r.id', '=', 'ulv.resource_id').andOnNull('r.deleted_time');
       })
       .where('ulv.user_id', userId)
-      .where('ulv.resource_type', LastVisitResourceType.Routine)
+      .where('ulv.resource_type', resourceType)
       .where('ulv.parent_resource_id', parentResourceId)
       .whereNotNull('r.id')
       .orderBy('ulv.last_visit_time', 'desc')
@@ -645,33 +513,34 @@ export class LastVisitService {
       .toQuery();
 
     const results = await this.prismaService.$queryRawUnsafe<IUserLastVisitVo[]>(query);
-    const lastVisit = results[0];
+    const lastVisited = results[0];
 
-    if (lastVisit) {
+    if (lastVisited) {
       return {
-        resourceId: lastVisit.resourceId,
-        resourceType: LastVisitResourceType.Routine,
+        resourceId: lastVisited.resourceId,
+        resourceType,
       };
     }
 
-    // same default as the routine list: oldest first
-    const routineQuery = this.knex('routine')
+    let firstQuery = this.knex(dbTable!.name)
       .select({
         id: 'id',
       })
       .where('base_id', parentResourceId)
-      .whereNull('deleted_time')
-      .orderBy('created_time', 'asc')
-      .limit(1)
-      .toQuery();
+      .whereNull('deleted_time');
+    if (lastVisit?.firstBy) {
+      firstQuery = firstQuery.orderBy(lastVisit.firstBy.column, lastVisit.firstBy.direction);
+    }
 
-    const routineResults = await this.prismaService.$queryRawUnsafe<{ id: string }[]>(routineQuery);
-    const routine = routineResults[0];
+    const firstResults = await this.prismaService.$queryRawUnsafe<{ id: string }[]>(
+      firstQuery.limit(1).toQuery()
+    );
+    const first = firstResults[0];
 
-    if (routine) {
+    if (first) {
       return {
-        resourceId: routine.id,
-        resourceType: LastVisitResourceType.Routine,
+        resourceId: first.id,
+        resourceType,
       };
     }
 
@@ -754,6 +623,9 @@ export class LastVisitService {
     userId: string,
     params: IGetUserLastVisitRo
   ): Promise<IUserLastVisitVo | undefined> {
+    if (NODE_VISIT_TYPES.includes(params.resourceType)) {
+      return this.nodeVisit(userId, params.parentResourceId, params.resourceType);
+    }
     switch (params.resourceType) {
       case LastVisitResourceType.Space:
         return this.spaceVisit(userId, params.parentResourceId);
@@ -761,14 +633,6 @@ export class LastVisitService {
         return this.tableVisit(userId, params.parentResourceId);
       case LastVisitResourceType.View:
         return this.viewVisit(userId, params.parentResourceId);
-      case LastVisitResourceType.Dashboard:
-        return this.dashboardVisit(userId, params.parentResourceId);
-      case LastVisitResourceType.Workflow:
-        return this.workflowVisit(userId, params.parentResourceId);
-      case LastVisitResourceType.App:
-        return this.appVisit(userId, params.parentResourceId);
-      case LastVisitResourceType.Routine:
-        return this.routineVisit(userId, params.parentResourceId);
       default:
         throw new CustomHttpException('Invalid resource type', HttpErrorCode.VALIDATION_ERROR, {
           localization: {
@@ -956,20 +820,8 @@ export class LastVisitService {
   @OnEvent(Events.SPACE_DELETE, { async: true })
   @OnEvent(Events.TABLE_DELETE, { async: true })
   @OnEvent(Events.TABLE_VIEW_DELETE, { async: true })
-  @OnEvent(Events.DASHBOARD_DELETE, { async: true })
-  @OnEvent(Events.WORKFLOW_DELETE, { async: true })
-  @OnEvent(Events.APP_DELETE, { async: true })
-  @OnEvent(Events.ROUTINE_DELETE, { async: true })
   protected async resourceDeleteListener(
-    listenerEvent:
-      | BaseDeleteEvent
-      | SpaceDeleteEvent
-      | TableDeleteEvent
-      | ViewDeleteEvent
-      | DashboardDeleteEvent
-      | WorkflowDeleteEvent
-      | AppDeleteEvent
-      | RoutineDeleteEvent
+    listenerEvent: BaseDeleteEvent | SpaceDeleteEvent | TableDeleteEvent | ViewDeleteEvent
   ) {
     switch (listenerEvent.name) {
       case Events.BASE_DELETE:
@@ -1017,38 +869,6 @@ export class LastVisitService {
           where: {
             resourceId: listenerEvent.payload.viewId,
             resourceType: LastVisitResourceType.View,
-          },
-        });
-        break;
-      case Events.DASHBOARD_DELETE:
-        await this.prismaService.userLastVisit.deleteMany({
-          where: {
-            resourceId: listenerEvent.payload.dashboardId,
-            resourceType: LastVisitResourceType.Dashboard,
-          },
-        });
-        break;
-      case Events.WORKFLOW_DELETE:
-        await this.prismaService.userLastVisit.deleteMany({
-          where: {
-            resourceId: listenerEvent.payload.workflowId,
-            resourceType: LastVisitResourceType.Workflow,
-          },
-        });
-        break;
-      case Events.APP_DELETE:
-        await this.prismaService.userLastVisit.deleteMany({
-          where: {
-            resourceId: listenerEvent.payload.appId,
-            resourceType: LastVisitResourceType.App,
-          },
-        });
-        break;
-      case Events.ROUTINE_DELETE:
-        await this.prismaService.userLastVisit.deleteMany({
-          where: {
-            resourceId: listenerEvent.payload.routineId,
-            resourceType: LastVisitResourceType.Routine,
           },
         });
         break;

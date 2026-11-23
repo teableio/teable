@@ -104,6 +104,7 @@ describe('WsGateway', () => {
       expect(sockjs.default.createServer).toHaveBeenCalledWith({
         prefix: '/socket',
         transports: ['websocket', 'xhr-streaming'],
+        websocket: true,
         response_limit: 2 * 1024 * 1024,
         log: expect.any(Function),
         // negotiation and compression itself are covered by sockjs-options.spec.ts
@@ -220,6 +221,81 @@ describe('WsGateway', () => {
       expect(mockConn.write).toHaveBeenCalledWith(expect.stringContaining('error'));
       expect(mockConn.close).toHaveBeenCalled();
       expect((gateway as any).activeConnections.has(mockConn)).toBe(false);
+    });
+  });
+
+  describe('idle close', () => {
+    /** A connection whose `on` handlers can be fired, like a real sockjs Connection. */
+    const createConn = () => {
+      const handlers = new Map<string, Array<() => void>>();
+      return {
+        protocol: 'websocket',
+        on: vi.fn((event: string, cb: () => void) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), cb]);
+        }),
+        emit: (event: string) => handlers.get(event)?.forEach((cb) => cb()),
+        write: vi.fn(),
+        close: vi.fn(),
+        _session: { recv: { request: {} } },
+      };
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    });
+
+    it('closes a connection that sends nothing for the idle timeout', () => {
+      vi.stubEnv('SOCKJS_IDLE_TIMEOUT_SECONDS', '120');
+      gateway.onModuleInit();
+      const conn = createConn();
+      (gateway as any).handleConnection(conn);
+
+      vi.advanceTimersByTime(119_999);
+      expect(conn.close).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(conn.close).toHaveBeenCalledWith(4000, 'Idle timeout');
+    });
+
+    it('restarts the countdown on every client message', () => {
+      vi.stubEnv('SOCKJS_IDLE_TIMEOUT_SECONDS', '120');
+      gateway.onModuleInit();
+      const conn = createConn();
+      (gateway as any).handleConnection(conn);
+
+      for (let i = 0; i < 10; i++) {
+        vi.advanceTimersByTime(60_000);
+        conn.emit('data');
+      }
+      expect(conn.close).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(120_000);
+      expect(conn.close).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops the countdown once the connection closes', () => {
+      vi.stubEnv('SOCKJS_IDLE_TIMEOUT_SECONDS', '120');
+      gateway.onModuleInit();
+      const conn = createConn();
+      (gateway as any).handleConnection(conn);
+
+      conn.emit('close');
+      vi.advanceTimersByTime(600_000);
+      expect(conn.close).not.toHaveBeenCalled();
+    });
+
+    it('never closes when the idle timeout is 0', () => {
+      vi.stubEnv('SOCKJS_IDLE_TIMEOUT_SECONDS', '0');
+      gateway.onModuleInit();
+      const conn = createConn();
+      (gateway as any).handleConnection(conn);
+
+      vi.advanceTimersByTime(3_600_000);
+      expect(conn.close).not.toHaveBeenCalled();
+      expect(conn.on).not.toHaveBeenCalledWith('data', expect.any(Function));
     });
   });
 

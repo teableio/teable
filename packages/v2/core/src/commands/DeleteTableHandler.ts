@@ -12,6 +12,9 @@ import type {
   TableDeletionPreparation,
 } from '../application/services/TableDeletionPreparationService';
 import { TableDeletionSideEffectService } from '../application/services/TableDeletionSideEffectService';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import {
   beginTableSchemaOperation,
   completeTableSchemaOperation,
@@ -70,6 +73,11 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
     @inject(v2CoreTokens.tableSchemaCoordination)
     private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination(),
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    ),
     @inject(v2CoreTokens.sameTxProjectionDispatcher)
     private readonly sameTxProjectionDispatcher: SameTxProjectionDispatcherPort.ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
   ) {}
@@ -171,6 +179,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     const tableDeletionSideEffectService = this.tableDeletionSideEffectService;
     const unitOfWork = this.unitOfWork;
     const eventBus = this.eventBus;
+    const tableOperationPluginRunner = this.tableOperationPluginRunner;
     const sameTxProjectionDispatcher = this.sameTxProjectionDispatcher;
     const result = await safeTry<DeleteTableResult, DomainError>(async function* () {
       // Blockers still precede lifecycle writes, using fresh preparation under the retained lease.
@@ -179,6 +188,13 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
         return err(domainError.conflict({ code: blocker.code, message: blocker.message }));
       }
       const table = preparation.table;
+      const admission = yield* await tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.delete,
+        executionContext: context,
+        payload: { baseId: table.baseId(), table, mode: preparation.mode },
+        isTransactionBound: false,
+      });
+      yield* await admission.guard();
       const sideEffectEvents: IDomainEvent[] = [];
       const sideEffectPostPersistEvents: IDomainEvent[] = [];
       const ownEvents: IDomainEvent[] = [];
@@ -209,7 +225,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
                     mode: preparation.mode,
                   });
                   if (preparation.mode === 'permanent') {
-                    yield* table.markDeleted();
+                    yield* table.markDeleted({ sourceState: preparation.sourceState });
                   } else {
                     yield* table.markTrashed();
                   }

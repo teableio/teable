@@ -16,6 +16,7 @@ export const deleteByRangeStreamCommandInputSchema = deleteByRangeCommandInputSc
   batchSize: z.number().int().min(1).max(MAX_SELECTION_STREAM_BATCH_SIZE).optional(),
   targetRecordIds: z.array(z.string()).optional(),
   excludedTargetRecordIds: z.array(z.string()).optional(),
+  selectAllRecords: z.boolean().optional(),
 });
 
 export type IDeleteByRangeStreamCommandInput = z.input<
@@ -35,7 +36,8 @@ export class DeleteByRangeStreamCommand {
     readonly ignoreViewQuery: boolean,
     readonly targetRecordIds?: ReadonlyArray<string>,
     readonly excludedTargetRecordIds?: ReadonlyArray<string>,
-    readonly batchSize?: number
+    readonly batchSize?: number,
+    readonly selectAllRecords?: boolean
   ) {}
 
   static create(raw: unknown): Result<DeleteByRangeStreamCommand, DomainError> {
@@ -69,7 +71,8 @@ export class DeleteByRangeStreamCommand {
             parsed.data.ignoreViewQuery ?? false,
             parsed.data.targetRecordIds,
             parsed.data.excludedTargetRecordIds,
-            parsed.data.batchSize
+            parsed.data.batchSize,
+            parsed.data.selectAllRecords
           )
       )
     );

@@ -27,6 +27,7 @@
     "lint": "oxlint && oxfmt --check",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test-e2e": "vitest run --silent --bail 1",
+    "test-e2e:nest": "vitest run --config vitest.nest.config.ts --silent --bail 1",
     "traceability:check": "node scripts/refresh-requirement-case-ids.mjs --check",
     "traceability:refresh": "node scripts/refresh-requirement-case-ids.mjs",
     "test-unit": "pnpm test-e2e",
@@ -34,6 +35,8 @@
     "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
+    "@orpc/server": "1.15.7",
+    "@teable/core": "workspace:^",
     "@teable/v2-adapter-realtime-sharedb": "workspace:*",
     "@teable/v2-adapter-table-query-ops-postgres": "workspace:*",
     "@teable/v2-container-node-test": "workspace:*",
@@ -70,6 +73,8 @@
     "rimraf": "5.0.5",
     "tsdown": "0.23.1",
     "typescript": "catalog:",
+    "unplugin-swc": "1.4.4",
+    "vite-tsconfig-paths": "4.3.2",
     "vitest": "4.1.12",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }

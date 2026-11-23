@@ -6,13 +6,18 @@ import { CalculationModule } from './calculation.module';
 
 describe('BatchService', () => {
   let service: BatchService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, CalculationModule],
     }).compile();
 
     service = module.get<BatchService>(BatchService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

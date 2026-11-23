@@ -116,12 +116,39 @@ export class ComputedOutboxBaseAdmissionService {
     baseId: string,
     operation: (permit: ComputedOutboxBaseAdmissionPermit) => Promise<T>
   ): Promise<ComputedOutboxBaseAdmissionResult<T>> {
-    const key = resolveAdmissionKey(baseId);
+    return this.withLease(baseId, resolveAdmissionKey(baseId), this.capacity, operation);
+  }
+
+  async runWithWriterPermit<T>(
+    baseId: string,
+    writerKey: string,
+    operation: (permit: ComputedOutboxBaseAdmissionPermit) => Promise<T>,
+    maxConcurrency?: number
+  ): Promise<ComputedOutboxBaseAdmissionResult<T>> {
+    const effectiveMaxConcurrency =
+      typeof maxConcurrency === 'number' && Number.isFinite(maxConcurrency) && maxConcurrency >= 1
+        ? Math.trunc(maxConcurrency)
+        : DEFAULT_ADMISSION_CAPACITY;
+    // A writer is shared by all bases and pools routed to the same endpoint.
+    // Its cap does not grow when an administrator raises a single base's cap,
+    // though callers may size it from the target pool budget or env override.
+    return this.withLease(
+      baseId,
+      resolveAdmissionKey(`writer-${writerKey}`),
+      effectiveMaxConcurrency,
+      operation
+    );
+  }
+
+  private async withLease<T>(
+    baseId: string,
+    key: string,
+    capacity: number,
+    operation: (permit: ComputedOutboxBaseAdmissionPermit) => Promise<T>
+  ): Promise<ComputedOutboxBaseAdmissionResult<T>> {
     const owner = randomUUID();
     const acquisitionStartedAt = performance.now();
-    const acquired = Number(
-      await this.eval(ACQUIRE_SCRIPT, [key], [LEASE_MS, this.capacity, owner])
-    );
+    const acquired = Number(await this.eval(ACQUIRE_SCRIPT, [key], [LEASE_MS, capacity, owner]));
     if (acquired !== 1) return { admitted: false };
     let activeUntil = acquisitionStartedAt + LEASE_MS;
 

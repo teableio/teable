@@ -13,6 +13,10 @@ export type ComputedOutboxWakeup = Readonly<{
   availableAt: Date;
   emittedAt: Date;
   cause: ComputedOutboxWakeupCause;
+  /** Consecutive empty claims on this eligible replay chain. Fresh locators omit it. */
+  eligibleClaimMisses?: number;
+  /** Continue waking only tasks already due when this contended batch began draining. */
+  relayDueBeforeMs?: number;
   /** W3C traceparent captured at enqueue time so the worker stays in the write trace. */
   traceparent?: string;
   /** Optional W3C tracestate paired with traceparent. */
@@ -44,6 +48,8 @@ export const createComputedOutboxWakeup = (params: {
   baseId: string;
   availableAt?: Date;
   cause: ComputedOutboxWakeupCause;
+  eligibleClaimMisses?: number;
+  relayDueBeforeMs?: number;
   traceparent?: string;
   tracestate?: string;
 }): ComputedOutboxWakeup => ({
@@ -54,6 +60,8 @@ export const createComputedOutboxWakeup = (params: {
   availableAt: params.availableAt ?? new Date(),
   emittedAt: new Date(),
   cause: params.cause,
+  ...(params.eligibleClaimMisses ? { eligibleClaimMisses: params.eligibleClaimMisses } : {}),
+  ...(params.relayDueBeforeMs != null ? { relayDueBeforeMs: params.relayDueBeforeMs } : {}),
   ...(params.traceparent ? { traceparent: params.traceparent } : {}),
   ...(params.tracestate ? { tracestate: params.tracestate } : {}),
 });

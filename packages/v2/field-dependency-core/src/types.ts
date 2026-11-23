@@ -104,6 +104,12 @@ export interface ParsedLinkOptions {
   symmetricFieldId?: string;
   /** FK host table name (format: baseDbName.tableDbName) */
   fkHostTableName?: string;
+  /** Column name storing self record reference on fkHostTableName */
+  selfKeyName?: string;
+  /** Column name storing foreign record reference on fkHostTableName */
+  foreignKeyName?: string;
+  /** Physical db_table_name of the table owning this link field metadata */
+  targetDbTableName?: string;
   /** Link relationship type */
   relationship?: LinkRelationship;
 }

@@ -4,6 +4,9 @@ import type { Result } from 'neverthrow';
 
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { ViewUndoRedoService } from '../application/services/ViewUndoRedoService';
+import { ViewOperationPluginRunner } from '../application/services/ViewOperationPluginRunner';
+import { ViewOperationKind } from '../ports/ViewOperationPlugin';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { FieldId } from '../domain/table/fields/FieldId';
@@ -53,7 +56,9 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
     @inject(v2CoreTokens.domainWriteTransaction)
     private readonly domainWriteTransaction: DomainWriteTransactionPort.IDomainWriteTransaction,
     @inject(v2CoreTokens.viewUndoRedoService)
-    private readonly viewUndoRedoService: ViewUndoRedoService
+    private readonly viewUndoRedoService: ViewUndoRedoService,
+    @inject(v2CoreTokens.viewOperationPluginRunner)
+    private readonly viewOperationPluginRunner: ViewOperationPluginRunner = new ViewOperationPluginRunner([], new NoopLogger())
   ) {}
 
   async handle(
@@ -75,6 +80,15 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
     command: DeleteViewCommand
   ): Promise<Result<DeleteViewResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    const admission = await this.viewOperationPluginRunner.prepare({
+      kind: ViewOperationKind.delete,
+      executionContext: context,
+      payload: { tableId: command.tableId.toString(), viewId: command.viewId.toString() },
+      isTransactionBound: false,
+    });
+    if (admission.isErr()) return err(admission.error);
+    const allowed = await admission.value.guard();
+    if (allowed.isErr()) return err(allowed.error);
     const transactionResult = await this.domainWriteTransaction.execute(
       context,
       async (transactionContext) =>

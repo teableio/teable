@@ -1,6 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Dialect, QueryResult } from 'kysely';
+import type { Dialect, QueryResult, TransactionSettings } from 'kysely';
 import {
   CompiledQuery,
   Kysely,
@@ -23,7 +23,18 @@ class PGliteDriver {
     return new PGliteConnection(this.#client);
   }
 
-  async beginTransaction(connection: PGliteConnection) {
+  async beginTransaction(connection: PGliteConnection, settings: TransactionSettings) {
+    if (settings.isolationLevel || settings.accessMode) {
+      let sql = 'start transaction';
+      if (settings.isolationLevel) {
+        sql += ` isolation level ${settings.isolationLevel}`;
+      }
+      if (settings.accessMode) {
+        sql += ` ${settings.accessMode}`;
+      }
+      await connection.executeQuery(CompiledQuery.raw(sql));
+      return;
+    }
     await connection.executeQuery(CompiledQuery.raw('BEGIN'));
   }
 

@@ -19,7 +19,7 @@ describe('[R13] create-field: lookup cross-base', () => {
     const response = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, spaceId: 'space_test' }),
+      body: JSON.stringify({ name, spaceId: ctx.spaceId }),
     });
     const rawBody = await response.json();
     if (response.status !== 201) {

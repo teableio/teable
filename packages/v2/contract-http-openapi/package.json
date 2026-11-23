@@ -34,6 +34,7 @@
     "@orpc/contract": "1.15.7",
     "@orpc/openapi": "1.15.7",
     "@orpc/server": "1.15.7",
+    "@orpc/zod": "1.15.7",
     "@teable/v2-contract-http": "workspace:*",
     "@teable/v2-contract-http-implementation": "workspace:*",
     "@teable/v2-core": "workspace:*",

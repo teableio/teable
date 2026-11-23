@@ -19,7 +19,7 @@ import {
   permanentDeleteBaseNode,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBase, useBaseId } from '@teable/sdk/hooks';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
 import { cleanParentId, getNodeName } from './helper';
@@ -37,6 +37,8 @@ interface IUseBaseNodeCrudOptions {
 
 export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   const baseId = useBaseId() as string;
+  // The space page lists a project's nodes with no base above them.
+  const spaceId = (useBase() as ReturnType<typeof useBase> | undefined)?.spaceId;
   const { t } = useTranslation(['table', 'common']);
 
   const { treeItems, invalidateMenu } = useBaseNodeContext();
@@ -47,6 +49,9 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   // What a delete sends to the trash shows up on an open trash page.
   const invalidateTrash = () =>
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(baseId) });
+  // Lists of the space's projects that show what is in each one hang under this key.
+  const invalidateSpaceProjects = () =>
+    spaceId && queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId) });
   // The node's own page caches its name too.
   const invalidateNodeDetail = ({ resourceType, resourceId }: IBaseNodeVo) => {
     switch (resourceType) {
@@ -129,12 +134,14 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
       invalidateMenu();
       invalidatePins();
       invalidateTrash();
+      invalidateSpaceProjects();
     },
     // A folder delete that stopped part way has still deleted some of what was in it.
     onError: () => {
       invalidateMenu();
       invalidatePins();
       invalidateTrash();
+      invalidateSpaceProjects();
     },
   });
 

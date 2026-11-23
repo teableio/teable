@@ -15,6 +15,7 @@ import { AttachmentsTableService } from './attachments-table.service';
 
 describe('AttachmentsService', () => {
   let service: AttachmentsTableService;
+  let module: TestingModule;
   const updateManyError = 'updateMany error';
   const prismaService = mockDeep<PrismaService>();
   const mockAttachmentCellValue: IAttachmentCellValue = [
@@ -38,7 +39,7 @@ describe('AttachmentsService', () => {
   const mockAttachmentFields = [{ id: 'field1' }, { id: 'field2' }];
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, AttachmentsTableModule],
     })
       .overrideProvider(PrismaService)
@@ -55,7 +56,8 @@ describe('AttachmentsService', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await module.close();
     mockReset(prismaService);
     vi.clearAllMocks();
   });

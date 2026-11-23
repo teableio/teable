@@ -1,5 +1,33 @@
 type PermissionMap = Record<string, boolean | undefined>;
 
+export const canShowSearchAccelerationSettings = ({
+  base,
+  forceV2All,
+  canRead,
+  isShared,
+  anonymous,
+  readOnlyPreview,
+}: {
+  base?: {
+    searchAccelerationSwitchEnabled?: boolean;
+    v2Status?: { useV2: boolean };
+    isCanary?: boolean;
+  };
+  forceV2All?: boolean;
+  canRead?: boolean;
+  isShared: boolean;
+  anonymous: boolean;
+  readOnlyPreview: boolean;
+}) =>
+  Boolean(
+    base?.searchAccelerationSwitchEnabled &&
+    (forceV2All || (base.v2Status?.useV2 ?? base.isCanary)) &&
+    canRead &&
+    !isShared &&
+    !anonymous &&
+    !readOnlyPreview
+  );
+
 interface ITableRecordNavigationInput {
   activeTableId?: string;
   targetTableId: string;

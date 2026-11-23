@@ -4,9 +4,10 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { IntegrityIssueType, type IIntegrityIssue } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
-import { FieldService } from '../field/field.service';
 
 @Injectable()
 export class UniqueIndexService {
@@ -14,7 +15,7 @@ export class UniqueIndexService {
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
-    private readonly fieldService: FieldService
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   async checkUniqueIndex(table: {
@@ -26,8 +27,7 @@ export class UniqueIndexService {
 
     const colId = '__id';
     const idUniqueIndexExists =
-      (await this.fieldService.findUniqueIndexesForField(table.id, table.dbTableName, colId))
-        .length > 0;
+      (await this.findUniqueIndexesForField(table.id, table.dbTableName, colId)).length > 0;
 
     if (!idUniqueIndexExists) {
       issues.push({
@@ -43,7 +43,7 @@ export class UniqueIndexService {
     });
 
     for (const field of uniqueFields) {
-      const indexNames = await this.fieldService.findUniqueIndexesForField(
+      const indexNames = await this.findUniqueIndexesForField(
         table.id,
         table.dbTableName,
         field.dbFieldName
@@ -82,11 +82,10 @@ export class UniqueIndexService {
         select: { dbFieldName: true },
       });
 
-      const indexName = this.fieldService.getFieldUniqueKeyName(
-        table.dbTableName,
-        field.dbFieldName,
-        fieldId
-      );
+      const [schema, tableName] = this.dbProvider.splitTableName(table.dbTableName);
+      const suffix = `___${fieldId}_unique`;
+      const prefix = `${schema}_${tableName}`.slice(0, 63 - suffix.length);
+      const indexName = `${prefix.toLowerCase()}${suffix.toLowerCase()}`;
 
       sql = this.knex.schema
         .alterTable(table.dbTableName, (table) => {
@@ -107,5 +106,21 @@ export class UniqueIndexService {
       fieldId,
       message: `Unique index ${fieldId} fixed for table ${table.name}`,
     };
+  }
+
+  private async findUniqueIndexesForField(
+    tableId: string,
+    dbTableName: string,
+    dbFieldName: string
+  ) {
+    const indexes = await this.databaseRouter.queryDataPrismaForTable<
+      { name: string; columns: string; isUnique: boolean }[]
+    >(tableId, this.dbProvider.getTableIndexes(dbTableName));
+    return indexes
+      .filter(
+        ({ columns, isUnique }) =>
+          isUnique && (JSON.parse(columns) as string[]).includes(dbFieldName)
+      )
+      .map(({ name }) => name);
   }
 }

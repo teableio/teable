@@ -2,6 +2,7 @@ import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-shared';
 import {
   installUndoCaptureGlobals,
   NodeImportEventSpoolFactory,
+  PostgresDataQueryExecutor,
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
   type DomainEventOutboxWorker,
@@ -23,13 +24,21 @@ import {
   type IPublicCommand,
   type IQueryBus,
   type IRealtimeEngine,
+  type ITableRepository,
+  type RecordQueryPluginRunner,
 } from '@teable/v2-core';
+import { DataQueryService, QueryExecutionService } from '@teable/v2-data-query';
 import type { DependencyContainer } from '@teable/v2-di';
+import {
+  formulaSqlPgTokens,
+  type FormulaCompileBudgetConfig,
+  type IPgTypeValidationStrategy,
+} from '@teable/v2-formula-sql-pg';
 import { registerV2ImportServices } from '@teable/v2-import';
 import type { ISsrfSafeFetchFn } from '@teable/v2-utils';
 
-import { sql, type Kysely } from 'kysely';
-import { err } from 'neverthrow';
+import { CompiledQuery, sql, type Kysely } from 'kysely';
+import { err, type Result } from 'neverthrow';
 import {
   ComputedQueueSummaryUnavailableError,
   readComputedQueueSummary,
@@ -78,6 +87,8 @@ export type IHeadlessRuntimeBackend =
 
 export interface IHeadlessRuntimeOptions {
   backend: IHeadlessRuntimeBackend;
+  /** Private signing key shared by runtimes that resume the same query cursors. */
+  dataQueryCursorSigningKey?: string;
   attachments?: HeadlessRuntimeAttachmentsFactory;
   /** Realtime engine owned by the host. Defaults to an in-process LocalRealtimeEngine. */
   realtime?: IRealtimeEngine;
@@ -108,6 +119,7 @@ export interface IHeadlessRuntime<TRealtime extends IRealtimeEngine = LocalRealt
   readonly container: DependencyContainer;
   readonly commandBus: ICommandBus;
   readonly queryBus: IQueryBus;
+  readonly dataQuery: Pick<QueryExecutionService, 'validate' | 'execute'>;
   readonly attachments?: IHeadlessRuntimeAttachmentStore;
   readonly realtime: TRealtime;
   /** Bounded attempt followed by a read-only queue summary. */
@@ -116,6 +128,11 @@ export interface IHeadlessRuntime<TRealtime extends IRealtimeEngine = LocalRealt
   flushBackground(): Promise<IBackgroundFlushReport>;
   /** Executes a database probe; throws when closed or unavailable. */
   ready(): Promise<void>;
+  /** Executes a parameterized raw SQL statement against the runtime database. */
+  queryRaw?(
+    sqlText: string,
+    params?: readonly unknown[]
+  ): Promise<{ readonly rows: ReadonlyArray<Record<string, unknown>> }>;
   close(): Promise<void>;
 }
 
@@ -565,6 +582,7 @@ class QueuedQueryBus implements IQueryBus {
 class HeadlessRuntime<TRealtime extends IRealtimeEngine> implements IHeadlessRuntime<TRealtime> {
   readonly commandBus: ICommandBus;
   readonly queryBus: IQueryBus;
+  readonly dataQuery: IHeadlessRuntime<TRealtime>['dataQuery'];
   private readonly computedWorker: ComputedUpdateWorker;
   private readonly db: Kysely<unknown>;
   private readonly queue?: RuntimeWorkQueue;
@@ -580,6 +598,7 @@ class HeadlessRuntime<TRealtime extends IRealtimeEngine> implements IHeadlessRun
     readonly container: DependencyContainer,
     private readonly dispose: () => Promise<void>,
     readonly realtime: TRealtime,
+    dataQueryCursorSigningKey: string | undefined,
     readonly attachments?: IHeadlessRuntimeAttachmentStore,
     queue?: RuntimeWorkQueue,
     backgroundTasks?: RuntimeBackgroundTasks,
@@ -624,9 +643,55 @@ class HeadlessRuntime<TRealtime extends IRealtimeEngine> implements IHeadlessRun
     container.registerInstance(v2CoreTokens.commandBus, this.commandBus);
     container.registerInstance(v2CoreTokens.queryBus, this.queryBus);
     this.db = container.resolve<Kysely<unknown>>(v2DataDbTokens.db);
+    const dataQueries = new QueryExecutionService(
+      new DataQueryService(
+        container.resolve<ITableRepository>(v2CoreTokens.tableRepository),
+        container.resolve<RecordQueryPluginRunner>(v2CoreTokens.recordQueryPluginRunner),
+        new PostgresDataQueryExecutor(container.resolve(v2DataDbTokens.db), {
+          typeValidationStrategy: container.resolve<IPgTypeValidationStrategy>(
+            formulaSqlPgTokens.typeValidationStrategy
+          ),
+          formulaCompileBudget: container.resolve<FormulaCompileBudgetConfig>(
+            formulaSqlPgTokens.compileBudget
+          ),
+          cursorSigningKey: dataQueryCursorSigningKey ?? crypto.randomUUID(),
+        })
+      )
+    );
+    this.dataQuery = {
+      validate: (context, request) =>
+        this.runDataQuery(context, (executionContext) =>
+          dataQueries.validate(executionContext, request)
+        ),
+      execute: (context, request) =>
+        this.runDataQuery(context, (executionContext) =>
+          dataQueries.execute(executionContext, request)
+        ),
+    };
     this.computedWorker = container.resolve<ComputedUpdateWorker>(
       v2RecordRepositoryPostgresTokens.computedUpdateWorker
     );
+  }
+
+  private async runDataQuery<T>(
+    context: IExecutionContext,
+    run: (context: IExecutionContext) => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
+    if ((this.#closing || this.#closed) && !this.queue?.isActive()) {
+      return err(
+        domainError.infrastructure({
+          code: 'runtime.closed',
+          message: 'Headless runtime is closed',
+        })
+      );
+    }
+    this.inflight.begin();
+    const execute = () => run(withBackgroundTracker(context, this.backgroundTasks));
+    try {
+      return await (this.queue ? this.queue.run(execute) : execute());
+    } finally {
+      this.inflight.end();
+    }
   }
 
   private async settleProjections(): Promise<{ failedTasks: number }> {
@@ -730,6 +795,18 @@ class HeadlessRuntime<TRealtime extends IRealtimeEngine> implements IHeadlessRun
     if (!(this.realtime instanceof LocalRealtimeEngine)) return { state: 'unsupported' };
     const background = await this.settleProjections();
     return { state: 'settled', failedTasks: background.failedTasks };
+  }
+
+  async queryRaw(
+    sqlText: string,
+    params: readonly unknown[] = []
+  ): Promise<{ readonly rows: ReadonlyArray<Record<string, unknown>> }> {
+    const work = async () => {
+      if (this.#closing || this.#closed) throw new HeadlessRuntimeClosedError();
+      const res = await this.db.executeQuery(CompiledQuery.raw(sqlText, [...params]));
+      return { rows: res.rows as ReadonlyArray<Record<string, unknown>> };
+    };
+    return this.queue ? this.queue.run(work) : work();
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity -- worker, direct work and queue summary
@@ -948,6 +1025,7 @@ export async function createHeadlessRuntime(
         container,
         () => closePglite(container!, dataDirLock),
         init.realtime,
+        options.dataQueryCursorSigningKey,
         init.attachments,
         queue
       );
@@ -987,6 +1065,7 @@ export async function createHeadlessRuntime(
       container,
       () => nodeContainer.disposeV2NodePgContainer(container!),
       init.realtime,
+      options.dataQueryCursorSigningKey,
       init.attachments,
       queue,
       new RuntimeBackgroundTasks(queue),

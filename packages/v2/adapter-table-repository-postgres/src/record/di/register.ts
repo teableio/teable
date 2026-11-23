@@ -1,4 +1,4 @@
-import { v2CoreTokens } from '@teable/v2-core';
+import { NoopSameTxProjectionDispatcher, v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -208,8 +208,18 @@ export const registerV2RecordRepositoryPostgresAdapter = (
     });
   }
 
-  c.register(v2CoreTokens.tableRecordQueryRepository, PostgresTableRecordQueryRepository, {
+  if (!c.isRegistered(v2CoreTokens.sameTxProjectionDispatcher)) {
+    c.registerInstance(
+      v2CoreTokens.sameTxProjectionDispatcher,
+      new NoopSameTxProjectionDispatcher()
+    );
+  }
+
+  c.register(PostgresTableRecordQueryRepository, PostgresTableRecordQueryRepository, {
     lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableRecordQueryRepository, {
+    useToken: PostgresTableRecordQueryRepository,
   });
 
   c.register(v2CoreTokens.tableRecordRepository, PostgresTableRecordRepository, {

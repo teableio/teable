@@ -158,6 +158,18 @@ export const envValidationSchema = Joi.object({
   // Runs search access path maintenance tasks (table-write and reclaim triggers) without the
   // observation, analyzer or auto-accept stack.
   V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ENABLED: envBooleanSchema,
+  V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_WINDOW_UTC: Joi.string()
+    .empty('')
+    .length(11)
+    .pattern(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/)
+    .custom((value: string, helpers) =>
+      value.slice(0, 5) === value.slice(6) ? helpers.error('any.invalid') : value
+    )
+    .messages({
+      'any.invalid': 'The UTC search maintenance window must have different start and end times',
+    }),
+  V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_SMALL_ROW_CAP: envIntegerSchema,
+  V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ALLOW_UNKNOWN_OR_LARGE_REWRITE: envBooleanSchema,
   V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME: envSearchRuntimeModeSchema,
   V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME: envSearchRuntimeModeSchema,
   V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED: envBooleanSchema,

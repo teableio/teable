@@ -4,6 +4,8 @@ import type { Field } from '../../fields/Field';
 import { FieldId } from '../../fields/FieldId';
 import { FieldName } from '../../fields/FieldName';
 import { CheckboxField } from '../../fields/types/CheckboxField';
+import { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
+import { ConditionalLookupOptions } from '../../fields/types/ConditionalLookupOptions';
 import { DateField } from '../../fields/types/DateField';
 import { LookupField } from '../../fields/types/LookupField';
 import { LookupOptions } from '../../fields/types/LookupOptions';
@@ -18,6 +20,8 @@ import { TableId } from '../../TableId';
 import { RecordId } from '../RecordId';
 import { TableRecord } from '../TableRecord';
 import { TableRecordCellValue } from '../TableRecordFields';
+import { CheckboxConditionSpec } from './CheckboxConditionSpec';
+import { ConditionalLookupConditionSpec } from './ConditionalLookupConditionSpec';
 import { DateConditionSpec } from './DateConditionSpec';
 import { FormulaConditionSpec } from './FormulaConditionSpec';
 import { MultipleSelectConditionSpec } from './MultipleSelectConditionSpec';
@@ -476,6 +480,72 @@ describe('RecordConditionSpec evaluation', () => {
     expect(hasAny.isSatisfiedBy(record)).toBe(true);
     expect(is.isSatisfiedBy(record)).toBe(true);
     expect(mismatch.isSatisfiedBy(record)).toBe(false);
+  });
+
+  it('evaluates checkbox is true/false consistently for null and lookup/conditionalLookup arrays', () => {
+    const { checkboxField } = buildBaseRecord();
+    const lookupCheckbox = buildLookupField(checkboxField, 's');
+    const conditionalCheckbox = ConditionalLookupField.create({
+      id: fieldId('t'),
+      name: fieldName('Conditional Flag'),
+      innerField: checkboxField,
+      conditionalLookupOptions: ConditionalLookupOptions.create({
+        foreignTableId: tableId('u').toString(),
+        lookupFieldId: checkboxField.id().toString(),
+        condition: {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: checkboxField.id().toString(), operator: 'isNotEmpty' }],
+          },
+        },
+      })._unsafeUnwrap(),
+      isMultipleCellValue: true,
+    })._unsafeUnwrap();
+    const trueLit = RecordConditionLiteralValue.create(true)._unsafeUnwrap();
+    const falseLit = RecordConditionLiteralValue.create(false)._unsafeUnwrap();
+
+    const makeRec = (field: Field, rawValue: unknown) =>
+      TableRecord.create({
+        id: recordId('z'),
+        tableId: tableId('z'),
+        fieldValues: rawValue === undefined ? [] : [{ fieldId: field.id(), value: cell(rawValue) }],
+      })._unsafeUnwrap();
+
+    const scalarFalseSpec = CheckboxConditionSpec.create(checkboxField, 'is', falseLit);
+    const scalarTrueSpec = CheckboxConditionSpec.create(checkboxField, 'is', trueLit);
+    expect(scalarFalseSpec.isSatisfiedBy(makeRec(checkboxField, false))).toBe(true);
+    expect(scalarFalseSpec.isSatisfiedBy(makeRec(checkboxField, null))).toBe(true);
+    expect(scalarFalseSpec.isSatisfiedBy(makeRec(checkboxField, undefined))).toBe(true);
+    expect(scalarFalseSpec.isSatisfiedBy(makeRec(checkboxField, true))).toBe(false);
+    expect(scalarTrueSpec.isSatisfiedBy(makeRec(checkboxField, true))).toBe(true);
+    expect(scalarTrueSpec.isSatisfiedBy(makeRec(checkboxField, null))).toBe(false);
+
+    for (const [specFalse, specTrue, field] of [
+      [
+        CheckboxConditionSpec.create(lookupCheckbox, 'is', falseLit),
+        CheckboxConditionSpec.create(lookupCheckbox, 'is', trueLit),
+        lookupCheckbox,
+      ],
+      [
+        ConditionalLookupConditionSpec.create(conditionalCheckbox, 'is', falseLit),
+        ConditionalLookupConditionSpec.create(conditionalCheckbox, 'is', trueLit),
+        conditionalCheckbox,
+      ],
+    ] as const) {
+      expect(specFalse.isSatisfiedBy(makeRec(field, null))).toBe(true);
+      expect(specFalse.isSatisfiedBy(makeRec(field, []))).toBe(true);
+      expect(specFalse.isSatisfiedBy(makeRec(field, [null]))).toBe(true);
+      expect(specFalse.isSatisfiedBy(makeRec(field, [false]))).toBe(true);
+      expect(specFalse.isSatisfiedBy(makeRec(field, [false, null]))).toBe(true);
+      expect(specFalse.isSatisfiedBy(makeRec(field, [true]))).toBe(false);
+      expect(specFalse.isSatisfiedBy(makeRec(field, [null, true]))).toBe(false);
+      expect(specFalse.isSatisfiedBy(makeRec(field, [false, true]))).toBe(false);
+
+      expect(specTrue.isSatisfiedBy(makeRec(field, [true]))).toBe(true);
+      expect(specTrue.isSatisfiedBy(makeRec(field, [false, true]))).toBe(true);
+      expect(specTrue.isSatisfiedBy(makeRec(field, [false]))).toBe(false);
+      expect(specTrue.isSatisfiedBy(makeRec(field, null))).toBe(false);
+    }
   });
 
   it('returns false for unsupported operators and still mutates ok', () => {

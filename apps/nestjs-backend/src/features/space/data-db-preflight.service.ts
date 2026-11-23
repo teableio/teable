@@ -81,8 +81,21 @@ const DATA_PLANE_TABLES = [
 ];
 
 // Additive migrations may be entirely absent on an otherwise complete older data DB.
-// A partially applied group is still incompatible and must be repaired before adoption.
-const ADDITIVE_DATA_PLANE_TABLES = ['computed_reliability_issue', 'computed_reliability_scope'];
+// Each additive migration group is checked independently as all-or-none: a partially
+// applied group is still incompatible and must be repaired before adoption.
+const ADDITIVE_DATA_PLANE_TABLE_GROUPS = [
+  ['computed_reliability_issue', 'computed_reliability_scope'],
+  ['base_vcs_head', 'base_vcs_change', 'base_vcs_commit'],
+] as const;
+const ADDITIVE_DATA_PLANE_TABLES: readonly string[] = ADDITIVE_DATA_PLANE_TABLE_GROUPS.flat();
+
+const hasCompleteAdditiveDataPlaneGroups = (internalTables: readonly string[]): boolean => {
+  const present = new Set(internalTables);
+  return ADDITIVE_DATA_PLANE_TABLE_GROUPS.every((group) => {
+    const count = group.filter((table) => present.has(table)).length;
+    return count === 0 || count === group.length;
+  });
+};
 // Each entry here is optional on its own: it may appear on a compatible data DB without
 // its sibling additions, so presence is never checked as an all-or-none group.
 const OPTIONAL_ADDITIVE_DATA_PLANE_TABLES = ['computed_update_dead_letter_seed'];
@@ -1000,8 +1013,7 @@ export class DataDbPreflightService {
       managedFunctions.length > 0 ||
       additiveTables.length > 0 ||
       optionalAdditiveTables.length > 0;
-    const hasCompleteAdditiveGroup =
-      additiveTables.length === 0 || additiveTables.length === ADDITIVE_DATA_PLANE_TABLES.length;
+    const hasCompleteAdditiveGroup = hasCompleteAdditiveDataPlaneGroups(internalTables);
     const hasAllBaselineObjects =
       DATA_PLANE_TABLES.every((table) => managedTables.includes(table)) &&
       DATA_PLANE_FUNCTIONS.every((func) => managedFunctions.includes(func));

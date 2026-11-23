@@ -10,7 +10,7 @@ vi.mock('./table-open-api.service', () => ({
   TableOpenApiService: class TableOpenApiService {},
 }));
 
-vi.mock('../table-index.service', () => ({
+vi.mock('../../table-index/table-index.service', () => ({
   TableIndexService: class TableIndexService {},
 }));
 
@@ -78,6 +78,9 @@ describe('TableController.archiveTable', () => {
       {} as never,
       {} as never,
       tableOpenApiV2Service as never,
+      {} as never,
+      {} as never,
+      {} as never,
       {} as never,
       cls as never
     );

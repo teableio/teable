@@ -99,6 +99,7 @@ export class ImportCsvHandler implements ICommandHandler<
         importData: command.importData,
         batchSize: command.batchSize,
         maxRowCount: command.maxRowCount,
+        truncateOnRowLimit: command.truncateOnRowLimit,
         columns: command.columns,
         parseResult: {
           ...parseResult,

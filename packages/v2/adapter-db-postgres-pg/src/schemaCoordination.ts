@@ -34,7 +34,23 @@ const cancelledError = () =>
     message: 'Table schema coordination acquisition cancelled',
   });
 
+const destroyedError = () =>
+  domainError.infrastructure({
+    code: 'schema_coordination.pool_destroyed',
+    message: POOL_DESTROYED_MESSAGE,
+  });
+
 type CoordinationMode = 'shared' | 'exclusive';
+interface ITableWaiter {
+  mode: CoordinationMode;
+  settle(error?: DomainError): void;
+}
+
+interface ITableAdmissions {
+  mode: CoordinationMode;
+  holders: number;
+  waiters: Set<ITableWaiter>;
+}
 
 export interface ICoordinationLease {
   readonly mode: CoordinationMode;
@@ -179,6 +195,9 @@ class CoordinationCheckout {
  * it. The dedicated pool keeps a held lease from consuming the shared meta
  * pool's connections, so waiters can never exhaust the request pool and stall
  * the business queries they are waiting on.
+ * Conflicting single-table requests queue locally before pool checkout.
+ * Shared requests can still hold concurrent leases. PostgreSQL coordinates
+ * across processes and with multi-table requests.
  *
  * Transaction-scoped locks cannot leak when a connection dies: PostgreSQL
  * releases them on rollback or disconnect. A checked-out client has no
@@ -193,6 +212,7 @@ export class V2PgTableSchemaCoordination {
   private connectionConstructor!: PostgresProtocolConnectionConstructor;
   private destroyed = false;
   private readonly pendingAcquires = new Set<(error: Error) => void>();
+  private readonly tableAdmissions = new Map<string, ITableAdmissions>();
 
   constructor(private readonly options: IV2PgTableSchemaCoordinationOptions) {}
 
@@ -207,7 +227,89 @@ export class V2PgTableSchemaCoordination {
     if (requested.length === 0) {
       return ok(createLease(mode, []));
     }
-    return this.acquireLocks(context, requested, mode, signal);
+    if (requested.length !== 1) {
+      return this.acquireLocks(context, requested, mode, signal);
+    }
+
+    const tableId = requested[0]!;
+    const admission = await this.waitForTable(tableId, mode, signal);
+    if (admission.isErr()) return err(admission.error);
+
+    let lease: ICoordinationLease | undefined;
+    try {
+      if (signal?.aborted) return err(cancelledError());
+      const result = await this.acquireLocks(context, requested, mode, signal);
+      if (result.isErr()) return result;
+      lease = result.value;
+    } finally {
+      if (!lease) this.releaseTable(tableId, admission.value);
+    }
+
+    const acquired = lease;
+    let released = false;
+    return ok({
+      ...acquired,
+      release: async () => {
+        if (released) return;
+        released = true;
+        try {
+          await acquired.release();
+        } finally {
+          this.releaseTable(tableId, admission.value);
+        }
+      },
+    });
+  }
+
+  private async waitForTable(
+    tableId: string,
+    mode: CoordinationMode,
+    signal?: AbortSignal
+  ): Promise<Result<ITableAdmissions, DomainError>> {
+    if (this.destroyed) return err(destroyedError());
+    const state = this.tableAdmissions.get(tableId);
+    if (!state) {
+      const initial = { mode, holders: 1, waiters: new Set<ITableWaiter>() };
+      this.tableAdmissions.set(tableId, initial);
+      return ok(initial);
+    }
+    if (mode === 'shared' && state.mode === 'shared' && !state.waiters.size) {
+      state.holders += 1;
+      return ok(state);
+    }
+
+    return new Promise((resolve) => {
+      const waiter: ITableWaiter = {
+        mode,
+        settle: (error) => {
+          state.waiters.delete(waiter);
+          signal?.removeEventListener('abort', onAbort);
+          resolve(error ? err(error) : ok(state));
+        },
+      };
+      const onAbort = () => {
+        waiter.settle(cancelledError());
+        this.admitWaiters(tableId, state);
+      };
+      state.waiters.add(waiter);
+      signal?.addEventListener('abort', onAbort, { once: true });
+    });
+  }
+
+  private releaseTable(tableId: string, state: ITableAdmissions): void {
+    state.holders -= 1;
+    this.admitWaiters(tableId, state);
+  }
+
+  private admitWaiters(tableId: string, state: ITableAdmissions): void {
+    if (this.destroyed) return;
+    for (const waiter of state.waiters) {
+      if (state.holders && (state.mode === 'exclusive' || waiter.mode === 'exclusive')) return;
+      state.mode = waiter.mode;
+      state.holders += 1;
+      waiter.settle();
+    }
+    if (!state.holders) this.tableAdmissions.delete(tableId);
   }
 
   private async acquireLocks(
@@ -216,14 +318,7 @@ export class V2PgTableSchemaCoordination {
     mode: CoordinationMode,
     signal?: AbortSignal
   ): Promise<Result<ICoordinationLease, DomainError>> {
-    if (this.destroyed) {
-      return err(
-        domainError.infrastructure({
-          code: 'schema_coordination.pool_destroyed',
-          message: POOL_DESTROYED_MESSAGE,
-        })
-      );
-    }
+    if (this.destroyed) return err(destroyedError());
 
     const client = await this.checkoutCoordinationClient(signal);
     if (client.isErr()) return err(client.error);
@@ -319,11 +414,15 @@ export class V2PgTableSchemaCoordination {
 
   async destroy(): Promise<void> {
     this.destroyed = true;
-    const destroyedError = new Error(POOL_DESTROYED_MESSAGE);
+    const shutdownError = new Error(POOL_DESTROYED_MESSAGE);
+    for (const { waiters } of this.tableAdmissions.values()) {
+      for (const waiter of waiters) waiter.settle(destroyedError());
+    }
+    this.tableAdmissions.clear();
     const pending = Array.from(this.pendingAcquires);
     this.pendingAcquires.clear();
     for (const abort of pending) {
-      abort(destroyedError);
+      abort(shutdownError);
     }
 
     const poolPromise = this.poolPromise;

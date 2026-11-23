@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -16,16 +17,19 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
-import type { TableRecord } from '../domain/table/records/TableRecord';
+import { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
+import { RecordQueryOperationKind, type RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -264,12 +268,19 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
 
   async find(
     _context: IExecutionContext,
-    _table: Table,
-    _spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     _options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
     if (this.failFind) return err(this.failFind);
-    const records = Array.from(this.records.values());
+    const records = Array.from(this.records.values()).filter((record) => {
+      const domainRecord = TableRecord.fromRawFieldValues({
+        id: record.id,
+        tableId: table.id(),
+        fields: record.fields,
+      })._unsafeUnwrap();
+      return spec?.isSatisfiedBy(domainRecord) ?? true;
+    });
     return ok({ records, total: records.length });
   }
 
@@ -405,6 +416,124 @@ describe('DuplicateRecordHandler', () => {
   const tableId = `tbl${'b'.repeat(16)}`;
   const sourceRecordId = `rec${'c'.repeat(16)}`;
 
+  it.each(['row scope', 'read guard'] as const)(
+    'rejects an unreadable duplicate source denied by %s before writing',
+    async (denial) => {
+      const { table, textFieldId } = createTestTable(baseId, tableId);
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const recordRepository = new FakeTableRecordRepository();
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      recordQueryRepository.records.set(sourceRecordId, {
+        id: sourceRecordId,
+        fields: { [textFieldId]: 'Hidden source' },
+        version: 1,
+      });
+      const readRunner = new RecordQueryPluginRunner(
+        [
+          {
+            name: 'source-read-policy',
+            supports: (kind) => kind === RecordQueryOperationKind.getOne,
+            scope: () => ok({ recordSpec: RecordByIdsSpec.create([]) }),
+            guard: async () =>
+              denial === 'read guard'
+                ? err(domainError.forbidden({ message: 'Source read denied' }))
+                : ok(undefined),
+          },
+        ],
+        new NoopLogger()
+      );
+      const handler = new DuplicateRecordHandler(
+        new TableQueryService(tableRepository),
+        recordRepository,
+        recordQueryRepository,
+        createFakeRecordMutationSpecResolverService(),
+        createRecordWritePluginRunner(),
+        new RecordWriteSideEffectService(),
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        noopUndoRedoService,
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+        readRunner
+      );
+      const command = DuplicateRecordCommand.create({
+        tableId,
+        recordId: sourceRecordId,
+      })._unsafeUnwrap();
+
+      const result = await handler.handle(createContext(), command);
+
+      expect(result._unsafeUnwrapErr()).toMatchObject(
+        denial === 'row scope'
+          ? { code: 'record.not_found', message: 'Record not found' }
+          : { message: 'Source read denied' }
+      );
+      expect(recordRepository.records).toEqual([]);
+      expect(unitOfWork.transactions).toEqual([]);
+      expect(eventBus.published).toEqual([]);
+    }
+  );
+
+  it.each(['allow-list', 'empty projection', 'conditional mask'] as const)(
+    'copies only readable source cells under %s',
+    async (restriction) => {
+      const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const recordRepository = new FakeTableRecordRepository();
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      recordQueryRepository.records.set(sourceRecordId, {
+        id: sourceRecordId,
+        fields: { [textFieldId]: 'Visible source', [numberFieldId]: 42 },
+        version: 1,
+      });
+      const readScope: RecordQueryPluginScope =
+        restriction === 'conditional mask'
+          ? { fieldMasks: [{ fieldId: numberFieldId, visibleWhen: RecordByIdsSpec.create([]) }] }
+          : {
+              readableFieldIds: new Set(restriction === 'empty projection' ? [] : [textFieldId]),
+            };
+      const readRunner = new RecordQueryPluginRunner(
+        [
+          {
+            name: 'source-cell-read-policy',
+            supports: (kind) => kind === RecordQueryOperationKind.getOne,
+            scope: () => ok(readScope),
+          },
+        ],
+        new NoopLogger()
+      );
+      const handler = new DuplicateRecordHandler(
+        new TableQueryService(tableRepository),
+        recordRepository,
+        recordQueryRepository,
+        createFakeRecordMutationSpecResolverService(),
+        createRecordWritePluginRunner(),
+        new RecordWriteSideEffectService(),
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        noopUndoRedoService,
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+        readRunner
+      );
+      const command = DuplicateRecordCommand.create({
+        tableId,
+        recordId: sourceRecordId,
+      })._unsafeUnwrap();
+
+      const { record } = (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+      expect(record.fields().get(FieldId.create(numberFieldId)._unsafeUnwrap())).toBeUndefined();
+      expect(record.fields().get(FieldId.create(textFieldId)._unsafeUnwrap())?.toValue()).toBe(
+        restriction === 'empty projection' ? undefined : 'Visible source'
+      );
+      expect(recordRepository.records).toHaveLength(1);
+      expect(record.id().toString()).not.toBe(sourceRecordId);
+    }
+  );
+
   it('duplicates a record and persists it', async () => {
     const { table, textFieldId, numberFieldId } = createTestTable(baseId, tableId);
 
@@ -435,7 +564,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -484,7 +614,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const command = DuplicateRecordCommand.create({
@@ -528,7 +659,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -598,7 +730,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const command = DuplicateRecordCommand.create({
@@ -645,7 +778,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -677,7 +811,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -712,7 +847,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -757,7 +893,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -799,7 +936,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -840,7 +978,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -885,7 +1024,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const commandResult = DuplicateRecordCommand.create({
@@ -928,7 +1068,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const command = DuplicateRecordCommand.create(
@@ -972,7 +1113,8 @@ describe('DuplicateRecordHandler', () => {
       new RecordWriteSideEffectService(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       noopUndoRedoService,
-      new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
 
     const command = DuplicateRecordCommand.create(

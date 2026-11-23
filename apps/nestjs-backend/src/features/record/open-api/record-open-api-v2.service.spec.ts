@@ -39,7 +39,6 @@ import {
   TableName,
   TableRecord,
   TimeFormatting as V2TimeFormatting,
-  UpdateRecordResult,
   UpdateRecordsResult,
   UserMultiplicity,
   v2CoreTokens,
@@ -58,7 +57,6 @@ const tableIdText = `tbl${'c'.repeat(16)}`;
 const primaryFieldId = `fld${'p'.repeat(16)}`;
 const statusFieldId = `fld${'s'.repeat(16)}`;
 const noteFieldId = `fld${'n'.repeat(16)}`;
-const countFieldId = `fld${'c'.repeat(16)}`;
 const createdTimeFieldId = `fld${'t'.repeat(16)}`;
 const dateFieldIdText = `fld${'d'.repeat(16)}`;
 const checkboxFieldId = `fld${'b'.repeat(16)}`;
@@ -172,21 +170,6 @@ describe('RecordOpenApiV2Service', () => {
 
   let testTable: V2Table;
   let service: RecordOpenApiV2Service;
-
-  const createUpdateRecordResult = (params: {
-    recordId: string;
-    tableId: string;
-    fields: Record<string, unknown>;
-    fieldKeyMapping?: Map<string, string>;
-  }) => {
-    const record = TableRecord.fromRawFieldValues({
-      id: params.recordId,
-      tableId: TableId.create(params.tableId)._unsafeUnwrap(),
-      fields: params.fields,
-    })._unsafeUnwrap();
-
-    return UpdateRecordResult.create(record, [], params.fieldKeyMapping ?? new Map());
-  };
 
   const createUpdateRecordsResult = (params: {
     tableId: string;
@@ -3176,45 +3159,6 @@ describe('RecordOpenApiV2Service', () => {
 
     expect(assertTableRecordWritable).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`);
     expect(commandExecute).not.toHaveBeenCalled();
-  });
-
-  it('returns the v2 updateRecord payload directly without reloading legacy snapshots', async () => {
-    commandExecute.mockResolvedValueOnce({
-      isErr: () => false,
-      value: createUpdateRecordResult({
-        recordId: 'rec1111111111111111',
-        tableId: `tbl${'c'.repeat(16)}`,
-        fields: {
-          [`fld${'s'.repeat(16)}`]: 'Done',
-          [countFieldId]: '1',
-        },
-        fieldKeyMapping: new Map([
-          [`fld${'s'.repeat(16)}`, 'status'],
-          [countFieldId, countFieldId],
-        ]),
-      }),
-    });
-
-    const result = await service.updateRecord(`tbl${'c'.repeat(16)}`, 'rec1111111111111111', {
-      fieldKeyType: FieldKeyType.Name,
-      record: {
-        fields: {
-          status: 'Done',
-        },
-      },
-    });
-
-    expect(result).toEqual({
-      id: 'rec1111111111111111',
-      fields: {
-        status: 'Done',
-        [countFieldId]: '1',
-      },
-    });
-    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
-    expect(cacheDel).toHaveBeenCalledWith(
-      `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
-    );
   });
 
   it('passes batch order through native v2 updateRecords', async () => {

@@ -11,6 +11,7 @@ import type {
   ComputedActivityProjectionResult,
   ComputedActivityStageSettlementParams,
 } from '../activity/IComputedActivityProjector';
+import type { ComputedOutboxWakeup } from './ComputedOutboxWakeup';
 import type {
   ComputedUpdateOutboxItem,
   ComputedUpdateOutboxTaskInput,
@@ -306,6 +307,7 @@ export type ClaimBatchParams = {
   workerId: string;
   limit: number;
   now?: Date;
+  maxPreparationPages?: number;
 };
 
 export type EnqueueOrMergeOptions = {
@@ -365,6 +367,10 @@ export type ClaimByIdParams = {
   workerId: string;
   now?: Date;
   allowProcessingTakeover?: boolean;
+  /** Broker admissions commit one preparation page and re-arm the durable task. */
+  yieldAfterPreparation?: boolean;
+  /** A claim found no available row and committed no preparation work. */
+  onEmptyClaim?: () => void;
 };
 
 export type OutboxTaskClaimEligibility =
@@ -549,6 +555,12 @@ export interface IComputedUpdateOutbox {
     params: ClaimByIdParams,
     context?: IExecutionContext
   ): Promise<Result<AnyOutboxItem | null, DomainError>>;
+
+  /** Locate one pending sibling already due when the contended batch began draining. */
+  getNextPendingWakeup(
+    baseId: string,
+    dueBefore: Date
+  ): Promise<Result<ComputedOutboxWakeup | null, DomainError>>;
 
   getTaskClaimEligibility(
     taskId: string,

@@ -20,6 +20,7 @@ describe('CommentOpenApiService audit rows', () => {
   const createService = () => {
     const service = new CommentOpenApiService(
       {} as never,
+      {} as never,
       recordService as never,
       prismaService as never,
       cls as never,
@@ -125,5 +126,76 @@ describe('CommentOpenApiService audit rows', () => {
     await expect(createService().deleteComment('tbl1', 'rec1', 'comOther')).rejects.toThrow();
     expect(prismaService.comment.updateMany).toHaveBeenCalledTimes(1);
     expect(audit.emitAtomic).not.toHaveBeenCalled();
+  });
+
+  it('sends comment notification with empty recordName when primary field read fails', async () => {
+    const notifyFn = vi.fn();
+    const service = new CommentOpenApiService(
+      { sendCommentNotify: notifyFn } as never,
+      {
+        getRecord: vi.fn().mockRejectedValue(new Error('Field permission denied')),
+      } as never,
+      {
+        getExistingRecordIds: vi.fn(async () => new Set(['rec1'])),
+      } as never,
+      {
+        comment: {
+          create: vi.fn(async ({ data }) => ({ ...data })),
+        },
+        tableMeta: {
+          findFirst: vi.fn().mockResolvedValue({ baseId: 'bse1', name: 'Tasks' }),
+        },
+        field: {
+          findFirst: vi.fn().mockResolvedValue({ id: 'fldPrimary' }),
+        },
+        base: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({ name: 'Project' }),
+        },
+        commentSubscription: {
+          findMany: vi.fn().mockResolvedValue([{ createdBy: 'usrRecipient' }]),
+        },
+      } as never,
+      {
+        get: vi.fn((key: string) => (key === 'user' ? { id: 'usr1', name: 'Alice' } : 'usr1')),
+      } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      audit as never,
+      {
+        getUserCollaboratorsByTableId: vi.fn().mockResolvedValue([{ id: 'usrRecipient' }]),
+      } as never,
+      permissionService as never
+    );
+    vi.spyOn(service as any, 'validateQuoteId').mockResolvedValue(undefined);
+    vi.spyOn(service as any, 'filterCommentContent').mockImplementation(async (c) => c);
+    vi.spyOn(service as any, 'sendCommentPatch').mockReturnValue(undefined);
+    vi.spyOn(service as any, 'sendTableCommentPatch').mockReturnValue(undefined);
+
+    const created = await service.createComment('tbl1', 'rec1', {
+      content: [{ type: 'p', children: [{ type: 'span', value: 'hello' }] }],
+    } as never);
+
+    expect(created.id).toBeDefined();
+    expect(notifyFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseId: 'bse1',
+        tableId: 'tbl1',
+        recordId: 'rec1',
+        toUserId: 'usrRecipient',
+        message: expect.objectContaining({
+          context: expect.objectContaining({
+            fromUserName: 'Alice',
+            recordName: '',
+            tableName: 'Tasks',
+          }),
+        }),
+      })
+    );
+    expect(audit.emitAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'table.record.comment.create',
+      })
+    );
   });
 });

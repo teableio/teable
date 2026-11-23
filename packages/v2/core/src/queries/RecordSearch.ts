@@ -28,7 +28,14 @@ export const recordSearchInputSchema = z
   .union([
     z.tuple([z.string()]),
     z.tuple([z.string(), z.string()]),
-    z.tuple([z.string(), z.string(), z.boolean()]),
+    z.tuple([
+      z.string(),
+      z.string(),
+      z.union([
+        z.boolean(),
+        z.enum(['true', 'false']).transform((value) => value === 'true'),
+      ]),
+    ]),
   ])
   .optional();
 

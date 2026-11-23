@@ -10,9 +10,10 @@ import type { DuplicateBaseByIdResult, ICommandBus, IExecutionContext } from '@t
 export const executeDuplicateBaseEndpoint = async (
   context: IExecutionContext,
   rawBody: unknown,
-  commandBus: ICommandBus
+  commandBus: ICommandBus,
+  execution?: { adoptExistingTarget?: boolean }
 ): Promise<IDuplicateBaseEndpointResult> => {
-  const commandResult = DuplicateBaseByIdCommand.create(rawBody);
+  const commandResult = DuplicateBaseByIdCommand.create(rawBody, execution);
   if (commandResult.isErr()) {
     const error = commandResult.error;
     return {

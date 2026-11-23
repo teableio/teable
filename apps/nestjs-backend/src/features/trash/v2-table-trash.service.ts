@@ -192,6 +192,13 @@ export class V2RecordsDeletedTableTrashProjection implements IEventHandler<Recor
       teableRecordCount: records.length,
     } satisfies Record<string, string | number | boolean>;
 
+    const rawOperationId = event.orchestration?.operationId;
+    const operationId = rawOperationId
+      ? rawOperationId.startsWith('opr')
+        ? rawOperationId
+        : `opr${rawOperationId}`
+      : generateOperationId();
+
     await this.runInSpan(
       context,
       'teable.V2RecordsDeletedTableTrashProjection.persistDeletedRecords',
@@ -199,7 +206,7 @@ export class V2RecordsDeletedTableTrashProjection implements IEventHandler<Recor
       async () =>
         this.v2RecordTrashService.persistDeletedRecords(
           {
-            operationId: generateOperationId(),
+            operationId,
             windowId: context.windowId,
             tableId: event.tableId.toString(),
             userId: context.actorId.toString(),

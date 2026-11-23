@@ -4,20 +4,26 @@ import { FieldType, Relationship } from '@teable/core';
 import { BaseDuplicateMode } from '@teable/openapi';
 import { v2CoreTokens, type DuplicateBaseRecordReadOptions } from '@teable/v2-core';
 import { GlobalModule } from '../../global/global.module';
+import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
-import type { IBaseImportProgress } from './base-import.service';
+import type { IBaseImportProgress } from './base-import-contract';
 import { BaseModule } from './base.module';
 import type { ILinkFieldTableMap } from './utils';
 
 describe('BaseDuplicateService', () => {
   let service: BaseDuplicateService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, BaseModule],
     }).compile();
 
     service = module.get<BaseDuplicateService>(BaseDuplicateService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {
@@ -124,9 +130,9 @@ describe('BaseDuplicateService dateTimeZoneConversions', () => {
   });
 });
 
-describe('BaseDuplicateService normalizeDuplicateStructureForV2', () => {
+describe('BaseDuplicateV2Service normalizeDuplicateStructureForV2', () => {
   it('preserves same-space cross-base link fields outside the duplicated table set', () => {
-    const service = Object.create(BaseDuplicateService.prototype) as BaseDuplicateService;
+    const service = Object.create(BaseDuplicateV2Service.prototype) as BaseDuplicateV2Service;
     const internals = service as unknown as {
       normalizeDuplicateStructureForV2: (structure: unknown) => {
         tables: { fields: { id?: string; type: string }[] }[];
@@ -174,7 +180,7 @@ describe('BaseDuplicateService normalizeDuplicateStructureForV2', () => {
   });
 
   it('does not treat lookup fields with link result type as host link fields', () => {
-    const service = Object.create(BaseDuplicateService.prototype) as BaseDuplicateService;
+    const service = Object.create(BaseDuplicateV2Service.prototype) as BaseDuplicateV2Service;
     const internals = service as unknown as {
       normalizeDuplicateStructureForV2: (structure: unknown) => {
         tables: { fields: { id?: string; type: string; options?: unknown }[] }[];
@@ -247,8 +253,9 @@ describe('BaseDuplicateService normalizeDuplicateStructureForV2', () => {
   });
 });
 
-describe('BaseDuplicateService duplicateBaseV2', () => {
-  type IServiceArgs = ConstructorParameters<typeof BaseDuplicateService>;
+describe('BaseDuplicateV2Service duplicateBase', () => {
+  type IServiceArgs = ConstructorParameters<typeof BaseDuplicateV2Service>;
+  type ILegacyServiceArgs = ConstructorParameters<typeof BaseDuplicateService>;
   const duplicateBaseName = 'Duplicated base';
   const sourceTableName = 'Source table';
   const sourceDbTableName = 'bseSource.tblSource';
@@ -348,6 +355,33 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     duplicateLinkJunction: (...args: unknown[]) => Promise<void>;
   };
 
+  it('rejects an existing template snapshot destination before granting host authority', async () => {
+    const createBaseV2 = vi.fn();
+    const runWith = vi.fn();
+    const service = new BaseDuplicateV2Service(
+      {} as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      { createBaseV2 } as unknown as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      { runWith } as unknown as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      {} as IServiceArgs[8],
+      {} as IServiceArgs[9]
+    );
+
+    await expect(
+      service.duplicateBase(
+        { fromBaseId: 'bseSource', spaceId: 'spcTemplate', baseId: 'bseExisting' },
+        false,
+        BaseDuplicateMode.CreateTemplate
+      )
+    ).rejects.toThrow('Template snapshots require a new destination base');
+    expect(createBaseV2).not.toHaveBeenCalled();
+    expect(runWith).not.toHaveBeenCalled();
+  });
+
   it('clears source workflow bindings from native button snapshots', async () => {
     const buttonFieldId = `fld${'b'.repeat(16)}`;
     const structure = {
@@ -372,7 +406,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       ],
     };
     const sourceContainer = createSourceContainer(structure);
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {} as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
@@ -380,13 +414,11 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[4],
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
-      {} as IServiceArgs[7],
-      {} as IServiceArgs[8],
       {
         getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
-      } as unknown as IServiceArgs[9],
-      { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      } as unknown as IServiceArgs[7],
+      { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9]
     );
 
     const snapshots = await (
@@ -484,7 +516,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       },
     ];
     const sourceContainer = createSourceContainer(structure, snapshots);
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {} as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
@@ -492,13 +524,11 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[4],
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
-      {} as IServiceArgs[7],
-      {} as IServiceArgs[8],
       {
         getContainerForBase: vi.fn().mockResolvedValue(sourceContainer),
-      } as unknown as IServiceArgs[9],
-      { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      } as unknown as IServiceArgs[7],
+      { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9]
     );
 
     const nativeSnapshots = await (
@@ -535,7 +565,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
           .mockResolvedValue(routeAvailable ? sourceContainer : null),
         getContainerForBase: vi.fn(),
       };
-      const service = new BaseDuplicateService(
+      const service = new BaseDuplicateV2Service(
         {} as IServiceArgs[0],
         {} as IServiceArgs[1],
         {} as IServiceArgs[2],
@@ -543,11 +573,9 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
         {} as IServiceArgs[4],
         {} as IServiceArgs[5],
         {} as IServiceArgs[6],
-        {} as IServiceArgs[7],
-        {} as IServiceArgs[8],
-        v2ContainerService as unknown as IServiceArgs[9],
-        { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[10],
-        {} as IServiceArgs[11]
+        v2ContainerService as unknown as IServiceArgs[7],
+        { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[8],
+        {} as IServiceArgs[9]
       );
       const internals = service as unknown as IDuplicateServiceInternals;
       vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
@@ -670,7 +698,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
         getPreviewContainerForTable: vi.fn().mockResolvedValue(previewContainer),
         getContainerForBase: vi.fn().mockResolvedValue(routingContainer),
       };
-      const service = new BaseDuplicateService(
+      const service = new BaseDuplicateV2Service(
         {} as IServiceArgs[0],
         {} as IServiceArgs[1],
         {} as IServiceArgs[2],
@@ -678,11 +706,9 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
         {} as IServiceArgs[4],
         {} as IServiceArgs[5],
         {} as IServiceArgs[6],
-        {} as IServiceArgs[7],
-        {} as IServiceArgs[8],
-        v2ContainerService as unknown as IServiceArgs[9],
-        { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[10],
-        {} as IServiceArgs[11]
+        v2ContainerService as unknown as IServiceArgs[7],
+        { createContext: vi.fn().mockResolvedValue({}) } as unknown as IServiceArgs[8],
+        {} as IServiceArgs[9]
       );
       const internals = service as unknown as IDuplicateServiceInternals;
       vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
@@ -808,19 +834,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       $tx: vi.fn(async (callback: () => Promise<unknown>) => callback()),
     };
 
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       prismaService as unknown as IServiceArgs[0],
       {} as IServiceArgs[1],
-      {} as IServiceArgs[2],
-      baseImportService as unknown as IServiceArgs[3],
+      baseImportService as unknown as IServiceArgs[2],
+      {} as IServiceArgs[3],
       {} as IServiceArgs[4],
-      {} as IServiceArgs[5],
+      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[5],
       {} as IServiceArgs[6],
-      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
-      {} as IServiceArgs[8],
-      v2ContainerService as unknown as IServiceArgs[9],
-      v2ContextFactory as unknown as IServiceArgs[10],
-      { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
+      v2ContainerService as unknown as IServiceArgs[7],
+      v2ContextFactory as unknown as IServiceArgs[8],
+      { setResourceId: vi.fn() } as unknown as IServiceArgs[9]
     );
     const serviceWithConfig = service as unknown as {
       thresholdConfig: { bigTransactionTimeout: number };
@@ -865,7 +889,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       timeZone: 'America/New_York',
       withRecords: false,
     };
-    await service.duplicateBaseV2(request, false, BaseDuplicateMode.ApplyTemplate);
+    await service.duplicateBase(request, false, BaseDuplicateMode.ApplyTemplate);
 
     expect(v2ContainerService.getContainerForSpace).toHaveBeenCalledWith(spaceId);
     expect(v2ContextFactory.createContext).toHaveBeenCalledWith(container);
@@ -941,9 +965,6 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       createBaseV2: vi.fn().mockResolvedValue({ id: targetBaseId }),
       restoreBaseExtrasV2: vi.fn().mockResolvedValue({ appIdMap: {}, workflowIdMap: {} }),
     };
-    const persistedComputedBackfillService = {
-      recomputeForTables: vi.fn().mockResolvedValue(undefined),
-    };
     const dataDbClientManager = {
       getDataDatabaseForBase: vi.fn().mockResolvedValue({ cacheKey: 'same-db' }),
     };
@@ -955,23 +976,21 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       createContext: vi.fn().mockResolvedValue(context),
     };
 
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {
         txClient: vi.fn().mockReturnValue({
           base: { update: vi.fn() },
         }),
       } as unknown as IServiceArgs[0],
       {} as IServiceArgs[1],
-      {} as IServiceArgs[2],
-      baseImportService as unknown as IServiceArgs[3],
+      baseImportService as unknown as IServiceArgs[2],
+      {} as IServiceArgs[3],
       {} as IServiceArgs[4],
-      {} as IServiceArgs[5],
-      persistedComputedBackfillService as unknown as IServiceArgs[6],
-      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
-      dataDbClientManager as unknown as IServiceArgs[8],
-      v2ContainerService as unknown as IServiceArgs[9],
-      v2ContextFactory as unknown as IServiceArgs[10],
-      { setResourceId: vi.fn() } as unknown as IServiceArgs[11]
+      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[5],
+      dataDbClientManager as unknown as IServiceArgs[6],
+      v2ContainerService as unknown as IServiceArgs[7],
+      v2ContextFactory as unknown as IServiceArgs[8],
+      { setResourceId: vi.fn() } as unknown as IServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const progressEvents: unknown[] = [];
@@ -987,11 +1006,21 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     vi.spyOn(internals, 'getV2BulkCopySourceLinkFields').mockResolvedValue([]);
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
-    vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(12);
+    const legacyTableData = vi
+      .spyOn(
+        BaseDuplicateService.prototype as unknown as IDuplicateServiceInternals,
+        'duplicateTableData'
+      )
+      .mockResolvedValue(12);
     vi.spyOn(internals, 'duplicateAttachments').mockResolvedValue(undefined);
-    vi.spyOn(internals, 'duplicateLinkJunction').mockResolvedValue(undefined);
+    const legacyLinkJunction = vi
+      .spyOn(
+        BaseDuplicateService.prototype as unknown as IDuplicateServiceInternals,
+        'duplicateLinkJunction'
+      )
+      .mockResolvedValue(undefined);
 
-    const result = await service.duplicateBaseV2(
+    const result = await service.duplicateBase(
       {
         fromBaseId: 'bseSource',
         spaceId,
@@ -1005,8 +1034,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
 
     // Record copying runs inside the command now; its progress events are
     // forwarded to the caller as-is, in both bulk and stream modes.
-    expect(internals.duplicateTableData).not.toHaveBeenCalled();
-    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
+    expect(legacyTableData).not.toHaveBeenCalled();
+    expect(legacyLinkJunction).not.toHaveBeenCalled();
+    legacyTableData.mockRestore();
+    legacyLinkJunction.mockRestore();
     expect(commandBus.execute.mock.calls[0]?.[1]).toMatchObject({ withRecords: true });
     expect(progressEvents).toEqual(
       expect.arrayContaining([
@@ -1080,22 +1111,20 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     const service = new BaseDuplicateService(
       {
         txClient: vi.fn().mockReturnValue(metaPrisma),
-      } as unknown as IServiceArgs[0],
-      tableDuplicateService as unknown as IServiceArgs[1],
-      {} as IServiceArgs[2],
-      {} as IServiceArgs[3],
+      } as unknown as ILegacyServiceArgs[0],
+      tableDuplicateService as unknown as ILegacyServiceArgs[1],
+      {} as ILegacyServiceArgs[2],
+      {} as ILegacyServiceArgs[3],
       {
         getForeignKeysInfo: vi.fn().mockReturnValue('select foreign keys'),
-      } as unknown as IServiceArgs[4],
-      knex as unknown as IServiceArgs[5],
-      {} as IServiceArgs[6],
-      {} as IServiceArgs[7],
+      } as unknown as ILegacyServiceArgs[4],
+      knex as unknown as ILegacyServiceArgs[5],
+      {} as ILegacyServiceArgs[6],
+      {} as ILegacyServiceArgs[7],
       {
         dataPrismaForBase: vi.fn().mockResolvedValue(dataPrisma),
-      } as unknown as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      } as unknown as ILegacyServiceArgs[8],
+      {} as ILegacyServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
 
@@ -1144,19 +1173,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
         .mockResolvedValueOnce([]),
     };
     const dataKnex = vi.fn().mockReturnValue(query);
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {} as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
       {} as IServiceArgs[3],
       {} as IServiceArgs[4],
       {} as IServiceArgs[5],
-      {} as IServiceArgs[6],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[6],
       {} as IServiceArgs[7],
-      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      {} as IServiceArgs[8],
+      {} as IServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const source = internals.createDuplicateBaseSource(
@@ -1222,19 +1249,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       if (tableName === 'bseSource.tblSource') return sourceTableQuery;
       throw new Error(`unexpected table ${tableName}`);
     });
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {} as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
       {} as IServiceArgs[3],
       {} as IServiceArgs[4],
       {} as IServiceArgs[5],
-      {} as IServiceArgs[6],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[6],
       {} as IServiceArgs[7],
-      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      {} as IServiceArgs[8],
+      {} as IServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const source = internals.createDuplicateBaseSource(
@@ -1324,19 +1349,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       if (tableName === 'bseSource.junction_fldStory') return junctionQuery;
       throw new Error(`unexpected table ${tableName}`);
     });
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {} as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
       {} as IServiceArgs[3],
       {} as IServiceArgs[4],
       {} as IServiceArgs[5],
-      {} as IServiceArgs[6],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[6],
       {} as IServiceArgs[7],
-      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      {} as IServiceArgs[8],
+      {} as IServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const source = internals.createDuplicateBaseSource(
@@ -1420,19 +1443,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       if (tableName === 'bseSource.childTable') return sourceTableQuery;
       throw new Error(`unexpected table ${tableName}`);
     });
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {} as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
       {} as IServiceArgs[3],
       {} as IServiceArgs[4],
       {} as IServiceArgs[5],
-      {} as IServiceArgs[6],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[6],
       {} as IServiceArgs[7],
-      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      {} as IServiceArgs[8],
+      {} as IServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const source = internals.createDuplicateBaseSource(
@@ -1523,19 +1544,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       if (tableName === 'bseSource.childTable') return foreignTableQuery;
       throw new Error(`unexpected table ${tableName}`);
     });
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {} as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
       {} as IServiceArgs[3],
       {} as IServiceArgs[4],
       {} as IServiceArgs[5],
-      {} as IServiceArgs[6],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[6],
       {} as IServiceArgs[7],
-      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      {} as IServiceArgs[8],
+      {} as IServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const source = internals.createDuplicateBaseSource(
@@ -1609,19 +1628,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
         .mockResolvedValueOnce([]),
     };
     const dataKnex = vi.fn().mockReturnValue(query);
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {} as IServiceArgs[0],
       {} as IServiceArgs[1],
       {} as IServiceArgs[2],
       {} as IServiceArgs[3],
       {} as IServiceArgs[4],
       {} as IServiceArgs[5],
-      {} as IServiceArgs[6],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[6],
       {} as IServiceArgs[7],
-      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      {} as IServiceArgs[8],
+      {} as IServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const source = internals.createDuplicateBaseSource(
@@ -1668,7 +1685,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
 
   it('should include nullable isLookup host link fields when building v2 cross-base maps', async () => {
     const fieldFindMany = vi.fn().mockResolvedValue([]);
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {
         txClient: vi.fn().mockReturnValue({
           field: { findMany: fieldFindMany },
@@ -1682,9 +1699,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
       {} as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
+      {} as IServiceArgs[9]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
 

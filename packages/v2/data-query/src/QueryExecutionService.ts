@@ -1,6 +1,7 @@
 import { domainError, type DomainError, type IExecutionContext } from '@teable/v2-core';
 import { err, type Result } from 'neverthrow';
 
+import type { BoundDataQueryComposition } from './DataQueryComposition';
 import { DataQueryDefinition } from './DataQueryDefinition';
 import { traceDataQueryStage, type DataQueryService } from './DataQueryService';
 import type { DataQueryResult } from './ports';
@@ -48,9 +49,22 @@ export class QueryExecutionService {
     }
   }
 
-  async execute(
+  execute(context: IExecutionContext, raw: unknown): Promise<Result<DataQueryResult, DomainError>> {
+    return this.executeInternal(context, raw);
+  }
+
+  executeComposition(
     context: IExecutionContext,
-    raw: unknown
+    raw: unknown,
+    composition: BoundDataQueryComposition
+  ): Promise<Result<DataQueryResult, DomainError>> {
+    return this.executeInternal(context, raw, composition);
+  }
+
+  private async executeInternal(
+    context: IExecutionContext,
+    raw: unknown,
+    composition?: BoundDataQueryComposition
   ): Promise<Result<DataQueryResult, DomainError>> {
     try {
       return await traceDataQueryStage(
@@ -77,6 +91,7 @@ export class QueryExecutionService {
             () =>
               this.dataQueries.execute(context, definition.value, {
                 parameters: parsed.data.parameters,
+                composition,
               })
           );
         }

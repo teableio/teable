@@ -19,6 +19,7 @@
       "@teable/openapi": ["../../packages/openapi/src"],
       "@teable/db-main-prisma": ["../../packages/db-main-prisma/src"],
       "@teable/db-data-prisma": ["../../packages/db-data-prisma/src"],
+      "@teable/v2-vcs/*": ["../../packages/v2/vcs/src/*/index.ts"],
       "@teable/v2-*": ["../../packages/v2/*/src/index"],
       "@teable/v2-contract-http-implementation/handlers": [
         "../../packages/v2/contract-http-implementation/src/handlers/index.ts"

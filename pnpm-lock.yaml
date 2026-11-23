@@ -255,6 +255,9 @@ importers:
       '@orpc/nest':
         specifier: 1.15.7
         version: 1.15.7(@nestjs/common@12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)(supports-color@10.2.2))(@nestjs/core@12.0.3)(@opentelemetry/api@1.9.1)(crossws@0.4.4)(express@5.2.1(supports-color@10.2.2))(fastify@5.12.7)(rxjs@7.8.1)(ws@8.22.0)
+      '@orpc/server':
+        specifier: 1.15.7
+        version: 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
       '@prisma/client':
         specifier: 6.2.1
         version: 6.2.1(prisma@6.2.1)
@@ -339,6 +342,9 @@ importers:
       '@teable/v2-utils':
         specifier: workspace:*
         version: link:../../packages/v2/utils
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../../packages/v2/vcs
       '@valibot/to-json-schema':
         specifier: 1.3.0
         version: 1.3.0(valibot@1.5.0(typescript@6.0.3))
@@ -3027,6 +3033,79 @@ importers:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@27.4.0(supports-color@10.2.2))(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.4.1)(terser@5.37.0)(tsx@4.23.15)(yaml@2.9.0))
 
+  packages/v2/adapter-vcs-postgres:
+    dependencies:
+      '@teable/v2-adapter-db-postgres-shared':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-shared
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../vcs
+      kysely:
+        specifier: 0.28.17
+        version: 0.28.17
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
+      '@teable/v2-adapter-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-repository-postgres
+      '@teable/v2-adapter-table-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-table-repository-postgres
+      '@teable/v2-container-node-test':
+        specifier: workspace:*
+        version: link:../container-node-test
+      '@teable/v2-postgres-schema':
+        specifier: workspace:*
+        version: link:../postgres-schema
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      '@vitest/coverage-v8':
+        specifier: 4.1.12
+        version: 4.1.12(vitest@4.1.12)
+      oxfmt:
+        specifier: 0.74.0
+        version: 0.74.0
+      oxlint:
+        specifier: 1.89.0
+        version: 1.89.0
+      pg:
+        specifier: 8.18.0
+        version: 8.18.0
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.23.1
+        version: 0.23.1(tsx@4.23.15)(typescript@6.0.3)(unrun@0.2.27(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3))
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@27.4.0(supports-color@10.2.2))(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.37.0)(tsx@4.23.15)(yaml@2.9.0))
+
   packages/v2/app-bundle:
     dependencies:
       '@teable/v2-adapter-db-postgres-shared':
@@ -3334,6 +3413,9 @@ importers:
       '@teable/v2-adapter-table-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-table-repository-postgres
+      '@teable/v2-adapter-vcs-postgres':
+        specifier: workspace:*
+        version: link:../adapter-vcs-postgres
       '@teable/v2-command-explain':
         specifier: workspace:*
         version: link:../command-explain
@@ -3352,6 +3434,9 @@ importers:
       '@teable/v2-utils':
         specifier: workspace:*
         version: link:../utils
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../vcs
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -3404,6 +3489,9 @@ importers:
       '@teable/v2-adapter-table-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-table-repository-postgres
+      '@teable/v2-adapter-vcs-postgres':
+        specifier: workspace:*
+        version: link:../adapter-vcs-postgres
       '@teable/v2-command-explain':
         specifier: workspace:*
         version: link:../command-explain
@@ -3419,6 +3507,9 @@ importers:
       '@teable/v2-table-templates':
         specifier: workspace:*
         version: link:../table-templates
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../vcs
       '@testcontainers/postgresql':
         specifier: 11.10.0
         version: 11.10.0(supports-color@10.2.2)
@@ -3471,6 +3562,9 @@ importers:
       '@teable/v2-data-query':
         specifier: workspace:*
         version: link:../data-query
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../vcs
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0
@@ -3529,6 +3623,9 @@ importers:
       '@teable/v2-data-query':
         specifier: workspace:*
         version: link:../data-query
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../vcs
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -3713,6 +3810,9 @@ importers:
 
   packages/v2/contract-http-implementation:
     dependencies:
+      '@orpc/contract':
+        specifier: 1.15.7
+        version: 1.15.7(@opentelemetry/api@1.9.1)
       '@orpc/server':
         specifier: 1.15.7
         version: 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
@@ -3737,10 +3837,19 @@ importers:
       '@teable/v2-table-query-ops':
         specifier: workspace:*
         version: link:../table-query-ops
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../vcs
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../eslint-config-bases
+      '@teable/v2-adapter-vcs-postgres':
+        specifier: workspace:*
+        version: link:../adapter-vcs-postgres
+      '@teable/v2-container-node-test':
+        specifier: workspace:*
+        version: link:../container-node-test
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
@@ -3783,6 +3892,9 @@ importers:
       '@orpc/server':
         specifier: 1.15.7
         version: 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
+      '@orpc/zod':
+        specifier: 1.15.7
+        version: 1.15.7(@opentelemetry/api@1.9.1)(@orpc/contract@1.15.7(@opentelemetry/api@1.9.1))(@orpc/server@1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0))(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)(zod@4.6.7)
       '@teable/v2-contract-http':
         specifier: workspace:*
         version: link:../contract-http
@@ -4225,6 +4337,12 @@ importers:
 
   packages/v2/e2e:
     dependencies:
+      '@orpc/server':
+        specifier: 1.15.7
+        version: 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
+      '@teable/core':
+        specifier: workspace:^
+        version: link:../../core
       '@teable/v2-adapter-realtime-sharedb':
         specifier: workspace:*
         version: link:../adapter-realtime-sharedb
@@ -4328,6 +4446,12 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      unplugin-swc:
+        specifier: 1.4.4
+        version: 1.4.4(@swc/core@1.13.3(@swc/helpers@0.5.23))(rollup@4.64.0)
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(supports-color@10.2.2)(typescript@6.0.3)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.4.1)(terser@5.37.0)(tsx@4.23.15)(yaml@2.9.0))
       vitest:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@27.4.0(supports-color@10.2.2))(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.4.1)(terser@5.37.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -4454,6 +4578,9 @@ importers:
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../eslint-config-bases
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
@@ -4484,18 +4611,33 @@ importers:
 
   packages/v2/headless-http:
     dependencies:
+      '@teable/v2-adapter-vcs-postgres':
+        specifier: workspace:*
+        version: link:../adapter-vcs-postgres
+      '@teable/v2-contract-http':
+        specifier: workspace:*
+        version: link:../contract-http
       '@teable/v2-contract-http-client':
         specifier: workspace:*
         version: link:../contract-http-client
       '@teable/v2-contract-http-hono':
         specifier: workspace:*
         version: link:../contract-http-hono
+      '@teable/v2-contract-http-implementation':
+        specifier: workspace:*
+        version: link:../contract-http-implementation
+      '@teable/v2-contract-http-openapi':
+        specifier: workspace:*
+        version: link:../contract-http-openapi
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
       '@teable/v2-headless-runtime':
         specifier: workspace:*
         version: link:../headless-runtime
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../vcs
       hono:
         specifier: ^4.13.16
         version: 4.13.19
@@ -4503,9 +4645,6 @@ importers:
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../eslint-config-bases
-      '@teable/v2-contract-http':
-        specifier: workspace:*
-        version: link:../contract-http
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
@@ -4526,10 +4665,10 @@ importers:
         version: 5.0.5
       tsdown:
         specifier: 0.18.1
-        version: 0.18.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(typescript@5.4.3)
+        version: 0.18.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(typescript@6.0.3)
       typescript:
-        specifier: 5.4.3
-        version: 5.4.3
+        specifier: 'catalog:'
+        version: 6.0.3
       vitest:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@27.4.0(supports-color@10.2.2))(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.37.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -4557,9 +4696,15 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
+      '@teable/v2-data-query':
+        specifier: workspace:*
+        version: link:../data-query
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
+      '@teable/v2-formula-sql-pg':
+        specifier: workspace:*
+        version: link:../formula-sql-pg
       '@teable/v2-import':
         specifier: workspace:*
         version: link:../import
@@ -4585,6 +4730,9 @@ importers:
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
+      '@teable/v2-vcs':
+        specifier: workspace:*
+        version: link:../vcs
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
@@ -4967,6 +5115,52 @@ importers:
       vitest:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@27.4.0(supports-color@10.2.2))(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.4.1)(terser@5.37.0)(tsx@4.23.15)(yaml@2.9.0))
+
+  packages/v2/vcs:
+    dependencies:
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      '@vitest/coverage-v8':
+        specifier: 4.1.12
+        version: 4.1.12(vitest@4.1.12)
+      oxfmt:
+        specifier: 0.74.0
+        version: 0.74.0
+      oxlint:
+        specifier: 1.89.0
+        version: 1.89.0
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.23.1
+        version: 0.23.1(tsx@4.23.15)(typescript@6.0.3)(unrun@0.2.27(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3))
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@27.4.0(supports-color@10.2.2))(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.37.0)(tsx@4.23.15)(yaml@2.9.0))
 
   plugins:
     dependencies:
@@ -8744,6 +8938,9 @@ packages:
   '@orpc/interop@1.15.7':
     resolution: {integrity: sha512-iel0l0Kgg2lydO5yVHPWHvjz/AHYcF2W2A6uQSMH5mjOpd4MKfUqKfVEGmU2v67s2OGcSAqnDYIgUc6E7WLduw==}
 
+  '@orpc/json-schema@1.15.7':
+    resolution: {integrity: sha512-et9YCZgPqfRhfSOFtG2SfF5WlhNGAGrIhjYLUhERJT0ZO4kUCe53C0iMGEuN/1UKiPSGP/2Kw18CbuREkmAw9Q==}
+
   '@orpc/nest@1.15.7':
     resolution: {integrity: sha512-LL3gauNfnyaaTOoOnxlL0Of48Nafos2iQlD1jw2WmXf0C8Wr4LC3MhJL3r0HKexvWa8+qVWpqMl0VzGQWERxhQ==}
     peerDependencies:
@@ -8805,6 +9002,13 @@ packages:
 
   '@orpc/standard-server@1.15.7':
     resolution: {integrity: sha512-iKfg90hyYhbS06C7adQxPAx+M/NLsWFjsQ7JGD6NFdmxOPhSueKrQUuQPQrDjwY482ivjxNbUFrLiOg44P97vA==}
+
+  '@orpc/zod@1.15.7':
+    resolution: {integrity: sha512-W3W23hzmwwbAPDzhRH1g6Nt0YKjx3JCYyMxy6szqvpO8470iqzLjvh12ZJMjbWLiXlM+8qWWCKv5onMlw2efUw==}
+    peerDependencies:
+      '@orpc/contract': 1.15.7
+      '@orpc/server': 1.15.7
+      zod: '>=3.25.0'
 
   '@oxc-parser/binding-android-arm-eabi@0.152.0':
     resolution: {integrity: sha512-393VtirINkae4XHBTkq/yQxhOwEr4V+r0et37P2fp+sYZSdYgZTRDPo5Um8vBh0QjMZ+RmaMy4PP0qwr4cTMwA==}
@@ -17022,6 +17226,12 @@ packages:
   pg-cloudflare@1.2.5:
     resolution: {integrity: sha512-OOX22Vt0vOSRrdoUPKJ8Wi2OpE/o/h9T8X1s4qSkCedbNah9ei2W2765be8iMVxQUsvgT7zIAT2eIa9fs5+vtg==}
 
+  pg-cloudflare@1.4.1:
+    resolution: {integrity: sha512-6PQbsFWZcp9EmJEwy5cGQ2La+AMWpP46lgbb8X+U/XsHIUweYDNCpeuKck5RxL2MdVFi7krbbEi5nX4Zh7JhrQ==}
+
+  pg-connection-string@2.14.1:
+    resolution: {integrity: sha512-qR3kGNPBLpCNtz0evbKA0Y/MRFXwSSdT+pTJvYp/bXTcReZbvX1kzF0IyTc1QnxqF7AZbOeBhNL8R5mYQZV/MA==}
+
   pg-connection-string@2.6.2:
     resolution: {integrity: sha512-ch6OwaeaPYcova4kKZ15sbJ2hKb/VP48ZD2gE7i1J+L4MspCtBMAx8nMgz7bksc7IojCIIWuEhHibSMFH8m8oA==}
 
@@ -17067,10 +17277,18 @@ packages:
       typeorm:
         optional: true
 
+  pg-pool@3.14.0:
+    resolution: {integrity: sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==}
+    peerDependencies:
+      pg: '>=8.0'
+
   pg-pool@3.9.6:
     resolution: {integrity: sha512-rFen0G7adh1YmgvrmE5IPIqbb+IgEzENUm+tzm6MLLDSlPRoZVhzU1WdML9PV2W5GOdRA9qBKURlbt1OsXOsPw==}
     peerDependencies:
       pg: '>=8.0'
+
+  pg-protocol@1.16.1:
+    resolution: {integrity: sha512-p9VOFMiHB/ZbJATetbg+99PxssTVSQRnyuPSQ67mN1+1KBOjZaZ83ZQzltnxPhJwSsC3nwVjJ10DVJlerbFzLg==}
 
   pg-protocol@1.9.5:
     resolution: {integrity: sha512-DYTWtWpfd5FOro3UnAfwvhD8jh59r2ig8bPtc9H8Ds7MscE/9NYruUQWFAOuraRl29jwcT2kyMFQ3MxeaVjUhg==}
@@ -17082,6 +17300,15 @@ packages:
   pg@8.11.5:
     resolution: {integrity: sha512-jqgNHSKL5cbDjFlHyYsCXmQDrfIX/3RsNwYqpd4N0Kt8niLuNoRNH+aazv6cOd43gPh9Y4DjQCtb+X0MH0Hvnw==}
     engines: {node: '>= 8.0.0'}
+    peerDependencies:
+      pg-native: '>=3.0.1'
+    peerDependenciesMeta:
+      pg-native:
+        optional: true
+
+  pg@8.18.0:
+    resolution: {integrity: sha512-xqrUDL1b9MbkydY/s+VZ6v+xiMUmOUk7SS9d/1kpyQxoJ6U9AO1oIJyUWVZojbfe5Cc/oluutcgFG4L9RDP1iQ==}
+    engines: {node: '>= 16.0.0'}
     peerDependencies:
       pg-native: '>=3.0.1'
     peerDependenciesMeta:
@@ -20153,6 +20380,9 @@ packages:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
     engines: {node: '>=8'}
     hasBin: true
+
+  wildcard-match@5.1.6:
+    resolution: {integrity: sha512-Dh5N543my42ynFsbT0v6iPpaqJt95MOK1n/lhojVTe/hS3gpP6e938bbzsfaS0goLlJbhEOCIJPe/Tc3hckoaQ==}
 
   winston-transport@4.9.0:
     resolution: {integrity: sha512-8drMJ4rkgaPo1Me4zD/3WLfI/zPdA9o2IipKODunnGDcuqbHwjsbB79ylv04LCGGzU0xQ6vTznOMpQGaLhhm6A==}
@@ -24578,6 +24808,20 @@ snapshots:
 
   '@orpc/interop@1.15.7': {}
 
+  '@orpc/json-schema@1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)':
+    dependencies:
+      '@orpc/contract': 1.15.7(@opentelemetry/api@1.9.1)
+      '@orpc/interop': 1.15.7
+      '@orpc/openapi': 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
+      '@orpc/server': 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
+      '@orpc/shared': 1.15.7(@opentelemetry/api@1.9.1)
+      json-schema-typed: 8.0.2
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+      - crossws
+      - fastify
+      - ws
+
   '@orpc/nest@1.15.7(@nestjs/common@12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)(supports-color@10.2.2))(@nestjs/core@12.0.3)(@opentelemetry/api@1.9.1)(crossws@0.4.4)(express@5.2.1(supports-color@10.2.2))(fastify@5.12.7)(rxjs@7.8.1)(ws@8.22.0)':
     dependencies:
       '@nestjs/common': 12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)(supports-color@10.2.2)
@@ -24700,6 +24944,22 @@ snapshots:
       '@orpc/shared': 1.15.7(@opentelemetry/api@1.9.1)
     transitivePeerDependencies:
       - '@opentelemetry/api'
+
+  '@orpc/zod@1.15.7(@opentelemetry/api@1.9.1)(@orpc/contract@1.15.7(@opentelemetry/api@1.9.1))(@orpc/server@1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0))(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)(zod@4.6.7)':
+    dependencies:
+      '@orpc/contract': 1.15.7(@opentelemetry/api@1.9.1)
+      '@orpc/json-schema': 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
+      '@orpc/openapi': 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
+      '@orpc/server': 1.15.7(@opentelemetry/api@1.9.1)(crossws@0.4.4)(fastify@5.12.7)(ws@8.22.0)
+      '@orpc/shared': 1.15.7(@opentelemetry/api@1.9.1)
+      escape-string-regexp: 5.0.0
+      wildcard-match: 5.1.6
+      zod: 4.6.7
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+      - crossws
+      - fastify
+      - ws
 
   '@oxc-parser/binding-android-arm-eabi@0.152.0':
     optional: true
@@ -33593,6 +33853,11 @@ snapshots:
   pg-cloudflare@1.2.5:
     optional: true
 
+  pg-cloudflare@1.4.1:
+    optional: true
+
+  pg-connection-string@2.14.1: {}
+
   pg-connection-string@2.6.2: {}
 
   pg-connection-string@2.8.5: {}
@@ -33613,9 +33878,15 @@ snapshots:
       kysely: 0.28.17
       postgres: 3.4.7
 
+  pg-pool@3.14.0(pg@8.18.0):
+    dependencies:
+      pg: 8.18.0
+
   pg-pool@3.9.6(pg@8.11.5):
     dependencies:
       pg: 8.11.5
+
+  pg-protocol@1.16.1: {}
 
   pg-protocol@1.9.5: {}
 
@@ -33636,6 +33907,16 @@ snapshots:
       pgpass: 1.0.5
     optionalDependencies:
       pg-cloudflare: 1.2.5
+
+  pg@8.18.0:
+    dependencies:
+      pg-connection-string: 2.14.1
+      pg-pool: 3.14.0(pg@8.18.0)
+      pg-protocol: 1.16.1
+      pg-types: 2.2.0
+      pgpass: 1.0.5
+    optionalDependencies:
+      pg-cloudflare: 1.4.1
 
   pgpass@1.0.5:
     dependencies:
@@ -35271,6 +35552,22 @@ snapshots:
     transitivePeerDependencies:
       - oxc-resolver
 
+  rolldown-plugin-dts@0.19.2(rolldown@1.0.0-beta.55(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3))(typescript@6.0.3):
+    dependencies:
+      '@babel/generator': 7.29.8
+      '@babel/parser': 7.29.9
+      '@babel/types': 7.29.8
+      ast-kit: 2.2.0
+      birpc: 4.2.0
+      dts-resolver: 2.1.3
+      get-tsconfig: 4.14.3
+      obug: 2.1.1
+      rolldown: 1.0.0-beta.55(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
+    optionalDependencies:
+      typescript: 6.0.3
+    transitivePeerDependencies:
+      - oxc-resolver
+
   rolldown-plugin-dts@0.28.8(rolldown@1.2.14)(typescript@6.0.3):
     dependencies:
       dts-resolver: 3.0.0
@@ -36557,6 +36854,35 @@ snapshots:
       - synckit
       - vue-tsc
 
+  tsdown@0.18.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(typescript@6.0.3):
+    dependencies:
+      ansis: 4.4.0
+      cac: 6.7.14
+      defu: 6.1.7
+      empathic: 2.1.0
+      hookable: 5.5.3
+      import-without-cache: 0.2.5
+      obug: 2.1.1
+      picomatch: 4.0.7
+      rolldown: 1.0.0-beta.55(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
+      rolldown-plugin-dts: 0.19.2(rolldown@1.0.0-beta.55(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3))(typescript@6.0.3)
+      semver: 7.8.5
+      tinyexec: 1.3.1
+      tinyglobby: 0.2.17
+      tree-kill: 1.2.2
+      unconfig-core: 7.5.0
+      unrun: 0.2.27(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
+    optionalDependencies:
+      typescript: 6.0.3
+    transitivePeerDependencies:
+      - '@emnapi/core'
+      - '@emnapi/runtime'
+      - '@ts-macro/tsc'
+      - '@typescript/native-preview'
+      - oxc-resolver
+      - synckit
+      - vue-tsc
+
   tsdown@0.23.1(tsx@4.23.15)(typescript@6.0.3)(unrun@0.2.27(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)):
     dependencies:
       cac: 7.1.0
@@ -37367,6 +37693,8 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
+
+  wildcard-match@5.1.6: {}
 
   winston-transport@4.9.0:
     dependencies:

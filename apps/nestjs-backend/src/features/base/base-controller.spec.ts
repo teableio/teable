@@ -1,6 +1,33 @@
 import { BaseController } from './base.controller';
 
 describe('BaseController', () => {
+  it('requires full project scope before starting an export', async () => {
+    const baseService = { getBaseById: vi.fn() };
+    const cls = { get: vi.fn().mockReturnValue({ baseId: 'bseFixture', nodeId: 'bnoFixture' }) };
+    const controller = new BaseController(
+      baseService as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      cls as never,
+      {} as never
+    );
+    const response = { setHeader: vi.fn() };
+
+    await expect(controller.exportBase('bseFixture', undefined, response as never)).rejects.toThrow(
+      'Project export requires access to the entire project'
+    );
+    await expect(
+      controller.exportBaseStream('bseFixture', undefined, response as never)
+    ).rejects.toThrow('Project export requires access to the entire project');
+    expect(baseService.getBaseById).not.toHaveBeenCalled();
+    expect(response.setHeader).not.toHaveBeenCalled();
+  });
+
   // T8066: MCP/CLI page this list instead of pulling every accessible base.
   describe('getAllBase', () => {
     const bases = ['bse1', 'bse2', 'bse3', 'bse4', 'bse5'].map((id) => ({ id, spaceId: 'spc1' }));
@@ -12,6 +39,7 @@ describe('BaseController', () => {
       };
       const controller = new BaseController(
         baseService as never,
+        {} as never,
         {} as never,
         {} as never,
         {} as never,

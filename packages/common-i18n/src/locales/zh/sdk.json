@@ -466,6 +466,7 @@
       "userNotificationsSend": "向当前用户发送通知",
       "recordHistoryRead": "查看记录历史",
       "baseQuery": "查询项目",
+      "baseSaveQuery": "保存和分享查询",
       "instanceRead": "查看实例",
       "instanceUpdate": "更新实例",
       "enterpriseRead": "查看企业配置",
@@ -1080,6 +1081,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段",
+      "buttonTriggerFilterNotMatched": "当前记录不符合自动化的触发条件",
       "triggerNotFound": "自动化必须有一个触发器节点",
       "nodeNotFound": "{{nodeId}} 节点未找到",
       "triggerTestFailed": "触发器测试失败，请检查触发器配置",
@@ -1212,6 +1214,7 @@
       "runAlreadyInFlight": "该任务已有一个正在进行的运行",
       "runNowWhileActiveEvent": "该任务已激活并在接收事件，触发一次事件即可看到运行",
       "runNowOwnerOnly": "任务开启时，只有以其身份运行该任务的成员才能立即运行",
+      "robotNotAllowed": "机器人不能执行此操作",
       "invalidRunCursor": "无效的运行列表游标",
       "invalidSchedule": "无效的任务运行安排：{{reason}}"
     },
@@ -1738,7 +1741,8 @@
         "dnsMisconfigured": "访问链接设置失败：域名 DNS 配置不正确"
       },
       "customDomainNotConfigured": "未配置自定义域名",
-      "vercelTokenNotConfigured": "App Builder 设置中未配置 Vercel 令牌"
+      "vercelTokenNotConfigured": "App Builder 设置中未配置 Vercel 令牌",
+      "deleteSandboxCloseFailed": "沙箱关闭失败，未删除，请重试"
     },
     "reward": {
       "notFound": "奖励记录不存在",

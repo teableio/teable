@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { StorageModule } from '../attachments/plugins/storage.module';
 import { PermissionModule } from '../auth/permission.module';
 import { BaseModule } from '../base/base.module';
+import { BaseNodeModule } from '../base-node/base-node.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { InvitationModule } from '../invitation/invitation.module';
 import { SettingOpenApiModule } from '../setting/open-api/setting-open-api.module';
@@ -25,6 +26,7 @@ import { TemplateSpaceInitService } from './template-space-init/template-space.i
     SpaceDataDbMigrationGuardModule,
   ],
   imports: [
+    BaseNodeModule,
     LastVisitModule,
     StorageModule,
     SettingModule,

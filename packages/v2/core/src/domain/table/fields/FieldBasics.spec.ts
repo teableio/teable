@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DbFieldName } from './DbFieldName';
+import { DbFieldType } from './DbFieldType';
 import { FieldId } from './FieldId';
 import { FieldName } from './FieldName';
 import { FieldType } from './FieldType';
@@ -111,6 +112,25 @@ describe('Field', () => {
     expect(field.dbFieldName().isOk()).toBe(true);
     expect(field.setDbFieldName(dbNameResult._unsafeUnwrap()).isOk()).toBe(true);
     expect(field.setDbFieldName(otherDbNameResult._unsafeUnwrap()).isErr()).toBe(true);
+  });
+
+  it('distinguishes absent storage metadata from a persisted field type', () => {
+    const field = SingleLineTextField.create({
+      id: createFieldId('c')._unsafeUnwrap(),
+      name: FieldName.create('Title')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    expect(field.hasDbFieldType()).toBe(false);
+    expect(field.dbFieldType().isErr()).toBe(true);
+    expect(field.setDbFieldType(DbFieldType.empty()).isErr()).toBe(true);
+    expect(field.hasDbFieldType()).toBe(false);
+
+    const storedType = DbFieldType.rehydrate('TEXT')._unsafeUnwrap();
+    field.setDbFieldType(storedType)._unsafeUnwrap();
+    expect(field.hasDbFieldType()).toBe(true);
+    expect(field.dbFieldType()._unsafeUnwrap().value()._unsafeUnwrap()).toBe('TEXT');
+    expect(field.setDbFieldType(storedType).isOk()).toBe(true);
+    expect(field.setDbFieldType(DbFieldType.rehydrate('REAL')._unsafeUnwrap()).isErr()).toBe(true);
+    expect(field.dbFieldType()._unsafeUnwrap().value()._unsafeUnwrap()).toBe('TEXT');
   });
 
   it('handles notNull/unique flags and blocks computed updates', () => {

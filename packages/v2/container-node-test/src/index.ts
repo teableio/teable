@@ -2,39 +2,53 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve, resolve as resolvePath } from 'node:path';
+
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
-  V2PgTableSchemaCoordination,
   PostgresUnitOfWork,
   registerV2PostgresDb,
   v2DataDbTokens,
   v2MetaDbTokens,
+  V2PgTableSchemaCoordination,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresPgliteDb } from '@teable/v2-adapter-db-postgres-pglite';
 
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import {
+  computedRuntimeConfigFromEnv,
   createTypeValidationStrategy,
   DomainEventOutboxWorker,
-  NodeImportEventSpoolFactory,
-  installUndoCaptureGlobals,
-  registerV2TableRepositoryPostgresAdapter,
-  ValidationInboxDurableProjection,
-  v2RecordRepositoryPostgresTokens,
-  type IV2TableRepositoryPostgresConfig,
   FormulaSourceBudgetCommandBusMiddleware,
-  type ComputedUpdateWorker,
+  installUndoCaptureGlobals,
+  NodeImportEventSpoolFactory,
+  registerV2TableRepositoryPostgresAdapter,
+  v2RecordRepositoryPostgresTokens,
+  ValidationInboxDurableProjection,
   type ComputedUpdateOutboxConfig,
-  computedRuntimeConfigFromEnv,
+  type ComputedUpdateWorker,
+  type IV2TableRepositoryPostgresConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
+import { registerV2VcsPostgresAdapter } from '@teable/v2-adapter-vcs-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
+import type {
+  IExecutionContext,
+  IHasher,
+  ILogger,
+  ITableRepository,
+  LogContext,
+  TableDataSafetyLimitConfig,
+} from '@teable/v2-core';
 import {
+  ActorId,
+  BackgroundTaskTracker,
   BaseId,
   compileDurableSubscriptionCatalog,
   DefaultTableMapper,
   DomainWriteTransaction,
+  FieldCreated,
+  FieldUpdated,
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
@@ -44,32 +58,24 @@ import {
   NoopTracer,
   ProjectionMessageCodecRegistry,
   RecordCreated,
+  recordProjectionCodecs,
   RecordReordered,
   RecordsBatchCreated,
   RecordsBatchUpdated,
   RecordsDeleted,
   RecordUpdated,
-  FieldCreated,
-  FieldUpdated,
-  TableCreated,
-  recordProjectionCodecs,
   registerV2CoreServices,
   SameTxProjectionDispatcher,
   StaticTableDataSafetyLimitPlugin,
+  TableCreated,
   TableDataSafetyLimitCommandBusMiddleware,
   TargetedLegacyEventDispatcher,
   v2CoreTokens,
 } from '@teable/v2-core';
-import type {
-  IHasher,
-  ILogger,
-  ITableRepository,
-  LogContext,
-  TableDataSafetyLimitConfig,
-} from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
-import { Lifecycle, container } from '@teable/v2-di';
+import { container, Lifecycle } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import { BASE_VCS_TRACKED_EVENTS, registerV2VcsServerModule } from '@teable/v2-vcs/server';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';
@@ -195,11 +201,17 @@ const createSetupTimer = (scope: string) => {
 
   return async <T>(label: string, run: () => Promise<T>) => {
     const startedAt = Date.now();
+    console.info(`[v2-test-setup] ${scope}:${label} pid=${process.pid} start 0ms`);
+    let completed = false;
     try {
-      return await run();
+      const result = await run();
+      completed = true;
+      return result;
     } finally {
       const elapsed = Date.now() - startedAt;
-      console.info(`[v2-test-setup] ${scope}:${label} ${elapsed}ms`);
+      console.info(
+        `[v2-test-setup] ${scope}:${label} pid=${process.pid} ${completed ? 'complete' : 'failed'} ${elapsed}ms`
+      );
     }
   };
 };
@@ -310,11 +322,13 @@ export const createV2NodeTestContainer = async (
   const pgImage = process.env.TEABLE_V2_TEST_PG_IMAGE ?? 'postgres:16-alpine';
 
   if (shouldStartContainer && !shouldUsePglite) {
-    pgContainer = await new PostgreSqlContainer(pgImage)
-      .withDatabase('teable_v2_test')
-      .withUsername('teable')
-      .withPassword('teable')
-      .start();
+    pgContainer = await time('postgres-container', async () =>
+      new PostgreSqlContainer(pgImage)
+        .withDatabase('teable_v2_test')
+        .withUsername('teable')
+        .withPassword('teable')
+        .start()
+    );
     connectionString = pgContainer.getConnectionUri();
   }
 
@@ -455,6 +469,7 @@ export const createV2NodeTestContainer = async (
   // The bus choice must happen here, before the eager singletons resolved below
   // (ComputedUpdateWorker/Outbox) capture it by constructor injection — a
   // replace-after-build at a call site would split events across two buses.
+  const backgroundTasks = new BackgroundTaskTracker();
   const eventBus = new MemoryEventBus(c);
 
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
@@ -462,17 +477,22 @@ export const createV2NodeTestContainer = async (
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
 
-  const catalogResult = compileDurableSubscriptionCatalog([
-    RecordCreated,
-    RecordsBatchCreated,
-    RecordUpdated,
-    RecordsBatchUpdated,
-    RecordsDeleted,
-    RecordReordered,
-    TableCreated,
-    FieldCreated,
-    FieldUpdated,
-  ]);
+  const catalogResult = compileDurableSubscriptionCatalog(
+    Array.from(
+      new Set([
+        RecordCreated,
+        RecordsBatchCreated,
+        RecordUpdated,
+        RecordsBatchUpdated,
+        RecordsDeleted,
+        RecordReordered,
+        TableCreated,
+        FieldCreated,
+        FieldUpdated,
+        ...BASE_VCS_TRACKED_EVENTS,
+      ])
+    )
+  );
   if (catalogResult.isErr()) {
     throw new Error(catalogResult.error.message);
   }
@@ -493,6 +513,7 @@ export const createV2NodeTestContainer = async (
       new TargetedLegacyEventDispatcher(c, spyLogger),
       sameTxDispatcher,
       spyLogger,
+      backgroundTasks,
       undefined,
       c.resolve(v2CoreTokens.eventBus),
       new NodeImportEventSpoolFactory()
@@ -517,6 +538,9 @@ export const createV2NodeTestContainer = async (
   await time('register-command-explain', async () => {
     registerCommandExplainModule(c);
   });
+
+  registerV2VcsPostgresAdapter(c);
+  registerV2VcsServerModule(c);
 
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {
@@ -597,7 +621,7 @@ export const createV2NodeTestContainer = async (
       metaDb
         .insertInto('collaborator')
         .values({
-          id: 'colsystem',
+          id: `col${getRandomString(16)}`,
           resource_type: 'space',
           resource_id: spaceId,
           principal_id: 'system',
@@ -774,10 +798,42 @@ export { SpyLogger, type CapturedLogEntry, type ComputedPlanLogEntry } from './S
 
 // Re-export snapshot utilities
 export {
-  printComputedSteps,
-  formatComputedPlanSnapshot,
-  buildNameMaps,
   buildMultiTableNameMaps,
-  type ComputedStepsSnapshot,
+  buildNameMaps,
+  formatComputedPlanSnapshot,
+  printComputedSteps,
   type ComputedPlanSnapshotOptions,
+  type ComputedStepsSnapshot,
 } from './ComputedPlanSnapshot';
+
+/** Explicit trusted identity for private standalone servers, derived from their real fixture. */
+export const createStandaloneExecutionContext = async (
+  fixture: IV2NodeTestContainer
+): Promise<IExecutionContext> => {
+  const base = await fixture.metaDb
+    .selectFrom('base')
+    .select(['created_by', 'space_id'])
+    .where('id', '=', fixture.baseId.toString())
+    .executeTakeFirstOrThrow();
+  await fixture.metaDb
+    .selectFrom('users')
+    .select('id')
+    .where('id', '=', base.created_by)
+    .executeTakeFirstOrThrow();
+  await fixture.metaDb
+    .selectFrom('collaborator')
+    .select('id')
+    .where('principal_id', '=', base.created_by)
+    .where('principal_type', '=', 'user')
+    .where((eb) =>
+      eb.or([
+        eb.and([
+          eb('resource_type', '=', 'base'),
+          eb('resource_id', '=', fixture.baseId.toString()),
+        ]),
+        eb.and([eb('resource_type', '=', 'space'), eb('resource_id', '=', base.space_id)]),
+      ])
+    )
+    .executeTakeFirstOrThrow();
+  return { actorId: ActorId.create(base.created_by)._unsafeUnwrap() };
+};

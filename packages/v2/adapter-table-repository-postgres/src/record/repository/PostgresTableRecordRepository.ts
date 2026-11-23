@@ -37,6 +37,7 @@ import {
 import {
   getUndoCaptureOldTuple,
   matchesUndoCaptureTableName,
+  runWithoutUndoCapture,
   type UndoCaptureTupleIdentity,
   type UndoLogRow,
 } from '../../shared/undoCapture';
@@ -57,6 +58,7 @@ import {
   collapseRecordChangesByRecordId,
   noopComputedUpdatePauseRegistry,
 } from '../computed';
+import { dispatchComputedSameTxEvents } from '../computed/dispatchComputedSameTxEvents';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
@@ -72,6 +74,7 @@ import {
   collectBatchUpdateReturnedOldFields,
   type BatchUpdateNoopReleaseSpec,
 } from '../query-builder/update/BatchUpdateSqlBuilder';
+import { buildJunctionTableBatchReplaceQueries } from '../query-builder/update/junctionTableMutations';
 import {
   collectLinkUpdateSourceRecordIds,
   RecordUpdateBuilder,
@@ -270,11 +273,23 @@ const cleanupRestoredRecordTrash = async (
   }
 
   const restoredRecordIds = Array.from(new Set(recordIds));
-  await db
-    .deleteFrom('record_trash')
-    .where('table_id', '=', tableId)
-    .where('record_id', 'in', restoredRecordIds)
-    .execute();
+  const deletedFromRecordTrashSet = new Set<string>();
+  const trashChunkSize = 5_000;
+  for (let offset = 0; offset < restoredRecordIds.length; offset += trashChunkSize) {
+    const chunk = restoredRecordIds.slice(offset, offset + trashChunkSize);
+    const deletedRows = await db
+      .deleteFrom('record_trash')
+      .where('table_id', '=', tableId)
+      .where('record_id', 'in', chunk)
+      .returning('record_id')
+      .execute();
+    for (const row of deletedRows) {
+      const id = asString(row.record_id);
+      if (id) {
+        deletedFromRecordTrashSet.add(id);
+      }
+    }
+  }
 
   const tableTrashItems = await db
     .selectFrom('table_trash')
@@ -290,15 +305,15 @@ const cleanupRestoredRecordTrash = async (
       return [];
     }
 
-    const recordIds = parseTrashedRecordIds(item.snapshot);
+    const parsedRecordIds = parseTrashedRecordIds(item.snapshot);
     if (
-      recordIds.length === 0 ||
-      !recordIds.some((recordId) => restoredRecordIdSet.has(recordId))
+      parsedRecordIds.length === 0 ||
+      !parsedRecordIds.some((recordId) => restoredRecordIdSet.has(recordId))
     ) {
       return [];
     }
 
-    return [{ id, recordIds }];
+    return [{ id, recordIds: parsedRecordIds }];
   });
 
   if (candidateTrashItems.length === 0) {
@@ -308,26 +323,138 @@ const cleanupRestoredRecordTrash = async (
   const candidateRecordIds = Array.from(
     new Set(candidateTrashItems.flatMap((item) => item.recordIds))
   );
-  const remainingRecordTrashEntries = await db
-    .selectFrom('record_trash')
-    .select('record_id')
-    .where('table_id', '=', tableId)
-    .where('record_id', 'in', candidateRecordIds)
-    .execute();
-  const remainingRecordIdSet = new Set(
-    remainingRecordTrashEntries
-      .map((entry) => asString(entry.record_id))
-      .filter((recordId): recordId is string => recordId != null)
-  );
-  const staleTrashIds = candidateTrashItems
-    .filter((item) => item.recordIds.every((recordId) => !remainingRecordIdSet.has(recordId)))
-    .map((item) => item.id);
-
-  if (staleTrashIds.length === 0) {
-    return;
+  const remainingRecordIdSet = new Set<string>();
+  for (let offset = 0; offset < candidateRecordIds.length; offset += trashChunkSize) {
+    const chunk = candidateRecordIds.slice(offset, offset + trashChunkSize);
+    const remainingRecordTrashEntries = await db
+      .selectFrom('record_trash')
+      .select('record_id')
+      .where('table_id', '=', tableId)
+      .where('record_id', 'in', chunk)
+      .execute();
+    for (const entry of remainingRecordTrashEntries) {
+      const recordId = asString(entry.record_id);
+      if (recordId != null) {
+        remainingRecordIdSet.add(recordId);
+      }
+    }
   }
 
-  await db.deleteFrom('table_trash').where('id', 'in', staleTrashIds).execute();
+  const staleTrashIds: string[] = [];
+  const shrunkTrashItems: Array<{ id: string; unrestoredIds: string[] }> = [];
+  for (const item of candidateTrashItems) {
+    if (item.recordIds.some((recordId) => remainingRecordIdSet.has(recordId))) {
+      continue;
+    }
+
+    const hadRecordTrashSnapshots = item.recordIds.some((recordId) =>
+      deletedFromRecordTrashSet.has(recordId)
+    );
+    const unrestoredIds = item.recordIds.filter((recordId) => !restoredRecordIdSet.has(recordId));
+    if (hadRecordTrashSnapshots || unrestoredIds.length === 0) {
+      staleTrashIds.push(item.id);
+    } else {
+      // Async record_trash projection has not landed yet: retain unrestored sibling ids
+      // (such as Phase 2 deferred self-linked records) so listTrashedRecordIds stays sound on retry.
+      shrunkTrashItems.push({ id: item.id, unrestoredIds });
+    }
+  }
+
+  for (let offset = 0; offset < staleTrashIds.length; offset += trashChunkSize) {
+    await db
+      .deleteFrom('table_trash')
+      .where('id', 'in', staleTrashIds.slice(offset, offset + trashChunkSize))
+      .execute();
+  }
+
+  for (const shrunk of shrunkTrashItems) {
+    await db
+      .updateTable('table_trash')
+      .set({ snapshot: JSON.stringify(shrunk.unrestoredIds) })
+      .where('id', '=', shrunk.id)
+      .execute();
+  }
+};
+
+const collectCrossTableExtraSeedGroups = (
+  table: core.Table,
+  records: ReadonlyArray<core.TableRecord>
+): ExtraSeedRecordGroup[] => {
+  const nonSelfLinkFields = table
+    .getFields()
+    .filter(
+      (field): field is core.LinkField =>
+        field.type().equals(core.FieldType.link()) &&
+        !(field as core.LinkField).foreignTableId().equals(table.id())
+    );
+  if (nonSelfLinkFields.length === 0 || records.length === 0) {
+    return [];
+  }
+
+  const byTableId = new Map<
+    string,
+    { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
+  >();
+  for (const record of records) {
+    const fields = record.fields();
+    for (const linkField of nonSelfLinkFields) {
+      const rawValue = fields.get(linkField.id())?.toValue();
+      if (rawValue === undefined || rawValue === null) {
+        continue;
+      }
+      const foreignTableId = linkField.foreignTableId();
+      const foreignTableIdStr = foreignTableId.toString();
+      for (const item of normalizeStoredLinkItems(rawValue)) {
+        const recordIdResult = core.RecordId.create(item.id);
+        if (recordIdResult.isErr()) {
+          continue;
+        }
+        let group = byTableId.get(foreignTableIdStr);
+        if (!group) {
+          group = {
+            tableId: foreignTableId,
+            recordIds: new Map<string, core.RecordId>(),
+          };
+          byTableId.set(foreignTableIdStr, group);
+        }
+        group.recordIds.set(item.id, recordIdResult.value);
+      }
+    }
+  }
+
+  return [...byTableId.values()].map((group) => ({
+    tableId: group.tableId,
+    recordIds: [...group.recordIds.values()],
+  }));
+};
+
+const mergeExtraSeedGroups = (
+  ...groupsList: ReadonlyArray<ReadonlyArray<ExtraSeedRecordGroup>>
+): ExtraSeedRecordGroup[] => {
+  const merged = new Map<
+    string,
+    { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
+  >();
+  for (const groups of groupsList) {
+    for (const group of groups) {
+      const tableIdStr = group.tableId.toString();
+      let existing = merged.get(tableIdStr);
+      if (!existing) {
+        existing = {
+          tableId: group.tableId,
+          recordIds: new Map<string, core.RecordId>(),
+        };
+        merged.set(tableIdStr, existing);
+      }
+      for (const recordId of group.recordIds) {
+        existing.recordIds.set(recordId.toString(), recordId);
+      }
+    }
+  }
+  return [...merged.values()].map((group) => ({
+    tableId: group.tableId,
+    recordIds: [...group.recordIds.values()],
+  }));
 };
 
 // Mirrors @teable/core generateRecordTrashId ('rtr' + 16 random chars).
@@ -1041,7 +1168,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
     private readonly metaDb: Kysely<V1TeableDatabase> = db,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry)
-    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry
+    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry,
+    @inject(v2CoreTokens.sameTxProjectionDispatcher)
+    private readonly sameTxProjectionDispatcher: core.ISameTxProjectionDispatcher = new core.NoopSameTxProjectionDispatcher()
   ) {}
 
   private async enqueueAdmittedSeedTask(
@@ -1801,6 +1930,548 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           });
         } catch (error) {
           await snapshotCaptureSession?.abort();
+          return err(wrapDatabaseError(error, 'insert', { tableName, fields: table.getFields() }));
+        }
+      }.bind(this)
+    );
+  }
+
+  async restoreSelfReferentialLinks(
+    context: core.IExecutionContext,
+    table: core.Table,
+    records: ReadonlyArray<{
+      readonly recordId: core.RecordId;
+      readonly fields: Readonly<Record<string, unknown>>;
+    }>,
+    options?: core.RestoreSelfReferentialLinksOptions
+  ): Promise<Result<ReadonlyArray<core.RestoredSelfReferentialLinkRecord>, DomainError>> {
+    return safeTry<ReadonlyArray<core.RestoredSelfReferentialLinkRecord>, DomainError>(
+      async function* (this: PostgresTableRecordRepository) {
+        const cleanupTrashRecordIds = options?.cleanupTrashRecordIds ?? [];
+        const atomicInsertRecords = options?.atomicInsertRecords;
+        const isAtomicInsert = Boolean(atomicInsertRecords);
+        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+        const selfLinkFields = table
+          .getFields()
+          .filter(
+            (field): field is core.LinkField =>
+              field.type().equals(core.FieldType.link()) &&
+              (field as core.LinkField).foreignTableId().equals(table.id())
+          );
+
+        const dedupedRecordsMap = new Map<
+          string,
+          { recordId: core.RecordId; fields: Record<string, unknown> }
+        >();
+        for (const entry of records) {
+          const key = entry.recordId.toString();
+          const prev = dedupedRecordsMap.get(key);
+          if (prev) {
+            Object.assign(prev.fields, entry.fields);
+          } else {
+            dedupedRecordsMap.set(key, {
+              recordId: entry.recordId,
+              fields: { ...entry.fields },
+            });
+          }
+        }
+        const dedupedRecords = [...dedupedRecordsMap.values()];
+
+        const dbTableName = yield* table.dbTableName();
+        const tableName = yield* dbTableName.value();
+        const now = new Date().toISOString();
+        const actorId = context.actorId.toString();
+        const idQueryChunkSize = 2_000;
+
+        const queryExistingRecordVersions = async (
+          idList: ReadonlyArray<string>
+        ): Promise<{
+          existingIdSet: Set<string>;
+          versionByRecordId: Map<string, number>;
+        }> => {
+          const existingIdSet = new Set<string>();
+          const versionByRecordId = new Map<string, number>();
+          for (let offset = 0; offset < idList.length; offset += idQueryChunkSize) {
+            const slice = idList.slice(offset, offset + idQueryChunkSize);
+            const rows = (await db
+              .selectFrom(tableName)
+              .select([RECORD_ID_COLUMN, VERSION_COLUMN])
+              .where(sql<SqlBool>`${sql.ref(RECORD_ID_COLUMN)} = ANY(${slice}::text[])`)
+              .execute()) as Array<{
+              [RECORD_ID_COLUMN]: string;
+              [VERSION_COLUMN]?: number | string | null;
+            }>;
+            for (const row of rows) {
+              const id = row[RECORD_ID_COLUMN];
+              existingIdSet.add(id);
+              const parsedVersion = Number(row[VERSION_COLUMN]);
+              versionByRecordId.set(id, Number.isFinite(parsedVersion) ? parsedVersion : 1);
+            }
+          }
+          return { existingIdSet, versionByRecordId };
+        };
+
+        const cleanupLiveTrashOnly = async (
+          liveCleanupIds: ReadonlyArray<string>
+        ): Promise<Result<void, DomainError>> => {
+          if (liveCleanupIds.length === 0) {
+            return ok(undefined);
+          }
+          try {
+            return await runWithoutUndoCapture(db, async () => {
+              await cleanupRestoredRecordTrash(db, table.id().toString(), liveCleanupIds);
+              return ok(undefined);
+            });
+          } catch (error) {
+            return err(
+              wrapDatabaseError(error, 'insert', {
+                tableName,
+                fields: table.getFields(),
+              })
+            );
+          }
+        };
+
+        const runAtomicInsertComputedFallback = async (
+          versionByRecordId?: ReadonlyMap<string, number>
+        ): Promise<Result<ReadonlyArray<core.RestoredSelfReferentialLinkRecord>, DomainError>> => {
+          if (!isAtomicInsert || !atomicInsertRecords || atomicInsertRecords.length === 0) {
+            return ok([]);
+          }
+          const extraSeedGroups = collectCrossTableExtraSeedGroups(table, atomicInsertRecords);
+          const computedResult = await this.runComputedUpdateMany(
+            context,
+            table,
+            atomicInsertRecords,
+            'insert',
+            extraSeedGroups
+          );
+          if (computedResult.isErr()) {
+            return err(computedResult.error);
+          }
+          const inlineComputedByRecord = extractChangesForAllRecords(computedResult.value);
+          await this.touchTableMeta(context, table.id().toString(), actorId);
+          if (!inlineComputedByRecord) {
+            return ok([]);
+          }
+          const results: core.RestoredSelfReferentialLinkRecord[] = [];
+          for (const [recordIdStr, computedChanges] of inlineComputedByRecord) {
+            const version = versionByRecordId?.get(recordIdStr) ?? 1;
+            results.push({
+              recordId: recordIdStr,
+              oldVersion: version,
+              newVersion: version,
+              changes: [],
+              computedChanges,
+            });
+          }
+          return ok(results);
+        };
+
+        if (dedupedRecords.length === 0 || selfLinkFields.length === 0) {
+          if (cleanupTrashRecordIds.length > 0) {
+            const uniqueCleanupIds = Array.from(new Set(cleanupTrashRecordIds));
+            const { existingIdSet } = await queryExistingRecordVersions(uniqueCleanupIds);
+            const liveCleanupIds = uniqueCleanupIds.filter((id) => existingIdSet.has(id));
+            yield* await cleanupLiveTrashOnly(liveCleanupIds);
+          }
+          return runAtomicInsertComputedFallback();
+        }
+
+        const selfLinkMetaByFieldId = new Map<
+          string,
+          { field: core.LinkField; columns: ReadonlyArray<string> }
+        >();
+        const jsonbColumns = new Set<string>();
+        const orderColumns = new Set<string>();
+        for (const linkField of selfLinkFields) {
+          const dbFieldName = yield* (yield* linkField.dbFieldName()).value();
+          jsonbColumns.add(dbFieldName);
+          const columns = [dbFieldName];
+          const relationship = linkField.relationship().toString();
+          if (relationship === 'manyOne' || relationship === 'oneOne') {
+            const fkName = yield* linkField.foreignKeyNameString();
+            if (fkName !== RECORD_ID_COLUMN) {
+              columns.push(fkName);
+              if (linkField.hasOrderColumn()) {
+                const orderColumn = `${fkName}_order`;
+                columns.push(orderColumn);
+                orderColumns.add(orderColumn);
+              }
+            }
+          }
+          selfLinkMetaByFieldId.set(linkField.id().toString(), { field: linkField, columns });
+        }
+
+        const candidateIds = new Set<string>(cleanupTrashRecordIds);
+        for (const entry of dedupedRecords) {
+          candidateIds.add(entry.recordId.toString());
+          for (const [fieldIdStr] of selfLinkMetaByFieldId) {
+            const rawValue = entry.fields[fieldIdStr];
+            if (rawValue === undefined || rawValue === null) {
+              continue;
+            }
+            for (const item of normalizeStoredLinkItems(rawValue)) {
+              candidateIds.add(item.id);
+            }
+          }
+        }
+        if (atomicInsertRecords) {
+          for (const record of atomicInsertRecords) {
+            candidateIds.add(record.id().toString());
+          }
+        }
+
+        const { existingIdSet, versionByRecordId } = await queryExistingRecordVersions([
+          ...candidateIds,
+        ]);
+        const liveCleanupTrashRecordIds = cleanupTrashRecordIds.filter((id) =>
+          existingIdSet.has(id)
+        );
+
+        const insertBuilder = new RecordInsertBuilder(db);
+        const partialRecords: core.TableRecord[] = [];
+        const appliedFieldsByRecordId = new Map<string, Map<string, unknown>>();
+        const rowUpdates: Array<{ recordId: string; updateValues: Record<string, unknown> }> = [];
+        const allAdditionalStatements: CompiledSqlStatement[] = [];
+        const allLinkedRecordLocks: LinkedRecordLockInfo[] = [];
+        const allExclusivityConstraints: InsertExclusivityConstraint[] = [];
+        const allExtraSeedRecordsMap = new Map<
+          string,
+          { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
+        >();
+
+        for (const entry of dedupedRecords) {
+          const recordIdStr = entry.recordId.toString();
+          if (!existingIdSet.has(recordIdStr)) {
+            continue;
+          }
+
+          const fieldValues = new Map<string, unknown>();
+          const recordCellValues: Array<{
+            fieldId: core.FieldId;
+            value: core.TableRecordCellValue;
+          }> = [];
+          const touchedColumns = new Set<string>();
+          const appliedFields = new Map<string, unknown>();
+
+          for (const [fieldIdStr, meta] of selfLinkMetaByFieldId) {
+            const rawValue = entry.fields[fieldIdStr];
+            if (rawValue === undefined || rawValue === null) {
+              continue;
+            }
+            const survivingItems = normalizeStoredLinkItems(rawValue).filter((item) =>
+              existingIdSet.has(item.id)
+            );
+            if (survivingItems.length === 0) {
+              continue;
+            }
+            const prunedValue = meta.field.isMultipleValue() ? survivingItems : survivingItems[0]!;
+            const cellValueResult = core.TableRecordCellValue.create(prunedValue);
+            if (cellValueResult.isErr()) {
+              return err(cellValueResult.error);
+            }
+            fieldValues.set(fieldIdStr, prunedValue);
+            appliedFields.set(fieldIdStr, prunedValue);
+            recordCellValues.push({ fieldId: meta.field.id(), value: cellValueResult.value });
+            for (const col of meta.columns) {
+              touchedColumns.add(col);
+            }
+          }
+
+          if (touchedColumns.size === 0) {
+            continue;
+          }
+
+          const partialRecordResult = core.TableRecord.create({
+            id: entry.recordId,
+            tableId: table.id(),
+            fieldValues: recordCellValues,
+          });
+          if (partialRecordResult.isErr()) {
+            return err(partialRecordResult.error);
+          }
+
+          const insertDataResult = insertBuilder.buildInsertData({
+            table,
+            fieldValues,
+            context: {
+              recordId: recordIdStr,
+              actorId,
+              now,
+            },
+          });
+          if (insertDataResult.isErr()) {
+            return err(insertDataResult.error);
+          }
+
+          partialRecords.push(partialRecordResult.value);
+          appliedFieldsByRecordId.set(recordIdStr, appliedFields);
+          const updateValues: Record<string, unknown> = {};
+          for (const col of touchedColumns) {
+            if (col in insertDataResult.value.values) {
+              updateValues[col] = insertDataResult.value.values[col];
+            }
+          }
+          rowUpdates.push({ recordId: recordIdStr, updateValues });
+
+          allAdditionalStatements.push(...insertDataResult.value.additionalStatements);
+          allLinkedRecordLocks.push(...insertDataResult.value.linkedRecordLocks);
+          allExclusivityConstraints.push(...insertDataResult.value.exclusivityConstraints);
+          for (const seedGroup of insertDataResult.value.extraSeedRecords) {
+            const tableIdStr = seedGroup.tableId.toString();
+            const existingGroup = allExtraSeedRecordsMap.get(tableIdStr) ?? {
+              tableId: seedGroup.tableId,
+              recordIds: new Map<string, core.RecordId>(),
+            };
+            for (const targetRecordId of seedGroup.recordIds) {
+              existingGroup.recordIds.set(targetRecordId.toString(), targetRecordId);
+            }
+            allExtraSeedRecordsMap.set(tableIdStr, existingGroup);
+          }
+        }
+
+        if (partialRecords.length === 0) {
+          yield* await cleanupLiveTrashOnly(liveCleanupTrashRecordIds);
+          return runAtomicInsertComputedFallback(versionByRecordId);
+        }
+
+        const allExtraSeedRecordGroups: ExtraSeedRecordGroup[] = [
+          ...allExtraSeedRecordsMap.values(),
+        ].map((group) => ({
+          tableId: group.tableId,
+          recordIds: [...group.recordIds.values()],
+        }));
+
+        if (allExclusivityConstraints.length > 0 || allLinkedRecordLocks.length > 0) {
+          yield* requireLinkWriteTransaction(db);
+        }
+
+        try {
+          const linkWriteResult = await runWithoutUndoCapture(db, async () => {
+            const updateColumns = [
+              ...new Set(rowUpdates.flatMap((row) => Object.keys(row.updateValues))),
+            ];
+            if (rowUpdates.length > 0 && (updateColumns.length > 0 || !isAtomicInsert)) {
+              const rowBatchSize = Math.max(
+                1,
+                Math.floor(20_000 / Math.max(1, 1 + updateColumns.length * 2))
+              );
+              const setClauses = [
+                ...updateColumns.map(
+                  (col, colIdx) =>
+                    sql`${sql.id(col)} = case when ${sql.id('v', `has_${colIdx}`)} then ${sql.id('v', `val_${colIdx}`)} else ${sql.id('t', col)} end`
+                ),
+                ...(!isAtomicInsert
+                  ? [sql`${sql.id(VERSION_COLUMN)} = ${sql.id('t', VERSION_COLUMN)} + 1`]
+                  : []),
+              ];
+              const aliasColumns = [
+                sql.id('id'),
+                ...updateColumns.flatMap((_, colIdx) => [
+                  sql.id(`has_${colIdx}`),
+                  sql.id(`val_${colIdx}`),
+                ]),
+              ];
+              for (let offset = 0; offset < rowUpdates.length; offset += rowBatchSize) {
+                const chunk = rowUpdates.slice(offset, offset + rowBatchSize);
+                const valuesRows = chunk.map(({ recordId, updateValues }) => {
+                  const cells = [
+                    sql`${sql.value(recordId)}::text`,
+                    ...updateColumns.flatMap((col) => {
+                      const hasCol = Object.prototype.hasOwnProperty.call(updateValues, col);
+                      const raw = updateValues[col];
+                      const hasExpr = sql`${sql.value(hasCol)}::boolean`;
+                      if (!hasCol || raw === null || raw === undefined) {
+                        if (jsonbColumns.has(col)) return [hasExpr, sql`null::jsonb`];
+                        if (orderColumns.has(col)) return [hasExpr, sql`null::double precision`];
+                        return [hasExpr, sql`null::text`];
+                      }
+                      if (jsonbColumns.has(col)) {
+                        const serialized = typeof raw === 'string' ? raw : JSON.stringify(raw);
+                        return [hasExpr, sql`${sql.value(serialized)}::jsonb`];
+                      }
+                      if (orderColumns.has(col)) {
+                        return [hasExpr, sql`${sql.value(raw)}::double precision`];
+                      }
+                      return [hasExpr, sql`${sql.value(String(raw))}::text`];
+                    }),
+                  ];
+                  return sql`(${sql.join(cells, sql`, `)})`;
+                });
+                await sql`update ${sql.table(tableName)} as t set ${sql.join(setClauses, sql`, `)} from (values ${sql.join(valuesRows, sql`, `)}) as v(${sql.join(aliasColumns, sql`, `)}) where ${sql.id('t', RECORD_ID_COLUMN)} = ${sql.id('v', 'id')}`.execute(
+                  db
+                );
+              }
+            }
+
+            const lockResult = await acquireLinkedRecordLocks(
+              db,
+              table.baseId().toString(),
+              allLinkedRecordLocks
+            );
+            if (lockResult.isErr()) return lockResult;
+
+            const exclusivityLockResult = await acquireInsertExclusiveTargetLocks(
+              db,
+              allExclusivityConstraints
+            );
+            if (exclusivityLockResult.isErr()) return exclusivityLockResult;
+
+            const exclusivityValidResult = await validateInsertExclusivityConstraints(
+              context,
+              db,
+              allExclusivityConstraints
+            );
+            if (exclusivityValidResult.isErr()) return exclusivityValidResult;
+
+            await RecordInsertBuilder.executeStatements(db, allAdditionalStatements);
+
+            if (liveCleanupTrashRecordIds.length > 0) {
+              await cleanupRestoredRecordTrash(
+                db,
+                table.id().toString(),
+                liveCleanupTrashRecordIds
+              );
+            }
+            return ok(undefined);
+          });
+          if (linkWriteResult.isErr()) {
+            return err(linkWriteResult.error);
+          }
+
+          if (isAtomicInsert && atomicInsertRecords) {
+            const partialById = new Map(
+              partialRecords.map((record) => [record.id().toString(), record])
+            );
+            const mergedInsertRecords: core.TableRecord[] = [];
+            for (const baseRecord of atomicInsertRecords) {
+              const partialRecord = partialById.get(baseRecord.id().toString());
+              if (!partialRecord) {
+                mergedInsertRecords.push(baseRecord);
+                continue;
+              }
+              const mergedEntries = new Map<string, core.TableRecordFieldValue>();
+              for (const entry of baseRecord.fields().entries()) {
+                mergedEntries.set(entry.fieldId.toString(), entry);
+              }
+              for (const entry of partialRecord.fields().entries()) {
+                mergedEntries.set(entry.fieldId.toString(), entry);
+              }
+              const mergedRecord = yield* core.TableRecord.create({
+                id: baseRecord.id(),
+                tableId: baseRecord.tableId(),
+                fieldValues: [...mergedEntries.values()],
+              });
+              mergedInsertRecords.push(mergedRecord);
+            }
+
+            const mergedExtraSeedGroups = mergeExtraSeedGroups(
+              collectCrossTableExtraSeedGroups(table, atomicInsertRecords),
+              allExtraSeedRecordGroups
+            );
+            const computedResult = yield* await this.runComputedUpdateMany(
+              context,
+              table,
+              mergedInsertRecords,
+              'insert',
+              mergedExtraSeedGroups
+            );
+            const inlineComputedByRecord = extractChangesForAllRecords(computedResult);
+            const atomicResults: core.RestoredSelfReferentialLinkRecord[] = [];
+            const seenAtomicIds = new Set<string>();
+            const appendAtomicRecord = (recordIdStr: string) => {
+              if (seenAtomicIds.has(recordIdStr)) {
+                return;
+              }
+              seenAtomicIds.add(recordIdStr);
+              const appliedMap = appliedFieldsByRecordId.get(recordIdStr);
+              const computedChanges = inlineComputedByRecord?.get(recordIdStr);
+              const changes: core.RestoredSelfReferentialLinkChange[] = [];
+              if (appliedMap) {
+                for (const [fieldId, newValue] of appliedMap) {
+                  changes.push({ fieldId, oldValue: null, newValue });
+                }
+              }
+              if (changes.length === 0 && !computedChanges?.size) {
+                return;
+              }
+              const version = versionByRecordId.get(recordIdStr) ?? 1;
+              atomicResults.push({
+                recordId: recordIdStr,
+                oldVersion: version,
+                newVersion: version,
+                changes,
+                ...(computedChanges?.size ? { computedChanges } : {}),
+              });
+            };
+            for (const entry of partialRecords) {
+              appendAtomicRecord(entry.id().toString());
+            }
+            if (inlineComputedByRecord) {
+              for (const recordIdStr of inlineComputedByRecord.keys()) {
+                appendAtomicRecord(recordIdStr);
+              }
+            }
+
+            await this.touchTableMeta(context, table.id().toString(), actorId);
+            return ok(atomicResults);
+          }
+
+          const touchedSelfLinkFieldIds = [
+            ...new Set(
+              partialRecords.flatMap((record) =>
+                record
+                  .fields()
+                  .entries()
+                  .map((entry) => entry.fieldId.toString())
+              )
+            ),
+          ]
+            .map((id) => selfLinkMetaByFieldId.get(id)?.field.id())
+            .filter((id): id is core.FieldId => id != null);
+          const computedContext: core.IExecutionContext = context.requestId
+            ? { ...context, requestId: `${context.requestId}:self-link-computed` }
+            : context;
+          const computedResult = await this.runComputedUpdateManyByIds(
+            computedContext,
+            table,
+            partialRecords.map((record) => record.id()),
+            { valueFieldIds: [], linkFieldIds: touchedSelfLinkFieldIds },
+            allExtraSeedRecordGroups,
+            [],
+            {
+              forceOutbox: this.computedUpdateStrategy.mode !== 'sync',
+              scheduleDispatchAfterCommit: true,
+            }
+          );
+          if (computedResult.isErr()) {
+            return err(computedResult.error);
+          }
+
+          const restoredRecords: core.RestoredSelfReferentialLinkRecord[] = [];
+          for (const entry of partialRecords) {
+            const recordIdStr = entry.id().toString();
+            const appliedMap = appliedFieldsByRecordId.get(recordIdStr);
+            if (!appliedMap || appliedMap.size === 0) {
+              continue;
+            }
+            const changes: core.RestoredSelfReferentialLinkChange[] = [];
+            for (const [fieldId, newValue] of appliedMap) {
+              changes.push({ fieldId, oldValue: null, newValue });
+            }
+            const version = versionByRecordId.get(recordIdStr) ?? 1;
+            restoredRecords.push({
+              recordId: recordIdStr,
+              oldVersion: version,
+              newVersion: version + 1,
+              changes,
+            });
+          }
+
+          await this.touchTableMeta(context, table.id().toString(), actorId);
+          return ok(restoredRecords);
+        } catch (error) {
           return err(wrapDatabaseError(error, 'insert', { tableName, fields: table.getFields() }));
         }
       }.bind(this)
@@ -2958,6 +3629,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           const {
             columnUpdateData,
             additionalStatements,
+            junctionTableReplacements,
             attachmentTableReplacements,
             linkedRecordLocks,
             impact,
@@ -2971,6 +3643,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           batchSpan?.setAttributes({
             'record.update.batchColumnCount': columnUpdateData.size,
             'record.update.batchAdditionalStatementCount': additionalStatements.length,
+            'record.update.batchJunctionReplacementCount': junctionTableReplacements.length,
             'record.update.batchLinkedLockCount': linkedRecordLocks.length,
             'record.update.batchValueFieldCount': impact.valueFieldIds.length,
             'record.update.batchLinkFieldCount': impact.impactHint.linkFieldIds.length,
@@ -3069,6 +3742,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               batchRecordCount: batch.length,
               batchColumnCount: columnUpdateData.size,
               batchAdditionalStatementCount: additionalStatements.length,
+              batchJunctionReplacementCount: junctionTableReplacements.length,
               batchLinkedLockCount: linkedRecordLocks.length,
               batchValueFieldCount: impact.valueFieldIds.length,
               batchLinkFieldCount: impact.impactHint.linkFieldIds.length,
@@ -3083,7 +3757,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               batch.length >= 100 ||
               updateSqlResult.value.sql.length >= 50_000 ||
               linkedRecordLocks.length > 0 ||
-              additionalStatements.length > 0
+              additionalStatements.length > 0 ||
+              junctionTableReplacements.length > 0
             ) {
               this.logger.info(
                 'PostgresTableRecordRepository.updateManyStream.batchHeavy',
@@ -3230,10 +3905,24 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             }
 
             if (batchUpdatedRecords.length > 0) {
-              // Execute additional statements (junction tables, FK updates)
+              // Apply FK writes only for rows changed by the source UPDATE.
               for (const stmt of additionalStatements) {
                 if (stmt.sourceRecordId && !writtenRecordIds.has(stmt.sourceRecordId)) continue;
                 await db.executeQuery(stmt.compiled);
+              }
+              if (junctionTableReplacements.length > 0) {
+                const junctionStatements = buildJunctionTableBatchReplaceQueries(
+                  db,
+                  junctionTableReplacements,
+                  writtenRecordIds
+                );
+                batchSpan?.setAttribute(
+                  'record.update.batchJunctionStatementCount',
+                  junctionStatements.length
+                );
+                for (const statement of junctionStatements) {
+                  await db.executeQuery(statement);
+                }
               }
               const attachmentStatements = buildAttachmentTableBatchReplaceQueries(
                 db,
@@ -3542,12 +4231,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       // Hybrid owns publication for its synchronous prefix; only the sync strategy
       // returns changes without publishing them itself.
       if (this.computedUpdateStrategy.mode === 'sync') {
-        await this.publishComputedUpdateEvents(
+        const publishRes = await this.publishComputedUpdateEvents(
           context,
           table.baseId(),
           executeResult.value,
           resolveComputedRealtimeOrchestration(context, recordIds.length, options.orchestration)
         );
+        if (publishRes.isErr()) return err(publishRes.error);
       }
 
       return ok(undefined);
@@ -3712,15 +4402,63 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
     try {
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      const tableId = table.id().toString();
+      const tableTrashId = input.operationId
+        ? input.operationId.startsWith('opr')
+          ? input.operationId
+          : `opr${input.operationId}`
+        : generatePrefixedId('opr', 16);
+      const createdTime = new Date(input.createdTime);
+
+      if (input.operationId) {
+        const existing = (await db
+          .selectFrom('table_trash')
+          .select(['id', 'snapshot'])
+          .where('id', '=', tableTrashId)
+          .where('table_id', '=', tableId)
+          .forUpdate()
+          .executeTakeFirst()) as { id?: string; snapshot?: unknown } | undefined;
+
+        if (existing) {
+          const existingIds = (() => {
+            if (Array.isArray(existing.snapshot)) {
+              return existing.snapshot.filter((id): id is string => typeof id === 'string');
+            }
+            if (typeof existing.snapshot === 'string') {
+              try {
+                const parsed = JSON.parse(existing.snapshot);
+                if (Array.isArray(parsed)) {
+                  return parsed.filter((id): id is string => typeof id === 'string');
+                }
+              } catch {
+                return [];
+              }
+            }
+            return [];
+          })();
+          const mergedIds = Array.from(new Set([...existingIds, ...input.recordIds]));
+          await db
+            .updateTable('table_trash')
+            .set({
+              snapshot: JSON.stringify(mergedIds),
+              created_time: createdTime,
+            })
+            .where('id', '=', tableTrashId)
+            .where('table_id', '=', tableId)
+            .execute();
+          return ok(undefined);
+        }
+      }
+
       await db
         .insertInto('table_trash')
         .values({
-          id: generatePrefixedId('opr', 16),
-          table_id: table.id().toString(),
+          id: tableTrashId,
+          table_id: tableId,
           resource_type: RECORD_TRASH_RESOURCE_TYPE,
           snapshot: JSON.stringify(input.recordIds),
           created_by: input.createdBy,
-          created_time: new Date(input.createdTime),
+          created_time: createdTime,
         })
         .execute();
       return ok(undefined);
@@ -3872,6 +4610,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ),
           ])
           .where(whereExpression)
+          .orderBy(RECORD_ID_COLUMN, 'asc')
           .forUpdate()
           .execute();
 
@@ -3966,7 +4705,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           })),
           ...incomingFields.map((field) => ({
             hostTableName: field.fkHostTableName,
-            columnNames: incomingCleanupColumnNames(field),
+            columnNames: [
+              ...incomingCleanupColumnNames(field),
+              ...(field.relationship === 'oneMany' && !field.isOneWay ? [RECORD_ID_COLUMN] : []),
+            ],
           })),
         ]);
         const returningIncomingFieldIds = incomingReturningSeedFieldIds(
@@ -3996,10 +4738,20 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const incomingSeedsResult = await collectIncomingLinkExtraSeedRecords(
           db,
           recordIdStrings,
+          {
+            tableName,
+            rows: recordRows,
+            projectionAliases: new Set([
+              'record_id',
+              ...beforeImageCapturePlan.trackedFields.map(({ oldValueAlias }) => oldValueAlias),
+            ]),
+          },
           incomingFields,
           extraSeedMap,
           linkHostCatalog,
-          returningIncomingFieldIds
+          returningIncomingFieldIds,
+          table,
+          tableName
         );
         if (incomingSeedsResult.isErr()) return err(incomingSeedsResult.error);
 
@@ -4016,35 +4768,30 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         );
         if (incomingCleanupResult.isErr()) return err(incomingCleanupResult.error);
 
-        // Execute all outgoing delete operations
-        for (const plan of linkFieldOps) {
-          const outgoingDeleteResult = await executeOutgoingLinkDeleteOp(
-            db,
-            recordIdStrings,
-            plan,
-            linkHostCatalog,
-            this.logger
-          );
-          if (outgoingDeleteResult.isErr()) return err(outgoingDeleteResult.error);
-        }
-
-        let snapshotCaptureSession: IPostgresRecordMutationSnapshotCaptureSession | undefined;
         try {
-          snapshotCaptureSession = yield* await this.recordMutationSnapshotCapture.begin(
-            toRecordMutationSnapshotTraceContext(context),
-            db,
-            tableName
-          );
-          const deletedRows = (await db
-            .deleteFrom(tableName)
-            // Link cleanup can change predicate fields. Delete the locked selection,
-            // not a second evaluation of the caller's condition after those effects.
-            .where(sql<SqlBool>`${sql.ref(RECORD_ID_COLUMN)} = ANY(${recordIdStrings}::text[])`)
-            .returning(RECORD_ID_COLUMN)
-            .execute()) as Record<string, unknown>[];
-          // Finish even though DELETE trigger rows are post-cleanup images: the
-          // session must still clear its trigger log and restore the capture batch.
-          yield* await snapshotCaptureSession.finish();
+          const deletedRowsResult = await runWithoutUndoCapture(db, async () => {
+            for (const plan of linkFieldOps) {
+              const outgoingDeleteResult = await executeOutgoingLinkDeleteOp(
+                db,
+                recordIdStrings,
+                plan,
+                linkHostCatalog,
+                this.logger
+              );
+              if (outgoingDeleteResult.isErr()) return err(outgoingDeleteResult.error);
+            }
+
+            const rows = (await db
+              .deleteFrom(tableName)
+              // Link cleanup can change predicate fields. Delete the locked selection,
+              // not a second evaluation of the caller's condition after those effects.
+              .where(sql<SqlBool>`${sql.ref(RECORD_ID_COLUMN)} = ANY(${recordIdStrings}::text[])`)
+              .returning(RECORD_ID_COLUMN)
+              .execute()) as Record<string, unknown>[];
+            return ok(rows);
+          });
+          if (deletedRowsResult.isErr()) return err(deletedRowsResult.error);
+          const deletedRows = deletedRowsResult.value;
           const deletedSnapshots: core.RecordStoredSnapshot[] = [];
           const deletedRecordIdSet = new Set<string>();
           for (const row of deletedRows) {
@@ -4089,7 +4836,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             table,
             deletedRecordIds,
             finalizeExtraSeedRecords(extraSeedMap),
-            deletedBeforeImageRecords
+            deletedBeforeImageRecords,
+            incomingSeedsResult.value
           );
           if (computedResult.isErr()) {
             return err(computedResult.error);
@@ -4097,7 +4845,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           await this.touchTableMeta(context, table.id().toString(), actorId);
           return ok({ deletedCount: deletedRows.length, deletedRecords: deletedSnapshots });
         } catch (error) {
-          await snapshotCaptureSession?.abort();
           if (isForeignKeyViolation(error)) {
             const located = await loadIncomingLinkDeleteError(metaDb, error);
             if (located) return err(located);
@@ -4339,12 +5086,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           return err(executeResult.error);
         }
         if (this.computedUpdateStrategy.mode === 'sync') {
-          await this.publishComputedUpdateEvents(
+          const publishRes = await this.publishComputedUpdateEvents(
             context,
             table.baseId(),
             executeResult.value,
             resolveComputedRealtimeOrchestration(context, 1)
           );
+          if (publishRes.isErr()) return err(publishRes.error);
         }
         return ok(executeResult.value);
       }
@@ -4544,7 +5292,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           return err(executeResult.error);
         }
         if (this.computedUpdateStrategy.mode === 'sync') {
-          await this.publishComputedUpdateEvents(
+          const publishRes = await this.publishComputedUpdateEvents(
             context,
             table.baseId(),
             executeResult.value,
@@ -4554,6 +5302,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               options?.orchestration
             )
           );
+          if (publishRes.isErr()) return err(publishRes.error);
         }
         return ok(executeResult.value);
       }
@@ -4692,12 +5441,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           return err(executeResult.error);
         }
         if (this.computedUpdateStrategy.mode === 'sync') {
-          await this.publishComputedUpdateEvents(
+          const publishRes = await this.publishComputedUpdateEvents(
             context,
             table.baseId(),
             executeResult.value,
             resolveComputedRealtimeOrchestration(context, 1)
           );
+          if (publishRes.isErr()) return err(publishRes.error);
         }
         return ok(executeResult.value);
       }
@@ -4767,14 +5517,23 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     baseId: core.BaseId,
     result: ComputedUpdateResult | undefined,
     orchestration?: core.IBatchMutationOrchestration | undefined
-  ): Promise<void> {
+  ): Promise<Result<void, DomainError>> {
     if (!result?.changesByStep.length) {
-      return;
+      return ok(undefined);
     }
 
     const events = buildComputedUpdateEvents(result.changesByStep, baseId, orchestration);
     if (!events.length) {
-      return;
+      return ok(undefined);
+    }
+
+    const sameTxRes = await dispatchComputedSameTxEvents(
+      context,
+      this.sameTxProjectionDispatcher,
+      events
+    );
+    if (sameTxRes.isErr()) {
+      return err(sameTxRes.error);
     }
 
     const publish = async () => {
@@ -4791,10 +5550,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     };
 
     if (core.registerAfterCommit(context, publish)) {
-      return;
+      return ok(undefined);
     }
 
     await publish();
+    return ok(undefined);
   }
 
   private shouldEnqueuePlanFreeSeed(
@@ -4909,7 +5669,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     table: core.Table,
     recordIds: ReadonlyArray<core.RecordId>,
     extraSeedRecords: ReadonlyArray<ExtraSeedRecordGroup> = [],
-    beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = []
+    beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord> = [],
+    capturedDeleteLinkFieldIds?: ReadonlyArray<string>
   ): Promise<Result<void, DomainError>> {
     if (recordIds.length === 0) return ok(undefined);
     const changedFieldIds = table.getFields().map((field) => field.id());
@@ -4930,6 +5691,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           recordIds: [...group.recordIds],
         })),
         beforeImageRecords: [...beforeImageRecords],
+        capturedDeleteLinkFieldIds,
         changedFieldIds,
         changeType: 'delete' as const,
         cyclePolicy: 'skip' as const,
@@ -4981,6 +5743,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         recordIds: [...group.recordIds],
       })),
       beforeImageRecords: [...beforeImageRecords],
+      capturedDeleteLinkFieldIds,
       changedFieldIds,
       changeType: 'delete',
       cyclePolicy: 'skip',
@@ -6864,6 +7627,7 @@ type IncomingLinkFieldInfo = {
   sourceBaseId: string;
   /** The link field ID */
   fieldId: string;
+  symmetricFieldId?: string;
   /** Display name of the incoming link field */
   fieldName: string;
   /** Display name of the table holding the incoming link field */
@@ -6950,6 +7714,8 @@ const loadIncomingLinkFields = async (
         sourceTableId: row.source_table_id as string,
         sourceBaseId: String(row.source_base_id ?? ''),
         fieldId: row.field_id as string,
+        symmetricFieldId:
+          typeof options.symmetricFieldId === 'string' ? options.symmetricFieldId : undefined,
         fieldName: String(row.field_name ?? ''),
         sourceTableName: String(row.source_table_name ?? ''),
         relationship,
@@ -7164,25 +7930,34 @@ const executeIncomingLinkCleanup = async (
         continue;
       }
 
+      const {
+        sourceTableId,
+        relationship,
+        isOneWay,
+        fkHostTableName,
+        foreignKeyName,
+        selfKeyName,
+        orderColumnName,
+        dbFieldName,
+      } = field;
+      const isSelfReferential = sourceTableId === targetTableId;
+      const fkOnDeletedTable = fkHostTableName === targetTableName;
+      const deletesJunction =
+        relationship === 'manyMany' || (relationship === 'oneMany' && isOneWay);
+      const clearsSourceFk =
+        (relationship === 'manyOne' || relationship === 'oneOne') &&
+        foreignKeyName !== '__id' &&
+        (!fkOnDeletedTable || isSelfReferential);
+      const checksReverseFk = fkOnDeletedTable && selfKeyName && field.notNull;
+      // Optional reverse FKs disappear with the deleted rows. No SQL needs protecting.
+      if (!deletesJunction && !clearsSourceFk && !checksReverseFk) continue;
+
       const savepointIdentifier = await beginIncomingLinkSavepoint(db, field.fieldId, index);
       let restoreSavepoint = false;
       try {
-        const {
-          sourceTableId,
-          relationship,
-          isOneWay,
-          fkHostTableName,
-          foreignKeyName,
-          selfKeyName,
-          orderColumnName,
-          dbFieldName,
-        } = field;
-
-        const isSelfReferential = sourceTableId === targetTableId;
-        const fkOnDeletedTable = fkHostTableName === targetTableName;
         let seedRows: ReadonlyArray<{ source_id: unknown }> | undefined;
 
-        if (relationship === 'manyMany' || (relationship === 'oneMany' && isOneWay)) {
+        if (deletesJunction) {
           // Junction table: a required host row must not lose its last link. A host is
           // blocked when it links to a deleted record and keeps no surviving link;
           // hosts that are themselves being deleted (self-referential) don't count.
@@ -7232,11 +8007,7 @@ const executeIncomingLinkCleanup = async (
               .where(sql<SqlBool>`${sql.ref(foreignKeyName)} = ANY(${recordIds}::text[])`)
               .execute();
           }
-        } else if (
-          (relationship === 'manyOne' || relationship === 'oneOne') &&
-          foreignKeyName !== '__id' &&
-          (!fkOnDeletedTable || isSelfReferential)
-        ) {
+        } else if (clearsSourceFk) {
           // FK on source table. A required link blocks the delete when a surviving
           // source row still points at a deleted record; rows that are deleted in the
           // same batch (self-referential) are not blocking.
@@ -7276,41 +8047,33 @@ const executeIncomingLinkCleanup = async (
           } else {
             await updateQuery.execute();
           }
-        } else if (fkOnDeletedTable && selfKeyName) {
-          // FK column lives on the table being deleted (two-way oneMany, or the
-          // non-hosting side of a two-way oneOne): the FK rows disappear with the
-          // delete, so there is nothing to clean up, but a required link on the other
-          // side must not lose its last link. A surviving host is emptied when a
-          // deleted row points at it and no surviving row still does.
-          if (field.notNull) {
-            let blockingQuery = db
-              .selectFrom(`${fkHostTableName} as d`)
-              .select(sql.ref(`d.${selfKeyName}`).as('host_id'))
-              .where(sql<SqlBool>`${sql.ref('d.__id')} = ANY(${recordIds}::text[])`)
-              .where(`d.${selfKeyName}`, 'is not', null)
-              .where((eb) =>
-                eb.not(
-                  eb.exists(
-                    eb
-                      .selectFrom(`${fkHostTableName} as s`)
-                      .select(sql`1`.as('one'))
-                      .whereRef(`s.${selfKeyName}`, '=', `d.${selfKeyName}`)
-                      .where(sql<SqlBool>`${sql.ref('s.__id')} <> ALL(${recordIds}::text[])`)
-                  )
+        } else if (checksReverseFk) {
+          // A required reverse link must keep at least one surviving child.
+          let blockingQuery = db
+            .selectFrom(`${fkHostTableName} as d`)
+            .select(sql.ref(`d.${selfKeyName}`).as('host_id'))
+            .where(sql<SqlBool>`${sql.ref('d.__id')} = ANY(${recordIds}::text[])`)
+            .where(`d.${selfKeyName}`, 'is not', null)
+            .where((eb) =>
+              eb.not(
+                eb.exists(
+                  eb
+                    .selectFrom(`${fkHostTableName} as s`)
+                    .select(sql`1`.as('one'))
+                    .whereRef(`s.${selfKeyName}`, '=', `d.${selfKeyName}`)
+                    .where(sql<SqlBool>`${sql.ref('s.__id')} <> ALL(${recordIds}::text[])`)
                 )
               )
-              .limit(1);
-            if (isSelfReferential) {
-              blockingQuery = blockingQuery.where(
-                sql<SqlBool>`${sql.ref(`d.${selfKeyName}`)} <> ALL(${recordIds}::text[])`
-              );
-            }
-            const blockingRow = await blockingQuery.executeTakeFirst();
-            if (blockingRow) return err(requiredIncomingLinkViolationError(field));
+            )
+            .limit(1);
+          if (isSelfReferential) {
+            blockingQuery = blockingQuery.where(
+              sql<SqlBool>`${sql.ref(`d.${selfKeyName}`)} <> ALL(${recordIds}::text[])`
+            );
           }
+          const blockingRow = await blockingQuery.executeTakeFirst();
+          if (blockingRow) return err(requiredIncomingLinkViolationError(field));
         }
-        // Remaining cleanup for two-way oneMany FKs is handled by the outgoing link
-        // cleanup via FieldDeleteValueVisitor
         if (seedRows?.length) {
           const sourceRecordIds = seedRows
             .map((row) => row.source_id)
@@ -7354,12 +8117,83 @@ const executeIncomingLinkCleanup = async (
 const collectIncomingLinkExtraSeedRecords = async (
   db: Kysely<DynamicDB>,
   recordIds: ReadonlyArray<string>,
+  deletedRows: {
+    tableName: string;
+    rows: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    projectionAliases: ReadonlySet<string>;
+  },
   incomingFields: ReadonlyArray<IncomingLinkFieldInfo>,
   extraSeedMap: Map<string, { tableId: core.TableId; recordIds: Map<string, core.RecordId> }>,
   catalog: LinkHostCatalog,
-  returningFieldIds: ReadonlySet<string>
-): Promise<Result<void, DomainError>> => {
-  if (recordIds.length === 0 || incomingFields.length === 0) return ok(undefined);
+  returningFieldIds: ReadonlySet<string>,
+  table: core.Table,
+  targetTableName: string
+): Promise<Result<ReadonlyArray<string>, DomainError>> => {
+  if (recordIds.length === 0 || incomingFields.length === 0) return ok([]);
+
+  const capturedFieldIds: string[] = [];
+  // Only an exact two-way reverse FK can prove that every parent was captured.
+  // Pre-index live fields and metadata uniqueness so eligibility stays O(1) per
+  // field on high-fanout tables; ambiguous or stale descriptors are skipped.
+  const targetTableId = table.id().toString();
+  const targetHostKey = linkHostTableKey(targetTableName);
+  const liveFieldsById = new Map(
+    table.getFields().map((candidate) => [candidate.id().toString(), candidate] as const)
+  );
+  const hostSignature = (hostKey: string, selfKeyName: string | null) =>
+    `${hostKey}\u0000${selfKeyName ?? ''}`;
+  const symmetricCounts = new Map<string, number>();
+  const hostSignatureCounts = new Map<string, number>();
+  for (const field of incomingFields) {
+    if (field.symmetricFieldId) {
+      symmetricCounts.set(
+        field.symmetricFieldId,
+        (symmetricCounts.get(field.symmetricFieldId) ?? 0) + 1
+      );
+    }
+    const signature = hostSignature(linkHostTableKey(field.fkHostTableName), field.selfKeyName);
+    hostSignatureCounts.set(signature, (hostSignatureCounts.get(signature) ?? 0) + 1);
+  }
+  const captureCandidates = new Set<string>();
+  for (const field of incomingFields) {
+    const hostKey = linkHostTableKey(field.fkHostTableName);
+    const { selfKeyName, symmetricFieldId } = field;
+    if (
+      field.relationship !== 'oneMany' ||
+      field.isOneWay ||
+      field.sourceTableId === targetTableId ||
+      field.foreignKeyName !== RECORD_ID_COLUMN ||
+      hostKey !== targetHostKey ||
+      !selfKeyName ||
+      selfKeyName === RECORD_ID_COLUMN ||
+      !symmetricFieldId ||
+      symmetricCounts.get(symmetricFieldId) !== 1 ||
+      hostSignatureCounts.get(hostSignature(hostKey, selfKeyName)) !== 1
+    ) {
+      continue;
+    }
+    const liveField = liveFieldsById.get(symmetricFieldId);
+    if (!liveField?.type().equals(core.FieldType.link())) continue;
+    const liveLink = liveField as core.LinkField;
+    const liveHost = liveLink.fkHostTableNameString();
+    const liveSelfKey = liveLink.selfKeyNameString();
+    const liveForeignKey = liveLink.foreignKeyNameString();
+    if (
+      liveLink.isOneWay() ||
+      liveLink.relationship().toString() !== 'manyOne' ||
+      liveLink.foreignTableId().toString() !== field.sourceTableId ||
+      liveLink.symmetricFieldId()?.toString() !== field.fieldId ||
+      !liveHost.isOk() ||
+      linkHostTableKey(liveHost.value) !== targetHostKey ||
+      !liveSelfKey.isOk() ||
+      liveSelfKey.value !== RECORD_ID_COLUMN ||
+      !liveForeignKey.isOk() ||
+      liveForeignKey.value !== selfKeyName
+    ) {
+      continue;
+    }
+    captureCandidates.add(field.fieldId);
+  }
 
   try {
     for (const [index, field] of incomingFields.entries()) {
@@ -7371,66 +8205,78 @@ const collectIncomingLinkExtraSeedRecords = async (
         incomingCleanupColumnNames(field)
       );
       if (!physicalExists) continue;
-      const savepointIdentifier = await beginIncomingLinkSavepoint(db, field.fieldId, index);
-      let restoreSavepoint = false;
-      try {
-        const {
-          sourceTableId,
-          relationship,
-          isOneWay,
-          fkHostTableName,
-          foreignKeyName,
-          selfKeyName,
-        } = field;
-
-        let sourceKeyName: string | null = null;
-        let targetKeyName = foreignKeyName;
-        if (relationship === 'manyMany' || (relationship === 'oneMany' && isOneWay)) {
-          sourceKeyName = selfKeyName;
-        } else if (relationship === 'manyOne' || relationship === 'oneOne') {
-          sourceKeyName = '__id';
-        } else if (relationship === 'oneMany' && !isOneWay) {
-          // Reverse FK: the deleted rows hold the source table's IDs in selfKeyName.
-          sourceKeyName = selfKeyName;
-          targetKeyName = '__id';
+      const {
+        sourceTableId,
+        relationship,
+        isOneWay,
+        fkHostTableName,
+        foreignKeyName,
+        selfKeyName,
+      } = field;
+      const reverseFk = relationship === 'oneMany' && !isOneWay;
+      let sourceKeyName = selfKeyName;
+      if (relationship === 'manyOne' || relationship === 'oneOne') sourceKeyName = '__id';
+      else if (relationship !== 'manyMany' && relationship !== 'oneMany') continue;
+      if (!sourceKeyName) continue;
+      let sourceRecordIds: string[];
+      let completeParentIds = true;
+      if (
+        reverseFk &&
+        fkHostTableName === deletedRows.tableName &&
+        !deletedRows.projectionAliases.has(sourceKeyName)
+      ) {
+        // SELECT * FOR UPDATE captured these physical FKs before any link cleanup.
+        const ids = new Set<string>();
+        for (const row of deletedRows.rows) {
+          const id = row[sourceKeyName];
+          if (typeof id === 'string') ids.add(id);
+          else if (id !== null) completeParentIds = false;
         }
-        if (!sourceKeyName) continue;
-
-        const rows = await db
-          .selectFrom(fkHostTableName)
-          .select(sql.ref(sourceKeyName).as('source_id'))
-          .distinct()
-          .where(sql<SqlBool>`${sql.ref(targetKeyName)} = ANY(${recordIds}::text[])`)
-          .where(sourceKeyName, 'is not', null)
-          .execute();
-        const sourceRecordIds = rows
-          .map((row) => row.source_id)
-          .filter((id): id is string => typeof id === 'string');
-
-        // Merge into extraSeedMap
-        if (sourceRecordIds.length > 0) {
-          const tableIdResult = core.TableId.create(sourceTableId);
-          if (tableIdResult.isErr()) return err(tableIdResult.error);
-          const mergeResult = mergeExtraSeedRecords(
-            extraSeedMap,
-            tableIdResult.value,
-            sourceRecordIds
-          );
-          if (mergeResult.isErr()) return err(mergeResult.error);
+        sourceRecordIds = [...ids];
+      } else {
+        const targetKeyName = reverseFk ? '__id' : foreignKeyName;
+        const savepointIdentifier = await beginIncomingLinkSavepoint(db, field.fieldId, index);
+        let restoreSavepoint = false;
+        try {
+          const rows = await db
+            .selectFrom(fkHostTableName)
+            .select(sql.ref(sourceKeyName).as('source_id'))
+            .distinct()
+            .where(sql<SqlBool>`${sql.ref(targetKeyName)} = ANY(${recordIds}::text[])`)
+            .where(sourceKeyName, 'is not', null)
+            .execute();
+          sourceRecordIds = rows
+            .map((row) => row.source_id)
+            .filter((id): id is string => typeof id === 'string');
+          completeParentIds = sourceRecordIds.length === rows.length;
+        } catch (error) {
+          restoreSavepoint = true;
+          await rollbackIncomingLinkSavepoint(db, savepointIdentifier);
+          if (isMissingRelationError(error)) continue;
+          throw error;
+        } finally {
+          if (!restoreSavepoint) {
+            await releaseIncomingLinkSavepoint(db, savepointIdentifier);
+          }
         }
-      } catch (error) {
-        restoreSavepoint = true;
-        await rollbackIncomingLinkSavepoint(db, savepointIdentifier);
-        if (isMissingRelationError(error)) continue;
-        throw error;
-      } finally {
-        if (!restoreSavepoint) {
-          await releaseIncomingLinkSavepoint(db, savepointIdentifier);
-        }
+      }
+      if (sourceRecordIds.length > 0) {
+        const tableIdResult = core.TableId.create(sourceTableId);
+        if (tableIdResult.isErr()) return err(tableIdResult.error);
+        const mergeResult = mergeExtraSeedRecords(
+          extraSeedMap,
+          tableIdResult.value,
+          sourceRecordIds
+        );
+        if (mergeResult.isErr()) return err(mergeResult.error);
+      }
+      // Null FKs have no parent. Narrow propagation only if all other values were captured.
+      if (completeParentIds && captureCandidates.has(field.fieldId)) {
+        capturedFieldIds.push(field.fieldId);
       }
     }
 
-    return ok(undefined);
+    return ok(capturedFieldIds);
   } catch (error) {
     return err(
       domainError.infrastructure({

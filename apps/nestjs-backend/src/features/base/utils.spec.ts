@@ -2,10 +2,12 @@ import type { IBaseJson } from '@teable/openapi';
 import {
   adaptStructureTimeZone,
   parseImportAttachmentEntryName,
+  pinImportAttachmentCell,
   replaceExpressionFieldIds,
   replaceJsonStringFieldIds,
   replaceTimeZoneDeep,
   replaceWorkflowTimeZoneDeep,
+  resolveImportAttachmentPaths,
 } from './utils';
 
 describe('replaceFieldIds function', () => {
@@ -429,5 +431,95 @@ describe('parseImportAttachmentEntryName', () => {
     ]) {
       expect(parseImportAttachmentEntryName(name)).toBeUndefined();
     }
+  });
+});
+
+describe('resolveImportAttachmentPaths', () => {
+  it('names the object uploaded for the token, whatever the archive wrote', () => {
+    const row = {
+      token: 'tok123',
+      path: 'record-history/v1/tblVictim/_stats.json',
+      thumbnailPath: '',
+    };
+
+    expect(resolveImportAttachmentPaths(row)).toEqual({
+      path: 'table/tok123',
+      thumbnailPath: null,
+    });
+  });
+
+  it('keeps each thumbnail file name and pins it to the table directory', () => {
+    const thumbnailPath = JSON.stringify({
+      sm: 'record-history/v1/tblVictim/_stats.json',
+      md: '/etc/hostname',
+      lg: 'table/tok123_lg.webp',
+    });
+
+    const paths = resolveImportAttachmentPaths({ token: 'tok123', thumbnailPath });
+
+    expect(JSON.parse(paths?.thumbnailPath ?? 'null')).toEqual({
+      sm: 'table/_stats.json',
+      md: 'table/hostname',
+      lg: 'table/tok123_lg.webp',
+    });
+  });
+
+  it.each([
+    'not json',
+    '[]',
+    '"table/tok123_lg.webp"',
+    JSON.stringify({ lg: 5 }),
+    JSON.stringify({ lg: 'table/..' }),
+    JSON.stringify({ lg: 'table/' }),
+    JSON.stringify({ xl: 'table/tok123_xl.webp' }),
+  ])('drops an unusable thumbnailPath %s', (thumbnailPath) => {
+    expect(resolveImportAttachmentPaths({ token: 'tok123', thumbnailPath })).toEqual({
+      path: 'table/tok123',
+      thumbnailPath: null,
+    });
+  });
+
+  it.each(['', '.', '..', '../tok123', 'table/tok123', 'a\\b', null, undefined])(
+    'has no path for the token %s',
+    (token) => {
+      expect(resolveImportAttachmentPaths({ token })).toBeUndefined();
+    }
+  );
+});
+
+describe('pinImportAttachmentCell', () => {
+  const item = { id: 'act1', name: 'a.png', token: 'tok123', size: 1, mimetype: 'image/png' };
+
+  it('points every item at the object its token names', () => {
+    const cell = [
+      { ...item, path: 'record-history/v1/tblVictim/_stats.json' },
+      { ...item, id: 'act2', token: 'tok456', path: 'table/tok456' },
+    ];
+
+    expect(pinImportAttachmentCell(cell)).toEqual([
+      { ...item, path: 'table/tok123' },
+      { ...item, id: 'act2', token: 'tok456', path: 'table/tok456' },
+    ]);
+  });
+
+  it('strips the path of an item no usable token vouches for', () => {
+    const bad = { ...item, token: '../tok123', path: 'audit-log/2026/part.ndjson.zst' };
+    const byId = { id: 'act9', name: 'by id.pdf', path: 'record-history/v1/tblVictim/_stats.json' };
+
+    expect(pinImportAttachmentCell([bad, byId, { ...item, path: 'x' }])).toEqual([
+      { ...item, token: '../tok123' },
+      { id: 'act9', name: 'by id.pdf' },
+      { ...item, path: 'table/tok123' },
+    ]);
+  });
+
+  it('handles a single item and passes anything else through', () => {
+    expect(pinImportAttachmentCell({ ...item, path: 'audit-log/x' })).toEqual({
+      ...item,
+      path: 'table/tok123',
+    });
+    expect(pinImportAttachmentCell(null)).toBeNull();
+    expect(pinImportAttachmentCell('tok123')).toBe('tok123');
+    expect(pinImportAttachmentCell(['tok123', null])).toEqual(['tok123', null]);
   });
 });

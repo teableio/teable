@@ -46,6 +46,38 @@ export const normalizeBasePendingCapacityThreshold = (threshold: number): number
   return parsed;
 };
 
+export const DEFAULT_COMPUTED_OUTBOX_WRITER_CONCURRENCY = 2;
+export const MAX_COMPUTED_OUTBOX_WRITER_CONCURRENCY = 8;
+export const MAX_CONFIGURED_OUTBOX_WRITER_CONCURRENCY = 32;
+
+export const resolveComputedOutboxWriterConcurrency = (
+  env: Record<string, string | undefined> = process.env,
+  poolMax?: number
+): number => {
+  const normalizedPoolMax =
+    typeof poolMax === 'number' && Number.isFinite(poolMax) && poolMax > 0
+      ? Math.trunc(poolMax)
+      : undefined;
+  const configured = Number(env.V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_WRITER);
+  if (Number.isInteger(configured) && configured > 0) {
+    const capped = Math.min(MAX_CONFIGURED_OUTBOX_WRITER_CONCURRENCY, configured);
+    if (normalizedPoolMax !== undefined) {
+      return Math.min(capped, Math.max(1, normalizedPoolMax - 1));
+    }
+    return capped;
+  }
+  if (normalizedPoolMax !== undefined) {
+    if (normalizedPoolMax <= 3) {
+      return 1;
+    }
+    return Math.max(
+      DEFAULT_COMPUTED_OUTBOX_WRITER_CONCURRENCY,
+      Math.min(MAX_COMPUTED_OUTBOX_WRITER_CONCURRENCY, Math.floor(normalizedPoolMax / 2))
+    );
+  }
+  return DEFAULT_COMPUTED_OUTBOX_WRITER_CONCURRENCY;
+};
+
 export const computedOutboxTriggerConfig = registerAs('computedOutboxTrigger', () => {
   return {
     producerEnabled: readComputedOutboxBoolean(

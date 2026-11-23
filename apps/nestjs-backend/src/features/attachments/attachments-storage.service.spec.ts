@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { HttpErrorCode } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import sharp from 'sharp';
 import { vi } from 'vitest';
@@ -91,5 +92,53 @@ describe('AttachmentsStorageService.uploadTableImageThumbnailsFromBuffer', () =>
       width: 16383,
     });
     expect((await sharp(byPath['table/x_sm.webp']).metadata()).height).toBe(56);
+  });
+});
+
+describe('AttachmentsStorageService.getPreviewUrlByPath', () => {
+  const createService = () => {
+    const cacheService = { get: vi.fn().mockResolvedValue(undefined), set: vi.fn() };
+    const storageAdapter = {
+      getPreviewUrl: vi.fn().mockResolvedValue('https://storage.example/signed'),
+    };
+    const service = new AttachmentsStorageService(
+      cacheService as unknown as CacheService,
+      {} as PrismaService,
+      { emit: vi.fn() } as unknown as EventEmitterService,
+      { urlExpireIn: '1h' } as IStorageConfig,
+      storageAdapter as unknown as StorageAdapter
+    );
+    return { service, cacheService, storageAdapter };
+  };
+
+  it('signs a table attachment path', async () => {
+    const { service, storageAdapter } = createService();
+
+    await expect(service.getPreviewUrlByPath('private', 'table/tok123', 'tok123')).resolves.toBe(
+      'https://storage.example/signed'
+    );
+    expect(storageAdapter.getPreviewUrl).toHaveBeenCalledWith(
+      'private',
+      'table/tok123',
+      3600,
+      undefined
+    );
+  });
+
+  it.each([
+    'record-history/v1/tblVictim/_stats.json',
+    'record-removal/v1/tblVictim/delete/_stats.json',
+    'audit-log/2026/part.ndjson.zst',
+    'workflow-run/2026/part.ndjson.zst',
+    'artifact/art1/index.html',
+    'table/../record-history/v1/tblVictim/_stats.json',
+  ])('refuses to sign %s, without consulting the cache or the provider', async (path) => {
+    const { service, cacheService, storageAdapter } = createService();
+
+    await expect(service.getPreviewUrlByPath('private', path, 'tok123')).rejects.toMatchObject({
+      code: HttpErrorCode.VALIDATION_ERROR,
+    });
+    expect(cacheService.get).not.toHaveBeenCalled();
+    expect(storageAdapter.getPreviewUrl).not.toHaveBeenCalled();
   });
 });

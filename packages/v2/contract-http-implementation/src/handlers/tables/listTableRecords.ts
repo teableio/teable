@@ -1,10 +1,12 @@
+import type { IHandlerResolver } from '@teable/v2-contract-http';
+import { prepareRecordRead } from './prepareRecordRead';
 import type { IListTableRecordsEndpointResult } from '@teable/v2-contract-http';
 import {
   mapDomainErrorToHttpError,
   mapDomainErrorToHttpStatus,
   mapListTableRecordsResultToDto,
 } from '@teable/v2-contract-http';
-import { ListTableRecordsQuery } from '@teable/v2-core';
+import { ListTableRecordsQuery, RecordQueryOperationKind } from '@teable/v2-core';
 import type {
   IExecutionContext,
   IQueryBus,
@@ -16,6 +18,7 @@ import type {
 } from '@teable/v2-core';
 
 export interface IListTableRecordsEndpointOptions {
+  readonly container?: IHandlerResolver;
   readonly queryScope?: RecordQueryPluginScope;
   /** @deprecated Prefer queryScope */
   readonly recordReadQuerySource?: IRecordReadQuerySource;
@@ -29,7 +32,23 @@ export const executeListTableRecordsEndpoint = async (
   queryBus: IQueryBus,
   options?: IListTableRecordsEndpointOptions
 ): Promise<IListTableRecordsEndpointResult> => {
-  const queryResult = ListTableRecordsQuery.create(rawInput, options);
+  const parsedQuery = ListTableRecordsQuery.create(rawInput, options);
+  if (parsedQuery.isErr()) {
+    return { status: mapDomainErrorToHttpStatus(parsedQuery.error), body: { ok: false, error: mapDomainErrorToHttpError(parsedQuery.error) } };
+  }
+  let effectiveOptions = options;
+  if (options?.container) {
+    const query = parsedQuery.value;
+    const prepared = await prepareRecordRead(context, query.tableId.toString(), options.container, {
+      kind: RecordQueryOperationKind.list,
+      payload: { viewId: query.viewId, ignoreViewQuery: query.ignoreViewQuery, projectionFieldIds: query.projection, limit: query.pagination.limit().toNumber(), offset: query.pagination.offset().toNumber(), keepPrimaryKey: Boolean(query.filterLinkCellSelected) },
+    });
+    if (prepared.isErr()) {
+      return { status: mapDomainErrorToHttpStatus(prepared.error), body: { ok: false, error: mapDomainErrorToHttpError(prepared.error) } };
+    }
+    effectiveOptions = { ...options, ...prepared.value };
+  }
+  const queryResult = ListTableRecordsQuery.create(rawInput, effectiveOptions);
   if (queryResult.isErr()) {
     const error = queryResult.error;
     return {

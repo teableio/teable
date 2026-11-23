@@ -1,5 +1,6 @@
-import { ORPCError, implement } from '@orpc/server';
+import type { InferContractRouterInputs, InferContractRouterOutputs } from '@orpc/contract';
 import type { Router } from '@orpc/server';
+import { ORPCError, implement } from '@orpc/server';
 import type {
   IComplexityService,
   IExplainService,
@@ -17,17 +18,14 @@ import { v2Contract } from '@teable/v2-contract-http';
 import {
   ActorId,
   isTableProvisionPendingError,
+  v2CoreTokens,
   type ICommandBus,
   type IComputedActivityReader,
   type IDomainErrorLocalization,
   type IExecutionContext,
   type IQueryBus,
-  v2CoreTokens,
 } from '@teable/v2-core';
 
-import { executeCreateBaseEndpoint } from './handlers/bases/createBase';
-import { executeDuplicateBaseEndpoint } from './handlers/bases/duplicateBase';
-import { executeListBasesEndpoint } from './handlers/bases/listBases';
 import { executeComplexityAssessEndpoint } from './handlers/complexity/assess';
 import { executeComplexityAssessMatrixEndpoint } from './handlers/complexity/assessMatrix';
 import {
@@ -52,17 +50,19 @@ import {
   executeExplainCreateFieldEndpoint,
   executeExplainCreateRecordEndpoint,
   executeExplainDeleteFieldEndpoint,
-  executeExplainDeleteTableEndpoint,
   executeExplainDeleteRecordsEndpoint,
+  executeExplainDeleteTableEndpoint,
   executeExplainUpdateFieldEndpoint,
   executeExplainUpdateRecordEndpoint,
 } from './handlers/tables/explainCommand';
 import { executeGetComputeActivityEndpoint } from './handlers/tables/getComputeActivity';
 import { executeGetRecordByIdEndpoint } from './handlers/tables/getRecordById';
+import { executeGetSchemaEndpoint } from './handlers/tables/getSchema';
 import { executeGetTableByIdEndpoint } from './handlers/tables/getTableById';
 import { executeGetViewEndpoint } from './handlers/tables/getView';
 import { executeImportCsvEndpoint } from './handlers/tables/importCsv';
 import { executeImportRecordsEndpoint } from './handlers/tables/importRecords';
+import { executeListFieldsEndpoint } from './handlers/tables/listFields';
 import { executeListTableRecordsEndpoint } from './handlers/tables/listTableRecords';
 import { executeListTablesEndpoint } from './handlers/tables/listTables';
 import { executeListViewsEndpoint } from './handlers/tables/listViews';
@@ -75,8 +75,10 @@ import { executeUpdateFieldEndpoint } from './handlers/tables/updateField';
 import { executeUpdateRecordEndpoint } from './handlers/tables/updateRecord';
 import { executeUpdateRecordsEndpoint } from './handlers/tables/updateRecords';
 import { executeUpdateTablePropertiesEndpoint } from './handlers/tables/updateTableProperties';
+import { executeUpsertRecordsEndpoint } from './handlers/tables/upsertRecords';
 import {
   executeApplyViewManualSortEndpoint,
+  executeApplyViewSnapshotEndpoint,
   executeDeleteViewEndpoint,
   executeDisableViewShareEndpoint,
   executeDuplicateViewEndpoint,
@@ -99,13 +101,47 @@ import {
   executeUpdateViewShareMetaEndpoint,
   executeUpdateViewSortEndpoint,
 } from './handlers/tables/viewOperations';
+import { createV2ShareRouter, type IShareHostBindings } from './shareRouter';
+import { createV2WorkflowRouter, type IV2WorkflowHostBindings } from './workflowRouter';
 
 export interface IV2OrpcRouterOptions {
   createContainer?: () => IHandlerResolver | Promise<IHandlerResolver>;
   createExecutionContext?: () => IExecutionContext | Promise<IExecutionContext>;
+  shareHost?: IShareHostBindings;
+  workflowHost?: IV2WorkflowHostBindings;
+  prepareListRecords?: (
+    input: InferContractRouterInputs<V2Contract>['tables']['listRecords']
+  ) => Promise<InferContractRouterInputs<V2Contract>['tables']['listRecords']>;
+  basesHost?: {
+    create(
+      input: InferContractRouterInputs<V2Contract>['bases']['create']
+    ): Promise<InferContractRouterOutputs<V2Contract>['bases']['create']>;
+    list(
+      input: InferContractRouterInputs<V2Contract>['bases']['list']
+    ): Promise<InferContractRouterOutputs<V2Contract>['bases']['list']>;
+    duplicate(
+      input: InferContractRouterInputs<V2Contract>['bases']['duplicate']
+    ): Promise<InferContractRouterOutputs<V2Contract>['bases']['duplicate']>;
+  };
 }
 
 export type V2OrpcRouter = Router<V2Contract, Record<never, never>>;
+
+const rethrowIdentityError = (error: unknown): never => {
+  if (error instanceof ORPCError) throw error;
+  const status =
+    error &&
+    typeof error === 'object' &&
+    'getStatus' in error &&
+    typeof error.getStatus === 'function'
+      ? error.getStatus()
+      : undefined;
+  if (status === 401 || status === 403)
+    throw new ORPCError(status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', {
+      message: error instanceof Error ? error.message : 'Trusted identity is unavailable',
+    });
+  throw error;
+};
 
 export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRouter => {
   let defaultContainerPromise: Promise<IHandlerResolver> | undefined;
@@ -119,18 +155,22 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
       if (!defaultContainerPromise) defaultContainerPromise = createDefaultContainer();
       return defaultContainerPromise;
     });
-  const createExecutionContext =
-    options.createExecutionContext ??
-    (() => {
-      const actorIdResult = ActorId.create('system');
-      if (actorIdResult.isErr()) {
-        throw new Error(actorIdResult.error.message);
-      }
-      return { actorId: actorIdResult.value };
-    });
+  const createExecutionContext = async (): Promise<IExecutionContext> => {
+    if (!options.createExecutionContext)
+      throw new ORPCError('UNAUTHORIZED', { message: 'A trusted execution context is required' });
+    let context: IExecutionContext;
+    try {
+      context = await options.createExecutionContext();
+    } catch (error) {
+      return rethrowIdentityError(error);
+    }
+    const actor = context?.actorId;
+    if (!actor || typeof actor.toString !== 'function' || ActorId.create(actor.toString()).isErr())
+      throw new ORPCError('UNAUTHORIZED', { message: 'A valid trusted actor is required' });
+    return context;
+  };
 
   const containerErrorMessage = 'Failed to create container';
-  const executionContextErrorMessage = 'Failed to resolve execution context';
 
   const handleContainerError = (error: unknown): never => {
     let detail: string;
@@ -145,6 +185,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   };
 
   const resolveContainer = async (): Promise<IHandlerResolver> => {
+    if (!options.createExecutionContext)
+      throw new ORPCError('UNAUTHORIZED', { message: 'A trusted execution context is required' });
     try {
       return await Promise.resolve(createContainer());
     } catch (error) {
@@ -160,6 +202,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
     orpcCode:
       | 'BAD_REQUEST'
       | 'UNAUTHORIZED'
+      | 'PAYMENT_REQUIRED'
       | 'FORBIDDEN'
       | 'NOT_FOUND'
       | 'CONFLICT'
@@ -175,18 +218,22 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
       localization?: IDomainErrorLocalization;
     }
   ): never => {
-    throw new ORPCError(
-      isTableProvisionPendingError(errorBody) ? 'SERVICE_UNAVAILABLE' : orpcCode,
-      {
-        message: errorBody.message,
-        data: {
-          domainCode: errorBody.code,
-          domainTags: errorBody.tags,
-          details: errorBody.details,
-          localization: errorBody.localization,
-        },
-      }
-    );
+    let code = orpcCode;
+    if (isTableProvisionPendingError(errorBody)) code = 'SERVICE_UNAVAILABLE';
+    else if (errorBody.code === 'usage.max_rows_exceeded') code = 'PAYMENT_REQUIRED';
+    else if (errorBody.tags.includes('unauthorized')) code = 'UNAUTHORIZED';
+    else if (errorBody.tags.includes('forbidden')) code = 'FORBIDDEN';
+    else if (errorBody.tags.includes('not-found')) code = 'NOT_FOUND';
+    throw new ORPCError(code, {
+      status: code === 'PAYMENT_REQUIRED' ? 402 : undefined,
+      message: errorBody.message,
+      data: {
+        domainCode: errorBody.code,
+        domainTags: errorBody.tags,
+        details: errorBody.details,
+        localization: errorBody.localization,
+      },
+    });
   };
 
   const throwMappedDomainError = (
@@ -195,6 +242,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   ): never => {
     if (status === 400) return throwDomainError('BAD_REQUEST', errorBody);
     if (status === 401) return throwDomainError('UNAUTHORIZED', errorBody);
+    if (status === 402) return throwDomainError('PAYMENT_REQUIRED', errorBody);
     if (status === 403) return throwDomainError('FORBIDDEN', errorBody);
     if (status === 404) return throwDomainError('NOT_FOUND', errorBody);
     if (status === 409) return throwDomainError('CONFLICT', errorBody);
@@ -205,6 +253,33 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   };
 
   const os = implement<V2Contract>(v2Contract);
+
+  const tablesGetSchema = os.tables.getSchema.handler(async ({ input }) => {
+    const container = await resolveContainer();
+    const result = await executeGetSchemaEndpoint(await createExecutionContext(), input, container);
+    if (result.status === 200) return result.body;
+    return throwMappedDomainError(result.status, result.body.error);
+  });
+  const tablesListFields = os.tables.listFields.handler(async ({ input }) => {
+    const container = await resolveContainer();
+    const result = await executeListFieldsEndpoint(
+      await createExecutionContext(),
+      input,
+      container.resolve<IQueryBus>(v2CoreTokens.queryBus)
+    );
+    if (result.status === 200) return result.body;
+    return throwMappedDomainError(result.status, result.body.error);
+  });
+  const tablesUpsertRecords = os.tables.upsertRecords.handler(async ({ input }) => {
+    const container = await resolveContainer();
+    const result = await executeUpsertRecordsEndpoint(
+      await createExecutionContext(),
+      input,
+      container.resolve<ICommandBus>(v2CoreTokens.commandBus)
+    );
+    if (result.status === 200) return result.body;
+    return throwMappedDomainError(result.status, result.body.error);
+  });
 
   type ViewRouteResult<TBody> =
     | { status: 200; body: TBody }
@@ -229,14 +304,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
     ) => Promise<ViewRouteResult<TBody>>
   ): Promise<TBody> => {
     const container = await resolveContainer();
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     return unwrapViewRouteResult(await execute(executionContext, input, commandBus));
   };
@@ -250,98 +318,36 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
     ) => Promise<ViewRouteResult<TBody>>
   ): Promise<TBody> => {
     const container = await resolveContainer();
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     return unwrapViewRouteResult(await execute(executionContext, input, queryBus));
   };
 
   const basesCreate = os.bases.create.handler(async ({ input }) => {
-    const container = await resolveContainer();
-
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
-
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const result = await executeCreateBaseEndpoint(executionContext, input, commandBus);
-
-    if (result.status === 201) return result.body;
-
-    if (result.status === 400) {
-      return throwDomainError('BAD_REQUEST', result.body.error);
-    }
-
-    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    await createExecutionContext();
+    if (!options.basesHost)
+      throw new ORPCError('SERVICE_UNAVAILABLE', { message: 'Host base provisioning is required' });
+    return options.basesHost.create(input);
   });
 
   const basesList = os.bases.list.handler(async ({ input }) => {
-    const container = await resolveContainer();
-
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
-
-    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    const result = await executeListBasesEndpoint(executionContext, input, queryBus);
-
-    if (result.status === 200) return result.body;
-
-    if (result.status === 400) {
-      return throwDomainError('BAD_REQUEST', result.body.error);
-    }
-
-    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    await createExecutionContext();
+    if (!options.basesHost)
+      throw new ORPCError('SERVICE_UNAVAILABLE', { message: 'Host base discovery is required' });
+    return options.basesHost.list(input);
   });
 
   const basesDuplicate = os.bases.duplicate.handler(async ({ input }) => {
-    const container = await resolveContainer();
-
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
-
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const result = await executeDuplicateBaseEndpoint(executionContext, input, commandBus);
-    if (result.status === 201) return result.body;
-    if (result.status === 400) return throwDomainError('BAD_REQUEST', result.body.error);
-    if (result.status === 403) return throwDomainError('FORBIDDEN', result.body.error);
-    if (result.status === 404) return throwDomainError('NOT_FOUND', result.body.error);
-    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    await createExecutionContext();
+    if (!options.basesHost)
+      throw new ORPCError('SERVICE_UNAVAILABLE', { message: 'Host base duplication is required' });
+    return options.basesHost.duplicate(input);
   });
 
   const tablesCreate = os.tables.create.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateTableEndpoint(executionContext, input, commandBus);
@@ -358,14 +364,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesCreateTables = os.tables.createTables.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateTablesEndpoint(executionContext, input, commandBus);
@@ -382,14 +381,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesCreateField = os.tables.createField.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateFieldEndpoint(executionContext, input, commandBus);
@@ -410,14 +402,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesCreateView = os.tables.createView.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateViewEndpoint(executionContext, input, commandBus);
@@ -438,14 +423,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesDuplicateTable = os.tables.duplicateTable.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeDuplicateTableEndpoint(executionContext, input, commandBus);
@@ -466,14 +444,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesUpdateField = os.tables.updateField.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeUpdateFieldEndpoint(executionContext, input, commandBus);
@@ -494,14 +465,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesCreateRecord = os.tables.createRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateRecordEndpoint(executionContext, input, commandBus);
@@ -525,14 +489,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesSubmitRecord = os.tables.submitRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeSubmitRecordEndpoint(executionContext, input, commandBus);
@@ -556,14 +513,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesCreateRecords = os.tables.createRecords.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateRecordsEndpoint(executionContext, input, commandBus);
@@ -587,14 +537,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesUpdateRecord = os.tables.updateRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeUpdateRecordEndpoint(executionContext, input, commandBus);
@@ -618,14 +561,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesUpdateRecords = os.tables.updateRecords.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeUpdateRecordsEndpoint(executionContext, input, commandBus);
@@ -649,14 +585,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesReorderRecords = os.tables.reorderRecords.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeReorderRecordsEndpoint(executionContext, input, commandBus);
@@ -677,14 +606,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesDuplicateRecord = os.tables.duplicateRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeDuplicateRecordEndpoint(executionContext, input, commandBus);
@@ -705,14 +627,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesDuplicateField = os.tables.duplicateField.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeDuplicateFieldEndpoint(executionContext, input, commandBus);
@@ -733,14 +648,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesPaste = os.tables.paste.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executePasteEndpoint(executionContext, input, commandBus);
@@ -764,14 +672,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesClear = os.tables.clear.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeClearEndpoint(executionContext, input, commandBus);
@@ -792,14 +693,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesDeleteByRange = os.tables.deleteByRange.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeDeleteByRangeEndpoint(executionContext, input, commandBus);
@@ -820,14 +714,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesDeleteRecords = os.tables.deleteRecords.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeDeleteRecordsEndpoint(executionContext, input, commandBus);
@@ -848,14 +735,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesDeleteField = os.tables.deleteField.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeDeleteFieldEndpoint(executionContext, input, commandBus);
@@ -880,14 +760,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesGetById = os.tables.getById.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     let activityReader: IComputedActivityReader | undefined;
@@ -921,14 +794,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesGetComputeActivity = os.tables.getComputeActivity.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const result = await executeGetComputeActivityEndpoint(executionContext, input, queryBus);
@@ -949,17 +815,12 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesGetRecord = os.tables.getRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    const result = await executeGetRecordByIdEndpoint(executionContext, input, queryBus);
+    const result = await executeGetRecordByIdEndpoint(executionContext, input, queryBus, {
+      container,
+    });
 
     if (result.status === 200) return result.body;
 
@@ -977,14 +838,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesGetView = os.tables.getView.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const result = await executeGetViewEndpoint(executionContext, input, queryBus);
@@ -1005,14 +859,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesDelete = os.tables.delete.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeDeleteTableEndpoint(executionContext, input, commandBus);
@@ -1025,14 +872,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesRestore = os.tables.restore.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeRestoreTableEndpoint(executionContext, input, commandBus);
@@ -1053,14 +893,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesList = os.tables.list.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const result = await executeListTablesEndpoint(executionContext, input, queryBus);
@@ -1077,14 +910,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesListViews = os.tables.listViews.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const result = await executeListViewsEndpoint(executionContext, input, queryBus);
@@ -1105,17 +931,18 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesListRecords = os.tables.listRecords.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    const result = await executeListTableRecordsEndpoint(executionContext, input, queryBus);
+    const preparedInput = options.prepareListRecords
+      ? await options.prepareListRecords(input)
+      : input;
+    const result = await executeListTableRecordsEndpoint(
+      executionContext,
+      preparedInput,
+      queryBus,
+      { container }
+    );
 
     if (result.status === 200) return result.body;
 
@@ -1138,14 +965,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesRename = os.tables.rename.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeRenameTableEndpoint(executionContext, input, commandBus);
@@ -1166,14 +986,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesUpdateProperties = os.tables.updateProperties.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeUpdateTablePropertiesEndpoint(executionContext, input, commandBus);
@@ -1188,14 +1001,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesImportCsv = os.tables.importCsv.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeImportCsvEndpoint(executionContext, input, commandBus);
@@ -1222,14 +1028,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesImportRecords = os.tables.importRecords.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeImportRecordsEndpoint(executionContext, input, commandBus);
@@ -1256,14 +1055,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesExplainCreateRecord = os.tables.explainCreateRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const explainService = container.resolve<IExplainService>(
       v2CommandExplainTokens.explainService
@@ -1290,14 +1082,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesExplainCreateField = os.tables.explainCreateField.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const explainService = container.resolve<IExplainService>(
       v2CommandExplainTokens.explainService
@@ -1320,14 +1105,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesExplainUpdateField = os.tables.explainUpdateField.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const explainService = container.resolve<IExplainService>(
       v2CommandExplainTokens.explainService
@@ -1350,14 +1128,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesExplainDeleteField = os.tables.explainDeleteField.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const explainService = container.resolve<IExplainService>(
       v2CommandExplainTokens.explainService
@@ -1380,14 +1151,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesExplainDeleteTable = os.tables.explainDeleteTable.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const explainService = container.resolve<IExplainService>(
       v2CommandExplainTokens.explainService
@@ -1410,14 +1174,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesExplainUpdateRecord = os.tables.explainUpdateRecord.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const explainService = container.resolve<IExplainService>(
       v2CommandExplainTokens.explainService
@@ -1444,14 +1201,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesExplainDeleteRecords = os.tables.explainDeleteRecords.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const explainService = container.resolve<IExplainService>(
       v2CommandExplainTokens.explainService
@@ -1481,14 +1231,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
    */
   const operationPreview = os.operations.preview.handler(async ({ input }) => {
     const container = await resolveContainer();
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const previewService = container.resolve<IOperationPreviewService>(
       v2CommandExplainTokens.operationPreviewService
@@ -1516,14 +1259,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const complexityAssess = os.complexity.assess.handler(async ({ input }) => {
     const container = await resolveContainer();
 
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const complexityService = container.resolve<IComplexityService>(
       v2CommandExplainTokens.complexityService
@@ -1553,14 +1289,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
 
   const complexityAssessMatrix = os.complexity.assessMatrix.handler(async ({ input }) => {
     const container = await resolveContainer();
-    let executionContext: IExecutionContext;
-    try {
-      executionContext = await createExecutionContext();
-    } catch {
-      throw new ORPCError('INTERNAL_SERVER_ERROR', {
-        message: executionContextErrorMessage,
-      });
-    }
+    const executionContext = await createExecutionContext();
 
     const complexityService = container.resolve<IComplexityService>(
       v2CommandExplainTokens.complexityService
@@ -1642,6 +1371,9 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   const tablesGetViewSnapshots = os.tables.getViewSnapshots.handler(({ input }) =>
     runViewQueryRoute(input, executeGetViewSnapshotsEndpoint)
   );
+  const tablesApplyViewSnapshot = os.tables.applyViewSnapshot.handler(({ input }) =>
+    runViewCommandRoute(input, executeApplyViewSnapshotEndpoint)
+  );
   const tablesListViewDocIds = os.tables.listViewDocIds.handler(({ input }) =>
     runViewQueryRoute(input, executeListViewDocIdsEndpoint)
   );
@@ -1656,6 +1388,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
   );
 
   return os.router({
+    share: createV2ShareRouter(options.shareHost),
+    workflows: createV2WorkflowRouter(options.workflowHost, async () => {
+      await createExecutionContext();
+    }),
     operations: {
       preview: operationPreview,
       capabilities: operationPreviewCapabilities,
@@ -1682,6 +1418,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
       submitRecord: tablesSubmitRecord,
       createRecords: tablesCreateRecords,
       updateRecord: tablesUpdateRecord,
+      upsertRecords: tablesUpsertRecords,
       updateRecords: tablesUpdateRecords,
       reorderRecords: tablesReorderRecords,
       duplicateField: tablesDuplicateField,
@@ -1695,6 +1432,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
       explainDeleteTable: tablesExplainDeleteTable,
       delete: tablesDelete,
       restore: tablesRestore,
+      getSchema: tablesGetSchema,
+      listFields: tablesListFields,
       getById: tablesGetById,
       getComputeActivity: tablesGetComputeActivity,
       getRecord: tablesGetRecord,
@@ -1722,6 +1461,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
       disableViewShare: tablesDisableViewShare,
       getViewFilterLinkRecords: tablesGetViewFilterLinkRecords,
       getViewSnapshots: tablesGetViewSnapshots,
+      applyViewSnapshot: tablesApplyViewSnapshot,
       listViewDocIds: tablesListViewDocIds,
       installViewPlugin: tablesInstallViewPlugin,
       getViewPluginInstall: tablesGetViewPluginInstall,

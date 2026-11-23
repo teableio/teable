@@ -25,9 +25,14 @@ export interface IV2DomainErrorLike {
  * instead of this adapter frame.
  */
 export function throwV2Error(error: IV2DomainErrorLike, status: number): never {
+  const httpStatus = isTableProvisionPendingError(error)
+    ? 503
+    : error.code === 'usage.max_rows_exceeded'
+      ? 402
+      : status;
   const exception = new CustomHttpException(
     error.message,
-    getDefaultCodeByStatus(isTableProvisionPendingError(error) ? 503 : status),
+    getDefaultCodeByStatus(httpStatus),
     {
       domainCode: error.code,
       domainTags: error.tags,

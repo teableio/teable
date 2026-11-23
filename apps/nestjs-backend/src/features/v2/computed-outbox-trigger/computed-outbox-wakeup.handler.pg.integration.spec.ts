@@ -1,6 +1,6 @@
 import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-pg';
 import {
-  createComputedOutboxWakeup,
+  type createComputedOutboxWakeup,
   v2RecordRepositoryPostgresTokens,
   type IComputedUpdateOutbox,
 } from '@teable/v2-adapter-table-repository-postgres';
@@ -50,12 +50,24 @@ const waitForSleepingStatement = async (
 it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
   'cancels and rolls back the real worker transaction when handler admission renewal loses ownership',
   async () => {
+    type Wakeup = ReturnType<typeof createComputedOutboxWakeup>;
+    const deliveries: Wakeup[] = [];
+    const capture = async (wakeup: Wakeup) => {
+      deliveries.push(wakeup);
+      return { status: 'accepted' as const };
+    };
+    const wire = (event: Wakeup) => ({
+      ...event,
+      availableAt: event.availableAt.toISOString(),
+      emittedAt: event.emittedAt.toISOString(),
+    });
     const runtime = await createV2NodeTestContainer({
       connectionString: process.env.TEABLE_V2_TEST_DATABASE_URL,
       computedUpdate: {
+        wakeupPublisher: { publish: capture },
         hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
         outboxConfig: {
-          stageMaxSteps: 10,
+          stageMaxSteps: 1,
           stageSmallRunComplexityThreshold: 0,
           taskStatementTimeoutMs: 0,
           continuationRelayClaimEnabled: false,
@@ -70,6 +82,7 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
       name: `fld${getRandomString(16)}`,
       value: `fld${getRandomString(16)}`,
       formula: `fld${getRandomString(16)}`,
+      downstream: `fld${getRandomString(16)}`,
     };
     const unitOfWork = runtime.container.resolve<IUnitOfWork>(v2CoreTokens.unitOfWork);
     const originalWithTransaction = unitOfWork.withTransaction;
@@ -91,6 +104,12 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
                 name: 'Formula',
                 options: { expression: `{${ids.value}} + 1` },
               },
+              {
+                id: ids.downstream,
+                type: 'formula',
+                name: 'Downstream',
+                options: { expression: `{${ids.formula}} + 1` },
+              },
             ],
             views: [{ type: 'grid' }],
           })._unsafeUnwrap()
@@ -108,6 +127,7 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
         )
       )._unsafeUnwrap().records[0];
       await runtime.processOutbox();
+      deliveries.length = 0;
 
       (
         await bus.execute<UpdateRecordsCommand, UpdateRecordsResult>(
@@ -154,8 +174,15 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
           options
         );
 
-      const evalRedis = vi.fn(async (script: string) => {
-        if (script.includes("redis.call('ZSCORE', key, owner)")) return 0;
+      let loseLease = true;
+      const evalRedis = vi.fn(async (script: string, _keyCount: number, key: string) => {
+        if (
+          loseLease &&
+          key.includes(runtime.baseId.toString()) &&
+          script.includes("redis.call('ZSCORE', key, owner)")
+        ) {
+          return 0;
+        }
         return 1;
       });
       const metrics = {
@@ -171,25 +198,24 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
         metrics as never
       );
       const publisher = {
-        publish: vi.fn().mockResolvedValue({ status: 'accepted' }),
+        publish: vi.fn(capture),
         runAsConsumer: <T>(operation: () => Promise<T>) => operation(),
         onDeliveryRecovered: vi.fn(() => vi.fn()),
       };
       const handler = new ComputedOutboxWakeupHandler(
-        { getContainerForBase: vi.fn().mockResolvedValue(runtime.container) } as never,
+        {
+          getContainerForBase: vi.fn().mockResolvedValue(runtime.container),
+          getComputedWriter: () => ({ key: 'integration', hasWaiters: () => false }),
+        } as never,
         metrics as never,
         publisher as never,
         admission
       );
-      const wakeup = createComputedOutboxWakeup({
-        wakeupId: `cuw${getRandomString(17)}`,
-        taskId,
-        baseId: runtime.baseId.toString(),
-        availableAt: new Date(),
-        cause: 'created',
-      });
+      const wakeup = deliveries.shift();
+      expect(wakeup?.taskId).toBe(taskId);
+      if (!wakeup) throw new Error('Expected mutation to publish a locator');
 
-      const handled = handler.handle(wakeup);
+      const handled = handler.handle(wire(wakeup));
       await waitForSleepingStatement(marker, runtime.db);
       await expect(handled).rejects.toBeInstanceOf(ComputedOutboxBaseAdmissionLeaseLostError);
 
@@ -231,7 +257,7 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
         .dbTableName()
         .andThen((name) => name.value())
         ._unsafeUnwrap();
-      const formulaColumn = new Map(
+      const columns = new Map(
         table.getFields().map((field) => [
           field.id().toString(),
           field
@@ -239,17 +265,30 @@ it.runIf(process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1')(
             .andThen((name) => name.value())
             ._unsafeUnwrap(),
         ])
-      ).get(ids.formula)!;
+      );
+      const formulaColumn = columns.get(ids.formula)!;
       const afterCancellation = await sql<Record<string, unknown>>`
         select * from ${sql.table(dbTableName)}
         where __id = ${record.id().toString()}`.execute(runtime.db);
       expect(afterCancellation.rows[0]?.[formulaColumn]).toBe(101);
 
-      await runtime.processOutbox();
+      // A failed broker delivery is redelivered. Every successor must publish
+      // its own locator and re-enter admission to settle the dependent formula.
+      loseLease = false;
+      deliveries.unshift(wakeup);
+      const processed = new Set<string>();
+      for (let i = 0; i < 32 && deliveries.length; i++) {
+        const delivery = deliveries.shift()!;
+        const outcome = await handler.handle(wire(delivery));
+        if (outcome.status === 'processed') processed.add(delivery.taskId);
+      }
+      expect(deliveries).toHaveLength(0);
+      expect(processed.size).toBeGreaterThan(1);
       const recovered = await sql<Record<string, unknown>>`
         select * from ${sql.table(dbTableName)}
         where __id = ${record.id().toString()}`.execute(runtime.db);
       expect(recovered.rows[0]?.[formulaColumn]).toBe(201);
+      expect(recovered.rows[0]?.[columns.get(ids.downstream)!]).toBe(202);
       expect(
         await runtime.db
           .selectFrom('computed_update_outbox')

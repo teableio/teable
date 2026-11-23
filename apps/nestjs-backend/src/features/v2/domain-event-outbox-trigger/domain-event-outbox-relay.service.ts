@@ -65,6 +65,7 @@ export class DomainEventOutboxRelayService implements OnModuleInit, OnModuleDest
     }
     this.polling = true;
     try {
+      await this.pollMetadata();
       const targets = await this.dataDbClientManager.listComputedOutboxMaintenanceTargets();
       for (const target of targets) {
         await this.pollTarget(target);
@@ -75,6 +76,26 @@ export class DomainEventOutboxRelayService implements OnModuleInit, OnModuleDest
       });
     } finally {
       this.polling = false;
+    }
+  }
+
+  private async pollMetadata(): Promise<void> {
+    try {
+      // Metadata writes survive independently of the base's data DB/cache route.
+      const container = await this.v2ContainerService.getContainer();
+      const worker = container.resolve<DomainEventOutboxWorker>(
+        v2RecordRepositoryPostgresTokens.metadataDomainEventOutboxWorker
+      );
+      const result = await worker.pollOnce();
+      if (result.isErr()) {
+        this.logger.warn('domain_event:metadata_relay_poll_failed', {
+          errorCode: result.error.code,
+        });
+      }
+    } catch (error) {
+      this.logger.warn('domain_event:metadata_relay_failed', {
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
     }
   }
 
@@ -109,6 +130,7 @@ export class DomainEventOutboxRelayService implements OnModuleInit, OnModuleDest
     }
     this.maintaining = true;
     try {
+      await this.maintainMetadata();
       const targets = await this.dataDbClientManager.listComputedOutboxMaintenanceTargets();
       for (const target of targets) {
         await this.maintainTarget(target);
@@ -119,6 +141,27 @@ export class DomainEventOutboxRelayService implements OnModuleInit, OnModuleDest
       });
     } finally {
       this.maintaining = false;
+    }
+  }
+
+  private async maintainMetadata(): Promise<void> {
+    try {
+      const admitted = await this.cache.setnx('lock:domain-event:maintenance:pace:meta', '1', 60);
+      if (!admitted) return;
+      const container = await this.v2ContainerService.getContainer();
+      const worker = container.resolve<DomainEventOutboxWorker>(
+        v2RecordRepositoryPostgresTokens.metadataDomainEventOutboxWorker
+      );
+      const result = await worker.maintainOnce();
+      if (result.isErr()) {
+        this.logger.warn('domain_event:metadata_maintenance_failed', {
+          errorCode: result.error.code,
+        });
+      }
+    } catch (error) {
+      this.logger.warn('domain_event:metadata_maintenance_failed', {
+        errorType: error instanceof Error ? error.name : 'UnknownError',
+      });
     }
   }
 

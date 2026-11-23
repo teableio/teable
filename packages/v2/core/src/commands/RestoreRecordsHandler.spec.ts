@@ -9,8 +9,11 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
+import { isRecordsBatchUpdatedEvent } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
+import type { RecordId } from '../domain/table/records/RecordId';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -23,7 +26,11 @@ import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/Executi
 import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import { type IFindOptions } from '../ports/RepositoryQuery';
-import type { InsertOptions } from '../ports/TableRecordRepository';
+import type {
+  InsertOptions,
+  RestoredSelfReferentialLinkRecord,
+  RestoreSelfReferentialLinksOptions,
+} from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { createRecordWritePluginRunner } from './recordWritePluginRunnerTestUtils';
@@ -120,6 +127,7 @@ class CapturingTableRecordRepository extends NoopTableRecordRepository {
     >
   > = [];
   cleanupTrashRecordIds: string[][] = [];
+  insertOptions: Array<InsertOptions | undefined> = [];
   insertedRecords: TableRecord[] = [];
   transactionKinds: Array<IExecutionContext['transaction']> = [];
   existingIds = new Set<string>();
@@ -133,6 +141,7 @@ class CapturingTableRecordRepository extends NoopTableRecordRepository {
     this.batchSizes.push(records.length);
     this.restoreMaps.push(new Map(options?.restoreRecordsById ?? []));
     this.cleanupTrashRecordIds.push([...(options?.cleanupTrashRecordIds ?? [])]);
+    this.insertOptions.push(options);
     this.insertedRecords.push(...records);
     this.transactionKinds.push(context.transaction);
     return ok({});
@@ -440,5 +449,300 @@ describe('RestoreRecordsHandler', () => {
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('restore.denied');
     expect(recordRepository.insertedRecords).toHaveLength(0);
+  });
+
+  it('restores self-referential links atomically in a single batch and reconciles pruned events', async () => {
+    const baseId = BaseId.create(`bse${'l'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap();
+    const titleFieldId = FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap();
+    const selfLinkFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('SelfLink Restore')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(titleFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(selfLinkFieldId)
+      .withName(FieldName.create('Parent')._unsafeUnwrap())
+      .withConfig(
+        LinkFieldConfig.create({
+          relationship: 'manyOne',
+          foreignTableId: tableId.toString(),
+          lookupFieldId: titleFieldId.toString(),
+        })._unsafeUnwrap()
+      )
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const parentId = `rec${'p'.repeat(14)}01`;
+    const childLiveId = `rec${'c'.repeat(14)}01`;
+    const childPurgedId = `rec${'c'.repeat(14)}02`;
+    const missingParentId = `rec${'m'.repeat(14)}99`;
+
+    const computedFieldId = `fld${'c'.repeat(16)}`;
+    class SelfLinkCapturingRepository extends CapturingTableRecordRepository {
+      selfLinkCalls: Array<{
+        transaction: IExecutionContext['transaction'];
+        records: ReadonlyArray<{
+          readonly recordId: RecordId;
+          readonly fields: Readonly<Record<string, unknown>>;
+        }>;
+        options?: RestoreSelfReferentialLinksOptions;
+      }> = [];
+
+      async restoreSelfReferentialLinks(
+        context: IExecutionContext,
+        _table: Table,
+        records: ReadonlyArray<{
+          readonly recordId: RecordId;
+          readonly fields: Readonly<Record<string, unknown>>;
+        }>,
+        options?: RestoreSelfReferentialLinksOptions
+      ): Promise<Result<ReadonlyArray<RestoredSelfReferentialLinkRecord>, DomainError>> {
+        this.selfLinkCalls.push({ transaction: context.transaction, records, options });
+        const applied: RestoredSelfReferentialLinkRecord[] = [];
+        for (const entry of records) {
+          const val = entry.fields[selfLinkFieldId.toString()] as { id: string } | undefined;
+          if (val?.id === parentId) {
+            applied.push({
+              recordId: entry.recordId.toString(),
+              oldVersion: 1,
+              newVersion: 1,
+              changes: [{ fieldId: selfLinkFieldId.toString(), oldValue: null, newValue: val }],
+              computedChanges: new Map([[computedFieldId, 'Parent-computed']]),
+            });
+          }
+        }
+        return ok(applied);
+      }
+    }
+
+    const recordRepository = new SelfLinkCapturingRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const handler = new RestoreRecordsHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      createRecordWritePluginRunner()
+    );
+
+    const command = RestoreRecordsCommand.create({
+      tableId: tableId.toString(),
+      records: [
+        { recordId: parentId, fields: { [titleFieldId.toString()]: 'Parent' } },
+        {
+          recordId: childLiveId,
+          fields: {
+            [titleFieldId.toString()]: 'Child Live',
+            [selfLinkFieldId.toString()]: { id: parentId, title: 'Parent' },
+          },
+        },
+        {
+          recordId: childPurgedId,
+          fields: {
+            [titleFieldId.toString()]: 'Child Purged',
+            [selfLinkFieldId.toString()]: { id: missingParentId, title: 'Gone' },
+          },
+        },
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result._unsafeUnwrap().restoredCount).toBe(3);
+    expect(unitOfWork.transactions).toHaveLength(1);
+    expect(recordRepository.insertOptions[0]?.skipComputedUpdates).toBe(true);
+    expect(recordRepository.cleanupTrashRecordIds).toEqual([
+      [parentId, childLiveId, childPurgedId],
+    ]);
+    expect(recordRepository.selfLinkCalls).toHaveLength(1);
+    expect(recordRepository.selfLinkCalls[0]?.transaction?.kind).toBe('unitOfWorkTransaction');
+    expect(recordRepository.selfLinkCalls[0]?.options?.atomicInsertRecords).toHaveLength(3);
+    // Phase 1 insertMany stripped all self-link fields before INSERT.
+    for (const inserted of recordRepository.insertedRecords) {
+      expect(inserted.fields().get(selfLinkFieldId)).toBeUndefined();
+    }
+    expect(eventBus.events.some(isRecordsBatchUpdatedEvent)).toBe(false);
+    const createdEvent = eventBus.events.find(isRecordsBatchCreatedEvent)!;
+    const liveEventRecord = createdEvent.records.find((r) => r.recordId === childLiveId)!;
+    const purgedEventRecord = createdEvent.records.find((r) => r.recordId === childPurgedId)!;
+    expect(liveEventRecord.fields.find((f) => f.fieldId === selfLinkFieldId.toString())).toEqual({
+      fieldId: selfLinkFieldId.toString(),
+      value: { id: parentId, title: 'Parent' },
+    });
+    expect(liveEventRecord.fields.find((f) => f.fieldId === computedFieldId)).toEqual({
+      fieldId: computedFieldId,
+      value: 'Parent-computed',
+    });
+    expect(
+      purgedEventRecord.fields.find((f) => f.fieldId === selfLinkFieldId.toString())
+    ).toBeUndefined();
+  });
+
+  it('defers trash cleanup for self-linked records across multi-batch restore and recovers on retry', async () => {
+    const baseId = BaseId.create(`bse${'m'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'m'.repeat(16)}`)._unsafeUnwrap();
+    const titleFieldId = FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap();
+    const selfLinkFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('MultiBatch SelfLink')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(titleFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(selfLinkFieldId)
+      .withName(FieldName.create('Parent')._unsafeUnwrap())
+      .withConfig(
+        LinkFieldConfig.create({
+          relationship: 'manyOne',
+          foreignTableId: tableId.toString(),
+          lookupFieldId: titleFieldId.toString(),
+        })._unsafeUnwrap()
+      )
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const parentId = `rec${'p'.repeat(14)}00`;
+    const childId = `rec${'c'.repeat(14)}99`;
+    const total = 501;
+    const records = Array.from({ length: total }, (_, index) => {
+      if (index === 0) {
+        return { recordId: parentId, fields: { [titleFieldId.toString()]: 'Root' } };
+      }
+      if (index === total - 1) {
+        return {
+          recordId: childId,
+          fields: {
+            [titleFieldId.toString()]: 'Leaf',
+            [selfLinkFieldId.toString()]: { id: parentId, title: 'Root' },
+          },
+        };
+      }
+      return {
+        recordId: `rec${index.toString().padStart(14, '0')}mn`,
+        fields: { [titleFieldId.toString()]: `Row ${index}` },
+      };
+    });
+
+    class RetryableMultiBatchRepository extends CapturingTableRecordRepository {
+      failPhase2Once = true;
+      trashedIds = new Set(records.map((r) => r.recordId));
+      phase2CleanupIds: string[] = [];
+
+      async listTrashedRecordIds(
+        _context: IExecutionContext,
+        _table: Table,
+        recordIds: ReadonlyArray<string>
+      ) {
+        return ok(new Set(recordIds.filter((id) => this.trashedIds.has(id))));
+      }
+
+      override async insertMany(
+        context: IExecutionContext,
+        t: Table,
+        batchRecords: ReadonlyArray<TableRecord>,
+        options?: InsertOptions
+      ) {
+        for (const record of batchRecords) {
+          this.existingIds.add(record.id().toString());
+        }
+        for (const cleanedId of options?.cleanupTrashRecordIds ?? []) {
+          this.trashedIds.delete(cleanedId);
+        }
+        return super.insertMany(context, t, batchRecords, options);
+      }
+
+      async restoreSelfReferentialLinks(
+        _context: IExecutionContext,
+        _table: Table,
+        linkRecords: ReadonlyArray<{
+          readonly recordId: RecordId;
+          readonly fields: Readonly<Record<string, unknown>>;
+        }>,
+        options?: RestoreSelfReferentialLinksOptions
+      ): Promise<Result<ReadonlyArray<RestoredSelfReferentialLinkRecord>, DomainError>> {
+        if (this.failPhase2Once) {
+          this.failPhase2Once = false;
+          return err(domainError.unexpected({ message: 'phase 2 transient error' }));
+        }
+        for (const id of options?.cleanupTrashRecordIds ?? []) {
+          this.phase2CleanupIds.push(id);
+          this.trashedIds.delete(id);
+        }
+        return ok(
+          linkRecords.map((entry) => ({
+            recordId: entry.recordId.toString(),
+            oldVersion: 1,
+            newVersion: 2,
+            changes: [
+              {
+                fieldId: selfLinkFieldId.toString(),
+                oldValue: null,
+                newValue: entry.fields[selfLinkFieldId.toString()],
+              },
+            ],
+          }))
+        );
+      }
+    }
+
+    const recordRepository = new RetryableMultiBatchRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const handler = new RestoreRecordsHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+      createRecordWritePluginRunner()
+    );
+    const replayContext: IExecutionContext = {
+      ...createContext(),
+      undoRedo: { mode: 'undo', operationId: 'op-retry-self-link' },
+    };
+
+    const command = RestoreRecordsCommand.create(
+      { tableId: tableId.toString(), records },
+      { requireTrashRowReason: 'deleted' }
+    )._unsafeUnwrap();
+
+    const firstAttempt = await handler.handle(replayContext, command);
+    expect(firstAttempt.isErr()).toBe(true);
+    // Child record keeps its trash row when Phase 2 fails so retry preserves its self-link.
+    expect(recordRepository.cleanupTrashRecordIds[1]).toEqual([]);
+    expect(recordRepository.trashedIds.has(childId)).toBe(true);
+
+    const retryAttempt = await handler.handle(replayContext, command);
+    const retryPayload = retryAttempt._unsafeUnwrap();
+    expect(retryPayload.restoredCount).toBe(0);
+    expect(recordRepository.phase2CleanupIds).toEqual([childId]);
+    expect(recordRepository.trashedIds.size).toBe(0);
+    const updatedEvent = retryPayload.events.find(isRecordsBatchUpdatedEvent);
+    expect(updatedEvent?.source).toBe('computed');
+    expect(updatedEvent?.updates).toHaveLength(1);
+    expect(updatedEvent?.updates[0]?.recordId).toBe(childId);
+    expect(updatedEvent?.updates[0]?.oldVersion).toBe(1);
+    expect(updatedEvent?.updates[0]?.newVersion).toBe(2);
   });
 });

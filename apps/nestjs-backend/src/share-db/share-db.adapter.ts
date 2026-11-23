@@ -5,6 +5,7 @@ import {
   Optional,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import type {
   ICustomHttpExceptionData,
   IFieldVo,
@@ -13,7 +14,8 @@ import type {
   IRecord,
   ISnapshotBase,
 } from '@teable/core';
-import { getRandomString, IdPrefix, RecordOpBuilder } from '@teable/core';
+import { FieldType, getRandomString, IdPrefix, RecordOpBuilder } from '@teable/core';
+import { PrismaService, type Field as StoredField } from '@teable/db-main-prisma';
 import type { ITableVo } from '@teable/openapi';
 import { isTableProvisionPendingError, TABLE_PROVISION_PENDING_CODE } from '@teable/v2-core';
 // Cancellation classification only; this import does not make HTTP requests.
@@ -25,13 +27,15 @@ import { I18nService } from 'nestjs-i18n';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
-import { FieldService } from '../features/field/field.service';
-import { TableService } from '../features/table/table.service';
+import { TableSnapshotReadService } from '../features/table/table-snapshot-read.service';
 import type { IClsStore } from '../types/cls';
 import type { I18nTranslations } from '../types/i18n.generated';
 import { exceptionParse } from '../utils/exception-parse';
+import { INTERNAL_SHAREDB_CONNECTION } from './auth.middleware';
 import {
   RawOpType,
+  SHAREDB_NATIVE_FIELD_SNAPSHOT_READER,
+  type IShareDbNativeFieldSnapshotReader,
   type ICreateOp,
   type IEditOp,
   type IShareDbReadonlyAdapterService,
@@ -48,6 +52,40 @@ export interface ICollectionSnapshot {
   v: number;
   data: IRecord;
 }
+
+// Trusted in-process ShareDB submits need field metadata before any request actor
+// exists. Keep this bounded to the exact requested table and field ids.
+const serializeInternalFieldSnapshot = (field: StoredField): ISnapshotBase<IFieldVo> => {
+  let options = field.options && JSON.parse(field.options as string);
+  if (field.isLookup && options == null) options = {};
+  if (field.type === FieldType.Link && options?.isOneWay === true) delete options.symmetricFieldId;
+  return {
+    id: field.id,
+    v: field.version,
+    type: 'json0',
+    data: {
+      id: field.id,
+      dbFieldName: field.dbFieldName,
+      name: field.name,
+      type: field.type as IFieldVo['type'],
+      description: field.description || undefined,
+      options,
+      aiConfig: field.aiConfig ? JSON.parse(field.aiConfig as string) : undefined,
+      notNull: field.notNull || undefined,
+      unique: field.unique ?? false,
+      isComputed: field.isComputed || undefined,
+      isPrimary: field.isPrimary || undefined,
+      isPending: field.isPending || undefined,
+      isLookup: field.isLookup || undefined,
+      isConditionalLookup: field.isConditionalLookup || undefined,
+      hasError: field.hasError || undefined,
+      lookupOptions: field.lookupOptions ? JSON.parse(field.lookupOptions as string) : undefined,
+      cellValueType: field.cellValueType as IFieldVo['cellValueType'],
+      isMultipleCellValue: field.isMultipleCellValue ?? undefined,
+      dbFieldType: field.dbFieldType as IFieldVo['dbFieldType'],
+    } as IFieldVo,
+  };
+};
 
 type IProjection = { [fieldNameOrId: string]: boolean };
 
@@ -107,9 +145,10 @@ export class ShareDbAdapter extends ShareDb.DB {
     private readonly recordService: RecordReadonlyServiceAdapter,
     private readonly fieldService: FieldReadonlyServiceAdapter,
     private readonly viewService: ViewReadonlyServiceAdapter,
-    private readonly tableServiceInner: TableService,
-    @Optional() private readonly fieldServiceInner?: FieldService,
-    @Optional() private readonly i18n?: I18nService<I18nTranslations>
+    private readonly tableServiceInner: TableSnapshotReadService,
+    @Optional() private readonly i18n?: I18nService<I18nTranslations>,
+    @Optional() private readonly prismaService?: PrismaService,
+    @Optional() private readonly moduleRef?: ModuleRef
   ) {
     super();
     this.closed = false;
@@ -390,13 +429,32 @@ export class ShareDbAdapter extends ShareDb.DB {
       try {
         authHeaders = this.getAuthHeaders(options);
       } catch {
-        // For internal (server-side) connections without auth, resolve field docs directly
-        if (docType === IdPrefix.Field && this.fieldServiceInner) {
-          const snapshotData = await this.fieldServiceInner.getSnapshotBulk(collectionId, ids);
-          callback(null, this.snapshots2MapWithMissing(ids, snapshotData));
-          return;
+        if (
+          docType !== IdPrefix.Field ||
+          options?.agentCustom?.[INTERNAL_SHAREDB_CONNECTION] !== true
+        ) {
+          throw new UnauthorizedException('Unauthorized request not authorized');
         }
-        throw new UnauthorizedException('Unauthorized request not authorized');
+        let snapshotData: ISnapshotBase<IFieldVo>[];
+        if (this.cls.get('user.id')) {
+          if (!this.moduleRef) throw new UnauthorizedException('Internal field reader unavailable');
+          const fieldReader = this.moduleRef.get<IShareDbNativeFieldSnapshotReader>(
+            SHAREDB_NATIVE_FIELD_SNAPSHOT_READER,
+            { strict: false }
+          );
+          snapshotData = await fieldReader.getSnapshotBulk(collectionId, ids);
+        } else {
+          if (!this.prismaService)
+            throw new UnauthorizedException('Internal field metadata reader unavailable');
+          const fields = await this.prismaService.txClient().field.findMany({
+            where: { tableId: collectionId, id: { in: ids } },
+          });
+          snapshotData = fields
+            .map(serializeInternalFieldSnapshot)
+            .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        }
+        callback(null, this.snapshots2MapWithMissing(ids, snapshotData));
+        return;
       }
       const snapshotData = await this.cls.runWith(
         {

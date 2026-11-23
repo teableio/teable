@@ -195,6 +195,26 @@ describe('SchemaOperationRunnerService', () => {
     );
   });
 
+  it('keeps a lock-blocked operation runnable even on its final attempt', async () => {
+    const repository = new FakeSchemaOperationRepository(
+      operation({ attempts: 7, maxAttempts: 8 })
+    );
+    const failure = domainError.infrastructure({
+      code: 'schema_operation.lock_unavailable',
+      message: 'busy',
+    });
+    const runner = new SchemaOperationRunnerService(repository, [
+      { type: 'table.create', run: async () => err(failure) },
+    ]);
+    const now = new Date('2026-04-28T01:00:00.000Z');
+    const result = (await runner.runNext(context(), { now }))._unsafeUnwrap();
+    expect(result).toMatchObject({
+      status: 'failed',
+      terminal: false,
+      operation: { status: 'pending', nextRunAt: new Date('2026-04-28T01:01:00.000Z') },
+    });
+  });
+
   it.each([
     {
       code: 'view.version_conflict',

@@ -6,13 +6,18 @@ import { FieldCreatingService } from './field-creating.service';
 
 describe('FieldCreatingService', () => {
   let service: FieldCreatingService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, FieldOpenApiModule],
     }).compile();
 
     service = module.get<FieldCreatingService>(FieldCreatingService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

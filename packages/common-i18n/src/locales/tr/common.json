@@ -1967,6 +1967,11 @@
     "sandboxUnavailableNotConfigured": "Bu örnekte yapay zeka aracısının çalışma ortamı yapılandırılmamış. Lütfen yöneticinizle iletişime geçin.",
     "agentStartFailed": "Yapay zekâ motoru başlatılamadı. Lütfen tekrar deneyin veya yeni bir oturum başlatın.",
     "agentSessionLost": "Bir sorun oluştu. Lütfen mesajınızı tekrar gönderin.",
+    "sandboxDestroyed": "Cuppy'nin çalışma ortamı kapatıldı, yanıt durdu",
+    "sandboxOutOfMemory": "Cuppy işin ortasında durdu",
+    "sandboxOutOfMemoryDescription": "Bu adım, Cuppy'nin kullanabileceğinden daha fazla kaynak gerektirdi. Sizin yaptığınız bir şeyden kaynaklanmıyor. Devam'ı seçin; Cuppy önce nerede kaldığını kontrol edip devam etsin.",
+    "sandboxOutOfMemoryAction": "Devam",
+    "sandboxOutOfMemoryPrompt": "Son yanıtın, kullanılabilir olandan daha fazla bellek kullandığı için durdu. Devam etmeden önce ilerlemeni kontrol et ve birden fazla görevi aynı anda çalıştırmamaya çalış.",
     "idleTimeout": "Komut yürütmesi zaman sınırını ({{seconds}} sn) aştı. Lütfen tekrar deneyin.",
     "danglingToolUse": "Önceki oturum kesildi ve otomatik olarak onarıldı. Lütfen mesajınızı yeniden gönderin.",
     "versionSaveFailed": "Sürüm kaydedilemedi",
@@ -2233,7 +2238,9 @@
     "menuItem": "Teable uygulamasında aç"
   },
   "appDelete": {
-    "offlineWarning": "Bu uygulama yayında. Silmek onu hemen çevrimdışı yapar: herkese açık bağlantısı çalışmaz, özel alan adı serbest bırakılır ve giriş ayarları silinir. Geri yükledikten sonra yeniden yayınlayın."
+    "offlineWarning": "Bu uygulama yayında. Silmek onu hemen çevrimdışı yapar: herkese açık bağlantısı çalışmaz, özel alan adı serbest bırakılır ve giriş ayarları silinir. Geri yükledikten sonra yeniden yayınlayın.",
+    "closeAndDelete": "Sanal alanı kapat ve sil",
+    "closingAndDeleting": "Sanal alan kapatılıyor ve siliniyor…"
   },
   "folderDelete": {
     "title": "\"{{name}}\" klasörünü silmek istediğinizden emin misiniz?",
@@ -2267,6 +2274,10 @@
       "customDomain": "Özel alan adı {{domain}} serbest bırakılır",
       "loginConfig": "Giriş ayarları silinir",
       "afterRestore": "Geri yükledikten sonra yeniden yayınlayın, alan adını yeniden bağlayın ve girişi yeniden ayarlayın."
+    },
+    "appGenerating": {
+      "tip": "Oluşturuluyor; silmeden önce sanal alan kapatılacak",
+      "detail": "Bu uygulama oluşturuluyor. Silmeden önce sanal alanı kapatılacak ve devam eden oluşturma işlemi kesilecek."
     }
   }
 }

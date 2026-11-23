@@ -34,6 +34,14 @@ import {
 } from './SqlExpression';
 import { mapTimeZoneToPg } from './TimeZonePgMapping';
 
+export interface CoercedSwitchResults {
+  results: SqlExpr[];
+  defaultResult?: SqlExpr;
+  type: SqlValueType;
+  isArray: boolean;
+  storageKind?: SqlStorageKind;
+}
+
 type DateAddUnit =
   | 'millisecond'
   | 'year'
@@ -198,6 +206,37 @@ export class FormulaSqlPgExpressionBuilder {
     this.budget = bindings?.budget ?? new FormulaCompileBudget();
   }
 
+  protected guardTextAllocation(
+    maxBytes: number,
+    valueSql: string,
+    bytesSql: string,
+    fromSql: string
+  ): string {
+    // Keep the size and error arguments row-dependent. An unselected CASE branch
+    // must never fail during planning, even when all of its inputs are constants.
+    // PostgreSQL reports 54000 before allocating the sentinel REPEAT result.
+    return this.budget.sql`(SELECT CASE WHEN _text_size.bytes > ${maxBytes}
+      THEN REPEAT('xx', CASE WHEN _text_size.bytes IS NOT NULL THEN 2147483647 ELSE 0 END)
+      ELSE ${valueSql}
+    END FROM ${fromSql}
+    CROSS JOIN LATERAL (SELECT ${bytesSql} AS bytes OFFSET 0) AS _text_size)`;
+  }
+
+  protected budgetedConcat(parts: readonly string[], maxBytes: number): string {
+    const columns = parts.map((part, index) => this.budget.sql`(${part})::text AS p${index}`);
+    const values = parts.map((_, index) => this.budget.sql`_concat.p${index}`);
+    const sizes = values.map((value) => this.budget.sql`COALESCE(OCTET_LENGTH(${value}), 0)::bigint`);
+    const args = this.budget.join(values, ', ');
+    // PostgreSQL accepts at most 100 ordinary function arguments.
+    const concatArgs = values.length > 100 ? this.budget.sql`VARIADIC ARRAY[${args}]` : args;
+    return this.guardTextAllocation(
+      maxBytes,
+      this.budget.sql`CONCAT(${concatArgs})`,
+      this.budget.join(sizes, ' + '),
+      this.budget.sql`(SELECT ${this.budget.join(columns, ', ')} OFFSET 0) AS _concat`
+    );
+  }
+
   private internScalarExtract(expr: SqlExpr, buildExtractSql: () => string): string {
     // Field extracts are correlated with the input row. Element-local extracts
     // inside an aggregate must remain in that aggregate's scope.
@@ -292,7 +331,7 @@ export class FormulaSqlPgExpressionBuilder {
       case 'AND':
         return this.handleLogicalOp('AND', left, right);
       case '&':
-        return this.handleStringConcat(left, right);
+        return this.applyStringConcat([left, right]);
       default:
         return makeExpr(
           'NULL',
@@ -319,7 +358,7 @@ export class FormulaSqlPgExpressionBuilder {
       return this.handleNumericOp('+', leftScalar, rightScalar, 'add');
     }
 
-    return this.handleStringConcat(leftScalar, rightScalar);
+    return this.applyStringConcat([leftScalar, rightScalar]);
   }
 
   protected handleMinus(left: SqlExpr, right: SqlExpr): SqlExpr {
@@ -485,24 +524,30 @@ export class FormulaSqlPgExpressionBuilder {
     return makeExpr(valueSql, 'number', false, errorCondition, errorMessage);
   }
 
-  protected handleStringConcat(left: SqlExpr, right: SqlExpr): SqlExpr {
-    const leftText = this.coerceToStringForConcat(left);
-    const rightText = this.coerceToStringForConcat(right);
-    const errorCondition = combineErrorConditions([leftText, rightText], this.budget);
+  public applyStringConcat(operands: readonly SqlExpr[]): SqlExpr {
+    const parts = operands.map((operand) => this.coerceToStringForConcat(operand));
+    const errorCondition = combineErrorConditions(parts, this.budget);
     const errorMessage = buildErrorMessageSql(
-      [leftText, rightText],
+      parts,
       buildErrorLiteral('TYPE', 'cannot_cast_to_text', this.budget),
       this.budget
     );
+    const maxBytes = this.translator.maxIntermediateTextBytes;
     const emptyText = sqlStringLiteral('', this.budget);
-    const leftValue = this.budget.sql`COALESCE(((${leftText.valueSql})::text), ${emptyText})`;
-    const rightValue = this.budget.sql`COALESCE(((${rightText.valueSql})::text), ${emptyText})`;
-    const valueSql = guardValueSql(
-      this.budget.sql`(${leftValue} || ${rightValue})`,
+    const valueSql =
+      maxBytes === undefined
+        ? this.budget.sql`(${this.budget.join(
+            parts.map((part) => this.budget.sql`COALESCE(((${part.valueSql})::text), ${emptyText})`),
+            ' || '
+          )})`
+        : this.budgetedConcat(parts.map((part) => part.valueSql), maxBytes);
+    return makeExpr(
+      guardValueSql(valueSql, errorCondition, this.budget),
+      'string',
+      false,
       errorCondition,
-      this.budget
+      errorMessage
     );
-    return makeExpr(valueSql, 'string', false, errorCondition, errorMessage);
   }
 
   protected coerceToStringForConcat(expr: SqlExpr): SqlExpr {
@@ -2392,18 +2437,9 @@ export class FormulaSqlPgExpressionBuilder {
     return { left: textLeft, right: textRight, type: 'string', isArray: false };
   }
 
-  protected coerceSwitchResults(
-    results: SqlExpr[],
-    defaultResult?: SqlExpr
-  ): {
-    results: SqlExpr[];
-    defaultValueSql?: string;
-    type: SqlValueType;
-    isArray: boolean;
-    storageKind?: SqlStorageKind;
-  } {
+  protected coerceSwitchResults(results: SqlExpr[], defaultResult?: SqlExpr): CoercedSwitchResults {
     if (results.length === 0) {
-      return { results, type: 'string', isArray: false };
+      return { results, defaultResult, type: 'string', isArray: false };
     }
 
     const nonBlankResults = results.filter((result) => !this.isBlankStringLiteral(result));
@@ -2415,10 +2451,12 @@ export class FormulaSqlPgExpressionBuilder {
       defaultResult?.storageKind === 'json';
     if (type === 'string' && !isArray && hasJsonStorage) {
       const casted = results.map((result) => this.coerceToString(result));
-      const defaultValueSql = defaultResult
-        ? this.coerceToString(defaultResult).valueSql
-        : undefined;
-      return { results: casted, type: 'string', isArray: false, defaultValueSql };
+      return {
+        results: casted,
+        type: 'string',
+        isArray: false,
+        defaultResult: defaultResult && this.coerceToString(defaultResult),
+      };
     }
 
     const nonBlankConsistent = nonBlankResults.every(
@@ -2441,7 +2479,7 @@ export class FormulaSqlPgExpressionBuilder {
           : this.normalizeArrayBranch(result);
       return {
         results: results.map(normalize),
-        defaultValueSql: defaultResult ? normalize(defaultResult).valueSql : undefined,
+        defaultResult: defaultResult && normalize(defaultResult),
         type,
         isArray: true,
         storageKind: 'json',
@@ -2455,10 +2493,8 @@ export class FormulaSqlPgExpressionBuilder {
     if (!isArray && hasJsonStorage && nonBlankConsistent && defaultConsistent) {
       const nullifyBlank = (result: SqlExpr): SqlExpr | undefined =>
         this.isBlankStringLiteral(result) ? makeExpr('NULL', type, isArray, undefined) : undefined;
-      const coerceDefault = (coerce: (expr: SqlExpr) => SqlExpr): string | undefined =>
-        defaultResult
-          ? (nullifyBlank(defaultResult)?.valueSql ?? coerce(defaultResult).valueSql)
-          : undefined;
+      const coerceDefault = (coerce: (expr: SqlExpr) => SqlExpr): SqlExpr | undefined =>
+        defaultResult && (nullifyBlank(defaultResult) ?? coerce(defaultResult));
       switch (type) {
         case 'number': {
           const coerced = results.map(
@@ -2468,7 +2504,7 @@ export class FormulaSqlPgExpressionBuilder {
             results: coerced,
             type,
             isArray,
-            defaultValueSql: coerceDefault((expr) => this.coerceToNumber(expr, 'switch')),
+            defaultResult: coerceDefault((expr) => this.coerceToNumber(expr, 'switch')),
           };
         }
         case 'boolean': {
@@ -2479,7 +2515,7 @@ export class FormulaSqlPgExpressionBuilder {
             results: coerced,
             type,
             isArray,
-            defaultValueSql: coerceDefault((expr) => this.coerceToBoolean(expr)),
+            defaultResult: coerceDefault((expr) => this.coerceToBoolean(expr)),
           };
         }
         case 'datetime': {
@@ -2490,7 +2526,7 @@ export class FormulaSqlPgExpressionBuilder {
             results: coerced,
             type,
             isArray,
-            defaultValueSql: coerceDefault((expr) => this.coerceToDatetime(expr)),
+            defaultResult: coerceDefault((expr) => this.coerceToDatetime(expr)),
           };
         }
         default:
@@ -2505,7 +2541,7 @@ export class FormulaSqlPgExpressionBuilder {
       results.every((result) => result.valueType === type && result.isArray === isArray) &&
       defaultConsistent
     ) {
-      return { results, type, isArray, defaultValueSql: defaultResult?.valueSql };
+      return { results, type, isArray, defaultResult };
     }
 
     const shouldNullifyBlank = type !== 'string' && nonBlankConsistent && defaultConsistent;
@@ -2513,14 +2549,18 @@ export class FormulaSqlPgExpressionBuilder {
       const coercedResults = results.map((result) =>
         this.isBlankStringLiteral(result) ? makeExpr('NULL', type, isArray, undefined) : result
       );
-      const defaultValueSql = this.isBlankStringLiteral(defaultResult)
-        ? 'NULL'
-        : defaultResult?.valueSql;
-      return { results: coercedResults, type, isArray, defaultValueSql };
+      const coercedDefault = this.isBlankStringLiteral(defaultResult)
+        ? makeExpr('NULL', type, isArray, undefined)
+        : defaultResult;
+      return { results: coercedResults, type, isArray, defaultResult: coercedDefault };
     }
 
     const casted = results.map((result) => this.coerceToString(result));
-    const defaultValueSql = defaultResult ? this.coerceToString(defaultResult).valueSql : undefined;
-    return { results: casted, type: 'string', isArray: false, defaultValueSql };
+    return {
+      results: casted,
+      type: 'string',
+      isArray: false,
+      defaultResult: defaultResult && this.coerceToString(defaultResult),
+    };
   }
 }

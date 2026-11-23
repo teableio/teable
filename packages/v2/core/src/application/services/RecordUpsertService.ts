@@ -335,10 +335,28 @@ export class RecordUpsertService {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
     return safeTry<IRecordUpsertResult, DomainError>(async function* () {
-      const matchField = yield* validateMatchField(
-        yield* resolveMatchField(input.table, input.matchFieldId)
-      );
+      const matchField = yield* resolveMatchField(input.table, input.matchFieldId);
       const matchFieldId = matchField.id().toString();
+      // Admit the match key before validating its metadata or request values.
+      // Read row scope only redacts results; it does not decide writability.
+      const readExecution = yield* await service.recordQueryPluginRunner.prepare({
+        kind: RecordQueryOperationKind.getByIds,
+        executionContext: context,
+        table: input.table,
+        payload: { recordIds: [] },
+      });
+      yield* await readExecution.guard();
+      const readScope = yield* readExecution.getScope();
+      if (
+        (readScope?.readableFieldIds != null && !readScope.readableFieldIds.has(matchFieldId)) ||
+        readScope?.fieldMasks?.some((mask) => mask.fieldId === matchFieldId)
+      ) {
+        return err(domainError.forbidden({
+          code: 'record.upsert.match_field_not_readable',
+          message: 'The upsert match field must be readable without a conditional mask',
+        }));
+      }
+      yield* validateMatchField(matchField);
       const fieldKeyResolutionContext = FieldKeyResolverService.createResolutionContext(
         input.table,
         input.fieldKeyType
@@ -387,17 +405,6 @@ export class RecordUpsertService {
       });
       yield* await pluginExecution.guard();
       const recordSpec = yield* pluginExecution.getRecordSpec();
-
-      // Read scope is prepared separately from the write scope: it only decides
-      // whether a row id/record may be returned, never whether it is writable.
-      const readExecution = yield* await service.recordQueryPluginRunner.prepare({
-        kind: RecordQueryOperationKind.getByIds,
-        executionContext: context,
-        table: input.table,
-        payload: { recordIds: [] },
-      });
-      yield* await readExecution.guard();
-      const readScope = yield* readExecution.getScope();
 
       const committed = yield* await service.domainWriteTransaction.execute<UpsertCommitted>(
         context,
@@ -494,7 +501,7 @@ export class RecordUpsertService {
     const matched = initialMatch.value;
 
     if (input.onConflict === 'error' && matched.size > 0) {
-      return err(this.conflictError(input, matchField, matched));
+      return err(this.conflictError());
     }
 
     const createIndexes: number[] = [];
@@ -542,27 +549,13 @@ export class RecordUpsertService {
       });
     }
 
-    const appliedUpdates = await this.applyUpdates(
-      context,
-      input,
-      updateTargets,
-      outcomes,
-      events,
-      undoCommands,
-      redoCommands,
-      afterCommitHandlers
-    );
-    if (appliedUpdates.isErr()) {
-      return err(appliedUpdates.error);
-    }
-
     let pendingIndexes = createIndexes;
     let retries = 0;
 
     while (pendingIndexes.length > 0) {
       const pendingValues = pendingIndexes.map((index) => resolvedRows[index]!);
-      const attempt = await this.domainWriteTransaction.savepoint(context, () =>
-        this.createPendingRows(context, input.table.id(), pendingValues, input)
+      const attempt = await this.domainWriteTransaction.savepoint(context, (attemptContext) =>
+        this.createPendingRows(attemptContext, input.table.id(), pendingValues, input)
       );
 
       if (attempt.isOk()) {
@@ -609,7 +602,7 @@ export class RecordUpsertService {
         return err(retryMatch.error);
       }
       if (input.onConflict === 'error' && retryMatch.value.size > 0) {
-        return err(this.conflictError(input, matchField, retryMatch.value));
+        return err(this.conflictError());
       }
 
       const remaining: number[] = [];
@@ -651,22 +644,24 @@ export class RecordUpsertService {
           record: matchedEntity.value,
         });
       }
-
-      const retryUpdates = await this.applyUpdates(
-        context,
-        input,
-        retryTargets,
-        outcomes,
-        events,
-        undoCommands,
-        redoCommands,
-        afterCommitHandlers
-      );
-      if (retryUpdates.isErr()) {
-        return err(retryUpdates.error);
-      }
+      updateTargets.push(...retryTargets);
 
       pendingIndexes = remaining;
+    }
+    // Preserve request order when races convert pending creates into updates.
+    updateTargets.sort((left, right) => left.index - right.index);
+    const appliedUpdates = await this.applyUpdates(
+      context,
+      input,
+      updateTargets,
+      outcomes,
+      events,
+      undoCommands,
+      redoCommands,
+      afterCommitHandlers
+    );
+    if (appliedUpdates.isErr()) {
+      return err(appliedUpdates.error);
     }
 
     const missing = outcomes.findIndex((outcome) => outcome == null);
@@ -756,7 +751,7 @@ export class RecordUpsertService {
     }
 
     events.push(...updateResult.value.events);
-    undoCommands.push(...updateResult.value.undoCommands);
+    undoCommands.unshift(...updateResult.value.undoCommands);
     redoCommands.push(...updateResult.value.redoCommands);
     afterCommitHandlers.push(updateResult.value.afterCommit);
 
@@ -833,19 +828,12 @@ export class RecordUpsertService {
   ): ReadonlyArray<IRecordUpsertRowResult> {
     return applyUpsertReadScope(table, results, scope);
   }
-  private conflictError(
-    input: IRecordUpsertInput,
-    matchField: Field,
-    matched: ReadonlyMap<string, TableRecordReadModel>
-  ): DomainError {
+  private conflictError(): DomainError {
+    // Matching must inspect the unique key outside row read scope. Never expose
+    // conflict counts, identities or values from that unrestricted lookup.
     return domainError.conflict({
       code: 'record.upsert.conflict',
-      message: `Upsert found ${matched.size} existing record(s) for match field "${matchField.name().toString()}" while onConflict is "error"`,
-      details: {
-        tableId: input.table.id().toString(),
-        fieldId: matchField.id().toString(),
-        conflictCount: matched.size,
-      },
+      message: 'Upsert found an existing record while onConflict is "error"',
     });
   }
 }

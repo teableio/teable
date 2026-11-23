@@ -10,6 +10,8 @@ import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
 import { RecordModule } from '../record/record.module';
 import { SelectionModule } from '../selection/selection.module';
 import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
+import { V2ShareController, V2ShareIdentityGuard } from '../v2/share/v2-share.controller';
+import { V2ShareService } from '../v2/share/v2-share.service';
 import { TableQuerySearchVectorRuntimeService } from '../v2/table-query-search-vector-runtime.service';
 import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
@@ -39,12 +41,14 @@ import { SharedViewRecordQueryV2Service } from './shared-view-record-query-v2.se
   ],
   providers: [
     ShareService,
+    V2ShareService,
+    V2ShareIdentityGuard,
     DbProvider,
     ShareSocketService,
     SharedViewRecordQueryV2Service,
     TableQuerySearchVectorRuntimeService,
   ],
-  controllers: [ShareController],
+  controllers: [ShareController, V2ShareController],
   exports: [ShareService, ShareSocketService],
 })
 export class ShareModule {}

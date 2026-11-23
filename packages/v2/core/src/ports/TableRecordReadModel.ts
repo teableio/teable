@@ -1,6 +1,8 @@
 export type TableRecordReadModel = {
   id: string;
   fields: Record<string, unknown>;
+  /** Display name, only present when the primary cell survives response projection. */
+  name?: string;
   /**
    * The record's version number.
    * Used for ShareDB realtime synchronization.
@@ -21,4 +23,8 @@ export type TableRecordReadModel = {
    * Used for undo/redo support to restore record positions.
    */
   orders?: Record<string, number>;
+  /** Optional authority-derived capabilities for the returned field projection. */
+  permissions?: Record<string, Record<string, boolean>>;
+  /** Present only when a policy evaluator supplied a delete decision. */
+  undeletable?: boolean;
 };

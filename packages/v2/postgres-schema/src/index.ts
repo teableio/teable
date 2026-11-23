@@ -18,3 +18,5 @@ export type {
 export { computedReliabilitySchemaSql } from './computedReliabilitySchema';
 
 export { computedReliabilityReadinessSql } from './computedReliabilityReadiness';
+
+export { baseVcsSchemaSql, baseVcsSchemaStatements } from './baseVcsSchema';

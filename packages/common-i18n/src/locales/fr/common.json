@@ -1981,6 +1981,11 @@
     "sandboxUnavailableNotConfigured": "L'environnement d'exécution de l'agent IA n'est pas configuré sur cette instance. Veuillez contacter votre administrateur.",
     "agentStartFailed": "Le moteur IA n’a pas pu démarrer. Réessayez ou démarrez une nouvelle session.",
     "agentSessionLost": "Un problème est survenu. Veuillez renvoyer votre message.",
+    "sandboxDestroyed": "L’environnement de Cuppy a été arrêté, la réponse s’est arrêtée",
+    "sandboxOutOfMemory": "Cuppy s’est arrêté en cours de route",
+    "sandboxOutOfMemoryDescription": "Cette étape a demandé plus de ressources que Cuppy n’en a à disposition. Vous n’y êtes pour rien. Sélectionnez Continuer : Cuppy vérifiera où il en est avant de reprendre.",
+    "sandboxOutOfMemoryAction": "Continuer",
+    "sandboxOutOfMemoryPrompt": "Ta dernière réponse s’est arrêtée parce qu’elle a utilisé plus de mémoire que disponible. Vérifie où tu en es avant de continuer, et évite de lancer plusieurs tâches en même temps.",
     "idleTimeout": "L’exécution de la commande a dépassé la limite de temps ({{seconds}} s). Réessayez.",
     "danglingToolUse": "La session précédente a été interrompue et réparée automatiquement. Renvoyez votre message.",
     "versionSaveFailed": "Échec de l’enregistrement de la version",
@@ -2248,7 +2253,9 @@
     "menuItem": "Ouvrir dans l'application Teable"
   },
   "appDelete": {
-    "offlineWarning": "Cette application est publiée. La supprimer la met hors ligne immédiatement : son lien public cesse de fonctionner, tout domaine personnalisé est libéré et ses paramètres de connexion sont supprimés. Après la restauration, publiez-la à nouveau."
+    "offlineWarning": "Cette application est publiée. La supprimer la met hors ligne immédiatement : son lien public cesse de fonctionner, tout domaine personnalisé est libéré et ses paramètres de connexion sont supprimés. Après la restauration, publiez-la à nouveau.",
+    "closeAndDelete": "Fermer le bac à sable et supprimer",
+    "closingAndDeleting": "Fermeture du bac à sable et suppression…"
   },
   "folderDelete": {
     "title": "Voulez-vous vraiment supprimer le dossier « {{name}} » ?",
@@ -2282,6 +2289,10 @@
       "customDomain": "Le domaine personnalisé {{domain}} est libéré",
       "loginConfig": "Ses paramètres de connexion sont supprimés",
       "afterRestore": "Après la restauration, publiez-la à nouveau, reliez le domaine et reconfigurez la connexion."
+    },
+    "appGenerating": {
+      "tip": "En cours de génération ; son bac à sable sera fermé avant la suppression",
+      "detail": "Cette application est en cours de génération. Son bac à sable sera fermé avant la suppression, ce qui interrompra la génération en cours."
     }
   }
 }

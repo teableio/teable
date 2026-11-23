@@ -1,10 +1,11 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { requireStoredRecordSnapshot } from '../application/services/RecordMutationSnapshotContract';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import type { RecordWritePluginExecution } from '../application/services/RecordWritePluginRunner';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
@@ -17,18 +18,22 @@ import {
 import type { DomainError } from '../domain/shared/DomainError';
 import { domainError, isNotFoundError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldType } from '../domain/table/fields/FieldType';
 import { materializeRecordSpec } from '../domain/table/records/RecordSpecMaterializer';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { RecordQueryOperationKind } from '../ports/RecordQueryPlugin';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { RecordWriteFieldValues } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
+import { applyFieldMasksToRecords } from '../queries/tableRecordFieldMasks';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DuplicateRecordCommand } from './DuplicateRecordCommand';
 
@@ -74,7 +79,9 @@ export class DuplicateRecordHandler implements ICommandHandler<
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.domainWriteTransaction)
-    private readonly domainWriteTransaction: IDomainWriteTransaction
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
+    @inject(v2CoreTokens.recordQueryPluginRunner)
+    private readonly recordQueryPluginRunner: RecordQueryPluginRunner
   ) {}
 
   private filterFieldValuesByCreateScope(
@@ -103,23 +110,49 @@ export class DuplicateRecordHandler implements ICommandHandler<
       // 1. Get the table
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
 
-      // 2. Use the authorized snapshot when provided; otherwise perform the
-      // normal stored read. A snapshot is server-only and must never be a
-      // client-supplied source of values.
+      // 2. Reuse an authorized server snapshot, or authorize the stored source read.
       let sourceFields: ReadonlyMap<string, unknown>;
       if (command.sourceSnapshot) {
         sourceFields = command.sourceSnapshot.fields;
       } else {
-        const sourceRecord = yield* (
-          await handler.tableRecordQueryRepository.findOne(context, table, command.recordId, {
+        const readExecution = yield* await handler.recordQueryPluginRunner.prepare({
+          kind: RecordQueryOperationKind.getOne,
+          executionContext: context,
+          table,
+          payload: { recordId: command.recordId.toString() },
+        });
+        yield* await readExecution.guard();
+        const readScope = yield* readExecution.getScope();
+        const sourceSpec = composeAndSpecsOrUndefined([
+          RecordByIdsSpec.create([command.recordId]),
+          ...(readScope?.recordSpec && !readScope.skipRecordSpec ? [readScope.recordSpec] : []),
+        ]);
+        const sourceResult = yield* (
+          await handler.tableRecordQueryRepository.find(context, table, sourceSpec, {
             mode: 'stored',
+            fieldMasks: readScope?.fieldMasks,
+            includeTotal: false,
           })
         ).mapErr((error: DomainError) =>
           isNotFoundError(error)
             ? domainError.notFound({ code: 'record.not_found', message: 'Record not found' })
             : error
         );
-        sourceFields = new Map(Object.entries(sourceRecord.fields));
+        const sourceRecord = sourceResult.records[0];
+        if (!sourceRecord) {
+          return err(domainError.notFound({ code: 'record.not_found', message: 'Record not found' }));
+        }
+        const [readableSource] = applyFieldMasksToRecords(
+          table,
+          [sourceRecord],
+          readScope?.fieldMasks,
+          readScope?.fieldMasks?.length ? new Set(Object.keys(sourceRecord.fields)) : undefined
+        );
+        sourceFields = new Map(
+          Object.entries(readableSource!.fields).filter(
+            ([fieldId]) => readScope?.readableFieldIds?.has(fieldId) ?? true
+          )
+        );
       }
 
       // 3. Extract non-computed field values from the authorized source

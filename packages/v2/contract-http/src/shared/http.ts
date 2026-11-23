@@ -41,7 +41,10 @@ export interface IEndpointResult<TBody, TStatus extends number = number> {
   body: TBody;
 }
 
-export type HttpErrorStatus = 400 | 401 | 403 | 404 | 409 | 500 | 501 | 503 | 504;
+export type HttpErrorStatus = 400 | 401 | 402 | 403 | 404 | 409 | 500 | 501 | 503 | 504;
+
+/** Admission rejected the request before its write callback started. Safe to retry. */
+export const PUBLIC_ROW_ADMISSION_BUSY_CODE = 'usage.public_row_admission_busy';
 
 /**
  * SQLSTATE 57014 as surfaced by the PostgreSQL record-query adapter
@@ -109,14 +112,23 @@ export const mapDomainErrorToHttpError = (error: DomainError): IHttpErrorDto => 
   return dto;
 };
 
+const VCS_CONFLICT_CODES = new Set([
+  'vcs.cas_conflict',
+  'vcs.non_fast_forward',
+  'vcs.not_enabled',
+  'vcs.enable_quiesce_timeout',
+]);
+
 export const mapDomainErrorToHttpStatus = (error: DomainError): HttpErrorStatus => {
   if (isTableProvisionPendingError(error)) return 503;
+  if (error.code === 'usage.max_rows_exceeded') return 402;
   if (isNotFoundError(error)) return 404;
   if (isUnauthorizedError(error)) return 401;
   if (isForbiddenError(error)) return 403;
   if (isNotImplementedError(error)) return 501;
   if (error.code === COMPUTE_PAUSED_WRITE_BLOCKED_CODE) return 409;
   if (error.code === 'schema_coordination.busy') return 409;
+  if (VCS_CONFLICT_CODES.has(error.code)) return 409;
   if (error.code === DB_STATEMENT_TIMEOUT_CODE) return 504;
   if (IMPORT_SOURCE_INTERRUPTED_CODES.has(error.code)) return 504;
   if (isValidationError(error) || isConflictError(error) || isInvariantError(error)) return 400;

@@ -49,7 +49,23 @@ export const applyViewSnapshot = function (
     );
     const changes = diffColumnMetaChanges(fieldIdByValue, previousMeta.toDto(), nextMeta.toDto());
     const optionsChanged = !jsonEquals(current.options(), snapshotView.options());
-    const shareMetaChanged = !jsonEquals(current.shareMeta(), snapshotView.shareMeta());
+    // Configuration can be undone before sharing is enabled. Without a current
+    // link identity, passwords are retained from current state, never history.
+    let nextShareMeta = snapshotView.shareMeta();
+    const currentPassword = current.shareMeta()?.password;
+    if (
+      current.shareId() === undefined &&
+      (nextShareMeta?.password !== undefined || currentPassword !== undefined)
+    ) {
+      const { password: _password, ...configuration } = nextShareMeta ?? {};
+      nextShareMeta =
+        currentPassword !== undefined
+          ? { ...configuration, password: currentPassword }
+          : Object.keys(configuration).length
+            ? configuration
+            : undefined;
+    }
+    const shareMetaChanged = !jsonEquals(current.shareMeta(), nextShareMeta);
     const queryChanged =
       !previousQuery.equals(nextQuery) ||
       !jsonEquals(previousQuery.sourceFilter(), nextQuery.sourceFilter());
@@ -78,7 +94,7 @@ export const applyViewSnapshot = function (
         mutator.updateViewLocked(snapshotView.id(), snapshotView.isLocked());
       }
       if (shareMetaChanged) {
-        mutator.updateViewShareMeta(snapshotView.id(), snapshotView.shareMeta());
+        mutator.updateViewShareMeta(snapshotView.id(), nextShareMeta);
       }
       if (changes.length > 0 || optionsChanged) {
         mutator.updateViewColumnMeta({

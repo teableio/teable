@@ -10,7 +10,9 @@
  */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -21,6 +23,7 @@ import { getRandomString } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
 import { afterEach, describe, expect, it } from 'vitest';
+
 import {
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
@@ -49,8 +52,12 @@ const createHarness = async (): Promise<Harness> => {
       },
     },
   });
+  const executionContext = await createStandaloneExecutionContext(testContainer);
   const app = express();
-  app.use(createV2ExpressRouter({ createContainer: () => testContainer.container }));
+  app.use(createV2ExpressRouter({
+    createContainer: () => testContainer.container,
+    createExecutionContext: () => executionContext,
+  }));
   const { promise, resolve, reject } = Promise.withResolvers<Server>();
   const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
   listening.once('error', reject);

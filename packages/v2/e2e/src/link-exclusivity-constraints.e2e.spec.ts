@@ -1067,23 +1067,7 @@ describe('[F11][R01] v2 link field exclusivity constraints (e2e)', () => {
     });
 
     it('keeps cross-base oneMany caches consistent after filtered symmetric updates', async () => {
-      const foreignBaseId = `bse${getRandomString(16)}`;
-      const spaceId = `spc${getRandomString(16)}`;
-
-      await ctx.testContainer.db
-        .insertInto('space')
-        .values({ id: spaceId, name: 'Cross-base exclusivity space', created_by: 'system' })
-        .execute();
-      await ctx.testContainer.db
-        .insertInto('base')
-        .values({
-          id: foreignBaseId,
-          space_id: spaceId,
-          name: 'Cross-base exclusivity base',
-          order: 1,
-          created_by: 'system',
-        })
-        .execute();
+      const { id: foreignBaseId } = await ctx.createBase('Cross-base exclusivity base');
 
       const childTitleFieldId = `fld${getRandomString(16)}`;
       const childTable = await ctx.createTable({

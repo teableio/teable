@@ -1125,7 +1125,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         batchTable,
         batchEditableColumns,
         updateOperations.map((operation) => operation.rowData),
-        streamState.resolvedLinkValues
+        streamState.resolvedLinkValues,
+        streamState.linkTitleTableState
       );
       if (resolvedLinkValueMapResult.isErr()) {
         yield err(resolvedLinkValueMapResult.error);
@@ -1311,7 +1312,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         batchTable,
         editableColumns,
         createOperations.map((operation) => operation.rowData),
-        streamState.resolvedLinkValues
+        streamState.resolvedLinkValues,
+        streamState.linkTitleTableState
       );
       if (resolvedLinkValueMapResult.isErr()) {
         throw resolvedLinkValueMapResult.error;
@@ -1664,7 +1666,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     table: Table,
     editableColumns: ReadonlyArray<EditableColumn>,
     rowDataList: ReadonlyArray<ReadonlyArray<unknown>>,
-    existingResolvedValues: ResolvedLinkValueLookupMap
+    existingResolvedValues: ResolvedLinkValueLookupMap,
+    linkTitleTableState?: ReadonlyMap<string, Table>
   ): Promise<Result<IPasteLinkAutoResolveResult, DomainError>> {
     if (!typecast) {
       return ok(this.createEmptyPasteLinkAutoResolveResult());
@@ -1675,6 +1678,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       editableColumns,
       rowDataList,
       existingResolvedValues,
+      linkTitleTableState,
     });
   }
 

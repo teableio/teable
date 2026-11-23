@@ -76,6 +76,10 @@ export const ensureTableDataSafetyViewOperationLimits = (
   context: ViewOperationPluginContext,
   limits: ResolvedTableDataSafetyLimitConfig
 ): Result<void, DomainError> => {
+  if (context.kind === ViewOperationKind.delete) {
+    // Deletion does not introduce view configuration or increase the view count.
+    return ok(undefined);
+  }
   if (context.kind === ViewOperationKind.create || context.kind === ViewOperationKind.duplicate) {
     const addedViewCount = context.payload.addedViewCount ?? 1;
     const viewsPerTableResult = ensureWithinTableDataSafetyLimit(

@@ -1,22 +1,31 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
+import type { IShareDbOpPublisher, ShareDbOp } from '@teable/v2-adapter-realtime-sharedb';
 import {
   ShareDbBackendPublisher,
   ShareDbWebSocketServer,
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
-import type { IShareDbOpPublisher, ShareDbOp } from '@teable/v2-adapter-realtime-sharedb';
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
   createTableOkResponseSchema,
   createViewOkResponseSchema,
   deleteFieldOkResponseSchema,
   getViewOkResponseSchema,
-  updateFieldOkResponseSchema,
   pasteOkResponseSchema,
+  updateFieldOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
+import type {
+  ICommandBus,
+  ICreateTableCommandInput,
+  ILogger,
+  ITableFieldPersistenceDTO,
+  ITablePersistenceDTO,
+} from '@teable/v2-core';
 import {
   ActorId,
   DeleteFieldCommand,
@@ -24,13 +33,6 @@ import {
   NoopLogger,
   UndoCommand,
   v2CoreTokens,
-} from '@teable/v2-core';
-import type {
-  ICommandBus,
-  ICreateTableCommandInput,
-  ILogger,
-  ITableFieldPersistenceDTO,
-  ITablePersistenceDTO,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import express from 'express';
@@ -40,6 +42,7 @@ import { Connection } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 import { createShareDbRealtimeConfig } from './shared/shareDbRealtimeConfig';
 
@@ -335,10 +338,12 @@ describe('[B11] v2 realtime sharedb (e2e)', () => {
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
 
+    const executionContext = await createStandaloneExecutionContext(testContainer);
     const app = express();
     app.use(
       createV2ExpressRouter({
         createContainer: () => testContainer.container,
+        createExecutionContext: () => executionContext,
       })
     );
 

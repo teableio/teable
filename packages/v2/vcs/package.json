@@ -1,0 +1,87 @@
+{
+  "name": "@teable/v2-vcs",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "@teable/source": "./src/index.ts",
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "module": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./client": {
+      "@teable/source": "./src/client/index.ts",
+      "types": "./src/client/index.ts",
+      "import": "./dist/client/index.js",
+      "module": "./dist/client/index.js",
+      "require": "./dist/client/index.cjs"
+    },
+    "./server": {
+      "@teable/source": "./src/server/index.ts",
+      "types": "./src/server/index.ts",
+      "import": "./dist/server/index.js",
+      "module": "./dist/server/index.js",
+      "require": "./dist/server/index.cjs"
+    },
+    "./node": {
+      "@teable/source": "./src/node/index.ts",
+      "types": "./src/node/index.ts",
+      "import": "./dist/node/index.js",
+      "module": "./dist/node/index.js",
+      "require": "./dist/node/index.cjs"
+    },
+    "./engine": {
+      "@teable/source": "./src/engine/index.ts",
+      "types": "./src/engine/index.ts",
+      "import": "./dist/engine/index.js",
+      "module": "./dist/engine/index.js",
+      "require": "./dist/engine/index.cjs"
+    },
+    "./pglite": {
+      "@teable/source": "./src/pglite/index.ts",
+      "types": "./src/pglite/index.ts",
+      "import": "./dist/pglite/index.js",
+      "module": "./dist/pglite/index.js",
+      "require": "./dist/pglite/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsdown --tsconfig tsconfig.build.json",
+    "dev": "tsdown --tsconfig tsconfig.build.json --watch",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo",
+    "lint": "oxlint && oxfmt --check",
+    "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "test": "vitest run --silent",
+    "test-unit": "vitest run --silent",
+    "fix-all-files": "oxlint --fix && oxfmt"
+  },
+  "dependencies": {
+    "@teable/v2-core": "workspace:*",
+    "@teable/v2-di": "workspace:*",
+    "neverthrow": "8.2.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@teable/eslint-config-bases": "workspace:^",
+    "@teable/v2-tsdown-config": "workspace:*",
+    "@types/node": "24.19.2",
+    "@vitest/coverage-v8": "4.1.12",
+    "oxfmt": "0.74.0",
+    "oxlint": "1.89.0",
+    "rimraf": "5.0.5",
+    "tsdown": "0.23.1",
+    "typescript": "catalog:",
+    "vitest": "4.1.12"
+  }
+}

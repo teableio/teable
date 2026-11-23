@@ -1,18 +1,16 @@
 import { Module } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
 import { ORPCModule } from '@orpc/nest';
-import type { Response } from 'express';
+import { PUBLIC_ROW_ADMISSION_BUSY_CODE } from '@teable/v2-contract-http';
 import { LoggerModule } from '../../logger/logger.module';
 import { ShareDbModule } from '../../share-db/share-db.module';
 import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
-import { CalculationModule } from '../calculation/calculation.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldReferenceAdmissionModule } from '../field-reference-admission/field-reference-admission.module';
 import { NotificationModule } from '../notification/notification.module';
-import { RecordModule } from '../record/record.module';
 import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
-import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
-import { ViewModule } from '../view/view.module';
+import { PairConversionRecoveryModule } from '../table-lifecycle/pair-conversion-recovery.module';
+import { V2ViewTrashService } from '../trash/v2-view-trash.service';
 import { ComputedOutboxAnomalyService } from './computed-outbox-trigger/computed-outbox-anomaly.service';
 import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-trigger/computed-outbox-claim-concurrency.service';
 import { ComputedOutboxLineageService } from './computed-outbox-trigger/computed-outbox-lineage.service';
@@ -23,6 +21,7 @@ import { ComputedOutboxWorkerConcurrencyService } from './computed-outbox-trigge
 import { ComputedReliabilityReconciliationService } from './computed-outbox-trigger/computed-reliability-reconciliation.service';
 import { DomainEventWakeupProducerModule } from './domain-event-outbox-trigger/domain-event-wakeup-producer.module';
 import { TableQueryObservationRuntimeModule } from './table-query-observation-runtime.module';
+import { TableQuerySearchVectorRuntimeService } from './table-query-search-vector-runtime.service';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { V2BaseNodeCompatService } from './v2-base-node-compat.service';
 import {
@@ -35,14 +34,18 @@ import { V2DeletionReferenceEvidenceNormalizer } from './v2-deletion-reference-e
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2FieldDeleteCompatService } from './v2-field-delete-compat.service';
 import { V2OpenApiController } from './v2-openapi.controller';
+import { V2PublicProcedureService } from './v2-public-procedure.service';
 import { V2RecordHistoryService } from './v2-record-history.service';
+import { V2RecordQueryPlanService } from './v2-record-query-plan.service';
 import { V2SchemaOperationRunnerService } from './v2-schema-operation-runner.service';
+import { V2TableDeleteSideEffectService } from './v2-table-delete-side-effect.service';
 import { V2TablePropertiesCompatService } from './v2-table-properties-compat.service';
 import { V2UserRenamePropagationService } from './v2-user-rename-propagation.service';
-import { V2ViewCompatService } from './v2-view-compat.service';
 import { V2ViewDeleteSideEffectService } from './v2-view-delete-side-effect.service';
 import { V2ViewShareSideEffectService } from './v2-view-share-side-effect.service';
-import { V2Controller } from './v2.controller';
+import { V2ViewTrashSnapshotService } from './v2-view-trash-snapshot.service';
+import { BaseVcsController } from './vcs/base-vcs.controller';
+import { NestVcsAccessPolicy } from './vcs/nest-vcs-access-policy.service';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -126,46 +129,46 @@ export const toV2HttpError = (
 @Module({
   imports: [
     ORPCModule.forRoot({
+      customErrorResponseBodyEncoder: (error) => ({
+        ok: false,
+        error: toV2HttpError(error.toJSON()),
+      }),
       sendResponseInterceptors: [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async (options: any) => {
-          const { response, standardResponse, next } = options;
-          if (standardResponse.status < 400) return next();
-
-          const expressResponse = response as Response;
-          expressResponse.status(standardResponse.status);
-          for (const [key, value] of Object.entries(standardResponse.headers)) {
-            if (value != null) {
-              expressResponse.setHeader(
-                key,
-                value as unknown as string | number | readonly string[]
-              );
-            }
+        ({ standardResponse, next }) => {
+          const { body, status } = standardResponse;
+          if (
+            status === 503 &&
+            isRecord(body) &&
+            body.ok === false &&
+            isRecord(body.error) &&
+            body.error.code === PUBLIC_ROW_ADMISSION_BUSY_CODE
+          ) {
+            standardResponse.headers['retry-after'] = '1';
           }
-
-          return { ok: false as const, error: toV2HttpError(standardResponse.body) };
+          return next();
         },
       ],
     }),
     LoggerModule.register(),
     AttachmentsStorageModule,
-    CalculationModule,
     ShareDbModule,
     CollaboratorModule,
     NotificationModule,
     FieldReferenceAdmissionModule,
-    RecordModule,
-    ViewModule,
     SpaceDataDbMigrationGuardModule,
+    PairConversionRecoveryModule,
     TableQueryObservationRuntimeModule,
     ComputedOutboxWakeupProducerModule.register(),
     DomainEventWakeupProducerModule,
   ],
-  controllers: [V2Controller, V2OpenApiController],
+  controllers: [V2OpenApiController, BaseVcsController],
   providers: [
     DiscoveryService,
     V2ContainerService,
     V2ExecutionContextFactory,
+    NestVcsAccessPolicy,
+    TableQuerySearchVectorRuntimeService,
+    V2PublicProcedureService,
     V2ActionTriggerService,
     V2BaseNodeCompatService,
     V2CollaboratorNotificationDispatcher,
@@ -175,12 +178,14 @@ export const toV2HttpError = (
     V2DeletePreviewResourceAuthorizationRegistrar,
     V2FieldDeleteCompatService,
     V2RecordHistoryService,
+    V2RecordQueryPlanService,
     V2SchemaOperationRunnerService,
+    V2TableDeleteSideEffectService,
     V2TablePropertiesCompatService,
-    V2ViewCompatService,
+    V2ViewTrashSnapshotService,
+    V2ViewTrashService,
     V2ViewDeleteSideEffectService,
     V2ViewShareSideEffectService,
-    UndoRedoStackService,
     ComputedOutboxRedriveService,
     ComputedReliabilityReconciliationService,
     ComputedOutboxMonitorService,
@@ -193,6 +198,9 @@ export const toV2HttpError = (
     V2ContainerService,
     TableQueryObservationRuntimeModule,
     V2ExecutionContextFactory,
+    V2RecordQueryPlanService,
+    TableQuerySearchVectorRuntimeService,
+    V2PublicProcedureService,
     V2UserRenamePropagationService,
     V2DeletionReferenceEvidenceNormalizer,
     ComputedOutboxWakeupProducerModule,

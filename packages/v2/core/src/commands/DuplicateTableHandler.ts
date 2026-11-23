@@ -115,6 +115,7 @@ export class DuplicateTableHandler implements ICommandHandler<
           baseId: command.baseId,
           tableName: command.name,
           table: duplicated.table,
+          sourceTable,
           includeRecords: command.includeRecords,
         },
         isTransactionBound: false,

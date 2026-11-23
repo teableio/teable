@@ -37,7 +37,9 @@ const acquire = (pool: Pool, scope: CancellationScope): Promise<PoolClient> => {
 const checkout = (
   client: PoolClient,
   scope: CancellationScope | undefined,
-  connectionConstructor: PostgresProtocolConnectionConstructor
+  connectionConstructor: PostgresProtocolConnectionConstructor,
+  statementDeadlineMs?: number,
+  probeConnection?: () => Promise<void>
 ): PostgresPoolClient => {
   const signal = scope?.signal;
   let released = false;
@@ -91,9 +93,47 @@ const checkout = (
         });
     };
     signal?.addEventListener('abort', abort, { once: true });
+    let deadline: NodeJS.Timeout | undefined;
+    let probeTimer: NodeJS.Timeout | undefined;
     try {
-      // Call the real instrumented pg method; Kysely already owns this parameter array.
-      const result = await client.query(text, parameters as unknown[]);
+      // Only a dedicated maintenance pool may use this deadline. Destroying the
+      // socket does not prove the server has stopped or rolled back the statement.
+      const pending = client.query(text, parameters as unknown[]);
+      const timeout =
+        statementDeadlineMs &&
+        new Promise<never>((_, reject) => {
+          const discard = (failure: Error) => {
+            if (!isActive()) return;
+            connectionFailure = failure;
+            released = true;
+            // Keep an error listener until pg closes the socket, including when
+            // the original query never settles after the connection is destroyed.
+            client.once('end', () => client.removeListener('error', onClientError));
+            client.release(true);
+            reject(failure);
+          };
+          deadline = setTimeout(
+            () =>
+              discard(
+                Object.assign(new Error('PostgreSQL maintenance statement deadline exceeded'), {
+                  code: 'TABLE_QUERY_OPS_STATEMENT_TIMEOUT',
+                })
+              ),
+            statementDeadlineMs
+          );
+          if (probeConnection) {
+            const probe = async () => {
+              try {
+                await probeConnection();
+                if (isActive()) probeTimer = setTimeout(probe, 10_000);
+              } catch (error) {
+                discard(error instanceof Error ? error : new Error(String(error)));
+              }
+            };
+            probeTimer = setTimeout(probe, 10_000);
+          }
+        });
+      const result = timeout ? await Promise.race([pending, timeout]) : await pending;
       if (connectionFailure) throw connectionFailure;
       if (scope && signal?.aborted) throw recordPostgresQueryCancellation(scope);
       return result as PostgresQueryResult<R>;
@@ -111,6 +151,8 @@ const checkout = (
       throw connectionFailure ?? error;
     } finally {
       signal?.removeEventListener('abort', abort);
+      clearTimeout(deadline);
+      clearTimeout(probeTimer);
       activeStatement = undefined;
       releaseIfSettled();
     }
@@ -130,7 +172,9 @@ const checkout = (
 export const createCancellablePool = (
   pool: Pool,
   connectionConstructor: PostgresProtocolConnectionConstructor,
-  owned: boolean
+  owned: boolean,
+  statementDeadlineMs?: number,
+  probeConnection?: () => Promise<void>
 ): PostgresPool => ({
   connect: async () => {
     const scope = getPostgresQueryCancellationScope();
@@ -140,7 +184,7 @@ export const createCancellablePool = (
       client.release();
       throw recordPostgresQueryCancellation(scope);
     }
-    return checkout(client, scope, connectionConstructor);
+    return checkout(client, scope, connectionConstructor, statementDeadlineMs, probeConnection);
   },
   end: () => (owned ? pool.end() : Promise.resolve()),
 });

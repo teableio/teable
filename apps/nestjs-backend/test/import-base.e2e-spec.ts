@@ -2859,4 +2859,128 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(importedTable.fields!.length).toBe(streamTable.fields.length);
     });
   });
+  // An archive is caller-controlled, down to the storage path its attachments.csv
+  // gives each attachment. Whatever it says, the imported row and cell name the
+  // object the importer uploaded for that token.
+  describe('import base does not trust attachment paths in the archive', () => {
+    let attachmentSourceBaseId: string | undefined;
+    let attachmentImportedBaseId: string | undefined;
+
+    afterAll(async () => {
+      for (const id of [attachmentImportedBaseId, attachmentSourceBaseId]) {
+        if (id) {
+          await permanentDeleteBase(id);
+        }
+      }
+    });
+
+    it('stores the uploaded object path for a row that points at another object', async () => {
+      const prisma = app.get(PrismaService);
+      const sourceBase = (await createBase({ name: 'attachment_path_source', spaceId })).data;
+      attachmentSourceBaseId = sourceBase.id;
+      const table = await createTable(sourceBase.id, {
+        name: 'AttachmentPath',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [{ fields: { Title: 'Row 1' } }],
+      });
+      const attachmentField = (
+        await createField(table.id, { name: 'Files', type: FieldType.Attachment })
+      ).data;
+      const content = Buffer.from('attachment path fixture');
+      await uploadAttachment(table.id, table.records[0].id, attachmentField.id, content, {
+        filename: 'fixture.txt',
+      });
+      const sourceRecords = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const source = attachmentCellValueSchema.parse(
+        sourceRecords.records[0].fields[attachmentField.id]
+      )[0]!;
+      const sourceRow = await prisma.attachments.findUniqueOrThrow({
+        where: { token: source.token },
+        select: { id: true },
+      });
+
+      // A row for a token this instance has never seen, pointing at a cold archive key.
+      const suffix = Date.now().toString(36);
+      const token = `forged${suffix}`;
+      const coldKey = `record-history/v1/${table.id}/_stats.json`;
+      const forge = (text: string) =>
+        text
+          .replaceAll(source.path, coldKey)
+          .replaceAll(source.token, token)
+          .replaceAll(sourceRow.id, `forgedrow${suffix}`);
+
+      const awaitExport = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+      const { previewUrl } = await awaitExport(async () => {
+        await exportBase(sourceBase.id);
+      });
+      const exported = await fetch(appUrl + previewUrl);
+      const directory = await unzipper.Open.buffer(Buffer.from(await exported.arrayBuffer()));
+      const archive = archiver('zip', { zlib: { level: 0 } });
+      const chunks: Buffer[] = [];
+      archive.on('data', (chunk: Buffer) => chunks.push(chunk));
+      const finished = new Promise<void>((resolve, reject) => {
+        archive.on('end', () => resolve());
+        archive.on('error', reject);
+      });
+      let forgedCsvEntries = 0;
+      for (const file of directory.files) {
+        if (file.type !== 'File') continue;
+        const body = await file.buffer();
+        if (!file.path.endsWith('.csv')) {
+          archive.append(body, { name: forge(file.path) });
+          continue;
+        }
+        const text = body.toString('utf-8');
+        forgedCsvEntries += Number(text.includes(source.path));
+        archive.append(forge(text), { name: file.path });
+      }
+      await archive.finalize();
+      await finished;
+      const forged = Buffer.concat(chunks);
+      // attachments.csv and the table csv both carried the path that was replaced
+      expect(forgedCsvEntries).toBe(2);
+
+      const notify = await app.get(ClsService).runWith<Promise<IAttachmentItem>>(
+        {
+          user: { id: userId, name: 'Test', email: 'test@example.com', isAdmin: null },
+        } as unknown as ClsStore,
+        async () =>
+          getAttachmentService(app).uploadFromStream(Readable.from(forged), {
+            filename: 'forged-attachment-path.tea',
+            contentType: 'application/zip',
+            contentLength: forged.length,
+          })
+      );
+      const imported = (await importBase({ notify: notify as unknown as INotifyVo, spaceId })).data;
+      attachmentImportedBaseId = imported.base.id;
+      const importedTableId = imported.tableIdMap[table.id];
+      const importedFieldId = imported.fieldIdMap[attachmentField.id];
+
+      let cell: IAttachmentItem | undefined;
+      for (let attempt = 0; attempt < 150 && !cell; attempt++) {
+        const { records } = await getRecords(importedTableId, { fieldKeyType: FieldKeyType.Id });
+        const value = records[0]?.fields[importedFieldId];
+        cell = value ? attachmentCellValueSchema.parse(value)[0] : undefined;
+        if (!cell) {
+          await sleep(200);
+        }
+      }
+
+      expect(cell).toMatchObject({ token, path: `table/${token}` });
+      const row = await prisma.attachments.findUniqueOrThrow({
+        where: { token },
+        select: { path: true, thumbnailPath: true },
+      });
+      expect(row).toEqual({ path: `table/${token}`, thumbnailPath: null });
+      // ...and that is where the file is: the signed url serves the fixture, not the cold key.
+      const served = await fetch(new URL(cell!.presignedUrl!, appUrl), {
+        headers: { Cookie: cookie },
+      });
+      expect(served.ok).toBe(true);
+      expect(await served.text()).toBe(content.toString('utf-8'));
+    });
+  });
 });

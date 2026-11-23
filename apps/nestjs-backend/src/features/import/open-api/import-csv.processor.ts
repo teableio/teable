@@ -2,7 +2,7 @@
 import { PassThrough } from 'node:stream';
 import { text } from 'node:stream/consumers';
 import { InjectQueue, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   FieldKeyType,
@@ -19,6 +19,8 @@ import type {
   IImportColumn,
   IInplaceImportOptionRo,
 } from '@teable/openapi';
+import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
+import { CreateRecordsCommand, v2CoreTokens, type ICommandBus } from '@teable/v2-core';
 import { Job, Queue } from 'bullmq';
 import { chunk as chunkArray, toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -34,8 +36,12 @@ import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { AuditScope } from '../../audit/audit-scope';
+import { CanaryService } from '../../canary/canary.service';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { V2ContainerService } from '../../v2/v2-container.service';
+import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { throwV2Error } from '../../v2/v2-http-error';
 import { classifyImportError, formatClassifiedError } from './import-error-classifier';
 import type { ITranslateFn } from './import-error-classifier';
 import { ImportErrorCollector } from './import-error-collector';
@@ -99,7 +105,10 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     @InjectQueue(TABLE_IMPORT_CSV_QUEUE) public readonly queue: Queue<ITableImportCsvJob>,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly audit: AuditScope,
-    private readonly eventEmitter: EventEmitter2
+    private readonly v2ContainerService: V2ContainerService,
+    private readonly v2ContextFactory: V2ExecutionContextFactory,
+    private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly canaryService?: CanaryService
   ) {
     super();
   }
@@ -173,6 +182,52 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
 
       throw err;
     }
+  }
+
+  private async createNativeRecordWriter(baseId: string) {
+    const container = await this.v2ContainerService.getContainerForBase(baseId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const bus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    return async (tableId: string, input: ICreateRecordsRo, ignoreMissingFields = false) => {
+      const presentFields = ignoreMissingFields
+        ? new Set(
+            (
+              await this.prismaService.field.findMany({
+                where: { tableId, deletedTime: null },
+                select: { id: true },
+              })
+            ).map(({ id }) => id)
+          )
+        : undefined;
+      const command = CreateRecordsCommand.create(
+        {
+          tableId,
+          records: presentFields
+            ? input.records.map((record) => ({
+                fields: Object.fromEntries(
+                  Object.entries(record.fields).filter(([id]) => presentFields.has(id))
+                ),
+              }))
+            : input.records,
+          fieldKeyType: input.fieldKeyType,
+          typecast: input.typecast,
+          order: input.order,
+        },
+        { source: { type: 'import' } }
+      );
+      if (command.isErr())
+        throwV2Error(
+          mapDomainErrorToHttpError(command.error),
+          mapDomainErrorToHttpStatus(command.error)
+        );
+      const result = await bus.execute(context, command.value);
+      if (result.isErr())
+        throwV2Error(
+          mapDomainErrorToHttpError(result.error),
+          mapDomainErrorToHttpStatus(result.error)
+        );
+      return result.value;
+    };
   }
 
   private async cleanRelativeTask(parentJobId: string) {
@@ -256,19 +311,29 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
       return;
     }
 
+    const base = await this.prismaService.base.findUniqueOrThrow({
+      where: { id: job.data.baseId },
+      select: { spaceId: true, v2Enabled: true },
+    });
+    const useV2 = this.canaryService
+      ? (await this.canaryService.shouldUseV2ForBaseWithReason(base, 'importCsv')).useV2
+      : Boolean(base.v2Enabled);
+    const nativeCreate = useV2 ? await this.createNativeRecordWriter(job.data.baseId) : undefined;
     const createFn: (
       tableId: string,
       createRecordsRo: ICreateRecordsRo,
       ignoreMissingFields?: boolean
-    ) => Promise<unknown> = columnInfo
-      ? (tableId, createRecordsRo) =>
-          this.recordOpenApiService.createRecordsOnlySql(tableId, createRecordsRo)
-      : (tableId, createRecordsRo, ignoreMissingFields = false) =>
-          this.recordOpenApiService.multipleCreateRecords(
-            tableId,
-            createRecordsRo,
-            ignoreMissingFields
-          );
+    ) => Promise<unknown> =
+      nativeCreate ??
+      (columnInfo
+        ? (tableId, createRecordsRo) =>
+            this.recordOpenApiService.createRecordsOnlySql(tableId, createRecordsRo)
+        : (tableId, createRecordsRo, ignoreMissingFields = false) =>
+            this.recordOpenApiService.multipleCreateRecords(
+              tableId,
+              createRecordsRo,
+              ignoreMissingFields
+            ));
 
     const fieldIdToName = new Map(fields.map((f) => [f.id, f.name ?? f.id]));
     const fieldIdToType = new Map(fields.map((f) => [f.id, f.type]));

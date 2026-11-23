@@ -74,7 +74,7 @@ export const SECRET_SPECS = {
     // Besides the umbrella specs (fallbackEnvKeys) it seeds the derived key/iv
     // pairs (derivePurpose) — describe exactly what reads it.
     usedFor:
-      'JWT/session fallback, BYODB URL key derivation, personal access token key derivation, mail unsubscribe-link key derivation, local storage read-token key derivation, EE env-variable encryption, AI-config key encryption, third-party credential encryption, invitation-code HMAC, welcome-reward inbox HMAC, plugin secret fallback',
+      'JWT/session fallback, BYODB URL key derivation, personal access token key derivation, mail unsubscribe-link key derivation, local storage read-token key derivation, EE env-variable encryption, AI-config key encryption, third-party credential encryption, invitation-code HMAC, welcome-reward inbox HMAC, plugin secret fallback, structured-query cursor signing (private root preferred over JWT/session)',
     // 'defaultSecretKey' was only ever the dev fallback for EE env-variable
     // encryption; deployments that relied on it must pin it to keep decrypting.
     legacyDefault: 'defaultSecretKey',
@@ -84,13 +84,15 @@ export const SECRET_SPECS = {
   jwtSecret: {
     envKey: 'BACKEND_JWT_SECRET',
     fallbackEnvKeys: ['SECRET_KEY'],
-    usedFor: 'signing auth / share / plugin JWTs',
+    usedFor:
+      'signing auth / share / plugin JWTs, structured-query cursor signing without a private root',
     legacyDefault: '533Cr3tK3yF0rH4sh1nGJ4W773k3n$',
   },
   sessionSecret: {
     envKey: 'BACKEND_SESSION_SECRET',
     fallbackEnvKeys: ['SECRET_KEY'],
-    usedFor: 'signing login session cookies',
+    usedFor:
+      'signing login session cookies, structured-query cursor signing without a private root/JWT secret',
     legacyDefault: 'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932',
   },
   // HMAC key of invitation codes. Unset, it is SECRET_KEY itself (byte-identical to the

@@ -6,13 +6,18 @@ import { TableService } from './table.service';
 
 describe('TableService', () => {
   let service: TableService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, TableModule],
     }).compile();
 
     service = module.get<TableService>(TableService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {
@@ -60,6 +65,7 @@ describe('TableService', () => {
       { get: vi.fn().mockReturnValue('usrTest') } as never,
       { txClient: vi.fn().mockReturnValue(metaTxClient) } as never,
       { dataPrismaForBase: vi.fn().mockResolvedValue(dataRootClient) } as never,
+      {} as never,
       {} as never,
       {
         driver: 'postgresql',

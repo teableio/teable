@@ -6,6 +6,16 @@ import { z } from 'zod';
 export const tableRecordDtoSchema = z.object({
   id: z.string(),
   fields: z.record(z.string(), z.unknown()),
+  name: z.string().optional(),
+  version: z.number().optional(),
+  autoNumber: z.number().optional(),
+  createdTime: z.string().optional(),
+  createdBy: z.string().optional(),
+  lastModifiedTime: z.string().optional(),
+  lastModifiedBy: z.string().optional(),
+  orders: z.record(z.string(), z.number()).optional(),
+  permissions: z.record(z.string(), z.record(z.string(), z.boolean())).optional(),
+  undeletable: z.boolean().optional(),
 });
 
 export type ITableRecordDto = z.infer<typeof tableRecordDtoSchema>;
@@ -19,5 +29,18 @@ export const mapTableRecordToDto = (
       fields[key] = value;
     }
   }
-  return ok({ id: record.id, fields });
+  return ok({
+    id: record.id,
+    fields,
+    name: record.name,
+    version: record.version,
+    autoNumber: record.autoNumber,
+    createdTime: record.createdTime,
+    createdBy: record.createdBy,
+    lastModifiedTime: record.lastModifiedTime,
+    lastModifiedBy: record.lastModifiedBy,
+    orders: record.orders,
+    permissions: record.permissions,
+    undeletable: record.undeletable,
+  });
 };

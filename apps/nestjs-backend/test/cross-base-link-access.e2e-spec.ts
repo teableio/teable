@@ -9,7 +9,9 @@ import {
   DUPLICATE_URL,
   emailBaseInvitation,
   FORM_SUBMIT,
+  GET_VIEW_FILTER_LINK_RECORDS,
   getTrashItems,
+  getViewFilterLinkRecords,
   restoreTrash,
   RESTORE_TRASH,
   TableTrashType,
@@ -403,6 +405,61 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
     );
     expect(error?.status).toBe(403);
     expect(await getFields(table.id)).toEqual(before);
+  });
+
+  it('leaves an unreadable foreign base out of the view-level filter-link titles', async () => {
+    const view = await createView(table.id, {
+      type: ViewType.Grid,
+      name: 'cross-base filter',
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: linkField.id,
+            operator: 'isAnyOf',
+            value: [storedForeignRecordId, attemptedForeignRecordId],
+          },
+          { fieldId: sameBaseLinkField.id, operator: 'is', value: siblingRecordId },
+        ],
+      },
+    });
+    const sameBaseGroup = {
+      tableId: siblingTable.id,
+      records: [{ id: siblingRecordId, title: 'sibling-1' }],
+    };
+
+    // The owner reads both bases, so both link fields resolve to titles.
+    const owner = await getViewFilterLinkRecords(table.id, view.id);
+    expect(owner.data).toHaveLength(2);
+    expect(owner.data).toEqual(
+      expect.arrayContaining([
+        sameBaseGroup,
+        {
+          tableId: foreignTable.id,
+          records: [
+            { id: storedForeignRecordId, title: 'foreign-1' },
+            { id: attemptedForeignRecordId, title: 'foreign-2' },
+          ],
+        },
+      ])
+    );
+
+    // The creator has no role on the foreign base, so its titles must not come back.
+    // This host leaves that group out; a host that guards record reads on its own
+    // (the EE authority matrix) refuses the whole request instead.
+    let restricted: unknown;
+    const error = await getError(async () => {
+      restricted = (
+        await creatorUser.get(
+          urlBuilder(GET_VIEW_FILTER_LINK_RECORDS, { tableId: table.id, viewId: view.id })
+        )
+      ).data;
+    });
+    if (error) {
+      expect(error.status).toBe(403);
+    } else {
+      expect(restricted).toEqual([sameBaseGroup]);
+    }
   });
 
   it('denies converting a field to an unreadable foreign base', async () => {

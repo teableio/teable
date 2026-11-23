@@ -1,4 +1,27 @@
 {
+  "searchAcceleration": {
+    "title": "Accelerazione della ricerca",
+    "stateLabel": "Impostazione",
+    "state": {
+      "disabled": "Disattivata",
+      "preparing": "Preparazione in corso",
+      "enabled": "Attivata",
+      "disabling": "Disattivazione in corso",
+      "failed": "Errore"
+    },
+    "serving": "I dati di ricerca sono pronti per i campi coperti.",
+    "notServing": "Puoi continuare a cercare in questa tabella senza accelerazione.",
+    "enable": "Attiva",
+    "disable": "Disattiva",
+    "resetOff": "Ripristina allo stato disattivato",
+    "permissionError": "Impossibile verificare il tuo permesso di modificare questa impostazione.",
+    "readOnly": "Solo i proprietari dello spazio e i creatori con il permesso di aggiornare questa tabella possono modificare questa impostazione.",
+    "statusError": "Impossibile caricare l’impostazione. Puoi continuare a cercare in questa tabella.",
+    "changeError": "Impossibile modificare l’impostazione. Riprova.",
+    "confirmTitle": "Attivare l’accelerazione per questa tabella di grandi dimensioni?",
+    "confirmDetail": "Questa tabella contiene almeno 50.000 record. La preparazione può richiedere tempo. Puoi continuare a cercare durante la preparazione.",
+    "confirm": "Conferma e attiva"
+  },
   "computeActivity": {
     "currentCalculations": "Calcoli correnti",
     "thisTableOnly": "Solo questa tabella",

@@ -1,8 +1,11 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
@@ -31,7 +34,9 @@ export class UpdateTablePropertiesHandler implements ICommandHandler<
 > {
   constructor(
     @inject(v2CoreTokens.tableUpdateFlow)
-    private readonly tableUpdateFlow: TableUpdateFlow
+    private readonly tableUpdateFlow: TableUpdateFlow,
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner([], new NoopLogger())
   ) {}
 
   @TraceSpan()
@@ -41,8 +46,21 @@ export class UpdateTablePropertiesHandler implements ICommandHandler<
   ): Promise<Result<UpdateTablePropertiesResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<UpdateTablePropertiesResult, DomainError>(async function* () {
-      const updateResult = yield* await handler.tableUpdateFlow.execute(context, command, (table) =>
-        table.update((mutator) => mutator.updateProperties(command.patch))
+      const updateResult = yield* await handler.tableUpdateFlow.execute(
+        context,
+        command,
+        (table) => table.update((mutator) => mutator.updateProperties(command.patch)),
+        {
+          beforeMutate: async (table) => {
+            const execution = await handler.tableOperationPluginRunner.prepare({
+              kind: TableOperationKind.updateProperties,
+              executionContext: context,
+              payload: { baseId: table.baseId(), table, patch: command.patch },
+              isTransactionBound: false,
+            });
+            return execution.isErr() ? err(execution.error) : execution.value.guard();
+          },
+        }
       );
       return ok(UpdateTablePropertiesResult.create(updateResult.table, updateResult.events));
     });

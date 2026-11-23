@@ -11,12 +11,18 @@ import {
   resetTrashItems,
   restoreTrash,
   TrashType,
+  SettingKey,
   trashVoSchema,
 } from '@teable/openapi';
+import { vi } from 'vitest';
+import type { ITrashConfig } from '../src/configs/trash.config';
+import { trashConfig } from '../src/configs/trash.config';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import { BaseService } from '../src/features/base/base.service';
 import { DataDbHealthService } from '../src/features/space/data-db-health.service';
 import { encryptDataDbUrl } from '../src/features/space/data-db-url-secret';
+import { TrustedRetentionContextService } from '../src/features/table-lifecycle/trusted-retention-context.service';
 import { TrashService } from '../src/features/trash/trash.service';
 import { DataDbClientManager } from '../src/global/data-db-client-manager.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
@@ -126,6 +132,46 @@ describe('Trash (e2e)', () => {
 
   const awaitWithTableDeleteSync = async <T>(baseId: string, fn: () => Promise<T>) =>
     (await isBaseV2Mode(baseId)) ? await fn() : awaitWithTableEvent(fn);
+
+  const withExpiredTrash = async (trashId: string, cleanup: () => Promise<void>) => {
+    const { retention } = app.get<ITrashConfig>(trashConfig.KEY);
+    expect(retention).toBeGreaterThan(0);
+    const name = SettingKey.TRASH_CLEANUP_ENABLED_AT;
+    const previous = await prisma.setting.findUnique({ where: { name } });
+    const content = JSON.stringify(new Date(Date.now() - retention * 2).toISOString());
+    try {
+      await prisma.setting.upsert({
+        where: { name },
+        create: { name, content, createdBy: globalThis.testConfig.userId },
+        update: { content },
+      });
+      const deletedTime = new Date(Date.now() - retention - 60_000);
+      const trash = await prisma.trash.update({
+        where: { id: trashId },
+        data: { deletedTime },
+      });
+      if (trash.resourceType === TrashType.Table) {
+        await prisma.tableMeta.update({ where: { id: trash.resourceId }, data: { deletedTime } });
+      } else if (trash.resourceType === TrashType.Space) {
+        await prisma.space.update({ where: { id: trash.resourceId }, data: { deletedTime } });
+        await prisma.base.updateMany({
+          where: { spaceId: trash.resourceId, deletedTime: { not: null } },
+          data: { deletedTime },
+        });
+        await prisma.tableMeta.updateMany({
+          where: { base: { spaceId: trash.resourceId }, deletedTime: { not: null } },
+          data: { deletedTime },
+        });
+      }
+      await cleanup();
+    } finally {
+      if (previous) {
+        await prisma.setting.update({ where: { name }, data: { content: previous.content } });
+      } else {
+        await prisma.setting.deleteMany({ where: { name } });
+      }
+    }
+  };
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -443,6 +489,46 @@ describe('Trash (e2e)', () => {
       expect(restored.headers['x-teable-v2-feature']).toBe('restoreTable');
       expect(restored.headers['x-teable-v2-reason']).toBe('env_force_v2_all');
     });
+
+    it('should restore a v2 table that waits on a lock longer than a transaction may run', async () => {
+      await awaitWithTableDeleteSync(baseId, () => deleteTable(baseId, tableId));
+
+      const trash = (await waitForBaseTrashItems(baseId, 1)).data;
+      const trashId = trash.trashItems[0].id;
+      const txTimeout = Number(process.env.PRISMA_TRANSACTION_TIMEOUT ?? 5000);
+      let locked!: () => void;
+      const lockTaken = new Promise<void>((resolve) => (locked = resolve));
+      const lock = prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRawUnsafe('SELECT id FROM table_meta WHERE id = $1 FOR UPDATE', tableId);
+          locked();
+          await sleep(txTimeout + 1000);
+        },
+        { timeout: txTimeout + 10_000 }
+      );
+      await lockTaken;
+
+      const previousForceV2All = process.env.FORCE_V2_ALL;
+      process.env.FORCE_V2_ALL = 'true';
+      try {
+        const restored = await restoreTrash(trashId);
+        expect(restored.status).toEqual(201);
+      } finally {
+        if (previousForceV2All == null) {
+          delete process.env.FORCE_V2_ALL;
+        } else {
+          process.env.FORCE_V2_ALL = previousForceV2All;
+        }
+        await lock;
+      }
+
+      const table = await prisma.tableMeta.findUnique({
+        where: { id: tableId },
+        select: { deletedTime: true },
+      });
+      expect(table?.deletedTime).toBeNull();
+      expect(await prisma.trash.findUnique({ where: { id: trashId } })).toBeNull();
+    }, 60_000);
   });
 
   describe('Reset trash items for base', () => {
@@ -485,7 +571,7 @@ describe('Trash (e2e)', () => {
   });
 
   describe('Versioned archive permanent deletion (real PostgreSQL)', () => {
-    it('deletes only the archive family owned by the permanently deleted base', async () => {
+    it('rejects an overlapping Base trash purge and removes only the deleted Base outbox', async () => {
       const space = await createSpace({ name: 'archive base deletion' });
       const deletedBase = await createBase({ spaceId: space.id, name: 'deleted archive base' });
       const retainedBase = await createBase({ spaceId: space.id, name: 'retained archive base' });
@@ -521,7 +607,43 @@ describe('Trash (e2e)', () => {
           seedTableId: retainedTable.id,
         });
 
-        await permanentDeleteBase(deletedBase.id);
+        await awaitWithBaseEvent(() => deleteBase(deletedBase.id));
+        const findTrash = async () =>
+          (await getTrash({ resourceType: TrashType.Base })).data.trashItems.find(
+            (item) => item.resourceId === deletedBase.id
+          );
+        await expect.poll(findTrash).toBeDefined();
+        const trash = (await findTrash())!;
+
+        const dropBase = BaseService.prototype.dropBase;
+        const entered = Promise.withResolvers<void>();
+        const release = Promise.withResolvers<void>();
+        // The EE app inherits this method without registering the community service token.
+        const dropSpy = vi
+          .spyOn(BaseService.prototype, 'dropBase')
+          .mockImplementationOnce(async function (this: BaseService, ...args) {
+            entered.resolve();
+            await release.promise;
+            return dropBase.apply(this, args);
+          });
+        const purge = () => axios.delete(`/trash/${trash.id}`, { validateStatus: () => true });
+        const first = purge();
+        try {
+          await Promise.race([
+            entered.promise,
+            first.then(({ status }) => {
+              throw new Error(`First purge returned ${status} before reaching physical cleanup`);
+            }),
+          ]);
+          expect((await purge()).status).toBe(409);
+        } finally {
+          release.resolve();
+          dropSpy.mockRestore();
+          await first;
+        }
+        expect((await first).status).toBe(200);
+        expect((await purge()).status).toBe(404);
+        await expect(prisma.trash.findUnique({ where: { id: trash.id } })).resolves.toBeNull();
 
         await expect(
           readArchiveFamilyCounts(dataClient, [deletedTaskId], [retainedTaskId])
@@ -571,7 +693,7 @@ describe('Trash (e2e)', () => {
       }
     });
 
-    it('deletes every archive family in a permanently deleted space and retains other spaces', async () => {
+    it('preserves a Space when any Base is busy and cleans its outbox on retry', async () => {
       const deletedSpace = await createSpace({ name: 'deleted archive space' });
       const retainedSpace = await createSpace({ name: 'retained archive space' });
       const firstDeletedBase = await createBase({
@@ -644,6 +766,22 @@ describe('Trash (e2e)', () => {
           },
         ]) {
           await insertPendingOutboxTask(dataClient, fixture);
+        }
+
+        const dropSpy = vi.spyOn(BaseService.prototype, 'dropBase');
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`
+              SELECT "id" FROM "base" WHERE "id" = ${secondDeletedBase.id} FOR NO KEY UPDATE
+            `;
+            const { status } = await axios.delete(`/space/${deletedSpace.id}/permanent`, {
+              validateStatus: () => true,
+            });
+            expect(status).toBe(409);
+            expect(dropSpy).not.toHaveBeenCalled();
+          });
+        } finally {
+          dropSpy.mockRestore();
         }
 
         await permanentDeleteSpace(deletedSpace.id);
@@ -760,13 +898,100 @@ describe('Trash (e2e)', () => {
         },
       });
 
-      // Same call the TrashCleanupProcessor makes.
       const trashService = app.get(TrashService);
-      await trashService.delete(trash.id, true);
+      await expect(trashService.delete(trash.id, true)).rejects.toThrow(
+        'Retention cleanup requires an admitted expired-trash capability'
+      );
+      const ordinary = await axios.delete(`/trash/${trash.id}`, {
+        validateStatus: () => true,
+      });
+      expect(ordinary.status).toBe(500);
+      expect(await prisma.tableMeta.findUnique({ where: { id: table.id } })).not.toBeNull();
+      expect(await prisma.trash.findUnique({ where: { id: trash.id } })).not.toBeNull();
+
+      await withExpiredTrash(trash.id, async () => {
+        await prisma.tableMeta.update({
+          where: { id: table.id },
+          data: { deletedTime: new Date() },
+        });
+        const capability = await app
+          .get(TrustedRetentionContextService)
+          .issueForExpiredTrash(trash.id);
+        const attempts = deadDb.rejectedLogins();
+        await expect(trashService.delete(trash.id, true, undefined, capability)).rejects.toThrow(
+          'Retention table is no longer eligible'
+        );
+        expect(deadDb.rejectedLogins()).toBe(attempts);
+        expect(await prisma.tableMeta.findUnique({ where: { id: table.id } })).not.toBeNull();
+      });
+      // Exercise the same real admission and single-use capability as the cleanup processor.
+      await withExpiredTrash(trash.id, async () => {
+        const capability = await app
+          .get(TrustedRetentionContextService)
+          .issueForExpiredTrash(trash.id);
+        await trashService.delete(trash.id, true, undefined, capability);
+      });
 
       expect(deadDb.rejectedLogins()).toBeGreaterThan(0);
       await expect(prisma.trash.findUnique({ where: { id: trash.id } })).resolves.toBeNull();
       await expect(prisma.tableMeta.findUnique({ where: { id: table.id } })).resolves.toBeNull();
+    });
+
+    it.each([
+      ['schema permissions', 'permission denied for schema public'],
+      ['a transient timeout', 'connect ETIMEDOUT'],
+      ['an unclassified failure', 'unexpected database catalog corruption'],
+    ])('retains admitted table metadata after %s', async (_kind, message) => {
+      const unavailableDb = await createDeadSupavisor('retention_failure_fixture', message);
+      const space = await createSpace({ name: 'failed retention space' });
+      const base = await createBase({ spaceId: space.id, name: 'failed retention base' });
+      const table = await createTable(base.id, { name: 'retained table' });
+      let connectionId: string | undefined;
+      try {
+        await deleteTable(base.id, table.id);
+        await waitForBaseTrashItems(base.id);
+        const trash = await prisma.trash.findFirstOrThrow({ where: { resourceId: table.id } });
+        const connection = await prisma.dataDbConnection.create({
+          data: {
+            encryptedUrl: encryptDataDbUrl(unavailableDb.url),
+            urlFingerprint: `failed-retention-e2e-${Date.now()}`,
+            internalSchema: '__teable_internal',
+            status: 'ready',
+            createdBy: 'e2e',
+          },
+        });
+        connectionId = connection.id;
+        await prisma.spaceDataDbBinding.create({
+          data: {
+            spaceId: space.id,
+            dataDbConnectionId: connection.id,
+            mode: 'byodb',
+            state: 'ready',
+            createdBy: 'e2e',
+          },
+        });
+
+        await withExpiredTrash(trash.id, async () => {
+          const capability = await app
+            .get(TrustedRetentionContextService)
+            .issueForExpiredTrash(trash.id);
+          await expect(
+            app.get(TrashService).delete(trash.id, true, undefined, capability)
+          ).rejects.toThrow(message);
+        });
+        expect(unavailableDb.rejectedLogins()).toBeGreaterThan(0);
+        expect(await prisma.tableMeta.findUnique({ where: { id: table.id } })).not.toBeNull();
+        expect(await prisma.trash.findUnique({ where: { id: trash.id } })).not.toBeNull();
+      } finally {
+        await prisma.spaceDataDbBinding.deleteMany({ where: { spaceId: space.id } });
+        if (connectionId) {
+          await app.get(DataDbClientManager).invalidateConnection(connectionId);
+          await prisma.dataDbConnection.delete({ where: { id: connectionId } });
+        }
+        await permanentDeleteSpace(space.id);
+        await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${base.id}" CASCADE`);
+        await unavailableDb.close();
+      }
     });
   });
 
@@ -844,7 +1069,17 @@ describe('Trash (e2e)', () => {
             prisma.trash.findUnique({ where: { id: trash.id } })
           ).resolves.not.toBeNull();
           // Automatic retention cleanup must retain the ordinary, strict policy.
-          await expect(app.get(TrashService).delete(trash.id, true)).rejects.toThrow(message);
+          await withExpiredTrash(trash.id, async () => {
+            const capability = await app
+              .get(TrustedRetentionContextService)
+              .issueForExpiredTrash(trash.id);
+            await expect(
+              app.get(TrashService).delete(trash.id, true, undefined, capability)
+            ).rejects.toThrow(message);
+            await expect(
+              app.get(TrashService).delete(trash.id, true, undefined, capability)
+            ).rejects.toThrow('Retention capability was not issued or was already used');
+          });
 
           const forced = await axios.delete(`/trash/${trash.id}`, {
             params: { force: true },

@@ -3,5 +3,5 @@ import { defineConfig } from 'tsdown';
 
 export default defineConfig({
   ...v2TsdownBaseConfig,
-  entry: ['src/index.ts', 'src/operationPreview.ts'],
+  entry: ['src/index.ts', 'src/operationPreview.ts', 'src/vcs.ts'],
 });

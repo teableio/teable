@@ -4,8 +4,8 @@ import { ActorId, bindUnitOfWorkTransaction } from '@teable/v2-core';
 import type { ILogger } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
-import { sql } from 'kysely';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { CompiledQuery, sql } from 'kysely';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ComputedUpdateOutbox } from '../ComputedUpdateOutbox';
 import type { ComputedUpdateOutboxTaskInput } from '../ComputedUpdateOutboxPayload';
@@ -580,6 +580,147 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
       limit: 10,
     });
     expect(unwrap(claimedAfterRelease)).toHaveLength(1);
+  });
+
+  it('T8677 relays one due sibling in the same base and lane past locked and deferred rows', async () => {
+    const traceparent = '00-1234567890abcdef1234567890abcdef-1234567890abcdef-01';
+    const enqueue = async (
+      planHash: string,
+      overrides: Partial<ComputedUpdateOutboxTaskInput> = {}
+    ) => unwrap(await outbox.enqueueOrMerge({ ...createTaskInput(planHash), ...overrides })).taskId;
+    const locked = await enqueue('locked');
+    const future = await enqueue('future');
+    const otherLane = await enqueue('other-lane');
+    await enqueue('other-base', { baseId: `bse${'e'.repeat(16)}` });
+    const pausedTableId = `tbl${'p'.repeat(16)}`;
+    await enqueue('paused', { affectedTableIds: [pausedTableId] });
+    const ready = await enqueue('ready', { traceparent });
+    await db
+      .updateTable('computed_update_outbox')
+      .set({ worker_lane: 'other' })
+      .where('id', '=', otherLane)
+      .execute();
+    await db
+      .updateTable('computed_update_outbox')
+      .set({ next_run_at: new Date(Date.now() + 60_000) })
+      .where('id', '=', future)
+      .execute();
+    await sql`insert into computed_update_pause_scope (id, scope_type, scope_id)
+      values ('relay-pause', 'table', ${pausedTableId})`.execute(db);
+    const dueBefore = new Date();
+
+    await holderDb.transaction().execute(async (trx) => {
+      await trx
+        .selectFrom('computed_update_outbox')
+        .select('id')
+        .where('id', '=', locked)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      const candidate = unwrap(await outbox.getNextPendingWakeup(BASE_ID, dueBefore));
+      expect(candidate).toMatchObject({
+        baseId: BASE_ID,
+        taskId: ready,
+        cause: 'replay',
+        traceparent,
+      });
+      expect(candidate!.availableAt.getTime()).toBeLessThanOrEqual(Date.now());
+      expect(unwrap(await outbox.getNextPendingWakeup(BASE_ID, dueBefore))?.wakeupId).toBe(
+        candidate!.wakeupId
+      );
+      expect(unwrap(await outbox.markDone(ready))).toBe(true);
+      expect(unwrap(await outbox.getNextPendingWakeup(BASE_ID, dueBefore))).toBeNull();
+    });
+    expect(unwrap(await outbox.getNextPendingWakeup(BASE_ID, dueBefore))?.taskId).toBe(locked);
+  });
+
+  it('drains the contended siblings after overlapping handoffs without waking a new stage', async () => {
+    const earlier = unwrap(await outbox.enqueueOrMerge(createTaskInput('earlier'))).taskId;
+    const later = unwrap(await outbox.enqueueOrMerge(createTaskInput('later'))).taskId;
+    const newStage = unwrap(await outbox.enqueueOrMerge(createTaskInput('new-stage'))).taskId;
+    const dueBefore = new Date(Date.now() - 2_000);
+    await db
+      .updateTable('computed_update_outbox')
+      .set({ next_run_at: dueBefore })
+      .where('id', 'in', [earlier, later])
+      .execute();
+    const locators = await Promise.all([
+      outbox.getNextPendingWakeup(BASE_ID, dueBefore),
+      outbox.getNextPendingWakeup(BASE_ID, dueBefore),
+    ]);
+    const completed = new Set<string>();
+    const pending = locators.map((result) => unwrap(result));
+    while (pending.length) {
+      const locator = pending.shift();
+      if (!locator) continue;
+      const task = unwrap(await outbox.claimById({ taskId: locator.taskId, workerId: 'relay' }));
+      if (!task) continue;
+      expect(completed.has(task.id)).toBe(false);
+      expect(task.id).not.toBe(newStage);
+      expect(unwrap(await outbox.markDone(task))).toBe(true);
+      completed.add(task.id);
+      pending.push(unwrap(await outbox.getNextPendingWakeup(BASE_ID, dueBefore)));
+    }
+    expect(completed).toEqual(new Set([earlier, later]));
+    expect(unwrap(await outbox.getNextPendingWakeup(BASE_ID, new Date()))?.taskId).toBe(newStage);
+  });
+
+  it('T8677 distinguishes consecutive empty eligible claims from committed preparation on PostgreSQL', async () => {
+    const paged = new ComputedUpdateOutbox(
+      db,
+      {
+        ...defaultComputedUpdateOutboxConfig,
+        seedInlineLimit: 0,
+        maxSeedRecordsPerTask: 2,
+        stageMaxDirtyRecords: 2,
+      },
+      createLogger(),
+      db
+    );
+    const seeds = ['rec1', 'rec2', 'rec3', 'rec4', 'rec5'];
+    const { taskId } = unwrap(
+      await paged.enqueueOrMerge({
+        ...createTaskInput('T8677-paged-claim'),
+        seedRecordIds: seeds,
+        stageDepth: 1,
+        runTotalSteps: 2,
+        runCompletedStepsBefore: 1,
+      })
+    );
+    const onEmptyClaim = vi.fn();
+    const claim = { taskId, workerId: 'broker', onEmptyClaim, yieldAfterPreparation: true };
+    const release = await holdAdvisoryLock(holderDb, `v2:outbox:claim:base:${BASE_ID}`);
+    try {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        expect(unwrap(await paged.claimById(claim))).toBeNull();
+        expect(onEmptyClaim).toHaveBeenCalledTimes(attempt);
+        expect(unwrap(await paged.getTaskClaimEligibility(taskId))).toEqual({ status: 'eligible' });
+      }
+    } finally {
+      await release();
+    }
+
+    expect(unwrap(await paged.claimById(claim))).toBeNull();
+    expect(onEmptyClaim).toHaveBeenCalledTimes(3);
+    expect(
+      await db
+        .selectFrom('computed_update_outbox_seed')
+        .select('record_id')
+        .where('task_id', '=', taskId)
+        .orderBy('record_id')
+        .execute()
+    ).toEqual([{ record_id: 'rec3' }, { record_id: 'rec4' }, { record_id: 'rec5' }]);
+    const claimed = unwrap(await paged.claimById({ ...claim, yieldAfterPreparation: false }));
+    expect(claimed).toMatchObject({ id: taskId, status: 'processing' });
+    expect(onEmptyClaim).toHaveBeenCalledTimes(3);
+    expect(
+      await db
+        .selectFrom('computed_update_stage_ledger')
+        .select('record_id')
+        .where('scope_id', '=', taskId)
+        .where('kind', '=', 'frontier')
+        .orderBy('record_id')
+        .execute()
+    ).toEqual(seeds.map((record_id) => ({ record_id })));
   });
 
   it('releases a task for retry without waiting while the merge lock is held elsewhere', async () => {
@@ -1159,4 +1300,118 @@ describeNonBlocking('ComputedUpdateOutbox non-blocking locks (pg integration)', 
     expect(new Set(task.seedRecordIds)).toEqual(new Set(['old', 'pending', 'fresh']));
     expect(task.createdAt).toEqual(new Date(now.getTime() - 120_000));
   });
+
+  it('T8677 measures the successor lookup against 20,000 pending rows across 20 bases', async () => {
+    // Claim-relevant indexes shared by the main and tenant migrations. The fixture already
+    // has the primary key and pending unique index. Main-only partial claim indexes stay out.
+    for (const index of [
+      sql`CREATE INDEX IF NOT EXISTS computed_update_outbox_status_next_run_at_idx
+        ON computed_update_outbox (status, next_run_at)`,
+      sql`CREATE INDEX IF NOT EXISTS computed_update_outbox_base_id_seed_table_id_idx
+        ON computed_update_outbox (base_id, seed_table_id)`,
+      sql`CREATE INDEX IF NOT EXISTS computed_update_outbox_worker_lane_status_next_run_at_idx
+        ON computed_update_outbox (worker_lane, status, next_run_at)`,
+      sql`CREATE UNIQUE INDEX IF NOT EXISTS computed_update_pause_scope_scope_type_scope_id_key
+        ON computed_update_pause_scope (scope_type, scope_id)`,
+      sql`CREATE INDEX IF NOT EXISTS computed_update_pause_scope_resume_at_idx
+        ON computed_update_pause_scope (resume_at)`,
+    ]) {
+      await index.execute(db);
+    }
+
+    // Each base has 1,000 interleaved rows. The other 19 bases each have 100 due rows
+    // older than the target. Both searches must distinguish competing work from a successor.
+    await sql`INSERT INTO computed_update_outbox
+      (id, base_id, seed_table_id, change_type, status, next_run_at, plan_hash, run_id)
+      SELECT 'task-' || n,
+        CASE WHEN n % 20 = 0 THEN ${BASE_ID} ELSE 'base-' || (n % 20) END,
+        CASE WHEN n % 20 = 0 THEN ${SEED_TABLE_ID} ELSE 'seed-' || (n % 20) END,
+        'update', 'pending',
+        CASE WHEN n % 200 BETWEEN 1 AND 19 THEN now() - interval '2 days'
+          ELSE now() + interval '1 day' END,
+        'plan-' || n, 'run-' || n
+      FROM generate_series(1, 20000) AS series(n)`.execute(db);
+    type PlanNode = {
+      'Node Type': string;
+      'Relation Name'?: string;
+      'Index Name'?: string;
+      'Actual Rows': number;
+      'Actual Loops': number;
+      'Rows Removed by Filter'?: number;
+      'Rows Removed by Index Recheck'?: number;
+      'Shared Hit Blocks': number;
+      'Shared Read Blocks': number;
+      Plans?: PlanNode[];
+    };
+    const flatten = (node: PlanNode): PlanNode[] => [node, ...(node.Plans ?? []).flatMap(flatten)];
+    const profiles = [];
+    for (const selectedBaseDueRows of [0, 1]) {
+      if (selectedBaseDueRows === 1) {
+        await sql`UPDATE computed_update_outbox SET next_run_at = now() - interval '1 day'
+          WHERE id = 'task-20000'`.execute(db);
+      }
+      await sql`ANALYZE computed_update_outbox`.execute(db);
+
+      const capture = vi.spyOn(db.getExecutor(), 'executeQuery');
+      let query: CompiledQuery;
+      try {
+        const successor = unwrap(await outbox.getNextPendingWakeup(BASE_ID, new Date()));
+        expect(successor?.taskId ?? null).toBe(selectedBaseDueRows ? 'task-20000' : null);
+        expect(capture.mock.calls).toHaveLength(1);
+        query = capture.mock.calls[0][0];
+      } finally {
+        capture.mockRestore();
+      }
+      const explained = await db.executeQuery<{
+        'QUERY PLAN': { Plan: PlanNode; 'Execution Time': number }[];
+      }>(
+        CompiledQuery.raw(`EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) ${query.sql}`, [
+          ...query.parameters,
+        ])
+      );
+      const report = explained.rows[0]['QUERY PLAN'][0];
+      const nodes = flatten(report.Plan).map((node) => ({
+        type: node['Node Type'],
+        relation: node['Relation Name'],
+        index: node['Index Name'],
+        loops: node['Actual Loops'],
+        rows: node['Actual Rows'],
+        filtered: node['Rows Removed by Filter'] ?? 0,
+        rechecked: node['Rows Removed by Index Recheck'] ?? 0,
+        hitBlocks: node['Shared Hit Blocks'],
+        readBlocks: node['Shared Read Blocks'],
+      }));
+      // Include processing-count subplans and bitmap index entries even if their heap scan
+      // returns nothing. Buffers at the root are inclusive and must only be counted once.
+      const outboxAccesses = nodes.filter(
+        (node) =>
+          node.relation === 'computed_update_outbox' ||
+          node.index?.startsWith('computed_update_outbox_')
+      );
+      const scanWork = outboxAccesses.reduce(
+        (total, node) => total + node.loops * (node.rows + node.filtered + node.rechecked),
+        0
+      );
+      const sharedBlocks = report.Plan['Shared Hit Blocks'] + report.Plan['Shared Read Blocks'];
+      const profile = { selectedBaseDueRows, scanWork, sharedBlocks };
+      const evidence = {
+        ...profile,
+        pending: 20000,
+        bases: 20,
+        otherBaseDueRows: 1900,
+        executionMs: report['Execution Time'],
+        nodes,
+      };
+      process.stdout.write(`T8677_WAKEUP_PLAN ${JSON.stringify(evidence)}\n`);
+      expect(report.Plan['Actual Rows']).toBe(selectedBaseDueRows);
+      expect(outboxAccesses.some((node) => node.loops > 0)).toBe(true);
+      profiles.push(profile);
+    }
+    // Reject backlog-wide scans or repeated probes without pinning a PG version's plan
+    // or elapsed time. This budget applies only to this measured distribution.
+    for (const profile of profiles) {
+      expect(profile.scanWork, JSON.stringify(profile)).toBeLessThan(5000);
+      expect(profile.sharedBlocks, JSON.stringify(profile)).toBeLessThan(5000);
+    }
+  }, 60_000);
 });

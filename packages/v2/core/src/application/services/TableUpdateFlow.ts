@@ -112,6 +112,8 @@ type TableUpdateFlowOptions = {
   hooks?: TableUpdateFlowHooks;
   /** Complete provision state before returning instead of using a parent transaction callback. */
   finalizeWithinTransaction?: boolean;
+  /** Admission runs before mutation and any row-order/schema side effects. */
+  beforeMutate?: (table: Table) => Promise<Result<void, DomainError>>;
 };
 
 type TableUpdateFlowHooks = {
@@ -203,6 +205,7 @@ export class TableUpdateFlow {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     const flowResult = await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
       const table = yield* await handler.resolveTable(context, target);
+      if (options?.beforeMutate) yield* await options.beforeMutate(table);
 
       const span = context.tracer?.startSpan('teable.TableUpdateFlow.mutate');
       const updated = yield* mutate(table);
@@ -757,6 +760,17 @@ export class TableUpdateFlow {
           viewId: event.viewId,
           oldVersion: versionChange.oldVersion,
           newVersion: versionChange.newVersion,
+        });
+      }
+      if (event instanceof ViewDeleted) {
+        const queue = queueByViewId.get(event.viewId.toString());
+        const versionChange = queue?.shift();
+        if (event.oldVersion != null || !versionChange) return event;
+        return ViewDeleted.create({
+          tableId: event.tableId,
+          baseId: event.baseId,
+          viewId: event.viewId,
+          oldVersion: versionChange.oldVersion,
         });
       }
 

@@ -13,6 +13,7 @@ import pLimit from 'p-limit';
 
 import { CacheService } from '../../cache/cache.service';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import { isBackendOnlyObjectKey, servableThumbnailPaths } from '../attachments/backend-only';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { getPreviewCacheKey } from '../attachments/plugins/utils';
 import { resolveThumbnailMimetype } from '../attachments/utils';
@@ -70,6 +71,10 @@ export class V2AttachmentUrlSignerService implements IAttachmentUrlSignerService
     item: AttachmentSignRequest,
     thumbnailPathMap: Map<string, { sm?: string; lg?: string }>
   ): Promise<AttachmentSignedUrls> {
+    // A cell that names a backend-only object gets no url. The record around it still reads.
+    if (isBackendOnlyObjectKey(item.path)) {
+      return {};
+    }
     const presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
       StorageAdapter.getBucket(UploadType.Table),
       item.path,
@@ -97,7 +102,7 @@ export class V2AttachmentUrlSignerService implements IAttachmentUrlSignerService
       return { presignedUrl };
     }
 
-    const { sm: smThumbnailPath, lg: lgThumbnailPath } = thumbnailPaths;
+    const { sm: smThumbnailPath, lg: lgThumbnailPath } = servableThumbnailPaths(thumbnailPaths);
 
     const smThumbnailUrl = smThumbnailPath
       ? await this.attachmentsStorageService.getTableThumbnailUrl(

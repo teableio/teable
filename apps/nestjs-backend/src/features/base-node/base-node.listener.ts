@@ -1,102 +1,83 @@
+import type { OnApplicationBootstrap } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseNodePresenceFlushPayload } from '@teable/openapi';
-import { BaseNodeResourceType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { LocalPresence } from 'sharedb/lib/client';
-import type {
-  BaseFolderUpdateEvent,
-  BaseFolderDeleteEvent,
-  TableDeleteEvent,
-  TableUpdateEvent,
-  TableCreateEvent,
-  BaseFolderCreateEvent,
-} from '../../event-emitter/events';
-import type {
-  AppCreateEvent,
-  AppDeleteEvent,
-  AppUpdateEvent,
-} from '../../event-emitter/events/app/app.event';
 import type { BaseDeleteEvent } from '../../event-emitter/events/base/base.event';
-import type {
-  DashboardCreateEvent,
-  DashboardDeleteEvent,
-  DashboardUpdateEvent,
-} from '../../event-emitter/events/dashboard/dashboard.event';
 import { Events } from '../../event-emitter/events/event.enum';
-import type {
-  RoutineCreateEvent,
-  RoutineDeleteEvent,
-  RoutineUpdateEvent,
-} from '../../event-emitter/events/routine/routine.event';
-import type {
-  WorkflowCreateEvent,
-  WorkflowDeleteEvent,
-  WorkflowUpdateEvent,
-} from '../../event-emitter/events/workflow/workflow.event';
 import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
 import { PerformanceCacheService } from '../../performance-cache/service';
 import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
+import { RESOURCE_DESCRIPTORS } from '../resource/resource-descriptor';
 import { presenceHandler } from './helper';
 
-type IResourceCreateEvent =
-  | BaseFolderCreateEvent
-  | TableCreateEvent
-  | WorkflowCreateEvent
-  | DashboardCreateEvent
-  | AppCreateEvent
-  | RoutineCreateEvent;
+enum NodeChange {
+  Create = 'create',
+  Update = 'update',
+  Delete = 'delete',
+}
 
-type IResourceDeleteEvent =
-  | BaseDeleteEvent
-  | BaseFolderDeleteEvent
-  | TableDeleteEvent
-  | WorkflowDeleteEvent
-  | DashboardDeleteEvent
-  | AppDeleteEvent
-  | RoutineDeleteEvent;
+type INodeResourceEvent = { name: string; payload: Record<string, unknown> & { baseId?: string } };
 
-type IResourceUpdateEvent =
-  | BaseFolderUpdateEvent
-  | TableUpdateEvent
-  | WorkflowUpdateEvent
-  | DashboardUpdateEvent
-  | AppUpdateEvent
-  | RoutineUpdateEvent;
-
+/**
+ * Tells a project's clients to reload its node tree when a resource behind a node changes. It
+ * subscribes at startup to the events each kind's descriptor names.
+ */
 @Injectable()
-export class BaseNodeListener {
+export class BaseNodeListener implements OnApplicationBootstrap {
   private readonly logger = new Logger(BaseNodeListener.name);
 
   constructor(
     private readonly prismaService: PrismaService,
     private readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     private readonly shareDbService: ShareDbService,
-    private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>
+    private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   private getIgnoreBaseNodeListener() {
     return this.cls.get('ignoreBaseNodeListener');
   }
 
-  @OnEvent(Events.BASE_FOLDER_CREATE, { async: true })
-  @OnEvent(Events.TABLE_CREATE, { async: true })
-  @OnEvent(Events.DASHBOARD_CREATE, { async: true })
-  @OnEvent(Events.WORKFLOW_CREATE, { async: true })
-  @OnEvent(Events.APP_CREATE, { async: true })
-  @OnEvent(Events.ROUTINE_CREATE, { async: true })
-  async onResourceCreate(event: IResourceCreateEvent) {
-    const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
-    if (ignoreBaseNodeListener) {
+  onApplicationBootstrap() {
+    for (const { nodeEvents } of Object.values(RESOURCE_DESCRIPTORS)) {
+      if (!nodeEvents) continue;
+      for (const change of Object.values(NodeChange)) {
+        // As @OnEvent does: a failure is logged, never thrown at whoever emitted the event.
+        this.eventEmitter.on(
+          nodeEvents[change],
+          (event: INodeResourceEvent) =>
+            this.onResourceChange(change, nodeEvents.payloadKey, event).catch((error: Error) =>
+              this.logger.error(error.message, error.stack)
+            ),
+          { async: true }
+        );
+      }
+    }
+  }
+
+  private async onResourceChange(change: NodeChange, key: string, event: INodeResourceEvent) {
+    if (this.getIgnoreBaseNodeListener()) {
       return;
     }
-
-    const { baseId, resourceType, resourceId } = this.prepareResourceCreate(event);
-    if (!baseId || !resourceType || !resourceId) {
-      this.logger.error('Invalid resource create event', event);
+    const { payload } = event;
+    const named = (payload[key] as { id?: string } | undefined)?.id;
+    const resourceId =
+      change === NodeChange.Delete
+        ? (payload[`${key}Id`] as string | undefined)
+        : change === NodeChange.Create
+          ? (named ?? (payload[`${key}Id`] as string | undefined))
+          : named;
+    const { baseId } = payload;
+    if (!baseId || !resourceId) {
+      // An update without them names nothing to show; the others should always carry them.
+      if (change !== NodeChange.Update) {
+        this.logger.error(`Invalid resource ${change} event`, event);
+      }
       return;
     }
 
@@ -105,141 +86,6 @@ export class BaseNodeListener {
         event: 'flush',
       });
     });
-  }
-
-  private prepareResourceCreate(event: IResourceCreateEvent) {
-    let baseId: string;
-    let resourceType: BaseNodeResourceType | undefined;
-    let resourceId: string | undefined;
-    let name: string | undefined;
-    let icon: string | undefined;
-    switch (event.name) {
-      case Events.BASE_FOLDER_CREATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Folder;
-        resourceId = event.payload.folder.id;
-        name = event.payload.folder.name;
-        break;
-      case Events.TABLE_CREATE: {
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Table;
-        const table = event.payload.table as
-          | Partial<{ id: string; name: string; icon: string }>
-          | undefined;
-        resourceId = table?.id ?? (event.payload as Partial<{ tableId: string }>).tableId;
-        name = table?.name;
-        icon = table?.icon;
-        break;
-      }
-      case Events.WORKFLOW_CREATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Workflow;
-        resourceId = event.payload.workflow.id;
-        name = event.payload.workflow.name;
-        break;
-      case Events.DASHBOARD_CREATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Dashboard;
-        resourceId = event.payload.dashboard.id;
-        name = event.payload.dashboard.name;
-        break;
-      case Events.APP_CREATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.App;
-        resourceId = event.payload.app.id;
-        name = event.payload.app.name;
-        break;
-      case Events.ROUTINE_CREATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Routine;
-        resourceId = event.payload.routine.id;
-        name = event.payload.routine.name;
-        break;
-    }
-    return {
-      baseId,
-      resourceType,
-      resourceId,
-      name,
-      icon,
-      userId: event.context.user?.id,
-    };
-  }
-
-  @OnEvent(Events.BASE_FOLDER_UPDATE, { async: true })
-  @OnEvent(Events.TABLE_UPDATE, { async: true })
-  @OnEvent(Events.DASHBOARD_UPDATE, { async: true })
-  @OnEvent(Events.WORKFLOW_UPDATE, { async: true })
-  @OnEvent(Events.APP_UPDATE, { async: true })
-  @OnEvent(Events.ROUTINE_UPDATE, { async: true })
-  async onResourceUpdate(event: IResourceUpdateEvent) {
-    const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
-    if (ignoreBaseNodeListener) {
-      return;
-    }
-
-    const { baseId, resourceType, resourceId } = this.prepareResourceUpdate(event);
-    if (baseId && resourceType && resourceId) {
-      this.presenceHandler(baseId, (presence) => {
-        presence.submit({
-          event: 'flush',
-        });
-      });
-    }
-  }
-
-  private prepareResourceUpdate(event: IResourceUpdateEvent) {
-    let baseId: string;
-    let resourceType: BaseNodeResourceType | undefined;
-    let resourceId: string | undefined;
-    let name: string | undefined;
-    let icon: string | undefined;
-    switch (event.name) {
-      case Events.TABLE_UPDATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Table;
-        resourceId = event.payload.table.id;
-        name = event.payload.table?.name?.newValue as string;
-        icon = event.payload.table?.icon?.newValue as string;
-        break;
-      case Events.WORKFLOW_UPDATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Workflow;
-        resourceId = event.payload.workflow.id;
-        name = event.payload.workflow.name;
-        break;
-      case Events.DASHBOARD_UPDATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Dashboard;
-        resourceId = event.payload.dashboard.id;
-        name = event.payload.dashboard.name;
-        break;
-      case Events.APP_UPDATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.App;
-        resourceId = event.payload.app.id;
-        name = event.payload.app.name;
-        break;
-      case Events.BASE_FOLDER_UPDATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Folder;
-        resourceId = event.payload.folder.id;
-        name = event.payload.folder.name;
-        break;
-      case Events.ROUTINE_UPDATE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Routine;
-        resourceId = event.payload.routine.id;
-        name = event.payload.routine.name;
-        break;
-    }
-    return {
-      baseId,
-      resourceType,
-      resourceId,
-      name,
-      icon,
-    };
   }
 
   // The share-base copy path writes base_node rows with raw SQL and emits none of the
@@ -261,84 +107,17 @@ export class BaseNodeListener {
   }
 
   @OnEvent(Events.BASE_DELETE, { async: true })
-  @OnEvent(Events.BASE_FOLDER_DELETE, { async: true })
-  @OnEvent(Events.TABLE_DELETE, { async: true })
-  @OnEvent(Events.DASHBOARD_DELETE, { async: true })
-  @OnEvent(Events.WORKFLOW_DELETE, { async: true })
-  @OnEvent(Events.APP_DELETE, { async: true })
-  @OnEvent(Events.ROUTINE_DELETE, { async: true })
-  async onResourceDelete(event: IResourceDeleteEvent) {
-    const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
-    if (ignoreBaseNodeListener) {
+  async onBaseDelete(event: BaseDeleteEvent) {
+    if (this.getIgnoreBaseNodeListener()) {
       return;
     }
-
-    const { baseId, resourceType, resourceId } = this.prepareResourceDelete(event);
+    const { baseId } = event.payload;
     if (!baseId) {
       return;
     }
-    if (event.name === Events.BASE_DELETE) {
-      await this.prismaService.baseNode.deleteMany({
-        where: { baseId },
-      });
-      return;
-    }
-    if (!resourceType || !resourceId) {
-      this.logger.error('Invalid resource delete event', event);
-      return;
-    }
-
-    this.presenceHandler(baseId, (presence) => {
-      presence.submit({
-        event: 'flush',
-      });
+    await this.prismaService.baseNode.deleteMany({
+      where: { baseId },
     });
-  }
-
-  private prepareResourceDelete(event: IResourceDeleteEvent) {
-    let baseId: string;
-    let resourceType: BaseNodeResourceType | undefined;
-    let resourceId: string | undefined;
-    switch (event.name) {
-      case Events.BASE_DELETE:
-        baseId = event.payload.baseId;
-        break;
-      case Events.TABLE_DELETE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Table;
-        resourceId = event.payload.tableId;
-        break;
-      case Events.WORKFLOW_DELETE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Workflow;
-        resourceId = event.payload.workflowId;
-        break;
-      case Events.DASHBOARD_DELETE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Dashboard;
-        resourceId = event.payload.dashboardId;
-        break;
-      case Events.APP_DELETE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.App;
-        resourceId = event.payload.appId;
-        break;
-      case Events.BASE_FOLDER_DELETE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Folder;
-        resourceId = event.payload.folderId;
-        break;
-      case Events.ROUTINE_DELETE:
-        baseId = event.payload.baseId;
-        resourceType = BaseNodeResourceType.Routine;
-        resourceId = event.payload.routineId;
-        break;
-    }
-    return {
-      baseId,
-      resourceType,
-      resourceId,
-    };
   }
 
   private presenceHandler<T = IBaseNodePresenceFlushPayload>(

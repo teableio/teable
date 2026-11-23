@@ -10,15 +10,10 @@ import type {
 } from '@teable/core';
 import type { IGetRecordsRo, IShareViewRecordsRo } from '@teable/openapi';
 import { difference, isEqual } from 'lodash';
-import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
-import type { IClsStore } from '../../types/cls';
-import { FieldService } from '../field/field.service';
 import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
-import { RecordService } from '../record/record.service';
 import { ViewOpenApiV2Service } from '../view/open-api/view-open-api-v2.service';
-import { ViewService } from '../view/view.service';
 import type { IShareViewInfo } from './share-auth.service';
 import { isLinkRecordSelectionQuery } from './share-link-query.util';
 
@@ -32,10 +27,8 @@ export interface IShareQueryFieldRefs {
   search?: IShareSearch;
 }
 
-// V1 searches every column when no field key is given, and its hidden-column check
-// only knows the grid `hidden` flag. Pin an all-field search to the share-visible
-// columns instead so kanban/gallery/calendar shares cannot probe `visible: false`
-// columns through the search row filter. V2 scopes search by itself.
+// Bound field-less searches (search[1] empty/omitted) to share-visible columns so
+// view shares and link shares with restricted visibleFieldIds cannot probe hidden fields.
 export const scopeSearchToVisibleFields = (
   search: IShareSearch | undefined,
   visibleFieldIds: string[] | undefined
@@ -76,11 +69,7 @@ const filterItemFieldIds = (item: IFilterItem): string[] => {
 @Injectable()
 export class ShareSocketService {
   constructor(
-    private readonly viewService: ViewService,
     private readonly viewOpenApiV2Service: ViewOpenApiV2Service,
-    private readonly fieldService: FieldService,
-    private readonly recordService: RecordService,
-    private readonly cls: ClsService<IClsStore>,
     private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
     private readonly fieldOpenApiV2Service: FieldOpenApiV2Service
   ) {}
@@ -94,13 +83,8 @@ export class ShareSocketService {
         },
       });
     }
-    if (this.cls.get('useV2')) {
-      await this.viewOpenApiV2Service.getView(tableId, view.id);
-      return { ids: [view.id] };
-    }
-    return this.viewService.getDocIdsByQuery(tableId, {
-      includeIds: [view.id],
-    });
+    await this.viewOpenApiV2Service.getView(tableId, view.id);
+    return { ids: [view.id] };
   }
 
   async getViewSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {
@@ -124,10 +108,7 @@ export class ShareSocketService {
         }
       );
     }
-    if (this.cls.get('useV2')) {
-      return this.viewOpenApiV2Service.getSnapshotBulk(tableId, [view.id]);
-    }
-    return this.viewService.getSnapshotBulk(tableId, [view.id]);
+    return this.viewOpenApiV2Service.getSnapshotBulk(tableId, [view.id]);
   }
 
   // The fields a share visitor may read: the view's non-hidden fields (or, for a
@@ -140,17 +121,11 @@ export class ShareSocketService {
     const { filterByViewId, visibleFieldIds } = linkOptions ?? {};
     const viewId = filterByViewId ?? view?.id;
     const filterHidden = Boolean(filterByViewId) || !view?.shareMeta?.includeHiddenField;
-    const fields = this.cls.get('useV2')
-      ? await this.fieldOpenApiV2Service.getFields(tableId, {
-          ...query,
-          viewId,
-          filterHidden,
-        })
-      : await this.fieldService.getFieldsByQuery(tableId, {
-          ...query,
-          viewId,
-          filterHidden,
-        });
+    const fields = await this.fieldOpenApiV2Service.getFields(tableId, {
+      ...query,
+      viewId,
+      filterHidden,
+    });
 
     return visibleFieldIds?.length
       ? fields.filter((field) => visibleFieldIds.includes(field.id) || field.isPrimary)
@@ -234,10 +209,7 @@ export class ShareSocketService {
     const { tableId } = shareInfo;
     await this.validFieldSnapshotPermission(shareInfo, ids);
     const { ids: fieldIds } = await this.getFieldDocIdsByQuery(shareInfo);
-    if (this.cls.get('useV2')) {
-      return this.fieldOpenApiV2Service.getSnapshotBulk(tableId, fieldIds);
-    }
-    return this.fieldService.getSnapshotBulk(tableId, fieldIds);
+    return this.fieldOpenApiV2Service.getSnapshotBulk(tableId, fieldIds);
   }
 
   async validFieldSnapshotPermission(shareInfo: IShareViewInfo, ids: string[]) {
@@ -259,7 +231,7 @@ export class ShareSocketService {
   async getRecordDocIdsByQuery(
     shareInfo: IShareViewInfo,
     query: IShareViewRecordsRo,
-    useQueryModel = true
+    _useQueryModel = true
   ) {
     const { tableId, view, linkOptions, shareMeta } = shareInfo;
 
@@ -270,6 +242,10 @@ export class ShareSocketService {
     // viewId/ignoreViewQuery are not part of IShareViewRecordsRo, so the view
     // scope set below cannot be dropped by the caller.
     const visibleFieldIds = await this.assertQueryFieldsVisible(shareInfo, query);
+    if (query.search && visibleFieldIds && !visibleFieldIds.length) {
+      return { ids: [] };
+    }
+    const scopedSearch = scopeSearchToVisibleFields(query.search, visibleFieldIds);
 
     const { id } = view ?? {};
     const { filterByViewId } = linkOptions ?? {};
@@ -285,32 +261,19 @@ export class ShareSocketService {
       projection = (await this.getFieldDocIdsByQuery(shareInfo, query)).ids;
     }
 
-    if (this.cls.get('useV2')) {
-      return this.recordOpenApiV2Service.getSocketDocIds(tableId, {
-        ...query,
-        viewId,
-        filter,
-        projection,
-      });
-    }
-
-    return this.recordService.getDocIdsByQuery(
-      tableId,
-      {
-        ...query,
-        viewId,
-        filter,
-        projection,
-        search: scopeSearchToVisibleFields(query.search, visibleFieldIds),
-      },
-      useQueryModel
-    );
+    return this.recordOpenApiV2Service.getSocketDocIds(tableId, {
+      ...query,
+      ...(query.search !== undefined ? { search: scopedSearch } : {}),
+      viewId,
+      filter,
+      projection,
+    });
   }
 
   async getRecordSnapshotBulk(
     shareInfo: IShareViewInfo,
     ids: string[],
-    useQueryModel: boolean,
+    _useQueryModel: boolean,
     projection?: { [fieldNameOrId: string]: boolean }
   ) {
     const { tableId } = shareInfo;
@@ -336,17 +299,7 @@ export class ShareSocketService {
       ? requestedVisibleFieldIds
       : allowedFieldIds;
     const safeProjection = Object.fromEntries(projectedFieldIds.map((fieldId) => [fieldId, true]));
-    if (this.cls.get('useV2')) {
-      return this.recordOpenApiV2Service.getSocketSnapshotBulk(tableId, ids, safeProjection);
-    }
-    return this.recordService.getSnapshotBulk(
-      tableId,
-      ids,
-      safeProjection,
-      undefined,
-      undefined,
-      useQueryModel
-    );
+    return this.recordOpenApiV2Service.getSocketSnapshotBulk(tableId, ids, safeProjection);
   }
 
   async validRecordSnapshotPermission(shareInfo: IShareViewInfo, ids: string[]) {
@@ -362,7 +315,11 @@ export class ShareSocketService {
         }
       );
     }
-    const diff = await this.recordService.getDiffIdsByIdAndFilter(tableId, ids, view?.filter);
+    const diff = await this.recordOpenApiV2Service.getDiffIdsByIdAndFilter(
+      tableId,
+      ids,
+      view?.filter
+    );
     if (diff.length) {
       throw new CustomHttpException(
         `Record(${diff.join(',')}) permission not allowed: read`,

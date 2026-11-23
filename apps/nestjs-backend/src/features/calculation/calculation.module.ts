@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
+import { RawOpStagingModule } from '../../share-db/raw-op-staging.module';
 import { RecordQueryBuilderModule } from '../record/query-builder';
 import { RecordQueryService } from '../record/record-query.service';
 import { TableDomainQueryModule } from '../table-domain';
@@ -10,7 +11,7 @@ import { ReferenceService } from './reference.service';
 import { SystemFieldService } from './system-field.service';
 
 @Module({
-  imports: [RecordQueryBuilderModule, TableDomainQueryModule],
+  imports: [RawOpStagingModule, RecordQueryBuilderModule, TableDomainQueryModule],
   providers: [
     DbProvider,
     RecordQueryService,

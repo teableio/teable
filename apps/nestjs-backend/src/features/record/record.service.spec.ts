@@ -2,6 +2,7 @@ import { CellValueType, DbFieldType, FieldKeyType, FieldType } from '@teable/cor
 import type { IFieldVo } from '@teable/core';
 import Knex from 'knex';
 import { vi } from 'vitest';
+import { AttachmentCellValueService } from '../attachments/attachment-cell-value.service';
 import { RecordService } from './record.service';
 
 const { captureException, sentryScope, withScope } = vi.hoisted(() => {
@@ -34,11 +35,20 @@ describe('RecordService', () => {
     ]);
     const service = Object.create(RecordService.prototype) as RecordService;
     Object.assign(service, { prismaService: { txClient: () => ({ user: { findMany } }) } });
-    const records = [{ fields: {
-      fldUser: [null, { id: 'usrOne' }, { id: 'usrOne', title: 'usrOne' },
-        { id: 'usrTwo', title: 'Historical Two', email: 'old@example.test' }, null],
-      fldHidden: [{ id: 'usrHidden' }],
-    } }];
+    const records = [
+      {
+        fields: {
+          fldUser: [
+            null,
+            { id: 'usrOne' },
+            { id: 'usrOne', title: 'usrOne' },
+            { id: 'usrTwo', title: 'Historical Two', email: 'old@example.test' },
+            null,
+          ],
+          fldHidden: [{ id: 'usrHidden' }],
+        },
+      },
+    ];
     await service.hydrateSelectedUserCells(records, [
       { id: 'fldUser', type: FieldType.User },
       { id: 'fldHidden', type: FieldType.User, isLookup: true },
@@ -48,10 +58,13 @@ describe('RecordService', () => {
       select: { id: true, name: true, email: true },
     });
     expect(records[0]!.fields).toEqual({
-      fldUser: [null,
+      fldUser: [
+        null,
         { id: 'usrOne', title: 'Current One', email: 'one@example.test' },
         { id: 'usrOne', title: 'Current One', email: 'one@example.test' },
-        { id: 'usrTwo', title: 'Historical Two', email: 'old@example.test' }, null],
+        { id: 'usrTwo', title: 'Historical Two', email: 'old@example.test' },
+        null,
+      ],
       fldHidden: [{ id: 'usrHidden' }],
     });
   });
@@ -102,10 +115,7 @@ describe('RecordService', () => {
     const service = Object.create(RecordService.prototype) as {
       cacheService: { getMany: ReturnType<typeof vi.fn> };
       prismaService: { attachments: { findMany: ReturnType<typeof vi.fn> } };
-      attachmentStorageService: {
-        getPreviewUrlByPath: ReturnType<typeof vi.fn>;
-        getTableThumbnailUrl: ReturnType<typeof vi.fn>;
-      };
+      attachmentCellValueService: AttachmentCellValueService;
       recordsPresignedUrl: (
         records: never,
         fields: never,
@@ -131,10 +141,10 @@ describe('RecordService', () => {
         findMany: vi.fn().mockResolvedValue([]),
       },
     };
-    service.attachmentStorageService = {
+    service.attachmentCellValueService = new AttachmentCellValueService({
       getPreviewUrlByPath: vi.fn().mockResolvedValue('https://example.test/image-token'),
       getTableThumbnailUrl: vi.fn(),
-    };
+    } as never);
 
     const records = [
       {
@@ -170,6 +180,7 @@ describe('RecordService', () => {
     const service = Object.create(RecordService.prototype) as {
       cacheService: { getMany: ReturnType<typeof vi.fn> };
       logger: { error: ReturnType<typeof vi.fn> };
+      attachmentCellValueService: AttachmentCellValueService;
       recordsPresignedUrl: (
         records: never,
         fields: never,
@@ -184,6 +195,11 @@ describe('RecordService', () => {
     service.logger = {
       error: vi.fn(),
     };
+    const presignError = new TypeError('Attachment storage unavailable');
+    service.attachmentCellValueService = new AttachmentCellValueService({
+      getPreviewUrlByPath: vi.fn().mockRejectedValue(presignError),
+      getTableThumbnailUrl: vi.fn(),
+    } as never);
 
     await expect(
       service.recordsPresignedUrl(
@@ -196,6 +212,8 @@ describe('RecordService', () => {
               fields: {
                 fldAttachment: {
                   token: 'attachment-token',
+                  path: '/table/attachment-token.txt',
+                  mimetype: 'text/plain',
                 },
               },
             },
@@ -217,7 +235,7 @@ describe('RecordService', () => {
           recordIds: ['recBrokenAttachment'],
         } as never
       )
-    ).rejects.toThrow();
+    ).rejects.toBe(presignError);
 
     expect(service.logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -226,7 +244,7 @@ describe('RecordService', () => {
         valueShapes: [
           expect.objectContaining({
             fieldId: 'fldAttachment',
-            hasMimetype: false,
+            hasMimetype: true,
             hasToken: true,
             recordId: 'recBrokenAttachment',
           }),
@@ -250,7 +268,7 @@ describe('RecordService', () => {
         ],
       })
     );
-    expect(captureException).toHaveBeenCalledWith(expect.any(TypeError), {
+    expect(captureException).toHaveBeenCalledWith(presignError, {
       mechanism: { handled: true, type: 'record.snapshot.presigned_url' },
     });
   });

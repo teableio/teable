@@ -24,8 +24,8 @@ import { describe, expect, it, vi } from 'vitest';
 // Mapping tests inject their service dependencies explicitly; keep database and
 // application bootstrap code outside this unit test boundary.
 vi.mock('@teable/db-main-prisma', () => ({ PrismaService: class PrismaService {} }));
-vi.mock('../../data-loader/data-loader.service', () => ({
-  DataLoaderService: class DataLoaderService {},
+vi.mock('../../field-cache/field-cache.service', () => ({
+  FieldCacheService: class FieldCacheService {},
 }));
 vi.mock('../../v2/v2-container.service', () => ({
   V2ContainerService: class V2ContainerService {},
@@ -36,7 +36,7 @@ vi.mock('../../v2/v2-execution-context.factory', () => ({
 vi.mock('../../field-reference-admission/field-reference-admission.service', () => ({
   FieldReferenceAdmissionService: class FieldReferenceAdmissionService {},
 }));
-vi.mock('../../table/table-index.service', () => ({
+vi.mock('../../table-index/table-index.service', () => ({
   TableIndexService: class TableIndexService {},
 }));
 
@@ -216,10 +216,8 @@ describe('FieldOpenApiV2Service deleteField', () => {
         throw new Error(`Unexpected token ${String(token)}`);
       }),
     };
-    const dataLoaderService = {
-      field: {
-        invalidateTables: vi.fn(),
-      },
+    const fieldCacheService = {
+      invalidateTables: vi.fn(),
     };
     const service = new FieldOpenApiV2Service(
       {
@@ -228,7 +226,7 @@ describe('FieldOpenApiV2Service deleteField', () => {
       {
         createContext: vi.fn().mockResolvedValue(context),
       } as never,
-      dataLoaderService as never,
+      fieldCacheService as never,
       {
         get: vi.fn((key: string) => (key === 'user.id' ? `usr${'f'.repeat(16)}` : undefined)),
       } as never,
@@ -247,7 +245,7 @@ describe('FieldOpenApiV2Service deleteField', () => {
       },
       commandBus
     );
-    expect(dataLoaderService.field.invalidateTables).toHaveBeenCalledWith([tableId]);
+    expect(fieldCacheService.invalidateTables).toHaveBeenCalledWith([tableId]);
   });
 });
 
@@ -953,10 +951,8 @@ describe('FieldOpenApiV2Service updateField', () => {
         throw new Error(`Unexpected token ${String(token)}`);
       }),
     };
-    const dataLoaderService = {
-      field: {
-        invalidateTables: vi.fn(),
-      },
+    const fieldCacheService = {
+      invalidateTables: vi.fn(),
     };
     const service = new FieldOpenApiV2Service(
       {
@@ -965,7 +961,7 @@ describe('FieldOpenApiV2Service updateField', () => {
       {
         createContext: vi.fn().mockResolvedValue(context),
       } as never,
-      dataLoaderService as never,
+      fieldCacheService as never,
       {
         get: vi.fn((key: string) => (key === 'user.id' ? `usr${'f'.repeat(16)}` : undefined)),
       } as never,
@@ -986,10 +982,7 @@ describe('FieldOpenApiV2Service updateField', () => {
       },
       commandBus
     );
-    expect(dataLoaderService.field.invalidateTables).toHaveBeenCalledWith([
-      tableId,
-      foreignTableId,
-    ]);
+    expect(fieldCacheService.invalidateTables).toHaveBeenCalledWith([tableId, foreignTableId]);
   });
 
   it('leaves the cross-base check of a patched link field to the v2 plugin', async () => {
@@ -1042,7 +1035,7 @@ describe('FieldOpenApiV2Service updateField', () => {
       {
         createContext: vi.fn().mockResolvedValue(context),
       } as never,
-      { field: { invalidateTables: vi.fn() } } as never,
+      { invalidateTables: vi.fn() } as never,
       { get: vi.fn(() => undefined) } as never,
       fieldReferenceAdmission as never,
       {} as never
@@ -2985,7 +2978,7 @@ describe('FieldOpenApiV2Service createField', () => {
     const service = new FieldOpenApiV2Service(
       createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
-      { field: { invalidateTables: vi.fn() } } as never,
+      { invalidateTables: vi.fn() } as never,
       {} as never,
       createFieldReferenceAdmissionService() as never,
       {} as never
@@ -3043,7 +3036,7 @@ describe('FieldOpenApiV2Service createField', () => {
     const service = new FieldOpenApiV2Service(
       createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
-      { field: { invalidateTables: vi.fn() } } as never,
+      { invalidateTables: vi.fn() } as never,
       {} as never,
       createFieldReferenceAdmissionService() as never,
       {} as never
@@ -3124,7 +3117,7 @@ describe('FieldOpenApiV2Service createFields', () => {
     const service = new FieldOpenApiV2Service(
       createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
-      { field: { invalidateTables: vi.fn() } } as never,
+      { invalidateTables: vi.fn() } as never,
       {} as never,
       createFieldReferenceAdmissionService() as never,
       {} as never

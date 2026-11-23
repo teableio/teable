@@ -30,6 +30,7 @@ describe('InvitationService', () => {
   let invitationService: InvitationService;
   let clsService: ClsService<IClsStore>;
   let emitAsync: ReturnType<typeof vi.spyOn>;
+  let module: TestingModule;
 
   const mockUser = { id: 'usr1', name: 'John', email: 'john@example.com' };
   const mockSpace = { id: 'spcxxxxxxxx', name: 'Test Space' };
@@ -45,7 +46,7 @@ describe('InvitationService', () => {
     },
   };
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [InvitationModule, GlobalModule],
     })
       .overrideProvider(PrismaService)
@@ -74,7 +75,8 @@ describe('InvitationService', () => {
     prismaService.setting.findMany.mockResolvedValue([]);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await module.close();
     mockReset(prismaService);
   });
 

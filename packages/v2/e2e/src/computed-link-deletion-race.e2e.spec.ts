@@ -1,12 +1,14 @@
 import type { Server } from 'node:http';
+
 import {
   buildFieldBackfillTaskInput,
-  type ComputedFieldBackfillService,
-  type IComputedUpdateOutbox,
   v2RecordRepositoryPostgresTokens,
+  type ComputedFieldBackfillService,
   type ComputedFieldUpdater,
   type ComputedUpdateWorker,
+  type IComputedUpdateOutbox,
 } from '@teable/v2-adapter-table-repository-postgres';
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import {
   apiErrorResponseDtoSchema,
   createRecordOkResponseSchema,
@@ -22,14 +24,15 @@ import {
   getRandomString,
   v2CoreTokens,
   type IHasher,
-  type ITableRepository,
   type ITableDeletionPreparationService,
+  type ITableRepository,
 } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
+import { observeSchemaAcquisitions } from './shared/observeSchemaAcquisitions';
 
 /**
  * T8549: sanitized manyOne/oneMany + filtered multi-value lookup, with a real
@@ -45,8 +48,15 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
         hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
       },
     });
+    const executionContext = await createStandaloneExecutionContext(runtime);
+    const acquisitions = observeSchemaAcquisitions(runtime.container);
     const app = express();
-    app.use(createV2ExpressRouter({ createContainer: () => runtime.container }));
+    app.use(
+      createV2ExpressRouter({
+        createContainer: () => runtime.container,
+        createExecutionContext: () => executionContext,
+      })
+    );
     const listening = Promise.withResolvers<Server>();
     const server = app.listen(0, '127.0.0.1', () => listening.resolve(server));
     server.once('error', listening.reject);
@@ -297,19 +307,7 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
       // A coordinated implementation may block deletion. Otherwise let the real
       // deletion commit before returning the worker's already-loaded snapshot.
       await expect
-        .poll(
-          async () => {
-            if (deletionSettled) return true;
-            const waiters = await sql<{
-              count: number;
-            }>`SELECT count(*)::int AS count FROM pg_locks l
-          JOIN pg_stat_activity a ON a.pid = l.pid
-          WHERE l.locktype = 'advisory' AND NOT l.granted
-            AND a.application_name = 'teable-v2-schema-coordination'`.execute(runtime.db);
-            return waiters.rows[0].count > 0;
-          },
-          { timeout: 10_000 }
-        )
+        .poll(() => deletionSettled || acquisitions.count(source.id) > 0, { timeout: 10_000 })
         .toBe(true);
       releaseSnapshot.resolve();
       await Promise.all([workerRun, deletion]);
@@ -341,6 +339,7 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
       releaseSnapshot.resolve();
       restoreRepository?.();
       await Promise.allSettled([workerRun, deletion].filter((work) => work !== undefined));
+      acquisitions.restore();
       const closed = Promise.withResolvers<void>();
       server.close((error) => (error ? closed.reject(error) : closed.resolve()));
       await closed.promise;
@@ -358,8 +357,15 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
           hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
         },
       });
+      const executionContext = await createStandaloneExecutionContext(runtime);
+      const acquisitions = observeSchemaAcquisitions(runtime.container);
       const app = express();
-      app.use(createV2ExpressRouter({ createContainer: () => runtime.container }));
+      app.use(
+        createV2ExpressRouter({
+          createContainer: () => runtime.container,
+          createExecutionContext: () => executionContext,
+        })
+      );
       const listening = Promise.withResolvers<Server>();
       const server = app.listen(0, '127.0.0.1', () => listening.resolve(server));
       server.once('error', listening.reject);
@@ -610,19 +616,7 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
           deletionSettled = true;
         });
         await expect
-          .poll(
-            async () => {
-              if (deletionSettled) return true;
-              const waiters = await sql<{
-                count: number;
-              }>`SELECT count(*)::int AS count FROM pg_locks l
-             JOIN pg_stat_activity a ON a.pid = l.pid
-             WHERE l.locktype = 'advisory' AND NOT l.granted
-               AND a.application_name = 'teable-v2-schema-coordination'`.execute(runtime.db);
-              return waiters.rows[0].count > 0;
-            },
-            { timeout: 10_000 }
-          )
+          .poll(() => deletionSettled || acquisitions.count(source.id) > 0, { timeout: 10_000 })
           .toBe(true);
         releasePropagation.resolve();
         await Promise.all([workerRun, deletion]);
@@ -655,6 +649,7 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
         releasePropagation.resolve();
         restorePropagation?.();
         await Promise.allSettled([workerRun, deletion].filter((work) => work !== undefined));
+        acquisitions.restore();
         const closed = Promise.withResolvers<void>();
         server.close((error) => (error ? closed.reject(error) : closed.resolve()));
         await closed.promise;
@@ -674,8 +669,15 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
           hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
         },
       });
+      const executionContext = await createStandaloneExecutionContext(runtime);
+      const acquisitions = observeSchemaAcquisitions(runtime.container);
       const app = express();
-      app.use(createV2ExpressRouter({ createContainer: () => runtime.container }));
+      app.use(
+        createV2ExpressRouter({
+          createContainer: () => runtime.container,
+          createExecutionContext: () => executionContext,
+        })
+      );
       const listening = Promise.withResolvers<Server>();
       const server = app.listen(0, '127.0.0.1', () => listening.resolve(server));
       server.once('error', listening.reject);
@@ -897,19 +899,7 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
         if (waitMode === 'discovery-timeout') await discoveryStarted.promise;
         else {
           await expect
-            .poll(
-              async () => {
-                if (deletionSettled) return true;
-                const waiters = await sql<{
-                  count: number;
-                }>`SELECT count(*)::int AS count FROM pg_locks l
-             JOIN pg_stat_activity a ON a.pid = l.pid
-             WHERE l.locktype = 'advisory' AND NOT l.granted
-               AND a.application_name = 'teable-v2-schema-coordination'`.execute(runtime.db);
-                return waiters.rows[0].count > 0;
-              },
-              { timeout: 10_000 }
-            )
+            .poll(() => deletionSettled || acquisitions.count(source.id) > 0, { timeout: 10_000 })
             .toBe(true);
         }
         if (waitMode !== 'complete') {
@@ -983,6 +973,7 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
         await Promise.allSettled(
           [workerRun, deletion, deferredPreparation].filter((work) => work !== undefined)
         );
+        acquisitions.restore();
         const closed = Promise.withResolvers<void>();
         server.close((error) => (error ? closed.reject(error) : closed.resolve()));
         await closed.promise;

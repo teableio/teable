@@ -1,4 +1,27 @@
 {
+  "searchAcceleration": {
+    "title": "搜索加速",
+    "stateLabel": "设置状态",
+    "state": {
+      "disabled": "已关闭",
+      "preparing": "准备中",
+      "enabled": "已开启",
+      "disabling": "关闭中",
+      "failed": "失败"
+    },
+    "serving": "已为覆盖的字段准备好搜索加速数据。",
+    "notServing": "搜索加速暂不可用，仍可使用现有搜索。",
+    "enable": "开启",
+    "disable": "关闭",
+    "resetOff": "恢复为关闭状态",
+    "permissionError": "暂时无法检查你是否有权更改此设置。",
+    "readOnly": "只有拥有此表更新权限的空间所有者或创建者才能更改设置。",
+    "statusError": "无法获取设置，仍可继续搜索此表。",
+    "changeError": "未能更改设置，请重试。",
+    "confirmTitle": "为这张大表开启搜索加速？",
+    "confirmDetail": "此表至少有 50,000 条记录，准备可能需要一些时间。准备期间可以继续搜索。",
+    "confirm": "确认开启"
+  },
   "computeActivity": {
     "currentCalculations": "当前计算任务",
     "thisTableOnly": "仅此表",

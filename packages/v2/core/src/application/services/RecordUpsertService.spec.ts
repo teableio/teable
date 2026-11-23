@@ -206,6 +206,10 @@ const createHarness = (options: HarnessOptions) => {
   }> = [];
   const undoAppends: unknown[] = [];
   const afterCommitOrder: string[] = [];
+  const mutationOrder: string[] = [];
+  const savepointContexts: IExecutionContext[] = [];
+  const creationContexts: IExecutionContext[] = [];
+  const creationSizes: number[] = [];
   let savepointCalls = 0;
   let createCalls = 0;
 
@@ -214,7 +218,13 @@ const createHarness = (options: HarnessOptions) => {
   const createRecordQueue = [...(options.createRecords ?? [])];
 
   const batchCreation = {
-    create: async () => {
+    create: async (
+      creationContext: IExecutionContext,
+      input: { recordsFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>> }
+    ) => {
+      creationContexts.push(creationContext);
+      creationSizes.push(input.recordsFieldValues.length);
+      mutationOrder.push('create');
       createCalls += 1;
       if (createQueue.length > 0) {
         return createQueue.shift()!;
@@ -238,6 +248,7 @@ const createHarness = (options: HarnessOptions) => {
       input: { records: ReadonlyArray<{ fieldValues: ReadonlyMap<string, unknown> }> }
     ) => {
       updateCalls.push(input);
+      mutationOrder.push('update');
       if (options.updateResult) {
         return ok<IRecordBulkUpdateTransactionResult, DomainError>({
           ...options.updateResult,
@@ -316,9 +327,14 @@ const createHarness = (options: HarnessOptions) => {
         },
       });
     },
-    savepoint: async (_context: unknown, work: () => Promise<unknown>) => {
+    savepoint: async (
+      parentContext: IExecutionContext,
+      work: (childContext: IExecutionContext) => Promise<unknown>
+    ) => {
       savepointCalls += 1;
-      return work();
+      const childContext = { ...parentContext };
+      savepointContexts.push(childContext);
+      return work(childContext);
     },
   };
 
@@ -355,6 +371,10 @@ const createHarness = (options: HarnessOptions) => {
     updateCalls,
     undoAppends,
     afterCommitOrder,
+    mutationOrder,
+    savepointContexts,
+    creationContexts,
+    creationSizes,
   };
 };
 
@@ -598,6 +618,96 @@ describe('RecordUpsertService behaviours', () => {
     expect(harness.undoAppends).toHaveLength(1);
   });
 
+  it('finishes concrete creates and race reclassification before one ordered update stage', async () => {
+    const table = buildUpsertTable();
+    const recordC = `rec${'c'.repeat(16)}`;
+    const uniqueError = domainError.validation({
+      code: 'validation.field.unique',
+      message: 'duplicate',
+      details: { fieldId: table.keyFieldId },
+    });
+    const harness = createHarness({
+      table,
+      matchedSequence: [
+        [matchedRow(table, recordA, 'existing')],
+        [matchedRow(table, recordB, 'raced')],
+      ],
+      createResults: [
+        err<IRecordBatchCreationResult, DomainError>(uniqueError),
+        ok<IRecordBatchCreationResult, DomainError>({
+          records: [createdRecord(table, recordC, 'new')],
+          events: [],
+          fieldKeyMapping: new Map(),
+          undoCommands: [],
+          redoCommands: [],
+          afterCommit: async () => {},
+        }),
+      ],
+      updateResult: {
+        updatedCount: 2,
+        events: [],
+        records: [
+          matchedEntity(table, recordA, 'existing'),
+          matchedEntity(table, recordB, 'raced'),
+        ],
+        changedRecordIds: [recordA, recordB].map((id) => ({ toString: () => id }) as never),
+        undoCommands: [],
+        redoCommands: [],
+        afterCommit: async () => {},
+      },
+    });
+
+    const result = await harness.upsertService.upsert(context, {
+      ...baseInput(
+        table,
+        ['raced', 'existing', 'new'].map((key) => ({
+          [table.keyFieldId]: key,
+          [table.titleFieldId]: key,
+        }))
+      ),
+      onConflict: 'update',
+    });
+
+    expect(result._unsafeUnwrap().results).toMatchObject([
+      { index: 0, status: 'updated', recordId: recordB },
+      { index: 1, status: 'updated', recordId: recordA },
+      { index: 2, status: 'created', recordId: recordC },
+    ]);
+    expect(harness.mutationOrder).toEqual(['create', 'create', 'update']);
+    expect(harness.updateCalls).toHaveLength(1);
+    expect(harness.creationSizes).toEqual([2, 1]);
+    expect(
+      harness.updateCalls[0]!.records.map((record) => record.fieldValues.get(table.keyFieldId))
+    ).toEqual(['raced', 'existing']);
+    expect(harness.creationContexts[0]).toBe(harness.savepointContexts[0]);
+    expect(harness.creationContexts[1]).toBe(harness.savepointContexts[1]);
+    expect(harness.creationContexts[0]).not.toBe(context);
+    expect(harness.creationContexts[1]).not.toBe(harness.creationContexts[0]);
+  });
+
+  it('does not update matched rows when concrete create admission fails', async () => {
+    const table = buildUpsertTable();
+    const denied = domainError.forbidden({ message: 'row limit exceeded' });
+    const harness = createHarness({
+      table,
+      matched: [matchedRow(table, recordA, 'existing')],
+      createResults: [err<IRecordBatchCreationResult, DomainError>(denied)],
+    });
+
+    const result = await harness.upsertService.upsert(context, {
+      ...baseInput(
+        table,
+        ['existing', 'new'].map((key) => ({ [table.keyFieldId]: key }))
+      ),
+      onConflict: 'update',
+    });
+
+    expect(result.isErr() && result.error).toBe(denied);
+    expect(harness.mutationOrder).toEqual(['create']);
+    expect(harness.updateCalls).toHaveLength(0);
+    expect(harness.undoAppends).toHaveLength(0);
+  });
+
   it('bounds the create retry loop at two retries', async () => {
     const table = buildUpsertTable();
     const uniqueError = () =>
@@ -786,6 +896,28 @@ describe('RecordUpsertService behaviours', () => {
       .entries()
       .map((entry) => entry.fieldId.toString());
     expect(fieldIds).toEqual([table.keyFieldId]);
+  });
+  it('rejects an unreadable non-unique match field before metadata validation or writes', async () => {
+    const table = buildUpsertTable(false);
+    const harness = createHarness({
+      table,
+      readScope: { readableFieldIds: new Set() },
+    });
+    const result = await harness.upsertService.upsert(
+      context,
+      baseInput(table, [
+        {
+          [table.keyFieldId]: 'secret',
+        },
+      ])
+    );
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.code).toBe('record.upsert.match_field_not_readable');
+      expect(result.error.tags).toContain('forbidden');
+    }
+    expect(harness.createCalls).toBe(0);
+    expect(harness.updateCalls).toHaveLength(0);
   });
 
   it('gates created rows through the same read scope', async () => {
@@ -1084,7 +1216,12 @@ describe('RecordUpsertService behaviours', () => {
       'updated',
       'created',
     ]);
-    expect(afterCommitOrder).toEqual(['write-throws', 'update-throws', 'second-plan-handler-ran']);
+    // Isolation requires every callback exactly once, not a particular create/update schedule.
+    expect(afterCommitOrder.sort()).toEqual([
+      'second-plan-handler-ran',
+      'update-throws',
+      'write-throws',
+    ]);
     expect(publishedEvents).toEqual(['RecordCreated']);
   });
 
@@ -1114,6 +1251,6 @@ describe('RecordUpsertService behaviours', () => {
 
     expect(result.isOk()).toBe(true);
     expect(result._unsafeUnwrap().results.map((r) => r.status)).toEqual(['updated', 'created']);
-    expect(harness.afterCommitOrder).toEqual(['write', 'update', 'create']);
+    expect(harness.afterCommitOrder.sort()).toEqual(['create', 'update', 'write']);
   });
 });

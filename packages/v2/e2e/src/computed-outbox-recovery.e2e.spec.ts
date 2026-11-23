@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import {
   getPostgresTransaction,
   PostgresQueryCancelledError,
@@ -10,17 +11,19 @@ import {
   computedUpdateLockKeyForRecord,
   defaultComputedUpdateOutboxConfig,
   v2RecordRepositoryPostgresTokens,
-  type ComputedUpdateWorker,
-  type ComputedUpdateOutboxTaskInput,
-  type IComputedUpdateOutbox,
   type ComputedTaskExecutionCancellation,
+  type ComputedUpdateOutboxTaskInput,
+  type ComputedUpdateWorker,
+  type IComputedUpdateOutbox,
 } from '@teable/v2-adapter-table-repository-postgres';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
   listTableRecordsOkResponseSchema,
+  updateFieldOkResponseSchema,
   updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
@@ -37,6 +40,7 @@ import express from 'express';
 import { sql } from 'kysely';
 import { err, type Result } from 'neverthrow';
 import { afterEach, describe, expect, it } from 'vitest';
+
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 type TestHarness = {
@@ -51,17 +55,21 @@ const activeHarnesses = new Set<TestHarness>();
 const createFieldId = () => `fld${getRandomString(16)}`;
 
 const createHarness = async (
-  options: Parameters<typeof createE2eTestContainer>[0] = {}
+  options: Parameters<typeof createE2eTestContainer>[0] = {},
+  existingBaseId?: IV2NodeTestContainer['baseId']
 ): Promise<TestHarness> => {
   const testContainer = await createE2eTestContainer({
     dbMode: 'postgres',
     ...options,
   });
 
+  const baseId = existingBaseId ?? testContainer.baseId;
+  const executionContext = await createStandaloneExecutionContext({ ...testContainer, baseId });
   const app = express();
   app.use(
     createV2ExpressRouter({
       createContainer: () => testContainer.container,
+      createExecutionContext: () => executionContext,
     })
   );
 
@@ -75,7 +83,7 @@ const createHarness = async (
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {
     testContainer,
-    baseId: testContainer.baseId.toString(),
+    baseId: baseId.toString(),
     baseUrl: `http://127.0.0.1:${address.port}`,
     close: async () => {
       await new Promise<void>((resolve, reject) => {
@@ -390,12 +398,15 @@ const createLanePair = async (mode: 'hybrid' | 'async' = 'hybrid') => {
   const production = await createHarness({
     computedUpdate: { ...commonConfig, outboxConfig: productionConfig },
   });
-  const staging = await createHarness({
-    connectionString: production.testContainer.connectionString,
-    seedBase: false,
-    ensureSchema: false,
-    computedUpdate: { ...commonConfig, outboxConfig: stagingConfig },
-  });
+  const staging = await createHarness(
+    {
+      connectionString: production.testContainer.connectionString,
+      seedBase: false,
+      ensureSchema: false,
+      computedUpdate: { ...commonConfig, outboxConfig: stagingConfig },
+    },
+    production.testContainer.baseId
+  );
   return { production, staging };
 };
 
@@ -681,15 +692,18 @@ describe('[C14][S19] computed outbox recovery (e2e)', () => {
         },
       ],
     });
-    const staging = await createHarness({
-      connectionString: production.testContainer.connectionString,
-      seedBase: false,
-      ensureSchema: false,
-      computedUpdate: {
-        mode: 'async',
-        outboxConfig: { ...defaultComputedUpdateOutboxConfig, workerLane: 'staging' },
+    const staging = await createHarness(
+      {
+        connectionString: production.testContainer.connectionString,
+        seedBase: false,
+        ensureSchema: false,
+        computedUpdate: {
+          mode: 'async',
+          outboxConfig: { ...defaultComputedUpdateOutboxConfig, workerLane: 'staging' },
+        },
       },
-    });
+      production.testContainer.baseId
+    );
     const record = await createRecord(production, table.id, { [valueFieldId]: 7 });
     const task = await production.testContainer.db
       .selectFrom('computed_update_outbox')
@@ -999,6 +1013,202 @@ describe('[C14][S19] computed outbox recovery (e2e)', () => {
     }
   }, 120_000);
 
+  it('backfills separate formula statements after a date field conversion exceeds the fusion budget', async () => {
+    let enforceReducedCteLimit = false;
+    const harness = await createHarness({
+      computedUpdate: {
+        mode: 'async',
+        fieldBackfillConfig: { mode: 'async' },
+      },
+      formulaCompileBudget: {
+        policyVersion: 1,
+        policy: {
+          check: (metric, attempted) =>
+            enforceReducedCteLimit && metric === 'materializedCtes' && attempted > 0
+              ? { metric, attempted, max: 0 }
+              : undefined,
+        },
+      },
+    });
+    const nameId = createFieldId();
+    const sourceDateId = createFieldId();
+    const convertedDateId = createFieldId();
+    const formattedDateId = createFieldId();
+    const firstOutputId = createFieldId();
+    const secondOutputId = createFieldId();
+    const formatted = `{${formattedDateId}}`;
+    const table = await createTable(harness, {
+      baseId: harness.baseId,
+      name: 'Formula backfill after date conversion',
+      fields: [
+        { type: 'singleLineText', id: nameId, name: 'Name', isPrimary: true },
+        { type: 'date', id: sourceDateId, name: 'Source date' },
+        { type: 'date', id: convertedDateId, name: 'Effective date' },
+        {
+          type: 'formula',
+          id: formattedDateId,
+          name: 'Formatted date',
+          options: {
+            expression: `DATETIME_FORMAT({${convertedDateId}}, "YYYY/MM/DD")`,
+            timeZone: 'UTC',
+          },
+        },
+        {
+          type: 'formula',
+          id: firstOutputId,
+          name: 'Encoded date',
+          options: {
+            expression: `IF(AND(LEN(${formatted}) > 0, LEFT(${formatted}, 1) = "2"), ENCODE_URL_COMPONENT(${formatted}), "")`,
+          },
+        },
+        {
+          type: 'formula',
+          id: secondOutputId,
+          name: 'Query parameter',
+          options: {
+            expression: `IF(FIND("/", ${formatted}) > 0, "date=" & ENCODE_URL_COMPONENT(${formatted}), "")`,
+          },
+        },
+      ],
+    });
+    const record = await createRecord(harness, table.id, {
+      [nameId]: 'Record',
+      [sourceDateId]: '2025-01-07T12:00:00.000Z',
+      [convertedDateId]: '2025-01-02T12:00:00.000Z',
+    });
+    await harness.testContainer.processOutbox();
+
+    expect(await listRecordsWithoutDrain(harness, table.id)).toMatchObject([
+      {
+        id: record.id,
+        fields: {
+          [firstOutputId]: '2025%2F01%2F02',
+          [secondOutputId]: 'date=2025%2F01%2F02',
+        },
+      },
+    ]);
+
+    const response = await fetch(`${harness.baseUrl}/tables/updateField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tableId: table.id,
+        fieldId: convertedDateId,
+        field: {
+          type: 'formula',
+          options: { expression: `DATE_ADD({${sourceDateId}}, 1, "days")`, timeZone: 'UTC' },
+          updateMode: 'full',
+        },
+      }),
+    });
+    const body = await response.json();
+    expect(response.status, JSON.stringify(body)).toBe(200);
+    expect(updateFieldOkResponseSchema.parse(body).ok).toBe(true);
+
+    const db = harness.testContainer.db;
+    const tasks = await db
+      .selectFrom('computed_update_outbox')
+      .select('affected_field_ids')
+      .where('base_id', '=', harness.baseId)
+      .where('seed_table_id', '=', table.id)
+      .where('change_type', '=', 'field-backfill')
+      .execute();
+    expect(tasks.map((task) => [...task.affected_field_ids].sort())).toContainEqual(
+      [firstOutputId, secondOutputId].sort()
+    );
+
+    // A single URL encoder needs a materialized CTE. Lower the limit only once
+    // the conversion has queued the work, so initial record computation can finish.
+    enforceReducedCteLimit = true;
+    await harness.testContainer.processOutbox();
+    const deadLetters = await db
+      .selectFrom('computed_update_dead_letter')
+      .select('id')
+      .where('base_id', '=', harness.baseId)
+      .where('seed_table_id', '=', table.id)
+      .execute();
+    expect(deadLetters).toEqual([]);
+    expect(await pendingOutboxStatuses(harness)).toEqual([]);
+    expect(await listRecordsWithoutDrain(harness, table.id)).toMatchObject([
+      {
+        id: record.id,
+        fields: {
+          [firstOutputId]: '2025%2F01%2F08',
+          [secondOutputId]: 'date=2025%2F01%2F08',
+        },
+      },
+    ]);
+  }, 120_000);
+
+  it.each(['sync', 'async'] as const)(
+    'recomputes an admitted single-field formula on %s record writes above the fusion CTE limit',
+    async (mode) => {
+      const harness = await createHarness({
+        computedUpdate: { mode, fieldBackfillConfig: { mode: 'async' } },
+        formulaCompileBudget: {
+          policyVersion: 1,
+          policy: {
+            // Force the fusion limit below the CTE count of a single URL encoder.
+            check: (metric, attempted) =>
+              metric === 'materializedCtes' && attempted > 0
+                ? { metric, attempted, max: 0 }
+                : undefined,
+          },
+        },
+      });
+      const nameId = createFieldId();
+      const formulaId = createFieldId();
+      const table = await createTable(harness, {
+        baseId: harness.baseId,
+        name: 'Single formula above the fusion budget',
+        fields: [{ type: 'singleLineText', id: nameId, name: 'Name', isPrimary: true }],
+      });
+      const existing = await createRecord(harness, table.id, { [nameId]: 'initial/value' });
+      const response = await fetch(`${harness.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: harness.baseId,
+          tableId: table.id,
+          field: {
+            type: 'formula',
+            id: formulaId,
+            name: 'Encoded name',
+            options: { expression: `ENCODE_URL_COMPONENT({${nameId}})` },
+          },
+        }),
+      });
+      const body = await response.json();
+      expect(response.status, JSON.stringify(body)).toBe(200);
+      expect(createFieldOkResponseSchema.parse(body).ok).toBe(true);
+      await harness.testContainer.processOutbox();
+
+      const readFormula = async (recordId: string) => {
+        const rows = await listRecordsWithoutDrain(harness, table.id);
+        return rows.find((row) => row.id === recordId)?.fields[formulaId];
+      };
+      expect(await readFormula(existing.id)).toBe('initial%2Fvalue');
+
+      const created = await createRecord(harness, table.id, { [nameId]: 'new/value' });
+      if (mode === 'async') await harness.testContainer.processOutbox();
+      expect(await readFormula(created.id)).toBe('new%2Fvalue');
+
+      await updateRecord(harness, table.id, existing.id, { [nameId]: 'updated/value' });
+      if (mode === 'async') await harness.testContainer.processOutbox();
+      expect(await readFormula(existing.id)).toBe('updated%2Fvalue');
+
+      const deadLetters = await harness.testContainer.db
+        .selectFrom('computed_update_dead_letter')
+        .select('id')
+        .where('base_id', '=', harness.baseId)
+        .where('seed_table_id', '=', table.id)
+        .execute();
+      expect(deadLetters).toEqual([]);
+      expect(await pendingOutboxStatuses(harness)).toEqual([]);
+    },
+    120_000
+  );
+
   it.each(['before commit', 'after commit'] as const)(
     'recovers exact staged values after failure %s and duplicate continuation delivery',
     async (failureBoundary) => {
@@ -1141,19 +1351,22 @@ describe('[C14][S19] computed outbox recovery (e2e)', () => {
       }
 
       // A separate DI graph and connection pool represent a restarted worker.
-      const reader = await createHarness({
-        connectionString: writer.testContainer.connectionString,
-        seedBase: false,
-        // Deployment changes must not expand a partially committed partition.
-        computedUpdate: {
-          ...computedUpdate,
-          outboxConfig: {
-            ...computedUpdate.outboxConfig,
-            stageMaxSteps: 0,
-            stageMaxDirtyRecords: 0,
+      const reader = await createHarness(
+        {
+          connectionString: writer.testContainer.connectionString,
+          seedBase: false,
+          // Deployment changes must not expand a partially committed partition.
+          computedUpdate: {
+            ...computedUpdate,
+            outboxConfig: {
+              ...computedUpdate.outboxConfig,
+              stageMaxSteps: 0,
+              stageMaxDirtyRecords: 0,
+            },
           },
         },
-      });
+        writer.testContainer.baseId
+      );
       if (failureBoundary === 'after commit') {
         const freshOutbox = reader.testContainer.container.resolve<IComputedUpdateOutbox>(
           v2RecordRepositoryPostgresTokens.computedUpdateOutbox
@@ -1272,13 +1485,16 @@ describe('[C14][S19] computed outbox recovery (e2e)', () => {
     const beforeRestart = await listRecordsWithoutDrain(writer, targetTableId);
     expect(getLookupValues(beforeRestart, lookupFieldId)).toEqual([100]);
 
-    const reader = await createHarness({
-      connectionString: writer.testContainer.connectionString,
-      seedBase: false,
-      computedUpdate: {
-        hybridConfig: { dispatchMode: 'external' },
+    const reader = await createHarness(
+      {
+        connectionString: writer.testContainer.connectionString,
+        seedBase: false,
+        computedUpdate: {
+          hybridConfig: { dispatchMode: 'external' },
+        },
       },
-    });
+      writer.testContainer.baseId
+    );
 
     await reader.testContainer.processOutbox();
     await waitFor(async () => {
@@ -1308,17 +1524,20 @@ describe('[C14][S19] computed outbox recovery (e2e)', () => {
       .where('status', '=', 'pending')
       .execute();
 
-    const reader = await createHarness({
-      connectionString: writer.testContainer.connectionString,
-      seedBase: false,
-      computedUpdate: {
-        hybridConfig: { dispatchMode: 'external' },
-        outboxConfig: {
-          processingLeaseMs: 5000,
-          heartbeatIntervalMs: 1000,
+    const reader = await createHarness(
+      {
+        connectionString: writer.testContainer.connectionString,
+        seedBase: false,
+        computedUpdate: {
+          hybridConfig: { dispatchMode: 'external' },
+          outboxConfig: {
+            processingLeaseMs: 5000,
+            heartbeatIntervalMs: 1000,
+          },
         },
       },
-    });
+      writer.testContainer.baseId
+    );
 
     expect(await reader.testContainer.processOutboxOnce()).toBe(0);
 
@@ -1353,17 +1572,20 @@ describe('[C14][S19] computed outbox recovery (e2e)', () => {
       .where('status', '=', 'pending')
       .execute();
 
-    const reader = await createHarness({
-      connectionString: writer.testContainer.connectionString,
-      seedBase: false,
-      computedUpdate: {
-        hybridConfig: { dispatchMode: 'external' },
-        outboxConfig: {
-          processingLeaseMs: 5000,
-          heartbeatIntervalMs: 1000,
+    const reader = await createHarness(
+      {
+        connectionString: writer.testContainer.connectionString,
+        seedBase: false,
+        computedUpdate: {
+          hybridConfig: { dispatchMode: 'external' },
+          outboxConfig: {
+            processingLeaseMs: 5000,
+            heartbeatIntervalMs: 1000,
+          },
         },
       },
-    });
+      writer.testContainer.baseId
+    );
 
     await reader.testContainer.processOutbox();
     await waitFor(async () => {

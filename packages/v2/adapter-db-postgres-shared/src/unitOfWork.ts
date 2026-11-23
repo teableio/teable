@@ -521,12 +521,33 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     const batchSavepoint = batchTx?.beginSavepoint?.();
     const txSavepoint = uowTransaction.beginSavepoint?.();
     let result: Result<T, DomainError>;
+    const scopedParent = getUnitOfWorkTransaction(context, 'data');
+    const parent =
+      isReusablePostgresTransaction<DB>(scopedParent) && scopedParent.db === transaction
+        ? scopedParent
+        : context.transaction!;
+    const child = new PostgresUnitOfWorkTransaction(transaction, 'data');
+    const childContext = bindUnitOfWorkTransaction(context, child);
+    // A shared physical transaction can be bound to both logical scopes.
+    // Replace only aliases of this parent; independent meta work stays separate.
+    for (const scope of ['meta', 'data'] as const) {
+      if (context.transactions?.[scope] === parent) {
+        childContext.transactions = { ...childContext.transactions, [scope]: child };
+      }
+    }
+
     try {
-      result = await work(context);
+      result = await work(childContext);
     } catch (error) {
-      await this.rollbackSavepoint(transaction, name);
+      const rollback = await this.rollbackSavepoint(transaction, name);
       batchSavepoint?.rollback();
       await txSavepoint?.rollback();
+      if (rollback.isErr()) {
+        batchTx?.markRollbackOnly(rollback.error);
+        parent.afterRollback?.(() => child.runAfterRollbackHandlers());
+        return err(rollback.error);
+      }
+      await child.runAfterRollbackHandlers();
       throw error;
     }
 
@@ -538,8 +559,10 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       await txSavepoint?.rollback();
       if (rollbackResult.isErr()) {
         batchTx?.markRollbackOnly(rollbackResult.error);
+        parent.afterRollback?.(() => child.runAfterRollbackHandlers());
         return err(rollbackResult.error);
       }
+      await child.runAfterRollbackHandlers();
       return err(failureReason);
     }
 
@@ -550,11 +573,14 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       await txSavepoint?.rollback();
       const releaseError = toUnexpectedUnitOfWorkError(error);
       batchTx?.markRollbackOnly(releaseError);
+      parent.afterRollback?.(() => child.runAfterRollbackHandlers());
       return err(releaseError);
     }
 
     txSavepoint?.commit();
     batchSavepoint?.commit();
+    parent.afterCommit?.(() => child.runAfterCommitHandlers());
+    parent.afterRollback?.(() => child.runAfterRollbackHandlers());
     return result;
   }
 

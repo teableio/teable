@@ -84,6 +84,22 @@ describe('BullMqComputedOutboxWakeupPublisher', () => {
     );
   });
 
+  it('carries the eligible miss streak across the BullMQ wire', async () => {
+    const add = vi.fn().mockResolvedValue({ id: 'deferred-job' });
+    const publisher = new BullMqComputedOutboxWakeupPublisher(
+      queue(add) as never,
+      { recordPublish: vi.fn(), recordPublishDuration: vi.fn() } as never
+    );
+    const relayDueBeforeMs = Date.now();
+    await publisher.publish({
+      ...createWakeup(),
+      cause: 'replay',
+      eligibleClaimMisses: 3,
+      relayDueBeforeMs,
+    });
+    expect(add.mock.calls[0][1]).toMatchObject({ eligibleClaimMisses: 3, relayDueBeforeMs });
+  });
+
   it('records and propagates queue publication failures', async () => {
     const queueError = new Error('redis unavailable');
     const metrics = {
@@ -126,25 +142,22 @@ describe('BullMqComputedOutboxWakeupPublisher', () => {
     );
   });
 
-  it('does not retain deterministic deferred jobs after completion or failure', async () => {
-    const add = vi.fn().mockResolvedValue({ id: 'deferred-job' });
-    const publisher = new BullMqComputedOutboxWakeupPublisher(
-      queue(add) as never,
-      { recordPublish: vi.fn(), recordPublishDuration: vi.fn() } as never
-    );
-
-    await publisher.publish({ ...createWakeup(), wakeupId: 'cuwd-task-window' });
-
-    expect(add).toHaveBeenCalledWith(
-      'computed-outbox-wakeup',
-      expect.any(Object),
-      expect.objectContaining({
-        jobId: 'cuwd-task-window',
-        removeOnComplete: true,
-        removeOnFail: true,
-      })
-    );
-  });
+  it.each(['cuwd-task-window', 'cuwp-task'])(
+    'removes deterministic job %s after completion or failure',
+    async (wakeupId) => {
+      const add = vi.fn().mockResolvedValue({ id: wakeupId });
+      const publisher = new BullMqComputedOutboxWakeupPublisher(
+        queue(add) as never,
+        { recordPublish: vi.fn(), recordPublishDuration: vi.fn() } as never
+      );
+      await publisher.publish({ ...createWakeup(), wakeupId });
+      expect(add).toHaveBeenCalledWith(
+        'computed-outbox-wakeup',
+        expect.any(Object),
+        expect.objectContaining({ jobId: wakeupId, removeOnComplete: true, removeOnFail: true })
+      );
+    }
+  );
 
   it('bounds publication time when Redis stops responding', async () => {
     const metrics = {

@@ -50,6 +50,9 @@ export const getDefaultCodeByStatus = (status: HttpStatus) => {
   }
 };
 
+/** An endpoint has already mapped this error to its public HTTP contract. */
+export class VcsEndpointHttpException extends HttpException {}
+
 export class TemplateAppTokenNotAllowedException extends HttpException {
   constructor() {
     super(

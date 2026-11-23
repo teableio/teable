@@ -1,4 +1,27 @@
 {
+  "searchAcceleration": {
+    "title": "Suchbeschleunigung",
+    "stateLabel": "Einstellung",
+    "state": {
+      "disabled": "Aus",
+      "preparing": "Wird vorbereitet",
+      "enabled": "Ein",
+      "disabling": "Wird ausgeschaltet",
+      "failed": "Fehlgeschlagen"
+    },
+    "serving": "Die Suchdaten für die abgedeckten Felder sind vorbereitet.",
+    "notServing": "Sie können diese Tabelle weiterhin ohne Beschleunigung durchsuchen.",
+    "enable": "Einschalten",
+    "disable": "Ausschalten",
+    "resetOff": "Auf Aus zurücksetzen",
+    "permissionError": "Ihre Berechtigung zum Ändern dieser Einstellung konnte nicht überprüft werden.",
+    "readOnly": "Nur Eigentümer des Spaces und Ersteller mit Berechtigung zum Aktualisieren dieser Tabelle können diese Einstellung ändern.",
+    "statusError": "Die Einstellung konnte nicht geladen werden. Sie können diese Tabelle weiterhin durchsuchen.",
+    "changeError": "Die Einstellung konnte nicht geändert werden. Versuchen Sie es erneut.",
+    "confirmTitle": "Beschleunigung für diese große Tabelle einschalten?",
+    "confirmDetail": "Diese Tabelle enthält mindestens 50.000 Datensätze. Die Vorbereitung kann einige Zeit dauern. Sie können währenddessen weiter suchen.",
+    "confirm": "Bestätigen und einschalten"
+  },
   "computeActivity": {
     "currentCalculations": "Aktuelle Berechnungen",
     "thisTableOnly": "Nur diese Tabelle",

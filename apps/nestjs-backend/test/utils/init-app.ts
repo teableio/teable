@@ -74,7 +74,7 @@ import { SessionHandleService } from '../../src/features/auth/session/session-ha
 import { BaseSqlExecutorModule } from '../../src/features/base-sql-executor/base-sql-executor.module';
 import { FieldOpenApiV2Service } from '../../src/features/field/open-api/field-open-api-v2.service';
 import { NextService } from '../../src/features/next/next.service';
-import { TableIndexService } from '../../src/features/table/table-index.service';
+import { TableIndexService } from '../../src/features/table-index/table-index.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import type { IClsStore } from '../../src/types/cls';
 import {

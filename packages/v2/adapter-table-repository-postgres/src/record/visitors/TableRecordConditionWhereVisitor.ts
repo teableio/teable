@@ -1931,28 +1931,7 @@ export class TableRecordConditionWhereVisitor
     // to align with v1 behavior.
     const value = spec.value();
     if (value && core.isRecordConditionLiteralValue(value) && value.toValue() === false) {
-      const alias = this.tableAlias;
-      return this.addConditionResult(
-        safeTry<RecordConditionWhere, DomainError>(function* () {
-          const column = yield* resolveColumn(spec.field(), alias);
-          const columnRef = column.reference;
-          const isArrayLike = isArrayLikeOutputField(
-            spec.field(),
-            yield* fieldIsMultiple(spec.field())
-          );
-          if (isArrayLike || fieldIsJson(spec.field())) {
-            const normalizedArray = normalizeToJsonArray(columnRef);
-            return ok(sql`(
-              NOT EXISTS (
-                SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
-                WHERE elem = 'true'
-              )
-              OR ${columnRef} IS NULL
-            )`);
-          }
-          return ok(sql`(${columnRef} = false or ${columnRef} is null)`);
-        })
-      );
+      return this.applyCheckboxUncheckedCondition(spec.field());
     }
     return this.applyIs(spec.field(), spec.value());
   }
@@ -2524,7 +2503,20 @@ export class TableRecordConditionWhereVisitor
   visitConditionalLookupIs(
     spec: core.ConditionalLookupConditionSpec
   ): Result<RecordConditionWhere, DomainError> {
-    return this.applyIs(spec.field(), spec.value());
+    const field = spec.field();
+    const value = spec.value();
+    if (
+      field.type().equals(core.FieldType.conditionalLookup()) &&
+      value &&
+      core.isRecordConditionLiteralValue(value) &&
+      value.toValue() === false
+    ) {
+      const innerResult = (field as core.ConditionalLookupField).innerField();
+      if (innerResult.isOk() && innerResult.value.type().equals(core.FieldType.checkbox())) {
+        return this.applyCheckboxUncheckedCondition(field);
+      }
+    }
+    return this.applyIs(field, value);
   }
 
   visitConditionalLookupIsNot(
@@ -2617,6 +2609,30 @@ export class TableRecordConditionWhereVisitor
         yield* this.addCond(condition);
         return ok(condition);
       }.bind(this)
+    );
+  }
+
+  private applyCheckboxUncheckedCondition(
+    field: core.Field
+  ): Result<RecordConditionWhere, DomainError> {
+    const alias = this.tableAlias;
+    return this.addConditionResult(
+      safeTry<RecordConditionWhere, DomainError>(function* () {
+        const column = yield* resolveColumn(field, alias);
+        const columnRef = column.reference;
+        const isArrayLike = isArrayLikeOutputField(field, yield* fieldIsMultiple(field));
+        if (isArrayLike || fieldIsJson(field)) {
+          const normalizedArray = normalizeToJsonArray(columnRef);
+          return ok(sql`(
+            NOT EXISTS (
+              SELECT 1 FROM jsonb_array_elements_text(${normalizedArray}) AS elem
+              WHERE elem = 'true'
+            )
+            OR ${columnRef} IS NULL
+          )`);
+        }
+        return ok(sql`(${columnRef} = false or ${columnRef} is null)`);
+      })
     );
   }
 

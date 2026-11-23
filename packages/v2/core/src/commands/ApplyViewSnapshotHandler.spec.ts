@@ -148,6 +148,39 @@ describe('ApplyViewSnapshotHandler', () => {
     );
   });
 
+  it('replays sharing-only changes without requiring column update permission', async () => {
+    const table = buildTable();
+    const current = table.views()[0]!;
+    const captured = captureViewSnapshot(current)._unsafeUnwrap();
+    const snapshot: ViewSnapshotValue = {
+      ...captured,
+      properties: { ...captured.properties, shareMeta: { allowCopy: false } },
+    };
+    const setup = createHandler({
+      tableResult: ok(table),
+      plugins: [
+        {
+          name: 'sharing-only',
+          supports: (kind) => kind === ViewOperationKind.update,
+          guard: (operation) =>
+            operation.kind === ViewOperationKind.update &&
+            Object.keys(operation.payload.patch).every((key) =>
+              ['enableShare', 'shareId', 'shareMeta'].includes(key)
+            )
+              ? ok(undefined)
+              : err(domainError.forbidden({ message: 'Only sharing changes are allowed' })),
+        },
+      ],
+    });
+
+    const result = (await setup.handler.handle(context, commandFor(table, snapshot)))._unsafeUnwrap();
+
+    expect(result.table.getView(current.id())._unsafeUnwrap().shareMeta()).toEqual({
+      allowCopy: false,
+    });
+    expect(setup.flow.calls).toBe(1);
+  });
+
   it('sends the repaired gallery column meta to the update plugin', async () => {
     const builder = Table.builder()
       .withBaseId(BaseId.create(`bse${'g'.repeat(16)}`)._unsafeUnwrap())
@@ -254,6 +287,7 @@ describe('ApplyViewSnapshotHandler', () => {
       properties: {
         ...captured.properties,
         enableShare: true,
+        shareMeta: { allowCopy: true },
         shareId: `shr${'x'.repeat(16)}`,
       },
     };
@@ -278,6 +312,7 @@ describe('ApplyViewSnapshotHandler', () => {
     expect(setup.flow.mutateSpec).toBeInstanceOf(TableAddViewSpec);
     expect(restored.enableShare()).toBeUndefined();
     expect(restored.shareId()).toBeUndefined();
+    expect(restored.shareMeta()).toEqual({ allowCopy: true });
     expect(restored.description()).toBe('Restore me');
     expect(prepare).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -286,9 +321,13 @@ describe('ApplyViewSnapshotHandler', () => {
           tableId: table.id().toString(),
           currentViewCount: 1,
           addedViewCount: 1,
+          source: 'snapshotRestore',
           view: expect.objectContaining({
             name: 'Deleted shared View',
             description: 'Restore me',
+            shareMeta: { allowCopy: true },
+            enableShare: undefined,
+            shareId: undefined,
           }),
         }),
       })

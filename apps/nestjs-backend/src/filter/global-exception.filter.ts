@@ -19,7 +19,11 @@ import { HttpErrorCode } from '@teable/core';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { ILoggerConfig } from '../configs/logger.config';
-import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../custom.exception';
+import {
+  CustomHttpException,
+  TemplateAppTokenNotAllowedException,
+  VcsEndpointHttpException,
+} from '../custom.exception';
 import {
   getV2Attribution,
   getV2AttributionLogContext,
@@ -103,6 +107,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     if (!responseWritable) {
       return;
+    }
+    if (exception instanceof VcsEndpointHttpException) {
+      return response.status(exception.getStatus()).json(exception.getResponse());
     }
     if (exception instanceof TemplateAppTokenNotAllowedException) {
       return response.status(exception.getStatus()).json({

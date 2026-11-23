@@ -16,12 +16,13 @@ import { OAuthModule } from './oauth.module';
 
 describe('OAuthServerService', () => {
   let service: OAuthServerService;
+  let module: TestingModule;
   const prismaService = mockDeep<PrismaService>();
   const cacheService = mockDeep<CacheService>();
   const jwtService = mockDeep<TeableJwtService>();
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, OAuthModule],
     })
       .overrideProvider(PrismaService)
@@ -44,6 +45,10 @@ describe('OAuthServerService', () => {
 
     // Default: rate limit not exceeded
     cacheService.incr.mockResolvedValue(1);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

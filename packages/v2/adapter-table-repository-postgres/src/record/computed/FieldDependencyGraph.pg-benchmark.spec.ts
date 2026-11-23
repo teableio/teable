@@ -57,7 +57,7 @@ it('keeps multi-seed local graph loads bounded on large native PostgreSQL metada
     await sql
       .raw(
         `CREATE TABLE table_meta (
-      id text PRIMARY KEY, base_id text NOT NULL,
+      id text PRIMARY KEY, base_id text NOT NULL, db_table_name text,
       provision_state text NOT NULL DEFAULT 'ready', deleted_time timestamp
     )`
       )

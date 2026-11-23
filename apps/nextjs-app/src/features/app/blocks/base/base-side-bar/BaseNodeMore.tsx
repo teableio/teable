@@ -16,7 +16,14 @@ import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/compon
 import { raiseRecordPanel } from '@teable/sdk/components/expand-record/raiseRecordPanel';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase, useBaseId, useBasePermission, useTables } from '@teable/sdk/hooks';
+import {
+  useBase,
+  useBaseId,
+  useBasePermission,
+  useIsAnonymous,
+  useIsReadOnlyPreview,
+  useTables,
+} from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   Button,
@@ -53,6 +60,7 @@ import {
   Info,
   LayoutTemplate,
   Pen,
+  Search,
   Star,
   StarOff,
   ShieldCheck,
@@ -63,7 +71,6 @@ import { useTranslation } from 'next-i18next';
 import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { FolderDeleteConfirmDialog } from '@/features/app/components/folder-delete-confirm-dialog';
-import { LoginAppWarning } from '@/features/app/components/LoginAppWarning';
 import { OperationPreviewPanel } from '@/features/app/components/operation-preview';
 import type { OperationPreviewPanelProps } from '@/features/app/components/operation-preview/OperationPreviewPanel';
 import {
@@ -71,11 +78,14 @@ import {
   useTemplateProjectInfo,
 } from '@/features/app/components/space/template/host-context';
 import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
+import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useArchiveUpsell } from '@/features/app/hooks/useArchiveUpsell';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { tableConfig } from '@/features/i18n/table.config';
+import { AppDeleteConfirmDialog } from '@overridable/AppDeleteConfirmDialog';
 import { TableArchiveDialog } from '@overridable/TableArchiveDialog';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { TableImport } from '../../import-table';
@@ -98,9 +108,14 @@ import {
 } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeInfoDialog } from './BaseNodeInfoDialog';
-import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
+import {
+  canShowSearchAccelerationSettings,
+  getTableOperationMenuPermission,
+  getTableRecordNavigation,
+} from './BaseNodeMore.utils';
 import { MoveNodeToBaseDialog } from './MoveNodeToBaseDialog';
 import { NodeShareDialog } from './NodeShareDialog';
+import { TableSearchAccelerationDialog } from './TableSearchAccelerationDialog';
 
 const useNode = (resourceId: string) => {
   const { treeItems } = useBaseNodeContext();
@@ -231,8 +246,6 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
     onClose: () => void;
     onConfirm: () => void;
   }) => ReactNode;
-  /** Shown in the plain delete confirm under its question. */
-  deleteWarning?: ReactNode;
 }
 
 /** Whether any of a menu group's entries shows. */
@@ -289,7 +302,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     star,
     onMakeTemplate,
     renderDeleteDialog,
-    deleteWarning,
+    resourceType,
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -326,8 +339,9 @@ const CommonOperation = (props: ICommonOperationProps) => {
     setIsDeleting(true);
     setDeleteProgress(undefined);
     try {
-      // Only a dialog of its own (a folder's) has somewhere to show the progress.
-      await onDelete?.(deletePermanent, renderDeleteDialog ? setDeleteProgress : undefined);
+      // Only a folder's own dialog has somewhere to show the progress.
+      const showsProgress = renderDeleteDialog && resourceType === BaseNodeResourceType.Folder;
+      await onDelete?.(deletePermanent, showsProgress ? setDeleteProgress : undefined);
       setDeletePermanent(null);
       setDeleteProgress(undefined);
     } catch {
@@ -384,7 +398,6 @@ const CommonOperation = (props: ICommonOperationProps) => {
         onOpenChange={(open) => !open && setDeletePermanent(null)}
         title={`${t('common:actions.delete')} ${nodeTypeLabel.toLowerCase()}`}
         description={t('common:actions.deleteTip', { name: nodeName })}
-        content={deleteWarning}
         cancelText={t('common:actions.cancel')}
         confirmText={deletePermanent ? t('common:actions.delete') : t('common:trash.addToTrash')}
         confirmLoading={isDeleting}
@@ -697,11 +710,17 @@ export const AppOperation = (props: IBaseNodeMoreProps) => {
       canPermanentDelete={canPermanentDelete}
       canDuplicate={canDuplicate}
       canShare={canShare}
-      deleteWarning={
-        published ? (
-          <LoginAppWarning message={t('common:appDelete.offlineWarning')} apps={[]} />
-        ) : undefined
-      }
+      renderDeleteDialog={({ isDeleting, onClose, onConfirm }) => (
+        <AppDeleteConfirmDialog
+          open
+          appId={props.resourceId}
+          appName={node?.resourceMeta?.name ?? ''}
+          published={published}
+          isDeleting={isDeleting}
+          onOpenChange={(open) => !open && onClose()}
+          onConfirm={onConfirm}
+        />
+      )}
     />
   );
 };
@@ -770,6 +789,56 @@ const TableDuplicatePreviewEvidence = ({
   return <OperationPreviewPanel {...previewProps} />;
 };
 
+const useSearchAccelerationSettings = (
+  tableId: string,
+  tableName: string,
+  canRead: boolean | undefined,
+  mobile: boolean
+) => {
+  const base = useBase();
+  const { forceV2All } = useEnv();
+  const shareUrlPrefix = useShareUrlPrefix();
+  const anonymous = useIsAnonymous();
+  const readOnlyPreview = useIsReadOnlyPreview();
+  const [open, setOpen] = useState(false);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  if (
+    !base ||
+    !canShowSearchAccelerationSettings({
+      base,
+      forceV2All,
+      canRead,
+      isShared: Boolean(shareUrlPrefix),
+      anonymous,
+      readOnlyPreview,
+    })
+  ) {
+    return {};
+  }
+  const label = t('table:searchAcceleration.title');
+  const onClick = () => setOpen(true);
+  return {
+    item: mobile ? (
+      <ListMenuItem icon={<Search className="size-4" />} label={label} onClick={onClick} />
+    ) : (
+      <DropdownMenuItem onClick={onClick}>
+        <Search className="me-2 size-4" />
+        {label}
+      </DropdownMenuItem>
+    ),
+    dialog: open && (
+      <TableSearchAccelerationDialog
+        key={tableId}
+        baseId={base.id}
+        tableId={tableId}
+        tableName={tableName}
+        spaceId={base.spaceId}
+        onOpenChange={setOpen}
+      />
+    ),
+  };
+};
+
 export const TableOperation = (props: ITableOperationProps) => {
   const {
     resourceId,
@@ -825,6 +894,12 @@ export const TableOperation = (props: ITableOperationProps) => {
   const [moveToBaseOpen, setMoveToBaseOpen] = useState(false);
   const table = useMemo(() => tables.find((t) => t.id === resourceId), [tables, resourceId]);
   const tableName = table?.name ?? node?.resourceMeta?.name ?? resourceId;
+  const acceleration = useSearchAccelerationSettings(
+    resourceId,
+    tableName,
+    table?.permission?.['table|read'],
+    variant === 'list'
+  );
   const { trigger } = useDownload({ downloadUrl: `/api/export/${resourceId}`, key: 'table' });
 
   const defaultTableName = useMemo(
@@ -1041,6 +1116,8 @@ export const TableOperation = (props: ITableOperationProps) => {
         />
       )}
 
+      {acceleration.dialog}
+
       {apiDialogOpen && (
         <APIDialog tableId={resourceId} open={apiDialogOpen} setOpen={setApiDialogOpen}>
           <span className="hidden text-sm">API</span>
@@ -1118,6 +1195,7 @@ export const TableOperation = (props: ITableOperationProps) => {
             />
           </>
         )}
+        {acceleration.item}
         {menuPermission.apiTable && (
           <ListMenuItem
             icon={<Code2 className="size-4" />}
@@ -1299,6 +1377,8 @@ export const TableOperation = (props: ITableOperationProps) => {
               </DropdownMenuPortal>
             </DropdownMenuSub>
           )}
+
+          {acceleration.item}
 
           {menuPermission.apiTable && (
             <DropdownMenuItem onClick={() => setApiDialogOpen(true)}>

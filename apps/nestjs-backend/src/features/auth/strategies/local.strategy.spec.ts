@@ -1,18 +1,17 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { ServiceUnavailableException } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
 import type { Request } from 'express';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
-import { CacheService } from '../../../cache/cache.service';
-import { GlobalModule } from '../../../global/global.module';
-import { UserModule } from '../../user/user.module';
-import { LocalAuthService } from '../local-auth/local-auth.service';
+import type { CacheService } from '../../../cache/cache.service';
+import type { IAuthConfig } from '../../../configs/auth.config';
+import type { UserService } from '../../user/user.service';
+import type { LocalAuthService } from '../local-auth/local-auth.service';
 import { LocalStrategy } from './local.strategy';
 
 describe('LocalStrategy', () => {
   let localStrategy: LocalStrategy;
+  const userService = mockDeep<UserService>();
   const authService = mockDeep<LocalAuthService>();
   const cacheService = mockDeep<CacheService>();
   const testEmail = 'test@test.com';
@@ -27,24 +26,20 @@ describe('LocalStrategy', () => {
     },
   } as unknown as Request;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [GlobalModule, UserModule],
-      providers: [LocalStrategy, LocalAuthService],
-    })
-      .overrideProvider(LocalAuthService)
-      .useValue(authService)
-      .overrideProvider(CacheService)
-      .useValue(cacheService)
-      .compile();
-
-    localStrategy = module.get<LocalStrategy>(LocalStrategy);
+  beforeEach(() => {
+    localStrategy = new LocalStrategy(
+      userService,
+      authService,
+      cacheService,
+      mockDeep<IAuthConfig>()
+    );
   });
 
   afterEach(() => {
     vitest.resetAllMocks();
     mockReset(authService);
     mockReset(cacheService);
+    mockReset(userService);
   });
 
   it('should throw error when lockout is disabled', async () => {

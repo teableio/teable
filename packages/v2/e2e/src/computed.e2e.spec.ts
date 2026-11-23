@@ -12404,28 +12404,7 @@ IF(
      * - The lookup in TableB should reflect the change
      */
     it('updates symmetric link and lookup when link is updated across bases', async () => {
-      // Create second base
-      const baseB_Id = `bse${getRandomString(16)}`;
-      const spaceId = `spc${getRandomString(16)}`;
-      const actorId = 'system';
-
-      // Create space and base B in database
-      await ctx.testContainer.db
-        .insertInto('space')
-        .values({ id: spaceId, name: 'Test Space B', created_by: actorId })
-        .onConflict((oc) => oc.column('id').doNothing())
-        .execute();
-
-      await ctx.testContainer.db
-        .insertInto('base')
-        .values({
-          id: baseB_Id,
-          space_id: spaceId,
-          name: 'Test Base B',
-          order: 2,
-          created_by: actorId,
-        })
-        .execute();
+      const { id: baseB_Id } = await ctx.createBase('Test Base B');
 
       // Table A in base A (original base)
       const aNameFieldId = createFieldId();
@@ -12621,28 +12600,7 @@ IF(
      * This tests the cross-base dependency: valueChange → formula → cross-base link title
      */
     it('updates cross-base link title when source field value changes and affects formula', async () => {
-      // Create second base
-      const baseB_Id = `bse${getRandomString(16)}`;
-      const spaceId = `spc${getRandomString(16)}`;
-      const actorId = 'system';
-
-      // Create space and base B in database
-      await ctx.testContainer.db
-        .insertInto('space')
-        .values({ id: spaceId, name: 'Test Space CrossBase2', created_by: actorId })
-        .onConflict((oc) => oc.column('id').doNothing())
-        .execute();
-
-      await ctx.testContainer.db
-        .insertInto('base')
-        .values({
-          id: baseB_Id,
-          space_id: spaceId,
-          name: 'Test Base CrossBase2',
-          order: 3,
-          created_by: actorId,
-        })
-        .execute();
+      const { id: baseB_Id } = await ctx.createBase('Test Base CrossBase2');
 
       // Table A in base A (original base)
       const aContentFieldId = createFieldId();

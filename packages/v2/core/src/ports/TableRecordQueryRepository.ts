@@ -102,6 +102,9 @@ export interface ITableRecordQueryOptions {
    */
   readonly mode?: TableRecordQueryMode;
 
+  /** Lock stored rows in the active data transaction for a subsequent write. */
+  readonly lockForUpdate?: boolean;
+
   /**
    * Pagination options (offset-based). Ignored offset when `cursor` is set.
    */

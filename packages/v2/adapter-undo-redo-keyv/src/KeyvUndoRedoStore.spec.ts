@@ -674,11 +674,13 @@ describe('KeyvUndoRedoStore', () => {
     );
   });
 
-  it('retains the whole newest group when it exceeds maxEntries', async () => {
-    const store = new KeyvUndoRedoStore(new Keyv(), { maxEntries: 2 });
+  it('counts a multi-chunk group as one logical operation under maxEntries', async () => {
+    const store = new KeyvUndoRedoStore(new Keyv(), { maxEntries: 3 });
     const scope = buildScope();
+    // Edit 1 -> 24-chunk stream delete (1 logical group) -> Edit 2
+    // Total logical groups = 3 <= maxEntries, so none should be evicted.
     (await store.append(scope, buildEntry(scope, 1)))._unsafeUnwrap();
-    for (const index of [2, 3, 4]) {
+    for (let index = 2; index <= 25; index += 1) {
       (
         await store.append(scope, {
           ...buildEntry(scope, index),
@@ -687,15 +689,26 @@ describe('KeyvUndoRedoStore', () => {
         })
       )._unsafeUnwrap();
     }
+    (await store.append(scope, buildEntry(scope, 26)))._unsafeUnwrap();
+
+    // First undo reverts Edit 2
+    const edit2 = (await store.undo(scope))._unsafeUnwrap();
+    expect(edit2?.undoCommand).toEqual(buildEntry(scope, 26).undoCommand);
+
+    // Second undo reserves and replays all 24 chunks of the stream delete
     const reservation = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;
-    expect(reservation.entryCount).toBe(3);
-    for (const [offset, index] of [4, 3, 2].entries()) {
-      expect(
-        (await store.readReservedEntry(scope, reservation.token, offset))._unsafeUnwrap()
-          .undoCommand
-      ).toEqual(buildEntry(scope, index).undoCommand);
-    }
+    expect(reservation.entryCount).toBe(24);
+    expect(
+      (await store.readReservedEntry(scope, reservation.token, 0))._unsafeUnwrap().undoCommand
+    ).toEqual(buildEntry(scope, 25).undoCommand);
+    expect(
+      (await store.readReservedEntry(scope, reservation.token, 23))._unsafeUnwrap().undoCommand
+    ).toEqual(buildEntry(scope, 2).undoCommand);
     (await store.commit(scope, reservation.token))._unsafeUnwrap();
+
+    // Third undo reverts Edit 1
+    const edit1 = (await store.undo(scope))._unsafeUnwrap();
+    expect(edit1?.undoCommand).toEqual(buildEntry(scope, 1).undoCommand);
     expect((await store.reserve(scope, 'undo'))._unsafeUnwrap()).toBeNull();
   });
 
@@ -900,9 +913,14 @@ describe('KeyvUndoRedoStore', () => {
       )._unsafeUnwrap();
     }
     (await store.append(scope, buildEntry(scope, 3)))._unsafeUnwrap();
+    (await store.append(scope, buildEntry(scope, 4)))._unsafeUnwrap();
     expect((await store.list(scope))._unsafeUnwrap().map((entry) => entry.requestId)).toEqual([
       'req-3',
+      'req-4',
     ]);
+    expect((await store.undo(scope))._unsafeUnwrap()?.undoCommand).toEqual(
+      buildEntry(scope, 4).undoCommand
+    );
     expect((await store.undo(scope))._unsafeUnwrap()?.undoCommand).toEqual(
       buildEntry(scope, 3).undoCommand
     );

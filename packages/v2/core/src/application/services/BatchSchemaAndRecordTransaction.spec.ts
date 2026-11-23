@@ -653,6 +653,7 @@ describe('BatchSchemaAndRecordTransaction & same-tx schema/view projection dispa
           new NoopLogger(),
           unitOfWork,
           undefined,
+          createTableOperationPluginRunner([]),
           dispatcher
         );
         const restoreTableHandler = new RestoreTableHandler(
@@ -660,6 +661,7 @@ describe('BatchSchemaAndRecordTransaction & same-tx schema/view projection dispa
           tableRepo,
           eventBus,
           unitOfWork,
+          createTableOperationPluginRunner([]),
           dispatcher
         );
         const domainTx = new EventBusDomainWriteTransaction(unitOfWork, eventBus, dispatcher);

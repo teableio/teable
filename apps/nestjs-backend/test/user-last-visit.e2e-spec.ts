@@ -9,6 +9,7 @@ import {
   createTable,
   createView,
   deleteBase,
+  deleteDashboard,
   deleteView,
   GET_USER_LAST_VISIT,
   GET_USER_LAST_VISIT_LIST_BASE_NODE,
@@ -258,6 +259,36 @@ describe('OpenAPI OAuthController (e2e)', () => {
       },
     });
     expect(userLastVisit.length).toEqual(0);
+  });
+
+  it("opens a base's last visited dashboard and clears its visits once it is deleted", async () => {
+    const prisma = app.get(PrismaService);
+    const first = (await createDashboard(base.id, { name: 'first' })).data;
+    const visited = (await createDashboard(base.id, { name: 'visited' })).data;
+    await updateUserLastVisit({
+      resourceType: LastVisitResourceType.Dashboard,
+      parentResourceId: base.id,
+      resourceId: visited.id,
+    });
+
+    const lastVisit = await getUserLastVisit({
+      resourceType: LastVisitResourceType.Dashboard,
+      parentResourceId: base.id,
+    });
+    expect(lastVisit.data?.resourceId).toBe(visited.id);
+
+    await deleteDashboard(base.id, visited.id);
+    // the delete event clears the visits on a later tick
+    await vi.waitFor(async () => {
+      const rows = await prisma.userLastVisit.findMany({ where: { resourceId: visited.id } });
+      expect(rows).toHaveLength(0);
+    });
+    const fallback = await getUserLastVisit({
+      resourceType: LastVisitResourceType.Dashboard,
+      parentResourceId: base.id,
+    });
+    expect(fallback.data?.resourceId).toBe(first.id);
+    await deleteDashboard(base.id, first.id);
   });
 
   // pentest IDOR-VULN-03: with no visit of their own, the lookups used to fall back to the

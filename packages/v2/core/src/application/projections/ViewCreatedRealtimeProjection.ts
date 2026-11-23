@@ -70,7 +70,8 @@ export class ViewCreatedRealtimeProjection implements IEventHandler<ViewCreated>
           return realtimeEngine.ensure(
             context,
             viewDocId,
-            toStandaloneViewRealtimeSnapshot(viewDto)
+            toStandaloneViewRealtimeSnapshot(viewDto),
+            { version: event.oldVersion }
           );
         }),
       getRealtimeProjectionScope(dispatchScope)

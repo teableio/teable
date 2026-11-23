@@ -13,6 +13,7 @@ import {
   getTableThumbnailToken,
 } from '../../utils/generate-thumbnail-path';
 import { second } from '../../utils/second';
+import { isBackendOnlyObjectKey } from './backend-only';
 import {
   ATTACHMENT_LG_THUMBNAIL_HEIGHT,
   ATTACHMENT_SM_THUMBNAIL_HEIGHT,
@@ -94,6 +95,15 @@ export class AttachmentsStorageService {
     expiresIn: number = this.urlExpireIn,
     respHeaders?: IRespHeaders
   ) {
+    // The path is whatever a stored row or cell says. Before the cache as well, so a
+    // url signed earlier for such a path is not handed out again.
+    if (isBackendOnlyObjectKey(path)) {
+      throw new CustomHttpException('Invalid path', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidPath',
+        },
+      });
+    }
     // Use 50% of URL expiration time for cache TTL to ensure URLs are refreshed
     // before they expire, preventing stale URLs after deployments
     const cacheTtl = Math.floor(expiresIn * 0.5);

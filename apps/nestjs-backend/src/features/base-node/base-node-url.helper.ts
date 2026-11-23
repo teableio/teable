@@ -1,5 +1,6 @@
 import type { Prisma } from '@teable/db-main-prisma';
 import { BaseNodeResourceType } from '@teable/openapi';
+import { resourceDescriptorOf } from '../resource/resource-descriptor';
 
 /**
  * The page URL of a base node resource; undefined for folders and unknown
@@ -10,24 +11,7 @@ export const buildBaseNodeUrl = (
   resourceType: BaseNodeResourceType,
   resourceId: string,
   viewId?: string | null
-): string | undefined => {
-  switch (resourceType) {
-    case BaseNodeResourceType.Table:
-      return viewId
-        ? `/base/${baseId}/table/${resourceId}/${viewId}`
-        : `/base/${baseId}/table/${resourceId}`;
-    case BaseNodeResourceType.Dashboard:
-      return `/base/${baseId}/dashboard/${resourceId}`;
-    case BaseNodeResourceType.Workflow:
-      return `/base/${baseId}/automation/${resourceId}`;
-    case BaseNodeResourceType.App:
-      return `/base/${baseId}/app/${resourceId}`;
-    case BaseNodeResourceType.Routine:
-      return `/base/${baseId}/routine/${resourceId}`;
-    default:
-      return undefined;
-  }
-};
+): string | undefined => resourceDescriptorOf(resourceType)?.url?.(baseId, resourceId, viewId);
 
 /**
  * Table URLs carry the first view id (by order) so the browser reaches the final

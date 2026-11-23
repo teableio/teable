@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import { registerV2TableOpsPostgresAdapter } from '@teable/v2-adapter-table-query-ops-postgres';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
@@ -10,11 +11,15 @@ import {
   reconcileSearchAccessPathOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import { createV2TableQueryOpsExpressRouter } from '@teable/v2-contract-http-express/table-query-ops';
+import {
+  createV2TableQueryOpsExpressRouter,
+} from '@teable/v2-contract-http-express/table-query-ops';
 import { registerV2TableOps } from '@teable/v2-table-query-ops';
 import express from 'express';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
@@ -33,10 +38,12 @@ describe('managed search access-path HTTP contract (postgres)', () => {
     });
     await sql.raw('CREATE EXTENSION IF NOT EXISTS pg_trgm').execute(testContainer.dataDb);
 
+    const executionContext = await createStandaloneExecutionContext(testContainer);
     const app = express();
     app.use(
       createV2ExpressRouter({
         createContainer: () => testContainer.container,
+        createExecutionContext: () => executionContext,
       })
     );
     app.use(

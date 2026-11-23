@@ -7,6 +7,7 @@
  */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
@@ -20,6 +21,8 @@ import { getRandomString } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
@@ -40,8 +43,12 @@ describe('[C14][S19] v2 record-update numeric-blank formula cascade (T7609)', ()
         outboxConfig: { stageMaxSteps: 0, stageMaxFields: 0, stageMaxDirtyRecords: 0 },
       },
     });
+    const executionContext = await createStandaloneExecutionContext(testContainer);
     const app = express();
-    app.use(createV2ExpressRouter({ createContainer: () => testContainer.container }));
+    app.use(createV2ExpressRouter({
+      createContainer: () => testContainer.container,
+      createExecutionContext: () => executionContext,
+    }));
     server = await new Promise<Server>((resolve) => {
       const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
     });

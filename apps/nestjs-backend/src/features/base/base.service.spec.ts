@@ -428,6 +428,7 @@ describe('BaseService', () => {
       };
       const dataDbClientManager = {
         dataPrismaForBase: vi.fn().mockResolvedValue(routedDataPrisma),
+        isMetaFallbackForBase: vi.fn().mockResolvedValue(false),
       };
       const dbProvider = {
         dropSchema: vi.fn().mockReturnValue('DROP SCHEMA "bse1" CASCADE'),
@@ -558,11 +559,20 @@ describe('BaseService', () => {
       });
     });
 
-    it('rethrows platform data DB errors so cleanup can retry', async () => {
-      const executeRawUnsafe = vi.fn().mockRejectedValue(new Error('connection refused'));
-      const { service } = buildRoutedService(executeRawUnsafe);
+    it('preserves the platform DDL failure when its transaction is aborted', async () => {
+      const ddlError = new Error('connection refused');
+      const executeRawUnsafe = vi.fn();
+      const { service, dataDbClientManager } = buildRoutedService(executeRawUnsafe);
+      executeRawUnsafe.mockImplementation(async () => {
+        dataDbClientManager.isMetaFallbackForBase.mockRejectedValue(
+          new Error(
+            'current transaction is aborted, commands ignored until end of transaction block'
+          )
+        );
+        throw ddlError;
+      });
 
-      await expect(service.dropBase('bse1', ['tbl1'])).rejects.toThrow('connection refused');
+      await expect(service.dropBase('bse1', ['tbl1'])).rejects.toBe(ddlError);
     });
   });
 

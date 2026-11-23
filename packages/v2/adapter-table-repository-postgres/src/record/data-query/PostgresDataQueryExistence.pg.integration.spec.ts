@@ -10,6 +10,7 @@ import {
 import {
   DataQueryDefinition,
   DataQueryRelationBinding,
+  type DataQueryDefinitionInput,
   type DataQueryDefinitionV5Input,
   type DataQueryRelationPlan,
 } from '@teable/v2-data-query';
@@ -91,7 +92,7 @@ const descendants = (node: PlanNode): PlanNode[] => [
 ];
 
 const planFor = (
-  input: DataQueryDefinitionV5Input,
+  input: DataQueryDefinitionInput,
   rootScope: RecordQueryPluginScope = {},
   sourceScopes: ReadonlyMap<string, RecordQueryPluginScope> = new Map()
 ): DataQueryRelationPlan => {
@@ -168,7 +169,9 @@ describePg('PostgresDataQueryExecutor junction existence plans (Postgres)', () =
     db = await createV2PostgresDb<V1TeableDatabase>({
       pg: { connectionString: container.getConnectionUri(), pool: { max: 1 } },
     });
-    executor = new PostgresDataQueryExecutor(db); // Keep the default 4000ms budget.
+    executor = new PostgresDataQueryExecutor(db, {
+      cursorSigningKey: 'test-cursor-signing-key',
+    }); // Keep the default 4000ms budget.
     await sql`create schema ${sql.id(baseId)}`.execute(db);
     for (const name of tableNames) {
       await sql`create table ${physical(name)} (__id text primary key, value numeric)`.execute(db);
@@ -291,6 +294,43 @@ describePg('PostgresDataQueryExecutor junction existence plans (Postgres)', () =
       );
     },
     30_000
+  );
+
+  it.each(['any', 'none'] as const)(
+    'continues V7 DISTINCT %s junction paths with pre-keyset totals',
+    async (quantifier) => {
+      const input = {
+        ...inputFor(quantifier, false, true),
+        version: 7 as const,
+        distinct: true as const,
+        parameters: { cursor: { type: 'string' as const } },
+        page: {
+          limit: 3,
+          after: { type: 'parameter' as const, name: 'cursor' },
+          includeTotal: true,
+        },
+      };
+      const plan = planFor(input);
+      const first = await executePlan(plan);
+      const start = quantifier === 'any' ? 1 : 2001;
+      expect(first.rows).toEqual(
+        Array.from({ length: 3 }, (_, index) => ({ id: recordId(start + index) }))
+      );
+      expect(first.page?.total).toBe(2000);
+      const cursor = first.page && 'nextCursor' in first.page ? first.page.nextCursor! : '';
+      const definition = resultValue(DataQueryDefinition.create(input), 'create cursor definition');
+      const next = await executePlan({
+        ...plan,
+        query: resultValue(definition.bind({ cursor }), 'bind next cursor'),
+      });
+      expect(next.rows).toEqual(
+        Array.from({ length: 3 }, (_, index) => ({ id: recordId(start + 3 + index) }))
+      );
+      expect(next.page?.total).toBe(2000);
+      expect(next.page && 'nextCursor' in next.page ? next.page.nextCursor : null).toEqual(
+        expect.any(String)
+      );
+    }
   );
 
   it('keeps intermediate row visibility inside any/none across junction hops', async () => {

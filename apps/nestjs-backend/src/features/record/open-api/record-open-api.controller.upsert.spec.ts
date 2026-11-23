@@ -37,7 +37,8 @@ const buildController = (options?: {
     v2Service as never,
     shareViewScopeService as never,
     {} as never,
-    permissionService as never
+    permissionService as never,
+    {} as never
   );
 
   return {

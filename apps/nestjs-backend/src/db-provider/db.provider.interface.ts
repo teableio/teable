@@ -12,6 +12,7 @@ import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
 import type { IFieldSelectName } from '../features/record/query-builder/field-select.type';
+import type { IndexBuilderAbstract } from '../features/table-index/index-abstract-builder';
 import type {
   IRecordQueryFilterContext,
   IRecordQuerySortContext,
@@ -32,7 +33,6 @@ import type { DuplicateTableQueryAbstract } from './duplicate-table/abstract';
 import type { DuplicateAttachmentTableQueryAbstract } from './duplicate-table/duplicate-attachment-table-query.abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
-import type { IndexBuilderAbstract } from './index-query/index-abstract-builder';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 

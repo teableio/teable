@@ -22,6 +22,7 @@ import {
 } from '../../shared/sqlIdentifiers';
 import {
   clearUndoCaptureBatchId,
+  clearUndoLogRows,
   ensureUndoCaptureInfrastructure,
   getUndoCaptureBatchId,
   loadAndClearUndoLogRows,
@@ -125,6 +126,7 @@ class PostgresRecordMutationSnapshotCaptureSession implements IPostgresRecordMut
     private readonly tableName: string,
     private readonly tableNames: ReadonlyArray<string>,
     private readonly logger: ILogger,
+    private readonly rootDb?: object,
     private readonly traceContext?: RecordMutationSnapshotTraceContext
   ) {}
 
@@ -142,7 +144,9 @@ class PostgresRecordMutationSnapshotCaptureSession implements IPostgresRecordMut
         }
 
         try {
-          const rows = await loadAndClearUndoLogRows(this.db, this.batchId);
+          const rows = await loadAndClearUndoLogRows(this.db, this.batchId, {
+            rootDb: this.rootDb,
+          });
           return ok(
             rows.filter((row) =>
               this.tableNames.some((tableName) =>
@@ -181,7 +185,7 @@ class PostgresRecordMutationSnapshotCaptureSession implements IPostgresRecordMut
           return;
         }
         try {
-          await loadAndClearUndoLogRows(this.db, this.batchId);
+          await clearUndoLogRows(this.db, this.batchId);
         } catch (error) {
           this.logger.warn('undo:capture:abort_cleanup_failed', {
             batchId: this.batchId,
@@ -327,6 +331,7 @@ export class PostgresRecordMutationSnapshotCaptureService implements IPostgresRe
             tableName,
             tableNames,
             this.logger,
+            this.rootDb,
             traceContext
           )
         );

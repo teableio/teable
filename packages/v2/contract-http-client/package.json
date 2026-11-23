@@ -35,7 +35,8 @@
     "@orpc/contract": "1.15.7",
     "@orpc/openapi-client": "1.15.7",
     "@teable/v2-contract-http": "workspace:*",
-    "@teable/v2-data-query": "workspace:*"
+    "@teable/v2-data-query": "workspace:*",
+    "@teable/v2-vcs": "workspace:*"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

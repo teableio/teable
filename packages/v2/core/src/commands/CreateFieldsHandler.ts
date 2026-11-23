@@ -31,6 +31,10 @@ import type { TableUpdateResult } from '../domain/table/TableMutator';
 import { ViewColumnMeta } from '../domain/table/views/ViewColumnMeta';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { composeUndoRedoCommands, createUndoRedoCommand } from '../ports/UndoRedoStore';
@@ -38,6 +42,7 @@ import type { ResolvedTableFieldInput } from '../schemas/field';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { CreateFieldsCommand } from './CreateFieldsCommand';
 import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
+import { withFieldCreationCoordination } from './withFieldCreationCoordination';
 
 type PlannedField = {
   inputIndex: number;
@@ -84,11 +89,25 @@ export class CreateFieldsHandler implements ICommandHandler<
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
     private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService,
     @inject(v2CoreTokens.fieldOperationPluginRunner)
-    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
   async handle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: CreateFieldsCommand
+  ): Promise<Result<CreateFieldsResult, DomainError>> {
+    return withFieldCreationCoordination(
+      context,
+      command.tableId,
+      this.tableSchemaCoordination,
+      () => this.execute(context, command)
+    );
+  }
+
+  private async execute(
     context: ExecutionContextPort.IExecutionContext,
     command: CreateFieldsCommand
   ): Promise<Result<CreateFieldsResult, DomainError>> {

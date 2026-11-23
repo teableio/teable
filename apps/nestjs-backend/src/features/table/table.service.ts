@@ -24,11 +24,12 @@ import { DataDbClientManager } from '../../global/data-db-client-manager.service
 import { DATA_KNEX } from '../../global/knex';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
+import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
 import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
-import { BatchService } from '../calculation/batch.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
+import { TableSnapshotReadService } from './table-snapshot-read.service';
 
 type IDataPrismaExecutor = {
   $executeRawUnsafe(query: string, ...values: unknown[]): PromiseLike<number>;
@@ -59,7 +60,8 @@ export class TableService implements IReadonlyAdapterService {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly batchService: BatchService,
+    private readonly rawOpStagingService: RawOpStagingService,
+    private readonly tableSnapshotReadService: TableSnapshotReadService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @Optional()
@@ -231,32 +233,7 @@ export class TableService implements IReadonlyAdapterService {
   }
 
   async getTableDefaultViewId(tableIds: string[]) {
-    if (!tableIds.length) return [];
-
-    const nativeSql = this.knex
-      .select({
-        tableId: 'id',
-        viewId: this.knex
-          .select('id')
-          .from('view')
-          .whereRaw('view.table_id = table_meta.id')
-          .whereRaw('view.deleted_time is null')
-          .orderBy('order')
-          .limit(1),
-      })
-      .from('table_meta')
-      .whereIn('id', tableIds)
-      .toSQL()
-      .toNative();
-
-    const results = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ tableId: string; viewId: string }[]>(nativeSql.sql, ...nativeSql.bindings);
-
-    return tableIds.map((tableId) => {
-      const item = results.find((result) => result.tableId === tableId);
-      return item?.viewId;
-    });
+    return this.tableSnapshotReadService.getTableDefaultViewId(tableIds);
   }
 
   async getTableMeta(baseId: string, tableId: string): Promise<ITableVo> {
@@ -322,7 +299,7 @@ export class TableService implements IReadonlyAdapterService {
   ): Promise<ITableVo> {
     const tableVo = await this.createDBTable(baseId, snapshot, createTable);
     const { provisionState: _provisionState, ...tableData } = tableVo;
-    this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
+    this.rawOpStagingService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
       {
         docId: tableData.id,
         version: 0,
@@ -366,7 +343,7 @@ export class TableService implements IReadonlyAdapterService {
       },
     });
 
-    this.batchService.saveRawOps(baseId, RawOpType.Del, IdPrefix.Table, [
+    this.rawOpStagingService.saveRawOps(baseId, RawOpType.Del, IdPrefix.Table, [
       { docId: tableId, version },
     ]);
   }
@@ -398,7 +375,7 @@ export class TableService implements IReadonlyAdapterService {
       },
     });
 
-    this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
+    this.rawOpStagingService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
       { docId: tableId, version },
     ]);
   }
@@ -470,7 +447,7 @@ export class TableService implements IReadonlyAdapterService {
       data: updateInput,
     });
 
-    this.batchService.saveRawOps(baseId, RawOpType.Edit, IdPrefix.Table, [
+    this.rawOpStagingService.saveRawOps(baseId, RawOpType.Edit, IdPrefix.Table, [
       {
         docId: tableId,
         version: tableRaw.version,
@@ -488,55 +465,12 @@ export class TableService implements IReadonlyAdapterService {
   async getSnapshotBulk(
     baseId: string,
     ids: string[],
-    ops: {
-      ignoreDefaultViewId?: boolean;
-    } = {}
+    ops: { ignoreDefaultViewId?: boolean } = {}
   ): Promise<ISnapshotBase<ITableVo>[]> {
-    const { ignoreDefaultViewId } = ops;
-    const tables = await this.prismaService.txClient().tableMeta.findMany({
-      where: { baseId, id: { in: ids }, deletedTime: null, provisionState: ProvisionState.ready },
-      orderBy: { order: 'asc' },
-    });
-
-    const tableDefaultViewIds = ignoreDefaultViewId ? [] : await this.getTableDefaultViewId(ids);
-    return tables
-      .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
-      .map((table, i) => {
-        const res = {
-          id: table.id,
-          v: table.version,
-          type: 'json0',
-          data: {
-            ...table,
-            description: table.description ?? undefined,
-            icon: table.icon ?? undefined,
-            lastModifiedTime:
-              table.lastModifiedTime?.toISOString() || table.createdTime.toISOString(),
-          } as ITableVo,
-        };
-        if (!ignoreDefaultViewId) {
-          res.data.defaultViewId = tableDefaultViewIds[i];
-        }
-        return res;
-      });
+    return this.tableSnapshotReadService.getSnapshotBulk(baseId, ids, ops);
   }
 
   async getDocIdsByQuery(baseId: string, query: { projectionTableIds?: string[] } = {}) {
-    const { projectionTableIds } = query;
-    const tables = await this.prismaService.txClient().tableMeta.findMany({
-      where: {
-        deletedTime: null,
-        baseId,
-        provisionState: ProvisionState.ready,
-        ...(projectionTableIds
-          ? {
-              id: { in: projectionTableIds },
-            }
-          : {}),
-      },
-      select: { id: true },
-      orderBy: { order: 'asc' },
-    });
-    return { ids: tables.map((table) => table.id) };
+    return this.tableSnapshotReadService.getDocIdsByQuery(baseId, query);
   }
 }

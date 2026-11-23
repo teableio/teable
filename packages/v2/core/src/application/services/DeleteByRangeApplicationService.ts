@@ -12,7 +12,10 @@ import {
 } from '../../commands/shared/orderBy';
 import { persistDeletedTrashMarkers } from '../../commands/shared/persistDeletedTrashMarkers';
 import { ensureRecordIdsWithinScope } from '../../commands/shared/recordWriteScope';
-import { resolveDeleteStreamBatchSize } from '../../commands/shared/streamBatchSize';
+import {
+  DEFAULT_DELETE_STREAM_BATCH_SIZE,
+  resolveDeleteStreamBatchSize,
+} from '../../commands/shared/streamBatchSize';
 import {
   domainError,
   isNotFoundError,
@@ -25,12 +28,15 @@ import { OffsetPagination } from '../../domain/shared/pagination/OffsetPaginatio
 import { PageLimit } from '../../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../../domain/shared/pagination/PageOffset';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { measureJsonBytes } from '../../domain/shared/TableDataSafetyLimits';
 import {
   RecordsDeleted,
   type IDeletedRecordSnapshot,
   type IRecordsDeletedOrchestration,
 } from '../../domain/table/events/RecordsDeleted';
 import type { FieldId } from '../../domain/table/fields/FieldId';
+import { FieldType } from '../../domain/table/fields/FieldType';
+import { LinkField } from '../../domain/table/fields/types/LinkField';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
@@ -39,8 +45,10 @@ import type { Table } from '../../domain/table/Table';
 import type { TableId } from '../../domain/table/TableId';
 import type { ViewId } from '../../domain/table/views/ViewId';
 import { domainWrite, type IDomainWriteTransaction } from '../../ports/DomainWriteTransaction';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
-import { AsyncIterableQueue } from '../../ports/memory/AsyncIterableQueue';
+import type {
+  ExecutionContextBackgroundTask,
+  IExecutionContext,
+} from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
 import type {
   ITableRecordQueryRepository,
@@ -50,6 +58,7 @@ import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type { ITableRecordRepository, DeleteManyResult } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { SpanAttributes } from '../../ports/Tracer';
+import type { UndoEntryGroupInput } from '../../ports/UndoRedoStore';
 import type { RecordSortValue } from '../../queries/ListTableRecordsQuery';
 import type { RecordFilter } from '../../queries/RecordFilterDto';
 import {
@@ -66,10 +75,261 @@ import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { TableQueryService } from './TableQueryService';
 import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoStackService';
-import type { UndoEntryGroupInput } from '../../ports/UndoRedoStore';
 
 const DEFAULT_DELETE_QUERY_PAGE_SIZE = 500;
-const MAX_DELETE_STREAM_BUFFERED_EVENTS = 64;
+const MAX_DELETE_STREAM_ID_PAGE_SIZE = 2_000;
+const SELF_LINK_PREFETCH_BATCH_SIZE = 2_000;
+const WIDE_TABLE_INITIAL_DELETE_STREAM_BATCH_SIZE = 50;
+const MIN_ADAPTIVE_DELETE_STREAM_BATCH_SIZE = 5;
+const MAX_DELETE_STREAM_CHUNK_SNAPSHOT_BYTES = 3 * 1024 * 1024;
+const UPSCALE_DELETE_STREAM_CHUNK_SNAPSHOT_BYTES = 750 * 1024;
+const MAX_STREAM_DONE_DELETED_RECORD_IDS = 5_000;
+
+const collectSelfReferentialLinkFieldIds = (table: Table): ReadonlyArray<FieldId> =>
+  table
+    .getFields()
+    .filter(
+      (field): field is LinkField =>
+        field instanceof LinkField && field.foreignTableId().equals(table.id())
+    )
+    .map((field) => field.id());
+
+const collectRequiredSelfReferentialLinkFieldIds = (table: Table): ReadonlyArray<string> =>
+  table
+    .getFields()
+    .filter(
+      (field): field is LinkField =>
+        field instanceof LinkField &&
+        field.foreignTableId().equals(table.id()) &&
+        field.notNull().toBoolean()
+    )
+    .map((field) => field.id().toString());
+
+const extractLinkedRecordIds = (value: unknown): ReadonlyArray<string> => {
+  if (!value) {
+    return [];
+  }
+  if (typeof value === 'string') {
+    return [value];
+  }
+  if (Array.isArray(value)) {
+    const ids: string[] = [];
+    for (const item of value) {
+      if (typeof item === 'string') {
+        ids.push(item);
+      } else if (item && typeof item === 'object' && 'id' in item) {
+        const id = (item as { id?: unknown }).id;
+        if (typeof id === 'string') {
+          ids.push(id);
+        }
+      }
+    }
+    return ids;
+  }
+  if (typeof value === 'object' && 'id' in value) {
+    const id = (value as { id?: unknown }).id;
+    return typeof id === 'string' ? [id] : [];
+  }
+  return [];
+};
+
+const orderTargetRecordIdsForRequiredSelfLinks = (
+  table: Table,
+  targetRecordIds: ReadonlyArray<RecordId>,
+  selfLinkFieldsById: ReadonlyMap<string, Readonly<Record<string, unknown>>> | undefined
+): {
+  readonly orderedRecordIds: ReadonlyArray<RecordId>;
+  readonly acyclicPrefixLength: number;
+  readonly componentEnds: ReadonlyArray<number>;
+} => {
+  const requiredFieldIds = collectRequiredSelfReferentialLinkFieldIds(table);
+  if (requiredFieldIds.length === 0 || !selfLinkFieldsById?.size || targetRecordIds.length <= 1) {
+    return {
+      orderedRecordIds: targetRecordIds,
+      acyclicPrefixLength: targetRecordIds.length,
+      componentEnds: [],
+    };
+  }
+
+  const recordIdByString = new Map<string, RecordId>();
+  const inDegree = new Map<string, number>();
+  const dependsOn = new Map<string, Set<string>>();
+
+  for (const recordId of targetRecordIds) {
+    const idStr = recordId.toString();
+    recordIdByString.set(idStr, recordId);
+    inDegree.set(idStr, 0);
+  }
+
+  for (const recordId of targetRecordIds) {
+    const sourceId = recordId.toString();
+    const fields = selfLinkFieldsById.get(sourceId);
+    if (!fields) continue;
+    let targets = dependsOn.get(sourceId);
+    for (const fieldId of requiredFieldIds) {
+      for (const linkedId of extractLinkedRecordIds(fields[fieldId])) {
+        if (linkedId === sourceId || !recordIdByString.has(linkedId)) {
+          continue;
+        }
+        if (!targets) {
+          targets = new Set<string>();
+          dependsOn.set(sourceId, targets);
+        }
+        if (!targets.has(linkedId)) {
+          targets.add(linkedId);
+          inDegree.set(linkedId, (inDegree.get(linkedId) ?? 0) + 1);
+        }
+      }
+    }
+  }
+
+  const queue: string[] = [];
+  for (const recordId of targetRecordIds) {
+    const idStr = recordId.toString();
+    if ((inDegree.get(idStr) ?? 0) === 0) {
+      queue.push(idStr);
+    }
+  }
+
+  const orderedRecordIds: RecordId[] = [];
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++]!;
+    orderedRecordIds.push(recordIdByString.get(current)!);
+    const targets = dependsOn.get(current);
+    if (!targets) continue;
+    for (const target of targets) {
+      const nextDegree = (inDegree.get(target) ?? 0) - 1;
+      inDegree.set(target, nextDegree);
+      if (nextDegree === 0) {
+        queue.push(target);
+      }
+    }
+  }
+
+  const acyclicPrefixLength = orderedRecordIds.length;
+  const componentEnds =
+    acyclicPrefixLength < targetRecordIds.length
+      ? appendRemainingDependencyComponents(dependsOn, inDegree, recordIdByString, orderedRecordIds)
+      : [];
+
+  return { orderedRecordIds, acyclicPrefixLength, componentEnds };
+};
+
+/** Append strongly connected components in source-before-target order. */
+const appendRemainingDependencyComponents = (
+  dependsOn: ReadonlyMap<string, ReadonlySet<string>>,
+  inDegree: ReadonlyMap<string, number>,
+  recordIdByString: ReadonlyMap<string, RecordId>,
+  orderedRecordIds: RecordId[]
+): number[] => {
+  // Iterative Kosaraju on Kahn's remainder avoids recursive stacks on large cycles.
+  const dependents = new Map<string, string[]>();
+  const finished: string[] = [];
+  const seen = new Set<string>();
+  const stack: Array<{ id: string; targets: Iterator<string, undefined> | undefined }> = [];
+  for (const [root, degree] of inDegree) {
+    if (degree === 0 || seen.has(root)) continue;
+    seen.add(root);
+    stack.push({ id: root, targets: dependsOn.get(root)?.values() });
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!;
+      const next = frame.targets?.next();
+      if (!next || next.done) {
+        finished.push(frame.id);
+        stack.pop();
+        continue;
+      }
+      const target = next.value;
+      if (inDegree.get(target) === 0) continue;
+      const sources = dependents.get(target);
+      if (sources) sources.push(frame.id);
+      else dependents.set(target, [frame.id]);
+      if (!seen.has(target)) {
+        seen.add(target);
+        stack.push({ id: target, targets: dependsOn.get(target)?.values() });
+      }
+    }
+  }
+
+  // Walk the reversed edges in decreasing finish order. Consume `seen` as we assign rows.
+  const componentEnds: number[] = [];
+  const pending: string[] = [];
+  for (let index = finished.length - 1; index >= 0; index--) {
+    const root = finished[index]!;
+    if (!seen.delete(root)) continue;
+    pending.push(root);
+    while (pending.length > 0) {
+      const id = pending.pop()!;
+      orderedRecordIds.push(recordIdByString.get(id)!);
+      const sources = dependents.get(id);
+      if (!sources) continue;
+      for (const source of sources) {
+        if (seen.delete(source)) pending.push(source);
+      }
+    }
+    componentEnds.push(orderedRecordIds.length);
+  }
+  return componentEnds;
+};
+
+const resolveInitialAdaptiveBatchSize = (
+  table: Table,
+  planBatchSize: number,
+  totalCount: number,
+  explicitBatchSize: number | undefined
+): number => {
+  // Keep lightweight deletes (<= 200 rows) in a single atomic transaction
+  // even on wide tables so partial failures roll back cleanly.
+  if (explicitBatchSize !== undefined || totalCount <= DEFAULT_DELETE_STREAM_BATCH_SIZE) {
+    return planBatchSize;
+  }
+  const hasWideField = table
+    .getFields()
+    .some(
+      (field) =>
+        field.type().equals(FieldType.longText()) || field.type().equals(FieldType.attachment())
+    );
+  return hasWideField
+    ? Math.min(planBatchSize, WIDE_TABLE_INITIAL_DELETE_STREAM_BATCH_SIZE)
+    : planBatchSize;
+};
+
+const drainBackgroundTasks = async (
+  tasks: ReadonlyArray<ExecutionContextBackgroundTask>
+): Promise<void> => {
+  if (tasks.length === 0) {
+    return;
+  }
+  await Promise.allSettled(tasks.map((task) => Promise.resolve().then(() => task())));
+};
+
+const computeNextAdaptiveChunkSize = (
+  recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>,
+  currentBatchSize: number
+): number => {
+  if (recordSnapshots.length === 0) {
+    return currentBatchSize;
+  }
+  const snapshotBytes = measureJsonBytes(recordSnapshots);
+  const avgRowBytes = Math.max(1, Math.ceil(snapshotBytes / recordSnapshots.length));
+  if (snapshotBytes > MAX_DELETE_STREAM_CHUNK_SNAPSHOT_BYTES) {
+    const scaled = Math.floor(MAX_DELETE_STREAM_CHUNK_SNAPSHOT_BYTES / avgRowBytes);
+    return Math.max(
+      MIN_ADAPTIVE_DELETE_STREAM_BATCH_SIZE,
+      Math.min(DEFAULT_DELETE_STREAM_BATCH_SIZE, scaled)
+    );
+  }
+  if (
+    snapshotBytes < UPSCALE_DELETE_STREAM_CHUNK_SNAPSHOT_BYTES &&
+    currentBatchSize < DEFAULT_DELETE_STREAM_BATCH_SIZE &&
+    recordSnapshots.length >= currentBatchSize
+  ) {
+    const scaled = Math.floor(UPSCALE_DELETE_STREAM_CHUNK_SNAPSHOT_BYTES / avgRowBytes);
+    return Math.min(DEFAULT_DELETE_STREAM_BATCH_SIZE, Math.max(currentBatchSize * 2, scaled));
+  }
+  return currentBatchSize;
+};
 
 const toRangeTypeSpanAttribute = (rangeType: RangeType): 'columns' | 'rows' | 'cells' =>
   rangeType ?? 'cells';
@@ -90,6 +350,7 @@ type DeleteByRangeStreamCommandLike = DeleteByRangeCommandLike & {
   readonly targetRecordIds?: ReadonlyArray<string>;
   readonly excludedTargetRecordIds?: ReadonlyArray<string>;
   readonly batchSize?: number;
+  readonly selectAllRecords?: boolean;
 };
 
 export type PreparedDeletePlan = {
@@ -99,23 +360,34 @@ export type PreparedDeletePlan = {
   readonly recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>;
 };
 
-type PreparedDeleteStreamPlan = {
-  readonly table: Table;
-  readonly filterSpec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
-  readonly orderBy?: ReadonlyArray<TableRecordOrderBy>;
-  readonly search?: RecordQuerySearch;
-  readonly totalCount: number;
-  readonly batchSize: number;
-  readonly chunkPlans: ReadonlyArray<DeleteStreamChunkPlan>;
-  readonly excludedRecordIds?: ReadonlySet<string>;
-};
+type PreparedDeleteStreamPlan =
+  | {
+      readonly mode: 'ids';
+      readonly table: Table;
+      readonly totalCount: number;
+      readonly batchSize: number;
+      readonly targetRecordIds: ReadonlyArray<RecordId>;
+      readonly excludedRecordIds?: ReadonlySet<string>;
+      readonly rawEffectiveFilter?: RecordFilter;
+    }
+  | {
+      readonly mode: 'ranges';
+      readonly table: Table;
+      readonly totalCount: number;
+      readonly batchSize: number;
+      readonly filterSpec:
+        | ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+        | undefined;
+      readonly rawEffectiveFilter: RecordFilter | undefined;
+      readonly orderBy: ReadonlyArray<TableRecordOrderBy> | undefined;
+      readonly search: RecordQuerySearch | undefined;
+      readonly sortedRanges: ReadonlyArray<readonly [number, number]>;
+      readonly excludedRecordIds: ReadonlySet<string>;
+    };
 
-type DeleteStreamChunkPlan = {
-  readonly batchIndex: number;
-  readonly rangeKey: string;
-  readonly startRow: number;
-  readonly rowCount: number;
-  readonly recordIds?: ReadonlyArray<RecordId>;
+type SelfLinkSnapshotPatch = {
+  readonly fieldIds: ReadonlyArray<FieldId>;
+  readonly byRecordId?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
 };
 
 type PreparedDeleteChunk = {
@@ -127,10 +399,6 @@ type PreparedDeleteChunk = {
   readonly skippedRowCount: number;
 };
 
-type DeleteByRangeStreamExecutionResult = {
-  readonly deletedCount: number;
-  readonly deletedRecordIds: ReadonlyArray<string>;
-};
 type DeletePluginOrchestration = {
   readonly mode: 'direct' | 'stream';
   readonly scope: 'operation' | 'chunk';
@@ -309,23 +577,13 @@ export class DeleteByRangeApplicationService {
     );
   }
 
-  createStream(
+  async *createStream(
     context: IExecutionContext,
     command: DeleteByRangeStreamCommandLike
   ): AsyncIterable<DeleteByRangeStreamEvent> {
-    const queue = new AsyncIterableQueue<DeleteByRangeStreamEvent>({
-      maxBufferedItems: MAX_DELETE_STREAM_BUFFERED_EVENTS,
-    });
-    void this.runDeleteStream(context, command, queue);
-    return queue;
-  }
+    yield this.createProgressEvent('preparing', 0, 0, 0, -1);
 
-  private async runDeleteStream(
-    context: IExecutionContext,
-    command: DeleteByRangeStreamCommandLike,
-    queue: AsyncIterableQueue<DeleteByRangeStreamEvent>
-  ) {
-    if (!queue.push(this.createProgressEvent('preparing', 0, 0, 0, -1))) {
+    if (context.abortSignal?.aborted) {
       return;
     }
 
@@ -343,81 +601,487 @@ export class DeleteByRangeApplicationService {
         () => this.prepareDeleteStreamPlan(context, command)
       );
       if (planResult.isErr()) {
-        queue.push(
-          this.createErrorEvent(planResult.error, {
-            phase: 'preparing',
-            batchIndex: -1,
-            totalCount: 0,
-            deletedCount: 0,
-            recordIds: [],
-          })
-        );
+        if (context.abortSignal?.aborted) {
+          return;
+        }
+        yield this.createErrorEvent(planResult.error, {
+          phase: 'preparing',
+          batchIndex: -1,
+          totalCount: 0,
+          deletedCount: 0,
+          recordIds: [],
+        });
         return;
       }
 
       const plan = planResult.value;
-      queue.push(this.createProgressEvent('preparing', plan.totalCount, 0, 0, -1));
+      yield this.createProgressEvent('preparing', plan.totalCount, 0, 0, -1);
 
       if (!plan.totalCount) {
-        queue.push(
-          this.createDoneEvent(
-            {
-              deletedCount: 0,
-              deletedRecordIds: [],
-              events: [],
-            },
-            0
-          )
+        yield this.createDoneEvent(
+          {
+            deletedCount: 0,
+            deletedRecordIds: [],
+            events: [],
+          },
+          0
         );
         return;
       }
 
       const operationId = context.requestId ?? generateUuid();
-      const executeResult = await this.executeDeleteStreamChunks(context, plan, queue, {
-        operationId,
-        totalChunkCount: plan.chunkPlans.length,
-      });
-      if (executeResult.isErr()) {
-        queue.push(
-          this.createErrorEvent(executeResult.error, {
-            phase: 'deleting',
-            batchIndex: -1,
-            totalCount: plan.totalCount,
-            deletedCount: 0,
-            recordIds: [],
-          })
-        );
+      const deletedRecordIds: string[] = [];
+      let deletedCount = 0;
+      const undoGroup = { groupId: operationId, attempted: false };
+      let currentBatchSize = resolveInitialAdaptiveBatchSize(
+        plan.table,
+        plan.batchSize,
+        plan.totalCount,
+        command.batchSize
+      );
+      const initialChunkCount = Math.max(
+        1,
+        Math.ceil(plan.totalCount / Math.max(1, currentBatchSize))
+      );
+
+      const operationPluginExecutionResult = await this.runInSpan(
+        context,
+        'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlugins',
+        {
+          'teable.table_id': plan.table.id().toString(),
+          'teable.total_record_count': plan.totalCount,
+          'teable.total_chunk_count': initialChunkCount,
+          'teable.delete_mode': 'stream',
+          'teable.plugin_scope': 'operation',
+        },
+        () =>
+          this.prepareDeletePluginExecution(
+            context,
+            plan.table,
+            [],
+            [],
+            this.createDeletePluginOrchestration({
+              mode: 'stream',
+              scope: 'operation',
+              operationId,
+              totalRecordCount: plan.totalCount,
+              totalChunkCount: initialChunkCount,
+            }),
+            {
+              skipScopeValidation: true,
+              payloadRecordCount: plan.totalCount,
+              filter: plan.rawEffectiveFilter,
+            }
+          )
+      );
+      if (operationPluginExecutionResult.isErr()) {
+        yield this.createErrorEvent(operationPluginExecutionResult.error, {
+          phase: 'guarding',
+          batchIndex: -1,
+          totalCount: plan.totalCount,
+          deletedCount,
+          recordIds: [],
+        });
         return;
       }
 
-      const executeSummary = executeResult.value;
-      queue.push(
-        this.createDoneEvent(
+      const selfLinkFieldIds = collectSelfReferentialLinkFieldIds(plan.table);
+      let selfLinkFieldsById: ReadonlyMap<string, Readonly<Record<string, unknown>>> | undefined;
+      if (
+        plan.mode === 'ids' &&
+        selfLinkFieldIds.length > 0 &&
+        plan.targetRecordIds.length > currentBatchSize
+      ) {
+        const selfLinkResult = await this.loadSelfReferentialLinkFieldsById(
+          context,
+          plan.table,
+          plan.targetRecordIds,
+          selfLinkFieldIds
+        );
+        if (selfLinkResult.isErr()) {
+          yield this.createErrorEvent(selfLinkResult.error, {
+            phase: 'preparing',
+            batchIndex: -1,
+            totalCount: plan.totalCount,
+            deletedCount,
+            recordIds: [],
+          });
+          return;
+        }
+        selfLinkFieldsById = selfLinkResult.value;
+      }
+
+      const selfLinkPatch: SelfLinkSnapshotPatch | undefined =
+        selfLinkFieldIds.length > 0 && selfLinkFieldsById?.size
+          ? { fieldIds: selfLinkFieldIds, byRecordId: selfLinkFieldsById }
+          : undefined;
+
+      const {
+        orderedRecordIds: orderedTargetRecordIds,
+        acyclicPrefixLength,
+        componentEnds,
+      } = plan.mode === 'ids'
+        ? orderTargetRecordIdsForRequiredSelfLinks(
+            plan.table,
+            plan.targetRecordIds,
+            selfLinkFieldsById
+          )
+        : { orderedRecordIds: [], acyclicPrefixLength: 0, componentEnds: [] };
+
+      let previousPluginExecution = operationPluginExecutionResult.value;
+      let chunkIndex = 0;
+
+      // Mutable iteration cursor covering both explicit-ID slices and dynamic range pages.
+      let idCursor = 0;
+      let componentCursor = 0;
+      let rangeIndex = 0;
+      let rangeRemaining =
+        plan.mode === 'ranges' && plan.sortedRanges.length > 0
+          ? plan.sortedRanges[0]![1] - plan.sortedRanges[0]![0] + 1
+          : 0;
+      let rangeSkippedOrFailed = 0;
+      let rangeTotalRemaining =
+        plan.mode === 'ranges'
+          ? plan.sortedRanges.reduce((sum, [start, end]) => sum + (end - start + 1), 0)
+          : 0;
+
+      const advanceEmptyRange = () => {
+        if (plan.mode !== 'ranges') return;
+        while (rangeIndex < plan.sortedRanges.length && rangeRemaining <= 0) {
+          rangeIndex += 1;
+          rangeSkippedOrFailed = 0;
+          rangeRemaining =
+            rangeIndex < plan.sortedRanges.length
+              ? plan.sortedRanges[rangeIndex]![1] - plan.sortedRanges[rangeIndex]![0] + 1
+              : 0;
+        }
+      };
+
+      const hasMoreChunks = () =>
+        plan.mode === 'ids'
+          ? idCursor < orderedTargetRecordIds.length
+          : rangeIndex < plan.sortedRanges.length && rangeRemaining > 0;
+
+      while (hasMoreChunks()) {
+        if (context.abortSignal?.aborted) {
+          return;
+        }
+
+        let requestedRowCount = 0;
+        let activeRangeStartRow = 0;
+        let rangePullCount = 0;
+        let sliceRecordIds: ReadonlyArray<RecordId> = [];
+
+        if (plan.mode === 'ids') {
+          const batchEnd = idCursor + currentBatchSize;
+          let nextSliceEnd: number;
+          if (idCursor < acyclicPrefixLength) {
+            nextSliceEnd = Math.min(batchEnd, acyclicPrefixLength);
+          } else {
+            // A required-link component is indivisible, even when it exceeds the batch size.
+            nextSliceEnd = componentEnds[componentCursor++]!;
+            while (
+              componentCursor < componentEnds.length &&
+              componentEnds[componentCursor]! <= batchEnd
+            ) {
+              nextSliceEnd = componentEnds[componentCursor++]!;
+            }
+          }
+          sliceRecordIds = orderedTargetRecordIds.slice(idCursor, nextSliceEnd);
+          idCursor += sliceRecordIds.length;
+          requestedRowCount = sliceRecordIds.length;
+        } else {
+          const [startRow] = plan.sortedRanges[rangeIndex]!;
+          activeRangeStartRow = startRow + rangeSkippedOrFailed;
+          rangePullCount = Math.min(currentBatchSize, rangeRemaining);
+          rangeRemaining -= rangePullCount;
+          rangeTotalRemaining -= rangePullCount;
+          requestedRowCount = rangePullCount;
+        }
+
+        const remainingCount =
+          plan.mode === 'ids' ? plan.targetRecordIds.length - idCursor : rangeTotalRemaining;
+        const estimatedTotalChunks = Math.max(
+          chunkIndex + 1 + (remainingCount > 0 ? Math.ceil(remainingCount / currentBatchSize) : 0),
+          chunkIndex + 1
+        );
+
+        const chunkResult = await this.runInSpan(
+          context,
+          'teable.DeleteByRangeApplicationService.loadDeleteChunk',
           {
-            deletedCount: executeSummary.deletedCount,
-            deletedRecordIds: executeSummary.deletedRecordIds,
-            events: [],
+            'teable.batch_index': chunkIndex,
+            'teable.chunk_row_count': requestedRowCount,
+            'teable.total_record_count': plan.totalCount,
+            'teable.table_id': plan.table.id().toString(),
           },
-          plan.totalCount
-        )
+          () =>
+            plan.mode === 'ids'
+              ? this.loadDeleteChunkByIds(context, plan, chunkIndex, sliceRecordIds)
+              : this.loadDeleteChunkByRange(
+                  context,
+                  plan,
+                  chunkIndex,
+                  activeRangeStartRow,
+                  rangePullCount
+                )
+        );
+        if (chunkResult.isErr()) {
+          if (plan.mode === 'ranges') {
+            rangeSkippedOrFailed += rangePullCount;
+            advanceEmptyRange();
+          }
+          yield this.createErrorEvent(chunkResult.error, {
+            phase: 'preparing',
+            batchIndex: chunkIndex,
+            totalCount: plan.totalCount,
+            deletedCount,
+            recordIds: [],
+          });
+          chunkIndex += 1;
+          continue;
+        }
+
+        const chunk = chunkResult.value;
+        if (!chunk.recordIds.length) {
+          if (plan.mode === 'ranges') {
+            if (chunk.skippedRowCount === 0) {
+              // No more rows matched in the current view range: finish remaining tail cleanly.
+              rangeTotalRemaining -= rangeRemaining;
+              rangeRemaining = 0;
+            } else {
+              rangeSkippedOrFailed += chunk.skippedRowCount;
+            }
+            advanceEmptyRange();
+          }
+          chunkIndex += 1;
+          continue;
+        }
+
+        const pluginExecutionResult = await this.runInSpan(
+          context,
+          'teable.DeleteByRangeApplicationService.prepareDeleteChunkPlugins',
+          {
+            'teable.batch_index': chunk.batchIndex,
+            'teable.chunk_record_count': chunk.recordIds.length,
+            'teable.total_record_count': plan.totalCount,
+            'teable.total_chunk_count': estimatedTotalChunks,
+            'teable.table_id': plan.table.id().toString(),
+            'teable.delete_mode': 'stream',
+            'teable.plugin_scope': 'chunk',
+          },
+          () =>
+            this.prepareDeletePluginExecution(
+              context,
+              plan.table,
+              chunk.recordIds,
+              chunk.recordSnapshots,
+              this.createDeletePluginOrchestration({
+                mode: 'stream',
+                scope: 'chunk',
+                operationId,
+                totalRecordCount: plan.totalCount,
+                totalChunkCount: estimatedTotalChunks,
+                chunkIndex: chunk.batchIndex,
+              }),
+              {
+                previousExecution: previousPluginExecution,
+                skipScopeValidation: true,
+                filter: plan.rawEffectiveFilter,
+              }
+            )
+        );
+        if (pluginExecutionResult.isErr()) {
+          if (plan.mode === 'ranges') {
+            rangeSkippedOrFailed += chunk.recordIds.length + chunk.skippedRowCount;
+            advanceEmptyRange();
+          }
+          yield this.createErrorEvent(pluginExecutionResult.error, {
+            phase: 'guarding',
+            batchIndex: chunk.batchIndex,
+            totalCount: plan.totalCount,
+            deletedCount,
+            recordIds: [...chunk.deletedRecordIds],
+          });
+          chunkIndex += 1;
+          continue;
+        }
+
+        const pluginExecution = pluginExecutionResult.value;
+        const scopeValidationResult = await this.runInSpan(
+          context,
+          'teable.DeleteByRangeApplicationService.validateDeleteChunkPluginScope',
+          {
+            'teable.batch_index': chunk.batchIndex,
+            'teable.chunk_record_count': chunk.recordIds.length,
+            'teable.total_record_count': plan.totalCount,
+            'teable.table_id': plan.table.id().toString(),
+            'teable.delete_mode': 'stream',
+          },
+          () =>
+            this.validateDeletePluginScope(context, plan.table, chunk.recordIds, pluginExecution)
+        );
+        if (scopeValidationResult.isErr()) {
+          if (plan.mode === 'ranges') {
+            rangeSkippedOrFailed += chunk.recordIds.length + chunk.skippedRowCount;
+            advanceEmptyRange();
+          }
+          yield this.createErrorEvent(scopeValidationResult.error, {
+            phase: 'guarding',
+            batchIndex: chunk.batchIndex,
+            totalCount: plan.totalCount,
+            deletedCount,
+            recordIds: [...chunk.deletedRecordIds],
+          });
+          chunkIndex += 1;
+          continue;
+        }
+
+        previousPluginExecution = pluginExecution;
+        const chunkBackgroundTasks: ExecutionContextBackgroundTask[] = [];
+        const chunkContext: IExecutionContext = {
+          ...context,
+          scheduleBackgroundTask: (task) => {
+            chunkBackgroundTasks.push(task);
+          },
+        };
+
+        const deleteResult = await this.runInSpan(
+          context,
+          'teable.DeleteByRangeApplicationService.deleteChunk',
+          {
+            'teable.batch_index': chunk.batchIndex,
+            'teable.chunk_record_count': chunk.recordIds.length,
+            'teable.total_record_count': plan.totalCount,
+            'teable.table_id': plan.table.id().toString(),
+          },
+          () =>
+            this.deleteManyInSingleTransaction(
+              chunkContext,
+              { ...chunk, table: plan.table },
+              pluginExecution,
+              operationId,
+              {
+                operationId,
+                groupId: operationId,
+                totalRecordCount: plan.totalCount,
+                totalChunkCount: estimatedTotalChunks,
+                chunkIndex: chunk.batchIndex,
+                scope: 'chunk',
+              },
+              selfLinkPatch
+            )
+        );
+
+        await drainBackgroundTasks(chunkBackgroundTasks);
+
+        if (deleteResult.isErr()) {
+          if (plan.mode === 'ranges') {
+            rangeSkippedOrFailed += chunk.recordIds.length + chunk.skippedRowCount;
+            advanceEmptyRange();
+          }
+          yield this.createErrorEvent(deleteResult.error, {
+            phase: 'deleting',
+            batchIndex: chunk.batchIndex,
+            totalCount: plan.totalCount,
+            deletedCount,
+            recordIds: [...chunk.deletedRecordIds],
+          });
+          chunkIndex += 1;
+          continue;
+        }
+
+        if (plan.mode === 'ranges') {
+          rangeSkippedOrFailed += chunk.skippedRowCount;
+          advanceEmptyRange();
+        }
+
+        const persistedRecordSnapshots = deleteResult.value.recordSnapshots;
+        const persistedDeletedRecordIds = persistedRecordSnapshots.map((snapshot) => snapshot.id);
+
+        for (const id of persistedDeletedRecordIds) {
+          if (deletedRecordIds.length >= MAX_STREAM_DONE_DELETED_RECORD_IDS) {
+            break;
+          }
+          deletedRecordIds.push(id);
+        }
+        deletedCount += persistedDeletedRecordIds.length;
+
+        const undoRedoResult = await this.runInSpan(
+          context,
+          'teable.DeleteByRangeApplicationService.recordDeleteChunkUndoRedo',
+          {
+            'teable.batch_index': chunk.batchIndex,
+            'teable.chunk_record_count': chunk.deletedRecordIds.length,
+            'teable.total_record_count': plan.totalCount,
+            'teable.table_id': plan.table.id().toString(),
+          },
+          () =>
+            this.recordDeleteUndoRedoEntry(
+              context,
+              plan.table,
+              persistedRecordSnapshots,
+              persistedDeletedRecordIds,
+              undoGroup
+            )
+        );
+        if (undoRedoResult.isErr()) {
+          yield this.createErrorEvent(undoRedoResult.error, {
+            phase: 'finalizing',
+            batchIndex: chunk.batchIndex,
+            totalCount: plan.totalCount,
+            deletedCount,
+            recordIds: [...persistedDeletedRecordIds],
+          });
+        }
+
+        if (pluginExecution) {
+          await pluginExecution.afterCommit();
+        }
+
+        if (command.batchSize === undefined) {
+          currentBatchSize = computeNextAdaptiveChunkSize(
+            persistedRecordSnapshots,
+            currentBatchSize
+          );
+        }
+
+        yield this.createProgressEvent(
+          'deleting',
+          plan.totalCount,
+          deletedCount,
+          persistedDeletedRecordIds.length,
+          chunk.batchIndex
+        );
+
+        chunkIndex += 1;
+      }
+
+      if (context.abortSignal?.aborted) {
+        return;
+      }
+
+      yield this.createDoneEvent(
+        {
+          deletedCount,
+          deletedRecordIds,
+          events: [],
+        },
+        plan.totalCount
       );
     } catch (error) {
-      queue.push(
-        this.createErrorEvent(
-          domainError.fromUnknown(error, {
-            code: 'delete_by_range_stream.failed',
-          }),
-          {
-            phase: 'deleting',
-            batchIndex: -1,
-            totalCount: 0,
-            deletedCount: 0,
-            recordIds: [],
-          }
-        )
+      yield this.createErrorEvent(
+        domainError.fromUnknown(error, {
+          code: 'delete_by_range_stream.failed',
+        }),
+        {
+          phase: 'deleting',
+          batchIndex: -1,
+          totalCount: 0,
+          deletedCount: 0,
+          recordIds: [],
+        }
       );
-    } finally {
-      queue.close();
     }
   }
 
@@ -551,8 +1215,9 @@ export class DeleteByRangeApplicationService {
     }
     const excludedRecordIds = excludedRecordIdsResult.value;
 
-    if (command.targetRecordIds?.length) {
-      const parsedRecordIdsResult = this.parseTargetRecordIds(command.targetRecordIds);
+    const hasExplicitTargetIds = command.targetRecordIds !== undefined;
+    if (hasExplicitTargetIds && command.targetRecordIds!.length > 0) {
+      const parsedRecordIdsResult = this.parseTargetRecordIds(command.targetRecordIds!);
       if (parsedRecordIdsResult.isErr()) {
         return err(parsedRecordIdsResult.error);
       }
@@ -562,10 +1227,26 @@ export class DeleteByRangeApplicationService {
       const batchSize = resolveDeleteStreamBatchSize(recordIds.length, command.batchSize);
 
       return ok({
+        mode: 'ids',
         table,
         totalCount: recordIds.length,
         batchSize,
-        chunkPlans: this.buildDeleteStreamIdChunkPlans(recordIds, batchSize),
+        targetRecordIds: recordIds,
+        excludedRecordIds,
+      });
+    }
+
+    const isSelectAll =
+      hasExplicitTargetIds &&
+      (command.selectAllRecords === true ||
+        (command.selectAllRecords === undefined && excludedRecordIds.size > 0));
+    if (hasExplicitTargetIds && !isSelectAll) {
+      return ok({
+        mode: 'ids',
+        table,
+        totalCount: 0,
+        batchSize: resolveDeleteStreamBatchSize(0, command.batchSize),
+        targetRecordIds: [],
         excludedRecordIds,
       });
     }
@@ -632,41 +1313,180 @@ export class DeleteByRangeApplicationService {
       context,
       table,
       filterSpec,
-      orderBy,
       visibleRowSearch
     );
     if (totalRowsResult.isErr()) {
       return err(totalRowsResult.error);
     }
 
-    const rowRanges =
-      command.targetRecordIds !== undefined
-        ? totalRowsResult.value > 0
-          ? ([[0, totalRowsResult.value - 1]] as const)
-          : []
-        : this.resolveDeleteStreamRowRanges(
-            command,
-            totalRowsResult.value,
-            orderedFieldIdsResult.value.length
-          );
-    const totalCount = Math.max(
-      0,
-      rowRanges.reduce((sum, [startRow, endRow]) => sum + (endRow - startRow + 1), 0) -
-        (command.targetRecordIds !== undefined ? excludedRecordIds.size : 0)
+    const rowRanges = hasExplicitTargetIds
+      ? totalRowsResult.value > 0
+        ? ([[0, totalRowsResult.value - 1]] as const)
+        : []
+      : this.resolveDeleteStreamRowRanges(
+          command,
+          totalRowsResult.value,
+          orderedFieldIdsResult.value.length
+        );
+    const rawRangeRowCount = rowRanges.reduce(
+      (sum, [startRow, endRow]) => sum + (endRow - startRow + 1),
+      0
     );
-    const batchSize = resolveDeleteStreamBatchSize(totalCount, command.batchSize);
-    const chunkPlans = this.buildDeleteStreamChunkPlans(rowRanges, batchSize);
+    if (rawRangeRowCount === 0) {
+      return ok({
+        mode: 'ids',
+        table,
+        totalCount: 0,
+        batchSize: resolveDeleteStreamBatchSize(0, command.batchSize),
+        targetRecordIds: [],
+        excludedRecordIds,
+      });
+    }
 
-    return ok({
+    const sortedRanges = this.sortRowRangesDescending(rowRanges);
+    const rawEffectiveFilter = (actorResolvedFilter ?? undefined) as RecordFilter | undefined;
+
+    // Resolve the selection before deleting any rows. Once resolved, later
+    // edits to the view's membership do not change the IDs being deleted.
+    const frozenIdsResult = await this.collectFrozenRangeRecordIds(
+      context,
       table,
       filterSpec,
       orderBy,
-      search: visibleRowSearch,
-      totalCount,
+      visibleRowSearch,
+      sortedRanges,
+      excludedRecordIds
+    );
+    if (frozenIdsResult.isErr()) {
+      return err(frozenIdsResult.error);
+    }
+
+    const targetRecordIds = frozenIdsResult.value;
+    const batchSize = resolveDeleteStreamBatchSize(targetRecordIds.length, command.batchSize);
+
+    return ok({
+      mode: 'ids',
+      table,
+      totalCount: targetRecordIds.length,
       batchSize,
-      chunkPlans,
+      targetRecordIds,
       excludedRecordIds,
+      rawEffectiveFilter,
     });
+  }
+
+  private sortRowRangesDescending(
+    rowRanges: ReadonlyArray<readonly [number, number]>
+  ): ReadonlyArray<readonly [number, number]> {
+    return [...rowRanges].sort((left, right) => {
+      if (left[0] !== right[0]) {
+        return right[0] - left[0];
+      }
+      return right[1] - left[1];
+    });
+  }
+
+  private async collectFrozenRangeRecordIds(
+    context: IExecutionContext,
+    table: Table,
+    filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    orderBy: ReadonlyArray<TableRecordOrderBy> | undefined,
+    search: RecordQuerySearch | undefined,
+    sortedRanges: ReadonlyArray<readonly [number, number]>,
+    excludedRecordIds: ReadonlySet<string>
+  ): Promise<Result<ReadonlyArray<RecordId>, DomainError>> {
+    const collectedIds: RecordId[] = [];
+    const seen = new Set<string>();
+
+    for (const [startRow, endRow] of sortedRanges) {
+      for (let offset = startRow; offset <= endRow; offset += MAX_DELETE_STREAM_ID_PAGE_SIZE) {
+        if (context.abortSignal?.aborted) {
+          return err(
+            domainError.conflict({
+              code: 'delete_by_range_stream.aborted',
+              message: 'Delete stream aborted while freezing target record ids',
+            })
+          );
+        }
+
+        const pageEnd = Math.min(endRow, offset + MAX_DELETE_STREAM_ID_PAGE_SIZE - 1);
+        const pageResult = await this.queryRecordsForRange(
+          context,
+          table,
+          filterSpec,
+          orderBy,
+          search,
+          offset,
+          pageEnd,
+          {
+            projectionFieldIds: [],
+            includeOrders: false,
+            includeTotal: false,
+            idsOnly: true,
+          }
+        );
+        if (pageResult.isErr()) {
+          return err(pageResult.error);
+        }
+
+        const rows = pageResult.value;
+        if (rows.length === 0) {
+          break;
+        }
+        for (const row of rows) {
+          if (excludedRecordIds.has(row.id) || seen.has(row.id)) {
+            continue;
+          }
+          seen.add(row.id);
+          const recordIdResult = RecordId.create(row.id);
+          if (recordIdResult.isErr()) {
+            return err(recordIdResult.error);
+          }
+          collectedIds.push(recordIdResult.value);
+        }
+      }
+    }
+
+    return ok(collectedIds);
+  }
+
+  private async loadSelfReferentialLinkFieldsById(
+    context: IExecutionContext,
+    table: Table,
+    recordIds: ReadonlyArray<RecordId>,
+    selfLinkFieldIds: ReadonlyArray<FieldId>
+  ): Promise<Result<ReadonlyMap<string, Readonly<Record<string, unknown>>>, DomainError>> {
+    const byRecordId = new Map<string, Readonly<Record<string, unknown>>>();
+    for (let offset = 0; offset < recordIds.length; offset += SELF_LINK_PREFETCH_BATCH_SIZE) {
+      if (context.abortSignal?.aborted) {
+        return err(
+          domainError.conflict({
+            code: 'delete_by_range_stream.aborted',
+            message: 'Delete stream aborted while reading self-link snapshots',
+          })
+        );
+      }
+      const sliceIds = recordIds.slice(offset, offset + SELF_LINK_PREFETCH_BATCH_SIZE);
+      const queryResult = await this.tableRecordQueryRepository.find(
+        context,
+        table,
+        RecordByIdsSpec.create(sliceIds),
+        {
+          mode: 'stored',
+          projectionFieldIds: selfLinkFieldIds,
+          valuesOnly: true,
+          includeOrders: false,
+          includeTotal: false,
+        }
+      );
+      if (queryResult.isErr()) {
+        return err(queryResult.error);
+      }
+      for (const row of queryResult.value.records) {
+        byRecordId.set(row.id, row.fields);
+      }
+    }
+    return ok(byRecordId);
   }
 
   private parseTargetRecordIds(
@@ -697,22 +1517,83 @@ export class DeleteByRangeApplicationService {
     return ok(parsed);
   }
 
-  private buildDeleteStreamIdChunkPlans(
-    recordIds: ReadonlyArray<RecordId>,
-    batchSize: number
-  ): ReadonlyArray<DeleteStreamChunkPlan> {
-    const chunks: DeleteStreamChunkPlan[] = [];
-    const normalizedBatchSize = Math.max(1, batchSize);
-    for (let offset = 0; offset < recordIds.length; offset += normalizedBatchSize) {
-      chunks.push({
-        batchIndex: chunks.length,
-        rangeKey: 'ids',
-        startRow: offset,
-        rowCount: Math.min(normalizedBatchSize, recordIds.length - offset),
-        recordIds: recordIds.slice(offset, offset + normalizedBatchSize),
-      });
+  private async loadDeleteChunkByIds(
+    context: IExecutionContext,
+    plan: PreparedDeleteStreamPlan,
+    batchIndex: number,
+    recordIds: ReadonlyArray<RecordId>
+  ): Promise<Result<PreparedDeleteChunk, DomainError>> {
+    // Existence check only: ids-only read, and no SQL array_position
+    // ordering (an O(ids²) sort per chunk) — the plan's id order is
+    // restored in-process below.
+    const queryResult = await this.tableRecordQueryRepository.find(
+      context,
+      plan.table,
+      RecordByIdsSpec.create(recordIds),
+      {
+        mode: 'stored',
+        projectionFieldIds: [],
+        includeOrders: false,
+        includeTotal: false,
+        idsOnly: true,
+      }
+    );
+    if (queryResult.isErr()) {
+      return err(queryResult.error);
     }
-    return chunks;
+
+    const rowsById = new Map(queryResult.value.records.map((record) => [record.id, record]));
+    const orderedRecords = recordIds.flatMap((recordId) => {
+      const row = rowsById.get(recordId.toString());
+      return row ? [row] : [];
+    });
+
+    return ok(
+      this.prepareDeleteChunkFromRecords(
+        plan.table,
+        batchIndex,
+        orderedRecords,
+        plan.excludedRecordIds,
+        { includeFallbackSnapshots: false }
+      )
+    );
+  }
+
+  private async loadDeleteChunkByRange(
+    context: IExecutionContext,
+    plan: Extract<PreparedDeleteStreamPlan, { mode: 'ranges' }>,
+    batchIndex: number,
+    queryStartRow: number,
+    rowCount: number
+  ): Promise<Result<PreparedDeleteChunk, DomainError>> {
+    const queryResult = await this.queryRecordsForRange(
+      context,
+      plan.table,
+      plan.filterSpec,
+      plan.orderBy,
+      plan.search,
+      queryStartRow,
+      queryStartRow + rowCount - 1,
+      {
+        projectionFieldIds: [],
+        includeOrders: false,
+        includeTotal: false,
+        idsOnly: true,
+      }
+    );
+    if (queryResult.isErr()) {
+      return err(queryResult.error);
+    }
+
+    return ok(
+      this.prepareDeleteChunkFromRecords(
+        plan.table,
+        batchIndex,
+        queryResult.value,
+        plan.excludedRecordIds,
+        { includeFallbackSnapshots: false }
+      )
+    );
   }
 
   private async prepareDeletePluginExecution(
@@ -725,6 +1606,7 @@ export class DeleteByRangeApplicationService {
       previousExecution?: RecordWritePluginExecution;
       skipScopeValidation?: boolean;
       payloadRecordCount?: number;
+      filter?: RecordFilter;
     }
   ): Promise<Result<RecordWritePluginExecution | undefined, DomainError>> {
     const pluginExecutionResult = await this.recordWritePluginRunner.prepare(
@@ -736,6 +1618,7 @@ export class DeleteByRangeApplicationService {
         payload: {
           recordIds,
           recordCount: options?.payloadRecordCount ?? recordIds.length,
+          ...(options?.filter != null ? { filter: options.filter } : {}),
         },
         isTransactionBound: false,
       },
@@ -927,7 +1810,6 @@ export class DeleteByRangeApplicationService {
     context: IExecutionContext,
     table: Table,
     filterSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
-    orderBy: ReadonlyArray<TableRecordOrderBy> | undefined,
     search: RecordQuerySearch | undefined
   ): Promise<Result<number, DomainError>> {
     const countLimitResult = PageLimit.create(1);
@@ -938,9 +1820,9 @@ export class DeleteByRangeApplicationService {
     const countResult = await this.tableRecordQueryRepository.find(context, table, filterSpec, {
       mode: 'stored',
       pagination: OffsetPagination.create(countLimitResult.value, PageOffset.zero()),
-      orderBy,
       search,
       includeTotal: true,
+      idsOnly: true,
     });
     if (countResult.isErr()) {
       return err(countResult.error);
@@ -963,9 +1845,20 @@ export class DeleteByRangeApplicationService {
     }
 
     if (command.rangeType === 'rows') {
-      return command.rawRanges
+      const clamped = command.rawRanges
         .map(([startRow, endRow]) => this.clampDeleteRowRange(startRow, endRow, totalRows))
-        .filter((range): range is readonly [number, number] => Boolean(range));
+        .filter((range): range is readonly [number, number] => Boolean(range))
+        .sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+      const merged: Array<readonly [number, number]> = [];
+      for (const [startRow, endRow] of clamped) {
+        const previous = merged.at(-1);
+        if (previous && startRow <= previous[1] + 1) {
+          merged[merged.length - 1] = [previous[0], Math.max(previous[1], endRow)];
+        } else {
+          merged.push([startRow, endRow]);
+        }
+      }
+      return merged;
     }
 
     const [[, startRow], [, endRow]] = normalizeRanges(
@@ -1044,7 +1937,8 @@ export class DeleteByRangeApplicationService {
     plan: PreparedDeletePlan | (PreparedDeleteChunk & { table: Table }),
     pluginExecution?: RecordWritePluginExecution,
     operationId?: string,
-    orchestration?: IRecordsDeletedOrchestration
+    orchestration?: IRecordsDeletedOrchestration,
+    selfLinkPatch?: SelfLinkSnapshotPatch
   ): Promise<Result<DeletePersistOutcome, DomainError>> {
     const committed = await this.domainWriteTransaction.execute<{
       recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>;
@@ -1092,7 +1986,8 @@ export class DeleteByRangeApplicationService {
       const snapshotsResult = this.resolveDeletedSnapshots(
         plan.table,
         plan.recordSnapshots,
-        persistedDelete
+        persistedDelete,
+        selfLinkPatch
       );
       if (snapshotsResult.isErr()) {
         return err(snapshotsResult.error);
@@ -1132,419 +2027,6 @@ export class DeleteByRangeApplicationService {
       recordSnapshots: write.value.recordSnapshots,
       events: write.events,
     });
-  }
-
-  private async executeDeleteStreamChunks(
-    context: IExecutionContext,
-    plan: PreparedDeleteStreamPlan,
-    queue: AsyncIterableQueue<DeleteByRangeStreamEvent>,
-    operation: {
-      operationId: string;
-      totalChunkCount: number;
-    }
-  ): Promise<Result<DeleteByRangeStreamExecutionResult, DomainError>> {
-    const deletedRecordIds: string[] = [];
-    let deletedCount = 0;
-    let currentRangeKey: string | undefined;
-    let failedRowCountInRange = 0;
-    const undoGroup = { groupId: operation.operationId, attempted: false };
-    const operationPluginExecutionResult = await this.runInSpan(
-      context,
-      'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlugins',
-      {
-        'teable.table_id': plan.table.id().toString(),
-        'teable.total_record_count': plan.totalCount,
-        'teable.total_chunk_count': operation.totalChunkCount,
-        'teable.delete_mode': 'stream',
-        'teable.plugin_scope': 'operation',
-      },
-      () =>
-        this.prepareDeletePluginExecution(
-          context,
-          plan.table,
-          [],
-          [],
-          this.createDeletePluginOrchestration({
-            mode: 'stream',
-            scope: 'operation',
-            operationId: operation.operationId,
-            totalRecordCount: plan.totalCount,
-            totalChunkCount: operation.totalChunkCount,
-          }),
-          { skipScopeValidation: true, payloadRecordCount: plan.totalCount }
-        )
-    );
-    if (operationPluginExecutionResult.isErr()) {
-      queue.push(
-        this.createErrorEvent(operationPluginExecutionResult.error, {
-          phase: 'guarding',
-          batchIndex: -1,
-          totalCount: plan.totalCount,
-          deletedCount,
-          recordIds: [],
-        })
-      );
-      return ok({ deletedCount, deletedRecordIds });
-    }
-
-    let previousPluginExecution = operationPluginExecutionResult.value;
-
-    // Chunk finalization (undo append + plugin afterCommit) runs off the
-    // critical path, overlapping the next chunk's load/delete. RecordsDeleted
-    // is constructed inside the chunk write and published on commit. A one-row
-    // table_trash index commits inside each chunk's delete transaction, so
-    // restorePurgeGuard does not wait on projections. The chain is serial and
-    // bounded to one in-flight chunk so undo entries still append in chunk order.
-    let previousChunkFinalize: Promise<void> = Promise.resolve();
-
-    try {
-      for (const plannedChunk of plan.chunkPlans) {
-        if (queue.isClosed()) {
-          break;
-        }
-
-        if (plannedChunk.rangeKey !== currentRangeKey) {
-          currentRangeKey = plannedChunk.rangeKey;
-          failedRowCountInRange = 0;
-        }
-
-        const chunkResult = await this.runInSpan(
-          context,
-          'teable.DeleteByRangeApplicationService.loadDeleteChunk',
-          {
-            'teable.batch_index': plannedChunk.batchIndex,
-            'teable.chunk_row_count': plannedChunk.rowCount,
-            'teable.total_record_count': plan.totalCount,
-            'teable.table_id': plan.table.id().toString(),
-          },
-          () => this.loadDeleteChunk(context, plan, plannedChunk, failedRowCountInRange)
-        );
-        if (chunkResult.isErr()) {
-          failedRowCountInRange += plannedChunk.rowCount;
-          queue.push(
-            this.createErrorEvent(chunkResult.error, {
-              phase: 'preparing',
-              batchIndex: plannedChunk.batchIndex,
-              totalCount: plan.totalCount,
-              deletedCount,
-              recordIds: [],
-            })
-          );
-          continue;
-        }
-
-        const chunk = chunkResult.value;
-        if (!chunk.recordIds.length) {
-          failedRowCountInRange += chunk.skippedRowCount;
-          continue;
-        }
-
-        const pluginExecutionResult = await this.runInSpan(
-          context,
-          'teable.DeleteByRangeApplicationService.prepareDeleteChunkPlugins',
-          {
-            'teable.batch_index': chunk.batchIndex,
-            'teable.chunk_record_count': chunk.recordIds.length,
-            'teable.total_record_count': plan.totalCount,
-            'teable.total_chunk_count': operation.totalChunkCount,
-            'teable.table_id': plan.table.id().toString(),
-            'teable.delete_mode': 'stream',
-            'teable.plugin_scope': 'chunk',
-          },
-          () =>
-            this.prepareDeletePluginExecution(
-              context,
-              plan.table,
-              chunk.recordIds,
-              chunk.recordSnapshots,
-              this.createDeletePluginOrchestration({
-                mode: 'stream',
-                scope: 'chunk',
-                operationId: operation.operationId,
-                totalRecordCount: plan.totalCount,
-                totalChunkCount: operation.totalChunkCount,
-                chunkIndex: chunk.batchIndex,
-              }),
-              { previousExecution: previousPluginExecution, skipScopeValidation: true }
-            )
-        );
-        if (pluginExecutionResult.isErr()) {
-          failedRowCountInRange += chunk.recordIds.length + chunk.skippedRowCount;
-          queue.push(
-            this.createErrorEvent(pluginExecutionResult.error, {
-              phase: 'guarding',
-              batchIndex: chunk.batchIndex,
-              totalCount: plan.totalCount,
-              deletedCount,
-              recordIds: [...chunk.deletedRecordIds],
-            })
-          );
-          continue;
-        }
-
-        const pluginExecution = pluginExecutionResult.value;
-        const scopeValidationResult = await this.runInSpan(
-          context,
-          'teable.DeleteByRangeApplicationService.validateDeleteChunkPluginScope',
-          {
-            'teable.batch_index': chunk.batchIndex,
-            'teable.chunk_record_count': chunk.recordIds.length,
-            'teable.total_record_count': plan.totalCount,
-            'teable.table_id': plan.table.id().toString(),
-            'teable.delete_mode': 'stream',
-          },
-          () =>
-            this.validateDeletePluginScope(context, plan.table, chunk.recordIds, pluginExecution)
-        );
-        if (scopeValidationResult.isErr()) {
-          failedRowCountInRange += chunk.recordIds.length + chunk.skippedRowCount;
-          queue.push(
-            this.createErrorEvent(scopeValidationResult.error, {
-              phase: 'guarding',
-              batchIndex: chunk.batchIndex,
-              totalCount: plan.totalCount,
-              deletedCount,
-              recordIds: [...chunk.deletedRecordIds],
-            })
-          );
-          continue;
-        }
-
-        previousPluginExecution = pluginExecution;
-        const deleteResult = await this.runInSpan(
-          context,
-          'teable.DeleteByRangeApplicationService.deleteChunk',
-          {
-            'teable.batch_index': chunk.batchIndex,
-            'teable.chunk_record_count': chunk.recordIds.length,
-            'teable.total_record_count': plan.totalCount,
-            'teable.table_id': plan.table.id().toString(),
-          },
-          () =>
-            this.deleteManyInSingleTransaction(
-              context,
-              { ...chunk, table: plan.table },
-              pluginExecution,
-              operation.operationId,
-              {
-                operationId: operation.operationId,
-                groupId: operation.operationId,
-                totalRecordCount: plan.totalCount,
-                totalChunkCount: operation.totalChunkCount,
-                chunkIndex: chunk.batchIndex,
-                scope: 'chunk',
-              }
-            )
-        );
-        if (deleteResult.isErr()) {
-          failedRowCountInRange += chunk.recordIds.length + chunk.skippedRowCount;
-          queue.push(
-            this.createErrorEvent(deleteResult.error, {
-              phase: 'deleting',
-              batchIndex: chunk.batchIndex,
-              totalCount: plan.totalCount,
-              deletedCount,
-              recordIds: [...chunk.deletedRecordIds],
-            })
-          );
-          continue;
-        }
-
-        const persistedRecordSnapshots = deleteResult.value.recordSnapshots;
-        const persistedDeletedRecordIds = persistedRecordSnapshots.map((snapshot) => snapshot.id);
-
-        deletedRecordIds.push(...persistedDeletedRecordIds);
-        deletedCount += persistedDeletedRecordIds.length;
-        failedRowCountInRange += chunk.skippedRowCount;
-
-        queue.push(
-          this.createProgressEvent(
-            'deleting',
-            plan.totalCount,
-            deletedCount,
-            persistedDeletedRecordIds.length,
-            chunk.batchIndex
-          )
-        );
-
-        const chunkDeletedCount = deletedCount;
-        const finalizeChunk = async (): Promise<void> => {
-          try {
-            const undoRedoResult = await this.runInSpan(
-              context,
-              'teable.DeleteByRangeApplicationService.recordDeleteChunkUndoRedo',
-              {
-                'teable.batch_index': chunk.batchIndex,
-                'teable.chunk_record_count': chunk.deletedRecordIds.length,
-                'teable.total_record_count': plan.totalCount,
-                'teable.table_id': plan.table.id().toString(),
-              },
-              () =>
-                this.recordDeleteUndoRedoEntry(
-                  context,
-                  plan.table,
-                  persistedRecordSnapshots,
-                  persistedDeletedRecordIds,
-                  undoGroup
-                )
-            );
-            if (undoRedoResult.isErr()) {
-              queue.push(
-                this.createErrorEvent(undoRedoResult.error, {
-                  phase: 'finalizing',
-                  batchIndex: chunk.batchIndex,
-                  totalCount: plan.totalCount,
-                  deletedCount: chunkDeletedCount,
-                  recordIds: [...persistedDeletedRecordIds],
-                })
-              );
-            }
-
-            if (pluginExecution) {
-              await pluginExecution.afterCommit();
-            }
-          } catch (error) {
-            // The finalize chain must never reject: a rejection would surface
-            // at the next chunk's barrier (or the finally) as an unrelated
-            // stream failure. Report it against this chunk instead.
-            queue.push(
-              this.createErrorEvent(
-                domainError.fromUnknown(error, {
-                  code: 'delete_by_range_stream.finalize_chunk_failed',
-                }),
-                {
-                  phase: 'finalizing',
-                  batchIndex: chunk.batchIndex,
-                  totalCount: plan.totalCount,
-                  deletedCount: chunkDeletedCount,
-                  recordIds: [...persistedDeletedRecordIds],
-                }
-              )
-            );
-          }
-        };
-
-        await previousChunkFinalize;
-        previousChunkFinalize = finalizeChunk();
-      }
-    } finally {
-      // Every exit (done, queue closed, thrown error) waits for the in-flight
-      // finalize, so stream completion still implies all undo entries are durable.
-      await previousChunkFinalize;
-    }
-
-    return ok({
-      deletedCount,
-      deletedRecordIds,
-    });
-  }
-
-  private buildDeleteStreamChunkPlans(
-    rowRanges: ReadonlyArray<readonly [number, number]>,
-    batchSize: number
-  ): ReadonlyArray<DeleteStreamChunkPlan> {
-    const chunkPlans: DeleteStreamChunkPlan[] = [];
-    const normalizedBatchSize = Math.max(1, batchSize);
-    const sortedRanges = [...rowRanges].sort((left, right) => {
-      if (left[0] !== right[0]) {
-        return right[0] - left[0];
-      }
-      return right[1] - left[1];
-    });
-
-    let batchIndex = 0;
-    for (const [startRow, endRow] of sortedRanges) {
-      const rangeKey = `${startRow}:${endRow}`;
-      let remainingRowCount = endRow - startRow + 1;
-      while (remainingRowCount > 0) {
-        const chunkRowCount = Math.min(normalizedBatchSize, remainingRowCount);
-        chunkPlans.push({
-          batchIndex,
-          rangeKey,
-          startRow,
-          rowCount: chunkRowCount,
-        });
-        batchIndex += 1;
-        remainingRowCount -= chunkRowCount;
-      }
-    }
-
-    return chunkPlans;
-  }
-
-  private async loadDeleteChunk(
-    context: IExecutionContext,
-    plan: PreparedDeleteStreamPlan,
-    chunk: DeleteStreamChunkPlan,
-    failedRowCountInRange: number
-  ): Promise<Result<PreparedDeleteChunk, DomainError>> {
-    if (chunk.recordIds?.length) {
-      // Existence check only: ids-only read, and no SQL array_position
-      // ordering (an O(ids²) sort per chunk) — the plan's id order is
-      // restored in-process below.
-      const queryResult = await this.tableRecordQueryRepository.find(
-        context,
-        plan.table,
-        RecordByIdsSpec.create(chunk.recordIds),
-        {
-          mode: 'stored',
-          projectionFieldIds: [],
-          includeOrders: false,
-          includeTotal: false,
-          idsOnly: true,
-        }
-      );
-      if (queryResult.isErr()) {
-        return err(queryResult.error);
-      }
-
-      const rowsById = new Map(queryResult.value.records.map((record) => [record.id, record]));
-      const orderedRecords = chunk.recordIds.flatMap((recordId) => {
-        const row = rowsById.get(recordId.toString());
-        return row ? [row] : [];
-      });
-
-      return ok(
-        this.prepareDeleteChunkFromRecords(
-          plan.table,
-          chunk.batchIndex,
-          orderedRecords,
-          plan.excludedRecordIds,
-          { includeFallbackSnapshots: false }
-        )
-      );
-    }
-
-    const queryStartRow = chunk.startRow + failedRowCountInRange;
-    const queryResult = await this.queryRecordsForRange(
-      context,
-      plan.table,
-      plan.filterSpec,
-      plan.orderBy,
-      plan.search,
-      queryStartRow,
-      queryStartRow + chunk.rowCount - 1,
-      {
-        projectionFieldIds: [],
-        // Repository-backed delete capture supplies the persisted order snapshot.
-        includeOrders: false,
-        includeTotal: false,
-        idsOnly: true,
-      }
-    );
-    if (queryResult.isErr()) {
-      return err(queryResult.error);
-    }
-
-    return ok(
-      this.prepareDeleteChunkFromRecords(
-        plan.table,
-        chunk.batchIndex,
-        queryResult.value,
-        plan.excludedRecordIds,
-        { includeFallbackSnapshots: false }
-      )
-    );
   }
 
   private prepareDeleteChunkFromRecords(
@@ -1607,7 +2089,8 @@ export class DeleteByRangeApplicationService {
   private resolveDeletedSnapshots(
     table: Table,
     fallbackSnapshots: ReadonlyArray<IDeletedRecordSnapshot>,
-    deleteResult: DeleteManyResult
+    deleteResult: DeleteManyResult,
+    selfLinkPatch?: SelfLinkSnapshotPatch
   ): Result<ReadonlyArray<IDeletedRecordSnapshot>, DomainError> {
     const persistedDeletedRecords = deleteResult.deletedRecords;
 
@@ -1620,8 +2103,30 @@ export class DeleteByRangeApplicationService {
       persistedDeletedRecords
     );
     if (storedSnapshotsResult.isOk()) {
+      const snapshots = storedSnapshotsResult.value.map((snapshot) =>
+        buildDeletedRecordSnapshot(table, snapshot)
+      );
+      if (!selfLinkPatch?.byRecordId || selfLinkPatch.fieldIds.length === 0) {
+        return ok(snapshots);
+      }
       return ok(
-        storedSnapshotsResult.value.map((snapshot) => buildDeletedRecordSnapshot(table, snapshot))
+        snapshots.map((snapshot) => {
+          const savedFields = selfLinkPatch.byRecordId?.get(snapshot.id);
+          if (!savedFields) {
+            return snapshot;
+          }
+          let updatedFields: Record<string, unknown> | undefined;
+          for (const fieldId of selfLinkPatch.fieldIds) {
+            const fieldKey = fieldId.toString();
+            if (Object.prototype.hasOwnProperty.call(savedFields, fieldKey)) {
+              if (!updatedFields) {
+                updatedFields = { ...snapshot.fields };
+              }
+              updatedFields[fieldKey] = savedFields[fieldKey];
+            }
+          }
+          return updatedFields ? { ...snapshot, fields: updatedFields } : snapshot;
+        })
       );
     }
     if (Array.isArray(persistedDeletedRecords) && fallbackSnapshots.length > 0) {

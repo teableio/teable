@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
+
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -11,6 +13,7 @@ import { RecordId } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
 import { expect, vi } from 'vitest';
+
 import { createE2eTestContainer } from './createE2eTestContainer';
 
 type ComputedConfig = NonNullable<Parameters<typeof createE2eTestContainer>[0]>['computedUpdate'];
@@ -73,8 +76,12 @@ export const createConvergenceHarness = async (profile: ExecutionProfile) => {
     ...(connectionString ? { connectionString } : {}),
     computedUpdate: profile.config,
   });
+  const executionContext = await createStandaloneExecutionContext(testContainer);
   const app = express();
-  app.use(createV2ExpressRouter({ createContainer: () => testContainer.container }));
+  app.use(createV2ExpressRouter({
+    createContainer: () => testContainer.container,
+    createExecutionContext: () => executionContext,
+  }));
   const server = await new Promise<Server>((resolve, reject) => {
     const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
     listening.once('error', reject);
@@ -139,6 +146,11 @@ export const createConvergenceHarness = async (profile: ExecutionProfile) => {
     async deleteRecord(table: ConvergenceTable, recordId: string) {
       deleteRecordsOkResponseSchema.parse(
         await request('deleteRecords', { tableId: table.id, recordIds: [recordId] }, 'DELETE')
+      );
+    },
+    async deleteRecords(table: ConvergenceTable, recordIds: string[]) {
+      deleteRecordsOkResponseSchema.parse(
+        await request('deleteRecords', { tableId: table.id, recordIds }, 'DELETE')
       );
     },
     async drain() {

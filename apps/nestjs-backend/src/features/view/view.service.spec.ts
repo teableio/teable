@@ -6,13 +6,18 @@ import { ViewService } from './view.service';
 
 describe('ViewService', () => {
   let service: ViewService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, ViewModule],
     }).compile();
 
     service = module.get<ViewService>(ViewService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

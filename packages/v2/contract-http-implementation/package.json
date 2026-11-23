@@ -43,6 +43,13 @@
       "import": "./dist/tableQueryOpsRouter.js",
       "module": "./dist/tableQueryOpsRouter.js",
       "require": "./dist/tableQueryOpsRouter.cjs"
+    },
+    "./vcs": {
+      "@teable/source": "./src/vcsRouter.ts",
+      "types": "./src/vcsRouter.ts",
+      "import": "./dist/vcsRouter.js",
+      "module": "./dist/vcsRouter.js",
+      "require": "./dist/vcsRouter.cjs"
     }
   },
   "files": [
@@ -60,6 +67,7 @@
     "fix-all-files": "oxlint --fix && oxfmt"
   },
   "dependencies": {
+    "@orpc/contract": "1.15.7",
     "@orpc/server": "1.15.7",
     "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-complexity": "workspace:*",
@@ -67,10 +75,13 @@
     "@teable/v2-core": "workspace:*",
     "@teable/v2-contract-http": "workspace:*",
     "@teable/v2-data-query": "workspace:*",
-    "@teable/v2-table-query-ops": "workspace:*"
+    "@teable/v2-table-query-ops": "workspace:*",
+    "@teable/v2-vcs": "workspace:*"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
+    "@teable/v2-adapter-vcs-postgres": "workspace:*",
+    "@teable/v2-container-node-test": "workspace:*",
     "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "24.19.2",
     "neverthrow": "8.2.0",

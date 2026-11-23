@@ -7,7 +7,10 @@ import {
   BaseDuplicatePreviewRegistrar,
   parseBaseDuplicatePreviewInput,
 } from './base-duplicate-preview.service';
-import { BaseDuplicateService, type DuplicateBaseV2PreviewFacts } from './base-duplicate.service';
+import {
+  BaseDuplicateV2Service,
+  type DuplicateBaseV2PreviewFacts,
+} from './base-duplicate-v2.service';
 import type { BaseService } from './base.service';
 
 const context = { requestId: 'preview-request' } as IExecutionContext;
@@ -96,7 +99,7 @@ const createPlanner = (previewFacts: DuplicateBaseV2PreviewFacts) => {
     duplicateBase: write,
     event,
     hook,
-  } as unknown as BaseDuplicateService;
+  } as unknown as BaseDuplicateV2Service;
   const baseService = {
     previewDuplicateBaseV2,
     duplicateBaseV2: write,
@@ -316,8 +319,8 @@ describe('BaseDuplicatePreviewPlanner', () => {
     expect(harness.prepareDuplicateBaseV2).not.toHaveBeenCalled();
   });
 });
-describe('BaseDuplicateService prepareDuplicateBaseV2', () => {
-  type ServiceArgs = ConstructorParameters<typeof BaseDuplicateService>;
+describe('BaseDuplicateV2Service prepareDuplicateBaseV2', () => {
+  type ServiceArgs = ConstructorParameters<typeof BaseDuplicateV2Service>;
   type PreparationInternals = {
     buildDuplicateStructureConfig: (...args: unknown[]) => Promise<unknown>;
     getV2CrossBaseLinkFieldTableMap: (...args: unknown[]) => Promise<unknown>;
@@ -355,21 +358,19 @@ describe('BaseDuplicateService prepareDuplicateBaseV2', () => {
     const knex = vi.fn().mockImplementation((tableName: string) => ({
       count: vi.fn().mockReturnValue({ toQuery: () => `count ${tableName}` }),
     }));
-    const service = new BaseDuplicateService(
+    const service = new BaseDuplicateV2Service(
       {
         txClient: vi.fn().mockReturnValue({ base: { findMany: vi.fn() } }),
       } as unknown as ServiceArgs[0],
       {} as ServiceArgs[1],
       {} as ServiceArgs[2],
       {} as ServiceArgs[3],
-      {} as ServiceArgs[4],
-      knex as unknown as ServiceArgs[5],
-      {} as ServiceArgs[6],
-      { get: vi.fn() } as unknown as ServiceArgs[7],
-      dataDbClientManager as unknown as ServiceArgs[8],
-      { getPreviewContainerForTable: vi.fn() } as unknown as ServiceArgs[9],
-      {} as ServiceArgs[10],
-      {} as ServiceArgs[11]
+      knex as unknown as ServiceArgs[4],
+      { get: vi.fn() } as unknown as ServiceArgs[5],
+      dataDbClientManager as unknown as ServiceArgs[6],
+      { getPreviewContainerForTable: vi.fn() } as unknown as ServiceArgs[7],
+      {} as ServiceArgs[8],
+      {} as ServiceArgs[9]
     );
     const internals = service as unknown as PreparationInternals;
     const structure = {
@@ -579,7 +580,7 @@ describe('BaseDuplicateService prepareDuplicateBaseV2', () => {
 
 describe('BaseDuplicatePreviewRegistrar', () => {
   it('registers an idempotent partial host capability for every container registry', () => {
-    const duplicateService = {} as BaseDuplicateService;
+    const duplicateService = {} as BaseDuplicateV2Service;
     const baseService = {} as BaseService;
     const registrar = new BaseDuplicatePreviewRegistrar(duplicateService, baseService);
     const registry = PreviewPlannerRegistry.empty();

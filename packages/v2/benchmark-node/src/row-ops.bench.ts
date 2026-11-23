@@ -1,12 +1,17 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import { serve } from '@hono/node-server';
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
+import {
+  createStandaloneExecutionContext,
+  createV2NodeTestContainer,
+} from '@teable/v2-container-node-test';
 import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import { createV2FastifyPlugin } from '@teable/v2-contract-http-fastify';
 import { createV2HonoApp } from '@teable/v2-contract-http-hono';
+import type { IExecutionContext } from '@teable/v2-core';
 import { NoopLogger, v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { createSimpleFields, createTextColumns } from '@teable/v2-table-templates';
@@ -242,11 +247,15 @@ const callTableMethod = async <T>(
   return toApiResponse<T>(result);
 };
 
-const setupExpress = async (container: DependencyContainer): Promise<IBenchTarget> => {
+const setupExpress = async (
+  container: DependencyContainer,
+  executionContext: IExecutionContext
+): Promise<IBenchTarget> => {
   const app = express();
   app.use(
     createV2ExpressRouter({
       createContainer: () => container,
+      createExecutionContext: () => executionContext,
     })
   );
 
@@ -267,11 +276,15 @@ const setupExpress = async (container: DependencyContainer): Promise<IBenchTarge
   };
 };
 
-const setupFastify = async (container: DependencyContainer): Promise<IBenchTarget> => {
+const setupFastify = async (
+  container: DependencyContainer,
+  executionContext: IExecutionContext
+): Promise<IBenchTarget> => {
   const app = fastify();
   await app.register(
     createV2FastifyPlugin({
       createContainer: () => container,
+      createExecutionContext: () => executionContext,
     })
   );
   await app.listen({ port: 0, host: '127.0.0.1' });
@@ -289,9 +302,13 @@ const setupFastify = async (container: DependencyContainer): Promise<IBenchTarge
   };
 };
 
-const setupHono = async (container: DependencyContainer): Promise<IBenchTarget> => {
+const setupHono = async (
+  container: DependencyContainer,
+  executionContext: IExecutionContext
+): Promise<IBenchTarget> => {
   const app = createV2HonoApp({
     createContainer: () => container,
+    createExecutionContext: () => executionContext,
   });
   const server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' });
   await new Promise<void>((resolve) => server.once('listening', () => resolve()));
@@ -457,10 +474,11 @@ const setup = async () => {
   testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
   dispose = testContainer.dispose;
   baseId = testContainer.baseId.toString();
+  const executionContext = await createStandaloneExecutionContext(testContainer);
 
-  const expressTarget = await setupExpress(testContainer.container);
-  const fastifyTarget = await setupFastify(testContainer.container);
-  const honoTarget = await setupHono(testContainer.container);
+  const expressTarget = await setupExpress(testContainer.container, executionContext);
+  const fastifyTarget = await setupFastify(testContainer.container, executionContext);
+  const honoTarget = await setupHono(testContainer.container, executionContext);
 
   servers = [expressTarget, fastifyTarget, honoTarget];
 

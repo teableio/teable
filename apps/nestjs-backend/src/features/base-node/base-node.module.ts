@@ -5,12 +5,11 @@ import { BaseNodePermissionGuard } from '../auth/guard/base-node-permission.guar
 import { CanaryModule } from '../canary/canary.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
-import { FieldDuplicateModule } from '../field/field-duplicate/field-duplicate.module';
-import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { ShortLinkModule } from '../short-link/short-link.module';
 import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
-import { TableModule } from '../table/table.module';
+import { TableOpenApiV2Module } from '../table/open-api/table-open-api-v2.module';
+import { TableMoveModule } from '../table/table-move.module';
 import { BaseDependencyGraphService } from './base-dependency-graph.service';
 import { BaseNodeMoveService } from './base-node-move.service';
 import { BaseNodeController } from './base-node.controller';
@@ -18,6 +17,9 @@ import { BaseNodeListener } from './base-node.listener';
 import { BaseNodeService } from './base-node.service';
 import { BaseNodeFolderModule } from './folder/base-node-folder.module';
 import { FolderDeletePreviewRegistrar } from './folder-delete-preview.service';
+import { BASE_NODE_RESOURCE_HANDLERS } from './resource/base-node-resource-handler';
+import { BaseNodeResourceHandlerRegistry } from './resource/base-node-resource-handler.registry';
+import { COMMUNITY_BASE_NODE_RESOURCE_HANDLERS } from './resource/base-node-resource-handlers';
 
 @Module({
   imports: [
@@ -26,9 +28,8 @@ import { FolderDeletePreviewRegistrar } from './folder-delete-preview.service';
     CanaryModule,
     DashboardModule,
     TableOpenApiModule,
-    TableModule,
-    FieldOpenApiModule,
-    FieldDuplicateModule,
+    TableOpenApiV2Module,
+    TableMoveModule,
     ShortLinkModule,
     SpaceDataDbMigrationGuardModule,
     CollaboratorModule,
@@ -38,12 +39,20 @@ import { FolderDeletePreviewRegistrar } from './folder-delete-preview.service';
   providers: [
     BaseNodePermissionGuard,
     BaseNodeService,
+    ...COMMUNITY_BASE_NODE_RESOURCE_HANDLERS,
+    {
+      provide: BASE_NODE_RESOURCE_HANDLERS,
+      useFactory: (...handlers: unknown[]) => handlers,
+      inject: COMMUNITY_BASE_NODE_RESOURCE_HANDLERS,
+    },
+    BaseNodeResourceHandlerRegistry,
     BaseNodeMoveService,
     BaseDependencyGraphService,
     BaseNodeListener,
     FolderDeletePreviewRegistrar,
   ],
   exports: [
+    BaseNodeResourceHandlerRegistry,
     BaseNodePermissionGuard,
     BaseNodeService,
     BaseNodeMoveService,

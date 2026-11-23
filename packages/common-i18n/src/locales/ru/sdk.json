@@ -417,6 +417,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "Сохранять запросы и делиться ими",
       "spaceCreate": "Создать пространство",
       "spaceDelete": "Удалить пространство",
       "spaceRead": "Читать пространство",
@@ -1088,6 +1089,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Это поле кнопки уже связано с {{name}}[{{id}}] этот процесс автоматизации, пожалуйста, выберите другое поле кнопки",
+      "buttonTriggerFilterNotMatched": "Эта запись не соответствует условиям запуска автоматизации",
       "triggerNotFound": "Автоматизация должна иметь узел триггера",
       "nodeNotFound": "{{nodeId}} узел не найден",
       "triggerTestFailed": "Тест триггера провалился, пожалуйста, проверьте конфигурацию триггера",
@@ -1220,6 +1222,7 @@
       "runAlreadyInFlight": "Запуск этой рутины уже выполняется",
       "runNowWhileActiveEvent": "Эта рутина активна и уже получает свои события; вызовите событие, чтобы увидеть запуск",
       "runNowOwnerOnly": "Пока рутина включена, запустить её сейчас может только тот, от чьего имени она выполняется",
+      "robotNotAllowed": "Роботы не могут выполнить это действие",
       "invalidRunCursor": "Недопустимый курсор списка запусков",
       "invalidSchedule": "Недопустимое расписание рутины: {{reason}}"
     },
@@ -1746,7 +1749,8 @@
         "dnsMisconfigured": "Не удалось настроить ссылку доступа: DNS домена настроен неверно"
       },
       "customDomainNotConfigured": "Пользовательский домен не настроен",
-      "vercelTokenNotConfigured": "Токен Vercel не настроен в параметрах App Builder"
+      "vercelTokenNotConfigured": "Токен Vercel не настроен в параметрах App Builder",
+      "deleteSandboxCloseFailed": "Не удалось закрыть песочницу. Ничего не удалено, повторите попытку"
     },
     "reward": {
       "notFound": "Награда не найдена",

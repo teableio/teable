@@ -59,6 +59,7 @@ import {
   setResponseHeaderIfPossible,
 } from '../../tracing/trace-response-headers';
 import type { IClsStore } from '../../types/cls';
+import { streamSseResponse, type SseStreamSource } from '../../utils/sse-stream';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
@@ -114,67 +115,21 @@ export class SelectionController {
     applyTraceResponseHeaders(response);
   }
 
-  protected prepareSelectionStreamResponse(response: Response) {
-    response.setHeader('Content-Type', 'text/event-stream');
-    response.setHeader('Cache-Control', 'no-cache, no-transform');
-    response.setHeader('Connection', 'keep-alive');
-    response.setHeader('X-Accel-Buffering', 'no');
-    this.applySelectionStreamResponseHeaders(response);
-    response.flushHeaders();
-  }
-
-  protected isSelectionStreamClosed(response: Response) {
-    return response.writableEnded || response.destroyed;
-  }
-
-  protected sendSelectionSseEvent<T>(response: Response, data: T) {
-    if (this.isSelectionStreamClosed(response)) {
-      return;
-    }
-
-    response.write(`data: ${JSON.stringify(data)}\n\n`);
-    (response as Response & { flush?: () => void }).flush?.();
-  }
-
-  protected startSelectionHeartbeat(response: Response) {
-    const heartbeat = setInterval(() => {
-      if (this.isSelectionStreamClosed(response)) {
-        return;
-      }
-
-      response.write(': ping\n\n');
-      (response as Response & { flush?: () => void }).flush?.();
-    }, 15_000);
-
-    response.on('close', () => clearInterval(heartbeat));
-    return heartbeat;
-  }
-
   protected async streamSelectionResponse<T extends { id: string }>(
     response: Response,
-    stream: AsyncIterable<T>,
+    stream: SseStreamSource<T>,
     createErrorEvent: (message: string) => T
   ) {
-    this.prepareSelectionStreamResponse(response);
-    const heartbeat = this.startSelectionHeartbeat(response);
-
-    try {
-      for await (const event of stream) {
-        if (this.isSelectionStreamClosed(response)) {
-          break;
-        }
-
-        this.sendSelectionSseEvent(response, event);
+    this.applySelectionStreamResponseHeaders(response);
+    await streamSseResponse(
+      response,
+      stream,
+      (error) =>
+        createErrorEvent(error instanceof Error ? error.message : 'Selection stream failed'),
+      {
+        isTerminalEvent: (event) => event.id === 'done',
       }
-    } catch (error) {
-      this.sendSelectionSseEvent(
-        response,
-        createErrorEvent(error instanceof Error ? error.message : 'Selection stream failed')
-      );
-    } finally {
-      clearInterval(heartbeat);
-      response.end();
-    }
+    );
   }
 
   protected async createPasteByIdFields(
@@ -879,17 +834,84 @@ export class SelectionController {
     );
   }
 
+  protected toLegacyDeleteByIdRo(selectionRo: ISelectionIdsRo): IDeleteByIdRo {
+    const selection = selectionRo.selection as ISelectionIdsRo['selection'] & {
+      excludeRecordIds?: string[];
+    };
+    const excludedList = selection.excludeRecordIds ?? selection.excludedRecordIds;
+    const hasExplicitRecordIds = Boolean(selection.recordIds?.length);
+    const isAllRecords = !hasExplicitRecordIds && Boolean(selection.allRecords);
+    const normalizedSelection: Record<string, unknown> = { ...selection };
+
+    if (hasExplicitRecordIds) {
+      const excludedSet = excludedList?.length ? new Set(excludedList) : undefined;
+      normalizedSelection.allRecords = undefined;
+      normalizedSelection.recordIds = excludedSet
+        ? selection.recordIds!.filter((recordId) => !excludedSet.has(recordId))
+        : selection.recordIds;
+    } else if (isAllRecords) {
+      normalizedSelection.recordIds = undefined;
+    }
+
+    if (selection.excludeRecordIds === undefined && excludedList !== undefined) {
+      normalizedSelection.excludeRecordIds = excludedList;
+    }
+
+    return {
+      ...selectionRo,
+      selection: normalizedSelection,
+    } as unknown as IDeleteByIdRo;
+  }
+
+  protected async *createDeleteSelectionResultStream(
+    result: Promise<{ ids: string[] }> | { ids: string[] }
+  ): AsyncIterable<IDeleteSelectionStreamEvent> {
+    const resolved = await result;
+    yield {
+      id: 'progress',
+      phase: 'preparing',
+      batchIndex: -1,
+      totalCount: resolved.ids.length,
+      deletedCount: 0,
+      batchDeletedCount: 0,
+    };
+    yield {
+      id: 'done',
+      totalCount: resolved.ids.length,
+      deletedCount: resolved.ids.length,
+      data: {
+        deletedCount: resolved.ids.length,
+        deletedRecordIds: resolved.ids,
+      },
+    };
+  }
+
+  protected createLegacyDeleteByIdSelectionStream(
+    tableId: string,
+    selectionRo: ISelectionIdsRo,
+    windowId?: string
+  ): AsyncIterable<IDeleteSelectionStreamEvent> {
+    return this.createDeleteSelectionResultStream(
+      this.selectionService.deleteById(tableId, this.toLegacyDeleteByIdRo(selectionRo), {
+        windowId,
+      })
+    );
+  }
+
   @UseV2Feature('deleteRecord')
   @Permissions('record|delete')
   @Patch('/delete-by-id-stream')
   async deleteByIdStream(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(selectionIdsRoSchema), TqlPipe) selectionRo: ISelectionIdsRo,
-    @Res() response: Response
+    @Res() response: Response,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
     await this.shareViewScopeService.assertSelectionIdMutation(tableId, selectionRo);
 
-    const stream = await this.recordOpenApiV2Service.deleteByIdStream(tableId, selectionRo);
+    const stream = this.cls.get('useV2')
+      ? await this.recordOpenApiV2Service.deleteByIdStream(tableId, selectionRo)
+      : this.createLegacyDeleteByIdSelectionStream(tableId, selectionRo, windowId);
 
     await this.streamSelectionResponse<IDeleteSelectionStreamEvent>(
       response,

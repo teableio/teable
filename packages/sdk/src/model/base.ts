@@ -19,6 +19,7 @@ export class Base implements IGetBaseVo {
   createdBy: string;
   isCanary?: boolean;
   v2Status?: IBaseV2StatusVo;
+  searchAccelerationSwitchEnabled?: boolean;
 
   constructor(base: IGetBaseVo) {
     const {
@@ -33,6 +34,7 @@ export class Base implements IGetBaseVo {
       createdBy,
       isCanary,
       v2Status,
+      searchAccelerationSwitchEnabled,
     } = base;
     this.id = id;
     this.name = name;
@@ -45,6 +47,7 @@ export class Base implements IGetBaseVo {
     this.createdBy = createdBy;
     this.isCanary = isCanary;
     this.v2Status = v2Status;
+    this.searchAccelerationSwitchEnabled = searchAccelerationSwitchEnabled;
   }
 
   async createTable(tableRo?: ICreateTableRo) {

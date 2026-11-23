@@ -75,6 +75,9 @@ export const listTableRecordsInputSchema = z
     offset: z.coerce.number().int().nonnegative().optional(),
     cursor: z.string().min(1).optional(),
     fieldKeyType: fieldKeyTypeSchema,
+    cellFormat: z.enum(['json', 'text']).optional().default('json'),
+    includeOrders: queryBooleanSchema.optional(),
+    collapsedGroupIds: parseJsonInput(z.array(z.string())).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.filterLinkCellSelected && value.filterLinkCellCandidate) {
@@ -183,7 +186,10 @@ export class ListTableRecordsQuery {
     readonly recordSearchAccessPath?: IRecordSearchAccessPath,
     readonly table?: Table,
     readonly cursor?: string,
-    readonly recordIndexId?: string
+    readonly recordIndexId?: string,
+    readonly cellFormat: 'json' | 'text' = 'json',
+    readonly includeOrders?: boolean,
+    readonly collapsedGroupIds?: ReadonlyArray<string>
   ) {}
 
   static create(
@@ -238,7 +244,10 @@ export class ListTableRecordsQuery {
           options?.recordSearchAccessPath,
           options?.table,
           parsed.data.cursor,
-          options?.recordIndexId
+          options?.recordIndexId,
+          parsed.data.cellFormat,
+          parsed.data.includeOrders,
+          parsed.data.collapsedGroupIds
         );
       })
     );

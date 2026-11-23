@@ -4,12 +4,13 @@ import { ConditionalModule } from '@nestjs/config';
 import { resolveBoolean } from './v2-config-parsers';
 import { V2DataQueryExplainController } from './v2-data-query-explain.controller';
 import { V2DataQueryExplainService } from './v2-data-query-explain.service';
+import { V2DataQueryObservabilityInterceptor } from './v2-data-query-observability.interceptor';
 import { V2Module } from './v2.module';
 
 @Module({
   imports: [V2Module],
   controllers: [V2DataQueryExplainController],
-  providers: [V2DataQueryExplainService],
+  providers: [V2DataQueryExplainService, V2DataQueryObservabilityInterceptor],
 })
 export class V2DataQueryExplainModule {
   /** Exactly the execute gate: explain is absent whenever execute is absent. */

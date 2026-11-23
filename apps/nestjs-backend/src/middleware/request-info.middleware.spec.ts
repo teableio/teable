@@ -329,4 +329,32 @@ describe('RequestInfoMiddleware', () => {
       vi.useRealTimers();
     }
   });
+
+  it('captures trimmed string and array x-window-id headers into CLS', () => {
+    const run = (headerValue: string | string[] | undefined) => {
+      const clsValues = new Map<string, unknown>();
+      const cls = {
+        get: vi.fn(),
+        set: vi.fn((key: string, value: unknown) => {
+          clsValues.set(key, value);
+        }),
+      } as unknown as ClsService<IClsStore>;
+      const res = {
+        once: vi.fn(),
+        writableEnded: false,
+        destroyed: false,
+      } as unknown as Response;
+      const windowIdHeader = 'x-window-id';
+      const req = createRequest({
+        headers: headerValue === undefined ? {} : { [windowIdHeader]: headerValue },
+      });
+      new RequestInfoMiddleware(cls).use(req, res, vi.fn());
+      return clsValues.get('windowId');
+    };
+
+    expect(run('  win-123  ')).toBe('win-123');
+    expect(run(['  win-first ', 'win-second'])).toBe('win-first');
+    expect(run('   ')).toBeUndefined();
+    expect(run(undefined)).toBeUndefined();
+  });
 });

@@ -57,6 +57,7 @@ export type TableQueryOpsDatabase = {
     execution_state?: unknown;
     attempts: number;
     max_attempts: number;
+    resume_attempt?: boolean;
     locked_at?: Date | null;
     locked_by?: string | null;
     last_error?: string | null;
@@ -317,6 +318,7 @@ export const ensureTableQueryOpsSchema = async (
     .addColumn('locked_by', 'text')
     .addColumn('last_error', 'text')
     .addColumn('execution_state', 'jsonb')
+    .addColumn('resume_attempt', 'boolean', (col) => col.notNull().defaultTo(false))
     .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('last_modified_time', 'timestamptz')
     .execute();
@@ -336,6 +338,17 @@ export const ensureTableQueryOpsSchema = async (
       ) THEN
         ALTER TABLE table_query_remediation_task
           ADD COLUMN IF NOT EXISTS execution_state jsonb;
+      END IF;
+      IF task_table_oid IS NOT NULL AND NOT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_attribute
+        WHERE attrelid = task_table_oid
+          AND attname = 'resume_attempt'
+          AND attnum > 0
+          AND NOT attisdropped
+      ) THEN
+        ALTER TABLE table_query_remediation_task
+          ADD COLUMN IF NOT EXISTS resume_attempt boolean NOT NULL DEFAULT false;
       END IF;
     END $$;
   `.execute(db);

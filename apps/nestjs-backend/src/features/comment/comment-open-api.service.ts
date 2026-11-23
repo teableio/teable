@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ILocalization } from '@teable/core';
 import {
+  CellFormat,
+  FieldKeyType,
   generateCommentId,
   getCommentChannel,
   getTableCommentChannel,
@@ -36,7 +38,8 @@ import { AuditScope } from '../audit/audit-scope';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { NotificationService } from '../notification/notification.service';
-import { RecordService } from '../record/record.service';
+import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
+import { RecordStoragePresenceService } from '../record-storage/record-storage-presence.service';
 
 // What the comment upload flow produces: the comment directory plus the upload token.
 const COMMENT_IMAGE_PATH = /^comment\/[A-Za-z0-9]+$/;
@@ -48,7 +51,8 @@ export class CommentOpenApiService {
   private readonly logger = new Logger(CommentOpenApiService.name);
   constructor(
     private readonly notificationService: NotificationService,
-    private readonly recordService: RecordService,
+    private readonly recordService: RecordOpenApiV2Service,
+    private readonly commentRecordStorageService: RecordStoragePresenceService,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly shareDbService: ShareDbService,
@@ -259,7 +263,9 @@ export class CommentOpenApiService {
   // Comments outlive a deleted/archived record so a restore brings them back; until
   // then the thread is unreachable, like the record itself.
   private async isRecordAlive(tableId: string, recordId: string) {
-    const existingIds = await this.recordService.getExistingRecordIds(tableId, [recordId]);
+    const existingIds = await this.commentRecordStorageService.getExistingRecordIds(tableId, [
+      recordId,
+    ]);
     return existingIds.has(recordId);
   }
 
@@ -875,7 +881,21 @@ export class CommentOpenApiService {
       },
     });
 
-    const recordName = await this.recordService.getCellValue(tableId, recordId, fieldId);
+    let recordName: unknown = '';
+    try {
+      const record = await this.recordService.getRecord(tableId, recordId, {
+        projection: [fieldId],
+        fieldKeyType: FieldKeyType.Id,
+        cellFormat: CellFormat.Text,
+      });
+      recordName = record.fields[fieldId];
+    } catch (error) {
+      this.logger.warn(
+        `Failed to read primary field ${fieldId} for comment notification on ${tableId}/${recordId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
 
     const notifyUsers = await this.prismaService.commentSubscription.findMany({
       where: {

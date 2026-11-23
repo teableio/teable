@@ -7,6 +7,8 @@ import type { TableId } from '../TableId';
 import type { TableName } from '../TableName';
 import type { ViewId } from '../views/ViewId';
 
+export type TableDeletedSourceState = 'active' | 'trashed';
+
 export class TableDeleted implements IDomainEvent {
   readonly name = DomainEventName.tableDeleted();
   readonly occurredAt = OccurredAt.now();
@@ -16,7 +18,8 @@ export class TableDeleted implements IDomainEvent {
     readonly baseId: BaseId,
     readonly tableName: TableName,
     readonly fieldIds: ReadonlyArray<FieldId>,
-    readonly viewIds: ReadonlyArray<ViewId>
+    readonly viewIds: ReadonlyArray<ViewId>,
+    readonly sourceState: TableDeletedSourceState = 'active'
   ) {}
 
   static create(params: {
@@ -25,13 +28,15 @@ export class TableDeleted implements IDomainEvent {
     tableName: TableName;
     fieldIds: ReadonlyArray<FieldId>;
     viewIds: ReadonlyArray<ViewId>;
+    sourceState?: TableDeletedSourceState;
   }): TableDeleted {
     return new TableDeleted(
       params.tableId,
       params.baseId,
       params.tableName,
       [...params.fieldIds],
-      [...params.viewIds]
+      [...params.viewIds],
+      params.sourceState ?? 'active'
     );
   }
 }

@@ -1,4 +1,27 @@
 {
+  "searchAcceleration": {
+    "title": "Arama hızlandırma",
+    "stateLabel": "Ayar",
+    "state": {
+      "disabled": "Kapalı",
+      "preparing": "Hazırlanıyor",
+      "enabled": "Açık",
+      "disabling": "Kapatılıyor",
+      "failed": "Başarısız"
+    },
+    "serving": "Kapsanan alanlar için arama verileri hazırlandı.",
+    "notServing": "Bu tabloda hızlandırma olmadan aramaya devam edebilirsiniz.",
+    "enable": "Aç",
+    "disable": "Kapat",
+    "resetOff": "Kapalı durumuna sıfırla",
+    "permissionError": "Bu ayarı değiştirme izniniz kontrol edilemedi.",
+    "readOnly": "Bu ayarı yalnızca alan sahipleri ve bu tabloyu güncelleme iznine sahip oluşturucular değiştirebilir.",
+    "statusError": "Ayar yüklenemedi. Bu tabloda aramaya devam edebilirsiniz.",
+    "changeError": "Ayar değiştirilemedi. Tekrar deneyin.",
+    "confirmTitle": "Bu büyük tablo için hızlandırma açılsın mı?",
+    "confirmDetail": "Bu tabloda en az 50.000 kayıt var. Hazırlık zaman alabilir. Hazırlık sürerken aramaya devam edebilirsiniz.",
+    "confirm": "Onayla ve aç"
+  },
   "computeActivity": {
     "currentCalculations": "Mevcut hesaplamalar",
     "thisTableOnly": "Yalnızca bu tablo",

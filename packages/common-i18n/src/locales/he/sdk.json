@@ -413,6 +413,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "שמירה ושיתוף של שאילתות",
       "spaceCreate": "יצירת מרחב",
       "spaceDelete": "מחיקת מרחב",
       "spaceRead": "קריאת מרחב",
@@ -1084,6 +1085,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "שדה הכפתור הזה כבר משויך לאוטומציה {{name}}[{{id}}], יש לבחור שדה כפתור אחר",
+      "buttonTriggerFilterNotMatched": "רשומה זו אינה עומדת בתנאי ההפעלה של האוטומציה",
       "triggerNotFound": "לאוטומציה חייב להיות צומת טריגר",
       "nodeNotFound": "הצומת {{nodeId}} לא נמצא",
       "triggerTestFailed": "בדיקת הטריגר נכשלה, יש לבדוק את תצורת הטריגר",
@@ -1216,6 +1218,7 @@
       "runAlreadyInFlight": "כבר יש הרצה פעילה של רוטינה זו",
       "runNowWhileActiveEvent": "השגרה פעילה וכבר מקבלת את האירועים שלה; הפעילו אירוע כדי לראות אותה רצה",
       "runNowOwnerOnly": "כל עוד השגרה פעילה, רק מי שהיא פועלת בשמו יכול להריץ אותה עכשיו",
+      "robotNotAllowed": "רובוטים לא יכולים לבצע פעולה זו",
       "invalidRunCursor": "מצביע רשימת הרצות לא תקין",
       "invalidSchedule": "לוח הזמנים של הרוטינה אינו תקין: {{reason}}"
     },
@@ -1742,7 +1745,8 @@
         "dnsMisconfigured": "הגדרת קישור הגישה נכשלה: ה-DNS של הדומיין לא הוגדר כראוי"
       },
       "customDomainNotConfigured": "לא הוגדר דומיין מותאם אישית",
-      "vercelTokenNotConfigured": "אסימון Vercel לא הוגדר בהגדרות App Builder"
+      "vercelTokenNotConfigured": "אסימון Vercel לא הוגדר בהגדרות App Builder",
+      "deleteSandboxCloseFailed": "לא ניתן לסגור את ה-sandbox. שום דבר לא נמחק, נסה שוב"
     },
     "reward": {
       "notFound": "התגמול לא נמצא",

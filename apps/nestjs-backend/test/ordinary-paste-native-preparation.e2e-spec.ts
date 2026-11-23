@@ -8,6 +8,7 @@ import {
   Relationship,
   type ILinkFieldOptions,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { IPasteRo, IPasteVo, ITableFullVo } from '@teable/openapi';
 import {
   PASTE_STREAM_URL,
@@ -419,6 +420,152 @@ describe('ordinary native paste preparation retirement (real HTTP)', () => {
           },
         });
         expect(persisted[0]!.fields[targets[0]!.id]).not.toBe('2024-03-10T08:30:00.000Z');
+      } finally {
+        if (target) await permanentDeleteTable(baseId, target.id);
+        if (source) await permanentDeleteTable(baseId, source.id);
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    }
+  );
+
+  it('preserves foreign primary choices created by successive update and insert batches', async () => {
+    const foreign = await createTable(baseId, {
+      name: 'Foreign choices',
+      fields: [{ name: 'Choice', type: FieldType.SingleSelect, options: { choices: [] } }],
+      records: [],
+    });
+    let source: ITableFullVo | undefined;
+    let target: ITableFullVo | undefined;
+    try {
+      source = await createTable(baseId, {
+        name: 'Choice clipboard',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+      });
+      const link = await createField(source.id, {
+        name: 'Links',
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyMany, foreignTableId: foreign.id },
+      });
+      // Legacy provisioning can expose field metadata before its column exists.
+      const pending = await createField(foreign.id, {
+        name: 'Pending formula',
+        type: FieldType.Formula,
+        options: { expression: `{${foreign.fields[0]!.id}}` },
+      });
+      const prisma = app.get(PrismaService);
+      const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+        where: { id: foreign.id },
+        select: { dbTableName: true },
+      });
+      const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
+      await prisma.field.update({ where: { id: pending.id }, data: { isPending: true } });
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE ${dbTableName.split('.').map(quote).join('.')} DROP COLUMN ${quote(pending.dbFieldName)}`
+      );
+      target = await createTable(baseId, {
+        name: 'Mixed paste',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [{ fields: { Title: 'Before' } }],
+      });
+      await axios.patch(
+        urlBuilder(PASTE_URL, { tableId: target.id }),
+        {
+          viewId: target.views[0]!.id,
+          ranges: [
+            [0, 0],
+            [0, 0],
+          ],
+          header: [source.fields[0]!, link],
+          content: 'Updated\tFirst\nInserted\tSecond',
+        } satisfies IPasteRo,
+        { headers: { [X_CANARY_HEADER]: 'true' } }
+      );
+      const primary = (await getFields(foreign.id)).data.find((field) => field.isPrimary)!;
+      expect(primary.options).toMatchObject({
+        choices: expect.arrayContaining([
+          expect.objectContaining({ name: 'First' }),
+          expect.objectContaining({ name: 'Second' }),
+        ]),
+      });
+      const foreignRows = (await getRecords(foreign.id, { fieldKeyType: FieldKeyType.Id })).data
+        .records;
+      expect(foreignRows.map((row) => row.fields[primary.id]).sort()).toEqual(['First', 'Second']);
+    } finally {
+      if (target) await permanentDeleteTable(baseId, target.id);
+      if (source) await permanentDeleteTable(baseId, source.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    }
+  });
+
+  it.each(['sync', 'stream'] as const)(
+    'expands a two-way link and resolves plain-text titles in the same paste (%s)',
+    async (mode) => {
+      const foreign = await createTable(baseId, {
+        name: 'Linked records',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        records: [{ fields: { Title: 'Alpha' } }, { fields: { Title: 'Beta' } }],
+      });
+      let source: ITableFullVo | undefined;
+      let target: ITableFullVo | undefined;
+      try {
+        source = await createTable(baseId, {
+          name: 'Clipboard source',
+          fields: [{ name: 'Text', type: FieldType.SingleLineText }],
+        });
+        const link = await createField(source.id, {
+          name: 'Links',
+          type: FieldType.Link,
+          options: { relationship: Relationship.ManyMany, foreignTableId: foreign.id },
+        });
+        target = await createTable(baseId, {
+          name: 'Paste destination',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            { name: 'Text', type: FieldType.SingleLineText },
+          ],
+          records: [{ fields: { Title: 'Destination' } }],
+        });
+        const paste: IPasteRo = {
+          viewId: target.views[0]!.id,
+          ranges: [
+            [1, 0],
+            [1, 0],
+          ],
+          header: [source.fields[0]!, link],
+          content: 'changed\tAlpha, Beta',
+        };
+        if (mode === 'sync') {
+          const response = await axios.patch(urlBuilder(PASTE_URL, { tableId: target.id }), paste, {
+            headers: { [X_CANARY_HEADER]: 'true' },
+          });
+          expect(response.status).toBe(200);
+          expect(response.headers['x-teable-v2']).toBe('true');
+        } else {
+          const events = await streamEvents(target.id, paste);
+          expect(events.filter((event) => event.id === 'error')).toEqual([]);
+          expect(events.find((event) => event.id === 'done')).toMatchObject({ updatedCount: 1 });
+        }
+        const fields = (await getFields(target.id)).data;
+        const expanded = fields.find((field) => field.type === FieldType.Link)!;
+        expect(expanded.options).toMatchObject({
+          relationship: Relationship.ManyMany,
+          foreignTableId: foreign.id,
+        });
+        const rows = (await getRecords(target.id, { fieldKeyType: FieldKeyType.Id })).data.records;
+        expect(rows[0]!.fields[fieldNamed(target, 'Text').id]).toBe('changed');
+        expect(rows[0]!.fields[expanded.id]).toEqual([
+          { id: foreign.records[0]!.id, title: 'Alpha' },
+          { id: foreign.records[1]!.id, title: 'Beta' },
+        ]);
+        const mirrorId = (expanded.options as ILinkFieldOptions).symmetricFieldId!;
+        const linked = (await getRecords(foreign.id, { fieldKeyType: FieldKeyType.Id })).data
+          .records;
+        expect(linked).toHaveLength(2);
+        for (const record of linked) {
+          expect(record.fields[mirrorId]).toEqual([
+            { id: target.records[0]!.id, title: 'Destination' },
+          ]);
+        }
       } finally {
         if (target) await permanentDeleteTable(baseId, target.id);
         if (source) await permanentDeleteTable(baseId, source.id);

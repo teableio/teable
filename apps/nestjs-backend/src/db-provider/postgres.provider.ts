@@ -29,6 +29,7 @@ import {
   GeneratedColumnSqlConversionVisitor,
   SelectColumnSqlConversionVisitor,
 } from '../features/record/query-builder/sql-conversion.visitor';
+import { IndexBuilderPostgres } from '../features/table-index/search-index-builder.postgres';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
 import type { BaseQueryAbstract } from './base-query/abstract';
@@ -58,7 +59,6 @@ import { GroupQueryPostgres } from './group-query/group-query.postgres';
 import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import { IntegrityQueryPostgres } from './integrity-query/integrity-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
-import { IndexBuilderPostgres } from './search-query/search-index-builder.postgres';
 import {
   SearchQueryPostgresBuilder,
   SearchQueryPostgres,

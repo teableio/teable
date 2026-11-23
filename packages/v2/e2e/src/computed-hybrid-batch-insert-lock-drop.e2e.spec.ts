@@ -19,6 +19,7 @@
  */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
@@ -32,11 +33,13 @@ import { getRandomString } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
 import { afterEach, describe, expect, it } from 'vitest';
+
 import {
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
 } from '../../adapter-table-repository-postgres/src';
 
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 type TestHarness = {
@@ -62,10 +65,12 @@ const createHarness = async (
     ...options,
   });
 
+  const executionContext = await createStandaloneExecutionContext(testContainer);
   const app = express();
   app.use(
     createV2ExpressRouter({
       createContainer: () => testContainer.container,
+      createExecutionContext: () => executionContext,
     })
   );
 

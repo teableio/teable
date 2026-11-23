@@ -111,7 +111,7 @@ describe('[C14][S19] anonymized nested numeric lookup IF computation (e2e)', () 
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         name: `Category Summary Base ${getRandomString(6)}`,
-        spaceId: 'space_test',
+        spaceId: ctx.spaceId,
       }),
     });
     const createBaseBody = await createBaseResponse.json();

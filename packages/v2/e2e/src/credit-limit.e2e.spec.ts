@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import {
   createRecordsOkResponseSchema,
   createTableOkResponseSchema,
@@ -16,6 +18,7 @@ import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import { registerV2ImportServices } from '@teable/v2-import';
 import express from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 /**
@@ -195,10 +198,12 @@ describe('v2 table row limit (e2e)', () => {
     baseId = testContainer.baseId.toString();
     registerV2ImportServices(testContainer.container);
 
+    const executionContext = await createStandaloneExecutionContext(testContainer);
     const app = express();
     app.use(
       createV2ExpressRouter({
         createContainer: () => testContainer.container,
+        createExecutionContext: () => executionContext,
       })
     );
 

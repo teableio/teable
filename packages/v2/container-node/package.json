@@ -36,13 +36,15 @@
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-adapter-table-query-ops-postgres": "workspace:*",
     "@teable/v2-adapter-table-repository-postgres": "workspace:*",
+    "@teable/v2-adapter-vcs-postgres": "workspace:*",
     "@teable/v2-adapter-repository-postgres": "workspace:*",
     "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-dottea": "workspace:*",
     "@teable/v2-table-query-ops": "workspace:*",
-    "@teable/v2-utils": "workspace:*"
+    "@teable/v2-utils": "workspace:*",
+    "@teable/v2-vcs": "workspace:*"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

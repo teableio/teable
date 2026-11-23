@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { resolveComputedOutboxWriterConcurrency } from '../../../configs/computed-outbox-trigger.config';
 import {
   ComputedOutboxBaseAdmissionLeaseLostError,
   ComputedOutboxBaseAdmissionService,
@@ -77,6 +78,47 @@ describe('ComputedOutboxBaseAdmissionService', () => {
       1,
       'test-queue:v2-computed-outbox-wakeup:admission:{bse123}',
     ]);
+  });
+
+  it('shares writer capacity between bases and releases it for the next base', async () => {
+    const owners = new Map<string, Set<string>>();
+    evalRedis.mockImplementation((script, _count, key, ...args) => {
+      const active = owners.get(key) ?? new Set<string>();
+      owners.set(key, active);
+      if (script.includes("redis.call('ZREMRANGEBYSCORE'")) {
+        if (active.size >= Number(args[1])) return 0;
+        active.add(String(args[2]));
+        return 1;
+      }
+      return Number(active.delete(String(args[0])));
+    });
+    const service = createService();
+    const hold = createDeferred<void>();
+    const entered = [createDeferred<void>(), createDeferred<void>()];
+    const running = entered.map((gate, index) =>
+      service.runWithWriterPermit('base-' + index, 'shared', async () => {
+        gate.resolve();
+        await hold.promise;
+      })
+    );
+    try {
+      await Promise.all(entered.map((gate) => gate.promise));
+      const work = vi.fn(async () => 'done');
+      await expect(service.runWithWriterPermit('base-3', 'shared', work)).resolves.toEqual({
+        admitted: false,
+      });
+      expect(work).not.toHaveBeenCalled();
+      await expect(service.runWithWriterPermit('base-3', 'dedicated', work)).resolves.toEqual({
+        admitted: true,
+        value: 'done',
+      });
+    } finally {
+      hold.resolve();
+      await Promise.all(running);
+    }
+    await expect(
+      service.runWithWriterPermit('base-3', 'shared', async () => 'done')
+    ).resolves.toEqual({ admitted: true, value: 'done' });
   });
 
   it('fails closed when Redis acquisition fails', async () => {
@@ -325,5 +367,61 @@ describe('ComputedOutboxBaseAdmissionService', () => {
 
     operationGate.resolve();
     await expect(result).rejects.toBeInstanceOf(ComputedOutboxBaseAdmissionLeaseLostError);
+  });
+
+  it('uses explicit writer concurrency overrides before falling back to pool-sized limits', async () => {
+    evalRedis.mockResolvedValue(0);
+    await createService().runWithWriterPermit('bse123', 'shared', vi.fn(), 5);
+    expect(evalRedis.mock.calls[0].slice(3)).toEqual([30_000, 5, expect.any(String)]);
+
+    expect(resolveComputedOutboxWriterConcurrency({}, undefined)).toBe(2);
+    expect(resolveComputedOutboxWriterConcurrency({}, 4)).toBe(2);
+    expect(resolveComputedOutboxWriterConcurrency({}, 10)).toBe(5);
+    expect(resolveComputedOutboxWriterConcurrency({}, 20)).toBe(8);
+    expect(
+      resolveComputedOutboxWriterConcurrency(
+        { V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_WRITER: '6' },
+        20
+      )
+    ).toBe(6);
+    expect(resolveComputedOutboxWriterConcurrency({}, 1)).toBe(1);
+    expect(resolveComputedOutboxWriterConcurrency({}, 2)).toBe(1);
+    expect(resolveComputedOutboxWriterConcurrency({}, 3)).toBe(1);
+    expect(
+      resolveComputedOutboxWriterConcurrency(
+        { V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_WRITER: '6' },
+        1
+      )
+    ).toBe(1);
+    expect(
+      resolveComputedOutboxWriterConcurrency(
+        { V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_WRITER: '64' },
+        40
+      )
+    ).toBe(32);
+    expect(
+      resolveComputedOutboxWriterConcurrency(
+        { V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_WRITER: '64' },
+        undefined
+      )
+    ).toBe(32);
+    expect(
+      resolveComputedOutboxWriterConcurrency(
+        { V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_WRITER: '16' },
+        4
+      )
+    ).toBe(3);
+    expect(
+      resolveComputedOutboxWriterConcurrency(
+        { V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_WRITER: '0' },
+        10
+      )
+    ).toBe(5);
+    expect(
+      resolveComputedOutboxWriterConcurrency(
+        { V2_COMPUTED_OUTBOX_MAX_CONCURRENT_PER_WRITER: 'invalid' },
+        10
+      )
+    ).toBe(5);
   });
 });

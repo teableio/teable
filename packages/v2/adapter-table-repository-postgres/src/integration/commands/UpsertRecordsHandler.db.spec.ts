@@ -421,12 +421,11 @@ describe('UpsertRecordsHandler (db)', () => {
       batchEntry?.undoCommand.type === 'Batch' ? batchEntry.undoCommand.payload : [];
     const redoCommands =
       batchEntry?.redoCommand.type === 'Batch' ? batchEntry.redoCommand.payload : [];
-    // Replay order is the composed order: the batch update is rolled back before
-    // the rows it created are deleted, and redo restores values before rows.
+    // Undo removes references before created rows; redo restores rows before their updates.
     expect(undoCommands.map((command) => command.type)).toEqual(['UpdateRecords', 'DeleteRecords']);
     expect(redoCommands.map((command) => command.type)).toEqual([
-      'UpdateRecords',
       'RestoreRecords',
+      'UpdateRecords',
     ]);
 
     const amountFieldId = findField(table, 'Amount').id().toString();
@@ -440,7 +439,7 @@ describe('UpsertRecordsHandler (db)', () => {
         records: [{ id: updatedRecordId, fields: { [amountFieldId]: 1 } }],
       },
     });
-    expect(redoCommands[0]).toMatchObject({
+    expect(redoCommands[1]).toMatchObject({
       type: 'UpdateRecords',
       payload: {
         tableId: table.id().toString(),
@@ -453,7 +452,7 @@ describe('UpsertRecordsHandler (db)', () => {
       type: 'DeleteRecords',
       payload: { tableId: table.id().toString(), recordIds: newRecordIds },
     });
-    expect(redoCommands[1]).toMatchObject({
+    expect(redoCommands[0]).toMatchObject({
       type: 'RestoreRecords',
       payload: {
         tableId: table.id().toString(),

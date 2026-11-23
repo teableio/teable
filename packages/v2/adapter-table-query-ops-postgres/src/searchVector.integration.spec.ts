@@ -225,56 +225,87 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       });
       await ensureTableQueryOpsSchema(db as unknown as Kysely<TableQueryOpsDatabase>);
       const executor = new PostgresTableSearchVectorExecutor(db, db);
-      for (const name of ['old', 'retained', 'active']) {
+      const table = createSearchVectorTableAggregate({
+        baseId: schemaName,
+        tableId,
+        physicalTableName: 'records',
+      });
+      const advisor = new PostgresTableSearchVectorAdvisor(db);
+      const generations: Array<{
+        candidateKey: string;
+        generatedColumnName: string;
+        indexName: string;
+      }> = [];
+      for (const fieldIds of [
+        ['fldTqOpsSearchTitle'],
+        ['fldTqOpsSearchNotes'],
+        ['fldTqOpsSearchTitle', 'fldTqOpsSearchNotes'],
+      ]) {
+        const recommendation = (
+          await advisor.analyze({} as never, {
+            table,
+            provider: 'pg_trgm',
+            fieldIds,
+            maxRecommendations: 1,
+          })
+        ).recommendations[0];
+        if (!recommendation?.generatedColumnName) {
+          throw new Error('Expected a canonical generated-document recommendation');
+        }
         await executor.execute({
           tableId,
           payload: {
-            candidateKey: name,
-            languageConfig: 'simple',
-            generatedColumnName: `__tqops_search_${name}`,
-            indexName: `idx_tqops_search_${name}`,
-            provider: 'pg_trgm',
-            operatorClass: 'gin_trgm_ops',
-            fields: [
-              {
-                fieldId: 'fldTqOpsSearchTitle',
-                fieldDbName: 'fld_title',
-                fieldType: 'singleLineText',
-              },
-            ],
-            rebuild: name !== 'old',
+            candidateKey: recommendation.candidateKey,
+            languageConfig: recommendation.languageConfig,
+            generatedColumnName: recommendation.generatedColumnName,
+            indexName: recommendation.indexName,
+            provider: recommendation.provider,
+            operatorClass: recommendation.operatorClass,
+            fields: recommendation.coveredFields.map((field) => ({
+              ...field,
+              fieldDbName: field.fieldDbName!,
+            })),
+            rebuild: generations.length > 0,
             allowLargeTableRewrite: true,
           },
         });
+        generations.push({
+          candidateKey: recommendation.candidateKey,
+          generatedColumnName: recommendation.generatedColumnName,
+          indexName: recommendation.indexName,
+        });
       }
+      const [old, retained, active] = generations;
       await sql`
         UPDATE table_query_search_vector_config
         SET status = 'disabled', reclaim_drop_after = now() - interval '1 minute',
             reclaim_drop_queued_at = now()
-        WHERE table_id = ${tableId} AND candidate_key = 'old'
+        WHERE table_id = ${tableId} AND candidate_key = ${old.candidateKey}
       `.execute(db);
-      await executor.drop(tableId, 'old');
+      await executor.drop(tableId, old.candidateKey);
       const columns = async () =>
         (
           await sql<{ attname: string }>`
         SELECT attname FROM pg_attribute
         WHERE attrelid = to_regclass(${`${schemaName}.records`}) AND NOT attisdropped
-          AND attname IN ('__tqops_search_old', '__tqops_search_retained', '__tqops_search_active')
+          AND attname = ANY(${generations.map((generation) => generation.generatedColumnName)}::text[])
         ORDER BY attname
       `.execute(db)
         ).rows.map((row) => row.attname);
-      expect(await columns()).toEqual(['__tqops_search_active', '__tqops_search_retained']);
-      expect((await executor.currentConfig(tableId))?.candidate_key).toBe('active');
+      expect(await columns()).toEqual(
+        [active.generatedColumnName, retained.generatedColumnName].sort()
+      );
+      expect((await executor.currentConfig(tableId))?.candidate_key).toBe(active.candidateKey);
       // Recover previously disabled but physically stranded definitions too.
       await sql`
         UPDATE table_query_search_vector_config SET status = 'disabled'
-        WHERE table_id = ${tableId} AND candidate_key = 'retained'
+        WHERE table_id = ${tableId} AND candidate_key = ${retained.candidateKey}
       `.execute(db);
       await executor.drop(tableId);
       expect(await columns()).toEqual([]);
       const indexes = await sql<{ count: string }>`
         SELECT count(*) FROM pg_indexes WHERE schemaname = ${schemaName}
-          AND indexname IN ('idx_tqops_search_old', 'idx_tqops_search_retained', 'idx_tqops_search_active')
+          AND indexname = ANY(${generations.map((generation) => generation.indexName)}::text[])
       `.execute(db);
       expect(Number(indexes.rows[0].count)).toBe(0);
       const rows = await sql<{

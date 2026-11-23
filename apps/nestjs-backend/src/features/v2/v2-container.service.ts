@@ -6,6 +6,7 @@ import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { COMPUTE_ACTIVITY_CHANGED, getActionTriggerChannel } from '@teable/core';
 import type { IPgPoolLease } from '@teable/db-main-prisma';
 import { PgPoolRegistry } from '@teable/db-main-prisma';
+import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ShareDbBackendPresencePublisher,
   ShareDbPubSubPublisher,
@@ -13,6 +14,7 @@ import {
   v2ShareDbTokens,
 } from '@teable/v2-adapter-realtime-sharedb';
 import {
+  DomainEventOutboxWorker,
   IComputedOutboxWakeupPublisher,
   IDomainEventWakeupPublisher,
   noopComputedOutboxWakeupPublisher,
@@ -28,18 +30,29 @@ import {
 } from '@teable/v2-container-node';
 import type {
   AttachmentValueDecoratorService,
+  AsyncMemoryEventBus,
   IAttachmentLookupService,
   IComputedOutboxAdmin,
   IExecutionContext,
+  IDurableProjectionHandler,
+  ProjectionMessageJson,
 } from '@teable/v2-core';
-import { ActorId, v2CoreTokens } from '@teable/v2-core';
-import type { DependencyContainer } from '@teable/v2-di';
+import {
+  ActorId,
+  getDurableProjectionRegistrations,
+  ProjectionMessageCodecRegistry,
+  ViewDeleted,
+  v2CoreTokens,
+  viewDeletedProjectionCodec,
+} from '@teable/v2-core';
+import type { DependencyContainer, InjectionToken } from '@teable/v2-di';
 import { registerV2ImportServices } from '@teable/v2-import';
 import {
   executablePhase1RemediationKindValues,
   startTableQueryOpsAnalyzerIfEnabled,
   startTableQueryOpsManualSearchTaskWorker,
   startTableQueryOpsTaskWorkerIfEnabled,
+  TableQueryOpsExecutionUnavailableError,
   type ExecutablePhase1RemediationKind,
   type TableQueryOpsRunnerHandle,
 } from '@teable/v2-table-query-ops';
@@ -61,10 +74,16 @@ import {
   DataDbRuntimeCacheService,
   V2_CONTAINER_CACHE_NAMESPACE,
 } from '../../global/data-db-runtime-cache.service';
+import { classifyDataDbRuntimeError } from '../../global/data-db-runtime-error';
+import { classifyDatabaseError } from '../../observability/database-health/database-error-classification';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-trigger/computed-outbox-claim-concurrency.service';
+import {
+  createComputedWriterHandle,
+  type ComputedWriterHandle,
+} from './computed-outbox-trigger/computed-writer-handle';
 import {
   COMPUTED_OUTBOX_ADMIN,
   COMPUTED_OUTBOX_WAKEUP_PUBLISHER,
@@ -86,6 +105,9 @@ import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
 import { V2QueryCancellationMiddleware } from './v2-query-cancellation.middleware';
 import { V2RecordChangedValueDecoratorService } from './v2-record-changed-value-decorator.service';
 import { OpenTelemetryTracer } from './v2-tracer.adapter';
+import { NestVcsAccessPolicy } from './vcs/nest-vcs-access-policy.service';
+
+const TABLE_QUERY_MAINTENANCE_CACHE_NAMESPACE = 'v2:table-query-maintenance';
 
 const resolveNonNegativeInteger = (value: unknown): number | undefined => {
   const parsed =
@@ -100,6 +122,48 @@ const resolveTableQueryOpsWorkerId = (configured: unknown): string => {
     return `${configured.trim()}:${instanceId}`;
   }
   return `nestjs-${instanceId}`;
+};
+
+const isTableQueryOpsConnectionUnavailable = (error: unknown): boolean => {
+  // Routing/migration and container acquisition preserve raw pg errors; domain or
+  // driver wrappers can retain them as causes. Classifiers inspect one error only.
+  const seen = new Set<unknown>();
+  let candidate = error;
+  let unavailable = false;
+  while (candidate && typeof candidate === 'object' && !seen.has(candidate)) {
+    seen.add(candidate);
+    const errorRecord = candidate as { message?: unknown; cause?: unknown; code?: unknown };
+    const runtime = classifyDataDbRuntimeError(candidate);
+    const classification = classifyDatabaseError(candidate, {
+      // The runtime taxonomy groups statement cancellation with connection timeouts.
+      // Let the database classifier distinguish them before admitting a deferral.
+      dataDbClassification: runtime?.code === 'data_db.timeout' ? null : runtime,
+    });
+    const code = classification.pgCode ?? classification.driverCode;
+    const message = typeof errorRecord.message === 'string' ? errorRecord.message : '';
+    if (
+      errorRecord.code === 'TABLE_QUERY_OPS_STATEMENT_TIMEOUT' ||
+      (code === '55000' &&
+        /^database "[^"]+" is not currently accepting connections$/.test(message))
+    ) {
+      unavailable = true;
+    } else if (
+      classification.errorClass === 'connection_failed' ||
+      classification.errorClass === 'connection_lost' ||
+      classification.errorClass === 'connection_timeout' ||
+      classification.errorClass === 'pool_exhausted'
+    ) {
+      unavailable = true;
+    } else if (
+      code === '55000' ||
+      (classification.errorClass !== 'other' && classification.errorClass !== 'unclassified')
+    ) {
+      // A known permanent failure or statement cancellation must not be hidden by a cause.
+      return false;
+    }
+    candidate = errorRecord.cause;
+  }
+  return unavailable;
 };
 
 // Default is shadow: decisions and reasons are logged for the admin page without
@@ -188,13 +252,20 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   >();
   private tableQueryOpsMaintenanceOverridesWarned = false;
   private readonly poolLeases = new WeakMap<DependencyContainer, ReadonlyArray<IPgPoolLease>>();
+  private readonly computedWriters = new WeakMap<DependencyContainer, ComputedWriterHandle>();
   private readonly claimConcurrencyUnregisters = new WeakMap<DependencyContainer, () => void>();
   private readonly containerRouteSignatures = new WeakMap<DependencyContainer, string>();
   private readonly containersPendingTableQueryOpsRunners = new WeakSet<DependencyContainer>();
+  private readonly eventRuntimes = new Map<
+    DependencyContainer,
+    { commands: CommandBusTracingMiddleware; events: AsyncMemoryEventBus }
+  >();
+  private eventDrainPromise?: Promise<boolean>;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly pinoLogger: PinoLogger,
+    @Inject(ShareDbService)
     private readonly shareDbService: ShareDbService,
     private readonly cacheService: CacheService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
@@ -260,6 +331,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       dataDb.connectionUrl ?? dataDb.url,
       dataDb.internalSchema
     );
+  }
+
+  getComputedWriter(container: DependencyContainer) {
+    const writer = this.computedWriters.get(container);
+    if (!writer) throw new Error('Computed writer has no active data pool');
+    return writer;
   }
 
   async getContainerForBase(baseId: string): Promise<DependencyContainer> {
@@ -464,83 +541,105 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     return {};
   }
 
+  private bindNestVcsAccessPolicy(container: DependencyContainer): void {
+    try {
+      this.moduleRef?.get(NestVcsAccessPolicy, { strict: false })?.registerOnContainer(container);
+    } catch {
+      // Optional in isolated container unit tests without Nest V2Module.
+    }
+  }
+
+  private resolveContainerComputedUpdateOptions() {
+    const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
+    const taskStatementTimeoutMs = resolveNonNegativeInteger(
+      this.configService.get('V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS')
+    );
+    const inlineStatementTimeoutMs = resolveNonNegativeInteger(
+      this.configService.get('V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS')
+    );
+    const fieldBackfillBatchSize = resolvePositiveInteger(
+      this.configService.get('V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE')
+    );
+    const continuationRelayClaimEnabled = resolveBoolean(
+      this.configService.get('V2_COMPUTED_OUTBOX_CONTINUATION_RELAY_CLAIM_ENABLED'),
+      true
+    );
+    const lockStarvationEscalationAgeMs = resolveNonNegativeInteger(
+      this.configService.get('V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_AGE_MS')
+    );
+    const lockStarvationEscalationWaitMs = resolveNonNegativeInteger(
+      this.configService.get('V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_WAIT_MS')
+    );
+    const claimDefaults = this.claimConcurrency?.processDefault;
+    return buildComputedUpdateOptions(
+      computedUpdateMode,
+      this.computedOutboxWakeupPublisher,
+      {
+        ...(taskStatementTimeoutMs !== undefined ? { taskStatementTimeoutMs } : {}),
+        ...(fieldBackfillBatchSize !== undefined ? { fieldBackfillBatchSize } : {}),
+        ...(lockStarvationEscalationAgeMs !== undefined ? { lockStarvationEscalationAgeMs } : {}),
+        ...(lockStarvationEscalationWaitMs !== undefined ? { lockStarvationEscalationWaitMs } : {}),
+        continuationRelayClaimEnabled,
+        ...(claimDefaults
+          ? {
+              maxConcurrentProcessingPerBase: claimDefaults.perBase,
+              maxConcurrentProcessingPerSeedTable: claimDefaults.perSeedTable,
+            }
+          : {}),
+      },
+      inlineStatementTimeoutMs !== undefined ? { inlineStatementTimeoutMs } : undefined
+    );
+  }
+
   private async createContainer(
     dataConnectionString: string,
     dataSchema?: string,
-    options: { previewReadOnly?: boolean } = {}
+    options: { previewReadOnly?: boolean; maintenance?: boolean } = {}
   ): Promise<DependencyContainer> {
     const metaConnectionString = this.getMetaConnectionString();
-    const metaPoolLease = this.pgPoolRegistry.acquire(metaConnectionString);
-    const dataPoolLease = this.acquireDataPoolLease(
-      dataConnectionString,
-      metaConnectionString,
-      metaPoolLease,
-      dataSchema
-    );
-    const poolLeases =
-      dataPoolLease === metaPoolLease ? [metaPoolLease] : [metaPoolLease, dataPoolLease];
+    const metaPoolLease = options.maintenance
+      ? undefined
+      : this.pgPoolRegistry.acquire(metaConnectionString);
+    const dataPoolLease = metaPoolLease
+      ? this.acquireDataPoolLease(dataConnectionString, metaConnectionString, metaPoolLease, dataSchema)
+      : undefined;
+    const poolLeases = metaPoolLease
+      ? dataPoolLease && dataPoolLease !== metaPoolLease
+        ? [metaPoolLease, dataPoolLease]
+        : [metaPoolLease]
+      : [];
+    let createdContainer: DependencyContainer | undefined;
 
     try {
       const logger = new PinoLoggerAdapter(this.pinoLogger);
       const tracer = new OpenTelemetryTracer();
       const tableQueryObservability = new TableQuerySearchMetricsService();
-      const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
+      const commands = new CommandBusTracingMiddleware();
+      const commandBusMiddlewares = [commands];
       const queryBusMiddlewares = [
         new QueryBusTracingMiddleware(),
         new V2QueryCancellationMiddleware(this.cls),
       ];
-      const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
       const tableQueryOps = await this.resolveContainerTableQueryOpsOptions(options);
-      const taskStatementTimeoutMs = resolveNonNegativeInteger(
-        this.configService.get('V2_COMPUTED_OUTBOX_TASK_STATEMENT_TIMEOUT_MS')
-      );
-      const inlineStatementTimeoutMs = resolveNonNegativeInteger(
-        this.configService.get('V2_COMPUTED_INLINE_STATEMENT_TIMEOUT_MS')
-      );
-      const fieldBackfillBatchSize = resolvePositiveInteger(
-        this.configService.get('V2_COMPUTED_OUTBOX_FIELD_BACKFILL_BATCH_SIZE')
-      );
-      const continuationRelayClaimEnabled = resolveBoolean(
-        this.configService.get('V2_COMPUTED_OUTBOX_CONTINUATION_RELAY_CLAIM_ENABLED'),
-        true
-      );
-      const lockStarvationEscalationAgeMs = resolveNonNegativeInteger(
-        this.configService.get('V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_AGE_MS')
-      );
-      const lockStarvationEscalationWaitMs = resolveNonNegativeInteger(
-        this.configService.get('V2_COMPUTED_OUTBOX_LOCK_STARVATION_ESCALATION_WAIT_MS')
-      );
-      const claimDefaults = this.claimConcurrency?.processDefault;
-      const computedUpdate = buildComputedUpdateOptions(
-        computedUpdateMode,
-        this.computedOutboxWakeupPublisher,
-        {
-          ...(taskStatementTimeoutMs !== undefined ? { taskStatementTimeoutMs } : {}),
-          ...(fieldBackfillBatchSize !== undefined ? { fieldBackfillBatchSize } : {}),
-          ...(lockStarvationEscalationAgeMs !== undefined ? { lockStarvationEscalationAgeMs } : {}),
-          ...(lockStarvationEscalationWaitMs !== undefined
-            ? { lockStarvationEscalationWaitMs }
-            : {}),
-          continuationRelayClaimEnabled,
-          ...(claimDefaults
-            ? {
-                maxConcurrentProcessingPerBase: claimDefaults.perBase,
-                maxConcurrentProcessingPerSeedTable: claimDefaults.perSeedTable,
-              }
-            : {}),
-        },
-        inlineStatementTimeoutMs !== undefined ? { inlineStatementTimeoutMs } : undefined
-      );
+      const computedUpdate = this.resolveContainerComputedUpdateOptions();
 
       this.logger.log('Initializing V2 container');
       const schemaCoordination = this.resolveSchemaCoordinationOptions(Boolean(dataSchema));
+      const maintenanceDeadlineMs =
+        resolvePositiveInteger(
+          this.configService.get('V2_TABLE_QUERY_OPS_MAINTENANCE_STATEMENT_DEADLINE_MS')
+        ) ?? 6 * 60 * 60 * 1000;
       const container = await createV2NodePgContainer({
         metaConnectionString,
         dataConnectionString,
         dataSchema,
         ...(options.previewReadOnly ? { ensureSchema: false } : {}),
-        metaDbDependencies: { pool: metaPoolLease.pool },
-        dataDbDependencies: { pool: dataPoolLease.pool },
+        metaDbDependencies: options.maintenance
+          ? { maintenanceStatementDeadlineMs: maintenanceDeadlineMs }
+          : { pool: metaPoolLease!.pool },
+        dataDbDependencies: options.maintenance
+          ? { maintenanceStatementDeadlineMs: maintenanceDeadlineMs }
+          : { pool: dataPoolLease!.pool },
         logger,
         tracer,
         tableQueryObservability,
@@ -553,9 +652,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         // transaction, so the delete-undo purge guard is sound here.
         undoRedoRestorePurgeGuard: true,
         ...this.resolveComputedOutboxAdminOption(),
-        schemaCoordination,
+        schemaCoordination: options.maintenance ? false : schemaCoordination,
         ...this.resolveTableRowLimitOption(),
       });
+      createdContainer = container;
 
       registerV2ShareDbRealtime(container, {
         publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
@@ -595,17 +695,63 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       // Legacy ImportCsv/Papaparse paths still resolve the process registry.
       setSafeFetch(importFetch);
       registerV2ImportServices(container, { fetch: importFetch });
-      if (tableQueryOps) {
+      this.bindNestVcsAccessPolicy(container);
+      if (tableQueryOps && !options.maintenance) {
         this.registerTableQueryOpsRunners(container, options.previewReadOnly);
       }
 
       for (const registrar of this.discoverProjectionRegistrars()) {
         registrar.registerProjections(container);
       }
+      const metadataHandlers = new Map<string, IDurableProjectionHandler<ProjectionMessageJson>>();
+      for (const registration of getDurableProjectionRegistrations()) {
+        if (registration.event !== ViewDeleted) continue;
+        metadataHandlers.set(
+          registration.id,
+          container.resolve(
+            registration.handler as InjectionToken<IDurableProjectionHandler<ProjectionMessageJson>>
+          )
+        );
+      }
+      const metadataCodecs = ProjectionMessageCodecRegistry.create([viewDeletedProjectionCodec]);
+      if (metadataCodecs.isErr()) throw new Error(metadataCodecs.error.message);
+      container.registerInstance(
+        v2RecordRepositoryPostgresTokens.metadataDomainEventOutboxWorker,
+        new DomainEventOutboxWorker(
+          container.resolve(v2MetaDbTokens.db),
+          metadataHandlers,
+          metadataCodecs.value,
+          logger,
+          undefined,
+          undefined,
+          {
+            transactionScope: 'meta',
+            destinationInboxExists: async ({ eventId, consumerId, message }) => {
+              if (
+                !message ||
+                typeof message !== 'object' ||
+                !('tableId' in message) ||
+                typeof message.tableId !== 'string'
+              ) {
+                throw new Error('Metadata delivery is missing its destination table identity');
+              }
+              const destination = await this.dataDbClientManager.dataPrismaForTable(
+                message.tableId
+              );
+              const receipts = await destination.$queryRawUnsafe<{ exists: boolean }[]>(
+                'SELECT true AS exists FROM domain_event_inbox WHERE consumer_id = $1 AND event_id = $2 LIMIT 1',
+                consumerId,
+                eventId
+              );
+              return receipts.length > 0;
+            },
+          }
+        )
+      );
 
       // Only primary-storage containers follow the runtime claim-cap override;
       // BYODB pools are sized against the env defaults at deploy time.
-      if (this.claimConcurrency && dataPoolLease === metaPoolLease) {
+      if (this.claimConcurrency && metaPoolLease && dataPoolLease === metaPoolLease) {
         const outboxConfig = container.resolve<ComputedUpdateOutboxConfig>(
           v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig
         );
@@ -616,9 +762,29 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       }
 
       this.poolLeases.set(container, poolLeases);
+      if (dataPoolLease) {
+        this.computedWriters.set(
+          container,
+          createComputedWriterHandle(dataPoolLease.pool, dataConnectionString)
+        );
+      }
+      this.eventRuntimes.set(container, {
+        commands,
+        events: container.resolve<AsyncMemoryEventBus>(v2CoreTokens.eventBus),
+      });
       this.logger.log('V2 container initialized');
       return container;
     } catch (error) {
+      if (createdContainer) {
+        try {
+          await disposeV2NodePgContainer(createdContainer);
+        } catch (cleanupError) {
+          this.logger.error(
+            'Failed to dispose partially initialized V2 PostgreSQL container',
+            cleanupError instanceof Error ? cleanupError.stack : String(cleanupError)
+          );
+        }
+      }
       await Promise.all(poolLeases.map((lease) => lease.release()));
       throw error;
     }
@@ -721,6 +887,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       this.configService.get('V2_TABLE_QUERY_OPS_TASK_WORKER_INTERVAL_MS')
     );
     return {
+      searchMaintenance: this.resolveSearchMaintenanceOptions(),
       ensureSchema: resolveBoolean(
         this.configService.get('V2_TABLE_QUERY_OPS_ENSURE_SCHEMA'),
         true
@@ -740,6 +907,23 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         allowedKinds: searchAccessPathMaintenanceKinds,
         ...(taskWorkerIntervalMs ? { intervalMs: taskWorkerIntervalMs } : {}),
       },
+    };
+  }
+
+  private resolveSearchMaintenanceOptions() {
+    return {
+      isConnectionUnavailable: isTableQueryOpsConnectionUnavailable,
+      windowUtc: this.configService.get<string>('V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_WINDOW_UTC'),
+      knownSmallRowCap:
+        resolvePositiveInteger(
+          this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_SMALL_ROW_CAP')
+        ) ?? 5000,
+      allowUnknownOrLargeRewrite: resolveBoolean(
+        this.configService.get(
+          'V2_TABLE_QUERY_OPS_SEARCH_MAINTENANCE_ALLOW_UNKNOWN_OR_LARGE_REWRITE'
+        ),
+        false
+      ),
     };
   }
 
@@ -786,6 +970,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     );
 
     return {
+      searchMaintenance: this.resolveSearchMaintenanceOptions(),
       ensureSchema: resolveBoolean(
         this.configService.get('V2_TABLE_QUERY_OPS_ENSURE_SCHEMA'),
         true
@@ -828,10 +1013,26 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const context = this.createTableQueryOpsContext(container);
     if (!context) return;
     const resolveExecution = async (tableId: string) => {
-      const target = await this.getContainerForTable(tableId);
-      const targetContext = this.createTableQueryOpsContext(target);
-      if (!targetContext) throw new Error('Unable to initialize table query task context');
-      return { container: target, context: targetContext };
+      try {
+        const route = await this.dataDbClientManager.getDataDatabaseForTable(tableId);
+        const target = await this.runtimeCache.getOrCreate(
+          TABLE_QUERY_MAINTENANCE_CACHE_NAMESPACE,
+          route.cacheKey,
+          () => this.createContainer(route.connectionUrl ?? route.url, route.internalSchema, {
+            previewReadOnly: true,
+            maintenance: true,
+          }),
+          (created) => this.destroyContainer(created)
+        );
+        const targetContext = this.createTableQueryOpsContext(target);
+        if (!targetContext) throw new Error('Unable to initialize table query task context');
+        return { container: target, context: targetContext };
+      } catch (error) {
+        if (isTableQueryOpsConnectionUnavailable(error)) {
+          throw new TableQueryOpsExecutionUnavailableError(error);
+        }
+        throw error;
+      }
     };
 
     const handles = [
@@ -902,12 +1103,107 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     return wrapper.instance;
   }
 
+  /** Called by the actual application root before imported modules destroy dependencies. */
+  drainEvents(producers: ReadonlyArray<Promise<void>> = []): Promise<boolean> {
+    return (this.eventDrainPromise ??= this.drainEventRuntimes(producers));
+  }
+  private async drainEventRuntimes(producers: ReadonlyArray<Promise<void>>): Promise<boolean> {
+    const timeoutMs =
+      resolvePositiveInteger(this.configService.get('V2_EVENT_BUS_SHUTDOWN_TIMEOUT_MS')) ?? 30_000;
+    let expired = false;
+    let pendingProducers = producers.length;
+    let resolveTimeout!: () => void;
+    const timeout = new Promise<void>((resolve) => {
+      resolveTimeout = resolve;
+    });
+    const timer = setTimeout(() => {
+      expired = true;
+      this.pinoLogger.error(
+        { timeoutMs, ...pending(), context: V2ContainerService.name },
+        'V2 event bus shutdown drain timed out'
+      );
+      resolveTimeout();
+    }, timeoutMs);
+    const pending = () => {
+      let pendingEvents = 0;
+      let pendingBackgroundTasks = 0;
+      let pendingCommands = 0;
+      for (const runtime of this.eventRuntimes.values()) {
+        pendingEvents += runtime.events.pendingCount();
+        pendingBackgroundTasks += runtime.events.pendingBackgroundTaskCount();
+        pendingCommands += runtime.commands.pendingCount();
+      }
+      return { pendingEvents, pendingBackgroundTasks, pendingCommands, pendingProducers };
+    };
+    const drain = async (): Promise<boolean> => {
+      await Promise.all(
+        producers.map(async (producer) => {
+          try {
+            await producer;
+          } catch (error) {
+            this.logger.error('V2 shutdown producer stop failed', error);
+          } finally {
+            pendingProducers -= 1;
+          }
+        })
+      );
+      while (!expired) {
+        const runtimes = [...this.eventRuntimes.entries()];
+        await Promise.all(runtimes.map(([, runtime]) => runtime.commands.settled()));
+        if (expired) return false;
+        await Promise.all(
+          runtimes.map(async ([container]) => {
+            if (
+              container.isRegistered(v2RecordRepositoryPostgresTokens.computedActivityProjector)
+            ) {
+              await container
+                .resolve<{ flushAllPendingActivity(): Promise<void> }>(
+                  v2RecordRepositoryPostgresTokens.computedActivityProjector
+                )
+                .flushAllPendingActivity();
+            }
+          })
+        );
+        if (expired) return false;
+        await Promise.all(runtimes.map(([, runtime]) => runtime.events.settled()));
+        const work = pending();
+        if (
+          work.pendingEvents === 0 &&
+          work.pendingBackgroundTasks === 0 &&
+          work.pendingCommands === 0 &&
+          runtimes.length === this.eventRuntimes.size
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+    try {
+      return await Promise.race([
+        drain().catch((error) => {
+          expired = true;
+          this.pinoLogger.error(
+            { ...pending(), err: error, context: V2ContainerService.name },
+            'V2 event bus shutdown drain failed'
+          );
+          return false;
+        }),
+        timeout.then(() => false),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async onModuleDestroy(): Promise<void> {
+    await this.drainEvents();
     await this.runtimeCache.deleteByNamespace(V2_CONTAINER_CACHE_NAMESPACE);
+    await this.runtimeCache.deleteByNamespace(TABLE_QUERY_MAINTENANCE_CACHE_NAMESPACE);
     await this.tableQueryObservationRuntime.dispose();
   }
 
   private async destroyContainer(container: DependencyContainer): Promise<void> {
+    this.eventRuntimes.delete(container);
     this.stopTableQueryOpsRunners(container);
     // Stop the async activity flusher before destroying the pools — a pending
     // debounce/retry timer firing afterwards would retry against the dead pool.

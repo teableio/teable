@@ -3,9 +3,13 @@ import { Test } from '@nestjs/testing';
 import { BaseNodeResourceType } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { GlobalModule } from '../../global/global.module';
+import { DashboardNodeHandler } from '../dashboard/dashboard.node-handler';
+import { TableNodeHandler } from '../table/table.node-handler';
 import { BaseNodeModule } from './base-node.module';
 import { BaseNodeService } from './base-node.service';
+import { FolderNodeHandler } from './folder/folder.node-handler';
 import { buildBatchUpdateSql } from './helper';
+import { BaseNodeResourceHandlerRegistry } from './resource/base-node-resource-handler.registry';
 
 describe('BaseNodeService', () => {
   let service: BaseNodeService;
@@ -180,17 +184,20 @@ describe('BaseNodeService', () => {
         {} as never,
         {} as never,
         {} as never,
-        {
-          get: vi.fn((key: string) => (key === 'useV2' ? useV2 : undefined)),
-          set: vi.fn(),
-        } as never,
+        { get: vi.fn(), set: vi.fn() } as never,
         {} as never,
         {} as never,
-        {} as never,
-        tableOpenApiV2Service as never,
-        tableDuplicateService as never,
-        {} as never,
-        {} as never
+        new BaseNodeResourceHandlerRegistry([
+          new TableNodeHandler(
+            {} as never,
+            { get: vi.fn((key: string) => (key === 'useV2' ? useV2 : undefined)) } as never,
+            {} as never,
+            tableOpenApiV2Service as never,
+            tableDuplicateService as never,
+            {} as never,
+            {} as never
+          ),
+        ])
       );
 
       return {
@@ -267,10 +274,6 @@ describe('BaseNodeService', () => {
         { get: vi.fn(), set: vi.fn() } as never,
         {} as never,
         {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
         {} as never
       );
       const submit = vi.fn();
@@ -316,11 +319,7 @@ describe('BaseNodeService', () => {
         {} as never,
         {} as never,
         { get: vi.fn(), set: vi.fn() } as never,
-        {} as never,
         canaryService as never,
-        {} as never,
-        {} as never,
-        {} as never,
         {} as never,
         {} as never
       );
@@ -336,11 +335,16 @@ describe('BaseNodeService', () => {
   });
 
   describe('prepareNodeList with half-provisioned tables', () => {
-    const makeNode = (id: string, resourceId: string, order: number) => ({
+    const makeNode = (
+      id: string,
+      resourceId: string,
+      order: number,
+      resourceType = BaseNodeResourceType.Table
+    ) => ({
       id,
       baseId,
       parentId: null,
-      resourceType: BaseNodeResourceType.Table,
+      resourceType,
       resourceId,
       order,
       createdBy: 'usr1',
@@ -415,11 +419,19 @@ describe('BaseNodeService', () => {
         { get: vi.fn(), set: vi.fn() } as never,
         {} as never,
         {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never
+        new BaseNodeResourceHandlerRegistry([
+          new FolderNodeHandler(prismaService as never, {} as never, {} as never),
+          new TableNodeHandler(
+            prismaService as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never
+          ),
+          new DashboardNodeHandler(prismaService as never, {} as never),
+        ])
       );
       return { reconcileService, tableMetaFindMany, baseNodeDeleteMany, baseNodeCreateMany };
     };
@@ -472,6 +484,18 @@ describe('BaseNodeService', () => {
       const result = await reconcileService.prepareNodeList(baseId);
 
       expect(baseNodeCreateMany).not.toHaveBeenCalled();
+      expect(result.map((n) => n.resourceId)).toEqual(['tblReady']);
+    });
+
+    it('neither lists nor removes a node of a kind it has no handler for', async () => {
+      const { reconcileService, baseNodeDeleteMany } = createReconcileService([
+        makeNode('node1', 'tblReady', 1),
+        makeNode('node2', 'appOther', 2, BaseNodeResourceType.App),
+      ]);
+
+      const result = await reconcileService.prepareNodeList(baseId);
+
+      expect(baseNodeDeleteMany).not.toHaveBeenCalled();
       expect(result.map((n) => n.resourceId)).toEqual(['tblReady']);
     });
   });

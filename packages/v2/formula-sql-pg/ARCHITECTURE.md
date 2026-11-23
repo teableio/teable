@@ -83,8 +83,9 @@ Mixed conditional branches therefore match their stored text representation befo
 naive date results cannot acquire the Node process time zone during driver decoding. A wire
 `numberOrString` is not an exact-NUMERIC formula promise. Transient query compilation takes the
 routed formula policy in enforce mode, including the final rendered SQL size. It also opts into
-a 1 MiB UTF-8 byte limit per `REPT` intermediate before allocation; omitted `maxReptBytes` preserves
-stored formula behavior. Nested/lazy branches retain their ordinary evaluation semantics.
+a 1 MiB UTF-8 byte limit per `REPT`, `SUBSTITUTE`, `REGEXP_REPLACE`, or concatenation result before
+allocation. Stored formula callers omit `maxIntermediateTextBytes`. In query `SWITCH`, error
+conditions follow the same branch selection as values, so an unselected result cannot hit the cap.
 
 ## Regression acceptance
 

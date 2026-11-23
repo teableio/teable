@@ -3,10 +3,11 @@ import { match } from 'ts-pattern';
 
 import type { DomainError } from '../../../shared/DomainError';
 import type { Field } from '../../fields/Field';
+import type { TableRecord } from '../TableRecord';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
 import type { BooleanConditionOperator } from './RecordConditionOperators';
-import { RecordValueConditionSpec } from './RecordConditionSpec';
-import type { RecordConditionValue } from './RecordConditionValues';
+import { evaluateCheckboxLiteralCondition, RecordValueConditionSpec } from './RecordConditionSpec';
+import { isRecordConditionLiteralValue, type RecordConditionValue } from './RecordConditionValues';
 
 export class CheckboxConditionSpec extends RecordValueConditionSpec<BooleanConditionOperator> {
   private constructor(
@@ -23,6 +24,15 @@ export class CheckboxConditionSpec extends RecordValueConditionSpec<BooleanCondi
     value?: RecordConditionValue
   ): CheckboxConditionSpec {
     return new CheckboxConditionSpec(field, operator, value);
+  }
+
+  override isSatisfiedBy(record: TableRecord): boolean {
+    const value = this.value();
+    if (value && isRecordConditionLiteralValue(value) && typeof value.toValue() === 'boolean') {
+      const recordValue = record.fields().get(this.field().id())?.toValue();
+      return evaluateCheckboxLiteralCondition(recordValue, value.toValue() as boolean);
+    }
+    return super.isSatisfiedBy(record);
   }
 
   accept(v: ITableRecordConditionSpecVisitor): Result<void, DomainError> {

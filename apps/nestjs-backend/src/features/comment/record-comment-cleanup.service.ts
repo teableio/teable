@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { chunk } from 'lodash';
-import { RecordService } from '../record/record.service';
+import { RecordStoragePresenceService } from '../record-storage/record-storage-presence.service';
 
 const BATCH_SIZE = 1000;
 
@@ -12,7 +12,7 @@ const BATCH_SIZE = 1000;
 export class RecordCommentCleanupService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly recordService: RecordService
+    private readonly recordService: RecordStoragePresenceService
   ) {}
 
   // Record ids of the table that still own comments or comment subscriptions.

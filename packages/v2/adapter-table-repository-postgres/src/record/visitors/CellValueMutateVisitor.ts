@@ -48,6 +48,7 @@ import { buildFilledLinkValueExpression } from '../buildFilledLinkValueExpressio
 import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
 import { dedupeLinkItemsById, normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { DynamicDB } from '../query-builder';
+import type { JunctionTableReplacement } from '../query-builder/update/junctionTableMutations';
 import { serializeUserCellValue } from '../serializeUserCellValue';
 
 // System columns
@@ -93,6 +94,7 @@ export interface CellValueMutateContext {
   fillLinkTitles?: boolean;
   fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
   deferAttachmentTableReplace?: boolean;
+  deferredJunctionReplacements?: JunctionTableReplacement[];
 }
 
 /**
@@ -612,6 +614,18 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
 
         const selfKeyName = yield* linkField.selfKeyNameString();
         const foreignKeyName = yield* linkField.foreignKeyNameString();
+
+        if (visitor.ctx.deferredJunctionReplacements) {
+          visitor.ctx.deferredJunctionReplacements.push({
+            tableName: junctionTableName,
+            selfKeyName,
+            foreignKeyName,
+            orderColumnName,
+            recordId: visitor.ctx.recordId,
+            linkItems,
+          });
+          return ok(undefined);
+        }
 
         // Delete all existing links for this record
         const deleteQuery = visitor.db

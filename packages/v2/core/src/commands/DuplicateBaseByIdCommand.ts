@@ -28,10 +28,11 @@ export class DuplicateBaseByIdCommand {
     readonly targetBaseId: BaseId | undefined,
     readonly baseName: BaseName | undefined,
     readonly withRecords: boolean,
-    readonly batchSize: number
+    readonly batchSize: number,
+    readonly adoptExistingTarget: boolean
   ) {}
 
-  static create(raw: unknown): Result<DuplicateBaseByIdCommand, DomainError> {
+  static create(raw: unknown, execution?: { adoptExistingTarget?: boolean }): Result<DuplicateBaseByIdCommand, DomainError> {
     const parsed = duplicateBaseByIdInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -58,7 +59,8 @@ export class DuplicateBaseByIdCommand {
               targetBaseId,
               baseName,
               parsed.data.withRecords,
-              parsed.data.batchSize ?? 500
+              parsed.data.batchSize ?? 500,
+              execution?.adoptExistingTarget === true
             )
         )
       )

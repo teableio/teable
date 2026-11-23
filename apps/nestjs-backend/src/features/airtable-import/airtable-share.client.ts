@@ -72,6 +72,7 @@ export interface IAirtableViewConfig {
   filters: IAirtableFilterGroup | null;
   sorts: IAirtableSort[] | null;
   groupLevels: IAirtableGroupLevel[] | null;
+  columnOrder?: Array<{ columnId: string; visibility?: boolean; width?: number }>;
   metadata: Record<string, unknown> | undefined;
 }
 
@@ -253,12 +254,14 @@ export class AirtableShareClient {
       filters?: IAirtableFilterGroup;
       lastSortsApplied?: { sortSet?: IAirtableSort[] };
       groupLevels?: IAirtableGroupLevel[];
+      columnOrder?: Array<{ columnId: string; visibility?: boolean; width?: number }>;
       metadata?: Record<string, unknown>;
     };
     return {
       filters: data.filters ?? null,
       sorts: data.lastSortsApplied?.sortSet ?? null,
       groupLevels: data.groupLevels ?? null,
+      columnOrder: data.columnOrder,
       metadata: data.metadata,
     };
   }

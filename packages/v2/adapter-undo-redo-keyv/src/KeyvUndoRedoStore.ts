@@ -1,4 +1,9 @@
-import { brotliDecompressSync, gzipSync, gunzipSync } from 'node:zlib';
+import { promisify } from 'node:util';
+import { brotliDecompress, gzip, gunzip } from 'node:zlib';
+
+const gzipAsync = promisify(gzip);
+const gunzipAsync = promisify(gunzip);
+const brotliDecompressAsync = promisify(brotliDecompress);
 import type Keyv from 'keyv';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -918,7 +923,10 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     groups.push(group);
     let count = groups.reduce((sum, candidate) => sum + this.groupEntryCount(candidate), 0);
     if (this.maxEntries && this.maxEntries > 0) {
-      while (groups.length > 1 && count > this.maxEntries) {
+      // maxEntries bounds logical user operations (undo groups) rather than
+      // internal streamed chunks, so a multi-chunk stream delete is not
+      // immediately evicted on the next single edit.
+      while (groups.length > 1 && groups.length > this.maxEntries) {
         // An unresolved legacy reference may belong to another old group.
         // maxEntries is soft for uncertain history, just as for a whole large
         // group: preserve its references and original expiry rather than
@@ -929,6 +937,12 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
         count -= this.groupEntryCount(removed);
         discarded.push(removed);
       }
+    }
+    while (groups.length > 1 && count > MAX_ENTRY_REFERENCES) {
+      if (groups[0]?.unavailable) break;
+      const removed = groups.shift()!;
+      count -= this.groupEntryCount(removed);
+      discarded.push(removed);
     }
     if (count > MAX_ENTRY_REFERENCES) {
       return err(
@@ -1220,24 +1234,24 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
     return ok(decoded);
   }
 
-  private maybeCompress(value: unknown): unknown {
+  private async maybeCompress(value: unknown): Promise<unknown> {
     if (!value || typeof value !== 'object') return value;
     const serialized = JSON.stringify(value);
     const inputByteLength = Buffer.byteLength(serialized, 'utf8');
     if (inputByteLength < this.compressionThresholdBytes) return value;
-    const compressed = gzipSync(Buffer.from(serialized, 'utf8'));
+    const compressed = await gzipAsync(Buffer.from(serialized, 'utf8'));
     if (compressed.byteLength >= inputByteLength) return value;
     return { format: 'gz64-json', data: compressed.toString('base64') } satisfies CompressedValue;
   }
 
-  private maybeDecompress(value: unknown): unknown {
+  private async maybeDecompress(value: unknown): Promise<unknown> {
     if (!isCompressedValue(value)) return value;
     try {
       const compressedBuffer = Buffer.from(value.data, 'base64');
       const decompressed =
         value.format === 'br64-json'
-          ? brotliDecompressSync(compressedBuffer)
-          : gunzipSync(compressedBuffer);
+          ? await brotliDecompressAsync(compressedBuffer)
+          : await gunzipAsync(compressedBuffer);
       return JSON.parse(decompressed.toString('utf8')) as unknown;
     } catch {
       return undefined;

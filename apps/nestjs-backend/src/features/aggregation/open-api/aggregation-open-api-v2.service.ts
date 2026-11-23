@@ -39,6 +39,7 @@ import {
   type ListTableRecordsResult,
   MAX_RECORDS_LIMIT,
   RecordQueryOperationKind,
+  type RecordFilter,
   type RecordQueryPluginRunner,
   type RecordQueryPluginScope,
   type Table,
@@ -62,6 +63,11 @@ import {
 } from './aggregation-v2-result.mapper';
 
 import { provisionReadyCache } from './provision-ready-cache';
+
+type V2FilterQuery<T> = Omit<T, 'filter'> & { filter?: IAggregationRo['filter'] | RecordFilter };
+type V2AggregationQuery = V2FilterQuery<Omit<IAggregationRo, 'groupBy'>> & {
+  groupBy?: ReadonlyArray<{ fieldId: string; order: 'asc' | 'desc' }> | null;
+};
 
 interface IPreparedV2TableRead {
   container: DependencyContainer;
@@ -124,7 +130,7 @@ export class AggregationOpenApiV2Service {
     private readonly tableQuerySearchVectorRuntimeService?: TableQuerySearchVectorRuntimeService
   ) {}
 
-  async getRowCount(tableId: string, query: IRowCountRo = {}): Promise<IRowCountVo> {
+  async getRowCount(tableId: string, query: V2FilterQuery<IRowCountRo> = {}): Promise<IRowCountVo> {
     const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const { context, queryBus } = prepared;
     const filter = await normalizeLegacyFilterViaQueryBus(
@@ -152,7 +158,7 @@ export class AggregationOpenApiV2Service {
     return { rowCount };
   }
 
-  async getAggregation(tableId: string, query: IAggregationRo = {}): Promise<IAggregationVo> {
+  async getAggregation(tableId: string, query: V2AggregationQuery = {}): Promise<IAggregationVo> {
     const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const { context, queryBus } = prepared;
     const filter = await normalizeLegacyFilterViaQueryBus(
@@ -471,11 +477,17 @@ export class AggregationOpenApiV2Service {
     }));
   }
 
-  async getSearchMatches(
-    tableId: string,
-    query: ISearchMatchesRo,
-    projection?: string[]
-  ): Promise<ISearchMatchesVo> {
+  private searchMatchProjection(
+    requestedProjection: string[] | undefined,
+    projection: string[] | undefined
+  ): string[] | undefined {
+    if (requestedProjection && projection) {
+      return projection.filter((fieldId) => requestedProjection.includes(fieldId));
+    }
+    return requestedProjection ?? projection;
+  }
+
+  private assertSearchMatchesMode(query: ISearchMatchesRo): void {
     if (query.take > 1000) {
       throw new CustomHttpException(
         'The maximum search index result is 1000',
@@ -488,6 +500,14 @@ export class AggregationOpenApiV2Service {
         HttpErrorCode.VALIDATION_ERROR
       );
     }
+  }
+
+  async getSearchMatches(
+    tableId: string,
+    query: ISearchMatchesRo,
+    projection?: string[]
+  ): Promise<ISearchMatchesVo> {
+    this.assertSearchMatchesMode(query);
     this.assertSearchQuery(query.search);
     const prepared = await this.prepareV2TableRead(tableId, query.viewId, query.ignoreViewQuery);
     const [searchValue, searchFieldKeys] = query.search;
@@ -499,12 +519,8 @@ export class AggregationOpenApiV2Service {
       prepared.context,
       prepared.table
     );
-    const requestedProjection = query.projection;
-    const hasProjectionScope = requestedProjection !== undefined || projection !== undefined;
-    let finalProjection = requestedProjection ?? projection;
-    if (requestedProjection && projection) {
-      finalProjection = projection.filter((fieldId) => requestedProjection.includes(fieldId));
-    }
+    const hasProjectionScope = query.projection !== undefined || projection !== undefined;
+    const finalProjection = this.searchMatchProjection(query.projection, projection);
     const sort = [...(query.groupBy ?? []), ...(query.orderBy ?? [])].map((item) => ({
       fieldId: item.fieldId,
       order: item.order,

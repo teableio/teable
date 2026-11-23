@@ -33,13 +33,18 @@ export const reliabilityCandidateQuery = (db: Knex, schema: string | undefined) 
   return db.select('base_id', 'table_id').from(active.union([scoped, unknown]).as('candidates'));
 };
 
-export const isComputedReliabilityReady = async (db: Knex, schema?: string): Promise<boolean> => {
+export const isComputedReliabilityReady = async (
+  db: Knex,
+  schema?: string,
+  caller: 'maintenance' | 'admin' = 'maintenance'
+): Promise<boolean> => {
   const quote = (identifier: string) => `"${identifier.replaceAll('"', '""')}"`;
   const relation = (name: string) => (schema ? `${quote(schema)}.${quote(name)}` : quote(name));
   const result = await db.raw<{ rows: Array<{ ready: boolean }> }>(
     computedReliabilityReadinessSql(
       relation('computed_reliability_issue'),
-      relation('computed_reliability_scope')
+      relation('computed_reliability_scope'),
+      caller
     )
   );
   return result.rows[0]?.ready === true;

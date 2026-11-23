@@ -1953,6 +1953,11 @@
     "sandboxUnavailableNotConfigured": "当前实例未配置智能体运行环境，请联系系统管理员配置。",
     "agentStartFailed": "AI 引擎启动失败，请重试或开始新的对话。",
     "agentSessionLost": "出了点问题，请再发一次",
+    "sandboxDestroyed": "Cuppy 的运行环境已关闭，回复已停止",
+    "sandboxOutOfMemory": "Cuppy 做到一半停下了",
+    "sandboxOutOfMemoryDescription": "这一步占用的资源超出了上限，不是你的操作问题。点击「继续」，Cuppy 会先看看做到哪了，再接着做。",
+    "sandboxOutOfMemoryAction": "继续",
+    "sandboxOutOfMemoryPrompt": "上一条回复因为占用内存超出上限中断了。请先检查进度再继续，尽量不要同时运行多个任务。",
     "idleTimeout": "命令执行超过时间限制（{{seconds}}秒），请重试。",
     "danglingToolUse": "上一次对话被中断，已自动修复。请重新发送消息。",
     "versionSaveFailed": "版本保存失败",
@@ -2218,7 +2223,9 @@
     "menuItem": "在 Teable App 中打开"
   },
   "appDelete": {
-    "offlineWarning": "此应用已发布，删除后立即下线：公开访问链接失效，自定义域名被释放，登录配置被删除。恢复后需要重新发布。"
+    "offlineWarning": "此应用已发布，删除后立即下线：公开访问链接失效，自定义域名被释放，登录配置被删除。恢复后需要重新发布。",
+    "closeAndDelete": "关闭沙箱并删除",
+    "closingAndDeleting": "正在关闭沙箱并删除…"
   },
   "folderDelete": {
     "title": "你确定要删除文件夹 \"{{name}}\" 吗？",
@@ -2252,6 +2259,10 @@
       "customDomain": "自定义域名 {{domain}} 被释放",
       "loginConfig": "登录配置被删除",
       "afterRestore": "恢复后需要重新发布、重新绑定域名和配置登录。"
+    },
+    "appGenerating": {
+      "tip": "正在生成，删除前会关闭沙箱",
+      "detail": "此应用正在生成，删除前会关闭沙箱，正在进行的生成将中断。"
     }
   }
 }

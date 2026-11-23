@@ -1618,6 +1618,116 @@ describe('ComputedActivityProjector', () => {
       return { trx: proxy as never, keys };
     };
 
+    it('probes reliability once per synchronous mixed settlement and again for the next operation', async () => {
+      for (const statement of computedReliabilitySchemaSql
+        .split(';')
+        .filter((item) => item.trim())) {
+        await sql.raw(statement).execute(db);
+      }
+      const targetB = { fieldId: fieldIdB, tableId: tableIdB };
+      await ensureOutboxTasks(['settlement-previous', 'settlement-external', 'settlement-next']);
+      for (const [taskId, targets] of [
+        ['settlement-previous', [doneTarget, targetB]],
+        ['settlement-external', [doneTarget]],
+      ] as const) {
+        (
+          await projector.onTaskEnqueued({ taskId, baseId: BASE_ID, targets, metrics })
+        )._unsafeUnwrap();
+      }
+      (
+        await projector.onTasksClaimed({
+          tasks: [{ taskId: 'settlement-previous', baseId: BASE_ID }],
+        })
+      )._unsafeUnwrap();
+      await new PostgresComputedReliabilityStore(db as unknown as Kysely<DynamicDB>).recordFailure({
+        taskId: 'settlement-failure',
+        baseId: BASE_ID,
+        sourceTableId: TABLE_ID_B,
+        error: 'previous failure',
+        targets: [{ tableId: TABLE_ID_B, fieldId: FIELD_ID_B }],
+      });
+
+      let readinessQueries = 0;
+      const plugin = {
+        transformQuery(args) {
+          if (
+            args.node.kind === 'RawNode' &&
+            args.node.sqlFragments.join('').includes('required_privileges(kind,privilege)')
+          ) {
+            readinessQueries += 1;
+          }
+          return args.node;
+        },
+        async transformResult(args) {
+          return args.result;
+        },
+      } satisfies KyselyPlugin;
+      const instrumented = new ComputedActivityProjector(
+        db.withPlugin(plugin),
+        new NoopLogger(),
+        null,
+        { activity: { asyncProjection: false }, reliability: { enabled: true, uiVisible: true } }
+      );
+
+      const first = await instrumented.projectStageSettlement({
+        done: { taskId: 'settlement-previous', baseId: BASE_ID, durationMs: 42 },
+        enqueued: {
+          taskId: 'settlement-next',
+          baseId: BASE_ID,
+          targets: [doneTarget, targetB],
+          metrics,
+        },
+        claimed: [
+          { taskId: 'settlement-next', baseId: BASE_ID },
+          { taskId: 'settlement-external', baseId: BASE_ID },
+        ],
+      });
+      expect(first.isOk()).toBe(true);
+      expect(readinessQueries).toBe(1);
+      const firstA = (
+        await reader.getByTableId(undefined, TABLE_ID, BASE_ID, { heal: false })
+      )._unsafeUnwrap();
+      const firstB = (
+        await reader.getByTableId(undefined, TABLE_ID_B, BASE_ID, { heal: false })
+      )._unsafeUnwrap();
+      expect(firstA.fields[0]).toMatchObject({
+        fieldId: FIELD_ID,
+        status: 'running',
+        activeTaskCount: 2,
+        processingTaskCount: 2,
+      });
+      expect(firstB.fields[0]).toMatchObject({
+        fieldId: FIELD_ID_B,
+        activeTaskCount: 1,
+        processingTaskCount: 1,
+        reliability: { unresolvedCount: 1 },
+      });
+
+      const second = await instrumented.projectStageSettlement({
+        done: { taskId: 'settlement-next', baseId: BASE_ID },
+      });
+      expect(second.isOk()).toBe(true);
+      expect(readinessQueries).toBe(2);
+      const secondA = (
+        await reader.getByTableId(undefined, TABLE_ID, BASE_ID, { heal: false })
+      )._unsafeUnwrap();
+      const secondB = (
+        await reader.getByTableId(undefined, TABLE_ID_B, BASE_ID, { heal: false })
+      )._unsafeUnwrap();
+      expect(secondA.fields[0]).toMatchObject({
+        fieldId: FIELD_ID,
+        status: 'running',
+        activeTaskCount: 1,
+        processingTaskCount: 1,
+      });
+      expect(secondB.fields[0]).toMatchObject({
+        fieldId: FIELD_ID_B,
+        activeTaskCount: 0,
+        processingTaskCount: 0,
+        reliability: { unresolvedCount: 1 },
+      });
+    });
+
     it('inserts continuation refs, marks the relay-claim processing, and releases the predecessor in one call', async () => {
       await seedPredecessorTask('task-settle-prev');
       await ensureOutboxTasks(['task-settle-next']);
@@ -2309,5 +2419,94 @@ describe('ComputedActivityProjector', () => {
 
       expect(contentionWarns(warn)).toHaveLength(2);
     });
+  });
+
+  it('skips full checks for healthy async projections and observes subsequent failures and missing storage', async () => {
+    projector.configureAsyncProjection({ enabled: true, debounceMs: 60_000 });
+    for (const statement of computedReliabilitySchemaSql.split(';').filter((item) => item.trim())) {
+      await sql.raw(statement).execute(db);
+    }
+    const readiness = vi.spyOn(PostgresComputedReliabilityStore.prototype, 'isReady');
+    onTestFinished(() => {
+      readiness.mockRestore();
+    });
+    const snapshot = async (id = FIELD_ID) => {
+      const result = await sql<{
+        status: string;
+        active_task_count: number;
+        unresolved: number | null;
+      }>`select status, active_task_count, (extensions->'reliability'->>'unresolvedCount')::int as unresolved
+          from computed_field_activity where field_id = ${id}`.execute(db);
+      return result.rows[0];
+    };
+    const enqueue = async (taskId: string, id = fieldId) => {
+      await ensureOutboxTasks([taskId]);
+      (
+        await projector.onTaskEnqueued({
+          taskId,
+          baseId: BASE_ID,
+          targets: [{ fieldId: id, tableId }],
+          metrics,
+        })
+      )._unsafeUnwrap();
+    };
+    await enqueue('readiness-new-field');
+    await projector.flushAllPendingActivity();
+    expect(await snapshot()).toMatchObject({
+      status: 'queued',
+      active_task_count: 1,
+      unresolved: null,
+    });
+    expect(readiness).toHaveBeenCalledTimes(0);
+    (
+      await projector.onTaskDone({ taskId: 'readiness-new-field', baseId: BASE_ID })
+    )._unsafeUnwrap();
+    await projector.flushAllPendingActivity();
+    expect(await snapshot()).toMatchObject({
+      status: 'idle',
+      active_task_count: 0,
+      unresolved: null,
+    });
+    expect(readiness).toHaveBeenCalledTimes(0);
+
+    const store = new PostgresComputedReliabilityStore(db as unknown as Kysely<DynamicDB>);
+    await store.recordFailure({
+      taskId: 'readiness-issue',
+      baseId: BASE_ID,
+      sourceTableId: TABLE_ID,
+      error: 'failed calculation',
+      targets: [{ tableId: TABLE_ID, fieldId: FIELD_ID }],
+    });
+    readiness.mockClear();
+    await enqueue('readiness-observe-issue');
+    await projector.flushAllPendingActivity();
+    expect(await snapshot()).toMatchObject({
+      status: 'queued',
+      active_task_count: 1,
+      unresolved: 1,
+    });
+    expect(readiness).toHaveBeenCalledTimes(1);
+
+    await db.schema.dropTable('computed_reliability_scope').execute();
+    readiness.mockClear();
+    await enqueue('readiness-unavailable', fieldIdB);
+    const transactions = vi.spyOn(db, 'transaction');
+    onTestFinished(() => {
+      transactions.mockRestore();
+    });
+    await projector.flushAllPendingActivity();
+    expect(transactions).toHaveBeenCalledTimes(1);
+    expect(await snapshot(FIELD_ID_B)).toMatchObject({
+      status: 'queued',
+      active_task_count: 1,
+      unresolved: null,
+    });
+    expect(readiness).toHaveBeenCalledTimes(1);
+    (
+      await projector.onTaskDone({ taskId: 'readiness-observe-issue', baseId: BASE_ID })
+    )._unsafeUnwrap();
+    await projector.flushAllPendingActivity();
+    expect(await snapshot()).toMatchObject({ active_task_count: 0, unresolved: 1 });
+    expect(readiness).toHaveBeenCalledTimes(2);
   });
 });

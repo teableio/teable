@@ -1,9 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IAttachmentCellValue } from '@teable/core';
 import { CellFormat, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import type { IBaseQueryJoin, IBaseQuery, IBaseQueryVo, IBaseQueryColumn } from '@teable/openapi';
+import {
+  presignAttachmentCellValue,
+  v2CoreTokens,
+  type IAttachmentUrlSignerService,
+} from '@teable/v2-core';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -13,13 +17,15 @@ import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
 import type { IClsStore } from '../../../types/cls';
-import { FieldService } from '../../field/field.service';
+import { throwV2QueryDomainError } from '../../aggregation/open-api/aggregation-v2-result.mapper';
+import { FieldOpenApiV2Service } from '../../field/open-api/field-open-api-v2.service';
 import {
   convertFieldInstanceToFieldVo,
   createFieldInstanceByVo,
   type IFieldInstance,
 } from '../../field/model/factory';
-import { RecordService } from '../../record/record.service';
+import { V2ContainerService } from '../../v2/v2-container.service';
+import { V2RecordQueryPlanService, toKnexRecordQuery } from '../../v2/v2-record-query-plan.service';
 import { QueryAggregation } from './parse/aggregation';
 import { QueryFilter } from './parse/filter';
 import { QueryGroup } from './parse/group';
@@ -35,11 +41,12 @@ export class BaseQueryService {
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
 
-    private readonly fieldService: FieldService,
+    private readonly fieldService: FieldOpenApiV2Service,
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     private readonly cls: ClsService<IClsStore>,
-    private readonly recordService: RecordService
+    private readonly v2ContainerService: V2ContainerService,
+    private readonly recordQueryPlanService: V2RecordQueryPlanService
   ) {}
 
   private getQueryColumnName(field: IFieldInstance): string {
@@ -86,11 +93,13 @@ export class BaseQueryService {
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async dbRows2Rows(
+    baseId: string,
     rows: Record<string, unknown>[],
     columns: IBaseQueryColumn[],
     cellFormat: CellFormat
   ) {
     const resRows: Record<string, unknown>[] = [];
+    let signer: IAttachmentUrlSignerService | undefined;
     for (const row of rows) {
       const resRow: Record<string, unknown> = {};
       for (const field of columns) {
@@ -119,9 +128,15 @@ export class BaseQueryService {
             cellFormat === CellFormat.Text ? fieldInstance.cellValue2String(cellValue) : cellValue;
         }
         if (fieldInstance.type === FieldType.Attachment) {
-          resRow[field.column] = await this.recordService.getAttachmentPresignedCellValue(
-            cellValue as IAttachmentCellValue
-          );
+          if (!signer) {
+            const container = await this.v2ContainerService.getContainerForBase(baseId);
+            signer = container.resolve<IAttachmentUrlSignerService>(
+              v2CoreTokens.attachmentUrlSignerService
+            );
+          }
+          const signed = await presignAttachmentCellValue(cellValue, signer);
+          if (signed.isErr()) throwV2QueryDomainError(signed.error);
+          resRow[field.column] = signed.value;
         }
       }
       resRows.push(resRow);
@@ -153,7 +168,7 @@ export class BaseQueryService {
       });
     const columns = this.convertFieldMapToColumn(fieldMap);
     return {
-      rows: await this.dbRows2Rows(rows, columns, cellFormat),
+      rows: await this.dbRows2Rows(baseId, rows, columns, cellFormat),
       columns,
     };
   }
@@ -164,8 +179,15 @@ export class BaseQueryService {
     depth: number = 0
   ): Promise<{ queryBuilder: Knex.QueryBuilder; fieldMap: Record<string, IFieldInstance> }> {
     if (typeof baseQuery.from === 'string') {
-      const dbTableName = await this.getDbTableName(baseId, baseQuery.from);
-      const queryBuilder = this.knex(dbTableName);
+      await this.getDbTableName(baseId, baseQuery.from);
+      const dbTableName = baseQuery.from;
+      const plan = await this.recordQueryPlanService.compile(baseQuery.from, undefined, {
+        order: 'none',
+      });
+      const source = toKnexRecordQuery(this.knex, plan);
+      const queryBuilder = this.knex
+        .queryBuilder()
+        .from(this.knex.raw('(?) as ??', [source, dbTableName]));
       const fieldMap = await this.getFieldMap(baseQuery.from, dbTableName);
       return this.parseBaseQueryFromTable(baseQuery, {
         fieldMap,
@@ -302,7 +324,15 @@ export class BaseQueryService {
     const unquotePath = (ref: string) => ref.replaceAll('"', '');
     for (const join of joins) {
       const joinTable = join.table;
-      const joinDbTableName = await this.getDbTableName(baseId, joinTable);
+      await this.getDbTableName(baseId, joinTable);
+      const joinDbTableName = joinTable;
+      const plan = await this.recordQueryPlanService.compile(joinTable, undefined, {
+        order: 'none',
+      });
+      const joinSource = this.knex.raw('(?) as ??', [
+        toKnexRecordQuery(this.knex, plan),
+        joinDbTableName,
+      ]);
       const joinFieldMap = await this.getFieldMap(joinTable, joinDbTableName);
       const joinedField = fieldMap[join.on[0]];
       const joinField = joinFieldMap[join.on[1]];
@@ -310,7 +340,7 @@ export class BaseQueryService {
       switch (join.type) {
         case BaseQueryJoinType.Inner:
           queryBuilder.innerJoin(
-            joinDbTableName,
+            joinSource,
             this.knex.raw('?? = ??', [
               unquotePath(joinedField.dbFieldName),
               unquotePath(joinField.dbFieldName),
@@ -319,7 +349,7 @@ export class BaseQueryService {
           break;
         case BaseQueryJoinType.Left:
           queryBuilder.leftJoin(
-            joinDbTableName,
+            joinSource,
             this.knex.raw('?? = ??', [
               unquotePath(joinedField.dbFieldName),
               unquotePath(joinField.dbFieldName),
@@ -328,7 +358,7 @@ export class BaseQueryService {
           break;
         case BaseQueryJoinType.Right:
           queryBuilder.rightJoin(
-            joinDbTableName,
+            joinSource,
             this.knex.raw('?? = ??', [
               unquotePath(joinedField.dbFieldName),
               unquotePath(joinField.dbFieldName),
@@ -337,7 +367,7 @@ export class BaseQueryService {
           break;
         case BaseQueryJoinType.Full:
           queryBuilder.fullOuterJoin(
-            joinDbTableName,
+            joinSource,
             this.knex.raw('?? = ??', [
               unquotePath(joinedField.dbFieldName),
               unquotePath(joinField.dbFieldName),
@@ -359,7 +389,7 @@ export class BaseQueryService {
   }
 
   async getFieldMap(tableId: string, dbTableName?: string) {
-    const fields = await this.fieldService.getFieldInstances(tableId, {});
+    const fields = (await this.fieldService.getFields(tableId)).map(createFieldInstanceByVo);
     return fields.reduce(
       (acc, field) => {
         if (dbTableName) {

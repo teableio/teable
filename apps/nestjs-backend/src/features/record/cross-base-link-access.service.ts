@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { FieldType, isRobot } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
@@ -106,6 +106,62 @@ export class CrossBaseLinkAccessService {
       return;
     }
     await this.assertReadableAcrossBases(tableId, new Set([foreignTableId]));
+  }
+
+  /**
+   * The foreign tables among `foreignTableIds` whose records the caller may read
+   * through `tableId`: those of the host's own base, and those of another base
+   * where the caller holds record|read. For a read that spans several link fields
+   * at once (the titles behind a filter), where one unreadable foreign base should
+   * cost its own rows and not the whole response. A table that cannot be placed in
+   * a base is left out.
+   */
+  async readableForeignTableIds(
+    tableId: string,
+    foreignTableIds: Iterable<string>
+  ): Promise<Set<string>> {
+    const candidates = new Set(foreignTableIds);
+    if (this.isExempt() || !candidates.size) {
+      return candidates;
+    }
+    // Trashed tables included: their base still decides who may read them.
+    const tables = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: [tableId, ...candidates] } },
+      select: { id: true, baseId: true },
+    });
+    const baseIdByTable = new Map(tables.map(({ id, baseId }) => [id, baseId]));
+    const hostBaseId = baseIdByTable.get(tableId);
+    const readable = new Set<string>();
+    if (!hostBaseId) {
+      return readable;
+    }
+    for (const foreignTableId of candidates) {
+      const foreignBaseId = baseIdByTable.get(foreignTableId);
+      if (!foreignBaseId) {
+        continue;
+      }
+      if (foreignBaseId === hostBaseId || (await this.canReadRecords(foreignTableId))) {
+        readable.add(foreignTableId);
+      }
+    }
+    return readable;
+  }
+
+  private async canReadRecords(tableId: string): Promise<boolean> {
+    try {
+      await this.permissionService.validPermissions(
+        tableId,
+        ['record|read'],
+        this.cls.get('accessTokenId')
+      );
+      return true;
+    } catch (error) {
+      // A refusal is an answer; anything else (the database, say) is not.
+      if (error instanceof HttpException) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   private async assertReadableAcrossBases(tableId: string, foreignTableIds: Set<string>) {

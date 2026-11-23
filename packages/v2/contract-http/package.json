@@ -47,6 +47,12 @@
       "types": "./src/operationPreview.ts",
       "import": "./dist/operationPreview.js",
       "require": "./dist/operationPreview.cjs"
+    },
+    "./vcs": {
+      "@teable/source": "./src/vcs.ts",
+      "types": "./src/vcs.ts",
+      "import": "./dist/vcs.js",
+      "require": "./dist/vcs.cjs"
     }
   },
   "files": [
@@ -68,6 +74,7 @@
     "@teable/v2-complexity": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-data-query": "workspace:*",
+    "@teable/v2-vcs": "workspace:*",
     "neverthrow": "8.2.0",
     "openapi-types": "12.1.3",
     "zod": "4.6.7"

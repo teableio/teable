@@ -1,4 +1,11 @@
 export * from './contract';
+export * from './procedurePolicy';
+export * from './share';
+export * from './workflow';
+export * from './workflowDto';
+export * from './table/upsertRecords';
+export * from './table/getSchema';
+export * from './table/listFields';
 export * from './complexity';
 export * from './dataQuery';
 export * from './dataQueryExplain';
@@ -51,3 +58,4 @@ export * from './table/viewReadDto';
 export * from './table/viewOperations';
 export * from './table/mapTableDtoToDomain';
 export * from './tableQueryOps';
+export * from './vcs';

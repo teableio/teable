@@ -3,14 +3,9 @@ import {
   CellValueType,
   DbFieldType,
   FieldType,
-  ViewOpBuilder,
-  ViewType,
   generateOperationId,
   getDbFieldType,
   type IFieldVo,
-  type IGridColumnMeta,
-  type IGridViewOptions,
-  type IOtOperation,
 } from '@teable/core';
 import { ResourceType } from '@teable/openapi';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
@@ -32,10 +27,8 @@ import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { err } from 'neverthrow';
-import { adjustFrozenField } from '../view/utils/derive-frozen-fields';
 import { V2ContainerService } from './v2-container.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
-import { V2ViewCompatService } from './v2-view-compat.service';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 type IV2FieldDeleteCompatDb = V1TeableDatabase & {
@@ -86,7 +79,6 @@ type IV2FieldDeleteCompatCompletionInput = {
   tableId: string;
   userId: string;
   operationId: string;
-  frozenFieldOps: Record<string, IOtOperation[]>;
   snapshots: ReadonlyArray<FieldDeleteSnapshotItem>;
   referencesByFieldId: ReadonlyMap<string, ReadonlyArray<string>>;
 };
@@ -283,50 +275,6 @@ const legacyPayloadFromSnapshots = (
   });
 };
 
-const buildFrozenFieldDeleteOps = (
-  tableMapper: ITableMapper,
-  snapshots: ReadonlyArray<FieldDeleteSnapshotItem>,
-  fieldIds: ReadonlyArray<string>
-): Result<Record<string, IOtOperation[]>, DomainError> => {
-  const fieldIdSet = new Set(fieldIds);
-  const opsMap: Record<string, IOtOperation[]> = {};
-
-  for (const { table, snapshot } of snapshots) {
-    const tableDtoResult = tableMapper.toDTO(table);
-    if (tableDtoResult.isErr()) {
-      return err(tableDtoResult.error);
-    }
-
-    for (const view of tableDtoResult.value.views) {
-      if (view.type !== ViewType.Grid || opsMap[view.id]) {
-        continue;
-      }
-
-      const columnMetaUpdate = Object.fromEntries(
-        [...fieldIdSet].map((fieldId) => [fieldId, null])
-      );
-      const nextOptions = adjustFrozenField(
-        (view.options ?? {}) as IGridViewOptions,
-        view.columnMeta as IGridColumnMeta,
-        columnMetaUpdate as unknown as IGridColumnMeta
-      );
-      if (!nextOptions) {
-        continue;
-      }
-
-      opsMap[view.id] = [
-        ViewOpBuilder.editor.setViewProperty.build({
-          key: 'options',
-          oldValue: view.options ?? {},
-          newValue: nextOptions,
-        }),
-      ];
-    }
-  }
-
-  return ok(opsMap);
-};
-
 const getReferencesByFieldId = (
   references: ReadonlyArray<IReferenceRow>
 ): ReadonlyMap<string, ReadonlyArray<string>> => {
@@ -342,19 +290,10 @@ const getReferencesByFieldId = (
 export class V2FieldDeleteCompatCompletion implements IFieldDeleteSnapshotSinkCompletion {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
-    private readonly v2ViewCompatService: V2ViewCompatService,
     private readonly input: IV2FieldDeleteCompatCompletionInput
   ) {}
 
-  async complete(context: IExecutionContext): Promise<Result<void, DomainError>> {
-    if (Object.keys(this.input.frozenFieldOps).length > 0) {
-      await this.v2ViewCompatService.batchUpdateViewByOps(
-        this.input.tableId,
-        this.input.frozenFieldOps,
-        context
-      );
-    }
-
+  async complete(_context: IExecutionContext): Promise<Result<void, DomainError>> {
     const container = await this.v2ContainerService.getContainerForTable(this.input.tableId);
     const db = container.resolve<Kysely<IV2FieldDeleteCompatDb>>(v2DataDbTokens.db);
     const tableMapper = container.resolve<ITableMapper>(v2CoreTokens.tableMapper);
@@ -388,24 +327,14 @@ export class V2FieldDeleteCompatCompletion implements IFieldDeleteSnapshotSinkCo
 
 export class V2FieldDeleteSnapshotSink implements IFieldDeleteSnapshotSink {
   constructor(
-    private readonly tableMapper: ITableMapper,
     private readonly metaDb: Kysely<IV2FieldDeleteCompatDb>,
-    private readonly v2ContainerService: V2ContainerService,
-    private readonly v2ViewCompatService: V2ViewCompatService
+    private readonly v2ContainerService: V2ContainerService
   ) {}
 
   async prepare(
     context: IExecutionContext,
     input: FieldDeleteSnapshotSinkInput
   ): Promise<Result<IFieldDeleteSnapshotSinkCompletion | undefined, DomainError>> {
-    const frozenFieldOpsResult = buildFrozenFieldDeleteOps(
-      this.tableMapper,
-      input.snapshots,
-      input.fieldIds
-    );
-    if (frozenFieldOpsResult.isErr()) {
-      return err(frozenFieldOpsResult.error);
-    }
     const references = await this.metaDb
       .selectFrom('reference')
       .select(['from_field_id', 'to_field_id'])
@@ -413,11 +342,10 @@ export class V2FieldDeleteSnapshotSink implements IFieldDeleteSnapshotSink {
       .execute();
 
     return ok(
-      new V2FieldDeleteCompatCompletion(this.v2ContainerService, this.v2ViewCompatService, {
+      new V2FieldDeleteCompatCompletion(this.v2ContainerService, {
         tableId: input.tableId,
         userId: context.actorId.toString(),
         operationId: generateOperationId(),
-        frozenFieldOps: frozenFieldOpsResult.value,
         snapshots: [...input.snapshots],
         referencesByFieldId: getReferencesByFieldId(references),
       })
@@ -430,23 +358,14 @@ export class V2FieldDeleteSnapshotSink implements IFieldDeleteSnapshotSink {
 export class V2FieldDeleteCompatService implements IV2ProjectionRegistrar {
   private readonly logger = new Logger(V2FieldDeleteCompatService.name);
 
-  constructor(
-    private readonly v2ContainerService: V2ContainerService,
-    private readonly v2ViewCompatService: V2ViewCompatService
-  ) {}
+  constructor(private readonly v2ContainerService: V2ContainerService) {}
 
   registerProjections(container: DependencyContainer): void {
     this.logger.debug('Registering V2 field delete compatibility projections');
-    const tableMapper = container.resolve<ITableMapper>(v2CoreTokens.tableMapper);
     const metaDb = container.resolve<Kysely<IV2FieldDeleteCompatDb>>(v2MetaDbTokens.db);
     container.registerInstance(
       v2CoreTokens.fieldDeleteSnapshotSink,
-      new V2FieldDeleteSnapshotSink(
-        tableMapper,
-        metaDb,
-        this.v2ContainerService,
-        this.v2ViewCompatService
-      )
+      new V2FieldDeleteSnapshotSink(metaDb, this.v2ContainerService)
     );
   }
 }

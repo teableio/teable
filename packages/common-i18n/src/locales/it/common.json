@@ -1981,6 +1981,11 @@
     "sandboxUnavailableNotConfigured": "L'ambiente di esecuzione dell'agente IA non è configurato su questa istanza. Contatta l'amministratore.",
     "agentStartFailed": "Il motore IA non è riuscito ad avviarsi. Riprova o avvia una nuova sessione.",
     "agentSessionLost": "Si è verificato un problema. Invia di nuovo il messaggio.",
+    "sandboxDestroyed": "L’ambiente di Cuppy è stato chiuso e la risposta si è interrotta",
+    "sandboxOutOfMemory": "Cuppy si è fermato a metà",
+    "sandboxOutOfMemoryDescription": "Questo passaggio ha richiesto più risorse di quelle a disposizione di Cuppy. Non dipende da te. Seleziona Continua e Cuppy controllerà a che punto era prima di proseguire.",
+    "sandboxOutOfMemoryAction": "Continua",
+    "sandboxOutOfMemoryPrompt": "La tua ultima risposta si è interrotta perché ha usato più memoria di quella disponibile. Controlla i progressi prima di continuare e cerca di non eseguire più attività contemporaneamente.",
     "idleTimeout": "L’esecuzione del comando ha superato il limite di tempo ({{seconds}} s). Riprova.",
     "danglingToolUse": "La sessione precedente è stata interrotta ed è stata riparata automaticamente. Riprova a inviare il messaggio.",
     "versionSaveFailed": "Salvataggio della versione non riuscito",
@@ -2248,7 +2253,9 @@
     "menuItem": "Apri nell'app Teable"
   },
   "appDelete": {
-    "offlineWarning": "Questa app è pubblicata. Eliminarla la porta subito offline: il suo link pubblico smette di funzionare, l’eventuale dominio personalizzato viene rilasciato e le impostazioni di accesso vengono eliminate. Dopo il ripristino, pubblicala di nuovo."
+    "offlineWarning": "Questa app è pubblicata. Eliminarla la porta subito offline: il suo link pubblico smette di funzionare, l’eventuale dominio personalizzato viene rilasciato e le impostazioni di accesso vengono eliminate. Dopo il ripristino, pubblicala di nuovo.",
+    "closeAndDelete": "Chiudi sandbox ed elimina",
+    "closingAndDeleting": "Chiusura del sandbox ed eliminazione…"
   },
   "folderDelete": {
     "title": "Vuoi davvero eliminare la cartella «{{name}}»?",
@@ -2282,6 +2289,10 @@
       "customDomain": "Il dominio personalizzato {{domain}} viene rilasciato",
       "loginConfig": "Le sue impostazioni di accesso vengono eliminate",
       "afterRestore": "Dopo il ripristino, pubblicala di nuovo, ricollega il dominio e configura di nuovo l’accesso."
+    },
+    "appGenerating": {
+      "tip": "In generazione; il sandbox verrà chiuso prima dell'eliminazione",
+      "detail": "Questa app sta generando. Il suo sandbox verrà chiuso prima dell'eliminazione, interrompendo la generazione in corso."
     }
   }
 }

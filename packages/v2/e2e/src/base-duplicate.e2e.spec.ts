@@ -28,7 +28,7 @@ describe('[B07] base duplicate parity (e2e)', () => {
     const createBaseResponse = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Structure Source' }),
+      body: JSON.stringify({ name: 'Structure Source', spaceId: ctx.spaceId }),
     });
     expect(createBaseResponse.status).toBe(201);
     const createBaseBody = (await createBaseResponse.json()) as {
@@ -177,7 +177,7 @@ describe('[B07] base duplicate parity (e2e)', () => {
     const createBaseResponse = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Record Source' }),
+      body: JSON.stringify({ name: 'Record Source', spaceId: ctx.spaceId }),
     });
     expect(createBaseResponse.status).toBe(201);
     const createBaseBody = (await createBaseResponse.json()) as {
@@ -252,7 +252,7 @@ describe('[B07] base duplicate parity (e2e)', () => {
     const createBaseResponse = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Link Source' }),
+      body: JSON.stringify({ name: 'Link Source', spaceId: ctx.spaceId }),
     });
     const createBaseBody = (await createBaseResponse.json()) as {
       data?: { base: { id: string } };
@@ -375,7 +375,7 @@ describe('[B07] base duplicate parity (e2e)', () => {
     const createBaseResponse = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Bidirectional Link Source' }),
+      body: JSON.stringify({ name: 'Bidirectional Link Source', spaceId: ctx.spaceId }),
     });
     const createBaseBody = (await createBaseResponse.json()) as {
       data?: { base: { id: string } };
@@ -514,7 +514,7 @@ describe('[B07] base duplicate parity (e2e)', () => {
     const createBaseResponse = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Primary Formula Source' }),
+      body: JSON.stringify({ name: 'Primary Formula Source', spaceId: ctx.spaceId }),
     });
     const createBaseBody = (await createBaseResponse.json()) as {
       data?: { base: { id: string } };
@@ -642,7 +642,7 @@ describe('[B07] base duplicate parity (e2e)', () => {
     const createBaseResponse = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Computed Chain Source' }),
+      body: JSON.stringify({ name: 'Computed Chain Source', spaceId: ctx.spaceId }),
     });
     const createBaseBody = (await createBaseResponse.json()) as {
       data?: { base: { id: string } };
@@ -871,7 +871,7 @@ describe('[B07] base duplicate parity (e2e)', () => {
     const createBaseResponse = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Auto Number Source' }),
+      body: JSON.stringify({ name: 'Auto Number Source', spaceId: ctx.spaceId }),
     });
     const createBaseBody = (await createBaseResponse.json()) as {
       data?: { base: { id: string } };
@@ -954,7 +954,7 @@ describe('[B07] base duplicate parity (e2e)', () => {
     const createBaseResponse = await fetch(`${ctx.baseUrl}/bases/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Multi-record Link Source' }),
+      body: JSON.stringify({ name: 'Multi-record Link Source', spaceId: ctx.spaceId }),
     });
     const createBaseBody = (await createBaseResponse.json()) as {
       data?: { base: { id: string } };
