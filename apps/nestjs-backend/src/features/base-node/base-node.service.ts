@@ -1,30 +1,24 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateBaseNodeId, HttpErrorCode } from '@teable/core';
-import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IMoveBaseNodeRo,
   IBaseNodeVo,
   IBaseNodeTreeVo,
   ICreateBaseNodeRo,
   IDuplicateBaseNodeRo,
-  IDuplicateTableRo,
-  ICreateDashboardRo,
-  ICreateFolderNodeRo,
-  IDuplicateDashboardRo,
   IUpdateBaseNodeRo,
   IBaseNodeResourceMeta,
   IBaseNodeResourceMetaWithId,
-  ICreateTableRo,
   IBaseNodePresenceCreatePayload,
   IBaseNodePresenceDeletePayload,
   IBaseNodePresenceUpdatePayload,
   IBaseNodePresenceFlushPayload,
-  IBaseNodeTableResourceMeta,
   IUserInfoVo,
   V2Feature,
 } from '@teable/openapi';
-import { BaseNodeResourceType, ResourceType, ShortLinkType } from '@teable/openapi';
+import { BaseNodeResourceType, ShortLinkType } from '@teable/openapi';
 import type { PreviewEffect, PreviewResourceReference } from '@teable/v2-command-explain';
 import { Knex } from 'knex';
 import { isString, keyBy, omit } from 'lodash';
@@ -49,17 +43,18 @@ import { updateOrder } from '../../utils/update-order';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import type { IV2Decision } from '../canary/canary.service';
 import { CanaryService } from '../canary/canary.service';
-import { DashboardService } from '../dashboard/dashboard.service';
+import { resourceDescriptorOf } from '../resource/resource-descriptor';
 import { ShortLinkService } from '../short-link/short-link.service';
-import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
-import { TableOpenApiService } from '../table/open-api/table-open-api.service';
-import { prepareCreateTableRo } from '../table/open-api/table.pipe.helper';
-import { TableDuplicateService } from '../table/table-duplicate.service';
+import type { IBaseNodeListExtension } from './base-node-list.extension';
+import { BASE_NODE_LIST_EXTENSIONS } from './base-node-list.extension';
 import { buildBaseNodeUrl } from './base-node-url.helper';
-import { BaseNodeFolderService } from './folder/base-node-folder.service';
+import type { IFolderLifecycleHook } from './folder-lifecycle.hook';
+import { FOLDER_LIFECYCLE_HOOKS } from './folder-lifecycle.hook';
 import { buildBatchUpdateSql, presenceHandler } from './helper';
 import { createMissingFolderNodes } from './missing-folder-nodes';
 import { PROJECT_NODE_LOCK_TTL_SECONDS, projectNodeLockName } from './project-node-lock';
+import type { IBaseNodeResourceInput } from './resource/base-node-resource-handler';
+import { BaseNodeResourceHandlerRegistry } from './resource/base-node-resource-handler.registry';
 
 type IBaseNodeEntry = {
   id: string;
@@ -74,18 +69,6 @@ type IBaseNodeEntry = {
   lastModifiedTime?: Date | string | null;
   children: { id: string; order: number }[];
   parent: { id: string } | null;
-};
-
-type IBaseNodeResourceInput = Omit<
-  IBaseNodeResourceMeta,
-  'createdByUser' | 'lastModifiedByUser' | 'createdTime' | 'lastModifiedTime'
-> & {
-  id: string;
-  type?: BaseNodeResourceType;
-  createdBy?: string | null;
-  createdTime?: Date | string | null;
-  lastModifiedBy?: string | null;
-  lastModifiedTime?: Date | string | null;
 };
 
 export type IFolderSubtreeNode = {
@@ -123,24 +106,8 @@ export type IFolderDeleteItem = IFolderSubtreeNode & {
   shareCount: number;
 };
 
-// Node types whose soft delete leaves a trash entry.
-const TRASHED_NODE_TYPES: ReadonlySet<BaseNodeResourceType> = new Set([
-  BaseNodeResourceType.Table,
-  BaseNodeResourceType.Dashboard,
-  BaseNodeResourceType.App,
-  BaseNodeResourceType.Workflow,
-  BaseNodeResourceType.Routine,
-]);
-
-// Inside a folder, what can be put back goes first and what cannot goes last: an app goes
-// offline and links into a table turn into text, so a failure before them leaves nothing lost.
-const FOLDER_DELETE_ORDER: BaseNodeResourceType[] = [
-  BaseNodeResourceType.Workflow,
-  BaseNodeResourceType.Routine,
-  BaseNodeResourceType.Dashboard,
-  BaseNodeResourceType.App,
-  BaseNodeResourceType.Table,
-];
+const folderDeleteOrderOf = (type: BaseNodeResourceType) =>
+  resourceDescriptorOf(type)?.folderDeleteOrder ?? -1;
 
 @Injectable()
 export class BaseNodeService {
@@ -150,6 +117,12 @@ export class BaseNodeService {
   @Optional()
   @Inject(DistributedLockService)
   private readonly distributedLockService?: DistributedLockService;
+  @Optional()
+  @Inject(FOLDER_LIFECYCLE_HOOKS)
+  private readonly folderLifecycleHooks?: IFolderLifecycleHook[];
+  @Optional()
+  @Inject(BASE_NODE_LIST_EXTENSIONS)
+  private readonly listExtensions?: IBaseNodeListExtension[];
   constructor(
     private readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     private readonly shareDbService: ShareDbService,
@@ -157,13 +130,9 @@ export class BaseNodeService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>,
-    private readonly baseNodeFolderService: BaseNodeFolderService,
     private readonly canaryService: CanaryService,
-    private readonly tableOpenApiService: TableOpenApiService,
-    private readonly tableOpenApiV2Service: TableOpenApiV2Service,
-    private readonly tableDuplicateService: TableDuplicateService,
-    private readonly dashboardService: DashboardService,
-    private readonly shortLinkService: ShortLinkService
+    private readonly shortLinkService: ShortLinkService,
+    private readonly nodeHandlers: BaseNodeResourceHandlerRegistry
   ) {}
 
   private get userId() {
@@ -341,10 +310,8 @@ export class BaseNodeService {
     resourceId: string,
     resourceMeta?: IBaseNodeResourceMeta
   ): string {
-    const viewId =
-      resourceType === BaseNodeResourceType.Table
-        ? (resourceMeta as IBaseNodeTableResourceMeta | undefined)?.defaultViewId
-        : undefined;
+    // A resource that opens on a view (a table) names its default one in its meta.
+    const viewId = (resourceMeta as { defaultViewId?: string | null } | undefined)?.defaultViewId;
     return buildBaseNodeUrl(baseId, resourceType, resourceId, viewId) ?? `/base/${baseId}`;
   }
 
@@ -420,84 +387,38 @@ export class BaseNodeService {
     );
   }
 
-  protected async getTableResources(baseId: string, ids?: string[]) {
-    return await this.prismaService.tableMeta.findMany({
-      where: {
-        baseId,
-        id: { in: ids || undefined },
-        deletedTime: null,
-        // `deleting` is in-flight (or about to roll back to ready). Dropping
-        // the sidebar node here is permanent: base_node has no soft delete,
-        // so a failed delete cannot restore the folder or order.
-        provisionState: { in: [ProvisionState.ready, ProvisionState.deleting] },
-      },
-      select: {
-        id: true,
-        name: true,
-        icon: true,
-        createdBy: true,
-        createdTime: true,
-        lastModifiedBy: true,
-        lastModifiedTime: true,
-      },
-    });
-  }
-
-  protected async getDashboardResources(baseId: string, ids?: string[]) {
-    return await this.prismaService.dashboard.findMany({
-      where: { baseId, id: { in: ids || undefined }, deletedTime: null },
-      select: {
-        id: true,
-        name: true,
-        createdBy: true,
-        createdTime: true,
-        lastModifiedBy: true,
-        lastModifiedTime: true,
-      },
-    });
-  }
-
-  protected async getFolderResources(baseId: string, ids?: string[]) {
-    return await this.prismaService.baseNodeFolder.findMany({
-      where: { baseId, id: { in: ids || undefined }, deletedTime: null },
-      select: {
-        id: true,
-        name: true,
-        createdBy: true,
-        createdTime: true,
-        lastModifiedBy: true,
-        lastModifiedTime: true,
-      },
-    });
-  }
-
-  protected async getNodeResource(baseId: string, type: BaseNodeResourceType, ids?: string[]) {
-    switch (type) {
-      case BaseNodeResourceType.Folder:
-        return this.getFolderResources(baseId, ids);
-      case BaseNodeResourceType.Table:
-        return this.getTableResources(baseId, ids);
-      case BaseNodeResourceType.Dashboard:
-        return this.getDashboardResources(baseId, ids);
-      default:
-        throw new CustomHttpException(
-          `Invalid resource type ${type}`,
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.baseNode.invalidResourceType',
-            },
-          }
-        );
+  /** The handler of a node kind; an unknown kind is the caller's error. */
+  private nodeHandlerOf(type: string) {
+    const handler = this.nodeHandlers.get(type);
+    if (!handler) {
+      throw new CustomHttpException(
+        `Invalid resource type ${type}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.invalidResourceType',
+          },
+        }
+      );
     }
+    return handler;
+  }
+
+  protected async getNodeResource(
+    baseId: string,
+    type: BaseNodeResourceType,
+    ids?: string[]
+  ): Promise<IBaseNodeResourceInput[]> {
+    const extensions = (this.listExtensions ?? []).filter((extension) => extension.type === type);
+    const [resources, extend] = await Promise.all([
+      this.nodeHandlerOf(type).list(baseId, ids),
+      Promise.all(extensions.map((extension) => extension.load(baseId))),
+    ]);
+    return extend.reduce((list, apply) => apply(list), resources);
   }
 
   protected getResourceTypes(): BaseNodeResourceType[] {
-    return [
-      BaseNodeResourceType.Folder,
-      BaseNodeResourceType.Table,
-      BaseNodeResourceType.Dashboard,
-    ];
+    return this.nodeHandlers.all().map((handler) => handler.type);
   }
 
   async prepareNodeList(baseId: string): Promise<IBaseNodeVo[]> {
@@ -516,11 +437,16 @@ export class BaseNodeService {
     const resourceMap = keyBy(resources, (r) => `${r.type}_${r.id}`);
     const resourceKeys = new Set(resources.map((r) => `${r.type}_${r.id}`));
 
-    const nodes = await this.prismaService.baseNode.findMany({
-      where: { baseId },
-      select: this.getSelect(),
-      orderBy: { order: 'asc' },
-    });
+    // Only this edition's kinds: a node of another kind is neither listed nor removed here.
+    const isListed = (node: { resourceType: string }) =>
+      (resourceTypes as string[]).includes(node.resourceType);
+    const nodes = (
+      await this.prismaService.baseNode.findMany({
+        where: { baseId },
+        select: this.getSelect(),
+        orderBy: { order: 'asc' },
+      })
+    ).filter(isListed);
 
     const nodeKeys = new Set(nodes.map((n) => `${n.resourceType}_${n.resourceId}`));
 
@@ -584,11 +510,12 @@ export class BaseNodeService {
           }))
         );
       }
-      return prisma.baseNode.findMany({
+      const listed = await prisma.baseNode.findMany({
         where: { baseId },
         select: this.getSelect(),
         orderBy: { order: 'asc' },
       });
+      return listed.filter(isListed);
     });
 
     return await Promise.all(
@@ -707,45 +634,7 @@ export class BaseNodeService {
       await this.assertFolderDepth(baseId, parentNode.id);
     }
 
-    switch (resourceType) {
-      case BaseNodeResourceType.Folder: {
-        const folder = await this.baseNodeFolderService.createFolder(
-          baseId,
-          ro as ICreateFolderNodeRo
-        );
-        return { id: folder.id, name: folder.name };
-      }
-      case BaseNodeResourceType.Table: {
-        const preparedRo = prepareCreateTableRo(ro as ICreateTableRo);
-        const table = this.cls.get('useV2')
-          ? await this.tableOpenApiV2Service.createTable(baseId, preparedRo)
-          : await this.tableOpenApiService.createTable(baseId, preparedRo);
-
-        return {
-          id: table.id,
-          name: table.name,
-          icon: table.icon,
-          defaultViewId: table.defaultViewId,
-        };
-      }
-      case BaseNodeResourceType.Dashboard: {
-        const dashboard = await this.dashboardService.createDashboard(
-          baseId,
-          ro as ICreateDashboardRo
-        );
-        return { id: dashboard.id, name: dashboard.name };
-      }
-      default:
-        throw new CustomHttpException(
-          `Invalid resource type ${resourceType}`,
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.baseNode.invalidResourceType',
-            },
-          }
-        );
-    }
+    return this.nodeHandlerOf(resourceType).create(baseId, ro);
   }
 
   async duplicate(baseId: string, nodeId: string, ro: IDuplicateBaseNodeRo) {
@@ -855,46 +744,19 @@ export class BaseNodeService {
     id: string,
     duplicateRo: IDuplicateBaseNodeRo
   ): Promise<IBaseNodeResourceMetaWithId> {
-    switch (type) {
-      case BaseNodeResourceType.Table: {
-        const table = this.cls.get('useV2')
-          ? await this.tableOpenApiV2Service.duplicateTable(
-              baseId,
-              id,
-              duplicateRo as IDuplicateTableRo
-            )
-          : await this.tableDuplicateService.duplicateTable(
-              baseId,
-              id,
-              duplicateRo as IDuplicateTableRo
-            );
-
-        return {
-          id: table.id,
-          name: table.name,
-          icon: table.icon ?? undefined,
-          defaultViewId: table.defaultViewId,
-        };
-      }
-      case BaseNodeResourceType.Dashboard: {
-        const dashboard = await this.dashboardService.duplicateDashboard(
-          baseId,
-          id,
-          duplicateRo as IDuplicateDashboardRo
-        );
-        return { id: dashboard.id, name: dashboard.name };
-      }
-      default:
-        throw new CustomHttpException(
-          `Invalid resource type ${type}`,
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.baseNode.invalidResourceType',
-            },
-          }
-        );
+    const handler = this.nodeHandlerOf(type);
+    if (!handler.duplicate) {
+      throw new CustomHttpException(
+        `Invalid resource type ${type}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.invalidResourceType',
+          },
+        }
+      );
     }
+    return handler.duplicate(baseId, id, duplicateRo);
   }
 
   async update(baseId: string, nodeId: string, ro: IUpdateBaseNodeRo) {
@@ -936,37 +798,7 @@ export class BaseNodeService {
     id: string,
     updateRo: IUpdateBaseNodeRo
   ): Promise<void> {
-    const { name, icon } = updateRo;
-    switch (type) {
-      case BaseNodeResourceType.Folder:
-        if (name) {
-          await this.baseNodeFolderService.renameFolder(baseId, id, { name });
-        }
-        break;
-      case BaseNodeResourceType.Table:
-        if (name) {
-          await this.tableOpenApiService.updateName(baseId, id, name);
-        }
-        if (icon !== undefined) {
-          await this.tableOpenApiService.updateIcon(baseId, id, icon);
-        }
-        break;
-      case BaseNodeResourceType.Dashboard:
-        if (name) {
-          await this.dashboardService.renameDashboard(baseId, id, name);
-        }
-        break;
-      default:
-        throw new CustomHttpException(
-          `Invalid resource type ${type}`,
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.baseNode.invalidResourceType',
-            },
-          }
-        );
-    }
+    await this.nodeHandlerOf(type).update(baseId, id, updateRo);
   }
 
   async delete(
@@ -994,15 +826,14 @@ export class BaseNodeService {
       return node;
     }
 
-    // Clean up share records for this node before deletion
-    await this.deleteNodeShares(baseId, nodeId);
-
     await this.deleteResource(
       baseId,
       node.resourceType as BaseNodeResourceType,
       node.resourceId,
       permanent
     );
+    // After the resource: a delete that fails keeps the node's shares.
+    await this.deleteNodeShares(baseId, nodeId);
     await this.prismaService.baseNode.delete({
       where: { id: nodeId },
     });
@@ -1077,13 +908,17 @@ export class BaseNodeService {
     });
   }
 
-  /** Consequences of deleting these nodes that only the edition knows about. */
+  /** Consequences of deleting these nodes beyond the resources, as each kind's handler tells. */
   async getFolderDeleteHostEffects(
-    _baseId: string,
-    _items: IFolderDeleteItem[],
-    _reference: IFolderDeleteReference
+    baseId: string,
+    items: IFolderDeleteItem[],
+    reference: IFolderDeleteReference
   ): Promise<PreviewEffect[]> {
-    return [];
+    const effects: PreviewEffect[] = [];
+    for (const handler of this.nodeHandlers.all()) {
+      effects.push(...((await handler.folderDeleteEffects?.(baseId, items, reference)) ?? []));
+    }
+    return effects;
   }
 
   /**
@@ -1127,6 +962,9 @@ export class BaseNodeService {
         if (permanent) {
           await this.permanentDeleteEmptyFolder(baseId, subtree);
         } else {
+          for (const handler of this.nodeHandlers.all()) {
+            await handler.beforeFolderDelete?.(baseId, subtree);
+          }
           await this.trashFolderSubtree(baseId, subtree, onProgress);
         }
         await this.deleteSubtreeShares(baseId, subtree);
@@ -1163,7 +1001,7 @@ export class BaseNodeService {
     const live = new Set<string>();
     for (const type of new Set(nodes.map((n) => n.resourceType))) {
       const ids = nodes.filter((n) => n.resourceType === type).map((n) => n.resourceId);
-      for (const { id } of await this.getNodeResource(baseId, type, ids)) live.add(id);
+      for (const { id } of await this.nodeHandlerOf(type).list(baseId, ids)) live.add(id);
     }
     return live;
   }
@@ -1171,10 +1009,7 @@ export class BaseNodeService {
   private orderForFolderDelete(subtree: IFolderSubtreeNode[]) {
     return subtree
       .filter((node) => node.resourceType !== BaseNodeResourceType.Folder)
-      .sort(
-        (a, b) =>
-          FOLDER_DELETE_ORDER.indexOf(a.resourceType) - FOLDER_DELETE_ORDER.indexOf(b.resourceType)
-      );
+      .sort((a, b) => folderDeleteOrderOf(a.resourceType) - folderDeleteOrderOf(b.resourceType));
   }
 
   /**
@@ -1189,10 +1024,7 @@ export class BaseNodeService {
     );
     const [root] = subtree;
     return subtree
-      .filter(
-        (n) =>
-          n.resourceType === BaseNodeResourceType.Folder || TRASHED_NODE_TYPES.has(n.resourceType)
-      )
+      .filter((n) => resourceDescriptorOf(n.resourceType)?.nodeEvents)
       .map((n) => ({
         resourceType: n.resourceType as string,
         resourceId: n.resourceId,
@@ -1236,9 +1068,7 @@ export class BaseNodeService {
     try {
       for (const [index, node] of resources.entries()) {
         await this.deleteResource(baseId, node.resourceType, node.resourceId);
-        if (node.resourceType === BaseNodeResourceType.Table) {
-          await this.syncTableTrashTime(node.resourceId);
-        }
+        await this.syncTrashTime(node);
         onProgress?.({ done: index + 1, total });
       }
       await this.commitFolderTrash(baseId, subtree, rows, rowKeys, deletedTime);
@@ -1275,9 +1105,7 @@ export class BaseNodeService {
     const live = await this.liveResourceIds(baseId, resources);
     const deleted = resources.filter((n) => !live.has(n.resourceId));
     for (const node of deleted) {
-      if (node.resourceType === BaseNodeResourceType.Table) {
-        await this.syncTableTrashTime(node.resourceId);
-      }
+      await this.syncTrashTime(node);
     }
     const deletedIds = new Set(deleted.map((n) => n.resourceId));
     await this.prismaService.$tx(async (prisma) => {
@@ -1291,22 +1119,6 @@ export class BaseNodeService {
     await this.deleteSubtreeShares(baseId, deleted);
     await this.emitSubtreeDeleteEvents(baseId, deleted);
     return deleted.length;
-  }
-
-  /**
-   * A table's fields and views are restored by matching the deleted time its trash row
-   * holds, so the row takes the time the table was actually deleted at.
-   */
-  private async syncTableTrashTime(tableId: string) {
-    const table = await this.prismaService.tableMeta.findUnique({
-      where: { id: tableId },
-      select: { deletedTime: true },
-    });
-    if (!table?.deletedTime) return;
-    await this.prismaService.trash.updateMany({
-      where: { resourceType: ResourceType.Table, resourceId: tableId },
-      data: { deletedTime: table.deletedTime },
-    });
   }
 
   private async commitFolderTrash(
@@ -1352,13 +1164,27 @@ export class BaseNodeService {
         })),
       });
       await prisma.baseNode.deleteMany({ where: { id: { in: subtree.map((n) => n.id) } } });
-      await this.onFoldersTrashed(baseId, folders);
+      for (const hook of this.folderLifecycleHooks ?? []) {
+        await hook.onFoldersTrashed(baseId, folders);
+      }
     });
   }
 
-  /** Runs in the trash commit, after the folders' nodes are gone. */
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  protected async onFoldersTrashed(_baseId: string, _folders: IFolderSubtreeNode[]) {}
+  /**
+   * A resource the folder delete trashed keeps the time it was actually deleted at in its row, as
+   * a delete on its own records it: a table's fields and views come back by matching that time.
+   */
+  private async syncTrashTime(node: { resourceType: string; resourceId: string }) {
+    const table = resourceDescriptorOf(node.resourceType)?.dbTable?.name;
+    if (!table) return;
+    const deleted = this.knex(table).select('deleted_time').where('id', node.resourceId);
+    const sql = this.knex('trash')
+      .update({ deleted_time: deleted })
+      .where({ resource_type: node.resourceType, resource_id: node.resourceId })
+      .whereExists(deleted.clone().whereNotNull('deleted_time'))
+      .toQuery();
+    await this.prismaService.$executeRawUnsafe(sql);
+  }
 
   /** Only an empty folder is deleted for good; one with contents goes to the trash first. */
   private async permanentDeleteEmptyFolder(baseId: string, subtree: IFolderSubtreeNode[]) {
@@ -1410,39 +1236,7 @@ export class BaseNodeService {
     id: string,
     permanent?: boolean
   ) {
-    switch (type) {
-      case BaseNodeResourceType.Folder:
-        await this.baseNodeFolderService.deleteFolder(baseId, id);
-        break;
-      case BaseNodeResourceType.Table:
-        if (this.cls.get('useV2')) {
-          await this.tableOpenApiV2Service.deleteTable(
-            baseId,
-            id,
-            permanent ? 'permanent' : undefined
-          );
-          break;
-        }
-        if (permanent) {
-          await this.tableOpenApiService.permanentDeleteTables(baseId, [id]);
-        } else {
-          await this.tableOpenApiService.deleteTable(baseId, id);
-        }
-        break;
-      case BaseNodeResourceType.Dashboard:
-        await this.dashboardService.deleteDashboard(baseId, id, permanent);
-        break;
-      default:
-        throw new CustomHttpException(
-          `Invalid resource type ${type}`,
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.baseNode.invalidResourceType',
-            },
-          }
-        );
-    }
+    await this.nodeHandlerOf(type).delete(baseId, id, permanent);
   }
 
   async move(baseId: string, nodeId: string, ro: IMoveBaseNodeRo): Promise<IBaseNodeVo> {

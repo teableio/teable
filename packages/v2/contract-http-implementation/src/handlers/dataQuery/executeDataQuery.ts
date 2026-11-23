@@ -7,41 +7,10 @@ import {
   mapDomainErrorToHttpError,
   mapDomainErrorToHttpStatus,
 } from '@teable/v2-contract-http';
-import {
-  domainError,
-  isConflictError,
-  isForbiddenError,
-  isNotFoundError,
-  isUnauthorizedError,
-  isValidationError,
-  type DomainError,
-  type IExecutionContext,
-} from '@teable/v2-core';
+import { domainError, type IExecutionContext } from '@teable/v2-core';
 import type { QueryExecutionService } from '@teable/v2-data-query';
 
-/** Repository and plugin errors can contain raw driver diagnostics even when returned as Result.Err. */
-const publicQueryError = (error: DomainError): DomainError => {
-  if (error.code === 'data_query.timeout') {
-    return domainError.infrastructure({
-      code: 'data_query.timeout',
-      message: 'Data query exceeded its statement timeout',
-      cause: error,
-    });
-  }
-  if (
-    isValidationError(error) ||
-    isUnauthorizedError(error) ||
-    isForbiddenError(error) ||
-    isNotFoundError(error) ||
-    isConflictError(error)
-  )
-    return error;
-  return domainError.unexpected({
-    code: 'data_query.execution_failed',
-    message: 'Unable to execute data query',
-    cause: error,
-  });
-};
+import { publicDataQueryError } from './publicDataQueryError';
 
 /** The host must supply authenticated context; raw input never supplies authority. */
 export const executeDataQueryEndpoint = async (
@@ -51,7 +20,7 @@ export const executeDataQueryEndpoint = async (
 ): Promise<IEndpointResult<ExecuteDataQueryResponseDto>> => {
   const result = await service.execute(context, rawInput);
   if (result.isErr()) {
-    const error = publicQueryError(result.error);
+    const error = publicDataQueryError(result.error, 'execute');
     return {
       status: error.code === 'data_query.timeout' ? 504 : mapDomainErrorToHttpStatus(error),
       body: executeDataQueryResponseDtoSchema.parse({
@@ -86,7 +55,7 @@ export const validateDataQueryEndpoint = async (
 ): Promise<IEndpointResult<ValidateDataQueryResponseDto>> => {
   const result = await service.validate(context, rawInput);
   if (result.isErr()) {
-    const error = publicQueryError(result.error);
+    const error = publicDataQueryError(result.error, 'execute');
     return {
       status: mapDomainErrorToHttpStatus(error),
       body: validateDataQueryResponseDtoSchema.parse({

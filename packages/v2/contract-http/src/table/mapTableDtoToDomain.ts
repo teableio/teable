@@ -197,6 +197,9 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, DomainError> => {
             .andThen((field) => applyDbFieldName(field, dto.dbFieldName))
         );
       }
+      if (dto.isLookup) {
+        return err(domainError.validation({ message: 'Lookup field DTO is missing dependency options' }));
+      }
 
       return mapBaseFieldDtoToDomain(dto, id, name);
     })
@@ -243,6 +246,9 @@ const mapBaseFieldDtoToDomain = (
         );
       }
       case 'formula': {
+        if (!dto.options) {
+          return err(domainError.validation({ message: 'Formula field DTO is missing options' }));
+        }
         const options = dto.options;
         return FormulaExpression.create(options.expression).andThen((expression) =>
           optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
@@ -268,9 +274,13 @@ const mapBaseFieldDtoToDomain = (
         );
       }
       case 'rollup': {
+        if (!dto.options || !dto.config) {
+          return err(domainError.validation({ message: 'Rollup field DTO is missing options or config' }));
+        }
         const options = dto.options;
+        const configDto = dto.config;
         return RollupExpression.create(options.expression).andThen((expression) =>
-          RollupFieldConfig.create(dto.config).andThen((config) =>
+          RollupFieldConfig.create(configDto).andThen((config) =>
             optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
               parseFormulaFormatting(options.formatting).andThen((formatting) =>
                 parseFormulaShowAs(options.showAs).andThen((showAs) =>
@@ -290,9 +300,13 @@ const mapBaseFieldDtoToDomain = (
         );
       }
       case 'conditionalRollup': {
+        if (!dto.options || !dto.config) {
+          return err(domainError.validation({ message: 'Conditional rollup field DTO is missing options or config' }));
+        }
         const options = dto.options;
+        const configDto = dto.config;
         return RollupExpression.create(options.expression).andThen((expression) =>
-          ConditionalRollupConfig.create(dto.config).andThen((config) =>
+          ConditionalRollupConfig.create(configDto).andThen((config) =>
             optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
               parseFormulaFormatting(options.formatting).andThen((formatting) =>
                 parseFormulaShowAs(options.showAs).andThen((showAs) =>
@@ -312,6 +326,9 @@ const mapBaseFieldDtoToDomain = (
         );
       }
       case 'singleSelect': {
+        if (!dto.options) {
+          return err(domainError.validation({ message: 'Single select field DTO is missing options' }));
+        }
         const options = dto.options;
         const choices = options.choices;
         return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
@@ -331,6 +348,9 @@ const mapBaseFieldDtoToDomain = (
         );
       }
       case 'multipleSelect': {
+        if (!dto.options) {
+          return err(domainError.validation({ message: 'Multiple select field DTO is missing options' }));
+        }
         const options = dto.options;
         const choices = options.choices;
         return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
@@ -423,6 +443,9 @@ const mapBaseFieldDtoToDomain = (
         );
       }
       case 'link': {
+        if (!dto.options) {
+          return err(domainError.validation({ message: 'Link field DTO is missing options' }));
+        }
         return LinkFieldConfig.create(dto.options).andThen((config) =>
           LinkFieldMeta.create({}).andThen((meta) =>
             createLinkField({ id, name, config, meta: meta ?? undefined })

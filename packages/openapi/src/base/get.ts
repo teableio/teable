@@ -58,7 +58,9 @@ export const getBaseItemSchema = z.object({
   isShared: z.boolean().optional(),
 });
 
-export const getBaseVoSchema = getBaseItemSchema;
+export const getBaseVoSchema = getBaseItemSchema.extend({
+  searchAccelerationSwitchEnabled: z.boolean().optional(),
+});
 
 export type IBaseV2StatusVo = z.infer<typeof baseV2StatusSchema>;
 export type IGetBaseVo = z.infer<typeof getBaseVoSchema>;

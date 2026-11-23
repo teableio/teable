@@ -1,5 +1,7 @@
 export * from './BoundDataQueryPlan';
 export * from './types';
+export * from './DataQueryComposition';
+export * from './DataQueryCursor';
 export * from './DataQueryExpression';
 export * from './BoundDataQueryExpression';
 export * from './DataQueryExpressionBinding';
@@ -11,6 +13,9 @@ export * from './QueryExplainExecutionService';
 export {
   DataQueryDefinition,
   dataQueryDefinitionInputSchema,
+  dataQueryDefinitionSchema,
+  dataQueryOptionalParameters,
+  dataQueryParameterDefinitionSchema,
   isBoundDataQuery,
   validateDataQueryDefinitionInputBounds,
   isPlainData,
@@ -37,3 +42,4 @@ export * from './DataQueryManifestLint';
 export * from './DataQueryManifestFiles';
 
 export * from './DataQueryManifestRepair';
+export * from './QueryLibraryPreviewEvidence';

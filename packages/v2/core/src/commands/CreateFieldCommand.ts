@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
-import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { tableFieldInputSchema } from '../schemas/field';
@@ -27,10 +26,6 @@ export const createFieldInputSchema = z.object({
 
 export type ICreateFieldCommandInput = z.input<typeof createFieldInputSchema>;
 
-export interface ICreateFieldCommandOptions {
-  readonly preloadedTable?: Table;
-}
-
 export class CreateFieldCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
@@ -40,16 +35,12 @@ export class CreateFieldCommand extends TableUpdateCommand {
     readonly order?: {
       viewId: string;
       orderIndex: number;
-    },
-    readonly preloadedTable?: Table
+    }
   ) {
     super(baseId, tableId);
   }
 
-  static create(
-    raw: unknown,
-    options?: ICreateFieldCommandOptions
-  ): Result<CreateFieldCommand, DomainError> {
+  static create(raw: unknown): Result<CreateFieldCommand, DomainError> {
     const parsed = createFieldInputSchema.safeParse(raw);
     if (!parsed.success)
       return err(
@@ -75,8 +66,7 @@ export class CreateFieldCommand extends TableUpdateCommand {
             tableId,
             parsed.data.field,
             parsed.data.viewId,
-            parsed.data.order,
-            options?.preloadedTable
+            parsed.data.order
           )
       )
     );

@@ -5,15 +5,14 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError } from '../../domain/shared/DomainError';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import { RecordId } from '../../domain/table/records/RecordId';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import { NoopLogger } from '../../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { MemoryTableRepository } from '../../ports/memory/MemoryTableRepository';
-import type { ITableRepository } from '../../ports/TableRepository';
 import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
+import type { ITableRepository } from '../../ports/TableRepository';
 import { GetRecordByIdHandler } from '../GetRecordByIdHandler';
 import { GetRecordByIdQuery } from '../GetRecordByIdQuery';
 
@@ -46,7 +45,8 @@ describe('GetRecordByIdHandler', () => {
     const repo = new MemoryTableRepository();
     await repo.insert(createContext(), table);
 
-    const mockRecord = { id: `rec${'a'.repeat(16)}`, fields: {} };
+    const fieldId = table.primaryFieldId().toString();
+    const mockRecord = { id: `rec${'a'.repeat(16)}`, fields: { [fieldId]: 'Alpha' } };
     const recordQueryRepo = createMockRecordQueryRepo(ok(mockRecord));
 
     const query = GetRecordByIdQuery.create({
@@ -58,7 +58,11 @@ describe('GetRecordByIdHandler', () => {
     const result = await handler.handle(createContext(), query);
     const payload = result._unsafeUnwrap();
 
-    expect(payload.record).toBe(mockRecord);
+    expect(payload.record).toEqual({
+      id: query.recordId.toString(),
+      name: 'Alpha',
+      fields: { [fieldId]: 'Alpha' },
+    });
   });
 
   it('returns table not found error', async () => {

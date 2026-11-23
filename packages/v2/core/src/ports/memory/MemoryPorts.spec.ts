@@ -442,16 +442,19 @@ describe('AsyncMemoryEventBus', () => {
     const bus = new AsyncMemoryEventBus(new MapResolver(), {
       schedule: (task) => tasks.push(task),
     });
-    await bus.publish(createContext(), new SettledEvent());
+    await bus.publishMany(createContext(), [new SettledEvent(), new SettledEvent()]);
+    expect(bus.pendingCount()).toBe(2);
     const settled = vi.fn();
     void bus.settled().then(settled);
     const drain = tasks.shift()?.();
     await Promise.resolve();
     expect(settled).not.toHaveBeenCalled();
+    expect(bus.pendingCount()).toBe(2);
     gate.resolve();
     await drain;
     await bus.settled();
     expect(settled).toHaveBeenCalledOnce();
+    expect(bus.pendingCount()).toBe(0);
   });
 
   it('uses execution-context background scheduling for non-awaitable events', async () => {

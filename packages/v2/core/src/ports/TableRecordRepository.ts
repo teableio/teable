@@ -395,6 +395,12 @@ export interface InsertOptions {
   restoreRecordsById?: ReadonlyMap<string, RecordRestoreSystemValues>;
 
   /**
+   * When true, computed field updates are skipped for this insert call so the
+   * caller can run computed updates once after same-transaction link restoration.
+   */
+  skipComputedUpdates?: boolean;
+
+  /**
    * When true, computed planning for this insert may include tables whose
    * schema/data provisioning is still pending. Used by create-table flows while
    * inserting initial records before the table is marked ready.
@@ -699,7 +705,48 @@ export interface ITableRecordRepository {
     table: Table,
     recordIds: ReadonlyArray<string>
   ): Promise<Result<ReadonlySet<string>, DomainError>>;
+
+  /**
+   * Optional: second-phase link restore for self-referential link fields after
+   * multi-chunk record inserts finish, avoiding foreign-key failures across
+   * chunk boundaries during bulk or grouped undo.
+   */
+  restoreSelfReferentialLinks?(
+    context: IExecutionContext,
+    table: Table,
+    records: ReadonlyArray<{
+      readonly recordId: RecordId;
+      readonly fields: Readonly<Record<string, unknown>>;
+    }>,
+    options?: RestoreSelfReferentialLinksOptions
+  ): Promise<Result<ReadonlyArray<RestoredSelfReferentialLinkRecord>, DomainError>>;
 }
+
+export type RestoredSelfReferentialLinkChange = {
+  readonly fieldId: string;
+  readonly oldValue: unknown;
+  readonly newValue: unknown;
+};
+
+export type RestoredSelfReferentialLinkRecord = {
+  readonly recordId: string;
+  readonly oldVersion: number;
+  readonly newVersion: number;
+  readonly changes: ReadonlyArray<RestoredSelfReferentialLinkChange>;
+  readonly computedChanges?: ReadonlyMap<string, unknown>;
+};
+
+export type RestoreSelfReferentialLinksOptions = {
+  readonly cleanupTrashRecordIds?: ReadonlyArray<string>;
+  /**
+   * Provided when Phase 1 `insertMany` ran in the same transaction with
+   * `skipComputedUpdates: true`. Leaves `__version` at the inserted version,
+   * runs `insert` computed updates once across `atomicInsertRecords` (merged
+   * with restored self-links), and returns inline `computedChanges` for
+   * `RecordsBatchCreated` without emitting duplicate update events.
+   */
+  readonly atomicInsertRecords?: ReadonlyArray<TableRecord>;
+};
 
 export type ArchiveTrashRowInput = UndoRedoArchiveTrashRow;
 

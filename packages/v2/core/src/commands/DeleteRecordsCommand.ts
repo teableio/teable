@@ -60,7 +60,7 @@ const parseRecordIds = (
   if (!recordIds) return ok(undefined);
   const parsed: RecordId[] = [];
 
-  for (const rawId of recordIds) {
+  for (const rawId of recordIds.length > 1 ? new Set(recordIds) : recordIds) {
     const idResult = RecordId.create(rawId);
     if (idResult.isErr()) {
       return err(

@@ -151,7 +151,7 @@ export class TemporaryPasteHandler implements ICommandHandler<
             table,
             rows,
             true,
-            { selectOptionOverflow: 'reject' }
+            { selectOptionOverflow: 'reject', skipUnauthorizedSelectOptions: true }
           );
           const workingTable = sideEffects.table;
           let events: ReadonlyArray<IDomainEvent> = [];

@@ -34,7 +34,7 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { PermissionService } from '../auth/permission.service';
 import { BaseDuplicateV2Service } from '../base/base-duplicate-v2.service';
-import type { IDuplicateBaseV2Result } from '../base/base-duplicate.service';
+import type { IDuplicateBaseV2Result } from '../base/base-duplicate-v2.service';
 import { buildBaseNodeDefaultUrl } from '../base-node/base-node-url.helper';
 import {
   firstPublishHistory,

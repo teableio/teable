@@ -80,6 +80,12 @@ export class CreateViewHandler implements ICommandHandler<CreateViewCommand, Cre
           view: {
             name: view.name().toString(),
             description: view.description(),
+            isLocked: view.isLocked(),
+            enableShare: view.enableShare(),
+            shareId: view.shareId(),
+            shareMeta: view.shareMeta(),
+            ...(command.view.order !== undefined ? { order: command.view.order } : {}),
+            columnMeta: (yield* view.columnMeta()).toDto(),
             filter: queryDefaults.filter(),
             sort: queryDefaults.sort(),
             group: queryDefaults.group(),

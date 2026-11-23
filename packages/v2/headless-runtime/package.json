@@ -37,7 +37,9 @@
     "@teable/v2-container-browser": "workspace:*",
     "@teable/v2-container-node": "workspace:*",
     "@teable/v2-core": "workspace:*",
+    "@teable/v2-data-query": "workspace:*",
     "@teable/v2-di": "workspace:*",
+    "@teable/v2-formula-sql-pg": "workspace:*",
     "kysely": "0.28.17",
     "@teable/v2-import": "workspace:*",
     "@teable/v2-utils": "workspace:*",
@@ -47,6 +49,7 @@
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/v2-local-attachments": "workspace:*",
+    "@teable/v2-vcs": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/proper-lockfile": "4.1.4",
     "@types/node": "24.19.2",

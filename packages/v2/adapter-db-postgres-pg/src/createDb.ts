@@ -24,7 +24,48 @@ export const loadPg = async (): Promise<typeof Pg> => {
 
 export interface IV2PostgresDbDependencies {
   pool?: Pg.Pool;
+  /** For an owned maintenance-only pool. A deadline destroys the checked-out session. */
+  maintenanceStatementDeadlineMs?: number;
 }
+
+// The work pool may have no free connections while DDL runs. Share one independent probe
+// between concurrent slow statements on this route.
+const createMaintenanceProbe = (Pool: typeof Pg.Pool, connectionString: string) => {
+  let pending: Promise<void> | undefined;
+  const check = async () => {
+    const probe = new Pool({
+      connectionString,
+      max: 1,
+      connectionTimeoutMillis: 5_000,
+      query_timeout: 5_000,
+    });
+    probe.on('error', handlePgPoolError);
+    try {
+      await probe.query('SELECT 1');
+    } catch (error) {
+      // Admission errors alone do not establish that an existing session is unresponsive.
+      if (
+        error instanceof Error &&
+        (/connection timeout|timeout expired|timeout exceeded when trying to connect|query read timeout/i.test(
+          error.message
+        ) ||
+          ('code' in error &&
+            ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT'].includes(String(error.code))))
+      ) {
+        throw Object.assign(
+          new Error('PostgreSQL maintenance connection probe failed', { cause: error }),
+          { code: 'ETIMEDOUT' }
+        );
+      }
+    } finally {
+      await probe.end();
+    }
+  };
+  return () =>
+    (pending ??= check().finally(() => {
+      pending = undefined;
+    }));
+};
 
 const createPgDb = async <DB>(
   config: IV2PostgresDbConfig,
@@ -33,6 +74,16 @@ const createPgDb = async <DB>(
   const connectionString = config.pg.connectionString;
   if (!connectionString) {
     throw new Error('Missing pg.connectionString');
+  }
+  const deadlineMs = dependencies.maintenanceStatementDeadlineMs;
+  if (
+    deadlineMs !== undefined &&
+    (!Number.isSafeInteger(deadlineMs) || deadlineMs <= 0 || deadlineMs > 2_147_483_647)
+  ) {
+    throw new Error('Maintenance statement deadline must be between 1 and 2147483647 ms');
+  }
+  if (deadlineMs !== undefined && dependencies.pool) {
+    throw new Error('Maintenance statement deadlines require a dedicated owned pool');
   }
 
   // Use loadPg to ensure OTel instrumentation works in webpack environment
@@ -43,6 +94,10 @@ const createPgDb = async <DB>(
   }
 
   const poolOptions = resolvePoolOptions(config);
+  if (deadlineMs !== undefined && config.pg.pool?.max === undefined) poolOptions.max = 2;
+  if (deadlineMs !== undefined && !poolOptions.connectionTimeoutMillis) {
+    poolOptions.connectionTimeoutMillis = 10_000;
+  }
   const pool = dependencies.pool ?? new Pool(poolOptions);
   if (!dependencies.pool) {
     pool.on('error', handlePgPoolError);
@@ -52,7 +107,9 @@ const createPgDb = async <DB>(
   const dialectPool = createCancellablePool(
     pool,
     Connection as unknown as PostgresProtocolConnectionConstructor,
-    !dependencies.pool
+    !dependencies.pool,
+    deadlineMs,
+    deadlineMs === undefined ? undefined : createMaintenanceProbe(Pool, connectionString)
   );
 
   const db = new Kysely<DB>({

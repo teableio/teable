@@ -13,7 +13,8 @@ import {
   type IComputedUpdateOutbox,
   type OutboxTaskClaimEligibility,
 } from '@teable/v2-adapter-table-repository-postgres';
-import { v2CoreTokens, type DomainError, type ITracer } from '@teable/v2-core';
+import { v2CoreTokens, type DomainError, type ISpan, type ITracer } from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
 import type { Result } from 'neverthrow';
 
 import {
@@ -64,22 +65,15 @@ export type ComputedOutboxWakeupHandlerOutcome = {
   status: 'processed' | 'noop' | 'deferred' | 'parked';
 };
 
-/**
- * Retry when the base concurrency/advisory slot is busy or a claim races a transaction.
- * Keep this short: a successful worker now drains the remaining queue immediately
- * (see drainRemainingOutbox), so long concurrency sleeps only add dual-link lag
- * when that drain races another claim miss. Pause still uses deterministic resume.
- */
+/** Retry a transient claim miss after a short delay. */
 const TRANSIENT_DEFER_DELAY_MS = 100;
+/** Five consecutive empty eligible claims reach a 1.6s retry interval. */
+const MAX_ELIGIBLE_CLAIM_MISSES = 5;
 /** Conservative retry for blockers without a deterministic release time. */
 const BLOCKED_DEFER_DELAY_MS = 30_000;
 /** Bounded stable spread keeps a hot base from retrying every rejected wake-up in lockstep. */
 const ADMISSION_DEFER_MIN_MS = 500;
 const ADMISSION_DEFER_SPREAD_MS = 1001;
-/** Per claimBatch size while continuing after a targeted wake-up. */
-const POST_PROCESS_DRAIN_BATCH_SIZE = 50;
-/** Hard cap so a pathological queue cannot pin one consumer forever. */
-const POST_PROCESS_DRAIN_MAX_TASKS = 500;
 
 const createDeferredWakeupId = (taskId: string, availableAt: Date, bucketMs?: number): string =>
   `cuwd-${taskId}-${
@@ -110,11 +104,16 @@ const isIndefinitelyPaused = (eligibility: OutboxTaskClaimEligibility): boolean 
   eligibility.reason === 'paused' &&
   eligibility.retryAt === null;
 
+const resolveRelayDueBeforeMs = (wakeup: ComputedOutboxWakeupWire): number | undefined =>
+  wakeup.relayDueBeforeMs ??
+  (wakeup.eligibleClaimMisses ? Date.parse(wakeup.availableAt) : undefined);
+
 const resolveDeferredWakeup = (
   taskId: string,
   currentWakeupId: string,
   eligibility: Exclude<OutboxTaskClaimEligibility, { status: 'terminal' }>,
-  nowMs: number
+  nowMs: number,
+  eligibleClaimMisses: number
 ): { wakeupId: string; availableAt: Date } => {
   const transientRetryAt = new Date(nowMs + TRANSIENT_DEFER_DELAY_MS);
   let availableAt: Date;
@@ -122,17 +121,24 @@ const resolveDeferredWakeup = (
 
   if (eligibility.status === 'eligible') {
     // claimById can miss a row locked by a transaction that commits immediately afterwards.
-    availableAt = transientRetryAt;
+    const delayMs = TRANSIENT_DEFER_DELAY_MS * 2 ** Math.max(0, eligibleClaimMisses - 1);
+    availableAt = new Date(nowMs + delayMs);
     bucketMs = TRANSIENT_DEFER_DELAY_MS;
   } else {
     const { reason, retryAt } = eligibility;
     switch (reason) {
-      case 'concurrency':
+      case 'concurrency': {
         // retryAt is the processing lease expiry, not the expected blocker completion time.
-        // The active worker drains siblings after it commits, so only use a short safety retry.
-        availableAt = transientRetryAt;
-        bucketMs = TRANSIENT_DEFER_DELAY_MS;
+        // Keep a short initial safety retry (100ms) for a freshly blocked sibling, then
+        // back off already-deferred retries (`cuwd-${taskId}-...`) to 500ms so long
+        // downstream chains do not spin Redis/DB wakeups every 100ms.
+        const delayMs = currentWakeupId.startsWith(`cuwd-${taskId}-`)
+          ? ADMISSION_DEFER_MIN_MS
+          : TRANSIENT_DEFER_DELAY_MS;
+        availableAt = new Date(nowMs + delayMs);
+        bucketMs = delayMs;
         break;
+      }
       case 'not_due':
         // releaseForRetry already chose the safe retry instant (250ms for computed lock misses).
         // Do not inflate it to the old generic two-second claim-race delay.
@@ -249,50 +255,17 @@ export class ComputedOutboxWakeupHandler {
         rootSpan.recordError(error instanceof Error ? error.message : String(error));
         throw error;
       }
-      if (admission.admitted) {
-        rootSpan.setAttribute('outbox.outcome', admission.value.status);
-        return admission.value;
+      if (admission.admitted && admission.value) {
+        const { status, outbox } = admission.value;
+        const dueBeforeMs = resolveRelayDueBeforeMs(wakeup);
+        if (outbox && dueBeforeMs != null) {
+          await this.wakeNextPendingTask(outbox, wakeup.baseId, new Date(dueBeforeMs));
+        }
+        rootSpan.setAttribute('outbox.outcome', status);
+        return { status };
       }
 
-      rootSpan.setAttribute('outbox.admission', 'deferred');
-      const deferNowMs = Date.now();
-      const deferDelayMs = stableAdmissionDeferDelayMs(wakeup.baseId, wakeup.taskId);
-      const availableAt = new Date(deferNowMs + deferDelayMs);
-      const baseWakeupId = `cuwd-admit-${wakeup.taskId}-${Math.floor(
-        availableAt.getTime() / ADMISSION_DEFER_SPREAD_MS
-      )}`;
-      const wakeupId =
-        wakeup.wakeupId === baseWakeupId || wakeup.wakeupId.startsWith(`${baseWakeupId}-r`)
-          ? `${baseWakeupId}-r${Math.floor(deferNowMs / ADMISSION_DEFER_MIN_MS)}`
-          : baseWakeupId;
-      try {
-        await this.wakeupPublisher.publish(
-          createComputedOutboxWakeup({
-            wakeupId,
-            taskId: wakeup.taskId,
-            baseId: wakeup.baseId,
-            availableAt,
-            cause: 'replay',
-            ...(wakeup.traceparent ? { traceparent: wakeup.traceparent } : {}),
-            ...(wakeup.tracestate ? { tracestate: wakeup.tracestate } : {}),
-          })
-        );
-      } catch (error) {
-        this.metrics.recordConsume('error');
-        this.metrics.recordExecutionDuration(performance.now() - startedAt, 'error');
-        rootSpan.recordError(error instanceof Error ? error.message : String(error));
-        throw error;
-      }
-      this.metrics.recordConsume('deferred');
-      this.metrics.recordExecutionDuration(performance.now() - startedAt, 'deferred');
-      rootSpan.setAttribute('outbox.outcome', 'deferred');
-      rootSpan.setAttribute('outbox.deferReason', 'admission');
-      this.logger.debug('computed:outbox:wakeup_admission_deferred', {
-        taskId: wakeup.taskId,
-        baseId: wakeup.baseId,
-        availableAt: availableAt.toISOString(),
-      });
-      return { status: 'deferred' };
+      return this.deferForBaseCapacity(wakeup, startedAt, rootSpan, !admission.admitted);
     };
 
     try {
@@ -302,119 +275,24 @@ export class ComputedOutboxWakeupHandler {
     }
   }
 
-  private async handleAdmitted(
+  private async deferForBaseCapacity(
     wakeup: ComputedOutboxWakeupWire,
     startedAt: number,
-    permit: ComputedOutboxBaseAdmissionPermit,
-    parentSpan: ReturnType<ITracer['startSpan']>
+    rootSpan: ISpan,
+    setBaseCapacityReason: boolean
   ): Promise<ComputedOutboxWakeupHandlerOutcome> {
+    rootSpan.setAttribute('outbox.admission', 'deferred');
+    const deferNowMs = Date.now();
+    const deferDelayMs = stableAdmissionDeferDelayMs(wakeup.baseId, wakeup.taskId);
+    const availableAt = new Date(deferNowMs + deferDelayMs);
+    const baseWakeupId = `cuwd-admit-${wakeup.taskId}-${Math.floor(
+      availableAt.getTime() / ADMISSION_DEFER_SPREAD_MS
+    )}`;
+    const wakeupId =
+      wakeup.wakeupId === baseWakeupId || wakeup.wakeupId.startsWith(`${baseWakeupId}-r`)
+        ? `${baseWakeupId}-r${Math.floor(deferNowMs / ADMISSION_DEFER_MIN_MS)}`
+        : baseWakeupId;
     try {
-      permit.assertActive();
-      const container = await this.v2ContainerService.getContainerForBase(wakeup.baseId);
-
-      // Fan-out enqueues one wakeup per task, but the first admitted wakeup's
-      // post-process drain usually completes the base's whole backlog. Without
-      // this pre-check every queued sibling pays a full claim transaction just
-      // to discover a terminal task; one eligibility read answers that.
-      // Non-terminal and errored reads fall through to the claim path, which
-      // re-checks eligibility authoritatively.
-      const precheckOutbox = container.resolve<IComputedUpdateOutbox>(
-        v2RecordRepositoryPostgresTokens.computedUpdateOutbox
-      );
-      if (typeof precheckOutbox?.getTaskClaimEligibility === 'function') {
-        const precheckResult = await precheckOutbox.getTaskClaimEligibility(wakeup.taskId);
-        if (!precheckResult.isErr()) {
-          const precheck = precheckResult.value;
-          if (!precheck || precheck.status === 'terminal') {
-            this.metrics.recordConsume('noop');
-            this.metrics.recordExecutionDuration(performance.now() - startedAt, 'noop');
-            parentSpan.setAttribute('outbox.precheck', 'terminal');
-            return { status: 'noop' };
-          }
-        }
-      }
-
-      const worker = container.resolve<ComputedUpdateWorker>(
-        v2RecordRepositoryPostgresTokens.computedUpdateWorker
-      );
-      const workerId = `computed-queue-${process.pid}`;
-      const workerTracer = container.resolve<ITracer>(v2CoreTokens.tracer);
-      const cancellation = createComputedTaskExecutionCancellation(permit.signal);
-      permit.assertActive();
-
-      const runTaskStartedAt = performance.now();
-      const result = await worker.runTaskById({
-        taskId: wakeup.taskId,
-        workerId,
-        tracer: workerTracer,
-        cancellation,
-        recordTaskSettlement: this.recordTaskSettlement,
-        // Healthy leases must not be stolen; claimById still reclaims expired processing.
-        allowProcessingTakeover: false,
-      });
-      parentSpan.setAttribute(
-        'outbox.runTaskByIdMs',
-        Math.round(performance.now() - runTaskStartedAt)
-      );
-      if (result.isErr()) throw result.error;
-      permit.assertActive();
-
-      if (result.value) {
-        // A processed seed/computed task can enqueue the next cascade stage (and bulk
-        // dual-link writes leave sibling seed tasks pending). Drain them in-process
-        // immediately instead of waiting for another BullMQ delivery or a multi-second
-        // concurrency defer — this restores the T6191 "continue after any progress"
-        // behavior after polling was replaced by BullMQ-only wake-ups.
-        const drained = await this.drainRemainingOutbox(
-          worker,
-          workerId,
-          wakeup.baseId,
-          permit,
-          workerTracer,
-          cancellation
-        );
-        parentSpan.setAttribute('outbox.drainTaskCount', drained);
-        this.metrics.recordConsume('processed');
-        this.metrics.recordExecutionDuration(performance.now() - startedAt, 'processed');
-        return { status: 'processed' };
-      }
-
-      parentSpan.setAttribute('outbox.taskClaimed', false);
-      permit.assertActive();
-      const outbox = container.resolve<IComputedUpdateOutbox>(
-        v2RecordRepositoryPostgresTokens.computedUpdateOutbox
-      );
-      const eligibilityResult = await outbox.getTaskClaimEligibility(wakeup.taskId);
-      if (eligibilityResult.isErr()) throw eligibilityResult.error;
-      permit.assertActive();
-
-      const eligibility = eligibilityResult.value;
-      if (!eligibility || eligibility.status === 'terminal') {
-        this.metrics.recordConsume('noop');
-        this.metrics.recordExecutionDuration(performance.now() - startedAt, 'noop');
-        return { status: 'noop' };
-      }
-
-      if (isIndefinitelyPaused(eligibility)) {
-        this.metrics.recordConsume('parked');
-        this.metrics.recordExecutionDuration(performance.now() - startedAt, 'parked');
-        this.logger.debug('computed:outbox:wakeup_parked', {
-          taskId: wakeup.taskId,
-          baseId: wakeup.baseId,
-          reason: 'paused',
-        });
-        return { status: 'parked' };
-      }
-
-      // Finite pauses use the explicit resume time. Other transient misses use a deterministic
-      // time bucket so duplicate locators converge without swallowing the next retry cycle.
-      const { availableAt, wakeupId } = resolveDeferredWakeup(
-        wakeup.taskId,
-        wakeup.wakeupId,
-        eligibility,
-        Date.now()
-      );
-      permit.assertActive();
       await this.wakeupPublisher.publish(
         createComputedOutboxWakeup({
           wakeupId,
@@ -422,34 +300,268 @@ export class ComputedOutboxWakeupHandler {
           baseId: wakeup.baseId,
           availableAt,
           cause: 'replay',
+          eligibleClaimMisses: wakeup.eligibleClaimMisses,
+          relayDueBeforeMs: wakeup.relayDueBeforeMs,
           ...(wakeup.traceparent ? { traceparent: wakeup.traceparent } : {}),
           ...(wakeup.tracestate ? { tracestate: wakeup.tracestate } : {}),
         })
       );
-      this.metrics.recordConsume('deferred');
-      this.metrics.recordExecutionDuration(performance.now() - startedAt, 'deferred');
-      parentSpan.setAttribute(
-        'outbox.deferReason',
-        eligibility.status === 'deferred' ? eligibility.reason : eligibility.status
+    } catch (error) {
+      this.metrics.recordConsume('error');
+      this.metrics.recordExecutionDuration(performance.now() - startedAt, 'error');
+      rootSpan.recordError(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+    this.metrics.recordConsume('deferred');
+    this.metrics.recordExecutionDuration(performance.now() - startedAt, 'deferred');
+    rootSpan.setAttribute('outbox.outcome', 'deferred');
+    if (setBaseCapacityReason) rootSpan.setAttribute('outbox.deferReason', 'base_capacity');
+    this.logger.debug('computed:outbox:wakeup_admission_deferred', {
+      taskId: wakeup.taskId,
+      baseId: wakeup.baseId,
+      availableAt: availableAt.toISOString(),
+    });
+    return { status: 'deferred' };
+  }
+
+  private async wakeNextPendingTask(
+    outbox: IComputedUpdateOutbox,
+    baseId: string,
+    dueBefore: Date
+  ): Promise<void> {
+    // Both permits have been released. The sibling re-enters normal admission and keeps
+    // its original delayed locator as a safety net if the lookup or publication fails.
+    try {
+      const next = await outbox.getNextPendingWakeup(baseId, dueBefore);
+      if (next.isErr()) throw next.error;
+      if (next.value) await this.wakeupPublisher.publish(next.value);
+    } catch (error) {
+      this.logger.warn({
+        msg: 'computed:outbox:successor_wakeup_failed',
+        baseId,
+        error: describeUnknownError(error),
+      });
+    }
+  }
+
+  private async handleAdmitted(
+    wakeup: ComputedOutboxWakeupWire,
+    startedAt: number,
+    permit: ComputedOutboxBaseAdmissionPermit,
+    parentSpan: ISpan
+  ): Promise<(ComputedOutboxWakeupHandlerOutcome & { outbox?: IComputedUpdateOutbox }) | null> {
+    try {
+      permit.assertActive();
+      const container = await this.v2ContainerService.getContainerForBase(wakeup.baseId);
+      const writer = this.v2ContainerService.getComputedWriter(container);
+      if (writer.hasWaiters()) {
+        parentSpan.setAttribute('outbox.deferReason', 'writer_pool_wait');
+        return null;
+      }
+
+      // Inspect eligibility before claiming a cluster writer slot so terminal, paused,
+      // not_due, or same-seed-table-blocked tasks do not consume writer capacity or open
+      // doomed claim transactions.
+      const precheckOutbox = container.resolve<IComputedUpdateOutbox>(
+        v2RecordRepositoryPostgresTokens.computedUpdateOutbox
       );
-      this.logger.debug('computed:outbox:wakeup_deferred', {
+      if (typeof precheckOutbox?.getTaskClaimEligibility === 'function') {
+        const precheckResult = await precheckOutbox.getTaskClaimEligibility(wakeup.taskId);
+        if (!precheckResult.isErr()) {
+          permit.assertActive();
+          const precheck = precheckResult.value;
+          if (!precheck || precheck.status !== 'eligible') {
+            return this.settleUnclaimedEligibility({
+              wakeup,
+              startedAt,
+              permit,
+              parentSpan,
+              eligibility: precheck,
+              precheck: true,
+            });
+          }
+        }
+      }
+
+      const runWriterOperation = async (writerPermit: ComputedOutboxBaseAdmissionPermit) => {
+        const combinedPermit = {
+          signal: AbortSignal.any([permit.signal, writerPermit.signal]),
+          assertActive: () => {
+            permit.assertActive();
+            writerPermit.assertActive();
+          },
+        };
+        return this.handleWriterAdmitted(container, wakeup, startedAt, combinedPermit, parentSpan);
+      };
+      const admission =
+        writer.maxConcurrency !== undefined
+          ? await this.baseAdmission.runWithWriterPermit(
+              wakeup.baseId,
+              writer.key,
+              runWriterOperation,
+              writer.maxConcurrency
+            )
+          : await this.baseAdmission.runWithWriterPermit(
+              wakeup.baseId,
+              writer.key,
+              runWriterOperation
+            );
+      if (admission.admitted) {
+        return admission.value.status === 'processed'
+          ? { ...admission.value, outbox: precheckOutbox }
+          : admission.value;
+      }
+      parentSpan.setAttribute('outbox.deferReason', 'writer_capacity');
+      return null;
+    } catch (error) {
+      return this.handleAdmittedFailure(error, wakeup, startedAt, parentSpan);
+    }
+  }
+
+  private async handleWriterAdmitted(
+    container: DependencyContainer,
+    wakeup: ComputedOutboxWakeupWire,
+    startedAt: number,
+    permit: ComputedOutboxBaseAdmissionPermit,
+    parentSpan: ISpan
+  ): Promise<ComputedOutboxWakeupHandlerOutcome> {
+    const worker = container.resolve<ComputedUpdateWorker>(
+      v2RecordRepositoryPostgresTokens.computedUpdateWorker
+    );
+    const workerId = `computed-queue-${process.pid}`;
+    const workerTracer = container.resolve<ITracer>(v2CoreTokens.tracer);
+    const cancellation = createComputedTaskExecutionCancellation(permit.signal);
+    permit.assertActive();
+
+    const runTaskStartedAt = performance.now();
+    let emptyClaim = false;
+    const result = await worker.runTaskById({
+      taskId: wakeup.taskId,
+      workerId,
+      tracer: workerTracer,
+      yieldAfterTask: true,
+      onEmptyClaim: () => {
+        emptyClaim = true;
+      },
+      cancellation,
+      recordTaskSettlement: this.recordTaskSettlement,
+      // Healthy leases must not be stolen; claimById still reclaims expired processing.
+      allowProcessingTakeover: false,
+    });
+    parentSpan.setAttribute(
+      'outbox.runTaskByIdMs',
+      Math.round(performance.now() - runTaskStartedAt)
+    );
+    if (result.isErr()) throw result.error;
+    permit.assertActive();
+
+    if (result.value) {
+      // Each successor re-enters admission through its durable wakeup.
+      this.metrics.recordConsume('processed');
+      this.metrics.recordExecutionDuration(performance.now() - startedAt, 'processed');
+      return { status: 'processed' };
+    }
+
+    parentSpan.setAttribute('outbox.taskClaimed', false);
+    permit.assertActive();
+    const outbox = container.resolve<IComputedUpdateOutbox>(
+      v2RecordRepositoryPostgresTokens.computedUpdateOutbox
+    );
+    const eligibilityResult = await outbox.getTaskClaimEligibility(wakeup.taskId);
+    if (eligibilityResult.isErr()) throw eligibilityResult.error;
+    permit.assertActive();
+
+    return this.settleUnclaimedEligibility({
+      wakeup,
+      startedAt,
+      permit,
+      parentSpan,
+      eligibility: eligibilityResult.value,
+      emptyClaim,
+    });
+  }
+
+  private async settleUnclaimedEligibility(params: {
+    wakeup: ComputedOutboxWakeupWire;
+    startedAt: number;
+    permit: ComputedOutboxBaseAdmissionPermit;
+    parentSpan: ISpan;
+    eligibility: OutboxTaskClaimEligibility | null;
+    precheck?: boolean;
+    emptyClaim?: boolean;
+  }): Promise<ComputedOutboxWakeupHandlerOutcome> {
+    const { wakeup, startedAt, permit, parentSpan, eligibility, precheck } = params;
+    if (!eligibility || eligibility.status === 'terminal') {
+      this.metrics.recordConsume('noop');
+      this.metrics.recordExecutionDuration(performance.now() - startedAt, 'noop');
+      if (precheck) parentSpan.setAttribute('outbox.precheck', 'terminal');
+      return { status: 'noop' };
+    }
+
+    if (isIndefinitelyPaused(eligibility)) {
+      this.metrics.recordConsume('parked');
+      this.metrics.recordExecutionDuration(performance.now() - startedAt, 'parked');
+      if (precheck) parentSpan.setAttribute('outbox.precheck', 'paused');
+      this.logger.debug('computed:outbox:wakeup_parked', {
         taskId: wakeup.taskId,
         baseId: wakeup.baseId,
-        eligibility: eligibility.status,
-        reason: eligibility.status === 'deferred' ? eligibility.reason : undefined,
-        availableAt: availableAt.toISOString(),
+        reason: 'paused',
       });
-      return { status: 'deferred' };
-    } catch (error) {
-      return await this.handleAdmittedFailure(error, wakeup, startedAt, parentSpan);
+      return { status: 'parked' };
     }
+
+    // Finite pauses use the explicit resume time. Other transient misses use a deterministic
+    // time bucket so duplicate locators converge without swallowing the next retry cycle.
+    const eligibleClaimMisses =
+      eligibility.status === 'eligible' && params.emptyClaim
+        ? Math.min((wakeup.eligibleClaimMisses ?? 0) + 1, MAX_ELIGIBLE_CLAIM_MISSES)
+        : 0;
+    const { availableAt, wakeupId } = resolveDeferredWakeup(
+      wakeup.taskId,
+      wakeup.wakeupId,
+      eligibility,
+      Date.now(),
+      eligibleClaimMisses
+    );
+    permit.assertActive();
+    await this.wakeupPublisher.publish(
+      createComputedOutboxWakeup({
+        wakeupId,
+        taskId: wakeup.taskId,
+        baseId: wakeup.baseId,
+        availableAt,
+        cause: 'replay',
+        eligibleClaimMisses,
+        relayDueBeforeMs: eligibleClaimMisses
+          ? wakeup.relayDueBeforeMs
+          : resolveRelayDueBeforeMs(wakeup),
+        ...(wakeup.traceparent ? { traceparent: wakeup.traceparent } : {}),
+        ...(wakeup.tracestate ? { tracestate: wakeup.tracestate } : {}),
+      })
+    );
+    this.metrics.recordConsume('deferred');
+    this.metrics.recordExecutionDuration(performance.now() - startedAt, 'deferred');
+    const reason = eligibility.status === 'deferred' ? eligibility.reason : eligibility.status;
+    if (precheck) parentSpan.setAttribute('outbox.precheck', reason);
+    parentSpan.setAttribute('outbox.deferReason', reason);
+    if (eligibility.status === 'eligible') {
+      parentSpan.setAttribute('outbox.eligibleClaimMisses', eligibleClaimMisses);
+    }
+    this.logger.debug('computed:outbox:wakeup_deferred', {
+      taskId: wakeup.taskId,
+      baseId: wakeup.baseId,
+      eligibility: eligibility.status,
+      reason: eligibility.status === 'deferred' ? eligibility.reason : undefined,
+      availableAt: availableAt.toISOString(),
+    });
+    return { status: 'deferred' };
   }
 
   private async handleAdmittedFailure(
     error: unknown,
     wakeup: ComputedOutboxWakeupWire,
     startedAt: number,
-    parentSpan: ReturnType<ITracer['startSpan']>
+    parentSpan: ISpan
   ): Promise<ComputedOutboxWakeupHandlerOutcome> {
     // Base deletion can outlive its Redis locators. Routing fails before the
     // ledger precheck, so acknowledge only an authoritative missing-base result.
@@ -627,83 +739,6 @@ export class ComputedOutboxWakeupHandler {
         errorType: publishError instanceof Error ? publishError.name : 'UnknownError',
       });
       return null;
-    }
-  }
-
-  /**
-   * Keep claiming until an empty poll proves the outbox is idle for this worker.
-   * Mirrors the pre-BullMQ polling continue_immediately policy (T6191).
-   */
-  private async drainRemainingOutbox(
-    worker: ComputedUpdateWorker,
-    workerId: string,
-    baseId: string,
-    permit: ComputedOutboxBaseAdmissionPermit,
-    workerTracer?: ITracer,
-    cancellation = createComputedTaskExecutionCancellation(permit.signal)
-  ): Promise<number> {
-    const span = wakeupTracer.startSpan('teable.computed.outbox.wakeup.drain', {
-      'outbox.baseId': baseId,
-      'worker.id': workerId,
-    });
-
-    const run = async (): Promise<number> => {
-      let drained = 0;
-      while (drained < POST_PROCESS_DRAIN_MAX_TASKS) {
-        permit.assertActive();
-        const more = await worker.runOnce({
-          workerId,
-          limit: POST_PROCESS_DRAIN_BATCH_SIZE,
-          tracer: workerTracer,
-          cancellation,
-          recordTaskSettlement: this.recordTaskSettlement,
-        });
-        permit.assertActive();
-        if (more.isErr()) {
-          span.recordError(more.error.message);
-          this.logger.warn('computed:outbox:post_process_drain_failed', {
-            baseId,
-            workerId,
-            drained,
-            error: more.error.message,
-          });
-          return drained;
-        }
-        if (more.value <= 0) {
-          if (drained > 0) {
-            this.logger.debug('computed:outbox:post_process_drain_idle', {
-              baseId,
-              workerId,
-              drained,
-            });
-          }
-          span.setAttribute('outbox.drainTaskCount', drained);
-          span.setAttribute('outbox.drainCapped', false);
-          return drained;
-        }
-        drained += more.value;
-        this.logger.debug('computed:outbox:post_process_drain_continue', {
-          baseId,
-          workerId,
-          processed: more.value,
-          drained,
-        });
-      }
-      span.setAttribute('outbox.drainTaskCount', drained);
-      span.setAttribute('outbox.drainCapped', true);
-      this.logger.warn('computed:outbox:post_process_drain_capped', {
-        baseId,
-        workerId,
-        drained,
-        maxTasks: POST_PROCESS_DRAIN_MAX_TASKS,
-      });
-      return drained;
-    };
-
-    try {
-      return await wakeupTracer.withSpan(span, run);
-    } finally {
-      span.end();
     }
   }
 }

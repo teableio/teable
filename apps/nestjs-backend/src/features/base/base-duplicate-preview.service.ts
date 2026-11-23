@@ -19,12 +19,12 @@ import { err, ok, type Result } from 'neverthrow';
 import type { IV2Decision } from '../canary';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
 import {
-  BaseDuplicateService,
+  BaseDuplicateV2Service,
   type DuplicateBaseV2HostPreviewAdmission,
   type DuplicateBaseV2HostPreviewExtension,
   type DuplicateBaseV2Preparation,
   type DuplicateBaseV2PreviewFacts,
-} from './base-duplicate.service';
+} from './base-duplicate-v2.service';
 import { BaseService } from './base.service';
 
 export type BaseDuplicatePreviewInput = {
@@ -271,10 +271,10 @@ export class BaseDuplicatePreviewPlanner implements IHostPreviewAdapter<BaseDupl
   readonly concerns: ReadonlyArray<HostPreviewConcern> = hostPreviewConcernValues;
   readonly plannerVersion = 'base-duplicate-host-ce-v2';
   readonly executionPath =
-    'BaseService destination engine admission/BaseDuplicateService preparation';
+    'BaseService destination engine admission/BaseDuplicateV2Service preparation';
 
   constructor(
-    private readonly baseDuplicateService: BaseDuplicateService,
+    private readonly baseDuplicateService: BaseDuplicateV2Service,
     private readonly baseService: BaseService
   ) {}
 
@@ -501,7 +501,7 @@ export const createBaseDuplicatePreviewRegistration = (
 @Injectable()
 export class BaseDuplicatePreviewRegistrar implements IV2ProjectionRegistrar {
   constructor(
-    private readonly baseDuplicateService: BaseDuplicateService,
+    private readonly baseDuplicateService: BaseDuplicateV2Service,
     private readonly baseService: BaseService
   ) {}
 

@@ -36,6 +36,9 @@ import { DeleteRecordsCommand } from './DeleteRecordsCommand';
 import { buildDeletedRecordSnapshot } from './shared/buildDeletedRecordSnapshot';
 import { persistDeletedTrashMarkers } from './shared/persistDeletedTrashMarkers';
 
+const MAX_EXPLICIT_SCOPE_VALIDATION_BATCH_SIZE = 2_000;
+const MAX_EXPLICIT_DELETE_RECORDS = 20_000;
+
 export class DeleteRecordsResult {
   private constructor(
     readonly deletedRecordIds: ReadonlyArray<string>,
@@ -75,6 +78,20 @@ export class DeleteRecordsHandler implements ICommandHandler<
   ): Promise<Result<DeleteRecordsResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<DeleteRecordsResult, DomainError>(async function* () {
+      if (command.recordIds && command.recordIds.length > MAX_EXPLICIT_DELETE_RECORDS) {
+        return err(
+          domainError.validation({
+            code: 'validation.limit.records_per_mutation_max',
+            message: `Cannot delete more than ${MAX_EXPLICIT_DELETE_RECORDS} explicit records in a single request; use the streaming delete endpoint instead.`,
+            details: {
+              tableId: command.tableId.toString(),
+              requestedCount: command.recordIds.length,
+              maxCount: MAX_EXPLICIT_DELETE_RECORDS,
+            },
+          })
+        );
+      }
+
       const table = yield* await handler.tableQueryService.getById(context, command.tableId);
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.deleteMany,
@@ -91,36 +108,49 @@ export class DeleteRecordsHandler implements ICommandHandler<
       const pluginRecordSpec = yield* pluginExecution.getRecordSpec();
 
       let expectedSnapshotCount: number | undefined;
-      if (command.recordIds) {
-        const scopedSnapshots = yield* await loadBulkRecordExplicitScope(
-          context,
-          table,
-          command.recordIds,
-          handler.tableRecordQueryRepository
-        );
-        const preparedScope = yield* prepareBulkRecordExplicitScope(
-          table,
-          command.recordIds.map((recordId) => ({ recordId, fieldValues: new Map() })),
-          scopedSnapshots,
-          pluginRecordSpec
-        );
-
-        if (preparedScope.pluginFilteredRecordIds.length > 0) {
-          return err(
-            domainError.forbidden({
-              code: 'record_write_plugin.scope_forbidden',
-              message: 'Record write target includes rows outside the allowed scope.',
-              details: {
-                operation: RecordWriteOperationKind.deleteMany,
-                tableId: table.id().toString(),
-                requestedRecordCount: scopedSnapshots.records.length,
-                authorizedRecordCount: preparedScope.authorizedUpdates.length,
-              },
-            })
+      if (command.recordIds && pluginRecordSpec) {
+        let totalMatchedCount = 0;
+        for (
+          let offset = 0;
+          offset < command.recordIds.length;
+          offset += MAX_EXPLICIT_SCOPE_VALIDATION_BATCH_SIZE
+        ) {
+          const sliceIds = command.recordIds.slice(
+            offset,
+            offset + MAX_EXPLICIT_SCOPE_VALIDATION_BATCH_SIZE
           );
+          const scopedSnapshots = yield* await loadBulkRecordExplicitScope(
+            context,
+            table,
+            sliceIds,
+            handler.tableRecordQueryRepository
+          );
+          const preparedScope = yield* prepareBulkRecordExplicitScope(
+            table,
+            sliceIds.map((recordId) => ({ recordId, fieldValues: new Map() })),
+            scopedSnapshots,
+            pluginRecordSpec
+          );
+
+          if (preparedScope.pluginFilteredRecordIds.length > 0) {
+            return err(
+              domainError.forbidden({
+                code: 'record_write_plugin.scope_forbidden',
+                message: 'Record write target includes rows outside the allowed scope.',
+                details: {
+                  operation: RecordWriteOperationKind.deleteMany,
+                  tableId: table.id().toString(),
+                  requestedRecordCount: scopedSnapshots.records.length,
+                  authorizedRecordCount: preparedScope.authorizedUpdates.length,
+                },
+              })
+            );
+          }
+          totalMatchedCount += scopedSnapshots.records.length;
         }
-        expectedSnapshotCount = pluginRecordSpec ? scopedSnapshots.records.length : undefined;
+        expectedSnapshotCount = totalMatchedCount;
       }
+
       const { scopedSpec: scopedDeleteSpec } = yield* prepareBulkRecordSelector(
         table,
         { recordIds: command.recordIds, filter: command.filter },

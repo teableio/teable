@@ -269,7 +269,7 @@ describe('SharedViewRecordQueryV2Service', () => {
     expect(calendarQuery?.includeHiddenFields).toBe(true);
     expect(result).toEqual({
       countMap: Object.fromEntries([['2025-01-02', 1]]),
-      records: [{ id: recordId.toString(), fields: { [fieldId]: 'Alpha' } }],
+      records: [{ id: recordId.toString(), fields: { [fieldId]: 'Alpha' }, version: 3 }],
     });
   });
 

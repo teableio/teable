@@ -16,6 +16,7 @@
  */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
@@ -29,12 +30,14 @@ import express from 'express';
 import { sql } from 'kysely';
 import type { Result } from 'neverthrow';
 import { afterEach, describe, expect, it } from 'vitest';
+
 import {
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
   type IComputedUpdateOutbox,
 } from '../../adapter-table-repository-postgres/src';
 
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
 type TestHarness = {
@@ -49,17 +52,21 @@ const activeHarnesses = new Set<TestHarness>();
 const createFieldId = () => `fld${getRandomString(16)}`;
 
 const createHarness = async (
-  options: Parameters<typeof createE2eTestContainer>[0] = {}
+  options: Parameters<typeof createE2eTestContainer>[0] = {},
+  existingBaseId?: IV2NodeTestContainer['baseId']
 ): Promise<TestHarness> => {
   const testContainer = await createE2eTestContainer({
     dbMode: 'postgres',
     ...options,
   });
 
+  const baseId = existingBaseId ?? testContainer.baseId;
+  const executionContext = await createStandaloneExecutionContext({ ...testContainer, baseId });
   const app = express();
   app.use(
     createV2ExpressRouter({
       createContainer: () => testContainer.container,
+      createExecutionContext: () => executionContext,
     })
   );
 
@@ -73,7 +80,7 @@ const createHarness = async (
   const address = server.address() as AddressInfo;
   const harness: TestHarness = {
     testContainer,
-    baseId: testContainer.baseId.toString(),
+    baseId: baseId.toString(),
     baseUrl: `http://127.0.0.1:${address.port}`,
     close: async () => {
       await new Promise<void>((resolve, reject) => {
@@ -441,13 +448,16 @@ describe('[C14][S19] computed hybrid concurrent target writeback (e2e) T6300', (
       await Promise.allSettled(secondRun ? [firstRun, secondRun] : [firstRun]);
     }
 
-    const reader = await createHarness({
-      connectionString: harness.testContainer.connectionString,
-      seedBase: false,
-      computedUpdate: {
-        hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
+    const reader = await createHarness(
+      {
+        connectionString: harness.testContainer.connectionString,
+        seedBase: false,
+        computedUpdate: {
+          hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },
+        },
       },
-    });
+      harness.testContainer.baseId
+    );
     await waitForOutboxQuiesce(reader);
 
     const expectedCard = 'Paid|First-020-latest-L2-L3';

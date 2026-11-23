@@ -200,6 +200,9 @@ const actionsI18nMap: Record<
   'base|query_data': {
     description: 'permission.actionDescription.baseQuery',
   },
+  'base|save_query': {
+    description: 'permission.actionDescription.baseSaveQuery',
+  },
   'instance|read': {
     description: 'permission.actionDescription.instanceRead',
   },

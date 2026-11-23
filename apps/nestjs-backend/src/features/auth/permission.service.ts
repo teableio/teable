@@ -27,6 +27,10 @@ import { hashSharePassword } from '../../utils/share-password-hash';
 import { CollaboratorModel } from '../model/collaborator';
 import { TemplateModel } from '../model/template';
 import { TeableJwtService } from './jwt/teable-jwt.service';
+import {
+  currentQueuedCredentialCeiling,
+  fingerprintQueuedCredentialSign,
+} from './queued-credential-ceiling';
 
 interface IBaseNodeCacheItem {
   id: string;
@@ -35,13 +39,12 @@ interface IBaseNodeCacheItem {
   resourceId: string | null;
 }
 
-/**
- * How a resource was admitted to a base share: `direct` when it sits inside the
- * shared scope, `linked` when it is only reachable because a table in scope has a
- * link field pointing at it. Linked admission is read-only (see getBaseSharePermissions).
- */
-type IBaseShareMatch = 'direct' | 'linked' | false;
-
+export type ICredentialCeiling = {
+  readonly scopes: readonly Action[];
+  readonly spaceIds?: readonly string[];
+  readonly baseIds?: readonly string[];
+  readonly hasFullAccess?: boolean;
+};
 const notAllowedOperationI18nKey = 'httpErrors.permission.notAllowedOperation';
 
 /**
@@ -167,6 +170,38 @@ export class PermissionService {
     return { spaceIds, baseIds };
   }
 
+  async captureCredentialCeiling(accessTokenId: string): Promise<ICredentialCeiling> {
+    const userId = this.cls.get('user.id');
+    if (accessTokenId !== this.cls.get('accessTokenId') || !userId) {
+      throw new CustomHttpException(
+        'Credential identity does not match',
+        HttpErrorCode.UNAUTHORIZED
+      );
+    }
+    await this.requireLiveCredential(userId, accessTokenId);
+    return this.getAccessToken(accessTokenId);
+  }
+
+  private async requireLiveCredential(userId: string, accessTokenId: string, sign?: string) {
+    const [user, token] = await Promise.all([
+      this.prismaService.user.findFirst({
+        where: { id: userId, deletedTime: null, deactivatedTime: null },
+        select: { id: true },
+      }),
+      this.prismaService.accessToken.findFirst({
+        where: { id: accessTokenId, userId, expiredTime: { gt: new Date() } },
+        select: { sign: true },
+      }),
+    ]);
+    if (!user || !token || (sign !== undefined && token.sign !== sign)) {
+      throw new CustomHttpException(
+        'Issuing credential is no longer valid',
+        HttpErrorCode.UNAUTHORIZED
+      );
+    }
+    return token;
+  }
+
   async getAccessToken(accessTokenId: string) {
     const {
       scopes: stringifyScopes,
@@ -175,6 +210,8 @@ export class PermissionService {
       clientId,
       userId,
       hasFullAccess,
+      sign,
+      expiredTime,
     } = await this.prismaService.accessToken.findFirstOrThrow({
       where: { id: accessTokenId },
       select: {
@@ -184,9 +221,38 @@ export class PermissionService {
         clientId: true,
         userId: true,
         hasFullAccess: true,
+        sign: true,
+        expiredTime: true,
       },
     });
-    const scopes = JSON.parse(stringifyScopes) as Action[];
+    const ceiling = currentQueuedCredentialCeiling();
+    if (
+      ceiling &&
+      (ceiling.accessTokenId !== accessTokenId ||
+        ceiling.userId !== userId ||
+        this.cls.get('user.id') !== ceiling.userId ||
+        this.cls.get('accessTokenId') !== accessTokenId ||
+        ceiling.signFingerprint !== fingerprintQueuedCredentialSign(sign) ||
+        ceiling.clientId !== clientId ||
+        (ceiling.expiresAt != null && ceiling.expiresAt <= Date.now()) ||
+        (expiredTime != null && expiredTime.getTime() <= Date.now()) ||
+        ceiling.authSource !== this.cls.get('authSource') ||
+        ceiling.appId !== this.cls.get('appId') ||
+        ceiling.tempAuthBaseId !== this.cls.get('tempAuthBaseId') ||
+        ceiling.sandboxPrincipal?.principalType !==
+          this.cls.get('sandboxPrincipal')?.principalType ||
+        ceiling.sandboxPrincipal?.principalId !== this.cls.get('sandboxPrincipal')?.principalId ||
+        ceiling.sandboxPrincipal?.chatId !== this.cls.get('sandboxPrincipal')?.chatId)
+    ) {
+      throw new CustomHttpException(
+        'Queued import credential is no longer valid',
+        HttpErrorCode.UNAUTHORIZED
+      );
+    }
+    const liveScopes = JSON.parse(stringifyScopes) as Action[];
+    const scopes = ceiling
+      ? liveScopes.filter((action) => ceiling.scopes.includes(action))
+      : liveScopes;
     if (clientId?.startsWith(IdPrefix.OAuthClient)) {
       const { spaceIds: spaceIdsByOAuth, baseIds: baseIdsByOAuth } =
         await this.getOAuthAccessBy(userId);
@@ -251,8 +317,8 @@ export class PermissionService {
   }
   private async isBaseIdAllowedForResource(
     baseId: string,
-    spaceIds: string[] | undefined,
-    baseIds: string[] | undefined,
+    spaceIds: readonly string[] | undefined,
+    baseIds: readonly string[] | undefined,
     includeInactiveResource?: boolean
   ) {
     const upperId = await this.getUpperIdByBaseId(baseId, includeInactiveResource);
@@ -261,8 +327,8 @@ export class PermissionService {
 
   private async isTableIdAllowedForResource(
     tableId: string,
-    spaceIds: string[] | undefined,
-    baseIds: string[] | undefined,
+    spaceIds: readonly string[] | undefined,
+    baseIds: readonly string[] | undefined,
     includeInactiveResource?: boolean
   ) {
     const { spaceId, baseId } = await this.getUpperIdByTableId(tableId, includeInactiveResource);
@@ -274,10 +340,49 @@ export class PermissionService {
     accessTokenId: string,
     includeInactiveResource?: boolean
   ) {
-    const { scopes, spaceIds, baseIds, hasFullAccess } = await this.getAccessToken(accessTokenId);
+    const queuedCeiling = currentQueuedCredentialCeiling();
+    if (queuedCeiling && !queuedCeiling.hasFullAccess) {
+      const allowed = resourceId.startsWith(IdPrefix.Space)
+        ? queuedCeiling.spaceIds.includes(resourceId)
+        : resourceId.startsWith(IdPrefix.Base)
+          ? await this.isBaseIdAllowedForResource(
+              resourceId,
+              queuedCeiling.spaceIds,
+              queuedCeiling.baseIds,
+              includeInactiveResource
+            )
+          : resourceId.startsWith(IdPrefix.Table)
+            ? await this.isTableIdAllowedForResource(
+                resourceId,
+                queuedCeiling.spaceIds,
+                queuedCeiling.baseIds,
+                includeInactiveResource
+              )
+            : false;
+      if (!allowed) {
+        throw new CustomHttpException(
+          'Resource exceeds the queued import credential ceiling',
+          HttpErrorCode.RESTRICTED_RESOURCE
+        );
+      }
+    }
+    const permissions = await this.getPermissionsByCredential(
+      resourceId,
+      await this.getAccessToken(accessTokenId),
+      includeInactiveResource
+    );
+    return permissions;
+  }
+
+  private async getPermissionsByCredential(
+    resourceId: string,
+    credential: ICredentialCeiling,
+    includeInactiveResource?: boolean
+  ): Promise<Action[]> {
+    const { scopes, spaceIds, baseIds, hasFullAccess } = credential;
 
     if (hasFullAccess) {
-      return scopes;
+      return [...scopes];
     }
 
     if (
@@ -356,7 +461,7 @@ export class PermissionService {
       );
     }
 
-    return scopes;
+    return [...scopes];
   }
 
   private async getPermissionBySpaceId(spaceId: string, includeInactiveResource?: boolean) {
@@ -377,6 +482,10 @@ export class PermissionService {
   }
 
   async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
+    return this.getBasePermissions(baseId, includeInactiveResource);
+  }
+
+  private async getBasePermissions(baseId: string, includeInactiveResource?: boolean) {
     const tempAuthBaseId = this.cls.get('tempAuthBaseId');
     if (tempAuthBaseId === baseId) {
       // Internal tokens can outlive the app/template snapshot that minted them.
@@ -687,9 +796,7 @@ export class PermissionService {
     // in the base is reachable, but the base-membership check MUST still run —
     // otherwise a share created for one base could be replayed with another base's
     // id to gain cross-base read/write/export access.
-    const resourceMatch = await this.checkResourceBelongsToShare(resourceId, baseId, nodeId);
-
-    if (!resourceMatch) {
+    if (!(await this.checkResourceBelongsToShare(resourceId, baseId, nodeId))) {
       this.logger.warn(
         `[BaseShare] Resource ${resourceId} is not accessible via share ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
       );
@@ -702,20 +809,16 @@ export class PermissionService {
     // Set base share in cls for downstream services to use
     this.cls.set('baseShare', { baseId, nodeId });
 
-    // When allowEdit is enabled and user is logged in, grant editor-level permissions
-    // excluding invite/share/privacy-sensitive actions. A table admitted only because a
-    // shared table links to it lies outside the shared node: it is exposed so link cells
-    // can be resolved and displayed, and stays read-only whatever allowEdit says.
-    if (resourceMatch === 'direct' && baseShare.allowEdit && !this.isAnonymous()) {
-      return getPermissions(Role.Editor).filter((p) => !shareExcludedPermissions.has(p));
-    }
-
-    // Otherwise return template permissions (read-only), with record|copy if allowCopy is enabled
-    const permissions = [...TemplatePermissions];
-    if (baseShare.allowCopy) {
+    const canEdit = baseShare.allowEdit && !this.isAnonymous();
+    const permissions = canEdit
+      ? getPermissions(Role.Editor).filter((permission) => !shareExcludedPermissions.has(permission))
+      : [...TemplatePermissions];
+    if (!canEdit && baseShare.allowCopy) {
       permissions.push('record|copy');
     }
-    return permissions;
+    return nodeId
+      ? permissions.filter((permission) => permission !== 'base|query_data')
+      : permissions;
   }
 
   /**
@@ -730,13 +833,12 @@ export class PermissionService {
     resourceId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<IBaseShareMatch> {
+  ): Promise<boolean> {
     const prefix = resourceId.substring(0, 3);
-    const direct = (belongs: boolean): IBaseShareMatch => (belongs ? 'direct' : false);
 
     switch (prefix) {
       case IdPrefix.Base:
-        return direct(resourceId === baseId);
+        return resourceId === baseId;
       case IdPrefix.Table:
         return this.checkTableBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.View:
@@ -744,11 +846,11 @@ export class PermissionService {
       case IdPrefix.Field:
         return this.checkFieldBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.Dashboard:
-        return direct(await this.checkDashboardBelongsToShare(resourceId, baseId, nodeId));
+        return this.checkDashboardBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.App:
-        return direct(await this.checkAppBelongsToShare(resourceId, baseId, nodeId));
+        return this.checkAppBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.Routine:
-        return direct(await this.checkRoutineBelongsToShare(resourceId, baseId, nodeId));
+        return this.checkRoutineBelongsToShare(resourceId, baseId, nodeId);
       default:
         return false;
     }
@@ -761,7 +863,7 @@ export class PermissionService {
     tableId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<IBaseShareMatch> {
+  ): Promise<boolean> {
     const table = await this.prismaService.tableMeta.findUnique({
       where: { id: tableId, deletedTime: null },
       select: { baseId: true },
@@ -775,78 +877,7 @@ export class PermissionService {
       return false;
     }
 
-    // Whole-base share: any table within the shared base is accessible.
-    if (!nodeId) {
-      return 'direct';
-    }
-
-    const result = await this.isTableAllowedByNodeId(baseId, tableId, nodeId);
-    if (result) {
-      this.logger.debug(`[BaseShare] Table belongs check: nodeId=${nodeId}, result=${result}`);
-      return 'direct';
-    }
-
-    // Fallback: check if the table is a foreign table of a link field in a shared table.
-    // This lets link field targets be read even when they are outside the shared node;
-    // the 'linked' match keeps that access read-only.
-    const linkedResult = await this.isTableLinkedFromSharedNode(baseId, tableId, nodeId);
-    this.logger.debug(
-      `[BaseShare] Table linked from shared node check: tableId=${tableId}, result=${linkedResult}`
-    );
-    return linkedResult ? 'linked' : false;
-  }
-
-  /**
-   * Check if a table is referenced as a foreign table by any link field
-   * in the shared node's tables. This allows link field foreign tables
-   * to be accessible even if they're not directly under the shared node.
-   */
-  private async isTableLinkedFromSharedNode(
-    baseId: string,
-    foreignTableId: string,
-    nodeId: string
-  ): Promise<boolean> {
-    // Get all nodes (cached)
-    const allNodes = await this.getBaseNodesWithCache(baseId);
-    const allowedNodeIds = this.collectDescendantNodeIds(allNodes, nodeId);
-
-    // Collect table IDs that are under the shared node
-    const sharedTableIds: string[] = [];
-    for (const node of allNodes) {
-      if (
-        allowedNodeIds.has(node.id) &&
-        node.resourceType.toLowerCase() === 'table' &&
-        node.resourceId
-      ) {
-        sharedTableIds.push(node.resourceId);
-      }
-    }
-
-    if (sharedTableIds.length === 0) {
-      return false;
-    }
-
-    // Find link fields in shared tables
-    const linkFields = await this.prismaService.field.findMany({
-      where: {
-        tableId: { in: sharedTableIds },
-        type: 'link',
-        deletedTime: null,
-      },
-      select: {
-        options: true,
-      },
-    });
-
-    // Check if any link field references the target foreign table
-    return linkFields.some((field) => {
-      try {
-        const options = field.options ? JSON.parse(field.options) : null;
-        return options?.foreignTableId === foreignTableId;
-      } catch {
-        return false;
-      }
-    });
+    return !nodeId || this.isTableAllowedByNodeId(baseId, tableId, nodeId);
   }
 
   /**
@@ -856,7 +887,7 @@ export class PermissionService {
     viewId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<IBaseShareMatch> {
+  ): Promise<boolean> {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, deletedTime: null },
       select: { tableId: true },
@@ -876,7 +907,7 @@ export class PermissionService {
     fieldId: string,
     baseId: string,
     nodeId: string | null
-  ): Promise<IBaseShareMatch> {
+  ): Promise<boolean> {
     const field = await this.prismaService.field.findUnique({
       where: { id: fieldId, deletedTime: null },
       select: { tableId: true },
@@ -976,22 +1007,22 @@ export class PermissionService {
   }
 
   /**
-   * Resource ids of one base-node type (table, dashboard, ...) that the current
-   * request's base share exposes, or null when the request is not a node-scoped
-   * share (no share, or a whole-base one) and nothing needs filtering. Routes
-   * mounted under /base/:baseId are authorized against the base id alone, so
-   * services listing node resources apply the node restriction with this.
+   * Resource IDs of one base-node type exposed by the current base share.
+   * Null means unrestricted by node scope. An empty set allows no resources.
    */
   async getBaseShareVisibleResourceIds(
     baseId: string,
     resourceType: string
   ): Promise<Set<string> | null> {
     const baseShare = this.cls.get('baseShare');
-    if (!baseShare?.nodeId) {
+    if (!baseShare) {
       return null;
     }
     if (baseShare.baseId !== baseId) {
       return new Set();
+    }
+    if (!baseShare.nodeId) {
+      return null;
     }
     const allNodes = await this.getBaseNodesWithCache(baseId);
     const allowedNodeIds = this.collectDescendantNodeIds(allNodes, baseShare.nodeId);
@@ -1040,16 +1071,19 @@ export class PermissionService {
     allNodes: { id: string; parentId: string | null }[],
     nodeId: string
   ): Set<string> {
-    const allowedNodeIds = new Set<string>();
-    const collectDescendants = (currentNodeId: string) => {
-      allowedNodeIds.add(currentNodeId);
-      for (const node of allNodes) {
-        if (node.parentId === currentNodeId) {
-          collectDescendants(node.id);
-        }
-      }
-    };
-    collectDescendants(nodeId);
+    const childrenByParent = new Map<string, string[]>();
+    for (const node of allNodes) {
+      if (node.parentId === null) continue;
+      const children = childrenByParent.get(node.parentId);
+      if (children) children.push(node.id);
+      else childrenByParent.set(node.parentId, [node.id]);
+    }
+    const allowedNodeIds = new Set([nodeId]);
+    for (const id of allowedNodeIds) {
+      const children = childrenByParent.get(id);
+      if (!children) continue;
+      for (const childId of children) allowedNodeIds.add(childId);
+    }
     return allowedNodeIds;
   }
 
@@ -1095,43 +1129,14 @@ export class PermissionService {
     tableId: string,
     nodeId: string
   ): Promise<boolean> {
-    this.logger.log(`[BaseShare] isTableAllowedByNodeId: tableId=${tableId}, nodeId=${nodeId}`);
-
-    // Get all nodes in the base (with caching)
     const allNodes = await this.getBaseNodesWithCache(baseId);
-
-    // Build a map for quick lookup
-    const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
-
-    // Collect all descendant node IDs from the shared nodeId
     const allowedNodeIds = this.collectDescendantNodeIds(allNodes, nodeId);
-
-    this.logger.log(
-      `[BaseShare] Allowed node IDs (shared + descendants): ${JSON.stringify([...allowedNodeIds])}`
+    return allNodes.some(
+      (node) =>
+        node.resourceType.toLowerCase() === 'table' &&
+        node.resourceId === tableId &&
+        allowedNodeIds.has(node.id)
     );
-
-    // Check if the shared node itself is a table with the target tableId
-    const sharedNode = nodeMap.get(nodeId);
-    if (
-      sharedNode &&
-      sharedNode.resourceType.toLowerCase() === 'table' &&
-      sharedNode.resourceId === tableId
-    ) {
-      this.logger.log(`[BaseShare] Shared node is the target table`);
-      return true;
-    }
-
-    // Check if tableId belongs to any of the allowed nodes
-    for (const allowedId of allowedNodeIds) {
-      const node = nodeMap.get(allowedId);
-      if (node && node.resourceType.toLowerCase() === 'table' && node.resourceId === tableId) {
-        this.logger.log(`[BaseShare] tableId found in allowed descendant nodes`);
-        return true;
-      }
-    }
-
-    this.logger.log(`[BaseShare] tableId not found in allowed nodes`);
-    return false;
   }
 
   async validBaseSharePermissions(shareId: string, resourceId: string, permissions: Action[]) {

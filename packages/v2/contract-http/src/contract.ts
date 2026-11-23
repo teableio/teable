@@ -1,50 +1,48 @@
-import { oc } from '@orpc/contract';
 import type { AnyContractRouter } from '@orpc/contract';
 import {
   applyViewManualSortInputSchema,
-  createBaseInputSchema,
-  duplicateBaseByIdInputSchema,
+  clearCommandInputSchema,
   createFieldInputSchema,
   createRecordInputSchema,
   createRecordsInputSchema,
-  submitRecordInputSchema,
   createTableInputSchema,
   createTablesInputSchema,
   createViewInputSchema,
-  deleteViewInputSchema,
-  disableViewShareInputSchema,
   deleteByRangeCommandInputSchema,
   deleteFieldInputSchema,
   deleteRecordsInputSchema,
   deleteTableInputSchema,
+  deleteViewInputSchema,
+  disableViewShareInputSchema,
+  duplicateBaseByIdInputSchema,
   duplicateFieldInputSchema,
   duplicateRecordInputSchema,
   duplicateTableInputSchema,
   duplicateViewInputSchema,
   enableViewShareInputSchema,
+  getComputeActivityInputSchema,
   getRecordByIdInputSchema,
   getTableByIdInputSchema,
-  getViewInputSchema,
   getViewFilterLinkRecordsInputSchema,
+  getViewInputSchema,
   getViewPluginInstallInputSchema,
   getViewSnapshotsInputSchema,
-  getComputeActivityInputSchema,
   importCsvInputSchema,
   importRecordsInputSchema,
-  listBasesInputSchema,
   listTableRecordsInputSchema,
   listTablesInputSchema,
   listViewsInputSchema,
   pasteCommandInputSchema,
-  clearCommandInputSchema,
-  renameTableInputSchema,
-  updateTablePropertiesInputSchema,
-  renameViewInputSchema,
   refreshViewShareIdInputSchema,
+  renameTableInputSchema,
+  renameViewInputSchema,
+  reorderRecordsInputSchema,
   restoreTableInputSchema,
+  submitRecordInputSchema,
   updateFieldInputSchema,
   updateRecordInputSchema,
   updateRecordsInputSchema,
+  updateTablePropertiesInputSchema,
   updateViewColumnMetaInputSchema,
   updateViewDescriptionInputSchema,
   updateViewFilterInputSchema,
@@ -55,12 +53,12 @@ import {
   updateViewPluginStorageInputSchema,
   updateViewShareMetaInputSchema,
   updateViewSortInputSchema,
-  reorderRecordsInputSchema,
+  viewSnapshotSchema,
 } from '@teable/v2-core';
-
-import { createBaseOkResponseSchema } from './base/createBase';
+import { z } from 'zod';
+import { createBaseInputSchema, createBaseOkResponseSchema } from './base/createBase';
+import { baseListItemDtoSchema } from './base/dto';
 import { duplicateBaseOkResponseSchema } from './base/duplicateBase';
-import { listBasesOkResponseSchema } from './base/listBases';
 import {
   COMPLEXITY_ASSESS_MATRIX_PATH,
   COMPLEXITY_ASSESS_PATH,
@@ -77,6 +75,9 @@ import {
   operationPreviewInputSchema,
   operationPreviewOkResponseSchema,
 } from './operationPreview';
+import { v2ShareContract } from './share';
+import { oc } from './shared/orpc';
+import { booleanQuerySchema, jsonQuerySchema } from './shared/query';
 import { clearOkResponseSchema } from './table/clear';
 import { createFieldOkResponseSchema } from './table/createField';
 import { createRecordOkResponseSchema } from './table/createRecord';
@@ -95,18 +96,20 @@ import {
   explainCreateFieldInputSchema,
   explainCreateRecordInputSchema,
   explainDeleteFieldInputSchema,
-  explainDeleteTableInputSchema,
   explainDeleteRecordsInputSchema,
+  explainDeleteTableInputSchema,
   explainOkResponseSchema,
   explainUpdateFieldInputSchema,
   explainUpdateRecordInputSchema,
 } from './table/explainCommand';
 import { getComputeActivityOkResponseSchema } from './table/getComputeActivity';
 import { getRecordByIdOkResponseSchema } from './table/getRecordById';
+import { getSchemaInputSchema } from './table/getSchema';
 import { getTableByIdOkResponseSchema } from './table/getTableById';
 import { getViewOkResponseSchema } from './table/getView';
 import { importCsvOkResponseSchema } from './table/importCsv';
 import { importRecordsOkResponseSchema } from './table/importRecords';
+import { listFieldsOkResponseSchema, listFieldsRequestSchema } from './table/listFields';
 import { listTableRecordsOkResponseSchema } from './table/listTableRecords';
 import { listTablesOkResponseSchema } from './table/listTables';
 import { listViewsOkResponseSchema } from './table/listViews';
@@ -119,8 +122,10 @@ import { updateFieldOkResponseSchema } from './table/updateField';
 import { updateRecordOkResponseSchema } from './table/updateRecord';
 import { updateRecordsOkResponseSchema } from './table/updateRecords';
 import { updateTablePropertiesOkResponseSchema } from './table/updateTableProperties';
+import { upsertRecordsInputSchema, upsertRecordsOkResponseSchema } from './table/upsertRecords';
 import {
   applyViewManualSortOkResponseSchema,
+  applyViewSnapshotOkResponseSchema,
   getViewFilterLinkRecordsOkResponseSchema,
   getViewPluginInstallOkResponseSchema,
   getViewSnapshotsOkResponseSchema,
@@ -132,6 +137,7 @@ import {
   viewShareMutationOkResponseSchema,
   viewShareStateOkResponseSchema,
 } from './table/viewOperations';
+import { v2WorkflowContract } from './workflow';
 
 const BASES_CREATE_PATH = '/bases/create';
 const BASES_DUPLICATE_PATH = '/bases/duplicate';
@@ -217,7 +223,7 @@ const basesContract = {
       summary: 'Duplicate base',
       tags: ['bases'],
     })
-    .input(duplicateBaseByIdInputSchema)
+    .input(duplicateBaseByIdInputSchema.omit({ targetBaseId: true }))
     .output(duplicateBaseOkResponseSchema),
   list: oc
     .route({
@@ -227,8 +233,21 @@ const basesContract = {
       summary: 'List bases',
       tags: ['bases'],
     })
-    .input(listBasesInputSchema)
-    .output(listBasesOkResponseSchema),
+    .input(
+      z.object({
+        spaceId: z.string().optional(),
+        search: z.string().optional(),
+        orderBy: z.enum(['space', 'personal']).optional(),
+        offset: jsonQuerySchema(z.number().int().min(0).default(0)),
+        limit: jsonQuerySchema(z.number().int().min(1).max(200).default(20)),
+      })
+    )
+    .output(
+      z.object({
+        ok: z.literal(true),
+        data: z.object({ bases: baseListItemDtoSchema.array(), hasMore: z.boolean() }),
+      })
+    ),
 } as const satisfies AnyContractRouter;
 
 const tablesCreateContract = oc
@@ -318,6 +337,17 @@ const tablesUpdateRecordsContract = oc
   })
   .input(updateRecordsInputSchema)
   .output(updateRecordsOkResponseSchema);
+
+const tablesUpsertRecordsContract = oc
+  .route({
+    method: 'POST',
+    path: '/tables/upsertRecords',
+    successStatus: 200,
+    summary: 'Upsert records by key',
+    tags: ['tables'],
+  })
+  .input(upsertRecordsInputSchema)
+  .output(upsertRecordsOkResponseSchema);
 
 const tablesCreateRecordContract = oc
   .route({
@@ -429,6 +459,28 @@ const tablesGetByIdContract = oc
   .input(getTableByIdInputSchema)
   .output(getTableByIdOkResponseSchema);
 
+const tablesGetSchemaContract = oc
+  .route({
+    method: 'GET',
+    path: '/tables/getSchema',
+    successStatus: 200,
+    summary: 'Get table schema by table id',
+    tags: ['tables'],
+  })
+  .input(getSchemaInputSchema)
+  .output(getTableByIdOkResponseSchema);
+
+const tablesListFieldsContract = oc
+  .route({
+    method: 'GET',
+    path: '/tables/listFields',
+    successStatus: 200,
+    summary: 'List readable field metadata',
+    tags: ['tables'],
+  })
+  .input(listFieldsRequestSchema)
+  .output(listFieldsOkResponseSchema);
+
 const tablesGetComputeActivityContract = oc
   .route({
     method: 'GET',
@@ -448,7 +500,12 @@ const tablesGetRecordContract = oc
     summary: 'Get record by id',
     tags: ['tables'],
   })
-  .input(getRecordByIdInputSchema)
+  .input(
+    getRecordByIdInputSchema.extend({
+      projection: jsonQuerySchema(z.array(z.string().min(1))).optional(),
+      includeOrders: booleanQuerySchema.optional(),
+    })
+  )
   .output(getRecordByIdOkResponseSchema);
 
 const tablesGetViewContract = oc
@@ -822,8 +879,27 @@ const tablesGetViewSnapshotsContract = oc
     summary: 'Get view snapshots',
     tags: ['tables'],
   })
-  .input(getViewSnapshotsInputSchema)
+  .input(
+    getViewSnapshotsInputSchema.extend({
+      viewIds: jsonQuerySchema(z.array(z.string())),
+    })
+  )
   .output(getViewSnapshotsOkResponseSchema);
+
+const tablesApplyViewSnapshotContract = oc
+  .route({
+    method: 'POST',
+    path: '/tables/applyViewSnapshot',
+    successStatus: 200,
+    summary: 'Apply a view snapshot',
+    tags: ['tables'],
+  })
+  .input(
+    z
+      .object({ tableId: z.string(), snapshot: viewSnapshotSchema.omit({ auditMetadata: true }) })
+      .strict()
+  )
+  .output(applyViewSnapshotOkResponseSchema);
 
 const tablesListViewDocIdsContract = oc
   .route({
@@ -911,6 +987,7 @@ type TablesContract = {
   readonly updateField: typeof tablesUpdateFieldContract;
   readonly explainUpdateField: typeof tablesExplainUpdateFieldContract;
   readonly updateRecords: typeof tablesUpdateRecordsContract;
+  readonly upsertRecords: typeof tablesUpsertRecordsContract;
   readonly createRecord: typeof tablesCreateRecordContract;
   readonly submitRecord: typeof tablesSubmitRecordContract;
   readonly createRecords: typeof tablesCreateRecordsContract;
@@ -921,6 +998,8 @@ type TablesContract = {
   readonly delete: typeof tablesDeleteContract;
   readonly restore: typeof tablesRestoreContract;
   readonly getById: typeof tablesGetByIdContract;
+  readonly getSchema: typeof tablesGetSchemaContract;
+  readonly listFields: typeof tablesListFieldsContract;
   readonly getComputeActivity: typeof tablesGetComputeActivityContract;
   readonly getRecord: typeof tablesGetRecordContract;
   readonly getView: typeof tablesGetViewContract;
@@ -957,6 +1036,7 @@ type TablesContract = {
   readonly disableViewShare: typeof tablesDisableViewShareContract;
   readonly getViewFilterLinkRecords: typeof tablesGetViewFilterLinkRecordsContract;
   readonly getViewSnapshots: typeof tablesGetViewSnapshotsContract;
+  readonly applyViewSnapshot: typeof tablesApplyViewSnapshotContract;
   readonly listViewDocIds: typeof tablesListViewDocIdsContract;
   readonly installViewPlugin: typeof tablesInstallViewPluginContract;
   readonly getViewPluginInstall: typeof tablesGetViewPluginInstallContract;
@@ -975,6 +1055,7 @@ const tablesContract: TablesContract = {
   updateField: tablesUpdateFieldContract,
   explainUpdateField: tablesExplainUpdateFieldContract,
   updateRecords: tablesUpdateRecordsContract,
+  upsertRecords: tablesUpsertRecordsContract,
   createRecord: tablesCreateRecordContract,
   submitRecord: tablesSubmitRecordContract,
   createRecords: tablesCreateRecordsContract,
@@ -985,6 +1066,8 @@ const tablesContract: TablesContract = {
   delete: tablesDeleteContract,
   restore: tablesRestoreContract,
   getById: tablesGetByIdContract,
+  getSchema: tablesGetSchemaContract,
+  listFields: tablesListFieldsContract,
   getComputeActivity: tablesGetComputeActivityContract,
   getRecord: tablesGetRecordContract,
   getView: tablesGetViewContract,
@@ -1021,6 +1104,7 @@ const tablesContract: TablesContract = {
   disableViewShare: tablesDisableViewShareContract,
   getViewFilterLinkRecords: tablesGetViewFilterLinkRecordsContract,
   getViewSnapshots: tablesGetViewSnapshotsContract,
+  applyViewSnapshot: tablesApplyViewSnapshotContract,
   listViewDocIds: tablesListViewDocIdsContract,
   installViewPlugin: tablesInstallViewPluginContract,
   getViewPluginInstall: tablesGetViewPluginInstallContract,
@@ -1076,19 +1160,24 @@ const operationPreviewContract = {
     .output(operationPreviewCapabilitiesOkResponseSchema),
 } as const satisfies AnyContractRouter;
 
-export type V2Contract = {
+export type V2MemberContract = {
   readonly bases: typeof basesContract;
   readonly tables: typeof tablesContract;
   readonly operations: typeof operationPreviewContract;
   readonly complexity: typeof complexityContract;
+  readonly workflows: typeof v2WorkflowContract;
 };
 
-export const v2Contract: V2Contract = {
+export const v2MemberContract: V2MemberContract = {
   bases: basesContract,
   tables: tablesContract,
   operations: operationPreviewContract,
   complexity: complexityContract,
+  workflows: v2WorkflowContract,
 };
+
+export type V2Contract = V2MemberContract & { readonly share: typeof v2ShareContract };
+export const v2Contract: V2Contract = { ...v2MemberContract, share: v2ShareContract };
 
 export const v2ContractErrors = {
   400: createTableErrorResponseSchema,

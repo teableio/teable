@@ -1,15 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
-import { CacheService } from '../../../cache/cache.service';
+import type { CacheService } from '../../../cache/cache.service';
 import type { IAuthConfig } from '../../../configs/auth.config';
-import { AuthConfig } from '../../../configs/auth.config';
-import { GlobalModule } from '../../../global/global.module';
 import type { ISessionData } from '../../../types/session';
 import { SessionStoreService } from './session-store.service';
-import { SessionModule } from './session.module';
 
 describe('SessionStoreService', () => {
   let sessionStoreService: SessionStoreService;
@@ -21,19 +16,9 @@ describe('SessionStoreService', () => {
   const sessionData = { passport: { user: { id: 'user-id' } } } as ISessionData;
   const callbackMock = vitest.fn();
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      imports: [GlobalModule, SessionModule],
-    })
-      .overrideProvider(SessionStoreService)
-      .useValue(sessionStoreService)
-      .overrideProvider(CacheService)
-      .useValue(cacheService)
-      .overrideProvider(AuthConfig)
-      .useValue(authConfig)
-      .compile();
-
-    sessionStoreService = module.get<SessionStoreService>(SessionStoreService);
+  beforeEach(() => {
+    authConfig.session.expiresIn = '1d';
+    sessionStoreService = new SessionStoreService(cacheService, authConfig);
   });
 
   afterEach(() => {
@@ -48,6 +33,14 @@ describe('SessionStoreService', () => {
   });
 
   describe('setCache', () => {
+    beforeEach(() => {
+      vitest.useFakeTimers({ now: new Date('2026-01-01T00:00:00Z'), toFake: ['Date'] });
+    });
+
+    afterEach(() => {
+      vitest.useRealTimers();
+    });
+
     it('should set cache correctly', async () => {
       cacheService.get.mockResolvedValue({ 'session-id': 1234567890 });
 

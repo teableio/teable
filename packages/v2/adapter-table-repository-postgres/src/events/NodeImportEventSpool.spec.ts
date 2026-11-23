@@ -5,6 +5,7 @@ import { PostgresUnitOfWork } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
   BaseId,
+  BackgroundTaskTracker,
   DomainWriteTransaction,
   FieldId,
   FieldOptionsAdded,
@@ -130,6 +131,7 @@ const createTransaction = (
     },
     { dispatch: sameTx },
     new NoopLogger(),
+    new BackgroundTaskTracker(),
     undefined,
     undefined,
     spool

@@ -14,7 +14,6 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
-import { createUndoRedoCommand, type UndoEntryGroupInput } from '../ports/UndoRedoStore';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
@@ -47,6 +46,7 @@ import type {
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ISpan, ITracer, SpanAttributes } from '../ports/Tracer';
+import { createUndoRedoCommand, type UndoEntryGroupInput } from '../ports/UndoRedoStore';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteByRangeStreamCommand } from './DeleteByRangeStreamCommand';
 import { DeleteByRangeStreamHandler } from './DeleteByRangeStreamHandler';
@@ -511,12 +511,10 @@ describe('DeleteByRangeStreamHandler', () => {
     expect(
       new Set(recordRepository.deleteContexts.map((context) => context.transaction)).size
     ).toBe(2);
-    expect(queryRepository.findCalls.some((call) => call.spec instanceof RecordByIdsSpec)).toBe(
-      false
-    );
     const chunkLoadCalls = queryRepository.findCalls.filter(
-      (call) => call.options?.pagination && call.options.includeTotal === false
+      (call) => call.spec instanceof RecordByIdsSpec
     );
+    expect(chunkLoadCalls).toHaveLength(2);
     expect(
       chunkLoadCalls.map((call) =>
         call.options?.projectionFieldIds?.map((fieldId) => fieldId.toString())
@@ -699,10 +697,10 @@ describe('DeleteByRangeStreamHandler', () => {
   });
 
   it.each([
-    { totalCount: 10_000, expectedChunkCount: 2 },
-    { totalCount: 30_000, expectedChunkCount: 6 },
+    { totalCount: 1_000, expectedChunkCount: 5 },
+    { totalCount: 2_000, expectedChunkCount: 10 },
   ])(
-    'deletes $totalCount records in $expectedChunkCount default 5k chunk lifecycles',
+    'deletes $totalCount records in $expectedChunkCount default 200 chunk lifecycles',
     async ({ totalCount, expectedChunkCount }) => {
       const { table, tableId, viewId } = buildTable();
       const tableRepository = new FakeTableRepository();
@@ -745,7 +743,7 @@ describe('DeleteByRangeStreamHandler', () => {
       });
       expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(expectedChunkCount);
       expect(recordRepository.deleteRecordIdsByBatch.map((recordIds) => recordIds.length)).toEqual(
-        Array.from({ length: expectedChunkCount }, () => 5_000)
+        Array.from({ length: expectedChunkCount }, () => 200)
       );
       expect(recordRepository.deleteContexts).toHaveLength(expectedChunkCount);
       expect(
@@ -754,12 +752,12 @@ describe('DeleteByRangeStreamHandler', () => {
       expect(eventBus.publishManyCalls).toHaveLength(expectedChunkCount);
       expect(undoRedoService.recordEntryCalls).toHaveLength(expectedChunkCount);
       expect(undoRedoService.deletedRecordCounts).toEqual(
-        Array.from({ length: expectedChunkCount }, () => 5_000)
+        Array.from({ length: expectedChunkCount }, () => 200)
       );
       expect(calls.prepare).toHaveLength(expectedChunkCount + 1);
       expect(calls.prepare.map((call) => call.payload.recordCount)).toEqual([
         totalCount,
-        ...Array.from({ length: expectedChunkCount }, () => 5_000),
+        ...Array.from({ length: expectedChunkCount }, () => 200),
       ]);
       expect(calls.guard).toHaveLength(expectedChunkCount + 1);
       expect(calls.beforePersist).toHaveLength(expectedChunkCount);
@@ -775,12 +773,12 @@ describe('DeleteByRangeStreamHandler', () => {
     }
   );
 
-  it('keeps medium delete streams in a single default chunk', async () => {
+  it('keeps small delete streams (<= 200 rows) in a single default chunk', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
     const queryRepository = new FakeTableRecordQueryRepository();
-    queryRepository.records = Array.from({ length: 1_000 }, (_, index) =>
+    queryRepository.records = Array.from({ length: 200 }, (_, index) =>
       buildRecordReadModel(index)
     );
     queryRepository.total = queryRepository.records.length;
@@ -798,7 +796,7 @@ describe('DeleteByRangeStreamHandler', () => {
     const command = DeleteByRangeStreamCommand.create({
       tableId: tableId.toString(),
       viewId,
-      ranges: [[0, 999]],
+      ranges: [[0, 199]],
       type: 'rows',
     })._unsafeUnwrap();
 
@@ -810,11 +808,11 @@ describe('DeleteByRangeStreamHandler', () => {
 
     expect(events.at(-1)).toMatchObject({
       id: 'done',
-      totalCount: 1_000,
-      deletedCount: 1_000,
+      totalCount: 200,
+      deletedCount: 200,
     });
     expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(1);
-    expect(recordRepository.deleteRecordIdsByBatch[0]).toHaveLength(1_000);
+    expect(recordRepository.deleteRecordIdsByBatch[0]).toHaveLength(200);
     const chunkReadCall = queryRepository.findCalls.at(-1);
     expect(chunkReadCall?.options?.projectionFieldIds).toEqual([]);
     expect(chunkReadCall?.options?.includeTotal).toBe(false);
@@ -831,9 +829,10 @@ describe('DeleteByRangeStreamHandler', () => {
       buildRecordReadModel(0),
       buildRecordReadModel(1),
       buildRecordReadModel(2),
+      buildRecordReadModel(3),
     ];
     queryRepository.total = queryRepository.records.length;
-    const [firstRecord, excludedRecord, lastRecord] = queryRepository.records;
+    const [firstRecord, excludedRecord, middleRecord, lastRecord] = queryRepository.records;
     const recordRepository = new FakeTableRecordRepository(queryRepository);
 
     const { handler } = createHandler({
@@ -859,13 +858,16 @@ describe('DeleteByRangeStreamHandler', () => {
 
     expect(events.at(-1)).toMatchObject({
       id: 'done',
-      totalCount: 2,
-      deletedCount: 2,
+      totalCount: 3,
+      deletedCount: 3,
       data: {
-        deletedRecordIds: [firstRecord!.id, lastRecord!.id],
+        deletedRecordIds: [firstRecord!.id, middleRecord!.id, lastRecord!.id],
       },
     });
-    expect(recordRepository.deleteRecordIdsByBatch).toEqual([[firstRecord!.id], [lastRecord!.id]]);
+    expect(recordRepository.deleteRecordIdsByBatch).toEqual([
+      [firstRecord!.id, middleRecord!.id],
+      [lastRecord!.id],
+    ]);
     expect(queryRepository.records.map((record) => record.id)).toEqual([excludedRecord!.id]);
   });
 
@@ -1066,5 +1068,265 @@ describe('DeleteByRangeStreamHandler', () => {
     });
     expect(eventBus.publishManyCalls).toHaveLength(1);
     expect(undoRedoService.recordEntryCalls).toHaveLength(1);
+  });
+
+  it('pulls chunks lazily (backpressure), drains background tasks synchronously, and respects abortSignal', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = Array.from({ length: 4 }, (_, index) => buildRecordReadModel(index));
+    queryRepository.total = 4;
+
+    const drainedBatches: number[] = [];
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+    const origDeleteMany = recordRepository.deleteMany.bind(recordRepository);
+    recordRepository.deleteMany = async (ctx, t, spec) => {
+      const idx = recordRepository.deleteRecordIdsByBatch.length;
+      ctx.scheduleBackgroundTask?.(async () => {
+        drainedBatches.push(idx);
+      });
+      return origDeleteMany(ctx, t, spec);
+    };
+
+    const abortController = new AbortController();
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 3]],
+      type: 'rows',
+      batchSize: 1,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(
+      { ...createContext(), abortSignal: abortController.signal },
+      command
+    );
+    const iterator = result._unsafeUnwrap()[Symbol.asyncIterator]();
+
+    const ev0 = await iterator.next(); // preparing (0)
+    expect(ev0.value?.id).toBe('progress');
+    expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(0);
+
+    const ev1 = await iterator.next(); // preparing (4)
+    expect(ev1.value).toMatchObject({ id: 'progress', phase: 'preparing', totalCount: 4 });
+    expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(0);
+
+    const ev2 = await iterator.next(); // chunk 0 progress — chunk 1 must NOT have started!
+    expect(ev2.value).toMatchObject({ id: 'progress', phase: 'deleting', batchIndex: 0 });
+    expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(1);
+    expect(drainedBatches).toEqual([0]);
+
+    // Disconnect client before pulling chunk 1
+    abortController.abort();
+    const ev3 = await iterator.next();
+    expect(ev3.done).toBe(true);
+    expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(1);
+  });
+
+  it('caps done.data.deletedRecordIds at 5,000 while keeping deletedCount exact', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = Array.from({ length: 5_100 }, (_, index) =>
+      buildRecordReadModel(index)
+    );
+    queryRepository.total = 5_100;
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 5_099]],
+      type: 'rows',
+      batchSize: 1_000,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    const doneEvent = events.at(-1);
+    expect(doneEvent).toMatchObject({
+      id: 'done',
+      totalCount: 5_100,
+      deletedCount: 5_100,
+    });
+    if (doneEvent?.id === 'done') {
+      expect(doneEvent.data.deletedCount).toBe(5_100);
+      expect(doneEvent.data.deletedRecordIds).toHaveLength(5_000);
+    }
+  });
+
+  it('deletes zero rows when targetRecordIds is empty without selectAllRecords', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [buildRecordReadModel(0), buildRecordReadModel(1)];
+    queryRepository.total = 2;
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 0]],
+      type: 'rows',
+      targetRecordIds: [],
+      selectAllRecords: false,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 0,
+      deletedCount: 0,
+      data: { deletedCount: 0, deletedRecordIds: [] },
+    });
+    expect(recordRepository.deleteRecordIdsByBatch).toEqual([]);
+    expect(queryRepository.records).toHaveLength(2);
+  });
+
+  it('deletes all scoped rows when selectAllRecords is true and targetRecordIds is empty', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [buildRecordReadModel(0), buildRecordReadModel(1)];
+    queryRepository.total = 2;
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 0]],
+      type: 'rows',
+      targetRecordIds: [],
+      selectAllRecords: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 2,
+      deletedCount: 2,
+    });
+    expect(queryRepository.records).toHaveLength(0);
+  });
+
+  it('merges overlapping row ranges so dynamic range deletes never shift and remove unselected rows', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = Array.from({ length: 6 }, (_, index) => buildRecordReadModel(index));
+    queryRepository.total = 6;
+    const originalIds = queryRepository.records.map((record) => record.id);
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [
+        [0, 2],
+        [1, 3],
+      ],
+      type: 'rows',
+      batchSize: 2,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 4,
+      deletedCount: 4,
+      data: {
+        deletedCount: 4,
+        deletedRecordIds: originalIds.slice(0, 4),
+      },
+    });
+    expect(queryRepository.records.map((record) => record.id)).toEqual(originalIds.slice(4));
+  });
+
+  it('does not skip selectAllRecords deletion when excludedTargetRecordIds hold non-matching ids', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [buildRecordReadModel(0), buildRecordReadModel(1)];
+    queryRepository.total = 2;
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 0]],
+      type: 'rows',
+      targetRecordIds: [],
+      selectAllRecords: true,
+      excludedTargetRecordIds: [`rec${'z'.repeat(16)}`, `rec${'y'.repeat(16)}`],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 2,
+      deletedCount: 2,
+    });
+    expect(queryRepository.records).toHaveLength(0);
   });
 });

@@ -11,14 +11,20 @@ import type { Kysely } from 'kysely';
 
 export interface IHeadlessServerOptions {
   backend: IHeadlessRuntimeBackend;
+  /** Private key for continuing Data Query pagination across server restarts. */
+  dataQueryCursorSigningKey?: string;
   port?: number;
   hostname?: string;
   attachmentsDir?: string;
   actorHeader?: string;
   defaultActorId?: string;
   allowAnonymousActor?: boolean;
-  /** Host-owned authentication hook; the CLI does not authenticate requests itself. */
+  /** Host-owned actor mapping. */
   resolveActorId?: IHeadlessHttpOptions['resolveActorId'];
+  /** Host-owned authentication hook. Rejections never fall back to actor headers. */
+  resolveIdentity?: IHeadlessHttpOptions['resolveIdentity'];
+  /** Opt in to VCS write endpoints (`POST /vcs/enable`, `POST /vcs/push`). Defaults to false. */
+  allowVcsWrite?: boolean;
 }
 
 export interface IHeadlessServer {
@@ -55,6 +61,7 @@ export const startHeadlessServer = async (
 ): Promise<IHeadlessServer> => {
   const runtime = await createHeadlessRuntime({
     backend: options.backend,
+    dataQueryCursorSigningKey: options.dataQueryCursorSigningKey,
     attachments: options.attachmentsDir
       ? ({ container }) =>
           new LocalAttachmentStore({
@@ -69,6 +76,8 @@ export const startHeadlessServer = async (
     defaultActorId: options.defaultActorId,
     allowAnonymousActor: options.allowAnonymousActor,
     resolveActorId: options.resolveActorId,
+    resolveIdentity: options.resolveIdentity,
+    allowVcsWrite: options.allowVcsWrite,
   });
   const server = serve({
     fetch: app.fetch,

@@ -332,6 +332,12 @@ describe('Computed cascade overlap (T6637 investigation — negative evidence, b
     });
 
     await testContainer.processOutbox();
+    const workerHistory = await sql<{ seed_record_count: number }>`
+      select seed_record_count from computed_update_run_history
+      where base_id = ${baseId.toString()} and outcome = 'succeeded'
+    `.execute(testContainer.db);
+    expect(workerHistory.rows.length).toBeGreaterThan(0);
+    expect(workerHistory.rows.some((row) => Number(row.seed_record_count) > 0)).toBe(true);
     await dumpOutbox(testContainer, 'after-create');
 
     let row = await readOrderRow(testContainer, schema.orderTable, orderId.toString(), schema);

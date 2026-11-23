@@ -553,4 +553,101 @@ describe('v2 http deleteRecords (e2e)', () => {
     const after = await ctx.listRecords(table.id, { limit: 1000 });
     expect(after.some((row) => row.id === record.id)).toBe(false);
   });
+
+  it('[Y5650] rejects >20,000 explicit recordIds and restores multi-batch wide self-referential conditional deletes on undo', async () => {
+    const oversizeIds = Array.from(
+      { length: 20_001 },
+      (_, index) => `rec${String(index).padStart(16, '0')}`
+    );
+    const oversizeRes = await fetch(`${ctx.baseUrl}/tables/deleteRecords`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tableId, recordIds: oversizeIds }),
+    });
+    expect(oversizeRes.status).toBe(400);
+    const oversizeBody = (await oversizeRes.json()) as {
+      ok: boolean;
+      error?: { code?: string };
+    };
+    expect(oversizeBody.ok).toBe(false);
+    expect(oversizeBody.error?.code).toBe('validation.limit.records_per_mutation_max');
+
+    const bulkTable = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: `Y5650 Wide SelfLink Delete ${Date.now()}`,
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        { type: 'longText', name: 'Notes' },
+        { type: 'singleLineText', name: 'Tag' },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    try {
+      const titleId = bulkTable.fields.find((field) => field.isPrimary)!.id;
+      const notesId = bulkTable.fields.find((field) => field.name === 'Notes')!.id;
+      const tagId = bulkTable.fields.find((field) => field.name === 'Tag')!.id;
+
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: bulkTable.id,
+        field: {
+          type: 'link',
+          name: 'Parent',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: bulkTable.id,
+            lookupFieldId: titleId,
+            isOneWay: false,
+          },
+        },
+      });
+      const withLink = await ctx.getTableById(bulkTable.id);
+      const parentId = withLink.fields.find((field) => field.name === 'Parent')!.id;
+
+      const totalRows = 250;
+      const widePayload = 'w'.repeat(4_000);
+      const created = await ctx.createRecords(
+        bulkTable.id,
+        Array.from({ length: totalRows }, (_, index) => ({
+          fields: {
+            [titleId]: `row-${index}`,
+            [notesId]: widePayload,
+            [tagId]: 'bulk',
+          },
+        }))
+      );
+      expect(created).toHaveLength(totalRows);
+
+      const parentRecord = created[0]!;
+      const childRecord = created[totalRows - 1]!;
+      await ctx.updateRecord(bulkTable.id, childRecord.id, {
+        [parentId]: { id: parentRecord.id },
+      });
+
+      const deleteRes = await fetch(`${ctx.baseUrl}/tables/deleteRecords`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tableId: bulkTable.id,
+          filter: { fieldId: tagId, operator: 'is', value: 'bulk' },
+        }),
+      });
+      expect(deleteRes.status).toBe(200);
+      expect(await deleteRes.json()).toMatchObject({
+        ok: true,
+        data: { deletedCount: totalRows },
+      });
+
+      expect(await ctx.listRecords(bulkTable.id, { limit: 10 })).toHaveLength(0);
+
+      await executeUndo(ctx, bulkTable.id);
+      const restored = await ctx.listRecords(bulkTable.id, { limit: 500 });
+      expect(restored).toHaveLength(totalRows);
+      const restoredChild = restored.find((row) => row.id === childRecord.id);
+      expect(linkRecordIds(restoredChild?.fields[parentId])).toEqual([parentRecord.id]);
+    } finally {
+      await ctx.deleteTable(bulkTable.id, { mode: 'permanent' });
+    }
+  }, 120_000);
 });

@@ -7,9 +7,13 @@ import {
   type IRecordWritePlugin,
 } from '@teable/v2-core';
 import { sql } from 'kysely';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  observeSchemaAcquisitions,
+  type ISchemaAcquisitionObserver,
+} from './shared/observeSchemaAcquisitions';
 
 /**
  * T7946: table schema writes and record writes coordinate through
@@ -22,8 +26,8 @@ import { getSharedTestContext, type SharedTestContext } from './shared/globalTes
  * - T8078: typecast alone does not change schema; existing options retain shared
  *   concurrency, while missing options require exclusive and fresh metadata.
  *
- * Every race below uses real HTTP requests and real PostgreSQL locks; the test
- * observes blocked waiters through `pg_locks` instead of sleeping.
+ * The races use real HTTP requests and observe pending acquisitions at the coordinator,
+ * including waits before a PostgreSQL connection is borrowed.
  */
 
 type UpdateRecordErrorBody = {
@@ -94,36 +98,6 @@ const columnExists = async (
       AND column_name = ${columnName}
   `.execute(ctx.testContainer.db);
   return result.rows.length > 0;
-};
-
-const countSchemaCoordinationWaiters = async (ctx: SharedTestContext): Promise<number> => {
-  const result = await sql<{ count: string }>`
-    SELECT count(*)::text AS count
-    FROM pg_locks locks
-    JOIN pg_stat_activity activity ON activity.pid = locks.pid
-    WHERE locks.locktype = 'advisory'
-      AND NOT locks.granted
-      AND activity.application_name = 'teable-v2-schema-coordination'
-  `.execute(ctx.testContainer.db);
-  return Number(result.rows[0]?.count ?? 0);
-};
-
-const waitForSchemaWaiter = async (ctx: SharedTestContext): Promise<void> => {
-  await vi.waitFor(
-    async () => {
-      expect(await countSchemaCoordinationWaiters(ctx)).toBeGreaterThan(0);
-    },
-    { timeout: 10_000, interval: 25 }
-  );
-};
-
-const waitForNoSchemaWaiter = async (ctx: SharedTestContext): Promise<void> => {
-  await vi.waitFor(
-    async () => {
-      expect(await countSchemaCoordinationWaiters(ctx)).toBe(0);
-    },
-    { timeout: 10_000, interval: 25 }
-  );
 };
 
 const createRaceFixture = async (ctx: SharedTestContext, suffix: string): Promise<RaceFixture> => {
@@ -322,10 +296,23 @@ const expectRecordRolledBack = async (ctx: SharedTestContext, fixture: RaceFixtu
 
 describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres)', () => {
   let ctx: SharedTestContext;
+  let acquisitions: ISchemaAcquisitionObserver;
 
   beforeAll(async () => {
     ctx = await getSharedTestContext({ dbMode: 'postgres' });
   }, 60_000);
+
+  beforeEach(() => {
+    acquisitions = observeSchemaAcquisitions(ctx.testContainer.container);
+  });
+
+  afterEach(() => acquisitions?.restore());
+
+  const waitForSchemaWaiters = (tableId: string, count: number) =>
+    vi.waitFor(() => expect(acquisitions.count(tableId)).toBe(count), {
+      timeout: 10_000,
+      interval: 25,
+    });
 
   it.each([false, true])(
     'lets an in-flight update finish before deleting the field (typecast=%s)',
@@ -361,7 +348,7 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
         await entered.wait;
 
         deletePromise = submitDeleteField(ctx, fixture.tableId, fixture.statusFieldId);
-        await waitForSchemaWaiter(ctx);
+        await waitForSchemaWaiters(fixture.tableId, 1);
 
         release.open();
         const [updateResponse, deleteResponse] = await Promise.all([updatePromise, deletePromise]);
@@ -371,7 +358,7 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
         expect(updateBody.ok).toBe(true);
         expect(deleteResponse.status).toBe(200);
 
-        await waitForNoSchemaWaiter(ctx);
+        expect(acquisitions.count(fixture.tableId)).toBe(0);
         expect(await columnExists(ctx, fixture.tableId, fixture.statusDbFieldName)).toBe(false);
         const freshTable = await ctx.getTableById(fixture.tableId);
         expect(freshTable.fields.some((field) => field.id === fixture.statusFieldId)).toBe(false);
@@ -425,7 +412,7 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
           },
           typecast
         );
-        await waitForSchemaWaiter(ctx);
+        await waitForSchemaWaiters(fixture.tableId, 1);
 
         release.open();
         const deleteResponse = await deletePromise;
@@ -553,18 +540,11 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
           secondSettled = true;
         });
 
-        // Observe the real PostgreSQL waiter, not a wall-clock latency threshold.
-        // The second request must complete while the first still holds its lease.
-        await vi.waitFor(
-          async () => {
-            expect(secondSettled || (await countSchemaCoordinationWaiters(ctx)) > 0).toBe(true);
-          },
-          { timeout: 10_000, interval: 25 }
-        );
-        expect(
-          secondSettled,
-          'ordinary typecast update must not wait for an exclusive schema lease'
-        ).toBe(true);
+        // A shared typecast update must finish with the first shared lease still held.
+        await vi.waitFor(() => expect(secondSettled).toBe(true), {
+          timeout: 10_000,
+          interval: 25,
+        });
         expect((await secondPromise).status).toBe(200);
 
         release.open();
@@ -646,7 +626,7 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
           { [fixture.statusFieldId]: option },
           variant
         );
-        await waitForSchemaWaiter(ctx);
+        await waitForSchemaWaiters(fixture.tableId, 1);
         release.open();
         expect((await firstPromise).status).toBe(200);
         expect((await secondPromise).status).toBe(200);
@@ -671,7 +651,7 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
             fixture.statusFieldId
           ]
         ).toBe(option);
-        await waitForNoSchemaWaiter(ctx);
+        expect(acquisitions.count(fixture.tableId)).toBe(0);
       } finally {
         release.open();
         removePlugin();
@@ -724,12 +704,7 @@ describe('[T7946] v2 schema writes coordinate with record updates (e2e, postgres
         { [fixture.statusFieldId]: 'Gamma' },
         'single'
       );
-      await vi.waitFor(
-        async () => {
-          expect(await countSchemaCoordinationWaiters(ctx)).toBeGreaterThanOrEqual(2);
-        },
-        { timeout: 10_000, interval: 25 }
-      );
+      await waitForSchemaWaiters(fixture.tableId, 2);
 
       release.open();
       expect((await holderPromise).status).toBe(200);

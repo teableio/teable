@@ -1722,6 +1722,7 @@ describe('HybridWithOutboxStrategy', () => {
       expect(runOnce).toHaveBeenCalledWith({
         actorId,
         limit: 50,
+        maxPreparationPages: Number.POSITIVE_INFINITY,
         requestId: undefined,
         tracer: undefined,
         workerId: 'computed-inline',

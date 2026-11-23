@@ -665,6 +665,7 @@ export const buildDeferredStagePlan = (params: {
     // worker clears the run ledger with the stage (exclusions re-enter as seeds
     // SQL-side), so no per-stage durable state carries over here.
     seedAllCursors: undefined,
+    ledgerScopeId: undefined,
     partialStageBudget: undefined,
   };
 };

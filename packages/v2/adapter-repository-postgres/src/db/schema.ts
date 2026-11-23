@@ -1,4 +1,4 @@
-import { computedReliabilitySchemaSql } from '@teable/v2-postgres-schema';
+import { baseVcsSchemaStatements, computedReliabilitySchemaSql } from '@teable/v2-postgres-schema';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -740,6 +740,10 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   for (const statement of computedReliabilitySchemaSql.split(';').filter((part) => part.trim())) {
+    await sql.raw(statement).execute(db);
+  }
+
+  for (const statement of baseVcsSchemaStatements) {
     await sql.raw(statement).execute(db);
   }
 

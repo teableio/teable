@@ -3,7 +3,7 @@ import type { DataQueryManifest } from './DataQueryManifest';
 import type { DataQueryFieldUsage } from './types';
 
 /** Bump when declared dependency traversal changes so persisted indexes are rebuilt. */
-export const DATA_QUERY_DEPENDENCY_ANALYZER_VERSION = 12;
+export const DATA_QUERY_DEPENDENCY_ANALYZER_VERSION = 13;
 
 const compareText = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;
@@ -21,8 +21,9 @@ export type DataQueryManifestQueryRelationDependency = {
 
 export type DataQueryManifestQueryDependency = {
   readonly queryId: string;
-  readonly mode: 'structured' | 'auto' | 'sql-query';
+  readonly mode: 'structured' | 'auto' | 'sql-query' | 'library';
   readonly result: 'many' | 'one';
+  readonly library?: { readonly id: string; readonly revision: number };
   /**
    * `null` for `mode: sql-query`, whose table is only named inside SQL text this
    * index deliberately does not parse.
@@ -112,6 +113,7 @@ const queryDependency = (
     queryId,
     mode,
     result,
+    ...(query.library ? { library: query.library } : {}),
     tableId: definition?.tableId ?? null,
     fields,
     ...(relations?.length ? { relations } : {}),

@@ -18,6 +18,7 @@ export * from './getComputeActivity';
 export * from './importCsv';
 export * from './importRecords';
 export * from './listTableRecords';
+export * from './listFields';
 export * from './listTables';
 export * from './listViews';
 export * from './viewOperations';

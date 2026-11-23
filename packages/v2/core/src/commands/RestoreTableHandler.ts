@@ -9,6 +9,9 @@ import {
 } from '../application/services/dispatchSameTxEvents';
 import { NoopSameTxProjectionDispatcher } from '../application/services/SameTxProjectionDispatcher';
 import { TableQueryService } from '../application/services/TableQueryService';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
@@ -48,6 +51,11 @@ export class RestoreTableHandler implements ICommandHandler<
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    ),
     @inject(v2CoreTokens.sameTxProjectionDispatcher)
     private readonly sameTxProjectionDispatcher: SameTxProjectionDispatcherPort.ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
   ) {}
@@ -68,6 +76,13 @@ export class RestoreTableHandler implements ICommandHandler<
         command.baseId,
         command.tableId
       );
+      const admission = yield* await handler.tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.restore,
+        executionContext: context,
+        payload: { baseId: table.baseId(), table },
+        isTransactionBound: false,
+      });
+      yield* await admission.guard();
 
       const events = yield* await handler.unitOfWork.withTransaction(
         context,

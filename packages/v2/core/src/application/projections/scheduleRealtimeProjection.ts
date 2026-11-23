@@ -16,6 +16,7 @@ export type RealtimeProjectionScheduler = (task: () => Promise<void>) => void;
 export type RealtimeProjectionScope = {
   tableSnapshotCache: RealtimeTableSnapshotCache;
   viewColumnMetaRealtimePendingKeys: Set<string>;
+  viewColumnMetaRealtimeTails: Map<string, Promise<void>>;
   viewQueryDefaultsRealtimePending: Map<
     string,
     { previousByProperty: Map<'filter' | 'group' | 'sort', unknown> }
@@ -52,6 +53,7 @@ let realtimeProjectionScheduler: RealtimeProjectionScheduler = defaultRealtimePr
 const createRealtimeProjectionScope = (): RealtimeProjectionScope => ({
   tableSnapshotCache: createRealtimeTableSnapshotCache(),
   viewColumnMetaRealtimePendingKeys: new Set<string>(),
+  viewColumnMetaRealtimeTails: new Map(),
   viewQueryDefaultsRealtimePending: new Map(),
 });
 

@@ -33,6 +33,10 @@ export interface IParentBridgeUIMethods {
 export interface IParentBridgeUtilsMethods {
   updateStorage: (storage?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   getAuthCode: () => Promise<string>;
+  /**
+   * The viewer's own short-lived token. Only a plugin served from the app's origin gets
+   * it; for any other origin the call rejects, and the plugin uses `getAuthCode` instead.
+   */
   getSelfTempToken: () => Promise<IGetTempTokenVo>;
   getSelectionRecords: (
     selection: ISelection,

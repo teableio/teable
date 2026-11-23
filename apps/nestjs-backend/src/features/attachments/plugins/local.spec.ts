@@ -22,6 +22,7 @@ vi.mock('fs');
 
 describe('LocalStorage', () => {
   let storage: LocalStorage;
+  let module: TestingModule;
   const imageType = 'image/png';
   const imageMeta = {
     // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -55,7 +56,7 @@ describe('LocalStorage', () => {
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [StorageModule, GlobalModule],
       providers: [
         LocalStorage,
@@ -75,6 +76,10 @@ describe('LocalStorage', () => {
     }).compile();
 
     storage = module.get<LocalStorage>(LocalStorage);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   describe('presigned', () => {

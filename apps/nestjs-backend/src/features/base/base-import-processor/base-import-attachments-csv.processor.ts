@@ -11,6 +11,7 @@ import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { BatchProcessor } from '../BatchProcessor.class';
+import { resolveImportAttachmentPaths } from '../utils';
 
 interface IBaseImportAttachmentsCsvJob {
   path: string;
@@ -132,6 +133,14 @@ export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
         continue;
       }
 
+      // The archive's own path columns are not trusted; the row names the object
+      // the importer uploaded for this token.
+      const paths = resolveImportAttachmentPaths(result);
+      if (!paths) {
+        this.logger.warn(`[base import attachment] skip row with invalid token: ${result.id}`);
+        continue;
+      }
+
       await this.prismaService.attachments.create({
         data: {
           id: result.id,
@@ -139,10 +148,10 @@ export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
           hash: result.hash,
           size: Number(result.size),
           mimetype: result.mimetype,
-          path: result.path,
+          path: paths.path,
           width: result.width ? Number(result.width) : null,
           height: result.height ? Number(result.height) : null,
-          thumbnailPath: result.thumbnailPath,
+          thumbnailPath: paths.thumbnailPath,
           createdBy: userId,
         },
       });

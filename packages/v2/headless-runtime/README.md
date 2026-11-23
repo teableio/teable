@@ -18,6 +18,20 @@ const background = await runtime.flushBackground();
 await runtime.close();
 ```
 
+## Structured queries
+
+Use `runtime.dataQuery.validate(context, request)` to check an inline Data
+Query request against local table metadata, then use
+`runtime.dataQuery.execute(context, request)` to get rows. Both methods take
+an `IExecutionContext` with the host's actor. Pass `{ definition }` to
+validate and `{ definition, parameters?, queryId? }` to execute. Both methods
+return the shared Data Query domain results.
+
+On PGlite, both methods share the queue used by record writes and reads.
+`close()` waits for in-flight requests. Set `dataQueryCursorSigningKey` to
+the same private key on each runtime that must resume an existing cursor.
+By default, each runtime signs cursors with its own key.
+
 ## Backends
 
 - `pglite`: local directory, `memory://`, or browser IndexedDB (`idb://`).

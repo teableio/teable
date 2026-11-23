@@ -27,6 +27,9 @@
       "@overridable/WorkFlowPanel": ["./src/features/app/automation/workflow-panel/WorkFlowPanel"],
       "@overridable/TableArchiveDialog": ["./src/features/app/blocks/archive/TableArchiveDialog"],
       "@overridable/TableImport": ["./src/features/app/blocks/import-table/TableImport"],
+      "@overridable/AppDeleteConfirmDialog": [
+        "./src/features/app/components/app-delete-confirm-dialog/AppDeleteConfirmDialog"
+      ],
       "@overridable/FieldDeleteImpact": [
         "./src/features/app/components/field-setting/field-delete-confirm-dialog/FieldDeleteImpact"
       ],

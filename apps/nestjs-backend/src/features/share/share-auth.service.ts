@@ -12,6 +12,7 @@ import { AuditScope } from '../audit/audit-scope';
 import { TeableJwtService } from '../auth/jwt/teable-jwt.service';
 import { PermissionService } from '../auth/permission.service';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../field/model/factory';
+import { defaultShareMetaMap } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
 import { SharedViewAccessV2Service } from './shared-view-access-v2.service';
 
@@ -360,6 +361,12 @@ export class ShareAuthService {
     }
 
     const view = shareInfo.view;
+    // Where a share carries records by default (every view type but form and plugin),
+    // turning them off leaves a share with no record data at all. It then vouches for
+    // no link picker either, so the caller needs their own read access.
+    if (defaultShareMetaMap[view.type]?.includeRecords && !view.shareMeta?.includeRecords) {
+      return false;
+    }
     if (view.shareMeta?.password) {
       const token = cookie.parse(cookieHeader ?? '')[shareId];
       const valid = token
@@ -385,7 +392,7 @@ export class ShareAuthService {
     return true;
   }
 
-  private async findShareViewInfo(
+  async findShareViewInfo(
     shareId: string,
     useV2: boolean
   ): Promise<IShareViewInfo | undefined> {

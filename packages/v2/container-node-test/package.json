@@ -37,11 +37,13 @@
     "@teable/v2-adapter-logger-console": "workspace:*",
     "@teable/v2-table-templates": "workspace:*",
     "@teable/v2-adapter-table-repository-postgres": "workspace:*",
+    "@teable/v2-adapter-vcs-postgres": "workspace:*",
     "@teable/v2-adapter-repository-postgres": "workspace:*",
     "@teable/v2-command-explain": "workspace:*",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
+    "@teable/v2-vcs": "workspace:*",
     "@testcontainers/postgresql": "11.10.0",
     "kysely": "0.28.17"
   },

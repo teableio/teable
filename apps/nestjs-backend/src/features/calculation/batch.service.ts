@@ -7,7 +7,6 @@ import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
 import { customAlphabet } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
-import { ClsService } from 'nestjs-cls';
 import { bufferCount, concatMap, from, lastValueFrom } from 'rxjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -15,10 +14,9 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
-import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
+import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
 import { V1EngineService } from '../../tracing/decorators/v1-engine';
-import type { IClsStore } from '../../types/cls';
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
@@ -37,11 +35,11 @@ export interface IOpsData {
 }
 
 @Injectable()
-@V1EngineService(['updateRecords', 'batchUpdateDB', 'saveRawOps'])
+@V1EngineService(['updateRecords', 'batchUpdateDB'])
 export class BatchService {
   private readonly logger = new Logger(BatchService.name);
   constructor(
-    private readonly cls: ClsService<IClsStore>,
+    private readonly rawOpStagingService: RawOpStagingService,
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
@@ -143,7 +141,7 @@ export class BatchService {
       return { docId: recordId, version: versionGroup[recordId].__version, data: ops };
     });
 
-    this.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, opDataList);
+    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, opDataList);
   }
 
   @Timing()
@@ -472,69 +470,5 @@ export class BatchService {
     ];
 
     await this.batchUpdateDB(dbTableName, '__id', schemas, data, tableId);
-  }
-
-  @Timing()
-  saveRawOps(
-    collectionId: string,
-    opType: RawOpType,
-    docType: IdPrefix,
-    dataList: { docId: string; version: number; data?: unknown }[]
-  ) {
-    const collection = `${docType}_${collectionId}`;
-    const rawOpMap: IRawOpMap = { [collection]: {} };
-
-    const baseRaw = {
-      src: this.cls.getId() || 'unknown',
-      seq: 1,
-      m: {
-        ts: Date.now(),
-      },
-    };
-
-    this.logger.verbose(`saveOp: ${baseRaw.src}-${collection}`);
-
-    dataList.forEach(({ docId, version, data }) => {
-      let rawOp: IRawOp;
-      if (opType === RawOpType.Create) {
-        rawOp = {
-          ...baseRaw,
-          create: {
-            type: 'json0',
-            data,
-          },
-          v: version,
-        };
-      } else if (opType === RawOpType.Del) {
-        rawOp = {
-          ...baseRaw,
-          del: true,
-          v: version,
-        };
-      } else if (opType === RawOpType.Edit) {
-        rawOp = {
-          ...baseRaw,
-          op: data as IOtOperation[],
-          v: version,
-        };
-      } else {
-        throw new CustomHttpException(
-          `unknown raw op type ${opType}`,
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.custom.invalidOperation',
-            },
-          }
-        );
-      }
-      rawOpMap[collection][docId] = rawOp;
-      return { rawOp, docId };
-    });
-
-    const prevMap = this.cls.get('tx.rawOpMaps') || [];
-    prevMap.push(rawOpMap);
-    this.cls.set('tx.rawOpMaps', prevMap);
-    return rawOpMap;
   }
 }

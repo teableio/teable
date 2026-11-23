@@ -175,6 +175,8 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
 
   describe('validate accessToken permission', () => {
     let tableReadToken: string;
+    let fieldReadToken: string;
+    let diagnosticReadToken: string;
     let recordReadToken: string;
     let baseReadAllToken: string;
     let spaceReadToken: string;
@@ -187,6 +189,18 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
         scopes: ['table|read'],
       });
       tableReadToken = tableReadTokenData.token;
+      const { data: fieldReadTokenData } = await createAccessToken({
+        ...defaultCreateRo,
+        name: 'field metadata read token',
+        scopes: ['field|read'],
+      });
+      fieldReadToken = fieldReadTokenData.token;
+      const { data: diagnosticReadTokenData } = await createAccessToken({
+        ...defaultCreateRo,
+        name: 'compute diagnostic read token',
+        scopes: ['table|read', 'field|read', 'record|read'],
+      });
+      diagnosticReadToken = diagnosticReadTokenData.token;
       const { data: recordReadTokenData } = await createAccessToken({
         ...defaultCreateRo,
         name: 'record read token',
@@ -216,6 +230,34 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
         },
       });
       expect(res.status).toEqual(200);
+    });
+
+    it('native field metadata accepts field|read without table, view or record scopes', async () => {
+      const response = await axios.get('/v2/tables/listFields', {
+        params: { tableId: table.id },
+        headers: { Authorization: `Bearer ${fieldReadToken}` },
+      });
+      expect(response.status).toBe(200);
+      expect(response.data).toMatchObject({
+        ok: true,
+        data: {
+          fields: expect.arrayContaining(
+            table.fields.map(({ id, name }) => expect.objectContaining({ id, name }))
+          ),
+        },
+      });
+      expect(response.data.data).not.toHaveProperty('table');
+      expect(response.data.data).not.toHaveProperty('views');
+    });
+
+    it('native field metadata rejects record-only credentials', async () => {
+      const error = await getError(() =>
+        axios.get('/v2/tables/listFields', {
+          params: { tableId: table.id },
+          headers: { Authorization: `Bearer ${recordReadToken}` },
+        })
+      );
+      expect(error?.status).toBe(403);
     });
 
     it('get record history requires table_record_history|read permission', async () => {
@@ -254,11 +296,11 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
       expect(res.status).toEqual(200);
     });
 
-    it('get compute activity has table|read permission', async () => {
+    it('get compute activity requires table, field and record read permissions', async () => {
       const res = await axios.get('/v2/tables/getComputeActivity', {
         params: { baseId, tableId: table.id },
         headers: {
-          Authorization: `Bearer ${tableReadToken}`,
+          Authorization: `Bearer ${diagnosticReadToken}`,
         },
       });
 
@@ -267,6 +309,16 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
         ok: true,
         data: { baseId, tableId: table.id },
       });
+    });
+
+    it('get compute activity rejects a table-read-only token', async () => {
+      const error = await getError(() =>
+        axios.get('/v2/tables/getComputeActivity', {
+          params: { baseId, tableId: table.id },
+          headers: { Authorization: `Bearer ${tableReadToken}` },
+        })
+      );
+      expect(error?.status).toEqual(403);
     });
 
     it('get compute activity rejects a token without table|read permission', async () => {
@@ -293,25 +345,24 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
       expect(error?.status).toEqual(403);
     });
 
-    it('get base list has not base|read_all permission', async () => {
-      const error = await getError(() =>
-        axios.get(urlBuilder(GET_BASE_ALL), {
-          headers: {
-            Authorization: `Bearer ${tableReadToken}`,
-          },
-        })
-      );
-      expect(error?.status).toEqual(403);
-    });
+    it.each([GET_BASE_ALL, '/v2/bases/list'])(
+      'get base list %s requires base|read_all permission',
+      async (path) => {
+        const error = await getError(() =>
+          axios.get(path, {
+            headers: { Authorization: `Bearer ${tableReadToken}` },
+          })
+        );
+        expect(error?.status).toEqual(403);
 
-    it('get base list has base|read_all permission', async () => {
-      const res = await axios.get(urlBuilder(GET_BASE_ALL), {
-        headers: {
-          Authorization: `Bearer ${baseReadAllToken}`,
-        },
-      });
-      expect(res.status).toEqual(200);
-    });
+        const res = await axios.get(path, {
+          headers: { Authorization: `Bearer ${baseReadAllToken}` },
+        });
+        expect(res.status).toEqual(200);
+        const bases = path === GET_BASE_ALL ? res.data : res.data.data.bases;
+        expect(bases).toEqual(expect.arrayContaining([expect.objectContaining({ id: baseId })]));
+      }
+    );
 
     it('get record list has record|read permission', async () => {
       const res = await axios.get(urlBuilder(GET_RECORDS_URL, { tableId: table.id }), {

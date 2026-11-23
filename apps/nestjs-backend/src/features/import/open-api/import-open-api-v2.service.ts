@@ -22,6 +22,7 @@ import {
   type ICommandBus,
   ImportCsvCommand,
   type ImportCsvResult,
+  type ICsvParser,
   ImportExcelCommand,
   type ImportExcelResult,
   ImportRecordsCommand,
@@ -121,21 +122,96 @@ export class ImportOpenApiV2Service {
     importOptions: IImportOptionRo,
     maxRowCount?: number
   ): Promise<ITableFullVo[]> {
-    // Fail-fast before the long import. Placement is host-side after the table
-    // is ready (the command already finished completeTableSchemaOperation).
-    if (importOptions.folderId) {
-      const folderNodeId = await this.baseNodeService.resolveFolderNodeId(
-        baseId,
-        importOptions.folderId
-      );
-      importOptions = { ...importOptions, folderId: folderNodeId };
-    }
-
+    importOptions = await this.resolveImportFolder(baseId, importOptions);
     if (importOptions.fileType === SUPPORTEDTYPE.CSV) {
-      return await this.createTableFromCsvImport(baseId, importOptions, maxRowCount);
+      return this.createTableFromCsvImport(baseId, importOptions, maxRowCount);
     }
     if (importOptions.fileType === SUPPORTEDTYPE.EXCEL) {
       return (await this.createTableFromExcelImport(baseId, importOptions, maxRowCount)).tables;
+    }
+    throw new HttpException(
+      `V2 create-table import does not support ${importOptions.fileType}`,
+      HttpStatus.BAD_REQUEST
+    );
+  }
+
+  private async resolveImportFolder(baseId: string, importOptions: IImportOptionRo) {
+    if (!importOptions.folderId) return importOptions;
+    const folderId = await this.baseNodeService.resolveFolderNodeId(baseId, importOptions.folderId);
+    return { ...importOptions, folderId };
+  }
+
+  async createTableFromImportWithSummary(
+    baseId: string,
+    importOptions: IImportOptionRo,
+    maxRowCount?: number
+  ): Promise<{ tables: ITableFullVo[]; sheets: IImportSheetSummary[] }> {
+    importOptions = await this.resolveImportFolder(baseId, importOptions);
+
+    if (importOptions.fileType === SUPPORTEDTYPE.CSV) {
+      let importedCount = 0;
+      let expectedRows: number | undefined;
+      const worksheets = Object.values(importOptions.worksheets);
+      const worksheet = worksheets.find((item) => item.importData) ?? worksheets[0];
+      const limit = normalizeImportRowLimit(maxRowCount);
+      let truncated = false;
+      if (worksheet?.importData && limit !== undefined) {
+        const container = await this.v2ContainerService.getContainerForBase(baseId);
+        const parser = container.resolve<ICsvParser>(v2CoreTokens.csvParser);
+        if (!parser.parseAsync)
+          throw new HttpException(
+            'CSV parser requires async parsing',
+            HttpStatus.INTERNAL_SERVER_ERROR
+          );
+        const parsed = await parser.parseAsync(
+          { type: 'url', url: this.resolveUrl(importOptions.attachmentUrl) },
+          {
+            hasHeader: worksheet.useFirstRowAsHeader,
+          }
+        );
+        if (parsed.isErr()) throwV2Error(parsed.error, mapDomainErrorToHttpStatus(parsed.error));
+        const rows =
+          parsed.value.rowsAsync ??
+          (async function* () {
+            yield* parsed.value.rows;
+          })();
+        let count = 0;
+        for await (const _row of rows) {
+          if (++count > limit) {
+            truncated = true;
+            break;
+          }
+        }
+      }
+      const tables = await this.createTableFromCsvImport(
+        baseId,
+        importOptions,
+        maxRowCount,
+        (progress) => {
+          importedCount = progress.processedRows;
+          if (progress.phase !== 'completed') expectedRows = progress.totalRows ?? expectedRows;
+        }
+      );
+      return {
+        tables,
+        sheets:
+          worksheet && tables.length
+            ? [
+                {
+                  name: worksheet.name,
+                  importedCount,
+                  truncated:
+                    truncated ||
+                    Boolean(
+                      worksheet.importData && expectedRows != null && importedCount < expectedRows
+                    ),
+                },
+              ]
+            : [],
+      };
+    }
+    if (importOptions.fileType === SUPPORTEDTYPE.EXCEL) {
+      return await this.createTableFromExcelImport(baseId, importOptions, maxRowCount);
     }
     throw new HttpException(
       `V2 create-table import does not support ${importOptions.fileType}`,
@@ -203,9 +279,8 @@ export class ImportOpenApiV2Service {
       throwV2Error(commandResult.error, mapDomainErrorToHttpStatus(commandResult.error));
     }
 
-    const command = onProgress
-      ? commandResult.value.withOnProgress(onProgress)
-      : commandResult.value;
+    const importCommand = commandResult.value.withTruncateOnRowLimit(true);
+    const command = onProgress ? importCommand.withOnProgress(onProgress) : importCommand;
 
     const result = await commandBus.execute<ImportCsvCommand, ImportCsvResult>(context, command);
     if (result.isErr()) {
@@ -289,6 +364,22 @@ export class ImportOpenApiV2Service {
           name: worksheet.name,
           key: sheetKey,
         };
+        if (worksheet.importData && remaining !== undefined) {
+          const registry = container.resolve<IImportSourceRegistry>(
+            v2CoreTokens.importSourceRegistry
+          );
+          const adapter = registry.getAdapter('excel');
+          if (adapter.isErr())
+            throwV2Error(adapter.error, mapDomainErrorToHttpStatus(adapter.error));
+          const parsed = await adapter.value.parse(source, { sheetName: sheetKey });
+          if (parsed.isOk()) {
+            const skip = worksheet.useFirstRowAsHeader ? 1 : 0;
+            expectedRows = Math.max(
+              (await this.countParsedRows(parsed.value, remaining + skip + 1)) - skip,
+              0
+            );
+          }
+        }
 
         const result = await this.executeExcelSheet({
           baseId,
@@ -301,7 +392,7 @@ export class ImportOpenApiV2Service {
           commandBus,
           context,
           onProgress: (progress) => {
-            expectedRows = progress.totalRows ?? expectedRows;
+            if (progress.phase !== 'completed') expectedRows = progress.totalRows ?? expectedRows;
             onProgress?.(progress, sheetMeta);
           },
         });
@@ -341,8 +432,8 @@ export class ImportOpenApiV2Service {
             skipData ||
             Boolean(
               worksheet.importData &&
-                expectedRows != null &&
-                importedCount + (result.value.diagnostics?.skippedRows ?? 0) < expectedRows
+              expectedRows != null &&
+              importedCount + (result.value.diagnostics?.skippedRows ?? 0) < expectedRows
             ),
           diagnostics: mapImportDiagnostics(result.value.diagnostics),
         });
@@ -966,7 +1057,7 @@ export class ImportOpenApiV2Service {
     return total;
   }
 
-  private async countParsedRows(parsed: IImportParseResult): Promise<number> {
+  private async countParsedRows(parsed: IImportParseResult, stopAfter?: number): Promise<number> {
     const iterator = parsed.rowsAsync
       ? parsed.rowsAsync[Symbol.asyncIterator]()
       : parsed.rows?.[Symbol.iterator]();
@@ -977,6 +1068,7 @@ export class ImportOpenApiV2Service {
       let next = await iterator.next();
       while (!next.done) {
         count++;
+        if (stopAfter !== undefined && count >= stopAfter) break;
         next = await iterator.next();
       }
       return count;

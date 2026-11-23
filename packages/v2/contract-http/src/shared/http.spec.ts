@@ -29,6 +29,19 @@ describe('v2 domain error to http', () => {
     expect(mapDomainErrorToHttpStatus(missingColumn)).toBe(500);
   });
 
+  it('preserves quota denial as payment required with the original domain code', () => {
+    const quota = domainError.validation({
+      code: 'usage.max_rows_exceeded',
+      message: 'Maximum row limit exceeded',
+    });
+
+    expect(mapDomainErrorToHttpStatus(quota)).toBe(402);
+    expect(mapDomainErrorToHttpError(quota)).toMatchObject({
+      code: 'usage.max_rows_exceeded',
+      message: 'Maximum row limit exceeded',
+    });
+  });
+
   it('keeps the tag based mapping for every other status', () => {
     expect(mapDomainErrorToHttpStatus(domainError.notFound({ message: 'missing' }))).toBe(404);
     expect(mapDomainErrorToHttpStatus(domainError.validation({ message: 'bad input' }))).toBe(400);

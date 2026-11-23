@@ -6,6 +6,7 @@ import { TokenAccess } from '../auth/decorators/token.decorator';
 import { getBaseShareHeader, getShareViewHeader, getTemplateHeader } from '../auth/utils';
 import { V2DataQueryExceptionFilter } from './v2-data-query-http';
 import { V2DataQueryExplainService } from './v2-data-query-explain.service';
+import { ObserveDataQuery } from './v2-data-query-observability.interceptor';
 
 /**
  * Mounted by V2DataQueryExplainModule under the execute gate. Kept in its own
@@ -19,6 +20,7 @@ export class V2DataQueryExplainController {
 
   @Post('explain')
   @TokenAccess()
+  @ObserveDataQuery('explain')
   async explain(
     @Body() request: unknown,
     @Req() httpRequest: Request,

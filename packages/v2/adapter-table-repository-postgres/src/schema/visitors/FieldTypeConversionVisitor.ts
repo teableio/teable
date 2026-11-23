@@ -68,6 +68,8 @@ export type FieldConversionParams = {
   tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
   fieldsById?: ReadonlyMap<string, FieldConversionFieldMetadata>;
   typeValidationStrategy?: IPgTypeValidationStrategy;
+  /** Internal exact-field batch scope; never exposed in field-update command input. */
+  preserveLinkStorage?: boolean;
 };
 
 const createCompiledStatementBuilder = (
@@ -1588,7 +1590,7 @@ const buildLinkToTextMigrationStatements = (
       tableId: params.tableId,
     });
 
-    const dropStatements = yield* oldField.accept(deleteVisitor);
+    const dropStatements = params.preserveLinkStorage ? [] : yield* oldField.accept(deleteVisitor);
     const createStatements = yield* newField.accept(createVisitor);
 
     const renameSql = renameColumnIfExistsSql(
@@ -1669,7 +1671,9 @@ $v2_link_to_text$;`;
       createCustomDataStatementBuilder(params.db, previewMapTextSql, async (ctx) =>
         buildMapTextSql(await fetchLinkMappingMetadata(ctx, oldField))
       ),
-      createCompiledStatementBuilder(params.db, dropTmpSql),
+      ...(params.preserveLinkStorage
+        ? []
+        : [createCompiledStatementBuilder(params.db, dropTmpSql)]),
     ]);
   });
 };

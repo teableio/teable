@@ -5,6 +5,22 @@ import { ImportCsvCommand } from './ImportCsvCommand';
 const baseId = `bse${'a'.repeat(16)}`;
 
 describe('ImportCsvCommand', () => {
+  it('preserves opt-in truncation through progress callbacks', () => {
+    const command = ImportCsvCommand.createFromString({
+      baseId,
+      csvData: 'Name\nAlice',
+      maxRowCount: 1,
+    })._unsafeUnwrap();
+    expect(command.truncateOnRowLimit).toBe(false);
+
+    const onProgress = () => undefined;
+    const truncated = command.withTruncateOnRowLimit(true).withOnProgress(onProgress);
+    expect(truncated.truncateOnRowLimit).toBe(true);
+    expect(truncated.onProgress).toBe(onProgress);
+    expect(truncated.withTruncateOnRowLimit(false).onProgress).toBe(onProgress);
+    expect(truncated.withTruncateOnRowLimit(false).truncateOnRowLimit).toBe(false);
+  });
+
   it('creates from csvData input', () => {
     const result = ImportCsvCommand.create({
       baseId,

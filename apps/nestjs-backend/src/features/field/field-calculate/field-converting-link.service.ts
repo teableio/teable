@@ -214,17 +214,8 @@ export class FieldConvertingLinkService {
     }
   }
 
-  private async linkToOther(tableId: string, oldField: LinkFieldDto, skipDestructive?: boolean) {
+  private async linkToOther(tableId: string, oldField: LinkFieldDto) {
     await this.fieldDeletingService.cleanLookupRollupRef(tableId, oldField.id);
-
-    // Cross-space move path: caller wants both sides of a symmetric pair to be
-    // converted independently, each preserving its own values. Skipping
-    // cleanForeignKey leaves the junction/FK intact so the partner can still
-    // read its values when its own conversion runs; skipping the symmetric
-    // cascade keeps the partner field alive so it can be converted in turn.
-    // Storage left behind here is orphaned and is dropped by the caller (e.g.
-    // moveBase) once every paired field has been converted.
-    if (skipDestructive) return;
 
     await this.fieldSupplementService.cleanForeignKey(oldField.options);
 
@@ -248,15 +239,14 @@ export class FieldConvertingLinkService {
   async deleteOrCreateSupplementLink(
     tableId: string,
     newField: IFieldInstance,
-    oldField: IFieldInstance,
-    skipDestructive?: boolean
+    oldField: IFieldInstance
   ) {
     if (isLink(newField) && isLink(oldField) && !isEqual(newField.options, oldField.options)) {
       return this.linkOptionsChange(tableId, newField, oldField);
     }
 
     if (!isLink(newField) && isLink(oldField)) {
-      return this.linkToOther(tableId, oldField, skipDestructive);
+      return this.linkToOther(tableId, oldField);
     }
 
     if (isLink(newField) && !isLink(oldField)) {

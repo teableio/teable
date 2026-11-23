@@ -110,6 +110,25 @@ describe('EditorContainer context menu', () => {
   });
 });
 
+describe('EditorContainer editor width', () => {
+  // The column is 150px wide; editorWidth only ever widens the editor beyond it
+  it.each([
+    [100, 150],
+    [220, 220],
+  ])('opens an editor with editorWidth %i at %ipx', (editorWidth, expected) => {
+    const sizedEditor = vi.fn(() => <div />);
+    renderContainer({ cell: { editorWidth, customEditor: sizedEditor }, isEditing: true });
+
+    expect(sizedEditor).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        rect: expect.objectContaining({ width: expected }),
+        style: expect.objectContaining({ minWidth: expected }),
+      }),
+      expect.anything()
+    );
+  });
+});
+
 describe('EditorContainer row selection copy', () => {
   it('focuses the hidden input for a row selection without an active cell so copy can fire', async () => {
     const onCopy = vi.fn();

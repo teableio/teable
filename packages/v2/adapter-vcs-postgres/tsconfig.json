@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-adapter-vcs-postgres",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext", "DOM"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": false,
+    "noEmit": true,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "types": ["vitest/globals", "node"]
+  },
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "include": ["src"]
+}

@@ -1,12 +1,16 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import {
   ShareDbBackendPublisher,
   ShareDbWebSocketServer,
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
-import { type IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import {
+  createStandaloneExecutionContext,
+  type IV2NodeTestContainer,
+} from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
@@ -15,8 +19,8 @@ import {
   updateRecordsOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
-import { NoopLogger } from '@teable/v2-core';
 import type { ICreateTableCommandInput } from '@teable/v2-core';
+import { NoopLogger } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import express from 'express';
 import { sql } from 'kysely';
@@ -26,6 +30,7 @@ import { Connection } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 import { createShareDbRealtimeConfig } from './shared/shareDbRealtimeConfig';
 
@@ -764,10 +769,12 @@ describe('[C14][S19] v2 computed record events and realtime projection (e2e)', (
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
 
+    const executionContext = await createStandaloneExecutionContext(testContainer);
     const app = express();
     app.use(
       createV2ExpressRouter({
         createContainer: () => testContainer.container,
+        createExecutionContext: () => executionContext,
       })
     );
 

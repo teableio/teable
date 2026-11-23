@@ -186,6 +186,7 @@ export function createViewSelectionCopyPlan(
         visibleFieldIds,
         params.projection
       );
+      const recordsIncluded = !requireShare || shareMeta?.includeRecords === true;
 
       if (params.type === 'columns') {
         const fields = params.ranges.flatMap(([start, end]) =>
@@ -197,7 +198,7 @@ export function createViewSelectionCopyPlan(
             fields,
             searchFieldIds: visibleFieldIds,
             recordWindows: [{ offset: 0 }],
-            recordsIncluded: shareMeta?.includeRecords !== false,
+            recordsIncluded,
           })
         );
       }
@@ -214,7 +215,7 @@ export function createViewSelectionCopyPlan(
             searchFieldIds: visibleFieldIds,
             recordWindows,
             requestedRowCount: recordWindows.reduce((total, window) => total + window.limit!, 0),
-            recordsIncluded: shareMeta?.includeRecords !== false,
+            recordsIncluded,
           })
         );
       }
@@ -228,7 +229,7 @@ export function createViewSelectionCopyPlan(
           searchFieldIds: visibleFieldIds,
           recordWindows: [{ offset: start[1], limit: end[1] - start[1] + 1 }],
           requestedRowCount: end[1] - start[1] + 1,
-          recordsIncluded: shareMeta?.includeRecords !== false,
+          recordsIncluded,
         })
       );
     }.bind(this)

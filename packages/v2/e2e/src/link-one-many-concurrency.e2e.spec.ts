@@ -189,26 +189,7 @@ const createOneManyFixture = async (
 ): Promise<OneManyFixture> => {
   let childBaseId = ctx.baseId;
   if (crossBase) {
-    childBaseId = `bse${getRandomString(16)}`;
-    const spaceId = `spc${getRandomString(16)}`;
-    await ctx.testContainer.db
-      .insertInto('space')
-      .values({
-        id: spaceId,
-        name: `${scope} space`,
-        created_by: 'system',
-      })
-      .execute();
-    await ctx.testContainer.db
-      .insertInto('base')
-      .values({
-        id: childBaseId,
-        space_id: spaceId,
-        name: `${scope} base`,
-        order: 1,
-        created_by: 'system',
-      })
-      .execute();
+    childBaseId = (await ctx.createBase(`${scope} base`)).id;
   }
 
   const childTitleFieldId = `fld${getRandomString(16)}`;

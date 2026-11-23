@@ -66,6 +66,7 @@ import { FieldViewSyncService } from '../../field/field-calculate/field-view-syn
 import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../../field/model/factory';
+import { CrossBaseLinkAccessService } from '../../record/cross-base-link-access.service';
 import { RecordService } from '../../record/record.service';
 import { ShortLinkService } from '../../short-link/short-link.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
@@ -117,6 +118,7 @@ export class ViewOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly audit: AuditScope,
     private readonly shortLinkService: ShortLinkService,
+    private readonly crossBaseLinkAccess: CrossBaseLinkAccessService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
@@ -1169,8 +1171,18 @@ export class ViewOpenApiService {
     });
     const lookupFieldRawsMap = keyBy(lookupFieldRaws, 'tableId');
 
+    // The caller is only vouched for on `tableId`; its link fields may reach into
+    // another base, and the ids in the filter are whatever the filter's author put there.
+    const readableTableIds = await this.crossBaseLinkAccess.readableForeignTableIds(
+      tableId,
+      Object.keys(tableRecordMap)
+    );
+
     const res: IGetViewFilterLinkRecordsVo = [];
     for (const [foreignTableId, recordSet] of Object.entries(tableRecordMap)) {
+      if (!readableTableIds.has(foreignTableId)) {
+        continue;
+      }
       const dbTableName = await this.recordService.getDbTableName(foreignTableId);
 
       const lookupedFieldRaw = lookupFieldRawsMap[foreignTableId];

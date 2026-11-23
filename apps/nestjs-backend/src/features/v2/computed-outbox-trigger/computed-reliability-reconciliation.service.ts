@@ -28,7 +28,8 @@ export class ComputedReliabilityReconciliationService
 {
   private readonly logger = new Logger(ComputedReliabilityReconciliationService.name);
   private timer?: ReturnType<typeof setInterval>;
-  private running = false;
+  private stopped = false;
+  private activeRun?: Promise<void>;
   private targetCursor = 0;
   private readonly cursors = new Map<string, string>();
   constructor(
@@ -43,11 +44,30 @@ export class ComputedReliabilityReconciliationService
     this.timer.unref?.();
   }
   onModuleDestroy() {
-    if (this.timer) clearInterval(this.timer);
+    // A root stop already spent its shared budget; do not wait for it a second time.
+    if (!this.stopped) return this.stop();
+  }
+  async stop(): Promise<void> {
+    this.stopped = true;
+    clearInterval(this.timer);
+    await this.activeRun;
   }
   async runOnce() {
-    if (this.running || !isComputedReliabilityConfigured(computedReliabilityConfig())) return;
-    this.running = true;
+    if (
+      this.stopped ||
+      this.activeRun ||
+      !isComputedReliabilityConfigured(computedReliabilityConfig())
+    ) {
+      return;
+    }
+    this.activeRun = this.sweep();
+    try {
+      await this.activeRun;
+    } finally {
+      this.activeRun = undefined;
+    }
+  }
+  private async sweep() {
     const deadline = Date.now() + 20_000;
     try {
       const targets = await this.manager.listComputedOutboxMaintenanceTargets();
@@ -75,8 +95,6 @@ export class ComputedReliabilityReconciliationService
     } catch (error) {
       setReliabilitySnapshot();
       this.unavailable(error);
-    } finally {
-      this.running = false;
     }
   }
   private async maintainTarget(

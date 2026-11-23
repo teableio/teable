@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import swc from 'unplugin-swc';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults, defineConfig } from 'vitest/config';
@@ -14,6 +15,7 @@ export default defineConfig({
   resolve: {
     alias: {
       buffer: 'node:buffer',
+      '@teable/backend': fileURLToPath(new URL('./src', import.meta.url)),
     },
     conditions: ['@teable/source'],
   },
@@ -41,6 +43,8 @@ export default defineConfig({
     setupFiles: './vitest.setup.ts',
     passWithNoTests: true,
     pool: 'forks',
+    // Forward worker stdout/stderr directly. Buffered log RPCs can race coverage worker teardown.
+    disableConsoleIntercept: coverageRun,
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage/unit',

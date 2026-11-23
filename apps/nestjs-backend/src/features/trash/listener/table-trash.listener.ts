@@ -8,6 +8,7 @@ import { IDeleteFieldsPayload } from '../../undo-redo/operations/delete-fields.o
 import { IDeleteRecordsPayload } from '../../undo-redo/operations/delete-records.operation';
 import { IDeleteViewPayload } from '../../undo-redo/operations/delete-view.operation';
 import { buildRecordTrashRows } from '../record-trash-row';
+import { buildViewTrashRow } from '../view-trash-row';
 
 type ITableTrashDataPrisma = {
   tableTrash: {
@@ -132,13 +133,7 @@ export class TableTrashListener {
     const dataPrisma = this.getDataPrismaExecutor(await this.dataPrismaForTable(tableId));
 
     await dataPrisma.tableTrash.create({
-      data: {
-        id: operationId,
-        tableId,
-        createdBy: userId,
-        resourceType: ResourceType.View,
-        snapshot: JSON.stringify([viewId]),
-      },
+      data: buildViewTrashRow({ operationId, tableId, viewId, userId }),
     });
   }
 }

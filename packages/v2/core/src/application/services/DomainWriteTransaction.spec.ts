@@ -1,5 +1,5 @@
 import { err, ok, type Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
@@ -17,12 +17,17 @@ import type {
 import type { IEventBus } from '../../ports/EventBus';
 import type { EventHandlerClass, IEventHandler } from '../../ports/EventHandler';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/ExecutionContext';
-import { bindUnitOfWorkTransaction } from '../../ports/ExecutionContext';
+import {
+  bindUnitOfWorkTransaction,
+  scheduleExecutionContextBackgroundTask,
+} from '../../ports/ExecutionContext';
 import type {
   ILegacyEventDispatcher,
   LegacyEventDispatch,
   LegacyEventDispatchReport,
 } from '../../ports/LegacyEventDispatcher';
+import { AsyncMemoryEventBus } from '../../ports/memory/AsyncMemoryEventBus';
+import { BackgroundTaskTracker } from '../../ports/memory/BackgroundTaskTracker';
 import { EventBusDomainWriteTransaction } from '../../ports/memory/EventBusDomainWriteTransaction';
 import type {
   EncodedProjectionMessage,
@@ -36,6 +41,7 @@ import type {
 } from '../../ports/TransactionalProjectionMessageJournal';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../../ports/UnitOfWork';
 import { DomainWriteTransaction } from './DomainWriteTransaction';
+import { TargetedLegacyEventDispatcher } from './TargetedLegacyEventDispatcher';
 
 class TestRecordChanged implements IDomainEvent {
   readonly name = DomainEventName.create('TestRecordChanged')._unsafeUnwrap();
@@ -125,7 +131,8 @@ describe('DomainWriteTransaction', () => {
       { append: async () => err(domainError.unexpected({ message: 'must not append' })) },
       { dispatch: async () => successfulDispatchReport(0) },
       noopSameTxDispatcher,
-      new NoopLogger()
+      new NoopLogger(),
+      new BackgroundTaskTracker()
     );
     const existingTransaction: IUnitOfWorkTransaction = {
       kind: 'unitOfWorkTransaction',
@@ -221,6 +228,7 @@ describe('DomainWriteTransaction', () => {
       { dispatch: async () => successfulDispatchReport(0) },
       noopSameTxDispatcher,
       new NoopLogger(),
+      new BackgroundTaskTracker(),
       (kind) => `${kind}-id`
     );
 
@@ -283,7 +291,8 @@ describe('DomainWriteTransaction', () => {
       },
       { dispatch: async () => successfulDispatchReport(0) },
       sameTxDispatcher,
-      new NoopLogger()
+      new NoopLogger(),
+      new BackgroundTaskTracker()
     );
 
     const result = await transaction.execute(context, async () =>
@@ -333,7 +342,8 @@ describe('DomainWriteTransaction', () => {
       { append: async () => ok([]) },
       legacyDispatcher,
       noopSameTxDispatcher,
-      new NoopLogger()
+      new NoopLogger(),
+      new BackgroundTaskTracker()
     );
 
     const result = await transaction.execute(context, async () =>
@@ -371,18 +381,42 @@ describe('DomainWriteTransaction', () => {
         },
       ],
     };
-    let releaseHold: (() => void) | undefined;
-    const hold = new Promise<void>((resolve) => {
-      releaseHold = resolve;
-    });
+    const { promise: hold, resolve: releaseHold } = Promise.withResolvers<void>();
+    const nested = Promise.withResolvers<void>();
+    const nestedStarted = Promise.withResolvers<void>();
+    let remainingNested = 2;
     const seenActorIds: string[] = [];
-    const legacyDispatcher: ILegacyEventDispatcher = {
-      dispatch: async (dispatchContext) => {
-        seenActorIds.push(dispatchContext.actorId.toString());
-        await hold;
-        return successfulDispatchReport(1);
+    const backgroundTasks = new BackgroundTaskTracker();
+    const bus = new AsyncMemoryEventBus(
+      {
+        resolve: () => {
+          throw new Error('No handlers');
+        },
       },
-    };
+      {
+        backgroundTasks,
+        recordPublishedEvents: false,
+      }
+    );
+    const legacyDispatcher = new TargetedLegacyEventDispatcher(
+      {
+        resolve<T>(): T {
+          return {
+            handle: async (dispatchContext: IExecutionContext) => {
+              seenActorIds.push(dispatchContext.actorId.toString());
+              await hold;
+              scheduleExecutionContextBackgroundTask(dispatchContext, async () => {
+                remainingNested -= 1;
+                if (remainingNested === 0) nestedStarted.resolve();
+                await nested.promise;
+              });
+              return ok(undefined);
+            },
+          } as T;
+        },
+      },
+      new NoopLogger()
+    );
     const transaction = new DomainWriteTransaction(
       new TestUnitOfWork(),
       emptyCodecRegistry,
@@ -390,7 +424,8 @@ describe('DomainWriteTransaction', () => {
       { append: async () => ok([]) },
       legacyDispatcher,
       noopSameTxDispatcher,
-      new NoopLogger()
+      new NoopLogger(),
+      backgroundTasks
     );
     const firstContext: IExecutionContext = {
       actorId: ActorId.create('usr-first')._unsafeUnwrap(),
@@ -413,9 +448,22 @@ describe('DomainWriteTransaction', () => {
     if (firstCommitted.status === 'committed') {
       expect(firstCommitted.directDelivery.background.scheduledTargets).toBe(1);
     }
+    expect(bus.pendingBackgroundTaskCount()).toBe(2);
+    let settled = false;
+    const draining = bus.settled().then(() => {
+      settled = true;
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(seenActorIds).toEqual(['usr-first', 'usr-second']);
-    releaseHold?.();
+    expect(settled).toBe(false);
+    releaseHold();
+    await nestedStarted.promise;
+    expect(bus.pendingBackgroundTaskCount()).toBe(2);
+    expect(settled).toBe(false);
+    nested.resolve();
+    await draining;
+    expect(settled).toBe(true);
+    expect(bus.pendingBackgroundTaskCount()).toBe(0);
   });
 });
 
@@ -559,6 +607,7 @@ describe('withBatchTransaction', () => {
     };
 
     const appendedBatches: string[][] = [];
+    const backgroundTasks = new BackgroundTaskTracker();
     const tx = new (await import('./DomainWriteTransaction')).DomainWriteTransaction(
       unitOfWork as never,
       {
@@ -609,7 +658,8 @@ describe('withBatchTransaction', () => {
           return ok(undefined);
         },
       },
-      noopLogger as never
+      noopLogger as never,
+      backgroundTasks
     );
 
     const rootContext: IExecutionContext = {
@@ -642,7 +692,7 @@ describe('withBatchTransaction', () => {
     expect(appendedBatches).toHaveLength(2);
     expect(calls).toContain('direct:await:one');
     expect(calls).toContain('direct:await:two');
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await backgroundTasks.settled();
     expect(calls).toContain('direct:background:one');
     expect(calls).toContain('direct:background:two');
     expect(seenBgActors).toEqual(['usr-batch', 'usr-batch']);
@@ -656,7 +706,8 @@ describe('withBatchTransaction', () => {
 
     const unitOfWork = createBatchUnitOfWork();
     const dispatchedDirect: string[] = [];
-    const publishedBus: unknown[] = [];
+    const recordPublished = vi.fn();
+    const backgroundTasks = new BackgroundTaskTracker();
 
     class BatchFailEvent {
       readonly name = DomainEventName.tableRenamed();
@@ -682,17 +733,6 @@ describe('withBatchTransaction', () => {
           dispatchMode: 'background' as const,
         },
       ],
-    };
-
-    const eventBus: IEventBus = {
-      async publish(_ctx, event) {
-        publishedBus.push(event);
-        return ok(undefined);
-      },
-      async publishMany(_ctx, events) {
-        publishedBus.push(...events);
-        return ok(undefined);
-      },
     };
 
     const tx = new (await import('./DomainWriteTransaction')).DomainWriteTransaction(
@@ -724,8 +764,9 @@ describe('withBatchTransaction', () => {
       },
       { dispatch: async () => ok(undefined) },
       noopLogger as never,
+      backgroundTasks,
       undefined,
-      eventBus
+      { recordPublished }
     );
 
     const rootContext: IExecutionContext = {
@@ -748,9 +789,9 @@ describe('withBatchTransaction', () => {
     expect(unitOfWork.commitCount).toBe(0);
     expect(unitOfWork.rollbackCount).toBe(1);
     expect(dispatchedDirect).toEqual([]);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await backgroundTasks.settled();
     expect(dispatchedDirect).toEqual([]);
-    expect(publishedBus).toEqual([]);
+    expect(recordPublished).not.toHaveBeenCalled();
   });
 
   it('allows re-entrant nested withBatchTransaction while still rejecting unowned raw context.transaction', async () => {
@@ -803,7 +844,8 @@ describe('withBatchTransaction', () => {
         },
       },
       { dispatch: async () => ok(undefined) },
-      noopLogger as never
+      noopLogger as never,
+      new BackgroundTaskTracker()
     );
 
     const rootContext: IExecutionContext = {
@@ -1052,6 +1094,7 @@ describe('withBatchTransaction', () => {
       },
       noopSameTxDispatcher,
       noopLogger as never,
+      new BackgroundTaskTracker(),
       undefined,
       {
         recordPublished(events) {
@@ -1143,7 +1186,8 @@ describe('withBatchTransaction', () => {
       { append: async () => ok([]) },
       { dispatch: async () => successfulDispatchReport(0) },
       noopSameTxDispatcher,
-      spyLogger as never
+      spyLogger as never,
+      new BackgroundTaskTracker()
     );
 
     const completed: string[] = [];
@@ -1214,7 +1258,8 @@ describe('withBatchTransaction', () => {
         },
       },
       noopSameTxDispatcher,
-      noopLogger as never
+      noopLogger as never,
+      new BackgroundTaskTracker()
     );
 
     const res = await tx.withBatchTransaction(context, async (batchCtx) => {
@@ -1282,7 +1327,8 @@ describe('withBatchTransaction', () => {
       { append: async () => ok([]) },
       { dispatch: async () => successfulDispatchReport(0) },
       noopSameTxDispatcher,
-      noopLogger as never
+      noopLogger as never,
+      new BackgroundTaskTracker()
     );
 
     const res = await tx.withBatchTransaction(
@@ -1323,7 +1369,8 @@ describe('withBatchTransaction', () => {
       { append: async () => ok([]) },
       { dispatch: async () => successfulDispatchReport(0) },
       noopSameTxDispatcher,
-      noopLogger as never
+      noopLogger as never,
+      new BackgroundTaskTracker()
     );
 
     const standalone = (
@@ -1402,7 +1449,8 @@ describe('withBatchTransaction', () => {
         },
       },
       noopSameTxDispatcher,
-      noopLogger as never
+      noopLogger as never,
+      new BackgroundTaskTracker()
     );
 
     const res = await tx.withBatchTransaction(context, async (batchCtx) => {

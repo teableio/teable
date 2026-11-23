@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
+import { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError } from '../domain/shared/DomainError';
@@ -147,7 +148,8 @@ const execute = async (
   const handler = new GetViewFilterLinkRecordsHandler(
     tableRepository,
     recordRepository,
-    new NoopLogger()
+    new NoopLogger(),
+    new RecordQueryPluginRunner([], new NoopLogger())
   );
   const query = GetViewFilterLinkRecordsQuery.create({
     tableId: tables.sourceTable.id().toString(),
@@ -253,7 +255,8 @@ describe('GetViewFilterLinkRecordsHandler', () => {
     const handler = new GetViewFilterLinkRecordsHandler(
       new MemoryTableRepository(),
       createRecordRepository(vi.fn<ITableRecordQueryRepository['find']>()),
-      new NoopLogger()
+      new NoopLogger(),
+      new RecordQueryPluginRunner([], new NoopLogger())
     );
     const query = GetViewFilterLinkRecordsQuery.create({
       tableId: tables.sourceTable.id().toString(),

@@ -1,6 +1,9 @@
 import { CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '../../features/field/model/factory';
-import { FieldFormatter, IndexBuilderPostgres } from './search-index-builder.postgres';
+import {
+  FieldFormatter,
+  IndexBuilderPostgres,
+} from '../../features/table-index/search-index-builder.postgres';
 
 describe('FieldFormatter', () => {
   it('does not expose trigram search expressions for date fields, but still builds a btree index spec', () => {

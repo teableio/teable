@@ -17,12 +17,25 @@
     "declaration": true,
     "declarationDir": "dist",
     "composite": false,
+    "rootDir": "../../",
     "outDir": "dist",
     "paths": {
+      "@teable/v2-adapter-vcs-postgres": ["../adapter-vcs-postgres/dist/index.d.ts"],
+      "@teable/v2-contract-http": ["../contract-http/dist/index.d.ts"],
       "@teable/v2-contract-http-client": ["../contract-http-client/dist/index.d.ts"],
       "@teable/v2-contract-http-hono": ["../contract-http-hono/dist/index.d.ts"],
+      "@teable/v2-contract-http-implementation": [
+        "../contract-http-implementation/dist/index.d.ts"
+      ],
+      "@teable/v2-contract-http-implementation/vcs": [
+        "../contract-http-implementation/dist/vcsRouter.d.ts"
+      ],
+      "@teable/v2-contract-http-openapi": ["../contract-http-openapi/dist/index.d.ts"],
       "@teable/v2-core": ["../core/src"],
-      "@teable/v2-headless-runtime": ["../headless-runtime/src"]
+      "@teable/v2-di": ["../di/src"],
+      "@teable/v2-headless-runtime": ["../headless-runtime/src"],
+      "@teable/v2-vcs": ["../vcs/src"],
+      "@teable/v2-vcs/*": ["../vcs/src/*/index.ts"]
     },
     "types": ["vitest/globals", "node"]
   },

@@ -75,9 +75,10 @@ export const createDataQueryHttpClient = (options: IV2HttpClientOptions): DataQu
       };
     }
     try {
-      const parsed = responseSchema.parse(await response.json());
+      const body: unknown = await response.json();
+      const parsed = responseSchema.parse(body);
       if (response.ok !== parsed.ok) throw new Error('Inconsistent response status');
-      return parsed;
+      return body as T;
     } catch {
       return {
         ok: false,

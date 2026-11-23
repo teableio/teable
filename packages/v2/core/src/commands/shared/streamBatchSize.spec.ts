@@ -34,7 +34,8 @@ describe('resolveSelectionStreamBatchSize', () => {
 
   it('uses bounded delete-specific chunks while preserving explicit smaller sizes', () => {
     expect(resolveDeleteStreamBatchSize(0)).toBe(DEFAULT_DELETE_STREAM_BATCH_SIZE);
-    expect(resolveDeleteStreamBatchSize(1_000)).toBe(1_000);
+    expect(resolveDeleteStreamBatchSize(150)).toBe(150);
+    expect(resolveDeleteStreamBatchSize(1_000)).toBe(DEFAULT_DELETE_STREAM_BATCH_SIZE);
     expect(resolveDeleteStreamBatchSize(10_000)).toBe(DEFAULT_DELETE_STREAM_BATCH_SIZE);
     expect(resolveDeleteStreamBatchSize(30_000)).toBe(DEFAULT_DELETE_STREAM_BATCH_SIZE);
     expect(resolveDeleteStreamBatchSize(30_000, 250)).toBe(250);

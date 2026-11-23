@@ -339,16 +339,12 @@ for (const backend of ['pglite', 'postgres'] as const) {
           { expression },
           { expression },
         ]);
-        const singles = measurement();
-        for (let index = 0; index < 3; index++)
-          await data.run(singles.config, data.plan([[index]]));
-        const max = singles.maximum('materializedCtes');
-        expect(max).toBeGreaterThan(0);
-
-        const normal = await data.run(defaultFormulaCompileBudgetConfig, data.plan());
+        const fused = measurement();
+        const normal = await data.run(fused.config, data.plan());
+        expect(fused.maximum('materializedCtes')).toBeGreaterThan(0);
         expect(normal.updates).toHaveLength(1);
 
-        const split = await data.run(bounded('materializedCtes', max), data.plan());
+        const split = await data.run(bounded('materializedCtes', 0), data.plan());
         expect(split.updates.length).toBeGreaterThan(1);
         expect(split.result.fieldErrors ?? []).toEqual([]);
         expect(split.rows).toEqual(normal.rows);

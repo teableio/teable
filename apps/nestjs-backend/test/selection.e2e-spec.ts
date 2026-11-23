@@ -13,7 +13,7 @@ import {
   SortFunc,
   defaultNumberFormatting,
 } from '@teable/core';
-import type { IFieldRo, IUserCellValue } from '@teable/core';
+import type { IFieldRo, IFieldVo, ISelectFieldOptions, IUserCellValue } from '@teable/core';
 import type {
   IRecordsVo,
   IGetRecordsRo,
@@ -35,6 +35,7 @@ import {
   DELETE_STREAM_URL,
   DUPLICATE_STREAM_URL,
   DELETE_URL,
+  GET_FIELD_LIST,
   GET_RECORDS_URL,
   PASTE_URL,
   PASTE_BY_ID_URL,
@@ -62,6 +63,7 @@ import {
   getRecords,
   urlBuilder,
 } from '@teable/openapi';
+import { FieldService } from '../src/features/field/field.service';
 import { RecordOpenApiV2Service } from '../src/features/record/open-api/record-open-api-v2.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
@@ -2805,36 +2807,76 @@ describe('OpenAPI SelectionController (e2e)', () => {
               choices: [{ name: 'Todo', color: Colors.Orange }],
             },
           },
+          {
+            name: 'Labels',
+            type: FieldType.MultipleSelect,
+            options: { choices: [{ name: 'Existing', color: Colors.Orange }] },
+          },
         ],
         records: [{ fields: { Name: 'A', Status: 'Todo' } }],
       });
 
+      const legacyRead = useV2 ? vi.spyOn(app.get(FieldService), 'getFieldsByQuery') : undefined;
       try {
-        const statusField = idTable.fields.find((field) => field.name === 'Status')!;
-        const result = await pasteByIdWithCanary(
-          idTable.id,
-          {
-            viewId: idTable.views[0].id,
-            selection: {
-              recordIds: [idTable.records[0].id],
-              fieldIds: [statusField.id],
-            },
-            content: [['In Progress']],
+        const [, status, labels] = idTable.fields;
+        const selfLink = await createField(idTable.id, {
+          name: 'Related',
+          type: FieldType.Link,
+          options: { foreignTableId: idTable.id, relationship: Relationship.ManyOne },
+        });
+        const statusLookup = await createField(idTable.id, {
+          name: 'Related status',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: idTable.id,
+            linkFieldId: selfLink.id,
+            lookupFieldId: status.id,
           },
-          useV2
+        });
+        legacyRead?.mockClear();
+        const selection = {
+          recordIds: [idTable.records[0].id],
+          fieldIds: [status.id, labels.id, statusLookup.id],
+        };
+        const paste = (content: string[][]) =>
+          pasteByIdWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, selection, content },
+            useV2
+          );
+
+        const { data, headers } = await paste([
+          ['In Progress', 'Existing', ''],
+          ['Todo', 'New label', ''],
+        ]);
+        expect(headers['x-teable-v2']).toBe(String(useV2));
+        expect(data.createdRecordIds).toHaveLength(1);
+        expect(data.selection).toEqual({
+          recordIds: [...selection.recordIds, ...data.createdRecordIds!],
+          fieldIds: selection.fieldIds,
+        });
+        const repeat = await paste([['In Progress', 'New label', '']]);
+        expect(repeat.headers['x-teable-v2']).toBe(String(useV2));
+        expect(repeat.data.createdChoiceIdsByFieldId).toBeUndefined();
+        if (legacyRead) expect(legacyRead).not.toHaveBeenCalled();
+
+        const { data: fields } = await axios.get<IFieldVo[]>(
+          urlBuilder(GET_FIELD_LIST, { tableId: idTable.id }),
+          { headers: { [X_CANARY_HEADER]: String(useV2) } }
         );
-
-        expect(result.data.createdChoiceIdsByFieldId?.[statusField.id]).toHaveLength(1);
-
-        const fieldsAfter = (await getFields(idTable.id, { viewId: idTable.views[0].id })).data;
-        const statusFieldAfter = fieldsAfter.find((field) => field.id === statusField.id)!;
-        const choices =
-          (statusFieldAfter.options as { choices?: Array<{ id: string; name: string }> }).choices ??
-          [];
-        const createdChoiceId = result.data.createdChoiceIdsByFieldId?.[statusField.id]?.[0];
-        expect(choices.some((choice) => choice.id === createdChoiceId)).toBe(true);
-        expect(choices.some((choice) => choice.name === 'In Progress')).toBe(true);
+        const choiceId = (fieldId: string, name: string) => {
+          const field = fields.find(({ id }) => id === fieldId)!;
+          return (field.options as ISelectFieldOptions).choices.find(
+            (choice) => choice.name === name
+          )!.id;
+        };
+        expect(data.createdChoiceIdsByFieldId).toEqual({
+          [status.id]: [choiceId(status.id, 'In Progress')],
+          [labels.id]: [choiceId(labels.id, 'New label')],
+        });
       } finally {
+        legacyRead?.mockRestore();
         await permanentDeleteTable(baseId, idTable.id);
       }
     });

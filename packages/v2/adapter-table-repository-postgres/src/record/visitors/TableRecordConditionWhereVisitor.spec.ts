@@ -2,6 +2,9 @@
 import {
   BaseId,
   CheckboxConditionSpec,
+  ConditionalLookupConditionSpec,
+  ConditionalLookupField,
+  ConditionalLookupOptions,
   DateTimeFormatting,
   DbFieldName,
   DbFieldType,
@@ -634,6 +637,39 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
 
       expect(sql).toMatchInlineSnapshot(`""t"."col_done" = $1"`);
       expect(parameters).toEqual([true]);
+    });
+
+    test('conditionalLookup checkbox is(false) includes NULL and false rows', () => {
+      const conditionalDoneLookup = ConditionalLookupField.create({
+        id: FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap(),
+        name: FieldName.create('Conditional Done')._unsafeUnwrap(),
+        innerField: doneField,
+        conditionalLookupOptions: ConditionalLookupOptions.create({
+          foreignTableId: TableId.create(`tbl${'f'.repeat(16)}`)
+            ._unsafeUnwrap()
+            .toString(),
+          lookupFieldId: doneField.id().toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: doneField.id().toString(), operator: 'isNotEmpty' }],
+            },
+          },
+        })._unsafeUnwrap(),
+        isMultipleCellValue: true,
+      })._unsafeUnwrap();
+      conditionalDoneLookup
+        .setDbFieldName(DbFieldName.rehydrate('col_cond_done')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const value = RecordConditionLiteralValue.create(false)._unsafeUnwrap();
+      const spec = ConditionalLookupConditionSpec.create(conditionalDoneLookup, 'is', value);
+      const { sql, parameters } = buildWhereFor(db, spec);
+
+      expect(sql).toContain('NOT EXISTS');
+      expect(sql).toContain("WHERE elem = 'true'");
+      expect(sql).toContain('"t"."col_cond_done" IS NULL');
+      expect(parameters).toEqual([]);
     });
   });
 

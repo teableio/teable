@@ -1748,6 +1748,87 @@ describe('UpdateRecordsHandler', () => {
     expect(streamedUpdates[0]?.record.id().toString()).toBe(allowedRecordId);
   });
 
+  it.each(['allowed', 'denied'] as const)(
+    'authorizes every explicit update using the current locked record (%s)',
+    async (secondAssignment) => {
+      const { table, tableId, textFieldId, numberFieldId } = buildTable();
+      const firstId = `rec${'a'.repeat(16)}`;
+      const secondId = `rec${'b'.repeat(16)}`;
+      const numberId = numberFieldId.toString();
+      const textId = textFieldId.toString();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const recordRepository = new FakeTableRecordRepository();
+      const queryRepository = new FakeTableRecordQueryRepository();
+      const records = [
+        { id: firstId, version: 1, fields: { [numberId]: 10, [textId]: 'first' } },
+        { id: secondId, version: 1, fields: { [numberId]: 20, [textId]: 'second' } },
+      ];
+      vi.spyOn(queryRepository, 'find').mockImplementation(async (context, _table, _spec, options) => {
+        // The second row has changed by the time a transactional read locks it.
+        const visibleRecords =
+          context.transaction && options?.lockForUpdate
+            ? records
+            : [records[0]!, { ...records[1]!, version: 0, fields: { [textId]: 'first' } }];
+        return ok({ records: visibleRecords, total: visibleRecords.length });
+      });
+      const eventBus = new FakeEventBus();
+      const undoRedoService = new FakeUndoRedoService();
+      const firstFields = new Set([numberId]);
+      const secondFields = new Set([textId]);
+      const handler = createHandler(
+        tableRepository,
+        recordRepository,
+        eventBus,
+        new FakeUnitOfWork(),
+        undoRedoService,
+        {
+          queryRepository,
+          plugins: [
+            {
+              name: 'per-record-field-scope',
+              supports: (operation) => operation === RecordWriteOperationKind.updateMany,
+              scope: () =>
+                ok({
+                  resolveUpdateFieldIdsForRecord: (record) =>
+                    record.fields().get(textFieldId)?.toValue() === 'first'
+                      ? firstFields
+                      : secondFields,
+                }),
+            },
+          ],
+        }
+      );
+
+      const result = await handler.handle(
+        createContext(),
+        UpdateRecordsCommand.create({
+          tableId: tableId.toString(),
+          fieldKeyType: 'id',
+          records: [
+            { id: firstId, fields: { [numberId]: 11 } },
+            {
+              id: secondId,
+              fields: secondAssignment === 'allowed' ? { [textId]: 'updated' } : { [numberId]: 21 },
+            },
+          ],
+        })._unsafeUnwrap()
+      );
+
+      if (secondAssignment === 'allowed') {
+        expect(result._unsafeUnwrap().updatedCount).toBe(2);
+        return;
+      }
+      expect(result._unsafeUnwrapErr()).toMatchObject({
+        code: 'record_write_plugin.update_fields_forbidden',
+        details: { deniedFieldIds: [numberId] },
+      });
+      expect(recordRepository.updateManyStreamCalls).toBe(0);
+      expect(eventBus.published).toEqual([]);
+      expect(undoRedoService.entries).toEqual([]);
+    }
+  );
+
   it('reorders explicit records through native v2 updateRecords', async () => {
     const { table, tableId, numberFieldId } = buildTable();
     const recordIdA = `rec${'o'.repeat(16)}`;

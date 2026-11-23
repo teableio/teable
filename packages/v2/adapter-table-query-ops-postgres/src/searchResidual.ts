@@ -80,21 +80,25 @@ export const createResidualSearchIndex = async (
   physical: { readonly schema: string; readonly tableName: string },
   indexName: string,
   fields: readonly ResidualField[],
-  provider: TableQuerySubstringSearchProviderCapability
+  provider: TableQuerySubstringSearchProviderCapability,
+  beforeDdl?: () => Promise<void>
 ): Promise<void> => {
   const existing = await inspectResidualSearchIndex(db, physical, indexName, fields, provider);
   if (existing.present && !existing.owned)
     throw new Error('Residual index name belongs to an incompatible physical object');
   if (existing.ready) return;
-  if (existing.present)
+  if (existing.present) {
+    await beforeDdl?.();
     await sql
       .raw(
         `DROP INDEX CONCURRENTLY ${quoteIdentifier(physical.schema)}.${quoteIdentifier(indexName)}`
       )
       .execute(db);
+  }
   const operator = provider.operatorClassSchema
     ? `${quoteIdentifier(provider.operatorClassSchema)}.${quoteIdentifier(provider.operatorClass)}`
     : quoteIdentifier(provider.operatorClass);
+  await beforeDdl?.();
   await sql
     .raw(
       `CREATE INDEX CONCURRENTLY ${quoteIdentifier(indexName)} ON ${makePhysicalTableSql(physical.schema, physical.tableName)} USING GIN ((${buildIndexedSearchExpression(fields)}) ${operator})`

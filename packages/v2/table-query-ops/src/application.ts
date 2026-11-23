@@ -534,6 +534,14 @@ export class RunTableQueryRemediationTaskHandler implements ICommandHandler<
             )
           );
         if (executed.isErr()) {
+          if (executed.error.code === 'table_query_ops.search_maintenance_deferred') {
+            const deferred = yield* savedRunning.deferMaintenance(
+              executed.error.message,
+              task.snapshot().attempts,
+              this.clock.now()
+            );
+            return this.taskRepository.save(context, deferred);
+          }
           const failed = yield* savedRunning.fail(
             executed.error.message,
             this.clock.now(),

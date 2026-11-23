@@ -109,4 +109,12 @@ export class FieldReferenceAdmissionService {
   async assertForeignTableReadable(tableId: string, foreignTableId: string): Promise<void> {
     await this.crossBaseLinkAccess.assertForeignTableReadable(tableId, foreignTableId);
   }
+
+  /** The foreign tables a multi-table read through `tableId` may include; see the access service. */
+  async readableForeignTableIds(
+    tableId: string,
+    foreignTableIds: Iterable<string>
+  ): Promise<Set<string>> {
+    return this.crossBaseLinkAccess.readableForeignTableIds(tableId, foreignTableIds);
+  }
 }

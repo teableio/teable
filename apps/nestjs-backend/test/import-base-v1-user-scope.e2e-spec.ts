@@ -41,13 +41,18 @@ import { ClsService } from 'nestjs-cls';
 import { err } from 'neverthrow';
 import Papa from 'papaparse';
 import * as unzipper from 'unzipper';
+import { ComputedFieldBackfillService } from '../../../packages/v2/adapter-table-repository-postgres/src/record/computed/ComputedFieldBackfillService';
+import { ComputedUpdatePlanner } from '../../../packages/v2/adapter-table-repository-postgres/src/record/computed/ComputedUpdatePlanner';
+import { ComputedTableRecordQueryBuilder } from '../../../packages/v2/adapter-table-repository-postgres/src/record/query-builder/computed/ComputedTableRecordQueryBuilder';
 import { PostgresUserLookupService } from '../../../packages/v2/adapter-table-repository-postgres/src/record/repository/PostgresUserLookupService';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { AttachmentsService } from '../src/features/attachments/attachments.service';
+import { BaseImportComputedService } from '../src/features/base/base-import-computed.service';
 import { BaseImportCsvQueueProcessor } from '../src/features/base/base-import-processor/base-import-csv.processor';
 import { BaseImportJunctionCsvQueueProcessor } from '../src/features/base/base-import-processor/base-import-junction.processor';
 import { BatchProcessor } from '../src/features/base/BatchProcessor.class';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import { DataDbClientManager } from '../src/global/data-db-client-manager.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
@@ -77,6 +82,7 @@ type ArchiveRows = {
 type ImportJob = {
   id: string;
   failedReason?: string;
+  progress?: unknown;
   getState(): Promise<string>;
 };
 
@@ -238,7 +244,8 @@ describe('public V1 .tea import user scope (e2e)', () => {
   };
 
   const waitForTerminalState = async (
-    job: ImportJob
+    job: ImportJob,
+    diagnostics?: () => Record<string, string | number>
   ): Promise<{ state: 'completed' | 'failed'; failedReason?: string }> => {
     const deadline = Date.now() + 20_000;
     while (Date.now() < deadline) {
@@ -249,17 +256,55 @@ describe('public V1 .tea import user scope (e2e)', () => {
       }
       await delay(25);
     }
-    throw new Error('Import queue job did not reach a terminal state');
+    const refreshed = (await processor.queue.getJob(job.id)) as ImportJob | null;
+    const savedProgress = refreshed?.progress;
+    const progressDetails =
+      typeof savedProgress === 'object' && savedProgress !== null ? savedProgress : undefined;
+    const savedStage = progressDetails ? Reflect.get(progressDetails, 'stage') : undefined;
+    const savedPercentage = progressDetails
+      ? Reflect.get(progressDetails, 'percentage')
+      : undefined;
+    // Only stage labels and numeric progress are diagnostic data; never dump the job payload.
+    const stage = [
+      'queued',
+      'download',
+      'parse',
+      'chunk',
+      'recompute',
+      'completed',
+      'failed',
+    ].includes(savedStage)
+      ? savedStage
+      : null;
+    throw new Error(
+      `Import queue job did not reach a terminal state: ${JSON.stringify({
+        state: await (refreshed ?? job).getState(),
+        progress:
+          typeof savedProgress === 'number'
+            ? savedProgress
+            : typeof savedPercentage === 'number'
+              ? savedPercentage
+              : null,
+        stage,
+        failedReason: refreshed?.failedReason ?? null,
+        diagnostics: diagnostics?.(),
+      })}`
+    );
   };
 
-  const waitForImportedData = async (job: ImportJob) => {
-    expect((await waitForTerminalState(job)).state).toBe('completed');
+  const waitForImportedData = async (
+    job: ImportJob,
+    diagnostics?: () => Record<string, string | number>
+  ) => {
+    expect((await waitForTerminalState(job, diagnostics)).state).toBe('completed');
     const junctionJobId = job.id.replace(/^import_csv_/, 'import_base_junction_csv_');
     const deadline = Date.now() + 20_000;
+    let lastState = 'missing';
     while (Date.now() < deadline) {
       const junctionJob = await junctionProcessor.queue.getJob(junctionJobId);
       if (junctionJob) {
         const state = await junctionJob.getState();
+        lastState = state;
         if (state === 'completed' || state === 'failed') {
           expect(state, junctionJob.failedReason).toBe('completed');
           return;
@@ -267,7 +312,12 @@ describe('public V1 .tea import user scope (e2e)', () => {
       }
       await delay(25);
     }
-    throw new Error('Import relationship queue did not complete its computed backfill');
+    throw new Error(
+      `Import relationship queue did not complete its computed backfill: ${JSON.stringify({
+        state: lastState,
+        diagnostics: diagnostics?.(),
+      })}`
+    );
   };
 
   const importArchive = async (archiveBytes: Buffer) => {
@@ -1008,7 +1058,47 @@ describe('public V1 .tea import user scope (e2e)', () => {
     let lookupCount = 0;
     let grantPromise: Promise<void> | undefined;
     const collaboratorId = getRandomString(16);
-
+    let pendingScopedLookups = 0;
+    let pendingPairLookups = 0;
+    let grantStage = 'not-started';
+    const nativeStages: Record<string, string> = {};
+    const probeStage = (target: object, method: string) => {
+      const methods = target as Record<string, (...args: unknown[]) => unknown>;
+      const original = methods[method];
+      if (typeof original !== 'function') throw new Error(`Missing diagnostic method: ${method}`);
+      vi.spyOn(methods, method).mockImplementation(async function (this: unknown, ...args) {
+        nativeStages[method] = 'pending';
+        try {
+          const result = await original.apply(this, args);
+          nativeStages[method] = 'settled';
+          return result;
+        } catch (error) {
+          nativeStages[method] = 'failed';
+          throw error;
+        }
+      });
+    };
+    probeStage(BaseImportComputedService.prototype, 'recomputeForTables');
+    probeStage(V2ContainerService.prototype, 'getContainerForBase');
+    for (const method of [
+      'getImportedLinks',
+      'importJunctionChunk',
+      'readArchive',
+      'clearDanglingLinks',
+    ]) {
+      probeStage(BaseImportJunctionCsvQueueProcessor.prototype, method);
+    }
+    for (const method of [
+      'executeSyncTables',
+      'executeSyncMany',
+      'collectBackfillFields',
+      'ensurePhysicalColumnTypes',
+      'loadSystemUserSnapshots',
+    ]) {
+      probeStage(ComputedFieldBackfillService.prototype, method);
+    }
+    probeStage(ComputedUpdatePlanner.prototype, 'planStage');
+    probeStage(ComputedTableRecordQueryBuilder.prototype, 'prepare');
     vi.spyOn(processor.queue, 'add').mockImplementation(
       async (...args: Parameters<typeof processor.queue.add>) => {
         const [name, data, options] = args;
@@ -1024,10 +1114,12 @@ describe('public V1 .tea import user scope (e2e)', () => {
       async function (tableId, identifiers) {
         lookupCount += 1;
         grantPromise ??= (async () => {
+          grantStage = 'table-metadata';
           const table = await prisma.tableMeta.findUniqueOrThrow({
             where: { id: tableId },
             select: { baseId: true },
           });
+          grantStage = 'collaborator-write';
           await prisma.collaborator.create({
             data: {
               id: collaboratorId,
@@ -1039,9 +1131,15 @@ describe('public V1 .tea import user scope (e2e)', () => {
               createdBy: actorId,
             },
           });
+          grantStage = 'completed';
         })();
-        await grantPromise;
-        return await originalLookup.call(this, tableId, identifiers);
+        pendingScopedLookups += 1;
+        try {
+          await grantPromise;
+          return await originalLookup.call(this, tableId, identifiers);
+        } finally {
+          pendingScopedLookups -= 1;
+        }
       }
     );
 
@@ -1049,12 +1147,49 @@ describe('public V1 .tea import user scope (e2e)', () => {
     vi.spyOn(PostgresUserLookupService.prototype, 'listUsersByIdentityPairs').mockImplementation(
       async function (pairs) {
         pairLookupCount += 1;
-        return originalPairLookup.call(this, pairs);
+        pendingPairLookups += 1;
+        try {
+          return await originalPairLookup.call(this, pairs);
+        } finally {
+          pendingPairLookups -= 1;
+        }
       }
     );
     try {
       const { baseId, job } = await importArchive(archive);
-      await waitForImportedData(job);
+      const diagnostics = () => ({
+        lookupCount,
+        pairLookupCount,
+        pendingScopedLookups,
+        pendingPairLookups,
+        grantStage,
+        nativeStages: JSON.stringify(nativeStages),
+      });
+      const terminal = await waitForTerminalState(job, diagnostics);
+      expect(terminal.state).toBe('completed');
+      try {
+        await waitForImportedData(job, diagnostics);
+      } catch (error) {
+        let databaseWaits: unknown = 'unavailable';
+        try {
+          databaseWaits = await prisma.$queryRaw<unknown[]>`
+            SELECT pid, state, wait_event_type, wait_event,
+              pg_blocking_pids(pid) AS blockers,
+              EXTRACT(EPOCH FROM (clock_timestamp() - query_start))::double precision AS seconds,
+              split_part(ltrim(query), ' ', 1) AS command
+            FROM pg_stat_activity
+            WHERE datname = current_database() AND pid <> pg_backend_pid()
+              AND (wait_event_type = 'Lock' OR query LIKE ${`%${baseId}%`})
+            ORDER BY query_start LIMIT 40
+          `;
+        } catch {
+          // Preserve the original completion failure when activity is unavailable.
+        }
+        throw new Error(
+          `${error instanceof Error ? error.message : String(error)}; databaseWaits=${JSON.stringify(databaseWaits)}`,
+          { cause: error }
+        );
+      }
       // The one-row exported source has a complete pair; editable id-only controls
       // remain one destination-scoped lookup per bounded Scoped Users chunk.
       expect(lookupCount).toBe(Math.ceil(rowCount / chunkSize));

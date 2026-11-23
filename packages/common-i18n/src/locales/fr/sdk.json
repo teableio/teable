@@ -413,6 +413,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "Enregistrer et partager des requêtes",
       "spaceCreate": "Créer un espace",
       "spaceDelete": "Supprimer un espace",
       "spaceRead": "Lire un espace",
@@ -1084,6 +1085,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton",
+      "buttonTriggerFilterNotMatched": "Cet enregistrement ne remplit pas les conditions de déclenchement de l'automatisation",
       "triggerNotFound": "L'automatisation doit avoir un nœud déclencheur",
       "nodeNotFound": "{{nodeId}} nœud non trouvé",
       "triggerTestFailed": "Test du déclencheur échoué, veuillez vérifier la configuration du déclencheur",
@@ -1216,6 +1218,7 @@
       "runAlreadyInFlight": "Une exécution de cette routine est déjà en cours",
       "runNowWhileActiveEvent": "Cette routine est active et reçoit déjà ses événements ; déclenchez-en un pour la voir s'exécuter",
       "runNowOwnerOnly": "Tant que la routine est active, seule la personne au nom de laquelle elle s'exécute peut la lancer maintenant",
+      "robotNotAllowed": "Les robots ne peuvent pas effectuer cette action",
       "invalidRunCursor": "Curseur de liste d'exécutions non valide",
       "invalidSchedule": "Planification de routine non valide : {{reason}}"
     },
@@ -1742,7 +1745,8 @@
         "dnsMisconfigured": "Échec de la configuration du lien d'accès : le DNS du domaine n'est pas configuré correctement"
       },
       "customDomainNotConfigured": "Aucun domaine personnalisé configuré",
-      "vercelTokenNotConfigured": "Le jeton Vercel n'est pas configuré dans les paramètres d'App Builder"
+      "vercelTokenNotConfigured": "Le jeton Vercel n'est pas configuré dans les paramètres d'App Builder",
+      "deleteSandboxCloseFailed": "Impossible de fermer le bac à sable. Rien n'a été supprimé, réessayez"
     },
     "reward": {
       "notFound": "Récompense non trouvée",

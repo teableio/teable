@@ -33,7 +33,6 @@ import {
   extractTableContent,
   serializerCellValueHtml,
 } from '../../nextjs-app/src/features/app/utils/clipboard';
-import { RecordService } from '../src/features/record/record.service';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
@@ -392,9 +391,9 @@ describe('Copy user identity over real HTTP (e2e)', () => {
     });
 
     const canonicalTarget = await getAuthorizedRecords(axios, targetTable, [targetUserField.id]);
-    expect(
-      canonicalTarget.data.records.map((record) => record.fields[targetUserField.id])
-    ).toEqual([undefined, undefined]);
+    expect(canonicalTarget.data.records.map((record) => record.fields[targetUserField.id])).toEqual(
+      [undefined, undefined]
+    );
     expect(JSON.stringify(canonicalTarget.data.records)).not.toContain(storedOnlyUser.id);
     expect(JSON.stringify(canonicalTarget.data.records)).not.toContain('email');
   });
@@ -496,27 +495,25 @@ describe('Copy user identity over real HTTP (e2e)', () => {
       ]),
     };
     const getSharedProjection = async () => {
-      const records = await anonymous.get<IRecordsVo>(
-        urlBuilder(SHARE_VIEW_RECORDS, { shareId }),
-        { params: { take: 10, fieldKeyType: FieldKeyType.Id } }
-      );
+      const records = await anonymous.get<IRecordsVo>(urlBuilder(SHARE_VIEW_RECORDS, { shareId }), {
+        params: { take: 10, fieldKeyType: FieldKeyType.Id },
+      });
       expect(records.data.records).toHaveLength(2);
       expect(records.data.records.map((record) => record.fields[titleField.id])).toEqual([
         'included',
         'included',
       ]);
-      expect(
-        records.data.records.every((record) => !(hiddenUserField.id in record.fields))
-      ).toBe(true);
+      expect(records.data.records.every((record) => !(hiddenUserField.id in record.fields))).toBe(
+        true
+      );
 
       const rawFromRecords = records.data.records.map((record) => [
         userIdentityFromAuthorizedCell(record.fields[visibleMembersField.id]) ?? null,
         userIdentityFromAuthorizedCell(record.fields[noEmailField.id]) ?? null,
       ]);
-      const copied = await anonymous.get<RichCopyVo>(
-        urlBuilder(SHARE_VIEW_COPY, { shareId }),
-        { params: copyParams }
-      );
+      const copied = await anonymous.get<RichCopyVo>(urlBuilder(SHARE_VIEW_COPY, { shareId }), {
+        params: copyParams,
+      });
       expect(copied.data.header.map((field) => field.id)).toEqual([
         visibleMembersField.id,
         noEmailField.id,
@@ -900,26 +897,22 @@ describe('V1 shared user projection over real HTTP (e2e)', () => {
       ]),
     };
     const getSharedProjection = async () => {
-      const records = await anonymous.get<IRecordsVo>(
-        urlBuilder(SHARE_VIEW_RECORDS, { shareId }),
-        { params: { take: 10, fieldKeyType: FieldKeyType.Id, projection } }
-      );
+      const records = await anonymous.get<IRecordsVo>(urlBuilder(SHARE_VIEW_RECORDS, { shareId }), {
+        params: { take: 10, fieldKeyType: FieldKeyType.Id, projection },
+      });
       expect(records.headers['x-teable-v2']).toBe('false');
       expect(records.data.records).toHaveLength(1);
       expect(records.data.records[0].fields).not.toHaveProperty(hiddenUserField.id);
       const rawFromRecords = [
         [
-          userIdentityFromAuthorizedCell(
-            records.data.records[0].fields[visibleMembersField.id]
-          ),
+          userIdentityFromAuthorizedCell(records.data.records[0].fields[visibleMembersField.id]),
           userIdentityFromAuthorizedCell(records.data.records[0].fields[noEmailField.id]),
         ],
       ];
 
-      const copied = await anonymous.get<RichCopyVo>(
-        urlBuilder(SHARE_VIEW_COPY, { shareId }),
-        { params: copyParams }
-      );
+      const copied = await anonymous.get<RichCopyVo>(urlBuilder(SHARE_VIEW_COPY, { shareId }), {
+        params: copyParams,
+      });
       expect(copied.headers['x-teable-v2']).toBe('false');
       expect(copied.data.header.map((field) => field.id)).toEqual([
         visibleMembersField.id,
@@ -978,253 +971,249 @@ describe('V1 shared user projection over real HTTP (e2e)', () => {
   });
 });
 
-describe.each(['V2', 'V1'] as const)('%s shared copy snapshot races over real HTTP (e2e)', (version) => {
-  let app: INestApplication;
-  let anonymous: AxiosInstance;
-  let spaceId: string;
-  let baseId: string;
-  let secretUser: UserIdentity & { email: string };
-  let previousForceV2All: string | undefined;
-  let previousEnableCanaryFeature: string | undefined;
+describe.each(['V2', 'V1'] as const)(
+  '%s shared copy snapshot races over real HTTP (e2e)',
+  (version) => {
+    let app: INestApplication;
+    let anonymous: AxiosInstance;
+    let spaceId: string;
+    let baseId: string;
+    let secretUser: UserIdentity & { email: string };
+    let previousForceV2All: string | undefined;
+    let previousEnableCanaryFeature: string | undefined;
 
-  const initialUser: UserIdentity = {
-    id: globalThis.testConfig.userId,
-    title: globalThis.testConfig.userName,
-    email: globalThis.testConfig.email,
-  };
-
-  beforeAll(async () => {
-    previousForceV2All = process.env.FORCE_V2_ALL;
-    previousEnableCanaryFeature = process.env.ENABLE_CANARY_FEATURE;
-    process.env.FORCE_V2_ALL = String(version === 'V2');
-    process.env.ENABLE_CANARY_FEATURE = 'false';
-    const appContext = await initApp();
-    app = appContext.app;
-    anonymous = createAnonymousUserAxios(appContext.appUrl);
-    spaceId = (await createSpace({ name: `copy-race-${version}-${Date.now()}` })).id;
-    baseId = (await createBase({ spaceId, name: `copy race ${version}` })).id;
-    await app.get(PrismaService).base.update({
-      where: { id: baseId },
-      data: { v2Enabled: version === 'V2' },
-    });
-
-    const email = `copy-race-undisclosed-${version.toLowerCase()}-${Date.now()}@example.com`;
-    const client = await createNewUserAxios({ email, password: '12345678' });
-    const user = (await client.get<IUserMeVo>(USER_ME)).data;
-    secretUser = { id: user.id, title: user.name, email: user.email };
-    await emailSpaceInvitation({
-      spaceId,
-      emailSpaceInvitationRo: { emails: [email], role: Role.Editor },
-    });
-  });
-
-  afterAll(async () => {
-    if (spaceId) await permanentDeleteSpace(spaceId).catch(() => undefined);
-    if (previousForceV2All === undefined) {
-      delete process.env.FORCE_V2_ALL;
-    } else {
-      process.env.FORCE_V2_ALL = previousForceV2All;
-    }
-    if (previousEnableCanaryFeature === undefined) {
-      delete process.env.ENABLE_CANARY_FEATURE;
-    } else {
-      process.env.ENABLE_CANARY_FEATURE = previousEnableCanaryFeature;
-    }
-    await app?.close();
-  });
-
-  it.each([
-    'value remains visible',
-    'field becomes hidden',
-    'allowCopy becomes false',
-    'includeRecords becomes false',
-    'view filter excludes the row',
-  ] as const)('does not mix the authorized old snapshot with a newer user when %s', async (change) => {
-    const table = await createTable(baseId, {
-      name: `copy race ${change}`,
-      fields: [
-        { name: 'Title', type: FieldType.SingleLineText },
-        { name: 'Member', type: FieldType.User, options: { shouldNotify: false } },
-      ],
-      records: [
-        { fields: { Title: 'included', Member: initialUser } },
-        { fields: { Title: 'excluded' } },
-      ],
-    });
-    const titleField = table.fields.find((field) => field.name === 'Title')!;
-    const userField = table.fields.find((field) => field.name === 'Member')!;
-    const viewId = table.defaultViewId!;
-    const recordId = table.records[0].id;
-    const filterFor = (value: string) => ({
-      conjunction: 'and' as const,
-      filterSet: [{ fieldId: titleField.id, operator: is.value, value }],
-    });
-    await updateViewFilter(table.id, viewId, { filter: filterFor('included') });
-    const shareId = (await enableShareView({ tableId: table.id, viewId })).data.shareId;
-    await updateViewShareMeta(table.id, viewId, {
-      allowCopy: true,
-      includeRecords: true,
-      includeHiddenField: false,
-    });
-    const copyParams = {
-      projection: [userField.id],
-      ranges: JSON.stringify([
-        [0, 0],
-        [0, 0],
-      ]),
+    const initialUser: UserIdentity = {
+      id: globalThis.testConfig.userId,
+      title: globalThis.testConfig.userName,
+      email: globalThis.testConfig.email,
     };
-    const copyUrl = urlBuilder(SHARE_VIEW_COPY, { shareId });
-    const recordsUrl = urlBuilder(SHARE_VIEW_RECORDS, { shareId });
-    const authorizedBefore = await anonymous.get<IRecordsVo>(recordsUrl);
-    expect(authorizedBefore.headers['x-teable-v2']).toBe(String(version === 'V2'));
-    expect(authorizedBefore.data.records.map((record) => record.id)).toEqual([recordId]);
-    expect(
-      userIdentityFromAuthorizedCell(authorizedBefore.data.records[0].fields[userField.id])
-    ).toEqual(initialUser);
-    expect(JSON.stringify(authorizedBefore.data)).not.toContain(secretUser.id);
 
-    type InitialSelection = { fieldIds: string[]; recordIds: string[]; rawContent: unknown[][] };
-    const { promise: entered, resolve: enter } = Promise.withResolvers<InitialSelection>();
-    const { promise: resume, resolve: release } = Promise.withResolvers<void>();
-    let paused = false;
-    let restore: () => void;
-
-    // These pass-through barriers return the real first selection unchanged.
-    // They stop after its authorization and record read, before the HTTP adapter
-    // can re-read cells using the now-stale field/record selection. Removing that
-    // second read must not remove the barrier or weaken the regression.
-    if (version === 'V2') {
-      const original = GetViewSelectionCopyHandler.prototype.handle;
-      const spy = vi.spyOn(GetViewSelectionCopyHandler.prototype, 'handle').mockImplementation(
-        async function (this: GetViewSelectionCopyHandler, context, query) {
-          const result = await original.call(this, context, query);
-          if (query.tableId.toString() === table.id && !paused && result.isOk()) {
-            paused = true;
-            enter({
-              fieldIds: result.value.fields.map((field) => field.id().toString()),
-              recordIds: result.value.sourceRecords.map((record) => record.id),
-              rawContent: result.value.sourceRecords.map((record) =>
-                result.value.fields.map((field) => record.fields[field.id().toString()])
-              ),
-            });
-            await resume;
-          }
-          return result;
-        }
-      );
-      restore = () => spy.mockRestore();
-    } else {
-      const recordService = app.get(RecordService);
-      const original = recordService.getRecordsFields.bind(recordService);
-      const spy = vi.spyOn(recordService, 'getRecordsFields').mockImplementation(async (...args) => {
-        const records = await original(...args);
-        if (args[0] === table.id && !paused) {
-          paused = true;
-          enter({
-            fieldIds: args[1].projection ?? [],
-            recordIds: records.map((record) => record.id),
-            rawContent: records.map((record) => [record.fields[userField.id]]),
-          });
-          await resume;
-        }
-        return records;
+    beforeAll(async () => {
+      previousForceV2All = process.env.FORCE_V2_ALL;
+      previousEnableCanaryFeature = process.env.ENABLE_CANARY_FEATURE;
+      process.env.FORCE_V2_ALL = String(version === 'V2');
+      process.env.ENABLE_CANARY_FEATURE = 'false';
+      const appContext = await initApp();
+      app = appContext.app;
+      anonymous = createAnonymousUserAxios(appContext.appUrl);
+      spaceId = (await createSpace({ name: `copy-race-${version}-${Date.now()}` })).id;
+      baseId = (await createBase({ spaceId, name: `copy race ${version}` })).id;
+      await app.get(PrismaService).base.update({
+        where: { id: baseId },
+        data: { v2Enabled: version === 'V2' },
       });
-      restore = () => spy.mockRestore();
-    }
 
-    const { promise: barrierDeadline, reject: rejectBarrier } = Promise.withResolvers<never>();
-    const barrierTimeout = setTimeout(
-      () => rejectBarrier(new Error('First copy read was not reached')),
-      15_000
-    );
-    const copyRequest = anonymous.get<RichCopyVo>(copyUrl, {
-      params: copyParams,
-      timeout: 30_000,
-      validateStatus: () => true,
+      const email = `copy-race-undisclosed-${version.toLowerCase()}-${Date.now()}@example.com`;
+      const client = await createNewUserAxios({ email, password: '12345678' });
+      const user = (await client.get<IUserMeVo>(USER_ME)).data;
+      secretUser = { id: user.id, title: user.name, email: user.email };
+      await emailSpaceInvitation({
+        spaceId,
+        emailSpaceInvitationRo: { emails: [email], role: Role.Editor },
+      });
     });
-    try {
-      const firstSelection = await Promise.race([
-        entered,
-        copyRequest.then((response) => {
-          throw new Error(`Copy returned HTTP ${response.status} without reaching its first read`);
-        }),
-        barrierDeadline,
-      ]);
-      clearTimeout(barrierTimeout);
-      expect(firstSelection.fieldIds).toEqual([userField.id]);
-      expect(firstSelection.recordIds).toEqual([recordId]);
-      expect(firstSelection.rawContent.map((row) => row.map(userIdentityFromAuthorizedCell))).toEqual([
-        [initialUser],
-      ]);
-      expect(JSON.stringify(firstSelection)).not.toContain(secretUser.id);
 
-      // All mutations are owner-authenticated HTTP requests, not mocked policy
-      // or record results. Revoke scope before writing the previously unseen B.
-      if (change === 'field becomes hidden') {
-        await updateViewColumnMeta(table.id, viewId, [
-          { fieldId: userField.id, columnMeta: { hidden: true } },
-        ]);
-      } else if (change === 'allowCopy becomes false') {
-        await updateViewShareMeta(table.id, viewId, { allowCopy: false });
-      } else if (change === 'includeRecords becomes false') {
-        await updateViewShareMeta(table.id, viewId, { includeRecords: false });
-      } else if (change === 'view filter excludes the row') {
-        await updateViewFilter(table.id, viewId, { filter: filterFor('excluded') });
+    afterAll(async () => {
+      if (spaceId) await permanentDeleteSpace(spaceId).catch(() => undefined);
+      if (previousForceV2All === undefined) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previousForceV2All;
       }
-      const updated = await updateRecord(table.id, recordId, {
-        fieldKeyType: FieldKeyType.Id,
-        record: { fields: { [userField.id]: secretUser } },
-      });
-      expect(userIdentityFromAuthorizedCell(updated.fields[userField.id])).toEqual(secretUser);
+      if (previousEnableCanaryFeature === undefined) {
+        delete process.env.ENABLE_CANARY_FEATURE;
+      } else {
+        process.env.ENABLE_CANARY_FEATURE = previousEnableCanaryFeature;
+      }
+      await app?.close();
+    });
 
-      if (change === 'allowCopy becomes false') {
-        const denied = await anonymous.get(copyUrl, {
+    it.each([
+      'value remains visible',
+      'field becomes hidden',
+      'allowCopy becomes false',
+      'includeRecords becomes false',
+      'view filter excludes the row',
+    ] as const)(
+      'does not mix the authorized old snapshot with a newer user when %s',
+      async (change) => {
+        const table = await createTable(baseId, {
+          name: `copy race ${change}`,
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            { name: 'Member', type: FieldType.User, options: { shouldNotify: false } },
+          ],
+          records: [
+            { fields: { Title: 'included', Member: initialUser } },
+            { fields: { Title: 'excluded' } },
+          ],
+        });
+        const titleField = table.fields.find((field) => field.name === 'Title')!;
+        const userField = table.fields.find((field) => field.name === 'Member')!;
+        const viewId = table.defaultViewId!;
+        const recordId = table.records[0].id;
+        const filterFor = (value: string) => ({
+          conjunction: 'and' as const,
+          filterSet: [{ fieldId: titleField.id, operator: is.value, value }],
+        });
+        await updateViewFilter(table.id, viewId, { filter: filterFor('included') });
+        const shareId = (await enableShareView({ tableId: table.id, viewId })).data.shareId;
+        await updateViewShareMeta(table.id, viewId, {
+          allowCopy: true,
+          includeRecords: true,
+          includeHiddenField: false,
+        });
+        const copyParams = {
+          projection: [userField.id],
+          ranges: JSON.stringify([
+            [0, 0],
+            [0, 0],
+          ]),
+        };
+        const copyUrl = urlBuilder(SHARE_VIEW_COPY, { shareId });
+        const recordsUrl = urlBuilder(SHARE_VIEW_RECORDS, { shareId });
+        const authorizedBefore = await anonymous.get<IRecordsVo>(recordsUrl);
+        expect(authorizedBefore.headers['x-teable-v2']).toBe(String(version === 'V2'));
+        expect(authorizedBefore.data.records.map((record) => record.id)).toEqual([recordId]);
+        expect(
+          userIdentityFromAuthorizedCell(authorizedBefore.data.records[0].fields[userField.id])
+        ).toEqual(initialUser);
+        expect(JSON.stringify(authorizedBefore.data)).not.toContain(secretUser.id);
+
+        type InitialSelection = {
+          fieldIds: string[];
+          recordIds: string[];
+          rawContent: unknown[][];
+        };
+        const { promise: entered, resolve: enter } = Promise.withResolvers<InitialSelection>();
+        const { promise: resume, resolve: release } = Promise.withResolvers<void>();
+        let paused = false;
+        let restore: () => void;
+
+        // Both routing headers now use the native shared-copy query. Pause its real,
+        // authorized selection before the adapter hydrates the selected user cells.
+        const original = GetViewSelectionCopyHandler.prototype.handle;
+        const spy = vi
+          .spyOn(GetViewSelectionCopyHandler.prototype, 'handle')
+          .mockImplementation(async function (this: GetViewSelectionCopyHandler, context, query) {
+            const result = await original.call(this, context, query);
+            if (query.tableId.toString() === table.id && !paused && result.isOk()) {
+              paused = true;
+              enter({
+                fieldIds: result.value.fields.map((field) => field.id().toString()),
+                recordIds: result.value.sourceRecords.map((record) => record.id),
+                rawContent: result.value.sourceRecords.map((record) =>
+                  result.value.fields.map((field) => record.fields[field.id().toString()])
+                ),
+              });
+              await resume;
+            }
+            return result;
+          });
+        restore = () => spy.mockRestore();
+
+        const { promise: barrierDeadline, reject: rejectBarrier } = Promise.withResolvers<never>();
+        const barrierTimeout = setTimeout(
+          () => rejectBarrier(new Error('First copy read was not reached')),
+          15_000
+        );
+        const copyRequest = anonymous.get<RichCopyVo>(copyUrl, {
           params: copyParams,
+          timeout: 30_000,
           validateStatus: () => true,
         });
-        expect(denied.status).toBe(403);
-      } else {
-        const current = await anonymous.get<IRecordsVo>(recordsUrl);
-        if (change === 'value remains visible') {
-          expect(userIdentityFromAuthorizedCell(current.data.records[0].fields[userField.id])).toEqual(
-            secretUser
-          );
-        } else {
-          expect(JSON.stringify(current.data)).not.toContain(secretUser.id);
+        try {
+          const firstSelection = await Promise.race([
+            entered,
+            copyRequest.then((response) => {
+              throw new Error(
+                `Copy returned HTTP ${response.status} without reaching its first read`
+              );
+            }),
+            barrierDeadline,
+          ]);
+          clearTimeout(barrierTimeout);
+          expect(firstSelection.fieldIds).toEqual([userField.id]);
+          expect(firstSelection.recordIds).toEqual([recordId]);
+          expect(
+            firstSelection.rawContent.map((row) => row.map(userIdentityFromAuthorizedCell))
+          ).toEqual([[initialUser]]);
+          expect(JSON.stringify(firstSelection)).not.toContain(secretUser.id);
+
+          // All mutations are owner-authenticated HTTP requests, not mocked policy
+          // or record results. Revoke scope before writing the previously unseen B.
           if (change === 'field becomes hidden') {
-            expect(current.data.records[0].fields).not.toHaveProperty(userField.id);
+            await updateViewColumnMeta(table.id, viewId, [
+              { fieldId: userField.id, columnMeta: { hidden: true } },
+            ]);
+          } else if (change === 'allowCopy becomes false') {
+            await updateViewShareMeta(table.id, viewId, { allowCopy: false });
           } else if (change === 'includeRecords becomes false') {
-            expect(current.data.records).toEqual([]);
-          } else {
-            expect(current.data.records.map((record) => record.id)).toEqual([table.records[1].id]);
+            await updateViewShareMeta(table.id, viewId, { includeRecords: false });
+          } else if (change === 'view filter excludes the row') {
+            await updateViewFilter(table.id, viewId, { filter: filterFor('excluded') });
           }
+          const updated = await updateRecord(table.id, recordId, {
+            fieldKeyType: FieldKeyType.Id,
+            record: { fields: { [userField.id]: secretUser } },
+          });
+          expect(userIdentityFromAuthorizedCell(updated.fields[userField.id])).toEqual(secretUser);
+
+          if (change === 'allowCopy becomes false') {
+            const denied = await anonymous.get(copyUrl, {
+              params: copyParams,
+              validateStatus: () => true,
+            });
+            expect(denied.status).toBe(403);
+          } else {
+            const current = await anonymous.get<IRecordsVo>(recordsUrl);
+            if (change === 'value remains visible') {
+              expect(
+                userIdentityFromAuthorizedCell(current.data.records[0].fields[userField.id])
+              ).toEqual(secretUser);
+            } else {
+              expect(JSON.stringify(current.data)).not.toContain(secretUser.id);
+              if (change === 'field becomes hidden') {
+                expect(current.data.records[0].fields).not.toHaveProperty(userField.id);
+              } else if (change === 'includeRecords becomes false') {
+                expect(current.data.records).toEqual([]);
+              } else {
+                expect(current.data.records.map((record) => record.id)).toEqual([
+                  table.records[1].id,
+                ]);
+              }
+            }
+          }
+
+          release();
+          const response = await copyRequest;
+          const payload = JSON.stringify(response.data);
+          expect
+            .soft(
+              payload,
+              'Copy must not disclose the user written after the authorized first read'
+            )
+            .not.toContain(secretUser.id);
+          expect.soft(payload).not.toContain(secretUser.email);
+          expect.soft(payload).not.toContain(secretUser.title);
+          if (response.status === 200 && response.data.content !== '') {
+            expect(response.headers['x-teable-v2']).toBe(String(version === 'V2'));
+            expect.soft(response.data.content).toBe(initialUser.title);
+            expect.soft(response.data.header.map((field) => field.id)).toEqual([userField.id]);
+            expect.soft(response.data.rawContent).toEqual([[initialUser]]);
+          } else if (response.status === 200) {
+            expect(response.data.rawContent ?? []).toEqual([]);
+          } else {
+            // The operation may fail closed, but a server error is not a privacy fix.
+            expect([403, 404]).toContain(response.status);
+          }
+        } finally {
+          clearTimeout(barrierTimeout);
+          release();
+          await copyRequest.catch(() => undefined);
+          restore();
         }
       }
-
-      release();
-      const response = await copyRequest;
-      const payload = JSON.stringify(response.data);
-      expect
-        .soft(payload, 'Copy must not disclose the user written after the authorized first read')
-        .not.toContain(secretUser.id);
-      expect.soft(payload).not.toContain(secretUser.email);
-      expect.soft(payload).not.toContain(secretUser.title);
-      if (response.status === 200 && response.data.content !== '') {
-        expect(response.headers['x-teable-v2']).toBe(String(version === 'V2'));
-        expect.soft(response.data.content).toBe(initialUser.title);
-        expect.soft(response.data.header.map((field) => field.id)).toEqual([userField.id]);
-        expect.soft(response.data.rawContent).toEqual([[initialUser]]);
-      } else if (response.status === 200) {
-        expect(response.data.rawContent ?? []).toEqual([]);
-      } else {
-        // The operation may fail closed, but a server error is not a privacy fix.
-        expect([403, 404]).toContain(response.status);
-      }
-    } finally {
-      clearTimeout(barrierTimeout);
-      release();
-      await copyRequest.catch(() => undefined);
-      restore();
-    }
-  });
-});
+    );
+  }
+);

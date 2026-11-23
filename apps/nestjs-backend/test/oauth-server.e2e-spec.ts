@@ -519,14 +519,16 @@ describe('OpenAPI OAuthController (e2e)', () => {
     // base|read_all must NOT be granted implicitly: this token only consented
     // to table|read, so /base/access/all (requires base|read_all) is denied.
     // (Regression guard for GHSA-c57x — previously read_all was auto-added.)
-    const baseListError = await getError(() =>
-      anonymousAxios.get<IGetBaseAllVo>(`/base/access/all`, {
-        headers: {
-          Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
-        },
-      })
-    );
-    expect(baseListError?.status).toBe(403);
+    for (const path of ['/base/access/all', '/v2/bases/list']) {
+      const baseListError = await getError(() =>
+        anonymousAxios.get(path, {
+          headers: {
+            Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
+          },
+        })
+      );
+      expect(baseListError?.status).toBe(403);
+    }
   });
 
   it('/api/oauth/access_token (POST) - base|read_all only granted when consented', async () => {
@@ -567,6 +569,15 @@ describe('OpenAPI OAuthController (e2e)', () => {
     });
     expect(baseListRes.status).toBe(200);
     expect(baseListRes.data).toEqual(expect.any(Array));
+    const nativeBaseListRes = await anonymousAxios.get('/v2/bases/list', {
+      headers: {
+        Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
+      },
+    });
+    expect(nativeBaseListRes.status).toBe(200);
+    expect(nativeBaseListRes.data.data.bases).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: baseId })])
+    );
   });
 
   it('/api/oauth/access_token (POST) - scope [trash]', async () => {

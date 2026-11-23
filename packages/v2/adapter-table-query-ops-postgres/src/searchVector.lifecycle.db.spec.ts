@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { connect, createServer, type Socket } from 'node:net';
+import { createV2PostgresDb } from '@teable/v2-adapter-db-postgres-pg';
 import {
   createV2NodeTestContainer,
   type IV2NodeTestContainer,
@@ -30,22 +32,28 @@ import {
   type UpdateFieldResult,
 } from '@teable/v2-core';
 import {
+  defaultTableQueryDecisionPolicyConfig,
+  reclaimDropTaskId,
   registerV2TableOps,
   resolveTableSearchAccessPath,
   RunTableQueryRemediationTaskCommand,
   RunTableQueryRemediationTaskHandler,
+  startTableQueryOpsTaskWorkerIfEnabled,
   TableQueryRemediationTask,
+  TableQueryOpsExecutionUnavailableError,
   v2TableOpsTokens,
   type TableQueryRemediationTaskRepository,
+  type TableQueryOpsRunnerHandle,
   type TableSearchVectorReconciler,
   type TableSearchVectorStatusReader,
 } from '@teable/v2-table-query-ops';
 import { PostgresQueryCompiler, sql, type Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { PostgresTableQueryRemediationExecutor } from './executor';
 import { getTablePhysicalName, quoteIdentifier } from './helpers';
+import { PostgresTableQueryRemediationTaskRepository } from './repositories';
 import { registerV2TableOpsPostgresAdapter } from './register';
 import type { TableQueryOpsDatabase } from './schema';
 import {
@@ -54,6 +62,10 @@ import {
   PostgresTableSearchVectorReconciler,
   type SearchGenerationExecutionState,
 } from './searchVector';
+import {
+  PostgresTableSearchVectorSchemaMaintenanceScheduler,
+  type SearchMaintenanceOptions,
+} from './searchVectorMaintenance';
 import { PostgresTableSearchAccessPathMetadataPublisher } from './searchVectorMetadata';
 import type { UnknownPostgresDatabase } from './types';
 
@@ -117,6 +129,47 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
   let statusReader: TableSearchVectorStatusReader;
   let db: Kysely<UnknownPostgresDatabase>;
   const recoveryTaskIds: string[] = [];
+  const maintenanceTableIds: string[] = [];
+
+  it('discards a timed-out maintenance session and eventually releases its data lock', async () => {
+    const maintenance = await createV2PostgresDb<UnknownPostgresDatabase>(
+      { pg: { connectionString: testContainer.connectionString, pool: { max: 1 } } },
+      { maintenanceStatementDeadlineMs: 500 }
+    );
+    const tableId = `transport_${process.pid}_${Date.now()}`;
+    let backendPid = 0;
+    try {
+      await expect(
+        maintenance.connection().execute(async (session) => {
+          backendPid = (
+            await sql<{ pid: number }>`SELECT pg_backend_pid() AS pid`.execute(session)
+          ).rows[0].pid;
+          await sql`SELECT pg_advisory_lock(hashtext('teable.table_query_ops.search_vector.data'), hashtext(${tableId}))`.execute(
+            session
+          );
+          await sql`SELECT pg_sleep(3)`.execute(session);
+        })
+      ).rejects.toMatchObject({ code: 'TABLE_QUERY_OPS_STATEMENT_TIMEOUT' });
+
+      const replacement = (
+        await sql<{ pid: number }>`SELECT pg_backend_pid() AS pid`.execute(maintenance)
+      ).rows[0].pid;
+      expect(replacement).not.toBe(backendPid);
+      expect((await sql<{ healthy: number }>`SELECT 1 AS healthy`.execute(db)).rows[0].healthy).toBe(
+        1
+      );
+      await vi.waitFor(
+        async () => {
+          const probe = await sql<{ available: boolean }>`SELECT pg_try_advisory_xact_lock(
+            hashtext('teable.table_query_ops.search_vector.data'), hashtext(${tableId})) AS available`.execute(db);
+          expect(probe.rows[0].available).toBe(true);
+        },
+        { timeout: 5000 }
+      );
+    } finally {
+      await maintenance.destroy();
+    }
+  }, 15_000);
 
   const interruptGeneration = async (
     attempts: number,
@@ -333,16 +386,2095 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
   }, 120_000);
 
   afterEach(async () => {
-    if (!recoveryTaskIds.length) return;
-    await (testContainer.metaDb as unknown as Kysely<TableQueryOpsDatabase>)
-      .deleteFrom('table_query_remediation_task')
-      .where('id', 'in', recoveryTaskIds.splice(0))
-      .execute();
+    const meta = testContainer.metaDb as unknown as Kysely<TableQueryOpsDatabase>;
+    const tableIds = maintenanceTableIds.splice(0);
+    const taskIds = recoveryTaskIds.splice(0);
+    if (tableIds.length)
+      await meta
+        .deleteFrom('table_query_remediation_task')
+        .where('table_id', 'in', tableIds)
+        .execute();
+    if (taskIds.length)
+      await meta.deleteFrom('table_query_remediation_task').where('id', 'in', taskIds).execute();
   });
 
   afterAll(async () => {
     await testContainer?.dispose();
   });
+
+  it.each(['fresh', 'recovered', 'true_error'] as const)(
+    'defers a %s retirement without queueing ahead of foreground reads or writes and later reclaims it',
+    async (mode) => {
+      let { table } = await createTable();
+      const tableId = table.id().toString();
+      maintenanceTableIds.push(tableId);
+      const score = fieldByName(table, 'Score');
+      await createSemanticRecords(
+        table,
+        fieldByName(table, 'Title').id().toString(),
+        score.id().toString()
+      );
+      const physical = expectOk(getTablePhysicalName(table));
+      const relation = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+      const scoreColumn = quoteIdentifier(expectOk(expectOk(score.dbFieldName()).value()));
+      const titleColumn = quoteIdentifier(
+        expectOk(expectOk(fieldByName(table, 'Title').dbFieldName()).value())
+      );
+      // Reuse the hybrid-generation seam so both independently reclaimed artifacts must wait.
+      await sql.raw(`ALTER TABLE ${relation} ADD COLUMN residual_seed text`).execute(db);
+      await sql
+        .raw(`UPDATE ${relation} SET residual_seed = 'recoverable-' || ${scoreColumn}`)
+        .execute(db);
+      await sql
+        .raw(`ALTER TABLE ${relation} DROP COLUMN ${scoreColumn},
+        ADD COLUMN ${scoreColumn} text GENERATED ALWAYS AS (residual_seed) STORED`)
+        .execute(db);
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const retiredSnapshot = (await loadTable(tableId)).searchIndex()!;
+      expect(retiredSnapshot.document?.ready).toBe(true);
+      expect(retiredSnapshot.residual?.ready).toBe(true);
+      table = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          CreateFieldCommand.create({
+            baseId: table.baseId().toString(),
+            tableId,
+            field: { type: 'singleLineText', name: 'Retirement addition' },
+          })._unsafeUnwrap()
+        )
+      ).table;
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const now = new Date();
+      const hhmm = (minute: number) =>
+        `${Math.floor(minute / 60)
+          .toString()
+          .padStart(2, '0')}:${(minute % 60).toString().padStart(2, '0')}`;
+      const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const options = {
+        windowUtc: `${hhmm((minute + 1410) % 1440)}-${hhmm((minute + 30) % 1440)}`,
+        allowUnknownOrLargeRewrite: true,
+      };
+      const run = async (id: string, executionDb = db) =>
+        expectOk(
+          await new RunTableQueryRemediationTaskHandler(
+            taskRepository,
+            new PostgresTableQueryRemediationExecutor(
+              meta,
+              executionDb,
+              tableRepository,
+              new PostgresTableSearchVectorReconciler(meta, executionDb, options)
+            ),
+            testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+            testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+            { now: () => new Date() }
+          ).handle(
+            context,
+            new RunTableQueryRemediationTaskCommand(id, false, 'retirement-lock-worker')
+          )
+        );
+      const pending = (
+        await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+        WHERE table_id = ${tableId} AND status = 'queued' AND payload->>'trigger' = 'schema_change'`.execute(
+          meta
+        )
+      ).rows;
+      expect(pending).toHaveLength(1);
+      expect((await run(pending[0].id)).snapshot().status).toBe('succeeded');
+      const serving = (await loadTable(tableId)).searchIndex()!;
+      expect(serving.document!.indexName).not.toBe(retiredSnapshot.document!.indexName);
+      expect(serving.residual!.indexName).not.toBe(retiredSnapshot.residual!.indexName);
+      // Retirement still runs outside the build window, but must never queue its table lock.
+      options.windowUtc = `${hhmm((minute + 60) % 1440)}-${hhmm((minute + 120) % 1440)}`;
+      const beforeSearch = await searchUsingRuntime(table, 'lifecycleunique');
+      expect(beforeSearch.total).toBe(1);
+      expect(beforeSearch.searchAccessPath).toMatchObject({
+        used: 'generated_text',
+        indexedBranches: ['document', 'residual'],
+      });
+      const claim = () =>
+        taskRepository.claimNextAccepted(context, {
+          scope: 'search_maintenance',
+          workerId: 'retirement-lock-worker',
+          now: new Date(),
+          allowedKinds: ['drop_search_access_path'],
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+        });
+      // The grace gate is still authoritative even when contention can defer a task.
+      expect(expectOk(await claim())).toBeUndefined();
+      await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() - interval '1 second'
+        WHERE table_id = ${tableId} AND status = 'disabled'`.execute(meta);
+      const taskId = (
+        await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+        WHERE table_id = ${tableId} AND payload->>'trigger' = 'reclaim'`.execute(meta)
+      ).rows[0].id;
+      let departed: TableQueryRemediationTask | undefined;
+      if (mode === 'recovered') {
+        await sql`UPDATE table_query_remediation_task SET status = 'running', attempts = 3,
+          locked_by = 'departed', locked_at = now() - interval '2 minutes' WHERE id = ${taskId}`.execute(
+          meta
+        );
+        departed = expectOk(await taskRepository.findById(context, taskId));
+      }
+      const retirementMetadata = async () =>
+        (
+          await sql<{ config: unknown }>`SELECT to_jsonb(config) AS config
+        FROM table_query_search_vector_config config WHERE table_id = ${tableId} AND status = 'disabled'`.execute(
+            meta
+          )
+        ).rows;
+      const physicalArtifacts = async () =>
+        (
+          await sql<{ columns: string[]; indexes: string[] }>`SELECT
+        (SELECT array_agg(attname::text ORDER BY attname) FROM pg_attribute
+          WHERE attrelid = to_regclass(${relation}) AND NOT attisdropped AND attnum > 0) AS columns,
+        (SELECT array_agg(indexrelid::text ORDER BY indexrelid) FROM pg_index
+          WHERE indrelid = to_regclass(${relation})) AS indexes`.execute(db)
+        ).rows;
+      const retainedMetadata = await retirementMetadata();
+      const retainedArtifacts = await physicalArtifacts();
+      let lockStatements = 0;
+      const denied = db.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          if (compiled.sql.startsWith('LOCK TABLE ') && ++lockStatements % 2 === 1)
+            throw Object.assign(new Error('retirement document lock permission denied'), {
+              code: '42501',
+            });
+          return args.node;
+        },
+        async transformResult(args) {
+          return args.result;
+        },
+      });
+      await db.transaction().execute(async (reader) => {
+        await sql.raw(`LOCK TABLE ${relation} IN ACCESS SHARE MODE`).execute(reader);
+        for (let round = 0; round < (mode === 'true_error' ? 3 : 4); round += 1) {
+          expect(expectOk(await claim())?.snapshot().id).toBe(taskId);
+          let settled = false;
+          const retirement = run(taskId, mode === 'true_error' ? denied : db).finally(() => {
+            settled = true;
+          });
+          const foreground = (async () => {
+            const read = await sql<{ count: number }>`SELECT count(*)::int AS count
+              FROM ${sql.raw(relation)}`.execute(db);
+            const write = await sql<{ touched: number }>`UPDATE ${sql.raw(relation)}
+              SET ${sql.raw(titleColumn)} = ${sql.raw(titleColumn)} RETURNING 1 AS touched`.execute(
+              db
+            );
+            expect(read.rows[0].count).toBeGreaterThan(0);
+            expect(write.rows.length).toBe(read.rows[0].count);
+          })();
+          const observeQueue = async () => {
+            // Hold the conflicting reader until reclamation and both foreground
+            // operations settle. Observe the lock queue while reclamation is in flight.
+            do {
+              const locks = await sql<{ queued: boolean }>`SELECT EXISTS (
+                SELECT 1 FROM pg_locks WHERE relation = to_regclass(${relation})
+                  AND mode = 'AccessExclusiveLock' AND NOT granted) AS queued`.execute(db);
+              if (locks.rows[0].queued) return true;
+            } while (!settled);
+            return false;
+          };
+          const [, , queued] = await Promise.all([retirement, foreground, observeQueue()]);
+          expect(queued).toBe(false);
+          const persisted = expectOk(await taskRepository.findById(context, taskId));
+          expect(persisted.snapshot()).toMatchObject({
+            status: mode === 'true_error' ? 'failed' : 'queued',
+            attempts: mode === 'true_error' ? round + 1 : mode === 'recovered' ? 3 : 0,
+            maxAttempts: 3,
+            resumeAttempt: mode === 'recovered',
+            lastError:
+              mode === 'true_error'
+                ? 'retirement document lock permission denied'
+                : 'Search retirement is waiting for the table lock',
+          });
+          expect(persisted.snapshot().lockedAt).toBeUndefined();
+          expect(persisted.snapshot().lockedBy).toBeUndefined();
+          expect(await retirementMetadata()).toEqual(retainedMetadata);
+          expect(await physicalArtifacts()).toEqual(retainedArtifacts);
+          expect((await loadTable(tableId)).searchIndex()).toEqual(serving);
+          const duringSearch = await searchUsingRuntime(table, 'lifecycleunique');
+          expect(duringSearch.total).toBe(beforeSearch.total);
+          expect(duringSearch.searchAccessPath).toEqual(beforeSearch.searchAccessPath);
+          const locks = await sql<{ count: number }>`SELECT count(*)::int AS count FROM pg_locks
+            WHERE relation = to_regclass(${relation}) AND mode = 'AccessExclusiveLock'`.execute(db);
+          expect(locks.rows[0].count).toBe(0);
+          await meta.transaction().execute(async (owner) => {
+            const advisory = await sql<{ available: boolean }>`SELECT pg_try_advisory_xact_lock(
+              hashtext('teable.table_query_ops.search_vector'), hashtext(${tableId})) AS available`.execute(
+              owner
+            );
+            expect(advisory.rows[0].available).toBe(true);
+          });
+        }
+      });
+      if (mode === 'true_error') {
+        // A later residual 55P03 must never hide the earlier real document failure.
+        expect(lockStatements).toBe(6);
+        expect(expectOk(await claim())).toBeUndefined();
+        const exhausted = expectOk(await taskRepository.findById(context, taskId));
+        expect(exhausted.start('retirement-lock-worker', new Date()).isErr()).toBe(true);
+        return;
+      }
+      expect(expectOk(await claim())?.snapshot().id).toBe(taskId);
+      const completed = (await run(taskId)).snapshot();
+      expect(completed).toMatchObject({
+        status: 'succeeded',
+        attempts: mode === 'recovered' ? 3 : 1,
+        maxAttempts: 3,
+      });
+      expect(completed.lastError).toBeUndefined();
+      if (departed)
+        expect(
+          (
+            await taskRepository.save(
+              context,
+              expectOk(departed.succeed({ stale: true }, new Date()))
+            )
+          ).isErr()
+        ).toBe(true);
+      const cleaned = (
+        await sql<{
+          serving_snapshot: unknown;
+          reclaim_drop_after: Date | null;
+          reclaim_drop_queued_at: Date | null;
+        }>`SELECT serving_snapshot, reclaim_drop_after, reclaim_drop_queued_at
+        FROM table_query_search_vector_config
+        WHERE table_id = ${tableId} AND status = 'disabled'`.execute(meta)
+      ).rows;
+      expect(cleaned).toEqual([
+        { serving_snapshot: null, reclaim_drop_after: null, reclaim_drop_queued_at: null },
+      ]);
+      const artifacts = await sql<{
+        column_present: boolean;
+        document_present: boolean;
+        residual_present: boolean;
+      }>`SELECT
+        EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${relation})
+          AND attname = ${retiredSnapshot.document!.generatedColumnName} AND NOT attisdropped) AS column_present,
+        to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(retiredSnapshot.document!.indexName)}`}) IS NOT NULL AS document_present,
+        to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(retiredSnapshot.residual!.indexName)}`}) IS NOT NULL AS residual_present`.execute(
+        db
+      );
+      expect(artifacts.rows[0]).toEqual({
+        column_present: false,
+        document_present: false,
+        residual_present: false,
+      });
+      expect((await loadTable(tableId)).searchIndex()).toEqual(serving);
+      const afterSearch = await searchUsingRuntime(table, 'lifecycleunique');
+      expect(afterSearch.total).toBe(beforeSearch.total);
+      expect(afterSearch.searchAccessPath).toEqual(beforeSearch.searchAccessPath);
+    },
+    120_000
+  );
+
+  it('keeps a warm split-data retirement retryable beyond maxAttempts while its database rejects connections', async () => {
+    const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+    const databaseName = `search_retirement_${process.pid}_${Date.now()}`;
+    let isolated: Kysely<UnknownPostgresDatabase> | undefined;
+    let executionDb: Kysely<UnknownPostgresDatabase> | undefined;
+    await sql.raw(`CREATE DATABASE ${quoteIdentifier(databaseName)}`).execute(meta);
+    try {
+      const url = new URL(testContainer.connectionString);
+      url.pathname = `/${databaseName}`;
+      isolated = await createV2PostgresDb({ pg: { connectionString: url.toString() } });
+      await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`.execute(isolated);
+      const fixture = await prepareWarmRetirement(isolated);
+      // This observer connection survives ALLOW_CONNECTIONS=false, so assertions
+      // can inspect the owned database without opening a new data connection.
+      await isolated.connection().execute(async (observer) => {
+        executionDb = await createV2PostgresDb({
+          pg: {
+            connectionString: url.toString(),
+            pool: { max: 1, maxUses: 1, connectionTimeoutMillis: 2_000 },
+          },
+        });
+        await sql`SELECT 1`.execute(executionDb);
+        const unavailable = vi.fn(
+          (error: unknown) =>
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === '55000' &&
+            error instanceof Error &&
+            error.message === `database "${databaseName}" is not currently accepting connections`
+        );
+        const worker = warmRetirementWorker(fixture.tableId, executionDb, unavailable);
+        const retained = await fixture.retirementMetadata();
+        expect(await fixture.artifacts(observer)).toEqual({
+          column_present: true,
+          index_present: true,
+        });
+        await sql
+          .raw(`ALTER DATABASE ${quoteIdentifier(databaseName)} ALLOW_CONNECTIONS false`)
+          .execute(meta);
+        // A recovered final charged attempt is the most restrictive queue state.
+        await sql`UPDATE table_query_remediation_task SET status = 'running', attempts = 3,
+          locked_by = 'departed-warm-worker', locked_at = now() - interval '2 minutes'
+          WHERE id = ${fixture.taskId}`.execute(meta);
+        for (let round = 0; round < 4; round += 1) {
+          await worker.runOnce();
+          const deferred = expectOk(
+            await taskRepository.findById(context, fixture.taskId)
+          ).snapshot();
+          expect(deferred).toMatchObject({
+            id: fixture.taskId,
+            status: 'queued',
+            attempts: 3,
+            maxAttempts: 3,
+            resumeAttempt: true,
+            lastError: `Search retirement connection unavailable: database "${databaseName}" is not currently accepting connections`,
+          });
+          expect(deferred.lockedAt).toBeUndefined();
+          expect(deferred.lockedBy).toBeUndefined();
+          expect(await fixture.retirementMetadata()).toEqual(retained);
+          expect(await fixture.artifacts(observer)).toEqual({
+            column_present: true,
+            index_present: true,
+          });
+          expect(
+            (await sql<{ healthy: number }>`SELECT 1 AS healthy`.execute(meta)).rows[0].healthy
+          ).toBe(1);
+          await meta.transaction().execute(async (owner) => {
+            expect(
+              (
+                await sql<{ available: boolean }>`SELECT pg_try_advisory_xact_lock(
+              hashtext('teable.table_query_ops.search_vector'), hashtext(${fixture.tableId})) AS available`.execute(
+                  owner
+                )
+              ).rows[0].available
+            ).toBe(true);
+          });
+        }
+        expect(unavailable).toHaveBeenCalledTimes(4);
+        await sql
+          .raw(`ALTER DATABASE ${quoteIdentifier(databaseName)} ALLOW_CONNECTIONS true`)
+          .execute(meta);
+        await worker.runOnce();
+        const completed = expectOk(
+          await taskRepository.findById(context, fixture.taskId)
+        ).snapshot();
+        expect(completed).toMatchObject({
+          id: fixture.taskId,
+          status: 'succeeded',
+          attempts: 3,
+          maxAttempts: 3,
+        });
+        expect(completed.lastError).toBeUndefined();
+        expect(await fixture.artifacts(observer)).toEqual({
+          column_present: false,
+          index_present: false,
+        });
+        expect(await fixture.retirementMetadata()).toMatchObject([
+          { serving_snapshot: null, reclaim_drop_after: null, reclaim_drop_queued_at: null },
+        ]);
+        expect(worker.resolveExecution).toHaveBeenCalledTimes(5);
+        expect(worker.execute).toHaveBeenCalledTimes(5);
+        expect(
+          (
+            await sql<{ count: number }>`SELECT count(*)::int AS count
+          FROM table_query_remediation_task WHERE table_id = ${fixture.tableId}
+          AND payload->>'trigger' = 'reclaim'`.execute(meta)
+          ).rows[0].count
+        ).toBe(1);
+      });
+    } finally {
+      // Only this fixture's database is changed; the metadata database and CI
+      // roles retain their original connection policy even on an assertion failure.
+      await sql
+        .raw(`ALTER DATABASE ${quoteIdentifier(databaseName)} ALLOW_CONNECTIONS true`)
+        .execute(meta);
+      await executionDb?.destroy();
+      await isolated?.destroy();
+      await sql.raw(`DROP DATABASE ${quoteIdentifier(databaseName)}`).execute(meta);
+    }
+  }, 120_000);
+
+  it.each([0, 3])(
+    'preserves a warm retirement deferral when its shared session dies before the data lock at charged attempt %i',
+    async (chargedAttempts) => {
+      const fixture = await prepareWarmRetirement();
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const metadataNamespace = 'teable.table_query_ops.search_vector';
+      const dataNamespace = 'teable.table_query_ops.search_vector.data';
+      const refusal = Object.assign(new Error('shared data advisory connection reset'), {
+        code: 'ECONNRESET',
+      });
+      const unavailable = vi.fn(
+        (error: unknown) =>
+          error === refusal ||
+          (typeof error === 'object' && error !== null && 'code' in error && error.code === '57P01')
+      );
+      const metadataLocks = new Set<object>();
+      const metadataUnlocks = new Set<object>();
+      const terminated: number[] = [];
+      let dataFailures = 0;
+      let successfulUnlocks = 0;
+      const executionDb = db.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          if (compiled.sql.includes('pg_try_advisory_lock')) {
+            if (compiled.parameters[0] === metadataNamespace) metadataLocks.add(args.queryId);
+            if (compiled.parameters[0] === dataNamespace) {
+              dataFailures += 1;
+              throw refusal;
+            }
+          }
+          if (
+            compiled.sql.includes('pg_advisory_unlock') &&
+            compiled.parameters[0] === metadataNamespace
+          )
+            metadataUnlocks.add(args.queryId);
+          return args.node;
+        },
+        async transformResult(args) {
+          if (metadataUnlocks.has(args.queryId)) successfulUnlocks += 1;
+          if (metadataLocks.has(args.queryId) && args.result.rows[0]?.acquired === true) {
+            const owner = await sql<{ pid: number }>`SELECT pid FROM pg_locks
+              WHERE locktype = 'advisory' AND granted AND objsubid = 2
+                AND classid = hashtext(${metadataNamespace})::oid
+                AND objid = hashtext(${fixture.tableId})::oid`.execute(meta);
+            expect(owner.rows).toHaveLength(1);
+            const pid = owner.rows[0].pid;
+            terminated.push(pid);
+            expect(
+              (
+                await sql<{
+                  terminated: boolean;
+                }>`SELECT pg_terminate_backend(${pid}) AS terminated`.execute(meta)
+              ).rows[0].terminated
+            ).toBe(true);
+            await vi.waitFor(async () => {
+              expect(
+                (
+                  await sql<{ held: boolean }>`SELECT EXISTS (
+                SELECT 1 FROM pg_locks WHERE pid = ${pid} AND locktype = 'advisory'
+              ) AS held`.execute(meta)
+                ).rows[0].held
+              ).toBe(false);
+            });
+          }
+          return args.result;
+        },
+      });
+      // Both reservations must refer to the identical Kysely object, matching
+      // the host's shared meta/data connection path rather than a split pool.
+      const worker = warmRetirementWorker(fixture.tableId, executionDb, unavailable, executionDb);
+      const retained = await fixture.retirementMetadata();
+      if (chargedAttempts > 0) {
+        await sql`UPDATE table_query_remediation_task SET status = 'running', attempts = ${chargedAttempts},
+          locked_by = 'departed-shared-worker', locked_at = now() - interval '2 minutes'
+          WHERE id = ${fixture.taskId}`.execute(meta);
+      }
+      for (let round = 0; round < 4; round += 1) {
+        await worker.runOnce();
+        const deferred = expectOk(
+          await taskRepository.findById(context, fixture.taskId)
+        ).snapshot();
+        expect(deferred).toMatchObject({
+          id: fixture.taskId,
+          status: 'queued',
+          attempts: chargedAttempts,
+          maxAttempts: 3,
+          resumeAttempt: chargedAttempts > 0,
+          lastError: `Search retirement connection unavailable: ${refusal.message}`,
+        });
+        expect(deferred.lockedAt).toBeUndefined();
+        expect(deferred.lockedBy).toBeUndefined();
+        expect(terminated).toHaveLength(round + 1);
+        expect(dataFailures).toBe(round + 1);
+        expect(metadataUnlocks.size).toBe(round + 1);
+        expect(successfulUnlocks).toBe(0);
+        expect(await fixture.retirementMetadata()).toEqual(retained);
+        expect(await fixture.artifacts()).toEqual({ column_present: true, index_present: true });
+      }
+      expect(unavailable).toHaveBeenCalledWith(refusal);
+      const recovered = warmRetirementWorker(fixture.tableId, db, unavailable, db);
+      await recovered.runOnce();
+      const completed = expectOk(await taskRepository.findById(context, fixture.taskId)).snapshot();
+      expect(completed).toMatchObject({
+        id: fixture.taskId,
+        status: 'succeeded',
+        attempts: chargedAttempts || 1,
+        maxAttempts: 3,
+      });
+      expect(completed.lastError).toBeUndefined();
+      expect(await fixture.artifacts()).toEqual({ column_present: false, index_present: false });
+      expect(await fixture.retirementMetadata()).toEqual([
+        { serving_snapshot: null, reclaim_drop_after: null, reclaim_drop_queued_at: null },
+      ]);
+    },
+    120_000
+  );
+
+  it.each([
+    { boundary: 'data_reservation', code: 'ECONNREFUSED', deferred: true },
+    { boundary: 'data_reservation', code: '57P03', deferred: true },
+    { boundary: 'data_reservation', code: '28P01', deferred: false },
+    { boundary: 'metadata_reservation', code: 'ECONNREFUSED', deferred: false },
+    { boundary: 'data_advisory_lock', code: 'ECONNRESET', deferred: true },
+    { boundary: 'after_data_lock', code: 'ECONNRESET', deferred: false },
+    { boundary: 'after_ddl', code: 'ECONNRESET', deferred: false },
+    { boundary: 'admin_data_reservation', code: 'ECONNREFUSED', deferred: false },
+    { boundary: 'admin_table_lock', code: '55P03', deferred: false },
+  ] as const)(
+    'bounds warm retirement $boundary/$code only when physical work can have started',
+    async ({ boundary, code, deferred }) => {
+      const admin = boundary === 'admin_data_reservation' || boundary === 'admin_table_lock';
+      const fixture = await prepareWarmRetirement(db, admin);
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const refusal = Object.assign(new Error(`raw ${boundary} ${code}`), { code });
+      const unavailable = vi.fn((error: unknown) => error === refusal && code !== '28P01');
+      let lockAcquired = false;
+      let failedQueries = 0;
+      let tableLockAcquired = false;
+      const advisoryQueries = new Set<object>();
+      const tableLockQueries = new Set<object>();
+      const ddlQueries = new Set<object>();
+      const executionDb = db.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          if (compiled.sql.includes('pg_try_advisory_lock')) advisoryQueries.add(args.queryId);
+          if (compiled.sql.startsWith('LOCK TABLE ')) tableLockQueries.add(args.queryId);
+          if (
+            boundary === 'after_ddl' &&
+            compiled.sql.startsWith('ALTER TABLE ') &&
+            compiled.sql.includes('DROP COLUMN')
+          )
+            ddlQueries.add(args.queryId);
+          if (compiled.sql.includes('pg_try_advisory_lock') && boundary === 'data_advisory_lock') {
+            failedQueries += 1;
+            throw refusal;
+          }
+          if (
+            compiled.sql.startsWith('LOCK TABLE ') &&
+            (boundary === 'after_data_lock' || boundary === 'admin_table_lock')
+          ) {
+            failedQueries += 1;
+            throw refusal;
+          }
+          return args.node;
+        },
+        async transformResult(args) {
+          if (advisoryQueries.has(args.queryId)) lockAcquired = true;
+          if (tableLockQueries.has(args.queryId)) tableLockAcquired = true;
+          if (ddlQueries.has(args.queryId)) {
+            failedQueries += 1;
+            throw refusal;
+          }
+          return args.result;
+        },
+      });
+      // A distinct wrapper keeps the task repository healthy while refusing only
+      // the executor's metadata reservation in the negative control.
+      const executionMeta = meta.withPlugin({
+        transformQuery(args) {
+          return args.node;
+        },
+        async transformResult(args) {
+          return args.result;
+        },
+      });
+      const refusedDb = boundary === 'metadata_reservation' ? executionMeta : executionDb;
+      const reservation = refusedDb.connection();
+      const executeReservation = vi.spyOn(reservation, 'execute');
+      const connection = vi.spyOn(refusedDb, 'connection');
+      if (
+        boundary === 'data_reservation' ||
+        boundary === 'metadata_reservation' ||
+        boundary === 'admin_data_reservation'
+      ) {
+        executeReservation.mockRejectedValue(refusal);
+        connection.mockReturnValue(reservation);
+      }
+      try {
+        const retained = await fixture.retirementMetadata();
+        const worker = warmRetirementWorker(
+          fixture.tableId,
+          executionDb,
+          unavailable,
+          executionMeta,
+          admin
+        );
+        for (let round = 0; round < (deferred ? 4 : 3); round += 1) {
+          await worker.runOnce();
+          const persisted = expectOk(
+            await taskRepository.findById(context, fixture.taskId)
+          ).snapshot();
+          expect(persisted).toMatchObject({
+            id: fixture.taskId,
+            status: deferred ? 'queued' : 'failed',
+            attempts: deferred ? 0 : round + 1,
+            maxAttempts: 3,
+          });
+          expect(persisted.lastError).toContain(refusal.message);
+          expect(persisted.lockedAt).toBeUndefined();
+          expect(persisted.lockedBy).toBeUndefined();
+          expect(await fixture.retirementMetadata()).toEqual(retained);
+          expect(await fixture.artifacts()).toEqual({ column_present: true, index_present: true });
+        }
+        if (deferred) expect(lockAcquired).toBe(false);
+        if (
+          admin ||
+          boundary === 'metadata_reservation' ||
+          boundary === 'after_data_lock' ||
+          boundary === 'after_ddl'
+        )
+          expect(unavailable).not.toHaveBeenCalled();
+        if (boundary === 'after_data_lock' || boundary === 'after_ddl')
+          expect(lockAcquired).toBe(true);
+        if (boundary === 'after_ddl') expect(tableLockAcquired).toBe(true);
+        if (
+          boundary === 'data_advisory_lock' ||
+          boundary === 'after_data_lock' ||
+          boundary === 'after_ddl'
+        )
+          expect(failedQueries).toBeGreaterThanOrEqual(deferred ? 4 : 3);
+        if (deferred) {
+          expect(unavailable).toHaveBeenCalledTimes(4);
+          connection.mockRestore();
+          executeReservation.mockRestore();
+          // Remove only the injected query failure, preserving the same durable job.
+          const recovery = warmRetirementWorker(fixture.tableId, db, unavailable);
+          await recovery.runOnce();
+          expect(
+            expectOk(await taskRepository.findById(context, fixture.taskId)).snapshot()
+          ).toMatchObject({ id: fixture.taskId, status: 'succeeded', attempts: 1 });
+          expect(await fixture.artifacts()).toEqual({
+            column_present: false,
+            index_present: false,
+          });
+        } else {
+          expect(
+            expectOk(
+              await taskRepository.claimNextAccepted(context, {
+                scope: admin ? 'all' : 'search_maintenance',
+                workerId: 'exhausted-warm-worker',
+                now: new Date(),
+                allowedKinds: ['drop_search_access_path'],
+                allowManualIndexExecution: admin,
+                allowPolicyIndexExecution: false,
+              })
+            )
+          ).toBeUndefined();
+          expect(
+            expectOk(await taskRepository.findById(context, fixture.taskId))
+              .start('again', new Date())
+              .isErr()
+          ).toBe(true);
+        }
+      } finally {
+        connection.mockRestore();
+        executeReservation.mockRestore();
+      }
+    },
+    120_000
+  );
+
+  it('releases two stalled maintenance routes while healthy long SQL finishes', async () => {
+    const target = new URL(testContainer.connectionString);
+    const sockets = new Set<Socket>();
+    let paused = false;
+    const proxy = createServer((client) => {
+      sockets.add(client);
+      if (paused) return;
+      const upstream = connect(Number(target.port || 5432), target.hostname);
+      sockets.add(upstream);
+      client.on('error', () => upstream.destroy());
+      upstream.on('error', () => client.destroy());
+      client.pipe(upstream).pipe(client);
+    });
+    await new Promise<void>((resolve, reject) => {
+      proxy.once('error', reject).listen(0, '127.0.0.1', resolve);
+    });
+    const address = proxy.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    const routed = new URL(target);
+    routed.hostname = '127.0.0.1';
+    routed.port = String(address.port);
+    const maintenance = (connectionString: string) =>
+      createV2PostgresDb(
+        {
+          pg: { connectionString, pool: { max: 1 } },
+        },
+        { maintenanceStatementDeadlineMs: 6 * 60 * 60 * 1000 }
+      );
+    const routes = await Promise.all([
+      maintenance(routed.href),
+      maintenance(routed.href),
+      maintenance(target.href),
+    ]);
+    try {
+      await Promise.all(routes.map((route) => sql`SELECT 1`.execute(route)));
+      paused = true;
+      for (const socket of sockets) socket.pause();
+      const lost = routes
+        .slice(0, 2)
+        .map((route) =>
+          expect(sql`SELECT 1`.execute(route)).rejects.toMatchObject({ code: 'ETIMEDOUT' })
+        );
+      const healthy = sql<{ value: number }>`SELECT 42 AS value FROM pg_sleep(12)`.execute(
+        routes[2]
+      );
+      await Promise.all(lost);
+      expect((await healthy).rows[0].value).toBe(42);
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await Promise.all(routes.map((route) => route.destroy()));
+      await new Promise<void>((resolve) => proxy.close(() => resolve()));
+    }
+  }, 35_000);
+
+  it('lets one worker use the second global slot for another space while work is held', async () => {
+    const meta = testContainer.metaDb as unknown as Kysely<TableQueryOpsDatabase>;
+    const suffix = `${Date.now()}${Math.floor(Math.random() * 100000)}`;
+    const spaceId = `spc_capacity_${suffix}`;
+    const otherSpaceId = `spc_capacity_other_${suffix}`;
+    const bases = [`bse_capacity_a_${suffix}`, `bse_capacity_b_${suffix}`, `bse_capacity_c_${suffix}`];
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
+    let worker: TableQueryOpsRunnerHandle | undefined;
+    try {
+      await sql`INSERT INTO space (id, name, created_by) VALUES
+        (${spaceId}, 'Capacity', 'test'), (${otherSpaceId}, 'Capacity other', 'test')`.execute(meta);
+      await sql`INSERT INTO base (id, space_id, name, "order", created_by) VALUES
+        (${bases[0]}, ${spaceId}, 'A', 0, 'test'),
+        (${bases[1]}, ${spaceId}, 'B', 0, 'test'),
+        (${bases[2]}, ${otherSpaceId}, 'C', 0, 'test')`.execute(meta);
+      const tasks = bases.map((baseId, index) => expectOk(TableQueryRemediationTask.createQueued({
+        tableId: `tbl_capacity_${index}_${suffix}`,
+        baseId,
+        kind: 'rebuild_search_access_path',
+        payload: { trigger: 'schema_change' },
+        now: new Date(Date.now() - (3 - index) * 1000),
+      })));
+      for (const task of tasks) {
+        recoveryTaskIds.push(task.snapshot().id);
+        expectOk(await taskRepository.save(context, task));
+      }
+      // A charged resume remains subject to the space limit even at its retry cap.
+      await sql`UPDATE table_query_remediation_task SET attempts = 3, resume_attempt = true
+        WHERE id = ${tasks[1].snapshot().id}`.execute(meta);
+      const workerContainer = testContainer.container.createChildContainer();
+      workerContainer.registerInstance(v2TableOpsTokens.taskWorkerConfig, {
+        enabled: true, intervalMs: 30, workerId: 'capacity-worker', scope: 'search_maintenance',
+        allowedKinds: ['rebuild_search_access_path'],
+        allowManualIndexExecution: false, allowPolicyIndexExecution: false,
+      });
+      workerContainer.registerInstance(v2TableOpsTokens.clock, { now: () => new Date() });
+      const execute = vi.fn(async (_context: IExecutionContext, command: RunTableQueryRemediationTaskCommand) => {
+        const task = expectOk(await taskRepository.findById(context, command.taskId));
+        expectOk(await taskRepository.save(context, expectOk(task.start(command.workerId, new Date()))));
+        await held;
+        return { isErr: () => false };
+      });
+      workerContainer.registerInstance(v2CoreTokens.commandBus, { execute } as unknown as ICommandBus);
+      worker = startTableQueryOpsTaskWorkerIfEnabled(workerContainer, context);
+      await vi.waitFor(async () => {
+        expect(execute).toHaveBeenCalledTimes(2);
+        const running = await Promise.all([tasks[0], tasks[2]].map(async (task) =>
+          expectOk(await taskRepository.findById(context, task.snapshot().id)).snapshot().status
+        ));
+        expect(running).toEqual(['running', 'running']);
+      }, { timeout: 5_000 });
+      const startedIds = execute.mock.calls.map(([, command]) => command.taskId);
+      expect(startedIds).toEqual([tasks[0].snapshot().id, tasks[2].snapshot().id]);
+      expect(expectOk(await taskRepository.claimNextAccepted(context, {
+        scope: 'search_maintenance', workerId: 'third-worker', now: new Date(),
+        allowedKinds: ['rebuild_search_access_path'],
+        allowManualIndexExecution: false, allowPolicyIndexExecution: false,
+      }))).toBeUndefined();
+      worker?.stop();
+      const lockAcquired = Promise.withResolvers<void>();
+      const unlock = Promise.withResolvers<void>();
+      const lock = meta.transaction().execute(async (trx) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtext('teable.table_query_ops.search_vector'),
+          hashtext(${tasks[0].snapshot().tableId}))`.execute(trx);
+        lockAcquired.resolve();
+        await unlock.promise;
+      });
+      try {
+        await lockAcquired.promise;
+        await sql`UPDATE table_query_remediation_task SET locked_at = now() - interval '2 minutes'
+          WHERE id = ${tasks[0].snapshot().id}`.execute(meta);
+        const healthy = expectOk(await taskRepository.findById(context, tasks[2].snapshot().id));
+        expectOk(await taskRepository.save(context, expectOk(healthy.succeed({}, new Date()))));
+        expect(expectOk(await taskRepository.claimNextAccepted(context, {
+          scope: 'search_maintenance', workerId: 'replacement-worker', now: new Date(),
+          allowedKinds: ['rebuild_search_access_path'],
+          allowManualIndexExecution: false, allowPolicyIndexExecution: false,
+        }))).toBeUndefined();
+      } finally {
+        unlock.resolve();
+        await lock;
+      }
+    } finally {
+      worker?.stop();
+      release();
+      await sql`DELETE FROM table_query_remediation_task WHERE base_id = ANY(${bases})`.execute(meta);
+      await sql`DELETE FROM base WHERE id = ANY(${bases})`.execute(meta);
+      await sql`DELETE FROM space WHERE id IN (${spaceId}, ${otherSpaceId})`.execute(meta);
+    }
+  });
+
+  it.each([0, 3])(
+    'rotates an unavailable oldest rebuild and retirement behind healthy work at charged attempt %i',
+    async (chargedAttempts) => {
+      let { table } = await createTable();
+      const tableId = table.id().toString();
+      maintenanceTableIds.push(tableId);
+      await createSemanticRecords(
+        table,
+        fieldByName(table, 'Title').id().toString(),
+        fieldByName(table, 'Score').id().toString()
+      );
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const retired = (await loadTable(tableId)).searchIndex()!;
+      const physical = expectOk(getTablePhysicalName(table));
+      const relation = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+      const oldArtifacts = async () =>
+        (
+          await sql<{ column_present: boolean; index_present: boolean }>`SELECT
+            EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${relation})
+              AND attname = ${retired.document!.generatedColumnName} AND NOT attisdropped) AS column_present,
+            to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(retired.document!.indexName)}`}) IS NOT NULL AS index_present`.execute(
+            db
+          )
+        ).rows[0];
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const now = new Date();
+      const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const hhmm = (value: number) =>
+        `${Math.floor(value / 60)
+          .toString()
+          .padStart(2, '0')}:${(value % 60).toString().padStart(2, '0')}`;
+      const maintenanceReconciler = new PostgresTableSearchVectorReconciler(meta, db, {
+        windowUtc: `${hhmm((minute + 1410) % 1440)}-${hhmm((minute + 30) % 1440)}`,
+        allowUnknownOrLargeRewrite: true,
+      });
+      const handler = new RunTableQueryRemediationTaskHandler(
+        taskRepository,
+        new PostgresTableQueryRemediationExecutor(meta, db, tableRepository, maintenanceReconciler),
+        testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+        testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+        { now: () => new Date() }
+      );
+      table = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          CreateFieldCommand.create({
+            baseId: table.baseId().toString(),
+            tableId,
+            field: { type: 'singleLineText', name: 'Routing outage addition' },
+          })._unsafeUnwrap()
+        )
+      ).table;
+      let { table: healthyTable } = await createTable();
+      const healthyTableId = healthyTable.id().toString();
+      maintenanceTableIds.push(healthyTableId);
+      await createSemanticRecords(
+        healthyTable,
+        fieldByName(healthyTable, 'Title').id().toString(),
+        fieldByName(healthyTable, 'Score').id().toString()
+      );
+      expectOk(
+        await reconciler.reconcile(context, {
+          table: healthyTable,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      healthyTable = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          CreateFieldCommand.create({
+            baseId: healthyTable.baseId().toString(),
+            tableId: healthyTableId,
+            field: { type: 'singleLineText', name: 'Healthy maintenance addition' },
+          })._unsafeUnwrap()
+        )
+      ).table;
+      for (const kind of ['rebuild_search_access_path', 'drop_search_access_path'] as const) {
+        const trigger = kind === 'drop_search_access_path' ? 'reclaim' : 'schema_change';
+        const pending = (
+          await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+          WHERE table_id = ${tableId} AND status = 'queued' AND payload->>'trigger' = ${trigger}`.execute(
+            meta
+          )
+        ).rows;
+        expect(pending).toHaveLength(1);
+        const taskId = pending[0].id;
+        const healthyPending = (
+          await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+            WHERE table_id = ${healthyTableId} AND status = 'queued'
+              AND payload->>'trigger' = ${trigger}`.execute(meta)
+        ).rows;
+        expect(healthyPending).toHaveLength(1);
+        const healthyTaskId = healthyPending[0].id;
+        // Both jobs are eligible. The unavailable tenant is deterministically oldest
+        // before its first deferral; healthy work must win the following claim.
+        await sql`UPDATE table_query_remediation_task
+          SET created_time = now() - interval '2 days', last_modified_time = now() - interval '2 days'
+          WHERE id = ${taskId}`.execute(meta);
+        await sql`UPDATE table_query_remediation_task
+          SET created_time = now() - interval '1 day', last_modified_time = now() - interval '1 day'
+          WHERE id = ${healthyTaskId}`.execute(meta);
+        let departed: TableQueryRemediationTask | undefined;
+        if (chargedAttempts > 0) {
+          await sql`UPDATE table_query_remediation_task SET status = 'running', attempts = ${chargedAttempts},
+            locked_by = 'departed-routing-worker', locked_at = now() - interval '2 minutes'
+            WHERE id = ${taskId}`.execute(meta);
+          departed = expectOk(await taskRepository.findById(context, taskId));
+        }
+        const serving = (await loadTable(tableId)).searchIndex();
+        const beforeSearch = await searchUsingRuntime(table, 'lifecycleunique');
+        expect(beforeSearch.total).toBe(1);
+        expect(await oldArtifacts()).toEqual({ column_present: true, index_present: true });
+        const workerContainer = testContainer.container.createChildContainer();
+        workerContainer.registerInstance(v2TableOpsTokens.taskWorkerConfig, {
+          enabled: true,
+          intervalMs: 60_000,
+          workerId: 'routing-recovery-worker',
+          scope: 'search_maintenance',
+          allowedKinds: [kind],
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+        });
+        workerContainer.registerInstance(v2TableOpsTokens.clock, { now: () => new Date() });
+        const execute = vi.fn(
+          (executionContext: IExecutionContext, command: RunTableQueryRemediationTaskCommand) =>
+            handler.handle(executionContext, command)
+        );
+        workerContainer.registerInstance(v2CoreTokens.commandBus, {
+          execute,
+        } as unknown as ICommandBus);
+        const refusal = new TableQueryOpsExecutionUnavailableError(
+          Object.assign(
+            new Error('database "pr4559_data" is not currently accepting connections'),
+            {
+              code: '55000',
+            }
+          )
+        );
+        let unavailable = true;
+        const resolveExecution = vi.fn(async (routedTableId: string) => {
+          expect([tableId, healthyTableId]).toContain(routedTableId);
+          if (routedTableId === tableId && unavailable) throw refusal;
+          return { container: workerContainer, context };
+        });
+        for (let round = 0; round < 4; round += 1) {
+          const worker = startTableQueryOpsTaskWorkerIfEnabled(
+            workerContainer,
+            context,
+            resolveExecution
+          );
+          try {
+            await vi.waitFor(
+              async () => {
+                expect(resolveExecution).toHaveBeenCalledTimes(round + 1 + (round > 0 ? 1 : 0));
+                const persisted = expectOk(
+                  await taskRepository.findById(context, taskId)
+                ).snapshot();
+                expect(persisted).toMatchObject({
+                  status: 'queued',
+                  attempts: chargedAttempts,
+                  maxAttempts: 3,
+                  resumeAttempt: chargedAttempts > 0,
+                  lastError: `Task routing failed: ${String(refusal)}`,
+                });
+                expect(persisted.lockedBy).toBeUndefined();
+                expect(persisted.lockedAt).toBeUndefined();
+              },
+              { timeout: 5_000 }
+            );
+          } finally {
+            worker?.stop();
+          }
+          expect(execute).toHaveBeenCalledTimes(round > 0 ? 1 : 0);
+          expect(await oldArtifacts()).toEqual({ column_present: true, index_present: true });
+          expect((await loadTable(tableId)).searchIndex()).toEqual(serving);
+          const duringSearch = await searchUsingRuntime(table, 'lifecycleunique');
+          expect(duringSearch.total).toBe(beforeSearch.total);
+          expect(duringSearch.searchAccessPath).toEqual(beforeSearch.searchAccessPath);
+          if (round === 0) {
+            const healthyWorker = startTableQueryOpsTaskWorkerIfEnabled(
+              workerContainer,
+              context,
+              resolveExecution
+            );
+            try {
+              await vi.waitFor(
+                async () => {
+                  expect(resolveExecution).toHaveBeenCalledTimes(2);
+                  expect(resolveExecution).toHaveBeenLastCalledWith(healthyTableId);
+                  const completed = expectOk(
+                    await taskRepository.findById(context, healthyTaskId)
+                  ).snapshot();
+                  expect(completed).toMatchObject({ status: 'succeeded', attempts: 1 });
+                  const deferred = expectOk(
+                    await taskRepository.findById(context, taskId)
+                  ).snapshot();
+                  expect(deferred).toMatchObject({
+                    status: 'queued',
+                    attempts: chargedAttempts,
+                    resumeAttempt: chargedAttempts > 0,
+                    lastError: `Task routing failed: ${String(refusal)}`,
+                  });
+                  expect(deferred.lockedBy).toBeUndefined();
+                  expect(deferred.lockedAt).toBeUndefined();
+                },
+                { timeout: 15_000 }
+              );
+            } finally {
+              healthyWorker?.stop();
+            }
+            expect(execute).toHaveBeenCalledTimes(1);
+            const healthySearch = await searchUsingRuntime(healthyTable, 'lifecycleunique');
+            expect(healthySearch.total).toBe(1);
+            expect(healthySearch.searchAccessPath).toMatchObject({ used: 'generated_text' });
+          }
+        }
+        if (departed)
+          expect(
+            (
+              await taskRepository.save(
+                context,
+                expectOk(departed.fail('Stale routing failure', new Date()))
+              )
+            ).isErr()
+          ).toBe(true);
+        unavailable = false;
+        const worker = startTableQueryOpsTaskWorkerIfEnabled(
+          workerContainer,
+          context,
+          resolveExecution
+        );
+        try {
+          await vi.waitFor(
+            async () => {
+              const completed = expectOk(await taskRepository.findById(context, taskId)).snapshot();
+              expect(completed).toMatchObject({
+                status: 'succeeded',
+                attempts: chargedAttempts || 1,
+                maxAttempts: 3,
+              });
+              expect(completed.lastError).toBeUndefined();
+            },
+            { timeout: 15_000 }
+          );
+        } finally {
+          worker?.stop();
+        }
+        expect(execute).toHaveBeenCalledTimes(2);
+        if (departed)
+          expect(
+            (
+              await taskRepository.save(
+                context,
+                expectOk(departed.succeed({ stale: true }, new Date()))
+              )
+            ).isErr()
+          ).toBe(true);
+        if (trigger === 'schema_change') {
+          expect((await loadTable(tableId)).searchIndex()!.document!.indexName).not.toBe(
+            retired.document!.indexName
+          );
+          // Only advance the existing seven-day gate after proving it still blocks cleanup.
+          expect(
+            expectOk(
+              await taskRepository.claimNextAccepted(context, {
+                scope: 'search_maintenance',
+                workerId: 'grace-check',
+                now: new Date(),
+                allowedKinds: ['drop_search_access_path'],
+                allowManualIndexExecution: false,
+                allowPolicyIndexExecution: false,
+              })
+            )
+          ).toBeUndefined();
+          await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() - interval '1 second'
+            WHERE table_id IN (${tableId}, ${healthyTableId}) AND status = 'disabled'`.execute(
+            meta
+          );
+        } else {
+          expect(await oldArtifacts()).toEqual({ column_present: false, index_present: false });
+          expect((await loadTable(tableId)).searchIndex()).toEqual(serving);
+          const afterSearch = await searchUsingRuntime(table, 'lifecycleunique');
+          expect(afterSearch.total).toBe(1);
+          expect(afterSearch.searchAccessPath).toEqual(beforeSearch.searchAccessPath);
+          expect(afterSearch.searchAccessPath).toMatchObject({ used: 'generated_text' });
+          const retained = await sql<{ count: number }>`SELECT count(*)::int AS count
+            FROM table_query_search_vector_config WHERE table_id = ${tableId} AND status = 'disabled'
+              AND (serving_snapshot IS NOT NULL OR reclaim_drop_after IS NOT NULL OR reclaim_drop_queued_at IS NOT NULL)`.execute(
+            meta
+          );
+          expect(retained.rows[0].count).toBe(0);
+        }
+      }
+    },
+    120_000
+  );
+
+  it.each([
+    ['schema_change', 'rebuild_search_access_path', 1],
+    ['schema_change', 'rebuild_search_access_path', 3],
+    ['reclaim', 'drop_search_access_path', 1],
+    ['reclaim', 'drop_search_access_path', 3],
+  ] as const)(
+    'persists worker routing failures after queued %s %s recovery at attempt %i',
+    async (trigger, kind, chargedAttempts) => {
+      const { table } = await createTable();
+      const tableId = table.id().toString();
+      maintenanceTableIds.push(tableId);
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const task = expectOk(
+        TableQueryRemediationTask.createQueued({
+          tableId,
+          baseId: table.baseId().toString(),
+          kind,
+          payload: { trigger, ...(trigger === 'reclaim' ? { scopeKey: 'retired' } : {}) },
+          now: new Date(),
+        })
+      );
+      const taskId = task.snapshot().id;
+      if (trigger === 'reclaim')
+        await sql`INSERT INTO table_query_search_vector_config
+          (id, base_id, table_id, candidate_key, generated_column_name, index_name,
+            field_ids, field_db_names, status, reclaim_drop_after, reclaim_drop_queued_at)
+          VALUES (${`retired_${taskId}`}, ${table.baseId().toString()}, ${tableId}, 'retired',
+            'retired_column', 'retired_index', '[]'::jsonb, '[]'::jsonb, 'disabled',
+            now() - interval '1 second', now())`.execute(meta);
+      expectOk(await taskRepository.save(context, task));
+      await sql`UPDATE table_query_remediation_task SET status = 'running', attempts = ${chargedAttempts},
+        locked_by = 'departed-route-owner', locked_at = now() - interval '2 minutes'
+        WHERE id = ${taskId}`.execute(meta);
+      const departed = expectOk(await taskRepository.findById(context, taskId));
+      const claimed = expectOk(
+        await taskRepository.claimNextAccepted(context, {
+          scope: 'search_maintenance',
+          workerId: 'replacement-route-owner',
+          now: new Date(),
+          allowedKinds: [kind],
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+        })
+      )!;
+      expect(claimed.snapshot().id).toBe(taskId);
+      const resumed = expectOk(
+        await taskRepository.save(
+          context,
+          expectOk(claimed.start('replacement-route-owner', new Date()))
+        )
+      );
+      const deferred = expectOk(
+        await taskRepository.save(
+          context,
+          expectOk(resumed.deferMaintenance('Table lock unavailable', chargedAttempts, new Date()))
+        )
+      );
+      expect(deferred.snapshot()).toMatchObject({
+        status: 'queued',
+        attempts: chargedAttempts,
+        resumeAttempt: true,
+      });
+      expect(
+        (
+          await taskRepository.save(
+            context,
+            expectOk(departed.fail('Stale routing failure', new Date()))
+          )
+        ).isErr()
+      ).toBe(true);
+      const workerContainer = testContainer.container.createChildContainer();
+      workerContainer.registerInstance(v2TableOpsTokens.taskWorkerConfig, {
+        enabled: true,
+        intervalMs: 60_000,
+        workerId: 'routing-failure-worker',
+        scope: 'search_maintenance',
+        allowedKinds: [kind],
+        allowManualIndexExecution: false,
+        allowPolicyIndexExecution: false,
+      });
+      workerContainer.registerInstance(v2TableOpsTokens.clock, { now: () => new Date() });
+      const resolveExecution = vi.fn(async (routedTableId: string) => {
+        expect(routedTableId).toBe(tableId);
+        throw new Error('Retirement target database is unavailable');
+      });
+      for (let attempts = chargedAttempts; attempts <= 3; attempts += 1) {
+        // Exercise the actual consumer's start().fail() save without a running-state save.
+        const worker = startTableQueryOpsTaskWorkerIfEnabled(
+          workerContainer,
+          context,
+          resolveExecution
+        );
+        try {
+          await vi.waitFor(
+            async () => {
+              const persisted = expectOk(await taskRepository.findById(context, taskId));
+              expect(persisted.snapshot()).toMatchObject({
+                status: 'failed',
+                attempts,
+                maxAttempts: 3,
+                resumeAttempt: false,
+                lastError: 'Task routing failed: Error: Retirement target database is unavailable',
+              });
+              expect(persisted.snapshot().lockedAt).toBeUndefined();
+              expect(persisted.snapshot().lockedBy).toBeUndefined();
+            },
+            { timeout: 5_000 }
+          );
+        } finally {
+          worker?.stop();
+        }
+      }
+      expect(resolveExecution).toHaveBeenCalledTimes(4 - chargedAttempts);
+      expect(
+        expectOk(
+          await taskRepository.claimNextAccepted(context, {
+            scope: 'search_maintenance',
+            workerId: 'exhausted-route-worker',
+            now: new Date(),
+            allowedKinds: [kind],
+            allowManualIndexExecution: false,
+            allowPolicyIndexExecution: false,
+          })
+        )
+      ).toBeUndefined();
+      expect(
+        (
+          await taskRepository.save(
+            context,
+            expectOk(resumed.fail('Stale resumed routing failure', new Date()))
+          )
+        ).isErr()
+      ).toBe(true);
+      const terminal = expectOk(await taskRepository.findById(context, taskId));
+      expect(terminal.snapshot()).toMatchObject({ status: 'failed', attempts: 3, maxAttempts: 3 });
+      expect(terminal.start('exhausted-route-worker', new Date()).isErr()).toBe(true);
+    }
+  );
+
+  it('rechecks the exact product-switch row threshold when an unconfirmed task executes', async () => {
+    const { table } = await createTable();
+    const tableId = table.id().toString();
+    const title = fieldByName(table, 'Title');
+    const score = fieldByName(table, 'Score');
+    await createSemanticRecords(table, title.id().toString(), score.id().toString());
+    const candidate = (
+      await new PostgresTableSearchVectorAdvisor(db).analyze(context, {
+        table,
+        provider: 'pg_trgm',
+        maxRecommendations: 1,
+      })
+    ).recommendations[0];
+    expect(candidate).toBeDefined();
+    const task = expectOk(
+      TableQueryRemediationTask.createQueued({
+        tableId,
+        baseId: table.baseId().toString(),
+        kind: 'create_search_access_path',
+        now: new Date(),
+        payload: {
+          trigger: 'admin_search_access_path',
+          executionMode: 'manual',
+          productSwitch: true,
+          largeTableConfirmed: false,
+          mode: 'create',
+          expectedDefinitionKey: candidate!.candidateKey,
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          allowLargeTableRewrite: true,
+        },
+      })
+    );
+    expectOk(await taskRepository.save(context, task));
+
+    await insertPlannerFiller(table, title, score, 49_997);
+    const physical = getTablePhysicalName(table)._unsafeUnwrap();
+    const relation = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+    const before = await sql<{ columns: number; indexes: number }>`SELECT
+      (SELECT count(*)::int FROM pg_attribute a
+        WHERE a.attrelid = to_regclass(${relation}) AND a.attnum > 0 AND NOT a.attisdropped) AS columns,
+      (SELECT count(*)::int FROM pg_index i
+        WHERE i.indrelid = to_regclass(${relation})) AS indexes`.execute(db);
+    const firstAttempt = (await runTask(task.snapshot().id)).snapshot();
+    expect(firstAttempt).toMatchObject({
+      status: 'failed',
+      attempts: 1,
+      lastError: expect.stringContaining(
+        'Confirmation is required for tables with 50000 or more records'
+      ),
+    });
+    const retry = (await runTask(task.snapshot().id)).snapshot();
+    expect(retry).toMatchObject({ status: 'failed', attempts: 2 });
+    const after = await sql<{ columns: number; indexes: number }>`SELECT
+      (SELECT count(*)::int FROM pg_attribute a
+        WHERE a.attrelid = to_regclass(${relation}) AND a.attnum > 0 AND NOT a.attisdropped) AS columns,
+      (SELECT count(*)::int FROM pg_index i
+        WHERE i.indrelid = to_regclass(${relation})) AS indexes`.execute(db);
+    expect(after.rows[0]).toEqual(before.rows[0]);
+    expect((await loadTable(tableId)).searchIndex()).toBeUndefined();
+    expect(
+      await sql`SELECT 1 FROM table_query_search_vector_config WHERE table_id = ${tableId}`.execute(
+        testContainer.metaDb as unknown as Kysely<TableQueryOpsDatabase>
+      )
+    ).toMatchObject({ rows: [] });
+  }, 120_000);
+
+  it('allows an unconfirmed product-switch task for a small table with unknown statistics', async () => {
+    const { table } = await createTable();
+    const tableId = table.id().toString();
+    const physical = getTablePhysicalName(table)._unsafeUnwrap();
+    const tableSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+    const titleDbName = fieldByName(table, 'Title')
+      .dbFieldName()
+      ._unsafeUnwrap()
+      .value()
+      ._unsafeUnwrap();
+    const scoreDbName = fieldByName(table, 'Score')
+      .dbFieldName()
+      ._unsafeUnwrap()
+      .value()
+      ._unsafeUnwrap();
+    // Seed this fresh heap with plain DML: the record commands ANALYZE a
+    // previously empty table, which would make pg_class.reltuples known. The
+    // rows stay real while the planner size stays unknown (-1).
+    await sql
+      .raw(
+        `INSERT INTO ${tableSql} ("__id", "__created_by", "__version", ${quoteIdentifier(
+          titleDbName
+        )}, ${quoteIdentifier(
+          scoreDbName
+        )}) SELECT 'rec_tqops_small_' || g::text, 'system', 1, 'lifecycle order ' || g::text, (g % 100)::text FROM generate_series(1, 3) AS g`
+      )
+      .execute(db);
+    const statistics = await sql<{ rows: number; actual: number }>`SELECT
+      (SELECT c.reltuples::int
+        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = ${physical.schema} AND c.relname = ${physical.tableName}) AS rows,
+      (SELECT count(*)::int FROM ${sql.raw(tableSql)}) AS actual`.execute(db);
+    expect(statistics.rows[0]).toEqual({ rows: -1, actual: 3 });
+    const candidate = (
+      await new PostgresTableSearchVectorAdvisor(db).analyze(context, {
+        table,
+        provider: 'pg_trgm',
+        maxRecommendations: 1,
+      })
+    ).recommendations[0];
+    expect(candidate).toBeDefined();
+    const task = expectOk(
+      TableQueryRemediationTask.createQueued({
+        tableId,
+        baseId: table.baseId().toString(),
+        kind: 'create_search_access_path',
+        now: new Date(),
+        payload: {
+          trigger: 'admin_search_access_path',
+          executionMode: 'manual',
+          productSwitch: true,
+          largeTableConfirmed: false,
+          mode: 'create',
+          expectedDefinitionKey: candidate!.candidateKey,
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          allowLargeTableRewrite: true,
+        },
+      })
+    );
+    expectOk(await taskRepository.save(context, task));
+    expect((await runTask(task.snapshot().id)).snapshot()).toMatchObject({ status: 'succeeded' });
+    await expectReadyConfig(table);
+    const rowsAfter = await sql<{ actual: number }>`
+      SELECT count(*)::int AS actual FROM ${sql.raw(tableSql)}`.execute(db);
+    expect(rowsAfter.rows[0]?.actual).toBe(3);
+  }, 120_000);
+
+  it.each(['replaced', 'serving_cleared'] as const)(
+    'executes a queued product drop after its generation is %s',
+    async (scenario) => {
+      const { table } = await createTable();
+      const tableId = table.id().toString();
+      maintenanceTableIds.push(tableId);
+      await createSemanticRecords(
+        table,
+        fieldByName(table, 'Title').id().toString(),
+        fieldByName(table, 'Score').id().toString()
+      );
+      const publish = async (mode: 'create' | 'rebuild') => {
+        expectOk(
+          await reconciler.reconcile(context, {
+            table: await loadTable(tableId),
+            mode,
+            provider: 'pg_trgm',
+            validationMode: 'real_ddl',
+            requirePlanImprovement: false,
+            allowLargeTableRewrite: true,
+          })
+        );
+        return (await loadTable(tableId)).searchIndex()!;
+      };
+      const first = await publish('create');
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const snapshot = await sql<{ value: Record<string, unknown> }>`SELECT jsonb_build_object(
+      'searchIndex', (SELECT search_index FROM table_meta WHERE id = ${tableId}),
+      'configs', (SELECT jsonb_agg(jsonb_build_object('id', c.id, 'key', c.candidate_key,
+        'index', c.index_name, 'column', c.generated_column_name, 'serving', c.serving_snapshot) ORDER BY c.id)
+        FROM table_query_search_vector_config c WHERE c.table_id = ${tableId})
+    ) AS value`.execute(meta);
+      const drop = expectOk(
+        TableQueryRemediationTask.createQueued({
+          tableId,
+          baseId: table.baseId().toString(),
+          now: new Date(),
+          kind: 'drop_search_access_path',
+          payload: {
+            trigger: 'admin_search_access_path',
+            executionMode: 'manual',
+            mode: 'drop',
+            productSwitch: true,
+            productDropSnapshot: snapshot.rows[0].value,
+          },
+        })
+      );
+      expectOk(await taskRepository.save(context, drop));
+      if (scenario === 'serving_cleared') {
+        await sql`UPDATE table_meta SET search_index = NULL WHERE id = ${tableId}`.execute(meta);
+        expect((await runTask(drop.snapshot().id)).snapshot().status).toBe('succeeded');
+        const physical = expectOk(getTablePhysicalName(table));
+        const index = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(first.document!.indexName)}`;
+        const check = await sql<{
+          removed: boolean;
+        }>`SELECT to_regclass(${index}) IS NULL AS removed`.execute(db);
+        expect(check.rows[0].removed).toBe(true);
+        return;
+      }
+      const replacement = await publish('rebuild');
+      expect(replacement.document!.indexName).not.toBe(first.document!.indexName);
+      const result = (await runTask(drop.snapshot().id)).snapshot();
+      expect(result.status).toBe('failed');
+      expect(result.lastError).toContain('Product search configuration changed before drop');
+      expect((await loadTable(tableId)).searchIndex()).toEqual(replacement);
+      expect((await searchUsingRuntime(await loadTable(tableId), 'lifecycleunique')).total).toBe(1);
+    },
+    60_000
+  );
+
+  it('atomically queues seven-day retirement on repeated additions without an analyzer and resumes cleanup after restart', async () => {
+    let { table } = await createTable();
+    const tableId = table.id().toString();
+    maintenanceTableIds.push(tableId);
+    await createSemanticRecords(
+      table,
+      fieldByName(table, 'Title').id().toString(),
+      fieldByName(table, 'Score').id().toString()
+    );
+    expectOk(
+      await reconciler.reconcile(context, {
+        table,
+        mode: 'create',
+        provider: 'pg_trgm',
+        validationMode: 'real_ddl',
+        requirePlanImprovement: false,
+        allowLargeTableRewrite: true,
+      })
+    );
+    const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+    const now = new Date();
+    const hhmm = (minute: number) =>
+      `${Math.floor(minute / 60)
+        .toString()
+        .padStart(2, '0')}:${(minute % 60).toString().padStart(2, '0')}`;
+    const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const options = {
+      windowUtc: `${hhmm((minute + 1410) % 1440)}-${hhmm((minute + 30) % 1440)}`,
+      allowUnknownOrLargeRewrite: true,
+    };
+    const physical = expectOk(getTablePhysicalName(table));
+    const relation = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+    const runMaintenance = async (taskId: string, executionMeta = meta) =>
+      expectOk(
+        await new RunTableQueryRemediationTaskHandler(
+          taskRepository,
+          new PostgresTableQueryRemediationExecutor(
+            executionMeta,
+            db,
+            tableRepository,
+            new PostgresTableSearchVectorReconciler(executionMeta, db, options)
+          ),
+          testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+          testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+          { now: () => new Date() }
+        ).handle(
+          context,
+          new RunTableQueryRemediationTaskCommand(taskId, false, 'retirement-maintenance')
+        )
+      );
+    const claim = () =>
+      taskRepository.claimNextAccepted(context, {
+        scope: 'search_maintenance',
+        workerId: 'retirement-worker',
+        now: new Date(),
+        allowedKinds: ['drop_search_access_path'],
+        allowManualIndexExecution: false,
+        allowPolicyIndexExecution: false,
+      });
+    const initial = (await loadTable(tableId)).searchIndex()!;
+    const legacy = {
+      version: 1,
+      dbTableName: initial.dbTableName,
+      definitionKey: initial.definitionKey,
+      searchScope: initial.searchScope,
+      fields: initial.document!.fields,
+      indexUsable: true,
+      provider: initial.document!.provider,
+      indexName: initial.document!.indexName,
+      generatedColumnName: initial.document!.generatedColumnName,
+    };
+    await sql`UPDATE table_meta SET search_index = ${JSON.stringify(legacy)}::jsonb WHERE id = ${tableId}`.execute(
+      meta
+    );
+    await sql`UPDATE table_query_search_vector_config SET serving_snapshot = NULL WHERE table_id = ${tableId}`.execute(
+      meta
+    );
+    for (let round = 0; round < 3; round += 1) {
+      table = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          CreateFieldCommand.create({
+            baseId: table.baseId().toString(),
+            tableId,
+            field: { type: 'singleLineText', name: `Retirement addition ${round}` },
+          })._unsafeUnwrap()
+        )
+      ).table;
+      const pending = (
+        await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+        WHERE table_id = ${tableId} AND status = 'queued' AND payload->>'trigger' = 'schema_change'`.execute(
+          meta
+        )
+      ).rows;
+      expect(pending).toHaveLength(1);
+      if (round === 0) {
+        const beforePublication = (await loadTable(tableId)).searchIndex();
+        const publicationReads = new Set<object>();
+        let raced = false;
+        const failing = meta.withPlugin({
+          transformQuery(args) {
+            const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+            if (
+              compiled.sql.includes('SELECT search_index') &&
+              compiled.sql.includes('FROM table_meta')
+            )
+              publicationReads.add(args.queryId);
+            return args.node;
+          },
+          async transformResult(args) {
+            if (!raced && publicationReads.has(args.queryId)) {
+              raced = true;
+              await sql`UPDATE table_meta SET version = version + 1 WHERE id = ${tableId}`.execute(
+                meta
+              );
+            }
+            return args.result;
+          },
+        });
+        expect((await runMaintenance(pending[0].id, failing)).snapshot().status).toBe('failed');
+        expect(raced).toBe(true);
+        expect((await loadTable(tableId)).searchIndex()).toEqual(beforePublication);
+        expect(
+          (
+            await sql<{
+              count: number;
+            }>`SELECT count(*)::int AS count FROM table_query_remediation_task
+          WHERE table_id = ${tableId} AND payload->>'trigger' = 'reclaim'`.execute(meta)
+          ).rows[0].count
+        ).toBe(0);
+        table = await loadTable(tableId);
+        expectOk(
+          await new PostgresTableSearchVectorSchemaMaintenanceScheduler(meta).schedule(context, {
+            table,
+            reason: 'field_updated',
+          })
+        );
+        pending[0] = (
+          await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+          WHERE table_id = ${tableId} AND status = 'queued' AND payload->>'trigger' = 'schema_change'`.execute(
+            meta
+          )
+        ).rows[0];
+      }
+      expect((await runMaintenance(pending[0].id)).snapshot().status).toBe('succeeded');
+      table = await loadTable(tableId);
+      if (round === 1) {
+        const verifier = expectOk(
+          TableQueryRemediationTask.createQueued({
+            tableId,
+            baseId: table.baseId().toString(),
+            kind: 'create_search_access_path',
+            now: new Date(),
+            payload: {
+              trigger: 'admin_search_access_path',
+              executionMode: 'manual',
+              mode: 'create',
+              provider: 'pg_trgm',
+              expectedDefinitionKey: table.searchIndex()!.definitionKey,
+              validationMode: 'real_ddl',
+              allowLargeTableRewrite: true,
+            },
+          })
+        );
+        expectOk(await taskRepository.save(context, verifier));
+        expect((await runTask(verifier.snapshot().id, 'verifier')).snapshot().status).toBe(
+          'succeeded'
+        );
+      }
+      const retired = (
+        await sql<{
+          candidate_key: string;
+          reclaim_disabled_at: Date;
+          reclaim_drop_after: Date;
+          reclaim_drop_queued_at: Date;
+        }>`
+        SELECT candidate_key, reclaim_disabled_at, reclaim_drop_after, reclaim_drop_queued_at
+        FROM table_query_search_vector_config WHERE table_id = ${tableId} AND status = 'disabled'`.execute(
+          meta
+        )
+      ).rows;
+      expect(retired).toHaveLength(round + 1);
+      if (round === 0) {
+        // A previous-version stale row was never queued; the next publication must include it.
+        await sql`DELETE FROM table_query_remediation_task WHERE table_id = ${tableId} AND payload->>'trigger' = 'reclaim'`.execute(
+          meta
+        );
+        await sql`UPDATE table_query_search_vector_config SET status = 'stale', reclaim_disabled_at = NULL,
+          reclaim_drop_after = NULL, reclaim_drop_queued_at = NULL WHERE table_id = ${tableId} AND status = 'disabled'`.execute(
+          meta
+        );
+        continue;
+      }
+      for (const row of retired) {
+        expect(row.reclaim_drop_after.getTime() - row.reclaim_disabled_at.getTime()).toBe(
+          defaultTableQueryDecisionPolicyConfig.reclaimDisableGraceMs
+        );
+        expect(row.reclaim_drop_queued_at.getTime()).toBe(row.reclaim_disabled_at.getTime());
+        const task = expectOk(
+          await taskRepository.findById(
+            context,
+            reclaimDropTaskId(tableId, row.candidate_key, row.reclaim_drop_after)
+          )
+        );
+        expect(task.snapshot()).toMatchObject({ status: 'queued', attempts: 0 });
+      }
+      expect(expectOk(await claim())).toBeUndefined();
+    }
+    const sameKey = table.searchIndex()!;
+    await sql
+      .raw(
+        `DROP INDEX ${quoteIdentifier(physical.schema)}.${quoteIdentifier(sameKey.document!.indexName)}`
+      )
+      .execute(db);
+    expectOk(
+      await new PostgresTableSearchVectorSchemaMaintenanceScheduler(meta).schedule(context, {
+        table,
+        reason: 'field_updated',
+      })
+    );
+    const repair = (
+      await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+      WHERE table_id = ${tableId} AND status = 'queued' AND payload->>'trigger' = 'schema_change'`.execute(
+        meta
+      )
+    ).rows[0];
+    expect((await runMaintenance(repair.id)).snapshot().status).toBe('succeeded');
+    table = await loadTable(tableId);
+    expect(table.searchIndex()!.definitionKey).toBe(sameKey.definitionKey);
+    expect(
+      (
+        await sql<{
+          count: number;
+        }>`SELECT count(*)::int AS count FROM table_query_search_vector_config
+      WHERE table_id = ${tableId} AND status = 'disabled'
+        AND candidate_key LIKE ${`${sameKey.definitionKey}:retired:%`}`.execute(meta)
+      ).rows[0].count
+    ).toBe(1);
+    await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() - interval '1 second'
+      WHERE table_id = ${tableId} AND status = 'disabled'`.execute(meta);
+    for (let round = 0; round < 4; round += 1) {
+      const task = expectOk(await claim())!;
+      expect(task).toBeDefined();
+      if (round === 0) {
+        // A surviving DDL owner prevents takeover even when its durable heartbeat expired.
+        await sql`UPDATE table_query_remediation_task SET status = 'running', attempts = 1,
+          locked_at = now() - interval '2 minutes' WHERE id = ${task.snapshot().id}`.execute(meta);
+        await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() + interval '1 day'
+          WHERE table_id = ${tableId} AND status = 'disabled' AND candidate_key <>
+            (SELECT payload->>'scopeKey' FROM table_query_remediation_task WHERE id = ${task.snapshot().id})`.execute(
+          meta
+        );
+        await meta.connection().execute(async (owner) => {
+          await sql`SELECT pg_advisory_lock(hashtext('teable.table_query_ops.search_vector'), hashtext(${tableId}))`.execute(
+            owner
+          );
+          try {
+            expect(expectOk(await claim())).toBeUndefined();
+          } finally {
+            await sql`SELECT pg_advisory_unlock(hashtext('teable.table_query_ops.search_vector'), hashtext(${tableId}))`.execute(
+              owner
+            );
+          }
+        });
+        const resumed = expectOk(await claim())!;
+        expect(resumed.snapshot().id).toBe(task.snapshot().id);
+        expect(resumed.snapshot().attempts).toBe(1);
+        await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() - interval '1 second'
+          WHERE table_id = ${tableId} AND status = 'disabled'`.execute(meta);
+      }
+      // Fresh executor instances simulate restart; no analyzer discovers these tasks.
+      expect((await runTask(task.snapshot().id, 'retirement-worker')).snapshot().status).toBe(
+        'succeeded'
+      );
+    }
+    const artifacts = (
+      await sql<{ columns: number; indexes: number }>`SELECT
+      (SELECT count(*)::int FROM pg_attribute WHERE attrelid = to_regclass(${relation}) AND NOT attisdropped
+        AND attgenerated = 's' AND attname LIKE '__tqops_search_%') AS columns,
+      (SELECT count(*)::int FROM pg_index i JOIN pg_class idx ON idx.oid = i.indexrelid
+        JOIN pg_am am ON am.oid = idx.relam WHERE i.indrelid = to_regclass(${relation}) AND am.amname = 'gin') AS indexes`.execute(
+        db
+      )
+    ).rows[0];
+    expect(artifacts).toEqual({ columns: 1, indexes: 1 });
+    expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
+    expect((await loadTable(tableId)).searchIndex()!.definitionKey).toBe(
+      table.searchIndex()!.definitionKey
+    );
+    // Foreground drop and create must coexist with future and then obsolete retirement tasks.
+    const retained = (
+      await sql<{
+        candidate_key: string;
+      }>`SELECT candidate_key FROM table_query_search_vector_config
+      WHERE table_id = ${tableId} AND status = 'disabled' LIMIT 1`.execute(meta)
+    ).rows[0];
+    await sql`UPDATE table_query_search_vector_config SET reclaim_drop_after = now() + interval '7 days',
+      reclaim_drop_queued_at = now() WHERE table_id = ${tableId} AND candidate_key = ${retained.candidate_key}`.execute(
+      meta
+    );
+    const queuedDrop = expectOk(
+      TableQueryRemediationTask.createQueued({
+        tableId,
+        baseId: table.baseId().toString(),
+        kind: 'drop_search_access_path',
+        now: new Date(),
+        payload: { trigger: 'reclaim', scopeKey: retained.candidate_key },
+      })
+    );
+    expectOk(await taskRepository.save(context, queuedDrop));
+    const manualDrop = expectOk(
+      TableQueryRemediationTask.createQueued({
+        tableId,
+        baseId: table.baseId().toString(),
+        kind: 'drop_search_access_path',
+        now: new Date(),
+        payload: { trigger: 'admin_search_access_path', executionMode: 'manual', mode: 'drop' },
+      })
+    );
+    expectOk(await taskRepository.save(context, manualDrop));
+    expect((await runTask(manualDrop.snapshot().id, 'foreground')).snapshot().status).toBe(
+      'succeeded'
+    );
+    table = await loadTable(tableId);
+    const candidate = (
+      await new PostgresTableSearchVectorAdvisor(db).analyze(context, {
+        table,
+        provider: 'pg_trgm',
+        maxRecommendations: 1,
+      })
+    ).recommendations[0];
+    const manualCreate = expectOk(
+      TableQueryRemediationTask.createQueued({
+        tableId,
+        baseId: table.baseId().toString(),
+        kind: 'create_search_access_path',
+        now: new Date(),
+        payload: {
+          trigger: 'admin_search_access_path',
+          executionMode: 'manual',
+          mode: 'create',
+          provider: 'pg_trgm',
+          expectedDefinitionKey: candidate.candidateKey,
+          validationMode: 'real_ddl',
+          allowLargeTableRewrite: true,
+        },
+      })
+    );
+    expectOk(await taskRepository.save(context, manualCreate));
+    expect((await runTask(manualCreate.snapshot().id, 'foreground')).snapshot().status).toBe(
+      'succeeded'
+    );
+  }, 120_000);
+
+  it.each(['search_maintenance', 'all'] as const)(
+    'resumes a completed retirement receipt after a crash and temporary route outage at the attempt cap in %s scope',
+    async (scope) => {
+      let { table } = await createTable();
+      const tableId = table.id().toString();
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      await createSemanticRecords(
+        table,
+        fieldByName(table, 'Title').id().toString(),
+        fieldByName(table, 'Score').id().toString()
+      );
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const retired = (await loadTable(tableId)).searchIndex()!;
+      table = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          CreateFieldCommand.create({
+            baseId: table.baseId().toString(),
+            tableId,
+            field: { type: 'singleLineText', name: 'Completed receipt addition' },
+          })._unsafeUnwrap()
+        )
+      ).table;
+      const now = new Date();
+      const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const hhmm = (value: number) =>
+        `${Math.floor(value / 60)
+          .toString()
+          .padStart(2, '0')}:${(value % 60).toString().padStart(2, '0')}`;
+      const ddl: string[] = [];
+      const executionDb = db.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          if (/^(ALTER TABLE|CREATE INDEX|DROP INDEX)\b/.test(compiled.sql))
+            ddl.push(compiled.sql);
+          return args.node;
+        },
+        async transformResult(args) {
+          return args.result;
+        },
+      });
+      const executor = new PostgresTableQueryRemediationExecutor(
+        meta,
+        executionDb,
+        tableRepository,
+        new PostgresTableSearchVectorReconciler(meta, executionDb, {
+          windowUtc: `${hhmm((minute + 1410) % 1440)}-${hhmm((minute + 30) % 1440)}`,
+          allowUnknownOrLargeRewrite: true,
+        })
+      );
+      const handler = new RunTableQueryRemediationTaskHandler(
+        taskRepository,
+        executor,
+        testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+        testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+        { now: () => new Date() }
+      );
+      const pending = (
+        await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+          WHERE table_id = ${tableId} AND status = 'queued'
+            AND payload->>'trigger' = 'schema_change'`.execute(meta)
+      ).rows;
+      expect(pending).toHaveLength(1);
+      expect(
+        expectOk(
+          await handler.handle(
+            context,
+            new RunTableQueryRemediationTaskCommand(pending[0].id, false, 'receipt-build-worker')
+          )
+        ).snapshot().status
+      ).toBe('succeeded');
+      const serving = (await loadTable(tableId)).searchIndex()!;
+      expect(serving.document!.indexName).not.toBe(retired.document!.indexName);
+      const beforeSearch = await searchUsingRuntime(table, 'lifecycleunique');
+      expect(beforeSearch.total).toBe(1);
+      expect(beforeSearch.searchAccessPath).toMatchObject({ used: 'generated_text' });
+      await sql`UPDATE table_query_search_vector_config
+        SET reclaim_drop_after = now() - interval '1 second'
+        WHERE table_id = ${tableId} AND status = 'disabled'`.execute(meta);
+      const retirement = (
+        await sql<{ id: string; scope_key: string }>`SELECT id, payload->>'scopeKey' AS scope_key
+          FROM table_query_remediation_task
+          WHERE table_id = ${tableId} AND payload->>'trigger' = 'reclaim'`.execute(meta)
+      ).rows;
+      expect(retirement).toHaveLength(1);
+      const { id: taskId, scope_key: scopeKey } = retirement[0];
+      const claim = (workerId: string) =>
+        taskRepository.claimNextAccepted(context, {
+          scope,
+          workerId,
+          now: new Date(),
+          allowedKinds: ['drop_search_access_path'],
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+        });
+      await sql`UPDATE table_query_remediation_task SET attempts = max_attempts - 1
+        WHERE id = ${taskId}`.execute(meta);
+      const claimed = expectOk(await claim('departed-receipt-worker'))!;
+      expect(claimed.snapshot().id).toBe(taskId);
+      const departed = expectOk(
+        await taskRepository.save(
+          context,
+          expectOk(claimed.start('departed-receipt-worker', new Date()))
+        )
+      );
+      expect(departed.snapshot()).toMatchObject({ status: 'running', attempts: 3, maxAttempts: 3 });
+      ddl.length = 0;
+      expectOk(await executor.execute(context, { task: departed, allowManualIndexExecution: false }));
+      // Crash after both real DDL and the reclaimed metadata receipt committed,
+      // before the task owner can save succeeded.
+      expect(ddl.some((statement) => statement.includes('DROP COLUMN'))).toBe(true);
+      const completedDdl = [...ddl];
+      const physical = expectOk(getTablePhysicalName(table));
+      const relation = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+      const artifacts = async () =>
+        (
+          await sql<{ column_present: boolean; index_present: boolean }>`SELECT
+            EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${relation})
+              AND attname = ${retired.document!.generatedColumnName} AND NOT attisdropped) AS column_present,
+            to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(retired.document!.indexName)}`}) IS NOT NULL AS index_present`.execute(
+            db
+          )
+        ).rows[0];
+      expect(await artifacts()).toEqual({ column_present: false, index_present: false });
+      expect(expectOk(await taskRepository.findById(context, taskId)).snapshot()).toMatchObject({
+        id: taskId,
+        status: 'running',
+        attempts: 3,
+        maxAttempts: 3,
+      });
+      const receipt = async () =>
+        (
+          await sql<{
+            status: string;
+            serving_snapshot: unknown;
+            reclaim_drop_after: Date | null;
+            reclaim_drop_queued_at: Date | null;
+            last_inspection: unknown;
+          }>`SELECT status, serving_snapshot, reclaim_drop_after, reclaim_drop_queued_at, last_inspection
+            FROM table_query_search_vector_config
+            WHERE table_id = ${tableId} AND candidate_key = ${scopeKey}`.execute(meta)
+        ).rows[0];
+      const completedReceipt = await receipt();
+      expect(completedReceipt).toEqual({
+        status: 'disabled',
+        serving_snapshot: null,
+        reclaim_drop_after: null,
+        reclaim_drop_queued_at: null,
+        last_inspection: { state: 'disabled', staleReasons: ['reclaimed_after_grace'] },
+      });
+      await sql`UPDATE table_query_remediation_task
+        SET locked_at = now() - interval '2 minutes' WHERE id = ${taskId}`.execute(meta);
+      const workerContainer = testContainer.container.createChildContainer();
+      workerContainer.registerInstance(v2TableOpsTokens.taskWorkerConfig, {
+        enabled: true,
+        intervalMs: 60_000,
+        workerId: 'unavailable-receipt-worker',
+        scope,
+        allowedKinds: ['drop_search_access_path'],
+        allowManualIndexExecution: false,
+        allowPolicyIndexExecution: false,
+      });
+      workerContainer.registerInstance(v2TableOpsTokens.clock, { now: () => new Date() });
+      const execute = vi.fn(
+        (executionContext: IExecutionContext, command: RunTableQueryRemediationTaskCommand) =>
+          handler.handle(executionContext, command)
+      );
+      workerContainer.registerInstance(v2CoreTokens.commandBus, { execute } as unknown as ICommandBus);
+      const refusal = new TableQueryOpsExecutionUnavailableError(
+        new Error('Completed retirement database route is temporarily unavailable')
+      );
+      const resolveExecution = vi.fn(async (routedTableId: string) => {
+        expect(routedTableId).toBe(tableId);
+        throw refusal;
+      });
+      const worker = startTableQueryOpsTaskWorkerIfEnabled(
+        workerContainer,
+        context,
+        resolveExecution
+      );
+      try {
+        await vi.waitFor(async () => {
+          const deferred = expectOk(await taskRepository.findById(context, taskId)).snapshot();
+          expect(deferred).toMatchObject({
+            id: taskId,
+            status: 'queued',
+            attempts: 3,
+            maxAttempts: 3,
+            resumeAttempt: true,
+            lastError: `Task routing failed: ${String(refusal)}`,
+          });
+          expect(deferred.lockedAt).toBeUndefined();
+          expect(deferred.lockedBy).toBeUndefined();
+        }, { timeout: 5_000 });
+      } finally {
+        worker?.stop();
+      }
+      expect(resolveExecution).toHaveBeenCalledTimes(1);
+      expect(execute).not.toHaveBeenCalled();
+      // The completed-receipt SQL branch admits only a genuine resumed task;
+      // an ordinary queued task remains ineligible even below the attempt cap.
+      await sql`UPDATE table_query_remediation_task SET resume_attempt = false, attempts = 2
+        WHERE id = ${taskId}`.execute(meta);
+      expect(expectOk(await claim('unstarted-receipt-worker'))).toBeUndefined();
+      await sql`UPDATE table_query_remediation_task SET resume_attempt = true, attempts = 3
+        WHERE id = ${taskId}`.execute(meta);
+      const resumed = expectOk(await claim('restored-receipt-worker'))!;
+      expect(resumed.snapshot()).toMatchObject({
+        id: taskId,
+        status: 'queued',
+        attempts: 3,
+        resumeAttempt: true,
+      });
+      const completed = expectOk(
+        await handler.handle(
+          context,
+          new RunTableQueryRemediationTaskCommand(taskId, false, 'restored-receipt-worker')
+        )
+      ).snapshot();
+      expect(completed).toMatchObject({ id: taskId, status: 'succeeded', attempts: 3, maxAttempts: 3 });
+      expect(completed.lastError).toBeUndefined();
+      expect(ddl).toEqual(completedDdl);
+      expect(await receipt()).toEqual(completedReceipt);
+      expect(await artifacts()).toEqual({ column_present: false, index_present: false });
+      expect((await loadTable(tableId)).searchIndex()).toEqual(serving);
+      const afterSearch = await searchUsingRuntime(table, 'lifecycleunique');
+      expect(afterSearch.total).toBe(beforeSearch.total);
+      expect(afterSearch.searchAccessPath).toEqual(beforeSearch.searchAccessPath);
+    },
+    120_000
+  );
 
   it('samples a single field rather than a cross-field document prefix', async () => {
     const { table } = await createTable();
@@ -503,6 +2635,1184 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     });
   }, 120_000);
 
+  it.each([
+    'small',
+    'approved',
+    'unknown',
+    'recovered',
+    'exhausted',
+    'legacy_refused',
+    'legacy_datallowconn',
+    'legacy_pool_timeout',
+    'outage',
+    'selected',
+    'changed_scope',
+    'disabled',
+  ] as const)(
+    'maintains %s coverage from field creation with durable window and size gates',
+    async (mode) => {
+      let { table } = await createTable();
+      const title = fieldByName(table, 'Title');
+      const score = fieldByName(table, 'Score');
+      await createSemanticRecords(table, title.id().toString(), score.id().toString());
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+          ...(mode === 'selected' ? { fieldIds: [title.id().toString()] } : {}),
+        })
+      );
+      const previous = await expectReadyConfig(table);
+      const noteId = FieldId.mustGenerate().toString();
+      table = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          CreateFieldCommand.create({
+            baseId: table.baseId().toString(),
+            tableId: table.id().toString(),
+            field: { id: noteId, type: 'singleLineText', name: 'New coverage' },
+          })._unsafeUnwrap()
+        )
+      ).table;
+      expectOk(
+        await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+          context,
+          CreateRecordCommand.create({
+            tableId: table.id().toString(),
+            fields: { [noteId]: 'newfieldonlyneedle' },
+          })._unsafeUnwrap()
+        )
+      );
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const tasks = await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+        WHERE table_id = ${table.id().toString()} AND payload->>'trigger' = 'schema_change'
+          AND status = 'queued'`.execute(meta);
+      expect(tasks.rows).toHaveLength(1);
+      const taskId = tasks.rows[0].id;
+      recoveryTaskIds.push(taskId);
+      const run = async (
+        options: SearchMaintenanceOptions,
+        executionMeta = meta,
+        executionData = db
+      ) => {
+        const handler = new RunTableQueryRemediationTaskHandler(
+          taskRepository,
+          new PostgresTableQueryRemediationExecutor(
+            executionMeta,
+            executionData,
+            tableRepository,
+            new PostgresTableSearchVectorReconciler(executionMeta, executionData, options),
+            options.isConnectionUnavailable
+          ),
+          testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+          testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+          { now: () => new Date() }
+        );
+        return expectOk(
+          await handler.handle(
+            context,
+            new RunTableQueryRemediationTaskCommand(taskId, false, 'schema-coverage-worker')
+          )
+        );
+      };
+      if (mode !== 'selected') {
+        for (const windowUtc of [undefined, 'invalid']) {
+          expect((await run({ windowUtc })).snapshot()).toMatchObject({
+            status: 'queued',
+            attempts: 0,
+          });
+          const state = await sql<{ execution_state: unknown }>`SELECT execution_state
+            FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta);
+          expect(state.rows[0].execution_state).toBeNull();
+          expect((await searchUsingRuntime(table, 'newfieldonlyneedle')).total).toBe(1);
+        }
+      }
+      const time = (minutes: number) =>
+        `${Math.floor(minutes / 60)
+          .toString()
+          .padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
+      const now = new Date();
+      const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const windowUtc = `${time((minute + 1410) % 1440)}-${time((minute + 30) % 1440)}`;
+      if (mode.startsWith('legacy_') || mode === 'outage') {
+        const recoveryRepository = new PostgresTableQueryRemediationTaskRepository(
+          meta as unknown as Kysely<TableQueryOpsDatabase>
+        );
+        let scanTime = Date.now();
+        const claim = () =>
+          recoveryRepository.claimNextAccepted(context, {
+            scope: 'search_maintenance',
+            workerId: 'schema-coverage-worker',
+            now: new Date((scanTime += 31_000)),
+            allowedKinds: ['rebuild_search_access_path'],
+            allowManualIndexExecution: false,
+            allowPolicyIndexExecution: false,
+          });
+        if (mode.startsWith('legacy_')) {
+          await sql`UPDATE table_query_remediation_task SET status = 'failed', attempts = 3,
+            last_error = 'permission denied for table' WHERE id = ${taskId}`.execute(meta);
+          expect(expectOk(await claim())).toBeUndefined();
+          const legacyError =
+            mode === 'legacy_refused'
+              ? 'connect ECONNREFUSED 127.0.0.1:5432'
+              : mode === 'legacy_datallowconn'
+                ? 'database "coverage" is not currently accepting connections'
+                : 'timeout exceeded when trying to connect';
+          await sql`UPDATE table_query_remediation_task SET last_error = ${legacyError}
+            WHERE id = ${taskId}`.execute(meta);
+          await sql`UPDATE table_query_remediation_task SET payload = jsonb_set(payload,
+            '{configKey}', to_jsonb('obsolete'::text)) WHERE id = ${taskId}`.execute(meta);
+          expect(expectOk(await claim())).toBeUndefined();
+          await sql`UPDATE table_query_remediation_task SET payload = jsonb_set(payload,
+            '{configKey}', to_jsonb(${previous.candidate_key}::text)) WHERE id = ${taskId}`.execute(meta);
+          expect(expectOk(await claim())).toBeUndefined();
+          expect(expectOk(await claim())?.snapshot()).toMatchObject({ id: taskId, attempts: 3 });
+        }
+        const earlyFailure = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), {
+          code: 'ECONNREFUSED',
+        });
+        const unavailableMeta = meta.withPlugin({
+          transformQuery(args) {
+            const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+            if (compiled.sql.includes('SELECT version FROM table_meta')) throw earlyFailure;
+            return args.node;
+          },
+          async transformResult(args) {
+            return args.result;
+          },
+        });
+        expect(
+          (await run({ windowUtc, isConnectionUnavailable: (error) => error === earlyFailure }, unavailableMeta)).snapshot()
+        ).toMatchObject({
+          status: 'queued',
+          attempts: mode.startsWith('legacy_') ? 3 : 0,
+          lastError: `Search coverage connection unavailable: ${earlyFailure.message}`,
+        });
+        for (const failure of [
+          Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), {
+            code: 'ECONNREFUSED',
+          }),
+          Object.assign(new Error('database "coverage" is not currently accepting connections'), {
+            code: '55000',
+          }),
+          new Error('timeout exceeded when trying to connect'),
+        ]) {
+          const unavailable = db.withPlugin({
+            transformQuery() {
+              throw failure;
+            },
+            async transformResult(args) {
+              return args.result;
+            },
+          });
+          const waiting = (
+            await run({ windowUtc, isConnectionUnavailable: (error) => error === failure }, meta, unavailable)
+          ).snapshot();
+          expect(waiting).toMatchObject({
+            status: 'queued',
+            attempts: mode.startsWith('legacy_') ? 3 : 0,
+            lastError: `Search coverage connection unavailable: ${failure.message}`,
+          });
+          expect(waiting.lockedAt).toBeUndefined();
+          expect(waiting.lockedBy).toBeUndefined();
+        }
+      }
+      if (mode === 'changed_scope' || mode === 'disabled') {
+        table = await loadTable(table.id().toString());
+        expectOk(
+          await reconciler.reconcile(
+            context,
+            mode === 'disabled'
+              ? { table, mode: 'drop' }
+              : {
+                  table,
+                  mode: 'rebuild',
+                  fieldIds: [title.id().toString()],
+                  provider: 'pg_trgm',
+                  validationMode: 'real_ddl',
+                  requirePlanImprovement: false,
+                  allowLargeTableRewrite: true,
+                }
+          )
+        );
+        expect((await run({ windowUtc })).snapshot()).toMatchObject({
+          status: 'failed',
+          attempts: 1,
+          maxAttempts: 1,
+        });
+        const status = expectOk(await statusReader.read(context, table.id().toString()));
+        if (mode === 'disabled')
+          expect(status).toMatchObject({ state: 'disabled', configured: false });
+        else {
+          expect(status.searchScope).toBe('selected_fields');
+          expect(status.coveredFieldIds).toEqual([title.id().toString()]);
+        }
+        const state = await sql<{ execution_state: unknown }>`SELECT execution_state
+          FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta);
+        expect(state.rows[0].execution_state).toBeNull();
+        expect((await searchUsingRuntime(table, 'newfieldonlyneedle')).total).toBe(
+          mode === 'disabled' ? 1 : 0
+        );
+        return;
+      }
+      const physical = expectOk(getTablePhysicalName(table));
+      if (mode === 'unknown') {
+        // Inject unavailable pg_class statistics at the metadata read boundary. TRUNCATE can report known zero.
+        const estimateQueries = new Set<object>();
+        const unknownStatistics = db.withPlugin({
+          transformQuery(args) {
+            const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+            if (compiled.sql.includes('c.reltuples AS reltuples'))
+              estimateQueries.add(args.queryId);
+            return args.node;
+          },
+          async transformResult(args) {
+            return estimateQueries.has(args.queryId)
+              ? { ...args.result, rows: [{ reltuples: -1 }] }
+              : args.result;
+          },
+        });
+        expect((await run({ windowUtc }, meta, unknownStatistics)).snapshot()).toMatchObject({
+          status: 'queued',
+          attempts: 0,
+        });
+      }
+      await sql
+        .raw(`ANALYZE ${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`)
+        .execute(db);
+      if (mode !== 'selected') {
+        expect((await run({ windowUtc, knownSmallRowCap: 1 })).snapshot()).toMatchObject({
+          status: 'queued',
+          attempts: mode.startsWith('legacy_') ? 3 : 0,
+        });
+      }
+      let interrupted: SearchGenerationExecutionState | undefined;
+      if (mode === 'recovered' || mode === 'exhausted') {
+        const interruptedMeta = meta.withPlugin({
+          transformQuery(args) {
+            const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+            if (
+              compiled.parameters.some(
+                (value) => typeof value === 'string' && value.includes('"phase":"index_ready"')
+              )
+            )
+              throw new Error('maintenance worker fails after physical index creation');
+            return args.node;
+          },
+          async transformResult(args) {
+            return args.result;
+          },
+        });
+        expect((await run({ windowUtc }, interruptedMeta)).snapshot()).toMatchObject({
+          status: 'failed',
+          attempts: 1,
+        });
+        interrupted = (
+          await sql<{ execution_state: SearchGenerationExecutionState }>`SELECT execution_state
+          FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta)
+        ).rows[0].execution_state;
+        if (mode === 'exhausted') {
+          const claim = () =>
+            taskRepository.claimNextAccepted(context, {
+              scope: 'search_maintenance',
+              workerId: 'schema-coverage-worker',
+              now: new Date(),
+              allowedKinds: ['rebuild_search_access_path'],
+              allowManualIndexExecution: false,
+              allowPolicyIndexExecution: false,
+            });
+          for (const attempts of [1, 2]) {
+            for (let wait = 0; wait < 3; wait += 1) {
+              expect(expectOk(await claim())?.snapshot().id).toBe(taskId);
+              const waiting = (await run({})).snapshot();
+              expect(waiting).toMatchObject({ status: 'queued', attempts });
+              expect(waiting.lockedAt).toBeUndefined();
+              expect(waiting.lockedBy).toBeUndefined();
+              const retained = (
+                await sql<{
+                  execution_state: SearchGenerationExecutionState;
+                }>`SELECT execution_state
+                  FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta)
+              ).rows[0].execution_state;
+              expect(retained).toMatchObject({
+                generatedColumnName: interrupted.generatedColumnName,
+                indexName: interrupted.indexName,
+                targetDefinition: interrupted.targetDefinition,
+              });
+            }
+            expect(expectOk(await claim())?.snapshot().id).toBe(taskId);
+            expect((await run({ windowUtc }, interruptedMeta)).snapshot()).toMatchObject({
+              status: 'failed',
+              attempts: attempts + 1,
+            });
+          }
+          expect(expectOk(await claim())).toBeUndefined();
+          const exhausted = expectOk(await taskRepository.findById(context, taskId));
+          expect(exhausted.snapshot()).toMatchObject({ status: 'failed', attempts: 3 });
+          expect(exhausted.start('schema-coverage-worker', new Date()).isErr()).toBe(true);
+          const current = (
+            await sql<{
+              generated_column_name: string;
+              index_name: string;
+            }>`SELECT generated_column_name, index_name
+              FROM table_query_search_vector_config WHERE table_id = ${table.id().toString()}
+                AND candidate_key = ${previous.candidate_key}`.execute(meta)
+          ).rows[0];
+          expect(current).toEqual({
+            generated_column_name: previous.generated_column_name,
+            index_name: previous.index_name,
+          });
+          expect((await searchUsingRuntime(table, 'newfieldonlyneedle')).total).toBe(1);
+          return;
+        }
+        const connectionFailure = Object.assign(new Error('maintenance statement timed out'), {
+          code: 'TABLE_QUERY_OPS_STATEMENT_TIMEOUT',
+        });
+        const unavailable = db.withPlugin({
+          transformQuery() {
+            throw connectionFailure;
+          },
+          async transformResult(args) {
+            return args.result;
+          },
+        });
+        expect(
+          (await run({ windowUtc, isConnectionUnavailable: (error) => error === connectionFailure }, meta, unavailable)).snapshot()
+        ).toMatchObject({
+          status: 'queued',
+          attempts: 1,
+          lastError: `Search coverage connection unavailable: ${connectionFailure.message}`,
+        });
+        const retained = await sql<{ execution_state: SearchGenerationExecutionState }>`SELECT execution_state
+          FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta);
+        expect(retained.rows[0].execution_state).toEqual(interrupted);
+        expect((await run({})).snapshot()).toMatchObject({ status: 'queued', attempts: 1 });
+        const claimed = expectOk(
+          await taskRepository.claimNextAccepted(context, {
+            scope: 'search_maintenance',
+            workerId: 'schema-coverage-worker',
+            now: new Date(),
+            allowedKinds: ['rebuild_search_access_path'],
+            allowManualIndexExecution: false,
+            allowPolicyIndexExecution: false,
+          })
+        );
+        expect(claimed?.snapshot().id).toBe(taskId);
+      }
+      const completed = await run({
+        windowUtc: mode === 'selected' ? undefined : windowUtc,
+        knownSmallRowCap: mode === 'approved' ? 1 : 5000,
+        allowUnknownOrLargeRewrite: mode === 'approved',
+      });
+      expect(completed.snapshot()).toMatchObject({
+        status: 'succeeded',
+        attempts: mode.startsWith('legacy_') ? 3 : mode === 'recovered' ? 2 : 1,
+      });
+      const current = await expectReadyConfig(table);
+      expect(asStringArray(current.field_ids).includes(noteId)).toBe(mode !== 'selected');
+      expect(current.search_scope).toBe(mode === 'selected' ? 'selected_fields' : 'all_fields');
+      expect((await searchUsingRuntime(table, 'newfieldonlyneedle')).total).toBe(
+        mode === 'selected' ? 0 : 1
+      );
+      expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
+      const state = await sql<{
+        execution_state: SearchGenerationExecutionState;
+      }>`SELECT execution_state
+        FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta);
+      expect(state.rows[0].execution_state).toMatchObject({
+        kind: 'search_generation',
+        phase: 'published',
+      });
+      if (interrupted) {
+        expect(state.rows[0].execution_state).toMatchObject({
+          generatedColumnName: interrupted.generatedColumnName,
+          indexName: interrupted.indexName,
+          targetDefinition: interrupted.targetDefinition,
+        });
+      }
+      if (mode === 'selected') {
+        expect(current.generated_column_name).toBe(previous.generated_column_name);
+        expect(current.index_name).toBe(previous.index_name);
+      }
+      if (mode !== 'selected') {
+        expect(current.index_name).not.toBe(previous.index_name);
+        expect(
+          (
+            await sql<{
+              present: boolean;
+            }>`SELECT to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(previous.index_name)}`}) IS NOT NULL AS present`.execute(
+              db
+            )
+          ).rows[0].present
+        ).toBe(true);
+      }
+    },
+    120_000
+  );
+
+  it.each(['prepared', 'published', 'published_with_continuation'] as const)(
+    'resumes a %s repair before continuing all-fields coverage expansion',
+    async (stop) => {
+      let { table } = await createTable();
+      const tableId = table.id().toString();
+      maintenanceTableIds.push(tableId);
+      const title = fieldByName(table, 'Title');
+      const score = fieldByName(table, 'Score');
+      await createSemanticRecords(table, title.id().toString(), score.id().toString());
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const previous = await expectReadyConfig(table);
+      const physical = expectOk(getTablePhysicalName(table));
+      const tableSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+      await sql
+        .raw(`DROP INDEX ${quoteIdentifier(physical.schema)}.${quoteIdentifier(previous.index_name)}`)
+        .execute(db);
+      const noteId = FieldId.mustGenerate().toString();
+      table = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          CreateFieldCommand.create({
+            baseId: table.baseId().toString(),
+            tableId,
+            field: { id: noteId, type: 'singleLineText', name: 'Expansion after repair' },
+          })._unsafeUnwrap()
+        )
+      ).table;
+      expectOk(
+        await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+          context,
+          CreateRecordCommand.create({
+            tableId,
+            fields: { [noteId]: 'repaircontinuationneedle' },
+          })._unsafeUnwrap()
+        )
+      );
+      await sql.raw(`ANALYZE ${tableSql}`).execute(db);
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const pending = () =>
+        sql<{ id: string; payload: { configKey: string; configScope: string } }>`SELECT id, payload
+          FROM table_query_remediation_task WHERE table_id = ${tableId}
+            AND payload->>'trigger' = 'schema_change' AND status = 'queued'`.execute(meta);
+      const initial = (await pending()).rows;
+      expect(initial).toHaveLength(1);
+      const taskId = initial[0].id;
+      const task = expectOk(await taskRepository.findById(context, taskId));
+      const running = expectOk(task.start('departed-repair', new Date()));
+      expectOk(await taskRepository.save(context, running));
+      const checkpointQueries = new Set<object>();
+      const interruptedMeta = meta.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          const phase = stop === 'prepared' ? 'prepared' : 'published';
+          if (
+            compiled.parameters.some(
+              (value) => typeof value === 'string' && value.includes(`"phase":"${phase}"`)
+            )
+          )
+            checkpointQueries.add(args.queryId);
+          return args.node;
+        },
+        async transformResult(args) {
+          if (checkpointQueries.has(args.queryId))
+            throw new Error('repair process stops after durable checkpoint');
+          return args.result;
+        },
+      });
+      // No window is configured: repair is allowed, but the new field must wait.
+      const interrupted = await new PostgresTableQueryRemediationExecutor(
+        interruptedMeta,
+        db,
+        tableRepository,
+        new PostgresTableSearchVectorReconciler(interruptedMeta, db, {})
+      ).execute(context, { task: running, allowManualIndexExecution: false });
+      expect(interrupted.isErr()).toBe(true);
+      const journal = (
+        await sql<{ execution_state: SearchGenerationExecutionState }>`SELECT execution_state
+          FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta)
+      ).rows[0].execution_state;
+      expect(journal.phase).toBe(stop === 'prepared' ? 'prepared' : 'published');
+      expect(
+        JSON.parse(journal.targetDefinition)
+          .fields.map((field: { fieldId: string }) => field.fieldId)
+          .sort()
+      ).toEqual(asStringArray(previous.field_ids).sort());
+      expect((await pending()).rows).toHaveLength(0);
+      let existingContinuation: string | undefined;
+      if (stop === 'published_with_continuation') {
+        const scheduled = expectOk(
+          await new PostgresTableSearchVectorSchemaMaintenanceScheduler(meta).schedule(context, {
+            table,
+            reason: 'field_updated',
+          })
+        );
+        expect(scheduled).toBeDefined();
+        existingContinuation = scheduled!.taskId;
+      }
+      await sql`UPDATE table_query_remediation_task SET locked_at = now() - interval '2 minutes'
+        WHERE id = ${taskId}`.execute(meta);
+      const claimed = expectOk(
+        await taskRepository.claimNextAccepted(context, {
+          scope: 'search_maintenance',
+          workerId: 'resumed-repair',
+          now: new Date(),
+          allowedKinds: ['rebuild_search_access_path'],
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+        })
+      );
+      expect(claimed?.snapshot().id).toBe(taskId);
+      const run = async (id: string, options: SearchMaintenanceOptions, workerId: string) =>
+        expectOk(
+          await new RunTableQueryRemediationTaskHandler(
+            taskRepository,
+            new PostgresTableQueryRemediationExecutor(
+              meta,
+              db,
+              tableRepository,
+              new PostgresTableSearchVectorReconciler(meta, db, options)
+            ),
+            testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+            testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+            { now: () => new Date() }
+          ).handle(context, new RunTableQueryRemediationTaskCommand(id, false, workerId))
+        );
+      expect((await run(taskId, {}, 'resumed-repair')).snapshot().status).toBe('succeeded');
+      const resumedJournal = (
+        await sql<{ execution_state: SearchGenerationExecutionState }>`SELECT execution_state
+          FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta)
+      ).rows[0].execution_state;
+      expect(resumedJournal).toMatchObject({
+        targetDefinition: journal.targetDefinition,
+        generatedColumnName: journal.generatedColumnName,
+        indexName: journal.indexName,
+        phase: 'published',
+      });
+      const repaired = (
+        await sql<SearchVectorConfig>`SELECT * FROM table_query_search_vector_config
+          WHERE table_id = ${tableId} AND status = 'rebuild_pending'`.execute(meta)
+      ).rows;
+      expect(repaired).toHaveLength(1);
+      expect(repaired[0]).toMatchObject({
+        candidate_key: previous.candidate_key,
+        generated_column_name: journal.generatedColumnName,
+        index_name: journal.indexName,
+        search_scope: 'all_fields',
+      });
+      expect(asStringArray(repaired[0].field_ids).sort()).toEqual(
+        asStringArray(previous.field_ids).sort()
+      );
+      expect(await generationPresence(table, journal)).toEqual({
+        column_present: true,
+        index_present: true,
+      });
+      const continuations = (await pending()).rows;
+      expect(continuations).toHaveLength(1);
+      if (existingContinuation) expect(continuations[0].id).toBe(existingContinuation);
+      expect(continuations[0].payload).toMatchObject({
+        configKey: previous.candidate_key,
+        configScope: 'all_fields',
+      });
+      const continuationId = continuations[0].id;
+      expect((await run(continuationId, {}, 'expansion-worker')).snapshot()).toMatchObject({
+        status: 'queued',
+        attempts: 0,
+      });
+      const continuationState = (
+        await sql<{ execution_state: unknown }>`SELECT execution_state
+          FROM table_query_remediation_task WHERE id = ${continuationId}`.execute(meta)
+      ).rows[0].execution_state;
+      expect(continuationState).toBeNull();
+      const now = new Date();
+      const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const time = (n: number) =>
+        `${Math.floor(n / 60)
+          .toString()
+          .padStart(2, '0')}:${(n % 60).toString().padStart(2, '0')}`;
+      const windowUtc = `${time((minute + 1410) % 1440)}-${time((minute + 30) % 1440)}`;
+      expect(
+        (await run(continuationId, { windowUtc }, 'expansion-worker')).snapshot().status
+      ).toBe('succeeded');
+      const expanded = await expectReadyConfig(table);
+      expect(expanded.search_scope).toBe('all_fields');
+      expect(asStringArray(expanded.field_ids).sort()).toEqual(
+        [...asStringArray(previous.field_ids), noteId].sort()
+      );
+      expect((await pending()).rows).toHaveLength(0);
+      expect((await searchUsingRuntime(table, 'repaircontinuationneedle')).total).toBe(1);
+      expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
+    },
+    120_000
+  );
+
+  it.each([
+    'before_journal',
+    'column_ready',
+    'published',
+    'window_closed',
+    'relaxed_cap',
+    'withdrawn_approval',
+  ] as const)(
+    'recovers %s maintenance without losing capacity, authorization or its physical generation',
+    async (stop) => {
+      let { table } = await createTable();
+      maintenanceTableIds.push(table.id().toString());
+      const title = fieldByName(table, 'Title');
+      const score = fieldByName(table, 'Score');
+      await createSemanticRecords(table, title.id().toString(), score.id().toString());
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const noteId = FieldId.mustGenerate().toString();
+      table = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          CreateFieldCommand.create({
+            baseId: table.baseId().toString(),
+            tableId: table.id().toString(),
+            field: { id: noteId, type: 'singleLineText', name: 'Recoverable coverage' },
+          })._unsafeUnwrap()
+        )
+      ).table;
+      expectOk(
+        await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+          context,
+          CreateRecordCommand.create({
+            tableId: table.id().toString(),
+            fields: { [noteId]: 'recoveryonlyneedle' },
+          })._unsafeUnwrap()
+        )
+      );
+      const physical = expectOk(getTablePhysicalName(table));
+      const tableSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+      await sql.raw(`ANALYZE ${tableSql}`).execute(db);
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const taskId = (
+        await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+        WHERE table_id = ${table.id().toString()} AND status = 'queued' AND payload->>'trigger' = 'schema_change'`.execute(
+          meta
+        )
+      ).rows[0].id;
+      const task = expectOk(await taskRepository.findById(context, taskId));
+      expectOk(
+        await taskRepository.save(context, expectOk(task.start('departed-maintenance', new Date())))
+      );
+      await sql`UPDATE table_query_remediation_task SET attempts = max_attempts WHERE id = ${taskId}`.execute(
+        meta
+      );
+      const running = expectOk(await taskRepository.findById(context, taskId));
+      const now = new Date();
+      const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const time = (n: number) =>
+        `${Math.floor(n / 60)
+          .toString()
+          .padStart(2, '0')}:${(n % 60).toString().padStart(2, '0')}`;
+      const windowUtc = `${time((minute + 1410) % 1440)}-${time((minute + 30) % 1440)}`;
+      const options = {
+        windowUtc: windowUtc as string | undefined,
+        knownSmallRowCap: stop === 'withdrawn_approval' ? 1 : 5,
+        allowUnknownOrLargeRewrite: stop === 'withdrawn_approval',
+      };
+      const checkpointQueries = new Set<object>();
+      const interruptedMeta = meta.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          const phase =
+            stop === 'before_journal'
+              ? 'prepared'
+              : stop === 'published'
+                ? 'published'
+                : 'column_ready';
+          if (
+            compiled.parameters.some(
+              (value) => typeof value === 'string' && value.includes(`"phase":"${phase}"`)
+            )
+          ) {
+            if (stop !== 'window_closed')
+              throw new Error('maintenance process stops at checkpoint');
+            checkpointQueries.add(args.queryId);
+          }
+          return args.node;
+        },
+        async transformResult(args) {
+          if (checkpointQueries.has(args.queryId)) options.windowUtc = undefined;
+          return args.result;
+        },
+      });
+      const interrupted = await new PostgresTableQueryRemediationExecutor(
+        interruptedMeta,
+        db,
+        tableRepository,
+        new PostgresTableSearchVectorReconciler(interruptedMeta, db, options)
+      ).execute(context, {
+        task: running,
+        allowManualIndexExecution: false,
+      });
+      expect(interrupted.isErr()).toBe(true);
+      expect(expectOk(await taskRepository.findById(context, taskId)).snapshot()).toMatchObject({
+        status: 'running',
+        attempts: 3,
+      });
+      const journal = (
+        await sql<{ execution_state: SearchGenerationExecutionState | null }>`SELECT execution_state
+        FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta)
+      ).rows[0].execution_state;
+      if (stop === 'before_journal') expect(journal).toBeNull();
+      else {
+        expect(journal).toMatchObject({
+          maintenanceAuthorization: {
+            knownSmallRowCap: stop === 'withdrawn_approval' ? 1 : 5,
+            allowUnknownOrLargeRewrite: stop === 'withdrawn_approval',
+          },
+        });
+        if (stop !== 'published')
+          expect(
+            (
+              await sql<{
+                present: boolean;
+              }>`SELECT to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(journal!.indexName)}`}) IS NOT NULL AS present`.execute(
+                db
+              )
+            ).rows[0].present
+          ).toBe(false);
+      }
+      if (stop === 'relaxed_cap') await insertPlannerFiller(table, title, score, 10);
+      await sql`UPDATE table_query_remediation_task SET locked_at = now() - interval '2 minutes' WHERE id = ${taskId}`.execute(
+        meta
+      );
+      const departed = expectOk(await taskRepository.findById(context, taskId));
+      const claimed = expectOk(
+        await taskRepository.claimNextAccepted(context, {
+          scope: 'search_maintenance',
+          workerId: 'replacement-maintenance',
+          now: new Date(),
+          allowedKinds: ['rebuild_search_access_path'],
+          allowManualIndexExecution: false,
+          allowPolicyIndexExecution: false,
+        })
+      );
+      expect(claimed?.snapshot().id).toBe(taskId);
+      const outsideData = db.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          if (
+            /EXPLAIN|ADD COLUMN|CREATE (?:INDEX|OR REPLACE FUNCTION)/.test(compiled.sql) ||
+            compiled.sql.includes(`FROM ${tableSql}`)
+          )
+            throw new Error('Recovery started new sampling or DDL without permission');
+          return args.node;
+        },
+        async transformResult(args) {
+          return args.result;
+        },
+      });
+      const recoveryOptions: SearchMaintenanceOptions =
+        stop === 'relaxed_cap'
+          ? { windowUtc, knownSmallRowCap: 5000, allowUnknownOrLargeRewrite: true }
+          : stop === 'withdrawn_approval'
+            ? { windowUtc, knownSmallRowCap: 1, allowUnknownOrLargeRewrite: false }
+            : stop === 'published'
+              ? { knownSmallRowCap: 1, allowUnknownOrLargeRewrite: false }
+              : {};
+      const handler = new RunTableQueryRemediationTaskHandler(
+        taskRepository,
+        new PostgresTableQueryRemediationExecutor(
+          meta,
+          outsideData,
+          tableRepository,
+          new PostgresTableSearchVectorReconciler(meta, outsideData, recoveryOptions)
+        ),
+        testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+        testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+        { now: () => new Date() }
+      );
+      const recovered = expectOk(
+        await handler.handle(
+          context,
+          new RunTableQueryRemediationTaskCommand(taskId, false, 'replacement-maintenance')
+        )
+      );
+      expect(recovered.snapshot()).toMatchObject({
+        status: stop === 'published' ? 'succeeded' : 'queued',
+        attempts: 3,
+      });
+      expect(recovered.snapshot().lockedBy).toBeUndefined();
+      expect(recovered.snapshot().lockedAt).toBeUndefined();
+      expect(
+        (
+          await taskRepository.save(
+            context,
+            expectOk(departed.succeed({ stale: true }, new Date()))
+          )
+        ).isErr()
+      ).toBe(true);
+      const retained = (
+        await sql<{ execution_state: SearchGenerationExecutionState | null }>`SELECT execution_state
+        FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta)
+      ).rows[0].execution_state;
+      if (journal)
+        expect(retained).toMatchObject({
+          generatedColumnName: journal.generatedColumnName,
+          indexName: journal.indexName,
+          targetDefinition: journal.targetDefinition,
+          maintenanceAuthorization: journal.maintenanceAuthorization,
+        });
+      const other = await createTable();
+      const candidateIds: string[] = [];
+      for (const candidate of [table, other.table]) {
+        const queued = expectOk(
+          TableQueryRemediationTask.createQueued({
+            tableId: candidate.id().toString(),
+            baseId: candidate.baseId().toString(),
+            kind: 'create_filter_index',
+            payload: { trigger: 'admin_index' },
+            now: new Date(),
+          })
+        );
+        candidateIds.push(queued.snapshot().id);
+        recoveryTaskIds.push(queued.snapshot().id);
+        expectOk(await taskRepository.saveIfAbsent(context, queued));
+      }
+      const claims = [];
+      for (const workerId of ['capacity-one', 'capacity-two'])
+        claims.push(
+          expectOk(
+            await taskRepository.claimNextAccepted(context, {
+              scope: 'all',
+              workerId,
+              now: new Date(),
+              allowedKinds: ['create_filter_index'],
+              allowManualIndexExecution: false,
+              allowPolicyIndexExecution: false,
+            })
+          )
+        );
+      expect(claims.filter(Boolean)).toHaveLength(2);
+      expect(new Set(claims.map((value) => value?.snapshot().tableId)).size).toBe(2);
+      await sql`DELETE FROM table_query_remediation_task WHERE id = ANY(${candidateIds}::text[])`.execute(
+        meta
+      );
+      if (stop !== 'published' && stop !== 'relaxed_cap' && stop !== 'withdrawn_approval') {
+        const resumed = expectOk(
+          await taskRepository.claimNextAccepted(context, {
+            scope: 'search_maintenance',
+            workerId: 'final-maintenance',
+            now: new Date(),
+            allowedKinds: ['rebuild_search_access_path'],
+            allowManualIndexExecution: false,
+            allowPolicyIndexExecution: false,
+          })
+        );
+        expect(resumed?.snapshot().id).toBe(taskId);
+        const finalHandler = new RunTableQueryRemediationTaskHandler(
+          taskRepository,
+          new PostgresTableQueryRemediationExecutor(
+            meta,
+            db,
+            tableRepository,
+            new PostgresTableSearchVectorReconciler(meta, db, { windowUtc, knownSmallRowCap: 5 })
+          ),
+          testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+          testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+          { now: () => new Date() }
+        );
+        expect(
+          expectOk(
+            await finalHandler.handle(
+              context,
+              new RunTableQueryRemediationTaskCommand(taskId, false, 'final-maintenance')
+            )
+          ).snapshot()
+        ).toMatchObject({ status: 'succeeded', attempts: 3 });
+      }
+      if (stop !== 'relaxed_cap' && stop !== 'withdrawn_approval') {
+        expect(asStringArray((await expectReadyConfig(table)).field_ids)).toContain(noteId);
+        expect((await searchUsingRuntime(table, 'recoveryonlyneedle')).total).toBe(1);
+      }
+    },
+    120_000
+  );
+
+  it.each(['queued', 'frozen'] as const)(
+    'fences a %s all-fields task after native selected scope keeps the same membership and hash',
+    async (phase) => {
+      let { table } = await createTable();
+      const title = fieldByName(table, 'Title');
+      const score = fieldByName(table, 'Score');
+      await createSemanticRecords(table, title.id().toString(), score.id().toString());
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const previous = await expectReadyConfig(table);
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const scheduled = expectOk(
+        await new PostgresTableSearchVectorSchemaMaintenanceScheduler(meta).schedule(context, {
+          table,
+          reason: 'field_updated',
+        })
+      )!;
+      const preparedQueries = new Set<object>();
+      const interruptedMeta = meta.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          if (
+            compiled.parameters.some(
+              (value) => typeof value === 'string' && value.includes('"phase":"prepared"')
+            )
+          )
+            preparedQueries.add(args.queryId);
+          return args.node;
+        },
+        async transformResult(args) {
+          if (preparedQueries.has(args.queryId))
+            throw new Error('maintenance stops after freezing its existing generation');
+          return args.result;
+        },
+      });
+      if (phase === 'frozen') {
+        const handler = new RunTableQueryRemediationTaskHandler(
+          taskRepository,
+          new PostgresTableQueryRemediationExecutor(
+            interruptedMeta,
+            db,
+            tableRepository,
+            new PostgresTableSearchVectorReconciler(interruptedMeta, db)
+          ),
+          testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+          testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+          { now: () => new Date() }
+        );
+        expect(
+          expectOk(
+            await handler.handle(
+              context,
+              new RunTableQueryRemediationTaskCommand(scheduled.taskId, false, 'scope-worker')
+            )
+          ).snapshot()
+        ).toMatchObject({ status: 'failed', attempts: 1, maxAttempts: 3 });
+        const state = (
+          await sql<{ execution_state: SearchGenerationExecutionState }>`SELECT execution_state
+            FROM table_query_remediation_task WHERE id = ${scheduled.taskId}`.execute(meta)
+        ).rows[0].execution_state;
+        expect(JSON.parse(state.targetDefinition).searchScope).toBe('all_fields');
+      }
+      table = await loadTable(table.id().toString());
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          fieldIds: asStringArray(previous.field_ids),
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const selected = await expectReadyConfig(table);
+      expect(selected).toMatchObject({
+        candidate_key: previous.candidate_key,
+        search_scope: 'selected_fields',
+        generated_column_name: previous.generated_column_name,
+        index_name: previous.index_name,
+      });
+      expect(asStringArray(selected.field_ids)).toEqual(asStringArray(previous.field_ids));
+      const failed = await runTask(scheduled.taskId, 'scope-worker');
+      const attempts = phase === 'frozen' ? 2 : 1;
+      expect(failed.snapshot()).toMatchObject({
+        status: 'failed',
+        attempts,
+        maxAttempts: attempts,
+      });
+      expect(failed.snapshot().lastError).not.toContain('cleanup failed');
+      expect(failed.start('again', new Date()).isErr()).toBe(true);
+      expect(await expectReadyConfig(table)).toEqual(selected);
+      expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
+      expect(expectOk(await statusReader.read(context, table.id().toString())).searchScope).toBe(
+        'selected_fields'
+      );
+    },
+    120_000
+  );
+
+  it.each(['window_scope', 'size_schema'] as const)(
+    'retains the last-attempt partial generation on %s deferral and cleans it only when obsolete',
+    async (stop) => {
+      let { table } = await createTable();
+      const title = fieldByName(table, 'Title');
+      const score = fieldByName(table, 'Score');
+      await createSemanticRecords(table, title.id().toString(), score.id().toString());
+      expectOk(
+        await reconciler.reconcile(context, {
+          table,
+          mode: 'create',
+          provider: 'pg_trgm',
+          validationMode: 'real_ddl',
+          requirePlanImprovement: false,
+          allowLargeTableRewrite: true,
+        })
+      );
+      const previous = await expectReadyConfig(table);
+      const noteId = FieldId.mustGenerate().toString();
+      table = expectOk(
+        await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+          context,
+          expectOk(
+            CreateFieldCommand.create({
+              baseId: table.baseId().toString(),
+              tableId: table.id().toString(),
+              field: { id: noteId, type: 'singleLineText', name: 'Partial generation' },
+            })
+          )
+        )
+      ).table;
+      const physical = expectOk(getTablePhysicalName(table));
+      await sql
+        .raw(`ANALYZE ${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`)
+        .execute(db);
+      const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+      const taskId = (
+        await sql<{ id: string }>`SELECT id FROM table_query_remediation_task
+          WHERE table_id = ${table.id().toString()} AND status = 'queued'
+            AND payload->>'trigger' = 'schema_change'`.execute(meta)
+      ).rows[0].id;
+      const task = expectOk(await taskRepository.findById(context, taskId));
+      expectOk(
+        await taskRepository.save(context, expectOk(task.start('partial-worker', new Date())))
+      );
+      await sql`UPDATE table_query_remediation_task SET attempts = max_attempts
+        WHERE id = ${taskId}`.execute(meta);
+      const now = new Date();
+      const minute = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const time = (n: number) =>
+        `${Math.floor(n / 60)
+          .toString()
+          .padStart(2, '0')}:${(n % 60).toString().padStart(2, '0')}`;
+      const options: { windowUtc?: string; knownSmallRowCap: number } = {
+        windowUtc: `${time((minute + 1410) % 1440)}-${time((minute + 30) % 1440)}`,
+        knownSmallRowCap: 5000,
+      };
+      const checkpoints = new Set<object>();
+      const interruptedMeta = meta.withPlugin({
+        transformQuery(args) {
+          const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
+          if (
+            compiled.parameters.some(
+              (value) => typeof value === 'string' && value.includes('"phase":"column_ready"')
+            )
+          )
+            checkpoints.add(args.queryId);
+          return args.node;
+        },
+        async transformResult(args) {
+          if (checkpoints.has(args.queryId)) {
+            if (stop === 'window_scope') options.windowUtc = undefined;
+            else options.knownSmallRowCap = 1;
+          }
+          return args.result;
+        },
+      });
+      const handler = new RunTableQueryRemediationTaskHandler(
+        taskRepository,
+        new PostgresTableQueryRemediationExecutor(
+          interruptedMeta,
+          db,
+          tableRepository,
+          new PostgresTableSearchVectorReconciler(interruptedMeta, db, options)
+        ),
+        testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+        testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+        { now: () => new Date() }
+      );
+      const deferred = expectOk(
+        await handler.handle(
+          context,
+          new RunTableQueryRemediationTaskCommand(taskId, false, 'partial-worker')
+        )
+      );
+      expect(deferred.snapshot()).toMatchObject({
+        status: 'queued',
+        attempts: 3,
+        maxAttempts: 3,
+        resumeAttempt: true,
+      });
+      expect(deferred.snapshot().lockedAt).toBeUndefined();
+      expect(deferred.snapshot().lockedBy).toBeUndefined();
+      const journal = (
+        await sql<{ execution_state: SearchGenerationExecutionState }>`SELECT execution_state
+          FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta)
+      ).rows[0].execution_state;
+      expect(journal.phase).toBe('column_ready');
+      expect(await generationPresence(table, journal)).toEqual({
+        column_present: true,
+        index_present: false,
+      });
+      if (stop === 'window_scope') {
+        table = await loadTable(table.id().toString());
+        expectOk(
+          await reconciler.reconcile(context, {
+            table,
+            mode: 'create',
+            fieldIds: asStringArray(previous.field_ids),
+            provider: 'pg_trgm',
+            validationMode: 'real_ddl',
+            requirePlanImprovement: false,
+            allowLargeTableRewrite: true,
+          })
+        );
+      } else {
+        await sql`UPDATE table_meta SET version = version + 1
+          WHERE id = ${table.id().toString()}`.execute(meta);
+      }
+      const beforeCleanup = (
+        await sql`SELECT candidate_key, search_scope, status, serving_snapshot
+          FROM table_query_search_vector_config WHERE table_id = ${table.id().toString()}
+            AND candidate_key = ${previous.candidate_key}`.execute(meta)
+      ).rows;
+      const failed = await runTask(taskId, 'partial-worker');
+      expect(failed.snapshot()).toMatchObject({ status: 'failed', attempts: 3, maxAttempts: 3 });
+      expect(failed.snapshot().lastError).not.toContain('cleanup failed');
+      expect(await generationPresence(table, journal)).toEqual({
+        column_present: false,
+        index_present: false,
+      });
+      expect(
+        (
+          await sql`SELECT candidate_key, search_scope, status, serving_snapshot
+            FROM table_query_search_vector_config WHERE table_id = ${table.id().toString()}
+              AND candidate_key = ${previous.candidate_key}`.execute(meta)
+        ).rows
+      ).toEqual(beforeCleanup);
+      expect((await searchUsingRuntime(table, 'lifecycleunique')).total).toBe(1);
+      expect(failed.start('again', new Date()).isErr()).toBe(true);
+    },
+    120_000
+  );
+
   it('keeps the configured search field contract until an explicit rebuild', async () => {
     const created = await createTable();
     let table = created.table;
@@ -577,12 +3887,11 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
 
     expect((await statusReader.read(context, table.id().toString()))._unsafeUnwrap()).toMatchObject(
       {
-        state: 'ready',
+        state: 'rebuild_pending',
         configured: true,
         coveredFieldCount: 2,
       }
     );
-    config = await expectReadyConfig(table);
     expect(asStringArray(config.field_ids)).not.toContain(regionFieldId);
     // The document does not cover Region, but coverage only prefilters: the value keeps matching
     // through the plain predicate, so turning acceleration on never hides a field.
@@ -606,7 +3915,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     const pendingSearch = await searchUsingRuntime(table, 'lifecycleunique');
     expect(pendingSearch.total).toBe(1);
     expect(pendingSearch.searchAccessPath?.used).toBe('generated_text');
-    await runPendingMaintenance();
+    await runPendingMaintenance('queued');
     expect((await searchUsingRuntime(table, 'SingaporeWest')).total).toBe(1);
 
     const rebuilt = await reconciler.reconcile(context, {
@@ -2930,6 +6239,163 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     120_000
   );
 
+  const prepareWarmRetirement = async (executionDb = db, admin = false) => {
+    const { table } = await createTable();
+    const tableId = table.id().toString();
+    const meta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>;
+    const physical = expectOk(getTablePhysicalName(table));
+    const relation = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
+    if (executionDb !== db) {
+      const title = expectOk(expectOk(fieldByName(table, 'Title').dbFieldName()).value());
+      const score = expectOk(expectOk(fieldByName(table, 'Score').dbFieldName()).value());
+      await sql
+        .raw(`CREATE SCHEMA IF NOT EXISTS ${quoteIdentifier(physical.schema)}`)
+        .execute(executionDb);
+      await sql
+        .raw(`CREATE TABLE ${relation} (__id text PRIMARY KEY,
+        ${quoteIdentifier(title)} text, ${quoteIdentifier(score)} text)`)
+        .execute(executionDb);
+      await sql`INSERT INTO ${sql.raw(relation)} (__id, ${sql.id(title)}, ${sql.id(score)})
+        VALUES ('rec_warm_retirement', 'lifecycleunique order', '42')`.execute(executionDb);
+    } else {
+      await createSemanticRecords(
+        table,
+        fieldByName(table, 'Title').id().toString(),
+        fieldByName(table, 'Score').id().toString()
+      );
+    }
+    expectOk(
+      await new PostgresTableSearchVectorReconciler(meta, executionDb).reconcile(context, {
+        table,
+        mode: 'create',
+        provider: 'pg_trgm',
+        validationMode: 'real_ddl',
+        requirePlanImprovement: false,
+        allowLargeTableRewrite: true,
+      })
+    );
+    const retired = (await loadTable(tableId)).searchIndex()!;
+    expect(retired.document?.ready).toBe(true);
+    // The retirement starts after grace with its real ownership snapshot intact.
+    // Only connection availability is under test; schema-change discovery has
+    // separate lifecycle coverage above.
+    await sql`UPDATE table_meta SET search_index = NULL, version = version + 1
+      WHERE id = ${tableId}`.execute(meta);
+    await sql`UPDATE table_query_search_vector_config SET status = 'disabled',
+      reclaim_drop_after = now() - interval '1 second', reclaim_drop_queued_at = now()
+      WHERE table_id = ${tableId} AND candidate_key = ${retired.definitionKey}`.execute(meta);
+    const task = expectOk(
+      TableQueryRemediationTask.createQueued({
+        tableId,
+        baseId: table.baseId().toString(),
+        kind: 'drop_search_access_path',
+        now: new Date(),
+        payload: admin
+          ? {
+              trigger: 'admin_search_access_path',
+              executionMode: 'manual',
+              mode: 'drop',
+              expectedDefinitionKey: retired.definitionKey,
+            }
+          : { trigger: 'reclaim', scopeKey: retired.definitionKey },
+      })
+    );
+    expectOk(await taskRepository.save(context, task));
+    return {
+      tableId,
+      taskId: task.snapshot().id,
+      retirementMetadata: async () =>
+        (
+          await sql<{
+            serving_snapshot: unknown;
+            reclaim_drop_after: Date | null;
+            reclaim_drop_queued_at: Date | null;
+          }>`SELECT serving_snapshot, reclaim_drop_after, reclaim_drop_queued_at
+        FROM table_query_search_vector_config WHERE table_id = ${tableId}
+        AND candidate_key = ${retired.definitionKey}`.execute(meta)
+        ).rows,
+      artifacts: async (readDb = executionDb) =>
+        (
+          await sql<{ column_present: boolean; index_present: boolean }>`SELECT
+        EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = to_regclass(${relation})
+          AND attname = ${retired.document!.generatedColumnName} AND NOT attisdropped) AS column_present,
+        to_regclass(${`${quoteIdentifier(physical.schema)}.${quoteIdentifier(retired.document!.indexName)}`}) IS NOT NULL AS index_present`.execute(
+            readDb
+          )
+        ).rows[0],
+    };
+  };
+
+  const warmRetirementWorker = (
+    tableId: string,
+    executionDb: Kysely<UnknownPostgresDatabase>,
+    isConnectionUnavailable: (error: unknown) => boolean,
+    executionMeta = testContainer.metaDb as unknown as Kysely<UnknownPostgresDatabase>,
+    admin = false
+  ) => {
+    const handler = new RunTableQueryRemediationTaskHandler(
+      taskRepository,
+      new PostgresTableQueryRemediationExecutor(
+        executionMeta,
+        executionDb,
+        tableRepository,
+        new PostgresTableSearchVectorReconciler(executionMeta, executionDb, {
+          isConnectionUnavailable,
+        })
+      ),
+      testContainer.container.resolve(v2TableOpsTokens.decisionPolicy),
+      testContainer.container.resolve(v2TableOpsTokens.decisionLogRepository),
+      { now: () => new Date() }
+    );
+    const workerContainer = testContainer.container.createChildContainer();
+    workerContainer.registerInstance(v2TableOpsTokens.taskWorkerConfig, {
+      enabled: true,
+      intervalMs: 60_000,
+      workerId: 'warm-retirement-worker',
+      scope: admin ? 'all' : 'search_maintenance',
+      allowedKinds: ['drop_search_access_path'],
+      allowManualIndexExecution: admin,
+      allowPolicyIndexExecution: false,
+    });
+    workerContainer.registerInstance(v2TableOpsTokens.clock, { now: () => new Date() });
+    const execute = vi.fn(
+      (executionContext: IExecutionContext, command: RunTableQueryRemediationTaskCommand) =>
+        handler.handle(executionContext, command)
+    );
+    workerContainer.registerInstance(v2CoreTokens.commandBus, {
+      execute,
+    } as unknown as ICommandBus);
+    // Route resolution always succeeds and returns the already constructed
+    // container/executor. The raw refusal occurs inside the real adapter.
+    const resolveExecution = vi.fn(async (routedTableId: string) => {
+      expect(routedTableId).toBe(tableId);
+      return { container: workerContainer, context };
+    });
+    return {
+      execute,
+      resolveExecution,
+      runOnce: async () => {
+        const calls = execute.mock.calls.length + 1;
+        const worker = startTableQueryOpsTaskWorkerIfEnabled(
+          workerContainer,
+          context,
+          resolveExecution
+        );
+        try {
+          await vi.waitFor(
+            async () => {
+              expect(execute).toHaveBeenCalledTimes(calls);
+              expectOk(await execute.mock.results[calls - 1].value);
+            },
+            { timeout: 10_000 }
+          );
+        } finally {
+          worker?.stop();
+        }
+      },
+    };
+  };
+
   const createTable = async (): Promise<CreateTableResult> => {
     const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
@@ -2943,7 +6409,9 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
         views: [{ type: 'grid' }],
       })._unsafeUnwrap()
     );
-    return expectOk(result);
+    const created = expectOk(result);
+    maintenanceTableIds.push(created.table.id().toString());
+    return created;
   };
 
   const createSemanticRecords = async (
@@ -3052,7 +6520,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     expect(Number(tasks.rows[0]?.count)).toBe(1);
   };
 
-  const runPendingMaintenance = async (): Promise<void> => {
+  const runPendingMaintenance = async (expectedStatus = 'succeeded'): Promise<void> => {
     const claimed = await taskRepository.claimNextAccepted(context, {
       scope: 'all',
       workerId: 'search-vector-lifecycle-e2e-worker',
@@ -3074,7 +6542,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
         'search-vector-lifecycle-e2e-worker'
       )
     );
-    expect(result._unsafeUnwrap().snapshot().status).toBe('succeeded');
+    expect(result._unsafeUnwrap().snapshot().status).toBe(expectedStatus);
   };
 
   const searchTotal = async (table: Table, config: SearchVectorConfig, value: string) => {

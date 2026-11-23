@@ -160,17 +160,29 @@ const createController = (
   };
   const fields = Object.create(FieldOpenApiV2Service.prototype) as FieldOpenApiV2Service;
   const modules = { get: vi.fn(() => fields) };
+  const prisma = {
+    tableMeta: { findMany: vi.fn().mockResolvedValue([{ id: table.id().toString() }]) },
+  };
+  const publicProcedures = {
+    current: vi.fn(() => ({ container: tableContainer as typeof tableContainer | null, context })),
+  };
   const controller = new V2Controller(
     v2Container as never,
     v2ContextFactory as never,
     permissionService as never,
     cls as never,
+    prisma as never,
+    publicProcedures as never,
+    {} as never,
+    {} as never,
+    {} as never,
     {} as never,
     modules as never
   );
   return {
     controller,
     service,
+    publicProcedures,
     registry,
     resolve,
     v2Container,
@@ -243,13 +255,12 @@ describe('V2Controller operation preview', () => {
     expect(result.data.effects[0]?.resource?.visibility).toBe('redacted');
     expect(fixture.permissionService.validPermissions).toHaveBeenCalledWith(
       'tblDelete',
-      ['table|delete'],
+      expect.arrayContaining(['table|delete', 'table|read', 'field|read']),
       'patPreview'
     );
-    expect(fixture.v2Container.getPreviewContainerForTable).toHaveBeenCalledWith('tblDelete');
     expect(fixture.v2Container.getContainerForTable).not.toHaveBeenCalled();
     expect(fixture.v2ContextFactory.createContext).toHaveBeenCalledWith(
-      await fixture.v2Container.getPreviewContainerForTable.mock.results[0]?.value
+      fixture.publicProcedures.current().container
     );
     expect(fixture.resolve).not.toHaveBeenCalledWith(v2CoreTokens.commandBus);
     expect(fixture.service.preview).toHaveBeenCalledOnce();
@@ -274,7 +285,7 @@ describe('V2Controller operation preview', () => {
 
     expect(fixture.permissionService.validPermissions).toHaveBeenCalledWith(
       'tblDuplicate',
-      ['table|create', 'table|read'],
+      expect.arrayContaining(['table|create', 'table|read', 'field|read']),
       'patPreview'
     );
     expect(fixture.service.preview).not.toHaveBeenCalled();
@@ -473,7 +484,7 @@ describe('V2Controller operation preview', () => {
 
   it('fails closed when an admitted table has no current cached read-only container', async () => {
     const fixture = createController(tableDeletePreview);
-    fixture.v2Container.getPreviewContainerForTable.mockResolvedValue(null);
+    fixture.publicProcedures.current.mockReturnValue({ container: null, context });
 
     await expect(
       fixture.controller.operationPreview().callable()({
@@ -486,7 +497,6 @@ describe('V2Controller operation preview', () => {
     });
 
     expect(fixture.permissionService.validPermissions).toHaveBeenCalledOnce();
-    expect(fixture.v2Container.getPreviewContainerForTable).toHaveBeenCalledWith('tblDelete');
     expect(fixture.v2Container.getContainerForTable).not.toHaveBeenCalled();
     expect(fixture.service.preview).not.toHaveBeenCalled();
   });
@@ -507,7 +517,6 @@ describe('V2Controller operation preview', () => {
     expect(result).toEqual({ ok: true, data: tableDeletePreview });
     expect(authorization.authorize).toHaveBeenCalledOnce();
     expect(fixture.permissionService.validPermissions).not.toHaveBeenCalled();
-    expect(fixture.v2Container.getPreviewContainerForTable).toHaveBeenCalledWith('tblDelete');
     expect(fixture.v2Container.getContainerForTable).not.toHaveBeenCalled();
     expect(fixture.service.preview).toHaveBeenCalledOnce();
   });
@@ -523,7 +532,7 @@ describe('V2Controller operation preview', () => {
       authorizeForeignTables: vi.fn().mockResolvedValue(ok(undefined)),
     };
     const cold = createController(tableDeletePreview, coldAuthorization);
-    cold.v2Container.getPreviewContainerForTable.mockResolvedValue(null);
+    cold.publicProcedures.current.mockReturnValue({ container: null, context });
 
     const [warmError, coldError] = await Promise.all([
       warm.controller
@@ -565,7 +574,7 @@ describe('V2Controller operation preview', () => {
     const fixture = createController(baseDuplicatePreview);
     const request = {
       operation: 'base.duplicate' as const,
-      input: { fromBaseId: 'bseSource', spaceId: 'spcTarget', withRecords: true },
+      input: { sourceBaseId: 'bseSource', spaceId: 'spcTarget', withRecords: true },
     };
 
     const result = await fixture.controller.operationPreview().callable()(request);
@@ -575,7 +584,16 @@ describe('V2Controller operation preview', () => {
     expect(fixture.v2Container.getContainerForTable).not.toHaveBeenCalled();
     expect(fixture.v2Container.getPreviewContainerForTable).not.toHaveBeenCalled();
     expect(fixture.v2Container.getContainer).toHaveBeenCalledOnce();
-    expect(fixture.permissionService.validPermissions).not.toHaveBeenCalled();
+    expect(fixture.permissionService.validPermissions).toHaveBeenCalledWith(
+      'bseSource',
+      ['base|read'],
+      'patPreview'
+    );
+    expect(fixture.permissionService.validPermissions).toHaveBeenCalledWith(
+      fixture.table.id().toString(),
+      ['table|read', 'field|read', 'view|read', 'record|read'],
+      'patPreview'
+    );
     expect(fixture.resolve).not.toHaveBeenCalledWith(v2CoreTokens.commandBus);
     expect(fixture.service.preview).toHaveBeenCalledWith(context, request);
     expect(fixture.resolve).toHaveBeenCalledTimes(2);

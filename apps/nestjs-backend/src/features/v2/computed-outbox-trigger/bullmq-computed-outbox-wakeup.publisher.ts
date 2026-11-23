@@ -79,7 +79,9 @@ export class BullMqComputedOutboxWakeupPublisher implements IComputedOutboxWakeu
 
   private addWakeup(wakeup: ComputedOutboxWakeup) {
     const isDeterministic =
-      wakeup.wakeupId.startsWith('cuwr2-') || wakeup.wakeupId.startsWith('cuwd-');
+      wakeup.wakeupId.startsWith('cuwr2-') ||
+      wakeup.wakeupId.startsWith('cuwd-') ||
+      wakeup.wakeupId.startsWith('cuwp-');
     return this.queue.add(
       COMPUTED_OUTBOX_WAKEUP_JOB,
       {
@@ -90,6 +92,8 @@ export class BullMqComputedOutboxWakeupPublisher implements IComputedOutboxWakeu
         availableAt: wakeup.availableAt.toISOString(),
         emittedAt: wakeup.emittedAt.toISOString(),
         cause: wakeup.cause,
+        ...(wakeup.eligibleClaimMisses ? { eligibleClaimMisses: wakeup.eligibleClaimMisses } : {}),
+        ...(wakeup.relayDueBeforeMs != null ? { relayDueBeforeMs: wakeup.relayDueBeforeMs } : {}),
         ...(wakeup.traceparent ? { traceparent: wakeup.traceparent } : {}),
         ...(wakeup.tracestate ? { tracestate: wakeup.tracestate } : {}),
       },

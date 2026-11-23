@@ -56,6 +56,7 @@ import {
   type LinkFieldViewQuerySnapshotChange,
 } from './LinkFieldUpdateSideEffectService';
 import { TableUpdateFlow } from './TableUpdateFlow';
+import { isLinkTextConversionBatchField } from './LinkTextConversionBatch';
 
 export type FieldUpdateSideEffectInput = {
   /** The table containing the updated field */
@@ -198,7 +199,13 @@ export class FieldUpdateSideEffectService {
       // not the pre-conversion snapshot, for dependent and View cleanup.
       if (
         (updatedField instanceof LinkField && !(input.previousField instanceof LinkField)) ||
-        (!(updatedField instanceof LinkField) && input.previousField instanceof LinkField)
+        (!(updatedField instanceof LinkField) &&
+          input.previousField instanceof LinkField &&
+          !isLinkTextConversionBatchField(
+            context,
+            table.id().toString(),
+            updatedField.id().toString()
+          ))
       ) {
         const foreignTableState = new Map(
           currentForeignTables.map((foreignTable) => [foreignTable.id().toString(), foreignTable])

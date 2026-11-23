@@ -46,6 +46,7 @@ export type ComputedUpdateSeedPayload = {
   seedTableId: string;
   seedRecordIds: string[];
   extraSeedRecords: ComputedUpdateSeedGroupDto[];
+  capturedDeleteLinkFieldIds?: string[];
   beforeImageRecords: ComputedBeforeImageRecordDto[];
   changedFieldIds: string[];
   changeType: 'insert' | 'update' | 'delete';
@@ -75,6 +76,7 @@ export type DeserializedSeedTask = {
   seedTableId: TableId;
   seedRecordIds: RecordId[];
   extraSeedRecords: Array<{ tableId: TableId; recordIds: RecordId[] }>;
+  capturedDeleteLinkFieldIds?: ReadonlyArray<string>;
   beforeImageRecords: ComputedBeforeImageRecord[];
   changedFieldIds: FieldId[];
   changeType: 'insert' | 'update' | 'delete';
@@ -93,6 +95,7 @@ export const serializeSeedPayload = (params: {
   seedTableId: TableId;
   seedRecordIds: ReadonlyArray<RecordId>;
   extraSeedRecords: ReadonlyArray<{ tableId: TableId; recordIds: ReadonlyArray<RecordId> }>;
+  capturedDeleteLinkFieldIds?: ReadonlyArray<string>;
   beforeImageRecords?: ReadonlyArray<ComputedBeforeImageRecord>;
   changedFieldIds: ReadonlyArray<FieldId>;
   changeType: 'insert' | 'update' | 'delete';
@@ -111,6 +114,7 @@ export const serializeSeedPayload = (params: {
     tableId: group.tableId.toString(),
     recordIds: group.recordIds.map((id) => id.toString()),
   })),
+  capturedDeleteLinkFieldIds: params.capturedDeleteLinkFieldIds?.slice(),
   beforeImageRecords: (params.beforeImageRecords ?? []).map((record) => ({
     recordId: record.recordId.toString(),
     fieldValuesByDbName: { ...record.fieldValuesByDbName },
@@ -261,6 +265,7 @@ export const deserializeSeedPayload = (
     seedTableId: seedTableIdResult.value,
     seedRecordIds: seedRecordIdsResult.value,
     extraSeedRecords: extraSeedRecordsResult.value,
+    capturedDeleteLinkFieldIds: payload.capturedDeleteLinkFieldIds,
     beforeImageRecords: beforeImageRecordsResult.value,
     changedFieldIds: changedFieldIdsResult.value,
     changeType,
@@ -292,6 +297,7 @@ export const buildSeedTaskInput = (params: {
   seedTableId: TableId;
   seedRecordIds: ReadonlyArray<RecordId>;
   extraSeedRecords: ReadonlyArray<{ tableId: TableId; recordIds: ReadonlyArray<RecordId> }>;
+  capturedDeleteLinkFieldIds?: ReadonlyArray<string>;
   beforeImageRecords?: ReadonlyArray<ComputedBeforeImageRecord>;
   changedFieldIds: ReadonlyArray<FieldId>;
   changeType: 'insert' | 'update' | 'delete';
@@ -309,6 +315,7 @@ export const buildSeedTaskInput = (params: {
     seedTableId: params.seedTableId,
     seedRecordIds: params.seedRecordIds,
     extraSeedRecords: params.extraSeedRecords,
+    capturedDeleteLinkFieldIds: params.capturedDeleteLinkFieldIds,
     beforeImageRecords: params.beforeImageRecords,
     changedFieldIds: params.changedFieldIds,
     changeType: params.changeType,
@@ -342,6 +349,8 @@ export const buildSeedTaskChunk = (
     seedTableId: task.seedTableId,
     seedRecordIds: chunk.seedRecordIds,
     extraSeedRecords: chunk.extraSeedRecords,
+    // Each chunk is durably queued, including chunks containing only parent seeds.
+    capturedDeleteLinkFieldIds: task.capturedDeleteLinkFieldIds,
     beforeImageRecords,
     changedFieldIds: task.changedFieldIds,
     changeType: task.changeType,
@@ -416,6 +425,13 @@ export const mergeSeedPayloads = (
     existing.beforeImageRecords ?? [],
     incoming.beforeImageRecords ?? []
   );
+  let capturedDeleteLinkFieldIds: string[] | undefined;
+  if (existing.capturedDeleteLinkFieldIds && incoming.capturedDeleteLinkFieldIds) {
+    const incomingLinks = new Set(incoming.capturedDeleteLinkFieldIds);
+    capturedDeleteLinkFieldIds = existing.capturedDeleteLinkFieldIds.filter((id) =>
+      incomingLinks.has(id)
+    );
+  }
 
   // Merge impact if both have it
   let mergedImpact: SeedImpactHintDto | undefined;
@@ -447,6 +463,7 @@ export const mergeSeedPayloads = (
     seedTableId: existing.seedTableId,
     seedRecordIds: mergedSeedRecordIds,
     extraSeedRecords: mergedExtraSeedRecords,
+    capturedDeleteLinkFieldIds,
     beforeImageRecords: mergedBeforeImageRecords,
     changedFieldIds: mergedChangedFieldIds,
     changeType: existing.changeType, // Keep the existing changeType

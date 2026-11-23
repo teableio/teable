@@ -1,5 +1,10 @@
 import { defaultFormulaSourceBudgetLimits } from '@teable/formula';
-import { v2CoreTokens, registerFieldOperationPlugin } from '@teable/v2-core';
+import {
+  NoopSameTxProjectionDispatcher,
+  v2CoreTokens,
+  registerFieldOperationPlugin,
+  tableStorageRepositoryToken,
+} from '@teable/v2-core';
 import type { TableDataSafetyLimitConfig } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -75,6 +80,7 @@ import {
 } from '../schema/config';
 import { v2PostgresDdlTokens } from '../schema/di/tokens';
 import { PostgresTableSchemaRepository } from '../schema/repositories/PostgresTableSchemaRepository';
+import { PostgresTableStorageRepository } from '../schema/repositories/PostgresTableStorageRepository';
 import { hasPgInputIsValid } from '../utils';
 
 // Combined config for unified table repository postgres adapter
@@ -192,6 +198,9 @@ export const registerV2TableRepositoryPostgresAdapter = (
   c.registerInstance(v2PostgresDdlTokens.db, config.db);
 
   c.register(v2CoreTokens.tableSchemaRepository, PostgresTableSchemaRepository, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(tableStorageRepositoryToken, PostgresTableStorageRepository, {
     lifecycle: Lifecycle.Singleton,
   });
 
@@ -355,8 +364,18 @@ export const registerV2TableRepositoryPostgresAdapter = (
     });
   }
 
-  c.register(v2CoreTokens.tableRecordQueryRepository, PostgresTableRecordQueryRepository, {
+  if (!c.isRegistered(v2CoreTokens.sameTxProjectionDispatcher)) {
+    c.registerInstance(
+      v2CoreTokens.sameTxProjectionDispatcher,
+      new NoopSameTxProjectionDispatcher()
+    );
+  }
+
+  c.register(PostgresTableRecordQueryRepository, PostgresTableRecordQueryRepository, {
     lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableRecordQueryRepository, {
+    useToken: PostgresTableRecordQueryRepository,
   });
 
   c.register(v2CoreTokens.recordOrderCalculator, PostgresRecordOrderCalculator, {

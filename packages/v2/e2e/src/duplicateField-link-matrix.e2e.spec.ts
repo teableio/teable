@@ -7,7 +7,7 @@ import {
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
-type LinkFieldDto = Extract<IFieldDto, { type: 'link' }>;
+type LinkFieldDto = Extract<IFieldDto, { type: 'link'; options: unknown }>;
 type Relationship = 'manyMany' | 'oneMany' | 'manyOne' | 'oneOne';
 type DuplicateSide = 'created' | 'symmetric';
 
@@ -100,7 +100,7 @@ const fieldByName = (table: ITableDto, name: string): IFieldDto => {
 
 const linkFieldById = (table: ITableDto, fieldId: string): LinkFieldDto => {
   const field = table.fields.find((candidate) => candidate.id === fieldId);
-  if (!field || field.type !== 'link') {
+  if (!field || field.type !== 'link' || !field.options) {
     throw new Error(`Missing link field ${fieldId} in table ${table.id}`);
   }
   return field;

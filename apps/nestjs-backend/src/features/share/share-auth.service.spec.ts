@@ -220,7 +220,7 @@ describe('ShareAuthService.getLinkViewInfo', () => {
       sharedViewAccessV2Service as never,
       { emitAtomic: vi.fn() } as never
     );
-    return { service, prismaService, sharedViewAccessV2Service };
+    return { service, prismaService, permissionService, sharedViewAccessV2Service };
   };
 
   it('follows lookup-of-link fields whose options omit foreignTableId', async () => {
@@ -276,5 +276,90 @@ describe('ShareAuthService.getLinkViewInfo', () => {
     );
     expect(fixture.prismaService.field.findFirstOrThrow).not.toHaveBeenCalled();
     expect(fixture.prismaService.field.findFirst).not.toHaveBeenCalled();
+  });
+  describe('through a parent share named in the share-view header', () => {
+    const v2Target = { hostTableId: 'tblHost', tableId: 'tblTarget', linkOptions: {} };
+    const refusal = new Error('not allowed to operate table|read');
+
+    // The link field is visible in every one of these parent views.
+    const parentShare = (view: { type: string; shareMeta?: object; columnMeta?: object }) => ({
+      shareId: 'shrParent',
+      tableId: 'tblHost',
+      shareMeta: view.shareMeta,
+      view: { id: 'viwParent', columnMeta: { fldLink: { visible: true } }, ...view },
+    });
+
+    const resolveThroughShare = (view: Parameters<typeof parentShare>[0]) => {
+      const fixture = createLinkFixture({}, undefined, v2Target);
+      fixture.permissionService.getShareViewIdByHeader.mockReturnValue('shrParent');
+      fixture.permissionService.validPermissions.mockRejectedValue(refusal);
+      fixture.sharedViewAccessV2Service.findByShareId.mockResolvedValue(parentShare(view));
+      return {
+        fixture,
+        result: fixture.service.getLinkViewInfo('fldLink', undefined, 'header', undefined, true),
+      };
+    };
+
+    it.each([
+      ['a grid share with records on', { type: 'grid', shareMeta: { includeRecords: true } }],
+      ['a form share, which never carries the flag', { type: 'form', shareMeta: {} }],
+      ['a plugin view share, which has no share meta', { type: 'plugin' }],
+    ])('lets %s vouch for the link picker', async (_label, view) => {
+      const { fixture, result } = resolveThroughShare(view);
+
+      await expect(result).resolves.toMatchObject({ shareId: 'fldLink', tableId: 'tblTarget' });
+      expect(fixture.permissionService.validPermissions).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['grid', { includeRecords: false }],
+      ['kanban', { includeRecords: false }],
+      ['gallery', {}],
+      ['calendar', undefined],
+    ])(
+      'falls back to the caller own access when a %s share has records off',
+      async (type, shareMeta) => {
+        const { fixture, result } = resolveThroughShare({ type, shareMeta });
+
+        await expect(result).rejects.toBe(refusal);
+        expect(fixture.permissionService.validPermissions).toHaveBeenCalledWith('tblHost', [
+          'table|read',
+          'record|read',
+          'field|read',
+        ]);
+      }
+    );
+
+    it('applies the same rule on the legacy path', async () => {
+      const fixture = createLinkFixture(linkFieldRaw({}));
+      fixture.permissionService.getShareViewIdByHeader.mockReturnValue('shrParent');
+      fixture.permissionService.validPermissions.mockRejectedValue(refusal);
+      (fixture.prismaService as unknown as { view: object }).view = {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'viwParent',
+          tableId: 'tblHost',
+          name: 'Shared grid',
+          type: 'grid',
+          description: null,
+          options: 'null',
+          filter: 'null',
+          sort: 'null',
+          group: 'null',
+          shareId: 'shrParent',
+          shareMeta: JSON.stringify({ includeRecords: false }),
+          enableShare: true,
+          createdBy: 'usrOwner',
+          lastModifiedBy: null,
+          createdTime: new Date('2026-01-01T00:00:00.000Z'),
+          lastModifiedTime: null,
+          columnMeta: '{}',
+          isLocked: null,
+        }),
+      };
+
+      await expect(fixture.service.getLinkViewInfo('fldLink', undefined, 'header')).rejects.toBe(
+        refusal
+      );
+    });
   });
 });

@@ -28,6 +28,7 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { type IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
+  createBaseOkResponseSchema,
   createFieldOkResponseSchema,
   createRecordOkResponseSchema,
   createRecordsOkResponseSchema,
@@ -72,17 +73,20 @@ import {
 import { registerV2ImportServices } from '@teable/v2-import';
 import express from 'express';
 import { createE2eTestContainer, type E2eDbMode } from './createE2eTestContainer';
+import { createExpressBasesHost } from './expressBasesHost';
 
 // Default test user that will be used as the actorId for all API requests
 export const TEST_USER = {
   id: 'usrTestUserId',
   name: 'test',
   email: 'test@e2e.com',
-} as const;
+};
 
 export interface SharedTestContext {
   testContainer: IV2NodeTestContainer;
   baseId: string;
+  spaceId: string;
+  createBase: (name: string) => Promise<{ id: string }>;
   baseUrl: string;
   // Test user info - use this when testing createdBy/lastModifiedBy fields
   testUser: typeof TEST_USER;
@@ -218,6 +222,13 @@ export interface SharedTestContextOptions {
   dbMode?: E2eDbMode;
 }
 
+let hostContextFactory: (() => Promise<SharedTestContext>) | undefined;
+
+/** The platform test setup owns its bootstrap and registers it before the corpus runs. */
+export const registerSharedTestHost = (factory: () => Promise<SharedTestContext>) => {
+  hostContextFactory = factory;
+};
+
 const isSetupTimingEnabled = () => process.env.TEABLE_V2_TEST_SETUP_TIMING === '1';
 
 const createSetupTimer = (scope: string) => {
@@ -227,11 +238,17 @@ const createSetupTimer = (scope: string) => {
 
   return async <T>(label: string, run: () => Promise<T>) => {
     const startedAt = Date.now();
+    console.info(`[v2-test-setup] ${scope}:${label} pid=${process.pid} start 0ms`);
+    let completed = false;
     try {
-      return await run();
+      const result = await run();
+      completed = true;
+      return result;
     } finally {
       const elapsed = Date.now() - startedAt;
-      console.info(`[v2-test-setup] ${scope}:${label} ${elapsed}ms`);
+      console.info(
+        `[v2-test-setup] ${scope}:${label} pid=${process.pid} ${completed ? 'complete' : 'failed'} ${elapsed}ms`
+      );
     }
   };
 };
@@ -411,12 +428,22 @@ const parseImportRecordsResponse = (rawBody: unknown) => {
 const initSharedContext = async (
   options: SharedTestContextOptions = {}
 ): Promise<SharedTestContext> => {
+  if (process.env.TEABLE_V2_E2E_HOST === 'nest') {
+    if (!hostContextFactory) throw new Error('Nest parity host was not registered by test setup');
+    return hostContextFactory();
+  }
   const dbMode = options.dbMode ?? DEFAULT_DB_MODE;
   const time = createSetupTimer(`shared-context:${dbMode}`);
   const testContainer = await time('create-test-container', async () =>
     createE2eTestContainer({ dbMode })
   );
   const baseId = testContainer.baseId.toString();
+  const baseFixture = await testContainer.metaDb
+    .selectFrom('base')
+    .select('space_id')
+    .where('id', '=', baseId)
+    .executeTakeFirstOrThrow();
+  if (!baseFixture.space_id) throw new Error('Test base has no fixture space');
 
   // Register import services (CSV, Excel adapters)
   await time('register-import-services', async () => {
@@ -447,6 +474,17 @@ const initSharedContext = async (
       .onConflict((oc) => oc.column('id').doNothing())
       .execute()
   );
+  await testContainer.metaDb
+    .insertInto('collaborator')
+    .values({
+      id: `col${baseFixture.space_id.slice(3)}`,
+      resource_type: 'space',
+      resource_id: baseFixture.space_id,
+      principal_id: TEST_USER.id,
+      principal_type: 'user',
+    })
+    .onConflict((oc) => oc.column('id').doNothing())
+    .execute();
 
   // Create actorId for execution context
   const actorIdResult = ActorId.create(TEST_USER.id);
@@ -481,6 +519,7 @@ const initSharedContext = async (
     app.use(
       createV2ExpressRouter({
         createContainer: () => testContainer.container,
+        basesHost: createExpressBasesHost(testContainer, { actorId }),
         createExecutionContext: () => {
           const allowSelectOptionAutoCreate = selectOptionAutoCreatePolicy.getStore();
           const requestId = requestIdStore.getStore();
@@ -511,6 +550,39 @@ const initSharedContext = async (
   const address = server.address() as AddressInfo;
   const baseUrl = `http://127.0.0.1:${address.port}`;
 
+  const drainOutbox = async (maxRounds = 10) => {
+    for (let i = 0; i < maxRounds; i += 1) {
+      const drained = await testContainer.processOutbox();
+      if (drained === 0) break;
+    }
+  };
+
+  return {
+    testContainer,
+    baseId,
+    spaceId: baseFixture.space_id,
+    createBase: (name) => createE2eBaseFixture(baseUrl, baseFixture.space_id!, name),
+    baseUrl,
+    testUser: TEST_USER,
+    ...createE2eRequestClient({ baseUrl, baseId, drainOutbox }),
+    drainOutbox,
+    clearLogs: () => testContainer.clearLogs(),
+    getLastComputedPlan: () => testContainer.getLastComputedPlan(),
+  };
+};
+
+/** The same HTTP helpers run against Express or a real authenticated Nest host. */
+export const createE2eRequestClient = ({
+  baseUrl,
+  baseId,
+  drainOutbox,
+  fetch = globalThis.fetch,
+}: {
+  baseUrl: string;
+  baseId: string;
+  drainOutbox: SharedTestContext['drainOutbox'];
+  fetch?: typeof globalThis.fetch;
+}) => {
   // API helpers
   const createTable = async (payload: ICreateTableCommandInput) => {
     const response = await fetch(`${baseUrl}/tables/create`, {
@@ -768,13 +840,6 @@ const initSharedContext = async (
     }
   };
 
-  const drainOutbox = async (maxRounds = 10) => {
-    for (let i = 0; i < maxRounds; i += 1) {
-      const drained = await testContainer.processOutbox();
-      if (drained === 0) break;
-    }
-  };
-
   const listRecordsWithPaginationWithoutDrain = async (
     tableId: string,
     options?: {
@@ -930,12 +995,7 @@ const initSharedContext = async (
     }
     return parseImportRecordsResponse(await response.json());
   };
-
   return {
-    testContainer,
-    baseId,
-    baseUrl,
-    testUser: TEST_USER,
     createTable,
     createTables,
     createField,
@@ -962,9 +1022,6 @@ const initSharedContext = async (
     paste,
     importCsv,
     importRecords,
-    drainOutbox,
-    clearLogs: () => testContainer.clearLogs(),
-    getLastComputedPlan: () => testContainer.getLastComputedPlan(),
   };
 };
 
@@ -975,7 +1032,8 @@ const initSharedContext = async (
 export const getSharedTestContext = async (
   options: SharedTestContextOptions = {}
 ): Promise<SharedTestContext> => {
-  const dbMode = options.dbMode ?? DEFAULT_DB_MODE;
+  const dbMode =
+    process.env.TEABLE_V2_E2E_HOST === 'nest' ? 'postgres' : (options.dbMode ?? DEFAULT_DB_MODE);
 
   const existingContext = sharedContexts.get(dbMode);
   if (existingContext) {
@@ -1014,4 +1072,19 @@ export const disposeSharedTestContext = async (): Promise<void> => {
     sharedContexts.delete(dbMode);
     initPromises.delete(dbMode);
   }
+};
+
+/** Provision cross-base collaborators through the real host's base creation flow. */
+export const createE2eBaseFixture = async (baseUrl: string, spaceId: string, name: string) => {
+  const response = await fetch(`${baseUrl}/bases/create`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name, spaceId }),
+  });
+  const body: unknown = await response.json();
+  const parsed = createBaseOkResponseSchema.safeParse(body);
+  if (response.status !== 201 || !parsed.success || !parsed.data.ok) {
+    throw new Error(`CreateBase failed: ${JSON.stringify(body)}`);
+  }
+  return parsed.data.data.base;
 };

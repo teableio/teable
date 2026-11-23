@@ -5,10 +5,8 @@ import {
   FieldType,
   generateBaseId,
   HttpErrorCode,
-  Relationship,
   Role,
   generateTemplateId,
-  type ILinkFieldOptions,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
@@ -36,6 +34,8 @@ import type {
   IUpdateOrderRo,
 } from '@teable/openapi';
 import type { IExecutionContext } from '@teable/v2-core';
+import type { V1TeableDatabase } from '@teable/v2-adapter-repository-postgres';
+import { CompiledQuery, sql, type Transaction } from 'kysely';
 import { isNumber, keyBy, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -66,12 +66,12 @@ import { buildBaseNodeDefaultUrl } from '../base-node/base-node-url.helper';
 import { CanaryService } from '../canary';
 import type { IV2Decision } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
-import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
-import { GraphService } from '../graph/graph.service';
+import { CrossSpaceLinkCleanupService } from '../table-lifecycle/cross-space-link-cleanup.service';
+import { BaseErdService } from '../graph/base-erd.service';
 import { firstPublishHistory } from '../model/template';
 import { invalidateSearchIndexesForDataDbRouting } from '../space/search-index-routing-invalidation';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
-import { TableOpenApiService } from '../table/open-api/table-open-api.service';
+import { TableLifecycleCleanupService } from '../table-lifecycle/table-lifecycle-cleanup.service';
 import { ensureTemplateSlug } from '../template/template-slug';
 import {
   lockTemplateSnapshotSwap,
@@ -82,7 +82,7 @@ import { auditBaseCreated } from './base-create-audit';
 import { BaseDataDbMoveService } from './base-data-db-move.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
-import type { BaseImportProgressCallback } from './base-import.service';
+import type { BaseImportProgressCallback } from './base-import-contract';
 import {
   computeCrossSpaceFieldLevels,
   extractForeignTableId,
@@ -113,36 +113,6 @@ type IBaseListV2Info = {
   v2Status: IV2Decision;
 };
 
-/**
- * Stable key for deduplicating orphan link-storage drops across both sides of
- * a symmetric pair. Both sides reference the same underlying junction (M:N) or
- * FK column (N:1 / 1:1), so calling cleanForeignKey twice would error on the
- * second drop. The key matches the storage `cleanForeignKey` actually targets:
- *
- *  - M:N (and one-way OneMany pointing at a junction) → `table:${junction}`
- *  - N:1 / 1:1 / two-way OneMany                       → `column:${host}:${col}`
- */
-function computeCrossSpaceCleanupKey(opts: ILinkFieldOptions): string {
-  const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = opts;
-  if (
-    relationship === Relationship.ManyMany ||
-    (relationship === Relationship.OneMany && isOneWay)
-  ) {
-    return `table:${fkHostTableName}`;
-  }
-  if (relationship === Relationship.ManyOne) {
-    return `column:${fkHostTableName}:${foreignKeyName}`;
-  }
-  if (relationship === Relationship.OneMany) {
-    return `column:${fkHostTableName}:${selfKeyName}`;
-  }
-  if (relationship === Relationship.OneOne) {
-    const col = foreignKeyName === '__id' ? selfKeyName : foreignKeyName;
-    return `column:${fkHostTableName}:${col}`;
-  }
-  return `unknown:${fkHostTableName}`;
-}
-
 type IDataPrismaScopedClient = IDataPrismaExecutor & {
   txClient?: () => IDataPrismaExecutor;
 };
@@ -162,11 +132,11 @@ export class BaseService {
     private readonly baseDuplicateService: BaseDuplicateService,
     private readonly baseDuplicateV2Service: BaseDuplicateV2Service,
     private readonly permissionService: PermissionService,
-    private readonly tableOpenApiService: TableOpenApiService,
-    private readonly graphService: GraphService,
+    private readonly tableLifecycleCleanupService: TableLifecycleCleanupService,
+    private readonly baseErdService: BaseErdService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly canaryService: CanaryService,
-    private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly crossSpaceLinkCleanupService: CrossSpaceLinkCleanupService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     // Explicit @Inject after consecutive token-based @Inject decorators (SWC fails
@@ -481,7 +451,7 @@ export class BaseService {
     return spaceAggregate._max.order || 0;
   }
 
-  async createBase(createBaseRo: ICreateBaseRo) {
+  async createBase(createBaseRo: ICreateBaseRo, execution?: { onAllocated?: (baseId: string) => void }) {
     const userId = this.cls.get('user.id');
     const { name, spaceId, icon } = createBaseRo;
     await this.assertSpaceWritable(spaceId);
@@ -506,6 +476,7 @@ export class BaseService {
         spaceId: true,
       },
     });
+    execution?.onAllocated?.(base.id);
 
     try {
       const sqlList = this.dbProvider.createSchema(base.id);
@@ -539,6 +510,20 @@ export class BaseService {
     await this.markBaseVisited(base.id, spaceId);
     return base;
   }
+  /** Compensates only a host-owned allocation after native table cleanup has completed. */
+  async cleanupAllocatedBase(baseId: string): Promise<void> {
+    if (await this.prismaService.tableMeta.count({ where: { baseId } })) {
+      throw new Error('Cannot clean allocated base while native tables remain');
+    }
+    const schemaSql = this.dbProvider.dropSchema(baseId);
+    if (schemaSql) {
+      const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, { useTransaction: true });
+      await this.getDataPrismaExecutor(scopedDataPrisma).$executeRawUnsafe(schemaSql);
+    }
+    await this.purgeComputedOutboxForBase(baseId, []);
+    await this.prismaService.$tx(async () => this.cleanBaseRelatedData(baseId));
+  }
+
 
   async updateBase(baseId: string, updateBaseRo: IUpdateBaseRo) {
     await this.assertBaseWritable(baseId);
@@ -1019,7 +1004,10 @@ export class BaseService {
   async permanentDeleteBase(
     baseId: string,
     ignorePermissionCheck: boolean = false,
-    options?: { skipExternalDataDbCleanup?: boolean }
+    options?: {
+      skipExternalDataDbCleanup?: boolean;
+      deferColdHistoryCleanup?: (cleanup: () => Promise<void>) => void;
+    }
   ) {
     if (!options?.skipExternalDataDbCleanup) await this.assertBaseWritable(baseId);
     if (!ignorePermissionCheck) {
@@ -1030,6 +1018,27 @@ export class BaseService {
     let purgedTableIds: string[] = [];
     const result = await this.prismaService.$tx(
       async (prisma) => {
+        // Keep the Base route available until this purge commits. A competing purge
+        // must not reach physical cleanup while the owner holds this row lock.
+        const [lockedBase] = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT "id" FROM "base" WHERE "id" = ${baseId} FOR NO KEY UPDATE SKIP LOCKED
+        `;
+        if (!lockedBase) {
+          const base = await prisma.base.findUnique({
+            where: { id: baseId },
+            select: { id: true },
+          });
+          if (!base) {
+            throw new CustomHttpException(`Project ${baseId} not found`, HttpErrorCode.NOT_FOUND, {
+              localization: { i18nKey: 'httpErrors.base.notFound' },
+            });
+          }
+          throw new CustomHttpException(
+            `Project ${baseId} is busy and cannot be permanently deleted`,
+            HttpErrorCode.CONFLICT
+          );
+        }
+
         // Only an explicitly forced, validated BYODB space supplies this option.
         // Resolve from metadata before any client acquisition: that would migrate/connect.
         const skipDataDbCleanup =
@@ -1053,9 +1062,9 @@ export class BaseService {
           await this.dropBase(baseId, tableIds);
           await this.purgeComputedOutboxForBase(baseId, tableIds);
         }
-        await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
-        await this.tableOpenApiService.cleanTaskRelatedData(tableIds);
-        await this.tableOpenApiService.cleanTablesRelatedData(
+        await this.tableLifecycleCleanupService.cleanReferenceFieldIds(tableIds);
+        await this.tableLifecycleCleanupService.cleanTaskRelatedData(tableIds);
+        await this.tableLifecycleCleanupService.cleanTablesRelatedData(
           baseId,
           tableIds,
           { useTransaction: true },
@@ -1067,8 +1076,16 @@ export class BaseService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
-    // irreversible S3 cleanup only after the purge transaction has committed
-    await this.tableOpenApiService.cleanupColdHistoryPrefixes(purgedTableIds);
+    if (purgedTableIds.length) {
+      const cleanup = () =>
+        this.tableLifecycleCleanupService.cleanupColdHistoryPrefixes(purgedTableIds);
+      // Space purges reuse their outer transaction. Only its owner can run this after commit.
+      if (options?.deferColdHistoryCleanup) {
+        options.deferColdHistoryCleanup(cleanup);
+      } else {
+        await cleanup();
+      }
+    }
     return result;
   }
 
@@ -1101,9 +1118,14 @@ export class BaseService {
   async dropBase(baseId: string, tableIds: string[]) {
     const sql = this.dbProvider.dropSchema(baseId);
     if (!sql) {
-      await this.tableOpenApiService.dropTables(tableIds);
+      await this.tableLifecycleCleanupService.dropTables(tableIds);
       return;
     }
+    // Resolve routing while the metadata transaction is still usable: platform
+    // DDL errors abort it, so a routing query in catch would hide the SQL error.
+    const isMetaFallback = await this.dataDbClientManager.isMetaFallbackForBase(baseId, {
+      useTransaction: true,
+    });
     try {
       const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
         useTransaction: true,
@@ -1112,9 +1134,7 @@ export class BaseService {
     } catch (error) {
       handleBestEffortDataDbDropError({
         error,
-        isMetaFallback: await this.dataDbClientManager.isMetaFallbackForBase(baseId, {
-          useTransaction: true,
-        }),
+        isMetaFallback,
         logger: this.logger,
         target: `schema for base ${baseId}`,
       });
@@ -1122,7 +1142,7 @@ export class BaseService {
   }
 
   async dropBaseTable(tableIds: string[]) {
-    await this.tableOpenApiService.dropTables(tableIds);
+    await this.tableLifecycleCleanupService.dropTables(tableIds);
   }
 
   /**
@@ -1278,63 +1298,33 @@ export class BaseService {
     // (preserving its own values).
     const conversionOrder = sortByConversionDepth(affected, levels);
 
-    // Snapshot every converted Link's old options so we can drop the now-
-    // orphaned junction / FK column after the conversion tx commits (cleanup
-    // is intentionally deferred — running it during convert would break the
-    // symmetric partner's read path before its own snapshot lands).
-    const linkOptionsToCleanup: ILinkFieldOptions[] = [];
-
     try {
-      await this.prismaService.$tx(async () => {
-        for (const f of conversionOrder) {
-          const stillNeedsConversion = await this.prismaService.txClient().field.findFirst({
-            where: { id: f.fieldId, tableId: f.tableId, deletedTime: null },
-            select: { id: true, type: true, isLookup: true, isConditionalLookup: true },
-          });
-          if (!stillNeedsConversion) {
-            // No longer expected with the cross-space convert path (symmetric
-            // partner is preserved). Log if it happens — it would indicate an
-            // unexpected upstream change.
-            this.logger.warn(
-              `[cross-space] move-base field unexpectedly missing: fieldId=${f.fieldId} tableId=${f.tableId} baseId=${f.baseId} reason=${f.reason}`
+      await this.crossSpaceLinkCleanupService.withConversions(
+        baseId,
+        conversionOrder,
+        async (_context, metaDb) => {
+          if (options?.dataDbChanged) {
+            await invalidateSearchIndexesForDataDbRouting(
+              {
+                $queryRawUnsafe: async <T>(query: string, ...values: unknown[]) => {
+                  const result = await metaDb.executeQuery(CompiledQuery.raw(query, values));
+                  return result.rows as T;
+                },
+                $executeRawUnsafe: async (query: string, ...values: unknown[]) => {
+                  const result = await metaDb.executeQuery(CompiledQuery.raw(query, values));
+                  return Number(result.numAffectedRows ?? 0);
+                },
+              },
+              { baseId }
             );
-            continue;
           }
-          if (
-            stillNeedsConversion.type === FieldType.SingleLineText &&
-            !stillNeedsConversion.isLookup &&
-            !stillNeedsConversion.isConditionalLookup
-          ) {
-            continue;
-          }
-          const isRootLink =
-            stillNeedsConversion.type === FieldType.Link &&
-            !stillNeedsConversion.isLookup &&
-            !stillNeedsConversion.isConditionalLookup;
-          if (isRootLink) {
-            const { oldLinkOptions } = await this.fieldOpenApiService.convertCrossSpaceLinkToText(
-              f.tableId,
-              f.fieldId
-            );
-            linkOptionsToCleanup.push(oldLinkOptions);
-          } else {
-            await this.fieldOpenApiService.convertField(f.tableId, f.fieldId, {
-              type: FieldType.SingleLineText,
-            });
-          }
+          await sql`update "base" set "space_id" = ${targetSpaceId} where "id" = ${baseId}`.execute(
+            metaDb
+          );
+          await sql`delete from "user_base_order" where "base_id" = ${baseId}`.execute(metaDb);
+          await this.afterMetaMoveBase(baseId, targetSpaceId, metaDb);
         }
-        if (options?.dataDbChanged) {
-          await invalidateSearchIndexesForDataDbRouting(this.prismaService.txClient(), { baseId });
-        }
-        await this.prismaService.txClient().base.update({
-          where: { id: baseId },
-          data: { spaceId: targetSpaceId },
-        });
-        // Personal positions are per space (T7235): in the target space the base is new to
-        // everyone, so drop the rows rather than carrying over positions from another scale.
-        await this.prismaService.txClient().userBaseOrder.deleteMany({ where: { baseId } });
-        await this.afterMetaMoveBase(baseId, targetSpaceId);
-      });
+      );
     } catch (error) {
       this.logger.error(
         `[cross-space] move-base failed: baseId=${baseId} targetSpaceId=${targetSpaceId} affected=${affected.length} error=${(error as Error).message}`
@@ -1342,29 +1332,16 @@ export class BaseService {
       throw error;
     }
 
-    // Drop orphan junction / FK storage now that every Link in the pair has
-    // been converted. Best-effort: log warnings on failure rather than abort,
-    // since the move itself already succeeded and leaving orphan storage is
-    // recoverable (manual SQL or future sweep). Dedup by storage target so
-    // both sides of a symmetric pair don't fight over the same DROP.
-    const cleanupSeen = new Set<string>();
-    for (const opts of linkOptionsToCleanup) {
-      const key = computeCrossSpaceCleanupKey(opts);
-      if (cleanupSeen.has(key)) continue;
-      cleanupSeen.add(key);
-      try {
-        await this.fieldOpenApiService.cleanOrphanCrossSpaceLinkStorage(opts);
-      } catch (e) {
-        this.logger.warn(
-          `[cross-space] orphan link storage cleanup failed: key=${key} error=${(e as Error).message}`
-        );
-      }
-    }
+    // Field conversion, orphan storage cleanup and host ownership changed in one native UoW.
   }
 
   // Edition hook: runs inside the move transaction, after base.spaceId is updated.
   // eslint-disable-next-line @typescript-eslint/no-empty-function
-  protected async afterMetaMoveBase(_baseId: string, _targetSpaceId: string): Promise<void> {}
+  protected async afterMetaMoveBase(
+    _baseId: string,
+    _targetSpaceId: string,
+    _metaDb: Transaction<V1TeableDatabase>
+  ): Promise<void> {}
 
   async previewMoveBaseCrossSpace(
     baseId: string,
@@ -1568,7 +1545,7 @@ export class BaseService {
   }
 
   async generateBaseErd(baseId: string): Promise<IBaseErdVo> {
-    return await this.graphService.generateBaseErd(baseId);
+    return await this.baseErdService.generateBaseErd(baseId);
   }
 
   /**

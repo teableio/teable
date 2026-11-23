@@ -4,6 +4,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { BaseNodeResourceHandlerRegistry } from './resource/base-node-resource-handler.registry';
 
 /** `${resourceType}_${resourceId}` — stable across every edge source. */
 export type INodeKey = string;
@@ -259,25 +260,26 @@ type ILinkFieldRow = {
 };
 
 /**
- * Collects the edges of one project. Community knows about tables joined by
- * link fields and about dashboards whose plugins name a table; the enterprise
- * edition adds workflows, apps and routines through {@link collectExtraEdges}.
+ * Collects the edges of one project: tables joined by link fields, and each
+ * node kind's own references to tables, as its handler reports them.
  */
 @Injectable()
 export class BaseDependencyGraphService {
   constructor(
     protected readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex,
+    private readonly nodeHandlers: BaseNodeResourceHandlerRegistry
   ) {}
 
   async build(baseId: string): Promise<BaseDependencyGraph> {
     const tableIds = await this.getTableIds(baseId);
-    const [linkEdges, dashboardEdges, extraEdges] = await Promise.all([
+    const edges = await Promise.all([
       this.collectLinkEdges(tableIds),
-      this.collectDashboardEdges(baseId, tableIds),
-      this.collectExtraEdges(baseId, tableIds),
+      ...this.nodeHandlers
+        .all()
+        .map((handler) => handler.dependencyEdges?.(baseId, tableIds) ?? Promise.resolve([])),
     ]);
-    return new BaseDependencyGraph([...linkEdges, ...dashboardEdges, ...extraEdges]);
+    return new BaseDependencyGraph(edges.flat());
   }
 
   protected async getTableIds(baseId: string): Promise<string[]> {
@@ -318,52 +320,5 @@ export class BaseDependencyGraphService {
       });
     }
     return edges;
-  }
-
-  /**
-   * A dashboard's plugins keep table ids inside opaque storage, so the only way
-   * to find them is to read the ids out of the text. That makes every edge here
-   * a guess: a stale id left behind by a removed filter reads exactly like a
-   * live one, hence `uncertain`.
-   */
-  protected async collectDashboardEdges(
-    baseId: string,
-    tableIds: string[]
-  ): Promise<IDependencyEdge[]> {
-    if (tableIds.length === 0) return [];
-    const prisma = this.prismaService.txClient();
-    const dashboards = await prisma.dashboard.findMany({
-      where: { baseId, deletedTime: null },
-      select: { id: true },
-    });
-    if (dashboards.length === 0) return [];
-    const installs = await prisma.pluginInstall.findMany({
-      // only dashboard panels; view plugins name their table elsewhere
-      where: { baseId, storage: { not: null }, positionId: { in: dashboards.map((d) => d.id) } },
-      select: { positionId: true, storage: true },
-    });
-    const known = new Set(tableIds);
-    const edges: IDependencyEdge[] = [];
-    for (const install of installs) {
-      // one pass over the storage rather than one substring search per table
-      for (const found of extractTableIds(JSON.stringify(install.storage))) {
-        if (!known.has(found)) continue;
-        edges.push({
-          from: nodeKey(BaseNodeResourceType.Dashboard, install.positionId),
-          to: nodeKey(BaseNodeResourceType.Table, found),
-          kind: 'reference',
-          uncertain: true,
-        });
-      }
-    }
-    return edges;
-  }
-
-  /** Edition hook: workflows and apps live in the enterprise edition. */
-  protected async collectExtraEdges(
-    _baseId: string,
-    _tableIds: string[]
-  ): Promise<IDependencyEdge[]> {
-    return [];
   }
 }

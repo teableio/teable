@@ -188,6 +188,27 @@ describe('parsers', () => {
       });
     });
 
+    it('preserves selfKeyName and foreignKeyName when present', () => {
+      const raw = JSON.stringify({
+        foreignTableId: 'tbl1',
+        lookupFieldId: 'fld1',
+        relationship: 'oneOne',
+        fkHostTableName: 'bse1.custom_orders',
+        selfKeyName: '__fk_fld2',
+        foreignKeyName: '__id',
+      });
+      const result = parseLinkOptions(raw);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        foreignTableId: 'tbl1',
+        lookupFieldId: 'fld1',
+        relationship: 'oneOne',
+        fkHostTableName: 'bse1.custom_orders',
+        selfKeyName: '__fk_fld2',
+        foreignKeyName: '__id',
+      });
+    });
+
     it('returns error for missing foreignTableId', () => {
       const raw = JSON.stringify({ lookupFieldId: 'fld1' });
       const result = parseLinkOptions(raw);

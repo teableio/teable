@@ -4,6 +4,7 @@ import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { Table } from '../domain/table/Table';
 import type { TableName } from '../domain/table/TableName';
+import type { TablePropertiesPatch } from '../domain/table/TableProperties';
 import type { IExecutionContext } from './ExecutionContext';
 import type { PluginTraceContext } from './Tracer';
 
@@ -14,6 +15,9 @@ export const TableOperationKind = {
   duplicate: 'duplicate',
   importCsv: 'importCsv',
   rename: 'rename',
+  delete: 'delete',
+  restore: 'restore',
+  updateProperties: 'updateProperties',
 } as const;
 
 export type TableOperationKind = (typeof TableOperationKind)[keyof typeof TableOperationKind];
@@ -54,6 +58,7 @@ export type TableOperationDuplicatePayload = {
   readonly baseId: BaseId;
   readonly tableName: TableName;
   readonly table?: Table;
+  readonly sourceTable: Table;
   readonly includeRecords: boolean;
 };
 
@@ -70,6 +75,7 @@ export type TableOperationImportCsvPayload = {
 export type TableOperationRenamePayload = {
   readonly baseId: BaseId;
   readonly tableName: TableName;
+  readonly table: Table;
 };
 
 export type ITableOperationCreateContext = ITableOperationPluginContextBase<
@@ -97,6 +103,11 @@ export type ITableOperationRenameContext = ITableOperationPluginContextBase<
   TableOperationRenamePayload
 >;
 
+export type TableOperationLifecyclePayload = {
+  readonly baseId: BaseId;
+  readonly table: Table;
+};
+
 export type TableOperationPluginContextMap = {
   read: ITableOperationReadContext;
   create: ITableOperationCreateContext;
@@ -104,6 +115,9 @@ export type TableOperationPluginContextMap = {
   duplicate: ITableOperationDuplicateContext;
   importCsv: ITableOperationImportCsvContext;
   rename: ITableOperationRenameContext;
+  delete: ITableOperationPluginContextBase<'delete', TableOperationLifecyclePayload & { readonly mode: 'soft' | 'permanent' }>;
+  restore: ITableOperationPluginContextBase<'restore', TableOperationLifecyclePayload>;
+  updateProperties: ITableOperationPluginContextBase<'updateProperties', TableOperationLifecyclePayload & { readonly patch: TablePropertiesPatch }>;
 };
 
 export type TableOperationPluginContext = TableOperationPluginContextMap[TableOperationKind];

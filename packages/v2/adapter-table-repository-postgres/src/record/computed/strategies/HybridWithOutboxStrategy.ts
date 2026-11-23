@@ -8,9 +8,11 @@ import type {
   IHasher,
   ILogger,
   IEventBus,
+  ISameTxProjectionDispatcher,
 } from '@teable/v2-core';
 import {
   v2CoreTokens,
+  NoopSameTxProjectionDispatcher,
   TableId as CoreTableId,
   RecordsBatchUpdated,
   registerAfterCommit,
@@ -56,6 +58,7 @@ import {
 } from '../ComputedUpdateRuntimeConfig';
 import { withInlineComputedStatementTimeout } from '../ComputedUpdateTransactionSettings';
 import { recordIdsChangedForFields } from '../ComputedValueGatedPropagation';
+import { dispatchComputedSameTxEvents } from '../dispatchComputedSameTxEvents';
 import { buildOutboxTaskInput } from '../outbox/ComputedUpdateOutboxPayload';
 import { buildSeedTaskInput } from '../outbox/ComputedUpdateSeedPayload';
 import type { EnqueueOrMergeOutcome, IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
@@ -192,7 +195,9 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     @inject(v2RecordRepositoryPostgresTokens.computedUpdateRuntimeConfig)
     private readonly runtimeConfig: ComputedUpdateRuntimeConfig = defaultComputedUpdateRuntimeConfig,
     @inject(v2RecordRepositoryPostgresTokens.computedUpdatePauseRegistry)
-    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry
+    private readonly pauseRegistry: IComputedUpdatePauseRegistry = noopComputedUpdatePauseRegistry,
+    @inject(v2CoreTokens.sameTxProjectionDispatcher)
+    private readonly sameTxProjectionDispatcher: ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
   ) {}
 
   private dispatchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -562,6 +567,12 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
         options?.orchestration
       );
       if (events.length > 0) {
+        const sameTxRes = await dispatchComputedSameTxEvents(
+          context,
+          this.sameTxProjectionDispatcher,
+          events
+        );
+        if (sameTxRes.isErr()) return err(sameTxRes.error);
         const publish = async () => {
           const publishResult = await this.eventBus.publishMany(
             withoutTransaction(context),
@@ -821,6 +832,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           actorId: context.actorId,
           tracer: context.tracer,
           requestId: context.requestId,
+          maxPreparationPages: Number.POSITIVE_INFINITY,
         });
 
         if (result.isErr()) {

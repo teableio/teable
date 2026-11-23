@@ -2,7 +2,14 @@ import { BaseNodeResourceType } from '@teable/openapi';
 import type { IDeleteBaseNodeProgress } from '@teable/openapi';
 import { useBaseId } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
-import { cn, Progress } from '@teable/ui-lib/shadcn';
+import {
+  cn,
+  Progress,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
@@ -74,14 +81,27 @@ const ItemBadge = ({ item }: { item: IFolderDeleteListItem }) => {
   const { t } = useTranslation('common');
   const { key, strong } = badgeOf(item);
   return (
-    <span
-      className={cn(
-        'shrink-0 text-xs',
-        strong ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
-        item.blocked && 'text-destructive'
+    <span className="flex shrink-0 items-center gap-1">
+      <span
+        className={cn(
+          'text-xs',
+          strong ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+          item.blocked && 'text-destructive'
+        )}
+      >
+        {t(key as 'folderDelete.badge.impacts', { count: item.fieldCount })}
+      </span>
+      {item.generating && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <AlertCircle
+              aria-label={t('folderDelete.appGenerating.tip')}
+              className="size-3.5 text-amber-500"
+            />
+          </TooltipTrigger>
+          <TooltipContent>{t('folderDelete.appGenerating.tip')}</TooltipContent>
+        </Tooltip>
       )}
-    >
-      {t(key as 'folderDelete.badge.impacts', { count: item.fieldCount })}
     </span>
   );
 };
@@ -119,6 +139,11 @@ const ItemDetail = ({ item }: { item: IFolderDeleteListItem }) => {
         <h3 className="break-words font-semibold">{name}</h3>
         <p>{t(item.permanent ? 'folderDelete.detail.permanent' : 'folderDelete.detail.trash')}</p>
       </div>
+      {item.generating && (
+        <Notice>
+          <p>{t('folderDelete.appGenerating.detail')}</p>
+        </Notice>
+      )}
       {item.appOffline && (
         <Notice>
           <p>{t('folderDelete.appOffline.title')}</p>
@@ -152,9 +177,12 @@ export const FolderDeleteConfirmDialog = (props: FolderDeleteConfirmDialogProps)
     { operation: 'folder.delete', input: { baseId, nodeId }, options: { detail: 'full' } },
     open && Boolean(baseId && nodeId)
   );
+  // Only this check's answer counts: the one still cached from an earlier check says nothing while
+  // this one runs or after it failed.
+  const settled = preview.isSuccess && !preview.isFetching ? preview.data : undefined;
   const presentation = useMemo(
-    () => (preview.data ? buildFolderDeletePresentation(preview.data) : undefined),
-    [preview.data]
+    () => (settled ? buildFolderDeletePresentation(settled) : undefined),
+    [settled]
   );
   const [selectedKey, setSelectedKey] = useState<string>();
   // Deleted some, then stopped: what was deleted is in the trash on its own; the dialog shows
@@ -167,85 +195,85 @@ export const FolderDeleteConfirmDialog = (props: FolderDeleteConfirmDialogProps)
   const selected =
     presentation?.items.find((item) => item.key === selectedKey) ?? presentation?.items[0];
 
-  const content =
-    preview.isPending || preview.isFetching || preview.error || !presentation ? (
-      <OperationPreviewPanel
-        preview={undefined}
-        error={preview.error}
-        isLoading={preview.isPending || preview.isFetching}
-        onRetry={() => void preview.refetch()}
-      />
-    ) : (
-      <div className="flex min-h-0 flex-1 flex-col gap-2 text-sm">
-        {isDeleting && progress && (
-          <div className="space-y-1.5 rounded-md bg-muted/50 p-3">
-            <p>{t('folderDelete.progress', { done: progress.done, total: progress.total })}</p>
-            <Progress value={(progress.done / Math.max(progress.total, 1)) * 100} />
-          </div>
-        )}
-        {stopped && (
-          <Notice tone="danger">
-            <p>{t('folderDelete.stopped')}</p>
-          </Notice>
-        )}
-        <div className="space-y-1 rounded-md bg-muted/50 p-3">
-          <p>{t('folderDelete.summary')}</p>
-          <p className="flex flex-wrap gap-x-3 text-muted-foreground">
-            {Object.entries(presentation.counts).map(([type, count]) => (
-              <span key={type}>
-                {t(nounKeys[type as BaseNodeResourceType])}{' '}
-                <span className="font-medium tabular-nums text-foreground">{count}</span>
-              </span>
-            ))}
-          </p>
+  const content = !presentation ? (
+    <OperationPreviewPanel
+      preview={undefined}
+      error={preview.error}
+      isLoading={preview.isPending || preview.isFetching}
+      onRetry={() => void preview.refetch()}
+    />
+  ) : (
+    <div className="flex min-h-0 flex-1 flex-col gap-2 text-sm">
+      {isDeleting && progress && (
+        <div className="space-y-1.5 rounded-md bg-muted/50 p-3">
+          <p>{t('folderDelete.progress', { done: progress.done, total: progress.total })}</p>
+          <Progress value={(progress.done / Math.max(progress.total, 1)) * 100} />
         </div>
-        {presentation.blockedNames.length > 0 && (
-          <Notice tone="danger">
-            <p className="font-medium text-destructive">{t('operationPreview.blockedTitle')}</p>
-            <p>{t('folderDelete.blocked')}</p>
-            <p className="break-words">{presentation.blockedNames.join(', ')}</p>
-          </Notice>
-        )}
-        {presentation.loginTables.map((entry) => (
-          <LoginAppWarning
-            key={entry.tableName}
-            message={t('folderDelete.loginTable', { table: entry.tableName })}
-            apps={entry.apps}
-          />
-        ))}
-        {presentation.outsideReferences.length > 0 && (
-          <Notice>
-            <p>{t('folderDelete.outsideReferences')}</p>
-            <ul className="list-disc ps-4">
-              {presentation.outsideReferences.map((reference) => (
-                <li key={reference.id} className="break-words">
-                  {reference.name}
-                  {reference.uncertain ? ` ${t('folderDelete.possibleReference')}` : ''}
-                  {reference.tableNames.length > 0 && (
-                    <span className="text-muted-foreground">
-                      {' '}
-                      · {reference.tableNames.join(', ')}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Notice>
-        )}
-        {presentation.shares.total > 0 && (
-          <Notice>
-            <p>{t('folderDelete.shares', { count: presentation.shares.total })}</p>
-            <p className="break-words">{presentation.shares.names.join(', ')}</p>
-          </Notice>
-        )}
-        {presentation.unreadAppNames.length > 0 && (
-          <Notice>
-            <p>{t('folderDelete.unreadApps')}</p>
-            <p className="break-words">{presentation.unreadAppNames.join(', ')}</p>
-          </Notice>
-        )}
-        {/* Side by side from sm up; on a phone the list sits above the detail. */}
-        <div className="flex min-h-[240px] flex-1 flex-col gap-3 overflow-hidden sm:flex-row">
+      )}
+      {stopped && (
+        <Notice tone="danger">
+          <p>{t('folderDelete.stopped')}</p>
+        </Notice>
+      )}
+      <div className="space-y-1 rounded-md bg-muted/50 p-3">
+        <p>{t('folderDelete.summary')}</p>
+        <p className="flex flex-wrap gap-x-3 text-muted-foreground">
+          {Object.entries(presentation.counts).map(([type, count]) => (
+            <span key={type}>
+              {t(nounKeys[type as BaseNodeResourceType])}{' '}
+              <span className="font-medium tabular-nums text-foreground">{count}</span>
+            </span>
+          ))}
+        </p>
+      </div>
+      {presentation.blockedNames.length > 0 && (
+        <Notice tone="danger">
+          <p className="font-medium text-destructive">{t('operationPreview.blockedTitle')}</p>
+          <p>{t('folderDelete.blocked')}</p>
+          <p className="break-words">{presentation.blockedNames.join(', ')}</p>
+        </Notice>
+      )}
+      {presentation.loginTables.map((entry) => (
+        <LoginAppWarning
+          key={entry.tableName}
+          message={t('folderDelete.loginTable', { table: entry.tableName })}
+          apps={entry.apps}
+        />
+      ))}
+      {presentation.outsideReferences.length > 0 && (
+        <Notice>
+          <p>{t('folderDelete.outsideReferences')}</p>
+          <ul className="list-disc ps-4">
+            {presentation.outsideReferences.map((reference) => (
+              <li key={reference.id} className="break-words">
+                {reference.name}
+                {reference.uncertain ? ` ${t('folderDelete.possibleReference')}` : ''}
+                {reference.tableNames.length > 0 && (
+                  <span className="text-muted-foreground">
+                    {' '}
+                    · {reference.tableNames.join(', ')}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Notice>
+      )}
+      {presentation.shares.total > 0 && (
+        <Notice>
+          <p>{t('folderDelete.shares', { count: presentation.shares.total })}</p>
+          <p className="break-words">{presentation.shares.names.join(', ')}</p>
+        </Notice>
+      )}
+      {presentation.unreadAppNames.length > 0 && (
+        <Notice>
+          <p>{t('folderDelete.unreadApps')}</p>
+          <p className="break-words">{presentation.unreadAppNames.join(', ')}</p>
+        </Notice>
+      )}
+      {/* Side by side from sm up; on a phone the list sits above the detail. */}
+      <div className="flex min-h-[240px] flex-1 flex-col gap-3 overflow-hidden sm:flex-row">
+        <TooltipProvider>
           <ul className="max-h-40 shrink-0 space-y-0.5 overflow-y-auto border-b pb-2 sm:max-h-none sm:w-56 sm:border-b-0 sm:border-e sm:pb-0 sm:pe-2">
             {presentation.items.map((item) => (
               <li key={item.key}>
@@ -263,12 +291,19 @@ export const FolderDeleteConfirmDialog = (props: FolderDeleteConfirmDialogProps)
               </li>
             ))}
           </ul>
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-            {selected && <ItemDetail item={selected} />}
-          </div>
+        </TooltipProvider>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          {selected && <ItemDetail item={selected} />}
         </div>
       </div>
-    );
+    </div>
+  );
+
+  // A blocked delete closes no sandbox.
+  const confirmText =
+    preview.canConfirm && presentation?.stopsGeneration
+      ? t(isDeleting ? 'appDelete.closingAndDeleting' : 'appDelete.closeAndDelete')
+      : t(stopped ? 'folderDelete.continue' : 'trash.addToTrash');
 
   // A delete under way runs to the end on the server, so the dialog stays until it is done.
   return (
@@ -286,7 +321,7 @@ export const FolderDeleteConfirmDialog = (props: FolderDeleteConfirmDialogProps)
       }
       content={content}
       cancelText={isDeleting ? undefined : t('actions.cancel')}
-      confirmText={stopped ? t('folderDelete.continue') : t('trash.addToTrash')}
+      confirmText={confirmText}
       confirmLoading={isDeleting}
       confirmDisabled={isDeleting || !preview.canConfirm}
       onCancel={() => onOpenChange(false)}

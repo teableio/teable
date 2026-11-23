@@ -14,10 +14,13 @@ import {
   type IRecordWritePlugin,
   type TableQueryService,
 } from '@teable/v2-core';
-import { sql } from 'kysely';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
+import {
+  observeSchemaAcquisitions,
+  type ISchemaAcquisitionObserver,
+} from './shared/observeSchemaAcquisitions';
 
 type OrderInput = {
   viewId: string;
@@ -35,8 +38,8 @@ type CreateOperation = 'createRecord' | 'createRecords' | 'submitRecord';
  * field-deletion lease and two concurrent creates could build their option list
  * from the same stale metadata and drop each other's options.
  *
- * Every race below uses real HTTP requests and real PostgreSQL advisory locks;
- * blocked writers are observed through `pg_locks` instead of sleeping.
+ * The races use real HTTP requests and observe acquisitions at the coordinator,
+ * including waits before a PostgreSQL connection is borrowed.
  */
 
 type Gate = {
@@ -123,18 +126,6 @@ const createFixture = async (ctx: SharedTestContext, suffix: string): Promise<Cr
     formId: form!.id,
     gridViewId: grid!.id,
   };
-};
-
-const countSchemaCoordinationWaiters = async (ctx: SharedTestContext): Promise<number> => {
-  const result = await sql<{ count: string }>`
-    SELECT count(*)::text AS count
-    FROM pg_locks locks
-    JOIN pg_stat_activity activity ON activity.pid = locks.pid
-    WHERE locks.locktype = 'advisory'
-      AND NOT locks.granted
-      AND activity.application_name = 'teable-v2-schema-coordination'
-  `.execute(ctx.testContainer.db);
-  return Number(result.rows[0]?.count ?? 0);
 };
 
 /** Pauses a real create request after it has acquired its coordination lease. */
@@ -378,10 +369,17 @@ const installSharedReadBarrier = (ctx: SharedTestContext, tableId: string, gateO
 };
 describe('[T8080] typecast record creates coordinate table schema writes (e2e, postgres)', () => {
   let ctx: SharedTestContext;
+  let acquisitions: ISchemaAcquisitionObserver;
 
   beforeAll(async () => {
     ctx = await getSharedTestContext({ dbMode: 'postgres' });
   }, 60_000);
+
+  beforeEach(() => {
+    acquisitions = observeSchemaAcquisitions(ctx.testContainer.container);
+  });
+
+  afterEach(() => acquisitions?.restore());
 
   it.each([
     { operation: 'createRecord' as const, suffix: 'ordered single' },
@@ -451,8 +449,8 @@ describe('[T8080] typecast record creates coordinate table schema writes (e2e, p
           order
         );
         await vi.waitFor(
-          async () => {
-            expect(await countSchemaCoordinationWaiters(ctx)).toBeGreaterThan(0);
+          () => {
+            expect(acquisitions.count(fixture.tableId)).toBeGreaterThan(0);
           },
           { timeout: 10_000, interval: 25 }
         );
@@ -627,8 +625,8 @@ describe('[T8080] typecast record creates coordinate table schema writes (e2e, p
         await ordinaryEntered.wait;
         deletePromise = submitDeleteField(ctx, fixture.tableId, fixture.deleteTargetFieldId);
         await vi.waitFor(
-          async () => {
-            expect(await countSchemaCoordinationWaiters(ctx)).toBeGreaterThan(0);
+          () => {
+            expect(acquisitions.count(fixture.tableId)).toBeGreaterThan(0);
           },
           { timeout: 10_000, interval: 25 }
         );

@@ -13,6 +13,8 @@ export * from './get-permission';
 export * from './toggle-table-index';
 export * from './get-activated-index';
 export * from './get-search-vector-status';
+export * from './get-search-acceleration-status';
+export * from './search-acceleration-switch';
 export * from './get-abnormal-index';
 export * from './search-index-policy';
 export * from './query-index-policy';

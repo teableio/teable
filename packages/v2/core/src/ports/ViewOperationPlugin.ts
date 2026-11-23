@@ -8,6 +8,7 @@ export const ViewOperationKind = {
   create: 'create',
   duplicate: 'duplicate',
   update: 'update',
+  delete: 'delete',
 } as const;
 
 export type ViewOperationKind = (typeof ViewOperationKind)[keyof typeof ViewOperationKind];
@@ -39,6 +40,7 @@ type ViewOperationCountLimitPayload = {
 
 export type ViewOperationCreatePayload = ViewOperationCountLimitPayload & {
   readonly view: ViewOperationPayloadViewConfig;
+  readonly source?: 'snapshotRestore';
 };
 
 export type ViewOperationDuplicatePayload = ViewOperationCountLimitPayload & {
@@ -79,6 +81,7 @@ export type ViewOperationPluginContextMap = {
   create: IViewOperationCreateContext;
   duplicate: IViewOperationDuplicateContext;
   update: IViewOperationUpdateContext;
+  delete: IViewOperationPluginContextBase<'delete', { readonly tableId: string; readonly viewId: string }>;
 };
 
 export type ViewOperationPluginContext = ViewOperationPluginContextMap[ViewOperationKind];

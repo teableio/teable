@@ -68,6 +68,7 @@ import { FieldSupplementService } from '../field/field-calculate/field-supplemen
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { convertLinkPasteCellValue } from '../record/paste-link-cell-value';
 import { RecordService } from '../record/record.service';
@@ -105,6 +106,7 @@ export class SelectionService {
   constructor(
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
+    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     private readonly prismaService: PrismaService,
     @InjectAggregationService() private readonly aggregationService: IAggregationService,
     private readonly recordOpenApiService: RecordOpenApiService,
@@ -396,8 +398,17 @@ export class SelectionService {
     >
   ): Promise<string[]> {
     const { selection, ...queryRo } = selectionRo;
-    if (selection.recordIds) {
-      return selection.recordIds;
+    const selectionWithAliases = selection as typeof selection & {
+      excludedRecordIds?: string[];
+      allRecords?: boolean;
+    };
+    const excludedIds = new Set(
+      selectionWithAliases.excludeRecordIds ?? selectionWithAliases.excludedRecordIds ?? []
+    );
+    if (!selectionWithAliases.allRecords && selection.recordIds) {
+      return excludedIds.size > 0
+        ? selection.recordIds.filter((recordId) => !excludedIds.has(recordId))
+        : selection.recordIds;
     }
 
     const result = await this.recordService.getDocIdsByQuery(
@@ -410,7 +421,6 @@ export class SelectionService {
       },
       true
     );
-    const excludedIds = new Set(selection.excludeRecordIds ?? []);
     return result.ids.filter((recordId) => !excludedIds.has(recordId));
   }
 
@@ -615,12 +625,16 @@ export class SelectionService {
     tableId: string,
     fieldIds: string[]
   ): Promise<IPasteByIdMutationSnapshot> {
-    const fields = fieldIds.length
-      ? await this.fieldService.getFieldsByQuery(tableId, { projection: fieldIds })
-      : [];
+    if (!fieldIds.length) return { choiceIdsByFieldId: {} };
+    const query = { projection: fieldIds };
+    const fields = this.cls.get('useV2')
+      ? await this.fieldOpenApiV2Service.getFields(tableId, query)
+      : await this.fieldService.getFieldsByQuery(tableId, query);
     const choiceIdsByFieldId: Record<string, string[]> = {};
 
     for (const field of fields) {
+      // A lookup displays its source choices but cannot create its own options.
+      if (field.isLookup) continue;
       if ([FieldType.SingleSelect, FieldType.MultipleSelect].includes(field.type)) {
         choiceIdsByFieldId[field.id] = (
           (field.options as ISelectFieldOptions | undefined)?.choices ?? []

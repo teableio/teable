@@ -102,6 +102,18 @@ const isRetryableFailure = (error: DomainError): boolean => {
 
 @injectable()
 export class SchemaOperationRunnerService {
+  private readonly hostHandlers = new Map<SchemaOperationType, ISchemaOperationHandler>();
+
+  /** Register a host-owned durable operation on each routed runner instance. */
+  registerHandler(handler: ISchemaOperationHandler): void {
+    for (const type of handlerTypes(handler)) {
+      if (this.handlers.some((existing) => handlerTypes(existing).includes(type))) {
+        throw new Error(`Schema operation handler is already registered for ${type}`);
+      }
+      this.hostHandlers.set(type, handler);
+    }
+  }
+
   constructor(
     @inject(v2CoreTokens.schemaOperationRepository)
     private readonly schemaOperationRepository: SchemaOperationRepositoryPort.ISchemaOperationRepository,
@@ -121,7 +133,12 @@ export class SchemaOperationRunnerService {
       return ok({ status: 'idle', reason: 'unsupported' });
     }
 
-    const claimTypes = [...new Set(this.handlers.flatMap((handler) => handlerTypes(handler)))];
+    const claimTypes = [
+      ...new Set([
+        ...this.handlers.flatMap((handler) => handlerTypes(handler)),
+        ...this.hostHandlers.keys(),
+      ]),
+    ];
     if (claimTypes.length === 0) {
       return ok({ status: 'idle', reason: 'no_handler' });
     }
@@ -151,7 +168,9 @@ export class SchemaOperationRunnerService {
     const repository = this.schemaOperationRepository;
     const now = options.now ?? new Date();
 
-    const handler = this.handlers.find((handler) => handlerTypes(handler).includes(operation.type));
+    const handler =
+      this.hostHandlers.get(operation.type) ??
+      this.handlers.find((handler) => handlerTypes(handler).includes(operation.type));
     if (!handler) {
       return ok({ status: 'idle', reason: 'no_handler' });
     }
@@ -239,6 +258,23 @@ const markOperationFailed = async (
     DomainError
   >
 > => {
+  // No repair could run while the required lock was held. A pending transition
+  // releases the claim without consuming a failure attempt.
+  if (error.code === 'schema_operation.lock_unavailable') {
+    const deferred = await repository.advance(context, operation.idempotencyKey, {
+      status: 'pending',
+      phase: 'waiting_for_lock',
+      nextRunAt: new Date(now.getTime() + 60_000),
+      lastError: error.message,
+    });
+    if (deferred.isErr()) return err(deferred.error);
+    return ok({
+      operation: deferred.value,
+      terminal: false,
+      retryable: true,
+      originalLastError: operation.lastError,
+    });
+  }
   const retryable = isRetryableFailure(error);
   const nextAttempt = operation.attempts + 1;
   const terminal = !retryable || nextAttempt >= operation.maxAttempts;

@@ -348,6 +348,14 @@ describe('V2RecordTrashService', () => {
     const connection: DatabaseConnection = {
       async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
         executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        if (
+          compiledQuery.sql.includes('from "record_trash"') &&
+          compiledQuery.sql.startsWith('select')
+        ) {
+          return {
+            rows: [{ record_id: 'recFirstRecordId01' }] as R[],
+          };
+        }
         if (compiledQuery.sql.includes('update "record_trash"')) {
           return {
             rows: [{ record_id: 'recFirstRecordId01' }, { record_id: 'recSecondRecordId2' }] as R[],
@@ -407,6 +415,82 @@ describe('V2RecordTrashService', () => {
     expect(executed.some((query) => query.sql.includes('insert into "record_trash"'))).toBe(false);
   });
 
+  it('merges subsequent chunks into the existing table_trash row when operationId matches', async () => {
+    const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+        executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        if (compiledQuery.sql.includes('select "record_id" from "record_trash"')) {
+          return { rows: [{ record_id: 'recChunkTwoRecord01' }] as R[] };
+        }
+        if (compiledQuery.sql.includes('update "record_trash"')) {
+          return { rows: [{ record_id: 'recChunkTwoRecord01' }] as R[] };
+        }
+        if (compiledQuery.sql.includes('from "table_trash"')) {
+          return {
+            rows: [
+              {
+                id: 'oprStreamDelete001',
+                snapshot: JSON.stringify(['recChunkOneRecord01', 'recChunkOneRecord02']),
+              },
+            ] as R[],
+          };
+        }
+        return { rows: [] };
+      },
+      // eslint-disable-next-line require-yield
+      async *streamQuery(): AsyncIterableIterator<never> {
+        throw new Error('not implemented');
+      },
+    };
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    };
+    const db = new Kysely({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (kysely) => new PostgresIntrospector(kysely),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    });
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token !== v2DataDbTokens.db) {
+          throw new Error(`Unexpected token ${String(token)}`);
+        }
+        return db;
+      }),
+    };
+    const v2ContainerService = {
+      getContainerForTable: vi.fn().mockResolvedValue(container),
+    };
+    const service = new V2RecordTrashService(v2ContainerService as never);
+    await service.persistDeletedRecords(
+      {
+        operationId: 'oprStreamDelete001',
+        tableId: 'tblaaaaaaaaaaaaaaaa',
+        userId: 'usrTestUserId',
+        records: [{ id: 'recChunkTwoRecord01', fields: { fldText: 'C' } }],
+      },
+      undefined,
+      { fillExistingMarkers: true }
+    );
+
+    const tableTrashUpdate = executed.find((query) => query.sql.includes('update "table_trash"'));
+    expect(tableTrashUpdate).toBeDefined();
+    expect(tableTrashUpdate?.parameters).toContain(
+      JSON.stringify(['recChunkOneRecord01', 'recChunkOneRecord02', 'recChunkTwoRecord01'])
+    );
+    expect(executed.some((query) => query.sql.includes('insert into "table_trash"'))).toBe(false);
+  });
+
   it('skips snapshot insert when fillExistingMarkers finds no markers or table_trash index', async () => {
     const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
     const connection: DatabaseConnection = {
@@ -457,7 +541,10 @@ describe('V2RecordTrashService', () => {
 
     await service.persistDeletedRecords(payload, undefined, { fillExistingMarkers: true });
 
-    expect(executed.some((query) => query.sql.includes('update "record_trash"'))).toBe(true);
+    expect(
+      executed.some((query) => query.sql.includes('select "record_id" from "record_trash"'))
+    ).toBe(true);
+    expect(executed.some((query) => query.sql.includes('update "record_trash"'))).toBe(false);
     expect(executed.some((query) => query.sql.includes('insert into "table_trash"'))).toBe(false);
     expect(executed.some((query) => query.sql.includes('insert into "record_trash"'))).toBe(false);
   });
@@ -523,7 +610,10 @@ describe('V2RecordTrashService', () => {
 
     await service.persistDeletedRecords(payload, undefined, { fillExistingMarkers: true });
 
-    expect(executed.some((query) => query.sql.includes('update "record_trash"'))).toBe(true);
+    expect(
+      executed.some((query) => query.sql.includes('select "record_id" from "record_trash"'))
+    ).toBe(true);
+    expect(executed.some((query) => query.sql.includes('update "record_trash"'))).toBe(false);
     expect(
       executed.some((query) => query.sql.includes('select') && query.sql.includes('"table_trash"'))
     ).toBe(true);
@@ -599,6 +689,171 @@ describe('V2RecordTrashService', () => {
     await service.persistDeletedRecords(payload, undefined, { fillExistingMarkers: true });
 
     expect(executed.some((query) => query.sql.includes('insert into "record_trash"'))).toBe(true);
+  });
+
+  it('splits multi-MB record_trash inserts, sanitizes NUL bytes, and preserves BYODB schema qualification', async () => {
+    const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+        executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        if (compiledQuery.sql.includes('from "teable_schema"."table_trash"')) {
+          return {
+            rows: [
+              {
+                id: 'oprIndex',
+                snapshot: JSON.stringify(['recLarge0', 'recLarge1', 'recLarge2']),
+                created_time: '2024-01-02T03:04:05.000Z',
+              },
+            ] as R[],
+          };
+        }
+        return { rows: [] };
+      },
+      // eslint-disable-next-line require-yield
+      async *streamQuery(): AsyncIterableIterator<never> {
+        throw new Error('not implemented');
+      },
+    };
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    };
+    const db = new Kysely({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (kysely) => new PostgresIntrospector(kysely),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    }).withSchema('teable_schema');
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token !== v2DataDbTokens.db) {
+          throw new Error(`Unexpected token ${String(token)}`);
+        }
+        return db;
+      }),
+    };
+    const v2ContainerService = {
+      getContainerForTable: vi.fn().mockResolvedValue(container),
+    };
+    const service = new V2RecordTrashService(v2ContainerService as never);
+    const largeValue = `${'x'.repeat(600_000)}\u0000tail`;
+    const payload: IDeleteRecordsPayload = {
+      operationId: 'oprLargeBatch',
+      tableId: 'tblaaaaaaaaaaaaaaaa',
+      userId: 'usrTestUserId',
+      records: [
+        { id: 'recLarge0', fields: { fldText: largeValue } },
+        { id: 'recLarge0', fields: { fldText: largeValue } },
+        { id: 'recLarge1', fields: { fldText: largeValue } },
+        { id: 'recLarge2', fields: { fldText: largeValue } },
+      ],
+    };
+
+    await service.persistDeletedRecords(payload, undefined, { fillExistingMarkers: true });
+
+    const inserts = executed.filter((query) =>
+      query.sql.includes('insert into "teable_schema"."record_trash"')
+    );
+    // 3 * ~600 KB deduplicated records exceed 1 MiB per batch -> split into multiple inserts
+    expect(inserts.length).toBeGreaterThanOrEqual(2);
+    for (const query of inserts) {
+      expect(query.sql.match(/jsonb_array_elements/g) ?? []).toHaveLength(1);
+      const serialized = query.parameters.find(
+        (param) => typeof param === 'string' && param.includes('recLarge')
+      ) as string | undefined;
+      expect(serialized).toBeDefined();
+      expect(serialized).not.toContain('\\u0000');
+    }
+    const tableTrashSelects = executed.filter((query) =>
+      query.sql.includes('from "teable_schema"."table_trash"')
+    );
+    expect(tableTrashSelects.length).toBeGreaterThanOrEqual(1);
+    expect(tableTrashSelects[0]?.sql).not.toContain('::jsonb');
+  });
+
+  it('fills existing record_trash markers in BYODB schema and inserts any unmatched records', async () => {
+    const executed: Array<{ sql: string; parameters: ReadonlyArray<unknown> }> = [];
+    const connection: DatabaseConnection = {
+      async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+        executed.push({ sql: compiledQuery.sql, parameters: compiledQuery.parameters });
+        if (compiledQuery.sql.includes('select "record_id" from "teable_schema"."record_trash"')) {
+          return { rows: [{ record_id: 'recMarker0' }] as R[] };
+        }
+        if (compiledQuery.sql.includes('update "teable_schema"."record_trash"')) {
+          return { rows: [{ record_id: 'recMarker0' }] as R[] };
+        }
+        return { rows: [] };
+      },
+      // eslint-disable-next-line require-yield
+      async *streamQuery(): AsyncIterableIterator<never> {
+        throw new Error('not implemented');
+      },
+    };
+    const driver: Driver = {
+      init: async () => undefined,
+      acquireConnection: async () => connection,
+      beginTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      releaseConnection: async () => undefined,
+      destroy: async () => undefined,
+    };
+    const db = new Kysely({
+      dialect: {
+        createAdapter: () => new PostgresAdapter(),
+        createDriver: () => driver,
+        createIntrospector: (kysely) => new PostgresIntrospector(kysely),
+        createQueryCompiler: () => new PostgresQueryCompiler(),
+      },
+    }).withSchema('teable_schema');
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token !== v2DataDbTokens.db) {
+          throw new Error(`Unexpected token ${String(token)}`);
+        }
+        return db;
+      }),
+    };
+    const v2ContainerService = {
+      getContainerForTable: vi.fn().mockResolvedValue(container),
+    };
+    const service = new V2RecordTrashService(v2ContainerService as never);
+
+    await service.persistDeletedRecords(
+      {
+        operationId: 'oprMarkerTest',
+        tableId: 'tblaaaaaaaaaaaaaaaa',
+        userId: 'usrTestUserId',
+        records: [
+          { id: 'recMarker0', fields: { fldText: 'M0' } },
+          { id: 'recMissing1', fields: { fldText: 'M1' } },
+        ],
+      },
+      undefined,
+      { fillExistingMarkers: true }
+    );
+
+    const updates = executed.filter((query) =>
+      query.sql.includes('update "teable_schema"."record_trash"')
+    );
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.sql.match(/jsonb_array_elements/g) ?? []).toHaveLength(1);
+    expect(
+      executed.some((query) => query.sql.includes('insert into "teable_schema"."table_trash"'))
+    ).toBe(true);
+    const fallbackInserts = executed.filter((query) =>
+      query.sql.includes('insert into "teable_schema"."record_trash"')
+    );
+    expect(fallbackInserts).toHaveLength(1);
+    expect(JSON.stringify(fallbackInserts[0]?.parameters)).toContain('recMissing1');
+    expect(JSON.stringify(fallbackInserts[0]?.parameters)).not.toContain('recMarker0');
   });
 });
 

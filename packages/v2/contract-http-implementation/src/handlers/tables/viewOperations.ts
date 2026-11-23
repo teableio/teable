@@ -1,6 +1,7 @@
 import {
   installViewPluginInputSchema,
   mapApplyViewManualSortResultToDto,
+  mapApplyViewSnapshotResultToDto,
   mapDomainErrorToHttpError,
   mapDomainErrorToHttpStatus,
   mapGetViewFilterLinkRecordsResultToDto,
@@ -17,6 +18,7 @@ import type {
   IApiErrorResponseDto,
   IApiOkResponseDto,
   IApplyViewManualSortResponseDataDto,
+  IApplyViewSnapshotResponseDataDto,
   IGetViewFilterLinkRecordsResponseDataDto,
   IGetViewPluginInstallResponseDataDto,
   IGetViewSnapshotsResponseDataDto,
@@ -30,6 +32,8 @@ import type {
 import {
   ApplyViewManualSortCommand,
   type ApplyViewManualSortResult,
+  ApplyViewSnapshotCommand,
+  type ApplyViewSnapshotResult,
   CreateViewCommand,
   type CreateViewResult,
   DeleteViewCommand,
@@ -302,6 +306,14 @@ export const executeApplyViewManualSortEndpoint = (
     ApplyViewManualSortResult,
     IApplyViewManualSortResponseDataDto
   >(context, input, commandBus, ApplyViewManualSortCommand, mapApplyViewManualSortResultToDto);
+
+export const executeApplyViewSnapshotEndpoint = (
+  context: IExecutionContext,
+  input: unknown,
+  commandBus: ICommandBus
+) => executeCommand<ApplyViewSnapshotCommand, ApplyViewSnapshotResult, IApplyViewSnapshotResponseDataDto>(
+  context, input, commandBus, ApplyViewSnapshotCommand, mapApplyViewSnapshotResultToDto
+);
 
 export const executeUpdateViewShareMetaEndpoint = (
   context: IExecutionContext,

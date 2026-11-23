@@ -108,6 +108,7 @@ export type IExecutionContextTransactions = Partial<
 
 export interface IExecutionContext {
   actorId: ActorId;
+  abortSignal?: AbortSignal;
   transaction?: IUnitOfWorkTransaction;
   transactions?: IExecutionContextTransactions;
   batchTransaction?: IDomainBatchTransactionScope;

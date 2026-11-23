@@ -8,7 +8,6 @@ import {
   Relationship,
   DriverClient,
   getValidFilterOperators,
-  FieldOpBuilder,
   HttpErrorCode,
 } from '@teable/core';
 import type {
@@ -16,7 +15,7 @@ import type {
   IFilterItem,
   IFilterSet,
   ILinkFieldOptions,
-  IOtOperation,
+  IUpdateFieldRo,
 } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
@@ -29,13 +28,12 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { baseDisplayName } from '../../utils/base-name';
-import { LinkFieldQueryService } from '../field/field-calculate/link-field-query.service';
-import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
-import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { TableDomainQueryService } from '../table-domain';
 import { ForeignKeyIntegrityService } from './foreign-key.service';
+import { IntegrityPrimaryRepairService } from './integrity-primary-repair.service';
 import { LinkFieldIntegrityService } from './link-field.service';
 import { UniqueIndexService } from './unique-index.service';
 
@@ -50,9 +48,8 @@ export class LinkIntegrityService {
     private readonly linkFieldIntegrityService: LinkFieldIntegrityService,
     private readonly uniqueIndexService: UniqueIndexService,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    private readonly linkFieldQueryService: LinkFieldQueryService,
-    private readonly fieldService: FieldService,
-    private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly fieldOpenApiService: FieldOpenApiV2Service,
+    private readonly primaryRepairService: IntegrityPrimaryRepairService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
@@ -529,10 +526,11 @@ export class LinkIntegrityService {
     }
 
     const tableDomain = await this.tableDomainQueryService.getTableDomainById(fieldRaw.tableId);
-    const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
-      fieldRaw.tableId,
-      [linkField]
-    );
+    const relatedTables = await prisma.tableMeta.findMany({
+      where: { id: { in: [fieldRaw.tableId, options.foreignTableId] } },
+      select: { id: true, dbTableName: true },
+    });
+    const tableNameMap = new Map(relatedTables.map((table) => [table.id, table.dbTableName]));
     const foreignDbTableName = tableNameMap.get(options.foreignTableId);
 
     if (!foreignDbTableName) {
@@ -1032,183 +1030,11 @@ export class LinkIntegrityService {
     fieldId: string,
     issueType: IntegrityIssueType
   ): Promise<IIntegrityIssue | undefined> {
-    const oldField = await this.prismaService.field.findFirst({
-      where: {
-        id: fieldId,
-        deletedTime: null,
-        isPrimary: true,
-      },
-      select: { id: true, name: true, tableId: true },
-    });
-    if (!oldField) return;
-
-    // Strategy: atomic via outer $tx — inner $tx calls from updateField / createField reuse
-    // the same transaction, so any failure rolls back all partial mutations.
-    //   1. Demote the bad primary (direct DB — no service for primary toggle).
-    //   2. If the table still has a separate valid primary → keep it as-is (defensive).
-    //   3. Else if any field qualifies as primary → promote it directly.
-    //   4. Else fall back: rename the bad primary to "(before-fix)" so the original name
-    //      is free, then create + promote a formula field mirroring the old value.
-    // The old bad primary is always preserved so existing references (link preview
-    // `options.lookupFieldId`, downstream lookups/rollups/formulas) keep working.
-
-    const primaryFieldFilter = {
-      deletedTime: null,
-      isLookup: null,
-      isConditionalLookup: null,
-      lookupOptions: null,
-      type: { in: Array.from(PRIMARY_SUPPORTED_TYPES) },
-    };
-
-    const result = await this.prismaService.$tx(async (prisma) => {
-      // Demote the bad primary first. Rename is deferred — only the formula fallback path
-      // needs to free up the original name for the new field.
-      await prisma.field.update({
-        where: { id: oldField.id },
-        data: { isPrimary: null },
-      });
-
-      // Defensive: if a separate valid primary already exists in the table, leave it alone.
-      // Avoids leaving the table with multiple primaries (which the integrity check doesn't
-      // detect today). Production has zero such tables and validatePrimaryConfigurations
-      // blocks new ones, but this guards races / direct SQL writes / future regressions.
-      const existingValidPrimary = await prisma.field.findFirst({
-        where: { tableId: oldField.tableId, isPrimary: true, ...primaryFieldFilter },
-        select: { id: true, name: true },
-      });
-
-      if (existingValidPrimary) {
-        return { kind: 'kept' as const, field: existingValidPrimary };
-      }
-
-      // Prefer promoting an existing eligible candidate over creating a new formula field.
-      // Mirrors fixMissingPrimary's behavior — fewer artifact fields, simpler table shape.
-      // The promoted field's displayed value will replace the bad primary's value; the bad
-      // primary itself stays untouched (no rename needed since no name collision).
-      const candidate = await prisma.field.findFirst({
-        where: { tableId: oldField.tableId, ...primaryFieldFilter },
-        orderBy: { order: 'asc' },
-        select: { id: true, name: true },
-      });
-
-      if (candidate) {
-        await prisma.field.update({
-          where: { id: candidate.id },
-          data: { isPrimary: true },
-        });
-        return { kind: 'promoted' as const, field: candidate };
-      }
-
-      // Fallback: no eligible candidate exists. Rename the bad primary so the new formula
-      // field can take its name, then create the formula mirroring the original value.
-      const legacyName = `${oldField.name} (before-fix)`;
-      await this.fieldOpenApiService.updateField(oldField.tableId, oldField.id, {
-        name: legacyName,
-      });
-      const newField = await this.fieldOpenApiService.createField(oldField.tableId, {
-        type: FieldType.Formula,
-        name: oldField.name,
-        options: {
-          expression: `{${oldField.id}}`,
-        },
-      });
-
-      await prisma.field.update({
-        where: { id: newField.id },
-        data: { isPrimary: true },
-      });
-
-      return {
-        kind: 'created' as const,
-        field: { id: newField.id, name: oldField.name },
-        legacyName,
-      };
-    });
-
-    const baseMsg = `Demoted invalid primary "${oldField.name}" (id ${oldField.id}).`;
-    if (result.kind === 'kept') {
-      return {
-        type: issueType,
-        fieldId,
-        message: `${baseMsg} Existing valid primary "${result.field.name}" (${result.field.id}) preserved.`,
-      };
-    }
-    if (result.kind === 'promoted') {
-      return {
-        type: issueType,
-        fieldId,
-        message: `${baseMsg} Promoted existing field "${result.field.name}" (${result.field.id}) to primary.`,
-      };
-    }
-    return {
-      type: issueType,
-      fieldId,
-      message: `Demoted invalid primary "${oldField.name}" (renamed to "${result.legacyName}", id ${oldField.id}). Added new formula field "${result.field.name}" (${result.field.id}) as primary, mirroring the original value.`,
-    };
+    return this.primaryRepairService.fixInvalidPrimary(fieldId, issueType);
   }
 
   async fixMissingPrimary(tableId: string): Promise<IIntegrityIssue | undefined> {
-    const table = await this.prismaService.tableMeta.findFirst({
-      where: { id: tableId, deletedTime: null },
-      select: { id: true, name: true },
-    });
-    if (!table) return;
-
-    // Re-check inside the transaction to avoid racing with a concurrent promotion.
-    return this.prismaService.$tx(async () => {
-      const prisma = this.prismaService.txClient();
-      const existing = await prisma.field.findFirst({
-        where: { tableId, isPrimary: true, deletedTime: null },
-        select: { id: true },
-      });
-      if (existing) return undefined;
-
-      // Prefer promoting an existing valid candidate. Avoids leaving a stray "Name 2"
-      // alongside the user's existing fields and matches the natural intuition that
-      // the first usable column should be primary.
-      const candidate = await prisma.field.findFirst({
-        where: {
-          tableId,
-          deletedTime: null,
-          isLookup: null,
-          isConditionalLookup: null,
-          lookupOptions: null,
-          type: { in: Array.from(PRIMARY_SUPPORTED_TYPES) },
-        },
-        orderBy: { order: 'asc' },
-        select: { id: true, name: true },
-      });
-
-      if (candidate) {
-        await prisma.field.update({
-          where: { id: candidate.id },
-          data: { isPrimary: true },
-        });
-        return {
-          type: IntegrityIssueType.MissingPrimary,
-          fieldId: candidate.id,
-          tableId,
-          message: `Promoted existing field "${candidate.name}" (${candidate.id}) to primary in table "${table.name}".`,
-        };
-      }
-
-      // Fallback: no usable candidate (every field is link / checkbox / attachment /
-      // rollup / lookup-ish). Create a new "Name" text field as primary.
-      const newField = await this.fieldOpenApiService.createField(tableId, {
-        type: FieldType.SingleLineText,
-        name: 'Name',
-      });
-      await prisma.field.update({
-        where: { id: newField.id },
-        data: { isPrimary: true },
-      });
-      return {
-        type: IntegrityIssueType.MissingPrimary,
-        fieldId: newField.id,
-        tableId,
-        message: `Added "Name" text field (${newField.id}) as primary in table "${table.name}".`,
-      };
-    });
+    return this.primaryRepairService.fixMissingPrimary(tableId);
   }
 
   async fixOneWayLinkField(fieldId: string): Promise<IIntegrityIssue | undefined> {
@@ -1432,7 +1258,7 @@ export class LinkIntegrityService {
     });
 
     const fieldMap = new Map(allFields.map((f) => [f.id, f]));
-    const ops: IOtOperation[] = [];
+    const update: IUpdateFieldRo = {};
 
     if (fieldRaw.options) {
       try {
@@ -1441,13 +1267,7 @@ export class LinkIntegrityService {
           const cleaned = this.removeInvalidFilterItems(options.filter, fieldMap);
           const newFilter = cleaned?.filterSet?.length ? cleaned : null;
           if (JSON.stringify(newFilter) !== JSON.stringify(options.filter)) {
-            ops.push(
-              FieldOpBuilder.editor.setFieldProperty.build({
-                key: 'options',
-                oldValue: options,
-                newValue: { ...options, filter: newFilter },
-              })
-            );
+            update.options = { ...options, filter: newFilter };
           }
         }
       } catch {
@@ -1462,13 +1282,7 @@ export class LinkIntegrityService {
           const cleaned = this.removeInvalidFilterItems(lookupOptions.filter, fieldMap);
           const newFilter = cleaned?.filterSet?.length ? cleaned : null;
           if (JSON.stringify(newFilter) !== JSON.stringify(lookupOptions.filter)) {
-            ops.push(
-              FieldOpBuilder.editor.setFieldProperty.build({
-                key: 'lookupOptions',
-                oldValue: lookupOptions,
-                newValue: { ...lookupOptions, filter: newFilter },
-              })
-            );
+            update.lookupOptions = { ...lookupOptions, filter: newFilter };
           }
         }
       } catch {
@@ -1476,9 +1290,9 @@ export class LinkIntegrityService {
       }
     }
 
-    if (!ops.length) return;
+    if (!Object.keys(update).length) return;
 
-    await this.fieldService.batchUpdateFields(fieldRaw.tableId, [{ fieldId, ops }]);
+    await this.fieldOpenApiService.updateField(fieldRaw.tableId, fieldId, update);
 
     return {
       type: IntegrityIssueType.InvalidFilterOperator,

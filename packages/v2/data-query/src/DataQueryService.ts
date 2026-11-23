@@ -21,6 +21,7 @@ import {
 } from './assertDataQueryAccess';
 import type { BoundDataQueryPlan } from './BoundDataQueryPlan';
 import { DataQueryBinding, DataQueryRelationBinding } from './DataQueryBinding';
+import type { BoundDataQueryComposition } from './DataQueryComposition';
 import type { DataQueryDefinition } from './DataQueryDefinition';
 import { collectDataQuerySourceFieldUsages, sortDataQueryFieldUsages } from './DataQueryFieldUsage';
 import { dataQuerySchemaSignature } from './DataQuerySchemaSignature';
@@ -81,6 +82,7 @@ const authorizePreparedRelationSources = async (
 
 export interface DataQueryExecutionInput {
   readonly parameters?: Readonly<Record<string, unknown>>;
+  readonly composition?: BoundDataQueryComposition;
 }
 
 export interface DataQueryValidationOptions {
@@ -436,7 +438,9 @@ export class DataQueryService {
               );
           if (scopes) yield* assertDataQueryAccess(binding.plan, scope);
           if (binding.deferredFilterError) return err(binding.deferredFilterError);
-          const result = yield* await this.executor.execute(context, table, query, scope, binding);
+          const result = yield* await (input.composition
+            ? this.executor.execute(context, table, query, scope, binding, input.composition)
+            : this.executor.execute(context, table, query, scope, binding));
           return ok(result);
         }.bind(this)
       );
@@ -639,7 +643,9 @@ export class DataQueryService {
             })),
             plan: binding.plan,
           };
-          const result = yield* await executor(context, plan);
+          const result = yield* await (input.composition
+            ? executor(context, plan, input.composition)
+            : executor(context, plan));
           return ok(result);
         }.bind(this)
       );

@@ -5,41 +5,10 @@ import {
   mapDomainErrorToHttpStatus,
   type ExplainDataQueryResponseDto,
 } from '@teable/v2-contract-http';
-import {
-  domainError,
-  isConflictError,
-  isForbiddenError,
-  isNotFoundError,
-  isUnauthorizedError,
-  isValidationError,
-  type DomainError,
-  type IExecutionContext,
-} from '@teable/v2-core';
+import { domainError, type DomainError, type IExecutionContext } from '@teable/v2-core';
 import type { QueryExplainExecutionService } from '@teable/v2-data-query';
 
-/** Exactly the same public error classes as execute; no driver text or SQLSTATE leaves. */
-const publicExplainError = (error: DomainError): DomainError => {
-  if (error.code === 'data_query.timeout') {
-    return domainError.infrastructure({
-      code: 'data_query.timeout',
-      message: 'Data query exceeded its statement timeout',
-      cause: error,
-    });
-  }
-  if (
-    isValidationError(error) ||
-    isUnauthorizedError(error) ||
-    isForbiddenError(error) ||
-    isNotFoundError(error) ||
-    isConflictError(error)
-  )
-    return error;
-  return domainError.unexpected({
-    code: 'data_query.explain_failed',
-    message: 'Unable to explain data query',
-    cause: error,
-  });
-};
+import { publicDataQueryError } from './publicDataQueryError';
 
 const failure = (error: DomainError): IEndpointResult<ExplainDataQueryResponseDto> => ({
   status: mapDomainErrorToHttpStatus(error),
@@ -57,7 +26,7 @@ export const explainDataQueryEndpoint = async (
 ): Promise<IEndpointResult<ExplainDataQueryResponseDto>> => {
   const result = await service.explain(context, rawInput);
   if (result.isErr()) {
-    const error = publicExplainError(result.error);
+    const error = publicDataQueryError(result.error, 'explain');
     return {
       status: error.code === 'data_query.timeout' ? 504 : mapDomainErrorToHttpStatus(error),
       body: explainDataQueryResponseDtoSchema.parse({

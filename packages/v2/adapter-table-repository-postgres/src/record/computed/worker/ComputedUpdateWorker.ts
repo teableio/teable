@@ -8,6 +8,7 @@ import {
   hasCode,
   isNotFoundError,
   LinkForeignTableReferenceVisitor,
+  NoopSameTxProjectionDispatcher,
   NoopTableSchemaCoordination,
   registerAfterCommit,
   Table,
@@ -29,6 +30,7 @@ import type {
   IUnitOfWork,
   ILogger,
   IEventBus,
+  ISameTxProjectionDispatcher,
   ITracer,
   ITableSchemaCoordination,
   ITableSchemaCoordinationLease,
@@ -85,6 +87,7 @@ import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun, toRunSpanAttributes } from '../ComputedUpdateRun';
 import type { ComputedUpdateRunContext } from '../ComputedUpdateRun';
 import { isStructurallyPrunableLinkEdge } from '../ComputedValueGatedPropagation';
+import { dispatchComputedSameTxEvents } from '../dispatchComputedSameTxEvents';
 import { toErrorLogFields } from '../errorLog';
 import type {
   ComputedBeforeImageRecordDto,
@@ -442,7 +445,8 @@ export const resolveEffectiveMaxSeedRecordsPerTask = (
   task: Pick<
     ComputedUpdateOutboxItem,
     'edges' | 'dirtyStats' | 'seedRecordIds' | 'extraSeedRecords' | 'planHash'
-  >,
+  > &
+    Partial<Pick<ComputedUpdateOutboxItem, 'predecessorTaskId' | 'stageDepth' | 'orchestration'>>,
   config: Pick<
     ComputedUpdateOutboxConfig,
     | 'maxSeedRecordsPerTask'
@@ -455,10 +459,19 @@ export const resolveEffectiveMaxSeedRecordsPerTask = (
   const fanoutThreshold = config.fanoutDirtyRecordsThreshold;
   if (fanoutThreshold <= 0) return hardCap;
 
-  // Splitting is one-shot per task: a claimed chunk is never split again.
-  // Re-splitting was a chain-per-child multiplication — a 12-seed task over a 3k
-  // dirty fan-out cost 17x the executions of the unsplit task.
-  if (task.planHash !== undefined && CHUNKED_PLAN_HASH_MARKER.test(task.planHash)) return hardCap;
+  // Splitting is one-shot at the async chain root: neither a chunk child nor
+  // any stage/chunk continuation may re-split across later stages. Do not key
+  // this off `orchestration.scope === 'chunk'`, because host chunked writes
+  // stamp that metadata on root outbox tasks too.
+  if (
+    Boolean(task.predecessorTaskId) ||
+    (task.stageDepth ?? 0) > 0 ||
+    (task.planHash !== undefined &&
+      (CHUNKED_PLAN_HASH_MARKER.test(task.planHash) ||
+        (task.planHash.includes(':run:') && task.planHash.includes(':from:'))))
+  ) {
+    return hardCap;
+  }
 
   const hasAllTargetEdge = task.edges.some((edge) => edge.propagationMode === 'allTargetRecords');
   if (hasAllTargetEdge) return hardCap;
@@ -497,6 +510,35 @@ export const shouldWaitForSmallHostTask = (
 ): boolean => {
   // Outbox workers must try-lock. A blocking wait deadlocks when the holder is
   // another open transaction (computed-outbox-recovery lock contention).
+  return false;
+};
+
+const isTableSelfReachable = (
+  targetTableKey: string | undefined,
+  edges: ReadonlyArray<{ fromTableId: { toString(): string }; toTableId: { toString(): string } }>
+): boolean => {
+  if (!targetTableKey) return false;
+  const adjacency = new Map<string, string[]>();
+  for (const edge of edges) {
+    const fromKey = edge.fromTableId.toString();
+    const toKey = edge.toTableId.toString();
+    let targets = adjacency.get(fromKey);
+    if (!targets) {
+      targets = [];
+      adjacency.set(fromKey, targets);
+    }
+    targets.push(toKey);
+  }
+  const visited = new Set<string>();
+  const queue = [...(adjacency.get(targetTableKey) ?? [])];
+  for (let index = 0; index < queue.length; index += 1) {
+    const next = queue[index]!;
+    if (next === targetTableKey) return true;
+    if (visited.has(next)) continue;
+    visited.add(next);
+    const outgoing = adjacency.get(next);
+    if (outgoing) queue.push(...outgoing);
+  }
   return false;
 };
 
@@ -649,6 +691,8 @@ export type ComputedUpdateWorkerParams = {
   tracer?: ITracer;
   /** Request ID for ShareDB src matching (propagated from original request) */
   requestId?: string;
+  /** Override preparation-page cap for brokerless outbox draining. */
+  maxPreparationPages?: number;
   /** Cancels computation transactions while leaving claim cleanup outside the scope. */
   cancellation?: ComputedTaskExecutionCancellation;
   recordTaskSettlement?: RecordComputedTaskSettlement;
@@ -661,6 +705,10 @@ export type ComputedUpdateWorkerRunTaskByIdParams = {
   tracer?: ITracer;
   requestId?: string;
   allowProcessingTakeover?: boolean;
+  /** Require a fresh broker admission for each durable successor. */
+  yieldAfterTask?: boolean;
+  /** Observe a true miss on the requested task, excluding successful preparation pages. */
+  onEmptyClaim?: () => void;
   /** Cancels computation transactions while leaving claim cleanup outside the scope. */
   cancellation?: ComputedTaskExecutionCancellation;
   recordTaskSettlement?: RecordComputedTaskSettlement;
@@ -880,8 +928,22 @@ export class ComputedUpdateWorker {
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: IEventBus,
     @inject(v2CoreTokens.tableSchemaCoordination)
-    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination(),
+    @inject(v2CoreTokens.sameTxProjectionDispatcher)
+    private readonly sameTxProjectionDispatcher: ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
   ) {}
+
+  private async maintainValueFrontier(context: IExecutionContext): Promise<void> {
+    if (Date.now() < this.nextValueFrontierMaintenanceAt) return;
+    this.nextValueFrontierMaintenanceAt = Date.now() + 60_000;
+    const result = await this.updater.cleanupValueFrontierOrphans(
+      context,
+      this.valueFrontierMaintenanceCursor
+    );
+    if (result.isOk()) this.valueFrontierMaintenanceCursor = result.value.afterScope;
+    else
+      this.logger.warn('computed:value_frontier:cleanup_failed', { message: result.error.message });
+  }
 
   async runOnce(params: ComputedUpdateWorkerParams): Promise<Result<number, DomainError>> {
     const span = params.tracer?.startSpan('teable.worker.runOnce', {
@@ -901,24 +963,15 @@ export class ComputedUpdateWorker {
             requestId: params.requestId,
           };
 
-          if (Date.now() >= this.nextValueFrontierMaintenanceAt) {
-            this.nextValueFrontierMaintenanceAt = Date.now() + 60_000;
-            const maintenance = await this.updater.cleanupValueFrontierOrphans(
-              baseContext,
-              this.valueFrontierMaintenanceCursor
-            );
-            if (maintenance.isOk())
-              this.valueFrontierMaintenanceCursor = maintenance.value.afterScope;
-            else
-              this.logger.warn('computed:value_frontier:cleanup_failed', {
-                message: maintenance.error.message,
-              });
-          }
+          await this.maintainValueFrontier(baseContext);
 
           const claimed = yield* await this.outbox.claimBatch(
             {
               workerId: params.workerId,
               limit: params.limit,
+              ...(params.maxPreparationPages !== undefined
+                ? { maxPreparationPages: params.maxPreparationPages }
+                : {}),
             },
             baseContext
           );
@@ -984,11 +1037,14 @@ export class ComputedUpdateWorker {
             requestId: params.requestId,
           };
 
+          await this.maintainValueFrontier(context);
           const claimed = yield* await this.outbox.claimById(
             {
               taskId: params.taskId,
               workerId: params.workerId,
               allowProcessingTakeover: params.allowProcessingTakeover ?? false,
+              yieldAfterPreparation: params.yieldAfterTask,
+              onEmptyClaim: params.onEmptyClaim,
             },
             context
           );
@@ -1048,7 +1104,7 @@ export class ComputedUpdateWorker {
             cancellation: params.cancellation,
             recordTaskSettlement: params.recordTaskSettlement,
             baseContext: context,
-            continuationBudget: RUN_TASK_BY_ID_CONTINUATION_BUDGET,
+            continuationBudget: params.yieldAfterTask ? 0 : RUN_TASK_BY_ID_CONTINUATION_BUDGET,
           });
           span?.setAttribute('worker.processedCount', outcome.processed);
           return ok(outcome.firstTaskProcessed);
@@ -1146,7 +1202,7 @@ export class ComputedUpdateWorker {
             params.tracer,
             params.requestId,
             continuations,
-            params.workerId,
+            continuationBudget > 0 ? params.workerId : undefined,
             params.recordTaskSettlement,
             params.cancellation
           );
@@ -1717,6 +1773,7 @@ export class ComputedUpdateWorker {
           initialSplit: stageSplit,
           context: txContext,
           run,
+          taskId: computedTask.id,
           ledgerScopeId,
           lockOptions,
           logContext: runLogContext,
@@ -1731,19 +1788,22 @@ export class ComputedUpdateWorker {
         );
         if (events.length > 0) {
           failurePhase = 'publish_events';
-          await this.publishComputedUpdateEvents(txContext, events, {
+          const publishRes = await this.publishComputedUpdateEvents(txContext, events, {
             failed: 'computed:worker:events_publish_failed',
             published: 'computed:worker:events_published',
             deferred: 'computed:worker:events_publish_deferred',
             logContext: runLogContext,
           });
+          if (publishRes.isErr()) return err(publishRes.error);
         }
 
         const stageContinuationFieldIdsResult = collectStageContinuationFieldIds(
           planResult.value,
           finalSplit.stagePlan.steps,
           stageChanges.changesByStep,
-          computedTask.ledgerScopeId ? computedTask.affectedFieldIds : [],
+          computedTask.ledgerScopeId && computedTask.ledgerScopeId !== computedTask.id
+            ? computedTask.affectedFieldIds
+            : [],
           stageChanges.rejectedCells
         );
         if (stageContinuationFieldIdsResult.isErr()) {
@@ -2123,7 +2183,16 @@ export class ComputedUpdateWorker {
       deferred: string;
       logContext: Record<string, unknown>;
     }
-  ): Promise<void> {
+  ): Promise<Result<void, DomainError>> {
+    const sameTxRes = await dispatchComputedSameTxEvents(
+      context,
+      this.sameTxProjectionDispatcher,
+      events
+    );
+    if (sameTxRes.isErr()) {
+      return err(sameTxRes.error);
+    }
+
     const publish = async () => {
       const publishResult = await this.eventBus.publishMany(withoutTransaction(context), events);
       if (publishResult.isErr()) {
@@ -2146,10 +2215,11 @@ export class ComputedUpdateWorker {
         eventCount: events.length,
         ...logs.logContext,
       });
-      return;
+      return ok(undefined);
     }
 
     await publish();
+    return ok(undefined);
   }
 
   private async handleTaskFailure(
@@ -2761,6 +2831,8 @@ export class ComputedUpdateWorker {
               seedTableId: table.id(),
               seedRecordIds: seedData.seedRecordIds,
               extraSeedRecords: seedData.extraSeedRecords,
+              capturedDeleteLinkFieldIds:
+                seedData.changeType === 'delete' ? seedData.capturedDeleteLinkFieldIds : undefined,
               beforeImageRecords: seedData.beforeImageRecords,
               table,
               changedFieldIds: seedData.changedFieldIds,
@@ -2832,6 +2904,7 @@ export class ComputedUpdateWorker {
             initialSplit: stageSplit,
             context: txContext,
             run,
+            taskId: task.id,
             ledgerScopeId,
             lockOptions,
             logContext: runLogContext,
@@ -2847,12 +2920,13 @@ export class ComputedUpdateWorker {
           );
           if (events.length > 0) {
             failurePhase = 'publish_events';
-            await this.publishComputedUpdateEvents(txContext, events, {
+            const publishRes = await this.publishComputedUpdateEvents(txContext, events, {
               failed: 'computed:worker:seed_events_publish_failed',
               published: 'computed:worker:seed_events_published',
               deferred: 'computed:worker:seed_events_publish_deferred',
               logContext: runLogContext,
             });
+            if (publishRes.isErr()) return err(publishRes.error);
           }
 
           let stageContinuationFieldIds = collectContinuationFieldIdsFromExecutedSteps(
@@ -3128,6 +3202,8 @@ export class ComputedUpdateWorker {
     initialSplit: ComputedStagePlanSplit;
     context: IExecutionContext;
     run: ComputedUpdateRunContext;
+    /** Outbox task id executing this stage. */
+    taskId?: string;
     /** Stage-ledger scope: the continuation chain's root task id. */
     ledgerScopeId: string;
     /** Lock mode resolved once per task from its outbox age. */
@@ -3240,10 +3316,10 @@ export class ComputedUpdateWorker {
         // this batch's processed rows as next-batch seeds (the frontier), so later
         // generations stay reachable while the exclusion set keeps every batch's
         // budget slots reserved for genuinely-new rows.
-        const floorTableKey = split.stagePlan.steps[0]?.tableId.toString();
-        const selfReferential = split.stagePlan.edges.some(
-          (edge) => edge.fromTableId.toString() === floorTableKey
-        );
+        const frontierSourceTableIds = [
+          ...new Set(split.stagePlan.steps.map((step) => step.tableId.toString())),
+        ].filter((tableKey) => isTableSelfReachable(tableKey, split.stagePlan.edges));
+        const selfReferential = frontierSourceTableIds.length > 0;
         if (selfReferential) {
           this.logger.info('computed:worker:stage_dirty_budget_floor_self_referential', {
             maxDirtyRecords,
@@ -3310,6 +3386,12 @@ export class ComputedUpdateWorker {
             maxDirtyRecords,
             dirtyBudgetMode: 'partial' as const,
             ledgerScopeId: params.ledgerScopeId,
+            preserveConsumedFrontier: floorSplit.deferred !== null,
+            retireIrrelevantFrontier:
+              migratedSeedGroups.length > 0 ||
+              !params.plan.partialStageBudget ||
+              params.ledgerScopeId === params.taskId ||
+              split.stagePlan.steps.length < params.initialSplit.stagePlan.steps.length,
           }
         );
         if (result.isErr()) {
@@ -3450,10 +3532,16 @@ export class ComputedUpdateWorker {
       // - self-referential stages append rows NEW this batch (dirty step-table
       //   rows not yet excluded) to the queue tail;
       // - every processed step-table row joins the exclusion ledger.
+      const frontierSourceTableIds = params.selfReferential
+        ? [...new Set(stageStepTables.map((tableId) => tableId.toString()))].filter((tableKey) =>
+            isTableSelfReachable(tableKey, finalSplit.stagePlan.edges)
+          )
+        : [];
       const ledgerResult = await this.updater.settleStageLedgerPartialBatch(params.context, {
         scopeId: params.ledgerScopeId,
         stepTableIds: stageStepTables,
         appendFrontier: params.selfReferential,
+        ...(frontierSourceTableIds.length > 0 ? { frontierSourceTableIds } : {}),
         retireFrontierUpToSeq:
           !propagationTruncated && partialOutcome.frontierMaxSeq !== undefined
             ? partialOutcome.frontierMaxSeq
@@ -3541,6 +3629,17 @@ export class ComputedUpdateWorker {
           ).values(),
         ]
       : (params.fallbackCollectTableIds ?? stageStepTables);
+    const stageStepTableSet = new Set(stageStepTables.map((tableId) => tableId.toString()));
+    const stageEdgeTargetTableSet = new Set(
+      finalSplit.stagePlan.edges.map((edge) => edge.toTableId.toString())
+    );
+    const carriedSourceTableIds = finalSplit.deferred
+      ? deferredSeedTables
+          .map((tableId) => tableId.toString())
+          .filter(
+            (tableId) => !stageStepTableSet.has(tableId) && !stageEdgeTargetTableSet.has(tableId)
+          )
+      : [];
     const seedGroupsResult = await this.updater.collectStageOutputSeedGroups(params.context, {
       scopeId: params.ledgerScopeId,
       tableIds: dirtyCollectionTableIds,
@@ -3551,6 +3650,7 @@ export class ComputedUpdateWorker {
         ? {
             valueFrontierFields: deferredValueFrontierFields(finalSplit.deferred),
             allowConsumedPruning: true,
+            ...(carriedSourceTableIds.length > 0 ? { carriedSourceTableIds } : {}),
           }
         : {}),
     });

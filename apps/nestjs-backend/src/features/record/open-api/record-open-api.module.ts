@@ -13,21 +13,29 @@ import { SelectionModule } from '../../selection/selection.module';
 import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migration-guard.module';
 import { TableModule } from '../../table/table.module';
 import { TableDomainQueryModule } from '../../table-domain';
-import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { V2Module } from '../../v2/v2.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { RecordModifyModule } from '../record-modify/record-modify.module';
 import { RecordModule } from '../record.module';
-import { RecordOpenApiV2Service } from './record-open-api-v2.service';
+import { RecordHistoryReadModule } from './record-history-read.module';
+import { RecordOpenApiV2Module } from './record-open-api-v2.module';
 import { RecordOpenApiController } from './record-open-api.controller';
 import { RecordOpenApiService } from './record-open-api.service';
 import { RecordsPastePreviewRegistrar } from './record-paste-preview-registrar.service';
+import {
+  RecordRestoreV1CompatibilityService,
+  RECORD_RESTORE_V1_CREATE_RECORDS,
+} from './record-restore-v1-compatibility.service';
+import { RecordRestoreModule } from './record-restore.module';
 import { RecordRestoreService } from './record-restore.service';
 
 @Module({
   imports: [
     RecordModule,
+    RecordOpenApiV2Module,
+    RecordHistoryReadModule,
+    RecordRestoreModule,
     RecordModifyModule,
     FieldCalculateModule,
     FieldReferenceAdmissionModule,
@@ -50,11 +58,11 @@ import { RecordRestoreService } from './record-restore.service';
   controllers: [RecordOpenApiController],
   providers: [
     RecordOpenApiService,
-    RecordOpenApiV2Service,
     RecordsPastePreviewRegistrar,
     RecordRestoreService,
-    TableQuerySearchVectorRuntimeService,
+    RecordRestoreV1CompatibilityService,
+    { provide: RECORD_RESTORE_V1_CREATE_RECORDS, useExisting: RecordOpenApiService },
   ],
-  exports: [RecordOpenApiService, RecordOpenApiV2Service, RecordRestoreService],
+  exports: [RecordOpenApiService, RecordOpenApiV2Module, RecordRestoreService],
 })
 export class RecordOpenApiModule {}

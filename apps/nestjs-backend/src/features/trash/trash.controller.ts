@@ -72,12 +72,10 @@ export class TrashController {
     @Res({ passthrough: true }) response: Response
   ): Promise<IRestoreTrashVo> {
     await this.prepareRestoreTableCanary(trashId, tableId, response);
-    if (this.cls.get('useV2')) {
-      if (trashId.startsWith(IdPrefix.Operation)) {
-        await this.trashService.restoreTableResourceV2(trashId, tableId);
-        return { restored: [] };
-      }
-      return await this.trashService.restoreTrashV2(trashId);
+    // A table, alone or in a folder, is restored as the decision left in the context says.
+    if (this.cls.get('useV2') && trashId.startsWith(IdPrefix.Operation)) {
+      await this.trashService.restoreTableResourceV2(trashId, tableId);
+      return { restored: [] };
     }
     return await this.trashService.restoreTrash(trashId, tableId);
   }

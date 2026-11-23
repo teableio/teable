@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable, Optional } from '@nestjs/common'
 import type {
   IColumnMetaRo,
   IFilterRo,
+  IFilter,
   IManualSortRo,
   IPluginViewOptions,
   ISnapshotBase,
@@ -30,6 +31,8 @@ import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v
 import { executeReorderRecordsEndpoint } from '@teable/v2-contract-http-implementation/handlers';
 import type {
   CreateViewResult,
+  RestoreViewResult,
+  GetFilterLinkRecordsResult,
   DisableViewShareResult,
   EnableViewShareResult,
   ApplyViewManualSortResult,
@@ -58,6 +61,8 @@ import type {
   ViewQueryResultView,
 } from '@teable/v2-core';
 import {
+  RestoreViewCommand,
+  GetFilterLinkRecordsQuery,
   CreateViewCommand,
   DisableViewShareCommand,
   EnableViewShareCommand,
@@ -86,6 +91,7 @@ import {
 } from '@teable/v2-core';
 
 import { convertViewVoAttachmentUrl } from '../../../utils/convert-view-vo-attachment-url';
+import { CrossBaseLinkAccessService } from '../../record/cross-base-link-access.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
@@ -98,9 +104,26 @@ export class ViewOpenApiV2Service {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
+    private readonly crossBaseLinkAccess: CrossBaseLinkAccessService,
     @Optional()
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  /**
+   * The filter-link queries read titles from every table the filter's link fields
+   * point at, while the caller is only vouched for on `tableId`. Groups from another
+   * base the caller cannot read are left out of the answer.
+   */
+  private async readableLinkRecordGroups(
+    tableId: string,
+    groups: IGetViewFilterLinkRecordsVo
+  ): Promise<IGetViewFilterLinkRecordsVo> {
+    const readableTableIds = await this.crossBaseLinkAccess.readableForeignTableIds(
+      tableId,
+      groups.map((group) => group.tableId)
+    );
+    return groups.filter((group) => readableTableIds.has(group.tableId));
+  }
 
   async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
     await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
@@ -324,6 +347,30 @@ export class ViewOpenApiV2Service {
     }
 
     return this.toViewVo(result.value.view);
+  }
+
+  async restoreView(tableId: string, viewId: string): Promise<void> {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const command = RestoreViewCommand.create({ tableId, viewId });
+    if (command.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(command.error),
+        mapDomainErrorToHttpStatus(command.error)
+      );
+    }
+    const context = await this.v2ContextFactory.createContext(container);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await commandBus.execute<RestoreViewCommand, RestoreViewResult>(
+      context,
+      command.value
+    );
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
   }
 
   async deleteView(tableId: string, viewId: string, _windowId?: string): Promise<void> {
@@ -875,7 +922,42 @@ export class ViewOpenApiV2Service {
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
-    return parsed.data;
+    return this.readableLinkRecordGroups(tableId, parsed.data);
+  }
+
+  async getFilterLinkRecordsByTable(
+    tableId: string,
+    filter?: IFilter
+  ): Promise<IGetViewFilterLinkRecordsVo> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const query = GetFilterLinkRecordsQuery.create({ tableId, filter });
+    if (query.isErr()) {
+      throwV2Error(mapDomainErrorToHttpError(query.error), mapDomainErrorToHttpStatus(query.error));
+    }
+    const result = await queryBus.execute<GetFilterLinkRecordsQuery, GetFilterLinkRecordsResult>(
+      context,
+      query.value
+    );
+    if (result.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+    const parsed = getViewFilterLinkRecordsVoSchema.safeParse(result.value.groups);
+    if (!parsed.success) {
+      throwV2Error(
+        {
+          code: 'view.filter_link_records.invalid_projection',
+          message: 'Invalid View filter link records projection',
+          details: { issues: parsed.error.issues },
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+    return this.readableLinkRecordGroups(tableId, parsed.data);
   }
 
   async updateRecordOrders(

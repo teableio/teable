@@ -47,7 +47,10 @@ import {
 import { PostgresTableSearchAccessPathCapabilityReader } from './searchAccessPathCapability';
 import { PostgresTableSearchAccessPathReclaimSource } from './searchAccessPathReclaim';
 import { PostgresTableSearchVectorReconciler } from './searchVector';
-import { PostgresTableSearchVectorSchemaMaintenanceScheduler } from './searchVectorMaintenance';
+import {
+  PostgresTableSearchVectorSchemaMaintenanceScheduler,
+  type SearchMaintenanceOptions,
+} from './searchVectorMaintenance';
 import { PostgresTableSearchVectorStatusReader } from './searchVectorStatus';
 import { v2TableOpsPostgresTokens } from './tokens';
 import type { UnknownPostgresDatabase } from './types';
@@ -99,6 +102,7 @@ export type RegisterV2TableOpsPostgresAdapterOptions<
   readonly dataDb?: Kysely<DataDatabase>;
   readonly observationDb?: Kysely<ObservationDatabase>;
   readonly observationDisabled?: boolean;
+  readonly searchMaintenance?: SearchMaintenanceOptions;
   readonly observationReader?: TableQueryObservationReader;
   readonly observationSink?: TableQueryObservationSink;
   readonly observationPublisher?: TableQueryObservationPublisher;
@@ -113,6 +117,13 @@ export type RegisterV2TableOpsPostgresAdapterOptions<
 const positiveInteger = z.number().int().positive();
 const registerConfigSchema = z.object({
   observationDisabled: z.boolean().optional(),
+  searchMaintenance: z
+    .object({
+      windowUtc: z.string().optional(),
+      knownSmallRowCap: positiveInteger.optional(),
+      allowUnknownOrLargeRewrite: z.boolean().optional(),
+    })
+    .optional(),
   ensureObservationSchema: z.boolean().optional(),
   ensureSchema: z.boolean().optional(),
   observationWriterId: z.string().min(1).optional(),
@@ -316,7 +327,8 @@ export const registerV2TableOpsPostgresAdapter = async <
   );
   const searchVectorReconciler = new PostgresTableSearchVectorReconciler(
     unknownMetaDb,
-    unknownDataDb
+    unknownDataDb,
+    rawOptions.searchMaintenance
   );
   container.registerInstance<TableSearchVectorReconciler>(
     v2TableOpsTokens.searchVectorReconciler,
@@ -340,7 +352,8 @@ export const registerV2TableOpsPostgresAdapter = async <
       unknownMetaDb,
       unknownDataDb,
       container.resolve<ITableRepository>(v2CoreTokens.tableRepository),
-      searchVectorReconciler
+      searchVectorReconciler,
+      rawOptions.searchMaintenance?.isConnectionUnavailable
     )
   );
   container.register(

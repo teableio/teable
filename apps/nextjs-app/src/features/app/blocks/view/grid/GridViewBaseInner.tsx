@@ -783,7 +783,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             }
 
             deleteRecords(selection, recordMap);
-            gridRef.current?.setSelection(emptySelection);
+            if (!usesStreamDeleteDialog) {
+              gridRef.current?.setSelection(emptySelection);
+            }
           },
           archiveRecords: () => confirmAndArchiveRecords(getEffectRows(selection, realRowCount)),
           duplicateRecord: async () => {
@@ -1921,7 +1923,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         errors={deleteErrors}
         status={deleteProgressStatus}
         confirmRecordCount={deleteConfirmRecordCount}
-        onConfirm={confirmDeleteSelection}
+        onConfirm={async () => {
+          gridRef.current?.setSelection(emptySelection);
+          await confirmDeleteSelection();
+        }}
         onOpenChange={(open) => {
           if (!open) {
             closeDeleteProgressDialog();

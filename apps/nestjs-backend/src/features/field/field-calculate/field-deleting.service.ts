@@ -8,7 +8,7 @@ import { DropColumnOperationType } from '../../../db-provider/drop-database-colu
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import { TableIndexService } from '../../table/table-index.service';
+import { TableIndexService } from '../../table-index/table-index.service';
 import { FieldService } from '../field.service';
 import { IFieldInstance, createFieldInstanceByRaw } from '../model/factory';
 import { FieldSupplementService } from './field-supplement.service';

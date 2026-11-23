@@ -106,6 +106,10 @@ export interface IClsStore extends ClsStore {
    * so plain create requests keep their controller-level guard.
    */
   upsertCreateAdmissionSpaceId?: string;
+  /** Set only by the authenticated public procedure host inside a child CLS scope. */
+  v2PublicProcedure?: string;
+  /** Private failed-operation cleanup scope; populated solely from server-owned allocations. */
+  v2PublicCompensation?: { baseId: string; tableIds: readonly string[] };
   permissions: Action[];
   // this is used to check if the user is in the space when the user operate in a space
   spaceId?: string;
@@ -147,6 +151,7 @@ export interface IClsStore extends ClsStore {
   /** Scoped host preview work must not initialize schemas or promote background workers. */
   v2PreviewReadOnly?: boolean;
   interactiveQueryAbort?: AbortSignal;
+  requestAbortSignal?: AbortSignal;
   v2Reason?: IV2Reason; // Reason why V2 was enabled or disabled
   v2Feature?: V2Feature; // The feature name that triggered V2 check
   windowId?: string; // Window ID from x-window-id header for undo/redo tracking

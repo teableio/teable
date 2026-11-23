@@ -5,6 +5,7 @@
  */
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import {
   ShareDbPubSubPublisher,
   ShareDbWebSocketServer,
@@ -17,6 +18,7 @@ import {
   type IComputedUpdateOutbox,
 } from '@teable/v2-adapter-table-repository-postgres';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 import {
   createFieldOkResponseSchema,
   createRecordOkResponseSchema,
@@ -38,10 +40,10 @@ import express from 'express';
 import type { Result } from 'neverthrow';
 import ShareDb from 'sharedb';
 import { Connection } from 'sharedb/lib/client';
-import type { Presence } from 'sharedb/lib/sharedb';
-import type { Socket } from 'sharedb/lib/sharedb';
+import type { Presence, Socket } from 'sharedb/lib/sharedb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 import { createShareDbRealtimeConfig } from './shared/shareDbRealtimeConfig';
 
@@ -184,11 +186,13 @@ describe('[C14][S19] computed activity realtime presence (e2e)', () => {
     );
     baseId = testContainer.baseId.toString();
 
+    const executionContext = await createStandaloneExecutionContext(testContainer);
     const app = express();
     app.use(express.json({ limit: '10mb' }));
     app.use(
       createV2ExpressRouter({
         createContainer: () => testContainer.container,
+        createExecutionContext: () => executionContext,
       })
     );
     httpServer = await new Promise<Server>((resolve) => {

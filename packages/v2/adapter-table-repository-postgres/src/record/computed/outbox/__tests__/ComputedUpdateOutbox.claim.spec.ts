@@ -10,7 +10,7 @@ import {
   type Driver,
   type QueryResult,
 } from 'kysely';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { DynamicDB } from '../../../query-builder';
 import { ComputedUpdateOutbox } from '../ComputedUpdateOutbox';
@@ -82,10 +82,16 @@ describe('ComputedUpdateOutbox claimById', () => {
       db as unknown as Kysely<V1TeableDatabase>
     );
 
-    const claimed = await outbox.claimById({ taskId: 'cuo-busy', workerId: 'queue-worker' });
+    const onEmptyClaim = vi.fn();
+    const claimed = await outbox.claimById({
+      taskId: 'cuo-busy',
+      workerId: 'queue-worker',
+      onEmptyClaim,
+    });
 
     expect(claimed.isOk()).toBe(true);
     expect(claimed._unsafeUnwrap()).toBeNull();
+    expect(onEmptyClaim).toHaveBeenCalledOnce();
     expect(driver.queries.some((query) => query.sql.includes('pg_try_advisory_xact_lock'))).toBe(
       true
     );

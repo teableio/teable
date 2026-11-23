@@ -24,7 +24,9 @@
       "@teable/v2-container-browser": ["../container-browser/src"],
       "@teable/v2-container-node": ["../container-node/src"],
       "@teable/v2-core": ["../core/src"],
-      "@teable/v2-di": ["../di/src"]
+      "@teable/v2-di": ["../di/src"],
+      "@teable/v2-vcs": ["../vcs/src/index.ts"],
+      "@teable/v2-vcs/*": ["../vcs/src/*/index.ts"]
     },
     "types": ["vitest/globals", "node"]
   },

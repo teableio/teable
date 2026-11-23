@@ -1,8 +1,12 @@
+import { Writable } from 'node:stream';
+
 import {
   v2RecordRepositoryPostgresTokens,
   type OutboxTaskClaimEligibility,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { v2CoreTokens } from '@teable/v2-core';
+import { Logger as PinoNestLogger, PinoLogger } from 'nestjs-pino';
+import { pinoHttp } from 'pino-http';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -15,6 +19,7 @@ import { DataDbRuntimeCacheService } from '../../../global/data-db-runtime-cache
 import { BullMqComputedOutboxWakeupProcessor } from './bullmq-computed-outbox-wakeup.processor';
 import { createRoleAwareWakeupPublisher } from './computed-outbox-wakeup-producer.module';
 import { ComputedOutboxWakeupHandler } from './computed-outbox-wakeup.handler';
+import { computedOutboxWakeupWireSchema } from './computed-outbox-wakeup.wire';
 
 vi.mock('../v2-container.service', () => ({
   V2ContainerService: class V2ContainerService {},
@@ -44,9 +49,16 @@ describe('ComputedOutboxWakeupHandler', () => {
   });
 
   const activePermit = { signal: new AbortController().signal, assertActive: vi.fn() };
+  const getComputedWriter = () => ({ key: 'writer-a', hasWaiters: () => false });
+  const runWithWriterPermit = async (
+    _baseId: string,
+    _key: string,
+    operation: (permit: typeof activePermit) => Promise<unknown>
+  ) => ({ admitted: true as const, value: await operation(activePermit) });
 
   const createActiveAdmission = () =>
     ({
+      runWithWriterPermit,
       runWithPermit: async (
         _baseId: string,
         operation: (permit: typeof activePermit) => Promise<unknown>
@@ -57,19 +69,25 @@ describe('ComputedOutboxWakeupHandler', () => {
     }) as never;
 
   const createClaimMissHandler = (
-    eligibility: Exclude<OutboxTaskClaimEligibility, { status: 'terminal' }>
+    eligibility: Exclude<OutboxTaskClaimEligibility, { status: 'terminal' }>,
+    admission = createActiveAdmission()
   ) => {
     const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+    const getNextPendingWakeup = vi.fn().mockResolvedValue({ isErr: () => false, value: null });
+    const runTaskById = vi.fn(async ({ onEmptyClaim }: { onEmptyClaim: () => void }) => {
+      onEmptyClaim();
+      return { isErr: () => false, value: false };
+    });
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: (token: unknown) => {
             if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
-              return {
-                runTaskById: vi.fn().mockResolvedValue({ isErr: () => false, value: false }),
-              };
+              return { runTaskById };
             }
             return {
+              getNextPendingWakeup,
               getTaskClaimEligibility: vi.fn().mockResolvedValue({
                 isErr: () => false,
                 value: eligibility,
@@ -80,9 +98,9 @@ describe('ComputedOutboxWakeupHandler', () => {
       } as never,
       createMetrics() as never,
       createPublisher(publish) as never,
-      createActiveAdmission()
+      admission
     );
-    return { handler, publish };
+    return { handler, publish, runTaskById, getNextPendingWakeup };
   };
 
   const createRoutingProcessor = (findUnique: () => Promise<null>) => {
@@ -144,39 +162,149 @@ describe('ComputedOutboxWakeupHandler', () => {
     );
   });
 
-  it('holds the cluster permit until processing and follow-up draining finish', async () => {
+  it('defers a locator under writer pressure and processes it when capacity returns', async () => {
+    let waiting = true;
+    const runTaskById = vi.fn().mockResolvedValue({ isErr: () => false, value: true });
+    const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+    const handler = new ComputedOutboxWakeupHandler(
+      {
+        getComputedWriter: () => ({ key: 'shared', hasWaiters: () => waiting }),
+        getContainerForBase: async () => ({ resolve: () => ({ runTaskById }) }),
+      } as never,
+      createMetrics() as never,
+      createPublisher(publish) as never,
+      createActiveAdmission()
+    );
+    await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'deferred' });
+    expect(runTaskById).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: wakeup.taskId, baseId: wakeup.baseId, cause: 'replay' })
+    );
+    waiting = false;
+    await expect(handler.handle(publish.mock.calls[0][0])).resolves.toEqual({
+      status: 'processed',
+    });
+    expect(runTaskById).toHaveBeenCalledWith(expect.objectContaining({ yieldAfterTask: true }));
+  });
+
+  it('publishes a single successor after releasing the base and writer permits', async () => {
     const runTaskById = vi.fn().mockResolvedValue({ isErr: () => false, value: true });
     const runOnce = vi.fn().mockResolvedValue({ isErr: () => false, value: 0 });
+    const successor = {
+      ...wakeup,
+      taskId: 'cuo-successor',
+      wakeupId: 'cuwp-cuo-successor',
+      relayDueBeforeMs: Date.parse(wakeup.availableAt),
+    };
+    const getNextPendingWakeup = vi.fn().mockResolvedValue({ isErr: () => false, value: successor });
+    const events: string[] = [];
+    const publish = vi.fn(async () => events.push('publish'));
     const runWithPermit = vi.fn(
-      async (_baseId: string, operation: (permit: typeof activePermit) => Promise<unknown>) => ({
-        admitted: true as const,
-        value: await operation(activePermit),
-      })
+      async (_baseId: string, operation: (permit: typeof activePermit) => Promise<unknown>) => {
+        const value = await operation(activePermit);
+        events.push('release base');
+        return { admitted: true as const, value };
+      }
     );
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
-          resolve: () => ({ runTaskById, runOnce }),
+          resolve: () => ({ runTaskById, runOnce, getNextPendingWakeup }),
         }),
       } as never,
       createMetrics() as never,
-      createPublisher() as never,
-      { runWithPermit } as never
+      createPublisher(publish) as never,
+      {
+        runWithPermit,
+        runWithWriterPermit: async (...args: Parameters<typeof runWithWriterPermit>) => {
+          const result = await runWithWriterPermit(...args);
+          events.push('release writer');
+          return result;
+        },
+      } as never
     );
 
-    await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'processed' });
+    const contended = { ...wakeup, eligibleClaimMisses: 1 };
+    await expect(handler.handle(contended)).resolves.toEqual({ status: 'processed' });
 
     expect(runWithPermit).toHaveBeenCalledWith(wakeup.baseId, expect.any(Function));
     expect(runTaskById).toHaveBeenCalledOnce();
-    expect(runOnce).toHaveBeenCalledOnce();
+    expect(runOnce).not.toHaveBeenCalled();
+    expect(getNextPendingWakeup).toHaveBeenCalledExactlyOnceWith(
+      wakeup.baseId,
+      new Date(wakeup.availableAt)
+    );
+    expect(publish).toHaveBeenCalledExactlyOnceWith(successor);
+    expect(events).toEqual(['release writer', 'release base', 'publish']);
   });
 
-  it('stops follow-up draining when the cluster permit is lost', async () => {
+  it('skips the successor lookup on an ordinary successful delivery', async () => {
+    const { handler, runTaskById, getNextPendingWakeup } = createClaimMissHandler({
+      status: 'eligible',
+    });
+    runTaskById.mockResolvedValueOnce({ isErr: () => false, value: true });
+    await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'processed' });
+    expect(getNextPendingWakeup).not.toHaveBeenCalled();
+  });
+
+  it.each(['lookup', 'publish'])(
+    'preserves completed work on a successor %s failure',
+    async (failure) => {
+      const { handler, publish, runTaskById, getNextPendingWakeup } = createClaimMissHandler({
+        status: 'eligible',
+      });
+      runTaskById.mockResolvedValueOnce({ isErr: () => false, value: true });
+      if (failure === 'lookup') {
+        getNextPendingWakeup.mockResolvedValueOnce({
+          isErr: () => true,
+          error: new Error('lookup failed'),
+        });
+      } else {
+        getNextPendingWakeup.mockResolvedValueOnce({
+          isErr: () => false,
+          value: { ...wakeup, taskId: 'cuo-sibling' },
+        });
+        publish.mockRejectedValueOnce(new Error('publish failed'));
+      }
+      const lines: string[] = [];
+      const destination = new Writable({
+        write(chunk, _encoding, callback) {
+          lines.push(chunk.toString());
+          callback();
+        },
+      });
+      // Use this case's destination without initializing PinoLogger's shared root.
+      const pinoLogger = Object.create(PinoLogger.prototype, {
+        logger: { value: pinoHttp({ level: 'warn' }, destination).logger },
+      }) as PinoLogger;
+      const sink = vi
+        .spyOn(handler['logger'], 'localInstance', 'get')
+        .mockReturnValue(new PinoNestLogger(pinoLogger, {}));
+      try {
+        await expect(handler.handle({ ...wakeup, eligibleClaimMisses: 1 })).resolves.toEqual({
+          status: 'processed',
+        });
+      } finally {
+        sink.mockRestore();
+      }
+      expect(lines).toHaveLength(1);
+      expect(JSON.parse(lines[0])).toMatchObject({
+        level: 40,
+        context: ComputedOutboxWakeupHandler.name,
+        msg: 'computed:outbox:successor_wakeup_failed',
+        baseId: wakeup.baseId,
+        error: `${failure} failed`,
+      });
+      expect(runTaskById).toHaveBeenCalledOnce();
+      expect(publish).toHaveBeenCalledTimes(failure === 'publish' ? 1 : 0);
+    }
+  );
+
+  it('rejects a settlement observed after the cluster permit was lost', async () => {
     const leaseError = new Error('admission lease lost');
     const assertActive = vi
       .fn()
-      .mockImplementationOnce(() => undefined)
-      .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => undefined)
       .mockImplementationOnce(() => {
@@ -186,6 +314,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     const runOnce = vi.fn().mockResolvedValue({ isErr: () => false, value: 1 });
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: () => ({ runTaskById, runOnce }),
         }),
@@ -193,6 +322,7 @@ describe('ComputedOutboxWakeupHandler', () => {
       createMetrics() as never,
       createPublisher() as never,
       {
+        runWithWriterPermit,
         runWithPermit: async (
           _baseId: string,
           operation: (permit: typeof activePermit) => Promise<unknown>
@@ -205,7 +335,7 @@ describe('ComputedOutboxWakeupHandler', () => {
 
     await expect(handler.handle(wakeup)).rejects.toBe(leaseError);
     expect(runTaskById).toHaveBeenCalledOnce();
-    expect(runOnce).toHaveBeenCalledOnce();
+    expect(runOnce).not.toHaveBeenCalled();
   });
 
   it('defers before resolving a base container when cluster admission is full', async () => {
@@ -300,7 +430,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     const getContainerForBase = vi.fn().mockResolvedValue({ resolve });
     const metrics = createMetrics();
     const handler = new ComputedOutboxWakeupHandler(
-      { getContainerForBase } as never,
+      { getContainerForBase, getComputedWriter } as never,
       metrics as never,
       createPublisher() as never,
       createActiveAdmission()
@@ -317,36 +447,7 @@ describe('ComputedOutboxWakeupHandler', () => {
         tracer,
       })
     );
-    expect(runOnce).toHaveBeenCalledWith(
-      expect.objectContaining({
-        limit: 50,
-      })
-    );
-  });
-
-  it('drains follow-up outbox tasks after a successful targeted process', async () => {
-    const runTaskById = vi.fn().mockResolvedValue({
-      isErr: () => false,
-      value: true,
-    });
-    const runOnce = vi
-      .fn()
-      .mockResolvedValueOnce({ isErr: () => false, value: 3 })
-      .mockResolvedValueOnce({ isErr: () => false, value: 1 })
-      .mockResolvedValueOnce({ isErr: () => false, value: 0 });
-    const handler = new ComputedOutboxWakeupHandler(
-      {
-        getContainerForBase: vi.fn().mockResolvedValue({
-          resolve: () => ({ runTaskById, runOnce }),
-        }),
-      } as never,
-      createMetrics() as never,
-      createPublisher() as never,
-      createActiveAdmission()
-    );
-
-    await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'processed' });
-    expect(runOnce).toHaveBeenCalledTimes(3);
+    expect(runOnce).not.toHaveBeenCalled();
   });
 
   it('acknowledges a terminal no-op when the durable task is gone', async () => {
@@ -354,6 +455,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     const metrics = createMetrics();
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: (token: unknown) => {
             if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
@@ -390,6 +492,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     const nextRunAt = new Date(Date.now() + 10_000);
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: (token: unknown) => {
             if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
@@ -476,6 +579,12 @@ describe('ComputedOutboxWakeupHandler', () => {
           availableAt: new Date(Date.now() + 100),
         })
       );
+      const relayDueBeforeMs = Date.now();
+      await handler.handle({ ...wakeup, wakeupId: `cuwp-${wakeup.taskId}`, relayDueBeforeMs });
+      expect(publish.mock.calls[1][0]).toMatchObject({
+        availableAt: new Date(Date.now() + 100),
+        relayDueBeforeMs,
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -495,6 +604,71 @@ describe('ComputedOutboxWakeupHandler', () => {
           availableAt: new Date(Date.now() + 100),
         })
       );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('bounds consecutive empty eligible replays across workers and resets after preparation', async () => {
+    vi.useFakeTimers();
+    try {
+      const asDelivery = (event: unknown) =>
+        computedOutboxWakeupWireSchema.parse(JSON.parse(JSON.stringify(event)));
+      let delivery = computedOutboxWakeupWireSchema.parse(wakeup);
+      for (const delayMs of [100, 200, 400, 800, 1600, 1600]) {
+        const { handler, publish } = createClaimMissHandler({ status: 'eligible' });
+        await expect(handler.handle(delivery)).resolves.toEqual({ status: 'deferred' });
+        const replay = publish.mock.calls[0][0];
+        expect(replay.availableAt.getTime() - Date.now()).toBe(delayMs);
+        delivery = asDelivery(replay);
+        vi.setSystemTime(replay.availableAt);
+        if (delayMs === 400) {
+          const capacity = createClaimMissHandler(
+            { status: 'eligible' },
+            { runWithPermit: vi.fn().mockResolvedValue({ admitted: false }) } as never
+          );
+          await expect(capacity.handler.handle(delivery)).resolves.toEqual({ status: 'deferred' });
+          expect(capacity.runTaskById).not.toHaveBeenCalled();
+          const deferred = capacity.publish.mock.calls[0][0];
+          expect(deferred.availableAt.getTime() - Date.now()).toBeGreaterThanOrEqual(500);
+          expect(deferred.availableAt.getTime() - Date.now()).toBeLessThanOrEqual(1500);
+          delivery = asDelivery(deferred);
+          expect(delivery.eligibleClaimMisses).toBe(3);
+          const sibling = createClaimMissHandler({ status: 'eligible' });
+          sibling.runTaskById.mockResolvedValueOnce({ isErr: () => false, value: false });
+          await sibling.handler.handle({ ...delivery, wakeupId: wakeup.wakeupId });
+          const nextPage = sibling.publish.mock.calls[0][0];
+          expect(nextPage.wakeupId).not.toBe(deferred.wakeupId);
+          expect(nextPage.availableAt.getTime() - Date.now()).toBe(100);
+          expect(nextPage.eligibleClaimMisses).toBeUndefined();
+          vi.setSystemTime(deferred.availableAt);
+        }
+      }
+      expect(delivery.eligibleClaimMisses).toBe(5);
+
+      const { handler, publish, runTaskById, getNextPendingWakeup } = createClaimMissHandler({
+        status: 'eligible',
+      });
+      runTaskById.mockResolvedValueOnce({ isErr: () => false, value: false });
+      await expect(handler.handle(delivery)).resolves.toEqual({ status: 'deferred' });
+      const prepared = publish.mock.calls[0][0];
+      expect(prepared.availableAt.getTime() - Date.now()).toBe(100);
+      expect(prepared.eligibleClaimMisses).toBeUndefined();
+      expect(prepared.relayDueBeforeMs).toBe(Date.parse(delivery.availableAt));
+
+      vi.setSystemTime(prepared.availableAt);
+      await handler.handle(asDelivery(prepared));
+      const retry = publish.mock.calls[1][0];
+      expect(retry.availableAt.getTime() - Date.now()).toBe(100);
+      expect(retry.eligibleClaimMisses).toBe(1);
+      expect(getNextPendingWakeup).not.toHaveBeenCalled();
+      runTaskById.mockResolvedValueOnce({ isErr: () => false, value: true });
+      await expect(handler.handle(asDelivery(retry))).resolves.toEqual({ status: 'processed' });
+      expect(getNextPendingWakeup).toHaveBeenCalledExactlyOnceWith(
+        wakeup.baseId,
+        new Date(delivery.availableAt)
+      );
+      expect(publish).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
@@ -532,6 +706,7 @@ describe('ComputedOutboxWakeupHandler', () => {
       const metrics = createMetrics();
       const handler = new ComputedOutboxWakeupHandler(
         {
+          getComputedWriter,
           getContainerForBase: vi.fn().mockResolvedValue({
             resolve: (token: unknown) => {
               if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
@@ -574,6 +749,7 @@ describe('ComputedOutboxWakeupHandler', () => {
       const resumeAt = new Date('2026-01-05T12:05:00Z');
       const handler = new ComputedOutboxWakeupHandler(
         {
+          getComputedWriter,
           getContainerForBase: vi.fn().mockResolvedValue({
             resolve: (token: unknown) => {
               if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
@@ -620,6 +796,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     const runOnce = vi.fn().mockResolvedValue({ isErr: () => false, value: 0 });
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: () => ({ runTaskById, runOnce }),
         }),
@@ -633,7 +810,7 @@ describe('ComputedOutboxWakeupHandler', () => {
 
     expect(runAsConsumer).toHaveBeenCalledWith(expect.any(Function));
     expect(runTaskById).toHaveBeenCalledOnce();
-    expect(runOnce).toHaveBeenCalledOnce();
+    expect(runOnce).not.toHaveBeenCalled();
   });
 
   it('publishes deferred replay wakeups from a consumer-only role', async () => {
@@ -650,6 +827,7 @@ describe('ComputedOutboxWakeupHandler', () => {
       );
       const handler = new ComputedOutboxWakeupHandler(
         {
+          getComputedWriter,
           getContainerForBase: vi.fn().mockResolvedValue({
             resolve: (token: unknown) => {
               if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
@@ -690,6 +868,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     const metrics = createMetrics();
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: () => ({
             runTaskById: vi.fn().mockResolvedValue({ isErr: () => true, error: workerError }),
@@ -720,6 +899,7 @@ describe('ComputedOutboxWakeupHandler', () => {
       const metrics = createMetrics();
       const handler = new ComputedOutboxWakeupHandler(
         {
+          getComputedWriter,
           getContainerForBase: vi.fn().mockResolvedValue({
             resolve: () => ({
               runTaskById: vi.fn().mockResolvedValue({ isErr: () => true, error: workerError }),
@@ -880,6 +1060,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     };
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: () => ({ runTaskById, runOnce }),
         }),
@@ -976,6 +1157,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     };
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: () => ({ runTaskById, runOnce }),
         }),
@@ -999,6 +1181,7 @@ describe('ComputedOutboxWakeupHandler', () => {
     const metrics = createMetrics();
     const handler = new ComputedOutboxWakeupHandler(
       {
+        getComputedWriter,
         getContainerForBase: vi.fn().mockResolvedValue({
           resolve: () => ({
             runTaskById: vi.fn().mockResolvedValue({ isErr: () => true, error: workerError }),
@@ -1013,5 +1196,130 @@ describe('ComputedOutboxWakeupHandler', () => {
     await expect(handler.handle(wakeup)).rejects.toBe(workerError);
 
     expect(metrics.recordConsume).toHaveBeenCalledWith('error');
+  });
+
+  it('short-circuits ineligible tasks before acquiring a writer permit and backs off repeat concurrency deferrals', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
+    try {
+      const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+      const runWithWriterPermitSpy = vi.fn();
+      const runTaskByIdSpy = vi.fn();
+      const getTaskClaimEligibility = vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: { status: 'deferred', reason: 'concurrency', retryAt: null },
+      });
+
+      const handler = new ComputedOutboxWakeupHandler(
+        {
+          getComputedWriter,
+          getContainerForBase: vi.fn().mockResolvedValue({
+            resolve: (token: unknown) => {
+              if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
+                return { runTaskById: runTaskByIdSpy };
+              }
+              return { getTaskClaimEligibility };
+            },
+          }),
+        } as never,
+        createMetrics() as never,
+        createPublisher(publish) as never,
+        {
+          runWithWriterPermit: runWithWriterPermitSpy,
+          runWithPermit: async (
+            _baseId: string,
+            operation: (permit: typeof activePermit) => Promise<unknown>
+          ) => ({
+            admitted: true as const,
+            value: await operation(activePermit),
+          }),
+        } as never
+      );
+
+      await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'deferred' });
+      expect(runWithWriterPermitSpy).not.toHaveBeenCalled();
+      expect(runTaskByIdSpy).not.toHaveBeenCalled();
+      expect(publish.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          availableAt: new Date(Date.now() + 100),
+        })
+      );
+
+      const firstDeferredWakeup = publish.mock.calls[0][0];
+      await expect(
+        handler.handle({ ...wakeup, wakeupId: firstDeferredWakeup.wakeupId })
+      ).resolves.toEqual({ status: 'deferred' });
+      expect(runWithWriterPermitSpy).not.toHaveBeenCalled();
+      expect(runTaskByIdSpy).not.toHaveBeenCalled();
+      expect(publish.mock.calls[1][0]).toEqual(
+        expect.objectContaining({
+          availableAt: new Date(Date.now() + 500),
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('forwards writer.maxConcurrency to runWithWriterPermit and defers on writer_capacity', async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const runWithWriterPermit = vi.fn().mockResolvedValue({ admitted: false });
+    const container = {
+      resolve: vi.fn().mockReturnValue({
+        getTaskClaimEligibility: vi.fn().mockResolvedValue({
+          isErr: () => false,
+          value: { status: 'eligible' },
+        }),
+      }),
+    };
+    const metrics = {
+      recordDeliveryLag: vi.fn(),
+      recordConsume: vi.fn(),
+      recordExecutionDuration: vi.fn(),
+      recordTaskSettlement: vi.fn(),
+    };
+    const baseAdmission = {
+      runWithPermit: vi.fn(async (_baseId: string, fn: (permit: unknown) => Promise<unknown>) => ({
+        admitted: true,
+        value: await fn({ assertActive: vi.fn() }),
+      })),
+      runWithWriterPermit,
+    };
+    const handler = new ComputedOutboxWakeupHandler(
+      {
+        getContainerForBase: vi.fn().mockResolvedValue(container),
+        getComputedWriter: () => ({
+          key: 'writer-cap-key',
+          maxConcurrency: 3,
+          hasWaiters: () => false,
+        }),
+      } as never,
+      metrics as never,
+      {
+        runAsConsumer: async (fn: () => Promise<unknown>) => fn(),
+        publish,
+      } as never,
+      baseAdmission as never
+    );
+
+    const outcome = await handler.handle({
+      schemaVersion: 1,
+      wakeupId: 'cuw_writer_cap_1',
+      taskId: 'cuo_writer_cap_1',
+      baseId: 'bse_writer_cap_1',
+      availableAt: new Date().toISOString(),
+      emittedAt: new Date().toISOString(),
+      cause: 'created',
+    });
+
+    expect(outcome).toEqual({ status: 'deferred' });
+    expect(runWithWriterPermit).toHaveBeenCalledWith(
+      'bse_writer_cap_1',
+      'writer-cap-key',
+      expect.any(Function),
+      3
+    );
+    expect(publish).toHaveBeenCalledOnce();
+    expect(metrics.recordConsume).toHaveBeenCalledWith('deferred');
   });
 });

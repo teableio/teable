@@ -2174,6 +2174,9 @@ describe('ComputedUpdatePlanner', () => {
                     foreignTableId: sourceTableId.toString(),
                     lookupFieldId: labelFieldId.toString(),
                     relationship,
+                    fkHostTableName: hostTableId.toString(),
+                    selfKeyName: '__id',
+                    foreignKeyName: '__fk_link',
                   },
                 }
               : field,
@@ -2200,6 +2203,1020 @@ describe('ComputedUpdatePlanner', () => {
         expect(rollupEdge?.linkFieldId?.equals(linkFieldId)).toBe(true);
       }
     );
+
+    it('keeps an indirect filtered oneMany traversal precise when only upstream records are deleted', async () => {
+      const upstreamTableId = TableId.create(`tbl${'w'.repeat(16)}`)._unsafeUnwrap();
+      const upstreamValueFieldId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+      const upstreamLinkFieldId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+      const fieldsById = new Map<string, FieldMeta>(
+        fields.map((field) => [
+          field.id.toString(),
+          field.id.equals(linkFieldId)
+            ? { ...field, options: { ...field.options, relationship: 'oneMany', isOneWay: false } }
+            : field.id.equals(amountFieldId)
+              ? {
+                  ...field,
+                  isComputed: true,
+                  type: 'rollup',
+                  lookupOptions: {
+                    linkFieldId: upstreamLinkFieldId.toString(),
+                    foreignTableId: upstreamTableId.toString(),
+                    lookupFieldId: upstreamValueFieldId.toString(),
+                  },
+                }
+              : field,
+        ])
+      );
+      fieldsById.set(upstreamValueFieldId.toString(), {
+        id: upstreamValueFieldId,
+        tableId: upstreamTableId,
+        type: 'number',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      });
+      fieldsById.set(upstreamLinkFieldId.toString(), {
+        id: upstreamLinkFieldId,
+        tableId: sourceTableId,
+        type: 'link',
+        isComputed: true,
+        options: {
+          foreignTableId: upstreamTableId.toString(),
+          lookupFieldId: upstreamValueFieldId.toString(),
+          relationship: 'manyMany',
+        },
+        lookupOptions: null,
+        conditionalOptions: null,
+      });
+      const graphData: FieldDependencyGraphData = {
+        fieldsById,
+        edges: [
+          ...edges,
+          {
+            fromFieldId: upstreamValueFieldId,
+            toFieldId: amountFieldId,
+            fromTableId: upstreamTableId,
+            toTableId: sourceTableId,
+            kind: 'cross_record',
+            linkFieldId: upstreamLinkFieldId,
+            semantic: 'rollup_source',
+          },
+        ],
+      };
+      const planner = new ComputedUpdatePlanner({
+        load: vi.fn().mockResolvedValue(ok(graphData)),
+      } as never);
+
+      const plan = (
+        await planner.planStage({
+          baseId,
+          seedTableId: upstreamTableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [upstreamValueFieldId],
+          changeType: 'delete',
+        })
+      )._unsafeUnwrap();
+
+      const downstream = plan.edges.find((edge) => edgeTargetsField(edge, filteredRollupFieldId));
+      expect(downstream).toBeDefined();
+      expect(downstream?.fromTableId.equals(sourceTableId)).toBe(true);
+      expect(downstream?.propagationMode).toBe('linkTraversal');
+      expect(downstream?.linkFieldId?.equals(linkFieldId)).toBe(true);
+      expect(downstream?.filterCondition).toBeUndefined();
+      expect(downstream?.allTargetRecordsReasons).toBeUndefined();
+      expect(plan.steps.some((step) => step.fieldIds.some((id) => id.equals(amountFieldId)))).toBe(
+        true
+      );
+      expect(
+        plan.steps.some((step) => step.fieldIds.some((id) => id.equals(filteredRollupFieldId)))
+      ).toBe(true);
+
+      const directDelete = (
+        await planner.planStage({
+          baseId,
+          seedTableId: sourceTableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [amountFieldId],
+          changeType: 'delete',
+        })
+      )._unsafeUnwrap();
+      const directEdge = directDelete.edges.find((edge) =>
+        edgeTargetsField(edge, filteredRollupFieldId)
+      );
+      expect(directEdge?.propagationMode).toBe('allTargetRecords');
+      expect(directEdge?.allTargetRecordsReasons).toEqual([
+        'filtered_lookup_delete_requires_source_record',
+      ]);
+    });
+
+    it('keeps an indirect conditionalRollup filtered when only upstream records are deleted', async () => {
+      const upstreamTableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+      const upstreamValueFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+      const upstreamLinkFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+      const midTableId = TableId.create(`tbl${'x'.repeat(16)}`)._unsafeUnwrap();
+      const midStatusFieldId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+      const midAmountFieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+      const targetTableId = TableId.create(`tbl${'a'.repeat(16)}`)._unsafeUnwrap();
+      const targetConditionalRollupId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+      const targetConditionalRecomputedFilterRollupId = FieldId.create(
+        `fld${'c'.repeat(16)}`
+      )._unsafeUnwrap();
+
+      const filterByUnchangedStatus = {
+        conjunction: 'and' as const,
+        filterSet: [
+          {
+            fieldId: midStatusFieldId.toString(),
+            operator: 'is' as const,
+            value: 'active',
+          },
+        ],
+      };
+      const filterByRecomputedAmount = {
+        conjunction: 'and' as const,
+        filterSet: [
+          {
+            fieldId: midAmountFieldId.toString(),
+            operator: 'isGreater' as const,
+            value: 0,
+          },
+        ],
+      };
+
+      const fieldsById = new Map<string, FieldMeta>([
+        [
+          upstreamValueFieldId.toString(),
+          {
+            id: upstreamValueFieldId,
+            tableId: upstreamTableId,
+            type: 'number',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          upstreamLinkFieldId.toString(),
+          {
+            id: upstreamLinkFieldId,
+            tableId: midTableId,
+            type: 'link',
+            isComputed: true,
+            options: {
+              foreignTableId: upstreamTableId.toString(),
+              lookupFieldId: upstreamValueFieldId.toString(),
+              relationship: 'manyMany',
+            },
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          midStatusFieldId.toString(),
+          {
+            id: midStatusFieldId,
+            tableId: midTableId,
+            type: 'singleLineText',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          midAmountFieldId.toString(),
+          {
+            id: midAmountFieldId,
+            tableId: midTableId,
+            type: 'rollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: {
+              linkFieldId: upstreamLinkFieldId.toString(),
+              foreignTableId: upstreamTableId.toString(),
+              lookupFieldId: upstreamValueFieldId.toString(),
+            },
+            conditionalOptions: null,
+          },
+        ],
+        [
+          targetConditionalRollupId.toString(),
+          {
+            id: targetConditionalRollupId,
+            tableId: targetTableId,
+            type: 'conditionalRollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: {
+              foreignTableId: midTableId.toString(),
+              lookupFieldId: midAmountFieldId.toString(),
+              conditionFieldIds: [midStatusFieldId.toString()],
+              filterDto: filterByUnchangedStatus,
+            },
+          },
+        ],
+        [
+          targetConditionalRecomputedFilterRollupId.toString(),
+          {
+            id: targetConditionalRecomputedFilterRollupId,
+            tableId: targetTableId,
+            type: 'conditionalRollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: {
+              foreignTableId: midTableId.toString(),
+              lookupFieldId: midAmountFieldId.toString(),
+              conditionFieldIds: [midAmountFieldId.toString()],
+              filterDto: filterByRecomputedAmount,
+            },
+          },
+        ],
+      ]);
+
+      const graphData: FieldDependencyGraphData = {
+        fieldsById,
+        edges: [
+          {
+            fromFieldId: upstreamValueFieldId,
+            toFieldId: midAmountFieldId,
+            fromTableId: upstreamTableId,
+            toTableId: midTableId,
+            kind: 'cross_record',
+            linkFieldId: upstreamLinkFieldId,
+            semantic: 'rollup_source',
+          },
+          {
+            fromFieldId: midAmountFieldId,
+            toFieldId: targetConditionalRollupId,
+            fromTableId: midTableId,
+            toTableId: targetTableId,
+            kind: 'cross_record',
+            semantic: 'conditional_rollup_source',
+          },
+          {
+            fromFieldId: midAmountFieldId,
+            toFieldId: targetConditionalRecomputedFilterRollupId,
+            fromTableId: midTableId,
+            toTableId: targetTableId,
+            kind: 'cross_record',
+            semantic: 'conditional_rollup_source',
+          },
+        ],
+      };
+
+      const planner = new ComputedUpdatePlanner({
+        load: vi.fn().mockResolvedValue(ok(graphData)),
+      } as never);
+
+      const indirectPlan = (
+        await planner.planStage({
+          baseId,
+          seedTableId: upstreamTableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [upstreamValueFieldId],
+          changeType: 'delete',
+        })
+      )._unsafeUnwrap();
+
+      const unchangedFilterEdge = indirectPlan.edges.find((edge) =>
+        edgeTargetsField(edge, targetConditionalRollupId)
+      );
+      expect(unchangedFilterEdge?.propagationMode).toBe('conditionalFiltered');
+      expect(unchangedFilterEdge?.filterCondition).toEqual({
+        foreignTableId: midTableId,
+        filterDto: filterByUnchangedStatus,
+      });
+      expect(unchangedFilterEdge?.allTargetRecordsReasons).toBeUndefined();
+
+      const recomputedFilterEdge = indirectPlan.edges.find((edge) =>
+        edgeTargetsField(edge, targetConditionalRecomputedFilterRollupId)
+      );
+      expect(recomputedFilterEdge?.propagationMode).toBe('allTargetRecords');
+      expect(recomputedFilterEdge?.allTargetRecordsReasons).toEqual([
+        'conditional_filter_field_recomputed',
+      ]);
+
+      const directPlan = (
+        await planner.planStage({
+          baseId,
+          seedTableId: midTableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [midAmountFieldId],
+          changeType: 'delete',
+        })
+      )._unsafeUnwrap();
+      const directEdge = directPlan.edges.find((edge) =>
+        edgeTargetsField(edge, targetConditionalRollupId)
+      );
+      expect(directEdge?.propagationMode).toBe('allTargetRecords');
+      expect(directEdge?.allTargetRecordsReasons).toEqual([
+        'conditional_delete',
+        'conditional_filter_field_changed',
+      ]);
+    });
+
+    it('refreshes all targets and retains seed-table steps for a self-linked filtered rollup delete', async () => {
+      const baseId = BaseId.create(`bse${'s'.repeat(16)}`)._unsafeUnwrap();
+      const tableId = TableId.create(`tbl${'t'.repeat(16)}`)._unsafeUnwrap();
+      const valueFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
+      const statusFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+      const conditionalRollupId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+      const recordId = RecordId.create(`rec${'y'.repeat(16)}`)._unsafeUnwrap();
+
+      const filterDto = {
+        conjunction: 'and' as const,
+        filterSet: [
+          {
+            fieldId: statusFieldId.toString(),
+            operator: 'is' as const,
+            value: 'active',
+          },
+        ],
+      };
+
+      const fieldsById = new Map<string, FieldMeta>([
+        [
+          valueFieldId.toString(),
+          {
+            id: valueFieldId,
+            tableId,
+            type: 'number',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          statusFieldId.toString(),
+          {
+            id: statusFieldId,
+            tableId,
+            type: 'singleLineText',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          linkFieldId.toString(),
+          {
+            id: linkFieldId,
+            tableId,
+            type: 'link',
+            isComputed: true,
+            options: {
+              foreignTableId: tableId.toString(),
+              lookupFieldId: valueFieldId.toString(),
+              relationship: 'manyMany',
+            },
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          conditionalRollupId.toString(),
+          {
+            id: conditionalRollupId,
+            tableId,
+            type: 'rollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: {
+              linkFieldId: linkFieldId.toString(),
+              foreignTableId: tableId.toString(),
+              lookupFieldId: valueFieldId.toString(),
+              filterFieldIds: [statusFieldId.toString()],
+              filterDto,
+            },
+            conditionalOptions: null,
+          },
+        ],
+      ]);
+
+      const planner = new ComputedUpdatePlanner({
+        load: vi.fn().mockResolvedValue(
+          ok({
+            fieldsById,
+            edges: [
+              {
+                fromFieldId: valueFieldId,
+                toFieldId: conditionalRollupId,
+                fromTableId: tableId,
+                toTableId: tableId,
+                kind: 'cross_record',
+                linkFieldId,
+                semantic: 'rollup_source',
+              },
+            ],
+          } satisfies FieldDependencyGraphData)
+        ),
+      } as never);
+
+      const plan = (
+        await planner.planStage({
+          baseId,
+          seedTableId: tableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [valueFieldId],
+          changeType: 'delete',
+        })
+      )._unsafeUnwrap();
+
+      expect(plan.steps).toEqual([
+        expect.objectContaining({
+          tableId,
+          fieldIds: [conditionalRollupId],
+        }),
+      ]);
+      expect(plan.edges).toEqual([
+        expect.objectContaining({
+          toFieldId: conditionalRollupId,
+          propagationMode: 'allTargetRecords',
+          allTargetRecordsReasons: ['filtered_lookup_delete_requires_source_record'],
+        }),
+      ]);
+    });
+
+    it('distinguishes source-FK vs target-FK two-way oneOne filtered rollup delete traversal', async () => {
+      const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+      const sourceTableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
+      const targetTableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
+      const sourceValueFieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
+      const sourceStatusFieldId = FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap();
+      const sourceFkLinkFieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
+      const targetFkLinkFieldId = FieldId.create(`fld${'g'.repeat(16)}`)._unsafeUnwrap();
+      const sourceFkRollupFieldId = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
+      const targetFkRollupFieldId = FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap();
+      const symFieldA = FieldId.create(`fld${'j'.repeat(16)}`)._unsafeUnwrap();
+      const symFieldB = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+      const recordId = RecordId.create(`rec${'m'.repeat(16)}`)._unsafeUnwrap();
+
+      const filterDto = {
+        conjunction: 'and' as const,
+        filterSet: [
+          {
+            fieldId: sourceStatusFieldId.toString(),
+            operator: 'is' as const,
+            value: 'active',
+          },
+        ],
+      };
+
+      const fieldsById = new Map<string, FieldMeta>([
+        [
+          sourceValueFieldId.toString(),
+          {
+            id: sourceValueFieldId,
+            tableId: sourceTableId,
+            type: 'number',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          sourceStatusFieldId.toString(),
+          {
+            id: sourceStatusFieldId,
+            tableId: sourceTableId,
+            type: 'singleLineText',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          sourceFkLinkFieldId.toString(),
+          {
+            id: sourceFkLinkFieldId,
+            tableId: targetTableId,
+            type: 'link',
+            isComputed: true,
+            options: {
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              relationship: 'oneOne',
+              isOneWay: false,
+              symmetricFieldId: symFieldA.toString(),
+              fkHostTableName: `${baseId.toString()}.${sourceTableId.toString()}`,
+            },
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          targetFkLinkFieldId.toString(),
+          {
+            id: targetFkLinkFieldId,
+            tableId: targetTableId,
+            type: 'link',
+            isComputed: true,
+            options: {
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              relationship: 'oneOne',
+              isOneWay: false,
+              symmetricFieldId: symFieldB.toString(),
+              fkHostTableName: `${baseId.toString()}.${targetTableId.toString()}`,
+            },
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          sourceFkRollupFieldId.toString(),
+          {
+            id: sourceFkRollupFieldId,
+            tableId: targetTableId,
+            type: 'rollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: {
+              linkFieldId: sourceFkLinkFieldId.toString(),
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              filterFieldIds: [sourceStatusFieldId.toString()],
+              filterDto,
+            },
+            conditionalOptions: null,
+          },
+        ],
+        [
+          targetFkRollupFieldId.toString(),
+          {
+            id: targetFkRollupFieldId,
+            tableId: targetTableId,
+            type: 'rollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: {
+              linkFieldId: targetFkLinkFieldId.toString(),
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              filterFieldIds: [sourceStatusFieldId.toString()],
+              filterDto,
+            },
+            conditionalOptions: null,
+          },
+        ],
+      ]);
+
+      const planner = new ComputedUpdatePlanner({
+        load: vi.fn().mockResolvedValue(
+          ok({
+            fieldsById,
+            edges: [
+              {
+                fromFieldId: sourceValueFieldId,
+                toFieldId: sourceFkRollupFieldId,
+                fromTableId: sourceTableId,
+                toTableId: targetTableId,
+                kind: 'cross_record',
+                linkFieldId: sourceFkLinkFieldId,
+                semantic: 'rollup_source',
+              },
+              {
+                fromFieldId: sourceValueFieldId,
+                toFieldId: targetFkRollupFieldId,
+                fromTableId: sourceTableId,
+                toTableId: targetTableId,
+                kind: 'cross_record',
+                linkFieldId: targetFkLinkFieldId,
+                semantic: 'rollup_source',
+              },
+            ],
+          } satisfies FieldDependencyGraphData)
+        ),
+      } as never);
+
+      const plan = (
+        await planner.planStage({
+          baseId,
+          seedTableId: sourceTableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [sourceValueFieldId],
+          changeType: 'delete',
+        })
+      )._unsafeUnwrap();
+
+      const sourceFkEdge = plan.edges.find((edge) => edgeTargetsField(edge, sourceFkRollupFieldId));
+      expect(sourceFkEdge?.propagationMode).toBe('allTargetRecords');
+      expect(sourceFkEdge?.allTargetRecordsReasons).toEqual([
+        'filtered_lookup_delete_requires_source_record',
+      ]);
+
+      const targetFkEdge = plan.edges.find((edge) => edgeTargetsField(edge, targetFkRollupFieldId));
+      expect(targetFkEdge?.propagationMode).toBe('linkTraversal');
+      expect(targetFkEdge?.linkFieldId).toEqual(targetFkLinkFieldId);
+      expect(targetFkEdge?.filterCondition).toBeUndefined();
+    });
+
+    it('falls back to allTargetRecords for two-way oneOne links on custom source db_table_name or broken symmetric metadata', async () => {
+      const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
+      const sourceTableId = TableId.create(`tbl${'r'.repeat(16)}`)._unsafeUnwrap();
+      const targetTableId = TableId.create(`tbl${'s'.repeat(16)}`)._unsafeUnwrap();
+      const sourceValueFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+      const sourceStatusFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
+      const customDbLinkFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+      const foreignKeyIdLinkFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+      const targetDbMatchLinkFieldId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+      const customDbRollupId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+      const foreignKeyIdRollupId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+      const targetDbMatchRollupId = FieldId.create(`fld${'a'.repeat(15)}b`)._unsafeUnwrap();
+      const recordId = RecordId.create(`rec${'c'.repeat(16)}`)._unsafeUnwrap();
+
+      const filterDto = {
+        conjunction: 'and' as const,
+        filterSet: [
+          { fieldId: sourceStatusFieldId.toString(), operator: 'is' as const, value: 'active' },
+        ],
+      };
+
+      const fieldsById = new Map<string, FieldMeta>([
+        [
+          sourceValueFieldId.toString(),
+          {
+            id: sourceValueFieldId,
+            tableId: sourceTableId,
+            type: 'number',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          sourceStatusFieldId.toString(),
+          {
+            id: sourceStatusFieldId,
+            tableId: sourceTableId,
+            type: 'singleLineText',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          customDbLinkFieldId.toString(),
+          {
+            id: customDbLinkFieldId,
+            tableId: targetTableId,
+            type: 'link',
+            isComputed: true,
+            options: {
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              relationship: 'oneOne',
+              isOneWay: false,
+              symmetricFieldId: `fld${'d'.repeat(16)}`,
+              fkHostTableName: `${baseId.toString()}.orders_v1`,
+              targetDbTableName: `${baseId.toString()}.targets_v1`,
+            },
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          foreignKeyIdLinkFieldId.toString(),
+          {
+            id: foreignKeyIdLinkFieldId,
+            tableId: targetTableId,
+            type: 'link',
+            isComputed: true,
+            options: {
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              relationship: 'oneOne',
+              isOneWay: false,
+              symmetricFieldId: undefined,
+              fkHostTableName: `${baseId.toString()}.orders_v1`,
+              selfKeyName: `__fk_broken`,
+              foreignKeyName: '__id',
+              targetDbTableName: `${baseId.toString()}.targets_v1`,
+            },
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          targetDbMatchLinkFieldId.toString(),
+          {
+            id: targetDbMatchLinkFieldId,
+            tableId: targetTableId,
+            type: 'link',
+            isComputed: true,
+            options: {
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              relationship: 'oneOne',
+              isOneWay: false,
+              symmetricFieldId: `fld${'e'.repeat(16)}`,
+              fkHostTableName: `${baseId.toString()}.targets_v1`,
+              selfKeyName: '__id',
+              foreignKeyName: `__fk_${targetDbMatchLinkFieldId.toString()}`,
+              targetDbTableName: `${baseId.toString()}.targets_v1`,
+            },
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          customDbRollupId.toString(),
+          {
+            id: customDbRollupId,
+            tableId: targetTableId,
+            type: 'rollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: {
+              linkFieldId: customDbLinkFieldId.toString(),
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              filterFieldIds: [sourceStatusFieldId.toString()],
+              filterDto,
+            },
+            conditionalOptions: null,
+          },
+        ],
+        [
+          foreignKeyIdRollupId.toString(),
+          {
+            id: foreignKeyIdRollupId,
+            tableId: targetTableId,
+            type: 'rollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: {
+              linkFieldId: foreignKeyIdLinkFieldId.toString(),
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              filterFieldIds: [sourceStatusFieldId.toString()],
+              filterDto,
+            },
+            conditionalOptions: null,
+          },
+        ],
+        [
+          targetDbMatchRollupId.toString(),
+          {
+            id: targetDbMatchRollupId,
+            tableId: targetTableId,
+            type: 'rollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: {
+              linkFieldId: targetDbMatchLinkFieldId.toString(),
+              foreignTableId: sourceTableId.toString(),
+              lookupFieldId: sourceValueFieldId.toString(),
+              filterFieldIds: [sourceStatusFieldId.toString()],
+              filterDto,
+            },
+            conditionalOptions: null,
+          },
+        ],
+      ]);
+
+      const planner = new ComputedUpdatePlanner({
+        load: vi.fn().mockResolvedValue(
+          ok({
+            fieldsById,
+            edges: [
+              {
+                fromFieldId: sourceValueFieldId,
+                toFieldId: customDbRollupId,
+                fromTableId: sourceTableId,
+                toTableId: targetTableId,
+                kind: 'cross_record',
+                linkFieldId: customDbLinkFieldId,
+                semantic: 'rollup_source',
+              },
+              {
+                fromFieldId: sourceValueFieldId,
+                toFieldId: foreignKeyIdRollupId,
+                fromTableId: sourceTableId,
+                toTableId: targetTableId,
+                kind: 'cross_record',
+                linkFieldId: foreignKeyIdLinkFieldId,
+                semantic: 'rollup_source',
+              },
+              {
+                fromFieldId: sourceValueFieldId,
+                toFieldId: targetDbMatchRollupId,
+                fromTableId: sourceTableId,
+                toTableId: targetTableId,
+                kind: 'cross_record',
+                linkFieldId: targetDbMatchLinkFieldId,
+                semantic: 'rollup_source',
+              },
+            ],
+          } satisfies FieldDependencyGraphData)
+        ),
+      } as never);
+
+      const plan = (
+        await planner.planStage({
+          baseId,
+          seedTableId: sourceTableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [sourceValueFieldId],
+          changeType: 'delete',
+        })
+      )._unsafeUnwrap();
+
+      expect(plan.edges.find((edge) => edgeTargetsField(edge, customDbRollupId))).toEqual(
+        expect.objectContaining({
+          propagationMode: 'allTargetRecords',
+          allTargetRecordsReasons: ['filtered_lookup_delete_requires_source_record'],
+        })
+      );
+      expect(plan.edges.find((edge) => edgeTargetsField(edge, foreignKeyIdRollupId))).toEqual(
+        expect.objectContaining({
+          propagationMode: 'allTargetRecords',
+          allTargetRecordsReasons: ['filtered_lookup_delete_requires_source_record'],
+        })
+      );
+      expect(plan.edges.find((edge) => edgeTargetsField(edge, targetDbMatchRollupId))).toEqual(
+        expect.objectContaining({
+          propagationMode: 'linkTraversal',
+          linkFieldId: targetDbMatchLinkFieldId,
+        })
+      );
+    });
+
+    it('retains seed-table steps with conditional_delete for self-referential conditionalRollup delete', async () => {
+      const baseId = BaseId.create(`bse${'1'.repeat(16)}`)._unsafeUnwrap();
+      const tableId = TableId.create(`tbl${'2'.repeat(16)}`)._unsafeUnwrap();
+      const valueFieldId = FieldId.create(`fld${'3'.repeat(16)}`)._unsafeUnwrap();
+      const statusFieldId = FieldId.create(`fld${'4'.repeat(16)}`)._unsafeUnwrap();
+      const conditionalRollupId = FieldId.create(`fld${'5'.repeat(16)}`)._unsafeUnwrap();
+      const recordId = RecordId.create(`rec${'6'.repeat(16)}`)._unsafeUnwrap();
+
+      const filterDto = {
+        conjunction: 'and' as const,
+        filterSet: [
+          { fieldId: statusFieldId.toString(), operator: 'is' as const, value: 'active' },
+        ],
+      };
+
+      const fieldsById = new Map<string, FieldMeta>([
+        [
+          valueFieldId.toString(),
+          {
+            id: valueFieldId,
+            tableId,
+            type: 'number',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          statusFieldId.toString(),
+          {
+            id: statusFieldId,
+            tableId,
+            type: 'singleLineText',
+            isComputed: false,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: null,
+          },
+        ],
+        [
+          conditionalRollupId.toString(),
+          {
+            id: conditionalRollupId,
+            tableId,
+            type: 'conditionalRollup',
+            isComputed: true,
+            options: null,
+            lookupOptions: null,
+            conditionalOptions: {
+              foreignTableId: tableId.toString(),
+              lookupFieldId: valueFieldId.toString(),
+              conditionFieldIds: [statusFieldId.toString()],
+              filterDto,
+            },
+          },
+        ],
+      ]);
+
+      const planner = new ComputedUpdatePlanner({
+        load: vi.fn().mockResolvedValue(
+          ok({
+            fieldsById,
+            edges: [
+              {
+                fromFieldId: valueFieldId,
+                toFieldId: conditionalRollupId,
+                fromTableId: tableId,
+                toTableId: tableId,
+                kind: 'cross_record',
+                semantic: 'conditional_rollup_source',
+              },
+            ],
+          } satisfies FieldDependencyGraphData)
+        ),
+      } as never);
+
+      const plan = (
+        await planner.planStage({
+          baseId,
+          seedTableId: tableId,
+          seedRecordIds: [recordId],
+          extraSeedRecords: [],
+          changedFieldIds: [valueFieldId],
+          changeType: 'delete',
+        })
+      )._unsafeUnwrap();
+
+      expect(plan.steps).toEqual([
+        expect.objectContaining({
+          tableId,
+          fieldIds: [conditionalRollupId],
+        }),
+      ]);
+      expect(plan.edges).toEqual([
+        expect.objectContaining({
+          toFieldId: conditionalRollupId,
+          propagationMode: 'allTargetRecords',
+          allTargetRecordsReasons: expect.arrayContaining(['conditional_delete']),
+        }),
+      ]);
+    });
+
+    it('requires complete capture of the specific reverse link to skip filtered delete propagation', async () => {
+      const fieldsById = new Map<string, FieldMeta>(
+        fields.map((field) => [field.id.toString(), field])
+      );
+      const link = fieldsById.get(linkFieldId.toString())!;
+      fieldsById.set(link.id.toString(), {
+        ...link,
+        options: { ...link.options, relationship: 'oneMany', isOneWay: false },
+      });
+      const planner = new ComputedUpdatePlanner({
+        load: vi.fn().mockResolvedValue(ok({ fieldsById, edges })),
+      } as never);
+      const hostRecordId = RecordId.create(`rec${'t'.repeat(16)}`)._unsafeUnwrap();
+      const parentSeeds = [{ tableId: hostTableId, recordIds: [hostRecordId] }];
+      const input = {
+        baseId,
+        seedTableId: sourceTableId,
+        seedRecordIds: [recordId],
+        changedFieldIds: [statusFieldId],
+        changeType: 'delete' as const,
+      };
+      for (const extraSeedRecords of [parentSeeds, []]) {
+        const captured = (
+          await planner.planStage({
+            ...input,
+            extraSeedRecords,
+            capturedDeleteLinkFieldIds: [linkFieldId.toString()],
+          })
+        )._unsafeUnwrap();
+        expect(captured.edges).toHaveLength(0);
+        expect(captured.extraSeedRecords).toEqual(extraSeedRecords);
+        const targets = captured.steps.flatMap((step) => step.fieldIds.map((id) => id.toString()));
+        expect(targets).toEqual(
+          expect.arrayContaining([
+            filteredLookupFieldId.toString(),
+            filteredRollupFieldId.toString(),
+          ])
+        );
+      }
+      // Parents from a sibling link to the same table cannot cover this one.
+      const incomplete = (
+        await planner.planStage({
+          ...input,
+          extraSeedRecords: parentSeeds,
+          capturedDeleteLinkFieldIds: [`fld${'x'.repeat(16)}`],
+        })
+      )._unsafeUnwrap();
+      for (const target of [filteredLookupFieldId, filteredRollupFieldId]) {
+        const edge = incomplete.edges.find((candidate) => edgeTargetsField(candidate, target));
+        expect(edge?.allTargetRecordsReasons).toEqual([
+          'filtered_lookup_delete_requires_source_record',
+        ]);
+      }
+    });
 
     it('skips delete propagation when the target table is already extra-seeded', async () => {
       const planner = createPlanner();

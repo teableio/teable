@@ -4,7 +4,11 @@ import sockjs from 'sockjs';
 import { describe, it, expect, afterEach } from 'vitest';
 import WebSocket from 'ws';
 import { getCompressionSnapshot } from '../share-db/metrics/compression-metrics';
-import { createSockjsServerOptions } from './sockjs-options';
+import {
+  DEFAULT_IDLE_TIMEOUT_SECONDS,
+  createSockjsServerOptions,
+  resolveRealtimeTransportConfig,
+} from './sockjs-options';
 
 /**
  * These tests drive a real SockJS server over a real WebSocket client, because
@@ -193,5 +197,85 @@ describe('createSockjsServerOptions', () => {
 
     expect(received).toEqual(ops);
     expect(bytesOnWire).toBeLessThan(rawBytes / 5);
+  });
+});
+
+describe('resolveRealtimeTransportConfig', () => {
+  it('keeps websocket on and idles out after the default when nothing is set', () => {
+    expect(resolveRealtimeTransportConfig({})).toEqual({
+      disableWebsocket: false,
+      idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_SECONDS * 1000,
+    });
+  });
+
+  it.each(['1', 'true', 'TRUE', ' true '])('disables websocket for %j', (value) => {
+    expect(
+      resolveRealtimeTransportConfig({ SOCKJS_DISABLE_WEBSOCKET: value }).disableWebsocket
+    ).toBe(true);
+  });
+
+  it.each(['0', 'false', ''])('keeps websocket for %j', (value) => {
+    expect(
+      resolveRealtimeTransportConfig({ SOCKJS_DISABLE_WEBSOCKET: value }).disableWebsocket
+    ).toBe(false);
+  });
+
+  it('reads the idle timeout in seconds and lets 0 turn it off', () => {
+    expect(
+      resolveRealtimeTransportConfig({ SOCKJS_IDLE_TIMEOUT_SECONDS: '300' }).idleTimeoutMs
+    ).toBe(300_000);
+    expect(resolveRealtimeTransportConfig({ SOCKJS_IDLE_TIMEOUT_SECONDS: '0' }).idleTimeoutMs).toBe(
+      0
+    );
+  });
+
+  it.each(['-1', 'abc'])('falls back to the default for an invalid idle timeout %j', (value) => {
+    expect(
+      resolveRealtimeTransportConfig({ SOCKJS_IDLE_TIMEOUT_SECONDS: value }).idleTimeoutMs
+    ).toBe(DEFAULT_IDLE_TIMEOUT_SECONDS * 1000);
+  });
+});
+
+describe('createSockjsServerOptions websocket switch', () => {
+  /** Boots a real SockJS server and returns its base URL. */
+  async function boot(disableWebsocket: boolean): Promise<string> {
+    const httpServer = http.createServer();
+    const sockjsServer = sockjs.createServer(
+      createSockjsServerOptions(() => undefined, { disableWebsocket })
+    );
+    sockjsServer.installHandlers(httpServer);
+    await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
+    teardown.push(() => new Promise<void>((resolve) => httpServer.close(() => resolve())));
+    const { port } = httpServer.address() as AddressInfo;
+    return `127.0.0.1:${port}`;
+  }
+
+  const info = async (host: string) =>
+    (await (await fetch(`http://${host}/socket/info`)).json()) as { websocket: boolean };
+
+  /** Resolves with the first thing the WebSocket client sees: an open, or the HTTP status it was refused with. */
+  const tryWebsocket = (host: string) =>
+    new Promise<string>((resolve) => {
+      // Loopback test server without TLS, so wss:// cannot be used here.
+      // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
+      const client = new WebSocket(`ws://${host}/socket/000/vitest/websocket`);
+      client.on('open', () => {
+        client.close();
+        resolve('open');
+      });
+      client.on('unexpected-response', (_req, res) => resolve(`http ${res.statusCode}`));
+      client.on('error', (err) => resolve(`error ${err.message}`));
+    });
+
+  it('advertises and serves websocket by default', async () => {
+    const host = await boot(false);
+    expect((await info(host)).websocket).toBe(true);
+    expect(await tryWebsocket(host)).toBe('open');
+  });
+
+  it('advertises no websocket and refuses the upgrade when disabled', async () => {
+    const host = await boot(true);
+    expect((await info(host)).websocket).toBe(false);
+    expect(await tryWebsocket(host)).not.toBe('open');
   });
 });

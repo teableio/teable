@@ -1,4 +1,27 @@
 {
+  "searchAcceleration": {
+    "title": "検索の高速化",
+    "stateLabel": "設定",
+    "state": {
+      "disabled": "オフ",
+      "preparing": "準備中",
+      "enabled": "オン",
+      "disabling": "オフにしています",
+      "failed": "失敗"
+    },
+    "serving": "対象フィールドの検索データを準備しました。",
+    "notServing": "高速化を使わなくても、このテーブルを検索できます。",
+    "enable": "オンにする",
+    "disable": "オフにする",
+    "resetOff": "オフにリセット",
+    "permissionError": "この設定を変更する権限を確認できませんでした。",
+    "readOnly": "この設定を変更できるのは、スペースのオーナーと、このテーブルを更新する権限を持つ作成者だけです。",
+    "statusError": "設定を読み込めませんでした。このテーブルの検索は引き続き利用できます。",
+    "changeError": "設定を変更できませんでした。もう一度お試しください。",
+    "confirmTitle": "この大きなテーブルの高速化をオンにしますか？",
+    "confirmDetail": "このテーブルには50,000件以上のレコードがあります。準備には時間がかかる場合があります。準備中も検索を続けられます。",
+    "confirm": "確認してオンにする"
+  },
   "computeActivity": {
     "currentCalculations": "現在の計算状況",
     "thisTableOnly": "このテーブルのみ",

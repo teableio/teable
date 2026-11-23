@@ -23,7 +23,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: explain port boundaries and implementations.
-- `ButtonClickWorkflowService.ts` - Role: Table Button-field workflow port; Purpose: optional automation after `ButtonClicked`. Not a host-hook template.
+- `ButtonClickWorkflowService.ts` - Table Button-field workflow port. Prepares the workflow once, exposes its record filter before the write, and runs the prepared workflow after commit.
 - `CommandBus.ts` - Role: port interface; Purpose: define ICommandBus + middleware contract.
 - `CsvParser.ts` - Role: lazy CSV source contract; Purpose: support bounded parsing without promising
   immediate headers for an ambiguous delimiter. The Papa adapter scores fixed lexical previews and

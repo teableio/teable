@@ -41,7 +41,6 @@ import {
   clearSelectionByIdStream,
   copy,
   copyById,
-  deleteById,
   deleteSelectionByIdStream,
   duplicateSelectionStream,
   ensureUndoRedoWindowIdHeader,
@@ -64,6 +63,8 @@ import {
   useViewId,
   usePersonalView,
   getHttpErrorMessage,
+  redirectToUnauthenticatedAuth,
+  getLocalizationMessage,
   LARGE_QUERY_THRESHOLD,
   SelectionRegionType,
   useRowCount,
@@ -78,7 +79,7 @@ import { useConfirm } from '@teable/ui-lib/base';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import type { AxiosResponse } from 'axios';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
 import { serializerCellValueHtml, serializerHtml } from '@/features/app/utils/clipboard';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -110,7 +111,6 @@ import {
 import { useSyncSelectionStore } from './useSelectionStore';
 
 const clearToastId = 'clearToastId';
-const deleteToastId = 'deleteToastId';
 const archiveToastId = 'archiveToastId';
 
 // Mirrors the global axios interceptor (queryClient.tsx): stream/SSE requests bypass it, so
@@ -233,6 +233,17 @@ export const useSelectionOperation = (props?: {
   const [pendingClearSelection, setPendingClearSelection] = useState<PendingClearSelection | null>(
     null
   );
+  const deleteStreamAbortRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      // Do not abort already-confirmed deletes when the user switches tables or
+      // leaves the view; only suppress React state updates after unmount.
+      isMountedRef.current = false;
+    };
+  }, []);
   const [deleteProgress, setDeleteProgress] = useState<IDeleteSelectionStreamProgressEvent | null>(
     null
   );
@@ -955,13 +966,6 @@ export const useSelectionOperation = (props?: {
     },
   });
 
-  const { mutateAsync: deleteReq } = useMutation({
-    mutationFn: async (deleteRo: IDeleteByIdRo) => deleteById(tableId!, deleteRo),
-    onError: () => {
-      toast.dismiss(deleteToastId);
-    },
-  });
-
   const copyRequest = copyReq || defaultCopyReq;
 
   const checkCopyAndPasteEnvironment = useCallback(() => {
@@ -1412,29 +1416,40 @@ export const useSelectionOperation = (props?: {
       });
       setIsDeleteProgressOpen(true);
 
-      const streamResult = await deleteSelectionByIdStream(tableId, toSelectionIdsRo(deleteRo), {
-        headers: {
-          'X-Window-Id': ensureUndoRedoWindowIdHeader(),
-        },
-        onProgress: (progress) => {
-          setDeleteProgress(progress);
-          setDeleteProgressStatus('running');
-          setIsDeleteProgressOpen(true);
-        },
-        onError: (error) => {
-          setDeleteErrors((previous) => [...previous, error]);
-          setIsDeleteProgressOpen(true);
-        },
-      });
+      deleteStreamAbortRef.current?.abort();
+      const controller = new AbortController();
+      deleteStreamAbortRef.current = controller;
 
-      setDeleteSummary(streamResult.done);
-      setDeleteProgressStatus(streamResult.errors.length ? 'partial' : 'success');
+      try {
+        const streamResult = await deleteSelectionByIdStream(tableId, toSelectionIdsRo(deleteRo), {
+          signal: controller.signal,
+          headers: {
+            'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+          },
+          onProgress: (progress) => {
+            if (!isMountedRef.current) return;
+            setDeleteProgress(progress);
+            setDeleteProgressStatus('running');
+            setIsDeleteProgressOpen(true);
+          },
+          onError: (error) => {
+            if (!isMountedRef.current) return;
+            setDeleteErrors((previous) => [...previous, error]);
+            setIsDeleteProgressOpen(true);
+          },
+        });
 
-      if (streamResult.errors.length) {
-        return true;
+        if (isMountedRef.current) {
+          setDeleteSummary(streamResult.done);
+          setDeleteProgressStatus(streamResult.errors.length ? 'partial' : 'success');
+        }
+
+        return streamResult.errors.length > 0;
+      } finally {
+        if (deleteStreamAbortRef.current === controller) {
+          deleteStreamAbortRef.current = null;
+        }
       }
-
-      return false;
     },
     [tableId]
   );
@@ -1499,6 +1514,16 @@ export const useSelectionOperation = (props?: {
         return;
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+      if ((error as Partial<HttpError> | undefined)?.status === 401) {
+        redirectToUnauthenticatedAuth();
+        return;
+      }
+      if (!isMountedRef.current) {
+        return;
+      }
       const description =
         getHttpErrorMessage(error as HttpError, t, 'sdk') ||
         (error instanceof Error ? error.message : 'Unknown error');
@@ -1679,9 +1704,34 @@ export const useSelectionOperation = (props?: {
     }
   }, [ensurePasteProgressDialogError, pendingPasteSelection, runPasteSelectionStream, t]);
 
+  const runLightweightDeleteSelectionStream = useCallback(
+    async (deleteRo: IDeleteByIdRo, currentToastId: string) => {
+      if (!tableId) return;
+      const toastId = toast.loading(t('table:table.actionTips.deleting'), {
+        id: currentToastId,
+      });
+      const streamResult = await deleteSelectionByIdStream(tableId, toSelectionIdsRo(deleteRo), {
+        headers: {
+          'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+        },
+      });
+      if (streamResult.errors.length) {
+        const firstError = streamResult.errors[0]!;
+        const localized = firstError.localization
+          ? getLocalizationMessage(firstError.localization, t as never, 'sdk')
+          : undefined;
+        toast.error(localized || firstError.message || 'Unknown error', { id: toastId });
+        return;
+      }
+      toast.success(t('table:table.actionTips.deleteSuccessful'), { id: toastId });
+    },
+    [tableId, t]
+  );
+
   const doDelete = useCallback(
     async (selection: CombinedSelection, recordMap?: IRecordIndexMap) => {
       if (!viewId || !tableId) return;
+      const currentToastId = `deleteToast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       try {
         const deleteRo = (await buildSelectionIdRequest(selection, recordMap ?? {}, {
           includeFieldSelection: false,
@@ -1690,22 +1740,38 @@ export const useSelectionOperation = (props?: {
         if (shouldUseDeleteSelectionStream(selection, rowCount)) {
           openDeleteConfirmationDialog(deleteRo, getEffectRows(selection, rowCount));
           return;
-        } else {
-          const toastId = toast.loading(t('table:table.actionTips.deleting'), {
-            id: deleteToastId,
-          });
-          await deleteReq(deleteRo);
-          toast.success(t('table:table.actionTips.deleteSuccessful'), { id: toastId });
         }
+        await runLightweightDeleteSelectionStream(deleteRo, currentToastId);
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          toast.dismiss(currentToastId);
+          return;
+        }
+        if ((error as Partial<HttpError> | undefined)?.status === 401) {
+          toast.dismiss(currentToastId);
+          redirectToUnauthenticatedAuth();
+          return;
+        }
+        if (handleUsageLimitError(error)) {
+          toast.dismiss(currentToastId);
+          return;
+        }
         const description =
           getHttpErrorMessage(error as HttpError, t, 'sdk') ||
           (error instanceof Error ? error.message : 'Unknown error');
-        toast.error(description, { id: deleteToastId });
+        toast.error(description, { id: currentToastId });
         console.error('Delete error: ', error);
       }
     },
-    [buildSelectionIdRequest, deleteReq, openDeleteConfirmationDialog, rowCount, tableId, t, viewId]
+    [
+      buildSelectionIdRequest,
+      openDeleteConfirmationDialog,
+      rowCount,
+      runLightweightDeleteSelectionStream,
+      tableId,
+      t,
+      viewId,
+    ]
   );
 
   const doArchive = useCallback(

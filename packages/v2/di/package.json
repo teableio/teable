@@ -7,11 +7,11 @@
   "sideEffects": true,
   "main": "dist/index.cjs",
   "module": "dist/index.js",
-  "types": "src/index.ts",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "@teable/source": "./src/index.ts",
-      "types": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "module": "./dist/index.js",
       "require": "./dist/index.cjs"

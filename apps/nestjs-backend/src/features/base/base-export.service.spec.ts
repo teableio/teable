@@ -51,7 +51,11 @@ describe('legacy base attachment export', () => {
       token: `token-${index}`,
       name: `file-${index}.txt`,
     }));
-    const metadata = refs.map(({ token }) => ({ token, path: `files/${token}`, thumbnailPath: null }));
+    const metadata = refs.map(({ token }) => ({
+      token,
+      path: `files/${token}`,
+      thumbnailPath: null,
+    }));
     // Bodies and then thumbnails each traverse the refs independently, retaining one page.
     for (let pass = 0; pass < 2; pass++) {
       prisma.attachmentsTable.findMany
@@ -63,7 +67,11 @@ describe('legacy base attachment export', () => {
         .mockResolvedValueOnce(metadata.slice(500) as never);
     }
     let readingFirstBody = false;
-    const body = new Readable({ read() { readingFirstBody = true; } });
+    const body = new Readable({
+      read() {
+        readingFirstBody = true;
+      },
+    });
     storage.downloadFile.mockResolvedValueOnce(body);
     storage.downloadFile.mockImplementation(async () => Readable.from(['synthetic body']));
     const archive = archiver('zip');
@@ -130,7 +138,9 @@ describe('legacy base attachment export', () => {
     );
     let settled = false;
     const reason = new DOMException('All export subscribers left', 'AbortError');
-    const result = exporting.finally(() => { settled = true; });
+    const result = exporting.finally(() => {
+      settled = true;
+    });
     const rejected = expect(result).rejects.toBe(reason);
     try {
       expect(prisma.attachmentsTable.findMany).toHaveBeenCalledTimes(1);
@@ -149,6 +159,67 @@ describe('legacy base attachment export', () => {
       archive.destroy();
       output.destroy();
       await Promise.allSettled([result]);
+    }
+  });
+});
+
+describe('legacy base export failure notice', () => {
+  it('holds the failure notice until the export transaction has unwound', async () => {
+    const prisma = mockDeep<PrismaService>();
+    prisma.base.findFirstOrThrow.mockResolvedValue({ name: 'Base' } as never);
+    // A table read keeps the export transaction open after the upload has failed.
+    const transaction = promiseWithResolvers.withResolvers<void>();
+    let transactionOpen = false;
+    prisma.$tx.mockImplementation((async () => {
+      transactionOpen = true;
+      try {
+        await transaction.promise;
+      } finally {
+        transactionOpen = false;
+      }
+    }) as never);
+    const storage = mockDeep<StorageAdapter>();
+    const uploadFailure = new Error('S3 upload failed');
+    storage.uploadFileStream.mockRejectedValue(uploadFailure);
+    let notifiedInsideTransaction: boolean | undefined;
+    const sendExportBaseResultNotify = vi.fn(async () => {
+      notifiedInsideTransaction = transactionOpen;
+    });
+    const service = new BaseExportService(
+      prisma,
+      { get: () => 'usrTest' } as never,
+      { sendExportBaseResultNotify } as never,
+      { emit: vi.fn() } as never,
+      {} as never,
+      {} as never,
+      storage,
+      { tokenExpireIn: '7d' } as never,
+      { bigTransactionTimeout: 60_000 } as never,
+      {} as never,
+      {
+        run: (_options: unknown, job: (...args: unknown[]) => Promise<unknown>) =>
+          job(
+            new AbortController().signal,
+            () => undefined,
+            () => true
+          ),
+      } as never
+    );
+
+    const exporting = service.exportBaseZip('bseTest');
+    const rejected = expect(exporting).rejects.toBe(uploadFailure);
+    try {
+      await vi.waitFor(() => expect(prisma.$tx).toHaveBeenCalled());
+      await yieldToEventLoop();
+      // The transaction client sits in the request's CLS store, so a notice sent now would
+      // read through a transaction that is about to roll back.
+      expect(sendExportBaseResultNotify).not.toHaveBeenCalled();
+      transaction.reject(uploadFailure);
+      await rejected;
+      expect(notifiedInsideTransaction).toBe(false);
+    } finally {
+      transaction.resolve();
+      await Promise.allSettled([exporting, rejected]);
     }
   });
 });

@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { presentRecordReadModels } from '../application/formatting/presentRecordReadModels';
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import {
   mergeOrderBy,
@@ -42,7 +43,11 @@ import { v2CoreTokens } from '../ports/tokens';
 import { ListTableRecordsQuery, type RecordSortValue } from './ListTableRecordsQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
 import type { RecordFilter } from './RecordFilterDto';
-import { replaceCurrentUserTagInFilter, sanitizeRecordFilter } from './RecordFilterMapper';
+import {
+  buildRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
+  sanitizeRecordFilter,
+} from './RecordFilterMapper';
 import {
   RecordSearch,
   resolveSearchRowScopeFieldIds,
@@ -61,6 +66,11 @@ import {
   resolveProjectionFieldIds,
   sanitizeFilterByEnabledFieldIds,
 } from './tableRecordQueryPlan';
+
+const supportsAggregation = (
+  repository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository
+): repository is TableRecordQueryRepositoryPort.ITableRecordAggregationQueryRepository =>
+  'aggregate' in repository && typeof repository.aggregate === 'function';
 
 export class ListTableRecordsResult {
   private constructor(
@@ -427,6 +437,475 @@ export class ListTableRecordsHandler implements IQueryHandler<
     private readonly tableQueryObservability: ITableQueryObservability = new NoopTableQueryObservability()
   ) {}
 
+  /** Shared domain planning for record execution and native adapter compilation. */
+  async prepare(context: IExecutionContext, query: ListTableRecordsQuery) {
+    let observabilityEvent = createListRecordsObservabilityEvent(query);
+    return safeTry(
+      async function* (this: ListTableRecordsHandler) {
+        // 1. Load main table (tableId is globally unique). A trusted host may
+        // preload the aggregate; only reuse it when it matches the queried id.
+        const preloadedTable =
+          query.table && query.table.id().equals(query.tableId) ? query.table : undefined;
+        const loadTableSpan = preloadedTable
+          ? undefined
+          : context.tracer?.startSpan('teable.ListTableRecordsHandler.loadTable');
+        const table =
+          preloadedTable ??
+          (yield* (
+            await this.tableRepository.findOne(context, TableByIdSpec.create(query.tableId))
+          ).mapErr((error: DomainError) =>
+            isNotFoundError(error)
+              ? domainError.notFound({ code: 'table.not_found', message: 'Table not found' })
+              : error
+          ));
+        loadTableSpan?.end();
+
+        // 2. Resolve effective filter/sort/search inputs with view defaults and permission-aware fields.
+        const enabledFieldIds = getEnabledFieldIdSet(query);
+        let effectiveFilter: RecordFilter | undefined;
+        let effectiveSort: ReadonlyArray<RecordSortValue> | undefined;
+        let effectiveGroup: ReadonlyArray<ViewQueryGroupItem> | undefined;
+        let orderBy: ReturnType<typeof mergeOrderBy> | undefined;
+        let queryPlan: ListRecordsQueryPlan | undefined;
+        let projectionFieldIds: ReadonlyArray<FieldId> | undefined;
+        // Keep the response/search scope separate from SQL-only mask dependencies.
+        let searchProjectionFieldIds: ReadonlyArray<FieldId> | undefined;
+        const resolveShapeSpan = context.tracer?.startSpan('teable.table.query.resolve_shape', {
+          ...createTableQueryTraceAttributes(observabilityEvent),
+          ...createSearchTraceAttributes(observabilityEvent),
+        });
+        try {
+          const resolvedFilter = query.filter
+            ? yield* resolveFilterFieldKeys(table, query.filter, query.fieldKeyType)
+            : undefined;
+          const actorResolvedFilter = replaceCurrentUserTagInFilter(
+            table,
+            resolvedFilter,
+            context.actorId.toString()
+          );
+
+          const conditionPlanDeps = {
+            tableRepository: this.tableRepository,
+            tableRecordQueryRepository: this.tableRecordQueryRepository,
+            logger: this.logger,
+          };
+          // Pre-resolve link candidate plan so filterByViewId can inform effectiveView.
+          const linkCandidatePlan = query.filterLinkCellCandidate
+            ? yield* await buildLinkCandidatePlan(
+                conditionPlanDeps,
+                context,
+                table,
+                query.filterLinkCellCandidate
+              )
+            : undefined;
+
+          // query.viewId takes priority; fall back to the link field's filterByViewId.
+          let effectiveView =
+            query.viewId && !query.ignoreViewQuery
+              ? yield* table.getViewById(query.viewId)
+              : undefined;
+          if (!effectiveView && linkCandidatePlan?.filterByViewId && !query.ignoreViewQuery) {
+            const fallbackViewResult = table.getViewById(linkCandidatePlan.filterByViewId);
+            if (fallbackViewResult.isOk()) {
+              effectiveView = fallbackViewResult.value;
+            }
+            // silently ignore if the view no longer exists
+          }
+          const resolvedSort = yield* resolveSortValues(table, query.sort, query.fieldKeyType);
+          const effectiveQueryDefaults = effectiveView
+            ? yield* effectiveView.queryDefaults()
+            : undefined;
+          // Grid subscriptions inline the persisted view filter/sort and set
+          // ignoreViewQuery so skip-poll can observe every dependency. Keep a
+          // read-only copy of those defaults to distinguish an exact view echo
+          // from extra client conditions without applying the defaults twice.
+          let referencedViewQueryDefaults: typeof effectiveQueryDefaults;
+          if (query.viewId && query.ignoreViewQuery) {
+            const referencedViewResult = table.getViewById(query.viewId);
+            if (referencedViewResult.isOk()) {
+              referencedViewQueryDefaults = yield* referencedViewResult.value.queryDefaults();
+            }
+          }
+          const defaultFilter = replaceCurrentUserTagInFilter(
+            table,
+            effectiveQueryDefaults?.filter(),
+            context.actorId.toString()
+          );
+          const sanitizedDefaultFilter = yield* sanitizeRecordFilter(table, defaultFilter);
+          // Plain-value filters use the three-valued mask rewrite. Field
+          // references stay fail-closed until both sides support mask SQL;
+          // sort/group/search use masked SQL expressions below (T6997).
+          const maskedFieldIds = query.queryScope?.fieldMasks?.length
+            ? new Set(query.queryScope.fieldMasks.map((mask) => mask.fieldId))
+            : undefined;
+          const permissionSanitizedDefaultFilter = yield* sanitizeFilterByEnabledFieldIds(
+            sanitizedDefaultFilter,
+            enabledFieldIds,
+            maskedFieldIds,
+            'strip'
+          );
+          const permissionValidatedClientFilter = yield* sanitizeFilterByEnabledFieldIds(
+            actorResolvedFilter,
+            enabledFieldIds,
+            maskedFieldIds,
+            query.searchIndexMode != null ? 'strip' : 'reject'
+          );
+          effectiveFilter = mergeFilterWithViewDefaults(
+            permissionSanitizedDefaultFilter,
+            permissionValidatedClientFilter
+          );
+          // Resolve groupBy to field IDs before query-access validation;
+          // raw keys may be name/dbFieldName.
+          const resolvedGroupFieldIds: string[] = [];
+          for (const groupKey of query.groupBy ?? []) {
+            const groupFieldId = yield* FieldKeyResolverService.resolveFieldKey(
+              table,
+              groupKey,
+              query.fieldKeyType
+            );
+            resolvedGroupFieldIds.push(groupFieldId);
+          }
+          const clientGroupFieldIds = new Set(resolvedGroupFieldIds);
+          // Grid clients echo view.group as groupBy. Treat those keys as
+          // view-owned so stale fields with neither projection nor a mask
+          // can degrade without 400ing the record query.
+          const viewOwnedGroupFieldIds = new Set(
+            effectiveQueryDefaults?.group()?.map((item) => item.fieldId) ?? []
+          );
+          const extraGroupItems = resolvedGroupFieldIds
+            .filter((fieldId) => !viewOwnedGroupFieldIds.has(fieldId))
+            .map((fieldId) => ({ fieldId }));
+          // Group first so pure groupBy is not mislabeled as sort (OpenAPI
+          // merges groupBy into sort before calling list).
+          yield* rejectUnreadableSortOrGroup(
+            'group',
+            extraGroupItems,
+            enabledFieldIds,
+            maskedFieldIds
+          );
+          // Sort-only keys: exclude groupBy fields that were folded into sort.
+          const clientSortOnly = resolvedSort?.filter(
+            (item) => !clientGroupFieldIds.has(item.fieldId)
+          );
+          const referencedViewSort = referencedViewQueryDefaults?.sort();
+          const isExactReferencedViewSortEcho =
+            referencedViewSort != null &&
+            clientSortOnly != null &&
+            referencedViewSort.length === clientSortOnly.length &&
+            referencedViewSort.every(
+              (viewItem, index) =>
+                viewItem.fieldId === clientSortOnly[index]?.fieldId &&
+                viewItem.order === clientSortOnly[index]?.order &&
+                viewItem.collation === clientSortOnly[index]?.collation
+            );
+          // Only the complete persisted-view sort echo is server-owned.
+          // Masked fields are valid query dependencies; only fields with
+          // neither projection access nor a mask remain unavailable.
+          const extraSortItems = isExactReferencedViewSortEcho ? undefined : clientSortOnly;
+          yield* rejectUnreadableSortOrGroup(
+            'sort',
+            extraSortItems,
+            enabledFieldIds,
+            maskedFieldIds
+          );
+          const isUnavailableField = (fieldId: string) =>
+            enabledFieldIds != null &&
+            !enabledFieldIds.has(fieldId) &&
+            !maskedFieldIds?.has(fieldId);
+          const skippedEchoedGroupFieldIds = new Set(
+            resolvedGroupFieldIds.filter(
+              (fieldId) => viewOwnedGroupFieldIds.has(fieldId) && isUnavailableField(fieldId)
+            )
+          );
+          const sortWithoutSkippedViewItems = resolvedSort?.filter(
+            (item) =>
+              !skippedEchoedGroupFieldIds.has(item.fieldId) &&
+              !(isExactReferencedViewSortEcho && isUnavailableField(item.fieldId))
+          );
+          // View-default masked fields remain active and query the masked
+          // value domain. Truly unavailable stale fields are filtered below.
+          const viewDefaultSort = mergeSortWithViewDefaults(
+            effectiveQueryDefaults?.sort(),
+            effectiveQueryDefaults?.manualSort(),
+            undefined
+          );
+          effectiveSort = filterSortByQueryAccess(
+            mergeSortWithViewDefaults(viewDefaultSort, undefined, sortWithoutSkippedViewItems),
+            enabledFieldIds,
+            maskedFieldIds
+          );
+          effectiveGroup = filterGroupByQueryAccess(
+            query.groupBy?.length
+              ? resolvedGroupFieldIds.map((fieldId) => ({
+                  fieldId,
+                  order:
+                    resolvedSort?.find((item) => item.fieldId === fieldId)?.order ??
+                    ('asc' as const),
+                }))
+              : effectiveQueryDefaults?.group(),
+            enabledFieldIds,
+            maskedFieldIds
+          );
+          orderBy = mergeOrderBy(
+            yield* resolveGroupByToOrderBy(effectiveGroup),
+            yield* resolveQueryOrderBy(effectiveSort, table, effectiveGroup),
+            query.viewId
+          );
+          const builtQueryPlan = yield* await buildTableRecordConditionPlan(
+            conditionPlanDeps,
+            context,
+            table,
+            {
+              filterLinkCellSelected: query.filterLinkCellSelected,
+              filterLinkCellCandidate: query.filterLinkCellCandidate,
+              selectedRecordIds: query.selectedRecordIds,
+              fieldMasks: query.queryScope?.fieldMasks,
+            },
+            effectiveFilter,
+            linkCandidatePlan
+          );
+          // AND pure-V2 permission row scope into the condition tree
+          // (unless link-selected keepPrimary / skipRecordSpec).
+          const rowScopeSpec =
+            query.queryScope?.skipRecordSpec || !query.queryScope?.recordSpec
+              ? undefined
+              : query.queryScope.recordSpec;
+          queryPlan = {
+            ...builtQueryPlan,
+            spec: composeAndSpecsOrUndefined(
+              [builtQueryPlan.spec, rowScopeSpec].filter(
+                (spec): spec is ISpecification<TableRecord, ITableRecordConditionSpecVisitor> =>
+                  spec != null
+              )
+            ),
+          };
+          searchProjectionFieldIds = yield* resolveProjectionFieldIds(
+            table,
+            query.projection,
+            query.fieldKeyType,
+            enabledFieldIds
+          );
+          projectionFieldIds = searchProjectionFieldIds;
+          // Expand the already-resolved SQL projection with mask evaluation
+          // columns only. Do not union every readable field back in: that
+          // re-selects the full wide row on authority-matrix tables (T7105).
+          // Masks for fields that are not in the SQL projection are skipped —
+          // their visibleWhen deps must not widen the select.
+          // Visible-scope search matches also need the mask target cell so
+          // hidden hits can be removed after masking. Internal fields are
+          // never returned — they are stripped after mask apply.
+          if (query.queryScope?.fieldMasks?.length) {
+            const searchMatchMaskTargets =
+              query.includeSearchFieldMatches && query.searchFieldScope === 'visible'
+                ? query.queryScope.fieldMasks.map((mask) => mask.fieldId)
+                : [];
+            // No projection + no allow-list means "all columns" — seed with
+            // every table field so expansion cannot collapse to mask deps.
+            const baseFieldIds =
+              projectionFieldIds != null
+                ? projectionFieldIds.map((id) => id.toString())
+                : table.fieldIds().map((id) => id.toString());
+            const relevantMaskFieldIds = new Set([...baseFieldIds, ...searchMatchMaskTargets]);
+            const relevantMasks = query.queryScope.fieldMasks.filter((mask) =>
+              relevantMaskFieldIds.has(mask.fieldId)
+            );
+            const maskDeps = collectMaskDependencyFieldIds(relevantMasks);
+            const expanded = new Set([...baseFieldIds, ...maskDeps, ...searchMatchMaskTargets]);
+            const expandedIds: FieldId[] = [];
+            for (const fieldIdText of expanded) {
+              const fieldId = FieldId.create(fieldIdText);
+              if (fieldId.isOk()) {
+                expandedIds.push(fieldId.value);
+              }
+            }
+            projectionFieldIds = expandedIds;
+          }
+          observabilityEvent = createListRecordsObservabilityEvent(query, {
+            hasFilter: Boolean(effectiveFilter),
+            hasSort: Boolean(effectiveSort?.length),
+            hasGroup: Boolean(effectiveGroup?.length),
+          });
+          resolveShapeSpan?.setAttributes({
+            ...createTableQueryTraceAttributes(observabilityEvent),
+            ...createSearchTraceAttributes(observabilityEvent),
+          });
+        } finally {
+          resolveShapeSpan?.end();
+        }
+
+        // 3. Resolve visible-row search through the repository. Response-
+        // hidden fields remain searchable when a mask exists; the adapter
+        // ANDs every field predicate with visibleWhen, matching v1's
+        // permission-CTE value domain (T6997).
+        const searchMaskedFieldIds = query.queryScope?.fieldMasks?.length
+          ? new Set(query.queryScope.fieldMasks.map((mask) => mask.fieldId))
+          : undefined;
+        const requestedSearch = RecordSearch.fromOptionalTuple(query.search);
+        // Explicit targets remain not-found only when a field has neither
+        // projection access nor a visibility mask.
+        if (requestedSearch && !requestedSearch.searchesAllFields()) {
+          for (const key of requestedSearch.fieldKeys() ?? []) {
+            const resolved = RecordSearch.resolveFieldKey(table, key);
+            if (resolved.isErr()) {
+              continue;
+            }
+            const fieldId = resolved.value.id().toString();
+            if (
+              query.requireReadableSearchFields &&
+              enabledFieldIds != null &&
+              !enabledFieldIds.has(fieldId) &&
+              !searchMaskedFieldIds?.has(fieldId)
+            ) {
+              yield* err(
+                domainError.notFound({
+                  code: 'record.search.field_not_found',
+                  message: `Search field not found: ${key}`,
+                })
+              );
+            }
+          }
+        }
+        const orderedSearchFieldIds = query.searchFieldIds
+          ? query.searchFieldIds.flatMap((fieldId) => {
+              const parsed = FieldId.create(fieldId);
+              return parsed.isOk() ? [parsed.value] : [];
+            })
+          : yield* resolveSearchRowScopeFieldIds(table, query.viewId, query.ignoreViewQuery);
+        const searchVisibleFieldIds = filterFieldIdsByQueryAccess(
+          orderedSearchFieldIds,
+          enabledFieldIds,
+          searchMaskedFieldIds
+        );
+        // searchFieldScope 'visible' keeps the full visible-field row scope:
+        // the record-list path wants search to filter rows across everything
+        // the user can see, with match columns as a side channel. The default
+        // 'projection' narrowing serves the search-index API, where rows
+        // exist only to carry hits in the projected columns.
+        const projectedSearchVisibleFieldIds =
+          query.includeSearchFieldMatches &&
+          searchProjectionFieldIds &&
+          query.searchFieldScope !== 'visible'
+            ? searchVisibleFieldIds.filter((fieldId) =>
+                searchProjectionFieldIds?.some((projectedFieldId) =>
+                  projectedFieldId.equals(fieldId)
+                )
+              )
+            : searchVisibleFieldIds;
+        const visibleRowSearch =
+          query.applySearchRowFilter === false
+            ? undefined
+            : resolveVisibleRowSearch(requestedSearch, projectedSearchVisibleFieldIds);
+        const searchFieldMatchesSearch =
+          query.includeSearchFieldMatches && requestedSearch?.value.length
+            ? {
+                search: requestedSearch,
+                visibleFieldIds: projectedSearchVisibleFieldIds,
+              }
+            : undefined;
+        if (query.collapsedGroupIds?.length && effectiveGroup?.length) {
+          if (!supportsAggregation(this.tableRecordQueryRepository)) {
+            return err(
+              domainError.infrastructure({
+                message: 'Record repository does not support grouped queries',
+              })
+            );
+          }
+          const aggregation = yield* table.createRecordAggregation({
+            fields: [{ fieldId: effectiveGroup[0]!.fieldId, statisticFunc: 'count' }],
+            groupBy: effectiveGroup,
+            includeHiddenFields: true,
+          });
+          const values = yield* await this.tableRecordQueryRepository.aggregate(
+            context,
+            table,
+            aggregation,
+            queryPlan?.spec,
+            {
+              maxGroupPoints: (query.groupLimit ?? 10000) + 1,
+              search: visibleRowSearch,
+              searchAccessPath: query.recordSearchAccessPath,
+              fieldMasks: query.queryScope?.fieldMasks,
+            }
+          );
+          const groupedValues = values.filter(
+            (value) => value.groupValues?.length === effectiveGroup.length
+          );
+          if (groupedValues.length > (query.groupLimit ?? 10000)) {
+            return err(
+              domainError.validation({
+                code: 'record.collapsed_groups.limit_exceeded',
+                message: 'Too many groups to resolve collapsed group identifiers',
+              })
+            );
+          }
+          const filter = yield* table.createCollapsedGroupExclusionFilter(
+            effectiveGroup,
+            groupedValues.map((value) => ({ groupValues: value.groupValues! })),
+            new Set(query.collapsedGroupIds)
+          );
+          const spec = filter
+            ? yield* buildRecordConditionSpec(table, filter, query.queryScope?.fieldMasks)
+            : undefined;
+          queryPlan = {
+            ...queryPlan,
+            spec: composeAndSpecsOrUndefined(
+              [queryPlan?.spec, spec].filter(
+                (item): item is ISpecification<TableRecord, ITableRecordConditionSpecVisitor> =>
+                  item != null
+              )
+            ),
+          };
+        }
+        const searchAccessEvent = createListRecordsObservabilityEvent(query, {
+          hasFilter: Boolean(effectiveFilter),
+          hasSort: Boolean(effectiveSort?.length),
+          hasGroup: Boolean(effectiveGroup?.length),
+          visibleRowSearch,
+        });
+        const queryOptions: TableRecordQueryRepositoryPort.ITableRecordQueryOptions = {
+          pagination: query.pagination,
+          cursor: query.cursor,
+          orderBy: queryPlan?.recordIdsOrder?.length ? undefined : orderBy,
+          recordIdsOrder: queryPlan?.recordIdsOrder,
+          search: visibleRowSearch,
+          searchFieldMatchesSearch,
+          // Record lists consume persisted values in every host.
+          mode: 'stored',
+          projectionFieldIds,
+          includeTotal: query.includeTotal === true,
+          recordReadQuerySource: query.recordReadQuerySource,
+          searchAccessPath: query.recordSearchAccessPath,
+          includeSearchFieldMatches: query.includeSearchFieldMatches,
+          searchIndexMode: query.searchIndexMode,
+          fieldMasks: query.queryScope?.fieldMasks,
+          idsOnly: query.idsOnly,
+          recordIndexId: query.recordIndexId,
+          includeOrders: query.includeOrders,
+          ...(query.includeGroupMetadata && effectiveGroup?.length
+            ? {
+                groupBy: ((yield* resolveGroupByToOrderBy(effectiveGroup)) ?? []).filter(
+                  TableRecordQueryRepositoryPort.isFieldOrderBy
+                ),
+                groupLimit: query.groupLimit,
+              }
+            : {}),
+        };
+        return ok({
+          table,
+          enabledFieldIds,
+          effectiveFilter,
+          effectiveSort,
+          effectiveGroup,
+          projectionFieldIds,
+          visibleRowSearch,
+          searchAccessEvent,
+          outputFieldIds: searchProjectionFieldIds,
+          options: { spec: queryPlan?.spec, query: queryOptions },
+        });
+      }.bind(this)
+    );
+  }
+
   async handle(
     context: IExecutionContext,
     query: ListTableRecordsQuery
@@ -446,377 +925,22 @@ export class ListTableRecordsHandler implements IQueryHandler<
     try {
       const result = await safeTry<ListTableRecordsResult, DomainError>(
         async function* (this: ListTableRecordsHandler) {
-          // 1. Load main table (tableId is globally unique). A trusted host may
-          // preload the aggregate; only reuse it when it matches the queried id.
-          const preloadedTable =
-            query.table && query.table.id().equals(query.tableId) ? query.table : undefined;
-          const loadTableSpan = preloadedTable
-            ? undefined
-            : context.tracer?.startSpan('teable.ListTableRecordsHandler.loadTable');
-          const table =
-            preloadedTable ??
-            (yield* (
-              await this.tableRepository.findOne(context, TableByIdSpec.create(query.tableId))
-            ).mapErr((error: DomainError) =>
-              isNotFoundError(error)
-                ? domainError.notFound({ code: 'table.not_found', message: 'Table not found' })
-                : error
-            ));
-          loadTableSpan?.end();
-
-          // 2. Resolve effective filter/sort/search inputs with view defaults and permission-aware fields.
-          const enabledFieldIds = getEnabledFieldIdSet(query);
-          let effectiveFilter: RecordFilter | undefined;
-          let effectiveSort: ReadonlyArray<RecordSortValue> | undefined;
-          let effectiveGroup: ReadonlyArray<ViewQueryGroupItem> | undefined;
-          let orderBy: ReturnType<typeof mergeOrderBy> | undefined;
-          let queryPlan: ListRecordsQueryPlan | undefined;
-          let projectionFieldIds: ReadonlyArray<FieldId> | undefined;
-          // Keep the response/search scope separate from SQL-only mask dependencies.
-          let searchProjectionFieldIds: ReadonlyArray<FieldId> | undefined;
-          const resolveShapeSpan = context.tracer?.startSpan('teable.table.query.resolve_shape', {
-            ...createTableQueryTraceAttributes(observabilityEvent),
-            ...createSearchTraceAttributes(observabilityEvent),
-          });
-          try {
-            const resolvedFilter = query.filter
-              ? yield* resolveFilterFieldKeys(table, query.filter, query.fieldKeyType)
-              : undefined;
-            const actorResolvedFilter = replaceCurrentUserTagInFilter(
-              table,
-              resolvedFilter,
-              context.actorId.toString()
-            );
-
-            const conditionPlanDeps = {
-              tableRepository: this.tableRepository,
-              tableRecordQueryRepository: this.tableRecordQueryRepository,
-              logger: this.logger,
-            };
-            // Pre-resolve link candidate plan so filterByViewId can inform effectiveView.
-            const linkCandidatePlan = query.filterLinkCellCandidate
-              ? yield* await buildLinkCandidatePlan(
-                  conditionPlanDeps,
-                  context,
-                  table,
-                  query.filterLinkCellCandidate
-                )
-              : undefined;
-
-            // query.viewId takes priority; fall back to the link field's filterByViewId.
-            let effectiveView =
-              query.viewId && !query.ignoreViewQuery
-                ? yield* table.getViewById(query.viewId)
-                : undefined;
-            if (!effectiveView && linkCandidatePlan?.filterByViewId && !query.ignoreViewQuery) {
-              const fallbackViewResult = table.getViewById(linkCandidatePlan.filterByViewId);
-              if (fallbackViewResult.isOk()) {
-                effectiveView = fallbackViewResult.value;
-              }
-              // silently ignore if the view no longer exists
-            }
-            const resolvedSort = yield* resolveSortValues(table, query.sort, query.fieldKeyType);
-            const effectiveQueryDefaults = effectiveView
-              ? yield* effectiveView.queryDefaults()
-              : undefined;
-            // Grid subscriptions inline the persisted view filter/sort and set
-            // ignoreViewQuery so skip-poll can observe every dependency. Keep a
-            // read-only copy of those defaults to distinguish an exact view echo
-            // from extra client conditions without applying the defaults twice.
-            let referencedViewQueryDefaults: typeof effectiveQueryDefaults;
-            if (query.viewId && query.ignoreViewQuery) {
-              const referencedViewResult = table.getViewById(query.viewId);
-              if (referencedViewResult.isOk()) {
-                referencedViewQueryDefaults = yield* referencedViewResult.value.queryDefaults();
-              }
-            }
-            const defaultFilter = replaceCurrentUserTagInFilter(
-              table,
-              effectiveQueryDefaults?.filter(),
-              context.actorId.toString()
-            );
-            const sanitizedDefaultFilter = yield* sanitizeRecordFilter(table, defaultFilter);
-            // Plain-value filters use the three-valued mask rewrite. Field
-            // references stay fail-closed until both sides support mask SQL;
-            // sort/group/search use masked SQL expressions below (T6997).
-            const maskedFieldIds = query.queryScope?.fieldMasks?.length
-              ? new Set(query.queryScope.fieldMasks.map((mask) => mask.fieldId))
-              : undefined;
-            const permissionSanitizedDefaultFilter = yield* sanitizeFilterByEnabledFieldIds(
-              sanitizedDefaultFilter,
-              enabledFieldIds,
-              maskedFieldIds,
-              'strip'
-            );
-            const permissionValidatedClientFilter = yield* sanitizeFilterByEnabledFieldIds(
-              actorResolvedFilter,
-              enabledFieldIds,
-              maskedFieldIds,
-              query.searchIndexMode != null ? 'strip' : 'reject'
-            );
-            effectiveFilter = mergeFilterWithViewDefaults(
-              permissionSanitizedDefaultFilter,
-              permissionValidatedClientFilter
-            );
-            // Resolve groupBy to field IDs before query-access validation;
-            // raw keys may be name/dbFieldName.
-            const resolvedGroupFieldIds: string[] = [];
-            for (const groupKey of query.groupBy ?? []) {
-              const groupFieldId = yield* FieldKeyResolverService.resolveFieldKey(
-                table,
-                groupKey,
-                query.fieldKeyType
-              );
-              resolvedGroupFieldIds.push(groupFieldId);
-            }
-            const clientGroupFieldIds = new Set(resolvedGroupFieldIds);
-            // Grid clients echo view.group as groupBy. Treat those keys as
-            // view-owned so stale fields with neither projection nor a mask
-            // can degrade without 400ing the record query.
-            const viewOwnedGroupFieldIds = new Set(
-              effectiveQueryDefaults?.group()?.map((item) => item.fieldId) ?? []
-            );
-            const extraGroupItems = resolvedGroupFieldIds
-              .filter((fieldId) => !viewOwnedGroupFieldIds.has(fieldId))
-              .map((fieldId) => ({ fieldId }));
-            // Group first so pure groupBy is not mislabeled as sort (OpenAPI
-            // merges groupBy into sort before calling list).
-            yield* rejectUnreadableSortOrGroup(
-              'group',
-              extraGroupItems,
-              enabledFieldIds,
-              maskedFieldIds
-            );
-            // Sort-only keys: exclude groupBy fields that were folded into sort.
-            const clientSortOnly = resolvedSort?.filter(
-              (item) => !clientGroupFieldIds.has(item.fieldId)
-            );
-            const referencedViewSort = referencedViewQueryDefaults?.sort();
-            const isExactReferencedViewSortEcho =
-              referencedViewSort != null &&
-              clientSortOnly != null &&
-              referencedViewSort.length === clientSortOnly.length &&
-              referencedViewSort.every(
-                (viewItem, index) =>
-                  viewItem.fieldId === clientSortOnly[index]?.fieldId &&
-                  viewItem.order === clientSortOnly[index]?.order &&
-                  viewItem.collation === clientSortOnly[index]?.collation
-              );
-            // Only the complete persisted-view sort echo is server-owned.
-            // Masked fields are valid query dependencies; only fields with
-            // neither projection access nor a mask remain unavailable.
-            const extraSortItems = isExactReferencedViewSortEcho ? undefined : clientSortOnly;
-            yield* rejectUnreadableSortOrGroup(
-              'sort',
-              extraSortItems,
-              enabledFieldIds,
-              maskedFieldIds
-            );
-            const isUnavailableField = (fieldId: string) =>
-              enabledFieldIds != null &&
-              !enabledFieldIds.has(fieldId) &&
-              !maskedFieldIds?.has(fieldId);
-            const skippedEchoedGroupFieldIds = new Set(
-              resolvedGroupFieldIds.filter(
-                (fieldId) => viewOwnedGroupFieldIds.has(fieldId) && isUnavailableField(fieldId)
-              )
-            );
-            const sortWithoutSkippedViewItems = resolvedSort?.filter(
-              (item) =>
-                !skippedEchoedGroupFieldIds.has(item.fieldId) &&
-                !(isExactReferencedViewSortEcho && isUnavailableField(item.fieldId))
-            );
-            // View-default masked fields remain active and query the masked
-            // value domain. Truly unavailable stale fields are filtered below.
-            const viewDefaultSort = mergeSortWithViewDefaults(
-              effectiveQueryDefaults?.sort(),
-              effectiveQueryDefaults?.manualSort(),
-              undefined
-            );
-            effectiveSort = filterSortByQueryAccess(
-              mergeSortWithViewDefaults(viewDefaultSort, undefined, sortWithoutSkippedViewItems),
-              enabledFieldIds,
-              maskedFieldIds
-            );
-            effectiveGroup = filterGroupByQueryAccess(
-              query.groupBy?.length
-                ? resolvedGroupFieldIds.map((fieldId) => ({
-                    fieldId,
-                    order:
-                      resolvedSort?.find((item) => item.fieldId === fieldId)?.order ??
-                      ('asc' as const),
-                  }))
-                : effectiveQueryDefaults?.group(),
-              enabledFieldIds,
-              maskedFieldIds
-            );
-            orderBy = mergeOrderBy(
-              yield* resolveGroupByToOrderBy(effectiveGroup),
-              yield* resolveQueryOrderBy(effectiveSort, table, effectiveGroup),
-              query.viewId
-            );
-            const builtQueryPlan = yield* await buildTableRecordConditionPlan(
-              conditionPlanDeps,
-              context,
-              table,
-              {
-                filterLinkCellSelected: query.filterLinkCellSelected,
-                filterLinkCellCandidate: query.filterLinkCellCandidate,
-                selectedRecordIds: query.selectedRecordIds,
-                fieldMasks: query.queryScope?.fieldMasks,
-              },
-              effectiveFilter,
-              linkCandidatePlan
-            );
-            // AND pure-V2 permission row scope into the condition tree
-            // (unless link-selected keepPrimary / skipRecordSpec).
-            const rowScopeSpec =
-              query.queryScope?.skipRecordSpec || !query.queryScope?.recordSpec
-                ? undefined
-                : query.queryScope.recordSpec;
-            queryPlan = {
-              ...builtQueryPlan,
-              spec: composeAndSpecsOrUndefined(
-                [builtQueryPlan.spec, rowScopeSpec].filter(
-                  (spec): spec is ISpecification<TableRecord, ITableRecordConditionSpecVisitor> =>
-                    spec != null
-                )
-              ),
-            };
-            searchProjectionFieldIds = yield* resolveProjectionFieldIds(
-              table,
-              query.projection,
-              query.fieldKeyType,
-              enabledFieldIds
-            );
-            projectionFieldIds = searchProjectionFieldIds;
-            // Expand the already-resolved SQL projection with mask evaluation
-            // columns only. Do not union every readable field back in: that
-            // re-selects the full wide row on authority-matrix tables (T7105).
-            // Masks for fields that are not in the SQL projection are skipped —
-            // their visibleWhen deps must not widen the select.
-            // Visible-scope search matches also need the mask target cell so
-            // hidden hits can be removed after masking. Internal fields are
-            // never returned — they are stripped after mask apply.
-            if (query.queryScope?.fieldMasks?.length) {
-              const searchMatchMaskTargets =
-                query.includeSearchFieldMatches && query.searchFieldScope === 'visible'
-                  ? query.queryScope.fieldMasks.map((mask) => mask.fieldId)
-                  : [];
-              // No projection + no allow-list means "all columns" — seed with
-              // every table field so expansion cannot collapse to mask deps.
-              const baseFieldIds =
-                projectionFieldIds != null
-                  ? projectionFieldIds.map((id) => id.toString())
-                  : table.fieldIds().map((id) => id.toString());
-              const relevantMaskFieldIds = new Set([...baseFieldIds, ...searchMatchMaskTargets]);
-              const relevantMasks = query.queryScope.fieldMasks.filter((mask) =>
-                relevantMaskFieldIds.has(mask.fieldId)
-              );
-              const maskDeps = collectMaskDependencyFieldIds(relevantMasks);
-              const expanded = new Set([...baseFieldIds, ...maskDeps, ...searchMatchMaskTargets]);
-              const expandedIds: FieldId[] = [];
-              for (const fieldIdText of expanded) {
-                const fieldId = FieldId.create(fieldIdText);
-                if (fieldId.isOk()) {
-                  expandedIds.push(fieldId.value);
-                }
-              }
-              projectionFieldIds = expandedIds;
-            }
-            observabilityEvent = createListRecordsObservabilityEvent(query, {
-              hasFilter: Boolean(effectiveFilter),
-              hasSort: Boolean(effectiveSort?.length),
-              hasGroup: Boolean(effectiveGroup?.length),
-            });
-            span?.setAttributes({
-              ...createTableQueryTraceAttributes(observabilityEvent),
-              ...createSearchTraceAttributes(observabilityEvent),
-            });
-            resolveShapeSpan?.setAttributes({
-              ...createTableQueryTraceAttributes(observabilityEvent),
-              ...createSearchTraceAttributes(observabilityEvent),
-            });
-          } finally {
-            resolveShapeSpan?.end();
-          }
-
-          // 3. Resolve visible-row search through the repository. Response-
-          // hidden fields remain searchable when a mask exists; the adapter
-          // ANDs every field predicate with visibleWhen, matching v1's
-          // permission-CTE value domain (T6997).
-          const searchMaskedFieldIds = query.queryScope?.fieldMasks?.length
-            ? new Set(query.queryScope.fieldMasks.map((mask) => mask.fieldId))
-            : undefined;
-          const requestedSearch = RecordSearch.fromOptionalTuple(query.search);
-          // Explicit targets remain not-found only when a field has neither
-          // projection access nor a visibility mask.
-          if (requestedSearch && !requestedSearch.searchesAllFields()) {
-            for (const key of requestedSearch.fieldKeys() ?? []) {
-              const resolved = RecordSearch.resolveFieldKey(table, key);
-              if (resolved.isErr()) {
-                continue;
-              }
-              const fieldId = resolved.value.id().toString();
-              if (
-                query.requireReadableSearchFields &&
-                enabledFieldIds != null &&
-                !enabledFieldIds.has(fieldId) &&
-                !searchMaskedFieldIds?.has(fieldId)
-              ) {
-                yield* err(
-                  domainError.notFound({
-                    code: 'record.search.field_not_found',
-                    message: `Search field not found: ${key}`,
-                  })
-                );
-              }
-            }
-          }
-          const orderedSearchFieldIds = query.searchFieldIds
-            ? query.searchFieldIds.flatMap((fieldId) => {
-                const parsed = FieldId.create(fieldId);
-                return parsed.isOk() ? [parsed.value] : [];
-              })
-            : yield* resolveSearchRowScopeFieldIds(table, query.viewId, query.ignoreViewQuery);
-          const searchVisibleFieldIds = filterFieldIdsByQueryAccess(
-            orderedSearchFieldIds,
+          const {
+            table,
             enabledFieldIds,
-            searchMaskedFieldIds
-          );
-          // searchFieldScope 'visible' keeps the full visible-field row scope:
-          // the record-list path wants search to filter rows across everything
-          // the user can see, with match columns as a side channel. The default
-          // 'projection' narrowing serves the search-index API, where rows
-          // exist only to carry hits in the projected columns.
-          const projectedSearchVisibleFieldIds =
-            query.includeSearchFieldMatches &&
-            searchProjectionFieldIds &&
-            query.searchFieldScope !== 'visible'
-              ? searchVisibleFieldIds.filter((fieldId) =>
-                  searchProjectionFieldIds?.some((projectedFieldId) =>
-                    projectedFieldId.equals(fieldId)
-                  )
-                )
-              : searchVisibleFieldIds;
-          const visibleRowSearch =
-            query.applySearchRowFilter === false
-              ? undefined
-              : resolveVisibleRowSearch(requestedSearch, projectedSearchVisibleFieldIds);
-          const searchFieldMatchesSearch =
-            query.includeSearchFieldMatches && requestedSearch?.value.length
-              ? {
-                  search: requestedSearch,
-                  visibleFieldIds: projectedSearchVisibleFieldIds,
-                }
-              : undefined;
-          const searchAccessEvent = createListRecordsObservabilityEvent(query, {
-            hasFilter: Boolean(effectiveFilter),
-            hasSort: Boolean(effectiveSort?.length),
-            hasGroup: Boolean(effectiveGroup?.length),
+            effectiveFilter,
+            effectiveSort,
+            effectiveGroup,
+            projectionFieldIds,
             visibleRowSearch,
-          });
+            searchAccessEvent,
+            options,
+          } = yield* await this.prepare(context, query);
           observabilityEvent = searchAccessEvent;
+          span?.setAttributes({
+            ...createTableQueryTraceAttributes(searchAccessEvent),
+            ...createSearchTraceAttributes(searchAccessEvent),
+          });
 
           // 4. Query records with pagination
           const queryRecordsSpan = context.tracer?.startSpan('teable.table.query.records.find', {
@@ -831,35 +955,8 @@ export class ListTableRecordsHandler implements IQueryHandler<
             queryRecordsResult = await this.tableRecordQueryRepository.find(
               context,
               table,
-              queryPlan?.spec,
-              {
-                pagination: query.pagination,
-                cursor: query.cursor,
-                orderBy: queryPlan?.recordIdsOrder?.length ? undefined : orderBy,
-                recordIdsOrder: queryPlan?.recordIdsOrder,
-                search: visibleRowSearch,
-                searchFieldMatchesSearch,
-                // !!!IMPORTANT: List table records are always using stored values
-                // never change this to 'computed'
-                mode: 'stored',
-                projectionFieldIds,
-                includeTotal: query.includeTotal === true,
-                recordReadQuerySource: query.recordReadQuerySource,
-                searchAccessPath: query.recordSearchAccessPath,
-                includeSearchFieldMatches: query.includeSearchFieldMatches,
-                searchIndexMode: query.searchIndexMode,
-                fieldMasks: query.queryScope?.fieldMasks,
-                idsOnly: query.idsOnly,
-                recordIndexId: query.recordIndexId,
-                ...(query.includeGroupMetadata && effectiveGroup?.length
-                  ? {
-                      groupBy: ((yield* resolveGroupByToOrderBy(effectiveGroup!)) ?? []).filter(
-                        TableRecordQueryRepositoryPort.isFieldOrderBy
-                      ),
-                      groupLimit: query.groupLimit,
-                    }
-                  : {}),
-              }
+              options.spec,
+              options.query
             );
             if (queryRecordsResult.isOk()) {
               const appliedSearchEvent = createListRecordsObservabilityEvent(query, {
@@ -935,6 +1032,9 @@ export class ListTableRecordsHandler implements IQueryHandler<
               return { ...record, fields: nextFields };
             });
           }
+          maskedRecords = [
+            ...(yield* presentRecordReadModels(table, maskedRecords, query.cellFormat)),
+          ];
           const transformedRecords =
             query.fieldKeyType !== FieldKeyType.Id
               ? maskedRecords.map((record) => ({

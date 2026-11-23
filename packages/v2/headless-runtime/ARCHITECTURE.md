@@ -7,7 +7,8 @@ Declaration: If the folder I belong to changes, please update me, especially the
 - Provide a headless facade over the existing v2 composition roots.
 - Select a persistence backend: PGlite or PostgreSQL.
 - Bootstrap a local actor and undo-capture globals for PGlite.
-- Expose command/query buses, computed draining, realtime, attachments, and lifecycle.
+- Expose command/query buses, structured queries, computed draining, realtime,
+  attachments, and lifecycle.
 - Register the canonical command-explain preview module for the Node/Bun PGlite
   composition, where `container-browser` intentionally omits it.
 - Stay free of UI, authentication, billing, and cloud control-plane concerns.
@@ -21,6 +22,10 @@ Declaration: If the folder I belong to changes, please update me, especially the
   package only composes them.
 - Preview registration does not add authorization. Capability permission scopes
   are requirements for the host, and missing preview adapters remain explicit.
+
+Structured queries use the configured table repository, query plugin runner,
+and data connection. In Node/Bun PGlite, validation and execution enter the
+same queue and shutdown drain as the public command and query buses.
 
 ## Backends
 

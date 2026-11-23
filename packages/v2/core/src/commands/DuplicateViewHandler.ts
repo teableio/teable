@@ -87,6 +87,11 @@ export class DuplicateViewHandler implements ICommandHandler<
           view: {
             name: view.name().toString(),
             description: view.description(),
+            isLocked: view.isLocked(),
+            enableShare: view.enableShare(),
+            shareId: view.shareId(),
+            shareMeta: view.shareMeta(),
+            columnMeta: (yield* view.columnMeta()).toDto(),
             filter: queryDefaults.filter(),
             sort: queryDefaults.sort(),
             group: queryDefaults.group(),

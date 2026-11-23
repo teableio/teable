@@ -310,8 +310,8 @@ describe('order-only updateRecord (T8437)', () => {
     }
   });
 
-  it('requires the PAT update scope and target base, but not record read permission', async () => {
-    const { table, titleFieldId, notesFieldId, records } = await createOrderedTable();
+  it('requires the PAT update scope and target base without leaking unreadable record values', async () => {
+    const { table, titleFieldId, records } = await createOrderedTable();
     const [alpha, , gamma] = records;
     const viewId = table.views[0].id;
     const tokens: CreateAccessTokenVo[] = [];
@@ -371,11 +371,8 @@ describe('order-only updateRecord (T8437)', () => {
       const response = await patch(updateOnlyToken.token);
       expect(response.status).toBe(200);
       expect(response.headers['x-teable-v2']).toBe('true');
-      expect(response.data).toMatchObject({ id: alpha.id, name: 'Alpha' });
-      expect(response.data.fields).toEqual({
-        [titleFieldId]: 'Alpha',
-        [notesFieldId]: 'Alpha notes',
-      });
+      expect(response.data).toMatchObject({ id: alpha.id, name: '' });
+      expect(response.data.fields).toEqual({});
       expect(await titlesInView(table.id, viewId, titleFieldId)).toEqual([
         'Beta',
         'Gamma',

@@ -81,6 +81,7 @@ import {
   createLinkField,
   DeleteByRangeStreamCommand,
   DuplicateRecordsStreamCommand,
+  ensureWithinTableDataSafetyLimit,
   FieldClipboardValueVisitor,
   FieldDisplayValueVisitor,
   type FieldDisplayValueFormatter,
@@ -107,7 +108,9 @@ import {
   presignAttachmentFieldMaps,
   RecordQueryOperationKind,
   RecordId,
+  resolveTableDataSafetyLimits,
   TableByIdSpec,
+  tableDataSafetyLimitErrors,
   TableId,
   TemporaryPasteCommand,
   type TemporaryPasteResult,
@@ -1097,6 +1100,47 @@ export class RecordOpenApiV2Service {
       : { ids: result.records.map((record) => record.id) };
   }
 
+  async getDiffIdsByIdAndFilter(
+    tableId: string,
+    recordIds: string[],
+    filter?: IFilter | null
+  ): Promise<string[]> {
+    if (!recordIds.length) return [];
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const context = await this.v2ContextFactory.createContext(container);
+    const table = await this.loadV2Table(context, container, tableId);
+    const queryScope = await this.prepareRecordQueryScope(context, container, table, {
+      kind: RecordQueryOperationKind.getByIds,
+      recordIds,
+      projectionFieldIds: [],
+      ignoreViewQuery: true,
+      keepPrimaryKey: false,
+    });
+    const matchingIds = new Set<string>();
+    for (let index = 0; index < recordIds.length; index += maxResolveSelectionRecordIdsPageSize) {
+      const chunk = recordIds.slice(index, index + maxResolveSelectionRecordIdsPageSize);
+      const { result } = await this.getRecordsWithPreparedScope(
+        tableId,
+        {
+          selectedRecordIds: chunk,
+          filter,
+          take: chunk.length,
+          skip: 0,
+          ignoreViewQuery: true,
+          includeQueryExtra: false,
+          fieldKeyType: FieldKeyType.Id,
+        },
+        queryScope,
+        container,
+        context,
+        table,
+        { projectionFieldIds: [], idsOnly: true }
+      );
+      for (const record of result.records) matchingIds.add(record.id);
+    }
+    return recordIds.filter((recordId) => !matchingIds.has(recordId));
+  }
+
   async getOrderedReadableFieldIds(
     tableId: string,
     query: {
@@ -1202,6 +1246,35 @@ export class RecordOpenApiV2Service {
     });
   }
 
+  /**
+   * A write response keeps the row, but a token without `record|read` on the table
+   * gets no cell values back. Role and matrix rules belong to the query plugins;
+   * the token scope is the ceiling every edition shares, so the host applies it.
+   */
+  private async applyCredentialReadCeiling(
+    tableId: string,
+    scope: RecordQueryPluginScope | undefined
+  ): Promise<RecordQueryPluginScope | undefined> {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (!accessTokenId || scope?.readableFieldIds?.size === 0) return scope;
+    let granted: readonly string[] = [];
+    try {
+      granted = await this.previewPermissionService.getPermissionsByAccessToken(
+        tableId,
+        accessTokenId,
+        true
+      );
+    } catch (error) {
+      // The write already committed: a token that cannot reach the table is masked, not refused.
+      if (!(error instanceof HttpException) || ![401, 403, 404].includes(error.getStatus())) {
+        throw error;
+      }
+    }
+    if (granted.includes('record|read')) return scope;
+    // No user fields at all, the primary one included.
+    return { ...scope, readableFieldIds: new Set<string>() };
+  }
+
   private async loadRecordsByIds(
     tableId: string,
     recordIds: string[],
@@ -1222,7 +1295,7 @@ export class RecordOpenApiV2Service {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const context = await this.v2ContextFactory.createContext(container);
     const table = await this.loadV2Table(context, container, tableId);
-    const queryScope = await this.prepareRecordQueryScope(context, container, table, {
+    const pluginScope = await this.prepareRecordQueryScope(context, container, table, {
       kind: RecordQueryOperationKind.getByIds,
       recordIds,
       projectionFieldIds: options.projection,
@@ -1230,6 +1303,9 @@ export class RecordOpenApiV2Service {
       keepPrimaryKey: options.keepPrimaryKey || Boolean(options.writeResponse),
       ...(options.writeResponse ? { writeResponse: true } : {}),
     });
+    const queryScope = options.writeResponse
+      ? await this.applyCredentialReadCeiling(tableId, pluginScope)
+      : pluginScope;
     const recordById = new Map<string, IRecord>();
     const versionByRecordId = new Map<string, number>();
     for (let index = 0; index < recordIds.length; index += maxResolveSelectionRecordIdsPageSize) {
@@ -1380,17 +1456,36 @@ export class RecordOpenApiV2Service {
       | 'search'
       | 'collapsedGroupIds'
       | 'projection'
-    >
+    >,
+    options?: {
+      maxRowCount?: number;
+    }
   ): Promise<string[]> {
     const { selection, ...queryRo } = selectionRo;
-    if (selection.recordIds) {
-      return selection.recordIds;
+    const selectionWithAliases = selection as typeof selection & {
+      excludedRecordIds?: string[];
+      allRecords?: boolean;
+    };
+    const excludedIds = new Set(
+      selectionWithAliases.excludeRecordIds ?? selectionWithAliases.excludedRecordIds ?? []
+    );
+    if (!selectionWithAliases.allRecords && selection.recordIds) {
+      return excludedIds.size > 0
+        ? selection.recordIds.filter((recordId) => !excludedIds.has(recordId))
+        : selection.recordIds;
     }
 
     const rangeQuery = await this.normalizeRangeQuery(tableId, queryRo);
-    const recordIds = await this.resolveRecordIdsForQuery(tableId, rangeQuery);
-    const excludedIds = new Set(selection.excludeRecordIds ?? []);
-    return recordIds.filter((recordId) => !excludedIds.has(recordId));
+    const recordIds = await this.resolveRecordIdsForQuery(
+      tableId,
+      rangeQuery,
+      options?.maxRowCount !== undefined && excludedIds.size === 0
+        ? { maxRowCount: options.maxRowCount }
+        : undefined
+    );
+    return excludedIds.size > 0
+      ? recordIds.filter((recordId) => !excludedIds.has(recordId))
+      : recordIds;
   }
 
   private async resolveRecordIdsForQuery(
@@ -1398,7 +1493,10 @@ export class RecordOpenApiV2Service {
     rangeQuery: Pick<
       IGetRecordsRo,
       'viewId' | 'ignoreViewQuery' | 'filter' | 'orderBy' | 'groupBy' | 'search'
-    >
+    >,
+    options?: {
+      maxRowCount?: number;
+    }
   ): Promise<string[]> {
     // Only record ids are needed here: load the table aggregate once and page
     // with an empty projection so no user-field cells are read or mapped.
@@ -1416,10 +1514,17 @@ export class RecordOpenApiV2Service {
       limit: pageSize,
       offset: 0,
     });
+    const maxRowCount = options?.maxRowCount;
     const recordIds: string[] = [];
     let skip = 0;
     let hasMore = true;
     while (hasMore) {
+      if (context.abortSignal?.aborted) {
+        break;
+      }
+      if (maxRowCount !== undefined && recordIds.length >= maxRowCount) {
+        break;
+      }
       const pageQuery: IGetRecordsRo = {
         viewId: rangeQuery.viewId,
         ignoreViewQuery: rangeQuery.ignoreViewQuery,
@@ -1445,10 +1550,14 @@ export class RecordOpenApiV2Service {
       for (const record of result.records) {
         recordIds.push(record.id);
       }
-      hasMore = result.records.length === pageSize;
+      hasMore =
+        result.records.length === pageSize &&
+        (maxRowCount === undefined || recordIds.length < maxRowCount);
       skip += pageSize;
     }
-    return recordIds;
+    return maxRowCount !== undefined && recordIds.length > maxRowCount
+      ? recordIds.slice(0, maxRowCount)
+      : recordIds;
   }
 
   private async withTableDataClient<T>(tableId: string, fn: () => Promise<T>): Promise<T> {
@@ -2688,26 +2797,23 @@ export class RecordOpenApiV2Service {
 
       await this.clearUndoRedoEnginePreference(tableId);
 
-      if (!hasFields) {
-        // The legacy order-only PATCH returns a full, permission-masked snapshot,
-        // including record metadata and hydrated attachment/user cells. Keep the
-        // row identity after a write without imposing the read route's row filter.
-        const { recordById } = await this.loadRecordsByIds(tableId, [recordId], {
-          fieldKeyType: updateRecordRo.fieldKeyType ?? FieldKeyType.Name,
-          cellFormat: CellFormat.Json,
-          keepPrimaryKey: true,
-          writeResponse: true,
+      // Legacy PATCH returns a complete, read-masked snapshot, including linked
+      // titles and hydrated attachment/user cells. Native mutation DTOs may omit
+      // unchanged id-only links; do not expose their storage shape as this response.
+      // Keep write-only row identity without imposing the read route's row filter.
+      const { recordById } = await this.loadRecordsByIds(tableId, [recordId], {
+        fieldKeyType: updateRecordRo.fieldKeyType ?? FieldKeyType.Name,
+        cellFormat: CellFormat.Json,
+        keepPrimaryKey: true,
+        writeResponse: true,
+      });
+      const record = recordById.get(recordId);
+      if (!record) {
+        throw new CustomHttpException('update record failed', HttpErrorCode.VALIDATION_ERROR, {
+          localization: { i18nKey: 'httpErrors.record.updateFailed' },
         });
-        const record = recordById.get(recordId);
-        if (!record) {
-          throw new CustomHttpException('update record failed', HttpErrorCode.VALIDATION_ERROR, {
-            localization: { i18nKey: 'httpErrors.record.updateFailed' },
-          });
-        }
-        return record;
       }
-
-      return result.body.data.record;
+      return record;
     }
     throw new CustomHttpException('No fields to update', HttpErrorCode.VALIDATION_ERROR);
   }
@@ -4347,11 +4453,38 @@ export class RecordOpenApiV2Service {
    * This method queries the record IDs that will be affected by a range-based operation.
    */
   async getRecordIdsFromRanges(tableId: string, rangesRo: IRangesRo): Promise<string[]> {
-    const recordIds = await this.resolveRecordIdsBySelection(tableId, {
-      ...rangesRo,
-      selection: {},
-    });
+    const maxRowCount = this.getMaxRowCountForRanges(rangesRo);
+    if (maxRowCount === 0) {
+      return [];
+    }
+    const recordIds = await this.resolveRecordIdsBySelection(
+      tableId,
+      {
+        ...rangesRo,
+        selection: {},
+      },
+      maxRowCount !== undefined ? { maxRowCount } : undefined
+    );
     return this.sliceRecordIdsByRanges(recordIds, rangesRo);
+  }
+
+  private getMaxRowCountForRanges(rangesRo: IRangesRo): number | undefined {
+    if (rangesRo.type === RangeType.Columns || rangesRo.ranges.length === 0) {
+      return undefined;
+    }
+    if (rangesRo.type === RangeType.Rows) {
+      let maxEnd = -1;
+      for (const [start, end] of rangesRo.ranges) {
+        maxEnd = Math.max(maxEnd, start, end);
+      }
+      return maxEnd >= 0 ? maxEnd + 1 : 0;
+    }
+    const [start, end] = rangesRo.ranges;
+    if (!start || !end) {
+      return undefined;
+    }
+    const maxEnd = Math.max(start[1], end[1]);
+    return maxEnd >= 0 ? maxEnd + 1 : 0;
   }
 
   private sliceRecordIdsByRanges(recordIds: string[], rangesRo: IRangesRo): string[] {
@@ -4380,6 +4513,26 @@ export class RecordOpenApiV2Service {
     return { ids: deletedRecordIds };
   }
 
+  private async *createEmptyDeleteSelectionStream(): AsyncIterable<IDeleteSelectionStreamEvent> {
+    yield {
+      id: 'progress',
+      phase: 'preparing',
+      batchIndex: -1,
+      totalCount: 0,
+      deletedCount: 0,
+      batchDeletedCount: 0,
+    };
+    yield {
+      id: 'done',
+      totalCount: 0,
+      deletedCount: 0,
+      data: {
+        deletedCount: 0,
+        deletedRecordIds: [],
+      },
+    };
+  }
+
   async deleteByRangeStream(
     tableId: string,
     rangesRo: IRangesRo
@@ -4387,10 +4540,15 @@ export class RecordOpenApiV2Service {
     await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext(container);
+    const context = await this.v2ContextFactory.createContext(container, {
+      useRequestAbortSignal: true,
+    });
     const rangeQuery = await this.normalizeRangeQuery(tableId, rangesRo);
     const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
     const recordIds = await this.getRecordIdsFromRanges(tableId, rangesRo);
+    if (recordIds.length === 0) {
+      return this.wrapStreamAndClearPreference(this.createEmptyDeleteSelectionStream(), tableId);
+    }
 
     const commandResult = DeleteByRangeStreamCommand.create({
       tableId,
@@ -4441,9 +4599,26 @@ export class RecordOpenApiV2Service {
     await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ContextFactory.createContext(container);
+    const context = await this.v2ContextFactory.createContext(container, {
+      useRequestAbortSignal: true,
+    });
     const rangeQuery = await this.normalizeRangeQuery(tableId, selectionRo);
     const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
+    const excludedRecordIds = this.resolveExcludedRecordIds(selectionRo.selection);
+    const rawExplicitRecordIds = selectionRo.selection.recordIds;
+    const hasExplicitRecordIds = Boolean(rawExplicitRecordIds?.length);
+    // Explicit recordIds take precedence over allRecords so `{ allRecords: true, recordIds: [a] }`
+    // matches sync delete-by-id instead of silently expanding to the whole view.
+    const selectAllRecords = !hasExplicitRecordIds && Boolean(selectionRo.selection.allRecords);
+    const excludedSet = excludedRecordIds?.length ? new Set(excludedRecordIds) : undefined;
+    const targetRecordIds = hasExplicitRecordIds
+      ? excludedSet
+        ? rawExplicitRecordIds!.filter((recordId) => !excludedSet.has(recordId))
+        : rawExplicitRecordIds!
+      : [];
+    if (!selectAllRecords && targetRecordIds.length === 0) {
+      return this.wrapStreamAndClearPreference(this.createEmptyDeleteSelectionStream(), tableId);
+    }
 
     const commandResult = DeleteByRangeStreamCommand.create({
       tableId,
@@ -4464,8 +4639,11 @@ export class RecordOpenApiV2Service {
         order: item.order,
       })),
       ignoreViewQuery: rangeQuery.ignoreViewQuery,
-      targetRecordIds: this.resolveSelectedRecordIds(selectionRo.selection),
-      excludedTargetRecordIds: this.resolveExcludedRecordIds(selectionRo.selection),
+      selectAllRecords,
+      targetRecordIds,
+      ...(selectAllRecords && excludedRecordIds?.length
+        ? { excludedTargetRecordIds: excludedRecordIds }
+        : {}),
     });
     if (commandResult.isErr()) {
       throwV2Error(
@@ -4554,6 +4732,24 @@ export class RecordOpenApiV2Service {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const context = await this.v2ContextFactory.createContext(container);
+
+    const maxRecords = resolveTableDataSafetyLimits(context.config?.tableLimits).recordValues
+      .maxRecordsPerMutation;
+    const limitResult = ensureWithinTableDataSafetyLimit(
+      tableDataSafetyLimitErrors.recordsPerMutationMax,
+      recordIds.length,
+      maxRecords,
+      {
+        tableId,
+        operation: 'deleteMany',
+      }
+    );
+    if (limitResult.isErr()) {
+      throwV2Error(
+        mapDomainErrorToHttpError(limitResult.error),
+        mapDomainErrorToHttpStatus(limitResult.error)
+      );
+    }
 
     const recordsBeforeDelete: IRecord[] = [];
     for (let index = 0; index < recordIds.length; index += 1000) {

@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { APP_ROBOT_ID } from '@teable/core';
 import type { ClsService } from 'nestjs-cls';
 import { describe, expect, it, vi, type Mock } from 'vitest';
@@ -183,5 +184,102 @@ describe('CrossBaseLinkAccessService', () => {
       ['record|read'],
       ACCESS_TOKEN_ID
     );
+  });
+  describe('readableForeignTableIds', () => {
+    const SAME_BASE_TABLE_ID = `tbl${'s'.repeat(16)}`;
+    const tableMeta = [
+      { id: HOST_TABLE_ID, baseId: HOST_BASE_ID },
+      { id: SAME_BASE_TABLE_ID, baseId: HOST_BASE_ID },
+      { id: FOREIGN_TABLE_ID, baseId: FOREIGN_BASE_ID },
+      { id: OTHER_FOREIGN_TABLE_ID, baseId: FOREIGN_BASE_ID },
+    ];
+    const candidates = [SAME_BASE_TABLE_ID, FOREIGN_TABLE_ID, OTHER_FOREIGN_TABLE_ID];
+
+    it('keeps the host base and the foreign tables the caller can read, and drops the rest', async () => {
+      const validPermissions = vi.fn(async (tableId: string) => {
+        if (tableId === OTHER_FOREIGN_TABLE_ID) {
+          throw new ForbiddenException('not allowed to operate record|read');
+        }
+        return ['record|read'];
+      });
+      const { service } = buildService({ tableMeta, validPermissions });
+
+      const readable = await service.readableForeignTableIds(HOST_TABLE_ID, candidates);
+
+      expect([...readable]).toEqual([SAME_BASE_TABLE_ID, FOREIGN_TABLE_ID]);
+      expect(validPermissions).toHaveBeenCalledTimes(2);
+      expect(validPermissions).toHaveBeenCalledWith(
+        FOREIGN_TABLE_ID,
+        ['record|read'],
+        ACCESS_TOKEN_ID
+      );
+      expect(validPermissions).not.toHaveBeenCalledWith(
+        SAME_BASE_TABLE_ID,
+        expect.anything(),
+        expect.anything()
+      );
+    });
+
+    it('places a trashed table in its base as well', async () => {
+      const { service, tableMetaFindMany } = buildService({ tableMeta });
+
+      await service.readableForeignTableIds(HOST_TABLE_ID, candidates);
+
+      expect(tableMetaFindMany.mock.calls[0][0].where).toEqual({
+        id: { in: [HOST_TABLE_ID, ...candidates] },
+      });
+    });
+
+    it('leaves out a table that cannot be placed in a base', async () => {
+      const { service, validPermissions } = buildService({
+        tableMeta: [{ id: HOST_TABLE_ID, baseId: HOST_BASE_ID }],
+      });
+
+      const readable = await service.readableForeignTableIds(HOST_TABLE_ID, [FOREIGN_TABLE_ID]);
+
+      expect(readable.size).toBe(0);
+      expect(validPermissions).not.toHaveBeenCalled();
+    });
+
+    it('returns nothing when the host table itself is unknown', async () => {
+      const { service } = buildService({
+        tableMeta: [{ id: FOREIGN_TABLE_ID, baseId: FOREIGN_BASE_ID }],
+      });
+
+      const readable = await service.readableForeignTableIds(HOST_TABLE_ID, [FOREIGN_TABLE_ID]);
+
+      expect(readable.size).toBe(0);
+    });
+
+    it('does not turn an infrastructure failure into a refusal', async () => {
+      const failure = new Error('connection terminated');
+      const { service } = buildService({
+        tableMeta,
+        validPermissions: vi.fn().mockRejectedValue(failure),
+      });
+
+      await expect(service.readableForeignTableIds(HOST_TABLE_ID, candidates)).rejects.toBe(
+        failure
+      );
+    });
+
+    it.each([
+      ['an internal job without a user', { userId: undefined }],
+      ['a robot', { userId: APP_ROBOT_ID }],
+      ['a base-scoped token', { clsValues: { tempAuthBaseId: HOST_BASE_ID } }],
+      ['a share view', { clsValues: { shareViewId: 'shrShareView' } }],
+    ])('keeps everything for %s, whose reach is decided elsewhere', async (_label, options) => {
+      const { service, tableMetaFindMany, validPermissions } = buildService({
+        tableMeta,
+        validPermissions: vi.fn().mockRejectedValue(new ForbiddenException()),
+        ...options,
+      });
+
+      const readable = await service.readableForeignTableIds(HOST_TABLE_ID, candidates);
+
+      expect([...readable]).toEqual(candidates);
+      expect(tableMetaFindMany).not.toHaveBeenCalled();
+      expect(validPermissions).not.toHaveBeenCalled();
+    });
   });
 });

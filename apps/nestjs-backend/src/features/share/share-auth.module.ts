@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { DbProvider } from '../../db-provider/db.provider';
 import { AuthModule } from '../auth/auth.module';
+import { FieldReferenceAdmissionModule } from '../field-reference-admission/field-reference-admission.module';
 import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiV2Service } from '../view/open-api/view-open-api-v2.service';
 import { ShareAuthGuard } from './guard/auth.guard';
@@ -13,6 +14,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     AuthModule,
     V2Module,
+    // ViewOpenApiV2Service filters filter-link reads through the cross-base access service
+    FieldReferenceAdmissionModule,
     // ViewOpenApiV2Service is provided directly (below) instead of importing
     // ViewOpenApiModule: this module sits early in the auth wiring, and pulling
     // a controller-bearing module in here would register community controllers

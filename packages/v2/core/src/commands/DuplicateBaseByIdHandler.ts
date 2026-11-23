@@ -147,13 +147,18 @@ export class DuplicateBaseByIdHandler implements ICommandHandler<
 
       const baseBuilder = Base.builder().withName(targetName);
       if (command.targetBaseId) baseBuilder.withId(command.targetBaseId);
-      const targetBase = yield* baseBuilder.build();
+      const targetBase = command.adoptExistingTarget
+        ? command.targetBaseId && (yield* await handler.baseRepository.findOne(context, command.targetBaseId))
+        : yield* baseBuilder.build();
+      if (!targetBase) return err(domainError.notFound({ code: 'base.not_found', message: 'Prepared target base not found' }));
 
-      yield* await handler.unitOfWork.withTransaction(
-        context,
-        async (transactionContext) => handler.baseRepository.insert(transactionContext, targetBase),
-        { scope: 'meta' }
-      );
+      if (!command.adoptExistingTarget) {
+        yield* await handler.unitOfWork.withTransaction(
+          context,
+          async (transactionContext) => handler.baseRepository.insert(transactionContext, targetBase),
+          { scope: 'meta' }
+        );
+      }
 
       const source = handler.createSource(
         context,
@@ -164,6 +169,8 @@ export class DuplicateBaseByIdHandler implements ICommandHandler<
       );
       const duplicateResult = await handler.executeDuplicate(context, targetBase, source, command);
       if (duplicateResult.isErr()) {
+        // The adopting host owns the complete compensation scope, including native table deletion.
+        if (command.adoptExistingTarget) return err(duplicateResult.error);
         const cleanupResult = await handler.cleanupFailedDuplicate(context, targetBase);
         if (cleanupResult.isErr()) {
           return err(
@@ -248,8 +255,7 @@ export class DuplicateBaseByIdHandler implements ICommandHandler<
       }
       yield* await handler.unitOfWork.withTransaction(
         context,
-        async (transactionContext) =>
-          handler.baseRepository.delete(transactionContext, targetBase.id()),
+        async (transactionContext) => handler.baseRepository.delete(transactionContext, targetBase.id()),
         { scope: 'meta' }
       );
       return ok(undefined);

@@ -155,7 +155,9 @@ describe('Postgres relation aggregates and buckets on PGlite', () => {
     root = mapper.toDomain(rootDto())._unsafeUnwrap();
     target = mapper.toDomain(targetDto())._unsafeUnwrap();
     department = mapper.toDomain(departmentDto())._unsafeUnwrap();
-    executor = new PostgresDataQueryExecutor(database.db);
+    executor = new PostgresDataQueryExecutor(database.db, {
+      cursorSigningKey: 'test-cursor-signing-key',
+    });
     await sql`create table ${sql.id('public', rootPhysical)} (
       __id text primary key,
       title text,
@@ -238,6 +240,76 @@ describe('Postgres relation aggregates and buckets on PGlite', () => {
       plan: binding.plan,
     };
   };
+
+  it.each(['any', 'none'] as const)(
+    'pages V7 %s membership with masked multi-hop outputs and lateral sort metrics',
+    async (quantifier) => {
+      await sql`insert into ${sql.id('public', rootPhysical)} (__id,title,fk_owner) values ('recR4','Root Four','recT1')`.execute(
+        database.db
+      );
+      const definition = DataQueryDefinition.create({
+        version: 7,
+        kind: 'records',
+        tableId: rootTableId,
+        relations: {
+          owner: { linkFieldId: ownerId, tableId: targetTableId },
+          items: { linkFieldId: itemsId, tableId: targetTableId },
+          department: { linkFieldId: departmentLinkId, tableId: departmentTableId, via: 'owner' },
+        },
+        filter: { relation: 'items', quantifier },
+        select: [
+          { system: 'id', alias: 'id' },
+          { source: 'department', fieldId: departmentNameId, alias: 'department' },
+          { source: 'items', fieldId: amountId, statisticFunc: 'sum', alias: 'sum' },
+        ],
+        sort: [{ alias: 'sum', order: 'desc' }],
+        parameters: { cursor: { type: 'string' } },
+        page: { limit: 1, after: { type: 'parameter', name: 'cursor' }, includeTotal: true },
+      })._unsafeUnwrap();
+      const visibleWhen = buildRecordConditionSpec(department, {
+        fieldId: departmentNameId,
+        operator: 'is',
+        value: 'Sales',
+      })._unsafeUnwrap();
+      const plan = planFor(
+        definition,
+        {},
+        new Map([['department', { fieldMasks: [{ fieldId: departmentNameId, visibleWhen }] }]])
+      );
+      const first = (await executor.executeRelation(context, plan))._unsafeUnwrap();
+      expect(first.page?.total).toBe(2);
+      expect(first.rows).toEqual([
+        {
+          id: quantifier === 'any' ? 'recR1' : 'recR3',
+          department: null,
+          sum: quantifier === 'any' ? 30 : null,
+        },
+      ]);
+      const cursor = first.page && 'nextCursor' in first.page ? first.page.nextCursor! : '';
+      const second = (
+        await executor.executeRelation(context, {
+          ...plan,
+          query: definition.bind({ cursor })._unsafeUnwrap(),
+        })
+      )._unsafeUnwrap();
+      expect(second).toEqual({
+        rows: [
+          {
+            id: quantifier === 'any' ? 'recR2' : 'recR4',
+            department: null,
+            sum: quantifier === 'any' ? 5 : null,
+          },
+        ],
+        page: { limit: 1, total: 2, nextCursor: null },
+      });
+      const rejected = await executor.executeRelation(context, {
+        ...plan,
+        sources: plan.sources.map((source) => ({ ...source, scope: {} })),
+        query: definition.bind({ cursor })._unsafeUnwrap(),
+      });
+      expect(rejected.isErr()).toBe(true);
+    }
+  );
 
   it.each([
     '{date} > DATETIME_PARSE("2026-02-01")',

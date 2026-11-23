@@ -10,6 +10,7 @@ import {
   FieldUpdateSideEffectService,
   type FieldUpdateSideEffectResult,
 } from '../application/services/FieldUpdateSideEffectService';
+import { isCompoundLinkTextConversionField } from '../application/services/LinkTextConversionBatch';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import {
   toUndoRedoStackAppendContext,
@@ -125,6 +126,13 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
       const { table, previousField, foreignTables, updateSpecs, plannedSideEffects } = preparation;
       yield* handler.ensureTypeConversionSpecDbFieldNames(updateSpecs);
       const hasTypeConversion = preparation.isTypeConversion;
+      // A compound ownership move is recovered as one host operation; its fields
+      // must not publish independent undo entries or materialize record snapshots.
+      const isCompoundConversion = isCompoundLinkTextConversionField(
+        context,
+        table.id().toString(),
+        command.fieldId.toString()
+      );
       // Value-preserving conversions (e.g. singleSelect → text) keep every
       // stored cell verbatim, so materializing the whole column into the
       // undo/redo snapshots would be pure waste: replaying the meta change
@@ -136,12 +144,14 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         return ok(UpdateFieldResult.create(table, []));
       }
 
-      const oldFieldSnapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
-        context,
-        table,
-        command.fieldId,
-        { includeRecords: includeSnapshotRecords }
-      );
+      const oldFieldSnapshot = isCompoundConversion
+        ? undefined
+        : yield* await handler.fieldUndoRedoSnapshotService.capture(
+            context,
+            table,
+            command.fieldId,
+            { includeRecords: includeSnapshotRecords }
+          );
 
       const basePluginContext = {
         kind: FieldOperationKind.update,
@@ -187,6 +197,9 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
             mutator.updateField(command.fieldId, updateSpecs, { foreignTables })
           ),
         {
+          // The next field in the batch reloads this table before the outer
+          // transaction commits, after this field's metadata and DDL are done.
+          finalizeWithinTransaction: isCompoundConversion,
           hooks: {
             prepare: async (transactionContext, updatedTable) =>
               safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
@@ -259,52 +272,54 @@ export class UpdateFieldHandler implements ICommandHandler<UpdateFieldCommand, U
         }
       );
 
-      const newFieldSnapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
-        context,
-        updateResult.table,
-        command.fieldId,
-        { includeRecords: includeSnapshotRecords }
-      );
-      yield* await handler.undoRedoStackService.appendEntry(
-        toUndoRedoStackAppendContext(context),
-        updateResult.table.id(),
-        {
-          undoCommand: createUndoRedoCommand(
-            hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
-            {
-              baseId: table.baseId().toString(),
-              tableId: table.id().toString(),
-              snapshot: oldFieldSnapshot,
-              ...(relatedViewQueryChanges.length
-                ? {
-                    expectedSnapshot: { ...newFieldSnapshot, records: undefined },
-                    relatedViewQueries: relatedViewQueryChanges.map(({ previous, next }) => ({
-                      snapshot: previous,
-                      expected: next,
-                    })),
-                  }
-                : {}),
-            }
-          ),
-          redoCommand: createUndoRedoCommand(
-            hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
-            {
-              baseId: updateResult.table.baseId().toString(),
-              tableId: updateResult.table.id().toString(),
-              snapshot: newFieldSnapshot,
-              ...(relatedViewQueryChanges.length
-                ? {
-                    expectedSnapshot: { ...oldFieldSnapshot, records: undefined },
-                    relatedViewQueries: relatedViewQueryChanges.map(({ previous, next }) => ({
-                      snapshot: next,
-                      expected: previous,
-                    })),
-                  }
-                : {}),
-            }
-          ),
-        }
-      );
+      if (oldFieldSnapshot) {
+        const newFieldSnapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
+          context,
+          updateResult.table,
+          command.fieldId,
+          { includeRecords: includeSnapshotRecords }
+        );
+        yield* await handler.undoRedoStackService.appendEntry(
+          toUndoRedoStackAppendContext(context),
+          updateResult.table.id(),
+          {
+            undoCommand: createUndoRedoCommand(
+              hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
+              {
+                baseId: table.baseId().toString(),
+                tableId: table.id().toString(),
+                snapshot: oldFieldSnapshot,
+                ...(relatedViewQueryChanges.length
+                  ? {
+                      expectedSnapshot: { ...newFieldSnapshot, records: undefined },
+                      relatedViewQueries: relatedViewQueryChanges.map(({ previous, next }) => ({
+                        snapshot: previous,
+                        expected: next,
+                      })),
+                    }
+                  : {}),
+              }
+            ),
+            redoCommand: createUndoRedoCommand(
+              hasTypeConversion ? 'ReplayFieldTypeConversion' : 'ApplyFieldSnapshot',
+              {
+                baseId: updateResult.table.baseId().toString(),
+                tableId: updateResult.table.id().toString(),
+                snapshot: newFieldSnapshot,
+                ...(relatedViewQueryChanges.length
+                  ? {
+                      expectedSnapshot: { ...oldFieldSnapshot, records: undefined },
+                      relatedViewQueries: relatedViewQueryChanges.map(({ previous, next }) => ({
+                        snapshot: next,
+                        expected: previous,
+                      })),
+                    }
+                  : {}),
+              }
+            ),
+          }
+        );
+      }
 
       const updatedFieldForPlugin = yield* updateResult.table.getField((f) =>
         f.id().equals(command.fieldId)

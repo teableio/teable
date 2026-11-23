@@ -49,10 +49,7 @@ describe('TableOpenApiV2Service.createTable', () => {
     vi.clearAllMocks();
   });
 
-  const createService = (overrides?: {
-    prismaService?: Record<string, unknown>;
-    dbProvider?: Record<string, unknown>;
-  }) =>
+  const createService = (overrides?: { prismaService?: Record<string, unknown> }) =>
     new TableOpenApiV2Service(
       {
         getContainerForBase: vi.fn().mockResolvedValue({
@@ -66,12 +63,8 @@ describe('TableOpenApiV2Service.createTable', () => {
         createContext: vi.fn().mockResolvedValue({}),
       } as never,
       (overrides?.prismaService ?? {}) as never,
-      {
-        generateDbTableName: vi
-          .fn()
-          .mockImplementation((baseId: string, name: string) => `${baseId}.${name}`),
-        ...overrides?.dbProvider,
-      } as never,
+      {} as never,
+      {} as never,
       {} as never,
       {
         current: vi.fn().mockReturnValue(undefined),
@@ -80,8 +73,9 @@ describe('TableOpenApiV2Service.createTable', () => {
         withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
       } as never,
       {} as never,
-      { dataPrismaForBase: vi.fn() } as never,
-      { deleteTablePrefix: vi.fn().mockResolvedValue(undefined) } as never
+      {} as never,
+      {} as never,
+      {} as never
     );
 
   it('fills missing legacy link lookupFieldId and prefixes legacy dbTableName before calling v2', async () => {
@@ -252,8 +246,7 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
 
   const createService = (overrides?: {
     prismaService?: Record<string, unknown>;
-    dbProvider?: Record<string, unknown>;
-    tableDuplicateLegacyService?: Record<string, unknown>;
+    tableDuplicatePolicyService?: Record<string, unknown>;
   }) =>
     new TableOpenApiV2Service(
       {
@@ -269,16 +262,11 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
       } as never,
       (overrides?.prismaService ?? {}) as never,
       {
-        generateDbTableName: vi
-          .fn()
-          .mockImplementation((baseId: string, name: string) => `${baseId}.${name}`),
-        ...overrides?.dbProvider,
-      } as never,
-      {
         previewCrossSpaceAffectedFields: vi.fn().mockResolvedValue([]),
-        duplicateTable: vi.fn(),
-        ...overrides?.tableDuplicateLegacyService,
+        ...overrides?.tableDuplicatePolicyService,
       } as never,
+      {} as never,
+      {} as never,
       {
         current: vi.fn().mockReturnValue(undefined),
         emitAtomic: vi.fn().mockResolvedValue(undefined),
@@ -286,8 +274,9 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
         withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
       } as never,
       {} as never,
-      { dataPrismaForBase: vi.fn() } as never,
-      { deleteTablePrefix: vi.fn().mockResolvedValue(undefined) } as never
+      {} as never,
+      {} as never,
+      {} as never
     );
 
   it('rebuilds the legacy duplicate-table response from the duplicated v2 table', async () => {
@@ -395,14 +384,13 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
     });
   });
 
-  it('rejects cross-space duplicate instead of calling v1 duplicateTable', async () => {
-    const tableDuplicateLegacyService = {
+  it('rejects duplicate requests whose cross-space policy would downgrade fields', async () => {
+    const tableDuplicatePolicyService = {
       previewCrossSpaceAffectedFields: vi
         .fn()
         .mockResolvedValue([{ fieldId: 'fldLink', fieldName: 'Orders', type: 'link' }]),
-      duplicateTable: vi.fn(),
     };
-    const service = createService({ tableDuplicateLegacyService });
+    const service = createService({ tableDuplicatePolicyService });
 
     await expect(
       service.duplicateTable('bseTest', 'tblSource', {
@@ -413,7 +401,79 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
       message: 'v2 will not silently downgrade cross-space fields when duplicating a table',
       status: 400,
     });
-    expect(tableDuplicateLegacyService.duplicateTable).not.toHaveBeenCalled();
     expect(executeDuplicateTableEndpoint).not.toHaveBeenCalled();
+  });
+});
+
+describe('TableOpenApiV2Service.deleteTable permanent', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const createService = (overrides?: {
+    prismaService?: Record<string, unknown>;
+    tableLifecycleCleanup?: Record<string, unknown>;
+  }) =>
+    new TableOpenApiV2Service(
+      {
+        getContainerForBase: vi.fn().mockResolvedValue({
+          resolve: vi.fn().mockReturnValue({}),
+        }),
+        getContainer: vi.fn().mockResolvedValue({
+          resolve: vi.fn().mockReturnValue({}),
+        }),
+      } as never,
+      {
+        createContext: vi.fn().mockResolvedValue({}),
+      } as never,
+      (overrides?.prismaService ?? {
+        tableMeta: { findUnique: vi.fn().mockResolvedValue(null) },
+      }) as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        current: vi.fn().mockReturnValue(undefined),
+        emitAtomic: vi.fn().mockResolvedValue(undefined),
+        withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
+      } as never,
+      { get: vi.fn().mockReturnValue('usrTest') } as never,
+      { hasActive: vi.fn().mockReturnValue(false) } as never,
+      (overrides?.tableLifecycleCleanup ?? {
+        captureNativePurgeState: vi.fn().mockResolvedValue(undefined),
+        cleanupAfterNativePurge: vi.fn().mockResolvedValue(undefined),
+      }) as never,
+      {} as never
+    );
+
+  it('delegates permanent deletion retry cleanly even when tableMeta is already absent', async () => {
+    const captureNativePurgeState = vi.fn().mockResolvedValue(undefined);
+    const cleanupAfterNativePurge = vi.fn().mockResolvedValue(undefined);
+    executeDeleteTableEndpoint.mockResolvedValue({
+      status: 404,
+      body: {
+        ok: false,
+        error: {
+          code: 'table.not_found',
+          message: 'Table not found',
+          tags: ['not-found'],
+        },
+      },
+    });
+    const service = createService({
+      tableLifecycleCleanup: { captureNativePurgeState, cleanupAfterNativePurge },
+    });
+
+    await expect(service.deleteTable('bseTest', 'tblMissing', 'permanent')).rejects.toMatchObject({
+      status: 404,
+    });
+
+    expect(captureNativePurgeState).toHaveBeenCalledWith('tblMissing');
+    expect(executeDeleteTableEndpoint).toHaveBeenCalledWith(
+      expect.anything(),
+      { baseId: 'bseTest', tableId: 'tblMissing', mode: 'permanent' },
+      expect.anything()
+    );
+    expect(cleanupAfterNativePurge).not.toHaveBeenCalled();
   });
 });

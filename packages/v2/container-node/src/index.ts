@@ -34,9 +34,11 @@ import {
   type IV2TableRepositoryPostgresConfig,
   FormulaSourceBudgetCommandBusMiddleware,
 } from '@teable/v2-adapter-table-repository-postgres';
+import { registerV2VcsPostgresAdapter } from '@teable/v2-adapter-vcs-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
 import {
   AsyncMemoryEventBus,
+  BackgroundTaskTracker,
   DomainWriteTransaction,
   FieldCreated,
   FieldUpdated,
@@ -56,12 +58,14 @@ import {
   SameTxProjectionDispatcher,
   TableCreated,
   TargetedLegacyEventDispatcher,
+  ViewDeleted,
   compileDurableSubscriptionCatalog,
   recordProjectionCodecs,
   registerV2CoreServices,
   StaticTableDataSafetyLimitPlugin,
   TableDataSafetyLimitCommandBusMiddleware,
   v2CoreTokens,
+  viewDeletedProjectionCodec,
   type ICommandBusMiddleware,
   type IComputedOutboxAdmin,
   type IHasher,
@@ -79,6 +83,7 @@ import {
   registerV2TableOps,
   type RegisterV2TableOpsOptions,
 } from '@teable/v2-table-query-ops';
+import { BASE_VCS_TRACKED_EVENTS, registerV2VcsServerModule } from '@teable/v2-vcs/server';
 
 import { resolveTableDataSafetyLimitsFromEnv } from './tableDataSafetyLimits';
 
@@ -157,6 +162,7 @@ export interface IV2NodePgContainerOptions {
       | 'observationBuffer'
       | 'observationDb'
       | 'observationDisabled'
+      | 'searchMaintenance'
       | 'observationPublisher'
       | 'observationReader'
       | 'observationSink'
@@ -269,6 +275,7 @@ const registerTableQueryOpsDependencies = async (
     dataDb,
     observationDb: tableQueryOps.observationDb,
     observationDisabled: tableQueryOps.observationDisabled,
+    searchMaintenance: tableQueryOps.searchMaintenance,
     observationPublisher: tableQueryOps.observationPublisher,
     observationReader: tableQueryOps.observationReader,
     observationSink: tableQueryOps.observationSink,
@@ -371,9 +378,11 @@ export const registerV2NodePgDependencies = async (
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
+  const backgroundTasks = new BackgroundTaskTracker();
   c.registerInstance(
     v2CoreTokens.eventBus,
     new AsyncMemoryEventBus(c, {
+      backgroundTasks,
       recordPublishedEvents: false,
       onError: ({ error, event, handlerName }) => {
         const eventName = event.name.toString();
@@ -387,21 +396,30 @@ export const registerV2NodePgDependencies = async (
     })
   );
 
-  const catalogResult = compileDurableSubscriptionCatalog([
-    RecordCreated,
-    RecordsBatchCreated,
-    RecordUpdated,
-    RecordsBatchUpdated,
-    RecordsDeleted,
-    RecordReordered,
-    TableCreated,
-    FieldCreated,
-    FieldUpdated,
-  ]);
+  const catalogResult = compileDurableSubscriptionCatalog(
+    Array.from(
+      new Set([
+        RecordCreated,
+        RecordsBatchCreated,
+        RecordUpdated,
+        RecordsBatchUpdated,
+        RecordsDeleted,
+        RecordReordered,
+        TableCreated,
+        FieldCreated,
+        FieldUpdated,
+        ViewDeleted,
+        ...BASE_VCS_TRACKED_EVENTS,
+      ])
+    )
+  );
   if (catalogResult.isErr()) {
     throw new Error(catalogResult.error.message);
   }
-  const codecResult = ProjectionMessageCodecRegistry.create(recordProjectionCodecs);
+  const codecResult = ProjectionMessageCodecRegistry.create([
+    ...recordProjectionCodecs,
+    viewDeletedProjectionCodec,
+  ]);
   if (codecResult.isErr()) {
     throw new Error(codecResult.error.message);
   }
@@ -421,6 +439,7 @@ export const registerV2NodePgDependencies = async (
       new TargetedLegacyEventDispatcher(c, logger),
       sameTxDispatcher,
       logger,
+      backgroundTasks,
       undefined,
       c.resolve(v2CoreTokens.eventBus),
       new NodeImportEventSpoolFactory()
@@ -491,6 +510,9 @@ export const registerV2NodePgDependencies = async (
 
   // Register command explain module
   registerCommandExplainModule(c);
+
+  registerV2VcsPostgresAdapter(c);
+  registerV2VcsServerModule(c);
 
   await registerTableQueryOpsDependencies(
     c,
@@ -570,8 +592,20 @@ export const createV2NodePgContainer = async (
   options: IV2NodePgContainerOptions = {}
 ): Promise<DependencyContainer> => {
   const c = container.createChildContainer();
-  await registerV2NodePgDependencies(c, options);
-  return c;
+  try {
+    await registerV2NodePgDependencies(c, options);
+    return c;
+  } catch (error) {
+    try {
+      await disposeV2NodePgContainer(c);
+    } catch (cleanupError) {
+      throw new Error(
+        `Failed to initialize PostgreSQL container; cleanup also failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+        { cause: error }
+      );
+    }
+    throw error;
+  }
 };
 
 const disposedContainers = new WeakSet<DependencyContainer>();

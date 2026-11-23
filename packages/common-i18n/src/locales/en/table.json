@@ -1,4 +1,27 @@
 {
+  "searchAcceleration": {
+    "title": "Search acceleration",
+    "stateLabel": "Setting",
+    "state": {
+      "disabled": "Off",
+      "preparing": "Preparing",
+      "enabled": "On",
+      "disabling": "Turning off",
+      "failed": "Failed"
+    },
+    "serving": "Search data is prepared for the covered fields.",
+    "notServing": "You can still search this table without acceleration.",
+    "enable": "Turn on",
+    "disable": "Turn off",
+    "resetOff": "Reset to off",
+    "permissionError": "Could not check your permission to change this setting.",
+    "readOnly": "Only space owners and creators with permission to update this table can change this setting.",
+    "statusError": "Could not load the setting. You can continue searching this table.",
+    "changeError": "Could not change the setting. Try again.",
+    "confirmTitle": "Turn on acceleration for this large table?",
+    "confirmDetail": "This table has at least 50,000 records. Preparation may take time. You can keep searching while it runs.",
+    "confirm": "Confirm and turn on"
+  },
   "computeActivity": {
     "currentCalculations": "Current calculations",
     "thisTableOnly": "This table only",

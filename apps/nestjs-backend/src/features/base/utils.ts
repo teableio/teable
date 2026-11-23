@@ -1,4 +1,6 @@
+import { UploadType } from '@teable/openapi';
 import type { IBaseJson } from '@teable/openapi';
+import StorageAdapter from '../attachments/plugins/adapter';
 import { isWebpThumbnailPath } from '../attachments/utils';
 
 function escapeRegExp(string: string): string {
@@ -239,4 +241,74 @@ export const parseImportAttachmentEntryName = (name: string) => {
     return undefined;
   }
   return { isThumbnail: true, key, extension: isWebpThumbnailPath(key) ? 'webp' : extension };
+};
+
+// Older rows also carry an `md` size
+const IMPORT_THUMBNAIL_SIZES = ['sm', 'md', 'lg'] as const;
+
+// A thumbnail keeps its file name and is pinned to the directory the importer uploads to
+const pinImportThumbnailPath = (raw: string | null | undefined, dir: string): string | null => {
+  if (!raw) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return null;
+  }
+  const pinned: Record<string, string> = {};
+  for (const size of IMPORT_THUMBNAIL_SIZES) {
+    const value = (parsed as Record<string, unknown>)[size];
+    const fileName = typeof value === 'string' ? (value.split('/').pop() ?? '') : '';
+    if (isSingleFileName(fileName)) {
+      pinned[size] = `${dir}/${fileName}`;
+    }
+  }
+  return Object.keys(pinned).length ? JSON.stringify(pinned) : null;
+};
+
+/**
+ * Where an attachment restored from an archive is stored. The archive's own `path`
+ * and `thumbnailPath` are caller-controlled, and whatever lands in the row is later
+ * signed and read back, so neither is trusted: the importer uploads each file under
+ * its token in the table directory (see parseImportAttachmentEntryName), and that
+ * is the only object the row may name. Returns undefined when the token is not a
+ * single file name.
+ */
+export const resolveImportAttachmentPaths = (row: {
+  token?: string | null;
+  thumbnailPath?: string | null;
+}): { path: string; thumbnailPath: string | null } | undefined => {
+  const { token } = row;
+  if (!token || !isSingleFileName(token)) {
+    return undefined;
+  }
+  const dir = StorageAdapter.getDir(UploadType.Table);
+  return {
+    path: `${dir}/${token}`,
+    thumbnailPath: pinImportThumbnailPath(row.thumbnailPath, dir),
+  };
+};
+
+/**
+ * The same rule for an attachment cell restored from an archive: an item never
+ * keeps the `path` the archive wrote. With a usable token it points at the object
+ * that token names; without one it carries no path at all.
+ */
+export const pinImportAttachmentCell = (value: unknown): unknown => {
+  const pin = (item: unknown) => {
+    if (!item || typeof item !== 'object') {
+      return item;
+    }
+    const { path: _archivePath, ...rest } = item as { path?: unknown; token?: unknown };
+    const paths = resolveImportAttachmentPaths({
+      token: typeof rest.token === 'string' ? rest.token : null,
+    });
+    return paths ? { ...rest, path: paths.path } : rest;
+  };
+  return Array.isArray(value) ? value.map(pin) : pin(value);
 };

@@ -7,14 +7,20 @@
   "sideEffects": false,
   "main": "dist/index.cjs",
   "module": "dist/index.js",
-  "types": "src/index.ts",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "@teable/source": "./src/index.ts",
-      "types": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "module": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./schemas": {
+      "@teable/source": "./src/schemas.ts",
+      "types": "./dist/schemas.d.ts",
+      "import": "./dist/schemas.js",
+      "require": "./dist/schemas.cjs"
     }
   },
   "files": [

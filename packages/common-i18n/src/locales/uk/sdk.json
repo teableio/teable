@@ -417,6 +417,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "Зберігати запити та ділитися ними",
       "spaceCreate": "Створити простір",
       "spaceDelete": "Видалити пробіл",
       "spaceRead": "Читати простір",
@@ -1088,6 +1089,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки",
+      "buttonTriggerFilterNotMatched": "Цей запис не відповідає умовам запуску автоматизації",
       "triggerNotFound": "Автоматизація повинна мати вузол тригера",
       "nodeNotFound": "{{nodeId}} вузол не знайдено",
       "triggerTestFailed": "Тест тригера провалився, будь ласка, перевірте конфігурацію тригера",
@@ -1220,6 +1222,7 @@
       "runAlreadyInFlight": "Виконання цієї рутини вже триває",
       "runNowWhileActiveEvent": "Ця рутина активна й уже отримує свої події; викличте подію, щоб побачити запуск",
       "runNowOwnerOnly": "Поки рутина увімкнена, запустити її зараз може лише той, від чийого імені вона виконується",
+      "robotNotAllowed": "Роботи не можуть виконати цю дію",
       "invalidRunCursor": "Недійсний курсор списку запусків",
       "invalidSchedule": "Недійсний розклад рутини: {{reason}}"
     },
@@ -1746,7 +1749,8 @@
         "dnsMisconfigured": "Не вдалося налаштувати посилання доступу: DNS домену налаштовано неправильно"
       },
       "customDomainNotConfigured": "Власний домен не налаштовано",
-      "vercelTokenNotConfigured": "Токен Vercel не налаштовано в налаштуваннях App Builder"
+      "vercelTokenNotConfigured": "Токен Vercel не налаштовано в налаштуваннях App Builder",
+      "deleteSandboxCloseFailed": "Не вдалося закрити пісочницю. Нічого не видалено, спробуйте ще раз"
     },
     "reward": {
       "notFound": "Нагороду не знайдено",

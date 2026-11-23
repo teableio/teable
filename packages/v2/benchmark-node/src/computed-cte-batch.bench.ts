@@ -10,7 +10,9 @@
 
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import {
+  createStandaloneExecutionContext,
   createV2NodeTestContainer,
   type IV2NodeTestContainer,
 } from '@teable/v2-container-node-test';
@@ -77,11 +79,13 @@ let setupPromise: Promise<BenchContext> | undefined;
 const setup = async (): Promise<BenchContext> => {
   const testContainer = await createV2NodeTestContainer();
   testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
+  const executionContext = await createStandaloneExecutionContext(testContainer);
 
   const app = express();
   app.use(
     createV2ExpressRouter({
       createContainer: () => testContainer.container,
+      createExecutionContext: () => executionContext,
     })
   );
 

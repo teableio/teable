@@ -2,6 +2,7 @@ export * from './config';
 export * from './di/register';
 export * from './di/tokens';
 export * from './repositories/PostgresTableSchemaRepository';
+export * from './repositories/PostgresTableStorageRepository';
 export * from './rules';
 export { FieldValueChangeCollectorVisitor } from './visitors/FieldValueChangeCollectorVisitor';
 export { TableAddFieldCollectorVisitor } from './visitors/TableAddFieldCollectorVisitor';

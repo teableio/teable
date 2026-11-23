@@ -197,6 +197,10 @@ export abstract class Field extends Entity<FieldId> {
     return ok(undefined);
   }
 
+  hasDbFieldType(): boolean {
+    return this.dbFieldTypeValue.isRehydrated();
+  }
+
   dbFieldType(): Result<DbFieldType, DomainError> {
     const valueResult = this.dbFieldTypeValue.value();
     if (valueResult.isErr()) return err(valueResult.error);

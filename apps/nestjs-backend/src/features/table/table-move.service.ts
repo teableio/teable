@@ -1,21 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
-import { FieldType, IdPrefix } from '@teable/core';
-import { Prisma, PrismaService } from '@teable/db-main-prisma';
-import type { IMoveBaseNodeCrossBaseLink } from '@teable/openapi';
+import type { ILinkFieldOptions, ILookupOptionsVo, IOtOperation } from '@teable/core';
+import { FieldType, HttpErrorCode, IdPrefix } from '@teable/core';
+import { Prisma, PrismaService, ProvisionState } from '@teable/db-main-prisma';
+import type { IMoveBaseNodeCrossBaseLink, ITableVo } from '@teable/openapi';
 import { PluginPosition, TableTrashType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { type IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IDataPrismaQueryExecutor } from '../../global/database-router.service';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { RawOpType } from '../../share-db/interface';
-import { V1EngineService } from '../../tracing/decorators/v1-engine';
-import { BatchService } from '../calculation/batch.service';
+import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
 import { TableMutationCacheInvalidator } from './open-api/table-mutation-cache-invalidator';
-import { TableService } from './table.service';
 
 type IMovedTable = {
   id: string;
@@ -88,23 +87,13 @@ const COMPUTED_STATUS_PENDING = ['pending', 'processing'];
  * an uncertain commit outcome or failed compensation still needs recovery.
  */
 @Injectable()
-// Untraced guard: countPendingComputedTasks — Reads the v2 computed outbox, not legacy execution.
-// Untraced host: afterMoveCommitted — Host cache invalidation after a cross-project move.
-@V1EngineService([
-  'collectCrossBaseLinks',
-  'prepareMove',
-  'applyPhysicalMove',
-  'rollbackPhysicalMove',
-  'applyMetaMove',
-])
 export class TableMoveService {
   private readonly logger = new Logger(TableMoveService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
-    private readonly tableService: TableService,
-    private readonly batchService: BatchService,
+    private readonly rawOpStagingService: RawOpStagingService,
     private readonly tableMutationCacheInvalidator: TableMutationCacheInvalidator,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
@@ -204,26 +193,21 @@ export class TableMoveService {
    */
   async countPendingComputedTasks(sourceBaseId: string, tableIds: string[]): Promise<number> {
     if (tableIds.length === 0) return 0;
-    try {
-      const rows = await this.databaseRouter.queryDataPrismaForBase<{ count: number | bigint }[]>(
-        sourceBaseId,
-        `select count(*)::int as count from "computed_update_outbox"
-         where "base_id" = $1 and "status" = any($2::text[])
-           and ("seed_table_id" = any($3::text[]) or "affected_table_ids" && $3::text[])`,
-        sourceBaseId,
-        COMPUTED_STATUS_PENDING,
-        tableIds
-      );
-      return Number(rows[0]?.count ?? 0);
-    } catch (error) {
-      // A data database without the computed ledger has nothing queued.
-      this.logger.warn(
-        `[move-node] skip computed outbox check for base ${sourceBaseId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-      return 0;
-    }
+    const ledger = await this.databaseRouter.queryDataPrismaForBase<{ exists: boolean }[]>(
+      sourceBaseId,
+      `select to_regclass('computed_update_outbox') is not null as "exists"`
+    );
+    if (!ledger[0]?.exists) return 0;
+    const rows = await this.databaseRouter.queryDataPrismaForBase<{ count: number | bigint }[]>(
+      sourceBaseId,
+      `select count(*)::int as count from "computed_update_outbox"
+       where "base_id" = $1 and "status" = any($2::text[])
+         and ("seed_table_id" = any($3::text[]) or "affected_table_ids" && $3::text[])`,
+      sourceBaseId,
+      COMPUTED_STATUS_PENDING,
+      tableIds
+    );
+    return Number(rows[0]?.count ?? 0);
   }
 
   // ---------------------------------------------------------------------------
@@ -687,7 +671,7 @@ export class TableMoveService {
 
     // 3. table rows + ShareDB docs: gone from the old project, born in the new one
     for (const table of plan.tables) {
-      await this.batchService.saveRawOps(sourceBaseId, RawOpType.Del, IdPrefix.Table, [
+      this.rawOpStagingService.saveRawOps(sourceBaseId, RawOpType.Del, IdPrefix.Table, [
         { docId: table.id, version: table.version },
       ]);
       await prisma.tableMeta.update({
@@ -702,11 +686,11 @@ export class TableMoveService {
           lastModifiedTime: new Date().toISOString(),
         },
       });
-      const tableVo = await this.tableService.getTableMeta(targetBaseId, table.id);
+      const tableVo = await this.getMovedTableSnapshot(targetBaseId, table.id);
       const { provisionState: _provisionState, ...tableData } = tableVo as typeof tableVo & {
         provisionState?: unknown;
       };
-      await this.batchService.saveRawOps(targetBaseId, RawOpType.Create, IdPrefix.Table, [
+      this.rawOpStagingService.saveRawOps(targetBaseId, RawOpType.Create, IdPrefix.Table, [
         { docId: table.id, version: table.version + 1, data: tableData },
       ]);
     }
@@ -716,6 +700,38 @@ export class TableMoveService {
       where: { tableId: { in: tableIds }, baseId: sourceBaseId },
       data: { baseId: targetBaseId },
     });
+  }
+
+  /** Read the moved row in the host transaction, before it is visible to v2 queries. */
+  private async getMovedTableSnapshot(baseId: string, tableId: string): Promise<ITableVo> {
+    const prisma = this.prismaService.txClient();
+    const table = await prisma.tableMeta.findFirst({
+      where: { id: tableId, baseId, deletedTime: null, provisionState: ProvisionState.ready },
+    });
+    if (!table) {
+      throw new CustomHttpException(
+        `Table not found with id: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        { localization: { i18nKey: 'httpErrors.table.notFound' } }
+      );
+    }
+    const view = await prisma.view.findFirst({
+      where: { tableId, deletedTime: null },
+      orderBy: { order: 'asc' },
+      select: { id: true },
+    });
+    if (!view) {
+      throw new CustomHttpException('defaultViewId not found', HttpErrorCode.NOT_FOUND, {
+        localization: { i18nKey: 'httpErrors.view.defaultViewNotFound' },
+      });
+    }
+    return {
+      ...table,
+      description: table.description ?? undefined,
+      icon: table.icon ?? undefined,
+      lastModifiedTime: table.lastModifiedTime?.toISOString() || table.createdTime.toISOString(),
+      defaultViewId: view.id,
+    };
   }
 
   /** Caches keyed by the old physical name; call after the transaction commits. */
@@ -839,7 +855,7 @@ export class TableMoveService {
       byTable.set(row.tableId, list);
     }
     for (const [tableId, dataList] of byTable) {
-      await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
+      this.rawOpStagingService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
     }
   }
 

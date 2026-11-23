@@ -403,7 +403,7 @@ type RollupOptionsDto = z.infer<typeof rollupOptionsSchema>;
 type RollupConfigDto = z.infer<typeof rollupConfigSchema>;
 type ConditionalRollupConfigDto = z.infer<typeof conditionalRollupConfigSchema>;
 
-export const fieldDtoSchema = z.discriminatedUnion('type', [
+const regularFieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({
     type: z.literal('singleLineText'),
     options: singleLineTextOptionsSchema.optional(),
@@ -497,6 +497,54 @@ export const fieldDtoSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
+type RegularFieldDto = z.infer<typeof regularFieldDtoSchema>;
+
+// Errored computed fields retain their value shape when host authorization removes
+// dependency configuration. They are response metadata, not reconstructable fields.
+const redactedFieldDtoSchema = baseFieldDtoSchema.extend({
+  hasError: z.literal(true),
+  options: z.undefined().optional(),
+  config: z.undefined().optional(),
+  lookupOptions: z.undefined().optional(),
+  conditionalLookupOptions: z.undefined().optional(),
+});
+
+const redactedComputedFieldDtoSchema = z.discriminatedUnion('type', [
+  redactedFieldDtoSchema.extend({ type: z.literal('formula'), isComputed: z.literal(true) }),
+  redactedFieldDtoSchema.extend({ type: z.literal('rollup'), isComputed: z.literal(true) }),
+  redactedFieldDtoSchema.extend({ type: z.literal('conditionalRollup'), isComputed: z.literal(true) }),
+]);
+
+const redactedLookupFieldDtoSchema = redactedFieldDtoSchema.extend({ isLookup: z.literal(true) });
+const redactedLookupDtoSchema = z.discriminatedUnion('type', [
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('singleLineText') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('longText') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('number') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('rating') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('formula') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('rollup') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('conditionalRollup') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('singleSelect') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('multipleSelect') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('checkbox') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('attachment') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('date') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('createdTime') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('lastModifiedTime') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('user') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('createdBy') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('lastModifiedBy') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('autoNumber') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('button') }),
+  redactedLookupFieldDtoSchema.extend({ type: z.literal('link') }),
+]);
+
+export const fieldDtoSchema = z.union([
+  regularFieldDtoSchema,
+  redactedComputedFieldDtoSchema,
+  redactedLookupDtoSchema,
+]);
+
 export type IFieldDto = z.infer<typeof fieldDtoSchema>;
 
 export const tableDtoSchema = z.object({
@@ -518,7 +566,7 @@ const isLinkField = (field: Field): field is LinkField =>
   typeof (field as Partial<LinkField>).config === 'function' &&
   typeof (field as Partial<LinkField>).metaDto === 'function';
 
-class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
+class FieldToDtoVisitor implements IFieldVisitor<RegularFieldDto> {
   constructor(private readonly primaryFieldId: FieldId) {}
 
   private optionalDbFieldName(field: Field): string | undefined {
@@ -591,7 +639,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     };
   }
 
-  visitSingleLineTextField(field: SingleLineTextField): Result<IFieldDto, DomainError> {
+  visitSingleLineTextField(field: SingleLineTextField): Result<RegularFieldDto, DomainError> {
     const options: SingleLineTextOptionsDto = {};
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
@@ -605,7 +653,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitLongTextField(field: LongTextField): Result<IFieldDto, DomainError> {
+  visitLongTextField(field: LongTextField): Result<RegularFieldDto, DomainError> {
     const options: LongTextOptionsDto = {};
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
@@ -619,7 +667,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitNumberField(field: NumberField): Result<IFieldDto, DomainError> {
+  visitNumberField(field: NumberField): Result<RegularFieldDto, DomainError> {
     const options: NumberOptionsDto = {
       formatting: field.formatting().toDto(),
     };
@@ -635,7 +683,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitRatingField(field: RatingField): Result<IFieldDto, DomainError> {
+  visitRatingField(field: RatingField): Result<RegularFieldDto, DomainError> {
     const options: RatingOptionsDto = {
       icon: field.ratingIcon().toString() as RatingOptionsDto['icon'],
       color: field.ratingColor().toString() as RatingOptionsDto['color'],
@@ -649,7 +697,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitFormulaField(field: FormulaField): Result<IFieldDto, DomainError> {
+  visitFormulaField(field: FormulaField): Result<RegularFieldDto, DomainError> {
     const options: FormulaOptionsDto = {
       expression: field.expression().toString(),
     };
@@ -680,7 +728,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitRollupField(field: RollupField): Result<IFieldDto, DomainError> {
+  visitRollupField(field: RollupField): Result<RegularFieldDto, DomainError> {
     const options: RollupOptionsDto = {
       expression: field.expression().toString(),
     };
@@ -714,7 +762,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitConditionalRollupField(field: ConditionalRollupField): Result<IFieldDto, DomainError> {
+  visitConditionalRollupField(field: ConditionalRollupField): Result<RegularFieldDto, DomainError> {
     const options: RollupOptionsDto = {
       expression: field.expression().toString(),
     };
@@ -748,7 +796,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitSingleSelectField(field: SingleSelectField): Result<IFieldDto, DomainError> {
+  visitSingleSelectField(field: SingleSelectField): Result<RegularFieldDto, DomainError> {
     const defaultValue = field.defaultValue();
     const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
     const choices = field
@@ -767,7 +815,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitMultipleSelectField(field: MultipleSelectField): Result<IFieldDto, DomainError> {
+  visitMultipleSelectField(field: MultipleSelectField): Result<RegularFieldDto, DomainError> {
     const defaultValue = field.defaultValue();
     const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
     const choices = field
@@ -786,7 +834,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitCheckboxField(field: CheckboxField): Result<IFieldDto, DomainError> {
+  visitCheckboxField(field: CheckboxField): Result<RegularFieldDto, DomainError> {
     const options: CheckboxOptionsDto = {};
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toBoolean();
@@ -798,7 +846,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitAttachmentField(field: AttachmentField): Result<IFieldDto, DomainError> {
+  visitAttachmentField(field: AttachmentField): Result<RegularFieldDto, DomainError> {
     return ok({
       ...this.baseField(field),
       type: 'attachment',
@@ -806,7 +854,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitDateField(field: DateField): Result<IFieldDto, DomainError> {
+  visitDateField(field: DateField): Result<RegularFieldDto, DomainError> {
     const options: DateOptionsDto = {
       formatting: field.formatting().toDto() as DateOptionsDto['formatting'],
     };
@@ -820,7 +868,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitCreatedTimeField(field: CreatedTimeField): Result<IFieldDto, DomainError> {
+  visitCreatedTimeField(field: CreatedTimeField): Result<RegularFieldDto, DomainError> {
     const options: CreatedTimeOptionsDto = {
       expression: field.expression().toString(),
       formatting: field.formatting().toDto() as DateOptionsDto['formatting'],
@@ -832,7 +880,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<IFieldDto, DomainError> {
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<RegularFieldDto, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
     const options: LastModifiedTimeOptionsDto = {
       expression: field.expression().toString(),
@@ -846,7 +894,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitUserField(field: UserField): Result<IFieldDto, DomainError> {
+  visitUserField(field: UserField): Result<RegularFieldDto, DomainError> {
     const defaultValue = field.defaultValue();
     const defaultValueDto = defaultValue?.toDto();
     const normalizedDefaultValue = Array.isArray(defaultValueDto)
@@ -865,7 +913,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitCreatedByField(field: CreatedByField): Result<IFieldDto, DomainError> {
+  visitCreatedByField(field: CreatedByField): Result<RegularFieldDto, DomainError> {
     const options: CreatedByOptionsDto = {};
     return ok({
       ...this.baseField(field),
@@ -874,7 +922,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitLastModifiedByField(field: LastModifiedByField): Result<IFieldDto, DomainError> {
+  visitLastModifiedByField(field: LastModifiedByField): Result<RegularFieldDto, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
     const options: LastModifiedByOptionsDto = {
       trackedFieldIds,
@@ -886,7 +934,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitAutoNumberField(field: AutoNumberField): Result<IFieldDto, DomainError> {
+  visitAutoNumberField(field: AutoNumberField): Result<RegularFieldDto, DomainError> {
     const options: AutoNumberOptionsDto = {
       expression: field.expression().toString(),
     };
@@ -897,7 +945,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitButtonField(field: ButtonField): Result<IFieldDto, DomainError> {
+  visitButtonField(field: ButtonField): Result<RegularFieldDto, DomainError> {
     const maxCount = field.maxCount();
     const resetCount = field.resetCount();
     const workflow = field.workflow();
@@ -918,7 +966,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitLinkField(field: LinkField): Result<IFieldDto, DomainError> {
+  visitLinkField(field: LinkField): Result<RegularFieldDto, DomainError> {
     return field
       .configDto()
       .orElse(() => ok(this.mapPublicLinkOptions(field)))
@@ -945,7 +993,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       });
   }
 
-  visitLookupField(field: LookupField): Result<IFieldDto, DomainError> {
+  visitLookupField(field: LookupField): Result<RegularFieldDto, DomainError> {
     const lookupOptions = field.lookupOptionsDto();
     const baseField = this.baseField(field);
     const isMultipleCellValueResult = field.isMultipleCellValue();
@@ -996,7 +1044,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     );
   }
 
-  visitConditionalLookupField(field: ConditionalLookupField): Result<IFieldDto, DomainError> {
+  visitConditionalLookupField(field: ConditionalLookupField): Result<RegularFieldDto, DomainError> {
     const conditionalLookupOptions = field.conditionalLookupOptionsDto();
     const baseField = this.baseField(field);
     const isMultipleCellValueResult = field.isMultipleCellValue();
@@ -1040,7 +1088,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     );
   }
 
-  private applyLookupValueShape<T extends IFieldDto>(
+  private applyLookupValueShape<T extends RegularFieldDto>(
     dto: T,
     isMultipleCellValue: boolean | undefined
   ): T {
@@ -1070,7 +1118,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return next;
   }
 
-  private mapLookupInnerLinkField(field: LinkField): Extract<IFieldDto, { type: 'link' }> {
+  private mapLookupInnerLinkField(field: LinkField): Extract<RegularFieldDto, { type: 'link' }> {
     return {
       ...this.baseField(field),
       type: 'link',
@@ -1078,7 +1126,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     };
   }
 
-  private mapPublicLinkOptions(field: LinkField): Extract<IFieldDto, { type: 'link' }>['options'] {
+  private mapPublicLinkOptions(field: LinkField): Extract<RegularFieldDto, { type: 'link' }>['options'] {
     const config = field.config();
     return {
       ...(config.baseId() ? { baseId: config.baseId()!.toString() } : {}),

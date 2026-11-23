@@ -31,6 +31,7 @@ import type { I18nPath } from '../../types/i18n.generated';
 import { baseDisplayName } from '../../utils/base-name';
 import { resolveBuildVersion } from '../../utils/build-version';
 import { second } from '../../utils/second';
+import { isServableObjectKey } from '../attachments/backend-only';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { NotificationService } from '../notification/notification.service';
@@ -1012,7 +1013,9 @@ export class BaseExportV2Service {
       tables,
       signal
     )) {
-      for (const attachment of rows) {
+      // A row is only as trustworthy as whatever wrote it: an object from a
+      // backend-only dir never goes into the archive.
+      for (const attachment of rows.filter(({ path }) => isServableObjectKey(path))) {
         const suffix = names.get(attachment.token)?.split('.').pop();
         await this.appendFileToArchive(
           archive,
@@ -1022,7 +1025,8 @@ export class BaseExportV2Service {
           signal
         );
         const thumbnails = JSON.parse(attachment.thumbnail_path ?? '{}') as Record<string, string>;
-        for (const thumbnailPath of Object.values(thumbnails).filter(Boolean)) {
+        const thumbnailPaths = Object.values(thumbnails).filter(isServableObjectKey);
+        for (const thumbnailPath of thumbnailPaths) {
           const fileName = thumbnailPath.split('/').pop();
           if (fileName) {
             await this.appendFileToArchive(

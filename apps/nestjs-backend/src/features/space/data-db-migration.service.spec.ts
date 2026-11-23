@@ -70,6 +70,20 @@ describe('DataDbMigrationService', () => {
     );
   });
 
+  it('provisions Base VCS tables through actual data DB migrations', async () => {
+    const client = new FakeMigrationClient();
+    const service = new DataDbMigrationService(undefined, () => client);
+    const applied = await service.migrate(
+      'postgresql://teable:secret@example.com:5432/data',
+      'teable_test'
+    );
+    expect(applied).toContain('20261118100000_add_base_vcs_tables');
+    const executedSql = client.calls.map((call) => call.sql).join('\n');
+    for (const table of ['base_vcs_head', 'base_vcs_change', 'base_vcs_commit']) {
+      expect(executedSql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
+    }
+  });
+
   it('includes attachment support tables in the default data DB migrations', async () => {
     const client = new FakeMigrationClient();
     const service = new DataDbMigrationService(undefined, () => client);

@@ -107,6 +107,30 @@ describe('mapAirtableViewConfig filters', () => {
   });
 });
 
+describe('mapAirtableViewConfig column layout', () => {
+  it('maps view-specific order, visibility and widths and reports missing fields', () => {
+    const { result, issues } = run(
+      emptyConfig({
+        columnOrder: [
+          { columnId: 'colNum', visibility: false, width: 150 },
+          { columnId: 'colText', visibility: true },
+          { columnId: 'colGone', visibility: false },
+        ],
+      })
+    );
+    expect(result.columnMeta).toEqual([
+      { fieldId: 'fldNum', columnMeta: { order: 0, hidden: true, width: 150 } },
+      { fieldId: 'fldText', columnMeta: { order: 1, hidden: false } },
+    ]);
+    expect(issues).toEqual([
+      expect.objectContaining({
+        code: 'viewConfigDegraded',
+        reason: expect.stringContaining('colGone'),
+      }),
+    ]);
+  });
+});
+
 describe('mapAirtableViewConfig sort, group and options', () => {
   it('maps sorts and grid grouping by order', () => {
     const { result } = run(

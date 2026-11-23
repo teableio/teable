@@ -342,15 +342,18 @@ export class TableMetaUpdateVisitor
   visitTableRemoveView(
     spec: TableRemoveViewSpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    const viewId = spec.view().id().toString();
+    this.trackViewVersionTouch(viewId);
     const statements: ReadonlyArray<TableUpdateBuilder> = [
       this.params.db
         .updateTable('view')
         .set({
           deleted_time: this.params.now,
+          version: this.viewVersionIncrement,
           last_modified_time: this.params.now,
           last_modified_by: this.params.actorId,
         })
-        .where('id', '=', spec.view().id().toString())
+        .where('id', '=', viewId)
         .where('table_id', '=', this.params.table.id().toString())
         .where('deleted_time', 'is', null),
     ];

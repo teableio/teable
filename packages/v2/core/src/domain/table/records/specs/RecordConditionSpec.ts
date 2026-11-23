@@ -5,8 +5,8 @@ import type { DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import type { Field } from '../../fields/Field';
 import { FieldType } from '../../fields/FieldType';
-import { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
-import { LookupField } from '../../fields/types/LookupField';
+import type { ConditionalLookupField } from '../../fields/types/ConditionalLookupField';
+import type { LookupField } from '../../fields/types/LookupField';
 import type { TableRecord } from '../TableRecord';
 import { isEmptyCellValue } from '../values/isEmptyCellValue';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
@@ -344,6 +344,17 @@ const evaluateRecordCondition = (
   }
 
   return evaluateScalarOperator(operator, recordValue, comparisonValue as Primitive);
+};
+
+export const evaluateCheckboxLiteralCondition = (
+  recordValue: unknown,
+  expected: boolean
+): boolean => {
+  if (Array.isArray(recordValue)) {
+    const hasTrue = recordValue.some((entry) => entry === true);
+    return expected ? hasTrue : !hasTrue;
+  }
+  return expected ? recordValue === true : recordValue === false || recordValue == null;
 };
 
 export abstract class RecordConditionSpec<

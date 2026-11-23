@@ -52,7 +52,7 @@ const CONDITIONAL_MODULE_TIMEOUT = process.env.CI ? 30000 : 5000;
     JwtStrategy,
     AnonymousStrategy,
   ],
-  exports: [AuthService, AuthGuard],
+  exports: [AuthService, AuthGuard, JwtStrategy],
   controllers: [AuthController],
 })
 export class AuthModule {}

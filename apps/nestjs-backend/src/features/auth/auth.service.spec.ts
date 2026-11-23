@@ -13,13 +13,18 @@ import { JwtAuthInternalType } from './strategies/types';
 
 describe('AuthService', () => {
   let service: AuthService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, AuthModule],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

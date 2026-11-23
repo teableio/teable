@@ -298,7 +298,7 @@ export class PostgresSchemaOperationRepository implements core.ISchemaOperationR
             OR (
               "status" = 'pending'
               AND "next_run_at" <= ${now}
-              AND "last_modified_time" <= ${staleRunningBefore}
+              AND ("phase" = 'waiting_for_lock' OR "last_modified_time" <= ${staleRunningBefore})
               AND NOT (
                 "type" = 'table.import'
                 AND COALESCE("payload"->>'source', '') <> 'dottea'

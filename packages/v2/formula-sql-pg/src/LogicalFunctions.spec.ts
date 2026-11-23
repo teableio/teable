@@ -30,6 +30,15 @@ const logicalFunctionCases: ReadonlyArray<LogicalFunctionCase> = [
   },
 ];
 
+const scalarNumberSwitchResults: Readonly<Partial<Record<string, string>>> = {
+  number: 'ten',
+  rating: 'other',
+  formula: 'ten',
+  rollup: 'other',
+  conditionalRollup: 'other',
+  autoNumber: 'other',
+};
+
 const buildFormulaName = (funcId: string, fieldName: string): string => `${funcId}_${fieldName}`;
 
 describe('logical functions', () => {
@@ -73,6 +82,11 @@ describe('logical functions', () => {
   });
 
   it.each(matrix)('$funcId with $fieldCase.type', async ({ funcId, fieldCase, formulaName }) => {
+    const expected = funcId === 'Switch' ? scalarNumberSwitchResults[fieldCase.type] : undefined;
+    if (expected !== undefined) {
+      expect(await executeFormulaAsText(testTable, formulaName)).toBe(expected);
+      return;
+    }
     const context = await buildFormulaSnapshotContext(testTable, formulaName);
     expect({
       funcId,

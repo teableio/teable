@@ -691,7 +691,7 @@ describe('AggregationOpenApiV2Service', () => {
       })
     ).resolves.toEqual({
       countMap: { [date]: 2 },
-      records: [{ id: recordId.toString(), fields: { [fieldId]: 'A' } }],
+      records: [{ id: recordId.toString(), fields: { [fieldId]: 'A' }, version: 1 }],
     });
 
     const calendarQuery = fixture.queries.find(

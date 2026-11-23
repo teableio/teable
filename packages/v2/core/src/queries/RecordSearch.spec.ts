@@ -5,7 +5,7 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
-import { mergeRecordFiltersWithAnd, RecordSearch } from './RecordSearch';
+import { mergeRecordFiltersWithAnd, RecordSearch, recordSearchInputSchema } from './RecordSearch';
 
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'s'.repeat(16)}`)._unsafeUnwrap();
@@ -62,6 +62,14 @@ describe('RecordSearch', () => {
         { fieldId: notesField.id().toString(), operator: 'contains', value: 'target' },
       ],
     });
+  });
+
+  it('keeps false query-string search flags from filtering rows', () => {
+    const table = buildTable();
+    const input = recordSearchInputSchema.unwrap().parse(['target', '', 'false']);
+    const filter = RecordSearch.fromTuple(input).buildHideNotMatchFilter(table)._unsafeUnwrap();
+
+    expect(filter).toBeUndefined();
   });
 
   it('treats an explicit empty visible field list as no searchable fields', () => {

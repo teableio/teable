@@ -84,6 +84,7 @@ export type SdkErrorI18nKey =
   | 'httpErrors.view.versionConflict'
   | 'httpErrors.attachment.notFound'
   | 'httpErrors.computed.pausedWriteBlocked'
+  | 'httpErrors.automation.buttonTriggerFilterNotMatched'
   | 'httpErrors.field.buttonClickConflict'
   | 'httpErrors.field.buttonUndoConflict'
   | 'httpErrors.field.conditionalRollupFormattingMismatch'

@@ -71,7 +71,8 @@ export class ImportCsvCommand {
     readonly maxRowCount: number | undefined,
     readonly useFirstRowAsHeader: boolean,
     readonly columns: ReadonlyArray<ImportCsvColumn> | undefined,
-    readonly onProgress?: (progress: IImportProgress) => void
+    readonly onProgress?: (progress: IImportProgress) => void,
+    readonly truncateOnRowLimit = false
   ) {}
 
   withOnProgress(onProgress?: (progress: IImportProgress) => void): ImportCsvCommand {
@@ -84,7 +85,23 @@ export class ImportCsvCommand {
       this.maxRowCount,
       this.useFirstRowAsHeader,
       this.columns,
-      onProgress
+      onProgress,
+      this.truncateOnRowLimit
+    );
+  }
+
+  withTruncateOnRowLimit(truncateOnRowLimit: boolean): ImportCsvCommand {
+    return new ImportCsvCommand(
+      this.baseId,
+      this.csvSource,
+      this.tableName,
+      this.importData,
+      this.batchSize,
+      this.maxRowCount,
+      this.useFirstRowAsHeader,
+      this.columns,
+      this.onProgress,
+      truncateOnRowLimit
     );
   }
 

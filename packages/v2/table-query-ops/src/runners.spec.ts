@@ -1,6 +1,6 @@
-import { v2CoreTokens, type IExecutionContext } from '@teable/v2-core';
+import { domainError, v2CoreTokens, type IExecutionContext } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { TableQueryDecisionPolicy } from './decisionPolicy';
@@ -12,6 +12,7 @@ import {
   startTableQueryOpsTaskWorkerIfEnabled,
   startTableQueryOpsAnalyzerIfEnabled,
   startTableQueryOpsManualSearchTaskWorker,
+  TableQueryOpsExecutionUnavailableError,
 } from './runners';
 import { v2TableOpsTokens } from './tokens';
 
@@ -284,6 +285,108 @@ describe('table-scoped task routing', () => {
       handle?.stop();
     }
   });
+
+  it('keeps typed route outages bounded for manual search tasks', async () => {
+    const task = TableQueryRemediationTask.createQueued({
+      tableId: 'tblManualRouting',
+      baseId: 'bseManualRouting',
+      kind: 'rebuild_search_access_path',
+      payload: { trigger: 'admin_search_access_path', executionMode: 'manual' },
+      now: NOW,
+    })._unsafeUnwrap();
+    const save = vi.fn(async (_context: IExecutionContext, saved: TableQueryRemediationTask) =>
+      ok(saved)
+    );
+    const values = new Map<symbol, unknown>([
+      [
+        v2TableOpsTokens.taskWorkerConfig,
+        {
+          enabled: true,
+          intervalMs: 60_000,
+          workerId: 'manual-routing',
+          scope: 'manual_search',
+          allowManualIndexExecution: true,
+        },
+      ],
+      [v2TableOpsTokens.clock, { now: () => NOW }],
+      [v2TableOpsTokens.taskRepository, { claimNextAccepted: async () => ok(task), save }],
+    ]);
+    const container = {
+      isRegistered: () => false,
+      resolve: (token: symbol) => values.get(token),
+    } as unknown as DependencyContainer;
+    const handle = startTableQueryOpsTaskWorkerIfEnabled(
+      container,
+      {} as IExecutionContext,
+      async () => {
+        throw new TableQueryOpsExecutionUnavailableError(new Error('Connection refused'));
+      }
+    );
+    try {
+      await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      expect(save.mock.calls[0][1].snapshot()).toMatchObject({ status: 'failed', attempts: 1 });
+    } finally {
+      handle?.stop();
+    }
+  });
+
+  it.each(['running', 'deferred'] as const)(
+    'reports a failed %s save during route outage deferral',
+    async (failedSave) => {
+      const task = TableQueryRemediationTask.createQueued({
+        tableId: 'tblFailedRouteSave',
+        baseId: 'bseFailedRouteSave',
+        kind: 'rebuild_search_access_path',
+        payload: { trigger: 'schema_change' },
+        now: NOW,
+      })._unsafeUnwrap();
+      const failure = domainError.conflict({ message: 'Task reservation no longer owned' });
+      const save = vi.fn(async (_context: IExecutionContext, saved: TableQueryRemediationTask) =>
+        (saved.snapshot().status === 'running') === (failedSave === 'running')
+          ? err(failure)
+          : ok(saved)
+      );
+      const warn = vi.fn();
+      const values = new Map<symbol, unknown>([
+        [
+          v2TableOpsTokens.taskWorkerConfig,
+          {
+            enabled: true,
+            intervalMs: 60_000,
+            workerId: 'failed-route-save',
+            scope: 'search_maintenance',
+            allowManualIndexExecution: false,
+          },
+        ],
+        [v2TableOpsTokens.clock, { now: () => NOW }],
+        [v2CoreTokens.logger, { warn }],
+        [v2TableOpsTokens.taskRepository, { claimNextAccepted: async () => ok(task), save }],
+      ]);
+      const container = {
+        isRegistered: (token: symbol) => token === v2CoreTokens.logger,
+        resolve: (token: symbol) => values.get(token),
+      } as unknown as DependencyContainer;
+      const handle = startTableQueryOpsTaskWorkerIfEnabled(
+        container,
+        {} as IExecutionContext,
+        async () => {
+          throw new TableQueryOpsExecutionUnavailableError(new Error('Connection refused'));
+        }
+      );
+      try {
+        await vi.waitFor(() =>
+          expect(warn).toHaveBeenCalledWith(
+            'Table query ops task worker failed to persist routed task',
+            { taskId: task.snapshot().id, error: failure.message }
+          )
+        );
+        expect(save).toHaveBeenCalledTimes(failedSave === 'running' ? 1 : 2);
+      } finally {
+        handle?.stop();
+      }
+    }
+  );
+
   it('claims the configured search maintenance scope without reading observations', async () => {
     const claimNextAccepted = vi.fn().mockResolvedValue(ok(null));
     const values = new Map<symbol, unknown>([

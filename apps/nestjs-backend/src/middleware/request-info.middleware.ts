@@ -120,7 +120,10 @@ const createAfterResponseScheduler = (
   return (task) => {
     const store = cls.get();
     const backgroundStore = store ? { ...store } : undefined;
-    if (backgroundStore) delete backgroundStore.interactiveQueryAbort;
+    if (backgroundStore) {
+      delete backgroundStore.interactiveQueryAbort;
+      delete backgroundStore.requestAbortSignal;
+    }
     pendingTasks.push(() => {
       if (backgroundStore) {
         return cls.runWith(backgroundStore, task);
@@ -129,6 +132,36 @@ const createAfterResponseScheduler = (
     });
     scheduleFlush();
   };
+};
+
+const attachRequestAbortSignal = (res?: Response): AbortSignal | undefined => {
+  if (!res || typeof res.once !== 'function') {
+    return undefined;
+  }
+  const controller = new AbortController();
+  const handleClose = () => {
+    if (!res.writableEnded) {
+      controller.abort();
+    }
+  };
+  const handleFinish = () => {
+    if (typeof res.removeListener === 'function') {
+      res.removeListener('close', handleClose);
+    }
+  };
+  res.once('close', handleClose);
+  res.once('finish', handleFinish);
+  return controller.signal;
+};
+
+const readHeaderString = (req: Request, headerName: string): string | undefined => {
+  const raw = req.headers[headerName];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 };
 
 @Injectable()
@@ -182,6 +215,22 @@ export class RequestInfoMiddleware implements NestMiddleware {
       ...(client ? { client } : {}),
     });
 
+    this.applyRequestHeadersAndCookies(req);
+
+    const requestAbortSignal = attachRequestAbortSignal(res);
+    if (requestAbortSignal) {
+      this.cls.set('requestAbortSignal', requestAbortSignal);
+    }
+
+    this.cls.set(
+      'scheduleV2BackgroundTask',
+      res ? createAfterResponseScheduler(this.cls, res) : fallbackScheduleV2BackgroundTask
+    );
+
+    next();
+  }
+
+  private applyRequestHeadersAndCookies(req: Request): void {
     const cookies = cookie.parse(req.headers.cookie ?? '');
 
     // Affiliate attribution (?via= cookie) — see IClsStore.affiliateVia.
@@ -213,11 +262,9 @@ export class RequestInfoMiddleware implements NestMiddleware {
       this.cls.set('canaryHeader', canaryHeader);
     }
 
-    this.cls.set(
-      'scheduleV2BackgroundTask',
-      res ? createAfterResponseScheduler(this.cls, res) : fallbackScheduleV2BackgroundTask
-    );
-
-    next();
+    const windowId = readHeaderString(req, 'x-window-id');
+    if (windowId) {
+      this.cls.set('windowId', windowId);
+    }
   }
 }

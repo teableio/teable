@@ -25,6 +25,9 @@ import type { SessionHandleService } from '../features/auth/session/session-hand
 import type { IUserOrganizationResolver } from '../features/auth/user-organization-resolver';
 import type { IClsStore } from '../types/cls';
 
+// Only the in-process ShareDB transport can receive this marker. Symbols are not
+// representable in client messages, cookies, URL parameters, or JSON options.
+export const INTERNAL_SHAREDB_CONNECTION = Symbol('internal ShareDB connection');
 const NOTIFICATION_CHANNEL_PREFIX = getUserNotificationChannel('');
 // getCommentChannel(tableId, recordId) => `__record_comment_${tableId}_${recordId}`.
 // Two empty ids leave a trailing separator; drop it to get the bare prefix.
@@ -332,6 +335,9 @@ export const authMiddleware = (shareDB: ShareDBClass, deps: IAuthMiddlewareDeps 
   };
 
   shareDB.use('connect', async (context, callback) => {
+    if (!context.req && context.agent.stream.isServer === true) {
+      Object.defineProperty(context.agent.custom, INTERNAL_SHAREDB_CONNECTION, { value: true });
+    }
     if (!context.req) {
       callback();
       return;

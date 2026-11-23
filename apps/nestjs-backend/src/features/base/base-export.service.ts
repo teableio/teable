@@ -38,6 +38,7 @@ import type { I18nPath } from '../../types/i18n.generated';
 import { baseDisplayName } from '../../utils/base-name';
 import { resolveBuildVersion } from '../../utils/build-version';
 import { second } from '../../utils/second';
+import { isServableObjectKey } from '../attachments/backend-only';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -334,6 +335,9 @@ export class BaseExportService {
         includeData,
       });
       if (!commitTerminalOutcome()) throw e;
+      // The export transaction keeps its client in this request's CLS store until it unwinds.
+      // A notice sent before that reads through a transaction that is being rolled back.
+      await Promise.allSettled([processing]);
       if (e instanceof Error) {
         const message: ILocalization<I18nPath> = {
           i18nKey: 'common.email.templates.notify.exportBase.failed.message',
@@ -664,6 +668,9 @@ export class BaseExportService {
     for await (const { rows, names } of this.getAttachmentMetadataPages(tableRaws, true, signal)) {
       for (const { token, path } of rows) {
         signal?.throwIfAborted();
+        // A row is only as trustworthy as whatever wrote it: an object from a
+        // backend-only dir never goes into the archive.
+        if (!isServableObjectKey(path)) continue;
         await this.appendFileToArchive(
           archive,
           bucket,
@@ -683,7 +690,7 @@ export class BaseExportService {
         const thumbnails = JSON.parse(thumbnailPath) as Record<string, string>;
         for (const size of ['lg', 'md', 'sm']) {
           const path = thumbnails[size];
-          if (!path) continue;
+          if (!isServableObjectKey(path)) continue;
           signal?.throwIfAborted();
           await this.appendFileToArchive(
             archive,
@@ -742,7 +749,10 @@ export class BaseExportService {
         if (!records.length) return;
         for (const record of records) {
           signal?.throwIfAborted();
-          const converted = service.transformConvertFieldsCellValue(record, crossBaseRelativeFields);
+          const converted = service.transformConvertFieldsCellValue(
+            record,
+            crossBaseRelativeFields
+          );
           yield columnHeader.map((header) => converted[header]);
         }
         offset += BaseExportService.CSV_CHUNK;
@@ -784,7 +794,10 @@ export class BaseExportService {
         while (!page.done) {
           for (const attachment of page.value.rows) {
             signal?.throwIfAborted();
-            const values: Record<string, unknown> = { ...attachment, size: Number(attachment.size) };
+            const values: Record<string, unknown> = {
+              ...attachment,
+              size: Number(attachment.size),
+            };
             yield headers.map((header) => values[header]);
           }
           signal?.throwIfAborted();
@@ -830,7 +843,8 @@ export class BaseExportService {
       let offset = 0;
       while (true) {
         signal?.throwIfAborted();
-        const query = service.knex(fkHostTableName)
+        const query = service
+          .knex(fkHostTableName)
           .select('*')
           .limit(BaseExportService.CSV_CHUNK)
           .offset(offset)
@@ -1566,9 +1580,12 @@ export class BaseExportService {
     });
     signal?.throwIfAborted();
 
-    return (await this.findViewsByTableIds(tableIds.map(({ id }) => id), signal)).filter(
-      ({ type }) => type === ViewType.Plugin
-    );
+    return (
+      await this.findViewsByTableIds(
+        tableIds.map(({ id }) => id),
+        signal
+      )
+    ).filter(({ type }) => type === ViewType.Plugin);
   }
 
   private async generatePluginPanel(

@@ -6,13 +6,18 @@ import { FieldConvertingLinkService } from './field-converting-link.service';
 
 describe('FieldConvertingLinkService', () => {
   let service: FieldConvertingLinkService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, FieldOpenApiModule],
     }).compile();
 
     service = module.get<FieldConvertingLinkService>(FieldConvertingLinkService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

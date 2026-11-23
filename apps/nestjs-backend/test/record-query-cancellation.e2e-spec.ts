@@ -884,14 +884,17 @@ describe('interactive record query cancellation (real PostgreSQL / HTTP / ShareD
   it.skipIf(!v2)(
     'response-scheduled background SQL survives its originating interactive request abort',
     async () => {
-      const service = app.get(AggregationOpenApiV2Service);
-      const original = service.getRowCount.bind(service);
+      // EE inherits this method on its override instance; app.get(base service) is not that instance.
+      const original = AggregationOpenApiV2Service.prototype.withProvisionReadyCache;
       const middleware = new V2QueryCancellationMiddleware(cls);
       const finished = deferred();
       let backgroundRows: unknown;
       let backgroundError: unknown;
       const marker = `background_${table.id}`;
-      vi.spyOn(service, 'getRowCount').mockImplementationOnce(async (...args) => {
+      vi.spyOn(
+        AggregationOpenApiV2Service.prototype,
+        'withProvisionReadyCache'
+      ).mockImplementationOnce(async function (this: AggregationOpenApiV2Service, ...args) {
         const signal = cls.get('interactiveQueryAbort')!;
         // Schedule from an actual HTTP CLS and adapter scope, so either inherited
         // signal (CLS or ALS) would stop this real statement if isolation regresses.
@@ -919,7 +922,7 @@ describe('interactive record query cancellation (real PostgreSQL / HTTP / ShareD
           });
           drains.push(() => finished.promise);
         });
-        return original(...args);
+        return original.apply(this, args);
       });
       const route = routes().find((route) => route.name === 'ordinary row-count')!;
       await lock();

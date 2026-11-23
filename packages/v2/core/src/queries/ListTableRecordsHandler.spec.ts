@@ -1342,6 +1342,7 @@ describe('ListTableRecordsHandler', () => {
       {
         id: 'rec1',
         version: 1,
+        name: 'Hello',
         fields: {
           Title: 'Hello',
           Status: 'Open',
@@ -1488,6 +1489,7 @@ describe('ListTableRecordsHandler', () => {
       {
         id: 'rec1',
         version: 1,
+        name: 'Hello',
         fields: {
           title_col: 'Hello',
           status_col: 'Open',

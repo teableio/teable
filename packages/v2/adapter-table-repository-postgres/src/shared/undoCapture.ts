@@ -55,6 +55,7 @@ export type UndoCaptureInfrastructureStatus =
 
 type UndoCaptureCache = {
   globalReady: boolean;
+  oldTupleReady?: boolean;
   tableTriggers: Set<string>;
 };
 
@@ -89,6 +90,7 @@ export const invalidateUndoCaptureTableCache = (
   for (const entry of tableKeys) {
     cached.tableTriggers.delete(entry);
   }
+  cached.oldTupleReady = undefined;
 };
 
 const nextSavepointName = () => `teable_undo_capture_${Date.now().toString(36)}_${randomHex(4)}`;
@@ -212,6 +214,36 @@ const hasUndoLogNewRowColumn = async <DB>(db: DbOrTx<DB>): Promise<boolean> => {
   return Boolean(result.rows[0]?.exists);
 };
 
+const hasUndoLogOldTupleColumn = async <DB>(db: DbOrTx<DB>): Promise<boolean> => {
+  const result = await sql<{ exists: boolean }>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+      AND table_name = '__undo_log'
+      AND column_name = 'old_tuple'
+    ) AS "exists"
+  `.execute(db);
+
+  return Boolean(result.rows[0]?.exists);
+};
+
+const resolveUndoLogOldTupleColumn = async <DB>(
+  db: DbOrTx<DB>,
+  rootDb?: object
+): Promise<boolean> => {
+  const cache = rootDb ? getUndoCaptureCache(rootDb) : undefined;
+  if (cache?.oldTupleReady) {
+    return true;
+  }
+
+  const exists = await hasUndoLogOldTupleColumn(db);
+  if (cache && exists) {
+    cache.oldTupleReady = true;
+  }
+  return exists;
+};
+
 const hasUndoLogFunction = async <DB>(db: DbOrTx<DB>): Promise<boolean> => {
   const result = await sql<{ exists: boolean }>`
     SELECT EXISTS (
@@ -264,6 +296,9 @@ const ensureUndoCaptureGlobals = async <DB>(
 
     if (hasTable && hasNewRowColumn && hasFunction) {
       cache.globalReady = true;
+      if (cache.oldTupleReady === undefined) {
+        cache.oldTupleReady = await hasUndoLogOldTupleColumn(db);
+      }
       return true;
     }
   } catch {
@@ -390,22 +425,77 @@ export const clearUndoCaptureBatchId = async <DB>(
   await restoreUndoCaptureBatchId(db, undefined, options);
 };
 
+export const runWithoutUndoCapture = async <DB, T>(
+  db: DbOrTx<DB>,
+  work: () => Promise<T>
+): Promise<T> => {
+  const previousBatchId = await getUndoCaptureBatchId(db);
+  if (!previousBatchId) {
+    return await work();
+  }
+
+  let hasWorkError = false;
+  let workError: unknown;
+  let result!: T;
+  await clearUndoCaptureBatchId(db);
+  try {
+    result = await work();
+  } catch (error) {
+    hasWorkError = true;
+    workError = error;
+  }
+
+  try {
+    await restoreUndoCaptureBatchId(db, previousBatchId);
+  } catch (restoreError) {
+    if (!hasWorkError) {
+      throw restoreError;
+    }
+  }
+
+  if (hasWorkError) {
+    throw workError;
+  }
+  return result;
+};
+
+export const clearUndoLogRows = async <DB>(db: DbOrTx<DB>, batchId: string): Promise<void> => {
+  await sql`
+    DELETE FROM "__undo_log"
+    WHERE "batch_id" = ${batchId}
+  `.execute(db);
+};
+
 export const loadAndClearUndoLogRows = async <DB>(
   db: DbOrTx<DB>,
-  batchId: string
+  batchId: string,
+  options?: { rootDb?: object }
 ): Promise<UndoLogRow[]> => {
-  const rowsResult = await sql<UndoLogRow>`
-    WITH deleted AS (
-      DELETE FROM "__undo_log"
-      WHERE "batch_id" = ${batchId}
-      RETURNING "id", "operation", "table_name", "record_id", "old_row", "new_row",
-        to_jsonb("__undo_log") -> 'old_tuple' AS "old_tuple"
-    )
-    SELECT "id"::text AS "id", "operation", "table_name", "record_id", "old_row", "new_row",
-      "old_tuple"
-    FROM deleted
-    ORDER BY deleted."id" ASC
-  `.execute(db);
+  const hasOldTuple = await resolveUndoLogOldTupleColumn(db, options?.rootDb);
+  const rowsResult = hasOldTuple
+    ? await sql<UndoLogRow>`
+        WITH deleted AS (
+          DELETE FROM "__undo_log"
+          WHERE "batch_id" = ${batchId}
+          RETURNING "id", "operation", "table_name", "record_id", "old_row", "new_row",
+            "old_tuple"
+        )
+        SELECT "id"::text AS "id", "operation", "table_name", "record_id", "old_row", "new_row",
+          "old_tuple"
+        FROM deleted
+        ORDER BY deleted."id" ASC
+      `.execute(db)
+    : await sql<UndoLogRow>`
+        WITH deleted AS (
+          DELETE FROM "__undo_log"
+          WHERE "batch_id" = ${batchId}
+          RETURNING "id", "operation", "table_name", "record_id", "old_row", "new_row"
+        )
+        SELECT "id"::text AS "id", "operation", "table_name", "record_id", "old_row", "new_row",
+          NULL::jsonb AS "old_tuple"
+        FROM deleted
+        ORDER BY deleted."id" ASC
+      `.execute(db);
 
   return rowsResult.rows;
 };

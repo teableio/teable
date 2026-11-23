@@ -503,6 +503,28 @@ describe('ImportCsvHandler', () => {
   });
 
   it.each([undefined, 751])(
+    'truncates CSV rows at the requested cap with source total %s',
+    async (knownRowCount) => {
+      const harness = createStreamingImportHarness(751, knownRowCount);
+      const command = ImportCsvCommand.createFromString({
+        baseId,
+        csvData: 'Name\n',
+        batchSize: 250,
+        maxRowCount: 750,
+      })
+        ._unsafeUnwrap()
+        .withTruncateOnRowLimit(true);
+      const result = await harness.handler.handle(harness.context, command);
+
+      expect(result._unsafeUnwrap().totalImported).toBe(750);
+      expect(harness.records.inserted).toHaveLength(750);
+      expect(harness.tables.tables).toHaveLength(1);
+      expect(harness.schema.inserted).toHaveLength(1);
+      expect(harness.source).toEqual({ pulled: 751, closed: true });
+    }
+  );
+
+  it.each([undefined, 751])(
     'applies creation limits to inserted rows after truncation with source total %s',
     async (knownRowCount) => {
       const harness = createStreamingImportHarness(751, knownRowCount);

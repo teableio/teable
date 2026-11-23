@@ -9,13 +9,18 @@ import { LinkService } from './link.service';
 
 describe('LinkService', () => {
   let service: LinkService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, CalculationModule],
     }).compile();
 
     service = module.get<LinkService>(LinkService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

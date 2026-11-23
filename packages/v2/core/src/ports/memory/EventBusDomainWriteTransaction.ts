@@ -289,7 +289,7 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
   /** In-memory transactions have no SQL state to poison, so a savepoint is a pass-through. */
   async savepoint<T>(
     context: IExecutionContext,
-    work: () => Promise<Result<T, DomainError>>
+    work: (context: IExecutionContext) => Promise<Result<T, DomainError>>
   ): Promise<Result<T, DomainError>> {
     if (!getUnitOfWorkTransaction(context, 'data')) {
       return err(
@@ -301,7 +301,7 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
     }
 
     return runWithBatchSavepoint(context, () =>
-      this.unitOfWork.savepoint ? this.unitOfWork.savepoint(context, async () => work()) : work()
+      this.unitOfWork.savepoint ? this.unitOfWork.savepoint(context, work) : work(context)
     );
   }
 }

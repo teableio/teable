@@ -50,7 +50,7 @@
     "../core/src",
     "../di/src",
     "../data-query/src",
-    "../contract-http-implementation/src/handlers/dataQuery/executeDataQuery.ts",
+    "../contract-http-implementation/src/handlers/dataQuery",
     "../../core/src",
     "../../formula/src",
     "../../i18n-keys/src"

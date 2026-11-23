@@ -201,6 +201,7 @@ const actionTitleKeys = {
   'records.bulkUpdate': 'title',
   'records.bulkDelete': 'title',
   'folder.delete': 'title',
+  'app.delete': 'title',
 } as const;
 
 const ActionDetails = ({

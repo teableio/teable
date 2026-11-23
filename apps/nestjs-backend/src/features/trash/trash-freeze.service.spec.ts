@@ -2,6 +2,12 @@ import { HttpErrorCode } from '@teable/core';
 import { TableTrashType, TrashType } from '@teable/openapi';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CustomHttpException } from '../../custom.exception';
+import { BaseTrashHandler } from '../base/base.trash-handler';
+import { FolderTrashHandler } from '../base-node/folder/folder.trash-handler';
+import { DashboardTrashHandler } from '../dashboard/dashboard.trash-handler';
+import { SpaceTrashHandler } from '../space/space.trash-handler';
+import { TableTrashHandler } from '../table/table.trash-handler';
+import { TrashResourceHandlerRegistry } from './resource/trash-resource-handler.registry';
 import { TrashService } from './trash.service';
 
 describe('TrashService write freeze', () => {
@@ -15,6 +21,7 @@ describe('TrashService write freeze', () => {
   );
   const txClient = {
     trash: {
+      findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       deleteMany: vi.fn(),
     },
@@ -45,17 +52,14 @@ describe('TrashService write freeze', () => {
     assertTableWritable: vi.fn(),
   };
 
-  const service = () =>
-    new TrashService(
+  const service = () => {
+    const created = new TrashService(
       { del: vi.fn() } as never,
       prismaService as never,
       { get: vi.fn().mockReturnValue('usrxxx') } as never,
       {} as never,
       { validPermissions: vi.fn() } as never,
       spaceService as never,
-      baseService as never,
-      tableOpenApiService as never,
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -75,18 +79,36 @@ describe('TrashService write freeze', () => {
       {} as never,
       migrationGuard as never
     );
+    (created as unknown as { resourceHandlers: unknown }).resourceHandlers =
+      new TrashResourceHandlerRegistry([
+        new TableTrashHandler(
+          prismaService as never,
+          { get: vi.fn() } as never,
+          tableOpenApiService as never,
+          {} as never,
+          {} as never
+        ),
+        new DashboardTrashHandler(prismaService as never),
+        new FolderTrashHandler(prismaService as never, { get: vi.fn() } as never, {} as never),
+        new SpaceTrashHandler(prismaService as never, spaceService as never),
+        new BaseTrashHandler(prismaService as never, baseService as never),
+      ]);
+    return created;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
     migrationGuard.assertSpaceWritable.mockRejectedValue(freezeError);
     migrationGuard.assertBaseWritable.mockRejectedValue(freezeError);
     migrationGuard.assertTableWritable.mockRejectedValue(freezeError);
-    txClient.trash.findUniqueOrThrow.mockResolvedValue({
+    const trash = {
       id: 'trhxxx',
       resourceId: 'bsexxx',
       resourceType: TrashType.Base,
       parentId: null,
-    });
+    };
+    txClient.trash.findUnique.mockResolvedValue(trash);
+    txClient.trash.findUniqueOrThrow.mockResolvedValue(trash);
   });
 
   it('rejects meta trash restore before restoring or deleting trash metadata', async () => {

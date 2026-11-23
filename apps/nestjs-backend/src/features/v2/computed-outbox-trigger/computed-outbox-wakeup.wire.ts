@@ -8,6 +8,8 @@ export const computedOutboxWakeupWireSchema = z.object({
   availableAt: z.iso.datetime(),
   emittedAt: z.iso.datetime(),
   cause: z.enum(['created', 'merged', 'retry', 'replay']),
+  eligibleClaimMisses: z.number().int().positive().optional(),
+  relayDueBeforeMs: z.number().int().nonnegative().optional(),
   // Optional W3C carrier so worker spans join the originating write trace.
   traceparent: z.string().min(1).optional(),
   tracestate: z.string().min(1).optional(),

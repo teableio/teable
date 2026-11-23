@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
@@ -46,18 +46,21 @@ export class RenameTableHandler implements ICommandHandler<RenameTableCommand, R
   ): Promise<Result<RenameTableResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<RenameTableResult, DomainError>(async function* () {
-      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
-        kind: TableOperationKind.rename,
-        executionContext: context,
-        payload: {
-          baseId: command.baseId,
-          tableName: command.tableName,
-        },
-        isTransactionBound: false,
-      });
-      yield* await tablePluginExecution.guard();
-      const updateResult = yield* await handler.tableUpdateFlow.execute(context, command, (table) =>
-        table.update((mutator) => mutator.rename(command.tableName))
+      const updateResult = yield* await handler.tableUpdateFlow.execute(
+        context,
+        command,
+        (table) => table.update((mutator) => mutator.rename(command.tableName)),
+        {
+          beforeMutate: async (table) => {
+            const execution = await handler.tableOperationPluginRunner.prepare({
+              kind: TableOperationKind.rename,
+              executionContext: context,
+              payload: { baseId: command.baseId, tableName: command.tableName, table },
+              isTransactionBound: false,
+            });
+            return execution.isErr() ? err(execution.error) : execution.value.guard();
+          },
+        }
       );
       return ok(RenameTableResult.create(updateResult.table, updateResult.events));
     });

@@ -2,6 +2,8 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { presentRecordReadModels } from '../application/formatting/presentRecordReadModels';
+import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { IExecutionContext } from '../ports/ExecutionContext';
@@ -67,6 +69,7 @@ export class GetRecordByIdHandler implements IQueryHandler<
             // !!!IMPORTANT: Get record by ID is always using stored values
             // never change this to 'computed'
             mode: 'stored',
+            includeOrders: query.includeOrders,
           })
         ).mapErr((error: DomainError) =>
           isNotFoundError(error)
@@ -76,7 +79,19 @@ export class GetRecordByIdHandler implements IQueryHandler<
 
         logger.debug('GetRecordByIdHandler.success');
 
-        return ok(GetRecordByIdResult.create(record));
+        let projected = record;
+        if (query.projection) {
+          const fieldIds = new Set<string>();
+          for (const key of query.projection) {
+            fieldIds.add(yield* FieldKeyResolverService.resolveFieldKey(table, key, query.fieldKeyType));
+          }
+          projected = { ...record, fields: Object.fromEntries(Object.entries(record.fields).filter(([fieldId]) => fieldIds.has(fieldId))) };
+        }
+        const presented = (yield* presentRecordReadModels(table, [projected], query.cellFormat))[0]!;
+        return ok(GetRecordByIdResult.create({
+          ...presented,
+          fields: FieldKeyResolverService.transformResponseKeys(table, presented.fields, query.fieldKeyType),
+        }));
       }.bind(this)
     );
   }

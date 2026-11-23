@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { generateV2OpenApiDocument } from '@teable/v2-contract-http-openapi';
 import { Request, Response } from 'express';
 import type { IBaseConfig } from '../../configs/base.config';
+import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { Public } from '../auth/decorators/public.decorator';
 import { resolveBoolean } from './v2-config-parsers';
 
@@ -70,12 +71,28 @@ export class V2OpenApiController {
 
     const serverBaseUrl = serverUrl ? `${serverUrl.replace(/\/$/, '')}/${V2_BASE_PATH}` : undefined;
 
-    return generateV2OpenApiDocument({
+    const document = await generateV2OpenApiDocument({
       includeDataQuery:
         resolveBoolean(this.configService.get('V2_DATA_QUERY_ENABLED'), false) ||
         resolveBoolean(this.configService.get('V2_DATA_QUERY_EXECUTE_ENABLED'), false),
       servers: serverBaseUrl ? [{ url: serverBaseUrl }] : undefined,
     });
+    document.components = {
+      ...document.components,
+      securitySchemes: {
+        ...document.components?.securitySchemes,
+        memberToken: { type: 'http', scheme: 'bearer', description: 'Personal access token or OAuth access token; current collaborator rights and token resource/scopes both apply.' },
+        memberSession: { type: 'apiKey', in: 'cookie', name: AUTH_SESSION_COOKIE_NAME, description: 'Authenticated member session. Share credentials are accepted only by share procedures.' },
+      },
+    };
+    for (const [path, item] of Object.entries(document.paths ?? {})) {
+      if (!item) continue;
+      for (const method of ['get', 'post', 'put', 'patch', 'delete'] as const) {
+        const operation = item[method];
+        if (operation) operation.security = path.startsWith('/share/') ? [] : [{ memberToken: [] }, { memberSession: [] }];
+      }
+    }
+    return document;
   }
 
   @Get('docs')

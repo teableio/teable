@@ -36,6 +36,7 @@ import type {
   LegacyEventDispatchReport,
 } from '../../ports/LegacyEventDispatcher';
 import type { ILogger } from '../../ports/Logger';
+import type { BackgroundTaskTracker } from '../../ports/memory/BackgroundTaskTracker';
 import type {
   EncodedProjectionMessage,
   IProjectionMessageCodecRegistry,
@@ -100,6 +101,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     private readonly legacyDispatcher: ILegacyEventDispatcher,
     private readonly sameTxDispatcher: ISameTxProjectionDispatcher,
     private readonly logger: ILogger,
+    private readonly backgroundTasks: BackgroundTaskTracker,
     private readonly generateId: ProjectionMessageIdGenerator = () => generateUuid(),
     private readonly publishedEventLog?: {
       recordPublished?(events: ReadonlyArray<IDomainEvent>): void;
@@ -233,7 +235,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     }
 
     const committed = transactionResult.value;
-    const dispatchContext = withoutTransaction(context);
+    const dispatchContext = this.backgroundTasks.context(withoutTransaction(context));
 
     if (scopeResolution.kind === 'inBatch') {
       if (
@@ -301,7 +303,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
 
   async savepoint<T>(
     context: IExecutionContext,
-    work: () => Promise<Result<T, DomainError>>
+    work: (context: IExecutionContext) => Promise<Result<T, DomainError>>
   ): Promise<Result<T, DomainError>> {
     if (!getUnitOfWorkTransaction(context, 'data')) {
       return err(
@@ -321,9 +323,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
       );
     }
 
-    return runWithBatchSavepoint(context, () =>
-      this.unitOfWork.savepoint!(context, async () => work())
-    );
+    return runWithBatchSavepoint(context, () => this.unitOfWork.savepoint!(context, work));
   }
 
   async executeStream<T>(

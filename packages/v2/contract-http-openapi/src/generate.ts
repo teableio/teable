@@ -1,5 +1,15 @@
 import { OpenAPIGenerator } from '@orpc/openapi';
-import { dataQueryContract, dataQueryExplainContract, v2Contract } from '@teable/v2-contract-http';
+import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
+import {
+  apiErrorResponseDtoSchema,
+  dataQueryContract,
+  dataQueryExplainContract,
+  fieldDtoSchema,
+  tableDtoSchema,
+  tableRecordDtoSchema,
+  v2Contract,
+  viewDtoSchema,
+} from '@teable/v2-contract-http';
 
 export interface IV2OpenApiGenerateOptions {
   title?: string;
@@ -9,7 +19,9 @@ export interface IV2OpenApiGenerateOptions {
 }
 
 export const generateV2OpenApiDocument = async (options: IV2OpenApiGenerateOptions = {}) => {
-  const openAPIGenerator = new OpenAPIGenerator();
+  const openAPIGenerator = new OpenAPIGenerator({
+    schemaConverters: [new ZodToJsonSchemaConverter()],
+  });
 
   const contract = options.includeDataQuery
     ? {
@@ -23,13 +35,22 @@ export const generateV2OpenApiDocument = async (options: IV2OpenApiGenerateOptio
       version: options.version ?? '0.0.0',
     },
     servers: options.servers,
+    commonSchemas: {
+      Table: { schema: tableDtoSchema, strategy: 'output' },
+      Field: { schema: fieldDtoSchema, strategy: 'output' },
+      View: { schema: viewDtoSchema, strategy: 'output' },
+      Record: { schema: tableRecordDtoSchema, strategy: 'output' },
+      ApiError: { schema: apiErrorResponseDtoSchema, strategy: 'output' },
+    },
     customErrorResponseBodySchema: () => ({
-      type: 'object',
-      properties: {
-        ok: { const: false },
-        error: { type: 'string' },
-      },
-      required: ['ok', 'error'],
+      oneOf: [
+        { $ref: '#/components/schemas/ApiError' },
+        {
+          type: 'object',
+          properties: { ok: { const: false }, error: { type: 'string' } },
+          required: ['ok', 'error'],
+        },
+      ],
     }),
   });
 };

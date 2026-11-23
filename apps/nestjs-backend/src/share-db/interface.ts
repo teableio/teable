@@ -1,5 +1,11 @@
-import type { ISnapshotBase, IOtOperation } from '@teable/core';
+import type { IFieldVo, ISnapshotBase, IOtOperation } from '@teable/core';
 import type { CreateOp, DB, DeleteOp, EditOp } from 'sharedb';
+
+export const SHAREDB_NATIVE_FIELD_SNAPSHOT_READER = Symbol('SHAREDB_NATIVE_FIELD_SNAPSHOT_READER');
+
+export interface IShareDbNativeFieldSnapshotReader {
+  getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IFieldVo>[]>;
+}
 
 export interface IReadonlyAdapterService {
   getSnapshotBulk(

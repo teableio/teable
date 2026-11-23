@@ -6,13 +6,18 @@ import { OAuthService } from './oauth.service';
 
 describe('OauthService', () => {
   let service: OAuthService;
+  let module: TestingModule;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, OAuthModule],
     }).compile();
 
     service = module.get<OAuthService>(OAuthService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   it('should be defined', () => {

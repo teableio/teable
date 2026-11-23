@@ -1967,6 +1967,11 @@
     "sandboxUnavailableNotConfigured": "Die Laufzeitumgebung des KI-Agenten ist auf dieser Instanz nicht konfiguriert. Bitte wenden Sie sich an Ihren Administrator.",
     "agentStartFailed": "Die KI-Engine konnte nicht gestartet werden. Bitte erneut versuchen oder eine neue Sitzung starten.",
     "agentSessionLost": "Etwas ist schiefgelaufen. Bitte senden Sie Ihre Nachricht erneut.",
+    "sandboxDestroyed": "Die Umgebung von Cuppy wurde beendet, die Antwort wurde abgebrochen",
+    "sandboxOutOfMemory": "Cuppy hat mittendrin aufgehört",
+    "sandboxOutOfMemoryDescription": "Dieser Schritt hat mehr Ressourcen gebraucht, als Cuppy zur Verfügung stehen. Es liegt nicht an Ihnen. Wählen Sie „Weiter“, dann prüft Cuppy zuerst den Stand und macht dann weiter.",
+    "sandboxOutOfMemoryAction": "Weiter",
+    "sandboxOutOfMemoryPrompt": "Deine letzte Antwort wurde abgebrochen, weil sie mehr Arbeitsspeicher gebraucht hat, als verfügbar ist. Prüfe den Fortschritt, bevor du weitermachst, und führe möglichst nicht mehrere Aufgaben gleichzeitig aus.",
     "idleTimeout": "Die Befehlsausführung hat das Zeitlimit ({{seconds}} s) überschritten. Bitte erneut versuchen.",
     "danglingToolUse": "Die vorherige Sitzung wurde unterbrochen und automatisch repariert. Bitte senden Sie Ihre Nachricht erneut.",
     "versionSaveFailed": "Version konnte nicht gespeichert werden",
@@ -2233,7 +2238,9 @@
     "menuItem": "In der Teable-App öffnen"
   },
   "appDelete": {
-    "offlineWarning": "Diese App ist veröffentlicht. Beim Löschen geht sie sofort offline: Ihr öffentlicher Link funktioniert nicht mehr, eine eigene Domain wird freigegeben und ihre Anmeldeeinstellungen werden gelöscht. Nach dem Wiederherstellen muss sie neu veröffentlicht werden."
+    "offlineWarning": "Diese App ist veröffentlicht. Beim Löschen geht sie sofort offline: Ihr öffentlicher Link funktioniert nicht mehr, eine eigene Domain wird freigegeben und ihre Anmeldeeinstellungen werden gelöscht. Nach dem Wiederherstellen muss sie neu veröffentlicht werden.",
+    "closeAndDelete": "Sandbox schließen und löschen",
+    "closingAndDeleting": "Sandbox wird geschlossen und gelöscht…"
   },
   "folderDelete": {
     "title": "Möchten Sie den Ordner „{{name}}“ wirklich löschen?",
@@ -2267,6 +2274,10 @@
       "customDomain": "Die eigene Domain {{domain}} wird freigegeben",
       "loginConfig": "Ihre Anmeldeeinstellungen werden gelöscht",
       "afterRestore": "Nach dem Wiederherstellen muss sie neu veröffentlicht, die Domain neu verknüpft und die Anmeldung neu eingerichtet werden."
+    },
+    "appGenerating": {
+      "tip": "Generiert gerade; die Sandbox wird vor dem Löschen geschlossen",
+      "detail": "Diese App generiert gerade. Ihre Sandbox wird vor dem Löschen geschlossen; die laufende Generierung wird dabei abgebrochen."
     }
   }
 }

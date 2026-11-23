@@ -16,6 +16,7 @@ import {
 } from '@teable/v2-adapter-table-repository-postgres';
 import {
   AsyncMemoryEventBus,
+  BackgroundTaskTracker,
   compileDurableSubscriptionCatalog,
   DomainWriteTransaction,
   FieldCreated,
@@ -161,9 +162,12 @@ export const registerV2BrowserPgliteDependencies = async (
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.internalCommandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
+  const backgroundTasks = new BackgroundTaskTracker();
+  c.registerInstance(BackgroundTaskTracker, backgroundTasks);
   c.registerInstance(
     v2CoreTokens.eventBus,
     new AsyncMemoryEventBus(c, {
+      backgroundTasks,
       recordPublishedEvents: false,
       onError: ({ error, event, handlerName }) => {
         const eventName = event.name.toString();
@@ -214,6 +218,7 @@ export const registerV2BrowserPgliteDependencies = async (
       new TargetedLegacyEventDispatcher(c, logger),
       sameTxDispatcher,
       logger,
+      backgroundTasks,
       undefined,
       c.resolve(v2CoreTokens.eventBus),
       options.importEventSpoolFactory

@@ -409,6 +409,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "Abfragen speichern und teilen",
       "spaceCreate": "Space erstellen",
       "spaceDelete": "Space löschen",
       "spaceRead": "Space lesen",
@@ -1080,6 +1081,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit {{name}}[{{id}}] Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld",
+      "buttonTriggerFilterNotMatched": "Dieser Datensatz erfüllt die Auslösebedingungen der Automatisierung nicht",
       "triggerNotFound": "Automatisierung muss einen Trigger-Knoten haben",
       "nodeNotFound": "{{nodeId}} Knoten nicht gefunden",
       "triggerTestFailed": "Trigger-Test fehlgeschlagen, bitte überprüfen Sie die Trigger-Konfiguration",
@@ -1212,6 +1214,7 @@
       "runAlreadyInFlight": "Für diese Routine läuft bereits eine Ausführung",
       "runNowWhileActiveEvent": "Diese Routine ist aktiv und empfängt ihre Ereignisse bereits; löse eines aus, um sie laufen zu sehen",
       "runNowOwnerOnly": "Solange die Routine aktiv ist, kann nur die Person, als die sie läuft, sie sofort ausführen",
+      "robotNotAllowed": "Roboter können diese Aktion nicht ausführen",
       "invalidRunCursor": "Ungültiger Cursor für die Ausführungsliste",
       "invalidSchedule": "Ungültiger Routinenzeitplan: {{reason}}"
     },
@@ -1738,7 +1741,8 @@
         "dnsMisconfigured": "Einrichtung des Zugriffslinks fehlgeschlagen: Das DNS der Domain ist nicht korrekt konfiguriert"
       },
       "customDomainNotConfigured": "Keine benutzerdefinierte Domain konfiguriert",
-      "vercelTokenNotConfigured": "In den App-Builder-Einstellungen ist kein Vercel-Token konfiguriert"
+      "vercelTokenNotConfigured": "In den App-Builder-Einstellungen ist kein Vercel-Token konfiguriert",
+      "deleteSandboxCloseFailed": "Die Sandbox konnte nicht geschlossen werden. Es wurde nichts gelöscht, versuchen Sie es erneut"
     },
     "reward": {
       "notFound": "Belohnung nicht gefunden",

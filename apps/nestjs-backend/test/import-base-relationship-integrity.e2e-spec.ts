@@ -85,7 +85,20 @@ describe('public .tea relationship integrity (e2e)', () => {
   });
 
   afterEach(async () => {
-    for (const baseId of baseIds) await permanentDeleteBase(baseId);
+    const prisma = app.get(PrismaService);
+    for (const baseId of baseIds) {
+      // Import completion can leave computed work running against the fixture schema.
+      await expect
+        .poll(
+          () =>
+            prisma.computedUpdateOutbox.count({
+              where: { baseId, status: { in: ['pending', 'processing'] } },
+            }),
+          { timeout: 30_000, message: `Computed work did not drain for base ${baseId}` }
+        )
+        .toBe(0);
+      await permanentDeleteBase(baseId);
+    }
     baseIds.clear();
   });
 
@@ -154,7 +167,11 @@ describe('public .tea relationship integrity (e2e)', () => {
       const job = await queue.getJob(jobId);
       if (job) {
         const state = await job.getState();
-        if (state === 'failed') throw new Error(`Import job failed: ${job.failedReason}`);
+        if (state === 'failed') {
+          // The worker can fail after getJob reads its earlier metadata snapshot.
+          const failedJob = await queue.getJob(jobId);
+          throw new Error(`Import job failed: ${failedJob?.failedReason}`);
+        }
         if (state === 'completed') return;
       }
       await delay(25);

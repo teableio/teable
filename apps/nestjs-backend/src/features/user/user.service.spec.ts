@@ -7,6 +7,7 @@ import { UserService } from './user.service';
 
 describe('UserService', () => {
   let service: UserService;
+  let module: TestingModule;
 
   const createNotifyMetaMergeService = (notifyMeta?: string | null) => {
     const queryRaw = vi.fn().mockResolvedValue([{ notifyMeta }]);
@@ -43,11 +44,15 @@ describe('UserService', () => {
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       imports: [GlobalModule, UserModule],
     }).compile();
 
     service = module.get<UserService>(UserService);
+  });
+
+  afterEach(async () => {
+    await module.close();
   });
 
   const createClaimHarness = (existUser: object | null) => {

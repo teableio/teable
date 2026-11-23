@@ -12,16 +12,19 @@ export class DomainEventWakeupHandler {
 
   async handle(wakeup: { eventId: string; baseId: string }): Promise<void> {
     const container = await this.v2ContainerService.getContainerForBase(wakeup.baseId);
-    const worker = container.resolve<DomainEventOutboxWorker>(
-      v2RecordRepositoryPostgresTokens.domainEventOutboxWorker
-    );
-    const result = await worker.pollOnce();
-    if (result.isErr()) {
-      this.logger.warn('domain_event:wakeup_poll_failed', {
-        eventId: wakeup.eventId,
-        errorCode: result.error.code,
-      });
-      throw new Error(`domain_event wakeup poll failed: ${result.error.code}`);
+    for (const token of [
+      v2RecordRepositoryPostgresTokens.domainEventOutboxWorker,
+      v2RecordRepositoryPostgresTokens.metadataDomainEventOutboxWorker,
+    ]) {
+      const worker = container.resolve<DomainEventOutboxWorker>(token);
+      const result = await worker.pollOnce();
+      if (result.isErr()) {
+        this.logger.warn('domain_event:wakeup_poll_failed', {
+          eventId: wakeup.eventId,
+          errorCode: result.error.code,
+        });
+        throw new Error(`domain_event wakeup poll failed: ${result.error.code}`);
+      }
     }
   }
 }

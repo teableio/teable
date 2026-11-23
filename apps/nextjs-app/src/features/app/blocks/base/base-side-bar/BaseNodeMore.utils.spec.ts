@@ -1,6 +1,74 @@
 import { getBasePermission, Role } from '@teable/core';
 import { describe, expect, it } from 'vitest';
-import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
+import {
+  canShowSearchAccelerationSettings,
+  getTableOperationMenuPermission,
+  getTableRecordNavigation,
+} from './BaseNodeMore.utils';
+
+describe('canShowSearchAccelerationSettings', () => {
+  const allowed = {
+    base: { searchAccelerationSwitchEnabled: true, v2Status: { useV2: true } },
+    canRead: true,
+    isShared: false,
+    anonymous: false,
+    readOnlyPreview: false,
+  };
+
+  it('shows the menu for an eligible member and table', () => {
+    expect(canShowSearchAccelerationSettings(allowed)).toBe(true);
+  });
+
+  it('hides the menu when the scoped capability is denied or absent', () => {
+    expect(canShowSearchAccelerationSettings({ ...allowed, base: undefined })).toBe(false);
+    expect(
+      canShowSearchAccelerationSettings({
+        ...allowed,
+        base: { ...allowed.base, searchAccelerationSwitchEnabled: false },
+      })
+    ).toBe(false);
+    expect(
+      canShowSearchAccelerationSettings({ ...allowed, base: { v2Status: { useV2: true } } })
+    ).toBe(false);
+  });
+
+  it('retains V2, table read, share, anonymous, and preview restrictions', () => {
+    expect(
+      canShowSearchAccelerationSettings({
+        ...allowed,
+        base: { ...allowed.base, v2Status: { useV2: false } },
+      })
+    ).toBe(false);
+    expect(canShowSearchAccelerationSettings({ ...allowed, canRead: false })).toBe(false);
+    expect(canShowSearchAccelerationSettings({ ...allowed, canRead: undefined })).toBe(false);
+    expect(canShowSearchAccelerationSettings({ ...allowed, isShared: true })).toBe(false);
+    expect(canShowSearchAccelerationSettings({ ...allowed, anonymous: true })).toBe(false);
+    expect(canShowSearchAccelerationSettings({ ...allowed, readOnlyPreview: true })).toBe(false);
+  });
+
+  it('retains forced V2 and legacy canary handling without bypassing the capability', () => {
+    expect(
+      canShowSearchAccelerationSettings({
+        ...allowed,
+        base: { ...allowed.base, v2Status: { useV2: false } },
+        forceV2All: true,
+      })
+    ).toBe(true);
+    expect(
+      canShowSearchAccelerationSettings({
+        ...allowed,
+        base: { searchAccelerationSwitchEnabled: true, isCanary: true },
+      })
+    ).toBe(true);
+    expect(
+      canShowSearchAccelerationSettings({
+        ...allowed,
+        base: { isCanary: true },
+        forceV2All: true,
+      })
+    ).toBe(false);
+  });
+});
 
 describe('getTableRecordNavigation', () => {
   it('keeps the current route when the record belongs to the active table', () => {

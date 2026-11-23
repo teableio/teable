@@ -144,10 +144,10 @@ describeWithPostgres('ensureTableQueryObservationSchema lock timeout', () => {
           .selectFrom('table_query_remediation_task')
           .selectAll()
           .executeTakeFirstOrThrow();
-        expect(upgraded).toEqual({ ...before, execution_state: null });
+        expect(upgraded).toEqual({ ...before, execution_state: null, resume_attempt: false });
         await db
           .updateTable('table_query_remediation_task')
-          .set({ execution_state: JSON.stringify(journal) })
+          .set({ execution_state: JSON.stringify(journal), resume_attempt: true })
           .where('id', '=', 'legacy-task')
           .execute();
         await ensureTableQueryOpsSchema(db);
@@ -155,7 +155,7 @@ describeWithPostgres('ensureTableQueryObservationSchema lock timeout', () => {
           .selectFrom('table_query_remediation_task')
           .selectAll()
           .executeTakeFirstOrThrow();
-        expect(repeated).toEqual({ ...before, execution_state: journal });
+        expect(repeated).toEqual({ ...before, execution_state: journal, resume_attempt: true });
       } finally {
         await sql`ROLLBACK`.execute(db);
       }

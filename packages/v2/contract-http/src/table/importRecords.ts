@@ -1,4 +1,4 @@
-import type { DomainError, IImportDiagnostics, ImportRecordsResult } from '@teable/v2-core';
+import type { DomainError, ImportRecordsResult } from '@teable/v2-core';
 import { ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -10,12 +10,13 @@ import {
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
 } from '../shared/http';
-import { importDiagnosticsDtoSchema } from '../shared/importDiagnostics';
+import type { IImportDiagnosticsDto } from '../shared/importDiagnostics';
+import { importDiagnosticsDtoSchema, mapImportDiagnosticsToDto } from '../shared/importDiagnostics';
 
 export interface IImportRecordsResponseDataDto {
   totalImported: number;
   events: Array<IDomainEventDto>;
-  diagnostics?: IImportDiagnostics;
+  diagnostics?: IImportDiagnosticsDto;
 }
 
 export type IImportRecordsOkResponseDto = IApiOkResponseDto<IImportRecordsResponseDataDto>;
@@ -42,6 +43,6 @@ export const mapImportRecordsResultToDto = (
   return ok({
     totalImported: result.totalImported,
     events: [...result.events],
-    diagnostics: result.diagnostics,
+    diagnostics: mapImportDiagnosticsToDto(result.diagnostics),
   });
 };

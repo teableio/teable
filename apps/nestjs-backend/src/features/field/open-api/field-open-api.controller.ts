@@ -49,10 +49,11 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
-import { TableIndexService } from '../../table/table-index.service';
+import { TableIndexService } from '../../table-index/table-index.service';
 import { FieldService } from '../field.service';
 import { FieldOpenApiV2Service } from './field-open-api-v2.service';
 import { FieldOpenApiService } from './field-open-api.service';
+import { FieldDependencyReadService } from './field-dependency-read.service';
 
 @UseGuards(V2FeatureGuard)
 @UseInterceptors(V2IndicatorInterceptor)
@@ -64,25 +65,34 @@ export class FieldOpenApiController {
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     private readonly tableIndexService: TableIndexService,
+    private readonly fieldDependencyReadService: FieldDependencyReadService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
   @Permissions('field|delete')
+  @UseV2Feature('getFields')
   @Get('delete-references')
   async getDeleteFieldReferences(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(fieldDeleteReferencesQuerySchema))
     query: IFieldDeleteReferencesQuery
   ): Promise<IFieldDeleteReferencesVo> {
+    if (this.cls.get('useV2')) {
+      return this.fieldDependencyReadService.getDeleteFieldReferences(tableId, query.fieldIds);
+    }
     return this.fieldOpenApiService.getDeleteFieldReferences(tableId, query.fieldIds);
   }
 
   @Permissions('field|read')
+  @UseV2Feature('getFields')
   @Get(':fieldId/plan')
   async planField(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string
   ): Promise<IPlanFieldVo> {
+    if (this.cls.get('useV2')) {
+      return this.fieldDependencyReadService.planField(tableId, fieldId);
+    }
     return await this.fieldOpenApiService.planField(tableId, fieldId);
   }
 
@@ -185,8 +195,12 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|delete')
+  @UseV2Feature('deleteField')
   @Delete(':fieldId/plan')
   async planDeleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
+    if (this.cls.get('useV2')) {
+      return this.fieldDependencyReadService.planDeleteField(tableId, fieldId);
+    }
     return await this.fieldOpenApiService.planDeleteField(tableId, fieldId);
   }
 

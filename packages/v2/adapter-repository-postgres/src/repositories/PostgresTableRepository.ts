@@ -764,7 +764,7 @@ export class PostgresTableRepository implements core.ITableRepository {
               }
               if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
-                if (effectiveState === 'active') {
+                if (effectiveState === 'active' || options?.excludePendingFields) {
                   // Legacy schema operations can leave computed fields pending before their
                   // physical columns exist. Active record paths must not hydrate those fields.
                   query = query.where((eb) =>
@@ -1517,7 +1517,6 @@ export class PostgresTableRepository implements core.ITableRepository {
         .selectFrom('view')
         .select(['id', 'version'])
         .where('table_id', '=', tableId)
-        .where('deleted_time', 'is', null)
         .where('id', 'in', uniqueViewIds)
         .execute();
 

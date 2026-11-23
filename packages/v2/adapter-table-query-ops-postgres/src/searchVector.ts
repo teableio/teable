@@ -1,28 +1,32 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { createResidualSearchIndex, inspectResidualSearchIndex } from './searchResidual';
 import { setTimeout } from 'node:timers/promises';
 import {
-  LEGACY_MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX,
-  LEGACY_MANAGED_SEARCH_INDEX_PREFIX,
-  MANAGED_SCOPED_SEARCH_INDEX_PREFIX,
-  MANAGED_RESIDUAL_SEARCH_INDEX_PREFIX,
   buildIndexedSearchExpression,
   decodeTableSearchIndex,
+  LEGACY_MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX,
+  LEGACY_MANAGED_SEARCH_INDEX_PREFIX,
+  MANAGED_RESIDUAL_SEARCH_INDEX_PREFIX,
+  MANAGED_SCOPED_SEARCH_INDEX_PREFIX,
   MANAGED_SEARCH_DOCUMENT_COLUMN_PREFIX,
   MANAGED_SEARCH_INDEX_PREFIX,
+  renderSearchTextProjectionSql,
+  sanitizeSearchTextProjection,
+  searchTextProjectionKey,
 } from '@teable/v2-adapter-db-postgres-shared';
 import {
   domainError,
   isTableSearchIndex,
   type DomainError,
   type IExecutionContext,
-  type ITableSearchIndex,
   type ITableSearchField,
+  type ITableSearchIndex,
   type SearchFieldTextProjection,
   type Table,
 } from '@teable/v2-core';
 import {
   buildTableSearchVectorDefinition,
+  defaultTableQueryDecisionPolicyConfig,
+  reclaimDropTaskId,
   SearchScopeHeatPolicy,
   type ReconcileTableSearchVectorInput,
   type ReconcileTableSearchVectorResult,
@@ -39,11 +43,13 @@ import { err, ok } from 'neverthrow';
 import { getTablePhysicalName, makePhysicalTableSql, quoteIdentifier } from './helpers';
 import { readPostgresSearchAccessPathCapabilities } from './searchAccessPathCapability';
 import { ensureSearchDocumentFunctions } from './searchDocumentFunctions';
+import { createResidualSearchIndex, inspectResidualSearchIndex } from './searchResidual';
 import {
-  renderSearchTextProjectionSql,
-  sanitizeSearchTextProjection,
-  searchTextProjectionKey,
-} from '@teable/v2-adapter-db-postgres-shared';
+  isSearchMaintenanceWindow,
+  PostgresTableSearchVectorSchemaMaintenanceScheduler,
+  SearchMaintenanceDeferred,
+  type SearchMaintenanceOptions,
+} from './searchVectorMaintenance';
 import type { UnknownPostgresDatabase } from './types';
 
 const DEFAULT_LANGUAGE_CONFIG = 'simple';
@@ -69,14 +75,21 @@ class SearchGenerationTargetChangedError extends Error {}
 class SearchGenerationCleanupIdentityChangedError extends Error {}
 
 export const toSearchGenerationError = (error: unknown): DomainError =>
-  error instanceof SearchGenerationTargetChangedError
+  error instanceof SearchMaintenanceDeferred
     ? domainError.conflict({
-        code: 'table_query_ops.search_target_changed',
+        code: 'table_query_ops.search_maintenance_deferred',
         message: error.message,
+        cause: error.cause,
       })
-    : domainError.infrastructure({
-        message: error instanceof Error ? error.message : 'Failed to reconcile search vector',
-      });
+    : error instanceof SearchGenerationTargetChangedError
+      ? domainError.conflict({
+          code: 'table_query_ops.search_target_changed',
+          message: error.message,
+        })
+      : domainError.infrastructure({
+          cause: error,
+          message: error instanceof Error ? error.message : 'Failed to reconcile search vector',
+        });
 
 type ExplainRow = {
   readonly 'QUERY PLAN': unknown;
@@ -174,6 +187,10 @@ export type SearchGenerationExecutionState = {
   readonly residualIndexName?: string;
   readonly phase: 'prepared' | 'column_ready' | 'index_ready' | 'validated' | 'published';
   readonly planEvidence?: TableQuerySearchVectorPlanEvidence;
+  readonly maintenanceAuthorization?: {
+    readonly knownSmallRowCap: number;
+    readonly allowUnknownOrLargeRewrite: boolean;
+  };
 };
 
 export type TableQuerySearchVectorSqlDetails = {
@@ -353,6 +370,13 @@ export type AnalyzeTableSearchVectorResult = {
 export type ExecuteTableSearchVectorInput = {
   readonly tableId: string;
   readonly execution?: ReconcileTableSearchVectorInput['execution'];
+  readonly maintenance?: {
+    readonly configKey: string;
+    readonly searchScope: 'all_fields' | 'selected_fields';
+    readonly tableVersion?: number;
+    readonly expansion: boolean;
+    readonly options: SearchMaintenanceOptions;
+  };
   readonly payload: {
     readonly candidateKey: string;
     readonly languageConfig: string;
@@ -999,10 +1023,18 @@ export class PostgresTableSearchVectorAdvisor {
   }
 }
 
+const advisoryUnlockFailure = (primary: unknown, unlockError: unknown): Error => {
+  const unlock = unlockError instanceof Error ? unlockError : new Error(String(unlockError));
+  const message = primary instanceof Error ? primary.message : String(primary);
+  return new Error(`${message}; advisory unlock also failed: ${unlock.message}`, { cause: primary });
+};
+
 export class PostgresTableSearchVectorExecutor {
   constructor(
     private readonly metaDb: Kysely<UnknownPostgresDatabase>,
-    private readonly dataDb: Kysely<UnknownPostgresDatabase>
+    private readonly dataDb: Kysely<UnknownPostgresDatabase>,
+    private readonly isConnectionUnavailable?: (error: unknown) => boolean,
+    private readonly deferRetirement = false
   ) {}
 
   async execute(input: ExecuteTableSearchVectorInput): Promise<ExecuteTableSearchVectorResult> {
@@ -1011,10 +1043,20 @@ export class PostgresTableSearchVectorExecutor {
 
   private async withPhysicalLocks<T>(
     tableId: string,
-    work: (executor: PostgresTableSearchVectorExecutor) => Promise<T>
+    work: (executor: PostgresTableSearchVectorExecutor) => Promise<T>,
+    deferUnavailableConnection = false
   ): Promise<T> {
     const metadataNamespace = 'teable.table_query_ops.search_vector';
     const dataNamespace = 'teable.table_query_ops.search_vector.data';
+    const rethrowPrelockConnectionFailure = (error: unknown): never => {
+      if (deferUnavailableConnection && this.isConnectionUnavailable?.(error)) {
+        throw new SearchMaintenanceDeferred(
+          `Search retirement connection unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error }
+        );
+      }
+      throw error;
+    };
     const acquireLock = async (
       db: Kysely<UnknownPostgresDatabase>,
       namespace: string,
@@ -1022,37 +1064,118 @@ export class PostgresTableSearchVectorExecutor {
     ) => {
       for (;;) {
         if (metadata) await sql`SELECT 1`.execute(metadata);
-        const result = await sql<{ acquired: boolean }>`SELECT pg_try_advisory_lock(
-          hashtext(${namespace}), hashtext(${tableId})) AS acquired`.execute(db);
-        if (result.rows[0]?.acquired) return;
+        let acquired: boolean;
+        try {
+          const result = await sql<{ acquired: boolean }>`SELECT pg_try_advisory_lock(
+            hashtext(${namespace}), hashtext(${tableId})) AS acquired`.execute(db);
+          acquired = Boolean(result.rows[0]?.acquired);
+        } catch (error) {
+          // An idle socket can fail on its first query after pool reservation.
+          // No retirement work runs until this data lock succeeds; a lost session
+          // releases its advisory lock even if its result never reaches us.
+          if (namespace === dataNamespace) rethrowPrelockConnectionFailure(error);
+          throw error;
+        }
+        if (acquired) return;
         // A blocking SELECT can hold the snapshot that a surviving concurrent build needs.
         await setTimeout(25);
       }
     };
     const releaseLock = (db: Kysely<UnknownPostgresDatabase>, namespace: string) =>
       sql`SELECT pg_advisory_unlock(hashtext(${namespace}), hashtext(${tableId}))`.execute(db);
-    return this.metaDb.connection().execute(async (meta) => {
+    const withHeldLock = async <TResult>(
+      db: Kysely<UnknownPostgresDatabase>,
+      namespace: string,
+      run: () => Promise<TResult>
+    ): Promise<TResult> => {
+      let primaryFailure: { error: unknown } | undefined;
+      try {
+        return await run();
+      } catch (error) {
+        primaryFailure = { error };
+        throw error;
+      } finally {
+        try {
+          await releaseLock(db, namespace);
+        } catch (error) {
+          if (!primaryFailure) throw error;
+          throw advisoryUnlockFailure(primaryFailure.error, error);
+        }
+      }
+    };
+    const withConnection = async <TResult>(
+      db: Kysely<UnknownPostgresDatabase>,
+      useConnection: (connection: Kysely<UnknownPostgresDatabase>) => Promise<TResult>
+    ): Promise<TResult> => {
+      if (db !== this.dataDb || !deferUnavailableConnection || !this.isConnectionUnavailable) {
+        return db.connection().execute(useConnection);
+      }
+      let acquired = false;
+      try {
+        return await db.connection().execute(async (connection) => {
+          acquired = true;
+          return useConnection(connection);
+        });
+      } catch (error) {
+        // Callback entry separates reservation failures from subsequent execution.
+        // Only the data advisory-lock query has its own prelock classification.
+        if (!acquired) rethrowPrelockConnectionFailure(error);
+        throw error;
+      }
+    };
+    return withConnection(this.metaDb, async (meta) => {
       await acquireLock(meta, metadataNamespace);
+      let primaryFailure: { readonly error: unknown } | undefined;
       try {
         if (this.dataDb === this.metaDb) {
           await acquireLock(meta, dataNamespace);
-          try {
-            return await work(new PostgresTableSearchVectorExecutor(meta, meta));
-          } finally {
-            await releaseLock(meta, dataNamespace);
-          }
+          return await withHeldLock(meta, dataNamespace, () =>
+            work(
+              new PostgresTableSearchVectorExecutor(
+                meta,
+                meta,
+                this.isConnectionUnavailable,
+                this.deferRetirement
+              )
+            )
+          );
         }
-        return await this.dataDb.connection().execute(async (data) => {
+        return await withConnection(this.dataDb, async (data) => {
           await acquireLock(data, dataNamespace, meta);
-          try {
+          return withHeldLock(data, dataNamespace, async () => {
             await sql`SELECT 1`.execute(meta);
-            return await work(new PostgresTableSearchVectorExecutor(meta, data));
-          } finally {
-            await releaseLock(data, dataNamespace);
-          }
+            return work(
+              new PostgresTableSearchVectorExecutor(
+                meta,
+                data,
+                this.isConnectionUnavailable,
+                this.deferRetirement
+              )
+            );
+          });
         });
+      } catch (error) {
+        primaryFailure = { error };
+        throw error;
       } finally {
-        await releaseLock(meta, metadataNamespace);
+        try {
+          await releaseLock(meta, metadataNamespace);
+        } catch (unlockError) {
+          // A shared session that dies during the data lock loses this
+          // session-scoped advisory lock with the connection, so that unlock
+          // failure must not displace the primary deferral. Any other unlock
+          // failure, including a distinct metadata session's, stays bounded.
+          if (!primaryFailure) throw unlockError;
+          // pg reports a socket that already failed before accepting new queries.
+          const sessionLost =
+            primaryFailure.error instanceof SearchMaintenanceDeferred &&
+            this.dataDb === this.metaDb &&
+            (this.isConnectionUnavailable?.(unlockError) === true ||
+              (unlockError instanceof Error &&
+                unlockError.message ===
+                  'Client has encountered a connection error and is not queryable'));
+          if (!sessionLost) throw advisoryUnlockFailure(primaryFailure.error, unlockError);
+        }
       }
     });
   }
@@ -1062,7 +1185,9 @@ export class PostgresTableSearchVectorExecutor {
     // transaction owns it. BYODB metadata must still use the metadata session.
     return new PostgresTableSearchVectorExecutor(
       this.metaDb === this.dataDb ? data : this.metaDb,
-      data
+      data,
+      this.isConnectionUnavailable,
+      this.deferRetirement
     );
   }
 
@@ -1157,6 +1282,15 @@ export class PostgresTableSearchVectorExecutor {
           ? `${names.residualIndexName.slice(0, 46)}_${suffix}`
           : undefined,
       phase: 'prepared',
+      ...(input.maintenance?.expansion
+        ? {
+            maintenanceAuthorization: {
+              knownSmallRowCap: input.maintenance.options.knownSmallRowCap ?? 5000,
+              allowUnknownOrLargeRewrite:
+                input.maintenance.options.allowUnknownOrLargeRewrite === true,
+            },
+          }
+        : {}),
     };
     const canonical = {
       ...state,
@@ -1333,25 +1467,42 @@ export class PostgresTableSearchVectorExecutor {
    */
   async drop(
     tableId: string,
-    expectedDefinitionKey?: string
+    expectedDefinitionKey?: string,
+    productDropSnapshot?: unknown
   ): Promise<DropTableSearchVectorResult> {
-    return this.withPhysicalLocks(tableId, (executor) =>
-      executor.dropUnlocked(tableId, expectedDefinitionKey)
+    return this.withPhysicalLocks(
+      tableId,
+      (executor) => executor.dropUnlocked(tableId, expectedDefinitionKey, productDropSnapshot),
+      this.deferRetirement && Boolean(expectedDefinitionKey)
     );
   }
 
   private async dropUnlocked(
     tableId: string,
-    expectedDefinitionKey?: string
+    expectedDefinitionKey?: string,
+    productDropSnapshot?: unknown
   ): Promise<DropTableSearchVectorResult> {
     const tableMeta = await this.requireTableMeta(tableId);
     const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
     const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
-    const configs = expectedDefinitionKey
-      ? [await this.claimedReclaimConfig(tableId, expectedDefinitionKey)].filter(
-          (config): config is SearchVectorConfigRow => Boolean(config)
-        )
-      : await this.allManagedConfigs(tableId);
+    if (expectedDefinitionKey)
+      return this.dropRetiredGeneration(tableId, expectedDefinitionKey, tableMeta, physical);
+    if (productDropSnapshot !== undefined) {
+      const snapshot = await sql<{ matches: boolean }>`
+        SELECT COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'id', c.id, 'key', c.candidate_key, 'index', c.index_name,
+          'column', c.generated_column_name, 'serving', c.serving_snapshot
+        ) ORDER BY c.id) FROM table_query_search_vector_config c WHERE c.table_id = ${tableId}), '[]'::jsonb)
+          = ${JSON.stringify(productDropSnapshot)}::jsonb->'configs'
+          AND ((SELECT search_index FROM table_meta WHERE id = ${tableId}) IS NULL OR
+            (SELECT search_index FROM table_meta WHERE id = ${tableId}) = ${JSON.stringify(productDropSnapshot)}::jsonb->'searchIndex') AS matches
+      `.execute(this.metaDb);
+      if (!snapshot.rows[0]?.matches)
+        throw new SearchGenerationTargetChangedError(
+          'Product search configuration changed before drop'
+        );
+    }
+    const configs = await this.allManagedConfigs(tableId);
     const currentConfig = configs[0];
     // Validate the entire set before DDL. Independent replacements retain old
     // objects, and retries must also reclaim objects from already-disabled rows.
@@ -1365,7 +1516,13 @@ export class PostgresTableSearchVectorExecutor {
         throw new Error('Refusing to drop an unmanaged residual index');
     }
     const reclaimedGeneration =
-      !expectedDefinitionKey && (await this.dropAbandonedGenerations(tableId, tableMeta, physical));
+      !expectedDefinitionKey &&
+      (await this.dropAbandonedGenerations(
+        tableId,
+        tableMeta,
+        physical,
+        productDropSnapshot !== undefined
+      ));
     await this.clearServingObjects(
       physical,
       configs.flatMap((config) => [
@@ -1383,26 +1540,7 @@ export class PostgresTableSearchVectorExecutor {
       await this.dropManagedIndex(physical.schema, config.index_name);
       await this.dropManagedColumn(tableSql, config.generated_column_name);
     }
-    if (expectedDefinitionKey) {
-      if (currentConfig) {
-        await sql`
-          UPDATE table_query_search_vector_config
-          SET last_inspection = ${JSON.stringify({
-            state: 'disabled',
-            staleReasons: ['reclaimed_after_grace'],
-          })}::jsonb,
-              reclaim_disabled_at = NULL,
-              reclaim_drop_after = NULL,
-              reclaim_drop_queued_at = NULL,
-              reclaim_idx_scan_baseline = NULL,
-              reclaim_sampled_at = NULL,
-              last_modified_time = now()
-          WHERE table_id = ${tableId}
-            AND candidate_key = ${expectedDefinitionKey}
-            AND status = 'disabled'
-        `.execute(this.metaDb);
-      }
-    } else {
+    {
       await sql`
         UPDATE table_query_search_vector_config
         SET status = 'disabled',
@@ -1428,6 +1566,106 @@ export class PostgresTableSearchVectorExecutor {
           }
         : {}),
     };
+  }
+  private async dropRetiredGeneration(
+    tableId: string,
+    scopeKey: string,
+    tableMeta: TableMetaRow,
+    physical: PhysicalTable
+  ): Promise<DropTableSearchVectorResult> {
+    const config = await this.claimedReclaimConfig(tableId, scopeKey);
+    if (!config) {
+      return { action: 'dropped', tableId, hadManagedObjects: false, candidateKey: scopeKey };
+    }
+    const { taskId, state } = await this.loadRetiredGeneration(
+      tableId,
+      config,
+      tableMeta,
+      physical
+    );
+    let retained: unknown;
+    for (const artifact of ['document', 'residual'] as const) {
+      if (artifact === 'document' ? !state.generatedColumnName : !state.residualIndexName) continue;
+      try {
+        await this.reclaimGeneration(
+          tableId,
+          taskId,
+          state,
+          tableMeta,
+          physical,
+          true,
+          scopeKey,
+          artifact
+        );
+      } catch (error) {
+        if (!retained || retained instanceof SearchMaintenanceDeferred) retained = error;
+      }
+    }
+    if (retained) throw retained;
+    await sql`UPDATE table_query_search_vector_config
+      SET last_inspection = ${JSON.stringify({ state: 'disabled', staleReasons: ['reclaimed_after_grace'] })}::jsonb,
+        serving_snapshot = NULL, reclaim_disabled_at = NULL, reclaim_drop_after = NULL,
+        reclaim_drop_queued_at = NULL, reclaim_idx_scan_baseline = NULL, reclaim_sampled_at = NULL,
+        last_modified_time = now()
+      WHERE table_id = ${tableId} AND candidate_key = ${scopeKey} AND status = 'disabled'
+    `.execute(this.metaDb);
+    return {
+      action: 'dropped',
+      tableId,
+      hadManagedObjects: true,
+      candidateKey: scopeKey,
+      generatedColumnName: config.generated_column_name ?? undefined,
+      indexName: config.index_name,
+    };
+  }
+
+  private async loadRetiredGeneration(
+    tableId: string,
+    config: SearchVectorConfigRow,
+    tableMeta: TableMetaRow,
+    physical: PhysicalTable
+  ): Promise<{ taskId: string; state: SearchGenerationExecutionState }> {
+    const snapshot = decodeTableSearchIndex(config.serving_snapshot);
+    if (!snapshot) throw new Error('Search retirement ownership snapshot is unavailable');
+    const journals = await sql<{ id: string; execution_state: SearchGenerationExecutionState }>`
+      SELECT id, execution_state FROM table_query_remediation_task
+      WHERE table_id = ${tableId} AND execution_state->>'kind' = 'search_generation'
+        AND execution_state->>'indexName' = ${config.index_name}
+        AND execution_state->>'generatedColumnName' IS NOT DISTINCT FROM ${config.generated_column_name}
+      ORDER BY created_time DESC
+    `.execute(this.metaDb);
+    const journal = journals.rows.find((row) =>
+      row.execution_state.indexName.endsWith(
+        `_${createHash('sha256').update(row.id).digest('hex').slice(0, 16)}`
+      )
+    );
+    const fieldOrder = parseStringArray(config.field_ids) ?? [];
+    const identity = await sql<{ oid: string }>`SELECT
+      to_regclass(${makePhysicalTableSql(physical.schema, physical.tableName)})::oid::text AS oid
+    `.execute(this.dataDb);
+    const state: SearchGenerationExecutionState = journal?.execution_state ?? {
+      version: 1,
+      kind: 'search_generation',
+      targetDefinition: JSON.stringify({
+        candidateKey: snapshot.definitionKey,
+        provider: config.provider,
+        operatorClass: config.operator_class,
+        fields: [
+          ...(snapshot.document?.fields ?? []),
+          ...(snapshot.residual?.fields ?? []).map((field) => ({ ...field, storage: 'residual' })),
+        ].sort(
+          (left, right) => fieldOrder.indexOf(left.fieldId) - fieldOrder.indexOf(right.fieldId)
+        ),
+      }),
+      dbTableName: snapshot.dbTableName,
+      tableOid: identity.rows[0]?.oid ?? '',
+      expectedVersion: tableMeta.version,
+      generatedColumnName: config.generated_column_name ?? undefined,
+      indexName: config.index_name,
+      residualIndexName: snapshot.residual?.indexName,
+      phase: 'published',
+    };
+    return { taskId: journal?.id ?? '', state };
   }
 
   async reclaimFailedTask(
@@ -1496,7 +1734,8 @@ export class PostgresTableSearchVectorExecutor {
   private async dropAbandonedGenerations(
     tableId: string,
     tableMeta: TableMetaRow,
-    physical: PhysicalTable
+    physical: PhysicalTable,
+    productOnly = false
   ): Promise<boolean> {
     const tasks = await sql<{ id: string; execution_state: SearchGenerationExecutionState }>`
       SELECT id, execution_state FROM table_query_remediation_task
@@ -1505,6 +1744,7 @@ export class PostgresTableSearchVectorExecutor {
         AND (status = 'cancelled' OR (status = 'failed' AND attempts >= max_attempts))
         AND (locked_at IS NULL OR locked_at < now() - interval '60 seconds')
         AND execution_state->>'kind' = 'search_generation'
+        AND (${!productOnly} OR payload->>'productSwitch' = 'true')
     `.execute(this.metaDb);
     let reclaimed = false;
     for (const task of tasks.rows)
@@ -1526,22 +1766,49 @@ export class PostgresTableSearchVectorExecutor {
     state: SearchGenerationExecutionState,
     tableMeta: TableMetaRow,
     physical: PhysicalTable,
-    reportUnsafe: boolean
+    reportUnsafe: boolean,
+    retiringConfigKey?: string,
+    artifact?: 'document' | 'residual'
   ): Promise<boolean> {
     return this.dataDb
       .transaction()
       .execute(async (data) => {
         const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
-        await sql.raw(`LOCK TABLE ${tableSql} IN ACCESS EXCLUSIVE MODE`).execute(data);
+        try {
+          await sql
+            .raw(
+              `LOCK TABLE ${tableSql} IN ACCESS EXCLUSIVE MODE${retiringConfigKey ? ' NOWAIT' : ''}`
+            )
+            .execute(data);
+        } catch (error) {
+          if (
+            this.deferRetirement &&
+            retiringConfigKey &&
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === '55P03'
+          )
+            throw new SearchMaintenanceDeferred('Search retirement is waiting for the table lock');
+          throw error;
+        }
         const executor = this.inDataTransaction(data);
         const objects = await executor.inspectOwnedGeneration(
           tableId,
           taskId,
           state,
           tableMeta,
-          physical
+          physical,
+          retiringConfigKey,
+          artifact
         );
-        if (objects.referenced) return false;
+        if (objects.referenced) {
+          if (retiringConfigKey)
+            throw new Error(
+              'Search retirement retained: artifacts are referenced by another config, serving snapshot or active journal'
+            );
+          return false;
+        }
         if (!objects.safe) {
           if (reportUnsafe)
             throw new Error(
@@ -1597,7 +1864,8 @@ export class PostgresTableSearchVectorExecutor {
     state: Pick<
       SearchGenerationExecutionState,
       'indexName' | 'generatedColumnName' | 'residualIndexName'
-    >
+    >,
+    retiringConfig?: { readonly tableId: string; readonly scopeKey: string }
   ): Promise<boolean> {
     const indexNames = [
       ...new Set([state.indexName, ...(state.residualIndexName ? [state.residualIndexName] : [])]),
@@ -1605,12 +1873,14 @@ export class PostgresTableSearchVectorExecutor {
     const columnNames = state.generatedColumnName ? [state.generatedColumnName] : [];
     const references = await sql<{ referenced: boolean }>`SELECT
       EXISTS (SELECT 1 FROM table_query_search_vector_config WHERE
-        index_name = ANY(${indexNames}::text[]) OR generated_column_name = ANY(${columnNames}::text[])
-        OR serving_snapshot->>'indexName' = ANY(${indexNames}::text[])
-        OR serving_snapshot->>'generatedColumnName' = ANY(${columnNames}::text[])
-        OR serving_snapshot->'document'->>'indexName' = ANY(${indexNames}::text[])
-        OR serving_snapshot->'document'->>'generatedColumnName' = ANY(${columnNames}::text[])
-        OR serving_snapshot->'residual'->>'indexName' = ANY(${indexNames}::text[])) OR
+        NOT (table_id = ${retiringConfig?.tableId ?? ''} AND candidate_key = ${retiringConfig?.scopeKey ?? ''})
+        AND NOT coalesce(last_inspection->'staleReasons' @> '["reclaimed_after_grace"]'::jsonb, false)
+        AND (index_name = ANY(${indexNames}::text[]) OR generated_column_name = ANY(${columnNames}::text[])
+          OR serving_snapshot->>'indexName' = ANY(${indexNames}::text[])
+          OR serving_snapshot->>'generatedColumnName' = ANY(${columnNames}::text[])
+          OR serving_snapshot->'document'->>'indexName' = ANY(${indexNames}::text[])
+          OR serving_snapshot->'document'->>'generatedColumnName' = ANY(${columnNames}::text[])
+          OR serving_snapshot->'residual'->>'indexName' = ANY(${indexNames}::text[]))) OR
       EXISTS (SELECT 1 FROM table_meta WHERE search_index->>'indexName' = ANY(${indexNames}::text[])
         OR search_index->>'generatedColumnName' = ANY(${columnNames}::text[])
         OR search_index->'document'->>'indexName' = ANY(${indexNames}::text[])
@@ -1631,7 +1901,9 @@ export class PostgresTableSearchVectorExecutor {
     taskId: string,
     state: SearchGenerationExecutionState,
     tableMeta: TableMetaRow,
-    physical: PhysicalTable
+    physical: PhysicalTable,
+    retiringConfigKey?: string,
+    artifact?: 'document' | 'residual'
   ): Promise<{
     safe: boolean;
     present: boolean;
@@ -1689,24 +1961,61 @@ export class PostgresTableSearchVectorExecutor {
       state.indexName === `${names.indexName.slice(0, 46)}_${suffix}` &&
       state.residualIndexName ===
         (names.residualIndexName ? `${names.residualIndexName.slice(0, 46)}_${suffix}` : undefined);
-    if (target.candidateKey !== names.candidateKey || (!canonical && !suffixed)) return unsafe;
-    const referenced = await this.generationIsReferenced(taskId, state);
-    const residual = state.residualIndexName
-      ? await inspectResidualSearchIndex(
-          this.dataDb,
-          physical,
-          state.residualIndexName,
-          fields.filter((field) => field.storage === 'residual'),
-          provider
-        )
-      : undefined;
+    if (target.candidateKey !== names.candidateKey) return unsafe;
+    if (!canonical && !suffixed) {
+      const suffix = state.indexName.match(/_[a-f0-9]{12}$/)?.[0];
+      if (!retiringConfigKey || taskId || !suffix) return unsafe;
+      const residual = names.residualIndexName
+        ? names.generatedColumnName
+          ? `${MANAGED_RESIDUAL_SEARCH_INDEX_PREFIX}${stableHash(state.indexName)}`
+          : state.indexName
+        : undefined;
+      if (state.residualIndexName !== residual) return unsafe;
+      const fromCanonical =
+        state.indexName === names.indexName.slice(0, 50) + suffix &&
+        state.generatedColumnName ===
+          (names.generatedColumnName ? names.generatedColumnName.slice(0, 50) + suffix : undefined);
+      if (!fromCanonical) {
+        // Direct rebuilds append to the serving names. The same publication archives
+        // the predecessor under its physical identity, including on repeated rebuilds.
+        const predecessor = await sql`SELECT 1 FROM table_query_search_vector_config
+          WHERE table_id = ${tableId}
+            AND candidate_key = ${names.candidateKey} || ':retired:' || index_name || ':' || coalesce(generated_column_name, '')
+            AND index_name <> ${state.indexName}
+            AND left(index_name, 50) || ${suffix} = ${state.indexName}
+            AND (left(generated_column_name, 50) || ${suffix}) IS NOT DISTINCT FROM ${state.generatedColumnName ?? null}::text
+          LIMIT 1`.execute(this.metaDb);
+        if (!predecessor.rows.length) return unsafe;
+      }
+    }
+    const referenceState =
+      artifact === 'document'
+        ? { indexName: state.indexName, generatedColumnName: state.generatedColumnName }
+        : artifact === 'residual'
+          ? { indexName: state.residualIndexName ?? state.indexName }
+          : state;
+    const referenced = await this.generationIsReferenced(
+      retiringConfigKey ? '' : taskId,
+      referenceState,
+      retiringConfigKey ? { tableId, scopeKey: retiringConfigKey } : undefined
+    );
+    const residual =
+      artifact !== 'document' && state.residualIndexName
+        ? await inspectResidualSearchIndex(
+            this.dataDb,
+            physical,
+            state.residualIndexName,
+            fields.filter((field) => field.storage === 'residual'),
+            provider
+          )
+        : undefined;
     const residualArtifacts = {
       ...(residual?.present && residual.oid ? { residualIndex: { oid: residual.oid } } : {}),
     };
     const residualSafe =
       !residual?.present ||
       (residual.owned && Boolean(residual.oid) && (!residual.foreignDependents || referenced));
-    if (!state.generatedColumnName)
+    if (!state.generatedColumnName || artifact === 'residual')
       return {
         safe: residualSafe,
         present: residual?.present === true,
@@ -1844,13 +2153,32 @@ export class PostgresTableSearchVectorExecutor {
     const tableMeta = await this.requireTableMeta(input.tableId);
     const physical = splitPhysicalName(tableMeta.db_table_name, tableMeta.base_id);
     const currentConfig = await this.currentConfig(input.tableId);
+    if (input.maintenance) {
+      if (
+        !currentConfig ||
+        currentConfig.candidate_key !== input.maintenance.configKey ||
+        currentConfig.search_scope !== input.maintenance.searchScope
+      )
+        throw new SearchGenerationTargetChangedError('Search maintenance configuration changed');
+      if (
+        input.maintenance.tableVersion !== undefined &&
+        tableMeta.version !== input.maintenance.tableVersion
+      )
+        throw new SearchGenerationTargetChangedError(
+          'Search maintenance schema changed before execution'
+        );
+      const configured = new Set(parseStringArray(currentConfig.field_ids) ?? []);
+      const expanding = input.payload.fields.some((field) => !configured.has(field.fieldId));
+      if (expanding && currentConfig.search_scope !== 'all_fields')
+        throw new SearchGenerationTargetChangedError(
+          'Selected search coverage cannot expand automatically'
+        );
+    }
     let columnName = input.payload.generatedColumnName;
     let indexName = input.payload.indexName;
     // Only ADD/DROP objects this advisor owns, so a hand-built payload can never
     // target a real user column (`rebuild` would otherwise DROP it) or index.
     assertManagedSearchVectorNames(columnName, indexName);
-
-    const rowEstimate = await readRowEstimate(this.dataDb, physical);
 
     const fields = requireExecutionFields(input.payload.fields);
     const generatedColumns = await readPhysicallyGeneratedColumnNames(this.dataDb, physical);
@@ -1859,7 +2187,9 @@ export class PostgresTableSearchVectorExecutor {
         (field) => generatedColumns.has(field.fieldDbName) && field.storage !== 'residual'
       )
     )
-      throw new Error('Search projection storage changed; analyze and approve again');
+      throw new SearchGenerationTargetChangedError(
+        'Search projection storage changed; analyze and approve again'
+      );
     const languageConfig = normalizeLanguageConfig(input.payload.languageConfig);
     const capabilities = await readSubstringSearchCapabilities(this.dataDb);
     const providerCapability = requireUsableExecutionProvider(capabilities, input.payload.provider);
@@ -1871,17 +2201,6 @@ export class PostgresTableSearchVectorExecutor {
       currentConfig,
       providerCapability
     );
-    const executionInput = await withUnattendedProbe(
-      this.dataDb,
-      physical,
-      fields,
-      providerCapability,
-      input
-    );
-    const { validationMode, searchProbe } = resolveExecutionValidation(
-      executionInput,
-      providerCapability
-    );
     const validationFields = fields.map((field) => ({
       fieldId: field.fieldId,
       fieldDbName: field.fieldDbName,
@@ -1890,14 +2209,7 @@ export class PostgresTableSearchVectorExecutor {
       included: true,
       ...(field.textProjection ? { textProjection: field.textProjection } : {}),
     }));
-    const realDdlBeforePlan =
-      validationMode === 'real_ddl'
-        ? await readRealDdlSearchVectorBeforePlan(this.dataDb, {
-            physical,
-            fields: validationFields,
-            searchProbe,
-          })
-        : undefined;
+
     const expression = buildSearchDocumentExpression(
       fields.filter((field) => field.storage !== 'residual'),
       true
@@ -1938,9 +2250,40 @@ export class PostgresTableSearchVectorExecutor {
       throw new SearchGenerationTargetChangedError(
         'Table changed during interrupted search build; analyze and approve again'
       );
+    const beforePhase = () => this.assertMaintenancePhaseAllowed(input, physical, generation);
+    if (!publishedGeneration) await beforePhase();
+    const rowEstimate = await readRowEstimate(this.dataDb, physical);
+    const executionInput: ExecuteTableSearchVectorInput & {
+      readonly noSearchableTextValidation?: boolean;
+    } = publishedGeneration
+      ? input
+      : await withUnattendedProbe(this.dataDb, physical, fields, providerCapability, input);
+    const validation = publishedGeneration
+      ? undefined
+      : resolveExecutionValidation(executionInput, providerCapability);
+    const validationMode = validation?.validationMode ?? input.payload.validationMode ?? 'plan';
+    const searchProbe = validation?.searchProbe;
+    if (!publishedGeneration) await beforePhase();
+    const realDdlBeforePlan =
+      !publishedGeneration && validationMode === 'real_ddl'
+        ? await readRealDdlSearchVectorBeforePlan(this.dataDb, {
+            physical,
+            fields: validationFields,
+            searchProbe,
+          })
+        : undefined;
 
-    if (columnName && !publishedGeneration && !inventoryBefore.existingGeneratedColumn)
-      this.assertTableRewriteAllowed(rowEstimate, alreadyReady, input);
+    if (columnName && !publishedGeneration && !inventoryBefore.existingGeneratedColumn) {
+      try {
+        this.assertTableRewriteAllowed(rowEstimate, alreadyReady, input);
+      } catch (error) {
+        if (input.maintenance)
+          throw new SearchMaintenanceDeferred(
+            error instanceof Error ? error.message : 'Search maintenance requires rewrite approval'
+          );
+        throw error;
+      }
+    }
 
     // A definition with independent physical objects can be built alongside the
     // active path. Keep that path ready until validation and the metadata switch
@@ -1975,9 +2318,11 @@ export class PostgresTableSearchVectorExecutor {
             noSearchableTextValidation: executionInput.noSearchableTextValidation === true,
             validationFields,
             recovery: generation ? { input, generation, inventoryBefore } : undefined,
+            beforePhase,
           });
 
-      if (!publishedGeneration)
+      if (!publishedGeneration) {
+        await beforePhase();
         await this.upsertConfig({
           tableId: input.tableId,
           baseId: tableMeta.base_id,
@@ -2002,7 +2347,28 @@ export class PostgresTableSearchVectorExecutor {
           searchScope: input.payload.searchScope ?? 'all_fields',
           inventory,
           execution: input.execution,
+          maintenance: input.maintenance,
         });
+      }
+      if (publishedGeneration) {
+        await this.checkpoint(input);
+        const restored = await sql<{ id: string }>`UPDATE table_query_search_vector_config
+          SET status = 'ready', last_inspection = ${JSON.stringify(inventory)}::jsonb, last_modified_time = now()
+          WHERE table_id = ${input.tableId} AND candidate_key = ${input.payload.candidateKey}
+            AND index_name = ${indexName}
+            AND search_scope = ${input.payload.searchScope ?? 'all_fields'}
+            AND generated_column_name IS NOT DISTINCT FROM ${columnName ?? null}
+            AND status IN ('ready', 'rebuild_pending')
+            AND EXISTS (SELECT 1 FROM table_meta WHERE id = ${input.tableId}
+              AND version = ${tableMeta.version} AND deleted_time IS NULL)
+            AND (${!input.execution} OR EXISTS (SELECT 1 FROM table_query_remediation_task
+              WHERE id = ${input.execution?.taskId ?? ''} AND status = 'running'
+                AND locked_by = ${input.execution?.workerId ?? ''}
+                AND locked_at = ${input.execution?.lockedAt ?? null}))
+          RETURNING id`.execute(this.metaDb);
+        if (!restored.rows.length)
+          throw new SearchGenerationTargetChangedError('Search maintenance configuration changed');
+      }
       if (generation)
         await this.checkpoint(input, { ...generation, planEvidence, phase: 'published' });
 
@@ -2046,6 +2412,39 @@ export class PostgresTableSearchVectorExecutor {
         error
       );
     }
+  }
+
+  private async assertMaintenancePhaseAllowed(
+    input: ExecuteTableSearchVectorInput,
+    physical: PhysicalTable,
+    generation: SearchGenerationExecutionState | undefined
+  ): Promise<void> {
+    if (!input.maintenance) return;
+    await this.checkpoint(input);
+    const current = await this.currentConfig(input.tableId);
+    const table = await this.requireTableMeta(input.tableId);
+    const expectedVersion = generation?.expectedVersion ?? input.maintenance.tableVersion;
+    if (
+      current?.candidate_key !== input.maintenance.configKey ||
+      current?.search_scope !== input.maintenance.searchScope ||
+      (expectedVersion !== undefined && table.version !== expectedVersion)
+    )
+      throw new SearchGenerationTargetChangedError(
+        'Search maintenance configuration or schema changed'
+      );
+    if (!input.maintenance.expansion) return;
+    const options = input.maintenance.options;
+    if (!isSearchMaintenanceWindow(options.windowUtc, new Date()))
+      throw new SearchMaintenanceDeferred(
+        'Search coverage is waiting for its UTC maintenance window'
+      );
+    const frozen = generation?.maintenanceAuthorization;
+    const allowLarge =
+      options.allowUnknownOrLargeRewrite === true && frozen?.allowUnknownOrLargeRewrite === true;
+    const cap = Math.min(options.knownSmallRowCap ?? 5000, frozen?.knownSmallRowCap ?? 5000);
+    const size = await readRowEstimate(this.dataDb, physical);
+    if (!allowLarge && (!size.known || size.rows > cap))
+      throw new SearchMaintenanceDeferred('Search coverage is waiting for table size approval');
   }
 
   private resolveManagedObjectNames(
@@ -2127,6 +2526,7 @@ export class PostgresTableSearchVectorExecutor {
     readonly searchProbe: string | undefined;
     readonly noSearchableTextValidation: boolean;
     readonly validationFields: readonly IncludedSearchVectorField[];
+    readonly beforePhase: () => Promise<void>;
     readonly recovery?: {
       readonly input: ExecuteTableSearchVectorInput;
       readonly generation: SearchGenerationExecutionState;
@@ -2149,6 +2549,7 @@ export class PostgresTableSearchVectorExecutor {
           `Interrupted search column definition is stale: ${inventoryBefore.staleReasons.join(', ')}`
         );
     }
+    await input.beforePhase();
     await ensureSearchDocumentFunctions(
       this.dataDb,
       input.validationFields.map((field) => field.textProjection)
@@ -2168,16 +2569,19 @@ export class PostgresTableSearchVectorExecutor {
                 phase,
               });
             }
-          : undefined
+          : undefined,
+        input.beforePhase
       );
     }
     if (input.residualIndexName) {
+      await input.beforePhase();
       await createResidualSearchIndex(
         this.dataDb,
         input.physical,
         input.residualIndexName,
         input.validationFields.filter((field) => field.storage === 'residual'),
-        input.providerCapability
+        input.providerCapability,
+        input.beforePhase
       );
     }
     if (input.recovery)
@@ -2199,6 +2603,7 @@ export class PostgresTableSearchVectorExecutor {
     );
     this.assertReadyInventory(inventory);
 
+    await input.beforePhase();
     const planEvidence =
       input.validationMode === 'real_ddl'
         ? await validateRealDdlSearchVectorPlan(this.dataDb, {
@@ -2318,7 +2723,8 @@ export class PostgresTableSearchVectorExecutor {
     expression: string,
     providerCapability: TableQuerySubstringSearchProviderCapability,
     indexSchema: string,
-    checkpoint?: (phase: 'column_ready' | 'index_ready') => Promise<void>
+    checkpoint?: (phase: 'column_ready' | 'index_ready') => Promise<void>,
+    beforePhase?: () => Promise<void>
   ): Promise<void> {
     // pg_bigm has cluster-level deployment requirements. The adapter only uses
     // capabilities that are already installed and never attempts CREATE EXTENSION.
@@ -2330,6 +2736,7 @@ export class PostgresTableSearchVectorExecutor {
         AND attname = ${columnName} AND NOT attisdropped) AS present
     `.execute(this.dataDb);
     if (!column.rows[0]?.present) {
+      await beforePhase?.();
       await this.dataDb.transaction().execute(async (trx) => {
         await sql
           .raw(
@@ -2364,14 +2771,17 @@ export class PostgresTableSearchVectorExecutor {
       throw new SearchGenerationTargetChangedError(
         'Search index name belongs to an incompatible physical object'
       );
-    if (checkpoint && existing.rows[0]?.valid === false)
+    if (checkpoint && existing.rows[0]?.valid === false) {
+      await beforePhase?.();
       await sql
         .raw(
           `DROP INDEX CONCURRENTLY ${quoteIdentifier(indexSchema)}.${quoteIdentifier(indexName)}`
         )
         .execute(this.dataDb);
+    }
     const operatorClass = qualifyOperatorClass(providerCapability);
-    if (!existing.rows[0]?.valid)
+    if (!existing.rows[0]?.valid) {
+      await beforePhase?.();
       await sql
         .raw(
           `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${quoteIdentifier(indexName)} ON ${tableSql} USING GIN (${quoteIdentifier(
@@ -2379,6 +2789,7 @@ export class PostgresTableSearchVectorExecutor {
           )} ${operatorClass})`
         )
         .execute(this.dataDb);
+    }
     await checkpoint?.('index_ready');
   }
 
@@ -2438,16 +2849,6 @@ export class PostgresTableSearchVectorExecutor {
         AND status = 'disabled'
         AND reclaim_drop_after <= now()
         AND reclaim_drop_queued_at IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM table_meta serving
-          WHERE serving.id = ${tableId}
-            AND serving.search_index->>'definitionKey' IS DISTINCT FROM ${expectedDefinitionKey}
-            AND (serving.search_index->>'indexName' = table_query_search_vector_config.index_name
-              OR serving.search_index->>'generatedColumnName' = table_query_search_vector_config.generated_column_name
-              OR serving.search_index->'document'->>'indexName' = table_query_search_vector_config.index_name
-              OR serving.search_index->'residual'->>'indexName' = table_query_search_vector_config.index_name
-              OR serving.search_index->'residual'->>'indexName' = table_query_search_vector_config.serving_snapshot->'residual'->>'indexName')
-        )
       LIMIT 1
     `.execute(this.metaDb);
     return result.rows[0];
@@ -2474,6 +2875,7 @@ export class PostgresTableSearchVectorExecutor {
     readonly searchScope: 'all_fields' | 'selected_fields';
     readonly inventory: TableQuerySearchVectorInventory;
     readonly execution?: ReconcileTableSearchVectorInput['execution'];
+    readonly maintenance?: ExecuteTableSearchVectorInput['maintenance'];
   }): Promise<void> {
     const id = `tqsv_${stableHash(`${input.tableId}:${input.candidateKey}`).slice(0, 20)}`;
     const documentFields = input.fields.filter((field) => field.storage !== 'residual');
@@ -2507,6 +2909,44 @@ export class PostgresTableSearchVectorExecutor {
           }
         : {}),
     };
+    const retiredAt = new Date();
+    const dropAfter = new Date(
+      retiredAt.getTime() + defaultTableQueryDecisionPolicyConfig.reclaimDisableGraceMs
+    );
+    const previousSnapshot = input.maintenance
+      ? decodeTableSearchIndex(
+          (
+            await sql<{ search_index: unknown }>`SELECT search_index
+          FROM table_meta WHERE id = ${input.tableId}`.execute(this.metaDb)
+          ).rows[0]?.search_index
+        )
+      : undefined;
+    const retirementTasks = input.maintenance
+      ? (await this.allManagedConfigs(input.tableId))
+          .filter((config) => {
+            const old =
+              decodeTableSearchIndex(config.serving_snapshot) ??
+              (previousSnapshot?.definitionKey === config.candidate_key
+                ? previousSnapshot
+                : undefined);
+            return (
+              old &&
+              (config.index_name !== input.indexName ||
+                (config.generated_column_name ?? undefined) !== input.generatedColumnName ||
+                old.residual?.indexName !== input.residualIndexName)
+            );
+          })
+          .map((config) => {
+            const scopeKey =
+              config.candidate_key === input.candidateKey
+                ? `${config.candidate_key}:retired:${config.index_name}:${config.generated_column_name ?? ''}`
+                : config.candidate_key;
+            return {
+              scope_key: scopeKey,
+              id: reclaimDropTaskId(input.tableId, scopeKey, dropAfter),
+            };
+          })
+      : [];
     // One statement makes publishing the candidate and retiring previous
     // configurations atomic, including when metadata and data use different DBs.
     const published = await sql<{ id: string }>`
@@ -2518,6 +2958,12 @@ export class PostgresTableSearchVectorExecutor {
             version = version + 1, last_modified_time = now()
         WHERE id = ${input.tableId} AND version = ${input.expectedVersion}
           AND db_table_name = ${input.dbTableName} AND deleted_time IS NULL
+          AND (${!input.maintenance} OR EXISTS (
+            SELECT 1 FROM table_query_search_vector_config
+            WHERE table_id = ${input.tableId} AND candidate_key = ${input.maintenance?.configKey ?? ''}
+              AND search_scope = ${input.maintenance?.searchScope ?? ''}
+              AND status IN ('ready', 'stale', 'rebuild_pending')
+          ))
           AND (${!input.execution} OR EXISTS (
             SELECT 1 FROM table_query_remediation_task
             WHERE id = ${input.execution?.taskId ?? ''} AND status = 'running'
@@ -2532,30 +2978,53 @@ export class PostgresTableSearchVectorExecutor {
           id, space_id, base_id, table_id, candidate_key, semantics, access_path,
           provider, operator_class, language_config, generated_column_name,
           index_name, field_ids, field_db_names, search_scope, status, serving_snapshot,
-          last_inspection, last_modified_time
+          last_inspection, last_modified_time, reclaim_disabled_at, reclaim_drop_after, reclaim_drop_queued_at
         )
         SELECT 'tqsv_' || substr(md5(id || ':' || index_name || ':' || coalesce(generated_column_name, '')), 1, 20),
           space_id, base_id, table_id,
           candidate_key || ':retired:' || index_name || ':' || coalesce(generated_column_name, ''),
           semantics, access_path, provider, operator_class, language_config,
           generated_column_name, index_name, field_ids, field_db_names, search_scope,
-          'stale', coalesce(serving_snapshot, (SELECT search_index FROM previous WHERE search_index->>'definitionKey' = candidate_key)), last_inspection, now()
+          CASE WHEN ${Boolean(input.maintenance)} AND candidate_key || ':retired:' || index_name || ':' || coalesce(generated_column_name, '') = ANY(${retirementTasks.map((task) => task.scope_key)}::text[]) THEN 'disabled' ELSE 'stale' END,
+          coalesce(serving_snapshot, (SELECT search_index FROM previous WHERE search_index->>'definitionKey' = candidate_key)),
+          last_inspection, ${retiredAt},
+          CASE WHEN candidate_key || ':retired:' || index_name || ':' || coalesce(generated_column_name, '') = ANY(${retirementTasks.map((task) => task.scope_key)}::text[]) THEN ${retiredAt}::timestamptz END,
+          CASE WHEN candidate_key || ':retired:' || index_name || ':' || coalesce(generated_column_name, '') = ANY(${retirementTasks.map((task) => task.scope_key)}::text[]) THEN ${dropAfter}::timestamptz END,
+          CASE WHEN candidate_key || ':retired:' || index_name || ':' || coalesce(generated_column_name, '') = ANY(${retirementTasks.map((task) => task.scope_key)}::text[]) THEN ${retiredAt}::timestamptz END
         FROM table_query_search_vector_config
         WHERE table_id = ${input.tableId} AND candidate_key = ${input.candidateKey}
           AND (generated_column_name IS DISTINCT FROM ${input.generatedColumnName ?? null} OR index_name <> ${input.indexName})
           AND EXISTS (SELECT 1 FROM published)
         ON CONFLICT (table_id, candidate_key) DO NOTHING
-        RETURNING id
+        RETURNING candidate_key, status
       ), retired AS (
         UPDATE table_query_search_vector_config
-        SET status = 'stale',
+        SET status = CASE WHEN candidate_key = ANY(${retirementTasks.map((task) => task.scope_key)}::text[]) THEN 'disabled' ELSE 'stale' END,
+            reclaim_disabled_at = CASE WHEN candidate_key = ANY(${retirementTasks.map((task) => task.scope_key)}::text[]) THEN ${retiredAt}::timestamptz ELSE reclaim_disabled_at END,
+            reclaim_drop_after = CASE WHEN candidate_key = ANY(${retirementTasks.map((task) => task.scope_key)}::text[]) THEN ${dropAfter}::timestamptz ELSE reclaim_drop_after END,
+            reclaim_drop_queued_at = CASE WHEN candidate_key = ANY(${retirementTasks.map((task) => task.scope_key)}::text[]) THEN ${retiredAt}::timestamptz ELSE reclaim_drop_queued_at END,
             serving_snapshot = coalesce(serving_snapshot, (SELECT search_index FROM previous WHERE search_index->>'definitionKey' = candidate_key)),
             last_modified_time = now()
         WHERE table_id = ${input.tableId}
           AND candidate_key <> ${input.candidateKey}
-          AND status IN ('ready', 'rebuild_pending')
+          AND (status IN ('ready', 'rebuild_pending') OR (${Boolean(input.maintenance)} AND status = 'stale'
+            AND candidate_key = ANY(${retirementTasks.map((task) => task.scope_key)}::text[])))
           AND EXISTS (SELECT 1 FROM published)
-        RETURNING id
+        RETURNING candidate_key, status
+      ), retirement_tasks AS (
+        INSERT INTO table_query_remediation_task
+          (id, base_id, table_id, kind, status, payload, attempts, max_attempts, created_time)
+        SELECT planned.id, ${input.baseId}, ${input.tableId}, 'drop_search_access_path', 'queued',
+          jsonb_build_object('trigger', 'reclaim', 'scopeKey', retired_config.candidate_key), 0, 3, ${retiredAt}
+        FROM (SELECT * FROM retained_generation UNION ALL SELECT * FROM retired) retired_config
+        JOIN jsonb_to_recordset(${JSON.stringify(retirementTasks)}::jsonb) AS planned(id text, scope_key text)
+          ON planned.scope_key = retired_config.candidate_key
+        WHERE retired_config.status = 'disabled'
+          AND NOT EXISTS (SELECT 1 FROM table_query_remediation_task active
+            WHERE active.table_id = ${input.tableId} AND active.payload->>'trigger' = 'reclaim'
+              AND active.payload->>'scopeKey' = retired_config.candidate_key
+              AND (active.status IN ('queued', 'running') OR (active.status = 'failed' AND active.attempts < active.max_attempts)))
+        ON CONFLICT (id) DO NOTHING
       )
       INSERT INTO table_query_search_vector_config (
         id,
@@ -2652,16 +3121,25 @@ export class PostgresTableSearchVectorExecutor {
 export class PostgresTableSearchVectorReconciler implements TableSearchVectorReconciler {
   constructor(
     private readonly metaDb: Kysely<UnknownPostgresDatabase>,
-    private readonly dataDb: Kysely<UnknownPostgresDatabase>
+    private readonly dataDb: Kysely<UnknownPostgresDatabase>,
+    private readonly maintenance: SearchMaintenanceOptions = {}
   ) {}
 
   async reconcile(context: IExecutionContext, input: ReconcileTableSearchVectorInput) {
     try {
       if (input.mode === 'drop') {
-        const executor = new PostgresTableSearchVectorExecutor(this.metaDb, this.dataDb);
+        const reclaim =
+          input.reclaim === true && Boolean(input.execution && input.expectedDefinitionKey);
+        const executor = new PostgresTableSearchVectorExecutor(
+          this.metaDb,
+          this.dataDb,
+          reclaim ? this.maintenance.isConnectionUnavailable : undefined,
+          reclaim
+        );
         const dropped = await executor.drop(
           input.table.id().toString(),
-          input.expectedDefinitionKey
+          input.expectedDefinitionKey,
+          input.productDropSnapshot
         );
         return ok<ReconcileTableSearchVectorResult>({
           action: 'dropped',
@@ -2675,10 +3153,12 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
         });
       }
 
-      await new PostgresTableSearchVectorExecutor(
-        this.metaDb,
-        this.dataDb
-      ).adoptLegacyAdminGeneration(input);
+      if (!input.productSwitch) {
+        await new PostgresTableSearchVectorExecutor(
+          this.metaDb,
+          this.dataDb
+        ).adoptLegacyAdminGeneration(input);
+      }
 
       const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb, this.metaDb);
       const analysis = await advisor.analyze(context, {
@@ -2772,73 +3252,169 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
     }
   }
 
-  async maintainAfterSchemaChange(context: IExecutionContext, table: Table) {
+  async maintainAfterSchemaChange(
+    context: IExecutionContext,
+    table: Table,
+    owner?: ReconcileTableSearchVectorInput['execution'],
+    expected?: Parameters<TableSearchVectorReconciler['maintainAfterSchemaChange']>[3]
+  ) {
     try {
       const executor = new PostgresTableSearchVectorExecutor(this.metaDb, this.dataDb);
       const current = await executor.currentConfig(table.id().toString());
-      if (!current) return ok(undefined);
-
-      // Maintenance repairs the saved contract; only an explicit administrator
-      // rebuild may expand an all-fields configuration to newly added fields.
-      const configuredFieldIds = new Set(parseStringArray(current.field_ids) ?? []);
-      const selectedFieldIds = table
+      if (!current) {
+        if (!owner) return ok(undefined);
+        throw new SearchGenerationTargetChangedError(
+          'Search maintenance configuration was disabled or dropped'
+        );
+      }
+      const journal = owner
+        ? (
+            await sql<{ execution_state: SearchGenerationExecutionState | null }>`
+            SELECT execution_state FROM table_query_remediation_task WHERE id = ${owner.taskId}
+          `.execute(this.metaDb)
+          ).rows[0]?.execution_state
+        : undefined;
+      const frozen = journal
+        ? (JSON.parse(journal.targetDefinition) as Pick<
+            ExecuteTableSearchVectorInput['payload'],
+            'candidateKey' | 'fields' | 'provider' | 'operatorClass' | 'searchScope'
+          >)
+        : undefined;
+      if (
+        expected?.definitionKey &&
+        current.candidate_key !== expected.definitionKey &&
+        current.candidate_key !== frozen?.candidateKey
+      )
+        throw new SearchGenerationTargetChangedError(
+          'Frozen search maintenance configuration changed'
+        );
+      const authorizedScope = frozen?.searchScope ?? expected?.searchScope;
+      if (authorizedScope && current.search_scope !== authorizedScope)
+        throw new SearchGenerationTargetChangedError('Search maintenance logical scope changed');
+      const configured = new Set(parseStringArray(current.field_ids) ?? []);
+      const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb, this.metaDb);
+      const analyze = (fieldIds: readonly string[] | undefined) =>
+        advisor.analyze(context, {
+          table,
+          fieldIds,
+          searchScope: current.search_scope === 'all_fields' ? 'all_fields' : 'selected_fields',
+          languageConfig: current.language_config,
+          provider:
+            current.provider === 'pg_bigm' || current.provider === 'pg_trgm'
+              ? current.provider
+              : undefined,
+          maxRecommendations: 1,
+        });
+      const savedIds = table
         .getFields()
         .map((field) => field.id().toString())
-        .filter((fieldId) => configuredFieldIds.has(fieldId));
-      if (!selectedFieldIds.length) {
+        .filter((id) => configured.has(id));
+      const saved =
+        !frozen && savedIds.length ? (await analyze(savedIds)).recommendations[0] : undefined;
+      const all =
+        !frozen && current.search_scope === 'all_fields'
+          ? (await analyze(undefined)).recommendations[0]
+          : saved;
+      const hasExpansion = Boolean(
+        all?.coveredFields.some((field) => !configured.has(field.fieldId))
+      );
+      const windowOpen =
+        Boolean(owner) && isSearchMaintenanceWindow(this.maintenance.windowUtc, new Date());
+      const physical = getTablePhysicalName(table);
+      const size =
+        hasExpansion && windowOpen && physical.isOk()
+          ? await readRowEstimate(this.dataDb, physical.value)
+          : undefined;
+      const expansionAllowed =
+        windowOpen &&
+        (this.maintenance.allowUnknownOrLargeRewrite ||
+          (size?.known && size.rows <= (this.maintenance.knownSmallRowCap ?? 5000)));
+      const recommendation = hasExpansion && expansionAllowed ? all : saved;
+      const repairNeeded =
+        saved &&
+        (saved.candidateKey !== current.candidate_key || saved.inventory.state !== 'ready');
+      if (!frozen && hasExpansion && !expansionAllowed && !repairNeeded)
+        throw new SearchMaintenanceDeferred(
+          windowOpen
+            ? 'Search coverage is waiting for table size approval'
+            : 'Search coverage is waiting for its UTC maintenance window'
+        );
+      if (!recommendation && !frozen) {
         await this.markConfigStale(table.id().toString(), 'no_eligible_fields_after_schema_change');
         return ok(undefined);
       }
-      const advisor = new PostgresTableSearchVectorAdvisor(this.dataDb, this.metaDb);
-      const analysis = await advisor.analyze(context, {
-        table,
-        fieldIds: selectedFieldIds,
-        searchScope: current.search_scope === 'all_fields' ? 'all_fields' : 'selected_fields',
-        languageConfig: current.language_config,
-        provider:
-          current.provider === 'pg_bigm' || current.provider === 'pg_trgm'
-            ? current.provider
-            : undefined,
-        maxRecommendations: 1,
-      });
-      const recommendation = analysis.recommendations[0];
-      if (!recommendation) {
-        await this.markConfigStale(table.id().toString(), 'no_eligible_fields_after_schema_change');
-        return ok(undefined);
-      }
-
-      const rebuild =
-        recommendation.candidateKey !== current.candidate_key ||
-        recommendation.inventory.state !== 'ready';
+      const payload: ExecuteTableSearchVectorInput['payload'] = frozen
+        ? {
+            ...frozen,
+            languageConfig: current.language_config,
+            generatedColumnName: journal!.generatedColumnName,
+            indexName: journal!.indexName,
+            validationMode: 'plan',
+            rebuild: true,
+            allowLargeTableRewrite: this.maintenance.allowUnknownOrLargeRewrite,
+          }
+        : {
+            candidateKey: recommendation!.candidateKey,
+            languageConfig: recommendation!.languageConfig,
+            validationMode: 'plan',
+            requirePlanImprovement: !hasExpansion,
+            generatedColumnName: recommendation!.generatedColumnName,
+            indexName: recommendation!.indexName,
+            provider: recommendation!.provider,
+            operatorClass: recommendation!.operatorClass,
+            fields: recommendation!.coveredFields.map((field) => ({
+              fieldId: field.fieldId,
+              fieldDbName: field.fieldDbName ?? '',
+              fieldType: field.fieldType,
+              storage: field.storage,
+              ...(field.textProjection ? { textProjection: field.textProjection } : {}),
+            })),
+            searchScope: current.search_scope === 'all_fields' ? 'all_fields' : 'selected_fields',
+            allowLargeTableRewrite: this.maintenance.allowUnknownOrLargeRewrite,
+            rebuild:
+              recommendation!.candidateKey !== current.candidate_key ||
+              recommendation!.inventory.state !== 'ready',
+          };
+      const expanding = payload.fields.some((field) => !configured.has(field.fieldId));
       const execution = await executor.execute({
         tableId: table.id().toString(),
-        payload: {
-          candidateKey: recommendation.candidateKey,
-          languageConfig: recommendation.languageConfig,
-          validationMode: 'plan',
-          generatedColumnName: recommendation.generatedColumnName,
-          indexName: recommendation.indexName,
-          provider: recommendation.provider,
-          operatorClass: recommendation.operatorClass,
-          fields: recommendation.coveredFields.map((field) => ({
-            fieldId: field.fieldId,
-            fieldDbName: field.fieldDbName ?? '',
-            fieldType: field.fieldType,
-            storage: field.storage,
-            ...(field.textProjection ? { textProjection: field.textProjection } : {}),
-          })),
-          searchScope: current.search_scope === 'all_fields' ? 'all_fields' : 'selected_fields',
-          // Schema maintenance must obey the same rewrite guard as an explicit
-          // remediation. Large or unknown tables remain pending for Admin approval.
-          allowLargeTableRewrite: false,
-          rebuild,
+        execution: owner,
+        maintenance: {
+          configKey: current.candidate_key,
+          searchScope: payload.searchScope ?? 'all_fields',
+          tableVersion: expected?.tableVersion,
+          expansion: expanding,
+          options: this.maintenance,
         },
+        payload,
       });
-
+      let needsContinuation = all?.coveredFields.some(
+        (field) => !execution.fieldIds.includes(field.fieldId)
+      );
+      if (frozen && current.search_scope === 'all_fields') {
+        // Resume the journaled repair unchanged, then rediscover remaining membership
+        // without sampling or planning a new generation outside its maintenance window.
+        const definition = buildTableSearchVectorDefinition(table, {
+          semantics: 'substring',
+          provider: payload.provider,
+        });
+        if (definition.isErr()) return err(definition.error);
+        const covered = new Set(execution.fieldIds);
+        needsContinuation =
+          definition.value.fields.some((field) => !covered.has(field.fieldId)) ||
+          definition.value.residualFields.some((field) => !covered.has(field.fieldId));
+      }
+      if (needsContinuation) {
+        const queued = await new PostgresTableSearchVectorSchemaMaintenanceScheduler(
+          this.metaDb
+        ).schedule(context, { table, reason: 'field_updated' });
+        if (queued.isErr()) return err(queued.error);
+        if (!queued.value) throw new Error('Search coverage continuation was not queued');
+      }
       return ok<ReconcileTableSearchVectorResult>({
         action: execution.action,
         tableId: table.id().toString(),
-        definitionKey: recommendation.candidateKey,
+        definitionKey: payload.candidateKey,
         generatedColumnName: execution.generatedColumnName,
         indexName: execution.indexName,
         languageConfig: execution.languageConfig,
@@ -2846,14 +3422,17 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
         status: 'ready',
       });
     } catch (error) {
-      return err(
-        domainError.infrastructure({
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Failed to maintain search vector after schema change',
-        })
-      );
+      if (owner && this.maintenance.isConnectionUnavailable?.(error)) {
+        return err(
+          toSearchGenerationError(
+            new SearchMaintenanceDeferred(
+              `Search coverage connection unavailable: ${error instanceof Error ? error.message : String(error)}`,
+              { cause: error }
+            )
+          )
+        );
+      }
+      return err(toSearchGenerationError(error));
     }
   }
 

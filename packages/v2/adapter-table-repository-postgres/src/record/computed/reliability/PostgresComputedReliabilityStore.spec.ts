@@ -132,6 +132,61 @@ describe('durable computed failure evidence', () => {
     expect((await sql`select id from legacy_dead_letter`.execute(db)).rows).toEqual([{ id: 'a' }]);
   });
 
+  it('checks lazily per settlement and rechecks after a schema change', async () => {
+    const statements: string[] = [];
+    const observed = db.withPlugin({
+      transformQuery(args) {
+        statements.push(new PostgresQueryCompiler().compileQuery(args.node).sql);
+        return args.node;
+      },
+      async transformResult(args) {
+        return args.result;
+      },
+    });
+    const observedStore = new PostgresComputedReliabilityStore(observed);
+    const readinessCount = () =>
+      statements.filter((statement) => statement.includes('WITH relation_names(kind,parts)'))
+        .length;
+    await observedStore.settleCompletedTask({
+      success: { baseId: 'base', succeededTargets: [] },
+    });
+    expect(readinessCount()).toBe(0);
+    await observedStore.settleCompletedTask({ failure: failure() });
+    expect(readinessCount()).toBe(1);
+    await sql`alter table computed_reliability_issue drop column failure_kind`.execute(db);
+    await observedStore.settleCompletedTask({
+      failure: { ...failure(), taskId: 'later' },
+      success: { baseId: 'base', succeededTargets: [{ tableId: 'table', fieldId: 'field' }] },
+    });
+    expect(readinessCount()).toBe(2);
+    const rows = await sql<{
+      task_id: string;
+    }>`select task_id from computed_reliability_issue`.execute(db);
+    expect(rows.rows).toEqual([{ task_id: 'a' }]);
+  });
+
+  it('rechecks runtime privileges for a later settlement in the same transaction', async () => {
+    await sql`create role settlement_reader`.execute(db);
+    await sql`grant usage on schema public to settlement_reader`.execute(db);
+    await sql`grant select on computed_reliability_issue,computed_reliability_scope to settlement_reader`.execute(
+      db
+    );
+    await db.transaction().execute(async (trx) => {
+      const transactionStore = new PostgresComputedReliabilityStore(trx);
+      await transactionStore.settleCompletedTask({ failure: failure() });
+      await sql`set local role settlement_reader`.execute(trx);
+      await transactionStore.settleCompletedTask({
+        failure: { ...failure(), taskId: 'denied' },
+        success: { baseId: 'base', succeededTargets: [{ tableId: 'table', fieldId: 'field' }] },
+      });
+      await sql`reset role`.execute(trx);
+    });
+    const rows = await sql<{
+      task_id: string;
+    }>`select task_id from computed_reliability_issue`.execute(db);
+    expect(rows.rows).toEqual([{ task_id: 'a' }]);
+  });
+
   it('captures deduplicated scope before refs disappear in one bulk insert', async () => {
     await sql`insert into computed_task_field_ref values('a','field','table')`.execute(db);
     const statements: string[] = [];

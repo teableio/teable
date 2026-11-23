@@ -2,8 +2,16 @@ import { createRouterClient } from '@orpc/server';
 import type { IHandlerResolver } from '@teable/v2-contract-http';
 import {
   ActorId,
+  BaseId,
+  FieldName,
+  NoopLogger,
+  RecordQueryPluginRunner,
+  Table,
+  TableId,
+  TableName,
   domainError,
   err,
+  ok,
   v2CoreTokens,
   type DomainError,
   type IQueryBus,
@@ -15,10 +23,21 @@ import { createV2OrpcRouter } from './router';
 const TABLE_ID = `tbl${'a'.repeat(16)}`;
 
 const createClientWithQueryError = (error: DomainError) => {
+  const builder = Table.builder()
+    .withBaseId(BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap())
+    .withId(TableId.create(TABLE_ID)._unsafeUnwrap())
+    .withName(TableName.create('Records')._unsafeUnwrap());
+  builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+  builder.view().defaultGrid().done();
+  const table = builder.build()._unsafeUnwrap();
+  const tableQueryService = { getById: vi.fn(async () => ok(table)) };
+  const recordQueryPluginRunner = new RecordQueryPluginRunner([], new NoopLogger());
   const queryBus = { execute: vi.fn(async () => err(error)) } as unknown as IQueryBus;
   const container = {
     resolve: (token: unknown) => {
       if (token === v2CoreTokens.queryBus) return queryBus;
+      if (token === v2CoreTokens.tableQueryService) return tableQueryService;
+      if (token === v2CoreTokens.recordQueryPluginRunner) return recordQueryPluginRunner;
       throw new Error(`unexpected token: ${String(token)}`);
     },
   } as unknown as IHandlerResolver;

@@ -413,6 +413,7 @@
   },
   "permission": {
     "actionDescription": {
+      "baseSaveQuery": "Salvare e condividere query",
       "spaceCreate": "Crea spazio",
       "spaceDelete": "Elimina spazio",
       "spaceRead": "Leggi spazio",
@@ -1084,6 +1085,7 @@
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a {{name}}[{{id}}] questo processo di automazione, per favore seleziona un altro campo di pulsante",
+      "buttonTriggerFilterNotMatched": "Questo record non soddisfa le condizioni di attivazione dell'automazione",
       "triggerNotFound": "L'automazione deve avere un nodo trigger",
       "nodeNotFound": "{{nodeId}} nodo non trovato",
       "triggerTestFailed": "Test del trigger fallito, per favore controlla la configurazione del trigger",
@@ -1216,6 +1218,7 @@
       "runAlreadyInFlight": "Un'esecuzione di questa routine è già in corso",
       "runNowWhileActiveEvent": "Questa routine è attiva e riceve già i suoi eventi; attivane uno per vederla in esecuzione",
       "runNowOwnerOnly": "Mentre la routine è attiva, solo la persona con cui viene eseguita può avviarla subito",
+      "robotNotAllowed": "I robot non possono eseguire questa azione",
       "invalidRunCursor": "Cursore dell'elenco delle esecuzioni non valido",
       "invalidSchedule": "Pianificazione della routine non valida: {{reason}}"
     },
@@ -1742,7 +1745,8 @@
         "dnsMisconfigured": "Configurazione del link di accesso non riuscita: il DNS del dominio non è configurato correttamente"
       },
       "customDomainNotConfigured": "Nessun dominio personalizzato configurato",
-      "vercelTokenNotConfigured": "Il token Vercel non è configurato nelle impostazioni di App Builder"
+      "vercelTokenNotConfigured": "Il token Vercel non è configurato nelle impostazioni di App Builder",
+      "deleteSandboxCloseFailed": "Impossibile chiudere il sandbox. Non è stato eliminato nulla, riprova"
     },
     "reward": {
       "notFound": "Premio non trovato",

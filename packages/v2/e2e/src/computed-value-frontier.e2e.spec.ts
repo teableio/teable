@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { performance } from 'node:perf_hooks';
+
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import {
   createRecordOkResponseSchema,
@@ -14,6 +15,8 @@ import { getRandomString } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
 import { afterEach, describe, expect, it } from 'vitest';
+
+import { createStandaloneExecutionContext } from '@teable/v2-container-node-test';
 
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
@@ -48,10 +51,12 @@ const createHarness = async (
     },
   });
 
+  const executionContext = await createStandaloneExecutionContext(testContainer);
   const app = express();
   app.use(
     createV2ExpressRouter({
       createContainer: () => testContainer.container,
+      createExecutionContext: () => executionContext,
     })
   );
 

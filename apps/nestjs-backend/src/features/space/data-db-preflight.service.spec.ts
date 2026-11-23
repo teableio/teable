@@ -149,6 +149,7 @@ const BASELINE_TABLES = [
   'attachments',
   'attachments_table',
 ];
+const BASE_VCS_TABLES = ['base_vcs_head', 'base_vcs_change', 'base_vcs_commit'];
 const OPTIONAL_ADDITIVE_TABLES = ['computed_update_dead_letter_seed'];
 const DATA_SCHEMA_MIGRATION_TABLE = '__teable_data_schema_migrations';
 
@@ -359,6 +360,49 @@ describe('DataDbPreflightService', () => {
     expect(result.ok).toBe(false);
     expect(result.classification).toBe('teable-managed-incompatible');
     expect(result.errors.map((error) => error.code)).toContain('INCOMPATIBLE_TEABLE_DATABASE');
+  });
+
+  it.each(['initialize-empty', 'adopt-existing'] as const)(
+    'accepts a complete baseline with Base VCS additive tables (%s)',
+    async (targetMode) => {
+      const result = await createService({
+        schemas: ['public', internalSchema],
+        tables: [...BASELINE_TABLES, ...BASE_VCS_TABLES, DATA_SCHEMA_MIGRATION_TABLE].map(
+          (table_name) => ({ table_schema: internalSchema, table_name })
+        ),
+        functions: ['__teable_capture_undo_row'],
+      }).preflight({ url: DATA_URL, targetMode, internalSchema });
+      expect(result.ok).toBe(true);
+      expect(result.classification).toBe('teable-managed-compatible');
+      expect(result.errors).toEqual([]);
+    }
+  );
+
+  it('accepts pre-VCS baselines with computed_reliability_* while rejecting partial Base VCS tables', async () => {
+    const preVcs = await createService({
+      schemas: ['public', internalSchema],
+      tables: [...BASELINE_TABLES, DATA_SCHEMA_MIGRATION_TABLE].map((table_name) => ({
+        table_schema: internalSchema,
+        table_name,
+      })),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'adopt-existing', internalSchema });
+    expect(preVcs.ok).toBe(true);
+    expect(preVcs.classification).toBe('teable-managed-compatible');
+
+    const partialVcs = await createService({
+      schemas: ['public', internalSchema],
+      tables: [
+        ...BASELINE_TABLES,
+        'base_vcs_head',
+        'base_vcs_change',
+        DATA_SCHEMA_MIGRATION_TABLE,
+      ].map((table_name) => ({ table_schema: internalSchema, table_name })),
+      functions: ['__teable_capture_undo_row'],
+    }).preflight({ url: DATA_URL, targetMode: 'initialize-empty', internalSchema });
+    expect(partialVcs.ok).toBe(false);
+    expect(partialVcs.classification).toBe('teable-managed-incompatible');
+    expect(partialVcs.errors.map((error) => error.code)).toContain('INCOMPATIBLE_TEABLE_DATABASE');
   });
 
   it('rejects a partial Teable data database as incompatible', async () => {

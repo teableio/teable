@@ -113,6 +113,41 @@ describe('PostgresSchemaOperationRepository (pg)', () => {
     });
   });
 
+  it('reclaims a lock-deferred receipt when due while a fresh foreground receipt stays pending', async () => {
+    const repository = new PostgresSchemaOperationRepository(db);
+    const now = new Date();
+    const due = new Date(now.getTime() + 60_000);
+    const type = 'test.lock_deferral';
+    const options = {
+      lockedBy: 'worker',
+      types: [type],
+      staleRunningBefore: new Date(now.getTime() - 300_000),
+    };
+    for (const key of ['foreground', 'deferred']) {
+      const receipt = await repository.upsert(context(), {
+        type,
+        idempotencyKey: key,
+        target: { resourceType: 'table', resourceId: key },
+        status: 'pending',
+        phase: 'metadata_pending',
+        nextRunAt: now,
+      });
+      receipt._unsafeUnwrap();
+    }
+    const deferred = await repository.advance(context(), 'deferred', {
+      status: 'pending',
+      phase: 'waiting_for_lock',
+      nextRunAt: due,
+    });
+    deferred._unsafeUnwrap();
+    const early = await repository.claimNextRunnable(context(), { ...options, now });
+    expect(early._unsafeUnwrap()).toBeUndefined();
+    const claim = await repository.claimNextRunnable(context(), { ...options, now: due });
+    expect(claim._unsafeUnwrap()).toMatchObject({ idempotencyKey: 'deferred', attempts: 0 });
+    const remaining = await repository.claimNextRunnable(context(), { ...options, now: due });
+    expect(remaining._unsafeUnwrap()).toBeUndefined();
+  });
+
   it('does not claim stale pending CSV imports that are not automatically repairable', async () => {
     const repository = new PostgresSchemaOperationRepository(db);
     const now = new Date();

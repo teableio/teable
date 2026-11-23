@@ -1395,7 +1395,7 @@ describe('[R11] v2 http deleteRecords with links (e2e)', () => {
       const response = await fetch(`${ctx.baseUrl}/bases/create`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, spaceId: 'space_test' }),
+        body: JSON.stringify({ name, spaceId: ctx.spaceId }),
       });
       const rawBody = await response.json();
       if (response.status !== 201) {

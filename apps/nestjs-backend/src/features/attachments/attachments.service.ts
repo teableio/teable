@@ -32,6 +32,7 @@ import { FileUtils, getSafeAxiosAgents } from '../../utils';
 import { second } from '../../utils/second';
 import { AttachmentsCropQueueProcessor } from './attachments-crop.processor';
 import { AttachmentsStorageService } from './attachments-storage.service';
+import { BACKEND_ONLY_DIRS, BACKEND_ONLY_UPLOAD_TYPES } from './backend-only';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
 import {
@@ -44,23 +45,6 @@ import { InjectStorageAdapter } from './plugins/storage';
 import type { IPresignParams, IPresignRes } from './plugins/types';
 import { getSafeUploadContentType } from './plugins/utils';
 import { forceAttachmentDisposition, getExtensionPreview } from './utils';
-
-const BACKEND_ONLY_UPLOAD_TYPES: ReadonlySet<UploadType> = new Set([
-  UploadType.RecordHistory,
-  UploadType.RecordRemoval,
-  UploadType.WorkflowRunCold,
-  UploadType.AuditLogCold,
-  UploadType.Artifact,
-]);
-
-/**
- * Private-bucket top-level dirs of the backend-only types. Nothing mints read
- * tokens for them (cold archives are consumed server-side, artifacts through
- * downloadFile), so the local read route refuses them outright.
- */
-const BACKEND_ONLY_DIRS: ReadonlySet<string> = new Set(
-  [...BACKEND_ONLY_UPLOAD_TYPES].map((type) => StorageAdapter.getDir(type))
-);
 
 @Injectable()
 export class AttachmentsService {

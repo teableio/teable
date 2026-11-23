@@ -31,12 +31,16 @@ type PreparedTableDataSafetyOperationLimitState = {
 const tableNameLength = (context: TableOperationPluginContext): number => {
   switch (context.kind) {
     case TableOperationKind.read:
+    case TableOperationKind.delete:
+    case TableOperationKind.updateProperties:
       return 0;
     case TableOperationKind.create:
     case TableOperationKind.duplicate:
     case TableOperationKind.importCsv:
     case TableOperationKind.rename:
       return context.payload.tableName.toString().length;
+    case TableOperationKind.restore:
+      return context.payload.table.name().toString().length;
     case TableOperationKind.createMany:
       return Math.max(
         0,
@@ -150,6 +154,23 @@ export class TableDataSafetyLimitTableOperationPlugin implements ITableOperation
       }
       case TableOperationKind.rename:
         return ok(undefined);
+      case TableOperationKind.delete:
+        // Removing a table cannot increase any table or schema safety limit.
+        return ok(undefined);
+      case TableOperationKind.updateProperties:
+        return ensureWithinTableDataSafetyLimit(
+          tableDataSafetyLimitErrors.descriptionMaxLength,
+          context.payload.patch.description?.length ?? 0,
+          limits.displayText.maxDescriptionLength,
+          { target: 'table.description' }
+        );
+      case TableOperationKind.restore: {
+        const tableCountResult = await this.ensureTablesPerBaseLimit(
+          context.executionContext, context.payload.baseId, 1, limits
+        );
+        if (tableCountResult.isErr()) return tableCountResult;
+        return this.ensureTableStructureLimits(context.payload.table, limits, preparedState?.domainContext);
+      }
     }
   }
 
