@@ -13,6 +13,9 @@ interface ITx {
   timeStr?: string;
   id?: string;
   rawOpMaps?: unknown;
+  completionCallbacks?: Array<() => Promise<void>>;
+  afterCommitCallbacks?: Array<() => Promise<void>>;
+  schemaLeaseChecks?: Set<() => Promise<void>>;
 }
 
 type ITxStoreKey = 'tx' | 'dataTx';
@@ -97,6 +100,35 @@ class NamedPrismaService
     this.afterTxCb = fn;
   }
 
+  /** Runs the registered post-commit hook after an externally owned transaction commits. */
+  async flushAfterTransaction(): Promise<void> {
+    await this.afterTxCb?.();
+  }
+
+  /** Registers only while a real transaction is active; never runs after rollback. */
+  afterCommit(callback: () => Promise<void>): boolean {
+    const callbacks = this.cls.get(`${this.txStoreKey}.afterCommitCallbacks`);
+    if (!callbacks || !this.cls.get(`${this.txStoreKey}.client`)) return false;
+    callbacks.push(callback);
+    return true;
+  }
+
+  /** Lazily attaches rollback work to the existing transaction completion queue. */
+  afterRollback(callback: () => Promise<void>): boolean {
+    const completion = this.cls.get(`${this.txStoreKey}.completionCallbacks`);
+    const afterCommit = this.cls.get(`${this.txStoreKey}.afterCommitCallbacks`);
+    if (!completion || !afterCommit || !this.cls.get(`${this.txStoreKey}.client`)) return false;
+    let committed = false;
+    // Mark the acknowledged commit before any fallible user after-commit callback.
+    afterCommit.unshift(async () => {
+      committed = true;
+    });
+    completion.push(async () => {
+      if (!committed) await callback();
+    });
+    return true;
+  }
+
   /**
    * Executes a transaction using the provided function and options.
    * If a transaction client is already defined in the current context, the function is executed using it.
@@ -127,21 +159,38 @@ class NamedPrismaService
     };
 
     await this.cls.runWith(this.cls.get(), async () => {
-      result = await super.$transaction<R>(async (prisma) => {
-        prisma = proxyClient(prisma);
-        this.cls.set(`${this.txStoreKey}.client`, prisma);
-        this.cls.set(`${this.txStoreKey}.id`, nanoid());
-        this.cls.set(`${this.txStoreKey}.timeStr`, new Date().toISOString());
-        try {
-          // can not delete await here
-          return await fn(prisma);
-        } finally {
-          this.cls.set(`${this.txStoreKey}.client`, undefined);
-          this.cls.set(`${this.txStoreKey}.id`, undefined);
-          this.cls.set(`${this.txStoreKey}.timeStr`, undefined);
-        }
-      }, txOptions);
-      this.afterTxCb?.();
+      const completionCallbacks: Array<() => Promise<void>> = [];
+      const afterCommitCallbacks: Array<() => Promise<void>> = [];
+      try {
+        result = await super.$transaction<R>(async (prisma) => {
+          prisma = proxyClient(prisma);
+          this.cls.set(`${this.txStoreKey}.client`, prisma);
+          this.cls.set(`${this.txStoreKey}.id`, nanoid());
+          this.cls.set(`${this.txStoreKey}.timeStr`, new Date().toISOString());
+          this.cls.set(`${this.txStoreKey}.completionCallbacks`, completionCallbacks);
+          this.cls.set(`${this.txStoreKey}.afterCommitCallbacks`, afterCommitCallbacks);
+          try {
+            const value = await fn(prisma);
+            for (const check of this.cls.get(`${this.txStoreKey}.schemaLeaseChecks`) ?? []) {
+              await check();
+            }
+            return value;
+          } finally {
+            this.cls.set(`${this.txStoreKey}.client`, undefined);
+            this.cls.set(`${this.txStoreKey}.id`, undefined);
+            this.cls.set(`${this.txStoreKey}.timeStr`, undefined);
+            this.cls.set(`${this.txStoreKey}.completionCallbacks`, undefined);
+            this.cls.set(`${this.txStoreKey}.afterCommitCallbacks`, undefined);
+            this.cls.set(`${this.txStoreKey}.schemaLeaseChecks`, undefined);
+          }
+        }, txOptions);
+        for (const callback of afterCommitCallbacks) await callback();
+        this.afterTxCb?.();
+      } finally {
+        // Schema leases protect until PostgreSQL has acknowledged commit or rollback,
+        // not merely until the inner mutation callback returned.
+        for (const release of completionCallbacks.reverse()) await release();
+      }
     });
 
     return result;

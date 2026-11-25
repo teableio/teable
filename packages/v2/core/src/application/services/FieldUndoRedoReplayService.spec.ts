@@ -43,6 +43,9 @@ import type {
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import {
   isUpdateManyStreamBatch,
+  type PhysicalTableDuplicatePlan,
+  type PhysicalTableDuplicateResult,
+  type DeleteManyResult,
   type ITableRecordRepository,
   type UpdateManyStreamBatchInput,
   type UpdateManyStreamResult,
@@ -126,13 +129,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(): Promise<Result<Table, DomainError>> {
     const table = this.tables[Math.min(this.readIndex, this.tables.length - 1)];
     this.readIndex += 1;
@@ -205,6 +201,14 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   updatedBatches: UpdateManyStreamBatchInput[] = [];
   updateManyStreamUpdatedRecordIds?: ReadonlySet<string>;
   updateManyStreamVersions = new Map<string, number>();
@@ -308,12 +312,14 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     });
   }
 
-  async deleteMany() {
+  async deleteMany(): Promise<Result<DeleteManyResult, DomainError>> {
     throw new Error('Not used in test');
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    throw new Error('Not used in test');
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 
@@ -443,6 +449,10 @@ describe('FieldUndoRedoReplayService', () => {
         id: `rec${'r'.repeat(16)}`,
         fields: { [restored.restoredFieldId.toString()]: null },
         version: 7,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     const recordRepository = new FakeTableRecordRepository(queryRepository);
@@ -503,6 +513,10 @@ describe('FieldUndoRedoReplayService', () => {
           },
         },
         version: 7,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     const recordRepository = new FakeTableRecordRepository();
@@ -553,6 +567,10 @@ describe('FieldUndoRedoReplayService', () => {
         id: recordId,
         fields: { [restoredFieldId.toString()]: null },
         version: 7,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     const recordRepository = new FakeTableRecordRepository();

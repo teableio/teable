@@ -69,6 +69,8 @@ export type TableProvisionOperationOptions = {
   lastError?: string | null;
   maxAttempts?: number;
   nextRunAt?: Date;
+  /** Publish only after the physical CREATE transaction has confirmed its commit. */
+  publishActorStorageVersion?: 1;
 };
 
 export type TableDeleteOptions = {

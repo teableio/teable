@@ -47,8 +47,12 @@ export function generateBaseNodeListCacheKey(baseId: string) {
   return `base-node-list:${baseId}` as const;
 }
 
+/**
+ * `snapshot` in the key dates from when the lookup started matching the snapshot's own base id:
+ * answers cached under the earlier key may name another base, and are left to expire.
+ */
 export function generateTemplateCacheKeyByBaseId(baseId: string) {
-  return `template:base:${baseId}` as const;
+  return `template:base:snapshot:${baseId}` as const;
 }
 
 export function generateTemplateCategoryCacheKey() {

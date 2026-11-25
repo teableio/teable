@@ -18,6 +18,7 @@ import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { RecordModifyModule } from '../record-modify/record-modify.module';
 import { RecordModule } from '../record.module';
+import { ShareViewScopeService } from '../share-view-scope.service';
 import { RecordHistoryReadModule } from './record-history-read.module';
 import { RecordOpenApiV2Module } from './record-open-api-v2.module';
 import { RecordOpenApiController } from './record-open-api.controller';
@@ -58,11 +59,12 @@ import { RecordRestoreService } from './record-restore.service';
   controllers: [RecordOpenApiController],
   providers: [
     RecordOpenApiService,
+    ShareViewScopeService,
     RecordsPastePreviewRegistrar,
     RecordRestoreService,
     RecordRestoreV1CompatibilityService,
     { provide: RECORD_RESTORE_V1_CREATE_RECORDS, useExisting: RecordOpenApiService },
   ],
-  exports: [RecordOpenApiService, RecordOpenApiV2Module, RecordRestoreService],
+  exports: [RecordOpenApiService, RecordOpenApiV2Module, RecordRestoreService, ShareViewScopeService],
 })
 export class RecordOpenApiModule {}

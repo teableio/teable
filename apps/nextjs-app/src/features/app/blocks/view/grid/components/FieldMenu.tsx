@@ -1,7 +1,12 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { useMutation } from '@tanstack/react-query';
 import type { IFilter, IGroup, ISort } from '@teable/core';
-import { FieldType, getValidFilterOperators, isAiActionWritableField } from '@teable/core';
+import {
+  analyzePeriodicRefreshSpec,
+  FieldType,
+  getValidFilterOperators,
+  isAiActionWritableField,
+} from '@teable/core';
 import {
   EyeOff,
   ArrowLeft,
@@ -16,7 +21,7 @@ import {
   MessageSquareDot,
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
-import { duplicateField, duplicateFieldCheck } from '@teable/openapi';
+import { duplicateField, duplicateFieldCheck, triggerFieldPeriodicRefresh } from '@teable/openapi';
 import type { GridView } from '@teable/sdk';
 import {
   useBaseId,
@@ -50,7 +55,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { CopyPlus, Trash } from 'lucide-react';
+import { CopyPlus, RefreshCw, Trash } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
@@ -71,6 +76,7 @@ import type { IMenuItemProps } from './RecordMenu';
 enum MenuItemType {
   Edit = 'Edit',
   AutoFill = 'AutoFill',
+  PeriodicRefreshNow = 'PeriodicRefreshNow',
   Freeze = 'Freeze',
   Hidden = 'Hidden',
   Delete = 'Delete',
@@ -181,6 +187,11 @@ export const FieldMenu = () => {
       fieldId: string;
       duplicateFieldRo: IDuplicateFieldRo;
     }) => duplicateField(tableId, fieldId, duplicateFieldRo),
+  });
+
+  const { mutateAsync: refreshFieldNowFn } = useMutation({
+    mutationFn: ({ tableId, fieldId }: { tableId: string; fieldId: string }) =>
+      triggerFieldPeriodicRefresh(tableId, fieldId),
   });
 
   useClickAway(fieldSettingRef, () => {
@@ -326,6 +337,44 @@ export const FieldMenu = () => {
           !permission['record|update'],
         onClick: async () => {
           onAutoFill?.(fieldIds[0]);
+        },
+      },
+      {
+        type: MenuItemType.PeriodicRefreshNow,
+        name: t('table:menu.refreshFieldNow'),
+        icon: <RefreshCw className={iconClassName} />,
+        hidden:
+          fieldIds.length !== 1 ||
+          !permission['record|update'] ||
+          !analyzePeriodicRefreshSpec(fields[0]).supported,
+        onClick: async () => {
+          const targetField = fields[0];
+          if (!tableId || !targetField) return;
+          const toastId = toast.loading(t('table:menu.refreshFieldNow'));
+          try {
+            const { data } = await refreshFieldNowFn({ tableId, fieldId: targetField.id });
+            switch (data.status) {
+              case 'refreshed':
+                toast.success(t('table:menu.refreshFieldRefreshed'), { id: toastId });
+                break;
+              case 'queued':
+                toast.success(t('table:menu.refreshFieldQueued'), { id: toastId });
+                break;
+              case 'deduped':
+                toast.info(t('table:menu.refreshFieldDeduped'), { id: toastId });
+                break;
+              case 'skipped_unchanged':
+                toast.info(t('table:menu.refreshFieldUnchanged'), { id: toastId });
+                break;
+              case 'skipped_db_unhealthy':
+                toast.warning(t('table:menu.refreshFieldDbUnhealthy'), { id: toastId });
+                break;
+              default:
+                toast.dismiss(toastId);
+            }
+          } catch {
+            toast.error(t('table:menu.refreshFieldFailed'), { id: toastId });
+          }
         },
       },
       {

@@ -4,6 +4,6 @@ export interface IBaseMetaMoveService {
   applyMetaMoveBase(
     baseId: string,
     targetSpaceId: string,
-    options?: { dataDbChanged: boolean }
+    options?: { dataDbChanged: boolean; beforeDataDbSwitch?: () => Promise<void> }
   ): Promise<void>;
 }

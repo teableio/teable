@@ -4,6 +4,7 @@ import { BASE_IMPORT_CSV_QUEUE } from '../base/base-import-processor/base-import
 import { BASE_IMPORT_JUNCTION_CSV_QUEUE } from '../base/base-import-processor/base-import-junction.processor';
 import { TABLE_IMPORT_CSV_CHUNK_QUEUE } from '../import/open-api/import-csv-chunk.processor';
 import { TABLE_IMPORT_CSV_QUEUE } from '../import/open-api/import-csv.processor';
+import { ActorStorageRoutingService } from './actor-storage-routing.service';
 import { DataDbBaselineService } from './data-db-baseline.service';
 import { DataDbPreflightService } from './data-db-preflight.service';
 import { SpaceDataDbCopyModule } from './space-data-db-copy.module';
@@ -27,6 +28,7 @@ import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
     EventJobModule.registerQueue(TABLE_IMPORT_CSV_QUEUE),
   ],
   providers: [
+    ActorStorageRoutingService,
     DataDbPreflightService,
     DataDbBaselineService,
     SpaceDataDbMigrationService,

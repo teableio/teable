@@ -2,6 +2,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { DATA_QUERY_ARTIFACT_GENERATOR_VERSION } from './DataQueryArtifactProvenance';
+import { dataQueryCompositionSource, prepareDataQueryComposition } from './DataQueryComposition';
 import { DataQueryDefinition } from './DataQueryDefinition';
 import { dataQueryManifestJsonSchema, type DataQueryManifest } from './DataQueryManifest';
 import {
@@ -128,6 +129,55 @@ describe('generated client integrity', () => {
       queries: { sales: { ...manifest.queries.sales, result: 'one' as const } },
     };
     expect(generateAppQueryArtifacts(one, { sales: contract }).isErr()).toBe(true);
+  });
+  it('uses admitted dimensions for pinned metric arguments and nullable row properties', () => {
+    const manifest = parseDataQueryManifestText(
+      'schemaVersion: 1\nqueries:\n  sales:\n    mode: library\n    library: { id: qlb0123456789abcdef, revision: 2 }\n'
+    )._unsafeUnwrap();
+    const source = dataQueryCompositionSource({
+      version: 1,
+      kind: 'records',
+      tableId: 'tbl0000000000000001',
+      select: [
+        { system: 'id', alias: 'region' },
+        { system: 'autoNumber', alias: 'month' },
+      ],
+    })._unsafeUnwrap();
+    const outputs = [
+      { alias: 'region', wireType: 'string' as const, cellValueType: 'string' },
+      { alias: 'month', wireType: 'numberOrString' as const, cellValueType: 'number' },
+    ].map((output) => ({ ...output, isMultipleCellValue: false, nullable: false }));
+    const contract = (metricDimensions: string[]) => {
+      const composition = {
+        kind: 'composition' as const,
+        source: { id: 'qlb1111111111111111', revision: 1 },
+        metrics: [{ alias: 'value', statistic: 'count' as const }],
+        metricDimensions,
+      };
+      return {
+        ...prepareDataQueryComposition(composition, outputs, source)._unsafeUnwrap(),
+        composition,
+        result: 'many' as const,
+      };
+    };
+    const both = contract(['region', 'month']);
+    const none = contract([]);
+    const client = generateAppQueryArtifacts(manifest, { sales: both })._unsafeUnwrap().module;
+    expect(client).toContain('"groupBy"?: Array<"region" | "month">');
+    expect(client).toContain('"where_month"?: number | string | null');
+    expect(client).toContain('"where_region"?: string | null');
+    expect(client).toContain('"region": string | null');
+    expect(client).toContain('"month": number | string | null');
+    expect(client).toContain('"value": number | string;');
+    expect(client).not.toContain(both.composition.source.id);
+    expect(generateAppQueryArtifacts(manifest, { sales: none })._unsafeUnwrap().module).toContain(
+      '"groupBy"?: []'
+    );
+    expect(compareAppQueryContracts(both, none)).toContainEqual({
+      path: 'parameters.groupBy',
+      change: 'narrowed',
+    });
+    expect(compareAppQueryContracts(none, both)).toEqual([]);
   });
   it('reports incompatible changes when upgrading a pinned revision', () => {
     const definition =
@@ -876,6 +926,67 @@ describe('app query manifest files', () => {
     await expect(unreachable.queries.getTodos()).rejects.toMatchObject({
       code: 'data_query.transport_failed',
     });
+  });
+
+  it.each([false, true])('decodes library HTTP errors with paged client=%s', async (paged) => {
+    const { getTodoById } = parseDataQueryManifestText(todo)._unsafeUnwrap().queries;
+    const generated = generateAppQueryArtifacts(
+      {
+        schemaVersion: 1,
+        queries: {
+          getTodoById,
+          getTodos: { mode: 'library', library: { id: 'qlb0123456789abcdef', revision: 2 } },
+        },
+      },
+      {
+        getTodos: {
+          composition: {
+            kind: 'composition',
+            source: { id: 'qlb1111111111111111', revision: 1 },
+            ...(paged ? { page: { limit: 1, includeTotal: true } } : {}),
+          },
+          outputs: [],
+        },
+      }
+    )._unsafeUnwrap();
+    let response: unknown;
+    const { queries } = loadModule(async () => response, undefined, generated);
+    const unavailable = {
+      status: 409,
+      code: 'query_library.source_unavailable',
+      message: 'The pinned source revision is unavailable',
+    };
+    for (const error of [
+      unavailable,
+      { status: 400, code: 'data_query.metric_group_limit_exceeded', message: 'Too many groups' },
+    ]) {
+      response = error;
+      await expect(queries.getTodos()).rejects.toMatchObject({
+        name: 'QueryError',
+        queryId: 'getTodos',
+        code: error.code,
+        message: error.message,
+      });
+      await expect(queries.getTodoById({ id: 'unused' })).rejects.toMatchObject({
+        code: 'data_query.invalid_response',
+      });
+    }
+    response = { ok: false, error: { code: 'data_query.forbidden', message: 'private-data' } };
+    await expect(queries.getTodos()).rejects.toMatchObject({
+      code: 'data_query.forbidden',
+      message: 'Query getTodos failed (data_query.forbidden)',
+    });
+    for (const malformed of [
+      { ...unavailable, message: [] },
+      { ...unavailable, code: 'unrecognized' },
+      { ...unavailable, status: 200 },
+      { ...unavailable, ok: true, data: { rows: [] } },
+    ]) {
+      response = malformed;
+      await expect(queries.getTodos()).rejects.toMatchObject({
+        code: 'data_query.invalid_response',
+      });
+    }
   });
 
   it('preserves composite JSON values and unsafe numeric strings from the canonical response', async () => {

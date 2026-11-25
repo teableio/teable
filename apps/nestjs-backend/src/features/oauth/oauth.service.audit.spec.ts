@@ -34,7 +34,6 @@ const createFixture = (clsValues: Record<string, unknown> = {}) => {
     },
     oAuthAppAuthorized: {
       deleteMany: vi.fn().mockResolvedValue({ count: 3 }),
-      delete: vi.fn().mockResolvedValue(undefined),
     },
     oAuthAppToken: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
     accessToken: {
@@ -222,5 +221,14 @@ describe('OAuthService audit', () => {
     await fixture.service.revokeToken(CLIENT_ID);
 
     expect(fixture.rows()[0]).toMatchObject({ params: { byApp: true } });
+  });
+
+  it('succeeds and writes nothing when the grant was already revoked', async () => {
+    const fixture = createFixture();
+    fixture.prisma.oAuthAppAuthorized.deleteMany.mockResolvedValue({ count: 0 });
+    fixture.prisma.accessToken.findMany.mockResolvedValue([]);
+
+    await expect(fixture.service.revokeToken(CLIENT_ID)).resolves.toBeUndefined();
+    expect(fixture.audit.emitAtomic).not.toHaveBeenCalled();
   });
 });

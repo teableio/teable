@@ -2,10 +2,13 @@ import { oc } from '@orpc/contract';
 
 import {
   vcsChangesInputSchema,
+  vcsCheckoutInputSchema,
   vcsCloneInputSchema,
   vcsCloneOutputSchema,
   vcsCloneRecordsInputSchema,
   vcsCloneRecordsOutputSchema,
+  vcsDiffInputSchema,
+  vcsDiffOutputSchema,
   vcsEnableInputSchema,
   vcsEnableOutputSchema,
   vcsHeadInfoSchema,
@@ -13,6 +16,8 @@ import {
   vcsIncrementalChangesSchema,
   vcsPushInputSchema,
   vcsPushResultSchema,
+  vcsRollbackInputSchema,
+  vcsRollbackOutputSchema,
 } from './schemas';
 
 export const v2VcsContract = {
@@ -66,6 +71,36 @@ export const v2VcsContract = {
     })
     .input(vcsChangesInputSchema)
     .output(vcsIncrementalChangesSchema),
+  checkout: oc
+    .route({
+      method: 'GET',
+      path: '/bases/{baseId}/vcs/history/checkout',
+      successStatus: 200,
+      summary: 'Read an immutable revision under current access permissions',
+      tags: ['vcs'],
+    })
+    .input(vcsCheckoutInputSchema)
+    .output(vcsCloneOutputSchema),
+  diff: oc
+    .route({
+      method: 'GET',
+      path: '/bases/{baseId}/vcs/history/diff',
+      successStatus: 200,
+      summary: 'Compare two revisions and identify their merge base',
+      tags: ['vcs'],
+    })
+    .input(vcsDiffInputSchema)
+    .output(vcsDiffOutputSchema),
+  rollback: oc
+    .route({
+      method: 'POST',
+      path: '/bases/{baseId}/vcs/history/rollback',
+      successStatus: 200,
+      summary: 'Preview a restore or confirm it as a new revision',
+      tags: ['vcs'],
+    })
+    .input(vcsRollbackInputSchema)
+    .output(vcsRollbackOutputSchema),
   push: oc
     .route({
       method: 'POST',

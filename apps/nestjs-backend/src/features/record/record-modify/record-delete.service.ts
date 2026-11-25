@@ -7,6 +7,7 @@ import { Events } from '../../../event-emitter/events';
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { LinkService } from '../../calculation/link.service';
+import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
 import { TableDomainQueryService } from '../../table-domain';
 import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import { RecordService } from '../record.service';
@@ -21,7 +22,8 @@ export class RecordDeleteService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly computedOrchestrator: ComputedOrchestratorService,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly recordMutationPolicy: RecordMutationPolicyService
   ) {}
 
   async deleteRecord(tableId: string, recordId: string, windowId?: string) {
@@ -30,6 +32,11 @@ export class RecordDeleteService {
   }
 
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'delete',
+      payload: { recordIds },
+    });
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const { records: recordsForEvent, orders } = await this.prismaService.$tx(async () => {
       // Use a base-table query to ensure link values are derived from junction tables.

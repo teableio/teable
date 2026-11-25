@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -88,6 +89,12 @@ const serializeInternalFieldSnapshot = (field: StoredField): ISnapshotBase<IFiel
 };
 
 type IProjection = { [fieldNameOrId: string]: boolean };
+
+// Per connection, on `agent.custom`: which collections it was allowed to read, and when.
+const COLLECTION_READ_ACCESS = Symbol('collection read access');
+// A role change reaches a connection's ops catch-up within this time; the next REST read
+// shows it at once.
+const COLLECTION_ACCESS_TTL_MS = 60_000;
 
 const getLocalization = (data: unknown): ILocalization | undefined => {
   if (!data || typeof data !== 'object' || !('localization' in data)) return;
@@ -304,6 +311,86 @@ export class ShareDbAdapter extends ShareDb.DB {
       throw new UnauthorizedException('Unauthorized request not authorized');
     }
     return { cookie, shareViewId: shareId, baseShareId, templateHeader };
+  }
+
+  /**
+   * Ops catch-up (`getOps`, `getOpsBulk`) answers a client that names a document and a
+   * version: a subscribe or fetch that already holds a copy. It reads the row's version
+   * directly, and when the client is up to date it never reaches the authorized snapshot
+   * read, after which ShareDB streams the document's live ops to it. So the right to read
+   * the collection is settled here, before anything is read.
+   *
+   * Only connection-originated calls carry `agentCustom`; the submit pipeline calls
+   * `getOps` without one and is not a read by a client.
+   */
+  private async assertCollectionReadable(
+    collection: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any
+  ): Promise<void> {
+    const custom = options?.agentCustom;
+    if (!custom || custom[INTERNAL_SHAREDB_CONNECTION] === true) {
+      return;
+    }
+    // Presence of a credential, as everywhere in this adapter; whether it is worth
+    // anything is what the probe below decides.
+    const authHeaders = this.getAuthHeaders(options);
+    const cache: Map<string, { at: number; allowed: Promise<boolean> }> = (custom[
+      COLLECTION_READ_ACCESS
+    ] ??= new Map());
+    const hit = cache.get(collection);
+    const fresh = hit && Date.now() - hit.at < COLLECTION_ACCESS_TTL_MS;
+    const allowed = fresh ? hit.allowed : this.canReadCollection(collection, authHeaders);
+    if (!fresh) {
+      cache.set(collection, { at: Date.now(), allowed });
+    }
+    if (await allowed) {
+      return;
+    }
+    // A refusal is not kept: the next attempt asks again (a transient failure of the
+    // probe must not lock a legitimate client out for the whole TTL).
+    if (cache.get(collection)?.allowed === allowed) {
+      cache.delete(collection);
+    }
+    throw new ForbiddenException('Not allowed to read this collection');
+  }
+
+  /**
+   * Asks, as the connection itself, the same authorized route a query on this collection
+   * goes through (session, access rules, authority matrix, base share, template, view
+   * share), so the answer is the one REST gives. A view share is served by a route that
+   * knows its own table and ignores the one named here, so the collection is bound to
+   * that table first.
+   */
+  private async canReadCollection(
+    collection: string,
+    authHeaders: ReturnType<ShareDbAdapter['getAuthHeaders']>
+  ): Promise<boolean> {
+    try {
+      const [docType, collectionId] = collection.split('_');
+      const readonlyService = this.getReadonlyService(docType as IdPrefix);
+      const throughViewShare =
+        docType !== IdPrefix.Table && authHeaders.shareViewId && !authHeaders.baseShareId;
+      if (throughViewShare) {
+        const sharedView = await this.prismaService?.txClient().view.findFirst({
+          where: { shareId: authHeaders.shareViewId, enableShare: true, deletedTime: null },
+          select: { tableId: true },
+        });
+        if (sharedView?.tableId !== collectionId) {
+          return false;
+        }
+      }
+      await this.cls.runWith({ ...this.cls.get(), ...authHeaders }, () =>
+        readonlyService.getDocIdsByQuery(
+          collectionId,
+          docType === IdPrefix.Record ? { take: 1 } : {}
+        )
+      );
+      return true;
+    } catch (error) {
+      this.logger.debug(`collection read probe refused ${collection}: ${error}`);
+      return false;
+    }
   }
 
   queryPoll(...args: Parameters<ShareDbAdapter['queryPollAsync']>): void {
@@ -680,6 +767,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     try {
       const [docType] = collection.split('_');
       const readonlyService = this.getReadonlyService(docType as IdPrefix);
+      await this.assertCollectionReadable(collection, options);
       await this.internalGetOps(collection, id, from, to, options, callback, {
         getVersionAndType: async (...args) => await readonlyService.getVersionAndType(...args),
         getSnapshotData: async (...args) => await this.getSnapshotData(...args),
@@ -704,6 +792,7 @@ export class ShareDbAdapter extends ShareDb.DB {
   ) {
     try {
       const [docType, collectionId] = collection.split('_');
+      await this.assertCollectionReadable(collection, options);
       const versionAndTypeMap = await this.getReadonlyService(
         docType as IdPrefix
       ).getVersionAndTypeMap(collectionId, Object.keys(fromMap));
@@ -761,13 +850,23 @@ export class ShareDbAdapter extends ShareDb.DB {
   private getOpsFromSnapshot(docType: string, snapshot: unknown): IOtOperation[] {
     switch (docType) {
       case IdPrefix.Record:
-        return Object.entries((snapshot as IRecord).fields).map(([fieldId, fieldValue]) => {
-          return RecordOpBuilder.editor.setRecord.build({
-            fieldId,
-            newCellValue: fieldValue,
-            oldCellValue: undefined,
-          });
-        });
+        return [
+          ...Object.entries((snapshot as IRecord).fields).map(([fieldId, fieldValue]) =>
+            RecordOpBuilder.editor.setRecord.build({
+              fieldId,
+              newCellValue: fieldValue,
+              oldCellValue: undefined,
+            })
+          ),
+          ...(
+            [
+              'createdByActorType',
+              'createdByActorId',
+              'lastModifiedByActorType',
+              'lastModifiedByActorId',
+            ] as const
+          ).map((key) => ({ p: [key], oi: (snapshot as IRecord)[key] ?? null })),
+        ];
       case IdPrefix.Field:
       case IdPrefix.Table:
         return Object.entries(snapshot as IFieldVo | ITableVo)

@@ -1,5 +1,5 @@
 import { err, ok, type Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
@@ -202,6 +202,112 @@ class FakeRecordQueryRepository implements ITableRecordQueryRepository {
 }
 
 describe('PasteLinkAutoResolveService', () => {
+  it.each([
+    { capability: 0, app: false },
+    { capability: 0, app: true },
+    { capability: 1, app: true },
+  ])(
+    'gates only actual foreign creates with fresh capability $capability/$app',
+    async ({ capability, app }) => {
+      const foreignTable = buildTextTable('a', 'Foreign');
+      const hostTable = buildHostTable(foreignTable.baseId(), foreignTable);
+      const withVersion = (version: number) =>
+        Table.rehydrate({
+          id: foreignTable.id(),
+          baseId: foreignTable.baseId(),
+          name: foreignTable.name(),
+          fields: foreignTable.getFields(),
+          views: foreignTable.views(),
+          primaryFieldId: foreignTable.primaryFieldId(),
+          actorStorageVersion: version,
+        })._unsafeUnwrap();
+      const early = withVersion(1);
+      const current = withVersion(capability);
+      const queryService = new TableQueryService(
+        new FakeTableRepository([foreignTable, hostTable])
+      );
+      let metadataReads = 0;
+      vi.spyOn(queryService, 'getById').mockImplementation(async () =>
+        ok(++metadataReads === 1 ? early : current)
+      );
+      const createdVersions: number[] = [];
+      const create = {
+        create: async (
+          _context: IExecutionContext,
+          input: Parameters<RecordBatchCreationService['create']>[1]
+        ) => {
+          createdVersions.push(input.table.actorStorageVersion());
+          const records = input.table
+            .createRecords(input.recordsFieldValues, { typecast: true })
+            ._unsafeUnwrap();
+          return ok({
+            records: records.records,
+            events: [],
+            fieldKeyMapping: records.fieldKeyMapping,
+            undoCommands: [],
+            redoCommands: [],
+            afterCommit: async () => undefined,
+          });
+        },
+      } as unknown as RecordBatchCreationService;
+      const service = new PasteLinkAutoResolveService(
+        queryService,
+        new LinkTitleResolverService(
+          new FakeTableRepository([foreignTable, hostTable]),
+          new FakeRecordQueryRepository([])
+        ),
+        create
+      );
+      const linkField = hostTable.getFields().find((field) => field.type().toString() === 'link')!;
+      const context: IExecutionContext = {
+        ...createContext(),
+        ...(app ? { initiator: { type: 'appUser' as const, id: 'apu_verified' } } : {}),
+        requireActorStorage: app,
+      };
+      const result = await service.resolve(context, {
+        table: hostTable,
+        editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
+        rowDataList: [['New target']],
+      });
+      expect(metadataReads).toBe(2);
+      if (app && capability === 0) {
+        expect(result._unsafeUnwrapErr().code).toBe('actor_storage.not_enabled');
+        expect(createdVersions).toEqual([]);
+      } else {
+        expect(result.isOk()).toBe(true);
+        expect(createdVersions).toEqual([capability]);
+      }
+      const beforeExisting = [...createdVersions];
+      const existingService = new PasteLinkAutoResolveService(
+        queryService,
+        new LinkTitleResolverService(
+          new FakeTableRepository([current, hostTable]),
+          new FakeRecordQueryRepository([
+            {
+              id: `rec${'e'.repeat(16)}`,
+              version: 1,
+              fields: { [current.primaryFieldId().toString()]: 'Existing' },
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
+            },
+          ])
+        ),
+        create
+      );
+      const existing = await existingService.resolve(context, {
+        table: hostTable,
+        editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
+        rowDataList: [['Existing']],
+      });
+      expect(
+        existing._unsafeUnwrap().resolvedValues.get(linkField.id().toString())?.get('Existing')
+      ).toEqual({ id: `rec${'e'.repeat(16)}`, title: 'Existing' });
+      expect(createdVersions).toEqual(beforeExisting);
+    }
+  );
+
   it('reuses existing titles and batch-creates missing titles once', async () => {
     const foreignTable = buildTextTable('a', 'Foreign');
     const hostTable = buildHostTable(foreignTable.baseId(), foreignTable);
@@ -252,6 +358,10 @@ describe('PasteLinkAutoResolveService', () => {
               [foreignTable.primaryFieldId().toString()]: 'Alpha',
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ])
       ),
@@ -453,6 +563,10 @@ describe('PasteLinkAutoResolveService', () => {
               [foreignTable.primaryFieldId().toString()]: 'Alpha',
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ])
       ),
@@ -554,6 +668,10 @@ describe('PasteLinkAutoResolveService', () => {
             id: existingRecordId,
             fields: { [altFieldId]: 'Alpha' },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ])
       ),
@@ -598,7 +716,15 @@ describe('PasteLinkAutoResolveService', () => {
       new LinkTitleResolverService(
         new FakeTableRepository([foreignTable, hostTable]),
         new FakeRecordQueryRepository([
-          { id: 'recAltMatch', fields: { [altFieldId]: 'Alpha' }, version: 1 },
+          {
+            id: 'recAltMatch',
+            fields: { [altFieldId]: 'Alpha' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
         ])
       ),
       { create: async () => err(domainError.unexpected({ message: 'should not create' })) } as never
@@ -695,7 +821,15 @@ describe('PasteLinkAutoResolveService', () => {
           for (const entry of record.fields().entries()) {
             fields[entry.fieldId.toString()] = entry.value.toValue();
           }
-          stored.push({ id: record.id().toString(), fields, version: 1 });
+          stored.push({
+            id: record.id().toString(),
+            fields,
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          });
         }
         return ok({
           records: createResult.value.records,
@@ -753,6 +887,10 @@ describe('PasteLinkAutoResolveService', () => {
         id: existingRecordId,
         fields: { [primaryFieldId]: 'A\nB' },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ]);
     const service = new PasteLinkAutoResolveService(

@@ -124,7 +124,9 @@ describe('SharedViewRecordQueryV2Service', () => {
       { createContext } as never,
       { maxGroupPoints: 5_000, maxCopyCells: 50_000 } as never,
       { get: cacheGet } as never,
-      { hydrateSelectedUserCells: vi.fn(async (_container, records) => records) } as never,
+      {
+        hydrateSelectedUserCells: vi.fn(async (_tableId, _container, records) => records),
+      } as never,
       runtime
     );
 
@@ -233,7 +235,17 @@ describe('SharedViewRecordQueryV2Service', () => {
       [],
       GetCalendarDailyCollectionResult.create(
         [{ date: '2025-01-02', count: 1, recordIds: [recordId] }],
-        [{ id: recordId.toString(), fields: { [fieldId]: 'Alpha' }, version: 3 }]
+        [
+          {
+            id: recordId.toString(),
+            fields: { [fieldId]: 'Alpha' },
+            version: 3,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+        ]
       )
     );
 
@@ -269,7 +281,17 @@ describe('SharedViewRecordQueryV2Service', () => {
     expect(calendarQuery?.includeHiddenFields).toBe(true);
     expect(result).toEqual({
       countMap: Object.fromEntries([['2025-01-02', 1]]),
-      records: [{ id: recordId.toString(), fields: { [fieldId]: 'Alpha' }, version: 3 }],
+      records: [
+        {
+          id: recordId.toString(),
+          fields: { [fieldId]: 'Alpha' },
+          version: 3,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        },
+      ],
     });
   });
 

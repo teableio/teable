@@ -41,18 +41,12 @@ export class BaseShareController {
       this.baseShareService.getBaseShareList(baseId),
       this.getVisibleNodeIds(baseId),
     ]);
-    return shares.filter(({ nodeId }) =>
-      nodeId === null ? !this.isInNodeShare() : visibleNodeIds.has(nodeId)
-    );
+    return shares.filter(({ nodeId }) => nodeId === null || visibleNodeIds.has(nodeId));
   }
 
   @Get('node')
   @Permissions('base|read')
   async getBaseShare(@Param('baseId') baseId: string): Promise<IBaseShareByNodeIdVo | null> {
-    // The whole base lies outside a node share, and so does its share
-    if (this.isInNodeShare()) {
-      return null;
-    }
     return this.presentShare(await this.baseShareService.getBaseShare(baseId));
   }
 
@@ -79,15 +73,8 @@ export class BaseShareController {
     return new Set(filterVisibleNodes(nodes, permissionContext).map((node) => node.id));
   }
 
-  private isInNodeShare(): boolean {
-    return Boolean(this.cls.get('baseShare')?.nodeId);
-  }
-
   protected async getPermissionContext(_baseId: string): Promise<IBaseNodeVisibilityContext> {
-    return {
-      permissionSet: new Set(this.cls.get('permissions')),
-      shareNodeId: this.cls.get('baseShare')?.nodeId ?? undefined,
-    };
+    return { permissionSet: new Set(this.cls.get('permissions')) };
   }
 
   /**

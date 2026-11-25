@@ -306,6 +306,14 @@
     "addRecordComment": "Aggiungi commento",
     "viewRecordHistory": "Visualizza cronologia del record",
     "recordHistory": {
+      "actorTypes": {
+        "user": "Utente della piattaforma",
+        "appUser": "Utente dell’app",
+        "automation": "Automazione",
+        "system": "Sistema"
+      },
+      "actor": "Iniziatore",
+      "actorUnknown": "Sconosciuto",
       "hiddenRecordHistory": "Nascondi cronologia del record",
       "showRecordHistory": "Mostra cronologia del record",
       "createdTime": "Ora di modifica",
@@ -468,6 +476,8 @@
       "appDelete": "Elimina app",
       "appRead": "Leggi app",
       "appUpdate": "Aggiorna app",
+      "appReadUsers": "Leggere utenti e metadati delle identità dell’app",
+      "appReadUserPii": "Leggere i dati personali delle identità dell’app",
       "userEmailRead": "Leggi email utente corrente",
       "userIntegrations": "Manage user integrations",
       "userSpacesRead": "Leggi spazi utente corrente (nome, piano e postazioni)",
@@ -492,6 +502,7 @@
     "routine": "Routine",
     "app": "App",
     "user": "Utente",
+    "appUser": "Utente dell'app",
     "recordHistory": "Cronologia Record",
     "you": "Tu",
     "instance": "Istanza",
@@ -1736,7 +1747,11 @@
         "signInStateInvalid": "La sessione di accesso non è valida o è scaduta. Accedi di nuovo.",
         "domainNotAllowed": "La registrazione è limitata a domini e-mail specifici. Il dominio della tua e-mail non è nell'elenco consentito.",
         "inviteOnly": "Questa app è solo su invito. Contatta l'amministratore dell'app per richiedere l'accesso.",
-        "emailMissing": "Impossibile recuperare il tuo indirizzo e-mail"
+        "emailMissing": "Impossibile recuperare il tuo indirizzo e-mail",
+        "accountExists": "Questa email ha già un metodo di accesso. Accedi con quello, poi collega il nuovo metodo nelle impostazioni dell’account.",
+        "accountExistsWithProviders": "Questa email accede già con {{providers}}. Accedi con un metodo esistente, poi collega il nuovo metodo nelle impostazioni dell’account.",
+        "userTableLocked": "Questa app ha già utenti dell'app, quindi la sua tabella utenti non può cambiare.",
+        "emailAmbiguous": "Più profili usano questa email"
       },
       "previewOriginNotReady": "L'app di anteprima non è pronta. Ricarica l'anteprima e riprova.",
       "publishedOriginNotReady": "L'app pubblicata non è pronta. Pubblica l'app e riprova.",
@@ -1746,6 +1761,8 @@
       },
       "customDomainNotConfigured": "Nessun dominio personalizzato configurato",
       "vercelTokenNotConfigured": "Il token Vercel non è configurato nelle impostazioni di App Builder",
+      "managedFieldReadOnly": "Questa colonna è gestita dall’accesso dell’App e non può essere modificata qui",
+      "managedRecordReadOnly": "Le righe dei profili di accesso sono gestite dall’accesso dell’App e non possono essere aggiunte o eliminate qui",
       "deleteSandboxCloseFailed": "Impossibile chiudere il sandbox. Non è stato eliminato nulla, riprova"
     },
     "reward": {

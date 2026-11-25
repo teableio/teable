@@ -1982,6 +1982,8 @@
     "agentStartFailed": "Le moteur IA n’a pas pu démarrer. Réessayez ou démarrez une nouvelle session.",
     "agentSessionLost": "Un problème est survenu. Veuillez renvoyer votre message.",
     "sandboxDestroyed": "L’environnement de Cuppy a été arrêté, la réponse s’est arrêtée",
+    "streamInterrupted": "L’environnement d’exécution a redémarré de manière inattendue",
+    "streamInterruptedDescription": "La réponse a été interrompue lors du redémarrage de l’environnement. Veuillez réessayer.",
     "sandboxOutOfMemory": "Cuppy s’est arrêté en cours de route",
     "sandboxOutOfMemoryDescription": "Cette étape a demandé plus de ressources que Cuppy n’en a à disposition. Vous n’y êtes pour rien. Sélectionnez Continuer : Cuppy vérifiera où il en est avant de reprendre.",
     "sandboxOutOfMemoryAction": "Continuer",

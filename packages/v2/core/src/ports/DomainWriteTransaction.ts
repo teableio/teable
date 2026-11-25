@@ -2,7 +2,7 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import type { IExecutionContext, UnitOfWorkScope } from './ExecutionContext';
+import type { IExecutionContext } from './ExecutionContext';
 import type { LegacyEventDispatchReport } from './LegacyEventDispatcher';
 import type { IUnitOfWorkOptions } from './UnitOfWork';
 
@@ -54,9 +54,9 @@ export type DomainWriteDeferred<T> = Readonly<{
 
 export type DomainWriteCommit<T> = DomainWriteCommitted<T> | DomainWriteDeferred<T>;
 
-export type DomainBatchOptions = Readonly<{
-  scope?: UnitOfWorkScope;
-}>;
+export type DomainBatchOptions = Readonly<
+  Pick<IUnitOfWorkOptions, 'scope' | 'isolationLevel' | 'onRetryExhausted'>
+>;
 
 /** Public event metadata; deliberately not an IDomainEvent or a replayable snapshot. */
 export type DomainEventSummary = Readonly<{ name: string; occurredAt: string }>;

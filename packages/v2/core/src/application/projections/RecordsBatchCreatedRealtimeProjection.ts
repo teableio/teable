@@ -9,14 +9,21 @@ import type { IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
+import * as RecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
+import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { teableSpanName } from '../../ports/Tracer';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { shouldSkipRealtimeBatchMutation } from './BatchRecordRefreshPolicy';
 import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
+import { readRealtimeRecordActors } from './readRealtimeRecordActors';
 import { runRealtimeTasks } from './runRealtimeTasks';
-import { buildRecordCollection, type ITableRecordRealtimeDTO } from './TableRecordRealtimeDTO';
+import {
+  buildRecordCollection,
+  unknownRecordRealtimeActors,
+  type ITableRecordRealtimeDTO,
+} from './TableRecordRealtimeDTO';
 import { buildRealtimeFanoutSpanAttributes, withRealtimeFanoutSpan } from './traceRealtimeFanout';
 
 @ProjectionHandler(RecordsBatchCreated)
@@ -25,6 +32,10 @@ export class RecordsBatchCreatedRealtimeProjection implements IEventHandler<Reco
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
     private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tables: TableRepositoryPort.ITableRepository,
+    @inject(v2CoreTokens.tableRecordQueryRepository)
+    private readonly records: RecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.attachmentValueDecoratorService)
     private readonly attachmentValueDecoratorService: AttachmentValueDecoratorService = new AttachmentValueDecoratorService(
       new NoopAttachmentUrlSignerService()
@@ -35,7 +46,7 @@ export class RecordsBatchCreatedRealtimeProjection implements IEventHandler<Reco
     context: ExecutionContextPort.IExecutionContext,
     event: RecordsBatchCreated
   ): Promise<Result<void, DomainError>> {
-    const { realtimeEngine, attachmentValueDecoratorService } = this;
+    const { realtimeEngine, attachmentValueDecoratorService, tables, records } = this;
     const orchestration = event.orchestration;
     const totalRecordCount = orchestration?.totalRecordCount ?? event.records.length;
     const fanoutCount = event.records.length;
@@ -59,6 +70,15 @@ export class RecordsBatchCreatedRealtimeProjection implements IEventHandler<Reco
     }
 
     return safeTry(async function* () {
+      if (!event.records.length) return ok(undefined);
+      const actors = yield* await readRealtimeRecordActors(
+        context,
+        event.baseId,
+        event.tableId,
+        event.records.map((record) => record.recordId),
+        tables,
+        records
+      );
       const collection = buildRecordCollection(event.tableId.toString());
       // The Created path wraps safeTry inside `async () => ...`, so the inferred
       // return is Promise<Result<undefined, _>> (the async wraps ResultAsync).
@@ -83,6 +103,9 @@ export class RecordsBatchCreatedRealtimeProjection implements IEventHandler<Reco
             const snapshot: ITableRecordRealtimeDTO = {
               id: record.recordId,
               fields,
+              ...(actors.get(record.recordId)!.version === 1
+                ? actors.get(record.recordId)!.actors
+                : unknownRecordRealtimeActors),
             };
 
             yield* (await realtimeEngine.ensure(context, docId, snapshot)).safeUnwrap();

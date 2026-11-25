@@ -1,4 +1,5 @@
 export * from './AllowAllVcsAccessPolicy';
+export * from './BaseVcsHistoryService';
 export * from './CloneVcsSnapshotService';
 export * from './EnableBaseVcsService';
 export * from './GetVcsHeadService';

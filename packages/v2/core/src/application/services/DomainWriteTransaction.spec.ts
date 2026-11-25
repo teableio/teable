@@ -1,11 +1,13 @@
 import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
+import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { DomainEventName } from '../../domain/shared/DomainEventName';
 import { OccurredAt } from '../../domain/shared/OccurredAt';
+import { TableId } from '../../domain/table/TableId';
 import { NoopLogger } from '../../ports/defaults/NoopLogger';
 import { domainWrite } from '../../ports/DomainWriteTransaction';
 import type {
@@ -32,6 +34,7 @@ import { EventBusDomainWriteTransaction } from '../../ports/memory/EventBusDomai
 import type {
   EncodedProjectionMessage,
   IProjectionMessageCodecRegistry,
+  ProjectionMessageJson,
 } from '../../ports/ProjectionMessage';
 import type { ISameTxProjectionDispatcher } from '../../ports/SameTxProjectionDispatcher';
 import type {
@@ -40,8 +43,18 @@ import type {
   ProjectionMessageRef,
 } from '../../ports/TransactionalProjectionMessageJournal';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../../ports/UnitOfWork';
-import { DomainWriteTransaction } from './DomainWriteTransaction';
+import {
+  DomainWriteTransaction,
+  createRecordCreateOperationProjectionDraft,
+} from './DomainWriteTransaction';
 import { TargetedLegacyEventDispatcher } from './TargetedLegacyEventDispatcher';
+
+type ProjectionPayloadObject = { readonly [key: string]: ProjectionMessageJson };
+
+const isProjectionPayloadObject = (
+  value: ProjectionMessageJson | undefined
+): value is ProjectionPayloadObject =>
+  value !== undefined && value !== null && typeof value === 'object' && !Array.isArray(value);
 
 class TestRecordChanged implements IDomainEvent {
   readonly name = DomainEventName.create('TestRecordChanged')._unsafeUnwrap();
@@ -464,6 +477,212 @@ describe('DomainWriteTransaction', () => {
     await draining;
     expect(settled).toBe(true);
     expect(bus.pendingBackgroundTaskCount()).toBe(0);
+  });
+  it.each(['execute', 'stream'] as const)(
+    'freezes initiator and operation before %s work and journals every event',
+    async (mode) => {
+      const event = new TestRecordChanged();
+      const appended: ProjectionMessageDraft[] = [];
+      const batches: Array<ReadonlyArray<IDomainEvent>> = [];
+      const input: IExecutionContext = {
+        ...context,
+        initiator: { type: 'appUser', id: 'apu_stable' },
+        operationAttribution: {
+          operationId: 'operation-original',
+          occurredAt: '2026-08-29T00:00:00.000Z',
+          action: 'create',
+          source: 'api',
+        },
+      };
+      const transaction = new DomainWriteTransaction(
+        new TestUnitOfWork(),
+        {
+          registeredDecoderIdentities: () => [],
+          encode: () =>
+            ok({
+              producerEventName: 'TestRecordChanged',
+              messageName: 'test.record.v1',
+              schemaVersion: 1,
+              payload: {},
+              route: { transactionScope: 'data', baseId: 'base', tableId: 'table' },
+            }),
+          decode: (_name, _version, payload) => ok(payload),
+        },
+        {
+          snapshot: () =>
+            ok({
+              generation: 1,
+              resolve: () =>
+                ok({
+                  messageName: 'test.record.v1',
+                  durableMode: 'active',
+                  sameTxTargets: [],
+                  directTargets: [],
+                  durableTargets: [
+                    {
+                      consumerId: 'audit',
+                      consumerGeneration: 1,
+                      retry: { maxAttempts: 3, policy: 'exponential-jitter' },
+                      ordering: 'none',
+                      idempotency: 'destination-inbox',
+                      replay: 'safe',
+                    },
+                  ],
+                }),
+            }),
+        },
+        {
+          append: async (_ctx, messages) => {
+            appended.push(...messages);
+            return ok(messages.map(({ eventId }) => ({ eventId })));
+          },
+        },
+        { dispatch: async () => successfulDispatchReport(0) },
+        noopSameTxDispatcher,
+        new NoopLogger(),
+        new BackgroundTaskTracker(),
+        undefined,
+        undefined,
+        {
+          create: async () =>
+            ok({
+              append: async (events) => {
+                batches.push(events);
+                return ok(undefined);
+              },
+              read: async function* () {
+                for (const batch of batches) yield ok(batch);
+              },
+              dispose: async () => undefined,
+            }),
+        }
+      );
+      const mutateOriginal = (ctx: IExecutionContext) => {
+        expect(ctx.initiator).not.toBe(input.initiator);
+        expect(ctx.operationAttribution).not.toBe(input.operationAttribution);
+        input.initiator = { type: 'user', id: 'unrelated-later-request' };
+        input.operationAttribution = {
+          operationId: 'wrong',
+          occurredAt: '2026-09-01T00:00:00.000Z',
+        };
+      };
+      const result =
+        mode === 'execute'
+          ? await transaction.execute(input, async (ctx) => {
+              mutateOriginal(ctx);
+              return ok(domainWrite.changed(undefined, [event]));
+            })
+          : await transaction.executeStream(input, async (ctx, writer) => {
+              mutateOriginal(ctx);
+              const first = await writer.append([event]);
+              if (first.isErr()) return first;
+              return writer.append([event]);
+            });
+      expect(result.isOk()).toBe(true);
+      expect(appended).toHaveLength(mode === 'execute' ? 1 : 2);
+      for (const message of appended) {
+        expect(message.context).toMatchObject({
+          actorId: 'usr-test',
+          initiator: { type: 'appUser', id: 'apu_stable' },
+          operationAttribution: {
+            operationId: 'operation-original',
+            occurredAt: '2026-08-29T00:00:00.000Z',
+          },
+        });
+        expect(message.occurredAt).toEqual(event.occurredAt.toDate());
+        expect(message.eventId).toBeTruthy();
+      }
+      expect(new Set(appended.map(({ eventId }) => eventId)).size).toBe(appended.length);
+    }
+  );
+});
+
+describe('createRecordCreateOperationProjectionDraft', () => {
+  const summary = {
+    baseId: BaseId.generate()._unsafeUnwrap(),
+    tableId: TableId.generate()._unsafeUnwrap(),
+    recordCount: 1000,
+    recordIds: Array.from({ length: 300 }, (_, i) => `record-${i}`),
+    source: { type: 'tableDuplicate' as const },
+  };
+  const routing: ProjectionEventRoutingDecision = {
+    messageName: 'table.records.batch-created.v1',
+    durableMode: 'active',
+    sameTxTargets: [],
+    directTargets: [],
+    durableTargets: [
+      {
+        consumerId: 'configured.host.consumer',
+        consumerGeneration: 1,
+        retry: { maxAttempts: 12, policy: 'exponential-jitter' },
+        ordering: 'none',
+        idempotency: 'destination-inbox',
+        replay: 'safe',
+      },
+    ],
+  };
+
+  it('uses configured subscriptions and retains bounded scalar targets plus the true count', () => {
+    const trusted: IExecutionContext = {
+      ...context,
+      initiator: { type: 'appUser', id: 'apu_original' },
+      operationAttribution: {
+        operationId: 'whole-base-copy',
+        occurredAt: '2026-08-29T00:00:00.000Z',
+      },
+    };
+    const draft = createRecordCreateOperationProjectionDraft(trusted, summary, {
+      generation: 7,
+      resolve: () => ok(routing),
+    })._unsafeUnwrap();
+    expect(draft).toMatchObject({
+      catalogGeneration: 7,
+      requiredConsumers: routing.durableTargets,
+      context: {
+        actorId: 'usr-test',
+        initiator: { type: 'appUser', id: 'apu_original' },
+        operationAttribution: { operationId: 'whole-base-copy' },
+      },
+      payload: { recordCount: 1000, source: { type: 'tableDuplicate' } },
+    });
+    const payload = draft?.payload;
+    expect(
+      isProjectionPayloadObject(payload) && Array.isArray(payload.records)
+        ? payload.records.length
+        : undefined
+    ).toBe(200);
+    expect(draft?.context.initiator).not.toBe(trusted.initiator);
+    expect(draft?.context.operationAttribution).not.toBe(trusted.operationAttribution);
+  });
+
+  it('supports count-only physical copies without manufacturing records or full field history', () => {
+    const draft = createRecordCreateOperationProjectionDraft(
+      context,
+      { ...summary, recordIds: [] },
+      { generation: 1, resolve: () => ok(routing) }
+    )._unsafeUnwrap();
+    expect(draft?.payload).toMatchObject({ records: [], recordCount: 1000 });
+  });
+
+  it('does not invent delivery for empty mutations or an unconfigured consumer catalog', () => {
+    expect(
+      createRecordCreateOperationProjectionDraft(
+        context,
+        { ...summary, recordCount: 0 },
+        {
+          generation: 1,
+          resolve: () => {
+            throw new Error('No event for an empty mutation');
+          },
+        }
+      )._unsafeUnwrap()
+    ).toBeUndefined();
+    expect(
+      createRecordCreateOperationProjectionDraft(context, summary, {
+        generation: 1,
+        resolve: () => ok({ ...routing, durableTargets: [] }),
+      })._unsafeUnwrap()
+    ).toBeUndefined();
   });
 });
 

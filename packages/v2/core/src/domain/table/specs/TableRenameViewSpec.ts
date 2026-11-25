@@ -99,6 +99,7 @@ export class TableRenameViewSpec<
       views: nextViews,
       primaryFieldId: table.primaryFieldId(),
       searchIndex: table.searchIndex(),
+      actorStorageVersion: table.actorStorageVersion(),
     };
     const dbTableNameResult = table.dbTableName();
     if (dbTableNameResult.isOk()) props.dbTableName = dbTableNameResult.value;

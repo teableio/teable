@@ -15,6 +15,7 @@ import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { IFindOptions } from '../../ports/RepositoryQuery';
 import {
+  TableOperationCreateManySource,
   TableOperationKind,
   type ITableOperationImportCsvContext,
   type TableOperationPluginContext,
@@ -241,6 +242,7 @@ describe('TableDataSafetyLimitTableOperationPlugin', () => {
       TableOperationKind.createMany,
       {
         baseId,
+        source: TableOperationCreateManySource.createTables,
         tables: [
           {
             baseId,

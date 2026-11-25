@@ -6,7 +6,7 @@ import type { INotifyVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import type { IFile } from '@teable/sdk/components';
 import { AttachmentManager } from '@teable/sdk/components';
-import { useIsHydrated, useView } from '@teable/sdk/hooks';
+import { useIsHydrated, useTablePermission, useView } from '@teable/sdk/hooks';
 import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import {
   Button,
@@ -35,6 +35,9 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const view = useView() as FormView | undefined;
   const isHydrated = useIsHydrated();
   const { openSetting } = useFieldSettingStore();
+  // Designing the form takes view|update; a field's own settings take field|update, which
+  // an editor of the view (a member's Editor role, an allowEdit share) does not hold.
+  const canEditField = useTablePermission()['field|update'];
 
   const coverInput = useRef<HTMLInputElement>(null);
   const logoInput = useRef<HTMLInputElement>(null);
@@ -287,7 +290,11 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
                         field={field}
                         className="w-full overflow-hidden rounded-md hover:bg-accent"
                         draggingClassName="bg-slate-100 dark:bg-slate-800 border border-black border-dashed opacity-50"
-                        onClick={() => openSetting({ operator: FieldOperator.Edit, fieldId: id })}
+                        onClick={
+                          canEditField
+                            ? () => openSetting({ operator: FieldOperator.Edit, fieldId: id })
+                            : undefined
+                        }
                       >
                         <FormFieldEditor field={field} />
                       </SortableItem>

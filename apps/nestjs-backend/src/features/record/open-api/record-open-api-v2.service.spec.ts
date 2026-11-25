@@ -49,9 +49,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { convertValueToStringify, string2Hash } from '../../../utils';
 import { createFieldInstanceByVo } from '../../field/model/factory';
+import { RecordActorResolverService } from '../../record-attribution/record-actor-resolver.service';
 import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { withSearchIndex } from '../../v2/table-query-search-vector-runtime.test-fixture';
 import { RecordOpenApiV2Service } from './record-open-api-v2.service';
+
+const resolveActorProfiles = vi.fn();
 
 const tableIdText = `tbl${'c'.repeat(16)}`;
 const primaryFieldId = `fld${'p'.repeat(16)}`;
@@ -68,6 +71,12 @@ const conditionalNumberFieldId = `fld${'q'.repeat(16)}`;
 const conditionalDateFieldId = `fld${'z'.repeat(16)}`;
 const lookupUserFieldId = `fld${'l'.repeat(16)}`;
 const conditionalUserFieldId = `fld${'v'.repeat(16)}`;
+const unknownActors = {
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
+};
 
 /**
  * Pure domain Table aggregate via builder — not a structural mock.
@@ -200,6 +209,7 @@ describe('RecordOpenApiV2Service', () => {
     tableId: string;
     fields: Record<string, unknown>;
     fieldKeyMapping?: Map<string, string>;
+    recordActors?: Parameters<typeof CreateRecordResult.create>[4];
   }) => {
     const record = TableRecord.fromRawFieldValues({
       id: params.recordId,
@@ -207,7 +217,13 @@ describe('RecordOpenApiV2Service', () => {
       fields: params.fields,
     })._unsafeUnwrap();
 
-    return CreateRecordResult.create(record, [], params.fieldKeyMapping ?? new Map());
+    return CreateRecordResult.create(
+      record,
+      [],
+      params.fieldKeyMapping ?? new Map(),
+      undefined,
+      params.recordActors
+    );
   };
 
   const createCreateRecordsResult = (params: {
@@ -246,6 +262,7 @@ describe('RecordOpenApiV2Service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resolveActorProfiles.mockResolvedValue({});
     assertTableRecordWritable.mockResolvedValue(undefined);
     getPreviewPermissions.mockResolvedValue(['record|update', 'record|create', 'field|create']);
     testTable = createTestTable();
@@ -339,6 +356,10 @@ describe('RecordOpenApiV2Service', () => {
                 id: 'rec1111111111111111',
                 fields: { [primaryFieldId]: 'A' },
                 version: 1,
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
                 autoNumber: 1,
                 createdTime: createdTimeIso,
               },
@@ -346,6 +367,10 @@ describe('RecordOpenApiV2Service', () => {
                 id: 'rec2222222222222222',
                 fields: { [primaryFieldId]: 'B' },
                 version: 1,
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
                 autoNumber: 2,
                 createdTime: createdTimeIso,
               },
@@ -380,10 +405,110 @@ describe('RecordOpenApiV2Service', () => {
       { uploadFromUrl } as never,
       new TableQuerySearchVectorRuntimeService({ get: () => 'auto' } as never)
     );
+    Reflect.set(
+      service,
+      'recordActorResolver',
+      new RecordActorResolverService(
+        {
+          tableMeta: {
+            findFirst: vi.fn(async ({ where }: { where: { id: string } }) => ({
+              baseId: where.id === tableIdText ? testTable.baseId().toString() : 'bseOther',
+            })),
+          },
+        } as never,
+        { resolve: resolveActorProfiles }
+      )
+    );
     Reflect.set(service, 'previewPermissionService', {
       getPermissions: getPreviewPermissions,
     });
   });
+
+  it.each([FieldKeyType.Id, FieldKeyType.Name])(
+    'preserves tracked modifier ownership and does not add unrequested audit cells (%s)',
+    async (fieldKeyType) => {
+      resolveActorProfiles.mockResolvedValue({
+        ['appUser:apu_earlier']: { name: 'Earlier actor', avatar: null },
+      });
+      const trackedId = `fld${'x'.repeat(16)}`;
+      const allId = `fld${'y'.repeat(16)}`;
+      testTable = createTestTable((builder) => {
+        builder
+          .field()
+          .createdBy()
+          .withId(FieldId.create(createdByFieldId)._unsafeUnwrap())
+          .withName(FieldName.create('Creator')._unsafeUnwrap())
+          .done();
+        builder
+          .field()
+          .lastModifiedBy()
+          .withId(FieldId.create(trackedId)._unsafeUnwrap())
+          .withName(FieldName.create('Tracked modifier')._unsafeUnwrap())
+          .withTrackedFieldIds([FieldId.create(primaryFieldId)._unsafeUnwrap()])
+          .done();
+        builder
+          .field()
+          .lastModifiedBy()
+          .withId(FieldId.create(allId)._unsafeUnwrap())
+          .withName(FieldName.create('Any modifier')._unsafeUnwrap())
+          .done();
+      });
+      tableFindOne.mockResolvedValue({ isErr: () => false, value: testTable });
+      Reflect.set(service, 'prismaService', {
+        txClient: () => ({
+          appUser: { findMany: vi.fn().mockResolvedValue([]) },
+        }),
+      });
+      const trackedActor = { id: 'apu_earlier', title: 'Earlier actor' };
+      const read = (fields: Record<string, unknown>) => ({
+        isErr: () => false,
+        value: ListTableRecordsResult.create(
+          [
+            {
+              id: 'rec1111111111111111',
+              version: 1,
+              fields,
+              createdByActorType: 'appUser',
+              createdByActorId: 'apu_creator',
+              lastModifiedByActorType: 'appUser',
+              lastModifiedByActorId: 'apu_latest',
+              createdBy: 'usrExecutor',
+              lastModifiedBy: 'usrExecutor',
+            },
+          ],
+          1,
+          0,
+          1
+        ),
+      });
+      const trackedName = 'Tracked modifier';
+      const allName = 'Any modifier';
+      execute.mockResolvedValueOnce(read({ [primaryFieldId]: 'A', [trackedId]: trackedActor }));
+      const tracked = await service.getRecords(tableIdText, {
+        fieldKeyType,
+        projection:
+          fieldKeyType === FieldKeyType.Id
+            ? [primaryFieldId, trackedId]
+            : ['Title', 'Tracked modifier'],
+      });
+      expect(tracked.records[0].fields).toEqual(
+        fieldKeyType === FieldKeyType.Id
+          ? { [primaryFieldId]: 'A', [trackedId]: trackedActor }
+          : { Title: 'A', [trackedName]: trackedActor }
+      );
+      execute.mockResolvedValueOnce(read({ [primaryFieldId]: 'A', [allId]: null }));
+      const all = await service.getRecords(tableIdText, {
+        fieldKeyType,
+        projection:
+          fieldKeyType === FieldKeyType.Id ? [primaryFieldId, allId] : ['Title', 'Any modifier'],
+      });
+      expect(all.records[0].fields).toEqual(
+        fieldKeyType === FieldKeyType.Id
+          ? { [primaryFieldId]: 'A', [allId]: { id: 'apu_latest', title: 'apu_latest' } }
+          : { Title: 'A', [allName]: { id: 'apu_latest', title: 'apu_latest' } }
+      );
+    }
+  );
 
   it('resolves range record ids through the v2 query path', async () => {
     const recordIds = await service.getRecordIdsFromRanges(`tbl${'c'.repeat(16)}`, {
@@ -795,6 +920,10 @@ describe('RecordOpenApiV2Service', () => {
         lastModifiedTime: undefined,
         createdBy: undefined,
         lastModifiedBy: undefined,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
       {
         id: 'rec2222222222222222',
@@ -805,6 +934,10 @@ describe('RecordOpenApiV2Service', () => {
         lastModifiedTime: undefined,
         createdBy: undefined,
         lastModifiedBy: undefined,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ]);
   });
@@ -1018,11 +1151,19 @@ describe('RecordOpenApiV2Service', () => {
             id: 'rec1111111111111111',
             fields: { [primaryFieldId]: 'A' },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
           {
             id: 'rec2222222222222222',
             fields: { [primaryFieldId]: 'B' },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         2,
@@ -1057,7 +1198,17 @@ describe('RecordOpenApiV2Service', () => {
     execute.mockResolvedValueOnce({
       isErr: () => false,
       value: ListTableRecordsResult.create(
-        [{ id: 'rec1111111111111111', fields: { [primaryFieldId]: 'A' }, version: 1 }],
+        [
+          {
+            id: 'rec1111111111111111',
+            fields: { [primaryFieldId]: 'A' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+        ],
         1,
         0,
         2,
@@ -1088,8 +1239,24 @@ describe('RecordOpenApiV2Service', () => {
       isErr: () => false,
       value: ListTableRecordsResult.create(
         [
-          { id: 'rec1111111111111111', fields: { [primaryFieldId]: 'A' }, version: 1 },
-          { id: 'rec2222222222222222', fields: { [primaryFieldId]: 'B' }, version: 1 },
+          {
+            id: 'rec1111111111111111',
+            fields: { [primaryFieldId]: 'A' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+          {
+            id: 'rec2222222222222222',
+            fields: { [primaryFieldId]: 'B' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
         ],
         2,
         0,
@@ -1129,7 +1296,17 @@ describe('RecordOpenApiV2Service', () => {
     execute.mockResolvedValueOnce({
       isErr: () => false,
       value: ListTableRecordsResult.create(
-        [{ id: 'rec1111111111111111', fields: { [primaryFieldId]: 'A' }, version: 1 }],
+        [
+          {
+            id: 'rec1111111111111111',
+            fields: { [primaryFieldId]: 'A' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+        ],
         1,
         0,
         2,
@@ -1570,7 +1747,17 @@ describe('RecordOpenApiV2Service', () => {
     execute.mockResolvedValueOnce({
       isErr: () => false,
       value: ListTableRecordsResult.create(
-        [{ id: recordId, fields: { [primaryFieldId]: 'A' }, version: 1 }],
+        [
+          {
+            id: recordId,
+            fields: { [primaryFieldId]: 'A' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+        ],
         1,
         0,
         2,
@@ -1685,6 +1872,10 @@ describe('RecordOpenApiV2Service', () => {
               [checkboxFieldId]: false,
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
             createdBy: userId,
           },
           {
@@ -1694,6 +1885,10 @@ describe('RecordOpenApiV2Service', () => {
               [checkboxFieldId]: true,
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         2,
@@ -1751,7 +1946,12 @@ describe('RecordOpenApiV2Service', () => {
         },
       },
     ];
-    const result = await service.hydrateSelectedUserCells(container as never, records, ['fldUser']);
+    const result = await service.hydrateSelectedUserCells(
+      tableIdText,
+      container as never,
+      records,
+      ['fldUser']
+    );
     expect(listUsersByIds).toHaveBeenCalledWith(['usrOne', 'usrTwo'], { includeDeleted: true });
     expect(result[0]!.fields.fldUser).toEqual([
       null,
@@ -1775,7 +1975,12 @@ describe('RecordOpenApiV2Service', () => {
     const records = [
       { fields: { fldUser: [null, { id: 'usrOne', title: 'Stored' }, { id: 'usrOne' }] } },
     ];
-    const result = await service.hydrateSelectedUserCells(container as never, records, ['fldUser']);
+    const result = await service.hydrateSelectedUserCells(
+      tableIdText,
+      container as never,
+      records,
+      ['fldUser']
+    );
     expect(result[0]!.fields.fldUser).toEqual([
       null,
       expect.objectContaining({ id: 'usrOne', title: 'Stored' }),
@@ -1783,6 +1988,48 @@ describe('RecordOpenApiV2Service', () => {
     ]);
     expect(execute).not.toHaveBeenCalled();
   });
+
+  it.each([true, false])(
+    'scrubs stored App identity presentation and uses authorized profile=%s',
+    async (canReadProfile) => {
+      const principalId = 'apu_private';
+      const actorKey = `appUser:${principalId}`;
+      resolveActorProfiles.mockResolvedValue(
+        canReadProfile ? { [actorKey]: { name: 'Authorized profile', avatar: null } } : {}
+      );
+      const records = [
+        {
+          fields: {
+            fldSelected: {
+              id: principalId,
+              title: 'private-identity@example.test',
+              email: 'private-identity@example.test',
+              avatarUrl: 'private-avatar',
+            },
+            fldUntouched: 'unchanged',
+          },
+        },
+      ];
+      const container = { isRegistered: () => false };
+      const actual = await service.hydrateSelectedUserCells(
+        tableIdText,
+        container as never,
+        records,
+        ['fldSelected']
+      );
+      expect(actual[0].fields).toEqual({
+        fldSelected: {
+          id: principalId,
+          title: canReadProfile ? 'Authorized profile' : principalId,
+        },
+        fldUntouched: 'unchanged',
+      });
+      expect(resolveActorProfiles).toHaveBeenCalledWith(testTable.baseId().toString(), [
+        { type: 'appUser', id: principalId },
+      ]);
+      expect(JSON.stringify(actual)).not.toContain('private-identity@example.test');
+    }
+  );
 
   it('hydrates legacy generated audit-user ids into public user cells', async () => {
     const userId = `usr${'a'.repeat(16)}`;
@@ -1839,6 +2086,10 @@ describe('RecordOpenApiV2Service', () => {
               [createdByFieldId]: userId,
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         1,
@@ -1917,6 +2168,10 @@ describe('RecordOpenApiV2Service', () => {
               [lastModifiedByFieldId]: userId,
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         1,
@@ -2018,6 +2273,10 @@ describe('RecordOpenApiV2Service', () => {
               ],
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         1,
@@ -2099,6 +2358,10 @@ describe('RecordOpenApiV2Service', () => {
             id: 'rec1111111111111111',
             fields: { [primaryFieldId]: 'A' },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
             lastModifiedBy: userId,
           },
         ],
@@ -2140,6 +2403,10 @@ describe('RecordOpenApiV2Service', () => {
               [formattedNumberFieldId]: 1.234,
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         1,
@@ -2187,6 +2454,10 @@ describe('RecordOpenApiV2Service', () => {
               [conditionalNumberFieldId]: 1.234,
             },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         1,
@@ -2229,6 +2500,10 @@ describe('RecordOpenApiV2Service', () => {
             id: 'rec1111111111111111',
             fields: { [formattedNumberFieldId]: 1.234 },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         1,
@@ -2258,6 +2533,10 @@ describe('RecordOpenApiV2Service', () => {
             id: 'rec1111111111111111',
             fields: { [primaryFieldId]: 'A' },
             version: 7,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
             autoNumber: 1,
             createdTime: createdTimeIso,
           },
@@ -2279,6 +2558,7 @@ describe('RecordOpenApiV2Service', () => {
         type: 'json0',
         data: {
           id: 'rec1111111111111111',
+          ...unknownActors,
           fields: { [primaryFieldId]: 'A' },
           name: 'A',
           autoNumber: 1,
@@ -2314,6 +2594,10 @@ describe('RecordOpenApiV2Service', () => {
             id: recordId,
             fields: { [primaryFieldId]: `value-${index}` },
             version: index + 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           })),
           selectedRecordIds.length,
           0,
@@ -2358,6 +2642,10 @@ describe('RecordOpenApiV2Service', () => {
             id: recordId,
             fields: { [primaryFieldId]: `value-${index}` },
             version: index + 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           })),
           selectedRecordIds.length,
           0,
@@ -2390,6 +2678,10 @@ describe('RecordOpenApiV2Service', () => {
             id: recordId,
             fields: { [primaryFieldId]: recordId },
             version: index + 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           })),
           selectedRecordIds.length,
           0,
@@ -2443,8 +2735,24 @@ describe('RecordOpenApiV2Service', () => {
       isErr: () => false,
       value: ListTableRecordsResult.create(
         [
-          { id: 'rec1111111111111111', fields: {}, version: 1 },
-          { id: 'rec2222222222222222', fields: {}, version: 1 },
+          {
+            id: 'rec1111111111111111',
+            fields: {},
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+          {
+            id: 'rec2222222222222222',
+            fields: {},
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
         ],
         2,
         0,
@@ -2835,6 +3143,10 @@ describe('RecordOpenApiV2Service', () => {
             id: 'rec1111111111111111',
             fields: { createdTime: createdTimeIso },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
             createdTime: createdTimeIso,
           },
         ],
@@ -2866,6 +3178,10 @@ describe('RecordOpenApiV2Service', () => {
             id: 'rec1111111111111111',
             fields: { [primaryFieldId]: 'Title' },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
             createdTime: createdTimeIso,
           },
         ],
@@ -2904,6 +3220,10 @@ describe('RecordOpenApiV2Service', () => {
             id: 'rec1111111111111111',
             fields: { fldVisible0000000001: 'alpha' },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         1,
@@ -2977,7 +3297,22 @@ describe('RecordOpenApiV2Service', () => {
       })
       .mockResolvedValueOnce({
         isErr: () => false,
-        value: ListTableRecordsResult.create([{ id: recordId, fields: {}, version: 1 }], 1, 0, 1),
+        value: ListTableRecordsResult.create(
+          [
+            {
+              id: recordId,
+              fields: {},
+              version: 1,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
+            },
+          ],
+          1,
+          0,
+          1
+        ),
       });
 
     await expect(
@@ -3012,6 +3347,10 @@ describe('RecordOpenApiV2Service', () => {
             id: 'rec1111111111111111',
             fields: { Title: 'Alpha' },
             version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
           },
         ],
         1,
@@ -3137,8 +3476,8 @@ describe('RecordOpenApiV2Service', () => {
     );
     expect(commandExecute.mock.calls[0]?.[1].order).toBeUndefined();
     expect(result).toEqual([
-      { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
-      { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
+      { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' }, ...unknownActors },
+      { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' }, ...unknownActors },
     ]);
     expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
     expect(cacheDel).toHaveBeenCalledWith(
@@ -3218,8 +3557,8 @@ describe('RecordOpenApiV2Service', () => {
     });
 
     expect(result).toEqual([
-      { id: 'rec1111111111111111', fields: { status: 'Done' } },
-      { id: 'rec2222222222222222', fields: { status: 'Open' } },
+      { id: 'rec1111111111111111', fields: { status: 'Done' }, ...unknownActors },
+      { id: 'rec2222222222222222', fields: { status: 'Open' }, ...unknownActors },
     ]);
     expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
   });
@@ -3264,7 +3603,11 @@ describe('RecordOpenApiV2Service', () => {
     );
     expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
     expect(result).toEqual([
-      { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done', [noteFieldId]: 'latest' } },
+      {
+        id: 'rec1111111111111111',
+        fields: { [statusFieldId]: 'Done', [noteFieldId]: 'latest' },
+        ...unknownActors,
+      },
     ]);
   });
 
@@ -3331,14 +3674,98 @@ describe('RecordOpenApiV2Service', () => {
 
     expect(result).toEqual({
       records: [
-        { id: 'rec1111111111111111', fields: { status: 'Done' } },
-        { id: 'rec2222222222222222', fields: { status: 'Open' } },
+        { id: 'rec1111111111111111', fields: { status: 'Done' }, ...unknownActors },
+        { id: 'rec2222222222222222', fields: { status: 'Open' }, ...unknownActors },
       ],
     });
     expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
     expect(cacheDel).toHaveBeenCalledWith(
       `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
     );
+  });
+
+  it.each(['updated', 'deleted'] as const)(
+    'keeps the successful mutation response when its row is %s after commit',
+    async (laterAction) => {
+      const frozenActors = {
+        createdByActorType: 'appUser' as const,
+        createdByActorId: 'apuA',
+        lastModifiedByActorType: 'appUser' as const,
+        lastModifiedByActorId: 'apuA',
+      };
+      const frozen = createCreateRecordResult({
+        recordId: 'rec1111111111111111',
+        tableId: tableIdText,
+        fields: { [statusFieldId]: 'Written by A' },
+        fieldKeyMapping: new Map([[statusFieldId, 'status']]),
+        recordActors: frozenActors,
+      });
+      commandExecute.mockImplementationOnce(async () => {
+        // Model a later committed state before the host serializes this result.
+        legacyGetRecordsById.mockResolvedValue(
+          laterAction === 'deleted'
+            ? []
+            : [
+                {
+                  id: 'rec1111111111111111',
+                  fields: { status: 'Written by B' },
+                  ...frozenActors,
+                  lastModifiedByActorId: 'apuB',
+                },
+              ]
+        );
+        return { isErr: () => false, value: frozen };
+      });
+      execute.mockRejectedValue(new Error('postcommit read must not run'));
+      const response = await service.formSubmit(tableIdText, {
+        viewId: `viw${'c'.repeat(16)}`,
+        fields: { status: 'Written by A' },
+      });
+      expect(JSON.parse(JSON.stringify(response))).toEqual({
+        id: 'rec1111111111111111',
+        fields: { status: 'Written by A' },
+        ...frozenActors,
+      });
+      expect(legacyGetRecordsById).not.toHaveBeenCalled();
+      expect(execute).not.toHaveBeenCalled();
+      expect(resolve).not.toHaveBeenCalledWith(v2CoreTokens.tableRecordQueryRepository);
+    }
+  );
+
+  it('serializes frozen physical actors for a write-only form without a postcommit read', async () => {
+    const actorColumns = {
+      createdByActorType: 'appUser' as const,
+      createdByActorId: 'apu_stable',
+      lastModifiedByActorType: 'appUser' as const,
+      lastModifiedByActorId: 'apu_stable',
+    };
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createCreateRecordResult({
+        recordId: 'rec1111111111111111',
+        tableId: tableIdText,
+        fields: { [statusFieldId]: 'Submitted' },
+        fieldKeyMapping: new Map([[statusFieldId, 'status']]),
+        recordActors: actorColumns,
+      }),
+    });
+    execute.mockRejectedValue(new Error('read forbidden for write-only form'));
+    pluginPrepare.mockRejectedValue(new Error('read forbidden for write-only form'));
+
+    const response = await service.formSubmit(tableIdText, {
+      viewId: `viw${'c'.repeat(16)}`,
+      fields: { status: 'Submitted' },
+    });
+
+    expect(JSON.parse(JSON.stringify(response))).toEqual({
+      id: 'rec1111111111111111',
+      fields: { status: 'Submitted' },
+      ...actorColumns,
+    });
+    expect(resolve).not.toHaveBeenCalledWith(v2CoreTokens.tableRecordQueryRepository);
+    expect(resolve).not.toHaveBeenCalledWith(v2CoreTokens.tableQueryService);
+    expect(execute).not.toHaveBeenCalled();
+    expect(pluginPrepare).not.toHaveBeenCalled();
   });
 
   it('returns the v2 formSubmit payload directly without reloading legacy snapshots', async () => {
@@ -3360,6 +3787,7 @@ describe('RecordOpenApiV2Service', () => {
     expect(result).toEqual({
       id: 'rec1111111111111111',
       fields: { status: 'Done' },
+      ...unknownActors,
     });
     expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
     expect(cacheDel).toHaveBeenCalledWith(
@@ -3387,6 +3815,7 @@ describe('RecordOpenApiV2Service', () => {
     expect(result).toEqual({
       id: 'rec2222222222222222',
       fields: { status: 'Copied' },
+      ...unknownActors,
     });
     expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
     expect(cacheDel).toHaveBeenCalledWith(

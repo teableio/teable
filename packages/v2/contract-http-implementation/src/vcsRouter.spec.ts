@@ -254,6 +254,11 @@ describe('v2VcsContract oRPC router (real PostgreSQL)', () => {
     });
     expect(pushed.ok).toBe(true);
     expect(pushed.newRevision).toBe(cloned.snapshot.revision + 1);
+    const historical = await client.checkout({ baseId, revision: pushed.newRevision });
+    const historicalRecord = historical.snapshot.tables
+      .find((table) => table.id === tableId)
+      ?.records.find((record) => record.id === recordId);
+    expect(historicalRecord?.fields[primaryFieldId]).toBe('Client Clean Write');
 
     // IVcsAccessPolicy denial on push maps to 403 FORBIDDEN.
     const realPolicy = testContainer.container.resolve<IVcsAccessPolicy>(
@@ -289,6 +294,13 @@ describe('v2VcsContract oRPC router (real PostgreSQL)', () => {
       }),
       { context: {} }
     );
+
+    await expect(
+      restrictedClient.checkout({ baseId, revision: pushed.newRevision })
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+    });
 
     await expect(restrictedClient.enable({ baseId })).rejects.toMatchObject({
       code: 'FORBIDDEN',

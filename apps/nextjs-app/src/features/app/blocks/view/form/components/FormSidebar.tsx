@@ -4,7 +4,12 @@ import { FieldType } from '@teable/core';
 import { DraggableHandle, Plus } from '@teable/icons';
 import { useView } from '@teable/sdk';
 import type { IFieldStatic } from '@teable/sdk/hooks';
-import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable/sdk/hooks';
+import {
+  useFieldStaticGetter,
+  useFields,
+  useIsHydrated,
+  useTablePermission,
+} from '@teable/sdk/hooks';
 import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import {
   Button,
@@ -93,6 +98,7 @@ export const FormSidebar: FC<IFormSidebarProps> = (props) => {
   const allFields = useFields({ withHidden: true, withDenied: true });
   const getFieldStatic = useFieldStaticGetter();
   const { openSetting } = useFieldSettingStore();
+  const canCreateField = useTablePermission()['field|create'];
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { setNodeRef } = useDroppable({ id: FORM_SIDEBAR_DROPPABLE_ID });
 
@@ -205,17 +211,19 @@ export const FormSidebar: FC<IFormSidebarProps> = (props) => {
         )}
       </div>
 
-      <div className="w-full px-4">
-        <Button
-          variant={'outline'}
-          size="sm"
-          className="w-full"
-          onClick={() => openSetting({ operator: FieldOperator.Add })}
-        >
-          <Plus fontSize={16} />
-          {t('table:form.createField')}
-        </Button>
-      </div>
+      {canCreateField && (
+        <div className="w-full px-4">
+          <Button
+            variant={'outline'}
+            size="sm"
+            className="w-full"
+            onClick={() => openSetting({ operator: FieldOperator.Add })}
+          >
+            <Plus fontSize={16} />
+            {t('table:form.createField')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -2024,6 +2024,8 @@
     "agentStartFailed": "تعذّر بدء محرك الذكاء الاصطناعي. يُرجى المحاولة مرة أخرى أو بدء جلسة جديدة.",
     "agentSessionLost": "حدث خطأ ما. يرجى إرسال رسالتك مرة أخرى.",
     "sandboxDestroyed": "تم إيقاف بيئة تشغيل Cuppy وتوقف الرد",
+    "streamInterrupted": "أُعيد تشغيل بيئة التشغيل بشكل غير متوقع",
+    "streamInterruptedDescription": "انقطع الرد عند إعادة تشغيل بيئة التشغيل. يرجى المحاولة مرة أخرى.",
     "sandboxOutOfMemory": "توقف Cuppy في منتصف العمل",
     "sandboxOutOfMemoryDescription": "احتاجت هذه الخطوة إلى موارد أكثر مما هو متاح لـ Cuppy. لم يكن ذلك بسبب أي شيء فعلته. اختر «متابعة» وسيتحقق Cuppy من النقطة التي توقف عندها ثم يواصل.",
     "sandboxOutOfMemoryAction": "متابعة",

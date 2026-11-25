@@ -7,8 +7,8 @@ import {
 } from '../application/services/DeleteByRangeApplicationService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { TraceSpan } from '../ports/TraceSpan';
 import { v2CoreTokens } from '../ports/tokens';
+import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteByRangeCommand } from './DeleteByRangeCommand';
 

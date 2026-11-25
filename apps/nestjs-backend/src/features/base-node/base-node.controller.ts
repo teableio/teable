@@ -42,6 +42,7 @@ import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AllowAnonymous, AllowAnonymousType } from '../auth/decorators/allow-anonymous.decorator';
+import { AllowBaseShare } from '../auth/decorators/allow-base-share.decorator';
 import { BaseNodePermissions } from '../auth/decorators/base-node-permissions.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { BaseNodePermissionGuard } from '../auth/guard/base-node-permission.guard';
@@ -92,12 +93,14 @@ export class BaseNodeController {
   ) {}
 
   @Get('list')
+  @AllowBaseShare()
   @Permissions('base|read')
   async getList(@Param('baseId') baseId: string): Promise<IBaseNodeVo[]> {
     return this.getVisibleNodes(baseId, await this.baseNodeService.getList(baseId));
   }
 
   @Get('tree')
+  @AllowBaseShare()
   @Permissions('base|read')
   async getTree(@Param('baseId') baseId: string): Promise<IBaseNodeTreeVo> {
     const tree = await this.baseNodeService.getTree(baseId);
@@ -131,6 +134,7 @@ export class BaseNodeController {
   }
 
   @Get(':nodeId')
+  @AllowBaseShare()
   @Permissions('base|read')
   @BaseNodePermissions(BaseNodeAction.Read)
   async getNode(

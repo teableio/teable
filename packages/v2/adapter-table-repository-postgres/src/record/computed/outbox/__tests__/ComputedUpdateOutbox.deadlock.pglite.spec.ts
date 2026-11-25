@@ -21,8 +21,10 @@ import type { ComputedOutboxWakeup, IComputedOutboxWakeupPublisher } from '../Co
 import { ComputedUpdateOutbox } from '../ComputedUpdateOutbox';
 import type { ComputedUpdateOutboxTaskInput } from '../ComputedUpdateOutboxPayload';
 import { buildSeedTaskInput, deserializeSeedPayload } from '../ComputedUpdateSeedPayload';
+import { buildFieldBackfillTaskInput } from '../FieldBackfillOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
+  isFieldBackfillOutboxItem,
   type ComputedUpdateOutboxConfig,
   type SeedOutboxItem,
 } from '../IComputedUpdateOutbox';
@@ -625,6 +627,116 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
 
     expect(claimed.isOk()).toBe(true);
     expect(claimed._unsafeUnwrap()?.id).toBe('cuo-due-by-id');
+  });
+
+  it('preserves periodic refresh settlement metadata on claim and final-stage relay', async () => {
+    const outbox = createTestOutbox(db);
+    const baseId = BaseId.create(PRIMARY_BASE_ID)._unsafeUnwrap();
+    const sourceTableId = TableId.create(PRIMARY_SEED_TABLE_ID)._unsafeUnwrap();
+    const sourceFieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+    const targetTableId = TableId.create(PRIMARY_TARGET_TABLE_ID)._unsafeUnwrap();
+    const targetFieldId = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
+    const hasher = new NoopHasher();
+    const workerId = 'periodic-refresh-worker';
+    const periodicRefresh = {
+      sourceFieldId: sourceFieldId.toString(),
+      sourceTableId: sourceTableId.toString(),
+      rangeHash: 'range-2026-01-05',
+      localDate: '2026-01-05',
+      timeZone: 'America/New_York',
+      containsNowPrecision: false,
+      triggeredAtIso: '2026-01-05T12:00:00.000Z',
+    };
+    const stageChain = {
+      periodicRefresh,
+      remainingStages: [
+        { tableId: targetTableId.toString(), fieldIds: [targetFieldId.toString()] },
+      ],
+      notifyTargets: [],
+    };
+    const input = buildFieldBackfillTaskInput({
+      baseId,
+      tableId: sourceTableId,
+      fieldIds: [sourceFieldId],
+      hasher,
+      runId: `pfr${'r'.repeat(16)}`,
+      estimatedRowCount: 20_000,
+      stageChain,
+    });
+    const { taskId } = (await outbox.enqueueFieldBackfill(input))._unsafeUnwrap();
+    const pending = await db
+      .selectFrom('computed_update_outbox')
+      .select('dirty_stats')
+      .where('id', '=', taskId)
+      .executeTakeFirstOrThrow();
+    expect(pending.dirty_stats).toMatchObject({ periodicRefreshStageChain: stageChain });
+
+    const source = (await outbox.claimById({ taskId, workerId }))._unsafeUnwrap();
+    if (!source || !isFieldBackfillOutboxItem(source) || !source.stageChain) {
+      throw new Error('Expected a claimed field backfill with a stage chain');
+    }
+    const claimedStageChain = source.stageChain;
+    expect(claimedStageChain).toEqual(stageChain);
+
+    const notifyTargets = [{ tableId: source.tableId, fieldIds: source.fieldIds }];
+    await db.transaction().execute(async (trx) => {
+      const context = { transaction: new PostgresUnitOfWorkTransaction(trx as never, 'data') };
+      const continuation = buildFieldBackfillTaskInput({
+        baseId,
+        tableId: targetTableId,
+        fieldIds: [targetFieldId],
+        hasher,
+        runId: source.runId,
+        sourceChangedAt: source.sourceChangedAt,
+        stageDepth: 1,
+        predecessorTaskId: source.id,
+        stageChain: {
+          ...claimedStageChain,
+          remainingStages: [],
+          notifyTargets,
+        },
+      });
+      const { claimed } = (
+        await outbox.enqueueFieldBackfill(continuation, context, {
+          relayClaim: { workerId, predecessorTaskId: source.id },
+        })
+      )._unsafeUnwrap();
+
+      expect(claimed).toMatchObject({
+        taskType: 'field-backfill',
+        status: 'processing',
+        lockedBy: expect.stringMatching(/^periodic-refresh-worker:/),
+        predecessorTaskId: source.id,
+        stageChain: { periodicRefresh, remainingStages: [], notifyTargets },
+      });
+      expect((await outbox.markDone(source, context))._unsafeUnwrap()).toBe(true);
+    });
+  });
+
+  it.each([
+    { name: 'ordinary', stageChain: undefined },
+    { name: 'staged', stageChain: { remainingStages: [], notifyTargets: [] } },
+  ])('claims a legacy $name field backfill without settlement metadata', async ({ stageChain }) => {
+    const outbox = createTestOutbox(db);
+    const input = buildFieldBackfillTaskInput({
+      baseId: BaseId.create(PRIMARY_BASE_ID)._unsafeUnwrap(),
+      tableId: TableId.create(PRIMARY_SEED_TABLE_ID)._unsafeUnwrap(),
+      fieldIds: [FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap()],
+      hasher: new NoopHasher(),
+      runId: 'legacy-field-backfill',
+      cursor: createRecordId(1).toString(),
+      stageChain,
+    });
+    const { taskId } = (await outbox.enqueueFieldBackfill(input))._unsafeUnwrap();
+    const [claimed] = (
+      await outbox.claimBatch({ limit: 1, workerId: 'backfill-worker' })
+    )._unsafeUnwrap();
+    if (!claimed || !isFieldBackfillOutboxItem(claimed)) {
+      throw new Error('Expected a claimed field backfill');
+    }
+    expect(claimed.id).toBe(taskId);
+    expect(claimed.cursor).toBe(input.cursor);
+    expect(claimed.stageChain).toEqual(stageChain);
   });
 
   it('fences out tasks whose space is bound to an external data database', async () => {
@@ -4025,8 +4137,9 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
           seedRecordIds: ['rec1', 'rec2', 'rec3', 'rec4', 'rec5'],
         })
       )._unsafeUnwrap();
-      const [task] = (await outbox.claimBatch({ workerId: `${planHash}-worker`, limit: 1 }))
-        ._unsafeUnwrap();
+      const [task] = (
+        await outbox.claimBatch({ workerId: `${planHash}-worker`, limit: 1 })
+      )._unsafeUnwrap();
       if (!task) throw new Error('Expected the paged transfer to be claimed');
       expect(task).toMatchObject({ seedRecordIds: [] });
       return { outbox, queued, task };
@@ -4112,32 +4225,51 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
         maxSeedRecordsPerTask: 2,
         stageMaxDirtyRecords: 2,
       });
-      const queued = (await outbox.enqueueOrMerge({
-        ...createContinuationInput('alternating-transfer'),
-        seedRecordIds: ['rec1', 'rec2', 'rec3', 'rec4', 'rec5'],
-      }))._unsafeUnwrap();
-      const first = (await outbox.claimById({
-        taskId: queued.taskId, workerId: 'a', yieldAfterPreparation: true,
-      }))._unsafeUnwrap();
+      const queued = (
+        await outbox.enqueueOrMerge({
+          ...createContinuationInput('alternating-transfer'),
+          seedRecordIds: ['rec1', 'rec2', 'rec3', 'rec4', 'rec5'],
+        })
+      )._unsafeUnwrap();
+      const first = (
+        await outbox.claimById({
+          taskId: queued.taskId,
+          workerId: 'a',
+          yieldAfterPreparation: true,
+        })
+      )._unsafeUnwrap();
       expect(first).toBeNull();
       await sql`update computed_update_outbox
         set dirty_stats = dirty_stats - 'seedRecordCount'
         where id = ${queued.taskId}`.execute(db);
-      const second = (await outbox.claimById({
-        taskId: queued.taskId, workerId: 'b', yieldAfterPreparation: true,
-      }))._unsafeUnwrap();
+      const second = (
+        await outbox.claimById({
+          taskId: queued.taskId,
+          workerId: 'b',
+          yieldAfterPreparation: true,
+        })
+      )._unsafeUnwrap();
       expect(second).toBeNull();
       await sql`update computed_update_outbox
         set dirty_stats = dirty_stats - 'seedRecordCount'
         where id = ${queued.taskId}`.execute(db);
-      const third = (await outbox.claimById({
-        taskId: queued.taskId, workerId: 'c', yieldAfterPreparation: true,
-      }))._unsafeUnwrap();
+      const third = (
+        await outbox.claimById({
+          taskId: queued.taskId,
+          workerId: 'c',
+          yieldAfterPreparation: true,
+        })
+      )._unsafeUnwrap();
       if (!third) throw new Error('Expected final claim after 2+2+1 pages');
-      await sql`delete from computed_update_stage_ledger where scope_id=${queued.taskId}`.execute(db);
+      await sql`delete from computed_update_stage_ledger where scope_id=${queued.taskId}`.execute(
+        db
+      );
       expect((await outbox.markDone(third))._unsafeUnwrap()).toBe(true);
-      const history = await db.selectFrom('computed_update_run_history')
-        .select('seed_record_count').where('task_id', '=', queued.taskId).executeTakeFirstOrThrow();
+      const history = await db
+        .selectFrom('computed_update_run_history')
+        .select('seed_record_count')
+        .where('task_id', '=', queued.taskId)
+        .executeTakeFirstOrThrow();
       expect(Number(history.seed_record_count)).toBe(5);
     });
     it('recovers a fully prepared row left by an older worker', async () => {

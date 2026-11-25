@@ -25,6 +25,9 @@ const REMEASURE_INTERVAL = 250;
 
 const SCROLLABLE_OVERFLOW = new Set(['auto', 'scroll', 'overlay']);
 
+// A page scroller's bar stays under every floating layer; the lowest ones are z-40.
+const PAGE_Z_INDEX = '39';
+
 type Corner = 'TopLeft' | 'TopRight' | 'BottomRight' | 'BottomLeft';
 
 const CORNERS: Corner[] = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'];
@@ -44,6 +47,8 @@ interface IActive {
   rounded: IRounded[];
   // The scroller's own inline `scroll-timeline`, put back once it is no longer active.
   ownTimeline: string;
+  // The floating layer (popover, dialog, menu…) the scroller is in; undefined in the page.
+  layer?: { root: Element; zIndex: string };
 }
 
 interface IMetrics {
@@ -77,6 +82,20 @@ const getRounded = (els: Element[]) =>
     return Object.values(radii).some(Boolean) ? [{ el, radii }] : [];
   });
 
+// A floating layer is the scroller's outermost fixed ancestor with a z-index. Its root is the
+// node portalled into <body>, so layers portalled after it stack above it.
+const getLayer = (el: Element): IActive['layer'] => {
+  let layer: Element | undefined;
+  for (let node: Element | null = el; node && node !== document.body; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (style.position === 'fixed' && style.zIndex !== 'auto') layer = node;
+  }
+  if (!layer) return;
+  let root = layer;
+  while (root.parentElement && root.parentElement !== document.body) root = root.parentElement;
+  return { root, zIndex: getComputedStyle(layer).zIndex };
+};
+
 const activate = (el: Element): IActive | undefined => {
   if (!(el instanceof HTMLElement) || el.matches(SKIP_SELECTOR)) return;
   const style = getComputedStyle(el);
@@ -89,7 +108,15 @@ const activate = (el: Element): IActive | undefined => {
   el.style.setProperty('scroll-timeline', SCROLL_TIMELINE);
   const clips = getClips(el);
   const rounded = getRounded([el, ...clips]);
-  return { el, axes, rtl: style.direction === 'rtl', clips, rounded, ownTimeline };
+  return {
+    el,
+    axes,
+    rtl: style.direction === 'rtl',
+    clips,
+    rounded,
+    ownTimeline,
+    layer: getLayer(el),
+  };
 };
 
 const deactivate = ({ el, ownTimeline }: IActive) => {
@@ -276,12 +303,23 @@ export const OverlayScrollbar = () => {
       if (!scrollDriven) follow();
     };
 
+    // A bar stacks right above its scroller's layer, so layers opened over that one cover it.
+    const stack = ({ layer }: IActive) => {
+      AXES.forEach((axis) => {
+        const bar = bars[axis];
+        if (!bar) return;
+        bar.style.zIndex = layer?.zIndex ?? PAGE_Z_INDEX;
+        if (layer?.root.isConnected) layer.root.after(bar);
+      });
+    };
+
     const switchTo = (el: Element) => {
       const next = activate(el);
       if (!next) return false;
       if (active) deactivate(active);
       resizeObserver.disconnect();
       active = next;
+      stack(next);
       resizeObserver.observe(next.el);
       return true;
     };

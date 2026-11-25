@@ -103,6 +103,7 @@ export interface ITableBuildProps {
   primaryFieldId: FieldId;
   dbTableName?: DbTableName;
   searchIndex?: ITableSearchIndex;
+  actorStorageVersion?: number;
 }
 
 export type TableBuildOptions = {

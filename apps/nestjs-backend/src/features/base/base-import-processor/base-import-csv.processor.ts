@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { pipeline } from 'node:stream/promises';
-import { InjectQueue, OnWorkerEvent, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IAttachmentCellValue, IUserCellValue } from '@teable/core';
 import { DbFieldType, FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -22,18 +23,22 @@ import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { postgresAddForeignKeyNotValidSql } from '../../../db-provider/postgres-fk-delete-action';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
-import { Events } from '../../../event-emitter/events';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
 import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { AuditScope } from '../../audit/audit-scope';
-import { Audit } from '../../audit/audit.decorator';
 import { NotificationService } from '../../notification/notification.service';
 import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
+import {
+  RecordActorStorageService,
+  resolveRecordInitiator,
+} from '../../record-attribution/record-actor-storage.service';
+import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { BASE_IMPORT_DATA_COMPLETE, BASE_IMPORT_DATA_STATUS } from '../base-import-completion';
 import { BaseImportComputedService } from '../base-import-computed.service';
 import {
   notifyBaseImportFailure,
@@ -58,6 +63,7 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 interface IBaseImportCsvJob {
   path: string;
   userId: string;
+  recordInitiator?: IClsStore['recordInitiator'];
   baseId: string;
   origin?: {
     ip: string;
@@ -71,6 +77,7 @@ interface IBaseImportCsvJob {
   fkMap: Record<string, string>;
   structure: IBaseJson;
   importBaseRo: ImportBaseRo;
+  hostResourceIdMaps?: Record<string, Record<string, string>>;
   logId: string;
 }
 
@@ -101,6 +108,9 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly v2ContainerService: V2ContainerService,
     private readonly audit: AuditScope,
+    private readonly recordActorStorageService: RecordActorStorageService,
+    private readonly recordMutationPolicy: RecordMutationPolicyService,
+    private readonly eventEmitter: EventEmitter2,
     private readonly notificationService: NotificationService,
     private readonly v2ContextFactory: V2ExecutionContextFactory
   ) {
@@ -108,6 +118,12 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<IBaseImportCsvJob>) {
+    const completed = await this.eventEmitter.emitAsync(BASE_IMPORT_DATA_STATUS, {
+      ...job.data,
+      operationId: job.data.logId,
+      hostResourceIdMaps: job.data.hostResourceIdMaps ?? {},
+    });
+    if (completed.some((value) => value === true)) return;
     const jobId = String(job.id);
     if (this.processedJobs.has(jobId)) {
       this.logger.log(`Job ${jobId} already processed, skipping`);
@@ -149,6 +165,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     // `user.id` / `origin` from CLS see the correct values.
     await this.cls.run(async () => {
       this.cls.set('user.id', job.data.userId);
+      this.cls.set('recordInitiator', job.data.recordInitiator);
       if (job.data.origin) {
         this.cls.set('origin', job.data.origin);
       }
@@ -167,6 +184,13 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
   private async handleBaseImportCsvInScope(job: Job<IBaseImportCsvJob>): Promise<void> {
     const { path, userId, baseId, tableIdMap, fieldIdMap, viewIdMap, structure, fkMap } = job.data;
+    for (const tableId of Object.values(tableIdMap)) {
+      await this.recordMutationPolicy.assertAllowed({
+        tableId,
+        operation: 'create',
+        payload: job.data.importBaseRo,
+      });
+    }
     const csvStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
       path
@@ -398,6 +422,35 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         throw error;
       });
     await notifyBaseImportWarnings(this.notificationService, baseId, userId, warnings);
+    if (!this.hasLinkImports(structure)) {
+      await this.eventEmitter.emitAsync(BASE_IMPORT_DATA_COMPLETE, {
+        baseId,
+        operationId: job.data.logId,
+        userId,
+        structure,
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+        hostResourceIdMaps: job.data.hostResourceIdMaps ?? {},
+      });
+    } else {
+      await this.baseImportJunctionCsvQueueProcessor.queue.add(
+        'import_base_junction_csv',
+        {
+          baseId,
+          tableIdMap,
+          fieldIdMap,
+          viewIdMap,
+          path,
+          structure,
+          userId,
+          recordInitiator: job.data.recordInitiator,
+          operationId: job.data.logId,
+          hostResourceIdMaps: job.data.hostResourceIdMaps,
+        },
+        { jobId: `import_base_junction_csv_${path}_${userId}` }
+      );
+    }
   }
 
   private createChunkExecutor(): (task: () => Promise<void>) => Promise<void> {
@@ -430,13 +483,8 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     return await fn(dataPrisma);
   }
 
-  // Raw SQL chunk insert (no v2 events). Active BaseImport operation is set by
-  // `handleBaseImportCsv` above; the `@Audit` atomic emit mode writes one audit row per
-  // chunk with atomic record-create action and rootAction=BaseImport.
-  @Audit({
-    action: Events.TABLE_RECORD_CREATE,
-    emit: (_result, chunk: Record<string, unknown>[]) => ({ recordCount: chunk.length }),
-  })
+  // Raw SQL creation is journaled in the same data transaction below. The active
+  // BaseImport scope is established by handleBaseImportCsv, not by archive content.
   private async handleChunk(
     results: Record<string, unknown>[],
     config: {
@@ -455,241 +503,273 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   ) {
     const { baseId, tableId, userId, fieldIdMap, attachmentsFields, fkMap, notNullFieldMap } =
       config;
-    const { dbTableName, fields: targetFields = [] } =
-      await this.prismaService.tableMeta.findUniqueOrThrow({
-        where: { id: tableId },
-        select: {
-          dbTableName: true,
-          fields: {
-            where: { deletedTime: null },
-            select: {
-              id: true,
-              notNull: true,
-              dbFieldName: true,
-              type: true,
-              isMultipleCellValue: true,
-              isComputed: true,
-              isLookup: true,
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'create',
+      payload: { dbRecords: results },
+    });
+    return this.recordActorStorageService.withTableWrite(tableId, async (tableMeta) => {
+      const initiator = resolveRecordInitiator(this.cls);
+      const { dbTableName, fields: targetFields = [] } =
+        await this.prismaService.tableMeta.findUniqueOrThrow({
+          where: { id: tableId },
+          select: {
+            dbTableName: true,
+            fields: {
+              where: { deletedTime: null },
+              select: {
+                id: true,
+                notNull: true,
+                dbFieldName: true,
+                type: true,
+                isMultipleCellValue: true,
+                isComputed: true,
+                isLookup: true,
+              },
             },
           },
-        },
-      });
-
-    // The archive structure is caller-controlled. Classify writable and computed columns from
-    // the freshly-created destination table instead, then validate each bounded CSV chunk against
-    // that table's current collaborator scope.
-    const targetComputedDbFieldNames = targetFields
-      .filter((field) => field.isComputed || field.isLookup)
-      .map((field) => field.dbFieldName);
-    const targetUserFields = targetFields
-      .filter((field) => field.type === FieldType.User && !field.isComputed && !field.isLookup)
-      .map(({ id, dbFieldName, isMultipleCellValue, notNull }) => ({
-        id,
-        dbFieldName,
-        notNull: Boolean(notNull),
-        isMultipleCellValue: Boolean(isMultipleCellValue),
-      }));
-    const authorizedResults = targetUserFields.length
-      ? await this.authorizeImportedUserValues(
-          results,
-          tableId,
-          baseId,
-          targetUserFields,
-          warnings,
-          config.requiredUserFieldRelaxations
-        )
-      : results;
-    const authoritativeExcludeDbFieldNames = new Set([
-      ...excludeDbFieldNames,
-      ...targetComputedDbFieldNames,
-    ]);
-
-    const allForeignKeyInfos = [] as {
-      constraint_name: string;
-      column_name: string;
-      referenced_table_schema: string;
-      referenced_table_name: string;
-      referenced_column_name: string;
-      delete_rule: string;
-      dbTableName: string;
-    }[];
-    const attachmentsTableData = [] as {
-      attachmentId: string;
-      name: string;
-      token: string;
-      tableId: string;
-      recordId: string;
-      fieldId: string;
-    }[];
-
-    const dataPrisma = (await this.dataDbClientManager.dataPrismaForBase(
-      baseId
-    )) as IDataPrismaScopedClient;
-    const dataKnex = await this.dataDbClientManager.dataKnexForBase(baseId);
-
-    await this.dataTransaction(dataPrisma, async (prisma) => {
-      // delete foreign keys if(exist) then duplicate table data
-      const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
-      const foreignKeysInfo = await prisma.$queryRawUnsafe<
-        {
-          constraint_name: string;
-          column_name: string;
-          referenced_table_schema: string;
-          referenced_table_name: string;
-          referenced_column_name: string;
-          delete_rule: string;
-        }[]
-      >(foreignKeysInfoSql);
-      const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
-        ...info,
-        dbTableName,
-      }));
-      allForeignKeyInfos.push(...newForeignKeyInfos);
-
-      for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-        const dropForeignKeyQuery = dataKnex.schema
-          .alterTable(dbTableName, (table) => {
-            table.dropForeign(column_name, constraint_name);
-          })
-          .toQuery();
-
-        await prisma.$executeRawUnsafe(dropForeignKeyQuery);
+        });
+      const actorColumnNames = [
+        '__created_by_actor_type',
+        '__created_by_actor_id',
+        '__last_modified_by_actor_type',
+        '__last_modified_by_actor_id',
+      ];
+      if (targetFields.some((field) => actorColumnNames.includes(field.dbFieldName))) {
+        throw new Error('Actor columns conflict with an existing business field');
       }
 
-      const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
-      const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+      // The archive structure is caller-controlled. Classify writable and computed columns from
+      // the freshly-created destination table instead, then validate each bounded CSV chunk against
+      // that table's current collaborator scope.
+      const targetComputedDbFieldNames = targetFields
+        .filter((field) => field.isComputed || field.isLookup)
+        .map((field) => field.dbFieldName);
+      const targetUserFields = targetFields
+        .filter((field) => field.type === FieldType.User && !field.isComputed && !field.isLookup)
+        .map(({ id, dbFieldName, isMultipleCellValue, notNull }) => ({
+          id,
+          dbFieldName,
+          notNull: Boolean(notNull),
+          isMultipleCellValue: Boolean(isMultipleCellValue),
+        }));
+      const authorizedResults = targetUserFields.length
+        ? await this.authorizeImportedUserValues(
+            results,
+            tableId,
+            baseId,
+            targetUserFields,
+            warnings,
+            config.requiredUserFieldRelaxations
+          )
+        : results;
+      const authoritativeExcludeDbFieldNames = new Set([
+        ...excludeDbFieldNames,
+        ...targetComputedDbFieldNames,
+        '__created_by_actor_type',
+        '__created_by_actor_id',
+        '__last_modified_by_actor_type',
+        '__last_modified_by_actor_id',
+      ]);
 
-      const newResult = authorizedResults.map((res) => {
-        const newRes = { ...res };
+      const allForeignKeyInfos = [] as {
+        constraint_name: string;
+        column_name: string;
+        referenced_table_schema: string;
+        referenced_table_name: string;
+        referenced_column_name: string;
+        delete_rule: string;
+        dbTableName: string;
+      }[];
+      const attachmentsTableData = [] as {
+        attachmentId: string;
+        name: string;
+        token: string;
+        tableId: string;
+        recordId: string;
+        fieldId: string;
+      }[];
 
-        authoritativeExcludeDbFieldNames.forEach((header) => {
-          delete newRes[header];
-        });
+      const dataPrisma = (await this.dataDbClientManager.dataPrismaForBase(
+        baseId
+      )) as IDataPrismaScopedClient;
+      const dataKnex = await this.dataDbClientManager.dataKnexForBase(baseId);
 
-        return newRes;
-      });
+      await this.dataTransaction(dataPrisma, async (prisma) => {
+        // delete foreign keys if(exist) then duplicate table data
+        const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
+        const foreignKeysInfo = await prisma.$queryRawUnsafe<
+          {
+            constraint_name: string;
+            column_name: string;
+            referenced_table_schema: string;
+            referenced_table_name: string;
+            referenced_column_name: string;
+            delete_rule: string;
+          }[]
+        >(foreignKeysInfoSql);
+        const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
+          ...info,
+          dbTableName,
+        }));
+        allForeignKeyInfos.push(...newForeignKeyInfos);
 
-      const attachmentsDbFieldNames = attachmentsFields.map(({ dbFieldName }) => dbFieldName);
-
-      const fkColumns = columnInfo
-        .filter(({ name }) => name.startsWith('__fk_'))
-        .map(({ name }) => {
-          return fieldIdMap[name.slice(5)]
-            ? `__fk_${fieldIdMap[name.slice(5)]}`
-            : fkMap[name] || name;
-        });
-
-      // Authoritative set of columns that actually exist on the freshly-created table.
-      // The .tea CSV is dumped from the source data table's physical columns, which can
-      // include "ghost" columns left behind by deleted/renamed fields. Those have no field
-      // in the exported structure, so the new table lacks them; inserting them raw aborts the
-      // whole table transaction (42703 -> 25P02) and drops every record. Mirror the v2 import,
-      // which only restores columns present in the field metadata.
-      const realColumns = new Set(columnInfo.map(({ name }) => name));
-
-      const recordsToInsert = newResult.map((result) => {
-        const res = { ...result };
-        Object.entries(res).forEach(([key, value]) => {
-          // drop ghost business columns absent from the target table (system / __fk_ / __row_
-          // columns are left to the dedicated handling below and the lacking-column ALTER step)
-          if (!key.startsWith('__') && !realColumns.has(key)) {
-            delete res[key];
-            return;
-          }
-
-          if (res[key] === '') {
-            const notNullInfo = notNullFieldMap.get(key);
-            if (notNullInfo) {
-              res[key] = this.getNotNullDefault(
-                notNullInfo.dbFieldType,
-                notNullInfo.isMultipleCellValue
-              );
-            } else {
-              res[key] = null;
-            }
-          }
-
-          // filter unnecessary columns
-          if (key.startsWith('__fk_') && !fkColumns.includes(key)) {
-            delete res[key];
-          }
-
-          // attachment field should add info to attachments table
-          if (attachmentsDbFieldNames.includes(key) && value) {
-            // A read signs the cell's own `path`, so pin it to the object each token
-            // names; an item no token vouches for cannot be signed and is left out.
-            const pinned = pinImportAttachmentCell(JSON.parse(value as string));
-            const attValues = (Array.isArray(pinned) ? pinned : [pinned]).filter(
-              (att): att is IAttachmentCellValue[number] => Boolean(att?.path)
-            );
-            res[key] = attValues.length ? JSON.stringify(attValues) : null;
-            const fieldId = attachmentsFields.find(({ dbFieldName }) => dbFieldName === key)?.id;
-            attValues.forEach((att) => {
-              const attachmentId = generateAttachmentId();
-              attachmentsTableData.push({
-                attachmentId,
-                name: att.name,
-                token: att.token,
-                tableId: tableId,
-                recordId: res['__id'] as string,
-                fieldId: fieldIdMap[fieldId!],
-              });
-            });
-          }
-        });
-
-        // default value set
-        res['__created_by'] = userId;
-        res['__version'] = 1;
-        return res;
-      });
-
-      // add lacking view order field
-      if (recordsToInsert.length) {
-        const sourceColumns = Object.keys(recordsToInsert[0]);
-        const lackingColumns = sourceColumns
-          .filter((column) => !columnInfo.map(({ name }) => name).includes(column))
-          .filter((name) => name.startsWith('__row_'));
-
-        for (const name of lackingColumns) {
-          const sql = dataKnex.schema
+        for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
+          const dropForeignKeyQuery = dataKnex.schema
             .alterTable(dbTableName, (table) => {
-              table.double(name);
+              table.dropForeign(column_name, constraint_name);
             })
             .toQuery();
-          await prisma.$executeRawUnsafe(sql);
+
+          await prisma.$executeRawUnsafe(dropForeignKeyQuery);
         }
+
+        const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
+        const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+
+        const newResult = authorizedResults.map((res) => {
+          const newRes = { ...res };
+
+          authoritativeExcludeDbFieldNames.forEach((header) => {
+            delete newRes[header];
+          });
+
+          return newRes;
+        });
+
+        const attachmentsDbFieldNames = attachmentsFields.map(({ dbFieldName }) => dbFieldName);
+
+        const fkColumns = columnInfo
+          .filter(({ name }) => name.startsWith('__fk_'))
+          .map(({ name }) => {
+            return fieldIdMap[name.slice(5)]
+              ? `__fk_${fieldIdMap[name.slice(5)]}`
+              : fkMap[name] || name;
+          });
+
+        // Authoritative set of columns that actually exist on the freshly-created table.
+        // The .tea CSV is dumped from the source data table's physical columns, which can
+        // include "ghost" columns left behind by deleted/renamed fields. Those have no field
+        // in the exported structure, so the new table lacks them; inserting them raw aborts the
+        // whole table transaction (42703 -> 25P02) and drops every record. Mirror the v2 import,
+        // which only restores columns present in the field metadata.
+        const realColumns = new Set(columnInfo.map(({ name }) => name));
+
+        const recordsToInsert = newResult.map((result) => {
+          const res = { ...result };
+          Object.entries(res).forEach(([key, value]) => {
+            // drop ghost business columns absent from the target table (system / __fk_ / __row_
+            // columns are left to the dedicated handling below and the lacking-column ALTER step)
+            if (!key.startsWith('__') && !realColumns.has(key)) {
+              delete res[key];
+              return;
+            }
+
+            if (res[key] === '') {
+              const notNullInfo = notNullFieldMap.get(key);
+              if (notNullInfo) {
+                res[key] = this.getNotNullDefault(
+                  notNullInfo.dbFieldType,
+                  notNullInfo.isMultipleCellValue
+                );
+              } else {
+                res[key] = null;
+              }
+            }
+
+            // filter unnecessary columns
+            if (key.startsWith('__fk_') && !fkColumns.includes(key)) {
+              delete res[key];
+            }
+
+            // attachment field should add info to attachments table
+            if (attachmentsDbFieldNames.includes(key) && value) {
+              // Pin each attachment to the stored object named by its token.
+              const pinned = pinImportAttachmentCell(JSON.parse(value as string));
+              const attValues = (Array.isArray(pinned) ? pinned : [pinned]).filter(
+                (att): att is IAttachmentCellValue[number] => Boolean(att?.path)
+              );
+              res[key] = attValues.length ? JSON.stringify(attValues) : null;
+              const fieldId = attachmentsFields.find(({ dbFieldName }) => dbFieldName === key)?.id;
+              attValues.forEach((att) => {
+                const attachmentId = generateAttachmentId();
+                attachmentsTableData.push({
+                  attachmentId,
+                  name: att.name,
+                  token: att.token,
+                  tableId: tableId,
+                  recordId: res['__id'] as string,
+                  fieldId: fieldIdMap[fieldId!],
+                });
+              });
+            }
+          });
+
+          // default value set
+          res['__created_by'] = userId;
+          res['__version'] = 1;
+          if (tableMeta.actorStorageVersion === 1) {
+            res['__created_by_actor_type'] = initiator?.type ?? null;
+            res['__created_by_actor_id'] = initiator?.id ?? null;
+            res['__last_modified_by_actor_type'] = null;
+            res['__last_modified_by_actor_id'] = null;
+          }
+          return res;
+        });
+
+        // add lacking view order field
+        if (recordsToInsert.length) {
+          const sourceColumns = Object.keys(recordsToInsert[0]);
+          const lackingColumns = sourceColumns
+            .filter((column) => !columnInfo.map(({ name }) => name).includes(column))
+            .filter((name) => name.startsWith('__row_'));
+
+          for (const name of lackingColumns) {
+            const sql = dataKnex.schema
+              .alterTable(dbTableName, (table) => {
+                table.double(name);
+              })
+              .toQuery();
+            await prisma.$executeRawUnsafe(sql);
+          }
+        }
+
+        const sql = dataKnex.table(dbTableName).insert(recordsToInsert).toQuery();
+        const insertedCount = await prisma.$executeRawUnsafe(sql);
+        await this.eventEmitterService.persistRecordCreateOperationAudit(
+          tableId,
+          insertedCount,
+          recordsToInsert.slice(0, 200).map((record) => record.__id as string),
+          (query) => prisma.$executeRawUnsafe(query)
+        );
+      });
+
+      // restore foreign keys with NOT VALID
+      for (const {
+        constraint_name,
+        column_name,
+        dbTableName,
+        referenced_table_schema: referencedTableSchema,
+        referenced_table_name: referencedTableName,
+        referenced_column_name: referencedColumnName,
+        delete_rule: deleteRule,
+      } of allForeignKeyInfos) {
+        const [schema, tableName] = dbTableName.split('.');
+        const addForeignKeyQuery = postgresAddForeignKeyNotValidSql(dataKnex, {
+          schema,
+          tableName,
+          constraintName: constraint_name,
+          columnName: column_name,
+          referencedTableSchema,
+          referencedTableName,
+          referencedColumnName,
+          deleteRule,
+        });
+        await dataPrisma.$executeRawUnsafe(addForeignKeyQuery);
       }
 
-      const sql = dataKnex.table(dbTableName).insert(recordsToInsert).toQuery();
-      await prisma.$executeRawUnsafe(sql);
+      await this.updateAttachmentTable(userId, attachmentsTableData);
     });
-
-    // restore foreign keys with NOT VALID
-    for (const {
-      constraint_name,
-      column_name,
-      dbTableName,
-      referenced_table_schema: referencedTableSchema,
-      referenced_table_name: referencedTableName,
-      referenced_column_name: referencedColumnName,
-      delete_rule: deleteRule,
-    } of allForeignKeyInfos) {
-      const [schema, tableName] = dbTableName.split('.');
-      const addForeignKeyQuery = postgresAddForeignKeyNotValidSql(dataKnex, {
-        schema,
-        tableName,
-        constraintName: constraint_name,
-        columnName: column_name,
-        referencedTableSchema,
-        referencedTableName,
-        referencedColumnName,
-        deleteRule,
-      });
-      await dataPrisma.$executeRawUnsafe(addForeignKeyQuery);
-    }
-
-    await this.updateAttachmentTable(userId, attachmentsTableData);
   }
 
   private async authorizeImportedUserValues(
@@ -935,28 +1015,5 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         createdBy: userId,
       })),
     });
-  }
-
-  @OnWorkerEvent('completed')
-  async onCompleted(job: Job) {
-    const { tableIdMap, fieldIdMap, path, structure, userId } = job.data;
-    if (!this.hasLinkImports(structure)) {
-      return;
-    }
-
-    await this.baseImportJunctionCsvQueueProcessor.queue.add(
-      'import_base_junction_csv',
-      {
-        baseId: job.data.baseId,
-        userId,
-        tableIdMap,
-        fieldIdMap,
-        path,
-        structure,
-      },
-      {
-        jobId: `import_base_junction_csv_${path}_${userId}`,
-      }
-    );
   }
 }

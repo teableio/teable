@@ -24,8 +24,8 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -36,6 +36,8 @@ import type {
 } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   ITableRecordRepository,
   RecordMutationResult,
   BatchRecordMutationResult,
@@ -114,6 +116,10 @@ const buildTable = () => {
 };
 
 class FakeTableRepository implements ITableRepository {
+  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    throw new Error('Unexpected restore in this test');
+  }
+
   tables: Table[] = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -127,13 +133,6 @@ class FakeTableRepository implements ITableRepository {
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     this.tables.push(...tables);
     return ok([...tables]);
-  }
-
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -167,6 +166,14 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   lastContext: IExecutionContext | undefined;
   lastTable: Table | undefined;
   lastSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
@@ -258,8 +265,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok(deletedRecords.length > 0 ? { deletedRecords } : {});
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    return ok({ totalDeleted: 0 });
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 
@@ -395,9 +404,33 @@ describe('DeleteByRangeHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record B' }, version: 1 },
-      { id: `rec${'c'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record C' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'c'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record C' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 3;
 
@@ -452,8 +485,24 @@ describe('DeleteByRangeHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { title: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 2;
     const eventBus = new FakeEventBus();
@@ -488,8 +537,24 @@ describe('DeleteByRangeHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { title: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 2;
     const { plugin, calls } = createTrackedRecordWritePlugin([RecordWriteOperationKind.deleteMany]);
@@ -514,6 +579,7 @@ describe('DeleteByRangeHandler', () => {
     expect(calls.guard).toHaveLength(1);
     expect(calls.beforePersist).toHaveLength(1);
     expect(calls.afterCommit).toHaveLength(1);
+    if (calls.prepare[0].kind !== 'deleteMany') throw new Error('Expected deleteMany context');
     expect(calls.prepare[0].payload.recordCount).toBe(2);
     expect(calls.prepare[0].orchestration).toEqual({
       mode: 'direct',
@@ -535,11 +601,19 @@ describe('DeleteByRangeHandler', () => {
         id: `rec${'a'.repeat(16)}`,
         fields: { [textFieldId.toString()]: 'Record A', [numberFieldId.toString()]: 42 },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
       {
         id: `rec${'b'.repeat(16)}`,
         fields: { [textFieldId.toString()]: 'Record B', [numberFieldId.toString()]: 42 },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     queryRepository.total = 2;
@@ -604,8 +678,24 @@ describe('DeleteByRangeHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { title: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 2;
     const tracer = new FakeTracer();
@@ -674,9 +764,33 @@ describe('DeleteByRangeHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
-      { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { title: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'c'.repeat(16)}`,
+        fields: { title: 'Record C' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 10; // Simulate more total rows
 
@@ -714,6 +828,10 @@ describe('DeleteByRangeHandler', () => {
       id: `rec${idx.toString(36).padStart(16, '0').slice(-16)}`,
       fields: { title: `Record ${idx}` },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     }));
     queryRepository.total = recordCount;
 
@@ -745,7 +863,15 @@ describe('DeleteByRangeHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
 
     const recordRepository = new FakeTableRecordRepository(queryRepository);
@@ -781,7 +907,15 @@ describe('DeleteByRangeHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
 
     const recordRepository = new FakeTableRecordRepository(queryRepository);
@@ -813,8 +947,24 @@ describe('DeleteByRangeHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { title: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
 
     const recordRepository = new FakeTableRecordRepository(queryRepository);

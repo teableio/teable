@@ -289,6 +289,7 @@ export function duplicate(
       viewIdMap,
     };
     const duplicatedDto = rewriteDuplicatedDto(dto, params, context);
+    duplicatedDto.actorStorageVersion = 0;
     const duplicatedTable = yield* params.mapper.toDomain(duplicatedDto);
     // A duplicated table is a new persisted aggregate, so it must not inherit a
     // historical gallery config that hides the primary column.

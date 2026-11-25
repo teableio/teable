@@ -75,6 +75,7 @@ describe('TableBuilder', () => {
     buildResult._unsafeUnwrap();
 
     const table = buildResult._unsafeUnwrap();
+    expect(table.actorStorageVersion()).toBe(0);
     expect(table.getFields().length).toBe(4);
     expect(table.views().length).toBe(1);
     expect(table.views()[0]?.type().toString()).toBe('grid');

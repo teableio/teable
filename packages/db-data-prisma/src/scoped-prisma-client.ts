@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createPrismaPgAdapter, type IPgPoolLease } from '@teable/db-main-prisma';
 
 import { Prisma, PrismaClient } from './generated/client';
@@ -17,6 +18,8 @@ type ScopedTransaction = <T>(
 export type ScopedDataPrismaClient = PrismaClient & {
   txClient(): Prisma.TransactionClient;
   $tx: ScopedTransaction;
+  afterCommit(callback: () => Promise<void>): boolean;
+  afterRollback(callback: () => Promise<void>): boolean;
 };
 
 /**
@@ -43,34 +46,113 @@ export const createScopedDataPrismaClient = (
     )
   `;
 
-  const scopedTransaction: ScopedTransaction = (fn, options) =>
-    client.$transaction(
-      async (transaction) => {
-        await transaction.$executeRawUnsafe(setLocalSearchPath);
-        return await fn(transaction);
-      },
-      {
-        // Without these the client falls back to Prisma's built-in 5s budget and
-        // the deployment's PRISMA_TRANSACTION_TIMEOUT is silently ignored — including
-        // for the per-query transactions the raw proxies below open implicitly.
-        ...options,
-        timeout: options?.timeout ?? getDataTransactionTimeout(),
-        maxWait: options?.maxWait ?? getDataTransactionMaxWait(),
-      }
-    );
-
-  let proxy: ScopedDataPrismaClient;
+  const activeTransaction = new AsyncLocalStorage<{
+    client: Prisma.TransactionClient;
+    afterCommitCallbacks: Array<() => Promise<void>>;
+    afterRollbackCallbacks?: Array<() => Promise<void>>;
+  }>();
   let disconnected = false;
+  let activeRootTransactions = 0;
+  let physicalClose: Promise<void> | undefined;
+  let retirementWait: Promise<void> | undefined;
+  let resolveRetirement: (() => void) | undefined;
+  let rejectRetirement: ((error: unknown) => void) | undefined;
+  const closePhysicalClient = (): Promise<void> => {
+    physicalClose ??= (async () => {
+      try {
+        await client.$disconnect();
+      } finally {
+        await poolLease.release();
+      }
+    })();
+    return physicalClose;
+  };
+  const assertAvailable = () => {
+    if (disconnected) throw new Error('Scoped data database client has been retired');
+  };
+  const scopedTransaction: ScopedTransaction = async (fn, options) => {
+    const owner = activeTransaction.getStore();
+    if (owner) return fn(owner.client);
+    assertAvailable();
+
+    const ownerState: {
+      afterCommitCallbacks: Array<() => Promise<void>>;
+      afterRollbackCallbacks?: Array<() => Promise<void>>;
+    } = { afterCommitCallbacks: [] };
+    let committed = false;
+    activeRootTransactions += 1;
+    try {
+      const result = await client.$transaction(
+        async (transaction) => {
+          await transaction.$executeRawUnsafe(setLocalSearchPath);
+          return activeTransaction.run(Object.assign(ownerState, { client: transaction }), () =>
+            fn(transaction)
+          );
+        },
+        {
+          ...options,
+          timeout: options?.timeout ?? getDataTransactionTimeout(),
+          maxWait: options?.maxWait ?? getDataTransactionMaxWait(),
+        }
+      );
+      committed = true;
+      for (const callback of ownerState.afterCommitCallbacks) await callback();
+      return result;
+    } finally {
+      try {
+        if (!committed) {
+          for (const callback of ownerState.afterRollbackCallbacks ?? []) await callback();
+        }
+      } finally {
+        activeRootTransactions -= 1;
+        if (disconnected && activeRootTransactions === 0) {
+          try {
+            await closePhysicalClient();
+            resolveRetirement?.();
+          } catch (error) {
+            rejectRetirement?.(error);
+            throw error;
+          }
+        }
+      }
+    }
+  };
+  let proxy: ScopedDataPrismaClient;
 
   proxy = new Proxy(client, {
     get(target, property, receiver) {
-      if (property === 'txClient') return () => proxy;
+      if (property === 'txClient')
+        return () => {
+          const owner = activeTransaction.getStore();
+          if (owner) return owner.client;
+          assertAvailable();
+          return proxy;
+        };
       if (property === '$tx') return scopedTransaction;
+      if (property === 'afterCommit') {
+        return (callback: () => Promise<void>): boolean => {
+          const owner = activeTransaction.getStore();
+          if (!owner) return false;
+          owner.afterCommitCallbacks.push(callback);
+          return true;
+        };
+      }
+      if (property === 'afterRollback') {
+        return (callback: () => Promise<void>): boolean => {
+          const owner = activeTransaction.getStore();
+          if (!owner) return false;
+          (owner.afterRollbackCallbacks ??= []).push(callback);
+          return true;
+        };
+      }
       if (property === '$transaction') {
-        return (input: unknown, options?: Parameters<ScopedTransaction>[1]) =>
-          typeof input === 'function'
-            ? scopedTransaction(input as Parameters<ScopedTransaction>[0], options)
-            : target.$transaction(input as never, options as never);
+        return (input: unknown, options?: Parameters<ScopedTransaction>[1]) => {
+          if (typeof input === 'function') {
+            return scopedTransaction(input as Parameters<ScopedTransaction>[0], options);
+          }
+          assertAvailable();
+          return target.$transaction(input as never, options as never);
+        };
       }
       if (property === '$queryRawUnsafe') {
         return <T = unknown>(query: string, ...values: unknown[]) =>
@@ -90,18 +172,48 @@ export const createScopedDataPrismaClient = (
       }
       if (property === '$disconnect') {
         return async () => {
-          if (disconnected) return;
           disconnected = true;
-          try {
-            await target.$disconnect();
-          } finally {
-            await poolLease.release();
+          if (activeTransaction.getStore()) {
+            // Awaiting the owner itself here would deadlock. Its outer finally closes us.
+            return;
           }
+          if (activeRootTransactions === 0) return closePhysicalClient();
+          if (!retirementWait) {
+            // The backend target/lib (ES2022) has no Promise.withResolvers; keep an explicit deferred.
+            retirementWait = new Promise<void>((resolve, reject) => {
+              resolveRetirement = resolve;
+              rejectRetirement = reject;
+            });
+          }
+          return retirementWait;
         };
       }
 
       const value = Reflect.get(target, property, receiver) as unknown;
-      return typeof value === 'function' ? value.bind(target) : value;
+      if (value && typeof value === 'object' && 'findMany' in value) {
+        return new Proxy(value, {
+          get(delegate, method) {
+            const operation = Reflect.get(delegate, method);
+            if (typeof operation !== 'function') return operation;
+            return (...args: unknown[]) => {
+              const owner = activeTransaction.getStore();
+              if (owner) {
+                const transactionDelegate = Reflect.get(owner.client, property);
+                return Reflect.get(transactionDelegate, method).apply(transactionDelegate, args);
+              }
+              assertAvailable();
+              return operation.apply(delegate, args);
+            };
+          },
+        });
+      }
+      if (typeof value === 'function') {
+        return (...args: unknown[]) => {
+          assertAvailable();
+          return value.apply(target, args);
+        };
+      }
+      return value;
     },
   }) as ScopedDataPrismaClient;
 

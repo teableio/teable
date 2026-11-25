@@ -1537,6 +1537,17 @@ export class BaseDuplicateV2Service {
       })
     );
 
+    const actorType = row.__created_by_actor_type;
+    const actorId = row.__created_by_actor_id;
+    const trustedCreatedActor: IExecutionContext['initiator'] | null =
+      (actorType === 'user' ||
+        actorType === 'appUser' ||
+        actorType === 'automation' ||
+        actorType === 'system') &&
+      typeof actorId === 'string'
+        ? { type: actorType, id: actorId }
+        : null;
+
     return {
       recordId: typeof row.__id === 'string' ? row.__id : undefined,
       fields,
@@ -1545,6 +1556,7 @@ export class BaseDuplicateV2Service {
       ...(row.__auto_number ? { autoNumber: Number(row.__auto_number) } : {}),
       ...(row.__created_time ? { createdTime: this.toRestoreString(row.__created_time) } : {}),
       ...(row.__created_by ? { createdBy: this.toRestoreString(row.__created_by) } : {}),
+      trustedCreatedActor,
       lastModifiedTime: null,
       lastModifiedBy: null,
     };
@@ -2059,6 +2071,10 @@ export class BaseDuplicateV2Service {
       '__created_by',
       '__last_modified_time',
       '__last_modified_by',
+      '__created_by_actor_type',
+      '__created_by_actor_id',
+      '__last_modified_by_actor_type',
+      '__last_modified_by_actor_id',
     ].includes(columnName);
   }
 
@@ -2350,12 +2366,10 @@ export class BaseDuplicateV2Service {
     );
     const userId = this.cls.get('user.id');
     for (const [sourceTableId, targetTableId] of Object.entries(tableIdMap)) {
-      const fields = await this.prismaService
-        .txClient()
-        .field.findMany({
-          where: { tableId: sourceTableId, type: FieldType.Attachment, deletedTime: null },
-          select: { id: true },
-        });
+      const fields = await this.prismaService.txClient().field.findMany({
+        where: { tableId: sourceTableId, type: FieldType.Attachment, deletedTime: null },
+        select: { id: true },
+      });
       for (const field of fields) {
         const query = this.dbProvider
           .duplicateAttachmentTableQuery(this.knex.queryBuilder())

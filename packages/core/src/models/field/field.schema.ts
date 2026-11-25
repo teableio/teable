@@ -36,6 +36,7 @@ import {
   lookupOptionsRoSchema,
   lookupOptionsVoSchema,
 } from './lookup-options-base.schema';
+import { fieldPeriodicRefreshVoSchema } from './periodic-refresh/periodic-refresh.schema';
 import { validateFieldOptions } from './zod-error';
 
 // All union schemas and types are now imported from field-unions.schema.ts
@@ -133,6 +134,11 @@ export const fieldVoSchema = z.object({
       'Async computed activity for this field (formula/lookup/rollup recalculation status).',
   }),
 
+  periodicRefresh: optionalFieldVoProperty(fieldPeriodicRefreshVoSchema).meta({
+    description:
+      'Periodic relative-date / volatile-clock refresh state projected from sidecar table.',
+  }),
+
   hasError: optionalFieldVoProperty(z.boolean()).meta({
     description:
       "Whether This field has a configuration error. Check the fields referenced by this field's formula or configuration.",
@@ -202,6 +208,7 @@ export const FIELD_VO_PROPERTIES = [
   'isComputed',
   'isPending',
   'computeMeta',
+  'periodicRefresh',
   'hasError',
   'cellValueType',
   'isMultipleCellValue',
@@ -353,6 +360,19 @@ const baseFieldRoSchema = fieldVoSchema
   })
   .extend({
     name: fieldVoSchema.shape.name.min(1).optional(),
+    dbFieldName: fieldVoSchema.shape.dbFieldName
+      .optional()
+      .refine(
+        (name) =>
+          name === undefined ||
+          ![
+            '__created_by_actor_type',
+            '__created_by_actor_id',
+            '__last_modified_by_actor_type',
+            '__last_modified_by_actor_id',
+          ].includes(name),
+        { message: 'dbFieldName is reserved for record attribution' }
+      ),
     description: fieldVoSchema.shape.description.nullable().optional(),
     lookupOptions: lookupOptionsRoSchema.optional().meta({
       description:

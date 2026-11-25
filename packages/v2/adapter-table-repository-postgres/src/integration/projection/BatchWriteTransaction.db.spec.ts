@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { inspect } from 'node:util';
+
 import {
   getPostgresTransaction,
   registerV2PostgresDataDb,
@@ -107,9 +109,11 @@ describe('BatchWriteTransaction & SameTx Schema Projections (db)', () => {
     const fieldId = FieldId.generate()._unsafeUnwrap().toString();
 
     let attempts = 0;
+    let stage = 'before batch';
     const res = await domainWriteTx.withBatchTransaction(createContext(), async (batchCtx) => {
       attempts += 1;
       const attemptNo = attempts;
+      stage = 'create table';
 
       const createTableRes = await commandBus.execute<CreateTableCommand, CreateTableResult>(
         batchCtx,
@@ -123,6 +127,7 @@ describe('BatchWriteTransaction & SameTx Schema Projections (db)', () => {
       );
       if (createTableRes.isErr()) return err(createTableRes.error);
 
+      stage = 'create records';
       const createRecRes = await commandBus.execute<CreateRecordsCommand, CreateRecordsResult>(
         batchCtx,
         CreateRecordsCommand.create({
@@ -132,6 +137,7 @@ describe('BatchWriteTransaction & SameTx Schema Projections (db)', () => {
       );
       if (createRecRes.isErr()) return err(createRecRes.error);
 
+      stage = 'inject deadlock';
       if (attemptNo === 1) {
         const pgTrx = getPostgresTransaction<V1TeableDatabase>(batchCtx, 'data')!;
         // Trigger a genuine PostgreSQL SQLSTATE 40P01 (deadlock_detected) after writes + event queuing
@@ -139,20 +145,33 @@ describe('BatchWriteTransaction & SameTx Schema Projections (db)', () => {
           .raw(`DO $$ BEGIN RAISE EXCEPTION 'deadlock detected' USING ERRCODE = '40P01'; END $$;`)
           .execute(pgTrx);
       }
+      stage = 'return from batch work';
 
       return ok({ attemptNo, tableId });
     });
 
-    expect(res.isOk()).toBe(true);
+    expect(
+      res.isOk(),
+      `batch failed after ${attempts} attempt(s), stage: ${stage}; error: ${
+        res.isErr() ? inspect(res.error, { depth: 5, showHidden: true }) : 'none'
+      }`
+    ).toBe(true);
     expect(attempts).toBe(2);
 
     // Real PG table_meta has strictly 1 row (for attempt 2)
     const metaRows = await db
       .selectFrom('table_meta')
-      .select(['id', 'name'])
+      .select(['id', 'name', 'provision_state', 'actor_storage_version'])
       .where('id', '=', tableId)
       .execute();
-    expect(metaRows).toEqual([{ id: tableId, name: 'Retry Table Attempt 2' }]);
+    expect(metaRows).toEqual([
+      {
+        id: tableId,
+        name: 'Retry Table Attempt 2',
+        provision_state: 'ready',
+        actor_storage_version: 1,
+      },
+    ]);
 
     // Physical table has strictly attempt-2 value
     const fieldRow = await db

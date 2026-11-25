@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DatabaseRouter } from './database-router.service';
+import { DatabaseRouter, type IDataPrismaQueryExecutor } from './database-router.service';
 
 describe('DatabaseRouter', () => {
   it('exposes resolved base data DB routing metadata', async () => {
@@ -18,7 +18,8 @@ describe('DatabaseRouter', () => {
       {} as never,
       {} as never,
       {} as never,
-      dataDbClientManager as never
+      dataDbClientManager as never,
+      { get: vi.fn() } as never
     );
 
     await expect(router.getDataDatabaseForBase('bsexxx')).resolves.toBe(resolved);
@@ -41,7 +42,8 @@ describe('DatabaseRouter', () => {
       {} as never,
       {} as never,
       {} as never,
-      dataDbClientManager as never
+      dataDbClientManager as never,
+      { get: vi.fn() } as never
     );
 
     await expect(router.queryDataPrismaForTable('tblxxx', 'select 1')).resolves.toEqual([
@@ -68,7 +70,8 @@ describe('DatabaseRouter', () => {
       {} as never,
       {} as never,
       {} as never,
-      dataDbClientManager as never
+      dataDbClientManager as never,
+      { get: vi.fn() } as never
     );
 
     await router.queryDataPrismaForTable(
@@ -110,7 +113,8 @@ describe('DatabaseRouter', () => {
       {} as never,
       {} as never,
       {} as never,
-      dataDbClientManager as never
+      dataDbClientManager as never,
+      { get: vi.fn() } as never
     );
 
     await expect(router.queryDataPrismaForTable('tblxxx', 'select * from x')).resolves.toEqual([
@@ -143,7 +147,8 @@ describe('DatabaseRouter', () => {
       {} as never,
       {} as never,
       {} as never,
-      dataDbClientManager as never
+      dataDbClientManager as never,
+      { get: vi.fn() } as never
     );
 
     await expect(
@@ -167,7 +172,8 @@ describe('DatabaseRouter', () => {
       {} as never,
       {} as never,
       {} as never,
-      dataDbClientManager as never
+      dataDbClientManager as never,
+      { get: vi.fn() } as never
     );
 
     await router.dataPrismaTransactionForTable('tblxxx', async (prisma) => {
@@ -176,5 +182,71 @@ describe('DatabaseRouter', () => {
 
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(executeRaw).toHaveBeenCalledWith('alter table x');
+  });
+
+  it.each([
+    { route: 'table', kind: '$tx', scopeKey: 'actorStorageScope' },
+    { route: 'table', kind: '$transaction', scopeKey: 'dataTx.actorStorageScope' },
+    { route: 'base', kind: '$tx', scopeKey: 'tx.actorStorageScope' },
+    { route: 'base', kind: '$transaction', scopeKey: 'actorStorageScope' },
+  ])('checks the trusted lease before $route $kind commits', async ({ route, kind, scopeKey }) => {
+    const effects: string[] = [];
+    const leaseLost = new Error('Actor storage lease lost');
+    let held = true;
+    const assertHeld = vi.fn(async () => {
+      effects.push('assert');
+      if (!held) throw leaseLost;
+    });
+    const executor: IDataPrismaQueryExecutor = {
+      $queryRawUnsafe: vi.fn(),
+      $executeRawUnsafe: vi.fn(async (sql: string) => {
+        effects.push(sql);
+        return 1;
+      }),
+    };
+    const transaction = vi.fn(
+      async (callback: (tx: IDataPrismaQueryExecutor) => Promise<unknown>) => {
+        try {
+          const result = await callback(executor);
+          effects.push('commit');
+          return result;
+        } catch (error) {
+          effects.push('rollback');
+          throw error;
+        }
+      }
+    );
+    const rootExecute = vi.fn(() => {
+      throw new Error('Must use provided transaction executor');
+    });
+    const client = {
+      $executeRawUnsafe: rootExecute,
+      $queryRawUnsafe: vi.fn(),
+      [kind]: transaction,
+    };
+    const router = new DatabaseRouter(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        dataPrismaForTable: async () => client,
+        dataPrismaForBase: async () => client,
+      } as never,
+      { get: (key: string) => (key === scopeKey ? { assertHeld } : undefined) } as never
+    );
+    const mutate = async (tx: IDataPrismaQueryExecutor) => {
+      expect(tx).toBe(executor);
+      await tx.$executeRawUnsafe('row');
+      held = false;
+    };
+    await expect(
+      route === 'table'
+        ? router.dataPrismaTransactionForTable('tblActor', mutate)
+        : router.dataPrismaTransactionForBase('bseActor', mutate)
+    ).rejects.toBe(leaseLost);
+    expect(effects).toEqual(['row', 'assert', 'rollback']);
+    expect(rootExecute).not.toHaveBeenCalled();
+    expect(assertHeld).toHaveBeenCalledTimes(1);
   });
 });

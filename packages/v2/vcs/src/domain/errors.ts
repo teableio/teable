@@ -52,3 +52,19 @@ export const vcsDomainError = {
     makeVcsDomainError('infrastructure', params),
   unexpected: (params: IVcsErrorParams): DomainError => makeVcsDomainError('unexpected', params),
 };
+
+export const VCS_WRITE_BUSY_CODE = 'vcs.write_busy';
+
+export const vcsWriteBusyError = (cause: unknown): DomainError =>
+  vcsDomainError.infrastructure({
+    code: VCS_WRITE_BUSY_CODE,
+    message: 'VCS write is temporarily busy. Retry the request.',
+    details: { retryable: true },
+    cause,
+  });
+
+export const readonlyCheckoutError = () =>
+  vcsDomainError.forbidden({
+    code: 'vcs.readonly_checkout',
+    message: 'Historical checkouts are read-only.',
+  });

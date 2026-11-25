@@ -36,7 +36,7 @@ export const executeDuplicateRecordEndpoint = async (
     };
   }
 
-  const mapped = mapDuplicateRecordResultToDto(result.value);
+  const mapped = mapDuplicateRecordResultToDto(result.value, result.value.recordActors);
   if (mapped.isErr()) {
     const error = mapped.error;
     return {

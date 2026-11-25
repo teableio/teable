@@ -73,6 +73,7 @@ import { RecordOpenApiService } from '../record/open-api/record-open-api.service
 import { convertLinkPasteCellValue } from '../record/paste-link-cell-value';
 import { RecordService } from '../record/record.service';
 import { IUpdateRecordsInternalRo } from '../record/type';
+import { RecordMutationPolicyService } from '../record-mutation-policy/record-mutation-policy.service';
 import { buildRawCopyContent } from './raw-copy-content';
 
 const exceedMaxPasteCellsI18nKey = 'httpErrors.selection.exceedMaxPasteCells';
@@ -115,7 +116,8 @@ export class SelectionService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly recordMutationPolicy: RecordMutationPolicyService
   ) {}
 
   async getIdsFromRanges(tableId: string, query: IRangesToIdQuery): Promise<IRangesToIdVo> {
@@ -579,6 +581,19 @@ export class SelectionService {
           records: newRecords,
         }
       : undefined;
+    // Admit the entire mixed write before field expansion or any existing-row changes.
+    if (createPayload) {
+      await this.recordMutationPolicy.assertAllowed({
+        tableId,
+        operation: 'create',
+        payload: createPayload,
+      });
+    }
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'update',
+      payload: updatePayload,
+    });
     await this.createV1PasteByIdFields(tableId, newFields);
 
     return {
@@ -1114,7 +1129,7 @@ export class SelectionService {
 
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     if (shareSource && includeRawContent) {
-      await this.recordService.hydrateSelectedUserCells(records, fields);
+      await this.recordService.hydrateSelectedUserCells(tableId, records, fields);
     }
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const rectangleData = records.map((record) =>
@@ -1276,6 +1291,11 @@ export class SelectionService {
             fields: effectFields,
           });
       const filteredNewRecords = permissionFilter ? await permissionFilter(newRecords) : newRecords;
+      await this.recordMutationPolicy.assertAllowed({
+        tableId,
+        operation: 'create',
+        payload: { fieldKeyType: FieldKeyType.Id, records: filteredNewRecords },
+      });
 
       result = await this.recordOpenApiService.validateFieldsAndTypecast(
         tableId,
@@ -1374,6 +1394,22 @@ export class SelectionService {
       tableColCount,
       tableRowCount,
     ]);
+    const admissionRecords = sourceFields
+      ? this.cellValueToRecords({ tableData, fields: effectFields, sourceFields })
+      : this.tableDataToRecords({ tableData: tableData as string[][], fields: effectFields });
+    const newAdmissionRecords = admissionRecords.slice(existingRecords.length);
+    if (numRowsToExpand && newAdmissionRecords.length) {
+      await this.recordMutationPolicy.assertAllowed({
+        tableId,
+        operation: 'create',
+        payload: { fieldKeyType: FieldKeyType.Id, records: newAdmissionRecords },
+      });
+    }
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'update',
+      payload: this.fillCells(existingRecords, admissionRecords.slice(0, existingRecords.length)),
+    });
     await expansionChecker?.(numColsToExpand, numRowsToExpand);
 
     const updateRange: IPasteVo['ranges'] = [cell, cell];

@@ -1982,6 +1982,8 @@
     "agentStartFailed": "Il motore IA non è riuscito ad avviarsi. Riprova o avvia una nuova sessione.",
     "agentSessionLost": "Si è verificato un problema. Invia di nuovo il messaggio.",
     "sandboxDestroyed": "L’ambiente di Cuppy è stato chiuso e la risposta si è interrotta",
+    "streamInterrupted": "L’ambiente di esecuzione si è riavviato inaspettatamente",
+    "streamInterruptedDescription": "La risposta è stata interrotta dal riavvio dell’ambiente. Riprova.",
     "sandboxOutOfMemory": "Cuppy si è fermato a metà",
     "sandboxOutOfMemoryDescription": "Questo passaggio ha richiesto più risorse di quelle a disposizione di Cuppy. Non dipende da te. Seleziona Continua e Cuppy controllerà a che punto era prima di proseguire.",
     "sandboxOutOfMemoryAction": "Continua",

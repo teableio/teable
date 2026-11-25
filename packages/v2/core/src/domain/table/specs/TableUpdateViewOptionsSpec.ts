@@ -74,6 +74,7 @@ export class TableUpdateViewOptionsSpec<
       views: nextViews,
       primaryFieldId: table.primaryFieldId(),
       searchIndex: table.searchIndex(),
+      actorStorageVersion: table.actorStorageVersion(),
       dbTableName: dbTableNameResult.isOk() ? dbTableNameResult.value : undefined,
     });
   }

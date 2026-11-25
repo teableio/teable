@@ -269,6 +269,7 @@ export class TableUpdateViewColumnMetaSpec<
       views: nextViews,
       primaryFieldId: t.primaryFieldId(),
       searchIndex: t.searchIndex(),
+      actorStorageVersion: t.actorStorageVersion(),
       dbTableName: dbTableNameResult.isOk() ? dbTableNameResult.value : undefined,
     });
   }

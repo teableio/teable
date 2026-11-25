@@ -3,6 +3,8 @@ import type { IFieldVo } from '@teable/core';
 import Knex from 'knex';
 import { vi } from 'vitest';
 import { AttachmentCellValueService } from '../attachments/attachment-cell-value.service';
+import { RecordActorResolverService } from '../record-attribution/record-actor-resolver.service';
+import { RecordMutationPolicyService } from '../record-mutation-policy/record-mutation-policy.service';
 import { RecordService } from './record.service';
 
 const { captureException, sentryScope, withScope } = vi.hoisted(() => {
@@ -49,7 +51,7 @@ describe('RecordService', () => {
         },
       },
     ];
-    await service.hydrateSelectedUserCells(records, [
+    await service.hydrateSelectedUserCells('tblSelected', records, [
       { id: 'fldUser', type: FieldType.User },
       { id: 'fldHidden', type: FieldType.User, isLookup: true },
     ]);
@@ -68,6 +70,114 @@ describe('RecordService', () => {
       fldHidden: [{ id: 'usrHidden' }],
     });
   });
+
+  it.each([
+    ['tblBusiness', true, 'Authorized profile'],
+    ['tblBusiness', false, 'apu_private'],
+    ['tblOtherBase', true, 'apu_private'],
+  ] as const)(
+    'scopes App cell presentation for table=%s profileRead=%s',
+    async (tableId, canReadProfile, title) => {
+      const principalId = 'apu_private';
+      const actorKey = `appUser:${principalId}`;
+      const identityEmail = 'private-identity@example.test';
+      const appUserFindMany = vi
+        .fn()
+        .mockResolvedValue([{ id: principalId, email: identityEmail }]);
+      const profiles = {
+        resolve: vi.fn(async (baseId: string) => {
+          const actors: Record<string, { name: string; avatar: null }> = {};
+          if (baseId === 'bseAllowed' && canReadProfile) {
+            actors[actorKey] = { name: 'Authorized profile', avatar: null };
+          }
+          return actors;
+        }),
+      };
+      const resolver = new RecordActorResolverService(
+        {
+          tableMeta: {
+            findFirst: vi.fn(async ({ where }: { where: { id: string } }) => ({
+              baseId: where.id === 'tblBusiness' ? 'bseAllowed' : 'bseOther',
+            })),
+          },
+        } as never,
+        profiles
+      );
+      const service = Object.create(RecordService.prototype) as RecordService;
+      Object.assign(service, {
+        prismaService: { txClient: () => ({ appUser: { findMany: appUserFindMany } }) },
+        recordActorResolver: resolver,
+      });
+      const records = [
+        {
+          fields: {
+            fldSelected: [
+              null,
+              {
+                id: principalId,
+                title: identityEmail,
+                email: identityEmail,
+                avatarUrl: 'private-avatar',
+              },
+              { id: principalId, title: principalId },
+            ],
+            fldUntouched: 'unchanged',
+          },
+        },
+      ];
+      await service.hydrateSelectedUserCells(tableId, records, [
+        { id: 'fldSelected', type: FieldType.User },
+      ]);
+      expect(records[0].fields).toEqual({
+        fldSelected: [null, { id: principalId, title }, { id: principalId, title }],
+        fldUntouched: 'unchanged',
+      });
+      expect(profiles.resolve).toHaveBeenCalledWith(
+        tableId === 'tblBusiness' ? 'bseAllowed' : 'bseOther',
+        [{ type: 'appUser', id: principalId }]
+      );
+      expect(appUserFindMany).not.toHaveBeenCalled();
+      expect(JSON.stringify(records[0].fields.fldSelected)).not.toContain(identityEmail);
+    }
+  );
+
+  it.each([true, false])(
+    'returns the existing hydrated single-record projection with permission=%s',
+    async (withPermission) => {
+      const service = Object.create(RecordService.prototype) as RecordService;
+      const record = {
+        id: 'recSelected',
+        fields: { fldTracked: { id: 'apuEarlier', title: 'Earlier initiator' } },
+        lastModifiedByActorType: 'appUser',
+        lastModifiedByActorId: 'apuLatest',
+      };
+      const getSnapshotBulk = vi.fn().mockResolvedValue([{ data: record }]);
+      const getSnapshotBulkWithPermission = vi.fn().mockResolvedValue([{ data: record }]);
+      Object.assign(service, { getSnapshotBulk, getSnapshotBulkWithPermission });
+      const actual = await service.getRecord(
+        'tblSelected',
+        record.id,
+        { projection: ['fldTracked'], fieldKeyType: FieldKeyType.Id },
+        withPermission
+      );
+      expect(actual).toBe(record);
+      expect(actual.fields).toEqual({
+        fldTracked: { id: 'apuEarlier', title: 'Earlier initiator' },
+      });
+      const selectedReader = withPermission ? getSnapshotBulkWithPermission : getSnapshotBulk;
+      expect(selectedReader).toHaveBeenCalledWith(
+        'tblSelected',
+        ['recSelected'],
+        { fldTracked: true },
+        FieldKeyType.Id,
+        undefined,
+        false
+      );
+      expect(
+        withPermission ? getSnapshotBulk : getSnapshotBulkWithPermission
+      ).not.toHaveBeenCalled();
+    }
+  );
 
   it('excludes pending fields from snapshot projections while keeping errored fields readable', async () => {
     const createTextField = (id: string, overrides: Partial<IFieldVo> = {}): IFieldVo => ({
@@ -335,65 +445,54 @@ describe('RecordService', () => {
     await dataKnex.destroy();
   });
 
-  it('does not write record history for SQL-only imported records', async () => {
-    const dataKnex = Knex({ client: 'pg' });
-    const executedSql: string[] = [];
-    const service = Object.create(RecordService.prototype) as {
-      creditCheck: ReturnType<typeof vi.fn>;
-      getFieldsByProjection: ReturnType<typeof vi.fn>;
-      getWritableCreatedTimeFieldNames: ReturnType<typeof vi.fn>;
-      getWritableCreatedByFieldNames: ReturnType<typeof vi.fn>;
-      cls: { get: ReturnType<typeof vi.fn> };
-      dbProvider: { batchInsertSql: ReturnType<typeof vi.fn> };
-      databaseRouter: {
-        executeDataPrismaForTable: ReturnType<typeof vi.fn>;
-        dataKnexForTable: ReturnType<typeof vi.fn>;
-        getDataDatabaseUrlForTable: ReturnType<typeof vi.fn>;
-      };
-      createRecordsOnlySql: RecordService['createRecordsOnlySql'];
-    };
-
-    service.cls = {
-      get: vi.fn((key: string) =>
-        key === 'user' ? { id: 'usrImport', name: 'User', email: 'user@example.com' } : undefined
-      ),
-    };
-    service.creditCheck = vi.fn().mockResolvedValue(undefined);
-    service.getFieldsByProjection = vi.fn().mockResolvedValue([
-      {
-        id: 'fldText',
-        name: 'Text',
-        type: FieldType.SingleLineText,
-        dbFieldName: 'fld_text',
-        convertCellValue2DBValue: vi.fn((value) => value),
+  it('rejects deletion and does not publish document operations when transactional audit persistence fails', async () => {
+    const knex = Knex({ client: 'pg' });
+    const auditError = new Error('audit outbox unavailable');
+    const rawOps = { ['record_tblDelete']: {} };
+    const publishRawOps = vi.fn();
+    const executeDataPrismaForTable = vi.fn(() => {
+      throw new Error('Root executor must not delete');
+    });
+    const transactionExecute = vi.fn().mockResolvedValue(1);
+    let transactionRolledBack = false;
+    const persistRecordOperationAudit = vi.fn().mockRejectedValue(auditError);
+    const service = Object.create(RecordService.prototype) as RecordService;
+    Object.assign(service, {
+      recordMutationPolicy: new RecordMutationPolicyService(),
+      knex,
+      recordActorStorageService: {
+        withTableWrite: async (_id: string, action: (meta: unknown) => Promise<unknown>) =>
+          action({ id: 'tblDelete', dbTableName: 'base.records', actorStorageVersion: 1 }),
       },
-    ]);
-    service.getWritableCreatedTimeFieldNames = vi.fn().mockResolvedValue(new Set());
-    service.getWritableCreatedByFieldNames = vi.fn().mockResolvedValue(new Set());
-    service.dbProvider = {
-      batchInsertSql: vi.fn().mockReturnValue('insert into "bse_data"."tbl_imported" values (...)'),
-    };
-    service.databaseRouter = {
-      executeDataPrismaForTable: vi.fn(async (_tableId: string, sql: string) => {
-        executedSql.push(sql);
-        return 1;
-      }),
-      dataKnexForTable: vi.fn().mockResolvedValue(dataKnex),
-      getDataDatabaseUrlForTable: vi
-        .fn()
-        .mockResolvedValue('postgresql://user:pass@example.test:5432/data?schema=teable_internal'),
-    };
-
-    await service.createRecordsOnlySql(
-      { id: 'tblImport', dbTableName: 'bse_data.tbl_imported' } as never,
-      [{ fields: { fldText: 'Imported value' } }],
-      FieldKeyType.Id
-    );
-
-    expect(executedSql[0]).toContain('"bse_data"."tbl_imported"');
-    expect(executedSql).toHaveLength(1);
-    expect(executedSql.some((sql) => sql.includes('record_history'))).toBe(false);
-
-    await dataKnex.destroy();
+      databaseRouter: {
+        queryDataPrismaForTable: vi.fn(() => {
+          throw new Error('Root executor must not read transaction versions');
+        }),
+        executeDataPrismaForTable,
+        dataPrismaTransactionForTable: async (
+          _id: string,
+          action: (tx: unknown) => Promise<unknown>
+        ) => {
+          try {
+            return await action({
+              $queryRawUnsafe: async () => [{ id: 'recDelete', version: 3 }],
+              $executeRawUnsafe: transactionExecute,
+            });
+          } catch (error) {
+            transactionRolledBack = true;
+            throw error;
+          }
+        },
+      },
+      rawOpStagingService: { saveRawOps: vi.fn().mockReturnValue(rawOps), publishRawOps },
+      eventEmitterService: { persistRecordOperationAudit },
+    });
+    await expect(service.batchDeleteRecords('tblDelete', ['recDelete'])).rejects.toBe(auditError);
+    expect(transactionRolledBack).toBe(true);
+    expect(transactionExecute).toHaveBeenCalledWith(expect.stringContaining('delete from'));
+    expect(executeDataPrismaForTable).not.toHaveBeenCalled();
+    expect(persistRecordOperationAudit).toHaveBeenCalledWith([rawOps], expect.any(Function));
+    expect(publishRawOps).not.toHaveBeenCalled();
+    await knex.destroy();
   });
 });

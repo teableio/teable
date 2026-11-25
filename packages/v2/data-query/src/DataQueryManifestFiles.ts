@@ -124,6 +124,19 @@ const stableValue = (value: unknown, orderedMaps?: ReadonlySet<object>): unknown
 };
 const json = (value: unknown, orderedMaps?: ReadonlySet<object>): string =>
   JSON.stringify(stableValue(value, orderedMaps), null, 2);
+const parameterType = (
+  name: string,
+  parameter: DataQueryParameterDefinition,
+  dimensions?: readonly string[]
+): string => {
+  if (name === 'groupBy' && dimensions) {
+    const aliases = dimensions.map((alias) => JSON.stringify(alias)).join(' | ');
+    return aliases ? `Array<${aliases}>` : '[]';
+  }
+  if (dimensions && parameter.type === 'number') return 'number | string';
+  return parameter.type === 'date' ? 'QueryDate' : parameter.type;
+};
+
 const outputType = (output: DataQueryOutput): string => {
   if (output.wireType === 'unknown') return 'unknown';
   const primitive: Record<Exclude<DataQueryOutput['wireType'], 'unknown'>, string> = {
@@ -317,7 +330,7 @@ export function generateAppQueryArtifacts(
           ([name, parameter]) =>
             `    ${JSON.stringify(name)}${
               isOptionalParameter(name, parameter) ? '?' : ''
-            }: ${parameter.type === 'date' ? 'QueryDate' : parameter.type}${
+            }: ${parameterType(name, parameter, composition?.metricDimensions)}${
               parameter.nullable ? ' | null' : ''
             };`
         )
@@ -455,12 +468,36 @@ const fallbacks = ${json(fallbacks)};
 const libraries = ${json(Object.fromEntries(ids.map((id) => [id, manifest.queries[id].library ?? null])))};
 
 export class QueryError extends Error {
-  constructor(public readonly code: string, public readonly queryId: QueryId) {
-    super(\`Query \${queryId} failed (\${code})\`);
+  constructor(public readonly code: string, public readonly queryId: QueryId, message = \`Query \${queryId} failed (\${code})\`) {
+    super(message);
     this.name = 'QueryError';
   }
 }
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+function assertQueryResponse(queryId: QueryId, response: unknown): asserts response is {
+  data: { rows: Record<string, unknown>[]; page?: unknown };
+} {
+  if (!isObject(response)) throw new QueryError('data_query.invalid_response', queryId);
+  if (libraries[queryId] && 'code' in response) {
+    const { status, code, message } = response;
+    if (!('ok' in response) && typeof status === 'number' && Number.isInteger(status) &&
+        status >= 400 && status < 600 && typeof code === 'string' &&
+        /^(?:query_library|data_query)\\.[a-z][a-z0-9_]*$/.test(code) &&
+        typeof message === 'string' && message.trim().length > 0) {
+      throw new QueryError(code, queryId, message);
+    }
+    throw new QueryError('data_query.invalid_response', queryId);
+  }
+  if (response.ok === false && isObject(response.error) &&
+      typeof response.error.code === 'string' && response.error.code.trim().length > 0) {
+    throw new QueryError(response.error.code, queryId);
+  }
+  if (response.ok !== true || !isObject(response.data) ||
+      !Array.isArray(response.data.rows) || !response.data.rows.every(isObject)) {
+    throw new QueryError('data_query.invalid_response', queryId);
+  }
+}
 
 type SqlParameter = {
   type: 'string' | 'number' | 'boolean' | 'string[]' | 'number[]' | 'boolean[]' | 'date';
@@ -603,13 +640,7 @@ ${
   } catch {
     throw new QueryError('data_query.transport_failed', queryId);
   }
-  if (!isObject(response)) throw new QueryError('data_query.invalid_response', queryId);
-  if (response.ok === false && isObject(response.error) && typeof response.error.code === 'string') {
-    throw new QueryError(response.error.code, queryId);
-  }
-  if (response.ok !== true || !isObject(response.data) || !Array.isArray(response.data.rows) || !response.data.rows.every(isObject)) {
-    throw new QueryError('data_query.invalid_response', queryId);
-  }
+  assertQueryResponse(queryId, response);
   const rows = response.data.rows;
   if (one && rows.length > 1) throw new QueryError('data_query.cardinality', queryId);
   if (withPage) {
@@ -644,13 +675,7 @@ ${
   } catch {
     throw new QueryError('data_query.transport_failed', queryId);
   }
-  if (!isObject(response)) throw new QueryError('data_query.invalid_response', queryId);
-  if (response.ok === false && isObject(response.error) && typeof response.error.code === 'string') {
-    throw new QueryError(response.error.code, queryId);
-  }
-  if (response.ok !== true || !isObject(response.data) || !Array.isArray(response.data.rows) || !response.data.rows.every(isObject)) {
-    throw new QueryError('data_query.invalid_response', queryId);
-  }
+  assertQueryResponse(queryId, response);
   const rows = response.data.rows;
   if (one && rows.length > 1) throw new QueryError('data_query.cardinality', queryId);
   return (one ? rows[0] ?? null : rows) as One extends true ? QueryRows[K] | null : Array<QueryRows[K]>;
@@ -720,11 +745,17 @@ function compareContractParameters(previous: AppQueryContract, next: AppQueryCon
   const changes: Array<{ path: string; change: string }> = [];
   const { parameters: before, optional: beforeOptional } = contractParameters(previous);
   const { parameters: after, optional: afterOptional } = contractParameters(next);
+  const oldDimensions =
+    'composition' in previous ? previous.composition.metricDimensions : undefined;
+  const newDimensions = 'composition' in next ? next.composition.metricDimensions : undefined;
   for (const [name, parameter] of Object.entries(before)) {
     const updated = after[name];
     if (!updated) changes.push({ path: `parameters.${name}`, change: 'removed' });
     else if (
-      isParameterNarrowed(parameter, updated, beforeOptional.has(name), afterOptional.has(name))
+      isParameterNarrowed(parameter, updated, beforeOptional.has(name), afterOptional.has(name)) ||
+      (name === 'groupBy' &&
+        newDimensions &&
+        (!oldDimensions || oldDimensions.some((alias) => !newDimensions.includes(alias))))
     ) {
       changes.push({ path: `parameters.${name}`, change: 'narrowed' });
     }

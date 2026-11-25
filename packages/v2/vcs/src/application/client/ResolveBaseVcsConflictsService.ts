@@ -4,7 +4,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { diffSnapshots, isEmptyPatch } from '../../domain/diffSnapshots';
-import { vcsDomainError } from '../../domain/errors';
+import { readonlyCheckoutError, vcsDomainError } from '../../domain/errors';
 import { canonicalizeSnapshot } from '../../domain/fieldClassification';
 import { resolveConflicts } from '../../domain/resolveConflicts';
 import type {
@@ -200,6 +200,7 @@ export class ResolveBaseVcsConflictsService {
       );
     }
     const config = configRes.value;
+    if (config.readOnly) return err(readonlyCheckoutError());
 
     const conflictsRes = await this.stateRepository.readConflicts();
     if (conflictsRes.isErr()) return err(conflictsRes.error);

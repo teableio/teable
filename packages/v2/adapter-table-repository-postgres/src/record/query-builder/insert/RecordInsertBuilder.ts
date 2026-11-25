@@ -7,6 +7,7 @@ import type {
   FieldId,
   TableId,
   RecordId,
+  IExecutionContext,
 } from '@teable/v2-core';
 import {
   err,
@@ -143,6 +144,9 @@ export interface UserFieldColumn {
 export interface RecordInsertBuilderContext {
   recordId: string;
   actorId: string;
+  initiator?: IExecutionContext['initiator'];
+  /** Server-owned restore only; null preserves an unknown historical creator. */
+  createdByActor?: IExecutionContext['initiator'] | null;
   now: string;
   version?: number;
   actorName?: string;
@@ -365,6 +369,17 @@ export class RecordInsertBuilder {
         [VERSION_COLUMN]: context.version ?? 1,
         ...(typeof context.autoNumber === 'number' ? { __auto_number: context.autoNumber } : {}),
       };
+      if (table.actorStorageVersion() === 1) {
+        const creator =
+          context.createdByActor === undefined ? context.initiator : context.createdByActor;
+        values.__created_by_actor_type = creator?.type ?? null;
+        values.__created_by_actor_id = creator?.id ?? null;
+        // Preserve native initialization: a nullable native last modifier stays unknown.
+        values.__last_modified_by_actor_type =
+          lastModifiedBy == null ? null : (context.initiator?.type ?? null);
+        values.__last_modified_by_actor_id =
+          lastModifiedBy == null ? null : (context.initiator?.id ?? null);
+      }
 
       const additionalStatements: CompiledSqlStatement[] = [];
       const linkedRecordLocks: LinkedRecordLockInfo[] = [];

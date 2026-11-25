@@ -381,10 +381,11 @@ export class OAuthService {
    */
   async revokeToken(clientId: string) {
     const userId = this.cls.get('user.id');
-    const accessTokenIds = await this.prismaService.$tx(async (prisma) => {
-      await prisma.oAuthAppAuthorized.delete({
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        where: { clientId_userId: { clientId, userId } },
+    const { revokedGrantCount, accessTokenIds } = await this.prismaService.$tx(async (prisma) => {
+      // deleteMany, not delete: a repeated revoke (double submit, another tab) finds no grant
+      // and must succeed rather than fail with "record to delete does not exist".
+      const authorized = await prisma.oAuthAppAuthorized.deleteMany({
+        where: { clientId, userId },
       });
 
       await prisma.oAuthAppToken.deleteMany({
@@ -394,9 +395,15 @@ export class OAuthService {
         },
       });
 
-      return await this.deleteAccessTokens(prisma, { clientId, userId });
+      return {
+        revokedGrantCount: authorized.count,
+        accessTokenIds: await this.deleteAccessTokens(prisma, { clientId, userId }),
+      };
     });
     await this.invalidateAccessTokenCache(accessTokenIds);
+    if (revokedGrantCount === 0 && accessTokenIds.length === 0) {
+      return;
+    }
     await this.audit.emitAtomic({
       action: 'oauth-app.token.revoke',
       resourceId: clientId,

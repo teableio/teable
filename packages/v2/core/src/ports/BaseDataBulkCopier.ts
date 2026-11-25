@@ -38,6 +38,8 @@ export interface BulkCopyTableInput {
   sourceDbTableName: string;
   /** Fully qualified `schema.table` of the freshly created target table. */
   targetDbTableName: string;
+  /** Destination capability loaded under write coordination. */
+  targetActorStorageVersion?: number;
   /**
    * Physical target columns that must not receive inserted values: computed
    * fields (generated columns reject INSERT) and button fields. Stored computed
@@ -64,6 +66,8 @@ export interface BulkCopyJunctionInput {
 }
 
 export interface BaseDataBulkCopyPlan {
+  /** Logical destination base; physical schemas are not identity. */
+  targetBaseId: string;
   tables: ReadonlyArray<BulkCopyTableInput>;
   junctions: ReadonlyArray<BulkCopyJunctionInput>;
   /** source view id -> target view id (drives `__row_*` column remapping). */
@@ -90,11 +94,12 @@ export interface BaseDataBulkCopyResult {
 /**
  * Physical same-database base data copier.
  *
- * Duplicating a base clones records verbatim — including computed values, link
- * storage columns and junction tables — so routing rows through the domain
- * model would buy no invariant and cost a full hydrate per record. This port
- * owns the set-based fast path (INSERT…SELECT with an FK drop/rebuild cycle)
- * so the duplicate command handler does not depend on host services. It is
+ * Copies durable business values, link storage and junctions without hydrating
+ * every record. Native audit columns retain the existing regeneration rules;
+ * enabled actor columns identify the current initiator, never the source row.
+ * Creation operation evidence is journaled in the same data transaction using
+ * bounded ID samples and the actual row count. The set-based INSERT…SELECT and
+ * FK drop/rebuild cycle do not depend on host services. This copier is
  * only usable when every source table and junction is reachable from the target
  * base's data connection; callers fall back to row streaming otherwise.
  */

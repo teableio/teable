@@ -254,9 +254,8 @@ describe('MemoryUndoRedoStore', () => {
       groupId: 'checkpoint-group',
     }));
     for (const [index, entry] of entries.entries()) {
-      (
-        await store.append(scope, { ...entry, groupPosition: index === 0 ? 'start' : 'continue' })
-      )._unsafeUnwrap();
+      const groupPosition = index === 0 ? 'start' : 'continue';
+      (await store.append(scope, { ...entry, groupPosition }))._unsafeUnwrap();
     }
 
     const first = (await store.reserve(scope, 'undo'))._unsafeUnwrap()!;

@@ -169,6 +169,10 @@ describe('GetCalendarDailyCollectionHandler', () => {
           [fixture.nameId.toString()]: name,
           [fixture.startId.toString()]: '2025-01-01T00:00:00.000Z',
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       }));
       const handler = new GetCalendarDailyCollectionHandler(
         new MemoryTableRepository(),
@@ -213,6 +217,10 @@ describe('GetCalendarDailyCollectionHandler', () => {
         [startId]: '2025-01-01T00:00:00.000Z',
         [endId]: index === 0 ? null : '2025-01-02T00:00:00.000Z',
       },
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     }));
     const visibleWhen = buildRecordConditionSpec(fixture.table, {
       fieldId: endId,
@@ -318,8 +326,24 @@ describe('GetCalendarDailyCollectionHandler', () => {
         ]);
         return ok({
           records: [
-            { id: firstId.toString(), fields: { [fixture.nameId.toString()]: 'A' }, version: 1 },
-            { id: secondId.toString(), fields: { [fixture.nameId.toString()]: 'B' }, version: 1 },
+            {
+              id: firstId.toString(),
+              fields: { [fixture.nameId.toString()]: 'A' },
+              version: 1,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
+            },
+            {
+              id: secondId.toString(),
+              fields: { [fixture.nameId.toString()]: 'B' },
+              version: 1,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
+            },
           ],
           total: 2,
         });

@@ -16,7 +16,7 @@ import { Test } from '@nestjs/testing';
 import type { Worker } from 'bullmq';
 import { ClsService } from 'nestjs-cls';
 import { Logger } from 'nestjs-pino';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Import production roots and bootstrap functions while substituting feature-module boundaries.
 // The actual root constructors/hooks and bootstrap's Nest options are exercised below.
@@ -208,14 +208,6 @@ vi.doMock(new URL('./filter/global-exception.filter', communitySource).pathname,
 vi.doMock(new URL('./swagger', communitySource).pathname, () => ({ setupSwagger: vi.fn() }));
 vi.doMock(new URL('./swagger', enterpriseSource).pathname, () => ({ setupSwagger: vi.fn() }));
 vi.doMock('is-port-reachable', () => ({ default: async () => false }));
-vi.doMock('@teable/v2-core', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    isDomainError: () => false,
-    toError: (error: unknown) => error,
-  };
-});
 
 function deferred() {
   let resolve!: () => void;
@@ -237,28 +229,49 @@ function post(url: string): Promise<number> {
   });
 }
 
-// Load the real roots after doMock has registered their module boundaries. Collection
-// absorbs Vite's cold imports before the shutdown test starts its five-second budget.
-const { AppModule: CommunityRoot } = await import(new URL('./app.module', communitySource).href);
-const EnterpriseRoot = hasEnterpriseSource
-  ? (await import(new URL('./app.module', enterpriseSource).href)).AppModule
-  : undefined;
-const { V2ContainerService } = await import(
-  new URL('./features/v2/v2-container.service', communitySource).href
-);
-const { ComputedReliabilityReconciliationService } = await import(
-  new URL(
-    './features/v2/computed-outbox-trigger/computed-reliability-reconciliation.service',
-    communitySource
-  ).href
-);
-const communityBootstrap = await import(new URL('./bootstrap', communitySource).href);
-const enterpriseBootstrap = hasEnterpriseSource
-  ? await import(new URL('./bootstrap', enterpriseSource).href)
-  : undefined;
+async function loadFixtureModules() {
+  // These imports must follow the doMock calls: this fixture intentionally substitutes the
+  // production module-loading boundaries before evaluating the real root decorators.
+  const { AppModule: CommunityRoot } = await import(new URL('./app.module', communitySource).href);
+  const EnterpriseRoot = hasEnterpriseSource
+    ? (await import(new URL('./app.module', enterpriseSource).href)).AppModule
+    : undefined;
+  const { V2ContainerService } = await import(
+    new URL('./features/v2/v2-container.service', communitySource).href
+  );
+  const { ComputedReliabilityReconciliationService } = await import(
+    new URL(
+      './features/v2/computed-outbox-trigger/computed-reliability-reconciliation.service',
+      communitySource
+    ).href
+  );
+  const community = await import(new URL('./bootstrap', communitySource).href);
+  const ee = hasEnterpriseSource
+    ? await import(new URL('./bootstrap', enterpriseSource).href)
+    : undefined;
+  return {
+    CommunityRoot,
+    EnterpriseRoot,
+    V2ContainerService,
+    ComputedReliabilityReconciliationService,
+    community,
+    ee,
+  };
+}
 
-async function startFixture(enterprise: boolean) {
-  const production = enterprise ? enterpriseBootstrap : communityBootstrap;
+async function startFixture(
+  enterprise: boolean,
+  modules: Awaited<ReturnType<typeof loadFixtureModules>>
+) {
+  const {
+    CommunityRoot,
+    EnterpriseRoot,
+    V2ContainerService,
+    ComputedReliabilityReconciliationService,
+  } = modules;
+  const production = enterprise ? modules.ee : modules.community;
+  const root = enterprise ? EnterpriseRoot : CommunityRoot;
+  if (!production || !root) throw new Error('Requested production fixture is unavailable');
   const requestStarted = deferred();
   const releaseRequest = deferred();
   const projectionStarted = deferred();
@@ -372,7 +385,7 @@ async function startFixture(enterprise: boolean) {
     Reflect.defineMetadata(MODULE_METADATA.PROVIDERS, [], EnterpriseRoot);
   }
   const module = await Test.createTestingModule({
-    imports: [enterprise ? EnterpriseRoot : CommunityRoot],
+    imports: [root],
   }).compile();
   const create = vi
     .spyOn(NestFactory, 'create')
@@ -438,10 +451,15 @@ async function startFixture(enterprise: boolean) {
 }
 
 describe('production CE and EE bootstrap/root shutdown lifecycle', () => {
+  let modules: Awaited<ReturnType<typeof loadFixtureModules>>;
+  beforeAll(async () => {
+    modules = await loadFixtureModules();
+  }, 30_000);
+
   it.each(hasEnterpriseSource ? [false, true] : [false])(
     'rejects new HTTP work and drains accepted work before dependencies close (EE: %s)',
     async (enterprise) => {
-      const fixture = await startFixture(enterprise);
+      const fixture = await startFixture(enterprise, modules);
       const accepted = post(fixture.url);
       let closing: Promise<void> | undefined;
       try {

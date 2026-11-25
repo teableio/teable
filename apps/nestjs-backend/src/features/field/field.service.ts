@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import {
   FieldOpBuilder,
   HttpErrorCode,
@@ -45,6 +45,7 @@ import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 
 import { DataLoaderService } from '../data-loader/data-loader.service';
+import { FieldPeriodicRefreshStateService } from '../field-periodic-refresh/field-periodic-refresh-state.service';
 import { TableDomainQueryService } from '../table-domain/table-domain-query.service';
 import { FormulaFieldService } from './field-calculate/formula-field.service';
 import { LinkFieldQueryService } from './field-calculate/link-field-query.service';
@@ -100,7 +101,9 @@ export class FieldService implements IReadonlyAdapterService {
 
     private readonly formulaFieldService: FormulaFieldService,
     private readonly linkFieldQueryService: LinkFieldQueryService,
-    private readonly tableDomainQueryService: TableDomainQueryService
+    private readonly tableDomainQueryService: TableDomainQueryService,
+    @Optional()
+    private readonly fieldPeriodicRefreshStateService?: FieldPeriodicRefreshStateService
   ) {}
 
   private invalidateFieldLoader(tableIds: string | string[]) {
@@ -843,12 +846,10 @@ export class FieldService implements IReadonlyAdapterService {
 
     const fieldValidationSqls = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        if (key === 'unique') {
-          if (newValue) {
-            table.unique([dbFieldName], {
-              indexName: this.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId),
-            });
-          }
+        if (key === 'unique' && newValue) {
+          table.unique([dbFieldName], {
+            indexName: this.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId),
+          });
         }
 
         if (key === 'notNull') {
@@ -912,6 +913,7 @@ export class FieldService implements IReadonlyAdapterService {
       );
     }
     const fieldVo = rawField2FieldObj(field);
+    await this.fieldPeriodicRefreshStateService?.attachPeriodicRefreshToFieldVos([fieldVo]);
     // Filter out meta field to prevent it from being sent to frontend
     return omit(fieldVo, ['meta']) as IFieldVo;
   }
@@ -936,6 +938,7 @@ export class FieldService implements IReadonlyAdapterService {
     });
 
     let result = fieldsPlain.map(rawField2FieldObj);
+    await this.fieldPeriodicRefreshStateService?.attachPeriodicRefreshToFieldVos(result);
 
     // filter by projection
     if (query?.projection) {
@@ -1542,6 +1545,7 @@ export class FieldService implements IReadonlyAdapterService {
       where: { tableId, id: { in: ids } },
     });
     const fields = fieldRaws.map((field) => rawField2FieldObj(field));
+    await this.fieldPeriodicRefreshStateService?.attachPeriodicRefreshToFieldVos(fields);
 
     return fieldRaws
       .map((fieldRaw, i) => {

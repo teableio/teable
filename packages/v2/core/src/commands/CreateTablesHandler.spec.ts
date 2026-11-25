@@ -47,9 +47,15 @@ import type {
   InsertManyStreamOptions,
   InsertManyStreamResult,
   InsertOptions,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
+import type {
+  ITableRepository,
+  TableProvisionOperationOptions,
+  TableProvisionState,
+} from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateTablesCommand } from './CreateTablesCommand';
@@ -116,6 +122,8 @@ class FakeTableRepository implements ITableRepository {
   updated: Table[] = [];
   provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
   failFind: DomainError | undefined;
+  actorPublications: TableProvisionOperationOptions[] = [];
+  beforeActorPublication?: () => void;
 
   async insert(_context: IExecutionContext, table: Table) {
     this.inserted.push(table);
@@ -169,11 +177,23 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const index = this.inserted.findIndex((entry) => entry.id().equals(table.id()));
+    if (index < 0) this.inserted.push(table);
+    else this.inserted[index] = table;
+    return ok(undefined);
+  }
+
   async setProvisionStateMany(
     _context: IExecutionContext,
     tables: ReadonlyArray<Table>,
-    state: TableProvisionState
+    state: TableProvisionState,
+    operation?: TableProvisionOperationOptions
   ): Promise<Result<void, DomainError>> {
+    if (operation?.publishActorStorageVersion === 1) {
+      this.beforeActorPublication?.();
+      this.actorPublications.push(operation);
+    }
     for (const table of tables) {
       this.provisionStateChanges.push({ tableId: table.id().toString(), state });
     }
@@ -182,6 +202,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns() {
+    return ok(undefined);
+  }
+
   inserted: Table[] = [];
 
   async insert(_context: IExecutionContext, table: Table) {
@@ -216,6 +240,16 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     table: Table,
     records: ReadonlyArray<TableRecord>
   ) => BatchRecordMutationResult;
+
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.notImplemented({ message: 'Physical duplication is not used by this fixture' })
+    );
+  }
 
   async insert(
     _context: IExecutionContext,
@@ -314,6 +348,7 @@ class FakeEventBus implements IEventBus {
 }
 
 class FakeUnitOfWork implements IUnitOfWork {
+  dataCommitted = false;
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
@@ -333,7 +368,9 @@ class FakeUnitOfWork implements IUnitOfWork {
         [scope]: transaction,
       },
     };
-    return work(transactionContext);
+    const result = await work(transactionContext);
+    if (scope === 'data' && result.isOk()) this.dataCommitted = true;
+    return result;
   }
 }
 
@@ -405,6 +442,7 @@ describe('CreateTablesHandler', () => {
       createTableLimitPluginRunner(tableRepository),
       createFieldOperationPluginRunner([plugin])
     );
+    tableRepository.beforeActorPublication = () => expect(unitOfWork.dataCommitted).toBe(true);
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrap();
@@ -412,6 +450,11 @@ describe('CreateTablesHandler', () => {
     expect(tableRepository.inserted).toHaveLength(2);
     expect(schemaRepository.inserted).toHaveLength(2);
     expect(tableRepository.updated).toHaveLength(1);
+    expect(result._unsafeUnwrap().tables.map((table) => table.actorStorageVersion())).toEqual([
+      1, 1,
+    ]);
+    expect(schemaRepository.inserted.map((table) => table.actorStorageVersion())).toEqual([0, 0]);
+    expect(tableRepository.actorPublications).toHaveLength(1);
     expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
       'pending',
       'pending',

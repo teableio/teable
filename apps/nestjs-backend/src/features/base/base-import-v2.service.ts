@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Readable } from 'node:stream';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   type ILinkFieldOptions,
   type IUserCellValue,
@@ -77,10 +78,12 @@ import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { NotificationService } from '../notification/notification.service';
+import { RecordMutationPolicyService } from '../record-mutation-policy/record-mutation-policy.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { auditBaseCreated } from './base-create-audit';
+import { BASE_IMPORT_DATA_COMPLETE } from './base-import-completion';
 import { BaseImportComputedService } from './base-import-computed.service';
 import type { BaseImportProgressCallback, IBaseHostIdMaps } from './base-import-contract';
 import { formatBaseImportError } from './base-import-contract';
@@ -174,7 +177,9 @@ export class BaseImportV2Service {
     private readonly notificationService: NotificationService,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
-    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
+    private readonly spaceDataDbMigrationGuard: SpaceDataDbMigrationGuardService | undefined,
+    private readonly recordMutationPolicy: RecordMutationPolicyService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   private async assertSpaceWritable(spaceId: string) {
@@ -403,7 +408,9 @@ export class BaseImportV2Service {
         structure,
         { tableIdMap, fieldIdMap, viewIdMap },
         BaseDuplicateMode.Normal,
-        onProgress
+        onProgress,
+        false,
+        true
       );
     onProgress?.('queuing_attachments');
     await this.importAttachmentsV2(db, path);
@@ -414,7 +421,7 @@ export class BaseImportV2Service {
       relaxedRequiredUserFields: 0,
     };
     try {
-      await this.importTableDataV2(
+      const hasTableCsv = await this.importTableDataV2(
         path,
         base.id,
         structure,
@@ -428,47 +435,49 @@ export class BaseImportV2Service {
         onProgress,
         rowBudget
       );
-      await this.importTableLinkFieldsV2(
-        path,
-        base.id,
-        structure,
-        tableIdMap,
-        queryBus,
-        tableRecordRepository,
-        unitOfWork,
-        context,
-        warnings,
-        onProgress
-      );
-      const destinationTableIds = Object.values(tableIdMap);
-      try {
-        await this.computed.recomputeForTables(destinationTableIds);
-      } catch (error) {
-        const affectedTables = structure.tables.map((table) => ({
-          sourceTableId: table.id,
-          tableId: tableIdMap[table.id] ?? table.id,
-          name: table.name,
-        }));
-        onProgress?.({
-          phase: 'computed_backfill_failed',
-          detail: JSON.stringify({
-            baseId: base.id,
-            tableIds: destinationTableIds,
-            tables: affectedTables,
-          }),
-        });
-        const reason = error instanceof Error ? error.message : String(error);
-        throw new CustomHttpException(
-          `Base import created base ${base.id}, but computed field backfill failed for tables (${affectedTables
-            .map((table) => `${table.name}:${table.tableId}`)
-            .join(', ')}): ${reason}`,
-          HttpErrorCode.INTERNAL_SERVER_ERROR,
-          {
-            baseId: base.id,
-            affectedTableIds: destinationTableIds,
-            affectedTables,
-          }
+      if (hasTableCsv) {
+        await this.importTableLinkFieldsV2(
+          path,
+          base.id,
+          structure,
+          tableIdMap,
+          queryBus,
+          tableRecordRepository,
+          unitOfWork,
+          context,
+          warnings,
+          onProgress
         );
+        const destinationTableIds = Object.values(tableIdMap);
+        try {
+          await this.computed.recomputeForTables(destinationTableIds);
+        } catch (error) {
+          const affectedTables = structure.tables.map((table) => ({
+            sourceTableId: table.id,
+            tableId: tableIdMap[table.id] ?? table.id,
+            name: table.name,
+          }));
+          onProgress?.({
+            phase: 'computed_backfill_failed',
+            detail: JSON.stringify({
+              baseId: base.id,
+              tableIds: destinationTableIds,
+              tables: affectedTables,
+            }),
+          });
+          const reason = error instanceof Error ? error.message : String(error);
+          throw new CustomHttpException(
+            `Base import created base ${base.id}, but computed field backfill failed for tables (${affectedTables
+              .map((table) => `${table.name}:${table.tableId}`)
+              .join(', ')}): ${reason}`,
+            HttpErrorCode.INTERNAL_SERVER_ERROR,
+            {
+              baseId: base.id,
+              affectedTableIds: destinationTableIds,
+              affectedTables,
+            }
+          );
+        }
       }
 
       if (rowBudget?.truncatedTables.length) {
@@ -505,6 +514,23 @@ export class BaseImportV2Service {
       throw error;
     }
     await notifyBaseImportWarnings(this.notificationService, base.id, userId, warnings);
+    await this.eventEmitter.emitAsync(BASE_IMPORT_DATA_COMPLETE, {
+      baseId: base.id,
+      operationId: this.audit.current()!.operationId,
+      userId,
+      structure,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      hostResourceIdMaps: {
+        appIdMap,
+        workflowIdMap,
+        routineIdMap,
+        dashboardIdMap,
+        folderIdMap,
+        nodeIdMap,
+      },
+    });
 
     return {
       base,
@@ -542,7 +568,8 @@ export class BaseImportV2Service {
     },
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
     onProgress?: BaseImportProgressCallback,
-    copyToExistingBase: boolean = false
+    copyToExistingBase: boolean = false,
+    deferHostFinalization: boolean = false
   ): Promise<IBaseHostIdMaps> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
     // Existing-base template installs own an ambient Prisma metadata transaction. The native
@@ -588,7 +615,8 @@ export class BaseImportV2Service {
       structure,
       { tableIdMap, fieldIdMap, viewIdMap },
       duplicateMode,
-      onProgress
+      onProgress,
+      deferHostFinalization
     );
 
     const hasFolders = Array.isArray(structure.folders) && structure.folders.length > 0;
@@ -642,7 +670,8 @@ export class BaseImportV2Service {
       viewIdMap: Record<string, string>;
     },
     _duplicateMode: BaseDuplicateMode,
-    _onProgress?: BaseImportProgressCallback
+    _onProgress?: BaseImportProgressCallback,
+    _deferHostFinalization: boolean = false
   ): Promise<{
     workflowIdMap?: Record<string, string>;
     appIdMap?: Record<string, string>;
@@ -1574,7 +1603,7 @@ export class BaseImportV2Service {
     rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
-    let importedTables = 0;
+    let hasTableCsv = false;
 
     await this.forEachDotTeaEntry(
       path,
@@ -1582,7 +1611,7 @@ export class BaseImportV2Service {
       async (entry) => {
         const tableId = entry.path.replace('tables/', '').replace(/\.csv$/, '');
         const table = tablesById.get(tableId)!;
-        importedTables++;
+        hasTableCsv = true;
         await this.importTableDataEntryV2(
           entry,
           table,
@@ -1600,9 +1629,10 @@ export class BaseImportV2Service {
       }
     );
 
-    if (importedTables === 0) {
+    if (!hasTableCsv) {
       onProgress?.('table_data_empty');
     }
+    return hasTableCsv;
   }
 
   private async importTableDataEntryV2(
@@ -1620,6 +1650,7 @@ export class BaseImportV2Service {
     rowBudget?: { remaining: number; truncatedTables: string[] }
   ) {
     const tableId = targetTableId;
+    await this.recordMutationPolicy.assertAllowed({ tableId, operation: 'create', payload: table });
     const tableName = table.name;
     let config = await this.buildTableDataImportConfig(baseId, tableId, queryBus, context);
 
@@ -2533,6 +2564,10 @@ export class BaseImportV2Service {
       '__last_modified_by',
       '__created_by',
       '__version',
+      '__created_by_actor_type',
+      '__created_by_actor_id',
+      '__last_modified_by_actor_type',
+      '__last_modified_by_actor_id',
     ].includes(columnName);
   }
 

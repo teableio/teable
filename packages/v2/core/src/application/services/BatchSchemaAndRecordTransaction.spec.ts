@@ -309,6 +309,9 @@ class InMemoryTableSchemaRepository implements ITableSchemaRepository {
   async insertMany(): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
+  async ensureActorColumns(): Promise<Result<void, DomainError>> {
+    throw new Error('Unexpected actor column migration in batch fixture');
+  }
   async update(_context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     if (this.failUpdate) {
       return err(domainError.unexpected({ message: 'schema update failed' }));

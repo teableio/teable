@@ -115,12 +115,266 @@ const listWhere = (input: core.SchemaOperationListInput = {}) => {
   return sql.join(filters, sql` AND `);
 };
 
+// Binding timestamps are an existing storage epoch: even an A→B→A cutover
+// invalidates a previously enqueued operation. No credentials enter the payload.
+const actorTargetQuery = (baseId: string, tableId: string) => sql<{
+  base_id: string;
+  table_id: string;
+  db_table_name: string;
+  version: number;
+  connection_id: string | null;
+  internal_schema: string | null;
+  storage_epoch: string;
+  actor_collision: boolean;
+}>`
+  SELECT t.base_id, t.id AS table_id, t.db_table_name, t.version,
+    CASE WHEN s.mode = 'byodb' THEN s.data_db_connection_id ELSE NULL END AS connection_id,
+    CASE WHEN s.mode = 'byodb' THEN c.internal_schema ELSE NULL END AS internal_schema,
+    md5(jsonb_build_array(b.space_id, s.id, s.mode, s.state, s.last_modified_time,
+      c.id, c.url_fingerprint, c.internal_schema, c.status, c.last_modified_time)::text) AS storage_epoch,
+    EXISTS (SELECT 1 FROM field f WHERE f.table_id = t.id AND f.deleted_time IS NULL
+      AND f.db_field_name IN ('__created_by_actor_type', '__created_by_actor_id',
+        '__last_modified_by_actor_type', '__last_modified_by_actor_id')) AS actor_collision
+  FROM table_meta t JOIN base b ON b.id = t.base_id
+  LEFT JOIN space_data_db_binding s ON s.space_id = b.space_id
+  LEFT JOIN data_db_connection c ON c.id = s.data_db_connection_id
+  WHERE t.id = ${tableId} AND t.base_id = ${baseId}
+    AND t.deleted_time IS NULL AND b.deleted_time IS NULL
+    AND t.provision_state = 'ready' AND b.provision_state = 'ready'
+    AND (s.id IS NULL OR s.state = 'ready')
+    AND (s.mode IS DISTINCT FROM 'byodb' OR c.status = 'ready')
+`;
+
+const actorClaimWhere = (operation: core.SchemaOperationRecord) => sql`
+  "id" = ${operation.id} AND "idempotency_key" = ${operation.idempotencyKey}
+  AND "type" = 'table.actor_columns.enable' AND "status" = 'running'
+  AND "locked_by" = ${operation.lockedBy ?? null}
+  AND "locked_at" = ${operation.lockedAt ?? null}
+`;
+
+const actorFenceLost = () =>
+  domainError.conflict({
+    code: 'actor_columns.fence_lost',
+    message: 'Record attribution operation no longer owns the table schema lease or target',
+  });
+
 @injectable()
 export class PostgresSchemaOperationRepository implements core.ISchemaOperationRepository {
   constructor(
     @inject(v2PostgresStateTokens.db)
     private readonly db: Kysely<V1TeableDatabase>
   ) {}
+
+  async getActorColumnsTarget(
+    context: core.IExecutionContext,
+    baseId: string,
+    tableId: string,
+    runtimeRouteKey: string
+  ): Promise<Result<core.ActorColumnsTarget, DomainError>> {
+    try {
+      const result = await actorTargetQuery(baseId, tableId).execute(
+        resolvePostgresDbOrTx(this.db, context, 'meta')
+      );
+      const row = result.rows[0];
+      if (!row) return err(domainError.notFound({ message: 'Table is unavailable' }));
+      if (row.actor_collision)
+        return err(
+          domainError.conflict({
+            code: 'actor_columns.business_collision',
+            message: 'A business field uses a reserved record attribution column',
+          })
+        );
+      return ok({
+        baseId: row.base_id,
+        tableId: row.table_id,
+        dbTableName: row.db_table_name,
+        connectionId: row.connection_id,
+        internalSchema: row.internal_schema,
+        storageEpoch: row.storage_epoch,
+        tableVersion: row.version,
+        runtimeRouteKey,
+      });
+    } catch {
+      return err(
+        domainError.infrastructure({
+          code: 'actor_columns.target_unavailable',
+          message: 'Record attribution target is unavailable',
+        })
+      );
+    }
+  }
+
+  async enqueueActorColumns(
+    context: core.IExecutionContext,
+    target: core.ActorColumnsTarget
+  ): Promise<Result<core.SchemaOperationRecord, DomainError>> {
+    const db = resolvePostgresDbOrTx(this.db, context, 'meta');
+    const now = new Date();
+    try {
+      const result = await sql<SchemaOperationRow>`
+        WITH current_target AS MATERIALIZED (${actorTargetQuery(target.baseId, target.tableId)}),
+        eligible AS MATERIALIZED (
+          SELECT t.id FROM table_meta t JOIN current_target r ON r.table_id = t.id
+          WHERE t.actor_storage_version = 0 AND t.version = ${target.tableVersion}
+            AND t.base_id = ${target.baseId} AND t.db_table_name = ${target.dbTableName}
+            AND t.deleted_time IS NULL AND t.provision_state = 'ready'
+            AND r.storage_epoch = ${target.storageEpoch} AND NOT r.actor_collision
+            AND r.connection_id IS NOT DISTINCT FROM ${target.connectionId}
+            AND r.internal_schema IS NOT DISTINCT FROM ${target.internalSchema}
+          FOR UPDATE OF t
+        )
+        INSERT INTO schema_operation (id, type, status, phase, resource_type, resource_id,
+          base_id, table_id, idempotency_key, payload, attempts, max_attempts, next_run_at,
+          created_time, created_by, last_modified_time, last_modified_by)
+        SELECT ${core.generatePrefixedId('sgo', 16)}, 'table.actor_columns.enable', 'pending',
+          'pending', 'table', ${target.tableId}, ${target.baseId}, ${target.tableId},
+          ${`table:${target.tableId}:actor_columns:v1`}, ${jsonbValue(target)}, 0, 8, ${now},
+          ${now}, ${context.actorId.toString()}, ${now}, ${context.actorId.toString()}
+        FROM eligible WHERE TRUE
+        ON CONFLICT (idempotency_key) DO UPDATE SET
+          status = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN 'pending' ELSE schema_operation.status END,
+          phase = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN 'pending' ELSE schema_operation.phase END,
+          payload = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN EXCLUDED.payload ELSE schema_operation.payload END,
+          result = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN NULL ELSE schema_operation.result END,
+          base_id = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN EXCLUDED.base_id ELSE schema_operation.base_id END,
+          attempts = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN 0 ELSE schema_operation.attempts END,
+          next_run_at = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN EXCLUDED.next_run_at ELSE schema_operation.next_run_at END,
+          last_error = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN NULL ELSE schema_operation.last_error END,
+          locked_at = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN NULL ELSE schema_operation.locked_at END,
+          locked_by = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN NULL ELSE schema_operation.locked_by END,
+          last_modified_time = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN EXCLUDED.last_modified_time ELSE schema_operation.last_modified_time END,
+          last_modified_by = CASE WHEN schema_operation.status IN ('error', 'dead', 'ready') THEN EXCLUDED.last_modified_by ELSE schema_operation.last_modified_by END
+        WHERE schema_operation.type = 'table.actor_columns.enable'
+          AND schema_operation.table_id = EXCLUDED.table_id
+          AND schema_operation.resource_type = 'table' AND schema_operation.resource_id = EXCLUDED.resource_id
+        RETURNING *
+      `.execute(db);
+      if (!result.rows[0]) return err(actorFenceLost());
+      return ok(mapRow(result.rows[0]));
+    } catch {
+      return err(
+        domainError.infrastructure({
+          code: 'actor_columns.enqueue_failed',
+          message: 'Unable to enqueue record attribution enable',
+        })
+      );
+    }
+  }
+
+  async completeActorColumns(
+    context: core.IExecutionContext,
+    input: core.ActorColumnsCompletionInput
+  ): Promise<Result<core.SchemaOperationRecord, DomainError>> {
+    const { operation, target, leaseFence } = input;
+    if (!operation.lockedBy || !operation.lockedAt) return err(actorFenceLost());
+    const db = resolvePostgresDbOrTx(this.db, context, 'meta');
+    try {
+      // One atomic statement: a stale owner cannot update the table OR settle the op.
+      // pg_locks proves the exact table's exclusive xact advisory lock, not merely
+      // that a backend with the same PID still exists after connection recycling.
+      const result = await sql<SchemaOperationRow>`
+        WITH owned AS MATERIALIZED (
+          SELECT * FROM schema_operation WHERE ${actorClaimWhere(operation)}
+            AND payload = ${jsonbValue(target)} FOR UPDATE
+        ), current_target AS MATERIALIZED (${actorTargetQuery(target.baseId, target.tableId)}),
+        published AS (
+          UPDATE table_meta t SET actor_storage_version = 1, version = t.version + 1
+          FROM current_target r, owned o
+          WHERE t.id = r.table_id AND t.actor_storage_version = 0
+            AND t.version = ${target.tableVersion} AND t.base_id = ${target.baseId}
+            AND t.db_table_name = ${target.dbTableName} AND t.deleted_time IS NULL
+            AND t.provision_state = 'ready'
+            AND r.base_id = ${target.baseId} AND r.db_table_name = ${target.dbTableName}
+            AND r.version = ${target.tableVersion}
+            AND r.connection_id IS NOT DISTINCT FROM ${target.connectionId}
+            AND r.internal_schema IS NOT DISTINCT FROM ${target.internalSchema}
+            AND r.storage_epoch = ${target.storageEpoch}
+            AND NOT r.actor_collision
+            AND EXISTS (
+              SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid
+              WHERE a.pid = ${leaseFence.backendPid}
+                AND a.backend_xid::text = (( ${leaseFence.transactionId}::numeric % 4294967296)::bigint)::text
+                AND a.state = 'idle in transaction' AND l.locktype = 'advisory'
+                AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+                AND l.granted AND l.mode = 'ExclusiveLock' AND l.objsubid = 1
+                AND l.classid::bigint = ((hashtextextended(${`teable.schema:table:${target.tableId}`}, 0) >> 32) & 4294967295)
+                AND l.objid::bigint = (hashtextextended(${`teable.schema:table:${target.tableId}`}, 0) & 4294967295)
+            )
+          RETURNING t.id
+        )
+        UPDATE schema_operation SET status = 'ready', phase = 'ready', last_error = NULL,
+          locked_at = NULL, locked_by = NULL, last_modified_time = now(),
+          last_modified_by = ${context.actorId.toString()},
+          result = ${jsonbValue({
+            baseId: target.baseId,
+            tableId: target.tableId,
+            oldVersion: target.tableVersion,
+            newVersion: target.tableVersion + 1,
+            notificationDelivered: false,
+          })}
+        WHERE ${actorClaimWhere(operation)} AND EXISTS (SELECT 1 FROM published)
+        RETURNING *
+      `.execute(db);
+      return result.rows[0] ? ok(mapRow(result.rows[0])) : err(actorFenceLost());
+    } catch {
+      return err(
+        domainError.infrastructure({
+          code: 'actor_columns.publish_failed',
+          message: 'Unable to publish record attribution capability',
+        })
+      );
+    }
+  }
+
+  async markActorColumnsNotified(
+    context: core.IExecutionContext,
+    operation: core.SchemaOperationRecord
+  ): Promise<Result<void, DomainError>> {
+    const result = operation.result as Record<string, unknown> | undefined;
+    if (!result || typeof result.oldVersion !== 'number' || typeof result.newVersion !== 'number') {
+      return err(actorFenceLost());
+    }
+    try {
+      const updated = await sql<{ id: string }>`
+        UPDATE schema_operation SET result = result || '{"notificationDelivered":true}'::jsonb
+        WHERE id = ${operation.id} AND type = 'table.actor_columns.enable' AND status = 'ready'
+          AND base_id = ${operation.target.baseId ?? null} AND table_id = ${operation.target.tableId ?? null}
+          AND result->>'oldVersion' = ${String(result.oldVersion)}
+          AND result->>'newVersion' = ${String(result.newVersion)}
+        RETURNING id
+      `.execute(resolvePostgresDbOrTx(this.db, context, 'meta'));
+      return updated.rows[0] ? ok(undefined) : err(actorFenceLost());
+    } catch {
+      return err(
+        domainError.infrastructure({
+          message: 'Unable to acknowledge record attribution metadata notification',
+        })
+      );
+    }
+  }
+
+  async failActorColumns(
+    context: core.IExecutionContext,
+    operation: core.SchemaOperationRecord,
+    input: core.SchemaOperationAdvanceInput
+  ): Promise<Result<core.SchemaOperationRecord, DomainError>> {
+    try {
+      const result = await sql<SchemaOperationRow>`
+        UPDATE schema_operation SET status = ${input.status}, phase = 'error',
+          attempts = attempts + 1, next_run_at = ${input.nextRunAt ?? new Date()},
+          last_error = ${input.lastError ?? 'Record attribution enable failed'},
+          result = ${jsonbValue(input.result)},
+          locked_at = NULL, locked_by = NULL, last_modified_time = now(),
+          last_modified_by = ${context.actorId.toString()}
+        WHERE ${actorClaimWhere(operation)} RETURNING *
+      `.execute(resolvePostgresDbOrTx(this.db, context, 'meta'));
+      return result.rows[0] ? ok(mapRow(result.rows[0])) : err(actorFenceLost());
+    } catch {
+      return err(
+        domainError.infrastructure({ message: 'Unable to settle record attribution failure' })
+      );
+    }
+  }
 
   @core.TraceSpan()
   async upsert(
@@ -298,7 +552,11 @@ export class PostgresSchemaOperationRepository implements core.ISchemaOperationR
             OR (
               "status" = 'pending'
               AND "next_run_at" <= ${now}
-              AND ("phase" = 'waiting_for_lock' OR "last_modified_time" <= ${staleRunningBefore})
+              AND (
+                "type" = 'table.actor_columns.enable'
+                OR "phase" = 'waiting_for_lock'
+                OR "last_modified_time" <= ${staleRunningBefore}
+              )
               AND NOT (
                 "type" = 'table.import'
                 AND COALESCE("payload"->>'source', '') <> 'dottea'

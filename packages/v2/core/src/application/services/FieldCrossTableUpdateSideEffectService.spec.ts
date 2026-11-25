@@ -45,6 +45,10 @@ const createContext = (): IExecutionContext => ({
 });
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -577,13 +581,10 @@ describe('FieldCrossTableUpdateSideEffectService', () => {
     const updatedLookup = host
       .getField((field) => field.id().equals(lookupFieldId))
       ._unsafeUnwrap() as LookupField;
-    expect(
-      (
-        updatedLookup.lookupOptions().condition()?.toDto().filter as {
-          filterSet: Array<{ value?: unknown }>;
-        }
-      ).filterSet[0]?.value
-    ).toBe('Active Plus');
+    const updatedLookupFilter = updatedLookup.lookupOptions().condition()?.toDto().filter as
+      | { filterSet: Array<{ value?: unknown }> }
+      | undefined;
+    expect(updatedLookupFilter?.filterSet[0]?.value).toBe('Active Plus');
 
     const updatedConditionalLookup = host
       .getField((field) => field.id().equals(conditionalLookupFieldId))

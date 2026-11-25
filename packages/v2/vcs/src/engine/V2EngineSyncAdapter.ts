@@ -1,5 +1,6 @@
 import {
   ActorId,
+  ApplyRecordOrdersCommand,
   ApplyViewSnapshotCommand,
   CreateBaseCommand,
   CreateFieldCommand,
@@ -83,6 +84,8 @@ export interface IV2EngineSyncAdapterOptions {
   readonly getExecutionContext?: () => IExecutionContext | Promise<IExecutionContext>;
   readonly flushComputed?: () => Promise<unknown>;
   readonly queryRaw?: VcsRawSqlExecutor;
+  /** Clone and rollback restore captured storage identities. Ordinary pushes allocate on the server. */
+  readonly preserveAutoNumbers?: boolean;
 }
 
 export interface IEngineExecutionOptions {
@@ -566,6 +569,7 @@ export class V2EngineSyncAdapter implements IVcsLocalEnginePort {
   private readonly getExecutionContext?: () => IExecutionContext | Promise<IExecutionContext>;
   private readonly onFlushComputed?: () => Promise<unknown>;
   private readonly dirtyTracker?: WorkingDirtyTracker;
+  private readonly preserveAutoNumbers: boolean;
 
   constructor(options: IV2EngineSyncAdapterOptions) {
     this.commandBus = options.commandBus;
@@ -575,6 +579,7 @@ export class V2EngineSyncAdapter implements IVcsLocalEnginePort {
     this.getExecutionContext = options.getExecutionContext;
     this.onFlushComputed = options.flushComputed;
     this.dirtyTracker = options.queryRaw ? new WorkingDirtyTracker(options.queryRaw) : undefined;
+    this.preserveAutoNumbers = options.preserveAutoNumbers ?? true;
   }
 
   private async resolveContext(
@@ -631,6 +636,7 @@ export class V2EngineSyncAdapter implements IVcsLocalEnginePort {
     return {
       id: rec.id,
       fields: normalizeRecordFields(rec.fields),
+      ...(rec.autoNumber !== undefined ? { autoNumber: rec.autoNumber } : {}),
       ...(rec.version !== undefined ? { version: rec.version } : {}),
       ...(rec.orders ? { orders: { ...rec.orders } } : {}),
     };
@@ -650,6 +656,7 @@ export class V2EngineSyncAdapter implements IVcsLocalEnginePort {
         limit: RECORD_PAGE_SIZE,
         ...(cursor !== undefined ? { cursor } : { offset }),
         ignoreViewQuery: true,
+        includeOrders: true,
         fieldKeyType: FieldKeyType.Id,
       });
       if (queryRes.isErr()) return err(queryRes.error);
@@ -1064,6 +1071,8 @@ export class V2EngineSyncAdapter implements IVcsLocalEnginePort {
       recordId: string;
       fields: Record<string, unknown>;
       orders?: Record<string, number>;
+      autoNumber?: number;
+      defaultOrder?: number;
     }[];
     linkUpdates: { id: string; fields: Record<string, unknown> }[];
   } {
@@ -1071,6 +1080,8 @@ export class V2EngineSyncAdapter implements IVcsLocalEnginePort {
       recordId: string;
       fields: Record<string, unknown>;
       orders?: Record<string, number>;
+      autoNumber?: number;
+      defaultOrder?: number;
     }[] = [];
     const linkUpdates: { id: string; fields: Record<string, unknown> }[] = [];
 
@@ -1085,6 +1096,11 @@ export class V2EngineSyncAdapter implements IVcsLocalEnginePort {
       scalarPayloads.push({
         recordId: record.id,
         fields: scalarFields,
+        ...(this.preserveAutoNumbers &&
+          record.autoNumber !== undefined && {
+            autoNumber: record.autoNumber,
+            defaultOrder: record.autoNumber,
+          }),
         ...(record.orders ? { orders: { ...record.orders } } : {}),
       });
       if (Object.keys(linkFields).length > 0) {
@@ -1531,7 +1547,29 @@ export class V2EngineSyncAdapter implements IVcsLocalEnginePort {
       if (unlinkRes.isErr()) return err(unlinkRes.error);
     }
     if (finalBatch.length > 0) {
-      return this.executeUpdateRecordBatches(context, tablePatch.tableId, finalBatch);
+      const result = await this.executeUpdateRecordBatches(context, tablePatch.tableId, finalBatch);
+      if (result.isErr()) return err(result.error);
+    }
+    const byView = new Map<string, { recordId: string; order: number }[]>();
+    for (const { recordId, orderChanges } of tablePatch.recordsUpdated) {
+      for (const { viewId, after } of orderChanges ?? []) {
+        const records = byView.get(viewId);
+        if (records) records.push({ recordId, order: after });
+        else byView.set(viewId, [{ recordId, order: after }]);
+      }
+    }
+    for (const [viewId, records] of byView) {
+      for (const batch of chunkArray(records, RECORD_BATCH_SIZE)) {
+        const command = ApplyRecordOrdersCommand.create({
+          tableId: tablePatch.tableId,
+          viewId,
+          records: batch,
+          source: 'recordUpdate',
+        });
+        if (command.isErr()) return err(command.error);
+        const result = await this.commandBus.execute(context, command.value);
+        if (result.isErr()) return err(result.error);
+      }
     }
     return ok(undefined);
   }

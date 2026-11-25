@@ -13,6 +13,8 @@ import { InvitationModule } from '../invitation/invitation.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ComputedModule } from '../record/computed/computed.module';
 import { RecordModule } from '../record/record.module';
+import { RecordMutationPolicyModule } from '../record-mutation-policy/record-mutation-policy.module';
+import { ActorStorageRoutingService } from '../space/actor-storage-routing.service';
 import { SpaceDataDbCopyModule } from '../space/space-data-db-copy.module';
 import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
@@ -69,8 +71,10 @@ import { BaseService } from './base.service';
     BaseExportCoordinatorModule,
     SpaceDataDbCopyModule,
     SpaceDataDbMigrationGuardModule,
+    RecordMutationPolicyModule,
   ],
   providers: [
+    ActorStorageRoutingService,
     DbProvider,
     BaseService,
     BasePersonalOrderService,

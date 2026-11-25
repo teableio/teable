@@ -28,6 +28,7 @@ import {
   copy,
   createField,
   createRecords,
+  CREATE_RECORD,
   createView,
   deleteBaseCollaborator,
   deleteField,
@@ -35,7 +36,9 @@ import {
   deleteRecord,
   deleteRecords,
   DELETE_RECORD_URL,
+  DUPLICATE_URL,
   emailBaseInvitation,
+  OPERATION_REDO,
   OPERATION_UNDO,
   PrincipalType,
   updateBaseCollaborator,
@@ -83,9 +86,12 @@ import {
 import type { ITableFullVo, IUndoVo, IUserMeVo } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { onTestFinished } from 'vitest';
+import { CacheService } from '../src/cache/cache.service';
+import { OperationName } from '../src/cache/types';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
+import { RecordService } from '../src/features/record/record.service';
 import { X_TEABLE_UNDO_REDO_ENGINE_HEADER } from '../src/features/undo-redo/open-api/undo-redo.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { createEventPromise } from './utils/event-promise';
@@ -220,6 +226,119 @@ describe('Undo Redo (e2e)', () => {
       record: { fields: { [table.fields[0].id]: 'new value' } },
     });
   });
+
+  it.skipIf(!canRunCanaryV2)(
+    'creates one undo entry per v2 create or duplicate and restores view order',
+    async () => {
+      const { id: tableId } = table;
+      const viewId = table.views[0].id;
+      const config = {
+        headers: { [windowIdHeader]: 'win' + getRandomString(8), [X_CANARY_HEADER]: 'true' },
+      };
+      const orderedIds = async () =>
+        (await getRecords(tableId, { viewId })).data.records.map((r) => r.id);
+      const original = await orderedIds();
+      const order = { viewId, anchorId: original[0], position: 'after' };
+      const indexes = vi.spyOn(app.get(RecordService), 'getRecordIndexes');
+      const emitted = vi.spyOn(eventEmitterService, 'emitAsync');
+      onTestFinished(() => {
+        indexes.mockRestore();
+        emitted.mockRestore();
+      });
+
+      const created = await axios.post(
+        urlBuilder(CREATE_RECORD, { tableId }),
+        {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [table.fields[0].id]: 'inserted' } }],
+          order,
+        },
+        config
+      );
+      expect(created.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      const createdId: string = created.data.records[0].id;
+      const duplicate = await axios.post(
+        urlBuilder(DUPLICATE_URL, { tableId, recordId: createdId }),
+        { ...order, anchorId: createdId },
+        config
+      );
+      expect(duplicate.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      expect(emitted.mock.calls.map(([name]) => name)).not.toContain(
+        Events.OPERATION_RECORDS_CREATE
+      );
+      const duplicateId: string = duplicate.data.id;
+      const afterCreate = [original[0], createdId, ...original.slice(1)];
+      const afterDuplicate = [original[0], createdId, duplicateId, ...original.slice(1)];
+      expect(await orderedIds()).toEqual(afterDuplicate);
+
+      const replay = async (route: typeof OPERATION_UNDO | typeof OPERATION_REDO) =>
+        (await axios.post<IUndoVo>(urlBuilder(route, { tableId }), undefined, config)).data.status;
+      expect(await replay(OPERATION_UNDO)).toBe('fulfilled');
+      expect(await orderedIds()).toEqual(afterCreate);
+      expect(await replay(OPERATION_UNDO)).toBe('fulfilled');
+      expect(await orderedIds()).toEqual(original);
+      expect(await replay(OPERATION_UNDO)).toBe('empty');
+      expect(await replay(OPERATION_REDO)).toBe('fulfilled');
+      expect(await orderedIds()).toEqual(afterCreate);
+      expect(await replay(OPERATION_REDO)).toBe('fulfilled');
+      expect(await orderedIds()).toEqual(afterDuplicate);
+      expect(indexes).not.toHaveBeenCalled();
+    }
+  );
+
+  it.skipIf(!canRunCanaryV2).each(['create', 'duplicate'] as const)(
+    'a v2 %s invalidates only the writing window’s legacy redo',
+    async (action) => {
+      const tableId = table.id;
+      const fieldId = table.fields[0].id;
+      const recordId = table.records[0].id;
+      const userId = globalThis.testConfig.userId;
+      const writer = 'win' + getRandomString(8);
+      const other = 'win' + getRandomString(8);
+      const config = (window: string) => ({
+        headers: { [windowIdHeader]: window, [X_CANARY_HEADER]: 'true' },
+      });
+      const cache = app.get(CacheService);
+      // A window may still have a valid v1 redo entry after a base switches engines.
+      for (const window of [writer, other]) {
+        await cache.set(
+          `operations:redo:${userId}:${tableId}:${window}`,
+          [
+            {
+              name: OperationName.UpdateRecords,
+              params: { tableId, recordIds: [recordId], fieldIds: [fieldId] },
+              result: { cellContexts: [{ recordId, fieldId, newValue: 'legacy redo' }] },
+            },
+          ],
+          60
+        );
+      }
+
+      const write =
+        action === 'create'
+          ? await axios.post(
+              urlBuilder(CREATE_RECORD, { tableId }),
+              { records: [{ fields: {} }] },
+              config(writer)
+            )
+          : await axios.post(
+              urlBuilder(DUPLICATE_URL, { tableId, recordId }),
+              undefined,
+              config(writer)
+            );
+      expect(write.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      const redoUrl = urlBuilder(OPERATION_REDO, { tableId });
+      expect((await axios.post<IUndoVo>(redoUrl, undefined, config(writer))).data.status).toBe(
+        'empty'
+      );
+      const replay = await axios.post<IUndoVo>(redoUrl, undefined, config(other));
+      expect(replay.data.status).toBe('fulfilled');
+      expect(replay.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
+      expect(
+        (await getRecord(tableId, recordId, { fieldKeyType: FieldKeyType.Id })).data.fields[fieldId]
+      ).toBe('legacy redo');
+    }
+  );
 
   it.skipIf(!isForceV2)('should undo / redo a v2 Button click', async () => {
     const button = (

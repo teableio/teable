@@ -11,6 +11,7 @@ import {
   type LookupField,
   type RecordQueryPluginScope,
   type Table,
+  type TableRecordAggregationFunction,
 } from '@teable/v2-core';
 import {
   assertDataQueryAccess,
@@ -68,7 +69,7 @@ import {
   type CursorColumns,
   type CursorOrder,
 } from './compileCursorRecords';
-import { compileDataQueryComposition } from './compileDataQueryComposition';
+import { compileDataQueryComposition, sharedMetricGroupLimit } from './compileDataQueryComposition';
 import { compileDataQueryDistinctTuple } from './compileDataQueryDistinctTuple';
 import {
   compileDataQueryPredicate,
@@ -81,6 +82,44 @@ import { dataQueryExecutionError } from './dataQueryExecutionError';
 import { normalizeDataQueryValue } from './normalizeDataQueryValue';
 
 type Row = Record<string, unknown>;
+
+function readSettings(timeoutMs: number, cursor: boolean, composition?: BoundDataQueryComposition) {
+  const settings = [sql`set_config('statement_timeout', ${String(timeoutMs)}, true)`];
+  // A returned float group key must identify the same group when passed back as a filter.
+  if (composition?.definition.metricDimensions) {
+    settings.push(sql`set_config('extra_float_digits', '3', true)`);
+  }
+  if (cursor)
+    settings.push(sql`current_setting('extra_float_digits')::integer as extra_float_digits`);
+  return sql<{ extra_float_digits?: unknown }>`select ${sql.join(settings)}`;
+}
+
+function normalizeQueryRows(
+  rows: readonly Row[],
+  grain: BoundDataQueryPlan['resultGrain'],
+  statistics: ReadonlyMap<string, TableRecordAggregationFunction>,
+  composition?: BoundDataQueryComposition
+) {
+  if (grain === 'distinctTuple') return rows;
+  const metricGroups = composition?.definition.metricDimensions
+    ? new Set(composition.definition.groupBy)
+    : undefined;
+  return rows.map((row) => {
+    const output: Row = {};
+    for (const [alias, value] of Object.entries(row)) {
+      if (metricGroups?.has(alias)) {
+        // Preserve PostgreSQL numeric text exactly and keep non-finite floats distinct from JSON null.
+        output[alias] =
+          typeof value === 'number' && !Number.isFinite(value)
+            ? String(value)
+            : normalizeDataQueryValue(value);
+      } else {
+        output[alias] = normalizeDataQueryValue(value, statistics.get(alias));
+      }
+    }
+    return output;
+  });
+}
 
 const systemColumns: Readonly<Record<DataQuerySystemField, string>> = {
   id: '__id',
@@ -115,6 +154,15 @@ const projectionFieldStorageType = (
 
 const failure = (code: string, message: string): DomainError =>
   domainError.validation({ code: `data_query.${code}`, message });
+
+const metricGroupOverflow = (composition: BoundDataQueryComposition | undefined, rows: number) => {
+  const limit = sharedMetricGroupLimit(composition);
+  if (limit === undefined || rows <= limit) return undefined;
+  return failure(
+    'metric_group_limit_exceeded',
+    `Shared metric exceeds the limit of ${limit} groups. Narrow the filters or group by fewer dimensions.`
+  );
+};
 
 type ExpressionSqlSource = {
   readonly table: ITableReadModel;
@@ -2468,11 +2516,11 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 await transaction.executeQuery(sql`set transaction read only`.compile(this.db));
               }
               const settings = await transaction.executeQuery(
-                sql<{
-                  extra_float_digits?: unknown;
-                }>`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)${plan.query.cursor ? sql`, current_setting('extra_float_digits')::integer as extra_float_digits` : sql``}`.compile(
-                  this.db
-                )
+                readSettings(
+                  this.statementTimeoutMs,
+                  Boolean(plan.query.cursor),
+                  composition
+                ).compile(this.db)
               );
               const precision = settings.rows[0]?.extra_float_digits;
               const normalization =
@@ -2494,6 +2542,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               if (selected.isErr()) return err(selected.error);
               const queries = selected.value;
               const pages = await transaction.executeQuery(queries.rows);
+              const overflow = metricGroupOverflow(composition, pages.rows.length);
+              if (overflow) return err(overflow);
               const remaining = plan.query.limit + 1 - pages.rows.length;
               const compileRemainingRows = queries.compileRemainingRows;
               if (compileRemainingRows && remaining > 0) {
@@ -2552,16 +2602,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       for (const metric of composition?.definition.metrics ?? [])
         statistics.set(metric.alias, metric.statistic);
       return ok({
-        rows: pages.rows.map((row) => {
-          const output: Row = {};
-          for (const [alias, value] of Object.entries(row)) {
-            output[alias] =
-              plan.plan.resultGrain === 'distinctTuple'
-                ? value
-                : normalizeDataQueryValue(value, statistics.get(alias));
-          }
-          return output;
-        }),
+        rows: normalizeQueryRows(pages.rows, plan.plan.resultGrain, statistics, composition),
         ...(total === undefined
           ? {}
           : {
@@ -2642,9 +2683,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 await transaction.executeQuery(sql`set transaction read only`.compile(this.db));
               }
               const settings = await transaction.executeQuery(
-                sql<{
-                  extra_float_digits?: unknown;
-                }>`select set_config('statement_timeout', ${String(this.statementTimeoutMs)}, true)${query.cursor ? sql`, current_setting('extra_float_digits')::integer as extra_float_digits` : sql``}`.compile(
+                readSettings(this.statementTimeoutMs, Boolean(query.cursor), composition).compile(
                   this.db
                 )
               );
@@ -2677,6 +2716,8 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
               if (selected.isErr()) return err(selected.error);
               const queries = selected.value;
               const pages = await transaction.executeQuery(queries.rows);
+              const overflow = metricGroupOverflow(composition, pages.rows.length);
+              if (overflow) return err(overflow);
               const remaining = query.limit + 1 - pages.rows.length;
               const compileRemainingRows = queries.compileRemainingRows;
               if (compileRemainingRows && remaining > 0) {
@@ -2729,16 +2770,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       for (const metric of composition?.definition.metrics ?? [])
         aggregates.set(metric.alias, metric.statistic);
       return ok({
-        rows: pages.rows.map((row) => {
-          const output: Row = {};
-          for (const [alias, value] of Object.entries(row)) {
-            output[alias] =
-              bound.plan.resultGrain === 'distinctTuple'
-                ? value
-                : normalizeDataQueryValue(value, aggregates.get(alias));
-          }
-          return output;
-        }),
+        rows: normalizeQueryRows(pages.rows, bound.plan.resultGrain, aggregates, composition),
         ...(total === undefined
           ? {}
           : {

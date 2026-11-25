@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-empty-function */
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
+import { injectable } from '@teable/v2-di';
+import { err, ok, type Result } from 'neverthrow';
+import { describe, expect, it } from 'vitest';
+import { domainError } from '@teable/v2-core';
 import {
   ActorId,
   CreateTableCommand,
@@ -21,10 +24,6 @@ import {
   TableCreated,
   v2CoreTokens,
 } from '@teable/v2-core';
-import { domainError } from '@teable/v2-core';
-import { injectable } from '@teable/v2-di';
-import { err, ok, type Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
 
 import { useV2NodeUnitTestContainer } from '../testkit/useV2NodeUnitTestContainer';
 import { getV2NodeUnitTestContainer } from '../testkit/v2NodeUnitTestContainer';
@@ -409,10 +408,14 @@ describe('CreateTableHandler', () => {
     class FailingTableSchemaRepository implements ITableSchemaRepository {
       private static readonly failureMessage = 'Forced schema failure';
 
-      private fail(): Result<void, DomainError> {
+      private fail<T = void>(): Result<T, DomainError> {
         return err(
           domainError.unexpected({ message: FailingTableSchemaRepository.failureMessage })
         );
+      }
+
+      async ensureActorColumns(_: IExecutionContext, __: Table) {
+        return this.fail();
       }
 
       async insert(_: IExecutionContext, __: Table) {
@@ -424,7 +427,7 @@ describe('CreateTableHandler', () => {
       }
 
       async update(_: IExecutionContext, __: Table, ___: ISpecification<Table, ITableSpecVisitor>) {
-        return this.fail();
+        return this.fail<Table>();
       }
 
       async delete(_: IExecutionContext, __: Table) {

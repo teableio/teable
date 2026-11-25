@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { type Dirent, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -36,7 +36,7 @@ const recordEventProjectionWhitelist = [
 ];
 
 const recordProjectionDecorator =
-  /@ProjectionHandler\(\s*(RecordCreated|RecordsBatchCreated|RecordUpdated|RecordsBatchUpdated|RecordsDeleted|RecordReordered)\s*\)/;
+  /@ProjectionHandler\(\s*(?:RecordCreated|RecordsBatchCreated|RecordUpdated|RecordsBatchUpdated|RecordsDeleted|RecordReordered)\s*\)/;
 
 describe('record command EventBus isolation', () => {
   it.each(recordCommandHandlers)('%s uses DomainWriteTransaction instead of EventBus', (file) => {
@@ -60,7 +60,7 @@ describe('record event ProjectionHandler classification', () => {
     ];
     const offenders: string[] = [];
     const visit = (dir: string) => {
-      let entries: ReturnType<typeof readdirSync>;
+      let entries: Dirent<string>[];
       try {
         entries = readdirSync(dir, { withFileTypes: true });
       } catch {

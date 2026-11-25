@@ -86,6 +86,7 @@ import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exc
 import type { IClsStore } from '../../../types/cls';
 import { isNotHiddenField } from '../../../utils/is-not-hidden-field';
 import { FieldCacheService } from '../../field-cache/field-cache.service';
+import { FieldPeriodicRefreshStateService } from '../../field-periodic-refresh/field-periodic-refresh-state.service';
 import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
 import { TableIndexService } from '../../table-index/table-index.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
@@ -208,7 +209,9 @@ export class FieldOpenApiV2Service {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @Optional()
     @Inject(TableIndexService)
-    private readonly tableIndexService?: TableIndexService
+    private readonly tableIndexService?: TableIndexService,
+    @Optional()
+    private readonly fieldPeriodicRefreshStateService?: FieldPeriodicRefreshStateService
   ) {}
 
   /**
@@ -770,6 +773,7 @@ export class FieldOpenApiV2Service {
     );
     await this.overlayStoredPendingState(fields);
     await this.hydrateConditionalCrossBaseIds(tableId, fields);
+    await this.fieldPeriodicRefreshStateService?.attachPeriodicRefreshToFieldVos(fields);
 
     if (query.projection) {
       const fieldById = new Map(fields.map((field) => [field.id, field] as const));
@@ -906,10 +910,9 @@ export class FieldOpenApiV2Service {
         return { id: snapshot.id, v: snapshot.version, type: 'json0' as const, data: vo };
       })
     );
-    await this.hydrateConditionalCrossBaseIds(
-      tableId,
-      snapshots.map((snapshot) => snapshot.data)
-    );
+    const snapshotVos = snapshots.map((snapshot) => snapshot.data);
+    await this.hydrateConditionalCrossBaseIds(tableId, snapshotVos);
+    await this.fieldPeriodicRefreshStateService?.attachPeriodicRefreshToFieldVos(snapshotVos);
     return snapshots;
   }
 
@@ -937,6 +940,7 @@ export class FieldOpenApiV2Service {
     await this.hydrateLookupFieldVo(vo, queryContext, loadLookupFields);
     await this.overlayStoredPendingState([vo]);
     await this.hydrateConditionalCrossBaseIds(tableId, [vo]);
+    await this.fieldPeriodicRefreshStateService?.attachPeriodicRefreshToFieldVos([vo]);
     return vo;
   }
 

@@ -523,7 +523,7 @@ export class PullBaseVcsService {
       this.remoteGateway,
       this.stateRepository,
       this.localEngine,
-      { rejectIfUnresolvedConflicts: true }
+      { requireWritable: true, rejectIfUnresolvedConflicts: true }
     );
     if (stateRes.isErr()) return err(stateRes.error);
 

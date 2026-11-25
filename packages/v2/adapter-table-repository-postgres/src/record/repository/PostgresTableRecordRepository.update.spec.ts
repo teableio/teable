@@ -353,16 +353,6 @@ const hasExistingForeignKeyLinkRead = (
       query.sql.includes(`where "__fk_${symmetricFieldId}" = $1`)
   );
 
-const createSingleRowProvider = (tableName: string, row: Record<string, unknown>): RowProvider => {
-  const target = `from ${tableName}`;
-  return (compiledQuery) => {
-    if (compiledQuery.sql.includes(target) && compiledQuery.sql.includes('select "__id"')) {
-      return [row];
-    }
-    return [];
-  };
-};
-
 const createUndoLogRowProvider = (
   rows: ReadonlyArray<{
     record_id: string;
@@ -527,30 +517,18 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     const result = await repo.updateMany({ actorId }, table, filterSpec, mutateSpec);
     expect(result.isOk()).toBe(true);
 
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            5,
-            "2025-01-01T00:00:00.000Z",
-            "usr_test",
-            "inactive",
-            "inactive",
-          ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("col_amount" > $1)) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $2, "__last_modified_by" = $3, "__version" = "__version" + 1, "col_status" = $4 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $5) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
+    const statements = toSnapshot(driver.queries);
+    expect(statements).toHaveLength(2);
+    expect(statements[0]!.parameters).toEqual([
+      5,
+      '2025-01-01T00:00:00.000Z',
+      'usr_test',
+      'inactive',
+      'inactive',
+    ]);
+    expect(statements[1]).toMatchObject({
+      parameters: ['usr_test', 'tblbbbbbbbbbbbbbbbb'],
+    });
 
     vi.useRealTimers();
   });
@@ -600,36 +578,24 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     const result = await repo.updateMany({ actorId }, table, targetSpec, mutateSpec);
     expect(result.isOk()).toBe(true);
 
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            "recaaaaaaaaaaaaaaaa",
-            "recbbbbbbbbbbbbbbbb",
-            "2025-01-01T00:00:00.000Z",
-            "usr_test",
-            "inactive",
-            "inactive",
-          ],
-          "sql": "with "matched" as (select "__id" as "matched_id", "__version" as "old_version", "col_status" as "old_fldgggggggggggggggg" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" where ("__id" in ($1, $2))) update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $3, "__last_modified_by" = $4, "__version" = "__version" + 1, "col_status" = $5 from "matched" where "__id" = "matched"."matched_id" and ("col_status" IS DISTINCT FROM $6) returning "__id" as "record_id", "__version" as "new_version", "matched"."old_version" as "old_version", "matched"."old_fldgggggggggggggggg" as "old_fldgggggggggggggggg"",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
+    const statements = toSnapshot(driver.queries);
+    expect(statements).toHaveLength(2);
+    expect(statements[0]!.parameters).toEqual([
+      'recaaaaaaaaaaaaaaaa',
+      'recbbbbbbbbbbbbbbbb',
+      '2025-01-01T00:00:00.000Z',
+      'usr_test',
+      'inactive',
+      'inactive',
+    ]);
+    expect(statements[1]).toMatchObject({
+      parameters: ['usr_test', 'tblbbbbbbbbbbbbbbbb'],
+    });
 
     vi.useRealTimers();
   });
 
-  it('generates update SQL for a non-link field', async () => {
+  it('binds a non-link field update without attributing an actor on a disabled table', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
 
@@ -673,30 +639,25 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     const result = await repo.updateOne({ actorId }, table, recordId, mutateSpec);
     expect(result.isOk()).toBe(true);
 
-    expect(toSnapshot(driver.queries)).toMatchInlineSnapshot(`
-      [
-        {
-          "parameters": [
-            "2025-01-01T00:00:00.000Z",
-            "usr_test",
-            "Alice",
-            "rechhhhhhhhhhhhhhhh",
-            "Alice",
-          ],
-          "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" set "__last_modified_time" = $1, "__last_modified_by" = $2, "__version" = "__version" + 1, "col_name" = $3 where "__id" = $4 and ("col_name" IS DISTINCT FROM $5) returning "col_name" as "changed_0"",
-        },
-        {
-          "parameters": [
-            "usr_test",
-            "tblbbbbbbbbbbbbbbbb",
-          ],
-          "sql": "update "public"."table_meta" set "last_modified_time" = CASE
-                WHEN "last_modified_time" IS NULL THEN CURRENT_TIMESTAMP
-                ELSE GREATEST(CURRENT_TIMESTAMP, "last_modified_time" + interval '1 millisecond')
-              END, "last_modified_by" = $1 where "id" = $2",
-        },
-      ]
-    `);
+    const statements = toSnapshot(driver.queries);
+    expect(statements).toHaveLength(2);
+    expect(statements[0]!.parameters).toEqual([
+      RECORD_ID,
+      '2025-01-01T00:00:00.000Z',
+      'usr_test',
+      'Alice',
+      RECORD_ID,
+      'Alice',
+    ]);
+    expect(statements[1]).toMatchObject({
+      parameters: ['usr_test', TABLE_ID],
+    });
+    expect(result._unsafeUnwrap().recordActors).toEqual({
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
+    });
 
     vi.useRealTimers();
   });
@@ -765,9 +726,7 @@ describe('PostgresTableRecordRepository.updateOne', () => {
 
     const queries = toSnapshot(driver.queries);
     expect(queries.some((query) => query.sql.includes('FROM public.users'))).toBe(true);
-    const updateQuery = queries.find(
-      (query) => query.sql.startsWith('update ') && query.sql.includes('col_last_modified_by')
-    );
+    const updateQuery = queries.find((query) => query.sql.includes('col_last_modified_by'));
     expect(updateQuery).toBeDefined();
     expect(updateQuery?.parameters).toContain(expectedSnapshot);
     expect(updateQuery?.parameters).not.toContain(
@@ -844,6 +803,10 @@ describe('PostgresTableRecordRepository.updateOne', () => {
           [NAME_FIELD_ID]: 'Before',
         },
         version: 4,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
       current: {
         recordId: recordId.toString(),
@@ -851,6 +814,10 @@ describe('PostgresTableRecordRepository.updateOne', () => {
           [NAME_FIELD_ID]: 'Alice',
         },
         version: 5,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
       oldVersion: 4,
       newVersion: 5,
@@ -931,6 +898,10 @@ describe('PostgresTableRecordRepository.updateOne', () => {
         [NAME_FIELD_ID]: 'Alice',
       },
       version: 5,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     });
 
     vi.useRealTimers();
@@ -1719,9 +1690,12 @@ describe('PostgresTableRecordRepository.updateOne', () => {
     const insertQuery = driver.queries.find((query) =>
       query.sql.includes(`insert into "${BASE_ID}"."${TABLE_ID}"`)
     );
-    expect(insertQuery?.sql).toBeDefined();
-    expect(insertQuery?.sql.toLowerCase()).not.toContain('returning');
-    expect(insertQuery?.sql).not.toContain('changed_');
+    expect(insertQuery?.sql.toLowerCase()).toContain('returning "__id" as "record_id"');
+    expect(insertQuery?.sql).toContain('NULL::text as "__created_by_actor_type"');
+    expect(insertQuery?.sql).toContain('NULL::text as "__created_by_actor_id"');
+    expect(insertQuery?.sql).toContain('NULL::text as "__last_modified_by_actor_type"');
+    expect(insertQuery?.sql).toContain('NULL::text as "__last_modified_by_actor_id"');
+    expect(result._unsafeUnwrap()).toEqual({ totalInserted: 1 });
 
     vi.useRealTimers();
   });

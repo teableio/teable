@@ -119,19 +119,46 @@ export const redirectToUnauthenticatedAuth = () => {
   window.location.href = getUnauthenticatedAuthPath(isReturning, window.location.href);
 };
 
-const handleStatusRedirect = (error: unknown): boolean => {
-  const { status } = error as IHttpError;
-  if (status === 401) {
-    redirectToUnauthenticatedAuth();
-    return true;
+export interface IErrorRequestOptions {
+  isQuery?: boolean;
+  // The page is a share or a template preview, open to visitors who never signed in.
+  isReadOnlyPreview?: boolean;
+}
+
+/**
+ * What a 401 does. On a member's page the session is gone, and the page leaves for sign-in.
+ * A share or template page is open to visitors who never signed in, so there:
+ * - a share that wants its password, again or for the first time, says so, and a reload
+ *   brings its password page, as it does when the realtime connection is refused the same way;
+ * - any other 401 on a lookup means the lookup is a member's. It is left to the handling of
+ *   every other 4xx on a lookup: the visitor stays on the page without that piece of it,
+ *   which is what a 403 does to a visitor who is signed in.
+ */
+const handleUnauthorized = (error: unknown, options?: IErrorRequestOptions): boolean => {
+  const { status, code } = error as IHttpError;
+  if (status !== 401) {
+    return false;
   }
-  return openUsageLimitModalFromError(error);
+  if (options?.isReadOnlyPreview) {
+    if (code === HttpErrorCode.UNAUTHORIZED_SHARE) {
+      window.location.reload();
+      return true;
+    }
+    if (options.isQuery) {
+      return false;
+    }
+  }
+  redirectToUnauthenticatedAuth();
+  return true;
 };
+
+const handleStatusRedirect = (error: unknown, options?: IErrorRequestOptions): boolean =>
+  handleUnauthorized(error, options) || openUsageLimitModalFromError(error);
 
 export const errorRequestHandler = (
   error: unknown,
   t?: ILocaleFunction,
-  options?: { isQuery?: boolean }
+  options?: IErrorRequestOptions
 ) => {
   t ??= fallbackTranslator;
   if (isTableProvisionPending(error)) {
@@ -156,7 +183,7 @@ export const errorRequestHandler = (
     return;
   }
 
-  if (handleStatusRedirect(error)) {
+  if (handleStatusRedirect(error, options)) {
     return;
   }
 
@@ -193,7 +220,10 @@ export const errorRequestHandler = (
   });
 };
 
-export const createQueryClient = (t?: ILocaleFunction) => {
+export const createQueryClient = (
+  t?: ILocaleFunction,
+  { isReadOnlyPreview }: Pick<IErrorRequestOptions, 'isReadOnlyPreview'> = {}
+) => {
   if (t) fallbackTranslator = t;
   return new QueryClient({
     defaultOptions: {
@@ -214,7 +244,7 @@ export const createQueryClient = (t?: ILocaleFunction) => {
         if (query.meta?.['preventGlobalError']) {
           return;
         }
-        errorRequestHandler(error, t, { isQuery: true });
+        errorRequestHandler(error, t, { isQuery: true, isReadOnlyPreview });
       },
     }),
     mutationCache: new MutationCache({
@@ -222,7 +252,7 @@ export const createQueryClient = (t?: ILocaleFunction) => {
         if (mutation.options.meta?.['preventGlobalError']) {
           return;
         }
-        errorRequestHandler(error, t);
+        errorRequestHandler(error, t, { isReadOnlyPreview });
       },
     }),
   });

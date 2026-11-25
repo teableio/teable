@@ -26,8 +26,8 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -41,6 +41,8 @@ import type {
   UpdateManyStreamBatchInput,
   RecordMutationResult,
   UpdateManyStreamResult,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   ITableRecordRepository,
 } from '../ports/TableRecordRepository';
 import { isUpdateManyStreamBatch } from '../ports/TableRecordRepository';
@@ -156,13 +158,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -204,6 +199,14 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   updatedRecords: TableRecord[] = [];
   updateManyStreamUpdatedRecordIds?: ReadonlySet<string>;
   updateManyStreamVersions = new Map<string, number>();
@@ -342,8 +345,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    return ok({ totalDeleted: 0 });
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 
@@ -443,6 +448,10 @@ describe('ClearHandler', () => {
       queryRepository.records = [null, 10, 20].map((value, index) => ({
         id: `rec${String(index).repeat(16)}`,
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
         fields: { [primaryFieldId.toString()]: value },
       }));
       const undoRedoService = new TrackingUndoRedoService();
@@ -494,6 +503,10 @@ describe('ClearHandler', () => {
           [primaryFieldId.toString()]: 10,
           [formulaFieldId.toString()]: 11,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -551,6 +564,10 @@ describe('ClearHandler', () => {
           [firstFieldId.toString()]: 100,
           [secondFieldId.toString()]: null,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     const eventBus = new FakeEventBus();
@@ -602,6 +619,10 @@ describe('ClearHandler', () => {
         fields: {
           [firstFieldId.toString()]: 100,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     const recordRepository = new FakeTableRecordRepository(recordQueryRepository);
@@ -651,6 +672,10 @@ describe('ClearHandler', () => {
           [firstFieldId.toString()]: 100,
           [secondFieldId.toString()]: 200,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -706,6 +731,10 @@ describe('ClearHandler', () => {
           [firstFieldId.toString()]: 100,
           [secondFieldId.toString()]: 200,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
       {
         id: `rec${'y'.repeat(16)}`,
@@ -714,6 +743,10 @@ describe('ClearHandler', () => {
           [firstFieldId.toString()]: 300,
           [secondFieldId.toString()]: 400,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -776,6 +809,10 @@ describe('ClearHandler', () => {
         fields: {
           [primaryFieldId.toString()]: 10,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -862,6 +899,10 @@ describe('ClearHandler', () => {
           [firstFieldId.toString()]: 100,
           [secondFieldId.toString()]: 200,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -910,6 +951,10 @@ describe('ClearHandler', () => {
           [firstFieldId.toString()]: 1,
           [secondFieldId.toString()]: 2,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -961,6 +1006,10 @@ describe('ClearHandler', () => {
           [firstFieldId.toString()]: 100,
           [secondFieldId.toString()]: null,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     const eventBus = new FakeEventBus();
@@ -1021,6 +1070,10 @@ describe('ClearHandler', () => {
       fields: {
         [primaryFieldId.toString()]: index + 1,
       },
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     }));
     recordQueryRepository.visiblePredicate = (record) =>
       record.fields[primaryFieldId.toString()] !== null &&

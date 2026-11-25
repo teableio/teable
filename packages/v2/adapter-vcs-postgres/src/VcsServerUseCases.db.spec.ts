@@ -3,6 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as joinPath } from 'node:path';
 import {
+  getPostgresTransaction,
+  registerV2PostgresDb,
   registerV2PostgresDataDb,
   registerV2PostgresMetaDb,
   v2DataDbTokens,
@@ -20,9 +22,13 @@ import {
   CreateRecordsCommand,
   CreateTableCommand,
   FieldKeyType,
+  RecordByIdsSpec,
+  resolveScopedTableSchemaLease,
   UpdateRecordCommand,
   UpdateRecordsCommand,
+  UpdateRecordsHandler,
   v2CoreTokens,
+  withoutTransaction,
   type CreateBaseResult,
   type CreateRecordResult,
   type CreateRecordsResult,
@@ -31,6 +37,7 @@ import {
   type IDomainWriteTransaction,
   type IExecutionContext,
   type IQueryBus,
+  type ITableRecordQueryRepository,
 } from '@teable/v2-core';
 import { container as rootContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -61,6 +68,8 @@ import {
 import { V2EngineSyncAdapter } from '@teable/v2-vcs/engine';
 import { FileVcsStateRepository } from '@teable/v2-vcs/node';
 import {
+  type AllowAllVcsAccessPolicy,
+  BaseVcsHistoryService,
   CloneVcsSnapshotService,
   EnableBaseVcsService,
   GetVcsHeadService,
@@ -345,6 +354,138 @@ describe('VCS server use-cases integration (real PostgreSQL)', () => {
   afterAll(async () => {
     await testContainer?.dispose();
   }, 30_000);
+
+  it('exhausts retries in the coordinated push owner and preserves a nested abort for the caller', async () => {
+    const ctx = createContext();
+    const { base } = unwrap(
+      await commandBus.execute<CreateBaseCommand, CreateBaseResult>(
+        ctx,
+        CreateBaseCommand.create({ name: 'Coordinated push retries' })._unsafeUnwrap()
+      )
+    );
+    const id = base.id();
+    const baseId = id.toString();
+    const { table } = unwrap(
+      await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        ctx,
+        CreateTableCommand.create({
+          baseId,
+          name: 'Retry target',
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        })._unsafeUnwrap()
+      )
+    );
+    const tableId = table.id().toString();
+    const fieldId = table.primaryFieldId().toString();
+    const { record } = unwrap(
+      await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+        ctx,
+        CreateRecordCommand.create({ tableId, fields: { [fieldId]: 'before' } })._unsafeUnwrap()
+      )
+    );
+    const recordId = record.id().toString();
+    unwrap(await enableService.execute(ctx, { baseId }));
+    const originPushId = 'vcsp_coordinated_retry';
+    const request = {
+      baseId,
+      baseRevision: 0,
+      originPushId,
+      patch: {
+        tablesAdded: [],
+        tablesDeleted: [],
+        tablesUpdated: [
+          {
+            ...createEmptyTablePatch(tableId),
+            recordsUpdated: [
+              { recordId, cellChanges: [{ fieldId, before: 'before', after: 'after' }] },
+            ],
+          },
+        ],
+      },
+    };
+    const readCell = async () =>
+      unwrap(await cloneService.execute(ctx, { baseId, tableIds: [tableId] })).snapshot.tables[0]
+        .records[0].fields[fieldId];
+    const attempts: { xid: string; leaseXid: string | undefined }[] = [];
+    let failAttempts = 4;
+    let sqlState: '40001' | '55P03' = '40001';
+    const handle = UpdateRecordsHandler.prototype.handle;
+    const write = vi
+      .spyOn(UpdateRecordsHandler.prototype, 'handle')
+      .mockImplementation(async function (this: UpdateRecordsHandler, txCtx, command) {
+        const trx = getPostgresTransaction(txCtx, 'data')!;
+        const { rows } = await sql<{ xid: string }>`
+          SELECT pg_current_xact_id()::text AS xid
+        `.execute(trx);
+        const lease = resolveScopedTableSchemaLease(txCtx, [tableId], 'shared')?._unsafeUnwrap();
+        attempts.push({ xid: rows[0].xid, leaseXid: lease?.fence?.transactionId });
+        const result = await handle.call(this, txCtx, command);
+        if (result.isOk() && failAttempts-- > 0) {
+          await trx.executeQuery(
+            CompiledQuery.raw(`DO $$ BEGIN
+              RAISE EXCEPTION 'synthetic VCS write abort' USING ERRCODE = '${sqlState}';
+            END $$;`)
+          );
+        }
+        return result;
+      });
+
+    try {
+      const failure = (await pushService.execute(ctx, request))._unsafeUnwrapErr();
+      expect(failure).toMatchObject({ code: 'vcs.write_busy', details: { retryable: true } });
+      expect((failure.cause as DomainError).cause).toMatchObject({ code: '40001' });
+      expect(attempts).toHaveLength(4);
+      expect(new Set(attempts.map(({ xid }) => xid)).size).toBe(4);
+      const leaseXid = attempts[0].leaseXid;
+      expect(leaseXid).toBeDefined();
+      expect(
+        attempts.every((attempt) => attempt.leaseXid === leaseXid && attempt.xid !== leaseXid)
+      ).toBe(true);
+      expect(await readCell()).toBe('before');
+      expect(unwrap(await getHeadService.execute(ctx, { baseId })).headRevision).toBe(0);
+      expect(
+        unwrap(await logRepository.findCommitByOriginPushId(ctx, id, originPushId))
+      ).toBeNull();
+
+      attempts.length = 0;
+      failAttempts = 4;
+      sqlState = '55P03';
+      const nonRetryable = (await pushService.execute(ctx, request))._unsafeUnwrapErr();
+      expect(nonRetryable.code).toBe('unexpected');
+      expect(nonRetryable.cause).toMatchObject({ code: '55P03' });
+      expect(attempts).toHaveLength(1);
+
+      attempts.length = 0;
+      failAttempts = 1;
+      sqlState = '40001';
+      const result = unwrap(
+        await pushService.withWriteCoordination(ctx, [tableId], [], 'shared', (leaseCtx) =>
+          domainWriteTransaction.withBatchTransaction(
+            leaseCtx,
+            async (txCtx) => {
+              const pushed = await pushService.execute(txCtx, request);
+              if (pushed.isErr()) {
+                expect(pushed.error.code).toBe('unexpected');
+                expect(pushed.error.cause).toMatchObject({ code: '40001' });
+              }
+              return pushed;
+            },
+            { scope: 'data', isolationLevel: 'repeatable read' }
+          )
+        )
+      );
+      expect(attempts).toHaveLength(2);
+      expect(attempts[0].xid).not.toBe(attempts[1].xid);
+      expect(result.newRevision).toBe(1);
+      expect(result.commitId).toBeDefined();
+      expect(await readCell()).toBe('after');
+      expect(unwrap(await pushService.execute(ctx, request)).commitId).toBe(result.commitId);
+      expect(write).toHaveBeenCalledTimes(7);
+      expect(unwrap(await getHeadService.execute(ctx, { baseId })).headRevision).toBe(1);
+    } finally {
+      write.mockRestore();
+    }
+  });
 
   it('(a) rejects delete operations missing before snapshots or record version', async () => {
     const ctx = createContext();
@@ -1219,11 +1360,16 @@ describe('VCS server use-cases integration (real PostgreSQL)', () => {
 
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 150));
       expect(enableSettled).toBe(false);
+      expect(unwrap(await logRepository.isEnabled(ctx, barrierBase))).toBe(false);
 
       releasePreEnable();
       const [txRes, enableRes] = await Promise.all([preEnableTxPromise, enablePromise]);
       expect(txRes.isOk()).toBe(true);
       expect(enableRes.isOk()).toBe(true);
+      const checkpoint = unwrap(await logRepository.readHistoricalSnapshot(ctx, barrierBase, 0));
+      expect(
+        checkpoint.tables[0]?.records.find((r) => r.id === recordId)?.fields[primaryFieldId]
+      ).toBe('InFlightPreEnableWrite');
 
       const postEnableClone = unwrap(
         await cloneService.execute(ctx, { baseId: barrierBaseId }),
@@ -1242,7 +1388,321 @@ describe('VCS server use-cases integration (real PostgreSQL)', () => {
     }
   }, 60_000);
 
-  it('(g) acquires metadata locks BEFORE reading live metadata during push to prevent field CAS race', async () => {
+  it('rejects a confirmed table rollback if a business insert commits after its snapshot', async () => {
+    const ctx = createContext();
+    const id = unwrap(
+      await commandBus.execute<CreateBaseCommand, CreateBaseResult>(
+        ctx,
+        CreateBaseCommand.create({ name: 'Concurrent rollback' })._unsafeUnwrap()
+      )
+    ).base.id();
+    const baseId = id.toString();
+    unwrap(await enableService.execute(ctx, { baseId }));
+    const table = unwrap(
+      await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        ctx,
+        CreateTableCommand.create({
+          baseId,
+          name: 'New table',
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+        })._unsafeUnwrap()
+      )
+    ).table;
+    const history = testContainer.container.resolve(BaseVcsHistoryService);
+    const policy = testContainer.container.resolve<AllowAllVcsAccessPolicy>(
+      v2VcsServerTokens.accessPolicy
+    );
+    const grant = vi
+      .spyOn(policy, 'resolveHistoryAccess')
+      .mockResolvedValue(ok({ kind: 'full' as const }));
+    try {
+      const preview = unwrap(await history.rollback(ctx, { baseId, revision: 0 }));
+      if (!preview.dryRun) throw new Error('Expected rollback preview');
+      expect(preview.patch.tablesDeleted.map((t) => t.tableId)).toContain(table.id().toString());
+      const acquire = logRepository.lockPushPhysicalTargets.bind(logRepository);
+      const lock = vi.spyOn(logRepository, 'lockPushPhysicalTargets');
+      // Confirmation has taken its SERIALIZABLE snapshot, but has no write locks yet.
+      lock.mockImplementationOnce(async (...args) => {
+        unwrap(
+          await commandBus.execute(
+            withoutTransaction(args[0]),
+            CreateRecordCommand.create({
+              tableId: table.id().toString(),
+              fields: { [table.primaryFieldId().toString()]: 'Keep me' },
+            })._unsafeUnwrap()
+          )
+        );
+        return acquire(...args);
+      });
+      const confirmed = await history
+        .rollback(ctx, {
+          baseId,
+          revision: 0,
+          confirmation: preview.confirmation,
+        })
+        .finally(() => lock.mockRestore());
+      expect(confirmed._unsafeUnwrapErr()).toMatchObject({
+        code: 'vcs.stale_rollback_preview',
+        tags: ['conflict'],
+      });
+      const live = unwrap(await cloneService.execute(ctx, { baseId })).snapshot;
+      expect(live.revision).toBe(0);
+      expect(
+        live.tables[0].records.map((r) => r.fields[table.primaryFieldId().toString()])
+      ).toContain('Keep me');
+      expect(unwrap(await logRepository.readHistoricalSnapshot(ctx, id, 0)).tables).toEqual([]);
+    } finally {
+      grant.mockRestore();
+    }
+  }, 30_000);
+
+  it('reads transaction-local record order columns across pages on a one-connection pool', async () => {
+    const ctx = createContext();
+    const table = unwrap(
+      await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        ctx,
+        CreateTableCommand.create({
+          baseId: testContainer.baseId.toString(),
+          name: 'Single connection orders',
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+        })._unsafeUnwrap()
+      )
+    ).table;
+    const titles = ['First', 'Second'];
+    unwrap(
+      await commandBus.execute(
+        ctx,
+        CreateRecordsCommand.create({
+          tableId: table.id().toString(),
+          records: titles.map((title) => ({
+            fields: { [table.primaryFieldId().toString()]: title },
+          })),
+        })._unsafeUnwrap()
+      )
+    );
+    const single = await createV2NodeTestContainer({
+      connectionString: testContainer.connectionString,
+      ensureSchema: false,
+      seedBase: false,
+      schemaCoordination: false,
+      registerDb: (container, config) =>
+        registerV2PostgresDb(container, {
+          pg: { ...config.pg, pool: { max: 1, connectionTimeoutMillis: 2000 } },
+        }),
+    });
+    try {
+      const transaction = single.container.resolve<IDomainWriteTransaction>(
+        v2CoreTokens.domainWriteTransaction
+      );
+      const reader = single.container.resolve<ITableRecordQueryRepository>(
+        v2CoreTokens.tableRecordQueryRepository
+      );
+      const read = await transaction.withBatchTransaction(
+        ctx,
+        async (tx) => {
+          const trx = getPostgresTransaction(tx, 'data')!;
+          const name = table
+            .dbTableName()
+            .andThen((n) => n.value())
+            ._unsafeUnwrap();
+          await sql`ALTER TABLE ${sql.table(name)} ADD COLUMN __row_local double precision DEFAULT 17`.execute(
+            trx
+          );
+          const values = [];
+          for await (const result of reader.findStream(tx, table, undefined, {
+            mode: 'stored',
+            includeOrders: true,
+            batchSize: 1,
+          })) {
+            if (result.isErr()) return err(result.error);
+            values.push({
+              title: result.value.fields[table.primaryFieldId().toString()],
+              order: result.value.orders?.local,
+            });
+          }
+          return ok(values);
+        },
+        { scope: 'data', isolationLevel: 'repeatable read' }
+      );
+      expect(unwrap(read)).toEqual(titles.map((title) => ({ title, order: 17 })));
+    } finally {
+      await single.dispose();
+    }
+  });
+
+  it('captures an ordinary dirty edit and a pushed edit without streaming the unchanged table', async () => {
+    const ctx = createContext();
+    const id = unwrap(
+      await commandBus.execute<CreateBaseCommand, CreateBaseResult>(
+        ctx,
+        CreateBaseCommand.create({ name: 'Incremental checkpoint' })._unsafeUnwrap()
+      )
+    ).base.id();
+    const baseId = id.toString();
+    async function createItems(name: string, count: number, withFormula = false) {
+      const table = unwrap(
+        await commandBus.execute<CreateTableCommand, CreateTableResult>(
+          ctx,
+          CreateTableCommand.create({
+            baseId,
+            name,
+            fields: [
+              { type: 'singleLineText', name: 'Title', isPrimary: true },
+              ...(withFormula
+                ? [{ type: 'formula' as const, name: 'Total', options: { expression: '1 + 1' } }]
+                : []),
+            ],
+          })._unsafeUnwrap()
+        )
+      ).table;
+      const fieldId = table.primaryFieldId().toString();
+      const tableId = table.id().toString();
+      const { records } = unwrap(
+        await commandBus.execute<CreateRecordsCommand, CreateRecordsResult>(
+          ctx,
+          CreateRecordsCommand.create({
+            tableId,
+            records: Array.from({ length: count }, (_, i) => ({
+              fields: { [fieldId]: String(i) },
+            })),
+          })._unsafeUnwrap()
+        )
+      );
+      return { fieldId, tableId, records };
+    }
+    const { fieldId, tableId, records } = await createItems('Changed', 300);
+    const stable = await createItems('Stable formula', 1, true);
+    unwrap(await enableService.execute(ctx, { baseId }));
+    const dirtyId = records[0].id().toString();
+    const pushedId = records[1].id().toString();
+    unwrap(
+      await commandBus.execute(
+        ctx,
+        UpdateRecordCommand.create({
+          tableId,
+          recordId: dirtyId,
+          fields: { [fieldId]: 'Business edit' },
+        })._unsafeUnwrap()
+      )
+    );
+    const reader = testContainer.container.resolve<ITableRecordQueryRepository>(
+      v2CoreTokens.tableRecordQueryRepository
+    );
+    const reads = vi.spyOn(reader, 'findStream');
+    try {
+      unwrap(
+        await pushService.execute(ctx, {
+          baseId,
+          baseRevision: 0,
+          patch: {
+            tablesAdded: [],
+            tablesDeleted: [],
+            tablesUpdated: [
+              {
+                ...createEmptyTablePatch(tableId),
+                recordsUpdated: [
+                  {
+                    recordId: pushedId,
+                    cellChanges: [{ fieldId, before: '1', after: 'Pushed edit' }],
+                  },
+                ],
+              },
+            ],
+          },
+        })
+      );
+      const captures = reads.mock.calls.filter(
+        ([, , , opts]) => opts?.mode === 'stored' && opts.includeOrders
+      );
+      expect(captures.map(([, table]) => table.id().toString())).toEqual([tableId]);
+      const selected = captures[0][2];
+      expect(
+        selected instanceof RecordByIdsSpec && selected.recordIds().map(String).sort()
+      ).toEqual([dirtyId, pushedId].sort());
+      const before = unwrap(await logRepository.readHistoricalSnapshot(ctx, id, 0));
+      const after = unwrap(await logRepository.readHistoricalSnapshot(ctx, id, 1));
+      expect(after.tables.find((t) => t.id === stable.tableId)).toEqual(
+        before.tables.find((t) => t.id === stable.tableId)
+      );
+      const original = before.tables.find((t) => t.id === tableId)!.records;
+      expect(after.tables.find((t) => t.id === tableId)!.records).toEqual(
+        original.map((row) => {
+          if (row.id !== dirtyId && row.id !== pushedId) return row;
+          return {
+            ...row,
+            version: row.version! + 1,
+            fields: { [fieldId]: row.id === dirtyId ? 'Business edit' : 'Pushed edit' },
+          };
+        })
+      );
+    } finally {
+      reads.mockRestore();
+    }
+  });
+
+  it('commits a rollback receipt and checkpoint inside a serializable outer batch', async () => {
+    const ctx = createContext();
+    const id = unwrap(
+      await commandBus.execute<CreateBaseCommand, CreateBaseResult>(
+        ctx,
+        CreateBaseCommand.create({ name: 'Rollback receipt' })._unsafeUnwrap()
+      )
+    ).base.id();
+    const baseId = id.toString();
+    const table = unwrap(
+      await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        ctx,
+        CreateTableCommand.create({
+          baseId,
+          name: 'Items',
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+        })._unsafeUnwrap()
+      )
+    ).table;
+    unwrap(await enableService.execute(ctx, { baseId }));
+    const initial = unwrap(await logRepository.readHistoricalSnapshot(ctx, id, 0));
+    const patch = {
+      tablesAdded: [],
+      tablesDeleted: [],
+      tablesUpdated: [
+        {
+          ...createEmptyTablePatch(table.id().toString()),
+          recordsAdded: [
+            {
+              id: `rec${randomUUID().replaceAll('-', '').slice(0, 17)}`,
+              fields: { [table.primaryFieldId().toString()]: 'Added' },
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      unwrap(await pushService.execute(ctx, { baseId, baseRevision: 0, patch })).newRevision
+    ).toBe(1);
+    const inverse = unwrap(await logRepository.compareHistoricalRevisions(ctx, id, 1, 0)).patch;
+    const receipt = `vcsr_${randomUUID()}`;
+    const options = { requireExactHead: true, rollbackCommitId: receipt };
+    const stale = await pushService.execute(
+      ctx,
+      { baseId, baseRevision: 0, patch: inverse },
+      options
+    );
+    expect(stale._unsafeUnwrapErr().code).toBe('vcs.non_fast_forward');
+    const rollback = await domainWriteTransaction.withBatchTransaction(
+      ctx,
+      (tx) => pushService.execute(tx, { baseId, baseRevision: 1, patch: inverse }, options),
+      { scope: 'data', isolationLevel: 'serializable' }
+    );
+    expect(unwrap(rollback)).toMatchObject({ commitId: receipt, newRevision: 2, rebased: false });
+    expect(unwrap(await logRepository.readHistoricalSnapshot(ctx, id, 2)).tables).toEqual(
+      initial.tables
+    );
+    expect(
+      unwrap(await logRepository.readHistoricalSnapshot(ctx, id, 1)).tables[0].records[0].fields
+    ).toEqual({ [table.primaryFieldId().toString()]: 'Added' });
+  });
+
+  it('(g) locks records before metadata and revalidates a stale field after serialization retry', async () => {
     const ctx = createContext();
     const raceBase = unwrap(
       await commandBus.execute<CreateBaseCommand, CreateBaseResult>(
@@ -1271,6 +1731,18 @@ describe('VCS server use-cases integration (real PostgreSQL)', () => {
     const tableId = table.id().toString();
     const statusField = table.getFields().find((f) => f.name().toString() === 'Status')!;
     const statusFieldId = statusField.id().toString();
+    const fieldId = table.primaryFieldId().toString();
+    const record = unwrap(
+      await commandBus.execute<CreateRecordCommand, CreateRecordResult>(
+        ctx,
+        CreateRecordCommand.create({ tableId, fields: { [fieldId]: 'Original' } })._unsafeUnwrap()
+      )
+    ).record;
+    const recordId = record.id().toString();
+    const physicalTable = table
+      .dbTableName()
+      .andThen((name) => name.value())
+      ._unsafeUnwrap();
 
     const snap0 = unwrap(
       await cloneService.execute(ctx, { baseId: raceBaseId, tableIds: [tableId] }),
@@ -1278,76 +1750,65 @@ describe('VCS server use-cases integration (real PostgreSQL)', () => {
     ).snapshot;
     const beforeField = snap0.tables[0]!.fields.find((f) => f.id === statusFieldId)!;
 
-    // Concurrent transaction locks base_vcs_head FOR UPDATE before updating field metadata.
-    let markHeadLocked!: () => void;
-    const headLocked = new Promise<void>((resolveLocked) => {
-      markHeadLocked = resolveLocked;
-    });
-    let triggerRenameAndCommit!: () => void;
-    const renameGate = new Promise<void>((resolveGate) => {
-      triggerRenameAndCommit = resolveGate;
-    });
+    const acquire = logRepository.lockPushPhysicalTargets.bind(logRepository);
+    const lock = vi.spyOn(logRepository, 'lockPushPhysicalTargets');
+    lock.mockImplementationOnce(async (...args) => {
+      const locked = await acquire(...args);
+      if (locked.isErr()) return locked;
+      await expect(
+        sql`SELECT 1 FROM ${sql.table(physicalTable)} WHERE __id = ${recordId} FOR UPDATE NOWAIT`.execute(
+          dataDb
+        )
+      ).rejects.toMatchObject({ code: '55P03' });
 
-    const lockTxPromise = dataDb.transaction().execute(async (trx) => {
-      await sql`SELECT enabled FROM base_vcs_head WHERE base_id = ${raceBaseId} FOR UPDATE`.execute(
-        trx
-      );
-      markHeadLocked();
-      await renameGate;
-      await sql`
-        UPDATE field
-        SET name = 'ConcurrentServerRename', version = version + 1
-        WHERE id = ${statusFieldId}
-      `.execute(trx);
+      // The push holds its data lock, but has not taken table_meta or head locks.
+      await dataDb.transaction().execute(async (trx) => {
+        await sql`SELECT 1 FROM table_meta WHERE id = ${tableId} FOR UPDATE NOWAIT`.execute(trx);
+        await sql`SELECT 1 FROM base_vcs_head WHERE base_id = ${raceBaseId} FOR UPDATE NOWAIT`.execute(
+          trx
+        );
+        await sql`SELECT 1 FROM field WHERE id = ${statusFieldId} FOR UPDATE NOWAIT`.execute(trx);
+        await sql`
+          UPDATE field SET name = 'ConcurrentServerRename', version = version + 1
+          WHERE id = ${statusFieldId}
+        `.execute(trx);
+      });
+      return locked;
     });
 
     try {
-      await headLocked;
-
-      let pushSettled = false;
-      const pushPromise = pushService
-        .execute(ctx, {
-          baseId: raceBaseId,
-          baseRevision: snap0.revision,
-          patch: {
-            tablesAdded: [],
-            tablesDeleted: [],
-            tablesUpdated: [
-              {
-                ...createEmptyTablePatch(tableId),
-                fieldsUpdated: [
-                  {
-                    fieldId: statusFieldId,
-                    before: beforeField,
-                    after: { ...beforeField, name: 'ClientStaleRename' },
-                  },
-                ],
-              },
-            ],
-          },
-        })
-        .then((res) => {
-          pushSettled = true;
-          return res;
-        });
-
-      // Push must remain blocked inside lockPushMetadata BEFORE reading live field metadata.
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
-      expect(pushSettled).toBe(false);
-
-      triggerRenameAndCommit();
-      const [, pushRes] = await Promise.all([lockTxPromise, pushPromise]);
-
-      expect(pushRes.isErr()).toBe(true);
+      const pushRes = await pushService.execute(ctx, {
+        baseId: raceBaseId,
+        baseRevision: snap0.revision,
+        patch: {
+          tablesAdded: [],
+          tablesDeleted: [],
+          tablesUpdated: [
+            {
+              ...createEmptyTablePatch(tableId),
+              fieldsUpdated: [
+                {
+                  fieldId: statusFieldId,
+                  before: beforeField,
+                  after: { ...beforeField, name: 'ClientStaleRename' },
+                },
+              ],
+              recordsUpdated: [
+                { recordId, cellChanges: [{ fieldId, before: 'Original', after: 'Pushed' }] },
+              ],
+            },
+          ],
+        },
+      });
       expect(pushRes._unsafeUnwrapErr().code).toBe('vcs.cas_conflict');
+      expect(lock).toHaveBeenCalledTimes(2);
 
       const liveField = await sql<{ name: string }>`
         SELECT name FROM field WHERE id = ${statusFieldId}
       `.execute(testContainer.metaDb);
       expect(liveField.rows[0]?.name).toBe('ConcurrentServerRename');
     } finally {
-      triggerRenameAndCommit();
-      await lockTxPromise.catch(() => undefined);
+      lock.mockRestore();
     }
   }, 60_000);
 
@@ -1866,17 +2327,19 @@ describe('VCS server use-cases integration (real PostgreSQL)', () => {
       expect(pullOwnMulti.conflicts).toEqual([]);
       expect((await statusSvc.execute())._unsafeUnwrap().hasChanges).toBe(false);
 
-      // 4. Mid-batch CAS conflict checkpoint resume: 120 updates with maxBatchSize=40, server conflicts on index 95 (Batch 2)
-      const firstBatchSampleId = createdItems[5]!.id().toString();
-      const conflictId = createdItems[95]!.id().toString();
+      // VCS batches scalar edits in canonical record-ID order, independent of creation order.
+      const conflictRows = createdItems.slice(0, 120).map((record) => record.id().toString());
+      conflictRows.sort((a, b) => a.localeCompare(b));
+      const firstBatchSampleId = conflictRows[5]!;
+      const conflictId = conflictRows[95]!;
       unwrap(
         await localCmdBus.execute(
           ctx,
           UpdateRecordsCommand.create({
             tableId: itemsTableId,
             fieldKeyType: FieldKeyType.Id,
-            records: createdItems.slice(0, 120).map((rec, idx) => ({
-              id: rec.id().toString(),
+            records: conflictRows.map((id, idx) => ({
+              id,
               fields: { [itemQtyFieldId]: 2000 + idx },
             })),
           })._unsafeUnwrap()

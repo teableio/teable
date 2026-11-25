@@ -1048,6 +1048,7 @@ export class DefaultTableMapper implements ITableMapper {
         ...(table.icon() !== undefined ? { icon: table.icon() } : {}),
         ...(dbTableName ? { dbTableName } : {}),
         ...(table.searchIndex() ? { searchIndex: table.searchIndex() } : {}),
+        actorStorageVersion: table.actorStorageVersion(),
         primaryFieldId: table.primaryFieldId().toString(),
         fields: [...fields],
         views: [...views],
@@ -1087,6 +1088,7 @@ export class DefaultTableMapper implements ITableMapper {
                       views,
                       ...(dbTableName ? { dbTableName } : {}),
                       searchIndex: dto.searchIndex,
+                      actorStorageVersion: dto.actorStorageVersion,
                     };
                     return TableAggregate.rehydrate(props);
                   })

@@ -49,8 +49,21 @@ export type TableOperationCreatePayload = {
   readonly viewNames: ReadonlyArray<string>;
 };
 
+/**
+ * Which command creates the tables. `createTables` builds them from the caller's own field
+ * definitions; the other two copy tables that already exist (a base, or a `.tea` archive).
+ */
+export const TableOperationCreateManySource = {
+  createTables: 'createTables',
+  duplicateBase: 'duplicateBase',
+  importDotTea: 'importDotTea',
+} as const;
+export type TableOperationCreateManySource =
+  (typeof TableOperationCreateManySource)[keyof typeof TableOperationCreateManySource];
+
 export type TableOperationCreateManyPayload = {
   readonly baseId: BaseId;
+  readonly source: TableOperationCreateManySource;
   readonly tables: ReadonlyArray<TableOperationCreatePayload>;
 };
 

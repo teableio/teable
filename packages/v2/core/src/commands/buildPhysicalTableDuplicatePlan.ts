@@ -9,6 +9,7 @@ import { LastModifiedByField } from '../domain/table/fields/types/LastModifiedBy
 import { LastModifiedTimeField } from '../domain/table/fields/types/LastModifiedTimeField';
 import { LinkField } from '../domain/table/fields/types/LinkField';
 import type { Table } from '../domain/table/Table';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import type {
   PhysicalJunctionCopy,
   PhysicalTableDuplicateColumn,
@@ -118,6 +119,7 @@ export const buildPhysicalTableDuplicatePlan = (params: {
   targetTable: Table;
   fieldIdMap: ReadonlyMap<string, string>;
   viewIdMap: ReadonlyMap<string, string>;
+  initiator?: IExecutionContext['initiator'];
 }): Result<PhysicalTableDuplicatePlan, DomainError> => {
   return safeTry<PhysicalTableDuplicatePlan, DomainError>(function* () {
     const sourceDbTableName = yield* params.sourceTable.dbTableName();
@@ -135,7 +137,24 @@ export const buildPhysicalTableDuplicatePlan = (params: {
       { targetColumn: '__version', sourceSql: '1' },
     ];
 
-    const mappedMainColumns = new Set<string>(['__id', '__created_by', '__version']);
+    if (params.targetTable.actorStorageVersion() === 1) {
+      const literal = (value: string | undefined) =>
+        value === undefined ? 'NULL' : `'${value.replaceAll("'", "''")}'`;
+      columns.push(
+        { targetColumn: '__created_by_actor_type', sourceSql: literal(params.initiator?.type) },
+        { targetColumn: '__created_by_actor_id', sourceSql: literal(params.initiator?.id) },
+        { targetColumn: '__last_modified_by_actor_type', sourceSql: 'NULL' },
+        { targetColumn: '__last_modified_by_actor_id', sourceSql: 'NULL' }
+      );
+    }
+
+    const mappedMainColumns = new Set<string>([
+      ...columns.map((column) => column.targetColumn),
+      '__created_by_actor_type',
+      '__created_by_actor_id',
+      '__last_modified_by_actor_type',
+      '__last_modified_by_actor_id',
+    ]);
 
     // Non-link durable columns (including computed/formula stored values).
     for (const sourceField of params.sourceTable.getFields()) {

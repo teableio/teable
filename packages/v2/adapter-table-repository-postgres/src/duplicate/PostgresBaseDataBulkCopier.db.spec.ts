@@ -5,17 +5,20 @@ import type {
   BaseDataBulkCopyPlan,
   BaseDataBulkCopyProgress,
   IBaseDataBulkCopier,
+  IDurableSubscriptionCatalog,
+  ITransactionalProjectionMessageJournal,
 } from '@teable/v2-core';
-import { ActorId, v2CoreTokens } from '@teable/v2-core';
+import { ActorId, TableId, domainError, v2CoreTokens } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
+import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it } from 'vitest';
-
 import {
   getV2NodeTestContainer,
   setV2NodeTestContainer,
 } from '../integration/testkit/v2NodeTestContainer';
+import { PostgresBaseDataBulkCopier } from './PostgresBaseDataBulkCopier';
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
@@ -23,6 +26,183 @@ const qualified = (dbTableName: string): string =>
   dbTableName.split('.').map(quoteIdentifier).join('.');
 
 describe('PostgresBaseDataBulkCopier (db)', () => {
+  it.each([false, true])(
+    'journals physical create summaries in the copy transaction (append failure %s)',
+    async (failAppend) => {
+      const { container, baseId } = getV2NodeTestContainer();
+      const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const realJournal = container.resolve<ITransactionalProjectionMessageJournal>(
+        v2CoreTokens.projectionMessageJournal
+      );
+      const schema = baseId.toString();
+      await createDataTables(db, schema);
+      if (!failAppend) {
+        await sql`INSERT INTO ${sql.raw(qualified(`${schema}.bulk_src_a`))} ("__id", "__version", "title")
+        SELECT 'recExtra' || n, 1, 'large copied value' FROM generate_series(1, 301) AS n`.execute(
+          db
+        );
+      }
+      const catalog: IDurableSubscriptionCatalog = {
+        snapshot: () =>
+          ok({
+            generation: 1,
+            resolve: () =>
+              ok({
+                messageName: 'table.records.batch-created.v1',
+                durableMode: 'active',
+                sameTxTargets: [],
+                directTargets: [],
+                durableTargets: [
+                  {
+                    consumerId: 'test.copy-operation-audit',
+                    consumerGeneration: 1,
+                    retry: { maxAttempts: 3, policy: 'exponential-jitter' },
+                    ordering: 'none',
+                    idempotency: 'destination-inbox',
+                    replay: 'safe',
+                  },
+                ],
+              }),
+          }),
+      };
+      const journal: ITransactionalProjectionMessageJournal = {
+        append: async (context, messages) => {
+          expect(context.transaction?.scope).toBe('data');
+          const appended = await realJournal.append(context, messages);
+          if (appended.isErr()) return appended;
+          return failAppend
+            ? err(
+                domainError.infrastructure({
+                  code: 'test.copy_audit_failed',
+                  message: 'injected journal failure',
+                })
+              )
+            : appended;
+        },
+      };
+      const copier = new PostgresBaseDataBulkCopier(db, catalog, journal);
+      const result = await copier.copyBaseData(
+        {
+          actorId: ActorId.create('usrExecutor')._unsafeUnwrap(),
+          initiator: { type: 'appUser', id: 'apuCurrent' },
+        },
+        buildPlan(schema)
+      );
+      expect(result.isErr()).toBe(failAppend);
+      const copied = await sql<{
+        count: string;
+      }>`SELECT count(*) AS count FROM ${sql.raw(qualified(`${schema}.bulk_tgt_a`))}`.execute(db);
+      expect(Number(copied.rows[0]?.count)).toBe(failAppend ? 0 : 304);
+      const messages = await sql<{
+        payload: { recordCount: number; records: Array<{ recordId: string; fields: unknown[] }> };
+        attribution: {
+          operationId: string;
+          context: { actorId: string; initiator: { type: string; id: string } };
+        };
+      }>`SELECT payload, attribution FROM domain_event_outbox WHERE base_id = ${schema}`.execute(
+        db
+      );
+      expect(messages.rows).toHaveLength(failAppend ? 0 : 2);
+      if (!failAppend) {
+        expect(messages.rows.map((row) => row.payload.recordCount).sort((a, b) => a - b)).toEqual([
+          1, 304,
+        ]);
+        expect(
+          messages.rows.find((row) => row.payload.recordCount === 304)?.payload.records
+        ).toHaveLength(200);
+        expect(new Set(messages.rows.map((row) => row.attribution.operationId)).size).toBe(1);
+        for (const row of messages.rows) {
+          expect(row.attribution.context.actorId).toBe('usrExecutor');
+          expect(row.attribution.context.initiator).toEqual({ type: 'appUser', id: 'apuCurrent' });
+          expect(row.payload.records.length).toBeLessThanOrEqual(200);
+          expect(row.payload.records.every((record) => record.fields.length === 0)).toBe(true);
+        }
+      }
+    }
+  );
+
+  it.each([
+    [0, 0],
+    [0, 1],
+    [1, 0],
+    [1, 1],
+  ])(
+    'preserves source creator capability %s into destination capability %s and resets modifiers',
+    async (sourceVersion, targetVersion) => {
+      const { container, baseId } = getV2NodeTestContainer();
+      const copier = container.resolve<IBaseDataBulkCopier>(v2CoreTokens.baseDataBulkCopier);
+      const db = container.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const schema = baseId.toString();
+      await createDataTables(db, schema);
+      const plan = buildPlan(schema);
+      const source = `${schema}.bulk_src_a`;
+      const target = `${schema}.bulk_tgt_a`;
+      const columns = [
+        '__created_by_actor_type',
+        '__created_by_actor_id',
+        '__last_modified_by_actor_type',
+        '__last_modified_by_actor_id',
+      ];
+      for (const table of [source, target]) {
+        await sql
+          .raw(`ALTER TABLE ${qualified(table)}
+          ADD COLUMN "__created_by" text,
+          ADD COLUMN "__last_modified_by" text,
+          ADD COLUMN "__last_modified_time" timestamptz`)
+          .execute(db);
+      }
+      for (const table of [
+        ...(sourceVersion === 1 ? [source] : []),
+        ...(targetVersion === 1 ? [target] : []),
+      ]) {
+        for (const column of columns) {
+          await sql
+            .raw(`ALTER TABLE ${qualified(table)} ADD COLUMN ${quoteIdentifier(column)} text`)
+            .execute(db);
+        }
+      }
+      await sql`UPDATE ${sql.raw(qualified(source))}
+        SET "__created_by" = 'usrOriginal', "__last_modified_by" = 'usrModifier',
+            "__last_modified_time" = '2020-01-02T00:00:00Z'::timestamptz`.execute(db);
+      if (sourceVersion === 1) {
+        await sql`UPDATE ${sql.raw(qualified(source))}
+          SET "__created_by_actor_type" = 'appUser',
+              "__created_by_actor_id" = ${"apuOriginal'quoted"},
+              "__last_modified_by_actor_type" = 'user',
+              "__last_modified_by_actor_id" = 'usrModifier'
+          WHERE "__id" <> 'reca3'`.execute(db);
+      }
+      plan.tables[0]!.targetActorStorageVersion = targetVersion;
+      const result = await copier.copyBaseData(
+        {
+          actorId: ActorId.create('usrExecutor')._unsafeUnwrap(),
+          initiator: { type: 'appUser', id: 'apuCurrent' },
+        },
+        plan,
+        () => undefined
+      );
+      expect(result.isOk()).toBe(true);
+      const actorSelect =
+        targetVersion === 1 ? sql`, ${sql.join(columns.map((column) => sql.ref(column)))}` : sql``;
+      const copied = await sql<Record<string, unknown>>`
+        SELECT "__id", "__created_by", "__last_modified_by", "__last_modified_time"${actorSelect}
+        FROM ${sql.raw(qualified(target))} ORDER BY "__id"`.execute(db);
+      expect(copied.rows).toHaveLength(3);
+      for (const row of copied.rows) {
+        expect(row.__created_by).toBe('usrOriginal');
+        expect(row.__last_modified_by).toBeNull();
+        expect(row.__last_modified_time).toBeNull();
+        if (targetVersion === 1) {
+          const hasCreator = sourceVersion === 1 && row.__id !== 'reca3';
+          expect(row.__created_by_actor_type).toBe(hasCreator ? 'appUser' : null);
+          expect(row.__created_by_actor_id).toBe(hasCreator ? "apuOriginal'quoted" : null);
+          expect(row.__last_modified_by_actor_type).toBeNull();
+          expect(row.__last_modified_by_actor_id).toBeNull();
+        }
+      }
+    }
+  );
+
   beforeEach(async () => {
     setV2NodeTestContainer(await createV2NodeTestContainer());
   });
@@ -110,10 +290,11 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
   };
 
   const buildPlan = (schema: string): BaseDataBulkCopyPlan => ({
+    targetBaseId: schema,
     tables: [
       {
         sourceTableId: 'tblSrcA',
-        targetTableId: 'tblTgtA',
+        targetTableId: `tbl${'a'.repeat(16)}`,
         targetTableName: 'Target A',
         sourceDbTableName: `${schema}.bulk_src_a`,
         targetDbTableName: `${schema}.bulk_tgt_a`,
@@ -122,7 +303,7 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
       },
       {
         sourceTableId: 'tblSrcB',
-        targetTableId: 'tblTgtB',
+        targetTableId: `tbl${'b'.repeat(16)}`,
         targetTableName: 'Target B',
         sourceDbTableName: `${schema}.bulk_src_b`,
         targetDbTableName: `${schema}.bulk_tgt_b`,
@@ -170,10 +351,11 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
       ('recEmpty', 1, NULL, NULL)`)
       .execute(db);
     const plan: BaseDataBulkCopyPlan = {
+      targetBaseId: baseId.toString(),
       tables: [
         {
           sourceTableId: 'tblSource',
-          targetTableId: 'tblTarget',
+          targetTableId: TableId.generate()._unsafeUnwrap().toString(),
           targetTableName: 'Dates',
           sourceDbTableName: `${schema}.date_src`,
           targetDbTableName: `${schema}.date_target`,
@@ -194,6 +376,10 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
       batchSize: 2,
     };
     const result = await copier.copyBaseData(context, plan);
+    expect(
+      result.isOk(),
+      result.isErr() ? `${result.error.code}:${result.error.message}` : ''
+    ).toBe(true);
     expect(result._unsafeUnwrap().recordsLength).toBe(3);
     const copied = await sql<{ id: string; start: Date | null; unchanged: Date | null }>`
       SELECT "__id" AS id, "start", "unchanged"
@@ -457,10 +643,11 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
     }
 
     const plan: BaseDataBulkCopyPlan = {
+      targetBaseId: schema,
       tables: [
         {
           sourceTableId: 'tblSrcParent',
-          targetTableId: 'tblTgtParent',
+          targetTableId: `tbl${'c'.repeat(16)}`,
           targetTableName: 'Target parent',
           sourceDbTableName: `${schema}.fk_src_parent`,
           targetDbTableName: `${schema}.fk_tgt_parent`,
@@ -469,7 +656,7 @@ describe('PostgresBaseDataBulkCopier (db)', () => {
         },
         {
           sourceTableId: 'tblSrcChild',
-          targetTableId: 'tblTgtChild',
+          targetTableId: `tbl${'d'.repeat(16)}`,
           targetTableName: 'Target child',
           sourceDbTableName: `${schema}.fk_src_child`,
           targetDbTableName: `${schema}.fk_tgt_child`,

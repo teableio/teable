@@ -46,9 +46,15 @@ import type {
   InsertManyStreamOptions,
   InsertManyStreamResult,
   InsertOptions,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
-import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
+import type {
+  ITableRepository,
+  TableProvisionOperationOptions,
+  TableProvisionState,
+} from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateTableCommand } from './CreateTableCommand';
@@ -92,6 +98,8 @@ class FakeTableRepository implements ITableRepository {
   failInsert: DomainError | undefined;
   failUpdate: DomainError | undefined;
   failFind: DomainError | undefined;
+  actorPublications: TableProvisionOperationOptions[] = [];
+  beforeActorPublication?: () => void;
 
   async insert(context: IExecutionContext, table: Table) {
     this.lastContext = context;
@@ -105,13 +113,6 @@ class FakeTableRepository implements ITableRepository {
     if (this.failInsert) return err(this.failInsert);
     this.inserted.push(...tables);
     return ok([...tables]);
-  }
-
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -150,12 +151,24 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const index = this.inserted.findIndex((entry) => entry.id().equals(table.id()));
+    if (index < 0) this.inserted.push(table);
+    else this.inserted[index] = table;
+    return ok(undefined);
+  }
+
   async setProvisionState(
     _context: IExecutionContext,
     table: Table,
-    state: TableProvisionState
+    state: TableProvisionState,
+    operation?: TableProvisionOperationOptions
   ): Promise<Result<void, DomainError>> {
     this.provisionStateChanges.push({ tableId: table.id().toString(), state });
+    if (operation?.publishActorStorageVersion === 1) {
+      this.beforeActorPublication?.();
+      this.actorPublications.push(operation);
+    }
     return ok(undefined);
   }
 
@@ -172,6 +185,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns() {
+    return ok(undefined);
+  }
+
   inserted: Table[] = [];
   lastContext: IExecutionContext | undefined;
   failInsert: DomainError | undefined;
@@ -211,6 +228,16 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     table: Table,
     records: ReadonlyArray<TableRecord>
   ) => BatchRecordMutationResult;
+
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.notImplemented({ message: 'Physical duplication is not used by this fixture' })
+    );
+  }
 
   async insert(context: IExecutionContext, _table: Table, record: TableRecord) {
     this.lastContext = context;
@@ -307,6 +334,8 @@ class FakeEventBus implements IEventBus {
 
 class FakeUnitOfWork implements IUnitOfWork {
   transactions: IExecutionContext[] = [];
+  dataCommitted = false;
+  failDataCommit?: DomainError;
 
   async withTransaction<T>(
     context: IExecutionContext,
@@ -328,7 +357,12 @@ class FakeUnitOfWork implements IUnitOfWork {
       },
     };
     this.transactions.push(transactionContext);
-    return work(transactionContext);
+    const result = await work(transactionContext);
+    if (scope === 'data' && result.isOk()) {
+      if (this.failDataCommit) return err(this.failDataCommit);
+      this.dataCommitted = true;
+    }
+    return result;
   }
 }
 
@@ -399,6 +433,49 @@ const decoratingRecordChangedValues: IRecordChangedValueDecoratorService = {
 };
 
 describe('CreateTableHandler', () => {
+  it('uses created storage for inline rows but publishes only after confirmed data commit', async () => {
+    const { handler, tableRepository, recordRepository, unitOfWork } = createHandlerHarness();
+    const fieldId = `fld${'p'.repeat(16)}`;
+    const command = CreateTableCommand.create({
+      baseId: `bse${'p'.repeat(16)}`,
+      name: 'Actor creation',
+      fields: [{ type: 'singleLineText', id: fieldId, name: 'Title', isPrimary: true }],
+      records: [{ fields: { [fieldId]: 'Initial row' } }],
+      views: [{ type: 'grid' }],
+    })._unsafeUnwrap();
+    let sawInitialWrite = false;
+    recordRepository.insertManyResultFactory = (table) => {
+      expect(table.actorStorageVersion()).toBe(1);
+      expect(tableRepository.inserted[0]!.actorStorageVersion()).toBe(0);
+      expect(unitOfWork.dataCommitted).toBe(false);
+      expect(tableRepository.actorPublications).toEqual([]);
+      sawInitialWrite = true;
+      return {};
+    };
+    tableRepository.beforeActorPublication = () => {
+      expect(unitOfWork.dataCommitted).toBe(true);
+    };
+
+    const result = (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    expect(sawInitialWrite).toBe(true);
+    expect(result.table.actorStorageVersion()).toBe(1);
+    expect(tableRepository.actorPublications).toHaveLength(1);
+    expect(tableRepository.inserted[0]!.actorStorageVersion()).toBe(0);
+  });
+
+  it('does not publish actor capability after a failed data commit', async () => {
+    const { handler, tableRepository, unitOfWork, eventBus } = createHandlerHarness();
+    unitOfWork.failDataCommit = domainError.infrastructure({ message: 'data commit is unknown' });
+
+    const result = await handler.handle(createContext(), createCommand('q')._unsafeUnwrap());
+
+    expect(result._unsafeUnwrapErr().message).toBe('data commit is unknown');
+    expect(tableRepository.actorPublications).toEqual([]);
+    expect(tableRepository.inserted[0]!.actorStorageVersion()).toBe(0);
+    expect(eventBus.published).toEqual([]);
+  });
+
   it('builds tables and publishes events', async () => {
     const commandResult = createCommand('a');
     commandResult._unsafeUnwrap();

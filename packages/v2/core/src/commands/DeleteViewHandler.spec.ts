@@ -170,11 +170,12 @@ class FakeTableUpdateFlow {
     if (hook) {
       const hookResult = await hook(context, table, mutationResult.value.mutateSpec);
       if (hookResult.isErr()) return err(hookResult.error);
-      const normalized = Array.isArray(hookResult.value)
-        ? { events: hookResult.value }
-        : hookResult.value;
-      events.push(...normalized.events);
-      table = normalized.table ?? table;
+      if ('events' in hookResult.value) {
+        events.push(...hookResult.value.events);
+        table = hookResult.value.table ?? table;
+      } else {
+        events.push(...hookResult.value);
+      }
     }
 
     return ok({ table, events, postPersistEvents: [] });

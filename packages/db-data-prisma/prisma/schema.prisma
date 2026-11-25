@@ -273,6 +273,8 @@ model RecordHistory {
   after       String   @map("after")
   createdTime DateTime @default(now()) @map("created_time")
   createdBy   String   @map("created_by")
+  actorType   String?  @map("actor_type")
+  actorId     String?  @map("actor_id")
 
   @@index([tableId, recordId, createdTime])
   @@index([tableId, createdTime])
@@ -366,6 +368,7 @@ model DomainEventOutbox {
   schemaVersion      Int      @map("schema_version")
   aggregateId        String?  @map("aggregate_id")
   payload            Json
+  attribution        Json?
   payloadBytes       Int      @map("payload_bytes")
   catalogGeneration  Int      @map("catalog_generation")
   requiredConsumers  Json     @map("required_consumers")

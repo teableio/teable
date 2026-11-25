@@ -9,6 +9,7 @@ import {
   type TableCreationServiceInput,
 } from '../application/services/TableCreationService';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
+import { completeTablesSchemaOperation } from '../application/services/TableSchemaOperationLifecycleService';
 import type { BaseId } from '../domain/base/BaseId';
 import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
 import { TableCreated } from '../domain/table/events/TableCreated';
@@ -44,13 +45,14 @@ import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/Executi
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { ITableMapper, ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
-import { TableOperationKind } from '../ports/TableOperationPlugin';
+import { TableOperationCreateManySource, TableOperationKind } from '../ports/TableOperationPlugin';
 import type {
   InsertManyStreamBatch,
   RecordRestoreSystemValues,
   UpdateManyStreamBatchInput,
 } from '../ports/TableRecordRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import type { ITableRepository } from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import type { ITableFieldInput } from '../schemas/field';
@@ -161,6 +163,8 @@ export class DuplicateBaseHandler implements ICommandHandler<
       [],
       new NoopLogger()
     ),
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: ITableRepository,
     @inject(v2CoreTokens.baseDataBulkCopier)
     private readonly baseDataBulkCopier: IBaseDataBulkCopier = new NoopBaseDataBulkCopier()
   ) {}
@@ -391,6 +395,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
         executionContext: context,
         payload: {
           baseId: command.baseId,
+          source: TableOperationCreateManySource.duplicateBase,
           tables: builtTables.map((table) => ({
             baseId: command.baseId,
             tableName: table.name(),
@@ -494,9 +499,17 @@ export class DuplicateBaseHandler implements ICommandHandler<
         return err(provisioningResult.error);
       }
       const transactionResult = provisioningResult.value;
+      yield* await completeTablesSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        transactionResult.persistedTables,
+        { type: 'table.duplicate', publishActorStorageVersion: 1 }
+      );
 
       const events = [
         ...builtTables.flatMap((table) => table.pullDomainEvents()),
+        ...transactionResult.persistedTables.flatMap((table) => table.pullDomainEvents()),
         ...transactionResult.sideEffectEvents,
       ];
       yield* await handler.eventBus.publishMany(context, events);
@@ -626,6 +639,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
         targetTableName: targetTable.name().toString(),
         sourceDbTableName,
         targetDbTableName: targetDbTableNameResult.value,
+        targetActorStorageVersion: targetTable.actorStorageVersion(),
         excludedTargetColumns,
         linkValueColumns: source.linkValueColumnsByTableId?.[sourceTableId] ?? [],
         ...(source.dateTimeZoneConversionsByTableId?.[sourceTableId]
@@ -670,6 +684,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
     }
 
     return {
+      targetBaseId: command.baseId.toString(),
       tables,
       junctions,
       viewIdMap: result.viewIdMap,
@@ -1092,6 +1107,9 @@ export class DuplicateBaseHandler implements ICommandHandler<
       ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
       ...(record.createdTime ? { createdTime: record.createdTime } : {}),
       ...(record.createdBy ? { createdBy: record.createdBy } : {}),
+      ...(record.trustedCreatedActor !== undefined
+        ? { createdByActor: record.trustedCreatedActor }
+        : {}),
       lastModifiedTime: record.lastModifiedTime ?? null,
       lastModifiedBy: record.lastModifiedBy ?? null,
     };

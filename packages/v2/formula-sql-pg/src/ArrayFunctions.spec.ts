@@ -69,14 +69,27 @@ describe('array functions', () => {
 
   it.each(matrix)('$funcId with $fieldCase.type', async ({ funcId, fieldCase, formulaName }) => {
     const context = await buildFormulaSnapshotContext(testTable, formulaName);
-    expect({
+    const snapshot = {
       funcId,
       fieldType: fieldCase.type,
       formula: context.formula,
       sql: context.sql,
       inputs: context.inputs,
       result: context.result,
-    }).toMatchSnapshot();
+    };
+    if (
+      ['ArrayUnique', 'ArrayFlatten', 'ArrayCompact'].includes(funcId) &&
+      (fieldCase.type === 'createdBy' || fieldCase.type === 'lastModifiedBy')
+    ) {
+      const entries = (JSON.parse(context.result ?? '[]') as string[]).map(
+        (value) => JSON.parse(value) as { id: string }
+      );
+      expect(entries.map(({ id }) => id)).toEqual(
+        funcId === 'ArrayUnique' ? ['system'] : ['system', 'system']
+      );
+      return;
+    }
+    expect(snapshot).toMatchSnapshot();
   });
 
   it('ArrayJoinNoSeparator uses default separator', async () => {

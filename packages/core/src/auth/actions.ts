@@ -106,7 +106,14 @@ export const routineActions = [
 export const routineActionSchema = z.enum(routineActions);
 export type RoutineAction = z.infer<typeof routineActionSchema>;
 
-export const appActions = ['app|create', 'app|delete', 'app|read', 'app|update'] as const;
+export const appActions = [
+  'app|create',
+  'app|delete',
+  'app|read',
+  'app|update',
+  'app|readUsers',
+  'app|readUserPii',
+] as const;
 export const appActionSchema = z.enum(appActions);
 export type AppAction = z.infer<typeof appActionSchema>;
 

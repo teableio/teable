@@ -65,6 +65,12 @@ const createDatabase = async () => {
       )
     );
   }
+  // The official attribution migration also alters record_history, which this isolated
+  // event-store fixture does not create; apply its outbox column so the real claim SQL
+  // reads the frozen envelope instead of failing on a stale fixture schema.
+  await client.exec(
+    `ALTER TABLE ${schema}.domain_event_outbox ADD COLUMN IF NOT EXISTS "attribution" JSONB;`
+  );
   // Raw worker SQL must honor the target schema, not the connection's search path.
   await client.exec('SET search_path TO public');
   return client;

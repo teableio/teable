@@ -156,7 +156,15 @@ describe('ListTableRecordsHandler', () => {
         captured.spec = spec;
         captured.options = options;
         const records: TableRecordReadModel[] = [
-          { id: 'rec1', fields: { Title: 'Hello' }, version: 1 },
+          {
+            id: 'rec1',
+            fields: { Title: 'Hello' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
         ];
         return ok({ records, total: 1 });
       },
@@ -195,7 +203,17 @@ describe('ListTableRecordsHandler', () => {
       find: async (_context, _table, _spec, options) => {
         captured.options = options;
         return ok({
-          records: [{ id: 'rec1', fields: {}, version: 1 }],
+          records: [
+            {
+              id: 'rec1',
+              fields: {},
+              version: 1,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
+            },
+          ],
           total: 1,
         });
       },
@@ -236,7 +254,20 @@ describe('ListTableRecordsHandler', () => {
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async (_context, _table, _spec, options) => {
         captured.includeTotal = options?.includeTotal;
-        return ok({ records: [{ id: 'rec1', fields: {}, version: 1 }], total: 1 });
+        return ok({
+          records: [
+            {
+              id: 'rec1',
+              fields: {},
+              version: 1,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
+            },
+          ],
+          total: 1,
+        });
       },
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
       async *findStream() {},
@@ -655,6 +686,10 @@ describe('ListTableRecordsHandler', () => {
               id: recordId.toString(),
             })),
           },
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         });
       },
       async *findStream() {},
@@ -967,7 +1002,20 @@ describe('ListTableRecordsHandler', () => {
     const recordQueryRepo: ITableRecordQueryRepository = {
       find: async (_context, _table, _spec, options) => {
         captured.options = options;
-        return ok({ records: [{ id: 'rec1', fields: {}, version: 1 }], total: 23 });
+        return ok({
+          records: [
+            {
+              id: 'rec1',
+              fields: {},
+              version: 1,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
+            },
+          ],
+          total: 23,
+        });
       },
       findOne: async () => err(domainError.notFound({ message: 'Not found' })),
       async *findStream() {},
@@ -1011,7 +1059,7 @@ describe('ListTableRecordsHandler', () => {
     ).toBe(5);
   });
 
-  it('returns invalid selected record id errors before querying records', async () => {
+  it('rejects selected record IDs that PostgreSQL cannot store before querying records', async () => {
     const table = buildTable();
     const tableRepository = new MemoryTableRepository();
     await tableRepository.insert(createContext(), table);
@@ -1028,7 +1076,7 @@ describe('ListTableRecordsHandler', () => {
 
     const queryResult = ListTableRecordsQuery.create({
       tableId: table.id().toString(),
-      selectedRecordIds: ['invalid-record-id'],
+      selectedRecordIds: ['rec\0invalid'],
     });
     const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
     const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
@@ -1221,6 +1269,10 @@ describe('ListTableRecordsHandler', () => {
               id: recordId.toString(),
               version: 1,
               fields: { [titleId]: 'needle', [statusId]: 'needle' },
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
             },
           ],
           total: 1,
@@ -1290,6 +1342,11 @@ describe('ListTableRecordsHandler', () => {
                 [titleField.id().toString()]: 'Hello',
                 [statusField.id().toString()]: 'Open',
               },
+              createdByActorType: 'appUser',
+              createdByActorId: 'apu_stable',
+              lastModifiedByActorType: 'appUser',
+              lastModifiedByActorId: 'apu_stable',
+              createdBy: 'usr_executor',
             },
           ],
           total: 1,
@@ -1347,6 +1404,11 @@ describe('ListTableRecordsHandler', () => {
           Title: 'Hello',
           Status: 'Open',
         },
+        createdByActorType: 'appUser',
+        createdByActorId: 'apu_stable',
+        lastModifiedByActorType: 'appUser',
+        lastModifiedByActorId: 'apu_stable',
+        createdBy: 'usr_executor',
       },
     ]);
   });
@@ -1437,6 +1499,10 @@ describe('ListTableRecordsHandler', () => {
                 [titleField.id().toString()]: 'Hello',
                 [statusField.id().toString()]: 'Open',
               },
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
             },
           ],
           total: 1,
@@ -1494,6 +1560,10 @@ describe('ListTableRecordsHandler', () => {
           title_col: 'Hello',
           status_col: 'Open',
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ]);
   });
@@ -1871,11 +1941,19 @@ describe('ListTableRecordsHandler', () => {
               id: openRecordId,
               version: 1,
               fields: { [titleId]: 'Visible', [statusId]: 'Open' },
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
             },
             {
               id: closedRecordId,
               version: 1,
               fields: { [titleId]: 'Hidden', [statusId]: 'Closed' },
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
             },
           ],
           total: 2,
@@ -1965,6 +2043,10 @@ describe('ListTableRecordsHandler', () => {
               id: recordId,
               version: 1,
               fields: { [titleId]: 'Visible', [statusId]: 'Open', [notesId]: 'Keep me' },
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
             },
           ],
           total: 1,
@@ -2047,6 +2129,10 @@ describe('ListTableRecordsHandler', () => {
               id: recordId,
               version: 1,
               fields: { [titleId]: 'Visible', [statusId]: 'Open', [notesId]: 'Keep out of SQL' },
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
             },
           ],
           total: 1,
@@ -2145,6 +2231,10 @@ describe('ListTableRecordsHandler', () => {
                 [notesId]: 'Ignored',
                 [extraId]: 'Ignored dep',
               },
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
             },
           ],
           total: 1,
@@ -2699,16 +2789,28 @@ describe('ListTableRecordsHandler', () => {
           id: createRecordId('a').toString(),
           fields: { [titleId]: 'filter match', [statusId]: 'Open' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
         {
           id: createRecordId('b').toString(),
           fields: { [titleId]: 'scope only', [statusId]: 'Open' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
         {
           id: createRecordId('c').toString(),
           fields: { [titleId]: 'filter match', [statusId]: null },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ] satisfies TableRecordReadModel[];
       const recordQueryRepo: ITableRecordQueryRepository = {
@@ -2887,6 +2989,10 @@ describe('ListTableRecordsHandler', () => {
                 id: recordId.toString(),
                 version: 1,
                 fields: { [titleId]: '11', [statusId]: '13' },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
               },
             ],
             total: 1,
@@ -2955,6 +3061,10 @@ describe('ListTableRecordsHandler', () => {
                 id: recordId.toString(),
                 version: 1,
                 fields: { [statusId]: '13' },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
               },
             ],
             total: 1,
@@ -3028,11 +3138,19 @@ describe('ListTableRecordsHandler', () => {
                 id: hiddenOnlyRecordId.toString(),
                 version: 1,
                 fields: { [titleId]: 'xx', [statusId]: '13' },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
               },
               {
                 id: visibleRecordId.toString(),
                 version: 1,
                 fields: { [titleId]: '11', [statusId]: 'xx' },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
               },
             ],
             total: 2,
@@ -3117,11 +3235,19 @@ describe('ListTableRecordsHandler', () => {
                 id: visibleRecordId.toString(),
                 version: 1,
                 fields: { [titleId]: '11', [statusId]: 'Open' },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
               },
               {
                 id: hiddenRecordId.toString(),
                 version: 1,
                 fields: { [titleId]: '21', [statusId]: 'Closed' },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
               },
             ],
             total: 2,

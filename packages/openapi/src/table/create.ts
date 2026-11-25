@@ -51,6 +51,10 @@ export const tableFullVoSchema = z
     defaultViewId: z.string().startsWith(IdPrefix.View).optional().meta({
       description: 'The default view id of the table.',
     }),
+    actorStorageVersion: z.union([z.literal(0), z.literal(1)]).meta({
+      description:
+        'Read-only row-level actor attribution capability. 0 means the four actor columns are not enabled for this table (legacy default); 1 means they were confirmed published. Never writable through table create/update and unrelated to the optimistic-lock version.',
+    }),
   })
   .meta({
     description: 'Complete table structure data and initial record data.',
@@ -71,6 +75,7 @@ export const tableRoSchema = tableFullVoSchema
     id: true,
     lastModifiedTime: true,
     defaultViewId: true,
+    actorStorageVersion: true,
   })
   .partial({
     name: true,

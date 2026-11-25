@@ -66,6 +66,10 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
   private readonly logger = new Logger(DataDbMigrationService.name);
   private readonly clientFactory: IDataDbPreflightClientFactory;
   private readonly runningConnections = new Map<string, Promise<string[]>>();
+  private manifest?: {
+    migrations: (IDataDbMigration & { checksum: string })[];
+    version: string | null;
+  };
 
   constructor(
     @Optional()
@@ -93,7 +97,7 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
   }
 
   async migrate(url: string, internalSchema?: string) {
-    const migrations = this.resolveMigrations();
+    const { migrations } = this.resolveManifest();
     if (migrations.length === 0) {
       return [];
     }
@@ -126,7 +130,7 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
         const appliedNow: string[] = [];
 
         for (const migration of migrations) {
-          const checksum = checksumSql(migration.sql);
+          const { checksum } = migration;
           const appliedChecksum = applied.get(migration.id);
           if (appliedChecksum) {
             if (appliedChecksum !== checksum) {
@@ -279,12 +283,34 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
     });
   }
 
-  private resolveMigrations() {
-    return this.migrations ?? readDataDbMigrations();
+  private resolveManifest() {
+    if (!this.manifest) {
+      const migrations = (this.migrations ?? readDataDbMigrations()).map((migration) => ({
+        ...migration,
+        checksum: checksumSql(migration.sql),
+      }));
+      // Parallel branches can insert a migration before the last applied ID.
+      const hash = createHash('sha256');
+      for (const { id, checksum } of migrations) {
+        hash.update(id).update('\0').update(checksum).update('\0');
+      }
+      this.manifest = { migrations, version: migrations.length ? hash.digest('hex') : null };
+    }
+    return this.manifest;
   }
 
   getLatestSchemaVersion() {
-    return this.resolveMigrations().at(-1)?.id ?? null;
+    return this.resolveManifest().version;
+  }
+
+  async validateSchemaVersion(client: IDataDbPreflightClient, internalSchema: string) {
+    const { migrations, version } = this.resolveManifest();
+    if (!version) return { latest: version, exists: true };
+    const applied = await this.getAppliedMigrations(client, internalSchema);
+    return {
+      latest: version,
+      exists: migrations.every(({ id, checksum }) => applied.get(id) === checksum),
+    };
   }
 
   private async ensureMigrationTable(client: IDataDbPreflightClient) {
@@ -297,9 +323,10 @@ export class DataDbMigrationService implements OnApplicationBootstrap {
     `);
   }
 
-  private async getAppliedMigrations(client: IDataDbPreflightClient) {
+  private async getAppliedMigrations(client: IDataDbPreflightClient, internalSchema?: string) {
+    const schema = internalSchema === undefined ? '' : `${quoteDataDbIdentifier(internalSchema)}.`;
     const result = await client.raw<{ id: string; checksum: string }>(
-      `SELECT "id", "checksum" FROM "${DATA_DB_MIGRATION_TABLE}" ORDER BY "id"`
+      `SELECT "id", "checksum" FROM ${schema}"${DATA_DB_MIGRATION_TABLE}" ORDER BY "id"`
     );
     const rows = Array.isArray(result) ? result : (result.rows ?? []);
     return new Map(rows.map((row) => [row.id, row.checksum]));

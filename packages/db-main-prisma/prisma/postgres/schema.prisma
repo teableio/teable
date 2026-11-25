@@ -251,6 +251,7 @@ model TableMeta {
   searchIndexPolicy Json?               @map("search_index_policy") @db.JsonB
   queryIndexPolicy  Json?               @map("query_index_policy") @db.JsonB
   provisionState    ProvisionState      @default(ready) @map("provision_state")
+  actorStorageVersion Int               @default(0) @map("actor_storage_version")
   version           Int
   order             Float
   createdTime       DateTime            @default(now()) @map("created_time")
@@ -351,6 +352,8 @@ model Field {
   isConditionalLookup Boolean?  @map("is_conditional_lookup")
   isPending           Boolean?  @map("is_pending")
   hasError            Boolean?  @map("has_error")
+  needsPeriodicRefresh Boolean  @default(false) @map("needs_periodic_refresh")
+  refreshCadence       String?  @map("refresh_cadence") @db.VarChar(16)
   // the link field id that a lookup field is linked to
   lookupLinkedFieldId String?   @map("lookup_linked_field_id")
   lookupOptions       String?   @map("lookup_options")
@@ -363,6 +366,7 @@ model Field {
   createdBy           String    @map("created_by")
   lastModifiedBy      String?   @map("last_modified_by")
   table               TableMeta @relation(fields: [tableId], references: [id])
+  periodicRefreshState FieldPeriodicRefreshState?
 
   @@index([lookupLinkedFieldId])
   @@index([tableId, deletedTime])
@@ -419,6 +423,32 @@ model DomainEventInbox {
   @@map("domain_event_inbox")
 }
 
+model FieldPeriodicRefreshState {
+  fieldId                String    @id @map("field_id")
+  tableId                String    @map("table_id")
+  baseId                 String    @map("base_id")
+  enabled                Boolean   @default(true)
+  timeZone               String    @default("UTC") @map("time_zone") @db.VarChar(64)
+  containsNowPrecision   Boolean   @default(false) @map("contains_now_precision")
+  lastRefreshedAt        DateTime? @map("last_refreshed_at") @db.Timestamptz(6)
+  lastRefreshedLocalDate String?   @map("last_refreshed_local_date") @db.VarChar(16)
+  lastRangeHash          String?   @map("last_range_hash") @db.VarChar(128)
+  lastStatus             String    @default("idle") @map("last_status") @db.VarChar(32)
+  lastError              String?   @map("last_error")
+  pendingTaskId          String?   @map("pending_task_id") @db.VarChar(64)
+  pendingLocalDate       String?   @map("pending_local_date") @db.VarChar(16)
+  pendingRangeHash       String?   @map("pending_range_hash") @db.VarChar(128)
+  pendingStartedAt       DateTime? @map("pending_started_at") @db.Timestamptz(6)
+  createdTime            DateTime  @default(now()) @map("created_time") @db.Timestamptz(6)
+  lastModifiedTime       DateTime? @updatedAt @map("last_modified_time") @db.Timestamptz(6)
+  field                  Field     @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([baseId, enabled])
+  @@index([tableId])
+  @@index([enabled, lastRefreshedLocalDate], map: "field_periodic_refresh_state_enabled_local_date_idx")
+  @@map("field_periodic_refresh_state")
+}
+
 model ComputedUpdateOutbox {
   id                 String   @id @default(cuid())
   baseId             String   @map("base_id")
@@ -448,6 +478,7 @@ model ComputedUpdateOutbox {
   sourceChangedAt    DateTime? @map("source_changed_at")
   stageDepth         Int      @default(0) @map("stage_depth")
   predecessorTaskId  String?  @map("predecessor_task_id")
+  deadLetterRestoreVersion Int? @map("dead_letter_restore_version")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -539,6 +570,7 @@ model ComputedUpdateDeadLetter {
   failedAt           DateTime @map("failed_at")
   createdAt          DateTime @map("created_at")
   updatedAt          DateTime @map("updated_at")
+  deleteAuthorizedTxid BigInt? @map("delete_authorized_txid")
   seeds ComputedUpdateDeadLetterSeed[]
 
   @@index([baseId, seedTableId])
@@ -994,6 +1026,8 @@ model RecordHistory {
   after       String   @map("after")
   createdTime DateTime @default(now()) @map("created_time")
   createdBy   String   @map("created_by")
+  actorType   String?  @map("actor_type")
+  actorId     String?  @map("actor_id")
 
   @@index([tableId, recordId, createdTime])
   @@index([tableId, createdTime])

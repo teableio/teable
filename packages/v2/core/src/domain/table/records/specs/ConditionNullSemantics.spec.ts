@@ -18,6 +18,7 @@ import {
   conditionNullMatchForSpec,
   fieldIsArrayLikeForFilter,
 } from './ConditionNullSemantics';
+import { RecordValueConditionSpec } from './RecordConditionSpec';
 import {
   RecordConditionFieldReferenceValue,
   RecordConditionLiteralListValue,
@@ -90,6 +91,9 @@ describe('conditionNullMatch', () => {
       .create({ operator: 'is', value: falseLit })
       ._unsafeUnwrap();
     expect(lookupSpec).toBeInstanceOf(CheckboxConditionSpec);
+    if (!(lookupSpec instanceof CheckboxConditionSpec)) {
+      throw new Error('Expected checkbox lookup condition dispatch');
+    }
     expect(conditionNullMatchForSpec(lookupSpec)).toBe('true');
 
     const conditionalDoneLookup = ConditionalLookupField.create({
@@ -165,6 +169,9 @@ describe('conditionNullMatch', () => {
       .spec()
       .create({ operator: 'isGreater', value: numberValue })
       ._unsafeUnwrap();
+    if (!(lookupSpec instanceof RecordValueConditionSpec)) {
+      throw new Error('Expected a lookup value condition');
+    }
     expect(conditionNullMatchForSpec(lookupSpec)).toBe('false');
 
     const conditionalLookup = ConditionalLookupField.create({
@@ -189,6 +196,9 @@ describe('conditionNullMatch', () => {
       .spec()
       .create({ operator: 'isGreater', value: numberValue })
       ._unsafeUnwrap();
+    if (!(conditionalSpec instanceof RecordValueConditionSpec)) {
+      throw new Error('Expected a conditional-lookup value condition');
+    }
     expect(conditionNullMatchForSpec(conditionalSpec)).toBe('true');
   });
 

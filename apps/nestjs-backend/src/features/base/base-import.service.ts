@@ -42,6 +42,7 @@ import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
 import { NotificationService } from '../notification/notification.service';
+import { RecordMutationPolicyService } from '../record-mutation-policy/record-mutation-policy.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableService } from '../table/table.service';
 import { ViewOpenApiService } from '../view/open-api/view-open-api.service';
@@ -107,7 +108,8 @@ export class BaseImportService {
     private readonly notificationService: NotificationService,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
-    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
+    private readonly spaceDataDbMigrationGuard: SpaceDataDbMigrationGuardService | undefined,
+    private readonly recordMutationPolicy: RecordMutationPolicyService
   ) {}
 
   private async assertSpaceWritable(spaceId: string) {
@@ -226,10 +228,10 @@ export class BaseImportService {
     onProgress?.('structure_created', base.id);
 
     onProgress?.('queuing_attachments');
-    this.uploadAttachments(path);
+    await this.uploadAttachments(path);
 
     onProgress?.('queuing_data_import');
-    this.appendTableData(
+    await this.appendTableData(
       base.id,
       importBaseRo,
       path,
@@ -238,7 +240,8 @@ export class BaseImportService {
       viewIdMap,
       fkMap,
       structure,
-      logId
+      logId,
+      rest
     );
 
     return {
@@ -377,7 +380,8 @@ export class BaseImportService {
       undefined,
       undefined,
       onProgress,
-      { useTransaction: true }
+      { useTransaction: true },
+      true
     );
   }
 
@@ -406,8 +410,16 @@ export class BaseImportService {
     structure: IBaseJson,
     // Supplied by caller (importBase / importBaseV2) so HTTP-side structural rows and
     // BullMQ worker chunk rows share the same audit operationId.
-    logId: string
+    logId: string,
+    hostResourceIdMaps: Record<string, Record<string, string>>
   ): Promise<string> {
+    for (const tableId of Object.values(tableIdMap)) {
+      await this.recordMutationPolicy.assertAllowed({
+        tableId,
+        operation: 'create',
+        payload: importBaseRo,
+      });
+    }
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
 
@@ -418,12 +430,14 @@ export class BaseImportService {
         path,
         userId,
         origin,
+        recordInitiator: this.cls.get('recordInitiator'),
         tableIdMap,
         fieldIdMap,
         viewIdMap,
         fkMap,
         structure,
         importBaseRo,
+        hostResourceIdMaps,
         logId,
       },
       {
@@ -442,7 +456,8 @@ export class BaseImportService {
     skipCreateBaseNodes?: boolean,
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
     onProgress?: BaseImportProgressCallback,
-    routingOptions?: IDataDbRoutingOptions
+    routingOptions?: IDataDbRoutingOptions,
+    _deferHostFinalization?: boolean
   ) {
     const { name, icon, tables, plugins, folders } = structure;
 

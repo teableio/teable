@@ -1954,6 +1954,8 @@
     "agentStartFailed": "AI 引擎启动失败，请重试或开始新的对话。",
     "agentSessionLost": "出了点问题，请再发一次",
     "sandboxDestroyed": "Cuppy 的运行环境已关闭，回复已停止",
+    "streamInterrupted": "运行环境意外重启",
+    "streamInterruptedDescription": "运行环境重启导致回复中断，请重试。",
     "sandboxOutOfMemory": "Cuppy 做到一半停下了",
     "sandboxOutOfMemoryDescription": "这一步占用的资源超出了上限，不是你的操作问题。点击「继续」，Cuppy 会先看看做到哪了，再接着做。",
     "sandboxOutOfMemoryAction": "继续",

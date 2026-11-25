@@ -49,7 +49,7 @@ import {
 } from '@teable/v2-table-query-ops';
 import { PostgresQueryCompiler, sql, type Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { PostgresTableQueryRemediationExecutor } from './executor';
 import { getTablePhysicalName, quoteIdentifier } from './helpers';
@@ -821,7 +821,13 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
       const terminated: number[] = [];
       let dataFailures = 0;
       let successfulUnlocks = 0;
-      const executionDb = db.withPlugin({
+      // Terminate only the worker's session. The task repository needs a healthy
+      // connection to persist the deferral after the worker loses its lock.
+      const workerDb = await createV2PostgresDb<UnknownPostgresDatabase>({
+        pg: { connectionString: testContainer.connectionString },
+      });
+      onTestFinished(() => workerDb.destroy());
+      const executionDb = workerDb.withPlugin({
         transformQuery(args) {
           const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
           if (compiled.sql.includes('pg_try_advisory_lock')) {

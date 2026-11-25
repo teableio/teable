@@ -73,6 +73,7 @@ describe('GetTableByIdHandler', () => {
       findOne: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       find: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       updateOne: async () => err(domainError.unexpected({ message: 'update failed' })),
+      restore: async () => err(domainError.unexpected({ message: 'Unexpected table restore' })),
       delete: async () => err(domainError.unexpected({ message: 'delete failed' })),
     };
 

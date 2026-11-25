@@ -209,6 +209,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   deleted: Table[] = [];
   deleteModes: Array<'soft' | 'permanent'> = [];
   failDelete: DomainError | undefined;

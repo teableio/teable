@@ -77,6 +77,7 @@ import { CROSS_BASE_LINK_FOREIGN_TABLE_READ_FORBIDDEN } from '../record/cross-ba
 import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordRestoreService } from '../record/open-api/record-restore.service';
+import type { IRestorableRecordSnapshot } from '../record/open-api/record-restore-native.service';
 import { RecordService } from '../record/record.service';
 import type { IColdRemovalRow } from '../record-removal-cold/part-codec';
 import type { IRemovalColdBoundary } from '../record-removal-cold/record-removal-cold-read.service';
@@ -663,6 +664,7 @@ export class TrashService {
         resourceId: { in: authorizedBaseIds },
         resourceType: TrashType.Base,
       },
+      orderBy: [{ deletedTime: 'desc' }, { id: 'desc' }],
     });
 
     const trashItems: ITrashItemVo[] = [];
@@ -2029,8 +2031,22 @@ export class TrashService {
       });
       return;
     }
-    const records = readyRows.map(({ snapshot }) =>
-      this.recordRestoreService.toV2RestoreRecord(JSON.parse(snapshot))
+    const snapshots = readyRows.map(
+      ({ snapshot }) => JSON.parse(snapshot) as IRestorableRecordSnapshot
+    );
+    const records = snapshots.map((snapshot) =>
+      this.recordRestoreService.toV2RestoreRecord(snapshot)
+    );
+    const trustedCreatedActorsByRecordId = new Map(
+      snapshots.map(
+        (snapshot) =>
+          [
+            snapshot.id,
+            snapshot.createdByActorType && snapshot.createdByActorId
+              ? { type: snapshot.createdByActorType, id: snapshot.createdByActorId }
+              : null,
+          ] as const
+      )
     );
 
     yield this.createRestoreProgressEvent(ResourceType.Record, {
@@ -2042,10 +2058,13 @@ export class TrashService {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ExecutionContextFactory.createContext(container);
-    const commandResult = RestoreRecordsStreamCommand.create({
-      tableId,
-      records: this.createRestoreRecordInputStream(records),
-    });
+    const commandResult = RestoreRecordsStreamCommand.create(
+      {
+        tableId,
+        records: this.createRestoreRecordInputStream(records),
+      },
+      { trustedCreatedActorsByRecordId }
+    );
     if (commandResult.isErr()) {
       yield this.createRestoreErrorEvent(ResourceType.Record, {
         phase: 'preparing',

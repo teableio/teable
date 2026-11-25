@@ -74,7 +74,17 @@ export class RecordRestoreNativeService {
     const context = await this.v2ExecutionContextFactory.createContext(container);
     const commandResult = RestoreRecordsCommand.create(
       { tableId, records: records.map(toV2RestoreRecord) },
-      { cleanupAttachmentRefs: options?.cleanupAttachmentRefs }
+      {
+        cleanupAttachmentRefs: options?.cleanupAttachmentRefs,
+        trustedCreatedActorsByRecordId: new Map(
+          records.map((record) => [
+            record.id,
+            record.createdByActorType && record.createdByActorId
+              ? { type: record.createdByActorType, id: record.createdByActorId }
+              : null,
+          ])
+        ),
+      }
     );
 
     if (commandResult.isErr()) {

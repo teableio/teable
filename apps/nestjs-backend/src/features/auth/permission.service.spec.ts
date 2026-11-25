@@ -20,6 +20,7 @@ import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { getError } from '../../../test/utils/get-error';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
+import { hashSharePassword } from '../../utils/share-password-hash';
 import { PermissionModule } from './permission.module';
 import { PermissionService } from './permission.service';
 
@@ -62,7 +63,12 @@ describe('PermissionService', () => {
       prismaServiceMock.baseNode.findMany.mockResolvedValue([
         { id: 'bnoFolder', parentId: null, resourceType: 'folder', resourceId: null },
         { id: 'bnoNested', parentId: 'bnoFolder', resourceType: 'folder', resourceId: null },
-        { id: 'bnoShared', parentId: 'bnoNested', resourceType: 'table', resourceId: sharedTableId },
+        {
+          id: 'bnoShared',
+          parentId: 'bnoNested',
+          resourceType: 'table',
+          resourceId: sharedTableId,
+        },
         { id: 'bnoSibling', parentId: null, resourceType: 'table', resourceId: siblingTableId },
       ] as never);
     });
@@ -78,7 +84,9 @@ describe('PermissionService', () => {
         await expect(service.getBaseSharePermissions(shareId, sharedTableId)).resolves.toContain(
           'record|read'
         );
-        await expect(service.getBaseSharePermissions(shareId, siblingTableId)).rejects.toMatchObject({
+        await expect(
+          service.getBaseSharePermissions(shareId, siblingTableId)
+        ).rejects.toMatchObject({
           code: HttpErrorCode.RESTRICTED_RESOURCE,
         });
       }
@@ -487,9 +495,11 @@ describe('PermissionService', () => {
       prismaServiceMock.base.findUnique.mockResolvedValue(snapshotBase as any);
     });
 
-    const lookups = (published: unknown, pending: unknown) =>
+    const lookups = (published: unknown, pending: unknown) => {
+      prismaServiceMock.template.findMany.mockResolvedValue((published ? [published] : []) as any);
       prismaServiceMock.template.findFirst.mockImplementation((({ where }: any) =>
-        Promise.resolve(where.review ? pending : published)) as any);
+        Promise.resolve(where.review ? pending : null)) as any);
+    };
 
     it('keeps a snapshot under review read-only', async () => {
       prismaServiceMock.space.findUnique.mockResolvedValue({ isTemplate: true } as any);
@@ -511,14 +521,17 @@ describe('PermissionService', () => {
       const permissions = await service['getPermissionByBaseId'](snapshotBase.id);
 
       expect(permissions).toEqual(getPermissions(Role.Owner));
-      expect(prismaServiceMock.template.findFirst).toHaveBeenCalledTimes(1);
+      expect(prismaServiceMock.template.findMany).toHaveBeenCalledTimes(1);
+      expect(prismaServiceMock.template.findFirst).not.toHaveBeenCalled();
     });
   });
 
   describe('getTemplatePermissions for a submission under review', () => {
-    const lookups = (pending: unknown) =>
+    const lookups = (pending: unknown) => {
+      prismaServiceMock.template.findMany.mockResolvedValue([]);
       prismaServiceMock.template.findFirst.mockImplementation((({ where }: any) =>
         Promise.resolve(where.review ? pending : null)) as any);
+    };
 
     beforeEach(() => {
       prismaServiceMock.txClient.mockReturnValue(prismaServiceMock);
@@ -586,6 +599,41 @@ describe('PermissionService', () => {
     });
   });
 
+  describe('getTemplatePermissions for a published snapshot', () => {
+    const published = (snapshot: Record<string, unknown>) => {
+      prismaServiceMock.template.findMany.mockResolvedValue([
+        { id: 'tplPublished', snapshot: JSON.stringify(snapshot) },
+      ] as any);
+      prismaServiceMock.template.findFirst.mockResolvedValue(null);
+    };
+
+    beforeEach(() => {
+      prismaServiceMock.txClient.mockReturnValue(prismaServiceMock);
+      clsServiceMock.get.mockReturnValue(undefined as any);
+    });
+
+    it('opens the snapshot base read-only', async () => {
+      published({ baseId: 'bseSnapshotOwn', name: 'Snapshot' });
+
+      await expect(service.getTemplatePermissions('bseSnapshotOwn')).resolves.toEqual(
+        TemplatePermissions
+      );
+      expect(clsServiceMock.set).toHaveBeenCalledWith('template', {
+        id: 'tplPublished',
+        baseId: 'bseSnapshotOwn',
+      });
+    });
+
+    it('does not open a base whose id the snapshot only mentions', async () => {
+      published({ baseId: 'bseSnapshotOther', name: 'bseNamedOnly' });
+
+      await expect(service.getTemplatePermissions('bseNamedOnly')).rejects.toThrow(
+        'Template access denied'
+      );
+      expect(clsServiceMock.set).not.toHaveBeenCalledWith('template', expect.anything());
+    });
+  });
+
   describe('getPermissions', () => {
     it('should return permissions for a user', async () => {
       const resourceId = 'bsexxxxxx';
@@ -628,6 +676,82 @@ describe('PermissionService', () => {
       await expect(service.validPermissions(resourceId, ['space|create'])).rejects.toThrow(
         `not allowed to operate space|create on ${resourceId}`
       );
+    });
+  });
+
+  describe('a node share', () => {
+    const baseId = 'bsexxxxxxxxxxxx';
+    // The share is made for a folder holding one workflow; a second workflow sits outside it.
+    const nodes = [
+      { id: 'bnoFolder', parentId: null, resourceType: 'folder', resourceId: 'bnoFolder' },
+      { id: 'bnoFlowIn', parentId: 'bnoFolder', resourceType: 'workflow', resourceId: 'wflIn' },
+      { id: 'bnoFlowOut', parentId: null, resourceType: 'workflow', resourceId: 'wflOut' },
+    ];
+
+    it('opens a workflow in its subtree and no other', async () => {
+      prismaServiceMock.baseNode.findMany.mockResolvedValue(nodes as any);
+      prismaServiceMock.baseShare.findFirst.mockResolvedValue({
+        baseId,
+        nodeId: 'bnoFolder',
+        allowEdit: false,
+        allowCopy: false,
+      } as any);
+      prismaServiceMock.baseNode.findFirst.mockImplementation(
+        (async (args: any) =>
+          nodes.find((node) => node.resourceId === args.where.resourceId) ?? null) as any
+      );
+
+      await expect(service.getBaseSharePermissions('shrxxx', 'wflIn')).resolves.toContain(
+        'automation|read'
+      );
+      await expect(service.getBaseSharePermissions('shrxxx', 'wflOut')).rejects.toThrow(
+        'Resource wflOut is not accessible via share shrxxx'
+      );
+    });
+  });
+
+  describe('a share with a password', () => {
+    const shareId = 'shrxxxxxxxxxxxx';
+    const password = 'stored password';
+    // what the share's password page hands out, as the cookie named after the share
+    const tokenOf = (id: string) =>
+      service['jwtService'].signAsync({ shareId: id, pwHash: hashSharePassword(id, password) });
+
+    it('is presented by the cookie its password page set, and by nothing else', async () => {
+      prismaServiceMock.baseShare.findFirst.mockResolvedValue({ password } as any);
+      const presented = (cookieHeader?: string) =>
+        service.baseSharePasswordPresented(shareId, cookieHeader);
+
+      await expect(presented(`theme=dark; ${shareId}=${await tokenOf(shareId)}`)).resolves.toBe(
+        true
+      );
+      await expect(presented()).resolves.toBe(false);
+      await expect(presented('theme=dark')).resolves.toBe(false);
+      await expect(presented(`${shareId}=not-a-token`)).resolves.toBe(false);
+      // a token another share handed out, sent under this share's name
+      await expect(presented(`${shareId}=${await tokenOf('shrOther')}`)).resolves.toBe(false);
+    });
+
+    it('asks nothing of a share without one', async () => {
+      prismaServiceMock.baseShare.findFirst.mockResolvedValue({ password: null } as any);
+
+      await expect(service.baseSharePasswordPresented(shareId)).resolves.toBe(true);
+    });
+
+    it('holds a shared view to the same', async () => {
+      const view = { id: 'viwxxx', tableId: 'tblxxx', type: 'grid' };
+      prismaServiceMock.view.findFirst.mockResolvedValue({
+        ...view,
+        shareMeta: JSON.stringify({ password }),
+      } as any);
+
+      await expect(service.shareViewPasswordPresented(shareId)).resolves.toBe(false);
+      await expect(
+        service.shareViewPasswordPresented(shareId, `${shareId}=${await tokenOf(shareId)}`)
+      ).resolves.toBe(true);
+
+      prismaServiceMock.view.findFirst.mockResolvedValue({ ...view, shareMeta: null } as any);
+      await expect(service.shareViewPasswordPresented(shareId)).resolves.toBe(true);
     });
   });
 });

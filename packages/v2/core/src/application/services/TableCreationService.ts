@@ -6,7 +6,7 @@ import type { BaseId } from '../../domain/base/BaseId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { LinkForeignTableReference } from '../../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
-import type { Table } from '../../domain/table/Table';
+import { Table } from '../../domain/table/Table';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../../ports/TableSchemaRepository';
@@ -78,6 +78,26 @@ export type TableCreationServiceResult = {
 export type TableMetadataPersistenceResult = {
   persistedTables: ReadonlyArray<Table>;
 };
+
+/** Transaction-local capability after a definite CREATE; this does not publish metadata. */
+export const withCreatedTableActorStorage = (table: Table): Result<Table, DomainError> =>
+  table.dbTableName().andThen((dbTableName) =>
+    Table.rehydrate({
+      id: table.id(),
+      baseId: table.baseId(),
+      name: table.name(),
+      properties: table.properties(),
+      fields: table.getFields(),
+      views: table.views(),
+      primaryFieldId: table.primaryFieldId(),
+      dbTableName,
+      searchIndex: table.searchIndex(),
+      actorStorageVersion: 1,
+    }).map((createdTable) => {
+      for (const event of table.pullDomainEvents()) createdTable.addDomainEvent(event);
+      return createdTable;
+    })
+  );
 
 const isInternalReference = (
   ref: LinkForeignTableReference,
@@ -243,6 +263,11 @@ export class TableCreationService {
         skipUndoCaptureSetup: input.schemaOptions?.skipUndoCaptureSetup,
       });
 
+      const createdTables: Table[] = [];
+      for (const table of persistedTables) {
+        createdTables.push(yield* withCreatedTableActorStorage(table));
+      }
+
       // Build initial table state
       let tableState = new Map<string, Table>();
       for (const table of externalTables) {
@@ -250,7 +275,7 @@ export class TableCreationService {
       }
 
       const persistedById = new Map(
-        persistedTables.map((table) => [table.id().toString(), table] as const)
+        createdTables.map((table) => [table.id().toString(), table] as const)
       );
 
       const orderedPersistedTables: Table[] = [];

@@ -153,7 +153,7 @@ const isMissingColumnTableUpdate = (operation: SchemaOperationRecord): boolean =
     return false;
   }
   const lastError = operation.lastError;
-  return lastError != null && /\bcolumn\b.*\bdoes not exist\b/i.test(lastError);
+  return lastError != null && /\bcolumn\b.+does not exist\b/i.test(lastError);
 };
 
 const isRepairableTableUpdate = (operation: SchemaOperationRecord): boolean => {
@@ -274,6 +274,7 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
       }
 
       const tables = yield* await handler.loadTables(context, tableIds);
+      const publishActorStorageVersion = operation.type === 'table.update' ? undefined : 1;
       const references = yield* handler.collectReferences(tables);
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
         references: externalReferences(tables, references),
@@ -289,6 +290,11 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
         async (dataContext) =>
           safeTry<void, DomainError>(async function* () {
             yield* await handler.tableSchemaRepository.ensureInsertedMany!(dataContext, tables);
+            if (publishActorStorageVersion === 1) {
+              for (const table of tables) {
+                yield* await handler.tableSchemaRepository.ensureActorColumns(dataContext, table);
+              }
+            }
             // Repair-only: recreate missing foreign relations before replaying
             // two-way link side effects. Do not do this on the create/update hot path.
             for (const foreignTable of foreignTables) {
@@ -314,6 +320,7 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
           {
             type: operation.type,
             idempotencyKey: operation.idempotencyKey,
+            publishActorStorageVersion,
           }
         );
       } else {
@@ -335,6 +342,7 @@ export class TableSchemaOperationRepairHandler implements ISchemaOperationHandle
           {
             type: operation.type,
             operationId,
+            publishActorStorageVersion,
           }
         );
       }

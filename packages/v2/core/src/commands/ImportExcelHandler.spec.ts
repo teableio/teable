@@ -18,7 +18,6 @@ import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor'
 import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type {
   IExecutionContext,
   IUnitOfWorkTransaction,
@@ -31,8 +30,11 @@ import type {
 } from '../ports/import/IImportSource';
 import type { IImportSourceAdapter } from '../ports/import/IImportSourceAdapter';
 import type { IImportSourceRegistry } from '../ports/import/IImportSourceRegistry';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   ITableRecordRepository,
   BatchRecordMutationResult,
   InsertManyStreamOptions,
@@ -46,8 +48,8 @@ import type {
 } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { excelParseResultToCsvParseResult, ImportExcelHandler } from './ImportExcelHandler';
 import { ImportExcelCommand } from './ImportExcelCommand';
+import { excelParseResultToCsvParseResult, ImportExcelHandler } from './ImportExcelHandler';
 import { createTableOperationPluginRunner } from './tableOperationPluginRunnerTestUtils';
 
 const baseId = `bse${'b'.repeat(16)}`;
@@ -129,13 +131,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: IExecutionContext,
-    _plan: never
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -193,6 +188,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   inserted: Table[] = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
@@ -222,6 +221,14 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   inserted: TableRecord[] = [];
 
   async insert(
@@ -308,8 +315,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    return ok({ totalDeleted: 0 });
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 

@@ -44,7 +44,7 @@ import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type * as SameTxProjectionDispatcherPort from '../ports/SameTxProjectionDispatcher';
-import { TableOperationKind } from '../ports/TableOperationPlugin';
+import { TableOperationCreateManySource, TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -363,6 +363,7 @@ export class CreateTablesHandler implements ICommandHandler<
         executionContext: context,
         payload: {
           baseId: command.baseId,
+          source: TableOperationCreateManySource.createTables,
           tables: builtTables.map((table, index) => ({
             baseId: command.baseId,
             tableName: table.name(),
@@ -606,7 +607,7 @@ export class CreateTablesHandler implements ICommandHandler<
         handler.tableRepository,
         context,
         metadataResult,
-        { type: 'table.create_many' }
+        { type: 'table.create_many', publishActorStorageVersion: 1 }
       );
 
       const events = [...dataResult.value.ownEvents, ...dataResult.value.sideEffectEvents];

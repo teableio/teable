@@ -10,6 +10,7 @@ import {
   type IApiOkResponseDto,
   type IApiResponseDto,
 } from '../shared/http';
+import { mapRecordActors, type RecordActorDto } from './recordActorDto';
 import type { ITableRecordDto } from './recordDto';
 import { tableRecordDtoSchema } from './recordDto';
 
@@ -43,10 +44,12 @@ export const updateRecordsOkResponseSchema = apiOkResponseDtoSchema(
 export { apiErrorResponseDtoSchema as updateRecordsErrorResponseSchema } from '../shared/http';
 
 export const mapUpdateRecordsResultToDto = (
-  result: UpdateRecordsResult
+  result: UpdateRecordsResult,
+  actorsByRecordId: ReadonlyMap<string, RecordActorDto> | undefined
 ): Result<IUpdateRecordsResponseDataDto, DomainError> => {
   const recordDtos = result.records?.map((record) => ({
     id: record.id().toString(),
+    ...mapRecordActors(actorsByRecordId?.get(record.id().toString())),
     fields: Object.fromEntries(
       record
         .fields()

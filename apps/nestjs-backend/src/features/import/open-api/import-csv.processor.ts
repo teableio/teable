@@ -39,6 +39,7 @@ import { AuditScope } from '../../audit/audit-scope';
 import { CanaryService } from '../../canary/canary.service';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
@@ -50,6 +51,7 @@ import { parseBoolean } from './import.class';
 interface ITableImportCsvJob {
   baseId: string;
   userId: string;
+  recordInitiator?: IClsStore['recordInitiator'];
   origin?: {
     ip: string;
     byApi: boolean;
@@ -108,6 +110,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly eventEmitter: EventEmitter2,
+    private readonly recordMutationPolicy: RecordMutationPolicyService,
     @Optional() private readonly canaryService?: CanaryService
   ) {
     super();
@@ -115,6 +118,11 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
 
   public async process(job: Job<ITableImportCsvJob>): Promise<IChunkImportResult> {
     const { table, notification, baseId, userId, lastChunk, range, ro, logId } = job.data;
+    await this.recordMutationPolicy.assertAllowed({
+      tableId: table.id,
+      operation: 'create',
+      payload: ro,
+    });
     const localPresence = this.createImportPresence(table.id, 'status');
     this.setImportStatus(localPresence, true);
     try {
@@ -248,6 +256,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
 
     await this.cls.run(async () => {
       this.cls.set('user.id', job.data.userId);
+      this.cls.set('recordInitiator', job.data.recordInitiator);
       this.cls.set('origin', job.data.origin!);
       await this.audit.withOperation(
         {

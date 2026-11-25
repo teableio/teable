@@ -55,7 +55,6 @@ describe('v2 import boundary', () => {
     if (result.error) throw result.error;
     expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
   });
-
   it.each(packages)(
     'rejects legacy imports through $name config, including spec files',
     ({ dir, lint }) => {

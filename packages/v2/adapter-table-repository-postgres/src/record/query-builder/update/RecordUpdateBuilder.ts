@@ -4,6 +4,7 @@ import type {
   DomainError,
   ICellValueSpec,
   ICellValueSpecVisitor,
+  IExecutionContext,
   ISpecification,
   ISpecVisitor,
   LinkField,
@@ -77,6 +78,7 @@ export interface RecordUpdateMutationPlan {
  */
 export interface RecordUpdateBuilderContext {
   actorId: string;
+  initiator?: IExecutionContext['initiator'];
   now: string;
   actorName?: string;
   actorEmail?: string;
@@ -175,6 +177,7 @@ export class RecordUpdateBuilder {
       const mutateVisitor = CellValueMutateVisitor.create(db, table, tableName, {
         recordId,
         actorId: context.actorId,
+        initiator: context.initiator,
         now: context.now,
         actorName: context.actorName,
         actorEmail: context.actorEmail,

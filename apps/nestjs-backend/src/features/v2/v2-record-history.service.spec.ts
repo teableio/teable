@@ -1,5 +1,24 @@
 import { FieldType as CoreFieldType } from '@teable/core';
 import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  ActorId,
+  BackgroundTaskTracker,
+  bindUnitOfWorkTransaction,
+  DomainWriteTransaction,
+  domainWrite,
+  ok,
+  err,
+  domainError,
+} from '@teable/v2-core';
+import type {
+  IExecutionContext,
+  IUnitOfWork,
+  IUnitOfWorkOptions,
+  UnitOfWorkOperation,
+  DomainError,
+  Result,
+} from '@teable/v2-core';
+import { Kysely, PostgresDialect } from 'kysely';
 import { describe, expect, it, vi } from 'vitest';
 import { Events } from '../../event-emitter/events';
 import {
@@ -7,6 +26,9 @@ import {
   V2RecordsBatchUpdatedHistoryProjection,
   V2RecordUpdatedHistoryProjection,
 } from './v2-record-history.service';
+
+const frozenTime = new Date('2026-09-01T10:00:00.000Z');
+const occurredAt = { toDate: () => frozenTime };
 
 const okResult = <T>(value: T) => ({
   isErr: () => false,
@@ -48,7 +70,6 @@ const createContext = (
   sameTxProjection?: {
     eventId: string;
     tables?: Map<string, unknown>;
-    historyRowBudget?: { remaining: number };
   }
 ) => ({
   actorId: { toString: () => actorId },
@@ -57,7 +78,6 @@ const createContext = (
         sameTxProjection: {
           eventId: sameTxProjection.eventId,
           tables: sameTxProjection.tables ?? new Map(),
-          historyRowBudget: sameTxProjection.historyRowBudget,
         },
       }
     : {}),
@@ -93,6 +113,58 @@ const createV2ContainerService = () => {
 };
 
 describe('V2RecordUpdatedHistoryProjection', () => {
+  it('sends UTC ISO timestamp text through the real PostgreSQL query compiler, never a Date parameter', async () => {
+    const queries: Array<{ sql: string; parameters: unknown[] }> = [];
+    const connection = {
+      query: async (sql: string, parameters: unknown[]) => {
+        queries.push({ sql, parameters });
+        return { rows: [], command: 'INSERT', rowCount: 1 };
+      },
+      release: () => undefined,
+    };
+    const db = new Kysely({
+      dialect: new PostgresDialect({
+        pool: {
+          connect: async () => connection,
+          end: async () => undefined,
+        } as never,
+      }),
+    });
+    const { service } = createV2ContainerService();
+    const projection = new V2RecordUpdatedHistoryProjection(
+      service as never,
+      { recordHistoryDisabled: false } as never,
+      {
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            okResult(createTable([createTextField('fldHistField0000001', 'Name')]))
+          ),
+      } as never,
+      { emit: vi.fn() } as never
+    );
+    const context = bindUnitOfWorkTransaction(
+      createContext('usr-executor', { eventId: 'evt-offset-time' }) as never,
+      { kind: 'unitOfWorkTransaction', scope: 'data', db } as never
+    );
+    try {
+      const result = await projection.handle(context, {
+        source: 'user',
+        occurredAt: { toDate: () => new Date('2026-11-05T18:11:18.886+08:00') },
+        tableId: { toString: () => 'tblHistTable0000001' },
+        recordId: { toString: () => 'recHistRecord000001' },
+        changes: [{ fieldId: 'fldHistField0000001', oldValue: 'before', newValue: 'after' }],
+      } as never);
+      expect(result.isOk()).toBe(true);
+      expect(queries).toHaveLength(1);
+      expect(queries[0].sql).toContain('"created_time"');
+      expect(queries[0].parameters).toContain('2026-11-05T10:11:18.886Z');
+      expect(queries[0].parameters.some((parameter) => parameter instanceof Date)).toBe(false);
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('writes record history entries through the v2 db container', async () => {
     const { db, query, service: v2ContainerService } = createV2ContainerService();
     const tableQueryService = {
@@ -115,6 +187,7 @@ describe('V2RecordUpdatedHistoryProjection', () => {
       context as never,
       {
         source: 'user',
+        occurredAt,
         tableId: { toString: () => 'tblHistTable0000001' },
         recordId: { toString: () => 'recHistRecord000001' },
         changes: [
@@ -136,6 +209,9 @@ describe('V2RecordUpdatedHistoryProjection', () => {
       record_id: 'recHistRecord000001',
       field_id: 'fldHistField0000001',
       created_by: 'usrHistWriter00000001',
+      actor_type: null,
+      actor_id: null,
+      created_time: frozenTime.toISOString(),
     });
     expect(rows[0].id).toMatch(/^rhi[0-9a-f]{24}$/);
     expect(JSON.parse(rows[0].before)).toEqual({
@@ -162,7 +238,7 @@ describe('V2RecordUpdatedHistoryProjection', () => {
     });
   });
 
-  it('skips cell history when the table cannot be loaded', async () => {
+  it('fails required history when table metadata cannot be loaded', async () => {
     const { db, service: v2ContainerService } = createV2ContainerService();
     const tableQueryService = {
       getById: vi.fn().mockResolvedValue(errResult({ code: 'table.not_found' })),
@@ -178,85 +254,259 @@ describe('V2RecordUpdatedHistoryProjection', () => {
       createContext('usrHistWriter00000001') as never,
       {
         source: 'user',
+        occurredAt,
         tableId: { toString: () => 'tblHistTable0000001' },
         recordId: { toString: () => 'recHistRecord000001' },
         changes: [{ fieldId: 'fldHistField0000001', oldValue: 'before', newValue: 'after' }],
       } as never
     );
 
-    expect(result.isOk()).toBe(true);
+    expect(result.isErr()).toBe(true);
     expect(db.insertInto).not.toHaveBeenCalled();
   });
 
-  it('shares the same-tx history row budget across events', async () => {
-    const { db, service: v2ContainerService } = createV2ContainerService();
-    const tableQueryService = {
-      getById: vi
-        .fn()
-        .mockResolvedValue(okResult(createTable([createTextField('fldHistField0000001', 'Name')]))),
-    };
+  it('keeps distinct event identities and frozen actors across multiple modifications', async () => {
+    const { db, query, service } = createV2ContainerService();
+    const table = createTable([createTextField('fldHistField0000001', 'Name')]);
     const projection = new V2RecordUpdatedHistoryProjection(
-      v2ContainerService as never,
+      service as never,
       { recordHistoryDisabled: false } as never,
-      tableQueryService as never,
+      { getById: vi.fn().mockResolvedValue(okResult(table)) } as never,
       { emit: vi.fn() } as never
     );
-    const budget = { remaining: 200 };
-    const context = createContext('usrHistWriter00000001', {
-      eventId: 'evt-shared-budget',
-      historyRowBudget: budget,
+    const context = bindUnitOfWorkTransaction(
+      {
+        ...createContext('usrHistWriter00000001', { eventId: 'evt-first' }),
+        initiator: { type: 'appUser', id: 'apu-stable-principal' },
+      } as never,
+      { kind: 'unitOfWorkTransaction', scope: 'data', db } as never
+    );
+    for (const eventId of ['evt-first', 'evt-second']) {
+      const result = await projection.handle(
+        {
+          ...context,
+          sameTxProjection: { eventId, tables: new Map() },
+        } as never,
+        {
+          source: 'user',
+          occurredAt,
+          tableId: { toString: () => 'tblHistTable0000001' },
+          recordId: { toString: () => 'recHistRecord000001' },
+          changes: [{ fieldId: 'fldHistField0000001', oldValue: 'before', newValue: 'after' }],
+        } as never
+      );
+      expect(result.isOk()).toBe(true);
+    }
+    expect(db.insertInto).toHaveBeenCalledTimes(2);
+    expect(query.values.mock.calls[0][0][0]).toMatchObject({
+      actor_type: 'appUser',
+      actor_id: 'apu-stable-principal',
+      created_time: frozenTime.toISOString(),
+      created_by: 'usrHistWriter00000001',
     });
-    const event = {
-      source: 'user',
-      tableId: { toString: () => 'tblHistTable0000001' },
-      recordId: { toString: () => 'recHistRecord000001' },
-      changes: Array.from({ length: 150 }, (_, index) => ({
-        fieldId: 'fldHistField0000001',
-        oldValue: `before-${index}`,
-        newValue: `after-${index}`,
-      })),
-    };
-
-    const first = await projection.handle(context as never, event as never);
-    const second = await projection.handle(context as never, event as never);
-
-    expect(first.isOk()).toBe(true);
-    expect(second.isOk()).toBe(true);
-    expect(db.insertInto).toHaveBeenCalledTimes(1);
-    expect(budget.remaining).toBe(50);
+    expect(query.values.mock.calls[0][0][0].id).not.toBe(query.values.mock.calls[1][0][0].id);
   });
 
-  it('skips cell history when the same-tx row budget is exceeded', async () => {
-    const { db, service: v2ContainerService } = createV2ContainerService();
-    const tableQueryService = {
-      getById: vi
-        .fn()
-        .mockResolvedValue(okResult(createTable([createTextField('fldHistField0000001', 'Name')]))),
-    };
-    const projection = new V2RecordUpdatedHistoryProjection(
-      v2ContainerService as never,
+  it('writes every batch update beyond 200 in bounded inserts using the active data transaction', async () => {
+    const { db, query, service } = createV2ContainerService();
+    const projection = new V2RecordsBatchUpdatedHistoryProjection(
+      service as never,
       { recordHistoryDisabled: false } as never,
-      tableQueryService as never,
+      {
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            okResult(createTable([createTextField('fldHistField0000001', 'Name')]))
+          ),
+      } as never,
       { emit: vi.fn() } as never
     );
+    const context = bindUnitOfWorkTransaction(
+      createContext('usrHistWriter00000001', {
+        eventId: 'evt-large',
+      }) as never,
+      { kind: 'unitOfWorkTransaction', scope: 'data', db } as never
+    );
+    const result = await projection.handle(context, {
+      source: 'user',
+      occurredAt,
+      tableId: { toString: () => 'tblHistTable0000001' },
+      updates: Array.from({ length: 401 }, (_, index) => ({
+        recordId: `rec-batch-${index}`,
+        changes: [{ fieldId: 'fldHistField0000001', oldValue: 'before', newValue: 'after' }],
+      })),
+    } as never);
+    expect(result.isOk()).toBe(true);
+    expect(query.values.mock.calls.map(([rows]) => rows.length)).toEqual([200, 200, 1]);
+    expect(
+      new Set(
+        query.values.mock.calls.flatMap(([rows]) => rows.map((row: { id: string }) => row.id))
+      ).size
+    ).toBe(401);
+    expect(service.getContainerForTable).not.toHaveBeenCalled();
+  });
 
+  it('fails rather than falling back outside a required same-tx projection', async () => {
+    const { service } = createV2ContainerService();
+    const projection = new V2RecordUpdatedHistoryProjection(
+      service as never,
+      { recordHistoryDisabled: false } as never,
+      {
+        getById: vi
+          .fn()
+          .mockResolvedValue(
+            okResult(createTable([createTextField('fldHistField0000001', 'Name')]))
+          ),
+      } as never,
+      { emit: vi.fn() } as never
+    );
     const result = await projection.handle(
-      createContext('usrHistWriter00000001') as never,
+      createContext('usrHistWriter00000001', { eventId: 'evt-no-tx' }) as never,
       {
         source: 'user',
+        occurredAt,
         tableId: { toString: () => 'tblHistTable0000001' },
         recordId: { toString: () => 'recHistRecord000001' },
-        changes: Array.from({ length: 201 }, () => ({
-          fieldId: 'fldHistField0000001',
-          oldValue: 'a',
-          newValue: 'b',
-        })),
+        changes: [{ fieldId: 'fldHistField0000001', oldValue: 'before', newValue: 'after' }],
       } as never
     );
-
-    expect(result.isOk()).toBe(true);
-    expect(db.insertInto).not.toHaveBeenCalled();
+    expect(result.isErr()).toBe(true);
+    expect(service.getContainerForTable).not.toHaveBeenCalled();
   });
+  it('rolls back the mutation when a later history insert batch fails', async () => {
+    const { db, query, service } = createV2ContainerService();
+    query.execute
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('history disk failure'));
+    const emitter = { emit: vi.fn() };
+    const table = createTable([createTextField('fldHistField0000001', 'Name')]);
+    const projection = new V2RecordsBatchUpdatedHistoryProjection(
+      service as never,
+      { recordHistoryDisabled: false } as never,
+      { getById: vi.fn().mockResolvedValue(okResult(table)) } as never,
+      emitter as never
+    );
+    let committed = false;
+    let mutationVisible = false;
+    let rolledBack = false;
+    const unitOfWork: IUnitOfWork = {
+      async withTransaction<T>(
+        context: IExecutionContext,
+        work: UnitOfWorkOperation<T>,
+        _options?: IUnitOfWorkOptions
+      ): Promise<Result<T, DomainError>> {
+        const afterCommit: Array<() => void | Promise<void>> = [];
+        const result = await work(
+          bindUnitOfWorkTransaction(context, {
+            kind: 'unitOfWorkTransaction',
+            scope: 'data',
+            db,
+            afterCommit: (handler: () => void | Promise<void>) => afterCommit.push(handler),
+          } as never)
+        );
+        if (result.isErr()) {
+          mutationVisible = false;
+          rolledBack = true;
+          return err(result.error);
+        }
+        committed = true;
+        for (const handler of afterCommit) await handler();
+        return result;
+      },
+    };
+    const journal = { append: vi.fn().mockResolvedValue(ok([])) };
+    const transaction = new DomainWriteTransaction(
+      unitOfWork,
+      {
+        encode: () =>
+          err(domainError.unexpected({ message: 'must not encode same-tx-only history' })),
+      } as never,
+      {
+        snapshot: () =>
+          ok({
+            generation: 1,
+            resolve: () =>
+              ok({
+                messageName: 'history-test',
+                durableMode: 'active',
+                sameTxTargets: [
+                  { consumerId: 'history', handler: V2RecordsBatchUpdatedHistoryProjection },
+                ],
+                durableTargets: [],
+                directTargets: [],
+              }),
+          }),
+      } as never,
+      journal as never,
+      { dispatch: vi.fn() } as never,
+      {
+        dispatch: async (context: IExecutionContext, event: unknown) =>
+          projection.handle(context, event as never),
+      } as never,
+      { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+      new BackgroundTaskTracker()
+    );
+    const event = {
+      name: { toString: () => 'RecordsBatchUpdated' },
+      source: 'user',
+      occurredAt,
+      tableId: { toString: () => 'tblHistTable0000001' },
+      updates: Array.from({ length: 201 }, (_, index) => ({
+        recordId: `rec-failure-${index}`,
+        changes: [{ fieldId: 'fldHistField0000001', oldValue: 'before', newValue: 'after' }],
+      })),
+    };
+    const result = await transaction.execute(
+      { actorId: ActorId.create('usr-executor')._unsafeUnwrap() },
+      async () => {
+        mutationVisible = true;
+        return ok(domainWrite.changed(undefined, [event as never]));
+      }
+    );
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('record_history.insert_failed');
+    expect(query.execute).toHaveBeenCalledTimes(2);
+    expect(rolledBack).toBe(true);
+    expect(committed).toBe(false);
+    expect(mutationVisible).toBe(false);
+    expect(journal.append).not.toHaveBeenCalled();
+    expect(emitter.emit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { source: 'computed', disabled: false, oldValue: 'before', newValue: 'after' },
+    { source: 'user', disabled: true, oldValue: 'before', newValue: 'after' },
+    { source: 'user', disabled: false, oldValue: 'same', newValue: 'same' },
+  ])(
+    'does not write intentional excluded history ($source, disabled=$disabled)',
+    async ({ source, disabled, oldValue, newValue }) => {
+      const { db, service } = createV2ContainerService();
+      const projection = new V2RecordUpdatedHistoryProjection(
+        service as never,
+        { recordHistoryDisabled: disabled } as never,
+        {
+          getById: vi
+            .fn()
+            .mockResolvedValue(
+              okResult(createTable([createTextField('fldHistField0000001', 'Name')]))
+            ),
+        } as never,
+        { emit: vi.fn() } as never
+      );
+      const result = await projection.handle(
+        createContext('usr-executor') as never,
+        {
+          source,
+          occurredAt,
+          tableId: { toString: () => 'tblHistTable0000001' },
+          recordId: { toString: () => 'recHistRecord000001' },
+          changes: [{ fieldId: 'fldHistField0000001', oldValue, newValue }],
+        } as never
+      );
+      expect(result.isOk()).toBe(true);
+      expect(db.insertInto).not.toHaveBeenCalled();
+    }
+  );
 
   it('defers RECORD_HISTORY_CREATE until after commit', async () => {
     const { service: v2ContainerService } = createV2ContainerService();
@@ -288,6 +538,7 @@ describe('V2RecordUpdatedHistoryProjection', () => {
       context as never,
       {
         source: 'user',
+        occurredAt,
         tableId: { toString: () => 'tblHistTable0000001' },
         recordId: { toString: () => 'recHistRecord000001' },
         changes: [
@@ -332,6 +583,7 @@ describe('V2RecordsBatchCreatedHistoryProjection', () => {
       {
         tableId: { toString: () => 'tblHistTable0000001' },
         source: { type: 'user' },
+        occurredAt,
         records: [
           {
             recordId: 'recHistRecord000001',
@@ -445,6 +697,7 @@ describe('V2RecordsBatchUpdatedHistoryProjection', () => {
       context as never,
       {
         source: 'user',
+        occurredAt,
         tableId: { toString: () => 'tblHistTable0000001' },
         updates: [
           {

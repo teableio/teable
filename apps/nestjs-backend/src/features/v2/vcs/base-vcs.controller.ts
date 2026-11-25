@@ -3,12 +3,24 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpException,
   Param,
   Post,
   Query,
 } from '@nestjs/common';
-import type { HttpErrorStatus, IApiErrorResponseDto } from '@teable/v2-contract-http';
+import {
+  type HttpErrorStatus,
+  type IApiErrorResponseDto,
+  type IVcsCheckoutInput,
+  type IVcsDiffInput,
+  type IVcsHistoryDiffOutput,
+  type IVcsRollbackInput,
+  type IVcsRollbackOutput,
+  vcsCheckoutInputSchema,
+  vcsDiffInputSchema,
+  vcsRollbackInputSchema,
+} from '@teable/v2-contract-http';
 import {
   executeCloneVcsRecordsEndpoint,
   executeCloneVcsSnapshotEndpoint,
@@ -16,15 +28,18 @@ import {
   executeGetVcsHeadEndpoint,
   executeListVcsChangesEndpoint,
   executePushVcsPatchEndpoint,
+  toVcsEndpointResult,
 } from '@teable/v2-contract-http-implementation/handlers';
-import type {
-  IBaseVcsSnapshot,
-  IVcsCloneRecordsChunk,
-  IVcsHeadInfo,
-  IVcsIncrementalChanges,
-  IVcsPushResult,
+import {
+  VCS_WRITE_BUSY_CODE,
+  type IBaseVcsSnapshot,
+  type IVcsCloneRecordsChunk,
+  type IVcsHeadInfo,
+  type IVcsIncrementalChanges,
+  type IVcsPushResult,
 } from '@teable/v2-vcs';
 import {
+  type BaseVcsHistoryService,
   type CloneVcsSnapshotService,
   type EnableBaseVcsService,
   type GetVcsHeadService,
@@ -34,6 +49,7 @@ import {
   v2VcsServerTokens,
 } from '@teable/v2-vcs/server';
 import { VcsEndpointHttpException } from '../../../custom.exception';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AnyPermissions, Permissions } from '../../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../../auth/decorators/resource_meta.decorator';
 import { TokenAccess } from '../../auth/decorators/token.decorator';
@@ -67,6 +83,22 @@ const parseOptionalBooleanFlag = (raw?: string): boolean | undefined => {
   throw new BadRequestException('Invalid "includeRecords" query parameter');
 };
 
+const CanWriteVcs = () =>
+  AnyPermissions(
+    ['table|create'],
+    ['table|update'],
+    ['table|delete'],
+    ['field|create'],
+    ['field|update'],
+    ['field|delete'],
+    ['view|create'],
+    ['view|update'],
+    ['view|delete'],
+    ['record|create'],
+    ['record|update'],
+    ['record|delete']
+  );
+
 @Controller('api/v2/bases/:baseId/vcs')
 export class BaseVcsController {
   constructor(
@@ -87,7 +119,9 @@ export class BaseVcsController {
     const context = await this.v2ContextFactory.createContext(container);
     const res = await exec(container, context);
     if (res.status !== 200) {
-      if (res.status >= 500) throw new HttpException(res.body, res.status);
+      if (res.status >= 500 && res.body.error.code !== VCS_WRITE_BUSY_CODE) {
+        throw new HttpException(res.body, res.status);
+      }
       throw new VcsEndpointHttpException(res.body, res.status);
     }
     return res.body;
@@ -204,23 +238,57 @@ export class BaseVcsController {
     );
   }
 
+  @Get('history/checkout')
+  @TokenAccess()
+  @Permissions('base|read')
+  @ResourceMeta('baseId', 'params')
+  checkout(
+    @Param('baseId') baseId: string,
+    @Query(new ZodValidationPipe(vcsCheckoutInputSchema.omit({ baseId: true })))
+    query: Omit<IVcsCheckoutInput, 'baseId'>
+  ): Promise<{ snapshot: IBaseVcsSnapshot; remoteMode: IVcsHeadInfo['remoteMode'] }> {
+    return this.runWithVcsService(baseId, async (c, ctx) => {
+      const service = c.resolve<BaseVcsHistoryService>(v2VcsServerTokens.historyService);
+      return toVcsEndpointResult(await service.checkout(ctx, { ...query, baseId }));
+    });
+  }
+
+  @Get('history/diff')
+  @TokenAccess()
+  @Permissions('base|read')
+  @ResourceMeta('baseId', 'params')
+  diff(
+    @Param('baseId') baseId: string,
+    @Query(new ZodValidationPipe(vcsDiffInputSchema.omit({ baseId: true })))
+    query: Omit<IVcsDiffInput, 'baseId'>
+  ): Promise<IVcsHistoryDiffOutput> {
+    return this.runWithVcsService(baseId, async (c, ctx) => {
+      const service = c.resolve<BaseVcsHistoryService>(v2VcsServerTokens.historyService);
+      return toVcsEndpointResult(await service.diff(ctx, { ...query, baseId }));
+    });
+  }
+
+  @Post('history/rollback')
+  @HttpCode(200)
+  @TokenAccess()
+  @Permissions('base|update')
+  @CanWriteVcs()
+  @ResourceMeta('baseId', 'params')
+  rollback(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(vcsRollbackInputSchema.omit({ baseId: true })))
+    body: Omit<IVcsRollbackInput, 'baseId'>
+  ): Promise<IVcsRollbackOutput> {
+    return this.runWithVcsService(baseId, async (c, ctx) => {
+      const service = c.resolve<BaseVcsHistoryService>(v2VcsServerTokens.historyService);
+      return toVcsEndpointResult(await service.rollback(ctx, { ...body, baseId }));
+    });
+  }
+
   @Post('push')
   @TokenAccess()
   @Permissions('base|update')
-  @AnyPermissions(
-    ['table|create'],
-    ['table|update'],
-    ['table|delete'],
-    ['field|create'],
-    ['field|update'],
-    ['field|delete'],
-    ['view|create'],
-    ['view|update'],
-    ['view|delete'],
-    ['record|create'],
-    ['record|update'],
-    ['record|delete']
-  )
+  @CanWriteVcs()
   @ResourceMeta('baseId', 'params')
   push(@Param('baseId') baseId: string, @Body() body: unknown): Promise<IVcsPushResult> {
     const payload =

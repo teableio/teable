@@ -8,11 +8,11 @@ import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { ViewSortUpdated } from '../../domain/table/events/ViewSortUpdated';
+import { DbFieldName } from '../../domain/table/fields/DbFieldName';
 import { Field } from '../../domain/table/fields/Field';
 import { createNewLinkField } from '../../domain/table/fields/FieldFactory';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import { DbFieldName } from '../../domain/table/fields/DbFieldName';
 import type { LinkField } from '../../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
 import type { NumberField } from '../../domain/table/fields/types/NumberField';
@@ -20,9 +20,9 @@ import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineT
 import { UserField } from '../../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../../domain/table/fields/types/UserMultiplicity';
 import { ForeignTable } from '../../domain/table/ForeignTable';
+import { UpdateUserMultiplicitySpec } from '../../domain/table/specs/field-updates/UpdateUserMultiplicitySpec';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
-import { UpdateUserMultiplicitySpec } from '../../domain/table/specs/field-updates/UpdateUserMultiplicitySpec';
 import { TableUpdateViewColumnMetaSpec } from '../../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table } from '../../domain/table/Table';
@@ -47,6 +47,10 @@ const createContext = (): IExecutionContext => ({
 });
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }

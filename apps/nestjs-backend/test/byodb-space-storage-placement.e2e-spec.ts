@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
@@ -9,6 +10,7 @@ import { FieldKeyType, FieldType, Relationship, SortFunc, StatisticsFunc } from 
 import {
   analyzeFile as apiAnalyzeFile,
   axios,
+  createRecords as apiCreateRecords,
   ensureUndoRedoWindowIdHeader,
   exportBase,
   getAggregation,
@@ -19,6 +21,7 @@ import {
   getTrashItems,
   getRowCount,
   getSignature as apiGetSignature,
+  getSpaceDataDb,
   getSpaceDataDbMigration,
   getTableList,
   getTableActivatedIndex,
@@ -63,6 +66,7 @@ import {
 } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
 import { DataDbBindingService } from '../src/features/space/data-db-binding.service';
+import { DataDbMigrationService } from '../src/features/space/data-db-migration.service';
 import { SpaceDataDbMigrationWorkerService } from '../src/features/space/space-data-db-migration-worker.service';
 import { SpaceDataDbMigrationService } from '../src/features/space/space-data-db-migration.service';
 import { DataDbClientManager } from '../src/global/data-db-client-manager.service';
@@ -76,6 +80,7 @@ import {
   deleteField,
   deleteRecord,
   deleteTable,
+  getRecord,
   getRecords,
   getTable,
   initApp,
@@ -1393,6 +1398,203 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     240_000
   );
 
+  describe('pre-switch BYODB migration recovery', () => {
+    const sourcePause = (spaceId: string, jobId: string) =>
+      defaultDataDb('computed_update_pause_scope').where({
+        scope_type: 'space',
+        scope_id: spaceId,
+        reason: `space-data-db-migration:${jobId}`,
+      });
+    const activePause = '(resume_at IS NULL OR resume_at > now())';
+
+    const withMigration = async (
+      recover: (fixture: {
+        spaceId: string;
+        jobId: string;
+        internalSchema: string;
+        dbTableName: string;
+      }) => Promise<void>
+    ) => {
+      const space = await createSpace({ name: 'BYODB migration recovery e2e' });
+      const targetSchema = `byodb_recovery_${space.id.toLowerCase()}`;
+      let recoveryBaseId: string | undefined;
+      let recoveryJobId: string | undefined;
+      let recoveryConnectionId: string | undefined;
+
+      try {
+        const base = await createBase({ spaceId: space.id, name: 'BYODB recovery base' });
+        recoveryBaseId = base.id;
+        // A legacy base exercises v1 unless the deployment forces every record write through v2.
+        await metaDb('base').where({ id: base.id }).update({ v2_enabled: false });
+        const table = await createTable(base.id, {
+          name: 'BYODB recovery table',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [{ fields: { Name: 'Before migration' } }],
+        });
+        const fieldId = table.fields.find((field) => field.isPrimary)!.id;
+        const sourceRecordId = table.records[0].id;
+        const { jobId, connectionId } = await migrationService.startMigrationForSpace(
+          space.id,
+          userId,
+          {
+            url: byodbDataDatabaseUrl!,
+            targetMode: 'migrate-space',
+            internalSchema: targetSchema,
+            confirmLargeMigration: true,
+            switchOnCompletion: true,
+          }
+        );
+        recoveryJobId = jobId;
+        recoveryConnectionId = connectionId;
+
+        await recover({
+          spaceId: space.id,
+          jobId,
+          internalSchema: targetSchema,
+          dbTableName: table.dbTableName,
+        });
+
+        const status = await migrationService.getMigrationJobStatus(space.id, jobId);
+        expect(status.state).toBe('failed');
+        expect(status.completedAt).not.toBeNull();
+        await expect(
+          sourcePause(space.id, jobId).whereRaw(activePause).first('id')
+        ).resolves.toBeUndefined();
+        await expect(schemaExists(dataDb, targetSchema)).resolves.toBe(false);
+        await expect(tableExists(dataDb, table.dbTableName)).resolves.toBe(false);
+
+        const binding = await getSpaceDataDb(space.id, { includeRelatedSpaces: false });
+        expect(binding.data).toMatchObject({ mode: 'default', state: 'ready' });
+        expect(binding.data.migration).toBeUndefined();
+        await expect(getRecord(table.id, sourceRecordId)).resolves.toMatchObject({
+          id: sourceRecordId,
+          fields: { [fieldId]: 'Before migration' },
+        });
+        const created = await apiCreateRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [fieldId]: 'After recovery' } }],
+        });
+        const forceV2 = process.env.FORCE_V2_ALL === 'true';
+        expect(created.headers[X_TEABLE_V2_HEADER]).toBe(String(forceV2));
+        const newRecordId = created.data.records[0].id;
+        await expect(getRecord(table.id, newRecordId)).resolves.toMatchObject({
+          id: newRecordId,
+          fields: { [fieldId]: 'After recovery' },
+        });
+        await expect(
+          countDbTableRowsWhere(defaultDataDb, table.dbTableName, `${quoteIdent('__id')} = ?`, [
+            newRecordId,
+          ])
+        ).resolves.toBe(1);
+      } finally {
+        if (recoveryJobId) {
+          await sourcePause(space.id, recoveryJobId)
+            .delete()
+            .catch(() => undefined);
+          await metaDb('space_data_db_migration_job')
+            .where({ id: recoveryJobId, space_id: space.id })
+            .delete()
+            .catch(() => undefined);
+        }
+        if (recoveryBaseId) {
+          await permanentDeleteBase(recoveryBaseId).catch(() => undefined);
+        }
+        await permanentDeleteSpace(space.id).catch(() => undefined);
+        if (recoveryConnectionId) {
+          await app
+            .get(DataDbClientManager)
+            .invalidateConnection(recoveryConnectionId)
+            .catch(() => undefined);
+          await metaDb('data_db_connection')
+            .where({ id: recoveryConnectionId, internal_schema: targetSchema })
+            .delete()
+            .catch(() => undefined);
+        }
+        await safeDropSchema(dataDb, recoveryBaseId);
+        await safeDropSchema(defaultDataDb, recoveryBaseId);
+        await safeDropSchema(metaDb, recoveryBaseId);
+        await safeDropSchema(dataDb, targetSchema);
+      }
+    };
+
+    it('restores source access after recovering a stale pre-switch migration', async () => {
+      await withMigration(async ({ spaceId, jobId, internalSchema }) => {
+        await expect(migrationService.pauseSourceComputedForJob(jobId)).resolves.toEqual({
+          created: true,
+        });
+        await expect(
+          sourcePause(spaceId, jobId).whereRaw(activePause).first('id')
+        ).resolves.toBeDefined();
+        // Represent a legacy job left active after its test-owned target was cleaned up.
+        await safeDropSchema(dataDb, internalSchema);
+        await expect(schemaExists(dataDb, internalSchema)).resolves.toBe(false);
+        // Use an old cutoff so jobs started by other tests are not candidates.
+        const now = new Date('2000-01-01T00:00:00.000Z');
+        const staleAfterMs = 60_000;
+        await metaDb('space_data_db_migration_job')
+          .where({ id: jobId, space_id: spaceId })
+          .update({
+            state: 'switching',
+            validation_stats: { switched: false },
+            last_modified_time: new Date(now.getTime() - 2 * staleAfterMs),
+          });
+
+        const binding = await getSpaceDataDb(spaceId, { includeRelatedSpaces: false });
+        expect(binding.data).toMatchObject({
+          mode: 'byodb',
+          state: 'migrating',
+          migration: { jobId, state: 'switching' },
+        });
+        const workerId = 'byodb-recovery-e2e';
+        const staleOptions = { now, staleAfterMs };
+        const recovered = await migrationService.recoverStaleActiveMigrationJobs(
+          workerId,
+          staleOptions
+        );
+        expect(recovered).toContainEqual({
+          jobId,
+          state: 'switching',
+          lastError: expect.stringContaining('is stale; no worker progress'),
+        });
+        const secondPass = await migrationService.recoverStaleActiveMigrationJobs(
+          workerId,
+          staleOptions
+        );
+        expect(secondPass.some((job) => job.jobId === jobId)).toBe(false);
+      });
+    }, 180_000);
+
+    itWithMigrationTools(
+      'restores source access after the migration pipeline rejects validation',
+      async () => {
+        await withMigration(async ({ spaceId, jobId, dbTableName }) => {
+          const workDir = await fs.promises.mkdtemp(path.join(tmpdir(), 'byodb-recovery-'));
+          const failure = new Error('Injected pre-switch validation failure');
+          const validation = vi
+            .spyOn(migrationService, 'validateCopyForJob')
+            .mockImplementationOnce(async () => {
+              await expect(tableExists(dataDb, dbTableName)).resolves.toBe(true);
+              await expect(
+                sourcePause(spaceId, jobId).whereRaw(activePause).first('id')
+              ).resolves.toBeDefined();
+              throw failure;
+            });
+          try {
+            await expect(migrationService.runMigrationJob(jobId, { workDir })).rejects.toBe(failure);
+            expect(validation).toHaveBeenCalledTimes(1);
+            expect(validation).toHaveBeenCalledWith(jobId, { keepWriteGate: true });
+            const status = await migrationService.getMigrationJobStatus(spaceId, jobId);
+            expect(status.lastError).toBe(failure.message);
+          } finally {
+            validation.mockRestore();
+            await fs.promises.rm(workDir, { recursive: true, force: true });
+          }
+        });
+      },
+      240_000
+    );
+  });
+
   it('rejects import trash and schema restore writes while a space migration is active', async () => {
     const freezeInternalSchema = `byodb_freeze_${Date.now().toString(36)}`;
     const migrationJobId = `sdmjfreeze${Date.now().toString(36)}`;
@@ -1816,11 +2018,12 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     ).resolves.toBe(true);
   };
 
-  it('initializes data DB migrations independently for multiple internal schemas', async () => {
+  it('initializes independent schemas and repairs a ready pre-attribution database', async () => {
     const firstInternalSchema = `byodb_migration_a_${Date.now().toString(36)}`;
     const secondInternalSchema = `byodb_migration_b_${Date.now().toString(36)}`;
     let firstSpaceId: string | undefined;
     let secondSpaceId: string | undefined;
+    let firstBaseId: string | undefined;
 
     try {
       const firstSpace = await createSpace({
@@ -1849,13 +2052,77 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
 
       const firstVersions = await dataDbMigrationVersions(dataDb, firstInternalSchema);
       const secondVersions = await dataDbMigrationVersions(dataDb, secondInternalSchema);
+      expect(firstVersions).toEqual(secondVersions);
+      const schemaVersion = app.get(DataDbMigrationService).getLatestSchemaVersion();
       await expect(dataDbConnectionVersionForSpace(metaDb, firstSpace.id)).resolves.toEqual([
-        { schema_version: firstVersions.at(-1)?.id },
+        { schema_version: schemaVersion },
       ]);
       await expect(dataDbConnectionVersionForSpace(metaDb, secondSpace.id)).resolves.toEqual([
-        { schema_version: secondVersions.at(-1)?.id },
+        { schema_version: schemaVersion },
       ]);
+
+      const base = await createBase({ spaceId: firstSpace.id, name: 'Existing records' });
+      firstBaseId = base.id;
+      const table = await createTable(base.id, {
+        name: 'Issues',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Before upgrade' } }],
+      });
+      const recordId = table.records[0].id;
+      const actorMigration = '20261105075405_add_actor_attribution';
+      // Recreate the old ready connection and its receipts in this test-owned schema.
+      await dataDb.schema
+        .withSchema(firstInternalSchema)
+        .alterTable('record_history', (history) => {
+          history.dropColumns('actor_type', 'actor_id');
+        });
+      await dataDb.schema
+        .withSchema(firstInternalSchema)
+        .alterTable('domain_event_outbox', (outbox) => {
+          outbox.dropColumn('attribution');
+        });
+      await dataDb('__teable_data_schema_migrations')
+        .withSchema(firstInternalSchema)
+        .where({ id: actorMigration })
+        .del();
+      await metaDb('data_db_connection')
+        .whereIn(
+          'id',
+          metaDb('space_data_db_binding')
+            .select('data_db_connection_id')
+            .where({ space_id: firstSpace.id })
+        )
+        .update({ schema_version: firstVersions.at(-1)!.id });
+
+      const binding = app.get(DataDbBindingService);
+      await expect(binding.retryMigrationForSpace(firstSpace.id)).resolves.toEqual([
+        actorMigration,
+      ]);
+      await expect(binding.retryMigrationForSpace(firstSpace.id)).resolves.toEqual([]);
+      await expect(dataDbMigrationVersions(dataDb, firstInternalSchema)).resolves.toEqual(
+        secondVersions
+      );
+      await expect(
+        constraintExists(dataDb, firstInternalSchema, 'record_history_actor_pair_check')
+      ).resolves.toBe(true);
+      await expect(
+        columnExists(dataDb, `${firstInternalSchema}.domain_event_outbox`, 'attribution')
+      ).resolves.toBe(true);
+      const historyCount = () =>
+        countRows(dataDb, firstInternalSchema, 'record_history', 'table_id = ? AND record_id = ?', [
+          table.id,
+          recordId,
+        ]);
+      const before = await historyCount();
+      await updateRecord(table.id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: { fields: { Name: 'After upgrade' } },
+      });
+      await expect(waitForAtLeast(historyCount, before + 1)).resolves.toBeGreaterThan(before);
     } finally {
+      if (firstBaseId) {
+        await permanentDeleteBase(firstBaseId).catch(() => undefined);
+      }
       if (secondSpaceId) {
         await permanentDeleteSpace(secondSpaceId).catch(() => undefined);
       }

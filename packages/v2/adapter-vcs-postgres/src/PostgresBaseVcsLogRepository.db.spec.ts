@@ -13,13 +13,24 @@ import {
 import {
   ActorId,
   BaseId,
+  TRANSACTION_RETRYABLE_CONTENTION_CODE,
   v2CoreTokens,
+  type IDomainWriteTransaction,
   type IExecutionContext,
   type IUnitOfWork,
 } from '@teable/v2-core';
-import { computeVcsTableScopeTag, isValidPgSnapshotText } from '@teable/v2-vcs';
-import { sql, type Kysely } from 'kysely';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  computeVcsTableScopeTag,
+  diffSnapshots,
+  isValidPgSnapshotText,
+  ok,
+  vcsWriteBusyError,
+  type IBaseVcsSnapshot,
+  type ITableVcsSnapshot,
+} from '@teable/v2-vcs';
+import { encodeCheckpointTable, type VcsCheckpointCapture } from '@teable/v2-vcs/server';
+import { CompiledQuery, sql, type Kysely } from 'kysely';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   PostgresBaseVcsLogRepository,
   type IBaseVcsDatabase,
@@ -33,6 +44,20 @@ const MIGRATION_SQL_PATH = resolve(
   __dirname,
   '../../../db-main-prisma/prisma/postgres/migrations/20261118100000_add_base_vcs_tables/migration.sql'
 );
+const CHECKPOINT_MIGRATION_SQL_PATH = resolve(
+  __dirname,
+  '../../../db-main-prisma/prisma/postgres/migrations/20261123000000_add_base_vcs_checkpoints/migration.sql'
+);
+
+const captureEmpty: VcsCheckpointCapture = async (_ctx, baseId, revision) =>
+  ok({
+    baseId: baseId.toString(),
+    baseName: 'Empty',
+    formatVersion: 1,
+    revision,
+    capturedAt: '2026-01-01T00:00:00.000Z',
+    tables: [],
+  });
 
 const FULL_ZERO_SUMMARY = {
   tablesAdded: 0,
@@ -65,6 +90,81 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
     await testContainer?.dispose();
   }, 30_000);
 
+  it.each([
+    { sqlState: '40001', persistent: false, expectedAttempts: 2 },
+    { sqlState: '40P01', persistent: false, expectedAttempts: 2 },
+    { sqlState: '40001', persistent: true, expectedAttempts: 4 },
+    { sqlState: '55P03', persistent: true, expectedAttempts: 4 },
+  ])(
+    'handles lock SQLSTATE $sqlState with $expectedAttempts batch attempts (persistent: $persistent)',
+    async ({ sqlState, persistent, expectedAttempts }) => {
+      const baseId = BaseId.generate()._unsafeUnwrap();
+      const ctx = createContext();
+      const repo = new PostgresBaseVcsLogRepository(dataDb, unitOfWork);
+      const transactions = testContainer.container.resolve<IDomainWriteTransaction>(
+        v2CoreTokens.domainWriteTransaction
+      );
+      (await repo.enable(ctx, baseId, captureEmpty))._unsafeUnwrap();
+
+      const attempts: string[] = [];
+      const result = await transactions.withBatchTransaction(
+        ctx,
+        async (txCtx) => {
+          const trx = resolvePostgresDbOrTx(dataDb, txCtx, 'data');
+          const { rows } = await sql<{ xid: string }>`
+            SELECT pg_current_xact_id()::text AS xid
+          `.execute(trx);
+          attempts.push(rows[0].xid);
+          const lock = () =>
+            repo.lockPushMetadata(txCtx, baseId, { tableIds: [], fieldIds: [], viewIds: [] });
+          if (attempts.length > 1 && !persistent) return lock();
+
+          // Substitute a server error at the lock query on this transaction only.
+          // The message deliberately does not match the UoW's legacy text fallback.
+          const executor = trx.getExecutor();
+          const executeQuery = executor.executeQuery.bind(executor);
+          const fault = vi.spyOn(executor, 'executeQuery').mockImplementation((compiled) =>
+            compiled.sql.includes('NOWAIT')
+              ? executeQuery(
+                  CompiledQuery.raw(`DO $$ BEGIN
+                    RAISE EXCEPTION 'injected VCS lock failure' USING ERRCODE = '${sqlState}';
+                  END $$;`)
+                )
+              : executeQuery(compiled)
+          );
+          try {
+            return await lock();
+          } finally {
+            fault.mockRestore();
+          }
+        },
+        {
+          scope: 'data',
+          isolationLevel: 'repeatable read',
+          ...(sqlState === '55P03' ? { onRetryExhausted: vcsWriteBusyError } : {}),
+        }
+      );
+
+      expect(attempts).toHaveLength(expectedAttempts);
+      expect(new Set(attempts).size).toBe(expectedAttempts);
+      if (persistent) {
+        const error = result._unsafeUnwrapErr();
+        if (sqlState === '55P03') {
+          expect(error).toMatchObject({ code: 'vcs.write_busy', details: { retryable: true } });
+          expect(error.cause).toMatchObject({
+            code: TRANSACTION_RETRYABLE_CONTENTION_CODE,
+            cause: { code: sqlState },
+          });
+        } else {
+          expect(error.code).toBe('vcs.lock_failed');
+          expect(error.cause).toMatchObject({ code: sqlState });
+        }
+      } else {
+        expect(result._unsafeUnwrap().headRevision).toBe(0);
+      }
+    }
+  );
+
   it('never caches enabled=false, rejects transactional enable(), and defaults storeChangePayloads=false', async () => {
     const baseId = BaseId.generate()._unsafeUnwrap();
     const ctx = createContext();
@@ -94,7 +194,7 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
     // 2. Calling enable() inside an active data UoW tx rejects with vcs.enable_requires_autocommit.
     const txEnableRes = await unitOfWork.withTransaction(
       ctx,
-      async (txCtx) => repoA.enable(txCtx, baseId),
+      async (txCtx) => repoA.enable(txCtx, baseId, captureEmpty),
       { scope: 'data' }
     );
     expect(txEnableRes.isErr()).toBe(true);
@@ -103,7 +203,7 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
     expect((await repoB.isEnabled(ctx, baseId))._unsafeUnwrap()).toBe(false);
 
     // 3. Committed enable on repoA becomes immediately visible to repoB.
-    const enableRes = (await repoA.enable(ctx, baseId))._unsafeUnwrap();
+    const enableRes = (await repoA.enable(ctx, baseId, captureEmpty))._unsafeUnwrap();
     expect(enableRes.enabledAtRevision).toBe(0);
     expect((await repoB.isEnabled(ctx, baseId))._unsafeUnwrap()).toBe(true);
 
@@ -174,7 +274,7 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
       testContainer.metaDb as unknown as Kysely<unknown>
     );
 
-    (await repo.enable(ctx, baseId))._unsafeUnwrap();
+    (await repo.enable(ctx, baseId, captureEmpty))._unsafeUnwrap();
 
     (
       await unitOfWork.withTransaction(
@@ -265,7 +365,7 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
       testContainer.metaDb as unknown as Kysely<unknown>
     );
 
-    (await repo.enable(ctx, baseId))._unsafeUnwrap();
+    (await repo.enable(ctx, baseId, captureEmpty))._unsafeUnwrap();
     const cursor0 = (await repo.capturePullCursor(ctx, baseId))._unsafeUnwrap();
 
     // tx1 inserts lower seq FIRST and remains open across initial pull.
@@ -344,7 +444,7 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
       testContainer.metaDb as unknown as Kysely<unknown>
     );
 
-    (await repo.enable(ctx, baseId))._unsafeUnwrap();
+    (await repo.enable(ctx, baseId, captureEmpty))._unsafeUnwrap();
 
     const narrowCursor = (
       await repo.capturePullCursor(ctx, baseId, { tableIds: ['tbl_alpha'] })
@@ -363,6 +463,121 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
     )._unsafeUnwrap();
     expect(widenedPage.requiresFullSync).toBe(true);
     expect(widenedPage.cursor.scopeTag).toBe(computeVcsTableScopeTag(['tbl_alpha', 'tbl_beta']));
+  });
+
+  it('compares changed chunks, follows both merge parents and preserves complete checkpoints', async () => {
+    const repo = new PostgresBaseVcsLogRepository(dataDb, unitOfWork);
+    const ctx = createContext();
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const table: ITableVcsSnapshot = {
+      id: 'items',
+      name: 'Items',
+      primaryFieldId: 'title',
+      fields: [
+        { id: 'title', name: 'Title', type: 'singleLineText', isPrimary: true, isComputed: false },
+      ],
+      views: [],
+      records: Array.from({ length: 512 }, (_, n) => ({
+        id: `rec${String(n).padStart(4, '0')}`,
+        fields: { title: `Item ${n}` },
+      })),
+    };
+    const updated = {
+      ...table,
+      fields: [
+        ...table.fields,
+        { ...table.fields[0], id: 'notes', name: 'Notes', isPrimary: false },
+      ],
+      records: [{ ...table.records[0], fields: { title: 'Changed' } }, ...table.records.slice(1)],
+    };
+    const other = { ...table, id: 'other', name: 'Other', records: [] };
+    const foreign = {
+      ...other,
+      fields: [
+        ...other.fields,
+        {
+          id: 'link',
+          name: 'External',
+          type: 'link',
+          isPrimary: false,
+          isComputed: false,
+          options: { foreignTableId: 'anotherBasesTable' },
+        },
+      ],
+    };
+    const snapshot = (revision: number): IBaseVcsSnapshot => ({
+      formatVersion: 1,
+      baseId: baseId.toString(),
+      baseName: 'Base',
+      revision,
+      capturedAt: '2026-01-01T00:00:00.000Z',
+      tables: [revision === 0 ? table : updated, revision === 2 ? foreign : other],
+    });
+    const capture: VcsCheckpointCapture = async (_tx, _id, revision) => ok(snapshot(revision));
+    (await repo.enable(ctx, baseId, capture))._unsafeUnwrap();
+    const append = (head: number, parents: number[], read = capture) =>
+      unitOfWork.withTransaction(
+        ctx,
+        (tx) =>
+          repo.appendCommit(
+            tx,
+            baseId,
+            {
+              actorId: ctx.actorId.toString(),
+              originPushId: `push_${head}`,
+              expectedHeadRevision: head,
+              parents,
+              summary: FULL_ZERO_SUMMARY,
+            },
+            read
+          ),
+        { scope: 'data', isolationLevel: 'serializable' }
+      );
+    (await append(0, [0]))._unsafeUnwrap();
+    (await append(1, [0]))._unsafeUnwrap();
+    (await append(2, [1, 2]))._unsafeUnwrap();
+    const stale = await append(2, [1, 2]);
+    expect(stale._unsafeUnwrapErr()).toMatchObject({
+      code: 'vcs.cas_conflict',
+      details: { expectedHeadRevision: 2, actualHeadRevision: 3 },
+    });
+    expect((await repo.readHistoricalSnapshot(ctx, baseId, 0))._unsafeUnwrap()).toEqual(
+      snapshot(0)
+    );
+    expect((await repo.readHistoricalSnapshot(ctx, baseId, 1))._unsafeUnwrap()).toEqual(
+      snapshot(1)
+    );
+    const compare = async (from: number, to: number) =>
+      (await repo.compareHistoricalRevisions(ctx, baseId, from, to))._unsafeUnwrap();
+    expect(await compare(1, 2)).toMatchObject({ mergeBase: 0, containsForeignReferences: true });
+    expect(await compare(2, 3)).toMatchObject({ mergeBase: 2, containsForeignReferences: true });
+
+    const partial = await append(3, [3], async () =>
+      ok({ ...snapshot(4), accessScope: { tables: {} } })
+    );
+    expect(partial._unsafeUnwrapErr().code).toBe('vcs.invalid_checkpoint');
+    expect((await repo.getHead(ctx, baseId))._unsafeUnwrap().headRevision).toBe(3);
+    expect((await repo.readHistoricalSnapshot(ctx, baseId, 4))._unsafeUnwrapErr().code).toBe(
+      'vcs.history_unavailable'
+    );
+
+    // Make shared payloads unavailable in this fixture. A diff that reads any one will fail.
+    const oldObjects = encodeCheckpointTable(table).objects;
+    const sharedChunks = [...encodeCheckpointTable(updated).objects.keys()].filter((hash) =>
+      oldObjects.has(hash)
+    );
+    expect(sharedChunks.length).toBeGreaterThan(0);
+    await sql`DELETE FROM base_vcs_object WHERE base_id = ${baseId.toString()}
+      AND hash = ANY(${[...sharedChunks, encodeCheckpointTable(other).hash]}::text[])`.execute(
+      dataDb
+    );
+    const fast = await compare(0, 1);
+    expect(fast.patch).toEqual(diffSnapshots(snapshot(0), snapshot(1)));
+    expect(fast).toMatchObject({
+      mergeBase: 0,
+      containsForeignReferences: false,
+      summary: { recordsUpdated: 1 },
+    });
   });
 
   it('works cleanly on Prisma migration SQL schema and enforces compaction retention boundaries', async () => {
@@ -410,7 +625,22 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
       ]);
 
       await sql.raw(migrationSql).execute(migDb);
-      expect((await migRepo.enable(ctx, baseId))._unsafeUnwrap().enabledAtRevision).toBe(0);
+      const legacy = BaseId.generate()._unsafeUnwrap();
+      await sql`INSERT INTO base_vcs_head (base_id, enabled, head_revision)
+        VALUES (${legacy.toString()}, true, 3)`.execute(migDb);
+      expect((await migRepo.readHistoricalSnapshot(ctx, legacy, 3))._unsafeUnwrapErr().code).toBe(
+        'vcs.history_unavailable'
+      );
+      await sql.raw(readFileSync(CHECKPOINT_MIGRATION_SQL_PATH, 'utf8')).execute(migDb);
+      expect(
+        (await migRepo.enable(ctx, legacy, captureEmpty))._unsafeUnwrap().enabledAtRevision
+      ).toBe(3);
+      expect((await migRepo.readHistoricalSnapshot(ctx, legacy, 3))._unsafeUnwrapErr().code).toBe(
+        'vcs.history_unavailable'
+      );
+      expect(
+        (await migRepo.enable(ctx, baseId, captureEmpty))._unsafeUnwrap().enabledAtRevision
+      ).toBe(0);
       expect((await migRepo.isEnabled(ctx, baseId))._unsafeUnwrap()).toBe(true);
       const c0 = (await migRepo.capturePullCursor(ctx, baseId))._unsafeUnwrap();
 
@@ -439,6 +669,7 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
         await migUow.withTransaction(
           ctx,
           async (txCtx) => {
+            (await migRepo.lockPushPhysicalTargets(txCtx, baseId, []))._unsafeUnwrap();
             (
               await migRepo.lockPushMetadata(txCtx, baseId, {
                 tableIds: [],
@@ -446,7 +677,6 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
                 viewIds: [],
               })
             )._unsafeUnwrap();
-            (await migRepo.lockPushPhysicalTargets(txCtx, baseId, []))._unsafeUnwrap();
             (
               await migRepo.appendChanges(txCtx, baseId, [
                 {
@@ -465,14 +695,19 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
                 },
               ])
             )._unsafeUnwrap();
-            return migRepo.appendCommit(txCtx, baseId, {
-              expectedHeadRevision: 0,
-              originPushId: 'push_mig_1',
-              actorId: 'usr_mig',
-              summary: FULL_ZERO_SUMMARY,
-            });
+            return migRepo.appendCommit(
+              txCtx,
+              baseId,
+              {
+                expectedHeadRevision: 0,
+                originPushId: 'push_mig_1',
+                actorId: 'usr_mig',
+                summary: FULL_ZERO_SUMMARY,
+              },
+              captureEmpty
+            );
           },
-          { scope: 'data' }
+          { scope: 'data', isolationLevel: 'serializable' }
         )
       )._unsafeUnwrap();
 

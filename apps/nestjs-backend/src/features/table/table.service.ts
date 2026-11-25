@@ -31,13 +31,14 @@ import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableSnapshotReadService } from './table-snapshot-read.service';
 
-type IDataPrismaExecutor = {
-  $executeRawUnsafe(query: string, ...values: unknown[]): PromiseLike<number>;
+type ITransactionLifecycleHost = {
+  afterCommit(callback: () => Promise<void>): boolean;
+  afterRollback(callback: () => Promise<void>): boolean;
 };
 
-type IDataPrismaScopedClient = IDataPrismaExecutor & {
-  txClient?: () => IDataPrismaExecutor;
-};
+const supportsTransactionLifecycle = (client: object): client is ITransactionLifecycleHost =>
+  typeof (client as Partial<ITransactionLifecycleHost>).afterCommit === 'function' &&
+  typeof (client as Partial<ITransactionLifecycleHost>).afterRollback === 'function';
 
 @Injectable()
 @V1EngineService([
@@ -83,28 +84,12 @@ export class TableService implements IReadonlyAdapterService {
       .$executeRaw`select id from base where id = ${baseId} for update`;
   }
 
-  private async cleanupCreatedDataTable(
-    dataPrisma: IDataPrismaExecutor,
-    dbTableName: string,
-    reason: unknown
+  private async createDBTable(
+    baseId: string,
+    tableRo: ICreateTableRo,
+    createTable = true,
+    onActorStorageCommitted?: () => void
   ) {
-    try {
-      await dataPrisma.$executeRawUnsafe(this.dbProvider.dropTable(dbTableName));
-    } catch (cleanupError) {
-      this.logger.error(
-        `Failed to clean up data table ${dbTableName} after table metadata provisioning error: ${
-          reason instanceof Error ? reason.message : String(reason)
-        }`,
-        cleanupError instanceof Error ? cleanupError.stack : undefined
-      );
-    }
-  }
-
-  private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
-    return prisma.txClient?.() ?? prisma;
-  }
-
-  private async createDBTable(baseId: string, tableRo: ICreateTableRo, createTable = true) {
     const userId = this.cls.get('user.id');
     await this.assertBaseWritable(baseId);
     await this.lockBaseRow(baseId);
@@ -178,6 +163,7 @@ export class TableService implements IReadonlyAdapterService {
       order,
       createdBy: userId,
       version: 1,
+      actorStorageVersion: 0,
       provisionState: createTable ? ProvisionState.pending : ProvisionState.ready,
     };
 
@@ -197,39 +183,101 @@ export class TableService implements IReadonlyAdapterService {
       table.string('__created_by').notNullable();
       table.string('__last_modified_by');
       table.integer('__version').notNullable();
+      for (const prefix of ['__created_by_actor', '__last_modified_by_actor']) {
+        const typeColumn = `${prefix}_type`;
+        const idColumn = `${prefix}_id`;
+        table.text(typeColumn).nullable();
+        table.text(idColumn).nullable();
+        table.check(
+          `(("${typeColumn}" IS NULL AND "${idColumn}" IS NULL) OR
+            ("${typeColumn}" IS NOT NULL AND "${idColumn}" IS NOT NULL
+              AND "${typeColumn}" IN ('user', 'appUser', 'automation', 'system')
+              AND length("${idColumn}") > 0))`,
+          {},
+          `${prefix}_pair_check`
+        );
+      }
     });
 
-    let dataPrisma: IDataPrismaExecutor | undefined;
+    let creationReturned = false;
+    let physicalCommitted = false;
+    let rollbackRegistered = false;
+    const markCreationFailed = async () => {
+      // A shared metadata/data owner may have rolled this metadata row back too.
+      await this.prismaService.txClient().tableMeta.updateMany({
+        where: { id: tableMeta.id, actorStorageVersion: 0 },
+        data: { provisionState: ProvisionState.error, lastModifiedBy: userId },
+      });
+    };
+    const publishActorStorage = async () => {
+      physicalCommitted = true;
+      const committedTable = await this.prismaService
+        .txClient()
+        .tableMeta.update({
+          where: { id: tableMeta.id, actorStorageVersion: 0 },
+          data: {
+            actorStorageVersion: 1,
+            provisionState: ProvisionState.ready,
+            lastModifiedBy: userId,
+            ...(creationReturned ? { version: { increment: 1 } } : {}),
+          },
+        })
+        .catch(async (error: unknown) => {
+          await markCreationFailed();
+          throw error;
+        });
+      tableMeta.actorStorageVersion = 1;
+      tableMeta.version = committedTable.version;
+      tableMeta.provisionState = ProvisionState.ready;
+      if (creationReturned) {
+        try {
+          this.publishActorStorageVersion(baseId, tableMeta.id, committedTable.version - 1);
+        } catch (notificationError) {
+          // Metadata 1 is authoritative; clients can refetch, so a lost notification is retryable.
+          this.logger.error(
+            `Failed to publish actor storage capability for table ${tableMeta.id}`,
+            notificationError instanceof Error ? notificationError.stack : undefined
+          );
+        }
+      }
+      onActorStorageCommitted?.();
+    };
     try {
       const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
         useTransaction: true,
       });
-      dataPrisma = this.getDataPrismaExecutor(scopedDataPrisma);
-      for (const sql of createTableSchema.toSQL()) {
-        await dataPrisma.$executeRawUnsafe(sql.sql);
-      }
-      await this.prismaService.txClient().tableMeta.update({
-        where: { id: tableMeta.id },
-        data: {
-          provisionState: ProvisionState.ready,
-          lastModifiedBy: userId,
-        },
+      await scopedDataPrisma.$tx(async (dataPrisma) => {
+        if (!supportsTransactionLifecycle(scopedDataPrisma)) {
+          throw new Error('Physical table creation requires transaction commit and rollback hooks');
+        }
+        rollbackRegistered = scopedDataPrisma.afterRollback(markCreationFailed);
+        if (!rollbackRegistered || !scopedDataPrisma.afterCommit(publishActorStorage)) {
+          throw new Error('Physical table creation requires transaction lifecycle ownership');
+        }
+        for (const sql of createTableSchema.toSQL()) {
+          await dataPrisma.$executeRawUnsafe(sql.sql);
+        }
       });
     } catch (error) {
-      if (dataPrisma) {
-        await this.cleanupCreatedDataTable(dataPrisma, dbTableName, error);
-      }
-      await this.prismaService.txClient().tableMeta.update({
-        where: { id: tableMeta.id },
-        data: {
-          provisionState: ProvisionState.error,
-          lastModifiedBy: userId,
-        },
-      });
+      // Never drop a pre-existing table or infer capability after an ambiguous CREATE/commit.
+      await this.markPhysicalCreationFailure(
+        rollbackRegistered,
+        physicalCommitted,
+        markCreationFailed
+      );
       throw error;
     }
 
+    creationReturned = true;
     return tableMeta;
+  }
+
+  private async markPhysicalCreationFailure(
+    rollbackRegistered: boolean,
+    physicalCommitted: boolean,
+    markCreationFailed: () => Promise<void>
+  ) {
+    if (!rollbackRegistered || physicalCommitted) await markCreationFailed();
   }
 
   async getTableDefaultViewId(tableIds: string[]) {
@@ -264,6 +312,7 @@ export class TableService implements IReadonlyAdapterService {
 
     return {
       ...tableMeta,
+      actorStorageVersion: tableMeta.actorStorageVersion === 1 ? 1 : 0,
       description: tableMeta.description ?? undefined,
       icon: tableMeta.icon ?? undefined,
       lastModifiedTime:
@@ -297,7 +346,10 @@ export class TableService implements IReadonlyAdapterService {
     snapshot: ICreateTableRo,
     createTable: boolean = true
   ): Promise<ITableVo> {
-    const tableVo = await this.createDBTable(baseId, snapshot, createTable);
+    let response: ITableVo | undefined = undefined;
+    const tableVo = await this.createDBTable(baseId, snapshot, createTable, () => {
+      if (response) response.actorStorageVersion = 1;
+    });
     const { provisionState: _provisionState, ...tableData } = tableVo;
     this.rawOpStagingService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
       {
@@ -306,10 +358,12 @@ export class TableService implements IReadonlyAdapterService {
         data: tableData,
       },
     ]);
-    return nullsToUndefined({
+    response = nullsToUndefined({
       ...tableData,
+      actorStorageVersion: tableData.actorStorageVersion === 1 ? 1 : 0,
       lastModifiedTime: tableData.lastModifiedTime?.toISOString(),
     });
+    return response;
   }
 
   async deleteTable(baseId: string, tableId: string, deletedTime: Date) {
@@ -456,6 +510,20 @@ export class TableService implements IReadonlyAdapterService {
     ]);
 
     return tableRawAfter;
+  }
+
+  /** The fenced enable transaction has already committed capability and optimistic version. */
+  publishActorStorageVersion(baseId: string, tableId: string, oldVersion: number) {
+    return this.rawOpStagingService.saveRawOps(baseId, RawOpType.Edit, IdPrefix.Table, [
+      {
+        docId: tableId,
+        version: oldVersion,
+        data: [
+          { p: ['actorStorageVersion'], od: 0, oi: 1 },
+          { p: ['version'], od: oldVersion, oi: oldVersion + 1 },
+        ],
+      },
+    ]);
   }
 
   async create(baseId: string, snapshot: ITableVo) {

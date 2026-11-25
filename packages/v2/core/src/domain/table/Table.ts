@@ -316,6 +316,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
     private readonly fieldsValue: ReadonlyArray<Field>,
     private readonly viewsValue: ReadonlyArray<View>,
     private readonly primaryFieldIdValue: FieldId,
+    private readonly actorStorageVersionValue: number,
     options: { emitCreatedEvent: boolean }
   ) {
     super(id);
@@ -344,6 +345,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
         props.fields,
         props.views,
         props.primaryFieldId,
+        0,
         {
           emitCreatedEvent: true,
         }
@@ -364,6 +366,9 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       return err(domainError.unexpected({ message: 'Table requires at least one Field' }));
     if (!props.fields.some((f) => f.id().equals(props.primaryFieldId)))
       return err(domainError.validation({ message: 'Primary Field must exist in Table fields' }));
+    const actorStorageVersion = props.actorStorageVersion ?? 0;
+    if (actorStorageVersion !== 0 && actorStorageVersion !== 1)
+      return err(domainError.validation({ message: 'Unsupported actor storage version' }));
 
     const table = new Table(
       props.id,
@@ -373,6 +378,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       props.fields,
       props.views,
       props.primaryFieldId,
+      actorStorageVersion,
       {
         emitCreatedEvent: false,
       }
@@ -422,6 +428,10 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
 
   searchIndex(): ITableSearchIndex | undefined {
     return this.searchIndexValue;
+  }
+
+  actorStorageVersion(): number {
+    return this.actorStorageVersionValue;
   }
 
   clone(mapper: ITableMapper): Result<Table, DomainError> {
@@ -1354,6 +1364,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       views: [...this.viewsValue, view],
       primaryFieldId: this.primaryFieldIdValue,
       searchIndex: this.searchIndexValue,
+      actorStorageVersion: this.actorStorageVersionValue,
     };
     if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
     return Table.rehydrate(props);
@@ -1401,6 +1412,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       views: this.viewsValue.filter((view) => !view.id().equals(viewId)),
       primaryFieldId: this.primaryFieldIdValue,
       searchIndex: this.searchIndexValue,
+      actorStorageVersion: this.actorStorageVersionValue,
     };
     if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
     return Table.rehydrate(props);
@@ -1435,6 +1447,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       views: nextViewsResult.value,
       primaryFieldId: this.primaryFieldIdValue,
       searchIndex: this.searchIndexValue,
+      actorStorageVersion: this.actorStorageVersionValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {
@@ -1548,6 +1561,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
       searchIndex: this.searchIndexValue,
+      actorStorageVersion: this.actorStorageVersionValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {
@@ -1620,6 +1634,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
       searchIndex: this.searchIndexValue,
+      actorStorageVersion: this.actorStorageVersionValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {
@@ -1789,6 +1804,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       views: this.viewsValue,
       primaryFieldId: this.primaryFieldIdValue,
       searchIndex: this.searchIndexValue,
+      actorStorageVersion: this.actorStorageVersionValue,
     };
 
     if (this.dbTableNameValue.isRehydrated()) {
@@ -1866,6 +1882,7 @@ export class Table extends AggregateRoot<TableId> implements ITableReadModel {
       views,
       primaryFieldId: this.primaryFieldIdValue,
       searchIndex: this.searchIndexValue,
+      actorStorageVersion: this.actorStorageVersionValue,
     };
     if (this.dbTableNameValue.isRehydrated()) props.dbTableName = this.dbTableNameValue;
     return Table.rehydrate(props);

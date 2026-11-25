@@ -174,6 +174,19 @@ function collectUpdatedRecordCasConflicts(
       });
       continue;
     }
+    for (const change of recUpd.orderChanges ?? []) {
+      const current = liveRec.orders?.[change.viewId] ?? liveRec.autoNumber ?? null;
+      if (current !== change.before) {
+        conflicts.push({
+          key: `${tableId}:record:${recUpd.recordId}:order:${change.viewId}`,
+          tableId,
+          entityType: 'record',
+          entityId: recUpd.recordId,
+          before: change.before,
+          current,
+        });
+      }
+    }
     for (const cell of recUpd.cellChanges) {
       const fieldSnap = liveFieldMap.get(cell.fieldId);
       const beforeNorm = canonicalizeCellValueForCas(cell.before, fieldSnap);

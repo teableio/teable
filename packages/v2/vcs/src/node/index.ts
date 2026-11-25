@@ -54,6 +54,7 @@ const vcsWorkspaceConfigSchema = z.object({
   lastOriginPushId: z.string().optional(),
   lastOriginPushIds: z.array(z.string()).optional(),
   schemaOnly: z.boolean().optional(),
+  readOnly: z.boolean().optional(),
   clonedAt: z.string().datetime().optional(),
   cloneRevision: z.number().int().nonnegative().optional(),
   lastPulledAt: z.string().optional(),

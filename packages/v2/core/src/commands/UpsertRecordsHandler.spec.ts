@@ -5,11 +5,12 @@ import type {
   IRecordUpsertResult,
   RecordUpsertService,
 } from '../application/services/RecordUpsertService';
-import { TableQueryService } from '../application/services/TableQueryService';
+import type { TableQueryService } from '../application/services/TableQueryService';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import type { RecordActorAttribution } from '../ports/TableRecordRepository';
 import { UpsertRecordsCommand } from './UpsertRecordsCommand';
 import { UpsertRecordsHandler } from './UpsertRecordsHandler';
 
@@ -70,14 +71,21 @@ describe('UpsertRecordsCommand', () => {
 
 describe('UpsertRecordsHandler', () => {
   it('summarizes per-row dispositions in input order', async () => {
+    const actors: RecordActorAttribution = {
+      createdByActorType: 'appUser',
+      createdByActorId: 'apu_existing',
+      lastModifiedByActorType: 'user',
+      lastModifiedByActorId: 'usr_existing',
+    };
     const handler = createHandler(async () =>
       ok<IRecordUpsertResult, DomainError>({
         results: [
           { index: 0, status: 'created', recordId: 'recA' },
           { index: 1, status: 'skipped', recordId: 'recB' },
-          { index: 2, status: 'unchanged', recordId: 'recC' },
+          { index: 2, status: 'unchanged', recordId: 'recC', recordActors: actors },
         ],
         events: [],
+        recordActorsByRecord: new Map([['recC', actors]]),
       })
     );
 
@@ -95,6 +103,8 @@ describe('UpsertRecordsHandler', () => {
     const result = await handler.handle(context, command);
     const value = result._unsafeUnwrap();
     expect(value.results.map((row) => row.status)).toEqual(['created', 'skipped', 'unchanged']);
+    expect(value.results[2]?.recordActors).toEqual(actors);
+    expect(value.recordActorsByRecord?.get('recC')).toEqual(actors);
     expect(value.summary).toEqual({
       requested: 3,
       created: 1,

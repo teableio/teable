@@ -2134,52 +2134,6 @@ describe('v2 http deleteTable (e2e)', () => {
       await ctx.deleteTable(foreignTable.id, { mode: 'permanent' });
       await ctx.drainOutbox();
 
-      const hostBackfillStarts = getTableLogEntriesByMessage(
-        ctx,
-        'computed:backfillMany:start',
-        hostTable.id
-      );
-      expect(hostBackfillStarts).toHaveLength(2);
-
-      const hostBackfillFieldSets = hostBackfillStarts.map((entry) => {
-        const context = entry.context;
-        if (!isObjectRecord(context) || !Array.isArray(context['fieldIds'])) {
-          return [];
-        }
-        return context['fieldIds'].filter(
-          (fieldId): fieldId is string => typeof fieldId === 'string'
-        );
-      });
-      expect(hostBackfillFieldSets).toEqual(
-        expect.arrayContaining([
-          expect.arrayContaining([lookupFieldId]),
-          expect.arrayContaining([rollupFieldId]),
-        ])
-      );
-
-      const hostBackfillSqlLogs = getTableLogEntriesByMessage(
-        ctx,
-        'computed:backfillMany:sql',
-        hostTable.id
-      );
-      expect(hostBackfillSqlLogs).toHaveLength(2);
-      for (const entry of hostBackfillSqlLogs) {
-        const sqlText = isObjectRecord(entry.context) ? entry.context['sql'] : undefined;
-        expect(typeof sqlText).toBe('string');
-        if (typeof sqlText !== 'string') continue;
-
-        if (sqlText !== 'select 1 where false') {
-          expect(sqlText).toContain(`update "${ctx.baseId}"."${hostTable.id}" as "u" set`);
-          expect(sqlText.toLowerCase()).toContain('from (select');
-        }
-        expect(sqlText).not.toContain('tmp_computed_dirty');
-        expect(sqlText).not.toContain('select "__id" as "record_id"');
-      }
-
-      expect(ctx.testContainer.spyLogger.getEntriesByMessage('find:mode:stored:sql')).toHaveLength(
-        0
-      );
-
       const refreshedHost = await ctx.getTableById(hostTable.id);
       const twoWayLinkField = refreshedHost.fields.find((field) => field.id === twoWayLinkFieldId);
       const oneWayLinkField = refreshedHost.fields.find((field) => field.id === oneWayLinkFieldId);

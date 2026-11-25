@@ -1,4 +1,5 @@
 import {
+  domainError,
   type DomainError,
   Field,
   FieldType,
@@ -168,9 +169,7 @@ export class OverlayTableRepository implements ITableRepository {
     table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<TableUpdatePersistResult | void, DomainError>> {
-    this.deletedTableIds.delete(table.id().toString());
-    this.overlayByTableId.set(table.id().toString(), table);
-    return ok(undefined);
+    return this.restore(_context, table);
   }
 
   async restore(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
@@ -197,6 +196,15 @@ export class CaptureTableSchemaRepository implements ITableSchemaRepository {
   private readonly statements: CapturedFieldExplainStatement[] = [];
 
   constructor(private readonly options: CaptureSchemaRepositoryOptions) {}
+
+  async ensureActorColumns(): Promise<Result<void, DomainError>> {
+    return err(
+      domainError.notImplemented({
+        code: 'actor_columns.explain_not_supported',
+        message: 'The explain adapter cannot enable physical record attribution',
+      })
+    );
+  }
 
   getStatements(): ReadonlyArray<CapturedFieldExplainStatement> {
     return this.statements;

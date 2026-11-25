@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+
 import type { CsvReplayStore } from './CsvReplayStore';
 
 const maxChunkLength = 65_536;

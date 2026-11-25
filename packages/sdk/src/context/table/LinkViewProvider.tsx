@@ -55,10 +55,16 @@ export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
     queryFn: () => getShareView(linkFieldId).then(({ data }) => data),
   });
 
+  // Inside a project share the link view is read as that share's visitor, so its connection
+  // names the share as the page's own connection does.
+  const baseShareId = parentAppContext?.baseShareId;
   const wsPath = useMemo(() => {
     if (typeof window === 'undefined') return undefined;
-    return addQueryParamsToWebSocketUrl(getWsPath(), { shareId: linkFieldId });
-  }, [linkFieldId]);
+    return addQueryParamsToWebSocketUrl(getWsPath(), {
+      shareId: linkFieldId,
+      ...(baseShareId ? { baseShareId } : {}),
+    });
+  }, [linkFieldId, baseShareId]);
 
   const appContextValue = useMemo(
     () => ({ ...parentAppContext, shareId: linkFieldId }) as typeof parentAppContext,

@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { DuplicateTablePreparationService } from '../application/services/DuplicateTablePreparationService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
+import { withCreatedTableActorStorage } from '../application/services/TableCreationService';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import {
   beginTableSchemaOperation,
@@ -132,7 +133,7 @@ export class DuplicateTableHandler implements ICommandHandler<
       let physicalRecordIds: ReadonlyArray<string> = [];
       let usedPhysicalRowCopy = false;
 
-      const persistedTable = yield* await handler.unitOfWork.withTransaction(
+      let persistedTable = yield* await handler.unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) =>
           safeTry<Table, DomainError>(async function* () {
@@ -190,11 +191,18 @@ export class DuplicateTableHandler implements ICommandHandler<
                 skipUndoCaptureSetup: true,
               }
             );
+            persistedTable = yield* withCreatedTableActorStorage(persistedTable);
 
             if (physicalPlan?.isOk()) {
               const physical = yield* await handler.tableRecordRepository.duplicatePhysicalRows(
                 dataTransactionContext,
-                physicalPlan.value,
+                yield* buildPhysicalTableDuplicatePlan({
+                  sourceTable,
+                  targetTable: persistedTable,
+                  fieldIdMap: duplicated.fieldIdMap,
+                  viewIdMap: duplicated.viewIdMap,
+                  initiator: dataTransactionContext.initiator,
+                }),
                 persistedTable
               );
               physicalRecordIds = physical.recordIds;
@@ -256,7 +264,7 @@ export class DuplicateTableHandler implements ICommandHandler<
         handler.tableRepository,
         context,
         persistedTable,
-        { type: 'table.duplicate' }
+        { type: 'table.duplicate', publishActorStorageVersion: 1 }
       );
 
       return ok(

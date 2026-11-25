@@ -23,6 +23,7 @@ import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
   RecordMutationResult,
+  RecordActorAttribution,
   RecordStoredSnapshot,
 } from '../../ports/TableRecordRepository';
 import { RecordBatchCreationService } from './RecordBatchCreationService';
@@ -101,6 +102,7 @@ const buildNormalizationTable = () => {
 class FakeTableRecordRepository implements ITableRecordRepository {
   readonly insertedRecords: TableRecord[] = [];
   omitRecordSnapshots = false;
+  recordActors?: RecordActorAttribution;
 
   constructor(
     private readonly insertManyResult: Result<BatchRecordMutationResult, DomainError> = ok({})
@@ -123,6 +125,13 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       return ok({
         ...this.insertManyResult.value,
         ...(recordSnapshots ? { recordSnapshots } : {}),
+        ...(this.recordActors
+          ? {
+              recordActorsByRecord: new Map(
+                records.map((record) => [record.id().toString(), this.recordActors!])
+              ),
+            }
+          : {}),
       });
     }
     return this.insertManyResult;
@@ -173,6 +182,43 @@ const toStoredSnapshot = (record: TableRecord): RecordStoredSnapshot => {
 };
 
 describe('RecordBatchCreationService', () => {
+  it('returns actors frozen by persistence for every created row', async () => {
+    const table = buildBasicTable();
+    const fieldId = table.primaryFieldId().toString();
+    const recordRepository = new FakeTableRecordRepository();
+    const actors: RecordActorAttribution = {
+      createdByActorType: 'appUser',
+      createdByActorId: 'apu_created',
+      lastModifiedByActorType: 'appUser',
+      lastModifiedByActorId: 'apu_created',
+    };
+    recordRepository.recordActors = actors;
+    const service = new RecordBatchCreationService(
+      recordRepository,
+      noopRecordMutationSpecResolver,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      noopTableUpdateFlow
+    );
+    const result = (
+      await service.create(createContext(), {
+        table,
+        recordsFieldValues: [new Map([[fieldId, 'First']]), new Map([[fieldId, 'Second']])],
+        fieldKeyType: FieldKeyType.Id,
+        typecast: false,
+        isTransactionBound: true,
+      })
+    )._unsafeUnwrap();
+
+    expect(result.records).toHaveLength(2);
+    expect(result.recordActorsByRecord?.size).toBe(2);
+    for (const record of result.records) {
+      expect(result.recordActorsByRecord?.get(record.id().toString())).toEqual(actors);
+    }
+  });
+
   it.each([FieldKeyType.Id, FieldKeyType.Name, FieldKeyType.DbFieldName])(
     'resolves every row with %s keys for each table and preserves typecast values',
     async (fieldKeyType) => {

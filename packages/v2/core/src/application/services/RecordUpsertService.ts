@@ -38,6 +38,11 @@ import type {
   ITableRecordQueryResult,
 } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
+import type { RecordActorAttribution } from '../../ports/TableRecordRepository';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../../ports/tokens';
 import { composeUndoRedoCommands, type UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
 import { runAfterCommitTasksSafely } from './batchTransactionOrchestration';
@@ -48,9 +53,11 @@ import {
 } from './RecordBatchCreationService';
 import { RecordBulkUpdateService } from './RecordBulkUpdateService';
 import { RecordQueryPluginRunner } from './RecordQueryPluginRunner';
+import { sharedRecordWritePlan, exclusiveRecordWritePlan } from './RecordWriteCoordinationPlan';
 import type { RecordWritePluginRunner } from './RecordWritePluginRunner';
 import { TableQueryService } from './TableQueryService';
 import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoStackService';
+import { withRecordWriteCoordination } from './withRecordWriteCoordination';
 
 export const recordUpsertOnConflictValues = ['error', 'ignore', 'update'] as const;
 export type RecordUpsertOnConflict = (typeof recordUpsertOnConflictValues)[number];
@@ -63,6 +70,7 @@ export interface IRecordUpsertRowResult {
   readonly status: RecordUpsertRowStatus;
   readonly recordId?: string;
   readonly record?: TableRecord;
+  readonly recordActors?: RecordActorAttribution;
 }
 
 export interface IRecordUpsertInput {
@@ -78,6 +86,7 @@ export interface IRecordUpsertInput {
 export interface IRecordUpsertResult {
   readonly results: ReadonlyArray<IRecordUpsertRowResult>;
   readonly events: ReadonlyArray<IDomainEvent>;
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
 }
 
 type NormalizedMatchValue = {
@@ -89,6 +98,7 @@ type RowOutcome = {
   readonly status: RecordUpsertRowStatus;
   readonly recordId?: string;
   readonly record?: TableRecord;
+  readonly recordActors?: RecordActorAttribution;
 };
 
 type UpdateTarget = {
@@ -97,6 +107,7 @@ type UpdateTarget = {
   readonly fieldValues: ReadonlyMap<string, unknown>;
   /** Stored row image used as the response fallback and for read-scope checks. */
   readonly record: TableRecord;
+  readonly recordActors: RecordActorAttribution;
 };
 
 type UpsertPlan = {
@@ -324,11 +335,30 @@ export class RecordUpsertService {
     private readonly tableQueryService: TableQueryService,
     @inject(v2CoreTokens.recordQueryPluginRunner)
     private readonly recordQueryPluginRunner: RecordQueryPluginRunner,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination(),
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger = new NoopLogger()
   ) {}
 
   async upsert(
+    context: IExecutionContext,
+    input: IRecordUpsertInput
+  ): Promise<Result<IRecordUpsertResult, DomainError>> {
+    return withRecordWriteCoordination({
+      context,
+      tableId: input.table.id(),
+      coordination: this.tableSchemaCoordination,
+      initialPlan: sharedRecordWritePlan,
+      loadTable: () => this.tableQueryService.getById(context, input.table.id()),
+      // Every row can become either an insert or an update after matching. A
+      // typecast can add select options on either branch, including a retry.
+      planForTable: () => (input.typecast ? exclusiveRecordWritePlan : sharedRecordWritePlan),
+      execute: (table) => this.upsertWithTable(context, { ...input, table }),
+    });
+  }
+
+  private async upsertWithTable(
     context: IExecutionContext,
     input: IRecordUpsertInput
   ): Promise<Result<IRecordUpsertResult, DomainError>> {
@@ -466,9 +496,15 @@ export class RecordUpsertService {
         await runAfterCommitTasksSafely(afterCommitTasks, 'data', service.logger);
       }
 
+      const recordActorsByRecord = new Map<string, RecordActorAttribution>();
+      for (const row of results) {
+        if (row.recordId && row.recordActors)
+          recordActorsByRecord.set(row.recordId, row.recordActors);
+      }
       return ok({
         results,
         events: committed.events,
+        recordActorsByRecord,
       });
     });
   }
@@ -528,6 +564,12 @@ export class RecordUpsertService {
           status: 'skipped',
           recordId: matchedRecord.id,
           record: matchedEntity.value,
+          recordActors: {
+            createdByActorType: matchedRecord.createdByActorType,
+            createdByActorId: matchedRecord.createdByActorId,
+            lastModifiedByActorType: matchedRecord.lastModifiedByActorType,
+            lastModifiedByActorId: matchedRecord.lastModifiedByActorId,
+          },
         };
         continue;
       }
@@ -537,6 +579,12 @@ export class RecordUpsertService {
           status: 'skipped',
           recordId: matchedRecord.id,
           record: matchedEntity.value,
+          recordActors: {
+            createdByActorType: matchedRecord.createdByActorType,
+            createdByActorId: matchedRecord.createdByActorId,
+            lastModifiedByActorType: matchedRecord.lastModifiedByActorType,
+            lastModifiedByActorId: matchedRecord.lastModifiedByActorId,
+          },
         };
         continue;
       }
@@ -546,6 +594,12 @@ export class RecordUpsertService {
         recordId: recordId.value,
         fieldValues: resolvedRows[index]!,
         record: matchedEntity.value,
+        recordActors: {
+          createdByActorType: matchedRecord.createdByActorType,
+          createdByActorId: matchedRecord.createdByActorId,
+          lastModifiedByActorType: matchedRecord.lastModifiedByActorType,
+          lastModifiedByActorId: matchedRecord.lastModifiedByActorId,
+        },
       });
     }
 
@@ -572,7 +626,12 @@ export class RecordUpsertService {
           const record = creation.records[offset]!;
           const recordId = record.id().toString();
           createdIds.push(recordId);
-          outcomes[pendingIndexes[offset]!] = { status: 'created', recordId, record };
+          outcomes[pendingIndexes[offset]!] = {
+            status: 'created',
+            recordId,
+            record,
+            recordActors: creation.recordActorsByRecord?.get(recordId),
+          };
         }
         events.push(...creation.events);
         undoCommands.push(...creation.undoCommands);
@@ -626,6 +685,12 @@ export class RecordUpsertService {
             status: 'skipped',
             recordId: matchedRecord.id,
             record: matchedEntity.value,
+            recordActors: {
+              createdByActorType: matchedRecord.createdByActorType,
+              createdByActorId: matchedRecord.createdByActorId,
+              lastModifiedByActorType: matchedRecord.lastModifiedByActorType,
+              lastModifiedByActorId: matchedRecord.lastModifiedByActorId,
+            },
           };
           continue;
         }
@@ -634,6 +699,12 @@ export class RecordUpsertService {
             status: 'skipped',
             recordId: matchedRecord.id,
             record: matchedEntity.value,
+            recordActors: {
+              createdByActorType: matchedRecord.createdByActorType,
+              createdByActorId: matchedRecord.createdByActorId,
+              lastModifiedByActorType: matchedRecord.lastModifiedByActorType,
+              lastModifiedByActorId: matchedRecord.lastModifiedByActorId,
+            },
           };
           continue;
         }
@@ -642,6 +713,12 @@ export class RecordUpsertService {
           recordId: recordId.value,
           fieldValues: resolvedRows[index]!,
           record: matchedEntity.value,
+          recordActors: {
+            createdByActorType: matchedRecord.createdByActorType,
+            createdByActorId: matchedRecord.createdByActorId,
+            lastModifiedByActorType: matchedRecord.lastModifiedByActorType,
+            lastModifiedByActorId: matchedRecord.lastModifiedByActorId,
+          },
         });
       }
       updateTargets.push(...retryTargets);
@@ -747,6 +824,9 @@ export class RecordUpsertService {
         status: changed.has(recordId) ? 'updated' : 'unchanged',
         recordId,
         record: recordById.get(recordId) ?? target.record,
+        recordActors:
+          updateResult.value.recordActorsByRecord?.get(recordId) ??
+          (recordById.has(recordId) ? undefined : target.recordActors),
       };
     }
 

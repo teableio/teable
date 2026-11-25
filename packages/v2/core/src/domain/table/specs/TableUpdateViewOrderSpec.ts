@@ -88,6 +88,7 @@ export class TableUpdateViewOrderSpec<
       views: views as ReadonlyArray<View>,
       primaryFieldId: table.primaryFieldId(),
       searchIndex: table.searchIndex(),
+      actorStorageVersion: table.actorStorageVersion(),
     };
     const dbTableNameResult = table.dbTableName();
     if (dbTableNameResult.isOk()) props.dbTableName = dbTableNameResult.value;

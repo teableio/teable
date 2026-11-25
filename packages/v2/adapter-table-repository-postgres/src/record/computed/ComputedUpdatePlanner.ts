@@ -49,6 +49,13 @@ export type ComputedUpdatePlannerOptions = {
    * backfill them later when the early self-backfill path skipped them.
    */
   includeComputedSeedFields?: boolean;
+  /**
+   * Include context-free formulas (no field dependencies, e.g. TODAY()/NOW()) on the seed table.
+   * Record mutations keep this enabled so stored reads stay consistent; targeted periodic/manual
+   * field refreshes disable it so refreshing one volatile field never pulls in unrelated formulas.
+   * @default true
+   */
+  includeContextFreeFormulas?: boolean;
 };
 
 export type ComputedSeedGroup = {
@@ -674,7 +681,11 @@ export class ComputedUpdatePlanner {
             }
 
             // Include context-free formulas (no field dependencies) so stored reads stay consistent.
-            if (context.changeType !== 'delete' && context.table) {
+            if (
+              options.includeContextFreeFormulas !== false &&
+              context.changeType !== 'delete' &&
+              context.table
+            ) {
               for (const field of context.table.getFields()) {
                 if (field.type().toString() !== 'formula') continue;
                 const formulaField = field as FormulaField;

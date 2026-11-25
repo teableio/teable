@@ -1,9 +1,12 @@
 import { err, ok, type Result } from 'neverthrow';
 
+import type { BaseId } from '../../domain/base/BaseId';
 import type { DomainError } from '../../domain/shared/DomainError';
 import { domainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { generateUuid } from '../../domain/shared/IdGenerator';
+import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreated';
+import type { TableId } from '../../domain/table/TableId';
 import type {
   DomainBatchOptions,
   DomainEventSummary,
@@ -74,6 +77,7 @@ type TransactionCommit<T> = Readonly<{
   value: T;
   events: ReadonlyArray<IDomainEvent>;
   plan: PlannedWrite;
+  tables?: ReadonlyMap<string, DomainWriteTable>;
 }>;
 
 const emptyPlan = (): PlannedWrite => ({
@@ -118,6 +122,8 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
       unitOfWork: this.unitOfWork,
       context,
       scope: options.scope ?? 'data',
+      isolationLevel: options.isolationLevel,
+      onRetryExhausted: options.onRetryExhausted,
       work,
       logger: this.logger,
     });
@@ -130,6 +136,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     ) => Promise<Result<DomainWriteDecision<T>, DomainError>>,
     options: IUnitOfWorkOptions = {}
   ): Promise<Result<DomainWriteCommit<T>, DomainError>> {
+    context = this.freezeContext(context);
     const scope = options.scope ?? 'data';
     const scopeResolution = resolveBatchExecutionScope(context, scope);
     if (scopeResolution.kind === 'error') {
@@ -206,7 +213,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
         }
       }
 
-      return ok({ value: decision.value, events: [...decision.events], plan });
+      return ok({ value: decision.value, events: [...decision.events], plan, tables });
     };
 
     let transactionResult: Result<TransactionCommit<T>, DomainError>;
@@ -271,7 +278,11 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     this.publishedEventLog?.recordPublished?.(committed.events);
     const awaited =
       committed.plan.awaitDirectDeliveries.length > 0
-        ? await this.dispatchLegacySafely(dispatchContext, committed.plan.awaitDirectDeliveries)
+        ? await this.dispatchLegacyWithTablesSafely(
+            dispatchContext,
+            committed.plan.awaitDirectDeliveries,
+            committed.tables
+          )
         : emptyLegacyDispatchReport();
     const backgroundTargetCount = countTargets(committed.plan.backgroundDirectDeliveries);
     let scheduledTargets = 0;
@@ -279,9 +290,10 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     if (backgroundTargetCount > 0) {
       try {
         scheduleExecutionContextBackgroundTask(dispatchContext, async () => {
-          await this.dispatchLegacySafely(
+          await this.dispatchLegacyWithTablesSafely(
             dispatchContext,
-            committed.plan.backgroundDirectDeliveries
+            committed.plan.backgroundDirectDeliveries,
+            committed.tables
           );
         });
         scheduledTargets = backgroundTargetCount;
@@ -334,6 +346,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     ) => Promise<Result<T, DomainError>>,
     options: DomainWriteStreamOptions = { scope: 'data' }
   ): Promise<Result<DomainWriteStreamCommit<T>, DomainError>> {
+    context = this.freezeContext(context);
     const scope = options.scope ?? 'data';
     if (isReusableBatchTransactionScope(context.batchTransaction)) {
       const streamUnsupported = domainError.infrastructure({
@@ -365,6 +378,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     const spoolResult = await this.importEventSpoolFactory.create();
     if (spoolResult.isErr()) return err(spoolResult.error);
     const spool = spoolResult.value;
+    const tableMap = new Map<string, DomainWriteTable>();
     try {
       const recordTotals = new ImportRecordBatchTotals();
       const summaries: DomainEventSummary[] = [];
@@ -382,9 +396,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
             );
           }
           const batchId = this.generateId('batch');
-          const historyRowBudget = { remaining: 200 };
           let ordinal = 0;
-          const tableMap = new Map<string, DomainWriteTable>();
           const writer: IDomainWriteEventWriter = {
             append: async (events, tables) => {
               if (events.length === 0) return ok(undefined);
@@ -414,7 +426,7 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
               const projected = await this.sameTxDispatcher.dispatch(
                 {
                   ...transactionContext,
-                  sameTxProjection: { eventId: sameTx.eventId, tables: tableMap, historyRowBudget },
+                  sameTxProjection: { eventId: sameTx.eventId, tables: tableMap },
                 },
                 sameTx.event,
                 sameTx.targets
@@ -519,9 +531,11 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
                   : uncataloguedLegacyDirectTargets(event);
               const modeTargets = targets.filter((target) => target.dispatchMode === mode);
               if (modeTargets.length === 0) continue;
-              const report = await this.dispatchLegacySafely(dispatchContext, [
-                { event, targets: modeTargets },
-              ]);
+              const report = await this.dispatchLegacyWithTablesSafely(
+                dispatchContext,
+                [{ event, targets: modeTargets }],
+                tableMap
+              );
               if (mode === 'await') {
                 awaited.attemptedTargets += report.attemptedTargets;
                 awaited.failedTargets += report.failedTargets;
@@ -677,6 +691,37 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
     });
   }
 
+  private freezeContext(context: IExecutionContext): IExecutionContext {
+    return {
+      ...context,
+      // A nested write must not inherit a previous commit's projection snapshot.
+      getCommittedTable: undefined,
+      ...(context.initiator ? { initiator: Object.freeze({ ...context.initiator }) } : {}),
+      operationAttribution: Object.freeze(
+        context.operationAttribution
+          ? { ...context.operationAttribution }
+          : { operationId: generateUuid(), occurredAt: new Date().toISOString() }
+      ),
+    };
+  }
+
+  private async dispatchLegacyWithTablesSafely(
+    context: IExecutionContext,
+    deliveries: ReadonlyArray<LegacyEventDispatch>,
+    tables?: ReadonlyMap<string, DomainWriteTable>
+  ): Promise<LegacyEventDispatchReport> {
+    let activeTables = tables;
+    const deliveryContext: IExecutionContext = {
+      ...context,
+      getCommittedTable: (tableId) => activeTables?.get(tableId),
+    };
+    try {
+      return await this.dispatchLegacySafely(deliveryContext, deliveries);
+    } finally {
+      activeTables = undefined;
+    }
+  }
+
   private async dispatchLegacySafely(
     context: IExecutionContext,
     deliveries: ReadonlyArray<LegacyEventDispatch>
@@ -702,10 +747,84 @@ export class DomainWriteTransaction implements IDomainWriteTransaction {
 
 const snapshotContext = (context: IExecutionContext): StoredProjectionMessageContext => ({
   actorId: context.actorId.toString(),
+  ...(context.initiator ? { initiator: { ...context.initiator } } : {}),
+  ...(context.operationAttribution
+    ? { operationAttribution: { ...context.operationAttribution } }
+    : {}),
   ...(context.requestId ? { requestId: context.requestId } : {}),
   ...(context.windowId ? { windowId: context.windowId } : {}),
   ...(context.undoRedo?.mode ? { undoRedoMode: context.undoRedo.mode } : {}),
 });
+
+export interface RecordCreateOperationSummary {
+  readonly baseId: BaseId;
+  readonly tableId: TableId;
+  readonly recordCount: number;
+  readonly recordIds: ReadonlyArray<string>;
+  readonly source?: RecordsBatchCreated['source'];
+}
+
+/** Durable operation evidence for physical copies that do not emit full record events. */
+export const createRecordCreateOperationProjectionDraft = (
+  context: IExecutionContext,
+  summary: RecordCreateOperationSummary,
+  catalog: IDurableSubscriptionCatalogSnapshot
+): Result<ProjectionMessageDraft | undefined, DomainError> => {
+  if (!Number.isSafeInteger(summary.recordCount) || summary.recordCount < 0) {
+    return err(
+      domainError.invariant({
+        code: 'record.operation_count_invalid',
+        message: 'Invalid inserted record count',
+      })
+    );
+  }
+  if (summary.recordCount === 0) return ok(undefined);
+  const records = summary.recordIds.slice(0, 200).map((recordId) => ({ recordId, fields: [] }));
+  const event = RecordsBatchCreated.create({
+    baseId: summary.baseId,
+    tableId: summary.tableId,
+    records,
+    source: summary.source,
+  });
+  const routing = catalog.resolve(event);
+  if (routing.isErr()) return err(routing.error);
+  const valid = validateRouting(routing.value);
+  if (valid.isErr()) return err(valid.error);
+  if (routing.value.durableTargets.length === 0) return ok(undefined);
+  if (routing.value.messageName !== 'table.records.batch-created.v1') {
+    return err(
+      domainError.invariant({
+        code: 'projection_message.message_name_mismatch',
+        message: 'Record creation summary requires the registered record creation codec',
+      })
+    );
+  }
+  return ok({
+    eventId: generateUuid(),
+    producerEventName: event.name.toString(),
+    messageName: routing.value.messageName,
+    schemaVersion: 1,
+    payload: {
+      baseId: summary.baseId.toString(),
+      tableId: summary.tableId.toString(),
+      records,
+      recordCount: summary.recordCount,
+      source: event.source,
+    },
+    route: {
+      transactionScope: 'data',
+      baseId: summary.baseId.toString(),
+      tableId: summary.tableId.toString(),
+    },
+    context: snapshotContext(context),
+    occurredAt: event.occurredAt.toDate(),
+    batchId: generateUuid(),
+    batchOrdinal: 0,
+    catalogGeneration: catalog.generation,
+    requiredConsumers: routing.value.durableTargets,
+    mode: routing.value.durableMode,
+  });
+};
 
 const validateRouting = (routing: ProjectionEventRoutingDecision): Result<void, DomainError> => {
   const ids = new Set<string>();

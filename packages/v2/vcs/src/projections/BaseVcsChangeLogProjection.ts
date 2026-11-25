@@ -163,7 +163,9 @@ export class BaseVcsChangeLogProjection implements IEventHandler<BaseVcsTrackedE
       return ok(undefined);
     }
 
-    const enabledRes = await this.logRepository.isEnabled(context, event.baseId);
+    const enabledRes = await this.logRepository.isEnabled(context, event.baseId, {
+      includePendingEnable: true,
+    });
     if (enabledRes.isErr()) {
       return err(enabledRes.error);
     }

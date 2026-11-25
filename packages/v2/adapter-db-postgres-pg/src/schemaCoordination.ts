@@ -1,4 +1,12 @@
-import { domainError, type DomainError, type IExecutionContext } from '@teable/v2-core';
+import { getPostgresTransaction, pgErrorCode } from '@teable/v2-adapter-db-postgres-shared';
+import {
+  createTableSchemaCoordinationLease,
+  domainError,
+  resolveScopedTableSchemaLease,
+  type DomainError,
+  type IExecutionContext,
+} from '@teable/v2-core';
+import { sql } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type { Pool, PoolClient } from 'pg';
@@ -19,14 +27,19 @@ export interface IV2PgTableSchemaCoordinationOptions {
    * Defaults to 10000; `0` disables the timeout.
    */
   connectionTimeoutMillis?: number;
+  /** Positive local admission and PostgreSQL advisory-lock wait bound. Defaults to 3000ms. */
+  lockTimeoutMillis?: number;
   /** Transaction-local `application_name` while a coordination lease is held. */
   applicationName?: string;
 }
 
 const DEFAULT_MAX_CONNECTIONS = 8;
 const DEFAULT_CONNECTION_TIMEOUT_MILLIS = 10_000;
+const DEFAULT_LOCK_TIMEOUT_MILLIS = 3_000;
 const DEFAULT_APPLICATION_NAME = 'teable-v2-schema-coordination';
 const POOL_DESTROYED_MESSAGE = 'Table schema coordination pool has been destroyed';
+
+const tableSchemaLockKey = (tableId: string): string => `teable.schema:table:${tableId}`;
 
 const cancelledError = () =>
   domainError.infrastructure({
@@ -41,6 +54,15 @@ const destroyedError = () =>
   });
 
 type CoordinationMode = 'shared' | 'exclusive';
+
+const busyError = (tableIds: ReadonlyArray<string>, mode: CoordinationMode, cause?: Error) =>
+  domainError.conflict({
+    code: 'schema_coordination.busy',
+    message: 'Table schema coordination is waiting for an active operation; retry the request',
+    details: { tableIds, mode },
+    cause,
+  });
+
 interface ITableWaiter {
   mode: CoordinationMode;
   settle(error?: DomainError): void;
@@ -55,6 +77,9 @@ interface ITableAdmissions {
 export interface ICoordinationLease {
   readonly mode: CoordinationMode;
   readonly tableIds: ReadonlyArray<string>;
+  readonly fence?: { backendPid: number; transactionId: string };
+  readonly isActive?: boolean;
+  assertHeld?(): Promise<Result<void, DomainError>>;
   release(): Promise<void>;
 }
 
@@ -99,9 +124,11 @@ class CoordinationCheckout {
 
   constructor(
     private readonly client: PoolClient,
-    private readonly protocol: PostgresProtocolConnectionConstructor
+    private readonly protocol: PostgresProtocolConnectionConstructor,
+    private readonly onDispose: (checkout: CoordinationCheckout) => void
   ) {
     this.client.on('error', this.onClientError);
+    this.client.on('end', this.onClientEnd);
   }
 
   private readonly onClientError = (error: Error): void => {
@@ -111,6 +138,43 @@ class CoordinationCheckout {
     // no-op because the transaction was already rolled back by PostgreSQL.
     this.dispose(true);
   };
+
+  private readonly onClientEnd = (): void => {
+    this.destroy();
+  };
+
+  get isActive(): boolean {
+    return !this.released && !this.broken && !this.disposed;
+  }
+
+  destroy(): void {
+    this.broken = true;
+    // Retiring the coordinator must roll back waiters and held leases, never commit them.
+    this.dispose(true);
+  }
+
+  async assertHeld(fence: {
+    backendPid: number;
+    transactionId: string;
+  }): Promise<Result<void, DomainError>> {
+    if (this.isActive) {
+      try {
+        const proof = await this.client.query<{ held: boolean }>(
+          'SELECT pg_backend_pid() = $1 AND pg_current_xact_id()::text = $2 AS held',
+          [fence.backendPid, fence.transactionId]
+        );
+        if (proof.rows[0]?.held && this.isActive) return ok(undefined);
+      } catch {
+        this.destroy();
+      }
+    }
+    return err(
+      domainError.conflict({
+        code: 'actor_columns.lease_lost',
+        message: 'Record attribution schema lease was lost',
+      })
+    );
+  }
 
   private readonly onAbort = (): void => {
     // Closing a socket alone need not wake a backend blocked on an advisory
@@ -126,7 +190,9 @@ class CoordinationCheckout {
   dispose(destroy: boolean): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.onDispose(this);
     this.client.removeListener('error', this.onClientError);
+    this.client.removeListener('end', this.onClientEnd);
     try {
       this.client.release(destroy);
     } catch (error) {
@@ -157,7 +223,7 @@ class CoordinationCheckout {
   }
 
   async rollbackUnlessBroken(): Promise<void> {
-    if (this.broken) return;
+    if (this.broken || this.disposed) return;
     const rollbackFailed = await this.client.query('ROLLBACK').then(
       () => false,
       () => true
@@ -212,6 +278,8 @@ export class V2PgTableSchemaCoordination {
   private connectionConstructor!: PostgresProtocolConnectionConstructor;
   private destroyed = false;
   private readonly pendingAcquires = new Set<(error: Error) => void>();
+  /** Includes lock waiters and held leases, not only callers queued in pool.connect(). */
+  private readonly checkedOutClients = new Set<CoordinationCheckout>();
   private readonly tableAdmissions = new Map<string, ITableAdmissions>();
 
   constructor(private readonly options: IV2PgTableSchemaCoordinationOptions) {}
@@ -223,22 +291,36 @@ export class V2PgTableSchemaCoordination {
     signal?: AbortSignal
   ): Promise<Result<ICoordinationLease, DomainError>> {
     if (signal?.aborted) return err(cancelledError());
+    const scoped = resolveScopedTableSchemaLease(context, tableIds, mode);
+    if (scoped) return scoped;
     const requested = Array.from(new Set(tableIds)).sort();
     if (requested.length === 0) {
       return ok(createLease(mode, []));
     }
+    if (this.destroyed) return err(destroyedError());
+    const lockTimeoutMillis = this.options.lockTimeoutMillis ?? DEFAULT_LOCK_TIMEOUT_MILLIS;
+    if (!Number.isInteger(lockTimeoutMillis) || lockTimeoutMillis <= 0) {
+      return err(
+        domainError.infrastructure({
+          code: 'schema_coordination.acquire_failed',
+          message: 'Failed to acquire table schema coordination locks',
+          details: { tableIds: requested, mode },
+          cause: new Error('Table schema coordination lock timeout must be a positive integer'),
+        })
+      );
+    }
     if (requested.length !== 1) {
-      return this.acquireLocks(context, requested, mode, signal);
+      return this.acquireLocks(context, requested, mode, lockTimeoutMillis, signal);
     }
 
     const tableId = requested[0]!;
-    const admission = await this.waitForTable(tableId, mode, signal);
+    const admission = await this.waitForTable(tableId, mode, lockTimeoutMillis, signal);
     if (admission.isErr()) return err(admission.error);
 
     let lease: ICoordinationLease | undefined;
     try {
       if (signal?.aborted) return err(cancelledError());
-      const result = await this.acquireLocks(context, requested, mode, signal);
+      const result = await this.acquireLocks(context, requested, mode, lockTimeoutMillis, signal);
       if (result.isErr()) return result;
       lease = result.value;
     } finally {
@@ -248,7 +330,13 @@ export class V2PgTableSchemaCoordination {
     const acquired = lease;
     let released = false;
     return ok({
-      ...acquired,
+      mode: acquired.mode,
+      tableIds: acquired.tableIds,
+      fence: acquired.fence,
+      get isActive() {
+        return acquired.isActive;
+      },
+      assertHeld: acquired.assertHeld,
       release: async () => {
         if (released) return;
         released = true;
@@ -261,12 +349,44 @@ export class V2PgTableSchemaCoordination {
     });
   }
 
+  async tryAcquireInTransaction(
+    context: IExecutionContext,
+    tableIds: ReadonlyArray<string>,
+    mode: CoordinationMode
+  ): Promise<Result<ICoordinationLease, DomainError>> {
+    if (context.abortSignal?.aborted) return err(cancelledError());
+    if (this.destroyed) return err(destroyedError());
+    const requested = Array.from(new Set(tableIds)).sort();
+    if (requested.length === 0) return ok(createTableSchemaCoordinationLease(mode, []));
+    // The dedicated coordinator connects to the metadata database. Only use a
+    // transaction bound to that scope, including a same-database data batch.
+    const transaction = getPostgresTransaction(context, 'meta');
+    if (!transaction) {
+      return err(
+        domainError.invariant({
+          code: 'schema_coordination.transaction_already_started',
+          message: 'Nonblocking schema coordination requires a metadata transaction',
+        })
+      );
+    }
+    const tryLock =
+      mode === 'exclusive' ? 'pg_try_advisory_xact_lock' : 'pg_try_advisory_xact_lock_shared';
+    const keys = requested.map(tableSchemaLockKey);
+    const { rows } = await sql<{ locked: boolean }>`
+      SELECT bool_and(${sql.raw(tryLock)}(hashtextextended(key, 0))) AS locked
+      FROM unnest(${keys}::text[]) AS keys(key)
+    `.execute(transaction);
+    if (!rows[0]?.locked) return err(busyError(requested, mode));
+    // PostgreSQL owns these locks until the outer transaction ends.
+    return ok(createTableSchemaCoordinationLease(mode, requested));
+  }
+
   private async waitForTable(
     tableId: string,
     mode: CoordinationMode,
+    lockTimeoutMillis: number,
     signal?: AbortSignal
   ): Promise<Result<ITableAdmissions, DomainError>> {
-    if (this.destroyed) return err(destroyedError());
     const state = this.tableAdmissions.get(tableId);
     if (!state) {
       const initial = { mode, holders: 1, waiters: new Set<ITableWaiter>() };
@@ -282,15 +402,18 @@ export class V2PgTableSchemaCoordination {
       const waiter: ITableWaiter = {
         mode,
         settle: (error) => {
+          clearTimeout(timeout);
           state.waiters.delete(waiter);
           signal?.removeEventListener('abort', onAbort);
           resolve(error ? err(error) : ok(state));
         },
       };
-      const onAbort = () => {
-        waiter.settle(cancelledError());
+      const fail = (error: DomainError) => {
+        waiter.settle(error);
         this.admitWaiters(tableId, state);
       };
+      const onAbort = () => fail(cancelledError());
+      const timeout = setTimeout(() => fail(busyError([tableId], mode)), lockTimeoutMillis);
       state.waiters.add(waiter);
       signal?.addEventListener('abort', onAbort, { once: true });
     });
@@ -316,6 +439,7 @@ export class V2PgTableSchemaCoordination {
     _context: IExecutionContext,
     tableIds: ReadonlyArray<string>,
     mode: CoordinationMode,
+    lockTimeoutMillis: number,
     signal?: AbortSignal
   ): Promise<Result<ICoordinationLease, DomainError>> {
     if (this.destroyed) return err(destroyedError());
@@ -327,16 +451,45 @@ export class V2PgTableSchemaCoordination {
       return err(cancelledError());
     }
 
-    const checkout = new CoordinationCheckout(client.value, this.connectionConstructor);
-    const attempt = await checkout.attempt(signal, () =>
-      this.beginHoldingLocks(client.value, tableIds, mode, signal)
+    const checkout = new CoordinationCheckout(
+      client.value,
+      this.connectionConstructor,
+      (disposed) => {
+        this.checkedOutClients.delete(disposed);
+      }
     );
+    this.checkedOutClients.add(checkout);
+    if (this.destroyed) {
+      checkout.destroy();
+      return err(
+        domainError.infrastructure({
+          code: 'schema_coordination.pool_destroyed',
+          message: POOL_DESTROYED_MESSAGE,
+        })
+      );
+    }
+    let fence!: { backendPid: number; transactionId: string };
+    const attempt = await checkout.attempt(signal, async () => {
+      await this.beginHoldingLocks(client.value, tableIds, mode, lockTimeoutMillis, signal);
+      const proof = await client.value.query<{ backendPid: number; transactionId: string }>(
+        'SELECT pg_backend_pid() AS "backendPid", pg_current_xact_id()::text AS "transactionId"'
+      );
+      fence = {
+        backendPid: proof.rows[0].backendPid,
+        transactionId: proof.rows[0].transactionId,
+      };
+    });
     if (signal?.aborted) {
       checkout.dispose(true);
       return err(cancelledError());
     }
     if (attempt.failed) {
       await checkout.rollbackUnlessBroken();
+      if (pgErrorCode(attempt.error) === '55P03') {
+        return err(
+          busyError(tableIds, mode, attempt.error instanceof Error ? attempt.error : undefined)
+        );
+      }
       return err(
         domainError.infrastructure({
           code: 'schema_coordination.acquire_failed',
@@ -355,7 +508,16 @@ export class V2PgTableSchemaCoordination {
         })
       );
     }
-    return ok(createLease(mode, tableIds, () => checkout.release()));
+    return ok({
+      mode,
+      tableIds,
+      fence,
+      get isActive() {
+        return checkout.isActive;
+      },
+      assertHeld: () => checkout.assertHeld(fence),
+      release: () => checkout.release(),
+    });
   }
 
   private async checkoutCoordinationClient(
@@ -393,6 +555,7 @@ export class V2PgTableSchemaCoordination {
     client: PoolClient,
     tableIds: ReadonlyArray<string>,
     mode: CoordinationMode,
+    lockTimeoutMillis: number,
     signal?: AbortSignal
   ): Promise<void> {
     const lockFunction =
@@ -403,10 +566,11 @@ export class V2PgTableSchemaCoordination {
     await client.query("SELECT set_config('application_name', $1, true)", [
       this.options.applicationName ?? DEFAULT_APPLICATION_NAME,
     ]);
+    await client.query("SELECT set_config('lock_timeout', $1, true)", [`${lockTimeoutMillis}ms`]);
     for (const tableId of tableIds) {
       signal?.throwIfAborted();
       await client.query(`SELECT ${lockFunction}(hashtextextended($1, 0))`, [
-        `teable.schema:table:${tableId}`,
+        tableSchemaLockKey(tableId),
       ]);
     }
     signal?.throwIfAborted();
@@ -424,6 +588,10 @@ export class V2PgTableSchemaCoordination {
     for (const abort of pending) {
       abort(shutdownError);
     }
+    // pool.end() waits for checked-out clients. A lock waiter can be waiting on
+    // the very exclusive lease whose owner is retiring this cached container.
+    // Abort those queries and invalidate held lease proofs before draining.
+    for (const checkout of Array.from(this.checkedOutClients)) checkout.destroy();
 
     const poolPromise = this.poolPromise;
     this.pool = undefined;

@@ -156,12 +156,22 @@ class InMemoryTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
+    if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
+    return ok(undefined);
+  }
+
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_context: IExecutionContext, _table: Table) {
+    return ok(undefined);
+  }
+
   async insert(_context: IExecutionContext, _table: Table) {
     return ok(undefined);
   }

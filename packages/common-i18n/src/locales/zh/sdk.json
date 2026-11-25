@@ -302,6 +302,12 @@
     "addRecordComment": "添加评论",
     "viewRecordHistory": "查看记录历史",
     "recordHistory": {
+      "actorTypes": {
+        "user": "平台用户",
+        "appUser": "App 用户",
+        "automation": "自动化",
+        "system": "系统"
+      },
       "hiddenRecordHistory": "隐藏记录历史",
       "showRecordHistory": "显示记录历史",
       "createdTime": "修改时间",
@@ -313,7 +319,9 @@
       "allFields": "全部字段",
       "allUsers": "全部修改人",
       "clearFilter": "清除筛选",
-      "viewRecord": "查看记录"
+      "viewRecord": "查看记录",
+      "actor": "发起人",
+      "actorUnknown": "未知"
     },
     "showHiddenFields": "显示 {{count}} 个隐藏字段",
     "hideHiddenFields": "隐藏 {{count}} 个隐藏字段",
@@ -459,6 +467,8 @@
       "appDelete": "删除应用",
       "appRead": "查看应用",
       "appUpdate": "更新应用",
+      "appReadUsers": "查看应用用户和身份元数据",
+      "appReadUserPii": "查看应用身份个人信息",
       "userEmailRead": "查看当前用户电子邮件",
       "userIntegrations": "管理用户集成",
       "userSpacesRead": "查看当前用户所在空间（名称、订阅等级和席位数）",
@@ -484,6 +494,7 @@
     "routine": "任务",
     "app": "应用",
     "user": "用户",
+    "appUser": "应用用户",
     "recordHistory": "记录历史",
     "you": "你",
     "instance": "实例",
@@ -1732,7 +1743,11 @@
         "signInStateInvalid": "登录状态已失效，请重新登录",
         "domainNotAllowed": "此应用仅允许特定邮箱域名注册，你的邮箱域名不在允许列表中",
         "inviteOnly": "此应用仅限受邀用户使用，请联系应用管理员申请访问",
-        "emailMissing": "未获取到你的邮箱"
+        "emailMissing": "未获取到你的邮箱",
+        "accountExists": "该邮箱已有登录方式。请使用已有方式登录，再到账号设置中绑定新方式。",
+        "accountExistsWithProviders": "该邮箱已使用 {{providers}} 登录。请使用已有方式登录，再到账号设置中绑定新方式。",
+        "userTableLocked": "该 App 已有 App 用户，不能更换 user 表。",
+        "emailAmbiguous": "有多条资料记录使用了这个邮箱"
       },
       "previewOriginNotReady": "预览应用尚未就绪，请刷新预览后重试",
       "publishedOriginNotReady": "已发布应用尚未就绪，请发布后重试",
@@ -1742,6 +1757,8 @@
       },
       "customDomainNotConfigured": "未配置自定义域名",
       "vercelTokenNotConfigured": "App Builder 设置中未配置 Vercel 令牌",
+      "managedFieldReadOnly": "这一列由应用登录维护，不能在这里修改",
+      "managedRecordReadOnly": "登录资料行由应用登录管理，不能在这里新增或删除",
       "deleteSandboxCloseFailed": "沙箱关闭失败，未删除，请重试"
     },
     "reward": {

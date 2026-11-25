@@ -1,11 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
-import { TableId } from '../../domain/table/TableId';
 import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreated';
-import { recordsBatchCreatedProjectionCodec } from './recordProjectionCodecs';
+import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
+import { RecordsDeleted } from '../../domain/table/events/RecordsDeleted';
+import { RecordId } from '../../domain/table/records/RecordId';
+import { TableId } from '../../domain/table/TableId';
+import type { ProjectionMessageJson } from '../../ports/ProjectionMessage';
+import {
+  recordsBatchCreatedProjectionCodec,
+  recordsDeletedProjectionCodec,
+  recordsBatchUpdatedProjectionCodec,
+} from './recordProjectionCodecs';
 
 const MAX_PROJECTION_PAYLOAD_BYTES = 16 * 1024 * 1024;
+
+type ProjectionPayloadObject = { readonly [key: string]: ProjectionMessageJson };
+
+const isProjectionPayloadObject = (
+  value: ProjectionMessageJson | undefined
+): value is ProjectionPayloadObject =>
+  value !== undefined && value !== null && typeof value === 'object' && !Array.isArray(value);
 
 describe('recordsBatchCreatedProjectionCodec', () => {
   it('keeps a 500-row 80-field import payload under the journal cap', () => {
@@ -51,5 +66,39 @@ describe('recordsBatchCreatedProjectionCodec', () => {
     const value = payload.records[0]!.fields[0]!.value;
     expect(value).toBe('a'.repeat(255));
     expect(JSON.stringify(value)).not.toMatch(/\\ud[89a-f][0-9a-f]{2}/i);
+  });
+});
+
+describe('record durable operation metadata', () => {
+  it('retains the true delete count while bounding identifiers and never serializing undo snapshots', () => {
+    const event = RecordsDeleted.create({
+      tableId: TableId.generate()._unsafeUnwrap(),
+      baseId: BaseId.generate()._unsafeUnwrap(),
+      recordIds: Array.from({ length: 205 }, () => RecordId.generate()._unsafeUnwrap()),
+      recordSnapshots: [
+        { id: 'private-snapshot', fields: { sensitive: 'not an audit field history' } },
+      ],
+    });
+    const payload = recordsDeletedProjectionCodec.encode(event)._unsafeUnwrap();
+    expect(payload).toMatchObject({ recordCount: 205, recordIds: expect.any(Array) });
+    expect(
+      isProjectionPayloadObject(payload) && Array.isArray(payload.recordIds)
+        ? payload.recordIds.length
+        : undefined
+    ).toBe(200);
+    expect(JSON.stringify(payload)).not.toContain('private-snapshot');
+    expect(JSON.stringify(payload)).not.toContain('sensitive');
+  });
+  it('preserves batch update paste attribution', () => {
+    const event = RecordsBatchUpdated.create({
+      tableId: TableId.generate()._unsafeUnwrap(),
+      baseId: BaseId.generate()._unsafeUnwrap(),
+      updates: [],
+      source: 'user',
+      auditSource: 'paste',
+    });
+    expect(recordsBatchUpdatedProjectionCodec.encode(event)._unsafeUnwrap()).toMatchObject({
+      auditSource: 'paste',
+    });
   });
 });

@@ -28,6 +28,8 @@ import {
   ComputedUpdateOutbox,
   ComputedUpdatePlanner,
   ExternalComputedRefreshService,
+  PeriodicFieldRefreshEngine,
+  noopPeriodicFieldRefreshLifecycleSink,
   FieldDependencyGraph,
   HybridWithOutboxStrategy,
   SyncInTransactionStrategy,
@@ -136,6 +138,19 @@ export const registerV2RecordRepositoryPostgresAdapter = (
       lifecycle: Lifecycle.Singleton,
     }
   );
+  c.register(
+    v2RecordRepositoryPostgresTokens.periodicFieldRefreshEngine,
+    PeriodicFieldRefreshEngine,
+    {
+      lifecycle: Lifecycle.Singleton,
+    }
+  );
+  if (!c.isRegistered(v2RecordRepositoryPostgresTokens.periodicFieldRefreshLifecycleSink, true)) {
+    c.registerInstance(
+      v2RecordRepositoryPostgresTokens.periodicFieldRefreshLifecycleSink,
+      noopPeriodicFieldRefreshLifecycleSink
+    );
+  }
 
   const hybridConfig: HybridWithOutboxStrategyConfig = {
     ...defaultHybridWithOutboxStrategyConfig,

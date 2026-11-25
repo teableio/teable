@@ -4,11 +4,13 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
   Put,
   Query,
+  SetMetadata,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -25,10 +27,13 @@ import type {
   ITableSearchIndexPolicyRo,
   ITableSearchIndexPolicyVo,
   ITableSearchVectorStatusVo,
+  ITableActorColumnsVo,
+  IEnableTableActorColumnsRo,
   ITableVo,
 } from '@teable/openapi';
 import {
   tableRoSchema,
+  enableTableActorColumnsRoSchema,
   ICreateTableWithDefault,
   dbTableNameRoSchema,
   IDbTableNameRo,
@@ -52,19 +57,24 @@ import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import type { IClsStore } from '../../../types/cls';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
-import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
+import {
+  AllowAnonymous,
+  IS_ALLOW_ANONYMOUS,
+} from '../../auth/decorators/allow-anonymous.decorator';
+import { AllowBaseShare } from '../../auth/decorators/allow-base-share.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
-import { TableBaseScopeGuard } from '../guard/table-base-scope.guard';
-import { TableDuplicateService } from '../table-duplicate.service';
-import { TableDuplicatePolicyService } from '../table-duplicate-policy.service';
-import { TableMetadataOrderService } from './table-metadata-order.service';
 import { FieldDependencyReadService } from '../../field/open-api/field-dependency-read.service';
 import { TableIndexService } from '../../table-index/table-index.service';
+import { V2ActorColumnsService } from '../../v2/v2-actor-columns.service';
+import { TableBaseScopeGuard } from '../guard/table-base-scope.guard';
+import { TableDuplicatePolicyService } from '../table-duplicate-policy.service';
+import { TableDuplicateService } from '../table-duplicate.service';
 import { TablePermissionService } from '../table-permission.service';
 import { TableService } from '../table.service';
+import { TableMetadataOrderService } from './table-metadata-order.service';
 import { TableOpenApiV2Service } from './table-open-api-v2.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
@@ -81,6 +91,7 @@ export class TableController {
     private readonly tablePermissionService: TablePermissionService,
     private readonly tableOpenApiV2Service: TableOpenApiV2Service,
     private readonly tableDuplicateService: TableDuplicateService,
+    private readonly actorColumnsService: V2ActorColumnsService,
     private readonly tableDuplicatePolicyService: TableDuplicatePolicyService,
     private readonly tableMetadataOrderService: TableMetadataOrderService,
     private readonly fieldDependencyReadService: FieldDependencyReadService,
@@ -99,6 +110,7 @@ export class TableController {
 
   @Permissions('table|read')
   @UseV2Feature('getTable')
+  @AllowBaseShare()
   @Get(':tableId')
   async getTable(
     @Param('baseId') baseId: string,
@@ -112,6 +124,7 @@ export class TableController {
 
   @Permissions('table|read')
   @UseV2Feature('getTable')
+  @AllowBaseShare()
   @Get()
   async getTables(@Param('baseId') baseId: string): Promise<ITableListVo> {
     if (this.cls.get('useV2')) {
@@ -296,6 +309,7 @@ export class TableController {
   }
 
   @Permissions('table|read')
+  @AllowBaseShare()
   @Get(':tableId/permission')
   async getPermission(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return await this.tableOpenApiService.getPermission(baseId, tableId);
@@ -303,6 +317,7 @@ export class TableController {
 
   @Permissions('table|read')
   @UseV2Feature('getTable')
+  @AllowBaseShare()
   @Get('/socket/snapshot-bulk')
   async getSnapshotBulk(
     @Param('baseId') baseId: string,
@@ -328,6 +343,7 @@ export class TableController {
 
   @Permissions('table|read')
   @UseV2Feature('getTable')
+  @AllowBaseShare()
   @Get('/socket/doc-ids')
   async getDocIds(@Param('baseId') baseId: string) {
     if (this.cls.get('useV2')) {
@@ -382,20 +398,45 @@ export class TableController {
 
   @Get(':tableId/activated-index')
   @Permissions('table|read')
+  @AllowBaseShare()
   async getTableIndex(@Param('tableId') tableId: string): Promise<string[]> {
     return this.tableIndexService.getActivatedTableIndexes(tableId);
   }
 
   @Get(':tableId/search-vector-status')
   @Permissions('table|read')
+  @AllowBaseShare()
   async getSearchVectorStatus(
     @Param('tableId') tableId: string
   ): Promise<ITableSearchVectorStatusVo> {
     return this.tableIndexService.getSearchVectorStatus(tableId);
   }
 
+  @Get(':tableId/actor-columns')
+  @SetMetadata(IS_ALLOW_ANONYMOUS, false)
+  @Permissions('table|read')
+  async getActorColumns(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string
+  ): Promise<ITableActorColumnsVo> {
+    return this.actorColumnsService.getStatus(baseId, tableId);
+  }
+
+  @Post(':tableId/actor-columns/enable')
+  @HttpCode(200)
+  @SetMetadata(IS_ALLOW_ANONYMOUS, false)
+  @Permissions('table|update')
+  async enableActorColumns(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(enableTableActorColumnsRoSchema)) _body: IEnableTableActorColumnsRo
+  ): Promise<ITableActorColumnsVo> {
+    return this.actorColumnsService.enable(baseId, tableId);
+  }
+
   @Get(':tableId/abnormal-index')
   @Permissions('table|read')
+  @AllowBaseShare()
   async getAbnormalTableIndex(
     @Param('tableId') tableId: string,
     @Query('type') tableIndexType: TableIndex

@@ -89,6 +89,7 @@ class FakeTableRepository implements ITableRepository {
     status?: string;
     lastError?: string | null;
   }> = [];
+  actorPublications: TableProvisionOperationOptions[] = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     this.tables.push(table);
@@ -152,6 +153,7 @@ class FakeTableRepository implements ITableRepository {
     state: TableProvisionState,
     operation?: TableProvisionOperationOptions
   ): Promise<Result<void, DomainError>> {
+    if (operation?.publishActorStorageVersion === 1) this.actorPublications.push(operation);
     this.provisionStateChanges.push({
       tableId: table.id().toString(),
       state,
@@ -163,6 +165,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns() {
+    return ok(undefined);
+  }
+
   inserted: Table[] = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
@@ -589,6 +595,9 @@ describe('ImportCsvHandler', () => {
     expect(value.totalImported).toBe(2);
     expect(value.table.name().toString()).toBe('People');
     expect(value.table.getFields()).toHaveLength(3);
+    expect(value.table.actorStorageVersion()).toBe(1);
+    expect(tableRepository.tables[0]!.actorStorageVersion()).toBe(0);
+    expect(tableRepository.actorPublications).toHaveLength(1);
     expect(value.table.getFields().map((field) => field.type().toString())).toEqual([
       'singleLineText',
       'number',
@@ -986,6 +995,9 @@ describe('ImportCsvHandler', () => {
     const originalInsertManyStream =
       tableRecordRepository.insertManyStream.bind(tableRecordRepository);
     tableRecordRepository.insertManyStream = async (context, table, batches, options) => {
+      expect(table.actorStorageVersion()).toBe(1);
+      expect(tableRepository.tables[0]!.actorStorageVersion()).toBe(0);
+      expect(tableRepository.actorPublications).toEqual([]);
       if (!isAsyncIterable(batches)) {
         return originalInsertManyStream(context, table, batches, options);
       }
@@ -1044,6 +1056,8 @@ describe('ImportCsvHandler', () => {
       ])
     );
     expect(result._unsafeUnwrap().table.pullDomainEvents()).toEqual([]);
+    expect(result._unsafeUnwrap().table.actorStorageVersion()).toBe(1);
+    expect(tableRepository.actorPublications).toHaveLength(1);
   });
   it.each(['schema-only', 'row-limit', 'schema-failure'] as const)(
     'closes the sampled input after %s before all rows are consumed',

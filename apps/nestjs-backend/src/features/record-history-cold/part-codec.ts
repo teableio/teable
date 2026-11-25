@@ -1,4 +1,5 @@
 import type { Readable } from 'node:stream';
+import type { RecordInitiator } from '@teable/v2-core';
 import type { IRecordBloom } from '../cold-archive/bloom';
 import type { IPartBucket } from '../cold-archive/bucket';
 import { padSeq } from '../cold-archive/bucket';
@@ -37,6 +38,9 @@ export interface IColdHistoryRow {
   /** ISO string */
   createdTime: string;
   createdBy: string;
+  /** Absent only in cold parts written before actor attribution was introduced. */
+  actorType?: RecordInitiator['type'] | null;
+  actorId?: string | null;
 }
 
 export interface IPartHeader {

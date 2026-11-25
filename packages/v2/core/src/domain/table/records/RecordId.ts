@@ -8,8 +8,7 @@ import { ValueObject } from '../../shared/ValueObject';
 
 const recordIdPrefix = 'rec';
 const recordIdBodyLength = 16;
-// Parsing is looser than generation: v1 only enforced the `rec` prefix, so
-// imported/legacy records may carry other body lengths (same bound as FieldId).
+// Standard parsing allows legacy alphanumeric body lengths (same bound as FieldId).
 const legacyRecordIdMaxBodyLength = 64;
 const recordIdPattern = new RegExp(
   `^${recordIdPrefix}[0-9a-zA-Z]{1,${legacyRecordIdMaxBodyLength}}$`
@@ -26,6 +25,14 @@ export class RecordId extends ValueObject {
     const parsed = recordIdSchema.safeParse(raw);
     if (!parsed.success) return err(domainError.validation({ message: 'Invalid RecordId' }));
     return ok(new RecordId(parsed.data));
+  }
+
+  /** v1 archive restore preserves row IDs verbatim. Use only for existing-row lookups. */
+  static forLookup(raw: string): Result<RecordId, DomainError> {
+    if (!raw.length || raw.includes('\0')) {
+      return err(domainError.validation({ message: 'Invalid RecordId' }));
+    }
+    return ok(new RecordId(raw));
   }
 
   /**

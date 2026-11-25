@@ -5,3 +5,6 @@ export const buildUndoRedoEnginePreferenceKey = (
   tableId: string,
   windowId: string
 ) => `operations:engine:${userId}:${tableId}:${windowId}` as const;
+
+export const buildLegacyRedoKey = (userId: string, tableId: string, windowId: string) =>
+  `operations:redo:${userId}:${tableId}:${windowId}` as const;

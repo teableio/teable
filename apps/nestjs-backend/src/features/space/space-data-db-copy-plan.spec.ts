@@ -440,6 +440,42 @@ describe('space data DB copy plan', () => {
     );
   });
 
+  it('preserves historical actors and frozen outbox attribution without copying metadata audit', () => {
+    const input = {
+      sourceUrl,
+      targetUrl,
+      sourceSchema: 'public',
+      targetSchema: 'teable_meta_target',
+      spaceId: 'spcxxx',
+      baseIds: ['bsexxx'],
+      tableIds: ['tblxxx'],
+    };
+    const psql = buildMigrationSharedTablePsqlCopyPlans(input);
+    const sql = buildMigrationSharedTableSqlCopyPlans(input);
+    const fdw = buildMigrationSharedTablePostgresFdwCopyPlans({
+      ...input,
+      fdwSchemaPrefix: 'actors_fdw',
+      serverNamePrefix: 'actors_server',
+    });
+    for (const plans of [psql, sql, fdw]) {
+      const history = plans.find((plan) => plan.table === 'record_history');
+      const outbox = plans.find((plan) => plan.table === 'domain_event_outbox');
+      const statements = JSON.stringify(history);
+      expect(statements).toContain('actor_type');
+      expect(statements).toContain('actor_id');
+      expect(JSON.stringify(outbox)).toContain('attribution');
+      expect(plans.some((plan) => plan.table === 'audit_log')).toBe(false);
+      expect(
+        JSON.stringify(plans.find((plan) => plan.table === 'computed_update_outbox'))
+      ).not.toContain('attribution');
+    }
+    const history = psql.find((plan) => plan.table === 'record_history')!;
+    expect(history.sourceSql).toContain('"actor_type", "actor_id"');
+    expect(history.targetSql).toContain('"actor_type", "actor_id"');
+    expect(history.sourceSql).not.toContain('COALESCE');
+    expect(history.sourceSql).not.toContain('CURRENT_USER');
+  });
+
   it('builds scoped psql COPY plans for all migration shared tables', () => {
     const plans = buildMigrationSharedTablePsqlCopyPlans({
       sourceUrl,

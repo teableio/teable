@@ -2,7 +2,7 @@ import { mkdir, statfs as nodeStatfs } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { getMetaDatabaseUrl } from '@teable/db-data-prisma';
 import { PrismaService, ProvisionState, Prisma } from '@teable/db-main-prisma';
@@ -18,10 +18,12 @@ import {
   type IResolvedDataDatabase,
 } from '../../global/data-db-client-manager.service';
 import { BASE_IMPORT_CSV_QUEUE } from '../base/base-import-processor/base-import-csv.processor';
-import { isCrossSpaceReferenceAllowed } from '../base/cross-space-detection.util';
 import { BASE_IMPORT_JUNCTION_CSV_QUEUE } from '../base/base-import-processor/base-import-junction.processor';
+import { isCrossSpaceReferenceAllowed } from '../base/cross-space-detection.util';
 import { TABLE_IMPORT_CSV_CHUNK_QUEUE } from '../import/open-api/import-csv-chunk.processor';
 import { TABLE_IMPORT_CSV_QUEUE } from '../import/open-api/import-csv.processor';
+import { ActorStorageRoutingService } from './actor-storage-routing.service';
+import type { IActorRoutingLease, IActorRoutingTransaction } from './actor-storage-routing.service';
 import { DataDbBaselineService } from './data-db-baseline.service';
 import { resolveDataDbInternalSchema } from './data-db-internal-schema';
 import {
@@ -672,19 +674,20 @@ type IMigrationJobClient = {
   };
 };
 
-type IPrismaTransactionClient = ISearchIndexRoutingTransaction & {
-  dataDbConnection: {
-    upsert(args: unknown): Promise<{ id: string }>;
-    update(args: unknown): Promise<unknown>;
+type IPrismaTransactionClient = ISearchIndexRoutingTransaction &
+  IActorRoutingTransaction & {
+    dataDbConnection: {
+      upsert(args: unknown): Promise<{ id: string }>;
+      update(args: unknown): Promise<unknown>;
+    };
+    spaceDataDbBinding: {
+      upsert(args: unknown): Promise<unknown>;
+    };
+    spaceDataDbMigrationJob: {
+      create(args: unknown): Promise<{ id: string }>;
+      update(args: unknown): Promise<unknown>;
+    };
   };
-  spaceDataDbBinding: {
-    upsert(args: unknown): Promise<unknown>;
-  };
-  spaceDataDbMigrationJob: {
-    create(args: unknown): Promise<{ id: string }>;
-    update(args: unknown): Promise<unknown>;
-  };
-};
 
 type IDataPrismaIntrospectionClient = {
   $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
@@ -1008,7 +1011,8 @@ export class SpaceDataDbMigrationService {
     private readonly tableImportCsvChunkQueue?: Queue<unknown>,
     @Optional()
     @InjectQueue(TABLE_IMPORT_CSV_QUEUE)
-    private readonly tableImportCsvQueue?: Queue<unknown>
+    private readonly tableImportCsvQueue?: Queue<unknown>,
+    private readonly actorStorageRouting?: ActorStorageRoutingService
   ) {
     this.clientFactory = clientFactory ?? dataDbKnexClientFactory;
   }
@@ -1316,67 +1320,88 @@ export class SpaceDataDbMigrationService {
       const ownedJobWhere = { id: job.id, state: job.state };
 
       if (job.state === 'switching' && this.wasMigrationRouteSwitched(job.validationStats)) {
-        // Same ordering as validateAndSwitchJob: delete the source backlog before lifting
-        // any source pause, or the zombie backlog replays against the orphaned source copy.
-        const finalizationErrors: string[] = [];
+        let routingLease: IActorRoutingLease | undefined;
         try {
-          await this.cleanupSourceComputedAfterSwitchForJob(job.id);
-        } catch (error) {
-          finalizationErrors.push(
-            `source computed cleanup failed: ${
-              error instanceof Error ? error.message : String(error)
-            }`
-          );
-        }
-        if (!finalizationErrors.length) {
-          finalizationErrors.push(...(await this.releaseMigrationComputedPauses(job.id)));
-        }
-        if (finalizationErrors.length) {
-          await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+          // Same ordering as validateAndSwitchJob: delete the source backlog before lifting
+          // any source pause, or the zombie backlog replays against the orphaned source copy.
+          const finalizationErrors: string[] = [];
+          try {
+            if (!this.actorStorageRouting || !job.targetConnection?.encryptedUrl) {
+              throw new Error('Database routing fence is unavailable');
+            }
+            routingLease = await this.actorStorageRouting.acquire(
+              this.normalizeInventory(job.inventory, job.spaceId).tableIds,
+              decryptDataDbUrl(job.targetConnection.encryptedUrl)
+            );
+            await this.prismaService.$tx(async (prisma) => {
+              await routingLease!.invalidateInTransaction(prisma);
+            });
+            await routingLease.invalidateCaches([
+              job.sourceConnectionId ?? metaFallbackDataDbCacheKey,
+              job.targetConnectionId ?? metaFallbackDataDbCacheKey,
+            ]);
+            await this.cleanupSourceComputedAfterSwitchForJob(job.id);
+          } catch (error) {
+            finalizationErrors.push(
+              `source computed cleanup failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`
+            );
+          }
+          if (!finalizationErrors.length) {
+            finalizationErrors.push(...(await this.releaseMigrationComputedPauses(job.id)));
+          }
+          if (finalizationErrors.length) {
+            await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
+              where: ownedJobWhere,
+              data: {
+                lastError: finalizationErrors.join('; '),
+                copyStats: {
+                  ...recoveryCopyStats,
+                  finalizing: {
+                    routeSwitched: true,
+                    retryable: true,
+                    lastAttemptAt: now.toISOString(),
+                    errors: finalizationErrors,
+                  },
+                },
+              },
+            });
+            continue;
+          }
+          // Rollback proof derives its post-switch write cutoff from completedAt, so it must be
+          // the instant the route actually switched, not the instant recovery noticed.
+          const switchedAt = this.resolveMigrationSwitchedAt(job.validationStats) ?? now;
+          const finalized = await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
             where: ownedJobWhere,
             data: {
-              lastError: finalizationErrors.join('; '),
+              state: 'succeeded',
+              completedAt: switchedAt,
+              lastError: null,
               copyStats: {
                 ...recoveryCopyStats,
                 finalizing: {
                   routeSwitched: true,
-                  retryable: true,
-                  lastAttemptAt: now.toISOString(),
-                  errors: finalizationErrors,
+                  retryable: false,
+                  completedAt: now.toISOString(),
+                  recoveredBy: workerId,
                 },
               },
             },
           });
+          if (finalized.count === 1) {
+            await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
+            recovered.push({ jobId: job.id, state: job.state, lastError: '' });
+          }
           continue;
+        } finally {
+          await routingLease?.release();
         }
-        // Rollback proof derives its post-switch write cutoff from completedAt, so it must be
-        // the instant the route actually switched, not the instant recovery noticed.
-        const switchedAt = this.resolveMigrationSwitchedAt(job.validationStats) ?? now;
-        const finalized = await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
-          where: ownedJobWhere,
-          data: {
-            state: 'succeeded',
-            completedAt: switchedAt,
-            lastError: null,
-            copyStats: {
-              ...recoveryCopyStats,
-              finalizing: {
-                routeSwitched: true,
-                retryable: false,
-                completedAt: now.toISOString(),
-                recoveredBy: workerId,
-              },
-            },
-          },
-        });
-        if (finalized.count === 1) {
-          await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
-          recovered.push({ jobId: job.id, state: job.state, lastError: '' });
-        }
-        continue;
       }
 
-      const releaseErrors = await this.releaseMigrationComputedPauses(job.id);
+      const releaseErrors = await this.releaseMigrationComputedPauses(job.id, {
+        allowMissingTargetPauseTable: true,
+      });
       if (releaseErrors.length) {
         await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
           where: ownedJobWhere,
@@ -1433,9 +1458,12 @@ export class SpaceDataDbMigrationService {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
-  private async releaseMigrationComputedPauses(jobId: string) {
+  private async releaseMigrationComputedPauses(
+    jobId: string,
+    options?: { allowMissingTargetPauseTable: boolean }
+  ) {
     const results = await Promise.allSettled([
-      this.resumeTargetComputedForJob(jobId),
+      this.resumeTargetComputedForJob(jobId, options),
       this.resumeSourceComputedForJob(jobId),
     ]);
     return results.flatMap((result, index) =>
@@ -2315,7 +2343,9 @@ export class SpaceDataDbMigrationService {
       if (job) {
         await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
       }
-      const cleanupErrors = await this.releaseMigrationComputedPauses(jobId);
+      const cleanupErrors = await this.releaseMigrationComputedPauses(jobId, {
+        allowMissingTargetPauseTable: true,
+      });
       if (targetArtifactsMayExist) {
         await this.cleanupTargetArtifactsForJob(jobId, 'pre_switch_failure').catch(
           (cleanupError) => {
@@ -2327,34 +2357,13 @@ export class SpaceDataDbMigrationService {
           }
         );
       }
-      if (
-        cleanupErrors.length &&
-        job &&
-        (job.state === 'failed' || activeSpaceDataDbMigrationStates.includes(job.state as never))
-      ) {
-        await this.migrationJobClient.spaceDataDbMigrationJob.update({
-          where: { id: jobId },
-          data: {
-            state: 'switching',
-            completedAt: null,
-            lastError: [
-              error instanceof Error ? error.message : String(error),
-              ...cleanupErrors,
-            ].join('; '),
-            copyStats: {
-              ...this.asRecord(job.copyStats),
-              finalizing: {
-                routeSwitched: false,
-                retryable: true,
-                lastAttemptAt: new Date().toISOString(),
-                errors: cleanupErrors,
-              },
-            },
-          },
+      await this.completeFailedMigrationJob(jobId, error, cleanupErrors).catch((cause) => {
+        Logger.warn({
+          message: 'Failed to persist BYODB migration failure',
+          jobId,
+          errorType: cause instanceof Error ? cause.name : typeof cause,
         });
-        throw error;
-      }
-      await this.completeFailedMigrationJob(jobId, error).catch(() => undefined);
+      });
       throw error;
     }
   }
@@ -4353,7 +4362,10 @@ export class SpaceDataDbMigrationService {
     }
   }
 
-  async resumeTargetComputedForJob(jobId: string): Promise<{ deleted: number }> {
+  async resumeTargetComputedForJob(
+    jobId: string,
+    options?: { allowMissingTargetPauseTable: boolean }
+  ): Promise<{ deleted: number }> {
     const job = await this.getMigrationJob(jobId);
     if (!job.targetConnection?.encryptedUrl) {
       throw new Error(`Migration job ${jobId} has no target connection`);
@@ -4367,6 +4379,21 @@ export class SpaceDataDbMigrationService {
         this.getInventoryCopySpaceIds(this.normalizeInventory(job.inventory, job.spaceId)),
         job.id
       );
+    } catch (error) {
+      const code = this.asRecord(error)?.code;
+      // A previous pre-switch cleanup may already have removed the job's target schema.
+      if (
+        options?.allowMissingTargetPauseTable &&
+        (code === '42P01' || code === '3F000') &&
+        !(await this.relationExists(
+          client,
+          job.targetInternalSchema,
+          sharedTables.computedUpdatePauseScope
+        ))
+      ) {
+        return { deleted: 0 };
+      }
+      throw error;
     } finally {
       await client.destroy().catch(() => undefined);
     }
@@ -4754,6 +4781,7 @@ export class SpaceDataDbMigrationService {
 
     let restoredBeforeThrow = false;
     let rollbackCompleted = false;
+    let routingLease: IActorRoutingLease | undefined;
     try {
       const rollbackProof = await this.inspectPostSwitchRollbackProof(job);
       if (!rollbackProof.eligible) {
@@ -4780,6 +4808,9 @@ export class SpaceDataDbMigrationService {
       const spaceIds = this.getInventoryCopySpaceIds(
         this.normalizeInventory(job.inventory, job.spaceId)
       );
+      if (!this.actorStorageRouting) throw new Error('Database routing fence is unavailable');
+      const inventory = this.normalizeInventory(job.inventory, job.spaceId);
+      routingLease = await this.actorStorageRouting.acquire(inventory.tableIds, sourceDataDb.url);
       const releaseResults = await Promise.allSettled([
         this.resumeTargetComputedForJob(jobId),
         this.resumeOriginalSourceComputedPause(job, sourceDataDb),
@@ -4800,7 +4831,12 @@ export class SpaceDataDbMigrationService {
       const runTransaction = this.prismaService.$tx.bind(this.prismaService) as unknown as <T>(
         fn: (prisma: IPrismaTransactionClient) => Promise<T>
       ) => Promise<T>;
+      await routingLease.invalidateCaches([
+        sourceDataDb.cacheKey,
+        job.targetConnectionId ?? metaFallbackDataDbCacheKey,
+      ]);
       await runTransaction(async (prisma) => {
+        await routingLease!.invalidateInTransaction(prisma);
         await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds });
         for (const relatedSpaceId of spaceIds) {
           await prisma.spaceDataDbBinding.upsert({
@@ -4819,6 +4855,7 @@ export class SpaceDataDbMigrationService {
             },
           });
         }
+        await routingLease!.assertInTransaction(prisma);
         await prisma.spaceDataDbMigrationJob.update({
           where: { id: jobId },
           data: {
@@ -4869,6 +4906,8 @@ export class SpaceDataDbMigrationService {
         });
       }
       throw error;
+    } finally {
+      await routingLease?.release();
     }
   }
 
@@ -5277,9 +5316,10 @@ export class SpaceDataDbMigrationService {
 
   private async relationExists(client: IDataDbPreflightClient, schema: string, table: string) {
     const rows = normalizeRawRows<{ exists: boolean }>(
-      await client.raw(`SELECT to_regclass(?::text) IS NOT NULL AS "exists"`, [
-        qualify(schema, table),
-      ])
+      await client.raw(
+        `SELECT pg_catalog.to_regclass(?::pg_catalog.text) IS NOT NULL AS "exists"`,
+        [qualify(schema, table)]
+      )
     );
     return rows[0]?.exists === true;
   }
@@ -5671,33 +5711,89 @@ export class SpaceDataDbMigrationService {
   }
 
   async validateAndSwitchJob(jobId: string) {
-    const job = await this.getMigrationJob(jobId);
-    const validationStats = await this.validateCopyForJob(jobId, {
-      keepWriteGate: job.switchOnCompletion === true,
-    });
-    await this.normalizeTargetComputedOutboxForJob(jobId);
-    const inventory = this.normalizeInventory(job.inventory, job.spaceId);
-    const spaceIds = this.getInventorySpaceIds(inventory);
-    if (!job.targetConnectionId) {
-      throw new Error(`Migration job ${jobId} has no target connection`);
-    }
-
-    const switchOnCompletion = job.switchOnCompletion === true;
-    let completedValidationStats: IValidationStats = {
-      ...validationStats,
-      switchOnCompletion,
-      switched: false,
-    };
-    let switchedAt: Date | null = null;
+    let routingLease: IActorRoutingLease | undefined;
     try {
-      const runTransaction = this.prismaService.$tx.bind(this.prismaService) as unknown as <T>(
-        fn: (prisma: IPrismaTransactionClient) => Promise<T>
-      ) => Promise<T>;
+      const job = await this.getMigrationJob(jobId);
+      const validationStats = await this.validateCopyForJob(jobId, {
+        keepWriteGate: job.switchOnCompletion === true,
+      });
+      await this.normalizeTargetComputedOutboxForJob(jobId);
+      const inventory = this.normalizeInventory(job.inventory, job.spaceId);
+      const spaceIds = this.getInventorySpaceIds(inventory);
+      if (!job.targetConnectionId) {
+        throw new Error(`Migration job ${jobId} has no target connection`);
+      }
 
-      if (!switchOnCompletion) {
-        await this.resumeTargetComputedForJob(jobId);
-        await this.resumeSourceComputedForJob(jobId);
+      const switchOnCompletion = job.switchOnCompletion === true;
+      let completedValidationStats: IValidationStats = {
+        ...validationStats,
+        switchOnCompletion,
+        switched: false,
+      };
+      let switchedAt: Date | null = null;
+      try {
+        const runTransaction = this.prismaService.$tx.bind(this.prismaService) as unknown as <T>(
+          fn: (prisma: IPrismaTransactionClient) => Promise<T>
+        ) => Promise<T>;
+
+        if (!switchOnCompletion) {
+          await this.resumeTargetComputedForJob(jobId);
+          await this.resumeSourceComputedForJob(jobId);
+          await runTransaction(async (prisma) => {
+            await prisma.dataDbConnection.update({
+              where: { id: job.targetConnectionId },
+              data: {
+                status: 'ready',
+                lastValidatedAt: new Date(),
+                lastError: null,
+              },
+            });
+            await prisma.spaceDataDbMigrationJob.update({
+              where: { id: jobId },
+              data: {
+                state: 'succeeded',
+                validationStats: completedValidationStats,
+                completedAt: new Date(),
+                lastError: null,
+              },
+            });
+          });
+          await this.dataDbClientManager.invalidateConnection(job.targetConnectionId);
+          await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
+          return {
+            state: 'succeeded',
+            validationStats: completedValidationStats,
+          };
+        }
+
+        await this.migrationJobClient.spaceDataDbMigrationJob.update({
+          where: { id: jobId },
+          data: {
+            state: 'switching',
+            lastError: null,
+          },
+        });
+        if (!this.actorStorageRouting || !job.targetConnection?.encryptedUrl) {
+          throw new Error('Database routing fence is unavailable');
+        }
+        routingLease = await this.actorStorageRouting.acquire(
+          inventory.tableIds,
+          decryptDataDbUrl(job.targetConnection.encryptedUrl)
+        );
+
+        switchedAt = new Date();
+        completedValidationStats = {
+          ...completedValidationStats,
+          switched: true,
+          switchedAt: switchedAt.toISOString(),
+        };
+        await routingLease.invalidateCaches([
+          job.sourceConnectionId ?? metaFallbackDataDbCacheKey,
+          job.targetConnectionId,
+        ]);
         await runTransaction(async (prisma) => {
+          await routingLease!.invalidateInTransaction(prisma);
+          await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds });
           await prisma.dataDbConnection.update({
             where: { id: job.targetConnectionId },
             data: {
@@ -5706,122 +5802,50 @@ export class SpaceDataDbMigrationService {
               lastError: null,
             },
           });
+          for (const spaceId of spaceIds) {
+            await prisma.spaceDataDbBinding.upsert({
+              where: { spaceId },
+              create: {
+                spaceId,
+                dataDbConnectionId: job.targetConnectionId,
+                mode: 'byodb',
+                state: 'ready',
+                createdBy: job.createdBy,
+              },
+              update: {
+                dataDbConnectionId: job.targetConnectionId,
+                mode: 'byodb',
+                state: 'ready',
+              },
+            });
+          }
+          await routingLease!.assertInTransaction(prisma);
           await prisma.spaceDataDbMigrationJob.update({
             where: { id: jobId },
             data: {
-              state: 'succeeded',
+              state: 'switching',
               validationStats: completedValidationStats,
-              completedAt: new Date(),
               lastError: null,
             },
           });
         });
-        await this.dataDbClientManager.invalidateConnection(job.targetConnectionId);
-        await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
-        return {
-          state: 'succeeded',
-          validationStats: completedValidationStats,
-        };
-      }
-
-      await this.migrationJobClient.spaceDataDbMigrationJob.update({
-        where: { id: jobId },
-        data: {
-          state: 'switching',
-          lastError: null,
-        },
-      });
-
-      switchedAt = new Date();
-      completedValidationStats = {
-        ...completedValidationStats,
-        switched: true,
-        switchedAt: switchedAt.toISOString(),
-      };
-      await runTransaction(async (prisma) => {
-        await invalidateSearchIndexesForDataDbRouting(prisma, { spaceIds });
-        await prisma.dataDbConnection.update({
-          where: { id: job.targetConnectionId },
-          data: {
-            status: 'ready',
-            lastValidatedAt: new Date(),
-            lastError: null,
-          },
-        });
-        for (const spaceId of spaceIds) {
-          await prisma.spaceDataDbBinding.upsert({
-            where: { spaceId },
-            create: {
-              spaceId,
-              dataDbConnectionId: job.targetConnectionId,
-              mode: 'byodb',
-              state: 'ready',
-              createdBy: job.createdBy,
-            },
-            update: {
-              dataDbConnectionId: job.targetConnectionId,
-              mode: 'byodb',
-              state: 'ready',
-            },
-          });
-        }
-        await prisma.spaceDataDbMigrationJob.update({
+      } catch (error) {
+        const lastError = error instanceof Error ? error.message : String(error);
+        await this.migrationJobClient.spaceDataDbMigrationJob.update({
           where: { id: jobId },
           data: {
-            state: 'switching',
-            validationStats: completedValidationStats,
-            lastError: null,
+            state: 'failed',
+            lastError,
           },
         });
-      });
-    } catch (error) {
-      const lastError = error instanceof Error ? error.message : String(error);
-      await this.migrationJobClient.spaceDataDbMigrationJob.update({
-        where: { id: jobId },
-        data: {
-          state: 'failed',
-          lastError,
-        },
-      });
-      throw error;
-    }
+        throw error;
+      }
 
-    await this.dataDbClientManager.invalidateConnection(job.targetConnectionId);
-    if (job.sourceConnectionId) {
-      await this.dataDbClientManager.invalidateConnection(job.sourceConnectionId);
-    }
-    const finalizingStartedAt = new Date().toISOString();
-    await this.migrationJobClient.spaceDataDbMigrationJob.update({
-      where: { id: jobId },
-      data: {
-        state: 'switching',
-        validationStats: completedValidationStats,
-        copyStats: {
-          ...this.asRecord(job.copyStats),
-          finalizing: {
-            routeSwitched: true,
-            retryable: true,
-            startedAt: finalizingStartedAt,
-          },
-        },
-        lastError: null,
-      },
-    });
-    // Delete the source backlog before lifting any source pause: releasing first would let
-    // the zombie backlog execute against the orphaned source schema copy.
-    const releaseErrors: string[] = [];
-    try {
-      await this.cleanupSourceComputedAfterSwitchForJob(jobId);
-    } catch (error) {
-      releaseErrors.push(
-        `source computed cleanup failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-    if (!releaseErrors.length) {
-      releaseErrors.push(...(await this.releaseMigrationComputedPauses(jobId)));
-    }
-    if (releaseErrors.length) {
-      const lastError = releaseErrors.join('; ');
+      await this.dataDbClientManager.invalidateConnection(job.targetConnectionId);
+      if (job.sourceConnectionId) {
+        await this.dataDbClientManager.invalidateConnection(job.sourceConnectionId);
+      }
+      const finalizingStartedAt = new Date().toISOString();
       await this.migrationJobClient.spaceDataDbMigrationJob.update({
         where: { id: jobId },
         data: {
@@ -5833,38 +5857,72 @@ export class SpaceDataDbMigrationService {
               routeSwitched: true,
               retryable: true,
               startedAt: finalizingStartedAt,
-              lastAttemptAt: new Date().toISOString(),
-              errors: releaseErrors,
             },
           },
-          lastError,
+          lastError: null,
         },
       });
-      throw new PostCutoverFinalizationError(lastError);
-    }
-    await this.migrationJobClient.spaceDataDbMigrationJob.update({
-      where: { id: jobId },
-      data: {
-        state: 'succeeded',
-        validationStats: completedValidationStats,
-        completedAt: switchedAt ?? new Date(),
-        lastError: null,
-        copyStats: {
-          ...this.asRecord(job.copyStats),
-          finalizing: {
-            routeSwitched: true,
-            retryable: false,
-            startedAt: finalizingStartedAt,
-            completedAt: new Date().toISOString(),
+      // Delete the source backlog before lifting any source pause: releasing first would let
+      // the zombie backlog execute against the orphaned source schema copy.
+      const releaseErrors: string[] = [];
+      try {
+        await this.cleanupSourceComputedAfterSwitchForJob(jobId);
+      } catch (error) {
+        releaseErrors.push(
+          `source computed cleanup failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+      if (!releaseErrors.length) {
+        releaseErrors.push(...(await this.releaseMigrationComputedPauses(jobId)));
+      }
+      if (releaseErrors.length) {
+        const lastError = releaseErrors.join('; ');
+        await this.migrationJobClient.spaceDataDbMigrationJob.update({
+          where: { id: jobId },
+          data: {
+            state: 'switching',
+            validationStats: completedValidationStats,
+            copyStats: {
+              ...this.asRecord(job.copyStats),
+              finalizing: {
+                routeSwitched: true,
+                retryable: true,
+                startedAt: finalizingStartedAt,
+                lastAttemptAt: new Date().toISOString(),
+                errors: releaseErrors,
+              },
+            },
+            lastError,
+          },
+        });
+        throw new PostCutoverFinalizationError(lastError);
+      }
+      await this.migrationJobClient.spaceDataDbMigrationJob.update({
+        where: { id: jobId },
+        data: {
+          state: 'succeeded',
+          validationStats: completedValidationStats,
+          completedAt: switchedAt ?? new Date(),
+          lastError: null,
+          copyStats: {
+            ...this.asRecord(job.copyStats),
+            finalizing: {
+              routeSwitched: true,
+              retryable: false,
+              startedAt: finalizingStartedAt,
+              completedAt: new Date().toISOString(),
+            },
           },
         },
-      },
-    });
-    await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
-    return {
-      state: 'succeeded',
-      validationStats: completedValidationStats,
-    };
+      });
+      await this.cleanupSourceDeltaCaptureForJob(job).catch(() => undefined);
+      return {
+        state: 'succeeded',
+        validationStats: completedValidationStats,
+      };
+    } finally {
+      await routingLease?.release();
+    }
   }
 
   async validateCopyForJob(
@@ -6144,7 +6202,7 @@ export class SpaceDataDbMigrationService {
     })) as { id: string; state: string; spaceId?: string; copyStats?: unknown } | null;
   }
 
-  private async completeFailedMigrationJob(jobId: string, error: unknown) {
+  private async completeFailedMigrationJob(jobId: string, error: unknown, cleanupErrors: string[]) {
     const current = await this.getMigrationState(jobId);
     if (!current || ['succeeded', 'canceled', 'rolled_back'].includes(current.state)) {
       return;
@@ -6156,24 +6214,22 @@ export class SpaceDataDbMigrationService {
       return;
     }
 
-    const releaseErrors = await this.releaseMigrationComputedPauses(jobId);
-    if (releaseErrors.length) {
+    if (cleanupErrors.length) {
       await this.migrationJobClient.spaceDataDbMigrationJob.updateMany({
         where: { id: jobId, state: current.state },
         data: {
           state: 'switching',
           completedAt: null,
-          lastError: [
-            error instanceof Error ? error.message : String(error),
-            ...releaseErrors,
-          ].join('; '),
+          lastError: [error instanceof Error ? error.message : String(error), ...cleanupErrors].join(
+            '; '
+          ),
           copyStats: {
             ...this.asRecord(current.copyStats),
             finalizing: {
               routeSwitched: false,
               retryable: true,
               lastAttemptAt: new Date().toISOString(),
-              errors: releaseErrors,
+              errors: cleanupErrors,
             },
           },
         },
@@ -7720,7 +7776,7 @@ export class SpaceDataDbMigrationService {
     undoFunction: { exists: boolean };
     mismatches: IValidationMismatch[];
   }> {
-    const targetSchemaVersion = await this.validateTargetSchemaVersion(
+    const targetSchemaVersion = await this.baselineService.validateSchemaVersion(
       input.targetClient,
       input.targetSchema
     );
@@ -9268,27 +9324,6 @@ export class SpaceDataDbMigrationService {
       ])
     );
     return { exists: Boolean(rows[0]?.exists) };
-  }
-
-  private async validateTargetSchemaVersion(client: IDataDbPreflightClient, targetSchema: string) {
-    const latest = this.baselineService.getLatestSchemaVersion();
-    if (!latest) {
-      return { latest, exists: true };
-    }
-
-    const rows = normalizeRawRows<{ exists: boolean }>(
-      await client.raw(
-        `
-          SELECT EXISTS (
-            SELECT 1
-            FROM ${qualify(targetSchema, dataDbMigrationTable)}
-            WHERE "id" = ?
-          ) AS "exists"
-        `,
-        [latest]
-      )
-    );
-    return { latest, exists: Boolean(rows[0]?.exists) };
   }
 
   private async validateRouteSmoke(input: {

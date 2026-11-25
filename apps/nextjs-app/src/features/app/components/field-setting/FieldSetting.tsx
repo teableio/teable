@@ -21,6 +21,7 @@ import {
   type IBaseNodeTableResourceMeta,
   type IPlanFieldConvertVo,
   getAggregation,
+  updateFieldPeriodicRefresh,
 } from '@teable/openapi';
 import {
   useBase,
@@ -309,13 +310,77 @@ export const FieldSetting = (props: IFieldSetting) => {
     }
   };
 
+  const periodicRefreshStateRef = useRef<{ dirty: boolean; enabled: boolean }>({
+    dirty: false,
+    enabled: Boolean(props.field?.periodicRefresh?.enabled),
+  });
+
+  useEffect(() => {
+    periodicRefreshStateRef.current = {
+      dirty: false,
+      enabled: Boolean(props.field?.periodicRefresh?.enabled),
+    };
+  }, [props.field?.id, props.field?.periodicRefresh?.enabled, props.visible]);
+
   const onCancel = () => {
     props.onCancel?.();
+  };
+
+  const handlePeriodicRefreshOnlySave = async (enabled: boolean) => {
+    const fieldId = getEditFieldId();
+    if (!tableId || !fieldId) {
+      notifyMissingEditField();
+      return;
+    }
+    try {
+      const { data } = await updateFieldPeriodicRefresh(tableId, fieldId, { enabled });
+      periodicRefreshStateRef.current = { dirty: false, enabled };
+      toast(t('table:field.editor.fieldUpdated'));
+      props.onConfirm?.(
+        props.field ? { ...props.field, periodicRefresh: data.periodicRefresh } : undefined
+      );
+    } catch (error) {
+      console.error('Failed to update periodic refresh state', error);
+      toast.error(t('table:field.editor.periodicRefresh.saveFailed'));
+    }
   };
 
   const createNewField = async (field: IFieldRo) => {
     const fieldName = field.name ?? (await getDefaultFieldName(field));
     return await createField({ tableId, fieldRo: { ...field, name: fieldName } });
+  };
+
+  const syncPendingPeriodicRefresh = async (
+    savedField: IFieldVo | undefined
+  ): Promise<{ field: IFieldVo | undefined; periodicRefreshFailed: boolean }> => {
+    if (!tableId || !savedField?.id || !periodicRefreshStateRef.current.dirty) {
+      return { field: savedField, periodicRefreshFailed: false };
+    }
+    try {
+      const { data } = await updateFieldPeriodicRefresh(tableId, savedField.id, {
+        enabled: periodicRefreshStateRef.current.enabled,
+      });
+      periodicRefreshStateRef.current.dirty = false;
+      return {
+        field: { ...savedField, periodicRefresh: data.periodicRefresh },
+        periodicRefreshFailed: false,
+      };
+    } catch (error) {
+      console.error('Failed to update periodic refresh state after field save', error);
+      return { field: savedField, periodicRefreshFailed: true };
+    }
+  };
+
+  const notifyPerformActionResult = (periodicRefreshFailed: boolean) => {
+    if (periodicRefreshFailed) {
+      toast.error(t('table:field.editor.periodicRefresh.saveFailedAfterFieldSaved'));
+      return;
+    }
+    toast(
+      operator === FieldOperator.Edit
+        ? t('table:field.editor.fieldUpdated')
+        : t('table:field.editor.fieldCreated')
+    );
   };
 
   const performAction = async (field: IFieldRo) => {
@@ -355,11 +420,10 @@ export const FieldSetting = (props: IFieldSetting) => {
         }
       }
 
-      toast(
-        operator === FieldOperator.Edit
-          ? t('table:field.editor.fieldUpdated')
-          : t('table:field.editor.fieldCreated')
-      );
+      const { field: syncedField, periodicRefreshFailed } =
+        await syncPendingPeriodicRefresh(result);
+      result = syncedField;
+      notifyPerformActionResult(periodicRefreshFailed);
     } finally {
       setProcessVisible(false);
     }
@@ -479,7 +543,15 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   return (
     <>
-      <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />
+      <FieldSettingBase
+        {...props}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+        onPeriodicRefreshStateChange={(state) => {
+          periodicRefreshStateRef.current = state;
+        }}
+        onPeriodicRefreshOnlySave={handlePeriodicRefreshOnlySave}
+      />
       <ConfirmDialog
         title={t('table:field.editor.confirmFieldChange')}
         open={graphVisible}
@@ -609,13 +681,34 @@ export const FieldSetting = (props: IFieldSetting) => {
   );
 };
 
-export const FieldSettingBase = (props: IFieldSettingBase) => {
-  const { visible, field: originField, operator, onConfirm, onCancel } = props;
+export const FieldSettingBase = (
+  props: IFieldSettingBase & {
+    onPeriodicRefreshStateChange?: (state: { dirty: boolean; enabled: boolean }) => void;
+    onPeriodicRefreshOnlySave?: (enabled: boolean) => Promise<void>;
+  }
+) => {
+  const {
+    visible,
+    field: originField,
+    operator,
+    onConfirm,
+    onCancel,
+    onPeriodicRefreshStateChange,
+    onPeriodicRefreshOnlySave,
+  } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [field, setField] = useState<IFieldEditorRo>(() => toFieldEditorState(originField));
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const initialPeriodicEnabled = Boolean(originField?.periodicRefresh?.enabled);
+  const [periodicRefreshEnabled, setPeriodicRefreshEnabled] =
+    useState<boolean>(initialPeriodicEnabled);
+  const periodicRefreshDirty =
+    operator === FieldOperator.Edit
+      ? periodicRefreshEnabled !== initialPeriodicEnabled
+      : periodicRefreshEnabled;
+  const hasAnyUnsavedChange = updateCount > 0 || periodicRefreshDirty;
   const isMissingEditField = operator === FieldOperator.Edit && !originField?.id;
 
   useEffect(() => {
@@ -623,6 +716,7 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
       return;
     }
     setField(toFieldEditorState(originField));
+    setPeriodicRefreshEnabled(Boolean(originField?.periodicRefresh?.enabled));
   }, [originField, updateCount]);
 
   const onOpenChange = (open?: boolean) => {
@@ -644,8 +738,17 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
     setUpdateCount(1);
   }, []);
 
+  const handlePeriodicRefreshEnabledChange = useCallback(
+    (enabled: boolean) => {
+      setPeriodicRefreshEnabled(enabled);
+      const dirty = operator === FieldOperator.Edit ? enabled !== initialPeriodicEnabled : enabled;
+      onPeriodicRefreshStateChange?.({ dirty, enabled });
+    },
+    [initialPeriodicEnabled, onPeriodicRefreshStateChange, operator]
+  );
+
   const onCancelInner = () => {
-    if (updateCount > 0) {
+    if (hasAnyUnsavedChange) {
       setAlertVisible(true);
       return;
     }
@@ -659,6 +762,15 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
     }
 
     if (operator === FieldOperator.Edit && !updateCount) {
+      if (periodicRefreshDirty && onPeriodicRefreshOnlySave) {
+        setIsSaving(true);
+        try {
+          await onPeriodicRefreshOnlySave(periodicRefreshEnabled);
+        } finally {
+          setIsSaving(false);
+        }
+        return;
+      }
       onConfirm?.();
       return;
     }
@@ -748,6 +860,8 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
                 operator={operator}
                 onChange={onFieldEditorChange}
                 onSave={onSave}
+                periodicRefreshEnabled={periodicRefreshEnabled}
+                onPeriodicRefreshEnabledChange={handlePeriodicRefreshEnabledChange}
               />
             }
             {/* Footer */}

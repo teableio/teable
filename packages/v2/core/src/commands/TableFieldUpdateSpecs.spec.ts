@@ -15,7 +15,7 @@ import { ConditionalRollupField } from '../domain/table/fields/types/Conditional
 import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../domain/table/fields/types/FormulaField';
-import type { LinkField } from '../domain/table/fields/types/LinkField';
+import { LinkField } from '../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LookupField } from '../domain/table/fields/types/LookupField';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
@@ -1844,7 +1844,9 @@ describe('TableFieldUpdateSpecs', () => {
     const hostTable = hostBuilder.build()._unsafeUnwrap();
 
     const currentField = hostTable
-      .getField((field) => field.id().equals(linkFieldId))
+      .getField(
+        (field): field is LinkField => field instanceof LinkField && field.id().equals(linkFieldId)
+      )
       ._unsafeUnwrap();
     const specsResult = buildUpdateFieldSpecs(
       currentField,

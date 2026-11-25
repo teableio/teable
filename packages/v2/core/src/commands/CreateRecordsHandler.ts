@@ -55,20 +55,26 @@ export class CreateRecordsResult {
     readonly records: ReadonlyArray<TableRecord>,
     readonly events: ReadonlyArray<IDomainEvent>,
     readonly fieldKeyMapping: FieldKeyMapping,
-    readonly computedChangesByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+    readonly computedChangesByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>,
+    readonly recordActorsByRecord?: ReadonlyMap<
+      string,
+      TableRecordRepositoryPort.RecordActorAttribution
+    >
   ) {}
 
   static create(
     records: ReadonlyArray<TableRecord>,
     events: ReadonlyArray<IDomainEvent>,
     fieldKeyMapping: FieldKeyMapping = new Map(),
-    computedChangesByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+    computedChangesByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>,
+    recordActorsByRecord?: ReadonlyMap<string, TableRecordRepositoryPort.RecordActorAttribution>
   ): CreateRecordsResult {
     return new CreateRecordsResult(
       [...records],
       [...events],
       fieldKeyMapping,
-      computedChangesByRecord
+      computedChangesByRecord,
+      recordActorsByRecord
     );
   }
 }
@@ -376,7 +382,8 @@ export class CreateRecordsHandler implements ICommandHandler<
           records,
           mergedEvents,
           extendedFieldKeyMapping,
-          mutationResult.mutation.computedChangesByRecord
+          mutationResult.mutation.computedChangesByRecord,
+          mutationResult.mutation.recordActorsByRecord
         )
       );
     });

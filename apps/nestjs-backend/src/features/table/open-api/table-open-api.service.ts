@@ -445,6 +445,7 @@ export class TableOpenApiService {
       }
       return {
         ...tableMeta,
+        actorStorageVersion: tableMeta.actorStorageVersion === 1 ? 1 : 0,
         description: tableMeta.description ?? undefined,
         icon: tableMeta.icon ?? undefined,
         lastModifiedTime:

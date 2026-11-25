@@ -273,6 +273,7 @@ function buildRecordDeletePayloadForDeletedTable(
       id: record.id,
       fields: normalizeRecordFields(record.fields, fields),
       version: record.version ?? 1,
+      ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
       ...(record.orders ? { orders: record.orders } : {}),
     },
   };
@@ -403,11 +404,11 @@ function enqueueUpdatedRecordBatchOps(
     );
   }
 
-  if (scalarCells.length > 0) {
+  if (scalarCells.length > 0 || updRec.orderChanges?.length) {
     queues.scalarUpdateOps.push({
       tableId,
       kind: 'update',
-      value: { recordId: updRec.recordId, cellChanges: scalarCells },
+      value: { ...updRec, cellChanges: scalarCells },
     });
   }
   if (unlinkCells.length > 0) {
@@ -630,7 +631,9 @@ function adjustUpdatedRecordForCommittedDeletes(
       nextCells.push({ fieldId: cell.fieldId, before: adjustedBefore, after: cell.after });
     }
   }
-  return nextCells.length > 0 ? { recordId: recUpd.recordId, cellChanges: nextCells } : undefined;
+  return nextCells.length > 0 || recUpd.orderChanges?.length
+    ? { ...recUpd, cellChanges: nextCells }
+    : undefined;
 }
 
 function adjustDeletedRecordForCommittedDeletes(
@@ -1011,10 +1014,8 @@ export function buildNonCanonicalSymmetricLinkSyncBatch(
       updatesByTable.set(tableId, tableUpserts);
     }
     const copy: IRecordVcsSnapshot = {
-      id: existing.id,
+      ...existing,
       fields: { ...existing.fields },
-      ...(existing.version !== undefined ? { version: existing.version } : {}),
-      ...(existing.orders ? { orders: existing.orders } : {}),
     };
     tableUpserts.set(recordId, copy);
     return copy;
@@ -1155,10 +1156,9 @@ function applyBaselineRecordAdd(
 ): void {
   const normalized = normalizeRecordFields(rAdd.fields, nextFields);
   upsertMap.set(rAdd.id, {
-    id: rAdd.id,
+    ...rAdd,
     fields: normalized,
     version: rAdd.version ?? 1,
-    ...(rAdd.orders ? { orders: rAdd.orders } : {}),
   });
   state.sourceRecordFieldsCache.set(`${tableId}:${rAdd.id}`, normalized);
   for (const fieldId of Object.keys(normalized)) {
@@ -1185,10 +1185,16 @@ function applyBaselineRecordUpdate(
   }
   const normalized = normalizeRecordFields(nextFieldsObj, nextFields);
   upsertMap.set(rUpd.recordId, {
+    ...prevRec,
     id: rUpd.recordId,
     fields: normalized,
     version: (prevRec?.version ?? 0) + 1,
-    ...(prevRec?.orders ? { orders: prevRec.orders } : {}),
+    ...(rUpd.orderChanges?.length && {
+      orders: {
+        ...prevRec?.orders,
+        ...Object.fromEntries(rUpd.orderChanges.map(({ viewId, after }) => [viewId, after])),
+      },
+    }),
   });
   state.sourceRecordFieldsCache.set(`${tableId}:${rUpd.recordId}`, normalized);
 }
@@ -1244,10 +1250,8 @@ function resolveOrClonePartnerRecord(
   if (!basePartnerRec) return undefined;
 
   const cloned: IRecordVcsSnapshot = {
-    id: basePartnerRec.id,
+    ...basePartnerRec,
     fields: { ...basePartnerRec.fields },
-    ...(basePartnerRec.version !== undefined ? { version: basePartnerRec.version } : {}),
-    ...(basePartnerRec.orders ? { orders: basePartnerRec.orders } : {}),
   };
   getOrCreateMapEntry(state.pendingUpsertsByTable, foreignTableId, () => new Map()).set(
     targetRecordId,

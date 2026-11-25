@@ -1,5 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import { FieldType } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import { UpdateRecordsHandler } from '@teable/v2-core';
+import { vi } from 'vitest';
 import {
   createBase,
   createSpace,
@@ -7,6 +9,7 @@ import {
   getRecords,
   initApp,
   permanentDeleteSpace,
+  updateRecordByApi,
 } from './utils/init-app';
 import { requestPublicOrpc, signInPublicHost } from './utils/public-orpc';
 
@@ -32,7 +35,7 @@ describe('VCS push error responses', () => {
     }
   });
 
-  it('returns typed errors for disabled, ahead, stale-cell and oversized pushes', async () => {
+  it('preserves disjoint writes and returns typed errors for rejected pushes', async () => {
     const post = (action: string, input: Record<string, unknown>) =>
       requestPublicOrpc(appUrl, `/bases/${baseId}/vcs/${action}`, input, { headers: { cookie } });
     const empty = { tablesAdded: [], tablesDeleted: [], tablesUpdated: [] };
@@ -43,10 +46,11 @@ describe('VCS push error responses', () => {
     const table = await createTable(baseId, {
       name: 'Tasks',
       fields: [{ name: 'Name', type: FieldType.SingleLineText }],
-      records: [{ fields: {} }],
+      records: [{ fields: {} }, { fields: {} }],
     });
     const fieldId = table.fields[0].id;
-    const recordId = (await getRecords(table.id)).records[0].id;
+    const [pushRecord, editedRecord] = (await getRecords(table.id)).records;
+    const recordId = pushRecord.id;
     expect((await post('enable', {})).status).toBe(201);
     const ahead = await post('push', { baseRevision: 1, patch: empty });
     expect(ahead.status).toBe(409);
@@ -90,5 +94,84 @@ describe('VCS push error responses', () => {
       ok: false,
       error: { code: 'vcs.patch_too_large_for_single_tx', details: { patchRecordOps: 5001 } },
     });
+
+    const disjoint = {
+      ...update,
+      recordsUpdated: [{ recordId, cellChanges: [{ fieldId, before: null, after: 'pushed' }] }],
+    };
+    const [pushed] = await Promise.all([
+      post('push', { baseRevision: 0, patch: { ...empty, tablesUpdated: [disjoint] } }),
+      updateRecordByApi(table.id, editedRecord.id, fieldId, 'edited'),
+    ]);
+    expect(pushed.status).toBe(201);
+    expect(await pushed.json()).toMatchObject({ newRevision: 1 });
+    const live = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+    expect(live.records.map((row) => [row.id, row.fields[fieldId]])).toEqual(
+      expect.arrayContaining([
+        [recordId, 'pushed'],
+        [editedRecord.id, 'edited'],
+      ])
+    );
+  });
+
+  it('returns a typed 503 when the write transaction exhausts its retries', async () => {
+    const busyBase = await createBase({ spaceId, name: 'Retryable push' });
+    const post = (action: string, input: Record<string, unknown>) =>
+      requestPublicOrpc(appUrl, `/bases/${busyBase.id}/vcs/${action}`, input, {
+        headers: { cookie },
+      });
+    const table = await createTable(busyBase.id, {
+      name: 'Tasks',
+      fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+      records: [{ fields: {} }],
+    });
+    const fieldId = table.fields[0].id;
+    const recordId = (await getRecords(table.id)).records[0].id;
+    expect((await post('enable', {})).status).toBe(201);
+
+    const write = vi
+      .spyOn(UpdateRecordsHandler.prototype, 'handle')
+      .mockImplementation(async () => {
+        throw Object.assign(new Error('synthetic SQL serialization failure'), { code: '40001' });
+      });
+    try {
+      const response = await post('push', {
+        baseRevision: 0,
+        originPushId: 'vcsp_http_retryable_write',
+        patch: {
+          tablesAdded: [],
+          tablesDeleted: [],
+          tablesUpdated: [
+            {
+              tableId: table.id,
+              fieldsAdded: [],
+              fieldsUpdated: [],
+              fieldsDeleted: [],
+              viewsAdded: [],
+              viewsUpdated: [],
+              viewsDeleted: [],
+              recordsAdded: [],
+              recordsDeleted: [],
+              recordsUpdated: [
+                { recordId, cellChanges: [{ fieldId, before: null, after: 'new' }] },
+              ],
+            },
+          ],
+        },
+      });
+      expect(write).toHaveBeenCalledTimes(4);
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({
+        ok: false,
+        error: {
+          code: 'vcs.write_busy',
+          message: 'VCS write is temporarily busy. Retry the request.',
+          tags: ['infrastructure'],
+          details: { retryable: true },
+        },
+      });
+    } finally {
+      write.mockRestore();
+    }
   });
 });

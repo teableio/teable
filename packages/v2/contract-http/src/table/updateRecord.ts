@@ -12,6 +12,7 @@ import {
   type IApiOkResponseDto,
   type IApiResponseDto,
 } from '../shared/http';
+import { mapRecordActors, type RecordActorDto } from './recordActorDto';
 import type { ITableRecordDto } from './recordDto';
 import { tableRecordDtoSchema } from './recordDto';
 
@@ -41,7 +42,8 @@ export const updateRecordOkResponseSchema = apiOkResponseDtoSchema(updateRecordR
 export { apiErrorResponseDtoSchema as updateRecordErrorResponseSchema } from '../shared/http';
 
 export const mapUpdateRecordResultToDto = (
-  result: UpdateRecordResult
+  result: UpdateRecordResult,
+  actors: RecordActorDto | undefined
 ): Result<IUpdateRecordResponseDataDto, DomainError> => {
   const { fieldKeyMapping } = result;
 
@@ -75,6 +77,7 @@ export const mapUpdateRecordResultToDto = (
   const recordDto: ITableRecordDto = {
     id: result.record.id().toString(),
     fields,
+    ...mapRecordActors(actors),
   };
 
   return ok({

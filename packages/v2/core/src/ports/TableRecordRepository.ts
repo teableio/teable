@@ -13,7 +13,13 @@ import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
 import type { IBatchMutationOrchestration } from './BatchMutationOrchestration';
 import type { IExecutionContext } from './ExecutionContext';
+import type { TableRecordReadModel } from './TableRecordReadModel';
 import type { UndoRedoArchiveTrashRow } from './UndoRedoStore';
+
+export type RecordActorAttribution = Pick<
+  TableRecordReadModel,
+  'createdByActorType' | 'createdByActorId' | 'lastModifiedByActorType' | 'lastModifiedByActorId'
+>;
 
 export interface RecordStoredSnapshot {
   /** Stringified record id from storage. */
@@ -29,6 +35,10 @@ export interface RecordStoredSnapshot {
   createdBy?: string;
   lastModifiedTime?: string;
   lastModifiedBy?: string;
+  readonly createdByActorType?: NonNullable<IExecutionContext['initiator']>['type'] | null;
+  readonly createdByActorId?: string | null;
+  readonly lastModifiedByActorType?: NonNullable<IExecutionContext['initiator']>['type'] | null;
+  readonly lastModifiedByActorId?: string | null;
 }
 
 export interface RecordUpdateSnapshot {
@@ -45,6 +55,8 @@ export interface RecordUpdateSnapshot {
  * Contains computed field values that were updated as part of the operation.
  */
 export interface RecordMutationResult {
+  /** Actual persisted attribution frozen by the mutation transaction, including no-ops. */
+  readonly recordActors?: RecordActorAttribution;
   /**
    * Whether the repository actually persisted a storage mutation.
    *
@@ -83,6 +95,7 @@ export interface RecordMutationResult {
  * Contains computed field values for each record that was updated.
  */
 export interface BatchRecordMutationResult {
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
   /**
    * Map of recordId -> changed field values persisted for that record.
    * Each entry contains fieldId -> newValue mappings for fields changed by the operation.
@@ -200,6 +213,7 @@ export const isInsertManyStreamBatch = (
  * Result of bulk update operations driven by a filter specification.
  */
 export interface UpdateManyResult {
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
   /** Total number of records updated */
   totalUpdated: number;
   /** IDs of records updated by the statement */
@@ -286,6 +300,7 @@ export interface UpdateManyStreamOptions {
  * Result of streaming update operations.
  */
 export interface UpdateManyStreamResult {
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
   /** Total number of records updated */
   totalUpdated: number;
   /** Main statement before/after snapshots captured for each row actually updated by SQL. */
@@ -357,14 +372,19 @@ export interface RecordRestoreSystemValues {
   autoNumber?: number;
   createdTime?: string;
   createdBy?: string;
+  /** Only a trusted server-owned snapshot may restore created attribution. */
+  readonly createdByActor?: IExecutionContext['initiator'] | null;
   lastModifiedTime?: string | null;
   lastModifiedBy?: string | null;
   /** Preserve per-view row-order snapshot during undo/redo restore. */
   orders?: Readonly<Record<string, number>>;
+  /** Historical order for a view whose manual order column was absent at capture. */
+  defaultOrder?: number;
   /**
    * Preserve raw storage columns during bulk restore/import.
    * Used by `.tea` imports for db-field columns and relation/order helper columns
    * that are not represented as editable domain field values.
+   * Actor columns are reserved and must never be supplied through this map.
    */
   extraColumnValues?: Readonly<Record<string, unknown>>;
 }

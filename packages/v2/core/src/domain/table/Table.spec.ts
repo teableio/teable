@@ -2808,6 +2808,7 @@ describe('Table.createRecordsStream', () => {
                 {
                   fieldId: selfLinkFieldId.toString(),
                   operator: 'isNotEmpty',
+                  value: null,
                 },
               ],
             },

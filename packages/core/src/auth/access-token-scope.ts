@@ -53,7 +53,7 @@ const W = AccessTokenScopeLevel.Write;
 // Every action must be classified: adding an action without an entry fails to compile.
 export const accessTokenScopeMap: Record<
   Action,
-  { group: AccessTokenScopeGroup; level: IScopeLevel }
+  { group: AccessTokenScopeGroup; level: IScopeLevel; platformSessionOnly?: boolean }
 > = {
   'record|read': { group: Data, level: R },
   'record|copy': { group: Data, level: R },
@@ -99,6 +99,8 @@ export const accessTokenScopeMap: Record<
   'automation|read': { group: Automation, level: R },
   'routine|read': { group: Automation, level: R },
   'app|read': { group: Automation, level: R },
+  'app|readUsers': { group: Automation, level: R, platformSessionOnly: true },
+  'app|readUserPii': { group: Automation, level: R, platformSessionOnly: true },
   'automation|create': { group: Automation, level: W },
   'automation|update': { group: Automation, level: W },
   'automation|delete': { group: Automation, level: W },
@@ -134,14 +136,14 @@ export const accessTokenScopeMap: Record<
 
 const scopeEntries = Object.entries(accessTokenScopeMap) as [
   Action,
-  { group: AccessTokenScopeGroup; level: IScopeLevel },
+  { group: AccessTokenScopeGroup; level: IScopeLevel; platformSessionOnly?: boolean },
 ][];
 
 export const getAccessTokenGroupActions = (group: AccessTokenScopeGroup) => {
   const read: Action[] = [];
   const write: Action[] = [];
   scopeEntries.forEach(([action, item]) => {
-    if (item.group !== group) return;
+    if (item.group !== group || item.platformSessionOnly) return;
     (item.level === R ? read : write).push(action);
   });
   return { read, write };

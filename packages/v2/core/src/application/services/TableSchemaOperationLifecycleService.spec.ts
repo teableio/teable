@@ -5,7 +5,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActorId } from '../../domain/shared/ActorId';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { Table } from '../../domain/table/Table';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
+import type {
+  IExecutionContext,
+  IUnitOfWorkTransaction,
+  UnitOfWorkAfterCommitHandler,
+} from '../../ports/ExecutionContext';
 import type {
   ITableRepository,
   TableProvisionOperationOptions,
@@ -17,6 +21,7 @@ import {
   beginTableSchemaOperation,
   beginTablesSchemaOperation,
   completeTableSchemaOperation,
+  completeTablesSchemaOperation,
   failRecoverableTableSchemaOperation,
   failTableSchemaOperation,
 } from './TableSchemaOperationLifecycleService';
@@ -63,7 +68,118 @@ const repository = (): ITableRepository =>
     ),
   }) as unknown as ITableRepository;
 
+const transactionControl = (scope: 'data' | 'meta') => {
+  const hooks: UnitOfWorkAfterCommitHandler[] = [];
+  let committed = false;
+  let rolledBack = false;
+  const transaction: IUnitOfWorkTransaction = {
+    kind: 'unitOfWorkTransaction',
+    scope,
+    get pending() {
+      return !committed && !rolledBack;
+    },
+    get committed() {
+      return committed;
+    },
+    get rolledBack() {
+      return rolledBack;
+    },
+    afterCommit: (hook) => hooks.push(hook),
+  };
+  return {
+    transaction,
+    async commit() {
+      committed = true;
+      for (const hook of hooks) await hook();
+    },
+    rollback() {
+      rolledBack = true;
+    },
+  };
+};
+
 describe('TableSchemaOperationLifecycleService', () => {
+  it('waits for ambient data commit before publishing storage capability', async () => {
+    const unitOfWork = new FakeUnitOfWork();
+    const tableRepository = repository();
+    const data = transactionControl('data');
+    const executionContext = { ...context(), transaction: data.transaction };
+
+    const result = await completeTableSchemaOperation(
+      unitOfWork,
+      tableRepository,
+      executionContext,
+      table('tblLifecycle00000D'),
+      { type: 'table.create', publishActorStorageVersion: 1 }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(tableRepository.setProvisionState).not.toHaveBeenCalled();
+    await data.commit();
+    expect(tableRepository.setProvisionState).toHaveBeenCalledOnce();
+    const publicationContext = vi.mocked(tableRepository.setProvisionState!).mock.calls[0]![0];
+    expect(publicationContext.transaction).toBeUndefined();
+    expect(publicationContext.transactions).toBeUndefined();
+  });
+
+  it('requires both independent metadata and data commits for multi-table publication', async () => {
+    const unitOfWork = new FakeUnitOfWork();
+    const tableRepository = repository();
+    const data = transactionControl('data');
+    const meta = transactionControl('meta');
+    const executionContext = {
+      ...context(),
+      transaction: data.transaction,
+      transactions: { data: data.transaction, meta: meta.transaction },
+    };
+
+    (
+      await completeTablesSchemaOperation(
+        unitOfWork,
+        tableRepository,
+        executionContext,
+        [table('tblLifecycle00000M')],
+        { type: 'table.create_many', publishActorStorageVersion: 1 }
+      )
+    )._unsafeUnwrap();
+    await data.commit();
+    expect(tableRepository.setProvisionStateMany).not.toHaveBeenCalled();
+    await meta.commit();
+    expect(tableRepository.setProvisionStateMany).toHaveBeenCalledOnce();
+  });
+
+  it('does not publish after an ambient rollback or without a commit hook', async () => {
+    const unitOfWork = new FakeUnitOfWork();
+    const tableRepository = repository();
+    const data = transactionControl('data');
+    (
+      await completeTableSchemaOperation(
+        unitOfWork,
+        tableRepository,
+        { ...context(), transaction: data.transaction },
+        table('tblLifecycle00000R'),
+        { type: 'table.create', publishActorStorageVersion: 1 }
+      )
+    )._unsafeUnwrap();
+    data.rollback();
+    expect(tableRepository.setProvisionState).not.toHaveBeenCalled();
+
+    const result = await completeTableSchemaOperation(
+      unitOfWork,
+      tableRepository,
+      {
+        ...context(),
+        transaction: { kind: 'unitOfWorkTransaction', scope: 'data', pending: true },
+      },
+      table('tblLifecycle00000N'),
+      { type: 'table.create', publishActorStorageVersion: 1 }
+    );
+    expect(result._unsafeUnwrapErr().code).toBe(
+      'actor_storage.publication_transaction_owner_required'
+    );
+    expect(tableRepository.setProvisionState).not.toHaveBeenCalled();
+  });
+
   it('begins a table operation with a canonical pending phase and table payload', async () => {
     const unitOfWork = new FakeUnitOfWork();
     const tableRepository = repository();
@@ -132,6 +248,35 @@ describe('TableSchemaOperationLifecycleService', () => {
         phase: 'error',
         payload: undefined,
       })
+    );
+  });
+
+  it('forwards explicit post-create publication without inferring it from ready state', async () => {
+    const unitOfWork = new FakeUnitOfWork();
+    const tableRepository = repository();
+    const targetTable = table('tblLifecycle00000P');
+
+    await completeTableSchemaOperation(unitOfWork, tableRepository, context(), targetTable, {
+      type: 'table.create',
+    });
+    await completeTableSchemaOperation(unitOfWork, tableRepository, context(), targetTable, {
+      type: 'table.create',
+      publishActorStorageVersion: 1,
+    });
+
+    expect(tableRepository.setProvisionState).toHaveBeenNthCalledWith(
+      1,
+      expect.any(Object),
+      targetTable,
+      'ready',
+      expect.objectContaining({ publishActorStorageVersion: undefined })
+    );
+    expect(tableRepository.setProvisionState).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Object),
+      targetTable,
+      'ready',
+      expect.objectContaining({ publishActorStorageVersion: 1 })
     );
   });
 

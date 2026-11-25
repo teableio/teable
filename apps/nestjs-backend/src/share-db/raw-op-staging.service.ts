@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, IdPrefix, type IOtOperation } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../custom.exception';
+import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import type { IRawOp, IRawOpMap } from './interface';
@@ -12,14 +13,18 @@ import { RawOpType } from './interface';
 export class RawOpStagingService {
   private readonly logger = new Logger(RawOpStagingService.name);
 
-  constructor(private readonly cls: ClsService<IClsStore>) {}
+  constructor(
+    private readonly cls: ClsService<IClsStore>,
+    private readonly eventEmitterService: EventEmitterService
+  ) {}
 
   @Timing()
   saveRawOps(
     collectionId: string,
     opType: RawOpType,
     docType: IdPrefix,
-    dataList: { docId: string; version: number; data?: unknown }[]
+    dataList: { docId: string; version: number; data?: unknown }[],
+    options?: { publish?: boolean }
   ): IRawOpMap {
     const collection = `${docType}_${collectionId}`;
     const rawOpMap: IRawOpMap = { [collection]: {} };
@@ -52,10 +57,15 @@ export class RawOpStagingService {
       }
       rawOpMap[collection][docId] = rawOp;
     }
+    this.eventEmitterService.freezeRecordEventContext([rawOpMap]);
+    if (options?.publish !== false) this.publishRawOps(rawOpMap);
+    return rawOpMap;
+  }
 
+  /** Stage prepared server operations only after transactional audit persistence. */
+  publishRawOps(rawOpMap: IRawOpMap) {
     const previous = this.cls.get('tx.rawOpMaps') || [];
     previous.push(rawOpMap);
     this.cls.set('tx.rawOpMaps', previous);
-    return rawOpMap;
   }
 }

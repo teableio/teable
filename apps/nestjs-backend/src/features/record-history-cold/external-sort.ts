@@ -14,7 +14,9 @@ export const approxColdRowBytes = (row: IColdHistoryRow): number =>
   row.before.length +
   row.after.length +
   row.createdTime.length +
-  row.createdBy.length;
+  row.createdBy.length +
+  (row.actorType?.length ?? 0) +
+  (row.actorId?.length ?? 0);
 
 export const HISTORY_ROW_CODEC: IColdRowCodec<IColdHistoryRow> = {
   compare: compareRowAsc,

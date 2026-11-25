@@ -15,7 +15,11 @@ import { RecordUpdated } from '../domain/table/events/RecordUpdated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import { Table } from '../domain/table/Table';
-import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
+import {
+  domainWrite,
+  type DomainWriteDecision,
+  type IDomainWriteTransaction,
+} from '../ports/DomainWriteTransaction';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -29,13 +33,24 @@ import { toTableRecord } from './shared/toTableRecord';
 export class ResetButtonResult {
   private constructor(
     readonly record: TableRecord,
-    readonly events: ReadonlyArray<IDomainEvent>
+    readonly events: ReadonlyArray<IDomainEvent>,
+    readonly recordActors?: TableRecordRepositoryPort.RecordActorAttribution
   ) {}
 
-  static create(record: TableRecord, events: ReadonlyArray<IDomainEvent>): ResetButtonResult {
-    return new ResetButtonResult(record, [...events]);
+  static create(
+    record: TableRecord,
+    events: ReadonlyArray<IDomainEvent>,
+    recordActors?: TableRecordRepositoryPort.RecordActorAttribution
+  ): ResetButtonResult {
+    return new ResetButtonResult(record, [...events], recordActors);
   }
 }
+
+type ResetButtonMutationResult = {
+  readonly responseRecord: TableRecord;
+  readonly recordActors?: TableRecordRepositoryPort.RecordActorAttribution;
+  readonly snapshot?: TableRecordRepositoryPort.RecordUpdateSnapshot;
+};
 
 @CommandHandler(ResetButtonCommand)
 @injectable()
@@ -67,14 +82,6 @@ export class ResetButtonHandler implements ICommandHandler<ResetButtonCommand, R
         recordId: command.recordId,
         fieldId: command.fieldId,
       });
-      const currentRecord = yield* await handler.tableRecordQueryRepository.findOne(
-        context,
-        table,
-        command.recordId,
-        { mode: 'stored' }
-      );
-      const currentRecordEntity = yield* toTableRecord(table, currentRecord);
-      const responseRecord = yield* reset.mutateSpec.mutate(currentRecordEntity);
       const fieldValues = new Map<string, unknown>([[command.fieldId.toString(), null]]);
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.updateOne,
@@ -89,33 +96,51 @@ export class ResetButtonHandler implements ICommandHandler<ResetButtonCommand, R
         isTransactionBound: false,
       });
       yield* await pluginExecution.guard();
-      const recordSpec = yield* pluginExecution.getRecordSpec();
-      if (recordSpec && !recordSpec.isSatisfiedBy(currentRecordEntity)) {
-        return err(
-          domainError.forbidden({
-            code: 'record_write_plugin.scope_forbidden',
-            message: 'Button reset is outside the allowed Record scope.',
-          })
-        );
-      }
-      const allowedFieldIds =
-        yield* pluginExecution.getUpdateFieldIdsForRecord(currentRecordEntity);
-      if (allowedFieldIds && !allowedFieldIds.has(command.fieldId.toString())) {
-        return err(
-          domainError.forbidden({
-            code: 'record_write_plugin.update_fields_forbidden',
-            message: 'Button reset is outside the allowed Field scope.',
-          })
-        );
-      }
-      if (currentRecord.fields[command.fieldId.toString()] == null) {
-        return ok(ResetButtonResult.create(responseRecord, []));
-      }
 
       const committed = yield* await handler.domainWriteTransaction.execute(
         context,
         async (transactionContext) =>
-          safeTry(async function* () {
+          safeTry<DomainWriteDecision<ResetButtonMutationResult>, DomainError>(async function* () {
+            const currentRecord = yield* await handler.tableRecordQueryRepository.findOne(
+              transactionContext,
+              table,
+              command.recordId,
+              { mode: 'stored' }
+            );
+            const currentRecordEntity = yield* toTableRecord(table, currentRecord);
+            const responseRecord = yield* reset.mutateSpec.mutate(currentRecordEntity);
+            const recordSpec = yield* pluginExecution.getRecordSpec();
+            if (recordSpec && !recordSpec.isSatisfiedBy(currentRecordEntity)) {
+              return err(
+                domainError.forbidden({
+                  code: 'record_write_plugin.scope_forbidden',
+                  message: 'Button reset is outside the allowed Record scope.',
+                })
+              );
+            }
+            const allowedFieldIds =
+              yield* pluginExecution.getUpdateFieldIdsForRecord(currentRecordEntity);
+            if (allowedFieldIds && !allowedFieldIds.has(command.fieldId.toString())) {
+              return err(
+                domainError.forbidden({
+                  code: 'record_write_plugin.update_fields_forbidden',
+                  message: 'Button reset is outside the allowed Field scope.',
+                })
+              );
+            }
+            if (currentRecord.fields[command.fieldId.toString()] == null) {
+              return ok(
+                domainWrite.unchanged({
+                  responseRecord,
+                  recordActors: {
+                    createdByActorType: currentRecord.createdByActorType,
+                    createdByActorId: currentRecord.createdByActorId,
+                    lastModifiedByActorType: currentRecord.lastModifiedByActorType,
+                    lastModifiedByActorId: currentRecord.lastModifiedByActorId,
+                  },
+                })
+              );
+            }
             yield* await pluginExecution.beforePersist(transactionContext);
             const result = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
@@ -158,11 +183,17 @@ export class ResetButtonHandler implements ICommandHandler<ResetButtonCommand, R
                 source: 'user',
               }),
             ];
-            return ok(domainWrite.fromEvents({ snapshot }, events));
+            return ok(
+              domainWrite.fromEvents(
+                { snapshot, responseRecord, recordActors: result.recordActors },
+                events
+              )
+            );
           })
       );
-      const { snapshot } = committed.value;
+      const { snapshot, responseRecord, recordActors } = committed.value;
       const events = committed.events;
+      if (!snapshot) return ok(ResetButtonResult.create(responseRecord, events, recordActors));
       yield* await handler.undoRedoStackService.appendButtonValueUpdateFromSnapshot(
         toUndoRedoStackAppendContext(context),
         {
@@ -173,7 +204,7 @@ export class ResetButtonHandler implements ICommandHandler<ResetButtonCommand, R
         }
       );
       await pluginExecution.afterCommit();
-      return ok(ResetButtonResult.create(responseRecord, events));
+      return ok(ResetButtonResult.create(responseRecord, events, recordActors));
     });
   }
 }

@@ -2,8 +2,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
-import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -24,8 +24,8 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -36,6 +36,8 @@ import type {
 } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   ITableRecordRepository,
   RecordMutationResult,
   BatchRecordMutationResult,
@@ -95,6 +97,10 @@ const buildTable = () => {
 };
 
 class FakeTableRepository implements ITableRepository {
+  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    throw new Error('Unexpected restore in this test');
+  }
+
   tables: Table[] = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -108,13 +114,6 @@ class FakeTableRepository implements ITableRepository {
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     this.tables.push(...tables);
     return ok([...tables]);
-  }
-
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -148,6 +147,14 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   lastContext: IExecutionContext | undefined;
   lastTable: Table | undefined;
   lastSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
@@ -216,8 +223,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok(this.deletedRecords.length > 0 ? { deletedRecords: [...this.deletedRecords] } : {});
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    return ok({ totalDeleted: 0 });
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 
@@ -314,8 +323,24 @@ describe('DeleteRecordsHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Record B' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
 
     const recordRepository = new FakeTableRecordRepository();
@@ -359,7 +384,15 @@ describe('DeleteRecordsHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
+      {
+        id: `rec${'c'.repeat(16)}`,
+        fields: { title: 'Record C' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     const recordRepository = new FakeTableRecordRepository();
     recordRepository.deletedRecords = toStoredSnapshots(queryRepository.records);
@@ -401,6 +434,10 @@ describe('DeleteRecordsHandler', () => {
       id,
       fields: { title: `Record ${idx}` },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     }));
 
     const recordRepository = new FakeTableRecordRepository();

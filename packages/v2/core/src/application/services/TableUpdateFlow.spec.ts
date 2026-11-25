@@ -143,6 +143,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -281,6 +285,7 @@ describe('TableUpdateFlow', () => {
     const flow = new TableUpdateFlow(
       new FakeTableRepository(),
       {
+        ensureActorColumns: async () => ok(undefined),
         insert: async () => ok(undefined),
         insertMany: async () => ok(undefined),
         update: async (context, nextTable) => {
@@ -322,6 +327,7 @@ describe('TableUpdateFlow', () => {
     const flow = new TableUpdateFlow(
       new FakeTableRepository(),
       {
+        ensureActorColumns: async () => ok(undefined),
         insert: async () => ok(undefined),
         insertMany: async () => ok(undefined),
         prepareViewRowOrderStorage: async () => {
@@ -1112,6 +1118,7 @@ describe('TableUpdateFlow', () => {
     const flow = new TableUpdateFlow(
       new FakeTableRepository(),
       {
+        ensureActorColumns: async () => ok(undefined),
         insert: async () => ok(undefined),
         insertMany: async () => ok(undefined),
         update: async (context, nextTable) => {
@@ -1159,6 +1166,7 @@ describe('TableUpdateFlow', () => {
     const flow = new TableUpdateFlow(
       repository,
       {
+        ensureActorColumns: async () => ok(undefined),
         insert: async () => ok(undefined),
         insertMany: async () => ok(undefined),
         update: async (_context, nextTable) => {
@@ -1293,6 +1301,7 @@ describe('TableUpdateFlow', () => {
     const flow = new TableUpdateFlow(
       new FakeTableRepository(),
       {
+        ensureActorColumns: async () => ok(undefined),
         insert: async () => ok(undefined),
         insertMany: async () => ok(undefined),
         update: async (_context, nextTable) => {
@@ -1408,6 +1417,7 @@ describe('TableUpdateFlow', () => {
     const flow = new TableUpdateFlow(
       repository,
       {
+        ensureActorColumns: async () => ok(undefined),
         insert: async () => ok(undefined),
         insertMany: async () => ok(undefined),
         update: async () => err(domainError.infrastructure({ message: 'data failed' })),

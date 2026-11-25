@@ -3,7 +3,10 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { TableQueryService } from '../application/services/TableQueryService';
-import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import type {
+  UndoRedoStackAppendContext,
+  UndoRedoStackService,
+} from '../application/services/UndoRedoStackService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -17,8 +20,8 @@ import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -28,11 +31,15 @@ import type {
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   BatchRecordMutationResult,
+  DeleteManyStreamResult,
   ITableRecordRepository,
+  PhysicalTableDuplicateResult,
   RecordMutationResult,
+  UpdateManyResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
+import type { UndoEntry } from '../ports/UndoRedoStore';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { ReorderRecordsCommand } from './ReorderRecordsCommand';
 import { ReorderRecordsHandler } from './ReorderRecordsHandler';
@@ -86,13 +93,6 @@ class FakeTableRepository implements ITableRepository {
     return ok(tables);
   }
 
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -111,6 +111,10 @@ class FakeTableRepository implements ITableRepository {
 
   async updateOne(): Promise<Result<void, DomainError>> {
     return ok(undefined);
+  }
+
+  async restore(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return err(domainError.unexpected({ message: 'restore is not used by reorder tests' }));
   }
 
   async delete(): Promise<Result<void, DomainError>> {
@@ -137,8 +141,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
-  async updateMany(): Promise<Result<BatchRecordMutationResult, DomainError>> {
-    return ok({});
+  async updateMany(): Promise<Result<UpdateManyResult, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
   }
 
   async updateManyStream(
@@ -159,6 +163,18 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 
   async deleteMany() {
     return ok({});
+  }
+
+  async deleteManyStream(): Promise<Result<DeleteManyStreamResult, DomainError>> {
+    return err(
+      domainError.unexpected({ message: 'deleteManyStream is not used by reorder tests' })
+    );
+  }
+
+  async duplicatePhysicalRows(): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.unexpected({ message: 'duplicatePhysicalRows is not used by reorder tests' })
+    );
   }
 }
 
@@ -237,7 +253,11 @@ describe('ReorderRecordsHandler', () => {
         calculateOrders: async () => ok([10, 11]),
       } as IRecordOrderCalculator,
       {
-        appendEntry: async (_context, _tableId, entry) => {
+        appendEntry: async (
+          _context: UndoRedoStackAppendContext,
+          _tableId: TableId,
+          entry: Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'>
+        ) => {
           undoRedoEntries.push(entry);
           return ok(undefined);
         },
@@ -300,7 +320,11 @@ describe('ReorderRecordsHandler', () => {
         calculateOrders: async () => ok([10]),
       } as IRecordOrderCalculator,
       {
-        appendEntry: async (_context, _tableId, entry) => {
+        appendEntry: async (
+          _context: UndoRedoStackAppendContext,
+          _tableId: TableId,
+          entry: Omit<UndoEntry, 'scope' | 'createdAt' | 'requestId'>
+        ) => {
           undoRedoEntries.push(entry);
           return ok(undefined);
         },

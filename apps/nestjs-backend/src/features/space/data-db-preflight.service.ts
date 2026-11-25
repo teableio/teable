@@ -86,6 +86,7 @@ const DATA_PLANE_TABLES = [
 const ADDITIVE_DATA_PLANE_TABLE_GROUPS = [
   ['computed_reliability_issue', 'computed_reliability_scope'],
   ['base_vcs_head', 'base_vcs_change', 'base_vcs_commit'],
+  ['base_vcs_object', 'base_vcs_checkpoint'],
 ] as const;
 const ADDITIVE_DATA_PLANE_TABLES: readonly string[] = ADDITIVE_DATA_PLANE_TABLE_GROUPS.flat();
 

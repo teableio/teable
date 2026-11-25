@@ -13,6 +13,10 @@ import { V1EngineService } from '../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
 import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
+import {
+  RecordActorStorageService,
+  resolveRecordInitiator,
+} from '../record-attribution/record-actor-storage.service';
 
 @Injectable()
 @V1EngineService(['getModifiedSystemOpsMap'])
@@ -21,7 +25,8 @@ export class SystemFieldService {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
-    @InjectModel(DATA_KNEX) private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
+    private readonly recordActorStorageService: RecordActorStorageService
   ) {}
 
   private async updateSystemField(
@@ -33,15 +38,26 @@ export class SystemFieldService {
   ) {
     if (!recordIds.length) return;
 
-    const nativeQuery = this.knex(dbTableName)
-      .update({
-        __last_modified_time: timeStr,
-        __last_modified_by: userId,
-      })
-      .whereIn('__id', recordIds)
-      .toQuery();
+    await this.recordActorStorageService.withTableWrite(tableId, async (table) => {
+      const initiator = resolveRecordInitiator(this.cls);
+      const nativeQuery = this.knex(dbTableName)
+        .update({
+          __last_modified_time: timeStr,
+          __last_modified_by: userId,
+          ...(table.actorStorageVersion === 1
+            ? {
+                __last_modified_by_actor_type: initiator?.type ?? null,
+                __last_modified_by_actor_id: initiator?.id ?? null,
+              }
+            : {}),
+        })
+        .whereIn('__id', recordIds)
+        .toQuery();
 
-    await this.databaseRouter.executeDataPrismaForTable(tableId, nativeQuery);
+      await this.databaseRouter.executeDataPrismaForTable(tableId, nativeQuery, {
+        useTransaction: true,
+      });
+    });
   }
 
   @Timing()
@@ -58,15 +74,19 @@ export class SystemFieldService {
       id: string;
     }[]
   > {
+    if (!records.length) return records;
     const user = this.cls.get('user');
+    const initiator = resolveRecordInitiator(this.cls);
     const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
     const auditUserValue =
-      user &&
-      UserFieldDto.fullAvatarUrl({
-        id: user.id,
-        title: user.name,
-        email: user.email,
-      });
+      (initiator?.type === 'appUser' || initiator?.type === 'user') && initiator.id !== user.id
+        ? { id: initiator.id, title: initiator.id }
+        : user &&
+          UserFieldDto.fullAvatarUrl({
+            id: user.id,
+            title: user.name,
+            email: user.email,
+          });
     const cloneAuditUserValue = () => (auditUserValue ? { ...auditUserValue } : null);
     const sanitizeAuditUserValue = () => {
       const cloned = cloneAuditUserValue();
@@ -164,7 +184,9 @@ export class SystemFieldService {
         })
         .whereIn('__id', recordIds)
         .toQuery();
-      await this.databaseRouter.executeDataPrismaForTable(table.id, nativeQuery);
+      await this.databaseRouter.executeDataPrismaForTable(table.id, nativeQuery, {
+        useTransaction: true,
+      });
     }
 
     // Persist tracked Last Modified By columns that are not generated from the system column
@@ -178,7 +200,9 @@ export class SystemFieldService {
           })
           .whereIn('__id', recordIds)
           .toQuery();
-        await this.databaseRouter.executeDataPrismaForTable(table.id, nativeQuery);
+        await this.databaseRouter.executeDataPrismaForTable(table.id, nativeQuery, {
+          useTransaction: true,
+        });
       }
     }
 

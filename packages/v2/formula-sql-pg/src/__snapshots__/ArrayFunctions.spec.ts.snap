@@ -275,45 +275,6 @@ exports[`array functions > 'ArrayCompact' with 'conditionalRollup' 1`] = `
 }
 `;
 
-exports[`array functions > 'ArrayCompact' with 'createdBy' 1`] = `
-{
-  "fieldType": "createdBy",
-  "formula": "ARRAYCOMPACT({CreatedBy}, {CreatedBy})",
-  "funcId": "ArrayCompact",
-  "inputs": {
-    "CreatedBy": {
-      "fieldName": "CreatedBy",
-      "fieldType": "createdBy",
-      "formattedValue": "System",
-      "formatting": undefined,
-    },
-  },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
-      SELECT jsonb_agg(value)
-      FROM (
-        SELECT value
-        FROM (SELECT elem.value, 0 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord)
-          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord)
-          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
-        ORDER BY arg_index, ord
-      ) AS compacted
-    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
-}
-`;
-
 exports[`array functions > 'ArrayCompact' with 'createdTime' 1`] = `
 {
   "fieldType": "createdTime",
@@ -425,45 +386,6 @@ exports[`array functions > 'ArrayCompact' with 'formula' 1`] = `
           FROM jsonb_array_elements_text((CASE
         WHEN 10 IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb(10))
-      END)) WITH ORDINALITY AS elem(value, ord)
-          WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
-        ORDER BY arg_index, ord
-      ) AS compacted
-    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
-}
-`;
-
-exports[`array functions > 'ArrayCompact' with 'lastModifiedBy' 1`] = `
-{
-  "fieldType": "lastModifiedBy",
-  "formula": "ARRAYCOMPACT({LastModifiedBy}, {LastModifiedBy})",
-  "funcId": "ArrayCompact",
-  "inputs": {
-    "LastModifiedBy": {
-      "fieldName": "LastModifiedBy",
-      "fieldType": "lastModifiedBy",
-      "formattedValue": "System",
-      "formatting": undefined,
-    },
-  },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
-      SELECT jsonb_agg(value)
-      FROM (
-        SELECT value
-        FROM (SELECT elem.value, 0 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord)
-          WHERE elem.value IS NOT NULL AND elem.value != '' UNION ALL SELECT elem.value, 1 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
       END)) WITH ORDINALITY AS elem(value, ord)
           WHERE elem.value IS NOT NULL AND elem.value != '') AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
@@ -1188,43 +1110,6 @@ exports[`array functions > 'ArrayFlatten' with 'conditionalRollup' 1`] = `
 }
 `;
 
-exports[`array functions > 'ArrayFlatten' with 'createdBy' 1`] = `
-{
-  "fieldType": "createdBy",
-  "formula": "ARRAYFLATTEN({CreatedBy}, {CreatedBy})",
-  "funcId": "ArrayFlatten",
-  "inputs": {
-    "CreatedBy": {
-      "fieldName": "CreatedBy",
-      "fieldType": "createdBy",
-      "formattedValue": "System",
-      "formatting": undefined,
-    },
-  },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
-      SELECT jsonb_agg(value)
-      FROM (
-        SELECT value
-        FROM (SELECT elem.value, 0 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
-        ORDER BY arg_index, ord
-      ) AS flat
-    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
-}
-`;
-
 exports[`array functions > 'ArrayFlatten' with 'createdTime' 1`] = `
 {
   "fieldType": "createdTime",
@@ -1331,43 +1216,6 @@ exports[`array functions > 'ArrayFlatten' with 'formula' 1`] = `
           FROM jsonb_array_elements_text((CASE
         WHEN 10 IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb(10))
-      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
-        ORDER BY arg_index, ord
-      ) AS flat
-    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
-}
-`;
-
-exports[`array functions > 'ArrayFlatten' with 'lastModifiedBy' 1`] = `
-{
-  "fieldType": "lastModifiedBy",
-  "formula": "ARRAYFLATTEN({LastModifiedBy}, {LastModifiedBy})",
-  "funcId": "ArrayFlatten",
-  "inputs": {
-    "LastModifiedBy": {
-      "fieldName": "LastModifiedBy",
-      "fieldType": "lastModifiedBy",
-      "formattedValue": "System",
-      "formatting": undefined,
-    },
-  },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}", "{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
-      SELECT jsonb_agg(value)
-      FROM (
-        SELECT value
-        FROM (SELECT elem.value, 0 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY arg_index, ord
       ) AS flat
@@ -2793,43 +2641,6 @@ exports[`array functions > 'ArrayUnique' with 'conditionalRollup' 1`] = `
 }
 `;
 
-exports[`array functions > 'ArrayUnique' with 'createdBy' 1`] = `
-{
-  "fieldType": "createdBy",
-  "formula": "ARRAYUNIQUE({CreatedBy}, {CreatedBy})",
-  "funcId": "ArrayUnique",
-  "inputs": {
-    "CreatedBy": {
-      "fieldName": "CreatedBy",
-      "fieldType": "createdBy",
-      "formattedValue": "System",
-      "formatting": undefined,
-    },
-  },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
-      SELECT jsonb_agg(value)
-      FROM (
-        SELECT DISTINCT ON (value) value
-        FROM (SELECT elem.value, 0 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."CreatedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'array' THEN ("t"."CreatedBy")::jsonb
-        WHEN jsonb_typeof(("t"."CreatedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."CreatedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
-        ORDER BY value, arg_index, ord
-      ) AS uniq
-    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
-}
-`;
-
 exports[`array functions > 'ArrayUnique' with 'createdTime' 1`] = `
 {
   "fieldType": "createdTime",
@@ -2936,43 +2747,6 @@ exports[`array functions > 'ArrayUnique' with 'formula' 1`] = `
           FROM jsonb_array_elements_text((CASE
         WHEN 10 IS NULL THEN '[]'::jsonb
         ELSE jsonb_build_array(to_jsonb(10))
-      END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
-        ORDER BY value, arg_index, ord
-      ) AS uniq
-    ) AS value) SELECT (SELECT value FROM "__formula_0"))",
-}
-`;
-
-exports[`array functions > 'ArrayUnique' with 'lastModifiedBy' 1`] = `
-{
-  "fieldType": "lastModifiedBy",
-  "formula": "ARRAYUNIQUE({LastModifiedBy}, {LastModifiedBy})",
-  "funcId": "ArrayUnique",
-  "inputs": {
-    "LastModifiedBy": {
-      "fieldName": "LastModifiedBy",
-      "fieldType": "lastModifiedBy",
-      "formattedValue": "System",
-      "formatting": undefined,
-    },
-  },
-  "result": "["{\\"id\\": \\"system\\", \\"email\\": null, \\"title\\": \\"System\\"}"]",
-  "sql": "(WITH "__formula_0" AS MATERIALIZED (SELECT (
-      SELECT jsonb_agg(value)
-      FROM (
-        SELECT DISTINCT ON (value) value
-        FROM (SELECT elem.value, 0 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
-      END)) WITH ORDINALITY AS elem(value, ord) UNION ALL SELECT elem.value, 1 AS arg_index, ord
-          FROM jsonb_array_elements_text((CASE
-        WHEN "t"."LastModifiedBy" IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'array' THEN ("t"."LastModifiedBy")::jsonb
-        WHEN jsonb_typeof(("t"."LastModifiedBy")::jsonb) = 'null' THEN '[]'::jsonb
-        ELSE jsonb_build_array(("t"."LastModifiedBy")::jsonb)
       END)) WITH ORDINALITY AS elem(value, ord)) AS combined(value, arg_index, ord)
         ORDER BY value, arg_index, ord
       ) AS uniq

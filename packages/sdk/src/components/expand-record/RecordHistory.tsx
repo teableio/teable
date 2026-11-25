@@ -379,6 +379,7 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
   const contentDir = useContentDir();
 
   const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
+  const [actorMap, setActorMap] = useState<NonNullable<IRecordHistoryVo['actorMap']>>({});
   const [fieldIds, setFieldIds] = useState<string[]>([]);
   const [createdByIds, setCreatedByIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<IDateRangeValue | null>(null);
@@ -436,6 +437,7 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
           cursor: pageParam,
         });
     setUserMap((prev) => ({ ...prev, ...res.data.userMap }));
+    setActorMap((prev) => ({ ...prev, ...res.data.actorMap }));
     return res.data;
   };
 
@@ -534,6 +536,47 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
         },
       },
       {
+        id: 'actor',
+        header: t('expandRecord.recordHistory.actor', { defaultValue: 'Initiator' }),
+        size: 168,
+        minSize: 168,
+        cell: ({ row }) => {
+          const { actorType, actorId } = row.original;
+          if (!actorType || !actorId) {
+            return (
+              <div className="flex min-h-6 items-center text-[13px] leading-5 text-muted-foreground">
+                {t('expandRecord.recordHistory.actorUnknown', { defaultValue: 'Unknown' })}
+              </div>
+            );
+          }
+          const actor = actorMap[`${actorType}:${actorId}`] ?? null;
+          const actorTypeLabel = t(`expandRecord.recordHistory.actorTypes.${actorType}`);
+          return (
+            <div className="flex min-h-6 min-w-0 items-center gap-2">
+              {actor ? (
+                <UserAvatar
+                  name={actor.name}
+                  avatar={actor.avatar ?? undefined}
+                  className="size-6 shrink-0 border"
+                />
+              ) : null}
+              <div className="min-w-0">
+                <div className="truncate text-[13px] leading-5">
+                  {actor?.name ??
+                    t('expandRecord.recordHistory.actorUnknown', { defaultValue: 'Unknown' })}
+                </div>
+                <div
+                  className="truncate text-xs text-muted-foreground"
+                  title={`${actorTypeLabel} · ${actorId}`}
+                >
+                  {actorTypeLabel} · {actorId}
+                </div>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
         accessorKey: 'createdBy',
         header: t('expandRecord.recordHistory.createdBy'),
         size: 144,
@@ -542,7 +585,18 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
           const createdBy = row.getValue<string>('createdBy');
           const user = userMap[createdBy];
 
-          if (!user) return null;
+          // Keep the technical executor visible even when the platform user cannot be
+          // resolved; a missing lookup must not erase the history row's evidence.
+          if (!user) {
+            return (
+              <div
+                className="flex min-h-6 min-w-0 items-center truncate text-[13px] leading-5"
+                title={createdBy}
+              >
+                {createdBy}
+              </div>
+            );
+          }
 
           const { id, name, avatar, email } = user;
           const avatarNode =
@@ -692,7 +746,7 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
     }
 
     return tableColumns;
-  }, [recordId, userMap, t, getFieldStatic, onRecordClick, contentDir]);
+  }, [recordId, userMap, actorMap, t, getFieldStatic, onRecordClick, contentDir]);
 
   const fetchNextPageInner = useCallback(() => {
     if (!isFetching && hasNextPage) {

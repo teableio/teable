@@ -58,6 +58,50 @@ const createClientWithQueryError = (error: DomainError) => {
  * budget would still reach the client as a 500.
  */
 describe('v2 orpc domain error dispatch', () => {
+  it.each([
+    {
+      error: domainError.conflict({
+        code: 'schema_coordination.busy',
+        message: 'Schema coordination is busy',
+        details: { mode: 'shared' },
+      }),
+      code: 'CONFLICT',
+      status: 409,
+    },
+    {
+      error: domainError.unexpected({ code: 'db.failure', message: 'Unexpected database failure' }),
+      code: 'INTERNAL_SERVER_ERROR',
+      status: 500,
+    },
+  ])(
+    'dispatches createRecord $code without losing domain details',
+    async ({ error, code, status }) => {
+      const commandBus = { execute: vi.fn(async () => err(error)) };
+      const container = {
+        resolve: (token: unknown) => {
+          if (token === v2CoreTokens.commandBus) return commandBus;
+          throw new Error(`unexpected token: ${String(token)}`);
+        },
+      } as unknown as IHandlerResolver;
+      const client = createRouterClient(
+        createV2OrpcRouter({
+          createContainer: () => container,
+          createExecutionContext: () => ({ actorId: ActorId.create('system')._unsafeUnwrap() }),
+        }),
+        { context: {} }
+      );
+
+      await expect(
+        client.tables.createRecord({ tableId: TABLE_ID, fields: {} })
+      ).rejects.toMatchObject({
+        code,
+        status,
+        message: error.message,
+        data: { domainCode: error.code, domainTags: error.tags, details: error.details },
+      });
+    }
+  );
+
   it('reports a database statement timeout as a gateway timeout', async () => {
     const client = createClientWithQueryError(
       domainError.infrastructure({

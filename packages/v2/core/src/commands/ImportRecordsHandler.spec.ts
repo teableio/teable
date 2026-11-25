@@ -48,6 +48,9 @@ import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   BatchRecordMutationResult,
   InsertManyStreamOptions,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
+  UpdateManyResult,
   ITableRecordRepository,
   RecordMutationResult,
   UpdateManyStreamResult,
@@ -133,6 +136,10 @@ class FakeImportSourceRegistry implements IImportSourceRegistry {
 }
 
 class FakeTableRepository implements ITableRepository {
+  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    throw new Error('Unexpected restore in this test');
+  }
+
   constructor(private readonly tables: Table[]) {}
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -144,13 +151,6 @@ class FakeTableRepository implements ITableRepository {
     tables: ReadonlyArray<Table>
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     return ok(tables);
-  }
-
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -186,6 +186,14 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   inserted: TableRecord[] = [];
   insertedBatches: TableRecord[][] = [];
   insertManyStreamOptions: InsertManyStreamOptions | undefined;
@@ -254,12 +262,9 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   }
 
   async updateMany(
-    _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
-    ____: ICellValueSpec
-  ): Promise<Result<BatchRecordMutationResult, DomainError>> {
-    return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
+    ..._args: Parameters<ITableRecordRepository['updateMany']>
+  ): Promise<Result<UpdateManyResult, DomainError>> {
+    throw new Error('Unexpected updateMany in this test');
   }
 
   async updateManyStream(
@@ -278,8 +283,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    return ok({ totalDeleted: 0 });
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 
@@ -923,10 +930,10 @@ describe('ImportRecordsHandler', () => {
       ok({
         headers: ['Title'],
         rowsAsync: {
-          [Symbol.asyncIterator]() {
+          [Symbol.asyncIterator](): AsyncIterator<ReadonlyArray<unknown>> {
             return this;
           },
-          async next() {
+          async next(): Promise<IteratorResult<ReadonlyArray<unknown>>> {
             return { done: true, value: undefined };
           },
           async return() {
@@ -1001,6 +1008,7 @@ describe('ImportRecordsHandler', () => {
           name: 'chunk-record-limit',
           supports: (operation) => operation === RecordWriteOperationKind.importAppend,
           async guard(context) {
+            if (context.kind !== 'importAppend') throw new Error('Expected importAppend context');
             seenScopes.push({
               scope: context.orchestration?.scope,
               recordCount: context.payload.recordCount,
@@ -1206,6 +1214,7 @@ describe('ImportRecordsHandler', () => {
     tableWithStubbedCreate.createRecords = () =>
       ok({
         records: [originalRecord],
+        fieldKeyMapping: new Map([[textFieldId.toString(), textFieldId.toString()]]),
         mutateSpecs: [resolvedSpec],
       });
 

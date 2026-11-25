@@ -30,6 +30,13 @@ import {
 } from './GetViewFilterLinkRecordsHandler';
 import { GetViewFilterLinkRecordsQuery } from './GetViewFilterLinkRecordsQuery';
 
+const unknownActorAttribution = {
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
+} as const;
+
 const context: IExecutionContext = {
   actorId: ActorId.create('system')._unsafeUnwrap(),
 };
@@ -199,11 +206,13 @@ describe('GetViewFilterLinkRecordsHandler', () => {
               id: tables.firstRecordId.toString(),
               fields: { [tables.lookupFieldId.toString()]: 'Alpha' },
               version: 1,
+              ...unknownActorAttribution,
             },
             {
               id: tables.secondRecordId.toString(),
               fields: { [tables.lookupFieldId.toString()]: null },
               version: 1,
+              ...unknownActorAttribution,
             },
           ],
           total: 2,

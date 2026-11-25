@@ -1,6 +1,7 @@
 import { domainError, RestoreRecordsCommand } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
+import { TRUSTED_CREATED_ACTOR } from '../../record-attribution/trusted-created-actor';
 import { collectLinkTargetIds } from './link-cell-value.util';
 import { filterLiveLinkEntries, RecordRestoreNativeService } from './record-restore-native.service';
 import type { IRestorableRecordSnapshot } from './record-restore-native.service';
@@ -245,6 +246,10 @@ describe('RecordRestoreNativeService', () => {
       createdBy: 'usrCreator',
       lastModifiedTime: '2026-01-02T00:00:00.000Z',
       lastModifiedBy: 'usrEditor',
+      createdByActorType: 'appUser',
+      createdByActorId: 'apuOriginal',
+      lastModifiedByActorType: 'user',
+      lastModifiedByActorId: 'usrEarlierEditor',
     };
     await fixture.service.restoreRecordSnapshots(tableId, [snapshot], {
       cleanupAttachmentRefs: true,
@@ -254,6 +259,10 @@ describe('RecordRestoreNativeService', () => {
     expect(context).toBe(fixture.context);
     expect(command).toBeInstanceOf(RestoreRecordsCommand);
     expect(command.cleanupAttachmentRefs).toBe(true);
+    expect(command.trustedCreatedActorsByRecordId).toEqual(
+      new Map([[recordId, { type: 'appUser', id: 'apuOriginal' }]])
+    );
+    expect(command.records[0]).not.toHaveProperty('createdByActorId');
     expect(command.records).toEqual([
       {
         recordId,
@@ -303,7 +312,11 @@ describe('RecordRestoreV1CompatibilityService', () => {
     });
     expect(multipleCreateRecords).toHaveBeenCalledExactlyOnceWith(
       tableId,
-      { fieldKeyType: 'id', records, typecast: true },
+      {
+        fieldKeyType: 'id',
+        records: records.map((record) => ({ ...record, [TRUSTED_CREATED_ACTOR]: null })),
+        typecast: true,
+      },
       true
     );
   });

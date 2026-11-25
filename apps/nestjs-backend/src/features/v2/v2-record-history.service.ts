@@ -1,8 +1,8 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { Injectable, Logger } from '@nestjs/common';
 import type { ISelectFieldOptions } from '@teable/core';
 import { FieldType as CoreFieldType, IdPrefix } from '@teable/core';
 import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
@@ -32,10 +32,11 @@ import type {
   Result,
   SingleSelectField,
   Table,
+  RecordInitiator,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { ColumnType, Kysely } from 'kysely';
+import type { Kysely } from 'kysely';
 import { isEqual, isString } from 'lodash';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -44,7 +45,7 @@ import { V2ContainerService } from './v2-container.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 const SELECT_FIELD_TYPE_SET = new Set([CoreFieldType.SingleSelect, CoreFieldType.MultipleSelect]);
-const SAME_TX_HISTORY_ROW_BUDGET = 200;
+const HISTORY_INSERT_BATCH_SIZE = 200;
 const recordHistoryProjectionLogger = new Logger('V2RecordHistoryProjection');
 
 const stableRecordHistoryId = (parts: {
@@ -80,24 +81,6 @@ const resolveHistoryTable = async (
   return tableResult.value;
 };
 
-const takeHistoryRows = (
-  context: IExecutionContext,
-  rows: IRecordHistoryEntry[]
-): IRecordHistoryEntry[] | undefined => {
-  if (rows.length === 0) {
-    return rows;
-  }
-  const budget = context.sameTxProjection?.historyRowBudget;
-  const remaining = budget?.remaining ?? SAME_TX_HISTORY_ROW_BUDGET;
-  if (rows.length > remaining) {
-    return undefined;
-  }
-  if (budget) {
-    budget.remaining -= rows.length;
-  }
-  return rows;
-};
-
 const emitRecordHistoryCreated = (
   context: IExecutionContext,
   eventEmitterService: EventEmitterService,
@@ -123,6 +106,10 @@ interface IRecordHistoryEntry {
   before: string;
   after: string;
   created_by: string;
+  actor_type: RecordInitiator['type'] | null;
+  actor_id: string | null;
+  // record_history uses timestamp without time zone; bind UTC text, never a driver-local Date.
+  created_time: string;
 }
 
 interface IFieldHistoryMeta {
@@ -133,10 +120,8 @@ interface IFieldHistoryMeta {
   isComputed: boolean;
 }
 
-type IRecordHistoryDb = V1TeableDatabase & {
-  record_history: IRecordHistoryEntry & {
-    created_time: ColumnType<Date, Date | undefined, never>;
-  };
+type IRecordHistoryDb = Omit<V1TeableDatabase, 'record_history'> & {
+  record_history: IRecordHistoryEntry;
 };
 
 const getRecordHistoryDb = async (
@@ -150,6 +135,9 @@ const getRecordHistoryDb = async (
   if (transaction?.db) {
     return transaction.db;
   }
+  if (context.sameTxProjection) {
+    throw new Error('Record history requires the active data transaction');
+  }
   const container = await v2ContainerService.getContainerForTable(tableId);
   return container.resolve<Kysely<IRecordHistoryDb>>(v2DataDbTokens.db);
 };
@@ -162,11 +150,13 @@ const insertRecordHistoryEntries = async (
     return;
   }
 
-  await db
-    .insertInto('record_history')
-    .values(recordHistoryList)
-    .onConflict((oc) => oc.column('id').doNothing())
-    .execute();
+  for (let offset = 0; offset < recordHistoryList.length; offset += HISTORY_INSERT_BATCH_SIZE) {
+    await db
+      .insertInto('record_history')
+      .values(recordHistoryList.slice(offset, offset + HISTORY_INSERT_BATCH_SIZE))
+      .onConflict((oc) => oc.column('id').doNothing())
+      .execute();
+  }
 };
 
 /**
@@ -368,10 +358,16 @@ export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpd
     const recordId = event.recordId.toString();
     const userId = context.actorId.toString();
     const eventId = context.sameTxProjection?.eventId ?? `${tableIdStr}:${recordId}`;
+    const occurredAt = event.occurredAt.toDate().toISOString();
 
     const table = await resolveHistoryTable(context, this.tableQueryService, event.tableId);
     if (!table) {
-      return ok(undefined);
+      return err(
+        domainError.infrastructure({
+          code: 'record_history.table_unavailable',
+          message: 'Cannot write record history without table metadata',
+        })
+      );
     }
 
     const fieldMetaMap = new Map<string, IFieldHistoryMeta>();
@@ -406,17 +402,15 @@ export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpd
         before: JSON.stringify(buildHistoryValue(change.oldValue, meta)),
         after: JSON.stringify(buildHistoryValue(change.newValue, meta)),
         created_by: userId as string,
+        actor_type: context.initiator?.type ?? null,
+        actor_id: context.initiator?.id ?? null,
+        created_time: occurredAt,
       });
-    }
-
-    const rows = takeHistoryRows(context, recordHistoryList);
-    if (!rows) {
-      return ok(undefined);
     }
 
     try {
       const db = await getRecordHistoryDb(context, this.v2ContainerService, tableIdStr);
-      await insertRecordHistoryEntries(db, rows);
+      await insertRecordHistoryEntries(db, recordHistoryList);
     } catch (error) {
       return err(
         domainError.infrastructure({
@@ -485,10 +479,16 @@ export class V2RecordsBatchCreatedHistoryProjection implements IEventHandler<Rec
     const tableIdStr = event.tableId.toString();
     const userId = context.actorId.toString();
     const eventId = context.sameTxProjection?.eventId ?? tableIdStr;
+    const occurredAt = event.occurredAt.toDate().toISOString();
 
     const table = await resolveHistoryTable(context, this.tableQueryService, event.tableId);
     if (!table) {
-      return ok(undefined);
+      return err(
+        domainError.infrastructure({
+          code: 'record_history.table_unavailable',
+          message: 'Cannot write record history without table metadata',
+        })
+      );
     }
 
     const fieldMetaMap = new Map<string, IFieldHistoryMeta>();
@@ -528,18 +528,16 @@ export class V2RecordsBatchCreatedHistoryProjection implements IEventHandler<Rec
           before: JSON.stringify(buildHistoryValue(null, meta)),
           after: JSON.stringify(buildHistoryValue(value, meta)),
           created_by: userId as string,
+          actor_type: context.initiator?.type ?? null,
+          actor_id: context.initiator?.id ?? null,
+          created_time: occurredAt,
         });
       }
     }
 
-    const rows = takeHistoryRows(context, recordHistoryList);
-    if (!rows) {
-      return ok(undefined);
-    }
-
     try {
       const db = await getRecordHistoryDb(context, this.v2ContainerService, tableIdStr);
-      await insertRecordHistoryEntries(db, rows);
+      await insertRecordHistoryEntries(db, recordHistoryList);
     } catch (error) {
       return err(
         domainError.infrastructure({
@@ -603,10 +601,16 @@ export class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<Rec
     const tableIdStr = event.tableId.toString();
     const userId = context.actorId.toString();
     const eventId = context.sameTxProjection?.eventId ?? tableIdStr;
+    const occurredAt = event.occurredAt.toDate().toISOString();
 
     const table = await resolveHistoryTable(context, this.tableQueryService, event.tableId);
     if (!table) {
-      return ok(undefined);
+      return err(
+        domainError.infrastructure({
+          code: 'record_history.table_unavailable',
+          message: 'Cannot write record history without table metadata',
+        })
+      );
     }
 
     const fieldMetaMap = new Map<string, IFieldHistoryMeta>();
@@ -646,18 +650,16 @@ export class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<Rec
           before: JSON.stringify(buildHistoryValue(change.oldValue, meta)),
           after: JSON.stringify(buildHistoryValue(change.newValue, meta)),
           created_by: userId as string,
+          actor_type: context.initiator?.type ?? null,
+          actor_id: context.initiator?.id ?? null,
+          created_time: occurredAt,
         });
       }
     }
 
-    const rows = takeHistoryRows(context, recordHistoryList);
-    if (!rows) {
-      return ok(undefined);
-    }
-
     try {
       const db = await getRecordHistoryDb(context, this.v2ContainerService, tableIdStr);
-      await insertRecordHistoryEntries(db, rows);
+      await insertRecordHistoryEntries(db, recordHistoryList);
     } catch (error) {
       return err(
         domainError.infrastructure({

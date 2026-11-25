@@ -28,6 +28,10 @@ export const preservedDbFieldNames = new Set([
   LAST_MODIFIED_TIME_FIELD_NAME,
   CREATED_BY_FIELD_NAME,
   LAST_MODIFIED_BY_FIELD_NAME,
+  '__created_by_actor_type',
+  '__created_by_actor_id',
+  '__last_modified_by_actor_type',
+  '__last_modified_by_actor_id',
 ]);
 
 export const systemDbFieldNames = new Set([
@@ -37,6 +41,10 @@ export const systemDbFieldNames = new Set([
   LAST_MODIFIED_TIME_FIELD_NAME,
   CREATED_BY_FIELD_NAME,
   LAST_MODIFIED_BY_FIELD_NAME,
+  '__created_by_actor_type',
+  '__created_by_actor_id',
+  '__last_modified_by_actor_type',
+  '__last_modified_by_actor_id',
 ]);
 
 export const systemFieldTypes = new Set([

@@ -19,6 +19,7 @@ import {
   getUnitOfWorkTransaction,
   isDomainError,
   isReusableBatchTransactionScope,
+  TRANSACTION_RETRYABLE_CONTENTION_CODE,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { sql, type Kysely, type Transaction } from 'kysely';
@@ -27,6 +28,7 @@ import type { Result } from 'neverthrow';
 
 import type { IV2PostgresDbConfig } from './config';
 import { v2DataDbTokens, v2MetaDbTokens } from './di/tokens';
+import { pgErrorCode } from './pgErrorCode';
 import { getPostgresSqlExecutionDiagnostics } from './PostgresSqlExecutionError';
 import { randomIntBelow } from './random';
 
@@ -51,14 +53,10 @@ const toUnexpectedUnitOfWorkError = (error: unknown): DomainError => {
   return domainError.unexpected({
     message: `Unexpected unit of work error: ${describeError(error)}`,
     ...(postgresSql ? { details: { postgresSql } } : {}),
+    cause: error,
   });
 };
 
-const shouldRetryTransactionAbort = (
-  error: DomainError,
-  attempt: number,
-  maxRetries: number
-): boolean => attempt < maxRetries && isRetryableTransactionAbort(error);
 type UnitOfWorkTransactionState =
   | 'pending'
   | 'committing'
@@ -382,42 +380,46 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     error: unknown,
     attempt: number,
     maxRetries: number,
-    retry: boolean
+    onRetryExhausted: IUnitOfWorkOptions['onRetryExhausted']
   ): Promise<Result<never, DomainError> | 'retry'> {
     await transaction?.runAfterRollbackHandlers();
-    if (error instanceof UnitOfWorkAbort) {
-      if (shouldRetryTransactionAbort(error.error, attempt, maxRetries)) {
-        await sleep(backoffMs(attempt));
-        return 'retry';
-      }
-      return err(error.error);
-    }
-    const sqlState = extractPgSqlState(error);
-    if (retry && attempt < maxRetries && isRetryablePgSqlState(sqlState)) {
+    const cause = error instanceof UnitOfWorkAbort ? error.error : error;
+    const canRetry =
+      maxRetries > 0 &&
+      (isDomainError(cause)
+        ? isRetryableTransactionAbort(cause)
+        : isRetryablePgSqlState(pgErrorCode(cause)));
+    if (canRetry && attempt < maxRetries) {
       await sleep(backoffMs(attempt));
       return 'retry';
     }
-    return err(toUnexpectedUnitOfWorkError(error));
+    if (canRetry && onRetryExhausted) return err(onRetryExhausted(cause));
+    return err(error instanceof UnitOfWorkAbort ? error.error : toUnexpectedUnitOfWorkError(error));
   }
 
   private async executeWithRetries<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
     scope: UnitOfWorkScope,
-    retry: boolean
+    options: IUnitOfWorkOptions | undefined
   ): Promise<Result<T, DomainError>> {
     const db = scope === 'meta' ? this.metaDb : this.dataDb;
-    const maxRetries = retry ? 3 : 0;
+    const maxRetries = options?.retry === false ? 0 : 3;
+    const isolationLevel = options?.isolationLevel;
+    const builder = isolationLevel
+      ? db.transaction().setIsolationLevel(isolationLevel)
+      : db.transaction();
     let attempt = 0;
 
-    // Retry only for top-level transactions, and only for retryable infra failures.
+    // Retry only top-level transactions that ended with a retryable database failure.
     // Nested transactions must not retry because they share an outer transaction scope.
     // Keep delays tiny because this is often used in request/response paths.
     // eslint-disable-next-line no-constant-condition
     while (true) {
       let transaction: PostgresUnitOfWorkTransaction<DB> | undefined;
+      let committed = false;
       try {
-        const transactionResult = await db.transaction().execute(async (trx) => {
+        const transactionResult = await builder.execute(async (trx) => {
           await this.setTransactionSchema(trx, scope);
           transaction = new PostgresUnitOfWorkTransaction(trx, scope);
           const transactionContext = this.bindTransactionToPhysicalDatabaseScopes(
@@ -431,15 +433,17 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
 
           return { workResult, transaction };
         });
+        committed = true;
         await transactionResult.transaction.runAfterCommitHandlers();
         return transactionResult.workResult;
       } catch (error) {
+        if (committed) return err(toUnexpectedUnitOfWorkError(error));
         const outcome = await this.handleRetryableFailure(
           transaction,
           error,
           attempt,
           maxRetries,
-          retry
+          options?.onRetryExhausted
         );
         if (outcome === 'retry') {
           attempt += 1;
@@ -463,6 +467,28 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       return err(batchTx.rollbackReason);
     }
 
+    // PostgreSQL cannot strengthen an active transaction after its first snapshot.
+    const requested = options?.isolationLevel;
+    if (requested) {
+      const active =
+        getPostgresTransaction<DB>(context, scope) ??
+        (this.usesSinglePhysicalDatabase()
+          ? getPostgresTransaction<DB>(context, scope === 'data' ? 'meta' : 'data')
+          : undefined);
+      if (active) {
+        const { rows } = await sql<{ level: string }>`
+          SELECT current_setting('transaction_isolation') AS level
+        `.execute(active);
+        if (rows[0].level !== 'serializable' && rows[0].level !== requested) {
+          const reason = domainError.invariant({
+            code: 'transaction.isolation_required',
+            message: `The active transaction requires at least ${requested} isolation`,
+          });
+          batchTx?.markRollbackOnly(reason);
+          return err(reason);
+        }
+      }
+    }
     const existingResult = this.runWithExistingTransaction(context, scope, work);
     if (existingResult) {
       return this.trackBatchTransactionOutcome(batchTx, existingResult);
@@ -479,7 +505,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       return err(crossDbError);
     }
 
-    return this.executeWithRetries(context, work, scope, options?.retry !== false);
+    return this.executeWithRetries(context, work, scope, options);
   }
 
   /**
@@ -611,25 +637,18 @@ const backoffMs = (attempt: number): number => {
 const isRetryablePgSqlState = (sqlState: string | undefined): boolean =>
   sqlState === '40P01' || sqlState === '40001';
 
-const extractPgSqlState = (error: unknown): string | undefined => {
-  const fromDiag = getPostgresSqlExecutionDiagnostics(error)?.postgres?.sqlState;
-  if (fromDiag) return fromDiag;
-  if (typeof error === 'object' && error !== null) {
-    const code = (error as { code?: unknown }).code;
-    if (typeof code === 'string') return code;
-    const cause = (error as { cause?: unknown }).cause;
-    if (cause) return extractPgSqlState(cause);
-  }
-  return undefined;
-};
-
 const isRetryableTransactionAbort = (error: DomainError): boolean => {
-  if (!error.tags.includes('infrastructure')) return false;
+  const infrastructure = error.tags.includes('infrastructure');
+  if (!infrastructure && !error.tags.includes('unexpected')) return false;
+  if (infrastructure && error.code === TRANSACTION_RETRYABLE_CONTENTION_CODE) return true;
   const sqlState =
     typeof error.details?.postgresSql === 'object' && error.details.postgresSql !== null
       ? (error.details.postgresSql as { postgres?: { sqlState?: string } }).postgres?.sqlState
       : undefined;
-  if (isRetryablePgSqlState(sqlState)) return true;
+  if (isRetryablePgSqlState(sqlState) || isRetryablePgSqlState(pgErrorCode(error.cause))) {
+    return true;
+  }
+  if (!infrastructure) return false;
   const message = error.message.toLowerCase();
   return (
     message.includes('deadlock detected') ||

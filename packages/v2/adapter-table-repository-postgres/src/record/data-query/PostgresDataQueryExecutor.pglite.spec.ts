@@ -11,7 +11,13 @@ import {
   type RecordQueryPluginScope,
   type Table,
 } from '@teable/v2-core';
-import { DataQueryBinding, DataQueryDefinition, DataQueryService } from '@teable/v2-data-query';
+import {
+  DataQueryBinding,
+  dataQueryCompositionSource,
+  DataQueryDefinition,
+  DataQueryService,
+  prepareDataQueryComposition,
+} from '@teable/v2-data-query';
 import { sql } from 'kysely';
 import { err, ok } from 'neverthrow';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -197,6 +203,127 @@ describe('PostgresDataQueryExecutor real SQL', () => {
       { owner, related, sequence: '9007199254740993' },
     ]);
     expect(normalizeDataQueryValue('9007199254740993', 'sum')).toBe('9007199254740993');
+  });
+
+  it('filters a shared metric by the exact numeric and millisecond keys returned by grouping', async () => {
+    await sql`update ${sql.id('public', physicalTable)} set
+      __created_time = case __id when 'recA' then '2026-01-01T00:00:00.123001Z'::timestamptz
+                         else '2026-01-01T00:00:00.123999Z'::timestamptz end,
+      __auto_number = case __id when 'recA' then 9007199254740992 else 9007199254740993 end
+      where __id in ('recA', 'recB')`.execute(database.db);
+    const definition = DataQueryDefinition.create({
+      version: 1,
+      tableId,
+      kind: 'records',
+      select: [
+        { system: 'autoNumber', alias: 'sequence' },
+        { system: 'createdTime', alias: 'instant' },
+      ],
+    })._unsafeUnwrap();
+    const binding = DataQueryBinding.prepare(definition, table)._unsafeUnwrap();
+    const metric = prepareDataQueryComposition(
+      {
+        kind: 'composition',
+        source: { id: 'qlb1111111111111111', revision: 1 },
+        metricDimensions: ['sequence', 'instant'],
+        metrics: [{ alias: 'count', statistic: 'count' }],
+      },
+      binding.outputs,
+      dataQueryCompositionSource(definition.snapshot())._unsafeUnwrap()
+    )._unsafeUnwrap();
+    const run = async (parameters: Record<string, unknown>) => {
+      const { composition } = metric.bind(parameters)._unsafeUnwrap();
+      const result = await executor.execute(
+        context,
+        table,
+        definition.bind({})._unsafeUnwrap(),
+        {},
+        binding,
+        composition
+      );
+      return result._unsafeUnwrap().rows;
+    };
+    const groups = await run({ groupBy: ['instant'] });
+    expect(groups).toEqual([
+      { sequence: null, instant: '2026-01-01T00:00:00.000Z', count: 2 },
+      { sequence: null, instant: '2026-01-01T00:00:00.123Z', count: 2 },
+    ]);
+    const instant = groups[1].instant;
+    const sequences = await run({ groupBy: ['sequence'], where_instant: instant });
+    expect(sequences).toEqual([
+      { sequence: '9007199254740992', instant: null, count: 1 },
+      { sequence: '9007199254740993', instant: null, count: 1 },
+    ]);
+    expect(
+      await run({
+        groupBy: ['sequence'],
+        where_instant: instant,
+        where_sequence: sequences[1].sequence,
+      })
+    ).toEqual([sequences[1]]);
+    expect(await run({ where_sequence: '9007199254740993.5' })).toEqual([
+      { sequence: null, instant: null, count: 0 },
+    ]);
+    expect(metric.bind({ where_sequence: '9e3 OR TRUE' }).isErr()).toBe(true);
+    expect(await run({ where_instant: '2026-01-01T02:00:00.123999+02:00' })).toEqual([
+      { sequence: null, instant: null, count: 2 },
+    ]);
+    for (const invalid of ['', 'today', '2026-02-30T12:00:00Z', '2026-02-28T25:00:00Z']) {
+      expect(metric.bind({ where_instant: invalid })._unsafeUnwrapErr()).toMatchObject({
+        code: 'data_query.parameter_type',
+        details: { path: 'parameters.where_instant' },
+      });
+    }
+  });
+
+  it('round-trips neighboring float metric groups with reduced session precision', async () => {
+    await sql`set extra_float_digits = 0`.execute(database.db);
+    await sql`update ${sql.id('public', physicalTable)} set amount = case __id
+      when 'recA' then 1::double precision else 1.0000000000000002::double precision end`.execute(
+      database.db
+    );
+    const definition = DataQueryDefinition.create({
+      version: 1,
+      kind: 'records',
+      tableId,
+      select: [{ fieldId: amountId, alias: 'amount' }],
+    })._unsafeUnwrap();
+    const binding = DataQueryBinding.prepare(definition, table)._unsafeUnwrap();
+    const metric = prepareDataQueryComposition(
+      {
+        kind: 'composition',
+        source: { id: 'qlb1111111111111111', revision: 1 },
+        metricDimensions: ['amount'],
+        metrics: [{ alias: 'count', statistic: 'count' }],
+      },
+      binding.outputs,
+      dataQueryCompositionSource(definition.snapshot())._unsafeUnwrap()
+    )._unsafeUnwrap();
+    const run = async (parameters: Record<string, unknown>) => {
+      const { composition } = metric.bind(parameters)._unsafeUnwrap();
+      return (
+        await executor.execute(
+          context,
+          table,
+          definition.bind({})._unsafeUnwrap(),
+          {},
+          binding,
+          composition
+        )
+      )._unsafeUnwrap().rows;
+    };
+    const groups = await run({ groupBy: ['amount'] });
+    expect(groups).toEqual([
+      { amount: 1, count: 1 },
+      { amount: 1.0000000000000002, count: 3 },
+    ]);
+    for (const group of groups) {
+      expect(await run({ groupBy: ['amount'], where_amount: group.amount })).toEqual([group]);
+    }
+    const precision = await sql<{
+      value: string;
+    }>`select current_setting('extra_float_digits') as value`.execute(database.db);
+    expect(precision.rows[0].value).toBe('0');
   });
 
   it('parameterizes recordId and intersects it with the mandatory row scope', async () => {

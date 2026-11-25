@@ -534,6 +534,8 @@ export class RecordHistoryFlusherService {
     afterTruncated: boolean;
     createdTime: Date;
     createdBy: string;
+    actorType?: IColdHistoryRow['actorType'];
+    actorId?: string | null;
   }): { row: IColdHistoryRow; truncatedCount: number; rawBytes: number } {
     const coldRow: IColdHistoryRow = {
       id: row.id,
@@ -543,6 +545,8 @@ export class RecordHistoryFlusherService {
       after: row.after,
       createdTime: row.createdTime.toISOString(),
       createdBy: row.createdBy,
+      actorType: row.actorType ?? null,
+      actorId: row.actorId ?? null,
     };
     return {
       row: coldRow,
@@ -881,7 +885,7 @@ export class RecordHistoryFlusherService {
     const marker = (lenCol: string) =>
       `'{"data":"[value too large, cold-truncated (' || ${lenCol} || ' chars)]","coldTruncated":true,"units":' || ${lenCol} || '}'`;
     const trunc = (lenCol: string) => `${cap} > 0 AND ${lenCol} > ${cap}`;
-    const sql = `SELECT "id", "recordId", "fieldId", "createdTime", "createdBy",
+    const sql = `SELECT "id", "recordId", "fieldId", "createdTime", "createdBy", "actorType", "actorId",
          CASE WHEN ${trunc('"bl"')} THEN ${marker('"bl"')} ELSE "before" END AS "before",
          CASE WHEN ${trunc('"al"')} THEN ${marker('"al"')} ELSE "after" END AS "after",
          (${trunc('"bl"')}) AS "beforeTruncated",
@@ -891,6 +895,7 @@ export class RecordHistoryFlusherService {
            "before", "after",
            to_char("created_time", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdTime",
            "created_by" AS "createdBy",
+           "actor_type" AS "actorType", "actor_id" AS "actorId",
            char_length("before") AS "bl", char_length("after") AS "al"
          FROM ${qualified}
          WHERE "table_id" = ${tableIdBind} AND "created_time" < ${cutoffBind}${rangeClause}${afterClause}
@@ -910,6 +915,8 @@ export class RecordHistoryFlusherService {
       afterTruncated: boolean;
       createdTime: string;
       createdBy: string;
+      actorType: IColdHistoryRow['actorType'];
+      actorId: string | null;
     }>;
     // createdTime is a UTC ISO string (see to_char above); parse it to a Date so
     // buildColdRow's toISOString() stays UTC regardless of the process timezone.

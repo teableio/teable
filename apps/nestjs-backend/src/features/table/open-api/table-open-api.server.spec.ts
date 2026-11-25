@@ -1,6 +1,10 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { ClsService } from 'nestjs-cls';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { IClsStore } from '../../../types/cls';
+import { TableController } from './table-open-api.controller';
 
-const useV2Feature = () => () => undefined;
+const { useV2Feature } = vi.hoisted(() => ({ useV2Feature: () => () => undefined }));
 
 vi.mock('../table.service', () => ({
   TableService: class TableService {},
@@ -20,6 +24,10 @@ vi.mock('../table-permission.service', () => ({
 
 vi.mock('./table-open-api-v2.service', () => ({
   TableOpenApiV2Service: class TableOpenApiV2Service {},
+}));
+
+vi.mock('../../v2/v2-actor-columns.service', () => ({
+  V2ActorColumnsService: class V2ActorColumnsService {},
 }));
 
 vi.mock('../../canary/decorators/use-v2-feature.decorator', () => ({
@@ -43,19 +51,7 @@ vi.mock('@teable/db-main-prisma', () => ({
   getDatabaseUrl: () => '',
 }));
 
-let tableControllerClass: new (...args: unknown[]) => {
-  createTable: (baseId: string, createTableRo: unknown) => Promise<unknown>;
-  duplicateTable: (baseId: string, tableId: string, duplicateTableRo: unknown) => Promise<unknown>;
-  archiveTable: (baseId: string, tableId: string) => Promise<unknown>;
-  permanentDeleteTable: (baseId: string, tableId: string) => Promise<unknown>;
-};
-
 describe('TableController.archiveTable', () => {
-  beforeAll(async () => {
-    const module = await import('./table-open-api.controller');
-    tableControllerClass = module.TableController as typeof tableControllerClass;
-  });
-
   const createController = (useV2: boolean) => {
     const tableOpenApiService = {
       createTable: vi.fn().mockResolvedValue({ id: 'tbl-legacy' }),
@@ -68,11 +64,9 @@ describe('TableController.archiveTable', () => {
       duplicateTable: vi.fn().mockResolvedValue({ id: 'tbl-v2-duplicate' }),
       deleteTable: vi.fn(),
     };
-    const cls = {
-      get: vi.fn((key: string) => (key === 'useV2' ? useV2 : undefined)),
-    };
+    const cls = new ClsService<IClsStore>(new AsyncLocalStorage());
 
-    const controller = new tableControllerClass(
+    const controller = new TableController(
       {} as never,
       tableOpenApiService as never,
       {} as never,
@@ -82,11 +76,21 @@ describe('TableController.archiveTable', () => {
       {} as never,
       {} as never,
       {} as never,
-      cls as never
+      {} as never,
+      cls
     );
+
+    // The V2 feature guard writes `useV2` into the request-scoped CLS store, so
+    // every call runs inside this controller's own context instead of a stub.
+    const run = <T>(work: () => Promise<T>): Promise<T> =>
+      cls.run(async () => {
+        cls.set('useV2', useV2);
+        return await work();
+      });
 
     return {
       controller,
+      run,
       tableOpenApiService,
       tableOpenApiV2Service,
     };
@@ -97,19 +101,19 @@ describe('TableController.archiveTable', () => {
   });
 
   it('routes delete-table through v2 when useV2 is enabled', async () => {
-    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(true);
+    const { controller, run, tableOpenApiService, tableOpenApiV2Service } = createController(true);
 
-    await controller.archiveTable('bse1', 'tbl1');
+    await run(() => controller.archiveTable('bse1', 'tbl1'));
 
     expect(tableOpenApiV2Service.deleteTable).toHaveBeenCalledWith('bse1', 'tbl1');
     expect(tableOpenApiService.deleteTable).not.toHaveBeenCalled();
   });
 
   it('routes create-table through v2 when useV2 is enabled', async () => {
-    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(true);
+    const { controller, run, tableOpenApiService, tableOpenApiV2Service } = createController(true);
     const createTableRo = { name: 'Projects', fields: [] };
 
-    const result = await controller.createTable('bse1', createTableRo);
+    const result = await run(() => controller.createTable('bse1', createTableRo));
 
     expect(tableOpenApiV2Service.createTable).toHaveBeenCalledWith('bse1', createTableRo);
     expect(tableOpenApiService.createTable).not.toHaveBeenCalled();
@@ -117,10 +121,10 @@ describe('TableController.archiveTable', () => {
   });
 
   it('keeps the legacy create-table path when useV2 is disabled', async () => {
-    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(false);
+    const { controller, run, tableOpenApiService, tableOpenApiV2Service } = createController(false);
     const createTableRo = { name: 'Projects', fields: [] };
 
-    const result = await controller.createTable('bse1', createTableRo);
+    const result = await run(() => controller.createTable('bse1', createTableRo));
 
     expect(tableOpenApiService.createTable).toHaveBeenCalledWith('bse1', createTableRo);
     expect(tableOpenApiV2Service.createTable).not.toHaveBeenCalled();
@@ -128,19 +132,19 @@ describe('TableController.archiveTable', () => {
   });
 
   it('keeps the legacy delete-table path when useV2 is disabled', async () => {
-    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(false);
+    const { controller, run, tableOpenApiService, tableOpenApiV2Service } = createController(false);
 
-    await controller.archiveTable('bse1', 'tbl1');
+    await run(() => controller.archiveTable('bse1', 'tbl1'));
 
     expect(tableOpenApiService.deleteTable).toHaveBeenCalledWith('bse1', 'tbl1');
     expect(tableOpenApiV2Service.deleteTable).not.toHaveBeenCalled();
   });
 
   it('routes duplicate-table through v2 when useV2 is enabled', async () => {
-    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(true);
+    const { controller, run, tableOpenApiService, tableOpenApiV2Service } = createController(true);
     const duplicateTableRo = { name: 'Projects Copy', includeRecords: true };
 
-    const result = await controller.duplicateTable('bse1', 'tbl1', duplicateTableRo);
+    const result = await run(() => controller.duplicateTable('bse1', 'tbl1', duplicateTableRo));
 
     expect(tableOpenApiV2Service.duplicateTable).toHaveBeenCalledWith(
       'bse1',
@@ -152,10 +156,10 @@ describe('TableController.archiveTable', () => {
   });
 
   it('keeps the legacy duplicate-table path when useV2 is disabled', async () => {
-    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(false);
+    const { controller, run, tableOpenApiService, tableOpenApiV2Service } = createController(false);
     const duplicateTableRo = { name: 'Projects Copy', includeRecords: false };
 
-    const result = await controller.duplicateTable('bse1', 'tbl1', duplicateTableRo);
+    const result = await run(() => controller.duplicateTable('bse1', 'tbl1', duplicateTableRo));
 
     expect(tableOpenApiService.duplicateTable).toHaveBeenCalledWith(
       'bse1',
@@ -167,9 +171,9 @@ describe('TableController.archiveTable', () => {
   });
 
   it('routes permanent delete through v2 when useV2 is enabled', async () => {
-    const { controller, tableOpenApiService, tableOpenApiV2Service } = createController(true);
+    const { controller, run, tableOpenApiService, tableOpenApiV2Service } = createController(true);
 
-    await controller.permanentDeleteTable('bse1', 'tbl1');
+    await run(() => controller.permanentDeleteTable('bse1', 'tbl1'));
 
     expect(tableOpenApiV2Service.deleteTable).toHaveBeenCalledWith('bse1', 'tbl1', 'permanent');
     expect(tableOpenApiService.permanentDeleteTables).not.toHaveBeenCalled();

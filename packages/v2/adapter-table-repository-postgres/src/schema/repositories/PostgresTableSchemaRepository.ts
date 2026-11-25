@@ -80,6 +80,11 @@ import {
 } from '../../shared/undoCapture';
 import { FormulaAdmissionService } from '../admission/FormulaAdmissionService';
 import { v2PostgresDdlTokens } from '../di/tokens';
+import {
+  ActorColumnsIncompatibleSchemaError,
+  addActorColumnsToCreateTable,
+  ensureActorColumnsInTransaction,
+} from '../helpers/ActorColumns';
 import { detectCircularDependency } from '../helpers/detectCircularDependency';
 import {
   createFieldSchemaRules,
@@ -135,6 +140,13 @@ type FieldValueChangeSet = {
 type SchemaStatementTraceOptions = {
   readonly tracer?: ITracer;
   readonly attributes?: SpanAttributes;
+};
+
+const reservedActorColumns: Readonly<Record<string, true | undefined>> = {
+  __created_by_actor_type: true,
+  __created_by_actor_id: true,
+  __last_modified_by_actor_type: true,
+  __last_modified_by_actor_id: true,
 };
 
 const ensureDbFieldNames = (fields: ReadonlyArray<Field>): Result<void, DomainError> => {
@@ -356,17 +368,19 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       const db = resolvePostgresDbOrTx(repository.db, context);
 
       const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
-      const builder = schemaBuilder
-        .createTable(tableName)
-        .addColumn('__id', 'text', (col: ColumnDefinitionBuilder) => col.notNull().unique())
-        .addColumn('__auto_number', 'serial', (col: ColumnDefinitionBuilder) => col.primaryKey())
-        .addColumn('__created_time', 'timestamptz', (col: ColumnDefinitionBuilder) =>
-          col.notNull().defaultTo(sql`now()`)
-        )
-        .addColumn('__last_modified_time', 'timestamptz')
-        .addColumn('__created_by', 'text', (col: ColumnDefinitionBuilder) => col.notNull())
-        .addColumn('__last_modified_by', 'text')
-        .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull());
+      const builder = addActorColumnsToCreateTable(
+        schemaBuilder
+          .createTable(tableName)
+          .addColumn('__id', 'text', (col: ColumnDefinitionBuilder) => col.notNull().unique())
+          .addColumn('__auto_number', 'serial', (col: ColumnDefinitionBuilder) => col.primaryKey())
+          .addColumn('__created_time', 'timestamptz', (col: ColumnDefinitionBuilder) =>
+            col.notNull().defaultTo(sql`now()`)
+          )
+          .addColumn('__last_modified_time', 'timestamptz')
+          .addColumn('__created_by', 'text', (col: ColumnDefinitionBuilder) => col.notNull())
+          .addColumn('__last_modified_by', 'text')
+          .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull())
+      );
 
       try {
         const compiledStatements: CompiledQuery[] = [];
@@ -521,6 +535,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         .addColumn('__created_by', 'text', (col: ColumnDefinitionBuilder) => col.notNull())
         .addColumn('__last_modified_by', 'text')
         .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull());
+      builder = addActorColumnsToCreateTable(builder);
 
       const builderRef: ICreateTableBuilderRef = { builder };
       const visitor = PostgresTableSchemaFieldCreateVisitor.forTableCreation({
@@ -718,6 +733,63 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     table: Table
   ): Promise<Result<void, DomainError>> {
     return this.ensureInsertedWithKnownTables(context, table, [table]);
+  }
+
+  /** Explicit enable-job entry point; never invoked by legacy ensure or record CRUD. */
+  @TraceSpan()
+  async ensureActorColumns(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<void, DomainError>> {
+    const tableNameResult = table
+      .dbTableName()
+      .andThen((name) => name.split({ defaultSchema: null }));
+    if (tableNameResult.isErr()) return err(tableNameResult.error);
+    for (const field of table.getFields()) {
+      const fieldName = field.dbFieldName().andThen((name) => name.value());
+      if (fieldName.isOk() && Object.hasOwn(reservedActorColumns, fieldName.value)) {
+        return err(
+          domainError.conflict({
+            code: 'actor_columns.business_collision',
+            message:
+              'Cannot enable actor storage: a business field occupies a reserved actor column',
+          })
+        );
+      }
+    }
+    if (!hasOpenDataTransaction(this.db as unknown as Kysely<DynamicDB>, context)) {
+      return err(
+        domainError.infrastructure({
+          message: 'Enabling actor columns requires the caller data transaction',
+        })
+      );
+    }
+    const { schema, tableName } = tableNameResult.value;
+    const db = resolvePostgresDbOrTx(this.db, context);
+    try {
+      await ensureActorColumnsInTransaction(db, schema, tableName);
+      return ok(undefined);
+    } catch (error) {
+      if (error instanceof ActorColumnsIncompatibleSchemaError || pgErrorCode(error) === '23514') {
+        return err(
+          domainError.conflict({
+            code: 'actor_columns.incompatible_schema',
+            message:
+              error instanceof ActorColumnsIncompatibleSchemaError
+                ? error.message
+                : 'Existing actor values violate the actor pair check constraint',
+            cause: error,
+          })
+        );
+      }
+      return err(
+        domainError.infrastructure({
+          code: 'actor_columns.storage_failure',
+          message: 'Failed to enable actor columns',
+          cause: error,
+        })
+      );
+    }
   }
 
   @TraceSpan()

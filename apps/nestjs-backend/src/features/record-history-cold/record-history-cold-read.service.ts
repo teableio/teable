@@ -17,6 +17,8 @@ export interface IMergedHistoryRow {
   after: string;
   createdTime: Date;
   createdBy: string;
+  actorType: NonNullable<IColdHistoryRow['actorType']> | null;
+  actorId: string | null;
 }
 
 export interface ICollectHistoryRowsInput {
@@ -186,6 +188,8 @@ export class RecordHistoryColdReadService {
         after: taken.after,
         createdTime: new Date(taken.createdTime),
         createdBy: taken.createdBy,
+        actorType: taken.actorType ?? null,
+        actorId: taken.actorId ?? null,
       });
     }
     return s3.timedOut;
@@ -260,7 +264,8 @@ export class RecordHistoryColdReadService {
       }
       const rows = (await dataPrisma.$queryRawUnsafe(
         `SELECT "id", "record_id" AS "recordId", "field_id" AS "fieldId",
-           "before", "after", "created_time" AS "createdTime", "created_by" AS "createdBy"
+           "before", "after", "created_time" AS "createdTime", "created_by" AS "createdBy",
+           "actor_type" AS "actorType", "actor_id" AS "actorId"
          FROM "record_history"
          WHERE ${conditions.join(' AND ')}
          ORDER BY "created_time" DESC, "id" COLLATE "C" DESC

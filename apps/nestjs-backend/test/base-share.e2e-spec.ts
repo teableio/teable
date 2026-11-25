@@ -1,17 +1,19 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILookupOptionsRo } from '@teable/core';
+import type { IFieldRo, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core';
 import { FieldKeyType, FieldType, getRandomString, Relationship, Role } from '@teable/core';
 import type {
   IBaseNodeVo,
   IBaseShareByNodeIdVo,
   IGetBaseShareVo,
   IGetDashboardListVo,
+  IListBaseCollaboratorUserVo,
   IRecordsVo,
   ITableListVo,
   ITablePermissionVo,
   ITableVo,
 } from '@teable/openapi';
 import {
+  BASE_COLLABORATE_LIST_USER,
   BASE_SHARE_AUTH,
   BASE_SHARE_ID_HEADER,
   BaseNodeResourceType,
@@ -45,12 +47,14 @@ import {
   GET_DASHBOARD_LIST,
   GET_RECORDS_URL,
   GET_TABLE,
+  GET_TABLE_SEARCH_VECTOR_STATUS,
   GET_TABLE_LIST,
   GET_TABLE_PERMISSION,
   getBaseNodeList,
   getBaseShareByNodeId,
   getFields,
   getTableList,
+  getUserCollaborators,
   getBaseLevelShare,
   installPlugin,
   LIST_BASE_SHARE,
@@ -60,12 +64,14 @@ import {
   PluginPosition,
   publishPlugin,
   refreshBaseShare,
+  SHARE_VIEW_GET,
   submitPlugin,
   UPDATE_RECORD,
   updateBaseShare,
   urlBuilder,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
+import { BASE_SHARE_DENIED_MESSAGE } from '../src/features/auth/decorators/allow-base-share.decorator';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
@@ -1478,40 +1484,6 @@ describe('BaseShareController (e2e)', () => {
       );
       expect(memberView?.resourceMeta.createdByUser?.email).toBeTruthy();
     });
-
-    it('tells a node share visitor nothing about shares outside it', async () => {
-      const share = await createBaseShare(baseId, { nodeId: folderNodeId });
-      const outsideShare = await createBaseShare(baseId, { nodeId: rootTableNodeId });
-      const wholeBaseShare = await createBaseShare(baseId, {});
-      createdShareIds.push(
-        share.data.shareId,
-        outsideShare.data.shareId,
-        wholeBaseShare.data.shareId
-      );
-      // A signed-in visitor who is no member of the base reaches these routes through the share
-      const visitor = await createNewUserAxios({
-        email: `base-share-visitor-${getRandomString(8).toLowerCase()}@example.com`,
-        password: '12345678',
-      });
-      const asVisitor = { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } };
-
-      const listed = (
-        await visitor.get<{ nodeId: string | null }[]>(
-          urlBuilder(LIST_BASE_SHARE, { baseId }),
-          asVisitor
-        )
-      ).data.map(({ nodeId }) => nodeId);
-      expect(listed).toEqual([folderNodeId]);
-
-      const readShare = async (url: string) => (await visitor.get(url, asVisitor)).data;
-      expect(
-        await readShare(urlBuilder(GET_BASE_SHARE_BY_NODE_ID, { baseId, nodeId: folderNodeId }))
-      ).toEqual({ baseId, nodeId: folderNodeId, enabled: true });
-      expect(
-        await readShare(urlBuilder(GET_BASE_SHARE_BY_NODE_ID, { baseId, nodeId: rootTableNodeId }))
-      ).toBeFalsy();
-      expect(await readShare(urlBuilder(GET_BASE_LEVEL_SHARE, { baseId }))).toBeFalsy();
-    });
   });
 
   describe('BaseShare - allowEdit permission', () => {
@@ -1982,6 +1954,70 @@ describe('BaseShareController (e2e)', () => {
       await loggedInUser.delete(`/space/${userSpaceId}`).catch(() => undefined);
     });
 
+    it('refuses project-level routes a share must not reach, and still opens the shared table', async () => {
+      const get = (url: string) =>
+        loggedInUser.get(url, {
+          headers: { [BASE_SHARE_ID_HEADER]: shareId },
+          validateStatus: () => true,
+        });
+      // Each answers for the whole project, not for the node the share was made for, and no
+      // share page calls it; each is refused by the share check itself, not by some permission
+      // the share happens to lack
+      for (const url of [
+        `/base/${baseId}/export`,
+        `/base/${baseId}/export-stream`,
+        `/base/${baseId}/collaborators`,
+        `/base/${baseId}/duplicate-check`,
+        `/template/by-base/${baseId}`,
+        // under the shared table's own path, yet answering for the project: delete-references
+        // names the tables and fields elsewhere that point at it
+        ...[
+          'default-view-id',
+          'delete-references',
+          'actor-columns',
+          'duplicate-check',
+          'index/policy',
+          'index/query-policy',
+        ].map((route) => `/base/${baseId}/table/${rootTableId}/${route}`),
+        urlBuilder(LIST_BASE_SHARE, { baseId }),
+        urlBuilder(GET_BASE_LEVEL_SHARE, { baseId }),
+        urlBuilder(GET_BASE_SHARE_BY_NODE_ID, { baseId, nodeId: rootTableNodeId }),
+      ]) {
+        const { status, data } = await get(url);
+        expect([status, data?.message], url).toEqual([403, BASE_SHARE_DENIED_MESSAGE]);
+      }
+      // the same for a visitor who never signed in
+      const anonymous = await anonymousUser.get(
+        `/base/${baseId}/table/${rootTableId}/delete-references`,
+        { headers: { [BASE_SHARE_ID_HEADER]: shareId }, validateStatus: () => true }
+      );
+      expect([anonymous.status, anonymous.data?.message]).toEqual([403, BASE_SHARE_DENIED_MESSAGE]);
+      // A route the share pages call answers only for the table the share covers: the table
+      // itself, and what the node's info dialog reads of it
+      for (const route of [GET_TABLE, GET_TABLE_SEARCH_VECTOR_STATUS]) {
+        const status = async (tableId: string) =>
+          (await get(urlBuilder(route, { baseId, tableId }))).status;
+        expect(await status(rootTableId), route).toEqual(200);
+        expect(await status(childTableId), route).toEqual(403);
+      }
+    });
+
+    it('lets a share visitor pick collaborators by name, never by email', async () => {
+      const list = (search?: string) =>
+        loggedInUser.get<IListBaseCollaboratorUserVo>(
+          urlBuilder(BASE_COLLABORATE_LIST_USER, { baseId }),
+          { headers: { [BASE_SHARE_ID_HEADER]: shareId }, params: { search } }
+        );
+      const owner = (await getUserCollaborators(baseId)).data.users[0];
+      expect(owner.email).toBeTruthy();
+
+      const { users } = (await list()).data;
+      expect(users.map(({ id }) => id)).toContain(owner.id);
+      expect(users.every(({ email }) => email === '')).toBe(true);
+      expect((await list(owner.name)).data.users.map(({ id }) => id)).toContain(owner.id);
+      expect((await list(owner.email)).data.users).toEqual([]);
+    });
+
     it('should allow logged-in user to list spaces with share header', async () => {
       const res = await loggedInUser.get('/space', {
         headers: { [BASE_SHARE_ID_HEADER]: shareId },
@@ -2205,6 +2241,168 @@ describe('BaseShareController (e2e)', () => {
       } finally {
         await permanentDeleteBase(base.id);
       }
+    });
+  });
+
+  describe('BaseShare - a table the shared one links to', () => {
+    const createdShareIds: string[] = [];
+    let linkBaseId: string;
+    let ordersTableId: string;
+    let customersTableId: string;
+    let unlinkedTableId: string;
+    let ordersNodeId: string;
+    let customerRecordId: string;
+    let customerPrimaryFieldId: string;
+    let ordersLinkFieldId: string;
+    let customersLinkFieldId: string;
+    let loggedInUser: AxiosInstance;
+
+    beforeAll(async () => {
+      const base = await createBase({
+        name: 'base-share-linked-table',
+        spaceId: globalThis.testConfig.spaceId,
+      }).then((res) => res.data);
+      linkBaseId = base.id;
+
+      const orders = await createTable(linkBaseId, { name: 'Orders' });
+      const customers = await createTable(linkBaseId, { name: 'Customers' });
+      const unlinked = await createTable(linkBaseId, { name: 'Unlinked' });
+      ordersTableId = orders.id;
+      customersTableId = customers.id;
+      unlinkedTableId = unlinked.id;
+      customerPrimaryFieldId = customers.fields[0].id;
+      customerRecordId = customers.records[0].id;
+
+      const ordersLink = await createField(ordersTableId, {
+        name: 'customer',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: customersTableId,
+        },
+      });
+      ordersLinkFieldId = ordersLink.data.id;
+      // the link is two-way: Customers got a field that points back at Orders
+      customersLinkFieldId = (ordersLink.data.options as ILinkFieldOptions).symmetricFieldId!;
+
+      const nodeList = await getBaseNodeList(linkBaseId);
+      const ordersNode = nodeList.data.find((node) => node.resourceId === ordersTableId);
+      if (!ordersNode) throw new Error('Orders node not found');
+      ordersNodeId = ordersNode.id;
+
+      loggedInUser = await createNewUserAxios({
+        email: `linked-table-e2e-${Date.now()}@test.com`,
+        password: 'TestPassword123!',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteBase(linkBaseId);
+    });
+
+    afterEach(async () => {
+      for (const shareId of createdShareIds) {
+        await deleteBaseShare(linkBaseId, shareId).catch(() => undefined);
+      }
+      createdShareIds.length = 0;
+    });
+
+    it('lists and opens only the shared table, not the table it links to', async () => {
+      const share = await createBaseShare(linkBaseId, { nodeId: ordersNodeId });
+      createdShareIds.push(share.data.shareId);
+      const get = <T>(url: string, params?: Record<string, unknown>) =>
+        anonymousUser.get<T>(url, {
+          headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId },
+          params,
+          validateStatus: () => true,
+        });
+      const snapshotUrl = `/base/${linkBaseId}/table/socket/snapshot-bulk`;
+
+      const tables = await get<ITableVo[]>(urlBuilder(GET_TABLE_LIST, { baseId: linkBaseId }));
+      expect(tables.data.map(({ id }) => id)).toEqual([ordersTableId]);
+      // the realtime table collection reads these two routes
+      const docIds = await get<{ ids: string[] }>(`/base/${linkBaseId}/table/socket/doc-ids`);
+      expect(docIds.data.ids).toEqual([ordersTableId]);
+      const snapshots = await get<{ id: string }[]>(snapshotUrl, { ids: [ordersTableId] });
+      expect(snapshots.data.map(({ id }) => id)).toEqual([ordersTableId]);
+
+      // the linked table is as far out of reach as one nothing links to
+      for (const tableId of [customersTableId, unlinkedTableId]) {
+        const statuses = [
+          (await get(snapshotUrl, { ids: [ordersTableId, tableId] })).status,
+          (await get(urlBuilder(GET_TABLE, { baseId: linkBaseId, tableId }))).status,
+          (await get(urlBuilder(GET_RECORDS_URL, { tableId }))).status,
+        ];
+        expect(statuses, tableId).toEqual([403, 403, 403]);
+      }
+    });
+
+    it('opens the link view of a shared field only when the share covers the linked table', async () => {
+      const nodeShare = await createBaseShare(linkBaseId, { nodeId: ordersNodeId });
+      const wholeShare = await createBaseShare(linkBaseId, {});
+      createdShareIds.push(nodeShare.data.shareId, wholeShare.data.shareId);
+      const readLinkView = (fieldId: string, shareId?: string) =>
+        anonymousUser.get<{ tableId: string }>(urlBuilder(SHARE_VIEW_GET, { shareId: fieldId }), {
+          headers: shareId ? { [BASE_SHARE_ID_HEADER]: shareId } : {},
+          validateStatus: () => true,
+        });
+
+      // a share of the whole project covers both tables: record detail and the record picker
+      // read the linked records through this view, from either side of the link
+      const linkView = await readLinkView(ordersLinkFieldId, wholeShare.data.shareId);
+      expect([linkView.status, linkView.data.tableId]).toEqual([200, customersTableId]);
+      expect((await readLinkView(customersLinkFieldId, wholeShare.data.shareId)).status).toEqual(
+        200
+      );
+      // a share of Orders alone does not cover Customers, from either side
+      expect((await readLinkView(ordersLinkFieldId, nodeShare.data.shareId)).status).toEqual(403);
+      expect((await readLinkView(customersLinkFieldId, nodeShare.data.shareId)).status).toEqual(
+        403
+      );
+      // and without a share the visitor has no claim on the field at all
+      expect((await readLinkView(ordersLinkFieldId)).status).toEqual(403);
+    });
+
+    it('lets an allowEdit share edit the shared table and nothing it links to', async () => {
+      const share = await createBaseShare(linkBaseId, { nodeId: ordersNodeId });
+      createdShareIds.push(share.data.shareId);
+      await updateBaseShare(linkBaseId, share.data.shareId, { allowEdit: true });
+      const options = { headers: { [BASE_SHARE_ID_HEADER]: share.data.shareId } };
+
+      const ordersCreate = await loggedInUser.post(
+        urlBuilder(CREATE_RECORD, { tableId: ordersTableId }),
+        { records: [{ fields: {} }], fieldKeyType: 'id' },
+        options
+      );
+      expect(ordersCreate.status).toEqual(201);
+
+      const customerRecordUrl = { tableId: customersTableId, recordId: customerRecordId };
+      const errors = await Promise.all([
+        getError(() =>
+          loggedInUser.get(urlBuilder(GET_RECORDS_URL, { tableId: customersTableId }), options)
+        ),
+        getError(() =>
+          loggedInUser.post(
+            urlBuilder(CREATE_RECORD, { tableId: customersTableId }),
+            {
+              records: [{ fields: { [customerPrimaryFieldId]: 'new-customer' } }],
+              fieldKeyType: 'id',
+            },
+            options
+          )
+        ),
+        getError(() =>
+          loggedInUser.patch(
+            urlBuilder(UPDATE_RECORD, customerRecordUrl),
+            { record: { fields: { [customerPrimaryFieldId]: 'renamed' } }, fieldKeyType: 'id' },
+            options
+          )
+        ),
+        getError(() =>
+          loggedInUser.delete(urlBuilder(DELETE_RECORD_URL, customerRecordUrl), options)
+        ),
+      ]);
+      expect(errors.map((error) => error?.status)).toEqual([403, 403, 403, 403]);
     });
   });
 });

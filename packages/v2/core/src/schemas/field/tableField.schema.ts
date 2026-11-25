@@ -246,9 +246,21 @@ export const conditionalLookupOptionsSchema = z
  * limit). Persisted names are rehydrated through `DbFieldName` and are not
  * re-validated here.
  */
-export const dbFieldNameInputSchema = z.string().regex(/^\w{1,63}$/, {
-  message: 'dbFieldName must contain only letters, numbers and underscores (1-63 characters)',
-});
+export const dbFieldNameInputSchema = z
+  .string()
+  .regex(/^\w{1,63}$/, {
+    message: 'dbFieldName must contain only letters, numbers and underscores (1-63 characters)',
+  })
+  .refine(
+    (name) =>
+      ![
+        '__created_by_actor_type',
+        '__created_by_actor_id',
+        '__last_modified_by_actor_type',
+        '__last_modified_by_actor_id',
+      ].includes(name),
+    { message: 'dbFieldName is reserved for record attribution' }
+  );
 
 const tableFieldCommonShape = {
   id: z.string().optional(),

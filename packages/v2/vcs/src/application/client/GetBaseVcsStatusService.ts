@@ -16,7 +16,11 @@ import {
   type IVcsRemoteGateway,
   type IVcsStateRepository,
 } from '../../ports';
-import { EAGER_RETURN_SNAPSHOT_RECORD_LIMIT, loadIndexedWorkspaceDiff } from './workspaceHelpers';
+import {
+  EAGER_RETURN_SNAPSHOT_RECORD_LIMIT,
+  loadIndexedWorkspaceDiff,
+  readRequiredBaseSnapshot,
+} from './workspaceHelpers';
 
 export interface IGetBaseVcsStatusInput {
   readonly checkRemote?: boolean;
@@ -72,10 +76,12 @@ export class GetBaseVcsStatusService {
         (input?.includeSnapshot !== false &&
           totalBaseRecords <= EAGER_RETURN_SNAPSHOT_RECORD_LIMIT));
     if (shouldCaptureFull) {
-      const fullRes = await this.localEngine.captureSnapshot(config.baseId, {
-        baseName: config.baseName,
-        revision: baseSnapshot.revision,
-      });
+      const fullRes = config.readOnly
+        ? await readRequiredBaseSnapshot(this.stateRepository)
+        : await this.localEngine.captureSnapshot(config.baseId, {
+            baseName: config.baseName,
+            revision: baseSnapshot.revision,
+          });
       if (fullRes.isErr()) return err(fullRes.error);
       returnedWorkingSnapshot = baseSnapshot.accessScope
         ? { ...fullRes.value, accessScope: baseSnapshot.accessScope }

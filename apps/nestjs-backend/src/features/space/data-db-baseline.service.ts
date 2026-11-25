@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataDbMigrationService } from './data-db-migration.service';
+import type { IDataDbPreflightClient } from './data-db-preflight.service';
 
 @Injectable()
 export class DataDbBaselineService {
@@ -10,7 +11,7 @@ export class DataDbBaselineService {
     return this.migrationService.getLatestSchemaVersion();
   }
 
-  getLatestSchemaVersion() {
-    return this.migrationService.getLatestSchemaVersion();
+  validateSchemaVersion(client: IDataDbPreflightClient, internalSchema: string) {
+    return this.migrationService.validateSchemaVersion(client, internalSchema);
   }
 }

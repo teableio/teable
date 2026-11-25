@@ -18,6 +18,7 @@ import {
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import {
+  ActorId,
   BaseId,
   FieldId,
   TableId,
@@ -26,6 +27,8 @@ import {
   type IHasher,
   type ITableDeletionPreparationService,
   type ITableRepository,
+  type ITableSchemaCoordination,
+  type ITableSchemaCoordinationLease,
 } from '@teable/v2-core';
 import express from 'express';
 import { sql } from 'kysely';
@@ -40,6 +43,80 @@ import { observeSchemaAcquisitions } from './shared/observeSchemaAcquisitions';
  * Only scheduling is controlled; API writes, metadata, DDL and the worker are real.
  */
 describe('computed work racing with link deletion (postgres e2e)', () => {
+  it('returns a busy conflict for a bounded record-create wait and recovers after release', async () => {
+    const runtime = await createE2eTestContainer({
+      dbMode: 'postgres',
+      schemaCoordination: { lockTimeoutMillis: 150 },
+    });
+    const executionContext = await createStandaloneExecutionContext(runtime);
+    const app = express();
+    app.use(
+      createV2ExpressRouter({
+        createContainer: () => runtime.container,
+        createExecutionContext: () => executionContext,
+      })
+    );
+    const listening = Promise.withResolvers<Server>();
+    const server = app.listen(0, '127.0.0.1', () => listening.resolve(server));
+    server.once('error', listening.reject);
+    await listening.promise;
+    server.keepAliveTimeout = 0;
+    let lease: ITableSchemaCoordinationLease | undefined;
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Missing HTTP test address');
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+      const tableResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: runtime.baseId.toString(),
+          name: 'Bounded record-create contention',
+          fields: [{ name: 'Name', type: 'singleLineText', isPrimary: true }],
+        }),
+      });
+      expect(tableResponse.status).toBe(201);
+      const { table } = createTableOkResponseSchema.parse(await tableResponse.json()).data;
+      const coordination = runtime.container.resolve<ITableSchemaCoordination>(
+        v2CoreTokens.tableSchemaCoordination
+      );
+      lease = (
+        await coordination.acquire(
+          { actorId: ActorId.create('system')._unsafeUnwrap() },
+          [table.id],
+          'exclusive'
+        )
+      )._unsafeUnwrap();
+      const createRecord = () =>
+        fetch(`${baseUrl}/tables/createRecord`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ tableId: table.id, fields: {} }),
+        });
+
+      const blocked = await createRecord();
+      expect(blocked.status).toBe(409);
+      expect(apiErrorResponseDtoSchema.parse(await blocked.json()).error).toMatchObject({
+        code: 'schema_coordination.busy',
+        tags: ['conflict'],
+        details: { tableIds: [table.id], mode: 'shared' },
+      });
+
+      await lease.release();
+      const recovered = await createRecord();
+      expect(recovered.status).toBe(201);
+      expect(
+        createRecordOkResponseSchema.parse(await recovered.json()).data.record.id
+      ).toBeTruthy();
+    } finally {
+      await lease?.release();
+      const closed = Promise.withResolvers<void>();
+      server.close((error) => (error ? closed.reject(error) : closed.resolve()));
+      await closed.promise;
+      await runtime.dispose();
+    }
+  }, 120_000);
+
   it('settles a record-delete task when its loaded lookup link is deleted concurrently', async () => {
     const runtime = await createE2eTestContainer({
       dbMode: 'postgres',
@@ -664,6 +741,8 @@ describe('computed work racing with link deletion (postgres e2e)', () => {
     async (waitMode) => {
       const runtime = await createE2eTestContainer({
         dbMode: 'postgres',
+        // Let the five-second deletion deadline expire before a queued shared writer's bound.
+        schemaCoordination: { lockTimeoutMillis: 10_000 },
         computedUpdate: {
           mode: 'hybrid',
           hybridConfig: { dispatchMode: 'external', syncPolicy: 'none' },

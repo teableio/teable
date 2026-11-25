@@ -6,6 +6,9 @@ export interface IAppContext {
   locale: ILocale;
   lang?: string;
   shareId?: string;
+  // The project share the page is opened through. `shareId` alone cannot tell: a view share
+  // sets it too, and a link view replaces it with its field id.
+  baseShareId?: string;
   template?: IGetBaseVo['template'];
   maxSearchFieldCount?: number;
 }

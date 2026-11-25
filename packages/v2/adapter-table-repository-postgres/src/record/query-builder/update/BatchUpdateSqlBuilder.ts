@@ -1,9 +1,10 @@
-import type { DomainError, Field, Table } from '@teable/v2-core';
+import type { DomainError, Field, IExecutionContext, Table } from '@teable/v2-core';
 import { FieldType, domainError, ok } from '@teable/v2-core';
 import { CompiledQuery, type CompiledQuery as KyselyCompiledQuery, type Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { ACTOR_COLUMNS } from '../../actorColumns';
 import { FieldSqlLiteralVisitor } from '../../visitors/FieldSqlLiteralVisitor';
 import type { DynamicDB } from '../ITableRecordQueryBuilder';
 
@@ -23,6 +24,7 @@ export interface BatchUpdateNoopReleaseSpec {
  */
 export interface BuildBatchUpdateSqlParams {
   tableName: string;
+  initiator?: IExecutionContext['initiator'];
   columnUpdateData: Map<string, Array<{ recordId: string; value: unknown }>>;
   systemColumns: {
     lastModifiedTime: string;
@@ -221,6 +223,15 @@ export function buildBatchUpdateSql(
     const matchedNoOpNewValueSelects = (params.returnedNewFields ?? []).map(
       ({ alias }) => `NULL AS ${escapeSqlIdentifier(alias)}`
     );
+    for (const column of ACTOR_COLUMNS) {
+      const name = escapeSqlIdentifier(column);
+      const stored = table.actorStorageVersion() === 1 ? name : 'NULL::text';
+      matchedOldValueSelects.push(`${stored} AS ${name}`);
+      returningNewValueSelects.push(
+        `${table.actorStorageVersion() === 1 ? `t.${name}` : 'NULL::text'} AS ${name}`
+      );
+      matchedNoOpNewValueSelects.push(`matched.${name} AS ${name}`);
+    }
     const matchedNoOpSelects = [
       `matched.${escapeSqlIdentifier('matched_id')} AS ${escapeSqlIdentifier('record_id')}`,
       `NULL AS ${escapeSqlIdentifier('new_version')}`,
@@ -249,6 +260,7 @@ export function buildBatchUpdateSql(
       ...(params.returnedNewFields ?? []).map(
         ({ alias }) => `NULL AS ${escapeSqlIdentifier(alias)}`
       ),
+      ...ACTOR_COLUMNS.map((column) => `NULL::text AS ${escapeSqlIdentifier(column)}`),
       `NULL AS ${escapeSqlIdentifier('mutation_applied')}`,
       `noop_release_candidates.${escapeSqlIdentifier('release_group_key')}`,
       `noop_release_candidates.${escapeSqlIdentifier('release_source_id')}`,
@@ -270,6 +282,20 @@ export function buildBatchUpdateSql(
 
     // Case 1: All user columns are constant NULL — use simple WHERE __id = ANY(...)
     if (varyingColumnFields.length === 0) {
+      if (table.actorStorageVersion() === 1) {
+        const actorMutation = buildConstantNullDistinctWhereClause(
+          constantNullColumnFields,
+          't',
+          true,
+          ''
+        );
+        if (actorMutation) {
+          setClauses.push(
+            `${escapeSqlIdentifier('__last_modified_by_actor_type')} = CASE WHEN ${actorMutation} THEN ${escapeAndQuoteSqlValue(params.initiator?.type ?? null)} ELSE t.${escapeSqlIdentifier('__last_modified_by_actor_type')} END`,
+            `${escapeSqlIdentifier('__last_modified_by_actor_id')} = CASE WHEN ${actorMutation} THEN ${escapeAndQuoteSqlValue(params.initiator?.id ?? null)} ELSE t.${escapeSqlIdentifier('__last_modified_by_actor_id')} END`
+          );
+        }
+      }
       // System column SET clauses
       setClauses.push(
         `${escapeSqlIdentifier('__last_modified_time')} = ${escapeAndQuoteSqlValue(systemColumns.lastModifiedTime)}::timestamptz`,
@@ -434,6 +460,20 @@ ${updateBody}`.trim();
       `${escapeSqlIdentifier('__last_modified_time')} = v.${escapeSqlIdentifier('__last_modified_time')}`,
       `${escapeSqlIdentifier('__last_modified_by')} = v.${escapeSqlIdentifier('__last_modified_by')}`
     );
+    if (table.actorStorageVersion() === 1) {
+      const actorMutation = buildValuesDistinctWhereClause(
+        constantNullColumnFields,
+        varyingColumns,
+        true,
+        ''
+      );
+      if (actorMutation) {
+        setClauses.push(
+          `${escapeSqlIdentifier('__last_modified_by_actor_type')} = CASE WHEN ${actorMutation} THEN ${escapeAndQuoteSqlValue(params.initiator?.type ?? null)} ELSE t.${escapeSqlIdentifier('__last_modified_by_actor_type')} END`,
+          `${escapeSqlIdentifier('__last_modified_by_actor_id')} = CASE WHEN ${actorMutation} THEN ${escapeAndQuoteSqlValue(params.initiator?.id ?? null)} ELSE t.${escapeSqlIdentifier('__last_modified_by_actor_id')} END`
+        );
+      }
+    }
     if (systemColumns.versionIncrement) {
       setClauses.push(
         `${escapeSqlIdentifier('__version')} = t.${escapeSqlIdentifier('__version')} + 1`
@@ -575,6 +615,7 @@ function isSystemColumn(columnName: string): boolean {
     columnName === '__id' ||
     columnName === '__last_modified_time' ||
     columnName === '__last_modified_by' ||
+    (ACTOR_COLUMNS as readonly string[]).includes(columnName) ||
     columnName === '__version'
   );
 }
@@ -589,33 +630,46 @@ function isTrackedLastModifiedField(field: Field | null): boolean {
 
 function buildConstantNullDistinctWhereClause(
   columns: ReadonlyArray<BatchColumnField>,
-  tableAlias?: string
+  tableAlias?: string,
+  userWritesOnly = false,
+  prefix = ' AND '
 ): string {
   const columnPrefix = tableAlias ? `${tableAlias}.` : '';
   const predicates = columns
-    .filter(({ field }) => !isTrackedLastModifiedField(field))
+    .filter(
+      ({ field, name }) =>
+        !isTrackedLastModifiedField(field) && (!userWritesOnly || !name.startsWith('__row_'))
+    )
     .map(({ name }) => `${columnPrefix}${escapeSqlIdentifier(name)} IS DISTINCT FROM NULL`);
 
-  return predicates.length > 0 ? ` AND (${predicates.join(' OR ')})` : '';
+  return predicates.length > 0 ? `${prefix}(${predicates.join(' OR ')})` : '';
 }
 
 function buildValuesDistinctWhereClause(
   constantNullColumns: ReadonlyArray<BatchColumnField>,
-  varyingColumns: ReadonlyArray<VaryingBatchColumnField>
+  varyingColumns: ReadonlyArray<VaryingBatchColumnField>,
+  userWritesOnly = false,
+  prefix = ' AND '
 ): string {
   const predicates = [
     ...constantNullColumns
-      .filter(({ field }) => !isTrackedLastModifiedField(field))
+      .filter(
+        ({ field, name }) =>
+          !isTrackedLastModifiedField(field) && (!userWritesOnly || !name.startsWith('__row_'))
+      )
       .map(({ name }) => `t.${escapeSqlIdentifier(name)} IS DISTINCT FROM NULL`),
     ...varyingColumns
-      .filter(({ field }) => !isTrackedLastModifiedField(field))
+      .filter(
+        ({ field, name }) =>
+          !isTrackedLastModifiedField(field) && (!userWritesOnly || !name.startsWith('__row_'))
+      )
       .map(
         ({ name, presenceAlias }) =>
           `(v.${escapeSqlIdentifier(presenceAlias)} AND t.${escapeSqlIdentifier(name)} IS DISTINCT FROM v.${escapeSqlIdentifier(name)})`
       ),
   ];
 
-  return predicates.length > 0 ? ` AND (${predicates.join(' OR ')})` : '';
+  return predicates.length > 0 ? `${prefix}(${predicates.join(' OR ')})` : '';
 }
 
 function isCompilableSqlExpression(value: unknown): value is CompilableSqlExpression {

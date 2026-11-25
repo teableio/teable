@@ -15,6 +15,7 @@ export function rename(this: Table, nextName: TableName): Result<Table, DomainEr
     views: this.views(),
     primaryFieldId: this.primaryFieldId(),
     searchIndex: this.searchIndex(),
+    actorStorageVersion: this.actorStorageVersion(),
   };
 
   const dbTableNameResult = this.dbTableName();

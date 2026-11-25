@@ -3,7 +3,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { applyIncrementalChanges } from '../../domain/applyIncrementalChanges';
-import { vcsDomainError } from '../../domain/errors';
+import { readonlyCheckoutError, vcsDomainError } from '../../domain/errors';
 import {
   canonicalizeRecord,
   canonicalizeSnapshot,
@@ -50,6 +50,7 @@ export interface IndexedWorkspaceDiff {
 }
 
 export interface LoadIndexedWorkspaceDiffOptions {
+  readonly requireWritable?: boolean;
   readonly includeComputedSchemaFullTable?: boolean;
   readonly extraTouchedRecordIdsByTable?: ReadonlyMap<string, ReadonlySet<string>>;
   readonly forceFullRecordTables?: ReadonlySet<string>;
@@ -117,6 +118,20 @@ export function buildEmptyBaseSnapshotFromConfig(
   };
 }
 
+export async function readRequiredBaseSnapshot(
+  stateRepository: IVcsStateRepository
+): Promise<Result<IBaseVcsSnapshot, DomainError>> {
+  const snapshot = await stateRepository.readBaseSnapshot();
+  if (snapshot.isErr()) return err(snapshot.error);
+  if (snapshot.value) return ok(snapshot.value);
+  return err(
+    vcsDomainError.notFound({
+      code: 'vcs.missing_base_snapshot',
+      message: 'VCS base snapshot is missing',
+    })
+  );
+}
+
 export async function loadVcsWorkspace(
   stateRepository: IVcsStateRepository,
   localEngine: IVcsLocalEnginePort
@@ -132,19 +147,22 @@ export async function loadVcsWorkspace(
     );
   }
 
-  const baseRes = await stateRepository.readBaseSnapshot();
+  const baseRes = await readRequiredBaseSnapshot(stateRepository);
   if (baseRes.isErr()) return err(baseRes.error);
-  if (!baseRes.value) {
-    return err(
-      vcsDomainError.notFound({
-        code: 'vcs.missing_base_snapshot',
-        message: 'VCS base snapshot is missing',
-      })
-    );
-  }
 
   const config = configRes.value;
   const baseSnapshot = baseRes.value;
+  const conflictsRes = await stateRepository.readConflicts();
+  if (conflictsRes.isErr()) return err(conflictsRes.error);
+  // A historical working copy is the immutable checkpoint. PGlite is its query index.
+  if (config.readOnly) {
+    return ok({
+      config,
+      baseSnapshot,
+      workingSnapshot: baseSnapshot,
+      conflicts: conflictsRes.value,
+    });
+  }
 
   const workingRes = await localEngine.captureSnapshot(config.baseId, {
     baseName: config.baseName,
@@ -155,9 +173,6 @@ export async function loadVcsWorkspace(
   const workingSnapshot: IBaseVcsSnapshot = baseSnapshot.accessScope
     ? { ...workingRes.value, accessScope: baseSnapshot.accessScope }
     : workingRes.value;
-
-  const conflictsRes = await stateRepository.readConflicts();
-  if (conflictsRes.isErr()) return err(conflictsRes.error);
 
   return ok({
     config,
@@ -378,6 +393,25 @@ async function tryLoadIndexedWorkspaceDiff(params: {
   }
 
   const { schemaSnapshot: baseSchema, totalRecords, tableRecordCounts } = schemaSummaryRes.value;
+  if (params.config.readOnly) {
+    // Remote comparisons may need the original rows for a merge. Use the full checkpoint then.
+    if (
+      params.options?.extraTouchedRecordIdsByTable?.size ||
+      params.options?.forceFullRecordTables?.size
+    ) {
+      return ok(undefined);
+    }
+    return ok({
+      isIndexed: true,
+      config: params.config,
+      baseSchema,
+      totalBaseRecords: totalRecords,
+      tableRecordCounts,
+      baseSnapshot: baseSchema,
+      workingSnapshot: baseSchema,
+      conflicts: params.conflicts,
+    });
+  }
   const workingDeltaRes = await params.localEngine.captureWorkingDelta!(params.config.baseId, {
     baseName: params.config.baseName,
     revision: baseSchema.revision,
@@ -479,6 +513,7 @@ export async function loadIndexedWorkspaceDiff(
       })
     );
   }
+  if (options?.requireWritable && configRes.value.readOnly) return err(readonlyCheckoutError());
   const conflictsRes = await stateRepository.readConflicts();
   if (conflictsRes.isErr()) return err(conflictsRes.error);
 
@@ -936,6 +971,7 @@ export async function loadRemoteAndLocalDiffState(
   options?: {
     readonly includeComputedSchemaFullTable?: boolean;
     readonly rejectIfUnresolvedConflicts?: boolean;
+    readonly requireWritable?: boolean;
   }
 ): Promise<Result<LoadedRemoteAndLocalDiffState, DomainError>> {
   const configRes = await stateRepository.readConfig();
@@ -949,6 +985,7 @@ export async function loadRemoteAndLocalDiffState(
     );
   }
   const config = configRes.value;
+  if (options?.requireWritable && config.readOnly) return err(readonlyCheckoutError());
 
   const conflictsRes = await stateRepository.readConflicts();
   if (conflictsRes.isErr()) return err(conflictsRes.error);

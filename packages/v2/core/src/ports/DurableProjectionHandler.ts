@@ -1,11 +1,14 @@
 import type { Result } from 'neverthrow';
 
+import type { RecordInitiator } from '../domain/shared/RecordInitiator';
 import type { IEventDispatchScope } from './EventHandler';
-import type { IUnitOfWorkTransaction } from './ExecutionContext';
+import type { IExecutionContext, IUnitOfWorkTransaction } from './ExecutionContext';
 
 export type ProjectionEffectReceipt = Readonly<{
   kind: 'destination-inbox' | 'natural-upsert' | 'external-idempotency' | 'convergent';
   identity: string;
+  /** Omitted means the inbox is in the source database. */
+  destination?: 'source' | 'external';
 }>;
 
 export type ProjectionDeliveryOutcome =
@@ -20,6 +23,7 @@ export type ProjectionDeliveryError = Readonly<{
 
 export interface IDurableProjectionContext {
   readonly eventId: string;
+  readonly messageName?: string;
   readonly deliveryId: string;
   readonly consumerId: string;
   readonly catalogGeneration: number;
@@ -27,7 +31,12 @@ export interface IDurableProjectionContext {
   readonly replayGeneration: number;
   readonly invocationAttempt: number;
   readonly actorId: string;
-  readonly occurredAt: Date;
+  /** Null for pre-envelope messages: delivery time is not the mutation time. */
+  readonly occurredAt: Date | null;
+  readonly recordedAt?: Date;
+  readonly initiator?: RecordInitiator;
+  readonly operationId?: string;
+  readonly operationAttribution?: IExecutionContext['operationAttribution'];
   readonly requestId?: string;
   readonly dispatchScope: IEventDispatchScope;
   readonly transaction?: IUnitOfWorkTransaction;
@@ -35,8 +44,14 @@ export interface IDurableProjectionContext {
 }
 
 export interface IDurableProjectionHandler<TMessage> {
+  readonly receiptDestination?: 'source' | 'external';
   handle(
     context: IDurableProjectionContext,
     message: TMessage
   ): Promise<Result<ProjectionDeliveryOutcome, ProjectionDeliveryError>>;
+  /** Verify committed external receipts against the actual destination, never the source. */
+  verifyReceipt?(
+    context: IDurableProjectionContext,
+    receipt: ProjectionEffectReceipt
+  ): Promise<Result<boolean, ProjectionDeliveryError>>;
 }

@@ -306,6 +306,14 @@
     "addRecordComment": "Ajouter un commentaire",
     "viewRecordHistory": "Voir l'historique de l'enregistrement",
     "recordHistory": {
+      "actorTypes": {
+        "user": "Utilisateur de la plateforme",
+        "appUser": "Utilisateur de l’application",
+        "automation": "Automatisation",
+        "system": "Système"
+      },
+      "actor": "Initiateur",
+      "actorUnknown": "Inconnu",
       "hiddenRecordHistory": "Masquer l'historique des enregistrements",
       "showRecordHistory": "Afficher l'historique des enregistrements",
       "createdTime": "Heure de modification",
@@ -468,6 +476,8 @@
       "appDelete": "Supprimer une application",
       "appRead": "Lire une application",
       "appUpdate": "Mettre à jour une application",
+      "appReadUsers": "Lire les utilisateurs et métadonnées d’identité de l’application",
+      "appReadUserPii": "Lire les données personnelles des identités de l’application",
       "userEmailRead": "Lire l'email de l'utilisateur",
       "userIntegrations": "Manage user integrations",
       "userSpacesRead": "Lire les espaces de l'utilisateur (nom, forfait et sièges)",
@@ -492,6 +502,7 @@
     "routine": "Routine",
     "app": "Application",
     "user": "Utilisateur",
+    "appUser": "Utilisateur de l'application",
     "recordHistory": "Historique des enregistrements",
     "you": "Vous",
     "instance": "Instance",
@@ -1736,7 +1747,11 @@
         "signInStateInvalid": "La session de connexion n'est pas valide ou a expiré. Veuillez vous reconnecter.",
         "domainNotAllowed": "L'inscription est limitée à certains domaines e-mail. Votre domaine e-mail ne figure pas dans la liste autorisée.",
         "inviteOnly": "Cette application est accessible uniquement sur invitation. Contactez l'administrateur de l'application pour demander l'accès.",
-        "emailMissing": "Impossible de récupérer votre adresse e-mail"
+        "emailMissing": "Impossible de récupérer votre adresse e-mail",
+        "accountExists": "Cette adresse possède déjà une méthode de connexion. Utilisez-la pour vous connecter, puis associez la nouvelle méthode dans les paramètres du compte.",
+        "accountExistsWithProviders": "Cette adresse utilise déjà {{providers}} pour se connecter. Connectez-vous avec une méthode existante, puis associez la nouvelle méthode dans les paramètres du compte.",
+        "userTableLocked": "Cette app a déjà des utilisateurs, sa table d'utilisateurs ne peut donc pas changer.",
+        "emailAmbiguous": "Plusieurs profils utilisent cet e-mail"
       },
       "previewOriginNotReady": "L'application d'aperçu n'est pas prête. Rechargez l'aperçu et réessayez.",
       "publishedOriginNotReady": "L'application publiée n'est pas prête. Publiez l'application et réessayez.",
@@ -1746,6 +1761,8 @@
       },
       "customDomainNotConfigured": "Aucun domaine personnalisé configuré",
       "vercelTokenNotConfigured": "Le jeton Vercel n'est pas configuré dans les paramètres d'App Builder",
+      "managedFieldReadOnly": "Cette colonne est gérée par la connexion de l’App et ne peut pas être modifiée ici",
+      "managedRecordReadOnly": "Les lignes de profils de connexion sont gérées par la connexion de l’App et ne peuvent pas être ajoutées ou supprimées ici",
       "deleteSandboxCloseFailed": "Impossible de fermer le bac à sable. Rien n'a été supprimé, réessayez"
     },
     "reward": {

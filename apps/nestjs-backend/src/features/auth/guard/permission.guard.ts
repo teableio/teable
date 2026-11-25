@@ -14,6 +14,10 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AllowAnonymousType, IS_ALLOW_ANONYMOUS } from '../decorators/allow-anonymous.decorator';
+import {
+  BASE_SHARE_DENIED_MESSAGE,
+  IS_ALLOW_BASE_SHARE,
+} from '../decorators/allow-base-share.decorator';
 import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permission.decorator';
 import { ANY_PERMISSIONS_KEY, PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -49,6 +53,8 @@ const shareViewEndpointRules: { regex: RegExp; permissions: Set<Action> }[] = [
     permissions: new Set<Action>(['table|read']),
   },
 ];
+// Path params naming the node resource a project-level route acts on.
+const baseShareScopedParams = ['tableId', 'appId', 'workflowId', 'routineId'] as const;
 
 @Injectable()
 export class PermissionGuard {
@@ -138,8 +144,11 @@ export class PermissionGuard {
 
   protected async baseSharePermissionCheck(context: ExecutionContext, shareId: string) {
     await this.ensureBaseShareAuth(context, shareId);
-    const { baseId, tableId } = context.switchToHttp().getRequest().params ?? {};
-    const resourceId = this.getResourceId(context) || tableId || this.defaultResourceId(context);
+    // A route under /base/:baseId answers for the base, so it stays the resource here even when
+    // the path also names a table: getBaseShareResourceId lets it through only if it is marked
+    // @AllowBaseShare(), and only then narrows the check to that table.
+    const { baseId } = context.switchToHttp().getRequest().params ?? {};
+    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
     if (!resourceId) {
       throw new CustomHttpException(
         `Project share permission check ID does not exist`,
@@ -158,13 +167,20 @@ export class PermissionGuard {
     if (!permissions?.length) {
       throw new ForbiddenException('Project share permissions are required');
     }
+    const shareResourceId = this.getBaseShareResourceId(context, resourceId);
     const ownPermissions = await this.permissionService.validBaseSharePermissions(
       shareId,
-      resourceId,
+      shareResourceId,
       permissions
     );
-    if (baseId && this.cls.get('baseShare')?.baseId !== baseId) {
-      throw new ForbiddenException('Project share does not cover the requested project');
+    // The share covers what the path names; a base the path names must be the share's as well.
+    const shareBaseId = this.cls.get('baseShare')?.baseId;
+    const pathBaseId = baseId ?? (shareResourceId === resourceId ? undefined : resourceId);
+    if (pathBaseId && pathBaseId !== shareBaseId) {
+      throw new CustomHttpException(
+        `Resource ${pathBaseId} is not accessible via share ${shareId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
     }
     this.cls.set('baseShareId', shareId);
     // Preserve logged-in user identity for allowEdit; fall back to anonymous
@@ -175,9 +191,35 @@ export class PermissionGuard {
         name: ANONYMOUS_USER_ID,
         email: '',
       });
+      this.cls.set('recordInitiator', undefined);
     }
     this.cls.set('permissions', ownPermissions);
     return true;
+  }
+
+  /**
+   * What a project share is checked against on this route. A project-level route answers for
+   * the whole base while the share may cover one node, so it is refused unless marked
+   * @AllowBaseShare(); the table, app, workflow or routine it names in the path is then what
+   * the share has to cover.
+   */
+  private getBaseShareResourceId(context: ExecutionContext, resourceId: string): string {
+    if (!resourceId.startsWith(IdPrefix.Base)) {
+      return resourceId;
+    }
+    const allowed = this.reflector.getAllAndOverride<boolean | undefined>(IS_ALLOW_BASE_SHARE, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!allowed) {
+      throw new CustomHttpException(BASE_SHARE_DENIED_MESSAGE, HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.permission.notAllowedOperation',
+        },
+      });
+    }
+    const { params } = context.switchToHttp().getRequest();
+    return baseShareScopedParams.map((key) => params?.[key]).find(Boolean) ?? resourceId;
   }
 
   private async ensureBaseShareAuth(context: ExecutionContext, shareId: string) {
@@ -231,6 +273,7 @@ export class PermissionGuard {
         name: ANONYMOUS_USER_ID,
         email: '',
       });
+      this.cls.set('recordInitiator', undefined);
     }
     this.cls.set('permissions', ownPermissions);
     return true;

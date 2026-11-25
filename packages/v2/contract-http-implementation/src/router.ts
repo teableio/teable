@@ -472,18 +472,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}): V2OrpcRo
 
     if (result.status === 201) return result.body;
 
-    if (result.status === 400) {
-      return throwDomainError('BAD_REQUEST', result.body.error);
-    }
-    if (result.status === 403) {
-      return throwDomainError('FORBIDDEN', result.body.error);
-    }
-
-    if (result.status === 404) {
-      return throwDomainError('NOT_FOUND', result.body.error);
-    }
-
-    return throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+    return throwMappedDomainError(result.status, result.body.error);
   });
 
   const tablesSubmitRecord = os.tables.submitRecord.handler(async ({ input }) => {

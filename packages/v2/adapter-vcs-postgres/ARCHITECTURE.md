@@ -7,6 +7,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Implement `IBaseVcsLogRepository` (`PostgresBaseVcsLogRepository`) against PostgreSQL (and PGlite) using Kysely and `@teable/v2-core` Unit of Work transactions (`getPostgresTransaction` / `resolvePostgresDbOrTx`).
 - Implement `v2|` native `pg_snapshot` visibility queries, `tableIds` scope tags, bounded 2-snapshot interval pagination (`hasMore`), and MVCC pre-enable quiesce barriers (`enabled_barrier_xid`, `pg_snapshot_xmin >= enabled_barrier_xid`).
 - Execute all reads/writes strictly within existing tables migrated by `@teable/db-main-prisma`, `@teable/db-data-prisma`, and `@teable/v2-postgres-schema` (zero runtime DDL).
+- Push and confirmed rollback lock physical targets before metadata rows and the base head. Later explicit locks use `NOWAIT` because a multi-command business transaction may already hold the head from an earlier write. The head still records a monotonic `updated_at` fence in the transaction that changes business data.
 
 ## Files
 
@@ -16,7 +17,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `src/cursor.ts` - Role: cursor helpers; Purpose: `buildPullCursorFromSnapshot`, `isCursorBeforeRetention`, `computeScopeTag`, and `resolveChangesRetentionConfig`.
 - `src/register.ts` - Role: DI binder; Purpose: register `PostgresBaseVcsLogRepository` as `v2VcsServerTokens.logRepository` and optional config as `v2VcsPostgresTokens.config`.
 - `src/tokens.ts` - Role: DI tokens; Purpose: define `v2VcsPostgresTokens` and `IV2VcsPostgresAdapterConfig`.
-- `src/PostgresBaseVcsLogRepository.db.spec.ts`, `BaseVcsChangeLogProjection.db.spec.ts`, `VcsServerUseCases.db.spec.ts` - Role: integration tests; Purpose: verify real-PG `pg_snapshot` pagination & barriers, same-tx projection/rollback + computed cascades, split-DB rejection, metadata-lock-before-read & deleted-table CAS, and server use-cases.
+- `src/PostgresBaseVcsLogRepository.db.spec.ts`, `BaseVcsChangeLogProjection.db.spec.ts`, `VcsServerUseCases.db.spec.ts` - Role: integration tests. They cover real PostgreSQL snapshot pagination and barriers, same-transaction capture and rollback, split-database rejection, physical-to-metadata lock order, and stale push and rollback checks.
 
 ## Examples
 

@@ -2,7 +2,7 @@ import type { IUserFieldOptions, IUserCellValue } from '@teable/core';
 import { X } from '@teable/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import { useEffect, useRef, useState } from 'react';
-import { UserTag } from '../../cell-value';
+import { UserTag, isAppUserId } from '../../cell-value';
 import { useModalRefElement } from '../../expand-record/useModalRefElement';
 import type { IUserEditorMainProps } from './EditorMain';
 import { UserEditorMain } from './EditorMain';
@@ -64,6 +64,7 @@ export const UserEditor = (props: IUserEditorProps) => {
           key={id}
           name={title}
           avatar={avatarUrl}
+          isAppUser={isAppUserId(id)}
           suffix={
             <X
               className="size-3 cursor-pointer opacity-50 hover:opacity-100"

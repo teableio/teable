@@ -51,6 +51,7 @@ export enum UsageFeatureLimit {
   CustomDomainEnable = 'customDomainEnable',
   MaxNumSystemSendEmail = 'maxNumSystemSendEmail',
   ConnectorEventEnable = 'connectorEventEnable',
+  PeriodicFieldRefreshEnable = 'periodicFieldRefreshEnable',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -82,6 +83,7 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.CustomDomainEnable]: z.boolean(),
   [UsageFeatureLimit.MaxNumSystemSendEmail]: z.number(),
   [UsageFeatureLimit.ConnectorEventEnable]: z.boolean(),
+  [UsageFeatureLimit.PeriodicFieldRefreshEnable]: z.boolean(),
 });
 
 export const usageVoSchema = z.object({

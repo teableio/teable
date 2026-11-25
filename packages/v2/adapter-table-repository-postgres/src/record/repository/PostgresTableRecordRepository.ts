@@ -42,6 +42,12 @@ import {
   type UndoLogRow,
 } from '../../shared/undoCapture';
 import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
+import {
+  ACTOR_COLUMNS,
+  actorReturningSelections,
+  readRecordActors,
+  readStoredActor,
+} from '../actorColumns';
 import { buildAttachmentTableBatchReplaceQueries } from '../attachments/attachmentTableMutations';
 import type {
   ComputedBeforeImageRecord,
@@ -100,12 +106,31 @@ import {
 // System columns (kept for update operations)
 const RECORD_ID_COLUMN = '__id';
 const VERSION_COLUMN = '__version';
-const SYSTEM_UPDATE_COLUMNS = new Set([
+const SYSTEM_UPDATE_COLUMNS = new Set<string>([
   RECORD_ID_COLUMN,
   VERSION_COLUMN,
   '__last_modified_time',
   '__last_modified_by',
+  ...ACTOR_COLUMNS,
 ]);
+
+const validateRestoreActorColumns = (
+  values: core.RecordRestoreSystemValues | undefined
+): Result<void, DomainError> => {
+  const extraColumnValues = values?.extraColumnValues;
+  if (
+    extraColumnValues &&
+    ACTOR_COLUMNS.some((column) => Object.hasOwn(extraColumnValues, column))
+  ) {
+    return err(
+      domainError.validation({
+        message: 'Actor columns cannot be supplied through extraColumnValues',
+        code: 'validation.record.reserved_actor_columns',
+      })
+    );
+  }
+  return ok(undefined);
+};
 
 type BulkUpdateTrackedField = {
   fieldId: core.FieldId;
@@ -567,16 +592,17 @@ async function getViewOrderInfo(
 
 /**
  * Build view order values for a record being inserted.
- * Each view gets order = currentMaxOrder + recordIndex + 1
+ * A historical default overrides append for columns materialized since capture.
  */
 function buildViewOrderValues(
   viewOrderInfo: ViewOrderInfo,
-  recordIndex: number
+  recordIndex: number,
+  defaultOrder?: number
 ): Record<string, number> {
   const values: Record<string, number> = {};
 
   for (const [columnName, maxOrder] of viewOrderInfo) {
-    values[columnName] = maxOrder + recordIndex + 1;
+    values[columnName] = defaultOrder ?? maxOrder + recordIndex + 1;
   }
 
   return values;
@@ -601,16 +627,16 @@ function buildSnapshotViewOrderValues(
 }
 
 /**
- * Snapshot orders win per view; views whose row-order column was created
- * after the snapshot append like a fresh insert instead of staying NULL.
+ * Explicit per-view values win over the snapshot default, then the normal append order.
  */
 function buildRestoredViewOrderValues(
   viewOrderInfo: ViewOrderInfo,
   recordIndex: number,
-  orders?: Readonly<Record<string, number>>
+  orders?: Readonly<Record<string, number>>,
+  defaultOrder?: number
 ): Record<string, number> {
   return {
-    ...buildViewOrderValues(viewOrderInfo, recordIndex),
+    ...buildViewOrderValues(viewOrderInfo, recordIndex, defaultOrder),
     ...buildSnapshotViewOrderValues(orders),
   };
 }
@@ -770,6 +796,14 @@ const buildStoredRecordSnapshotFromRow = (
     const createdBy = row.__created_by;
     const lastModifiedTime = row.__last_modified_time;
     const lastModifiedBy = row.__last_modified_by;
+    const creator =
+      table.actorStorageVersion() === 1
+        ? readStoredActor(row.__created_by_actor_type, row.__created_by_actor_id)
+        : null;
+    const modifier =
+      table.actorStorageVersion() === 1
+        ? readStoredActor(row.__last_modified_by_actor_type, row.__last_modified_by_actor_id)
+        : null;
 
     return ok({
       recordId,
@@ -785,6 +819,10 @@ const buildStoredRecordSnapshotFromRow = (
         ? { lastModifiedTime: toOptionalIsoString(lastModifiedTime) }
         : {}),
       ...(typeof lastModifiedBy === 'string' ? { lastModifiedBy } : {}),
+      createdByActorType: creator?.type ?? null,
+      createdByActorId: creator?.id ?? null,
+      lastModifiedByActorType: modifier?.type ?? null,
+      lastModifiedByActorId: modifier?.id ?? null,
     });
   });
 
@@ -1279,6 +1317,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const actorLookupDb = this.metaDb as unknown as Kysely<DynamicDB>;
         const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
         const restoreValues = options?.restoreRecordsById?.get(record.id().toString());
+        yield* validateRestoreActorColumns(restoreValues);
         // T7251: lazily create missing view row-order columns BEFORE this
         // transaction touches the physical table (getViewOrderInfo / the
         // insert below take locks held until commit). Missing-column creation
@@ -1335,6 +1374,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           context: {
             recordId: record.id().toString(),
             actorId: context.actorId.toString(),
+            initiator: context.initiator,
+            ...(restoreValues?.createdByActor !== undefined
+              ? { createdByActor: restoreValues.createdByActor }
+              : {}),
             now,
             ...(restoreValues?.version !== undefined ? { version: restoreValues.version } : {}),
             actorName: actorIdentity.actorName,
@@ -1369,7 +1412,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         // Add view order columns (default: append to end).
         // (Missing row-order columns were ensured up front — see T7251.)
-        let viewOrderValues = buildRestoredViewOrderValues(viewOrderInfo, 0, restoreValues?.orders);
+        let viewOrderValues = buildRestoredViewOrderValues(
+          viewOrderInfo,
+          0,
+          restoreValues?.orders,
+          restoreValues?.defaultOrder
+        );
 
         // If ordering is specified, calculate order value for the target view
         if (options?.order) {
@@ -1432,14 +1480,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             tableName
           );
 
-          const insertedRow =
-            changedFieldColumns.length > 0
-              ? ((await db
-                  .insertInto(tableName)
-                  .values(valuesWithViewOrder)
-                  .returning(buildChangedFieldReturningSelects(changedFieldColumns))
-                  .executeTakeFirst()) as Record<string, unknown> | undefined)
-              : (await db.insertInto(tableName).values(valuesWithViewOrder).execute(), undefined);
+          const insertedRow = (await db
+            .insertInto(tableName)
+            .values(valuesWithViewOrder)
+            .returning([
+              ...buildChangedFieldReturningSelects(changedFieldColumns),
+              ...actorReturningSelections(table),
+            ])
+            .executeTakeFirstOrThrow()) as Record<string, unknown>;
           if (restoreValues?.autoNumber !== undefined) {
             await syncAutoNumberSequence(db, tableName);
           }
@@ -1488,6 +1536,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           await this.touchTableMeta(context, table.id().toString(), actorId);
           const changedFields = toChangedFieldsMap(insertedRow, changedFieldColumns);
           return ok({
+            recordActors: readRecordActors(insertedRow),
             changedFields,
             computedChanges,
             recordSnapshot: snapshot,
@@ -1643,6 +1692,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         let recordIndex = 0;
         for (const record of records) {
           const restoreValues = options?.restoreRecordsById?.get(record.id().toString());
+          const restoreActorValidation = validateRestoreActorColumns(restoreValues);
+          if (restoreActorValidation.isErr()) return err(restoreActorValidation.error);
           const createdByIdentity = await resolveRestoreIdentity(
             restoreValues?.createdBy,
             restoreValues?.createdBy === actorId ? actorIdentity : {}
@@ -1662,6 +1713,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             context: {
               recordId: record.id().toString(),
               actorId: context.actorId.toString(),
+              initiator: context.initiator,
+              ...(restoreValues?.createdByActor !== undefined
+                ? { createdByActor: restoreValues.createdByActor }
+                : {}),
               now,
               ...(restoreValues?.version !== undefined ? { version: restoreValues.version } : {}),
               actorName: actorIdentity.actorName,
@@ -1707,7 +1762,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           let viewOrderValues = buildRestoredViewOrderValues(
             viewOrderInfo,
             recordIndex,
-            restoreValues?.orders
+            restoreValues?.orders,
+            restoreValues?.defaultOrder
           );
 
           // If ordering is specified, override the target view's order value
@@ -1828,30 +1884,30 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ? []
             : yield* toChangedFieldColumns(table, uniqueChangedFieldIds);
           const changedFieldsByRecord = new Map<string, ReadonlyMap<string, unknown>>();
+          const recordActorsByRecord = new Map<string, core.RecordActorAttribution>();
+          const actorSelects = actorReturningSelections(table);
           for (let i = 0; i < allValues.length; i += batchSize) {
             const batch = allValues.slice(i, i + batchSize);
-            if (changedFieldColumns.length > 0) {
-              const rows = (await db
-                .insertInto(tableName)
-                .values(batch)
-                .returning([
-                  sql.ref(RECORD_ID_COLUMN).as('record_id'),
-                  ...buildChangedFieldReturningSelects(changedFieldColumns),
-                ])
-                .execute()) as Array<Record<string, unknown>>;
-              for (const row of rows) {
-                const recordId = asString(row.record_id);
-                if (!recordId) {
-                  continue;
-                }
-                const allowedFieldIds = requestedChangedFieldIdsByRecord.get(recordId);
-                const changedFields = toChangedFieldsMap(row, changedFieldColumns, allowedFieldIds);
-                if (changedFields) {
-                  changedFieldsByRecord.set(recordId, changedFields);
-                }
+            const rows = (await db
+              .insertInto(tableName)
+              .values(batch)
+              .returning([
+                sql.ref(RECORD_ID_COLUMN).as('record_id'),
+                ...buildChangedFieldReturningSelects(changedFieldColumns),
+                ...actorSelects,
+              ])
+              .execute()) as Array<Record<string, unknown>>;
+            for (const row of rows) {
+              const recordId = asString(row.record_id);
+              if (!recordId) {
+                continue;
               }
-            } else {
-              await db.insertInto(tableName).values(batch).execute();
+              recordActorsByRecord.set(recordId, readRecordActors(row));
+              const allowedFieldIds = requestedChangedFieldIdsByRecord.get(recordId);
+              const changedFields = toChangedFieldsMap(row, changedFieldColumns, allowedFieldIds);
+              if (changedFields) {
+                changedFieldsByRecord.set(recordId, changedFields);
+              }
             }
           }
           await analyzeSeededTable(db, tableName, tableWasEmpty);
@@ -1922,6 +1978,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
           await this.touchTableMeta(context, table.id().toString(), actorId);
           return ok({
+            recordActorsByRecord,
             changedFieldsByRecord:
               changedFieldsByRecord.size > 0 ? changedFieldsByRecord : undefined,
             computedChangesByRecord,
@@ -2987,6 +3044,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             recordId: recordIdStr,
             context: {
               actorId,
+              initiator: context.initiator,
               now,
               actorName: actorIdentity.actorName,
               actorEmail: actorIdentity.actorEmail,
@@ -3053,23 +3111,41 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           let updateQuery = db
             .updateTable(tableName)
             .set(setClauses)
-            .where(RECORD_ID_COLUMN, '=', recordIdStr);
+            .where(RECORD_ID_COLUMN, '=', recordIdStr)
+            .where(sql<SqlBool>`EXISTS (SELECT 1 FROM actor_before)`);
           if (options?.expectedVersion != null) {
             updateQuery = updateQuery.where(VERSION_COLUMN, '=', options.expectedVersion);
           }
           if (distinctUserFieldWhere) {
             updateQuery = updateQuery.where(distinctUserFieldWhere);
           }
-          const updatedRow =
-            changedFieldColumns.length > 0
-              ? ((await updateQuery
-                  .returning(buildChangedFieldReturningSelects(changedFieldColumns))
-                  .executeTakeFirst()) as Record<string, unknown> | undefined)
-              : (await updateQuery.executeTakeFirst(), undefined);
-          if (changedFieldColumns.length > 0 && !updatedRow) {
+          const beforeActorQuery = db
+            .selectFrom(tableName)
+            .select(actorReturningSelections(table))
+            .where(RECORD_ID_COLUMN, '=', recordIdStr)
+            .forNoKeyUpdate();
+          const returning = [
+            ...buildChangedFieldReturningSelects(changedFieldColumns),
+            ...actorReturningSelections(table),
+          ];
+          const noOpReturning = [
+            ...changedFieldColumns.map(({ alias }) => sql`NULL`.as(alias)),
+            ...ACTOR_COLUMNS.map((column) => sql.ref(`actor_before.${column}`).as(column)),
+          ];
+          const mutationRowsResult = await sql<Record<string, unknown>>`
+            WITH actor_before AS MATERIALIZED (${beforeActorQuery}),
+            actor_updated AS (${updateQuery.returning(returning)})
+            SELECT actor_updated.*, TRUE AS mutation_applied FROM actor_updated
+            UNION ALL
+            SELECT ${sql.join(noOpReturning)}, FALSE AS mutation_applied FROM actor_before
+            WHERE NOT EXISTS (SELECT 1 FROM actor_updated)
+          `.execute(db);
+          const updatedRow = mutationRowsResult.rows[0];
+          const recordActors = updatedRow ? readRecordActors(updatedRow) : undefined;
+          if (!updatedRow || updatedRow.mutation_applied === false) {
             await snapshotCaptureSession.abort();
             snapshotCaptureSession = undefined;
-            return ok({ mutationApplied: false });
+            return ok({ mutationApplied: false, recordActors });
           }
 
           const writtenSourceIds = new Set([recordIdStr]);
@@ -3169,7 +3245,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           await this.touchTableMeta(context, table.id().toString(), actorId);
           const computedChanges = extractChangesForRecord(computedResult, recordIdStr);
           const changedFields = toChangedFieldsMap(updatedRow, changedFieldColumns);
-          return ok({ mutationApplied: true, changedFields, computedChanges, updateSnapshot });
+          return ok({
+            mutationApplied: true,
+            changedFields,
+            computedChanges,
+            updateSnapshot,
+            recordActors,
+          });
         } catch (error) {
           await snapshotCaptureSession?.abort();
           return err(
@@ -3216,6 +3298,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const mutateVisitor = CellValueMutateVisitor.create(db, table, tableName, {
           recordId: '__bulk_update__',
           actorId,
+          initiator: context.initiator,
           now,
           actorName: actorIdentity.actorName,
           actorEmail: actorIdentity.actorEmail,
@@ -3315,6 +3398,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ...physicalLinkOwnerColumns.map(({ columnName, oldAlias }) =>
               sql.ref(columnName).as(oldAlias)
             ),
+            ...actorReturningSelections(table),
           ];
 
           const returningSelects = [
@@ -3333,19 +3417,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ...physicalLinkOwnerColumns.map(({ columnName, newAlias }) =>
               sql.ref(`${tableName}.${columnName}`).as(newAlias)
             ),
+            ...actorReturningSelections(table, tableName),
           ];
 
+          const matchedQuery = db
+            .selectFrom(tableName)
+            .select(matchedSelects)
+            .where(whereExpression)
+            .orderBy(RECORD_ID_COLUMN)
+            .forNoKeyUpdate();
           let updateQuery = db
-            .with('matched', (qb) => {
-              const matched = qb
-                .selectFrom(tableName)
-                .select(matchedSelects)
-                .where(whereExpression);
-              // Read link before-images only after the same row lock as the UPDATE.
-              return linkFieldIds.length > 0
-                ? matched.orderBy(RECORD_ID_COLUMN).forNoKeyUpdate()
-                : matched;
-            })
             .updateTable(tableName)
             .from('matched')
             .set(setClauses)
@@ -3353,7 +3434,30 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           if (distinctUserFieldWhere) {
             updateQuery = updateQuery.where(distinctUserFieldWhere);
           }
-          const rows = await updateQuery.returning(returningSelects).execute();
+          const noopSelects = [
+            sql.ref('matched.matched_id').as('record_id'),
+            sql.ref('matched.old_version').as('new_version'),
+            sql.ref('matched.old_version').as('old_version'),
+            ...trackedFields.map(({ oldValueAlias }) =>
+              sql.ref(`matched.${oldValueAlias}`).as(oldValueAlias)
+            ),
+            ...filledLinkColumns.map(({ alias }) => sql`NULL`.as(alias)),
+            ...physicalLinkOwnerColumns.map(({ oldAlias }) =>
+              sql.ref(`matched.${oldAlias}`).as(oldAlias)
+            ),
+            ...physicalLinkOwnerColumns.map(({ newAlias }) => sql`NULL`.as(newAlias)),
+            ...ACTOR_COLUMNS.map((column) => sql.ref(`matched.${column}`).as(column)),
+          ];
+          const result = await sql<Record<string, unknown>>`
+            WITH matched AS MATERIALIZED (${matchedQuery}),
+            updated AS (${updateQuery.returning(returningSelects)})
+            SELECT updated.*, TRUE AS mutation_applied FROM updated
+            UNION ALL
+            SELECT ${sql.join(noopSelects)}, FALSE AS mutation_applied FROM matched
+            WHERE NOT EXISTS (SELECT 1 FROM updated WHERE updated.record_id = matched.matched_id)
+          `.execute(db);
+          const rows = result.rows;
+          const recordActorsByRecord = new Map<string, core.RecordActorAttribution>();
 
           const updatedRecordIds: core.RecordId[] = [];
           const updatedRecords: Array<core.UpdateManyResult['updatedRecords'][number]> = [];
@@ -3363,6 +3467,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             if (typeof rawId !== 'string') {
               continue;
             }
+            recordActorsByRecord.set(rawId, readRecordActors(row));
+            if (row.mutation_applied === false) continue;
             const recordIdResult = core.RecordId.create(rawId);
             if (recordIdResult.isOk()) {
               const oldFieldValues: Record<string, unknown> = {};
@@ -3466,6 +3572,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           // Keep raw before-images for computation, then expose matching old/new presentation.
           presentUpdatedUserValues(table, updatedRecords);
           return ok({
+            recordActorsByRecord,
             totalUpdated: updatedRecordIds.length,
             updatedRecordIds,
             updatedRecords,
@@ -3512,6 +3619,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const updatedRecords: Array<
           NonNullable<core.UpdateManyStreamResult['updatedRecords']>[number]
         > = [];
+        const recordActorsByRecord = new Map<string, core.RecordActorAttribution>();
         const beforeImageByRecordId = new Map<string, ComputedBeforeImageRecord>();
         const allValueFieldIds = new Map<string, core.FieldId>();
         const allLinkFieldIds = new Map<string, core.FieldId>();
@@ -3612,6 +3720,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             updates,
             context: {
               actorId: context.actorId.toString(),
+              initiator: context.initiator,
               now,
               actorName: actorIdentity.actorName,
               actorEmail: actorIdentity.actorEmail,
@@ -3719,13 +3828,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               : [];
             const updateSqlResult = buildBatchUpdateSql({
               tableName,
+              initiator: context.initiator,
               columnUpdateData,
               systemColumns,
               table: batchTable,
               db,
               returnedOldFields,
               returnedNewFields,
-              returnMatchedRecords: captureLinkMutations,
+              returnMatchedRecords: true,
               noopReleaseSpecs: buildBatchNoopReleaseSpecs(impact.exclusivityConstraints),
             });
             if (updateSqlResult.isErr()) {
@@ -3818,6 +3928,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               if (typeof rawId !== 'string') {
                 continue;
               }
+              recordActorsByRecord.set(rawId, readRecordActors(row));
               if (row.mutation_applied === false) {
                 unchangedSourceIds.push(rawId);
                 continue;
@@ -4139,7 +4250,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         }
 
         presentUpdatedUserValues(table, updatedRecords);
-        return ok({ totalUpdated, updatedRecords });
+        return ok({ totalUpdated, updatedRecords, recordActorsByRecord });
       }.bind(this)
     );
   }

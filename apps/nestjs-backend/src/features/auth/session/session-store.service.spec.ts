@@ -357,18 +357,15 @@ describe('SessionStoreService', () => {
       expect(saved.meta?.lastActiveAt).not.toBe('2026-01-01T00:00:00.000Z');
     });
 
-    it('should handle getCache undefined and call callback with error', async () => {
-      const error = new Error('Session not found');
-
-      // Mock the necessary methods
-      vitest.spyOn(sessionStoreService as any, 'getCache').mockResolvedValueOnce(undefined);
+    it('treats a missing/revoked session as a no-op without resurrecting or failing touch', async () => {
+      vitest.spyOn(sessionStoreService as any, 'getCache').mockResolvedValueOnce(null);
+      vitest.spyOn(sessionStoreService as any, 'setCache');
 
       await sessionStoreService.touchAsync(sid, sessionData, callbackMock);
 
-      // Verify that getCache method was called with the expected parameter
       expect(sessionStoreService['getCache']).toHaveBeenCalledWith(sid);
-      // Verify that the callback was called with the error
-      expect(callbackMock).toHaveBeenCalledWith(error);
+      expect(sessionStoreService['setCache']).not.toHaveBeenCalled();
+      expect(callbackMock).toHaveBeenCalledWith();
     });
 
     it('should handle getCache error and call callback with error', async () => {

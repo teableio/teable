@@ -10,7 +10,11 @@ import { err, ok, type Result } from 'neverthrow';
 
 import { vcsDomainError } from '../../domain/errors';
 import type { IBaseVcsPatch } from '../../domain/types';
-import type { IVcsAccessPolicy, IVcsReadableTableScope } from '../../ports/server';
+import type {
+  IVcsAccessPolicy,
+  IVcsReadableTableScope,
+  VcsHistoryAccess,
+} from '../../ports/server';
 import { listLiveTablesInBase } from './serverHelpers';
 
 @injectable()
@@ -19,6 +23,20 @@ export class AllowAllVcsAccessPolicy implements IVcsAccessPolicy {
     @inject(v2CoreTokens.queryBus)
     private readonly queryBus: IQueryBus
   ) {}
+
+  async resolveHistoryAccess(
+    ctx: IExecutionContext,
+    baseId: BaseId
+  ): Promise<Result<VcsHistoryAccess, DomainError>> {
+    const readable = await this.resolveReadableTables(ctx, baseId);
+    return readable.map((tables) => ({
+      kind: 'scoped' as const,
+      tables: tables.map((scope) => ({
+        ...scope,
+        readableViewIds: new Set(scope.table.views().map((view) => view.id().toString())),
+      })),
+    }));
+  }
 
   async resolveReadableTables(
     ctx: IExecutionContext,

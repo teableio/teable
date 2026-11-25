@@ -306,6 +306,14 @@
     "addRecordComment": "Agregar comentario",
     "viewRecordHistory": "Ver historial del registro",
     "recordHistory": {
+      "actorTypes": {
+        "user": "Usuario de la plataforma",
+        "appUser": "Usuario de la aplicación",
+        "automation": "Automatización",
+        "system": "Sistema"
+      },
+      "actor": "Iniciador",
+      "actorUnknown": "Desconocido",
       "hiddenRecordHistory": "Ocultar historia de registro",
       "showRecordHistory": "Mostrar historia discográfica",
       "createdTime": "Hora de modificación",
@@ -468,6 +476,8 @@
       "appDelete": "Eliminar aplicación",
       "appRead": "Leer aplicación",
       "appUpdate": "Actualizar aplicación",
+      "appReadUsers": "Leer usuarios y metadatos de identidad de la aplicación",
+      "appReadUserPii": "Leer información personal de identidades de la aplicación",
       "userEmailRead": "Lea el correo electrónico actual del usuario",
       "userIntegrations": "Manage user integrations",
       "userSpacesRead": "Lea los espacios del usuario actual (nombre, plan y licencias)",
@@ -492,6 +502,7 @@
     "routine": "Rutina",
     "app": "Aplicación",
     "user": "Usuario",
+    "appUser": "Usuario de la aplicación",
     "recordHistory": "Historial del registro",
     "you": "Tú",
     "instance": "Instancia",
@@ -1736,7 +1747,11 @@
         "signInStateInvalid": "La sesión de inicio de sesión no es válida o ha caducado. Inicia sesión de nuevo.",
         "domainNotAllowed": "El registro está restringido a determinados dominios de correo. El dominio de tu correo no está en la lista de permitidos.",
         "inviteOnly": "Esta aplicación es solo por invitación. Contacta con el administrador de la aplicación para solicitar acceso.",
-        "emailMissing": "No se pudo obtener tu dirección de correo electrónico"
+        "emailMissing": "No se pudo obtener tu dirección de correo electrónico",
+        "accountExists": "Este correo ya tiene un método de inicio de sesión. Úsalo para entrar y vincula el nuevo método en la configuración de la cuenta.",
+        "accountExistsWithProviders": "Este correo ya inicia sesión con {{providers}}. Entra con un método existente y vincula el nuevo método en la configuración de la cuenta.",
+        "userTableLocked": "Esta app ya tiene usuarios de la app, así que su tabla de usuarios no puede cambiar.",
+        "emailAmbiguous": "Varios perfiles usan este correo"
       },
       "previewOriginNotReady": "La vista previa de la aplicación no está lista. Recarga la vista previa e inténtalo de nuevo.",
       "publishedOriginNotReady": "La aplicación publicada no está lista. Publica la aplicación e inténtalo de nuevo.",
@@ -1746,6 +1761,8 @@
       },
       "customDomainNotConfigured": "No hay ningún dominio personalizado configurado",
       "vercelTokenNotConfigured": "El token de Vercel no está configurado en los ajustes de App Builder",
+      "managedFieldReadOnly": "Esta columna la mantiene el inicio de sesión de la App y no se puede editar aquí",
+      "managedRecordReadOnly": "El inicio de sesión de la App gestiona las filas de perfiles de acceso y no se pueden añadir ni eliminar aquí",
       "deleteSandboxCloseFailed": "No se pudo cerrar el sandbox. No se eliminó nada, inténtalo de nuevo"
     },
     "reward": {

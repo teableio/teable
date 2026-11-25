@@ -1,3 +1,4 @@
+import { pgErrorCode } from '@teable/v2-adapter-db-postgres-shared';
 import { ActorId, type DomainError, type IExecutionContext } from '@teable/v2-core';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Result } from 'neverthrow';
@@ -223,6 +224,7 @@ describe('V2PgTableSchemaCoordination', () => {
 
     try {
       const lease = (await local.acquire(createContext(), [TABLE_A], 'shared'))._unsafeUnwrap();
+      expect(lease.isActive).toBe(true);
 
       const pidResult = await observer.query<{ pid: number }>(
         `SELECT pid
@@ -241,6 +243,7 @@ describe('V2PgTableSchemaCoordination', () => {
             '[v2-adapter-db-postgres-pg] Table schema coordination connection failed',
             expect.anything()
           );
+          expect(lease.isActive).toBe(false);
         },
         { timeout: 5_000, interval: 20 }
       );
@@ -248,6 +251,7 @@ describe('V2PgTableSchemaCoordination', () => {
       // Without the checked-out client error listener this would be an
       // unhandled 'error' event; the lease must also not COMMIT a dead socket.
       await lease.release();
+      expect(lease.isActive).toBe(false);
 
       const exclusive = (
         await local.acquire(createContext(), [TABLE_A], 'exclusive')
@@ -283,6 +287,65 @@ describe('V2PgTableSchemaCoordination', () => {
       await local.destroy();
     }
   }, 20_000);
+
+  it('destroys checked-out advisory waiters without waiting for the external exclusive holder', async () => {
+    const applicationName = `${APPLICATION_NAME}-destroy-lock-waiter`;
+    const local = new V2PgTableSchemaCoordination({
+      connectionString: container!.getConnectionUri(),
+      maxConnections: 2,
+      applicationName,
+    });
+    const exclusive = (
+      await coordination.acquire(createContext(), [TABLE_A], 'exclusive')
+    )._unsafeUnwrap();
+    const localHeld = (await local.acquire(createContext(), [TABLE_B], 'shared'))._unsafeUnwrap();
+    let destroyPromise: Promise<void> | undefined;
+    const waiting = local.acquire(createContext(), [TABLE_A], 'shared');
+    try {
+      await waitForAdvisoryWaiter(observer, applicationName);
+      let destroyed = false;
+      destroyPromise = local.destroy().then(() => {
+        destroyed = true;
+      });
+      // The holder deliberately stays locked: the old pool.end() deadlocks here.
+      await vi.waitFor(() => expect(destroyed).toBe(true), { timeout: 5_000, interval: 20 });
+      expect((await waiting).isErr()).toBe(true);
+      expect(localHeld.isActive).toBe(false);
+      expect(localHeld.assertHeld).toBeDefined();
+      expect((await localHeld.assertHeld!()).isErr()).toBe(true);
+    } finally {
+      await exclusive.release();
+      const pending = await waiting;
+      if (pending.isOk()) await pending.value.release();
+      await localHeld.release();
+      await (destroyPromise ?? local.destroy());
+    }
+  }, 20_000);
+
+  it('times out a blocked advisory acquisition and releases its transaction for later writers', async () => {
+    const local = new V2PgTableSchemaCoordination({
+      connectionString: container!.getConnectionUri(),
+      maxConnections: 1,
+      applicationName: `${APPLICATION_NAME}-lock-timeout`,
+      lockTimeoutMillis: 150,
+    });
+    const holder = (
+      await coordination.acquire(createContext(), [TABLE_B], 'exclusive')
+    )._unsafeUnwrap();
+    try {
+      const blocked = await local.acquire(createContext(), [TABLE_B], 'shared');
+      expect(blocked.isErr()).toBe(true);
+      expect(blocked._unsafeUnwrapErr().code).toBe('schema_coordination.busy');
+      expect(blocked._unsafeUnwrapErr().tags).toContain('conflict');
+      expect(pgErrorCode(blocked._unsafeUnwrapErr())).toBe('55P03');
+      await holder.release();
+      const recovered = (await local.acquire(createContext(), [TABLE_B], 'shared'))._unsafeUnwrap();
+      await recovered.release();
+    } finally {
+      await holder.release();
+      await local.destroy();
+    }
+  }, 5_000);
 
   it('cancels an acquisition and releases partial table locks before its blocker ends', async () => {
     const abort = new AbortController();
@@ -388,6 +451,13 @@ describe('V2PgTableSchemaCoordination', () => {
     )._unsafeUnwrap();
     try {
       abort.abort();
+      expect(lease.fence).toEqual({
+        backendPid: expect.any(Number),
+        transactionId: expect.any(String),
+      });
+      expect(lease.isActive).toBe(true);
+      expect(lease.assertHeld).toBeDefined();
+      expect((await lease.assertHeld!()).isOk()).toBe(true);
       const probe = await observer.query<{ acquired: boolean }>(
         'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
         [`teable.schema:table:${TABLE_A}`]
@@ -396,6 +466,8 @@ describe('V2PgTableSchemaCoordination', () => {
     } finally {
       await lease.release();
     }
+    expect(lease.isActive).toBe(false);
+    expect((await lease.assertHeld!())._unsafeUnwrapErr().code).toBe('actor_columns.lease_lost');
     const released = await observer.query<{ acquired: boolean }>(
       'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
       [`teable.schema:table:${TABLE_A}`]

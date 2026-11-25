@@ -45,6 +45,30 @@ export const firstPublishHistory = (version: number): ITemplateHistoryEntry[] =>
   { version, publishedTime: new Date().toISOString() },
 ];
 
+/**
+ * The row whose snapshot base is `baseId`, with its snapshot parsed. The snapshot column is a
+ * JSON string that also carries the snapshot base's name, which the publisher chooses, so a
+ * row containing the id is only a candidate: the id has to be the snapshot's own base.
+ */
+export const pickTemplateOfSnapshotBase = <T extends { snapshot: string | null }>(
+  rows: readonly T[],
+  baseId: string
+): (Omit<T, 'snapshot'> & { snapshot: ITemplateVo['snapshot'] }) | null => {
+  for (const row of rows) {
+    if (!row.snapshot) continue;
+    let snapshot: ITemplateVo['snapshot'];
+    try {
+      snapshot = JSON.parse(row.snapshot) as ITemplateVo['snapshot'];
+    } catch {
+      continue;
+    }
+    if (snapshot?.baseId === baseId) {
+      return { ...row, snapshot };
+    }
+  }
+  return null;
+};
+
 @Injectable()
 export class TemplateModel {
   constructor(
@@ -58,16 +82,10 @@ export class TemplateModel {
     statsType: 'template',
   })
   async getTemplateRawByBaseId(baseId: string) {
-    const res = await this.prismaService.txClient().template.findFirst({
+    const candidates = await this.prismaService.txClient().template.findMany({
       where: { snapshot: { contains: baseId } },
     });
-    if (!res) {
-      return null;
-    }
-    return {
-      ...res,
-      snapshot: JSON.parse(res.snapshot!) as ITemplateVo['snapshot'],
-    };
+    return pickTemplateOfSnapshotBase(candidates, baseId);
   }
 
   /**

@@ -37,7 +37,11 @@ import {
   type IFieldOperationPlugin,
 } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
+import type {
+  ITableRepository,
+  TableProvisionOperationOptions,
+  TableProvisionState,
+} from '../ports/TableRepository';
 import type { IUnitOfWork, IUnitOfWorkOptions, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { createFieldOperationPluginRunner } from './fieldOperationPluginRunnerTestUtils';
 import { ImportDotTeaStructureCommand } from './ImportDotTeaStructureCommand';
@@ -76,6 +80,7 @@ class FakeForeignTableLoaderService {
 
 class FakeTableRepository implements ITableRepository {
   provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
+  actorPublications: TableProvisionOperationOptions[] = [];
 
   async insert(_: IExecutionContext, table: Table) {
     return ok(table);
@@ -129,8 +134,10 @@ class FakeTableRepository implements ITableRepository {
   async setProvisionStateMany(
     _: IExecutionContext,
     tables: ReadonlyArray<Table>,
-    state: TableProvisionState
+    state: TableProvisionState,
+    operation?: TableProvisionOperationOptions
   ): Promise<Result<void, DomainError>> {
+    if (operation?.publishActorStorageVersion === 1) this.actorPublications.push(operation);
     for (const table of tables) {
       this.provisionStateChanges.push({ tableId: table.id().toString(), state });
     }
@@ -445,6 +452,9 @@ describe('ImportDotTeaStructureHandler', () => {
     expect(tableCreationService.lastInput?.tables).toHaveLength(1);
     expect(tableCreationService.lastInput?.tables[0]?.id().toString()).toBe(value.tables[0]?.id);
     expect(unitOfWork.scopes).toEqual(['meta', 'meta', 'data', 'meta']);
+    expect(tableRepository.actorPublications).toEqual([
+      expect.objectContaining({ operationType: 'table.import', publishActorStorageVersion: 1 }),
+    ]);
     expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
       'pending',
       'ready',

@@ -138,6 +138,7 @@ export type UndoRedoStackAppendContext = UndoRedoStackScopeContext &
 export type UndoRedoStackReplayContext = UndoRedoStackScopeContext &
   UndoRedoStackTracingContext & {
     readonly requestId?: string;
+    readonly initiator?: ExecutionContextPort.IExecutionContext['initiator'];
     readonly transaction?: ExecutionContextPort.IExecutionContext['transaction'];
     readonly config?: ExecutionContextPort.IExecutionContext['config'];
     readonly $t?: ExecutionContextPort.IExecutionContext['$t'];
@@ -199,10 +200,11 @@ export const toUndoRedoStackAppendContext = (
 export const toUndoRedoStackReplayContext = (
   context: Pick<
     ExecutionContextPort.IExecutionContext,
-    'actorId' | 'windowId' | 'requestId' | 'tracer' | 'transaction' | 'config' | '$t'
+    'actorId' | 'initiator' | 'windowId' | 'requestId' | 'tracer' | 'transaction' | 'config' | '$t'
   >
 ): UndoRedoStackReplayContext => ({
   actorId: context.actorId,
+  initiator: context.initiator,
   windowId: context.windowId,
   requestId: context.requestId,
   tracer: context.tracer,
@@ -960,6 +962,7 @@ export class UndoRedoStackService {
           ...(this.replayConfig.restorePurgeGuard
             ? { requireTrashRowReason: RECORD_REMOVAL_REASON.Deleted }
             : {}),
+          trustedCreatedActorsByRecordId: this.trustedCreatedActors(commandData.payload.records),
           ...(deferSelfReferentialLinks ? { deferSelfReferentialLinks } : {}),
           ...(onTableSelfLinkFieldsResolved ? { onTableSelfLinkFieldsResolved } : {}),
         });
@@ -982,6 +985,7 @@ export class UndoRedoStackService {
           requireTrashRowReason: RECORD_REMOVAL_REASON.Archived,
           ...(deferSelfReferentialLinks ? { deferSelfReferentialLinks } : {}),
           ...(onTableSelfLinkFieldsResolved ? { onTableSelfLinkFieldsResolved } : {}),
+          trustedCreatedActorsByRecordId: this.trustedCreatedActors(commandData.payload.records),
         });
       }
       case 'ArchiveRecords':
@@ -1223,6 +1227,28 @@ export class UndoRedoStackService {
     }
   }
 
+  private trustedCreatedActors(
+    records: ReadonlyArray<{
+      recordId: string;
+      createdByActorType?:
+        | NonNullable<ExecutionContextPort.IExecutionContext['initiator']>['type']
+        | null;
+      createdByActorId?: string | null;
+    }>
+  ) {
+    return new Map(
+      records.map(
+        (record) =>
+          [
+            record.recordId,
+            record.createdByActorType && record.createdByActorId
+              ? { type: record.createdByActorType, id: record.createdByActorId }
+              : null,
+          ] as const
+      )
+    );
+  }
+
   private buildReplayExecutionContext(
     context: UndoRedoStackReplayContext,
     mode: 'undo' | 'redo',
@@ -1230,6 +1256,7 @@ export class UndoRedoStackService {
   ): ExecutionContextPort.IExecutionContext {
     return {
       actorId: context.actorId,
+      initiator: context.initiator,
       windowId: context.windowId,
       requestId: context.requestId,
       tracer: context.tracer,

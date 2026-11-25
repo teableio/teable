@@ -87,6 +87,16 @@ export class PostgresTransactionalProjectionMessageJournal implements ITransacti
           })
         );
       }
+      const attribution = {
+        version: 1,
+        eventId: message.eventId,
+        operationId:
+          message.context.operationAttribution?.operationId ??
+          message.route.operationId ??
+          message.batchId,
+        occurredAt: message.occurredAt.toISOString(),
+        context: message.context,
+      };
       const payloadJson = serializeProjectionPayload(
         scope === 'meta'
           ? {
@@ -94,6 +104,7 @@ export class PostgresTransactionalProjectionMessageJournal implements ITransacti
               payload: message.payload,
               context: message.context,
               occurredAt: message.occurredAt.toISOString(),
+              attribution,
             }
           : message.payload
       );
@@ -121,6 +132,9 @@ export class PostgresTransactionalProjectionMessageJournal implements ITransacti
           schema_version: message.schemaVersion,
           aggregate_id: message.route.streamKey ?? null,
           payload: sql`${payloadJson}::jsonb`,
+          ...(scope === 'data'
+            ? { attribution: sql`${serializeProjectionPayload(attribution)}::jsonb` }
+            : {}),
           payload_bytes: payloadBytes,
           catalog_generation: message.catalogGeneration,
           required_consumers: sql`${JSON.stringify(

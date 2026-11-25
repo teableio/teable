@@ -175,17 +175,11 @@ export const buildTableRecordConditionPlan = async (
     }
 
     if (input.selectedRecordIds != null) {
-      const selectedRecordIds = input.selectedRecordIds.map((recordId) =>
-        RecordId.create(recordId)
-      );
-      const invalidSelectedRecordId = selectedRecordIds.find((result) => result.isErr());
-      if (invalidSelectedRecordId?.isErr()) {
-        return err(invalidSelectedRecordId.error);
+      const selectedRecordIds: RecordId[] = [];
+      for (const recordId of input.selectedRecordIds) {
+        selectedRecordIds.push(yield* RecordId.forLookup(recordId));
       }
-
-      const selectedIdsSpec = RecordByIdsSpec.create(
-        selectedRecordIds.map((result) => result._unsafeUnwrap())
-      );
+      const selectedIdsSpec = RecordByIdsSpec.create(selectedRecordIds);
       if (input.filterLinkCellCandidate) {
         builder.not((notBuilder) => {
           notBuilder.addConditionSpec(selectedIdsSpec);

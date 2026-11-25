@@ -92,6 +92,10 @@ import { DOMAIN_EVENT_OUTBOX_WAKEUP_PUBLISHER } from './domain-event-outbox-trig
 import { TableQueryObservationRuntimeService } from './table-query-observation-runtime.service';
 import { TableQuerySearchMetricsService } from './table-query-search-observability';
 import { resolveTableQuerySearchVectorRuntimeMode } from './table-query-search-vector-runtime.service';
+import {
+  publishActorColumnsMetadata,
+  registerActorColumnsEnableHandler,
+} from './v2-actor-columns-registration';
 import { V2AttachmentUrlSignerService } from './v2-attachment-url-signer.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { resolveBoolean, resolvePositiveInteger } from './v2-config-parsers';
@@ -601,7 +605,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       ? undefined
       : this.pgPoolRegistry.acquire(metaConnectionString);
     const dataPoolLease = metaPoolLease
-      ? this.acquireDataPoolLease(dataConnectionString, metaConnectionString, metaPoolLease, dataSchema)
+      ? this.acquireDataPoolLease(
+          dataConnectionString,
+          metaConnectionString,
+          metaPoolLease,
+          dataSchema
+        )
       : undefined;
     const poolLeases = metaPoolLease
       ? dataPoolLease && dataPoolLease !== metaPoolLease
@@ -656,6 +665,14 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         ...this.resolveTableRowLimitOption(),
       });
       createdContainer = container;
+      if (!options.previewReadOnly) {
+        registerActorColumnsEnableHandler(
+          container,
+          dataConnectionString,
+          dataSchema,
+          (_context, target) => publishActorColumnsMetadata(this.shareDbService, this.cls, target)
+        );
+      }
 
       registerV2ShareDbRealtime(container, {
         publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
@@ -1018,10 +1035,11 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         const target = await this.runtimeCache.getOrCreate(
           TABLE_QUERY_MAINTENANCE_CACHE_NAMESPACE,
           route.cacheKey,
-          () => this.createContainer(route.connectionUrl ?? route.url, route.internalSchema, {
-            previewReadOnly: true,
-            maintenance: true,
-          }),
+          () =>
+            this.createContainer(route.connectionUrl ?? route.url, route.internalSchema, {
+              previewReadOnly: true,
+              maintenance: true,
+            }),
           (created) => this.destroyContainer(created)
         );
         const targetContext = this.createTableQueryOpsContext(target);

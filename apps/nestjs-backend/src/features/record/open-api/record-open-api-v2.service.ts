@@ -21,6 +21,7 @@ import {
   type IFilterSet,
   type ISnapshotBase,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IButtonClickVo,
   IClearByIdRo,
@@ -60,6 +61,7 @@ import {
   mapDomainErrorToHttpError,
   mapDomainErrorToHttpStatus,
   mapFieldToDto,
+  mapRecordActors,
 } from '@teable/v2-contract-http';
 import {
   executeArchiveRecordsEndpoint,
@@ -174,15 +176,22 @@ import { AttachmentsService } from '../../attachments/attachments.service';
 import { AuditScope } from '../../audit/audit-scope';
 import { PermissionService } from '../../auth/permission.service';
 import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
+import { RecordActorResolverService } from '../../record-attribution/record-actor-resolver.service';
 import { buildRawCopyContent } from '../../selection/raw-copy-content';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
-import { buildUndoRedoEnginePreferenceKey } from '../../undo-redo/open-api/undo-redo-engine-preference';
+import {
+  buildLegacyRedoKey,
+  buildUndoRedoEnginePreferenceKey,
+} from '../../undo-redo/open-api/undo-redo-engine-preference';
 import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { throwV2Error } from '../../v2/v2-http-error';
 import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
-import { normalizeEmptyDateComparison } from './record-filter-v2.mapper';
+import {
+  normalizeEmptyDateComparison,
+  normalizeLegacyRecordFilterForV2,
+} from './record-filter-v2.mapper';
 
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
@@ -269,7 +278,11 @@ const dateFilterFieldTypes: ReadonlySet<FieldType> = new Set([
 
 type FilterFieldMeta = Pick<IFieldVo, 'type' | 'cellValueType'> & {
   options?: IFieldVo['options'];
+  isMultipleCellValue?: boolean;
 };
+
+// App principals (`apu_…`) are stored in app_user, not in the platform user table.
+const APP_PRINCIPAL_ID_PREFIX = 'apu_';
 
 @Injectable()
 export class RecordOpenApiV2Service {
@@ -282,6 +295,12 @@ export class RecordOpenApiV2Service {
 
   @Inject(PermissionService)
   private readonly previewPermissionService!: PermissionService;
+
+  @Inject(PrismaService)
+  private readonly prismaService!: PrismaService;
+
+  @Inject(RecordActorResolverService)
+  private readonly recordActorResolver!: RecordActorResolverService;
 
   constructor(
     private readonly v2ContainerService: V2ContainerService,
@@ -301,26 +320,26 @@ export class RecordOpenApiV2Service {
     await this.spaceDataDbMigrationGuard.assertTableRecordWritable(tableId);
   }
 
-  private getUndoRedoEnginePreferenceKey(
-    tableId: string
-  ): ReturnType<typeof buildUndoRedoEnginePreferenceKey> | null {
+  private async clearUndoRedoEnginePreference(
+    tableId: string,
+    options?: { discardLegacyRedo: true }
+  ): Promise<void> {
     const userId = this.cls.get('user.id');
     const windowId = this.cls.get('windowId');
+    if (!userId || !windowId) return;
 
-    if (!userId || !windowId) {
-      return null;
+    const preference = this.cacheService.del(
+      buildUndoRedoEnginePreferenceKey(userId, tableId, windowId)
+    );
+    if (options?.discardLegacyRedo) {
+      // A new create branches history even when the last undo came from v1.
+      await Promise.all([
+        preference,
+        this.cacheService.del(buildLegacyRedoKey(userId, tableId, windowId)),
+      ]);
+    } else {
+      await preference;
     }
-
-    return buildUndoRedoEnginePreferenceKey(userId, tableId, windowId);
-  }
-
-  private async clearUndoRedoEnginePreference(tableId: string): Promise<void> {
-    const key = this.getUndoRedoEnginePreferenceKey(tableId);
-    if (!key) {
-      return;
-    }
-
-    await this.cacheService.del(key);
   }
 
   private wrapStreamAndClearPreference<T extends { id: string }>(
@@ -666,6 +685,7 @@ export class RecordOpenApiV2Service {
       if (formatter.isOk()) displayFormatters.set(fieldId, formatter.value);
     }
     const primaryFormatter = displayFormatters.get(primaryFieldId);
+    const responseFieldIds = new Set(projectionFieldIds);
     let records = this.withRecordReadSyncSpan(
       context,
       'teable.RecordOpenApiV2Service.mapReadModels',
@@ -675,7 +695,7 @@ export class RecordOpenApiV2Service {
       },
       () => {
         const idResponsePlan = this.isIdFieldKeyType(requestedFieldKeyType)
-          ? this.createIdRecordResponsePlan(table, options?.includeEmptyCells)
+          ? this.createIdRecordResponsePlan(table, options?.includeEmptyCells, responseFieldIds)
           : undefined;
         return listResult.records.map((record) =>
           this.mapTableRecordReadModelToIRecord(
@@ -684,7 +704,8 @@ export class RecordOpenApiV2Service {
             primaryFieldId,
             requestedFieldKeyType,
             idResponsePlan,
-            primaryFormatter
+            primaryFormatter,
+            responseFieldIds
           )
         );
       }
@@ -923,6 +944,7 @@ export class RecordOpenApiV2Service {
     }
 
     const resolvedUsers = await this.resolvePublicUsers(container, userIds);
+    await this.resolveAppPrincipals(table.id().toString(), userIds, resolvedUsers);
     return {
       ...extra,
       groupPoints: extra.groupPoints.map((point) =>
@@ -1116,25 +1138,40 @@ export class RecordOpenApiV2Service {
       ignoreViewQuery: true,
       keepPrimaryKey: false,
     });
+    let normalizedFilter: RecordFilter | undefined;
+    if (filter) {
+      const normalized = normalizeLegacyRecordFilterForV2(
+        filter,
+        this.buildFilterFieldMetaFromTable(table),
+        this.cls.get('user.id'),
+        'savedView'
+      );
+      if (normalized.isErr()) {
+        throwV2Error(
+          mapDomainErrorToHttpError(normalized.error),
+          mapDomainErrorToHttpStatus(normalized.error)
+        );
+      }
+      normalizedFilter = normalized.value ?? undefined;
+    }
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const matchingIds = new Set<string>();
     for (let index = 0; index < recordIds.length; index += maxResolveSelectionRecordIdsPageSize) {
       const chunk = recordIds.slice(index, index + maxResolveSelectionRecordIdsPageSize);
-      const { result } = await this.getRecordsWithPreparedScope(
-        tableId,
+      const result = await this.executeListTableRecordsQuery(
         {
+          tableId,
           selectedRecordIds: chunk,
-          filter,
-          take: chunk.length,
-          skip: 0,
+          filter: normalizedFilter,
+          limit: chunk.length,
+          projection: [],
+          includeTotal: false,
           ignoreViewQuery: true,
-          includeQueryExtra: false,
           fieldKeyType: FieldKeyType.Id,
         },
-        queryScope,
-        container,
         context,
-        table,
-        { projectionFieldIds: [], idsOnly: true }
+        queryBus,
+        { queryScope, table, idsOnly: true }
       );
       for (const record of result.records) matchingIds.add(record.id);
     }
@@ -1656,6 +1693,7 @@ export class RecordOpenApiV2Service {
   }
 
   async hydrateSelectedUserCells<T extends { fields: Record<string, unknown> }>(
+    tableId: string,
     container: DependencyContainer,
     records: ReadonlyArray<T>,
     fieldKeys: ReadonlyArray<string>
@@ -1668,6 +1706,7 @@ export class RecordOpenApiV2Service {
     const resolvedUsers = userIds.size
       ? await this.resolvePublicUsers(container, userIds)
       : new Map<string, { id: string; title: string; email?: string }>();
+    await this.resolveAppPrincipals(tableId, userIds, resolvedUsers);
     return records.map((record) => {
       const fields = { ...record.fields };
       for (const key of fieldKeys) {
@@ -1675,6 +1714,23 @@ export class RecordOpenApiV2Service {
       }
       return { ...record, fields };
     });
+  }
+
+  /** App labels come only from the table-scoped, permission-checked business profile projection. */
+  private async resolveAppPrincipals(
+    tableId: string,
+    userIds: ReadonlySet<string>,
+    target: Map<string, { id: string; title: string; email?: string }>
+  ): Promise<void> {
+    const appPrincipalIds = [...userIds].filter((id) => id.startsWith(APP_PRINCIPAL_ID_PREFIX));
+    if (!appPrincipalIds.length) return;
+    const actors = await this.recordActorResolver.resolve(
+      tableId,
+      appPrincipalIds.map((id) => ({ actorType: 'appUser' as const, actorId: id }))
+    );
+    for (const id of appPrincipalIds) {
+      target.set(id, { id, title: actors[`appUser:${id}`]?.name || id });
+    }
   }
 
   private async hydrateLegacyUserCells(
@@ -1687,12 +1743,12 @@ export class RecordOpenApiV2Service {
       .getFields()
       .filter((field) => this.isPublicUserValueField(field))
       .map((field) => this.resolveResponseFieldKey(table, field.id().toString(), fieldKeyType));
-    return this.hydrateSelectedUserCells(container, records, keys);
+    return this.hydrateSelectedUserCells(table.id().toString(), container, records, keys);
   }
 
   private collectLegacyUserIds(value: unknown, target: Set<string>): void {
     if (typeof value === 'string') {
-      if (value.startsWith('usr')) target.add(value);
+      if (value.startsWith('usr') || value.startsWith(APP_PRINCIPAL_ID_PREFIX)) target.add(value);
       return;
     }
     if (Array.isArray(value)) {
@@ -1701,7 +1757,12 @@ export class RecordOpenApiV2Service {
     }
     if (value && typeof value === 'object') {
       const id = (value as { id?: unknown }).id;
-      if (typeof id === 'string' && id.startsWith('usr')) target.add(id);
+      if (
+        typeof id === 'string' &&
+        (id.startsWith('usr') || id.startsWith(APP_PRINCIPAL_ID_PREFIX))
+      ) {
+        target.add(id);
+      }
     }
   }
 
@@ -1729,7 +1790,10 @@ export class RecordOpenApiV2Service {
       const lookup = container.resolve<IUserLookupService>(v2CoreTokens.userLookupService);
       // Display enrichment for ids already stored in cells: keep resolving
       // deleted users so historical values retain their owner names.
-      const result = await lookup.listUsersByIds([...userIds], { includeDeleted: true });
+      const result = await lookup.listUsersByIds(
+        [...userIds].filter((id) => id.startsWith('usr')),
+        { includeDeleted: true }
+      );
       if (result.isOk()) {
         for (const user of result.value) {
           resolvedUsers.set(user.id, {
@@ -1759,10 +1823,16 @@ export class RecordOpenApiV2Service {
         : value && typeof value === 'object'
           ? (value as { id?: unknown }).id
           : undefined;
-    if (typeof id !== 'string' || !id.startsWith('usr')) {
+    if (
+      typeof id !== 'string' ||
+      (!id.startsWith('usr') && !id.startsWith(APP_PRINCIPAL_ID_PREFIX))
+    ) {
       return value;
     }
 
+    if (id.startsWith(APP_PRINCIPAL_ID_PREFIX)) {
+      return { id, title: resolvedUsers.get(id)?.title || id };
+    }
     const resolved = resolvedUsers.get(id);
     const existing = value && typeof value === 'object' ? value : {};
     return {
@@ -2413,15 +2483,17 @@ export class RecordOpenApiV2Service {
     primaryFieldId: string,
     fieldKeyType: FieldKeyType,
     idResponsePlan: IIdRecordResponsePlan | undefined,
-    primaryFormatter: FieldDisplayValueFormatter | undefined
+    primaryFormatter: FieldDisplayValueFormatter | undefined,
+    responseFieldIds: ReadonlySet<string>
   ): IRecord {
     const fields = idResponsePlan
       ? this.normalizeIdKeyedRecordFields(record, idResponsePlan)
-      : this.mapNonIdRecordFields(table, record, fieldKeyType);
+      : this.mapNonIdRecordFields(table, record, fieldKeyType, responseFieldIds);
     const primaryKey = idResponsePlan
       ? primaryFieldId
       : this.resolveResponseFieldKey(table, primaryFieldId, fieldKeyType);
     const primaryValue = fields[primaryKey] ?? record.fields[primaryFieldId];
+    this.applyAppPrincipalActorFields(table, record, fields, fieldKeyType);
     return {
       id: record.id,
       fields,
@@ -2431,18 +2503,24 @@ export class RecordOpenApiV2Service {
       lastModifiedTime: record.lastModifiedTime,
       createdBy: record.createdBy,
       lastModifiedBy: record.lastModifiedBy,
+      createdByActorType: record.createdByActorType,
+      createdByActorId: record.createdByActorId,
+      lastModifiedByActorType: record.lastModifiedByActorType,
+      lastModifiedByActorId: record.lastModifiedByActorId,
     };
   }
 
   private createIdRecordResponsePlan(
     table: Table,
-    includeEmptyCells = false
+    includeEmptyCells = false,
+    responseFieldIds: ReadonlySet<string>
   ): IIdRecordResponsePlan {
     const checkboxFieldIds = new Set<string>();
     const auditFallbacks: Array<IIdRecordResponsePlan['auditFallbacks'][number]> = [];
 
     for (const field of table.getFields()) {
       const fieldId = field.id().toString();
+      if (!responseFieldIds.has(fieldId)) continue;
       const fieldType = field.type().toString();
       if (fieldType === 'checkbox') {
         checkboxFieldIds.add(fieldId);
@@ -2477,7 +2555,7 @@ export class RecordOpenApiV2Service {
       if (record.fields[fallback.fieldId] != null) {
         continue;
       }
-      const userId = fallback.source === 'createdBy' ? record.createdBy : record.lastModifiedBy;
+      const userId = this.auditActorId(record, fallback.source);
       if (userId) {
         fields[fallback.fieldId] = this.systemAuditUserFallback(userId);
       }
@@ -2488,17 +2566,20 @@ export class RecordOpenApiV2Service {
   private mapNonIdRecordFields(
     table: Table,
     record: TableRecordReadModel,
-    fieldKeyType: FieldKeyType
+    fieldKeyType: FieldKeyType,
+    responseFieldIds: ReadonlySet<string>
   ): Record<string, unknown> {
     const rawFields = { ...record.fields };
     for (const field of table.getFields()) {
       const fieldId = field.id().toString();
+      if (!responseFieldIds.has(fieldId)) continue;
       if (rawFields[fieldId] != null) {
         continue;
       }
       const fieldType = field.type().toString();
-      if (fieldType === 'createdBy' && record.createdBy) {
-        rawFields[fieldId] = this.systemAuditUserFallback(record.createdBy);
+      const createdByActor = this.auditActorId(record, 'createdBy');
+      if (fieldType === 'createdBy' && createdByActor) {
+        rawFields[fieldId] = this.systemAuditUserFallback(createdByActor);
       } else if (
         fieldType === 'lastModifiedBy' &&
         (field as LastModifiedByField).isTrackAll() &&
@@ -2508,6 +2589,44 @@ export class RecordOpenApiV2Service {
       }
     }
     return this.remapRecordFieldsFromTable(table, rawFields, fieldKeyType);
+  }
+
+  /**
+   * The stored CreatedBy/LastModifiedBy snapshot names the platform account the App runs as.
+   * When the write carried an App principal, the cell must name that principal instead.
+   */
+  private applyAppPrincipalActorFields(
+    table: Table,
+    record: TableRecordReadModel,
+    fields: Record<string, unknown>,
+    fieldKeyType: FieldKeyType
+  ): void {
+    for (const field of table.getFields()) {
+      const type = field.type().toString();
+      if (type !== 'createdBy' && type !== 'lastModifiedBy') continue;
+      if (type === 'lastModifiedBy' && !(field as LastModifiedByField).isTrackAll()) continue;
+      const source = type === 'createdBy' ? 'createdBy' : 'lastModifiedBy';
+      const actorType =
+        source === 'createdBy' ? record.createdByActorType : record.lastModifiedByActorType;
+      const actorId =
+        source === 'createdBy' ? record.createdByActorId : record.lastModifiedByActorId;
+      if (actorType !== 'appUser' || !actorId?.startsWith(APP_PRINCIPAL_ID_PREFIX)) continue;
+      const key = this.resolveResponseFieldKey(table, field.id().toString(), fieldKeyType);
+      if (!Object.prototype.hasOwnProperty.call(fields, key)) continue;
+      const current = fields[key];
+      fields[key] = typeof current === 'string' ? actorId : { id: actorId, title: actorId };
+    }
+  }
+
+  private auditActorId(
+    record: TableRecordReadModel,
+    source: 'createdBy' | 'lastModifiedBy'
+  ): string | undefined {
+    const actorType =
+      source === 'createdBy' ? record.createdByActorType : record.lastModifiedByActorType;
+    const actorId = source === 'createdBy' ? record.createdByActorId : record.lastModifiedByActorId;
+    if (actorType === 'appUser' && actorId?.startsWith(APP_PRINCIPAL_ID_PREFIX)) return actorId;
+    return (source === 'createdBy' ? record.createdBy : record.lastModifiedBy) ?? undefined;
   }
 
   private systemAuditUserFallback(userId: string): {
@@ -2856,6 +2975,7 @@ export class RecordOpenApiV2Service {
     }
     const record: IRecord = {
       id: result.value.record.id().toString(),
+      ...mapRecordActors(result.value.recordActors),
       fields: Object.fromEntries(
         result.value.record
           .fields()
@@ -2902,7 +3022,11 @@ export class RecordOpenApiV2Service {
         .map(({ fieldId: resultFieldId, value }) => [resultFieldId.toString(), value.toValue()])
     );
     await this.clearUndoRedoEnginePreference(tableId);
-    return { id: result.value.record.id().toString(), fields };
+    return {
+      id: result.value.record.id().toString(),
+      fields,
+      ...mapRecordActors(result.value.recordActors),
+    };
   }
 
   async updateRecords(
@@ -3107,7 +3231,7 @@ export class RecordOpenApiV2Service {
     );
 
     if (result.status === 201 && result.body.ok) {
-      await this.clearUndoRedoEnginePreference(tableId);
+      await this.clearUndoRedoEnginePreference(tableId, { discardLegacyRedo: true });
       return {
         records: result.body.data.records as IRecord[],
       };
@@ -3172,6 +3296,7 @@ export class RecordOpenApiV2Service {
           ? {
               record: {
                 id: row.record.id().toString(),
+                ...mapRecordActors(row.recordActors),
                 fields: Object.fromEntries(
                   row.record
                     .fields()
@@ -3795,6 +3920,7 @@ export class RecordOpenApiV2Service {
       );
     }
     let prepared = await this.hydrateSelectedUserCells(
+      tableId,
       container,
       result.value.records.map((record) => ({ fields: { ...record.fields } })),
       targetFields
@@ -5159,6 +5285,8 @@ export class RecordOpenApiV2Service {
         cellValueType: valueTypeResult.isOk()
           ? this.cellValueTypeFromV2ValueType(valueTypeResult.value.cellValueType.toString())
           : this.cellValueTypeFromV2FieldType(type),
+        isMultipleCellValue:
+          valueTypeResult.isOk() && valueTypeResult.value.isMultipleCellValue.toBoolean(),
         options,
       };
       fieldMetaMap.set(field.id().toString(), meta);
@@ -5634,7 +5762,7 @@ export class RecordOpenApiV2Service {
     );
 
     if (result.status === 201 && result.body.ok) {
-      await this.clearUndoRedoEnginePreference(tableId);
+      await this.clearUndoRedoEnginePreference(tableId, { discardLegacyRedo: true });
       return result.body.data.record as IRecord;
     }
 

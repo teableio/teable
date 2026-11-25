@@ -182,6 +182,8 @@ export interface IV2NodeTestContainerOptions {
         maxConnections?: number;
         /** Milliseconds to establish a coordination connection. Defaults to 10000. */
         connectionTimeoutMillis?: number;
+        /** Milliseconds to wait for an advisory lock. Defaults to 3000. */
+        lockTimeoutMillis?: number;
       }
     | false;
   // Kept for call-site compatibility. Delete now writes id-only record_trash
@@ -377,6 +379,9 @@ export const createV2NodeTestContainer = async (
         ...(coordinationOptions?.connectionTimeoutMillis !== undefined
           ? { connectionTimeoutMillis: coordinationOptions.connectionTimeoutMillis }
           : {}),
+        ...(coordinationOptions?.lockTimeoutMillis !== undefined
+          ? { lockTimeoutMillis: coordinationOptions.lockTimeoutMillis }
+          : {}),
       })
     );
   }
@@ -571,10 +576,12 @@ export const createV2NodeTestContainer = async (
       .createTable('collaborator')
       .ifNotExists()
       .addColumn('id', 'varchar(255)', (col) => col.notNull().primaryKey())
+      .addColumn('role_name', 'varchar(255)', (col) => col.notNull().defaultTo('owner'))
       .addColumn('resource_type', 'varchar(255)', (col) => col.notNull())
       .addColumn('resource_id', 'varchar(255)', (col) => col.notNull())
       .addColumn('principal_id', 'varchar(255)', (col) => col.notNull())
       .addColumn('principal_type', 'varchar(255)', (col) => col.notNull())
+      .addColumn('created_by', 'varchar(255)', (col) => col.notNull().defaultTo('system'))
       .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
       .execute()
   );
@@ -584,7 +591,7 @@ export const createV2NodeTestContainer = async (
     metaDb
       .withSchema('public')
       .insertInto('users')
-      .values({ id: 'system', name: 'System', email: null })
+      .values({ id: 'system', name: 'System', email: 'system@system.teable.ai' })
       .onConflict((oc) => oc.columns(['id']).doNothing())
       .execute()
   );
@@ -622,6 +629,8 @@ export const createV2NodeTestContainer = async (
         .insertInto('collaborator')
         .values({
           id: `col${getRandomString(16)}`,
+          role_name: 'owner',
+          created_by: 'system',
           resource_type: 'space',
           resource_id: spaceId,
           principal_id: 'system',

@@ -2,9 +2,12 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Readable } from 'node:stream';
 import { ServiceUnavailableException } from '@nestjs/common';
+import { recordHistoryVoSchema } from '@teable/openapi';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type StorageAdapter from '../attachments/plugins/adapter';
 import { FakePendingRedis } from '../cold-archive/compaction-pending.spec-fixtures';
+import { RecordHistoryReadService } from '../record/open-api/record-history-read.service';
+import { RecordActorResolverService } from '../record-attribution/record-actor-resolver.service';
 import { BucketMergeFeeder } from './bucket-merge-feeder';
 import { ExternalRowSorter, SortMemoryBudget } from './external-sort';
 import type { IColdHistoryRow } from './part-codec';
@@ -247,6 +250,8 @@ describe('record-history cold storage', () => {
         after: row.after,
         createdTime: new Date(row.createdTime),
         createdBy: row.createdBy,
+        actorType: row.actorType ?? null,
+        actorId: row.actorId ?? null,
       };
     };
 
@@ -308,6 +313,142 @@ describe('record-history cold storage', () => {
       };
       return new RecordHistoryColdReadService(dataDbClientManager as never, storage);
     };
+
+    it('preserves scalar actors across cold parts and keeps legacy unknown rows', async () => {
+      const entries = await seedParts(storage, tableId, { yyyymm: '202605', kind: 'month' }, [
+        makeRow({
+          id: 'rh-known',
+          actorType: 'appUser',
+          actorId: 'apu-profile',
+          createdTime: '2026-05-20T10:00:00.000Z',
+        }),
+        makeRow({ id: 'rh-legacy', createdTime: '2026-05-19T10:00:00.000Z' }),
+      ]);
+      await storage.writeStats(tableId, {
+        version: 1,
+        tableId,
+        parts: Object.fromEntries(entries.map((entry) => [entry.key, entry])),
+      });
+      const service = createService([
+        makeBufferRow('rh-buffered', '2026-05-21T10:00:00.000Z', {
+          actorType: 'automation',
+          actorId: 'workflow-stable',
+        }),
+      ]);
+      const result = await service.collectHistoryRows({
+        tableId,
+        shouldFilterByField: false,
+        limit: 20,
+      });
+      expect(
+        result.rows.map(({ id, actorType, actorId, createdBy }) => ({
+          id,
+          actorType,
+          actorId,
+          createdBy,
+        }))
+      ).toEqual([
+        {
+          id: 'rh-buffered',
+          actorType: 'automation',
+          actorId: 'workflow-stable',
+          createdBy: 'usr1',
+        },
+        { id: 'rh-known', actorType: 'appUser', actorId: 'apu-profile', createdBy: 'usr1' },
+        { id: 'rh-legacy', actorType: null, actorId: null, createdBy: 'usr1' },
+      ]);
+    });
+
+    it.each(['hot', 'cold'] as const)(
+      'Y4470/Y4392/Y4393 roundtrips persisted %s actors through the history API read model',
+      async (tier) => {
+        const meta = { name: 'Title', type: 'singleLineText', cellValueType: 'string' };
+        const common = {
+          before: JSON.stringify({ meta, data: 'before' }),
+          after: JSON.stringify({ meta, data: 'after' }),
+          createdBy: 'usrExecutor',
+        };
+        const rows = [
+          makeRow({ ...common, id: 'rh-platform', actorType: 'user', actorId: 'usrMember' }),
+          makeRow({ ...common, id: 'rh-app', actorType: 'appUser', actorId: 'apuMember' }),
+          makeRow({ ...common, id: 'rh-deleted', actorType: 'appUser', actorId: 'apuDeleted' }),
+          makeRow({ ...common, id: 'rh-legacy' }),
+        ];
+        if (tier === 'cold') {
+          const entries = await seedParts(
+            storage,
+            tableId,
+            { yyyymm: '202605', kind: 'month' },
+            rows
+          );
+          await storage.writeStats(tableId, {
+            version: 1,
+            tableId,
+            parts: Object.fromEntries(entries.map((entry) => [entry.key, entry])),
+          });
+        }
+        const coldRead = createService(
+          tier === 'hot' ? rows.map((row) => makeBufferRow(row.id, row.createdTime, row)) : []
+        );
+        const executor = {
+          id: 'usrExecutor',
+          name: 'App Robot',
+          email: 'robot@example.test',
+          avatar: null,
+        };
+        const member = { id: 'usrMember', name: 'Platform Member', avatar: null };
+        const prisma = {
+          tableMeta: { findFirst: vi.fn().mockResolvedValue({ baseId: 'bseFixture' }) },
+          base: { findFirst: vi.fn().mockResolvedValue({ spaceId: 'spcFixture' }) },
+          collaborator: { findMany: vi.fn().mockResolvedValue([{ principalId: member.id }]) },
+          user: {
+            findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
+              where.id.in.includes(executor.id) ? [executor] : [member]
+            ),
+          },
+        };
+        const profiles = {
+          resolve: vi.fn().mockResolvedValue({
+            ['appUser:apuMember']: { name: 'App Member', avatar: null },
+            ['appUser:apuDeleted']: null,
+          }),
+        };
+        const resolver = new RecordActorResolverService(prisma as never, profiles);
+        const service = new RecordHistoryReadService(
+          prisma as never,
+          {} as never,
+          coldRead,
+          {} as never,
+          resolver
+        );
+
+        const response = await service.getRecordHistory(tableId, 'recA', {}, ['fldA']);
+        const result = recordHistoryVoSchema.parse(JSON.parse(JSON.stringify(response)));
+
+        expect(result.historyList).toHaveLength(4);
+        const byId = Object.fromEntries(result.historyList.map((row) => [row.id, row]));
+        expect(byId['rh-platform']).toMatchObject({ actorType: 'user', actorId: 'usrMember' });
+        expect(byId['rh-app']).toMatchObject({ actorType: 'appUser', actorId: 'apuMember' });
+        expect(byId['rh-deleted']).toMatchObject({ actorType: 'appUser', actorId: 'apuDeleted' });
+        expect(byId['rh-legacy']).toMatchObject({ actorType: null, actorId: null });
+        expect(result.actorMap).toEqual({
+          ['user:usrMember']: { name: 'Platform Member', avatar: null },
+          ['appUser:apuMember']: { name: 'App Member', avatar: null },
+          ['appUser:apuDeleted']: null,
+        });
+        // No invented actor from the technical execution account, including old unattributed rows.
+        expect(result.actorMap).not.toHaveProperty('user:usrExecutor');
+        expect(result.userMap.usrExecutor).toEqual(executor);
+        expect(result.historyList.every((row) => row.createdBy === 'usrExecutor')).toBe(true);
+        expect(profiles.resolve).toHaveBeenCalledWith(
+          'bseFixture',
+          expect.arrayContaining([
+            { type: 'appUser', id: 'apuMember' },
+            { type: 'appUser', id: 'apuDeleted' },
+          ])
+        );
+      }
+    );
 
     it('merges buffer and cold rows, dedups overlap, and paginates across the seam', async () => {
       // cold rows: 30 rows across two months
@@ -819,6 +960,8 @@ describe('record-history cold storage', () => {
         afterTruncated: true,
         createdTime: '2026-01-01T00:00:00.000Z',
         createdBy: 'u1',
+        actorType: 'appUser' as const,
+        actorId: 'apu-stable-principal',
       };
       const fakeKnex = {
         raw: (sql: string, bindings: unknown[]) => ({
@@ -864,6 +1007,9 @@ describe('record-history cold storage', () => {
       expect(rows).toHaveLength(1);
       expect(rows[0].before).toBe('kept');
       expect(rows[0].afterTruncated).toBe(true);
+      expect(rows[0]).toMatchObject({ actorType: 'appUser', actorId: 'apu-stable-principal' });
+      expect(capturedSql).toContain('"actor_type" AS "actorType"');
+      expect(capturedSql).toContain('"actor_id" AS "actorId"');
       // truncation stays in SQL; the read runs on the native pg client with ? binds
       expect(capturedSql).toContain('cold-truncated');
       expect(capturedSql).toContain('char_length');

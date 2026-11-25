@@ -321,11 +321,15 @@ export const mapTableViewsToVcsSnapshots = async (
   );
 };
 
-export const mapRecordReadModelToVcsSnapshot = (rec: TableRecordReadModel): IRecordVcsSnapshot => ({
+export const mapRecordReadModelToVcsSnapshot = (
+  rec: TableRecordReadModel,
+  includeOrder = true
+): IRecordVcsSnapshot => ({
   id: rec.id,
   fields: rec.fields,
+  ...(includeOrder && rec.autoNumber !== undefined ? { autoNumber: rec.autoNumber } : {}),
   ...(rec.version !== undefined ? { version: rec.version } : {}),
-  ...(rec.orders ? { orders: { ...rec.orders } } : {}),
+  ...(includeOrder && rec.orders ? { orders: { ...rec.orders } } : {}),
 });
 
 const chunkIds = (items: readonly string[], size: number): string[][] => {
@@ -356,6 +360,7 @@ export const listTableRecordsChunkForVcs = async (params: {
       tableId,
       fieldKeyType: FieldKeyType.Id,
       ignoreViewQuery: true,
+      includeOrders: !params.queryScope,
       limit,
       ...(params.cursor !== undefined ? { cursor: params.cursor } : { offset: params.offset ?? 0 }),
     },
@@ -374,7 +379,7 @@ export const listTableRecordsChunkForVcs = async (params: {
   }
 
   const records = pageRes.value.records.map((rec) =>
-    canonicalizeRecord(mapRecordReadModelToVcsSnapshot(rec), undefined, {
+    canonicalizeRecord(mapRecordReadModelToVcsSnapshot(rec, !params.queryScope), undefined, {
       preserveComputed: params.preserveComputed ?? true,
     })
   );
@@ -454,6 +459,7 @@ export const listSelectedTableRecordsForVcs = async (
         selectedRecordIds: batch,
         fieldKeyType: FieldKeyType.Id,
         ignoreViewQuery: true,
+        includeOrders: !queryScope,
         limit: MAX_RECORDS_LIMIT,
         offset: 0,
       },
@@ -472,7 +478,7 @@ export const listSelectedTableRecordsForVcs = async (
     }
 
     for (const rec of pageRes.value.records) {
-      records.push(mapRecordReadModelToVcsSnapshot(rec));
+      records.push(mapRecordReadModelToVcsSnapshot(rec, !queryScope));
     }
   }
 

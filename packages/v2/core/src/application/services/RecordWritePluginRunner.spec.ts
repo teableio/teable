@@ -285,6 +285,32 @@ describe('RecordWritePluginRunner', () => {
     expect(calls).toEqual(['kept:supports', 'kept:guard']);
   });
 
+  it('cannot bypass a required mutation policy through an outer operation skip list', async () => {
+    const refusal = domainError.forbidden({
+      code: 'row_lifecycle_owned',
+      message: 'Row lifecycle is owned',
+    });
+    const runner = new RecordWritePluginRunner(
+      [
+        {
+          name: 'row-lifecycle',
+          skipPolicy: 'never',
+          supports: (operation) => operation === RecordWriteOperationKind.createOne,
+          guard: () => err(refusal),
+        },
+      ],
+      new FakeLogger(),
+      tableMapper
+    );
+    const execution = (
+      await runner.prepare(createContext(), {
+        runnerOptions: { skipPluginNames: new Set(['row-lifecycle']) },
+      })
+    )._unsafeUnwrap();
+
+    expect(await execution.guard()).toEqual(err(refusal));
+  });
+
   it('keeps prepared state private to the owning plugin', async () => {
     const seenStates: Array<{ plugin: string; state: unknown }> = [];
     const runner = new RecordWritePluginRunner(

@@ -21,10 +21,16 @@ import {
   UPSERT_RECORD,
   urlBuilder,
   USER_ME,
+  createAxios,
+  axios as defaultAxios,
   type ITableFullVo,
   type IUserMeVo,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
+import { ClsService } from 'nestjs-cls';
+import { AuthService } from '../src/features/auth/auth.service';
+import { JwtAuthInternalType } from '../src/features/auth/strategies/types';
+import type { IClsStore } from '../src/types/cls';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { disableLegacyFieldAdmission } from './utils/disable-legacy-field-admission';
 import { getError } from './utils/get-error';
@@ -77,6 +83,7 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
   let editorUser: AxiosInstance;
   let editorEmail: string;
   let creatorUser: AxiosInstance;
+  let creatorId: string;
   let previousForceV2All: string | undefined;
   let restoreLegacyAdmission: (() => void) | undefined;
 
@@ -214,6 +221,7 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
       password: 'TestPassword123!',
     });
     const creatorMe = await creatorUser.get<IUserMeVo>(USER_ME);
+    creatorId = creatorMe.data.id;
     await emailBaseInvitation({
       baseId,
       emailBaseInvitationRo: { emails: [creatorMe.data.email], role: Role.Creator },
@@ -546,6 +554,163 @@ describe('Cross-base link access on v2 write entry points (e2e)', () => {
     });
 
     expect(response.status).toBe(201);
+  });
+
+  describe('creating a table whose fields reference another base', () => {
+    const baseTableIds = async () =>
+      (
+        await prisma.tableMeta.findMany({
+          where: { baseId, deletedTime: null },
+          select: { id: true },
+        })
+      )
+        .map(({ id }) => id)
+        .sort();
+
+    const deniedLink = () => ({
+      name: 'denied link',
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.ManyMany,
+        foreignTableId: foreignTable2.id,
+        lookupFieldId: foreignTable2.fields[0].id,
+        baseId: foreignBaseId,
+        isOneWay: true,
+      },
+    });
+    const deniedConditionalLookup = () => ({
+      name: 'denied lookup',
+      type: foreignTable2.fields[0].type,
+      isLookup: true,
+      isConditionalLookup: true,
+      lookupOptions: {
+        foreignTableId: foreignTable2.id,
+        lookupFieldId: foreignTable2.fields[0].id,
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: foreignTable2.fields[0].id, operator: 'isNotEmpty', value: null }],
+        },
+      },
+    });
+
+    it.each([
+      ['a link', deniedLink],
+      ['a conditional lookup', deniedConditionalLookup],
+    ])('denies %s to an unreadable foreign base', async (_label, field) => {
+      const before = await baseTableIds();
+      const error = await getError(() =>
+        creatorUser.post(`/base/${baseId}/table`, {
+          name: 'denied create',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }, field()],
+        })
+      );
+
+      expect(error?.status).toBe(403);
+      expect(await baseTableIds()).toEqual(before);
+    });
+
+    it('denies the same through /api/v2/tables/create', async () => {
+      const before = await baseTableIds();
+      const error = await getError(() =>
+        creatorUser.post('/v2/tables/create', {
+          baseId,
+          name: 'denied v2 create',
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'conditionalLookup',
+              name: 'denied v2 lookup',
+              // no baseId: one in the body would already be refused by the route guard
+              options: {
+                foreignTableId: foreignTable2.id,
+                lookupFieldId: foreignTable2.fields[0].id,
+                condition: {
+                  filter: {
+                    conjunction: 'and',
+                    filterSet: [
+                      { fieldId: foreignTable2.fields[0].id, operator: 'isNotEmpty', value: null },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        })
+      );
+
+      expect(error?.status).toBe(403);
+      expect(await baseTableIds()).toEqual(before);
+    });
+
+    it('allows a table that links to a table of its own base', async () => {
+      const response = await creatorUser.post<ITableFullVo>(`/base/${baseId}/table`, {
+        name: 'allowed create',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'sibling link',
+            type: FieldType.Link,
+            options: { relationship: Relationship.ManyMany, foreignTableId: siblingTable.id },
+          },
+        ],
+      });
+
+      expect(response.status).toBe(201);
+      await permanentDeleteTable(baseId, response.data.id);
+    });
+
+    // A base-scoped internal token grants owner on its own base, so it clears
+    // `table|create`; the cross-base reference still has to pass admission. The
+    // chat-script token carries a real user, the automation token a robot.
+    const bearer = async (type: JwtAuthInternalType) => {
+      const auth = app.get(AuthService);
+      const token = await app
+        .get(ClsService<IClsStore>)
+        .runWith({ user: { id: creatorId } } as unknown as IClsStore, () =>
+          auth.getTempInternalToken(baseId, type)
+        );
+      const client = createAxios();
+      client.defaults.baseURL = defaultAxios.defaults.baseURL;
+      client.defaults.headers.common.Authorization = `Bearer ${token.accessToken}`;
+      return client;
+    };
+
+    it.each([
+      ['a chat-script (user) token', JwtAuthInternalType.User],
+      ['an automation token', JwtAuthInternalType.Automation],
+    ])('denies a cross-base reference created with %s', async (_label, type) => {
+      const client = await bearer(type);
+      const before = await baseTableIds();
+
+      const error = await getError(() =>
+        client.post(`/base/${baseId}/table`, {
+          name: `denied internal ${type}`,
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }, deniedConditionalLookup()],
+        })
+      );
+
+      expect(error?.status).toBe(403);
+      expect(await baseTableIds()).toEqual(before);
+    });
+
+    it('still lets an internal token create a same-base reference', async () => {
+      const client = await bearer(JwtAuthInternalType.User);
+
+      const response = await client.post<ITableFullVo>(`/base/${baseId}/table`, {
+        name: 'internal same-base',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'sibling link',
+            type: FieldType.Link,
+            options: { relationship: Relationship.ManyMany, foreignTableId: siblingTable.id },
+          },
+        ],
+      });
+
+      expect(response.status).toBe(201);
+      await permanentDeleteTable(baseId, response.data.id);
+    });
   });
 
   it('denies restoring a trashed record without foreign read', async () => {

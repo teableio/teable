@@ -50,6 +50,40 @@ describe('CreateFieldCommand', () => {
     expect(command.field.type).toBe('singleLineText');
   });
 
+  it.each([
+    '__created_by_actor_type',
+    '__created_by_actor_id',
+    '__last_modified_by_actor_type',
+    '__last_modified_by_actor_id',
+  ])('rejects reserved actor dbFieldName %s through create and update input', (dbFieldName) => {
+    const createResult = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: { type: 'singleLineText', name: 'Title', dbFieldName },
+    });
+    const updateResult = UpdateFieldCommand.create({
+      tableId,
+      fieldId: `fld${'c'.repeat(16)}`,
+      field: { dbFieldName },
+    });
+
+    expect(createResult.isErr()).toBe(true);
+    expect(createResult._unsafeUnwrapErr().tags).toContain('validation');
+    expect(updateResult.isErr()).toBe(true);
+    expect(updateResult._unsafeUnwrapErr().tags).toContain('validation');
+  });
+
+  it('accepts a custom dbFieldName through create input', () => {
+    const result = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: { type: 'singleLineText', name: 'Title', dbFieldName: 'custom_column_1' },
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().field.dbFieldName).toBe('custom_column_1');
+  });
+
   it('only accepts a caller-supplied dbFieldName that is a plain SQL identifier', () => {
     const createWith = (dbFieldName: string) =>
       CreateFieldCommand.create({

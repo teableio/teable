@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { withCreatedTableActorStorage } from '../application/services/TableCreationService';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import {
@@ -103,6 +104,52 @@ const createTableWithFormula = (params: {
 };
 
 describe('buildPhysicalTableDuplicatePlan', () => {
+  it.each([0, 1])('writes current actor constants only for capability %s', (version) => {
+    const sourceTable = createPlainTable(sourceTableId, sourceFieldId, sourceViewId, 'Title');
+    const legacyTarget = createPlainTable(targetTableId, targetFieldId, targetViewId, 'Title');
+    const targetTable =
+      version === 1 ? withCreatedTableActorStorage(legacyTarget)._unsafeUnwrap() : legacyTarget;
+    const plan = buildPhysicalTableDuplicatePlan({
+      sourceTable,
+      targetTable,
+      fieldIdMap: new Map([[sourceFieldId, targetFieldId]]),
+      viewIdMap: new Map([[sourceViewId, targetViewId]]),
+      initiator: { type: 'appUser', id: "apuCurrent'quoted" },
+    })._unsafeUnwrap();
+    const actorColumns = plan.columns.filter((column) => column.targetColumn.includes('_actor_'));
+    expect(actorColumns).toEqual(
+      version === 1
+        ? [
+            { targetColumn: '__created_by_actor_type', sourceSql: "'appUser'" },
+            { targetColumn: '__created_by_actor_id', sourceSql: "'apuCurrent''quoted'" },
+            { targetColumn: '__last_modified_by_actor_type', sourceSql: 'NULL' },
+            { targetColumn: '__last_modified_by_actor_id', sourceSql: 'NULL' },
+          ]
+        : []
+    );
+    expect(plan.columns.find((column) => column.targetColumn === '__created_by')?.sourceSql).toBe(
+      '"__created_by"'
+    );
+  });
+
+  it('creates unknown actor pairs when the trusted current initiator is absent', () => {
+    const sourceTable = createPlainTable(sourceTableId, sourceFieldId, sourceViewId, 'Title');
+    const targetTable = withCreatedTableActorStorage(
+      createPlainTable(targetTableId, targetFieldId, targetViewId, 'Title')
+    )._unsafeUnwrap();
+    const plan = buildPhysicalTableDuplicatePlan({
+      sourceTable,
+      targetTable,
+      fieldIdMap: new Map([[sourceFieldId, targetFieldId]]),
+      viewIdMap: new Map(),
+    })._unsafeUnwrap();
+    expect(
+      plan.columns
+        .filter((column) => column.targetColumn.includes('_actor_'))
+        .map((column) => column.sourceSql)
+    ).toEqual(['NULL', 'NULL', 'NULL', 'NULL']);
+  });
+
   it('allows self-link tables for physical path when __id is preserved', () => {
     const dto: ITablePersistenceDTO = {
       id: sourceTableId,

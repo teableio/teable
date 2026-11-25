@@ -1,10 +1,10 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
-import type { DomainError } from '../../domain/shared/DomainError';
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
@@ -119,6 +119,7 @@ const createHandler = (tables: ReadonlyArray<Table>) => {
   const tableSchemaRepository = {
     ensureInsertedMany: vi.fn(async () => ok(undefined)),
     ensurePhysicalTable: vi.fn(async () => ok(undefined)),
+    ensureActorColumns: vi.fn(async () => ok(undefined)),
   } as unknown as ITableSchemaRepository;
   const fieldCreationSideEffectService = {
     execute: vi.fn(
@@ -127,7 +128,7 @@ const createHandler = (tables: ReadonlyArray<Table>) => {
     ),
   };
   const foreignTableLoaderService = {
-    load: vi.fn(async () => ok([])),
+    load: vi.fn(async (): Promise<Result<ReadonlyArray<Table>, DomainError>> => ok([])),
   };
   const handler = new TableSchemaOperationRepairHandler(
     tableRepository as unknown as ITableRepository,
@@ -148,6 +149,21 @@ const createHandler = (tables: ReadonlyArray<Table>) => {
 };
 
 describe('TableSchemaOperationRepairHandler', () => {
+  it('does not publish creation capability when physical actor shape validation fails', async () => {
+    const table = createTable('p', 'Invalid actor storage');
+    const { handler, tableRepository, tableSchemaRepository } = createHandler([table]);
+    vi.mocked(tableSchemaRepository.ensureActorColumns).mockResolvedValueOnce(
+      err(domainError.infrastructure({ message: 'Actor column has the wrong type' }))
+    );
+
+    const result = await handler.run(context(), operation(table));
+
+    expect(result._unsafeUnwrapErr().message).toBe('Actor column has the wrong type');
+    expect(tableRepository.setProvisionState).not.toHaveBeenCalled();
+    expect(tableRepository.setProvisionStateMany).not.toHaveBeenCalled();
+    expect(table.actorStorageVersion()).toBe(0);
+  });
+
   it('repairs a schema-only table create operation and completes the same operation key', async () => {
     const table = createTable('a', 'Repair Create');
     const { handler, tableRepository, tableSchemaRepository, fieldCreationSideEffectService } =
@@ -166,6 +182,10 @@ describe('TableSchemaOperationRepairHandler', () => {
     ]);
     expect(fieldCreationSideEffectService.execute).toHaveBeenCalledOnce();
     expect(tableSchemaRepository.ensurePhysicalTable).not.toHaveBeenCalled();
+    expect(tableSchemaRepository.ensureActorColumns).toHaveBeenCalledWith(
+      expect.any(Object),
+      table
+    );
     expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
       expect.any(Object),
       table,
@@ -173,6 +193,7 @@ describe('TableSchemaOperationRepairHandler', () => {
       expect.objectContaining({
         idempotencyKey: `repair-op:table:${table.id().toString()}`,
         operationType: 'table.create',
+        publishActorStorageVersion: 1,
       })
     );
   });
@@ -207,6 +228,13 @@ describe('TableSchemaOperationRepairHandler', () => {
         tableIds: [table.id().toString()],
       },
     });
+    expect(tableSchemaRepository.ensureActorColumns).not.toHaveBeenCalled();
+    expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
+      expect.any(Object),
+      table,
+      'ready',
+      expect.objectContaining({ publishActorStorageVersion: undefined })
+    );
     expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
       table,
     ]);

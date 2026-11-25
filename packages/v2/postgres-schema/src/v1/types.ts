@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { ColumnType } from 'kysely';
+import type { ColumnType, Generated } from 'kysely';
 
 export type V1ProvisionState = 'pending' | 'ready' | 'error' | 'deleting';
 export type V1ProvisionStateColumn = ColumnType<
@@ -50,10 +50,12 @@ export interface V1BaseTable {
 
 export interface V1CollaboratorTable {
   id: string;
+  role_name?: string;
   resource_type: string;
   resource_id: string;
   principal_id: string;
   principal_type: string;
+  created_by?: string;
   created_time: ColumnType<Date, Date | undefined, never>;
 }
 
@@ -72,6 +74,7 @@ export interface V1TableMetaTable {
     Record<string, unknown> | null
   >;
   provision_state: V1ProvisionStateColumn;
+  actor_storage_version: Generated<number>;
   version: number;
   order: number;
   created_time: ColumnType<Date, Date | undefined, never>;
@@ -461,6 +464,7 @@ export interface V1DomainEventOutboxTable {
   schema_version: number;
   aggregate_id: string | null;
   payload: unknown;
+  attribution: ColumnType<unknown | null, unknown | undefined, unknown | null>;
   payload_bytes: number;
   catalog_generation: number;
   required_consumers: unknown;

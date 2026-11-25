@@ -21,6 +21,7 @@ import { aggregateRecordCreatedEvents } from '../application/services/recordEven
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { NoopSameTxProjectionDispatcher } from '../application/services/SameTxProjectionDispatcher';
+import { withCreatedTableActorStorage } from '../application/services/TableCreationService';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import {
   beginTableSchemaOperation,
@@ -220,6 +221,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
             {
               ownEvents: ReadonlyArray<IDomainEvent>;
               sideEffectEvents: ReadonlyArray<IDomainEvent>;
+              createdTable: Table;
             },
             DomainError
           >(async function* () {
@@ -231,6 +233,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
               dataTransactionContext,
               persistedTable
             );
+            const createdTable = yield* withCreatedTableActorStorage(persistedTable);
             const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
               dataTransactionContext,
               {
@@ -244,7 +247,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
               const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
                 kind: RecordWriteOperationKind.createMany,
                 executionContext: dataTransactionContext,
-                table: persistedTable,
+                table: createdTable,
                 payload: {
                   recordsFieldValues: recordsFieldValues.map((record) => record.fieldValues),
                   fieldKeyType: FieldKeyType.Id,
@@ -258,18 +261,18 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
                 'teable.CreateTableHandler.createRecords'
               );
               const { records: createdRecords, mutateSpecs } =
-                yield* persistedTable.createRecords(recordsFieldValues);
+                yield* createdTable.createRecords(recordsFieldValues);
               const { records } =
                 yield* await handler.recordMutationSpecResolver.resolveCreatedRecords(
                   dataTransactionContext,
-                  persistedTable.id(),
+                  createdTable.id(),
                   { records: createdRecords, mutateSpecs }
                 );
               recordSpan?.end();
               yield* await pluginExecution.beforePersist(dataTransactionContext);
               recordMutation = yield* await handler.tableRecordRepository.insertMany(
                 dataTransactionContext,
-                persistedTable,
+                createdTable,
                 records,
                 {
                   orchestration: recordBatchMutation,
@@ -280,7 +283,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
             if (recordMutation) {
               decoratedChangedFieldsByRecord =
                 yield* await handler.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
-                  persistedTable,
+                  createdTable,
                   recordMutation.changedFieldsByRecord
                 );
             }
@@ -289,6 +292,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
                 ...initialOwnEvents,
                 ...table.pullDomainEvents(),
                 ...persistedTable.pullDomainEvents(),
+                ...createdTable.pullDomainEvents(),
               ],
               mutationResult: recordMutation,
               decoratedChangedFieldsByRecord,
@@ -299,9 +303,10 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
               dataTransactionContext,
               handler.sameTxProjectionDispatcher,
               ownEvents,
-              { tables: [persistedTable] }
+              { tables: [createdTable] }
             );
             return ok({
+              createdTable,
               ownEvents,
               sideEffectEvents: sideEffectResult.events,
             });
@@ -335,14 +340,14 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         handler.tableRepository,
         context,
         persistedTable,
-        { type: 'table.create' }
+        { type: 'table.create', publishActorStorageVersion: 1 }
       );
 
       const events = [...dataResult.value.ownEvents, ...dataResult.value.sideEffectEvents];
       yield* await publishEventsWithBatchDeferral(context, handler.eventBus, events, () =>
         sideEffectPluginExecution.afterCommit()
       );
-      return ok(CreateTableResult.create(persistedTable, events));
+      return ok(CreateTableResult.create(dataResult.value.createdTable, events));
     });
     return ExecutionContextPort.failBatchResultIfActive(context, result);
   }

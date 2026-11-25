@@ -678,7 +678,17 @@ describe('AggregationOpenApiV2Service', () => {
     const date = '2025-01-01';
     const fixture = createFixture({
       calendarEntries: [{ date, count: 2, recordIds: [recordId] }],
-      calendarRecords: [{ id: recordId.toString(), fields: { [fieldId]: 'A' }, version: 1 }],
+      calendarRecords: [
+        {
+          id: recordId.toString(),
+          fields: { [fieldId]: 'A' },
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        },
+      ],
     });
 
     await expect(
@@ -691,7 +701,17 @@ describe('AggregationOpenApiV2Service', () => {
       })
     ).resolves.toEqual({
       countMap: { [date]: 2 },
-      records: [{ id: recordId.toString(), fields: { [fieldId]: 'A' }, version: 1 }],
+      records: [
+        {
+          id: recordId.toString(),
+          fields: { [fieldId]: 'A' },
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        },
+      ],
     });
 
     const calendarQuery = fixture.queries.find(

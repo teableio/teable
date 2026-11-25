@@ -14,8 +14,10 @@ import { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { TableRecord } from '../domain/table/records/TableRecord';
+import { NoopRecordOrderColumnPreparer } from '../ports/defaults/NoopRecordOrderColumnPreparer';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -59,7 +61,9 @@ export class ApplyRecordOrdersHandler implements ICommandHandler<
     @inject(v2CoreTokens.domainWriteTransaction)
     private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.recordWritePluginRunner)
-    private readonly recordWritePluginRunner: RecordWritePluginRunner
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
+    @inject(v2CoreTokens.recordOrderColumnPreparer)
+    private readonly orderColumnPreparer: IRecordOrderColumnPreparer = new NoopRecordOrderColumnPreparer()
   ) {}
 
   @TraceSpan()
@@ -144,6 +148,17 @@ export class ApplyRecordOrdersHandler implements ICommandHandler<
         if (typeof order === 'number') {
           previousOrdersByRecordId[record.id] = order;
         }
+      }
+
+      // A first reorder in a local engine can precede any physical order column.
+      // Batched server writers prepare it before locking the table.
+      if (
+        !ExecutionContextPort.getUnitOfWorkTransaction(context) &&
+        previousOrdersResult.value.records.some(
+          (record) => record.orders?.[viewIdText] === undefined
+        )
+      ) {
+        yield* await handler.orderColumnPreparer.prepareOrderColumn(context, table, command.viewId);
       }
 
       const committed = yield* await handler.domainWriteTransaction.execute(

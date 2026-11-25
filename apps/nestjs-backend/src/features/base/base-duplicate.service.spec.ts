@@ -31,6 +31,60 @@ describe('BaseDuplicateService', () => {
   });
 });
 
+describe('BaseDuplicateV2Service copied record attribution', () => {
+  it.each([
+    [{}, null],
+    [
+      { __created_by_actor_type: 'user', __created_by_actor_id: 'sourceCreator' },
+      { type: 'user', id: 'sourceCreator' },
+    ],
+    [
+      { __created_by_actor_type: 'appUser', __created_by_actor_id: 'apuSourceCreator' },
+      { type: 'appUser', id: 'apuSourceCreator' },
+    ],
+  ])(
+    'preserves the trusted creator %j without copying modifier or business actor fields',
+    (creator, expected) => {
+      const service = Object.create(BaseDuplicateV2Service.prototype) as unknown as {
+        toDuplicateBaseRecordInput: (
+          table: { fields: Array<{ id: string; type: string; dbFieldName: string }> },
+          row: Record<string, unknown>
+        ) => Record<string, unknown>;
+      };
+      const names = [
+        '__created_by_actor_type',
+        '__created_by_actor_id',
+        '__last_modified_by_actor_type',
+        '__last_modified_by_actor_id',
+      ];
+      const result = service.toDuplicateBaseRecordInput(
+        {
+          fields: [
+            { id: 'fldTitle', type: FieldType.SingleLineText, dbFieldName: 'Title' },
+            ...names.map((dbFieldName, index) => ({
+              id: `fldReserved${index}`,
+              type: FieldType.SingleLineText,
+              dbFieldName,
+            })),
+          ],
+        },
+        {
+          __id: 'recSource',
+          Title: 'Copied',
+          ...creator,
+          __last_modified_by_actor_type: 'appUser',
+          __last_modified_by_actor_id: 'sourceModifier',
+        }
+      );
+      expect(result.fields).toEqual({ fldTitle: 'Copied' });
+      expect(result).not.toHaveProperty('extraColumnValues');
+      expect(result).not.toHaveProperty('createdByActor');
+      expect(result.trustedCreatedActor).toEqual(expected);
+      expect(result.lastModifiedBy).toBeNull();
+    }
+  );
+});
+
 describe('BaseDuplicateService dateTimeZoneConversions', () => {
   const conversionsFor = (options: unknown, targetTimeZone = 'Asia/Shanghai') => {
     const service = Object.create(BaseDuplicateService.prototype) as BaseDuplicateService;
@@ -1051,6 +1105,8 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
   });
 
   it('should aggregate table copy batches into global duplicate progress', async () => {
+    let held = false;
+    let transactionActive = false;
     const dataPrisma = {
       $queryRawUnsafe: vi.fn((query: string) => {
         if (query.includes('source_a') && query.includes('count')) {
@@ -1063,6 +1119,32 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
       }),
       $executeRawUnsafe: vi.fn().mockResolvedValue(0),
     };
+    const scopedDataPrisma = {
+      ...dataPrisma,
+      $tx: vi.fn(async (callback: (prisma: typeof dataPrisma) => Promise<unknown>) => {
+        expect(held).toBe(true);
+        transactionActive = true;
+        try {
+          return await callback(dataPrisma);
+        } finally {
+          transactionActive = false;
+        }
+      }),
+    };
+    const recordActorStorageService = {
+      withTablesWrite: vi.fn(async (tableIds, callback, options) => {
+        expect(tableIds).toEqual(['tblTargetA', 'tblTargetB']);
+        expect(options).toEqual({ provisioning: true });
+        expect(transactionActive).toBe(false);
+        held = true;
+        try {
+          return await callback([]);
+        } finally {
+          expect(transactionActive).toBe(false);
+          held = false;
+        }
+      }),
+    };
     const tableDuplicateService = {
       duplicateTableData: vi.fn(
         async (
@@ -1073,6 +1155,7 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
           _crossBaseLinkInfo: unknown[],
           _dataPrisma: unknown,
           options?: {
+            createdTableActorStorage?: true;
             onProgress?: (progress: {
               batchProcessedRows: number;
               currentBatch: number;
@@ -1081,6 +1164,10 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
             }) => void;
           }
         ) => {
+          expect(held).toBe(true);
+          expect(transactionActive).toBe(true);
+          expect(_dataPrisma).toBe(dataPrisma);
+          expect(options?.createdTableActorStorage).toBe(true);
           const batchProcessedRows = sourceDbTableName === 'source_a' ? 3 : 2;
           options?.onProgress?.({
             batchProcessedRows,
@@ -1122,9 +1209,10 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
       {} as ILegacyServiceArgs[6],
       {} as ILegacyServiceArgs[7],
       {
-        dataPrismaForBase: vi.fn().mockResolvedValue(dataPrisma),
+        dataPrismaForBase: vi.fn().mockResolvedValue(scopedDataPrisma),
       } as unknown as ILegacyServiceArgs[8],
-      {} as ILegacyServiceArgs[9]
+      {} as ILegacyServiceArgs[9],
+      recordActorStorageService as unknown as ILegacyServiceArgs[10]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
 
@@ -1138,6 +1226,9 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
     );
 
     expect(recordsLength).toBe(5);
+    expect(recordActorStorageService.withTablesWrite).toHaveBeenCalledOnce();
+    expect(scopedDataPrisma.$tx).toHaveBeenCalledOnce();
+    expect(held).toBe(false);
     expect(progressEvents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ phase: 'table_data_start', processedRows: 0, totalRows: 5 }),
@@ -1225,6 +1316,7 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
         autoNumber: 1,
         lastModifiedTime: null,
         lastModifiedBy: null,
+        trustedCreatedActor: null,
       },
     ]);
   });

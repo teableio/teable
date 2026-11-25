@@ -10,10 +10,14 @@ import {
   DateTimeFormatting,
   DbFieldType,
   FieldHasError,
+  FieldKeyType,
   FieldId,
   FieldName,
   FormulaExpression,
+  ListTableRecordsHandler,
+  ListTableRecordsQuery,
   LookupOptions,
+  MemoryTableRepository,
   OffsetPagination,
   NoopTracer,
   PageLimit,
@@ -28,6 +32,7 @@ import {
   TimeFormatting,
   UserMultiplicity,
   createUserField,
+  buildRecordConditionSpec,
   type ILogger,
   type IRecordSearchAccessPath,
   type ITableRepository,
@@ -240,6 +245,7 @@ const probeDataStatements = async <T>(
 };
 
 type SeededRow = {
+  id?: string;
   name: string;
   age: number;
   status?: string | null;
@@ -391,7 +397,7 @@ const setupRepositoryFixture = async ({
 
   const insertedRecordIds: string[] = [];
   for (const [index, row] of rows.entries()) {
-    const recordId = createId('rec', `${index}-${seed}`);
+    const recordId = row.id ?? createId('rec', `${index}-${seed}`);
     insertedRecordIds.push(recordId);
     await sql`
       INSERT INTO ${sql.table(fullTableName)} (
@@ -1603,6 +1609,60 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     expect(driver.queries[0].sql).not.toContain('"col_name"');
     expect(driver.queries[0].sql).not.toContain('"col_age"');
     expect(result.value.records[0]?.fields).toEqual({});
+  });
+
+  it('matches persisted record IDs exactly inside the scoped id-only list query', async () => {
+    const prefixedId = "rec-imported_o'brien";
+    const unprefixedId = 'legacy.imported-2';
+    const deniedByFilter = 'rec-imported-3';
+    const deniedByScope = 'rec-imported-4';
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'persisted-ids',
+      rows: [
+        { id: prefixedId, name: 'Visible', age: 10 },
+        { id: unprefixedId, name: 'Visible', age: 10 },
+        { id: deniedByFilter, name: 'Other', age: 10 },
+        { id: deniedByScope, name: 'Visible', age: 20 },
+        { id: "rec-importedXo'brien", name: 'Visible', age: 10 },
+      ],
+    });
+    const selectedRecordIds = [prefixedId, unprefixedId, deniedByFilter, deniedByScope];
+    const rowScope = buildRecordConditionSpec(fixture.table, {
+      fieldId: fixture.ageFieldId.toString(),
+      operator: 'is',
+      value: 10,
+    })._unsafeUnwrap();
+    const query = ListTableRecordsQuery.create(
+      {
+        tableId: fixture.table.id().toString(),
+        selectedRecordIds,
+        filter: { fieldId: fixture.nameFieldId.toString(), operator: 'is', value: 'Visible' },
+        projection: [],
+        limit: selectedRecordIds.length,
+        includeTotal: false,
+        ignoreViewQuery: true,
+        fieldKeyType: FieldKeyType.Id,
+      },
+      { table: fixture.table, idsOnly: true, queryScope: { recordSpec: rowScope } }
+    )._unsafeUnwrap();
+    const handler = new ListTableRecordsHandler(
+      new MemoryTableRepository(),
+      fixture.repository,
+      createLogger()
+    );
+
+    driver.queries.length = 0;
+    const result = await handler.handle(fixture.context, query);
+
+    expect(new Set(result._unsafeUnwrap().records.map((record) => record.id))).toEqual(
+      new Set([prefixedId, unprefixedId])
+    );
+    const membershipQuery = driver.queries.find(({ sql }) => sql.includes('"t"."__id" in ('));
+    expect(membershipQuery?.parameters).toEqual(expect.arrayContaining(selectedRecordIds));
+    expect(membershipQuery?.sql).not.toContain(prefixedId);
+    expect(RecordId.create(prefixedId).isErr()).toBe(true);
   });
 
   it('preserves explicit recordIdsOrder in SQL before pagination', async () => {

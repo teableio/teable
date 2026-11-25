@@ -2,13 +2,16 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { AttachmentValueResolverService } from '../application/services/AttachmentValueResolverService';
+import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
+import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
 import { TableDataSafetyLimitRecordWritePlugin } from '../application/services/TableDataSafetyLimitRecordWritePlugin';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { UndoRedoStackService } from '../application/services/UndoRedoStackService';
+import { UserValueResolverService } from '../application/services/UserValueResolverService';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
@@ -30,6 +33,7 @@ import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
+import type { IAttachmentLookupService } from '../ports/AttachmentLookupService';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
@@ -37,17 +41,22 @@ import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
+import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
   InsertOptions,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   RecordMutationResult,
+  RecordActorAttribution,
   RecordStoredSnapshot,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaCoordination } from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import type { IUserLookupService } from '../ports/UserLookupService';
 import { CreateRecordsCommand } from './CreateRecordsCommand';
 import { CreateRecordsHandler } from './CreateRecordsHandler';
 import {
@@ -138,13 +147,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -181,12 +183,33 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  /**
+   * This fake keeps no soft-deleted table rows, so restore re-registers the
+   * aggregate by id instead of failing on missing trash state.
+   */
+  async restore(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
+    if (index >= 0) {
+      this.tables[index] = table;
+    } else {
+      this.tables.push(table);
+    }
+    return ok(undefined);
+  }
+
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(
+    _context: IExecutionContext,
+    _table: Table
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async insert(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -220,6 +243,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   failInsertMany: DomainError | undefined;
   omitRecordSnapshot = false;
   omitRecordSnapshots = false;
+  recordActors?: RecordActorAttribution;
 
   async insert(
     context: IExecutionContext,
@@ -244,10 +268,27 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.lastInsertManyOptions = options;
     if (this.failInsertMany) return err(this.failInsertMany);
     this.records.push(...records);
-    return ok(
-      this.omitRecordSnapshots
+    return ok({
+      ...(this.omitRecordSnapshots
         ? {}
-        : { recordSnapshots: records.map((record) => toStoredSnapshot(record)) }
+        : { recordSnapshots: records.map((record) => toStoredSnapshot(record)) }),
+      ...(this.recordActors
+        ? {
+            recordActorsByRecord: new Map(
+              records.map((record) => [record.id().toString(), this.recordActors!])
+            ),
+          }
+        : {}),
+    });
+  }
+
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.unexpected({ message: 'duplicatePhysicalRows is not modelled by this fake' })
     );
   }
 
@@ -419,6 +460,44 @@ class FakeRecordMutationSpecResolverService {
   }
 }
 
+const createNativeRecordMutationSpecResolver = (tableRepository: ITableRepository) => {
+  const recordQueryRepository: ITableRecordQueryRepository = {
+    find: async () => {
+      throw new Error('Unexpected link-title query in native bulk-create fixture');
+    },
+    findOne: async () => {
+      throw new Error('Unexpected link-record query in native bulk-create fixture');
+    },
+    findStream: () => {
+      throw new Error('Unexpected link-record stream in native bulk-create fixture');
+    },
+  };
+  const attachmentLookupService: IAttachmentLookupService = {
+    listAttachmentsByTokens: async () => {
+      throw new Error('Unexpected attachment-token lookup in native bulk-create fixture');
+    },
+    listAttachmentsByAttachmentIds: async () => {
+      throw new Error('Unexpected attachment-id lookup in native bulk-create fixture');
+    },
+  };
+  const userLookupService: IUserLookupService = {
+    listTableUsersByIdentifiers: async () => {
+      throw new Error('Unexpected user-identifier lookup in native bulk-create fixture');
+    },
+    listUsersByIdentityPairs: async () => {
+      throw new Error('Unexpected user-identity lookup in native bulk-create fixture');
+    },
+    listUsersByIds: async () => {
+      throw new Error('Unexpected user-id lookup in native bulk-create fixture');
+    },
+  };
+  return new RecordMutationSpecResolverService(
+    new LinkTitleResolverService(tableRepository, recordQueryRepository),
+    new AttachmentValueResolverService(attachmentLookupService),
+    new UserValueResolverService(userLookupService)
+  );
+};
+
 const createTestTable = (baseId: string, tableId: string) => {
   const baseIdResult = BaseId.create(baseId);
   const tableIdResult = TableId.create(tableId);
@@ -483,6 +562,13 @@ describe('CreateRecordsHandler', () => {
     tableRepository.tables.push(table);
     const tableQueryService = new TableQueryService(tableRepository);
     const recordRepository = new FakeTableRecordRepository();
+    const actors: RecordActorAttribution = {
+      createdByActorType: 'appUser',
+      createdByActorId: 'apu_created',
+      lastModifiedByActorType: 'appUser',
+      lastModifiedByActorId: 'apu_created',
+    };
+    recordRepository.recordActors = actors;
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
 
@@ -527,6 +613,12 @@ describe('CreateRecordsHandler', () => {
     expect(recordRepository.records.length).toBe(3);
     expect(unitOfWork.transactions.length).toBe(1);
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
+    expect(result._unsafeUnwrap().recordActorsByRecord?.size).toBe(3);
+    for (const record of result._unsafeUnwrap().records) {
+      expect(result._unsafeUnwrap().recordActorsByRecord?.get(record.id().toString())).toEqual(
+        actors
+      );
+    }
 
     // Verify all records belong to the table
     for (const record of recordRepository.records) {
@@ -1659,7 +1751,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService(),
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1717,7 +1809,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService(),
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1768,7 +1860,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService(),
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1838,7 +1930,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService(),
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1886,7 +1978,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService(),
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1970,7 +2062,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService(),
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, commitRetryUnitOfWork),
       eventBus,

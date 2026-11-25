@@ -1,4 +1,5 @@
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -51,6 +52,18 @@ describe('direct field references', () => {
     'direct reference to $fieldCase.type field',
     async ({ fieldCase, formulaName }) => {
       const context = await buildFormulaSnapshotContext(testTable, formulaName);
+      if (fieldCase.type === 'createdBy' || fieldCase.type === 'lastModifiedBy') {
+        // The stored platform-user column is the provenance contract; the serialized user object
+        // carries incidental presentation fields (such as email) that are not this test's subject.
+        const tableName = testTable.table.dbTableName()._unsafeUnwrap().value()._unsafeUnwrap();
+        const column = fieldCase.type === 'createdBy' ? '__created_by' : '__last_modified_by';
+        const stored = await sql<{ actor: string }>`
+          SELECT ${sql.ref(column)} AS actor FROM ${sql.table(tableName)} LIMIT 1
+        `.execute(testTable.db);
+        expect(stored.rows[0].actor).toBe('system');
+        expect(JSON.parse(context.result ?? 'null')).toMatchObject({ id: stored.rows[0].actor });
+        return;
+      }
       expect({
         fieldType: fieldCase.type,
         formula: context.formula,

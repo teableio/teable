@@ -8,6 +8,7 @@ import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/utils/changes';
+import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
 import { TableDomainQueryService } from '../../table-domain';
 import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import type { IRecordInnerRo } from '../record.service';
@@ -24,7 +25,8 @@ export class RecordCreateService {
     private readonly linkService: LinkService,
     private readonly computedOrchestrator: ComputedOrchestratorService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly tableDomainQueryService: TableDomainQueryService
+    private readonly tableDomainQueryService: TableDomainQueryService,
+    private readonly recordMutationPolicy: RecordMutationPolicyService
   ) {}
 
   async multipleCreateRecords(
@@ -32,6 +34,11 @@ export class RecordCreateService {
     createRecordsRo: ICreateRecordsRo,
     ignoreMissingFields: boolean = false
   ): Promise<ICreateRecordsVo> {
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'create',
+      payload: createRecordsRo,
+    });
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const recordsWithDefaults = await this.shared.appendDefaultValue(
@@ -120,6 +127,11 @@ export class RecordCreateService {
   }
 
   async createRecordsOnlySql(tableId: string, createRecordsRo: ICreateRecordsRo): Promise<void> {
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'create',
+      payload: createRecordsRo,
+    });
     const { fieldKeyType = FieldKeyType.Name, records, typecast } = createRecordsRo;
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const typecastRecords = await this.shared.validateFieldsAndTypecast<

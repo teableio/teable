@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { RestoreRecordInput } from './RestoreRecordsCommand';
 
 export interface RestoreRecordsStreamInput {
@@ -14,6 +15,11 @@ export interface RestoreRecordsStreamInput {
   skipComputedUpdates?: boolean;
 }
 
+export interface RestoreRecordsStreamOptions {
+  /** Trusted persisted server snapshots only; never archive or command JSON. */
+  trustedCreatedActorsByRecordId?: ReadonlyMap<string, IExecutionContext['initiator'] | null>;
+}
+
 export class RestoreRecordsStreamCommand {
   private constructor(
     readonly tableId: TableId,
@@ -21,11 +27,16 @@ export class RestoreRecordsStreamCommand {
     readonly batchSize: number,
     readonly deferComputedUpdates: boolean,
     readonly enqueueDeferredComputedUpdates: boolean,
-    readonly skipComputedUpdates: boolean
+    readonly skipComputedUpdates: boolean,
+    readonly trustedCreatedActorsByRecordId?: ReadonlyMap<
+      string,
+      IExecutionContext['initiator'] | null
+    >
   ) {}
 
   static create(
-    input: RestoreRecordsStreamInput
+    input: RestoreRecordsStreamInput,
+    options?: RestoreRecordsStreamOptions
   ): Result<RestoreRecordsStreamCommand, DomainError> {
     const tableIdResult = TableId.create(input.tableId);
     if (tableIdResult.isErr()) {
@@ -49,7 +60,8 @@ export class RestoreRecordsStreamCommand {
         batchSize,
         Boolean(input.deferComputedUpdates),
         Boolean(input.enqueueDeferredComputedUpdates),
-        Boolean(input.skipComputedUpdates)
+        Boolean(input.skipComputedUpdates),
+        options?.trustedCreatedActorsByRecordId
       )
     );
   }

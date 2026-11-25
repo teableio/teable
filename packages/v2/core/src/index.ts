@@ -106,6 +106,7 @@ export * from './application/services/RecordMutationSpecResolverService';
 export * from './application/services/RecordWriteSideEffectService';
 export * from './application/services/RecordWriteUndoRedoPlanService';
 export * from './application/services/SchemaOperationRunnerService';
+export * from './application/services/ActorColumnsEnableHandler';
 export * from './application/services/TableSchemaOperationRepairHandler';
 export * from './application/services/RecordCreationService';
 export * from './application/services/DeleteByRangeApplicationService';
@@ -360,6 +361,7 @@ export { normalizeFunctionNameAlias } from './domain/formula/function-aliases';
 export * from './domain/formula/FormulaIndexability';
 
 export * from './domain/shared/ActorId';
+export * from './domain/shared/RecordInitiator';
 export * from './domain/shared/DomainEvent';
 export * from './domain/shared/OccurredAt';
 export * from './domain/shared/DomainError';
@@ -761,11 +763,7 @@ export * from './application/services/RecordQueryPluginRunner';
 export * from './application/services/TableUpdateTransactionScope';
 export * from './application/services/createPaginatedExportStream';
 export * from './ports/TableSchemaRepository';
-export {
-  NoopTableSchemaCoordination,
-  type ITableSchemaCoordination,
-  type ITableSchemaCoordinationLease,
-} from './ports/TableSchemaCoordination';
+export * from './ports/TableSchemaCoordination';
 export * from './ports/UnitOfWork';
 export * from './ports/UndoRedoStore';
 export * from './ports/CsvParser';

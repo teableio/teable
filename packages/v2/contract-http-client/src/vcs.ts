@@ -1,7 +1,12 @@
 import { ORPCError, createORPCClient, createORPCErrorFromJson } from '@orpc/client';
 import type { ContractRouterClient } from '@orpc/contract';
 import { OpenAPILink } from '@orpc/openapi-client/fetch';
-import { v2VcsContract } from '@teable/v2-contract-http/vcs';
+import {
+  v2VcsContract,
+  type IVcsHistoryDiffOutput,
+  type IVcsRollbackInput,
+  type IVcsRollbackOutput,
+} from '@teable/v2-contract-http/vcs';
 import {
   err,
   ok,
@@ -260,6 +265,48 @@ export class ContractHttpVcsRemoteGateway implements IVcsRemoteGateway {
         return this.onNotFoundFallback.cloneSnapshot(baseId, options);
       }
       return err(toGatewayDomainError(error, 'clone'));
+    }
+  }
+
+  async checkoutRevision(
+    baseId: string,
+    revision: number
+  ): Promise<Result<{ snapshot: IBaseVcsSnapshot; remoteMode: 'v2-vcs' }, DomainError>> {
+    try {
+      const { snapshot, remoteMode } = await this.client.checkout({ baseId, revision });
+      if (remoteMode !== 'v2-vcs') {
+        return err(
+          vcsDomainError.infrastructure({
+            code: 'vcs.checkout_mismatch',
+            message: 'Expected a versioned historical snapshot.',
+          })
+        );
+      }
+      return ok({ snapshot, remoteMode });
+    } catch (error) {
+      return err(toGatewayDomainError(error, 'checkout'));
+    }
+  }
+
+  async diffRevisions(
+    baseId: string,
+    from: number,
+    to: number
+  ): Promise<Result<IVcsHistoryDiffOutput, DomainError>> {
+    try {
+      return ok(await this.client.diff({ baseId, from, to }));
+    } catch (error) {
+      return err(toGatewayDomainError(error, 'diff'));
+    }
+  }
+
+  async rollbackRevision(
+    input: IVcsRollbackInput
+  ): Promise<Result<IVcsRollbackOutput, DomainError>> {
+    try {
+      return ok(await this.client.rollback(input));
+    } catch (error) {
+      return err(toGatewayDomainError(error, 'rollback'));
     }
   }
 

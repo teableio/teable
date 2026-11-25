@@ -1,4 +1,5 @@
 import { LRUCache } from 'lru-cache';
+import { isAppUserId } from '../../../cell-value/cell-user/app-user';
 import { GRID_DEFAULT } from '../../configs';
 import type { IRectangle } from '../../interface';
 import { GridInnerIcon } from '../../managers';
@@ -114,6 +115,51 @@ const getChipRegionResult = (
   return null;
 };
 
+const drawUserAvatar = (
+  ctx: CanvasRenderingContext2D,
+  props: ICellRenderProps,
+  avatar: {
+    x: number;
+    y: number;
+    name: string;
+    isAppUser: boolean;
+    stroke: string;
+    avatarUrl?: string;
+  }
+) => {
+  const { theme, spriteManager, imageManager, columnIndex, rowIndex } = props;
+  const { iconSizeSM, fontSizeSM, fontFamily, avatarBg, avatarTextColor } = theme;
+  const { appUserAvatarBg, staticWhite } = theme;
+  const { x, y, name, isAppUser, stroke, avatarUrl } = avatar;
+  const img = avatarUrl ? imageManager.loadOrGetImage(avatarUrl, columnIndex, rowIndex) : undefined;
+
+  drawAvatar(ctx, {
+    x,
+    y,
+    width: iconSizeSM,
+    height: iconSizeSM,
+    fill: isAppUser ? appUserAvatarBg : avatarBg,
+    stroke,
+    // App users without a picture get the App icon below instead of an initial.
+    defaultText: isAppUser ? '' : name,
+    textColor: avatarTextColor,
+    fontSize: fontSizeSM,
+    fontFamily,
+    img,
+  });
+
+  if (!isAppUser || img) return;
+  const iconSize = Math.round(iconSizeSM * 0.6);
+  spriteManager.drawSprite(ctx, {
+    sprite: GridInnerIcon.AppUser,
+    x: x + (iconSizeSM - iconSize) / 2,
+    y: y + (iconSizeSM - iconSize) / 2,
+    size: iconSize,
+    theme,
+    colors: [staticWhite, appUserAvatarBg],
+  });
+};
+
 export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
   type: CellType.User,
   needsHover: false,
@@ -210,20 +256,11 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
     };
   },
   draw: (cell: IUserCell, props: ICellRenderProps) => {
-    const { ctx, rect, theme, imageManager, columnIndex, rowIndex, spriteManager, isActive } =
-      props;
+    const { ctx, rect, theme, spriteManager, isActive } = props;
     const { data: userSets, readonly } = cell;
     const { x: _x, y: _y, width, height } = rect;
-    const {
-      fontSizeXS,
-      fontSizeSM,
-      fontFamily,
-      iconSizeSM,
-      cellOptionBg,
-      cellOptionTextColor,
-      avatarBg,
-      avatarTextColor,
-    } = theme;
+    const { fontSizeXS, fontFamily, iconSizeSM, cellOptionBg, cellOptionTextColor, appUserChipBg } =
+      theme;
 
     if (!userSets.length) return;
 
@@ -255,7 +292,9 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
     let y = drawArea.y;
 
     for (const user of userSets) {
-      const { name: text, avatarUrl } = user;
+      const { id, name: text, avatarUrl } = user;
+      const isAppUser = isAppUserId(id);
+      const chipBg = (isAppUser && appUserChipBg) || cellOptionBg;
 
       const { width: displayWidth, text: displayText } = drawSingleLineText(ctx, {
         text,
@@ -282,7 +321,7 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         width: chipWidth,
         height: ITEM_HEIGHT,
         radius: ITEM_HEIGHT / 2,
-        fill: cellOptionBg,
+        fill: chipBg,
       });
       drawSingleLineText(ctx, {
         text: displayText,
@@ -307,22 +346,13 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         });
       }
 
-      const img = avatarUrl
-        ? imageManager.loadOrGetImage(avatarUrl, columnIndex, rowIndex)
-        : undefined;
-
-      drawAvatar(ctx, {
+      drawUserAvatar(ctx, props, {
         x: rectX + ITEM_PADDING_LEFT,
         y: rectY + (ITEM_HEIGHT - iconSizeSM) / 2,
-        width: iconSizeSM,
-        height: iconSizeSM,
-        fill: avatarBg,
-        stroke: cellOptionBg,
-        defaultText: text,
-        textColor: avatarTextColor,
-        fontSize: fontSizeSM,
-        fontFamily,
-        img,
+        name: text,
+        isAppUser,
+        stroke: chipBg,
+        avatarUrl,
       });
 
       x += chipWidth + 8;

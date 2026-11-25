@@ -5,8 +5,8 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { RecordReordered } from '../../domain/table/events/RecordReordered';
-import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordId } from '../../domain/table/records/RecordId';
+import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertOrder';
 import { RecordUpdateResult } from '../../domain/table/records/RecordUpdateResult';
 import { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { TableRecord } from '../../domain/table/records/TableRecord';
@@ -14,7 +14,10 @@ import type { Table } from '../../domain/table/Table';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../../ports/RecordOrderCalculator';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import type { ITableRecordRepository } from '../../ports/TableRecordRepository';
+import type {
+  ITableRecordRepository,
+  RecordActorAttribution,
+} from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
 
@@ -32,6 +35,7 @@ export interface IRecordReorderResult {
   readonly events: ReadonlyArray<IDomainEvent>;
   readonly undoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
   readonly redoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
 }
 
 export const emptyRecordReorderResult = (): IRecordReorderResult => ({
@@ -159,11 +163,13 @@ export class RecordReorderService {
           events: [],
           undoCommands: [],
           redoCommands: [],
+          recordActorsByRecord: persistResult.recordActorsByRecord,
         });
       }
 
       return ok({
         updatedCount: persistResult.totalUpdated,
+        recordActorsByRecord: persistResult.recordActorsByRecord,
         events: [
           RecordReordered.create({
             tableId: input.table.id(),

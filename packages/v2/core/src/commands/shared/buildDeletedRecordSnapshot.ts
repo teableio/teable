@@ -28,6 +28,10 @@ export const buildDeletedRecordSnapshot = (
         createdBy: record.createdBy,
         lastModifiedTime: record.lastModifiedTime,
         lastModifiedBy: record.lastModifiedBy,
+        createdByActorType: record.createdByActorType ?? null,
+        createdByActorId: record.createdByActorId ?? null,
+        lastModifiedByActorType: record.lastModifiedByActorType ?? null,
+        lastModifiedByActorId: record.lastModifiedByActorId ?? null,
         orders: record.orders,
       }
     : record;
@@ -49,6 +53,10 @@ export const buildDeletedRecordSnapshot = (
     autoNumber: normalizedRecord.autoNumber,
     createdTime: normalizedRecord.createdTime,
     createdBy: normalizedRecord.createdBy,
+    createdByActorType: normalizedRecord.createdByActorType,
+    createdByActorId: normalizedRecord.createdByActorId,
+    lastModifiedByActorType: normalizedRecord.lastModifiedByActorType,
+    lastModifiedByActorId: normalizedRecord.lastModifiedByActorId,
     lastModifiedTime: normalizedRecord.lastModifiedTime,
     lastModifiedBy: normalizedRecord.lastModifiedBy,
     orders: normalizedRecord.orders,

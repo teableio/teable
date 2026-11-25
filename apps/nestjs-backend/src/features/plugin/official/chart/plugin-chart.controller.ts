@@ -7,6 +7,7 @@ import {
   type IBaseQueryVo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../../zod.validation.pipe';
+import { AllowBaseShare } from '../../../auth/decorators/allow-base-share.decorator';
 import { Permissions } from '../../../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../../../auth/decorators/resource_meta.decorator';
 import { PluginChartService } from './plugin-chart.service';
@@ -34,6 +35,7 @@ export class PluginChartController {
   }
 
   @Get(':pluginInstallId/dashboard/:positionId/query')
+  @AllowBaseShare()
   @Permissions('base|read')
   @ResourceMeta('baseId', 'query')
   getDashboardPluginQuery(

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { FieldKeyType } from '@teable/core';
+import { TRUSTED_CREATED_ACTOR } from '../../record-attribution/trusted-created-actor';
 import type { RecordOpenApiService } from './record-open-api.service';
 import type { IRestorableRecordSnapshot } from './record-restore-native.service';
 
@@ -21,7 +22,17 @@ export class RecordRestoreV1CompatibilityService {
     >(RECORD_RESTORE_V1_CREATE_RECORDS, { strict: false });
     await recordOpenApiService.multipleCreateRecords(
       tableId,
-      { fieldKeyType: FieldKeyType.Id, records, typecast: true },
+      {
+        fieldKeyType: FieldKeyType.Id,
+        records: records.map((record) => ({
+          ...record,
+          [TRUSTED_CREATED_ACTOR]:
+            record.createdByActorType && record.createdByActorId
+              ? { type: record.createdByActorType, id: record.createdByActorId }
+              : null,
+        })),
+        typecast: true,
+      },
       true
     );
   }

@@ -5,6 +5,7 @@ import { CollaboratorModule } from '../../collaborator/collaborator.module';
 import { DataLoaderModule } from '../../data-loader/data-loader.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { FieldReferenceAdmissionModule } from '../../field-reference-admission/field-reference-admission.module';
+import { RecordMutationPolicyModule } from '../../record-mutation-policy/record-mutation-policy.module';
 import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migration-guard.module';
 import { TableDomainQueryModule } from '../../table-domain';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
@@ -32,6 +33,7 @@ import { RecordUpdateService } from './record-update.service';
     ComputedModule,
     TableDomainQueryModule,
     SpaceDataDbMigrationGuardModule,
+    RecordMutationPolicyModule,
   ],
   providers: [
     RecordModifyService,

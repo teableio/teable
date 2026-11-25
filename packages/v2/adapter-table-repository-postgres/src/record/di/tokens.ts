@@ -41,6 +41,12 @@ export const v2RecordRepositoryPostgresTokens = {
   computedFieldCascadeService: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedFieldCascadeService'
   ),
+  periodicFieldRefreshEngine: Symbol(
+    'v2.adapter.recordRepositoryPostgres.periodicFieldRefreshEngine'
+  ),
+  periodicFieldRefreshLifecycleSink: Symbol(
+    'v2.adapter.recordRepositoryPostgres.periodicFieldRefreshLifecycleSink'
+  ),
   domainEventWakeupPublisher: Symbol(
     'v2.adapter.recordRepositoryPostgres.domainEventWakeupPublisher'
   ),

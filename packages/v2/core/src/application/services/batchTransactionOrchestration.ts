@@ -14,7 +14,7 @@ import {
   type UnitOfWorkScope,
 } from '../../ports/ExecutionContext';
 import type { ILogger } from '../../ports/Logger';
-import type { IUnitOfWork } from '../../ports/UnitOfWork';
+import type { IUnitOfWork, IUnitOfWorkOptions } from '../../ports/UnitOfWork';
 
 export type BatchExecutionScope =
   | { readonly kind: 'error'; readonly error: DomainError }
@@ -140,15 +140,24 @@ export const runWithBatchTransaction = async <T>(params: {
   unitOfWork: IUnitOfWork;
   context: IExecutionContext;
   scope: UnitOfWorkScope;
+  isolationLevel?: IUnitOfWorkOptions['isolationLevel'];
+  onRetryExhausted?: IUnitOfWorkOptions['onRetryExhausted'];
   work: (batchContext: IExecutionContext) => Promise<Result<T, DomainError>>;
   logger?: ILogger;
 }): Promise<Result<T, DomainError>> => {
-  const { unitOfWork, context, scope, work, logger } = params;
+  const { unitOfWork, context, scope, isolationLevel, onRetryExhausted, work, logger } = params;
   const scopeResolution = resolveBatchExecutionScope(context, scope);
   if (scopeResolution.kind === 'error') {
     return err(scopeResolution.error);
   }
   if (scopeResolution.kind === 'inBatch') {
+    if (isolationLevel) {
+      return unitOfWork.withTransaction(
+        context,
+        (tx) => runReenteredBatch(tx, scopeResolution.batchTransaction, work),
+        { scope, isolationLevel }
+      );
+    }
     return runReenteredBatch(context, scopeResolution.batchTransaction, work);
   }
 
@@ -228,7 +237,7 @@ export const runWithBatchTransaction = async <T>(params: {
       }
       return workResult;
     },
-    { scope }
+    { scope, isolationLevel, onRetryExhausted }
   );
 
   if (transactionResult.isErr()) {

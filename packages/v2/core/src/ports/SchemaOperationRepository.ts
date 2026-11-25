@@ -2,6 +2,7 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from './ExecutionContext';
+import type { TableSchemaLeaseFence } from './TableSchemaCoordination';
 
 export type SchemaOperationStatus = 'pending' | 'running' | 'ready' | 'error' | 'dead';
 
@@ -13,6 +14,7 @@ export type SchemaOperationType =
   | 'table.delete'
   | 'table.duplicate'
   | 'table.import'
+  | 'table.actor_columns.enable'
   | (string & Record<never, never>);
 
 export type SchemaOperationPhase =
@@ -129,7 +131,49 @@ export type SchemaOperationMarkDeadInput = {
   reason?: string | null;
 };
 
+/** Frozen server-side data route; never populated from a request body. */
+export type ActorColumnsTarget = {
+  baseId: string;
+  tableId: string;
+  dbTableName: string;
+  connectionId: string | null;
+  internalSchema: string | null;
+  storageEpoch: string;
+  tableVersion: number;
+  runtimeRouteKey: string;
+};
+
+export type ActorColumnsCompletionInput = {
+  operation: SchemaOperationRecord;
+  target: ActorColumnsTarget;
+  leaseFence: TableSchemaLeaseFence;
+};
+
 export interface ISchemaOperationRepository {
+  /** Unsupported adapters must fail closed, not publish an unfenced capability. */
+  getActorColumnsTarget?(
+    context: IExecutionContext,
+    baseId: string,
+    tableId: string,
+    runtimeRouteKey: string
+  ): Promise<Result<ActorColumnsTarget, DomainError>>;
+  enqueueActorColumns?(
+    context: IExecutionContext,
+    target: ActorColumnsTarget
+  ): Promise<Result<SchemaOperationRecord, DomainError>>;
+  completeActorColumns?(
+    context: IExecutionContext,
+    input: ActorColumnsCompletionInput
+  ): Promise<Result<SchemaOperationRecord, DomainError>>;
+  markActorColumnsNotified?(
+    context: IExecutionContext,
+    operation: SchemaOperationRecord
+  ): Promise<Result<void, DomainError>>;
+  failActorColumns?(
+    context: IExecutionContext,
+    operation: SchemaOperationRecord,
+    input: SchemaOperationAdvanceInput
+  ): Promise<Result<SchemaOperationRecord, DomainError>>;
   upsert(
     context: IExecutionContext,
     input: SchemaOperationUpsertInput

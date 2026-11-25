@@ -13,6 +13,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType } from '@teable/openapi';
+import cookie from 'cookie';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../../custom.exception';
@@ -775,6 +776,20 @@ export class PermissionService {
     }
   }
 
+  /**
+   * Whether a caller with these cookies has presented what a base share asks for: nothing when
+   * the share has no password, otherwise the token its password page hands out. The check
+   * PermissionGuard makes on a request, for callers that are not one: a link view's own
+   * guard, a realtime connection.
+   */
+  async baseSharePasswordPresented(shareId: string, cookieHeader?: string): Promise<boolean> {
+    if (!(await this.baseShareRequiresPassword(shareId))) {
+      return true;
+    }
+    const token = cookie.parse(cookieHeader ?? '')[shareId];
+    return token ? this.validateBaseSharePasswordToken(shareId, token) : false;
+  }
+
   async getBaseSharePermissions(shareId: string, resourceId: string) {
     const baseShare = await this.getBaseShareInfo(shareId);
     if (!baseShare) {
@@ -811,7 +826,9 @@ export class PermissionService {
 
     const canEdit = baseShare.allowEdit && !this.isAnonymous();
     const permissions = canEdit
-      ? getPermissions(Role.Editor).filter((permission) => !shareExcludedPermissions.has(permission))
+      ? getPermissions(Role.Editor).filter(
+          (permission) => !shareExcludedPermissions.has(permission)
+        )
       : [...TemplatePermissions];
     if (!canEdit && baseShare.allowCopy) {
       permissions.push('record|copy');
@@ -846,11 +863,13 @@ export class PermissionService {
       case IdPrefix.Field:
         return this.checkFieldBelongsToShare(resourceId, baseId, nodeId);
       case IdPrefix.Dashboard:
-        return this.checkDashboardBelongsToShare(resourceId, baseId, nodeId);
+        return this.checkNodeBelongsToShare('dashboard', resourceId, baseId, nodeId);
       case IdPrefix.App:
-        return this.checkAppBelongsToShare(resourceId, baseId, nodeId);
+        return this.checkNodeBelongsToShare('app', resourceId, baseId, nodeId);
+      case IdPrefix.Workflow:
+        return this.checkNodeBelongsToShare('workflow', resourceId, baseId, nodeId);
       case IdPrefix.Routine:
-        return this.checkRoutineBelongsToShare(resourceId, baseId, nodeId);
+        return this.checkNodeBelongsToShare('routine', resourceId, baseId, nodeId);
       default:
         return false;
     }
@@ -921,89 +940,34 @@ export class PermissionService {
   }
 
   /**
-   * Check if an app belongs to the shared base and is allowed by nodeId.
+   * Dashboards, apps, workflows and routines are base nodes: a node-scoped share
+   * exposes one only when its node sits inside the shared subtree.
    */
-  private async checkAppBelongsToShare(
-    appId: string,
+  private async checkNodeBelongsToShare(
+    resourceType: 'dashboard' | 'app' | 'workflow' | 'routine',
+    resourceId: string,
     baseId: string,
     nodeId: string | null
   ): Promise<boolean> {
-    const appNode = await this.prismaService.baseNode.findFirst({
+    const node = await this.prismaService.baseNode.findFirst({
       where: {
         baseId,
-        resourceType: { equals: 'app', mode: 'insensitive' },
-        resourceId: appId,
+        resourceType: { equals: resourceType, mode: 'insensitive' },
+        resourceId,
       },
+      select: { id: true },
     });
 
-    this.logger.debug(`[BaseShare] App ${appId} node found: ${!!appNode}, share baseId: ${baseId}`);
-
-    if (!appNode) {
+    if (!node) {
       return false;
     }
 
-    // Whole-base share: any app within the shared base is accessible.
+    // Whole-base share: any node within the shared base is accessible.
     if (!nodeId) {
       return true;
     }
 
-    const result = await this.isNodeAllowedByNodeId(baseId, appNode.id, nodeId);
-    this.logger.debug(`[BaseShare] App belongs check: nodeId=${nodeId}, result=${result}`);
-    return result;
-  }
-
-  private async checkRoutineBelongsToShare(
-    routineId: string,
-    baseId: string,
-    nodeId: string | null
-  ): Promise<boolean> {
-    const routineNode = await this.prismaService.baseNode.findFirst({
-      where: {
-        baseId,
-        resourceType: { equals: 'routine', mode: 'insensitive' },
-        resourceId: routineId,
-      },
-    });
-
-    if (!routineNode) {
-      return false;
-    }
-
-    // Whole-base share: any routine within the shared base is accessible.
-    if (!nodeId) {
-      return true;
-    }
-
-    return this.isNodeAllowedByNodeId(baseId, routineNode.id, nodeId);
-  }
-
-  /**
-   * Dashboards are base nodes: a node-scoped share exposes one only when its node
-   * sits inside the shared subtree.
-   */
-  private async checkDashboardBelongsToShare(
-    dashboardId: string,
-    baseId: string,
-    nodeId: string | null
-  ): Promise<boolean> {
-    const dashboardNode = await this.prismaService.baseNode.findFirst({
-      where: {
-        baseId,
-        resourceType: { equals: 'dashboard', mode: 'insensitive' },
-        resourceId: dashboardId,
-      },
-    });
-
-    if (!dashboardNode) {
-      return false;
-    }
-
-    // Whole-base share: any dashboard within the shared base is accessible.
-    if (!nodeId) {
-      return true;
-    }
-
-    return this.isNodeAllowedByNodeId(baseId, dashboardNode.id, nodeId);
+    return this.isNodeAllowedByNodeId(baseId, node.id, nodeId);
   }
 
   /**
@@ -1139,6 +1103,15 @@ export class PermissionService {
     );
   }
 
+  /** Whether the share covers the table: it is of the table, of a node above it, or of the base. */
+  async isTableSharedByBaseShare(shareId: string, tableId: string): Promise<boolean> {
+    const baseShare = await this.getBaseShareInfo(shareId);
+    if (!baseShare) {
+      return false;
+    }
+    return this.checkTableBelongsToShare(tableId, baseShare.baseId, baseShare.nodeId);
+  }
+
   async validBaseSharePermissions(shareId: string, resourceId: string, permissions: Action[]) {
     const sharePermissions = await this.getBaseSharePermissions(shareId, resourceId);
     if (permissions.every((permission) => sharePermissions.includes(permission))) {
@@ -1217,6 +1190,15 @@ export class PermissionService {
     } catch {
       return false;
     }
+  }
+
+  /** The view share counterpart of baseSharePasswordPresented. */
+  async shareViewPasswordPresented(shareId: string, cookieHeader?: string): Promise<boolean> {
+    if (!(await this.shareViewRequiresPassword(shareId))) {
+      return true;
+    }
+    const token = cookie.parse(cookieHeader ?? '')[shareId];
+    return token ? this.validateShareViewPasswordToken(shareId, token) : false;
   }
 
   async getShareViewPermissions(shareId: string, resourceId: string) {

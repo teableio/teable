@@ -61,6 +61,8 @@ export const TemplateRolePermission: Record<Action, boolean> = {
   'app|create': false,
   'app|delete': false,
   'app|update': false,
+  'app|readUsers': false,
+  'app|readUserPii': false,
   'user|email_read': false,
   'user|integrations': false,
   'user|spaces_read': false,

@@ -4,6 +4,15 @@ import { sql, type CompiledQuery, type Kysely, type RawBuilder } from 'kysely';
 
 type Row = Record<string, unknown>;
 
+const defaultCompositionLimit = 100;
+
+export const sharedMetricGroupLimit = (composition?: BoundDataQueryComposition) => {
+  const definition = composition?.definition;
+  return definition?.metricDimensions && definition.groupBy?.length
+    ? (definition.page?.limit ?? defaultCompositionLimit)
+    : undefined;
+};
+
 /** Compile over the already authorized and masked source projection, before its page. */
 export const compileDataQueryComposition = (
   db: Kysely<V1TeableDatabase>,
@@ -16,7 +25,26 @@ export const compileDataQueryComposition = (
   const grouped = metrics.length > 0;
   const groups = grouped ? (definition.groupBy ?? []) : [];
   const column = (alias: string) => sql`${sql.id('source', alias)}`;
-  const predicates = filters.map(({ alias, operator, value }) => {
+  const metricOutputs = definition.metricDimensions
+    ? new Map(composition.outputs.map((output) => [output.alias, output]))
+    : undefined;
+  const dimension = (alias: string) =>
+    metricOutputs?.get(alias)?.cellValueType === 'dateTime'
+      ? sql`date_trunc('milliseconds', ${column(alias)})`
+      : column(alias);
+  const fixedFilterCount = definition.filter?.length ?? 0;
+  const predicates = filters.map(({ alias, operator, value }, index) => {
+    // Owner predicates retain their saved semantics. Caller predicates compare displayed groups.
+    if (metricOutputs && index >= fixedFilterCount) {
+      const output = metricOutputs.get(alias);
+      const key = dimension(alias);
+      if (value === null) return sql`${key} is null`;
+      if (output?.wireType === 'numberOrString') return sql`${key} = ${value}::numeric`;
+      if (output?.cellValueType === 'dateTime') {
+        return sql`extract(epoch from ${key}) * 1000 = ${value}::bigint`;
+      }
+      return sql`${key} = ${value}`;
+    }
     const expression = column(alias);
     switch (operator) {
       case 'isNull':
@@ -40,7 +68,11 @@ export const compileDataQueryComposition = (
   const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
   const selections = grouped
     ? [
-        ...groups.map((alias) => sql`${column(alias)} as ${sql.id(alias)}`),
+        ...(definition.metricDimensions ?? groups).map((alias) => {
+          const value =
+            definition.metricDimensions && !groups.includes(alias) ? sql`null` : dimension(alias);
+          return sql`${value} as ${sql.id(alias)}`;
+        }),
         ...metrics.map((metric) => {
           const input = metric.input === undefined ? undefined : column(metric.input);
           let expression: RawBuilder<unknown>;
@@ -65,7 +97,7 @@ export const compileDataQueryComposition = (
         }),
       ]
     : composition.outputs.map(({ alias }) => sql`${column(alias)} as ${sql.id(alias)}`);
-  const groupBy = groups.length ? sql`group by ${sql.join(groups.map(column))}` : sql``;
+  const groupBy = groups.length ? sql`group by ${sql.join(groups.map(dimension))}` : sql``;
   const selected = sql`select ${sql.join(selections)} from (${source}) as ${sql.id('source')} ${where} ${groupBy}`;
   const orders = (definition.orderBy ?? []).map(({ alias, order }) =>
     order === 'asc' ? sql`${sql.id('result', alias)} asc` : sql`${sql.id('result', alias)} desc`
@@ -80,7 +112,9 @@ export const compileDataQueryComposition = (
     orders.push(sql`${sql.id('result', rootIdAlias)} asc`);
   }
   const page = definition.page;
-  const limit = page?.limit ?? 100;
+  const groupLimit = sharedMetricGroupLimit(composition);
+  const limit =
+    groupLimit === undefined ? (page?.limit ?? defaultCompositionLimit) : groupLimit + 1;
   const offset = page?.offset ?? 0;
   const orderBy = orders.length ? sql`order by ${sql.join(orders)}` : sql``;
   // Records need the hidden id in the intermediate select, but never in the returned rows.

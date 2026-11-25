@@ -30,6 +30,7 @@ import { EmitControllerEvent } from '../../event-emitter/decorators/emit-control
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
+import { AllowBaseShare } from '../auth/decorators/allow-base-share.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DashboardService } from './dashboard.service';
 
@@ -39,12 +40,14 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get()
+  @AllowBaseShare()
   @Permissions('base|read')
   getDashboard(@Param('baseId') baseId: string): Promise<IGetDashboardListVo> {
     return this.dashboardService.getDashboard(baseId);
   }
 
   @Get(':id')
+  @AllowBaseShare()
   @Permissions('base|read')
   getDashboardById(
     @Param('baseId') baseId: string,
@@ -164,6 +167,7 @@ export class DashboardController {
   }
 
   @Get(':id/plugin/:pluginInstallId')
+  @AllowBaseShare()
   @Permissions('base|read')
   getPluginInstall(
     @Param('baseId') baseId: string,

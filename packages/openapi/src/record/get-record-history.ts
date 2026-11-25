@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { fieldVoSchema } from '@teable/core';
+import { fieldVoSchema, recordActorTypeSchema } from '@teable/core';
 import { axios } from '../axios';
 import { userMapVoSchema } from '../trash';
 import { registerRoute, urlBuilder } from '../utils';
@@ -48,15 +48,42 @@ export const recordHistoryItemVoSchema = z.object({
   after: recordHistoryItemStateVoSchema,
   createdTime: z.string(),
   createdBy: z.string(),
+  // Rows without persisted attribution stay unknown; createdBy identifies only the executor.
+  actorType: recordActorTypeSchema.nullable().optional().meta({
+    description:
+      'Trusted initiator type of this history entry. Null or absent for entries without actor storage.',
+  }),
+  actorId: z.string().nullable().optional().meta({
+    description: 'Stable principal id of this history entry initiator, or null when unknown.',
+  }),
 });
 
 export type IGetRecordHistoryQuery = z.infer<typeof getRecordHistoryQuerySchema>;
 
 export type IRecordHistoryItemVo = z.infer<typeof recordHistoryItemVoSchema>;
 
+export const recordHistoryActorMapSchema = z.record(
+  z.string(),
+  z
+    .object({
+      name: z.string(),
+      avatar: z.string().nullable(),
+    })
+    .nullable()
+);
+
+export type IRecordHistoryActorMapVo = z.infer<typeof recordHistoryActorMapSchema>;
+
 export const recordHistoryVoSchema = z.object({
   historyList: z.array(recordHistoryItemVoSchema),
   userMap: userMapVoSchema,
+  // Optional for older servers; current reads resolve persisted actors within the caller's scope.
+  actorMap: recordHistoryActorMapSchema
+    .meta({
+      description:
+        'Trusted initiator display data keyed by `${actorType}:${actorId}`. Null means the principal could not be resolved; the row keeps its scalar type/id.',
+    })
+    .optional(),
   nextCursor: z.string().nullish(),
 });
 

@@ -2,6 +2,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { PassThrough } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldType } from '@teable/core';
 import type { IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
@@ -10,7 +11,13 @@ import { ClsService } from 'nestjs-cls';
 import type { Mock } from 'vitest';
 import { vi } from 'vitest';
 
+import type { IClsStore } from '../../../types/cls';
+import type { INewAuditOperationInput } from '../../audit/audit-scope';
+import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
+
+import { BASE_IMPORT_DATA_COMPLETE, BASE_IMPORT_DATA_STATUS } from '../base-import-completion';
 import { BaseImportCsvQueueProcessor } from './base-import-csv.processor';
+import { BaseImportJunctionCsvQueueProcessor } from './base-import-junction.processor';
 
 const createCsvZipStream = (entries: Record<string, string>) => {
   const archive = archiver('zip', { zlib: { level: 0 } });
@@ -22,6 +29,39 @@ const createCsvZipStream = (entries: Record<string, string>) => {
 };
 
 describe('BaseImportCsvQueueProcessor', () => {
+  it.each([undefined, { type: 'appUser' as const, id: 'apuFrozen' }])(
+    'uses only the producer frozen initiator, not executor or archive (%s)',
+    async (recordInitiator) => {
+      const cls = new ClsService<IClsStore>(new AsyncLocalStorage());
+      const processor = Object.create(BaseImportCsvQueueProcessor.prototype) as {
+        handleBaseImportCsv: (job: { data: Record<string, unknown> }) => Promise<void>;
+      };
+      const inScope = vi.fn(async () => {
+        expect(cls.get('recordInitiator')).toEqual(recordInitiator);
+        expect(cls.get('user.id')).toBe('usrExecutor');
+      });
+      Object.assign(processor, {
+        cls,
+        audit: {
+          withOperation: async <T>(
+            _operation: INewAuditOperationInput,
+            callback: () => Promise<T>
+          ) => callback(),
+        },
+        handleBaseImportCsvInScope: inScope,
+      });
+      await processor.handleBaseImportCsv({
+        data: {
+          userId: 'usrExecutor',
+          baseId: 'bseImport',
+          recordInitiator,
+          structure: { createdByActorType: 'user', createdByActorId: 'forgedArchiveActor' },
+        },
+      });
+      expect(inScope).toHaveBeenCalledOnce();
+    }
+  );
+
   it('waits for csv entry pipelines before running persisted computed backfill', async () => {
     const structure = {
       tables: [
@@ -39,13 +79,17 @@ describe('BaseImportCsvQueueProcessor', () => {
       handleBaseImportCsvInScope: (job: { data: Record<string, unknown> }) => Promise<void>;
       handleChunk: ReturnType<typeof vi.fn>;
       storageAdapter: { downloadFile: ReturnType<typeof vi.fn> };
-      cls: ClsService;
+      cls: ClsService<IClsStore>;
       prismaService: { base: { findUniqueOrThrow: ReturnType<typeof vi.fn> } };
       persistedComputedBackfillService: { recomputeForTables: ReturnType<typeof vi.fn> };
       logger: { log: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
     };
+    Object.assign(processor, {
+      recordMutationPolicy: new RecordMutationPolicyService(),
+      eventEmitter: new EventEmitter2(),
+    });
 
-    processor.cls = new ClsService(new AsyncLocalStorage());
+    processor.cls = new ClsService<IClsStore>(new AsyncLocalStorage());
     processor.storageAdapter = {
       downloadFile: vi
         .fn()
@@ -89,6 +133,10 @@ describe('BaseImportCsvQueueProcessor', () => {
       persistedComputedBackfillService: { recomputeForTables: ReturnType<typeof vi.fn> };
       logger: { log: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
     };
+    Object.assign(processor, {
+      recordMutationPolicy: new RecordMutationPolicyService(),
+      eventEmitter: new EventEmitter2(),
+    });
     const contexts: object[] = [];
     let activeChunks = 0;
     processor.cls = cls;
@@ -171,6 +219,10 @@ describe('BaseImportCsvQueueProcessor', () => {
       persistedComputedBackfillService: { recomputeForTables: Mock };
       logger: { log: Mock; error: Mock };
     };
+    Object.assign(processor, {
+      recordMutationPolicy: new RecordMutationPolicyService(),
+      eventEmitter: new EventEmitter2(),
+    });
     const transactionContexts: object[] = [];
     processor.cls = cls;
     processor.storageAdapter = {
@@ -242,13 +294,17 @@ describe('BaseImportCsvQueueProcessor', () => {
       handleBaseImportCsvInScope: (job: { data: Record<string, unknown> }) => Promise<void>;
       handleChunk: ReturnType<typeof vi.fn>;
       processedJobs: Set<string>;
-      cls: ClsService;
+      cls: ClsService<IClsStore>;
       storageAdapter: { downloadFile: ReturnType<typeof vi.fn> };
       notificationService: { sendCommonNotify: ReturnType<typeof vi.fn> };
       prismaService: { base: { findUniqueOrThrow: ReturnType<typeof vi.fn> } };
       persistedComputedBackfillService: { recomputeForTables: ReturnType<typeof vi.fn> };
       logger: { log: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
     };
+    Object.assign(processor, {
+      recordMutationPolicy: new RecordMutationPolicyService(),
+      eventEmitter: new EventEmitter2(),
+    });
     const { promise: activeChunkEntered, resolve: markActiveChunkEntered } =
       Promise.withResolvers<void>();
     const { promise: downloadClosed, resolve: markDownloadClosed } = Promise.withResolvers<void>();
@@ -267,7 +323,7 @@ describe('BaseImportCsvQueueProcessor', () => {
     const completedRecords: string[] = [];
     let downloads = 0;
     processor.processedJobs = new Set();
-    processor.cls = new ClsService(new AsyncLocalStorage());
+    processor.cls = new ClsService<IClsStore>(new AsyncLocalStorage());
     processor.storageAdapter = {
       downloadFile: vi.fn(async () => {
         downloads += 1;
@@ -350,94 +406,131 @@ describe('BaseImportCsvQueueProcessor', () => {
     }
   });
 
-  it('does not write record history when importing base records', async () => {
-    const executedSql: string[] = [];
-    const dataKnex = Knex({ client: 'pg' });
-    const dataPrisma = {
-      $queryRawUnsafe: vi
-        .fn()
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ name: '__id' }, { name: 'fldText' }]),
-      $executeRawUnsafe: vi.fn(async (sql: string) => {
-        executedSql.push(sql);
-        return 1;
-      }),
-    };
-    const prismaService = {
-      tableMeta: {
-        findUniqueOrThrow: vi.fn().mockResolvedValue({ dbTableName: 'bse_data.tbl_imported' }),
-      },
-      txClient: vi.fn().mockReturnValue({
-        attachmentsTable: {
-          createMany: vi.fn().mockResolvedValue(undefined),
-        },
-      }),
-    };
-    const dataDbClientManager = {
-      dataPrismaForBase: vi.fn().mockResolvedValue(dataPrisma),
-      dataKnexForBase: vi.fn().mockResolvedValue(dataKnex),
-      getDataDatabaseForBase: vi.fn().mockResolvedValue({
-        url: 'postgresql://user:pass@example.test:5432/data?schema=teable_internal',
-      }),
-    };
-    const processor = Object.create(BaseImportCsvQueueProcessor.prototype) as {
-      handleChunk: (
-        results: Record<string, unknown>[],
-        config: {
-          baseId: string;
-          tableId: string;
-          userId: string;
-          fieldIdMap: Record<string, string>;
-          viewIdMap: Record<string, string>;
-          fkMap: Record<string, string>;
-          attachmentsFields: { dbFieldName: string; id: string }[];
-          notNullFieldMap: Map<string, { dbFieldType: string; isMultipleCellValue: boolean }>;
-          fieldDbNameMap: Map<string, string>;
-        },
-        excludeDbFieldNames: string[]
-      ) => Promise<void>;
-      prismaService: typeof prismaService;
-      dbProvider: {
-        getForeignKeysInfo: ReturnType<typeof vi.fn>;
-        columnInfo: ReturnType<typeof vi.fn>;
+  it.each([0, 1])(
+    'imports current actors without history or archive identity for capability %s',
+    async (actorStorageVersion) => {
+      const executedSql: string[] = [];
+      const dataKnex = Knex({ client: 'pg' });
+      const dataPrisma = {
+        $queryRawUnsafe: vi
+          .fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ name: '__id' }, { name: 'fldText' }]),
+        $executeRawUnsafe: vi.fn(async (sql: string) => {
+          executedSql.push(sql);
+          return 1;
+        }),
       };
-      dataDbClientManager: typeof dataDbClientManager;
-    };
+      const prismaService = {
+        tableMeta: {
+          findUniqueOrThrow: vi.fn().mockResolvedValue({ dbTableName: 'bse_data.tbl_imported' }),
+        },
+        txClient: vi.fn().mockReturnValue({
+          attachmentsTable: {
+            createMany: vi.fn().mockResolvedValue(undefined),
+          },
+        }),
+      };
+      const dataDbClientManager = {
+        dataPrismaForBase: vi.fn().mockResolvedValue(dataPrisma),
+        dataKnexForBase: vi.fn().mockResolvedValue(dataKnex),
+        getDataDatabaseForBase: vi.fn().mockResolvedValue({
+          url: 'postgresql://user:pass@example.test:5432/data?schema=teable_internal',
+        }),
+      };
+      const processor = Object.create(BaseImportCsvQueueProcessor.prototype) as {
+        handleChunk: (
+          results: Record<string, unknown>[],
+          config: {
+            baseId: string;
+            tableId: string;
+            userId: string;
+            fieldIdMap: Record<string, string>;
+            viewIdMap: Record<string, string>;
+            fkMap: Record<string, string>;
+            attachmentsFields: { dbFieldName: string; id: string }[];
+            notNullFieldMap: Map<string, { dbFieldType: string; isMultipleCellValue: boolean }>;
+            fieldDbNameMap: Map<string, string>;
+          },
+          excludeDbFieldNames: string[]
+        ) => Promise<void>;
+        prismaService: typeof prismaService;
+        dbProvider: {
+          getForeignKeysInfo: ReturnType<typeof vi.fn>;
+          columnInfo: ReturnType<typeof vi.fn>;
+        };
+        dataDbClientManager: typeof dataDbClientManager;
+      };
+      Object.assign(processor, { recordMutationPolicy: new RecordMutationPolicyService() });
 
-    processor.prismaService = prismaService;
-    processor.dbProvider = {
-      getForeignKeysInfo: vi.fn().mockReturnValue('SELECT * FROM foreign_keys'),
-      columnInfo: vi.fn().mockReturnValue('SELECT * FROM columns'),
-    };
-    processor.dataDbClientManager = dataDbClientManager;
-    Object.assign(processor, {
-      audit: { emitAtomic: vi.fn().mockResolvedValue(undefined) },
-      cls: { get: vi.fn() },
-    });
+      processor.prismaService = prismaService;
+      processor.dbProvider = {
+        getForeignKeysInfo: vi.fn().mockReturnValue('SELECT * FROM foreign_keys'),
+        columnInfo: vi.fn().mockReturnValue('SELECT * FROM columns'),
+      };
+      processor.dataDbClientManager = dataDbClientManager;
+      const persistRecordCreateOperationAudit = vi.fn(async (_tableId, _count, _ids, execute) =>
+        execute('audit-journal')
+      );
+      Object.assign(processor, {
+        audit: { emitAtomic: vi.fn().mockResolvedValue(undefined) },
+        cls: { get: vi.fn(() => ({ type: 'appUser', id: 'apuCurrent' })) },
+        recordActorStorageService: {
+          withTableWrite: vi.fn(async (_id, callback) => callback({ actorStorageVersion })),
+        },
+        eventEmitterService: { persistRecordCreateOperationAudit },
+      });
 
-    await processor.handleChunk(
-      [{ __id: 'recImported', fldText: 'Imported value' }],
-      {
-        baseId: 'bseImport',
-        tableId: 'tblImport',
-        userId: 'usrImport',
-        fieldIdMap: {},
-        viewIdMap: {},
-        fkMap: {},
-        attachmentsFields: [],
-        notNullFieldMap: new Map(),
-        fieldDbNameMap: new Map([['fldText', 'fldMappedText']]),
-      },
-      []
-    );
+      await processor.handleChunk(
+        [
+          {
+            __id: 'recImported',
+            fldText: 'Imported value',
+            __created_by_actor_type: 'user',
+            __created_by_actor_id: 'forgedCreator',
+            __last_modified_by_actor_type: 'user',
+            __last_modified_by_actor_id: 'forgedModifier',
+          },
+        ],
+        {
+          baseId: 'bseImport',
+          tableId: 'tblImport',
+          userId: 'usrImport',
+          fieldIdMap: {},
+          viewIdMap: {},
+          fkMap: {},
+          attachmentsFields: [],
+          notNullFieldMap: new Map(),
+          fieldDbNameMap: new Map([['fldText', 'fldMappedText']]),
+        },
+        []
+      );
 
-    expect(executedSql.some((sql) => sql.includes('"bse_data"."tbl_imported"'))).toBe(true);
-    // Base import inserts records only — it must not generate per-cell record history
-    // (the v1 hot path that bloated each chunk transaction and timed out on large tables).
-    expect(executedSql.some((sql) => sql.toLowerCase().includes('record_history'))).toBe(false);
+      expect(executedSql.some((sql) => sql.includes('"bse_data"."tbl_imported"'))).toBe(true);
+      // Base import inserts records only — it must not generate per-cell record history
+      // (the v1 hot path that bloated each chunk transaction and timed out on large tables).
+      expect(executedSql.some((sql) => sql.toLowerCase().includes('record_history'))).toBe(false);
+      expect(persistRecordCreateOperationAudit).toHaveBeenCalledWith(
+        'tblImport',
+        1,
+        ['recImported'],
+        expect.any(Function)
+      );
+      expect(executedSql[executedSql.length - 1]).toBe('audit-journal');
+      const inserted = executedSql.find((sql) => sql.includes('insert into'))!;
+      expect(inserted).not.toContain('forgedCreator');
+      expect(inserted).not.toContain('forgedModifier');
+      if (actorStorageVersion === 1) {
+        expect(inserted).toContain('apuCurrent');
+        expect(inserted).toContain('__created_by_actor_type');
+        expect(inserted).toContain('__last_modified_by_actor_id');
+      } else {
+        expect(inserted).not.toContain('_actor_');
+      }
 
-    await dataKnex.destroy();
-  });
+      await dataKnex.destroy();
+    }
+  );
 
   it('drops ghost columns missing from the target table instead of aborting the insert', async () => {
     const executedSql: string[] = [];
@@ -482,6 +575,7 @@ describe('BaseImportCsvQueueProcessor', () => {
       };
       dataDbClientManager: typeof dataDbClientManager;
     };
+    Object.assign(processor, { recordMutationPolicy: new RecordMutationPolicyService() });
 
     processor.prismaService = prismaService;
     processor.dbProvider = {
@@ -492,6 +586,14 @@ describe('BaseImportCsvQueueProcessor', () => {
     Object.assign(processor, {
       audit: { emitAtomic: vi.fn().mockResolvedValue(undefined) },
       cls: { get: vi.fn() },
+      recordActorStorageService: {
+        withTableWrite: vi.fn(async (_id, callback) => callback({ actorStorageVersion: 0 })),
+      },
+      eventEmitterService: {
+        persistRecordCreateOperationAudit: vi.fn(async (_tableId, _count, _ids, execute) =>
+          execute('audit-journal')
+        ),
+      },
     });
 
     await processor.handleChunk(
@@ -517,5 +619,165 @@ describe('BaseImportCsvQueueProcessor', () => {
     expect(dataInsert).not.toContain('fldGhost');
 
     await dataKnex.destroy();
+  });
+});
+
+describe('Import terminal finalization', () => {
+  const data = {
+    path: 'owned.tea',
+    baseId: 'bseTarget',
+    userId: 'usrImporter',
+    tableIdMap: { source: 'target' },
+    fieldIdMap: {},
+    viewIdMap: {},
+    operationId: 'owned-operation',
+    hostResourceIdMaps: { appIdMap: { source: 'newApp' } },
+    structure: { tables: [] },
+  };
+
+  it('awaits host finalization and propagates listener failure while allowing retry', async () => {
+    const emitter = new EventEmitter2();
+    const failure = new Error('binding activation failed');
+    let finish!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let fail = true;
+    emitter.on(BASE_IMPORT_DATA_COMPLETE, async (completion) => {
+      expect(completion).toMatchObject(data);
+      expect(recomputeForTables).toHaveBeenCalled();
+      await blocked;
+      if (fail) throw failure;
+    });
+    const recomputeForTables = vi.fn();
+    const importJunctionChunk = vi.fn(async () => ({ skippedCells: 0, junctions: new Set() }));
+    const processor = Object.create(
+      BaseImportJunctionCsvQueueProcessor.prototype
+    ) as BaseImportJunctionCsvQueueProcessor;
+    Object.assign(processor, {
+      prismaService: { base: { findUniqueOrThrow: vi.fn(async () => ({ v2Enabled: false })) } },
+      eventEmitter: emitter,
+      processedJobs: new Set(),
+      importJunctionChunk,
+      getImportedLinks: vi.fn(async () => []),
+      clearDanglingLinks: vi.fn(async () => 0),
+      cls: new ClsService<IClsStore>(new AsyncLocalStorage()),
+      notificationService: { sendCommonNotify: vi.fn() },
+      persistedComputedBackfillService: { recomputeForTables },
+      logger: { log: vi.fn(), error: vi.fn() },
+    });
+    let settled = false;
+    const pending = processor.process({ id: 'owned-job', data } as never).finally(() => {
+      settled = true;
+    });
+    const caught = pending.catch((error) => error);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(settled).toBe(false);
+    finish();
+    expect((await caught).message).toBe('Base import relationship restoration failed');
+    fail = false;
+    await processor.process({ id: 'owned-job', data } as never);
+    expect(importJunctionChunk).toHaveBeenCalledTimes(2);
+    expect(recomputeForTables).toHaveBeenCalledTimes(2);
+  });
+
+  it('propagates junction failure without activating and clears its failed-job marker', async () => {
+    const emitter = new EventEmitter2();
+    const activate = vi.fn();
+    emitter.on(BASE_IMPORT_DATA_COMPLETE, activate);
+    const failure = new Error('junction insert failed');
+    const importJunctionChunk = vi
+      .fn()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValue({ skippedCells: 0, junctions: new Set() });
+    const processor = Object.create(
+      BaseImportJunctionCsvQueueProcessor.prototype
+    ) as BaseImportJunctionCsvQueueProcessor;
+    Object.assign(processor, {
+      prismaService: { base: { findUniqueOrThrow: vi.fn(async () => ({ v2Enabled: false })) } },
+      eventEmitter: emitter,
+      processedJobs: new Set(),
+      importJunctionChunk,
+      getImportedLinks: vi.fn(async () => []),
+      clearDanglingLinks: vi.fn(async () => 0),
+      cls: new ClsService<IClsStore>(new AsyncLocalStorage()),
+      notificationService: { sendCommonNotify: vi.fn() },
+      persistedComputedBackfillService: { recomputeForTables: vi.fn() },
+      logger: { log: vi.fn(), error: vi.fn() },
+    });
+    await expect(processor.process({ id: 'owned-job', data } as never)).rejects.toThrow(
+      'Base import relationship restoration failed'
+    );
+    expect(activate).not.toHaveBeenCalled();
+    await processor.process({ id: 'owned-job', data } as never);
+    expect(activate).toHaveBeenCalledOnce();
+    expect(importJunctionChunk).toHaveBeenCalledTimes(2);
+  });
+
+  it('short-circuits an owner-proved completed redelivery before any mutation', async () => {
+    const emitter = new EventEmitter2();
+    emitter.on(BASE_IMPORT_DATA_STATUS, () => true);
+    const handleBaseImportCsv = vi.fn();
+    const processor = Object.create(
+      BaseImportCsvQueueProcessor.prototype
+    ) as BaseImportCsvQueueProcessor;
+    Object.assign(processor, { eventEmitter: emitter, handleBaseImportCsv });
+    await processor.process({
+      id: 'already-activated',
+      data: { ...data, logId: data.operationId },
+    } as never);
+    expect(handleBaseImportCsv).not.toHaveBeenCalled();
+  });
+});
+
+describe('Junction import persistence', () => {
+  it('rejects a failed insert even when the destination has no foreign keys', async () => {
+    const failure = new Error('raw junction insert failed');
+    const knex = Knex({ client: 'pg' });
+    const processor = Object.create(BaseImportJunctionCsvQueueProcessor.prototype) as {
+      handleJunctionChunk: (baseId: string, rows: object[], tableName: string) => Promise<void>;
+    };
+    Object.assign(processor, {
+      cls: new ClsService<IClsStore>(new AsyncLocalStorage()),
+      dataDbClientManager: {
+        dataPrismaForBase: async () => ({
+          $queryRawUnsafe: async () => [],
+          $executeRawUnsafe: async () => {
+            throw failure;
+          },
+        }),
+        dataKnexForBase: async () => knex,
+      },
+      dbProvider: { getForeignKeysInfo: () => 'foreign-keys' },
+      logger: { error: vi.fn() },
+    });
+    try {
+      await expect(
+        processor.handleJunctionChunk(
+          'bseTarget',
+          [{ left: 'a', right: 'b' }],
+          'base.junction_owned'
+        )
+      ).rejects.toBe(failure);
+    } finally {
+      await knex.destroy();
+    }
+  });
+
+  it('synchronously drains embedded app ZIP entries before parsing junction completion', async () => {
+    const archive = archiver('zip', { zlib: { level: 6 } });
+    // Exported app archives are opaque ZIP bytes, not table CSV streams.
+    archive.append(Buffer.from([0x50, 0x4b, 0x03, 0x04, 0xff, 0xff]), {
+      name: 'apps/appOwned/version.zip',
+    });
+    archive.append('__id,Name\nrec1,ordinary', { name: 'tables/tblOrdinary.csv' });
+    void archive.finalize();
+    const processor = Object.create(BaseImportJunctionCsvQueueProcessor.prototype) as {
+      readArchive: (path: string, select: () => undefined) => Promise<void>;
+    };
+    Object.assign(processor, {
+      storageAdapter: { downloadFile: async () => archive },
+    });
+    await expect(processor.readArchive('owned.tea', () => undefined)).resolves.toBeUndefined();
   });
 });

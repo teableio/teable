@@ -1,15 +1,17 @@
 import {
   BaseId,
   ListTablesQuery,
+  Table,
+  TableId,
   type Base,
   type DomainError,
   type IBaseRepository,
   type IExecutionContext,
   type IQueryBus,
   type ListTablesResult,
-  type Table,
+  type ITableRepository,
 } from '@teable/v2-core';
-import { err, ok, type Result } from 'neverthrow';
+import { err, ok, Result } from 'neverthrow';
 
 import { vcsDomainError } from '../../domain/errors';
 import type { ITableVcsSnapshot } from '../../domain/types';
@@ -78,6 +80,26 @@ export const listLiveTablesInBase = async (
   }
   return ok(execRes.value.tables);
 };
+
+/** Match the incoming-reference candidates that DeleteTableHandler coordinates. */
+export async function listTableDeletionDependencies(
+  tables: Pick<ITableRepository, 'find'>,
+  context: IExecutionContext,
+  deletedTableIds: readonly string[]
+): Promise<Result<readonly string[], DomainError>> {
+  if (!deletedTableIds.length) return ok([]);
+  const ids = Result.combine(deletedTableIds.map((id) => TableId.create(id)));
+  if (ids.isErr()) return err(ids.error);
+  const spec = Table.specs()
+    .orGroup((group) => {
+      for (const id of ids.value) group.byIncomingReferenceToTable(id);
+      return group;
+    })
+    .build();
+  if (spec.isErr()) return err(spec.error);
+  const found = await tables.find(context, spec.value);
+  return found.map((values) => values.map((table) => table.id().toString()));
+}
 
 export const isScopeRecordForbidden = (scope: IVcsReadableTableScope): boolean =>
   Boolean(scope.isRowFiltered && scope.readableFieldIds && scope.readableFieldIds.length === 0);

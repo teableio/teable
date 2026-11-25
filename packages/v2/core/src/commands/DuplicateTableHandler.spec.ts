@@ -281,6 +281,9 @@ class FakeTableRepository implements ITableRepository {
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   insertedTables: Table[] = [];
   insertManyOptions: Array<TableSchemaInsertManyOptions | undefined> = [];
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
 
   async insert(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     this.insertedTables.push(table);
@@ -504,6 +507,10 @@ describe('DuplicateTableHandler', () => {
     tableRecordQueryRepository.records = [
       {
         id: sourceRecordIdA,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
         version: 1,
         orders: {
           [defaultViewId]: 7,
@@ -518,6 +525,10 @@ describe('DuplicateTableHandler', () => {
       },
       {
         id: sourceRecordIdB,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
         version: 1,
         orders: {
           [defaultViewId]: 3,

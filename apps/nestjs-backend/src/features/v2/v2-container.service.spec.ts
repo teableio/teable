@@ -11,17 +11,25 @@ import { PgPoolRegistry } from '@teable/db-main-prisma';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type { IV2NodePgContainerOptions } from '@teable/v2-container-node';
 import {
-  BackgroundTaskTracker,
+  ActorColumnsEnableHandler,
   ActorId,
   AsyncMemoryEventBus,
+  BackgroundTaskTracker,
   BaseId,
   EventHandler,
+  NoopTableRepository,
+  NoopTableSchemaCoordination,
+  NoopTableSchemaRepository,
+  NoopUnitOfWork,
   RecordCreated,
   RecordId,
+  SchemaOperationRunnerService,
   TableId,
   v2CoreTokens,
   type IDomainEvent,
   type IEventHandler,
+  type ISchemaOperationHandler,
+  type ISchemaOperationRepository,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import type * as TableQueryOpsModule from '@teable/v2-table-query-ops';
@@ -175,13 +183,27 @@ const createContainerMock = (
     resolve: () => {
       throw new Error('Unexpected event handler');
     },
-  })
+  }),
+  db = { destroy: vi.fn() }
 ): DependencyContainer => {
-  const db = { destroy: vi.fn() };
+  const operations: ISchemaOperationRepository = {
+    upsert: vi.fn<ISchemaOperationRepository['upsert']>(),
+    advance: vi.fn<ISchemaOperationRepository['advance']>(),
+    list: vi.fn<ISchemaOperationRepository['list']>(),
+    manualRetry: vi.fn<ISchemaOperationRepository['manualRetry']>(),
+    markDead: vi.fn<ISchemaOperationRepository['markDead']>(),
+  };
+  const handlers: ReadonlyArray<ISchemaOperationHandler> = [];
   return {
     isRegistered: vi.fn(),
     registerInstance: vi.fn(),
     resolve: vi.fn((token: symbol) => {
+      if (token === v2CoreTokens.schemaOperationRepository) return operations;
+      if (token === v2CoreTokens.schemaOperationHandlers) return handlers;
+      if (token === v2CoreTokens.tableRepository) return new NoopTableRepository();
+      if (token === v2CoreTokens.tableSchemaRepository) return new NoopTableSchemaRepository();
+      if (token === v2CoreTokens.tableSchemaCoordination) return new NoopTableSchemaCoordination();
+      if (token === v2CoreTokens.unitOfWork) return new NoopUnitOfWork();
       if (token === v2CoreTokens.eventBus) {
         return eventBus;
       }
@@ -520,6 +542,13 @@ describe('V2ContainerService', () => {
     expect(container.registerInstance).toHaveBeenCalledWith(
       v2CoreTokens.recordChangedValueDecoratorService,
       expect.any(Object)
+    );
+    expect(container.registerInstance).toHaveBeenCalledWith(v2CoreTokens.schemaOperationHandlers, [
+      expect.any(ActorColumnsEnableHandler),
+    ]);
+    expect(container.registerInstance).toHaveBeenCalledWith(
+      v2CoreTokens.schemaOperationRunnerService,
+      expect.any(SchemaOperationRunnerService)
     );
     expect(discoveryService.getProviders).toHaveBeenCalledTimes(1);
     expect(registrar.registerProjections).toHaveBeenCalledTimes(1);
@@ -1760,31 +1789,7 @@ describe('V2ContainerService', () => {
   it('destroys the shared V2 db driver during shutdown', async () => {
     const destroy = vi.fn().mockResolvedValue(undefined);
     const db = { destroy };
-    const container = {
-      isRegistered: vi.fn(),
-      registerInstance: vi.fn(),
-      resolve: vi.fn((token: symbol) => {
-        if (token === v2CoreTokens.eventBus) {
-          return createContainerMock().resolve(v2CoreTokens.eventBus);
-        }
-        if (token === v2MetaDbTokens.db || token === v2DataDbTokens.db) {
-          return db;
-        }
-        if (token === v2CoreTokens.attachmentLookupService) {
-          return {};
-        }
-        if (token === v2CoreTokens.attachmentValueDecoratorService) {
-          return {};
-        }
-        if (token === v2CoreTokens.tracer) {
-          return {};
-        }
-        if (token === v2CoreTokens.undoRedoStore) {
-          return undefined;
-        }
-        throw new Error(`Unexpected token: ${String(token)}`);
-      }),
-    } as unknown as DependencyContainer;
+    const container = createContainerMock(undefined, db);
 
     mocks.createV2NodePgContainer.mockResolvedValue(container);
     const { service, tableQueryObservationRuntime } = createService();

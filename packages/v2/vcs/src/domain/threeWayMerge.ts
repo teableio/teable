@@ -774,6 +774,7 @@ function mergeExistingRecord3Way(
     {
       id: oRec.id,
       fields: mergedFields,
+      autoNumber: tRec.autoNumber ?? bRec?.autoNumber ?? oRec.autoNumber,
       ...(mergedVersion !== undefined ? { version: mergedVersion } : {}),
       ...(ordersRes.merged ? { orders: ordersRes.merged as Record<string, number> } : {}),
     },
@@ -788,7 +789,7 @@ function didRecordChange(
 ): boolean {
   const bNorm = normalizeRecordFields(baseRec.fields, storedFields);
   const sNorm = normalizeRecordFields(sideRec.fields, storedFields);
-  return !deepEqualVcs(bNorm, sNorm);
+  return !deepEqualVcs(bNorm, sNorm) || !deepEqualVcs(baseRec.orders, sideRec.orders);
 }
 
 function resolveOneSidedRecord(

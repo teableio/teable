@@ -15,10 +15,7 @@ import { TableName } from '../domain/table/TableName';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { MemoryTableRepository } from '../ports/memory/MemoryTableRepository';
-import type {
-  ITableRecordQueryOptions,
-  ITableRecordQueryRepository,
-} from '../ports/TableRecordQueryRepository';
+import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import { GetRecordStatusHandler } from './GetRecordStatusHandler';
 import { GetRecordStatusQuery } from './GetRecordStatusQuery';
@@ -50,23 +47,36 @@ const createRecordRepository = (options: {
   visibleCount: number;
   recordId?: string;
   records?: ReadonlyArray<TableRecordReadModel>;
-}): ITableRecordQueryRepository =>
-  ({
-    findOne: vi.fn(async () =>
-      options.exists
-        ? ok({
-            id: 'rec',
-            fields: {},
-            version: 1,
-          })
-        : err(domainError.notFound({ code: 'record.not_found', message: 'Record not found' }))
-    ),
-    count: vi.fn(async () => ok(options.visibleCount)),
-    find: vi.fn(async (_context, table, spec, queryOptions: ITableRecordQueryOptions = {}) => {
-      const records =
+}): ITableRecordQueryRepository => ({
+  findOne: vi.fn<ITableRecordQueryRepository['findOne']>(async (_context, _table, recordId) =>
+    options.exists
+      ? ok({
+          id: recordId.toString(),
+          fields: {},
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        })
+      : err(domainError.notFound({ code: 'record.not_found', message: 'Record not found' }))
+  ),
+  find: vi.fn<ITableRecordQueryRepository['find']>(
+    async (_context, table, spec, queryOptions = {}) => {
+      const records: ReadonlyArray<TableRecordReadModel> =
         options.records ??
         (options.visibleCount > 0 && options.recordId
-          ? [{ id: options.recordId, fields: {}, version: 1 }]
+          ? [
+              {
+                id: options.recordId,
+                fields: {},
+                version: 1,
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
+              },
+            ]
           : []);
       const matching = records.filter((record) => {
         if (!spec) return true;
@@ -91,8 +101,12 @@ const createRecordRepository = (options: {
       const offset = queryOptions.pagination?.offset().toNumber() ?? 0;
       const limit = queryOptions.pagination?.limit().toNumber() ?? sorted.length;
       return ok({ records: sorted.slice(offset, offset + limit), total: sorted.length });
-    }),
-  }) as unknown as ITableRecordQueryRepository;
+    }
+  ),
+  async *findStream() {
+    yield err(domainError.unexpected({ message: 'Unexpected record stream query' }));
+  },
+});
 
 describe('GetRecordStatusQuery', () => {
   it('defaults fieldKeyType to id and rejects malformed identifiers', () => {
@@ -123,8 +137,24 @@ describe('GetRecordStatusHandler', () => {
         exists: true,
         visibleCount: 1,
         records: [
-          { id: fixture.recordId.toString(), fields: { [titleFieldId]: 'Alpha' }, version: 1 },
-          { id: firstRecordId.toString(), fields: { [titleFieldId]: 'Zulu' }, version: 1 },
+          {
+            id: fixture.recordId.toString(),
+            fields: { [titleFieldId]: 'Alpha' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+          {
+            id: firstRecordId.toString(),
+            fields: { [titleFieldId]: 'Zulu' },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
         ],
       }),
       new NoopLogger()
@@ -155,8 +185,24 @@ describe('GetRecordStatusHandler', () => {
         exists: true,
         visibleCount: 1,
         records: [
-          { id: fixture.recordId.toString(), fields: {}, version: 1 },
-          { id: otherRecordId.toString(), fields: {}, version: 1 },
+          {
+            id: fixture.recordId.toString(),
+            fields: {},
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+          {
+            id: otherRecordId.toString(),
+            fields: {},
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
         ],
       }),
       new NoopLogger()
@@ -184,8 +230,24 @@ describe('GetRecordStatusHandler', () => {
         exists: true,
         visibleCount: 1,
         records: [
-          { id: fixture.recordId.toString(), fields: {}, version: 1 },
-          { id: allowedRecordId.toString(), fields: {}, version: 1 },
+          {
+            id: fixture.recordId.toString(),
+            fields: {},
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+          {
+            id: allowedRecordId.toString(),
+            fields: {},
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
         ],
       }),
       new NoopLogger()

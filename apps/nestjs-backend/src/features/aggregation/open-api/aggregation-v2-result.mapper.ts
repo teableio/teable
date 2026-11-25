@@ -81,6 +81,8 @@ export async function normalizeLegacyFilterViaQueryBus(
     fieldMetaById.set(fieldDto.value.id, {
       type: fieldDto.value.type,
       cellValueType: 'cellValueType' in fieldDto.value ? fieldDto.value.cellValueType : undefined,
+      isMultipleCellValue:
+        'isMultipleCellValue' in fieldDto.value ? fieldDto.value.isMultipleCellValue : undefined,
       options: fieldDto.value.options,
     });
   }

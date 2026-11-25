@@ -35,7 +35,12 @@ import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWr
 import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRecordRepository, RecordStoredSnapshot } from '../ports/TableRecordRepository';
+import type {
+  ITableRecordRepository,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
+  RecordStoredSnapshot,
+} from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaCoordination } from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -93,13 +98,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -136,12 +134,33 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  /**
+   * This fake keeps no soft-deleted table rows, so restore re-registers the
+   * aggregate by id instead of failing on missing trash state.
+   */
+  async restore(_context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
+    if (index >= 0) {
+      this.tables[index] = table;
+    } else {
+      this.tables.push(table);
+    }
+    return ok(undefined);
+  }
+
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(
+    _context: IExecutionContext,
+    _table: Table
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async insert(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -212,6 +231,16 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       this.omitRecordSnapshots
         ? {}
         : { recordSnapshots: records.map((record) => toStoredSnapshot(record)) }
+    );
+  }
+
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.unexpected({ message: 'duplicatePhysicalRows is not modelled by this fake' })
     );
   }
 

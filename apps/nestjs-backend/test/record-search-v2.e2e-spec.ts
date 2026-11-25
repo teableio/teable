@@ -37,6 +37,7 @@ import {
 } from '@teable/v2-core';
 import { BufferedTableQueryObservationPublisher } from '@teable/v2-table-query-ops';
 import { sql, type Kysely } from 'kysely';
+import { CLS_REQ, ClsService } from 'nestjs-cls';
 import { Client } from 'pg';
 import { TableQueryObservationRuntimeService } from '../src/features/v2/table-query-observation-runtime.service';
 import { V2ContainerService } from '../src/features/v2/v2-container.service';
@@ -958,7 +959,22 @@ describe.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)(
       // Pass-through trace recording observes the actual repository execution;
       // neither the resolver nor its returned access path is mocked.
       const spans = vi.spyOn(OpenTelemetryTracer.prototype, 'startSpan');
-      const queries = vi.spyOn(Client.prototype, 'query');
+      const cls = app.get(ClsService);
+      const searchUrls = new Set<string>();
+      const requestSql: string[] = [];
+      const originalQuery = Client.prototype.query;
+      const queries = vi.spyOn(Client.prototype, 'query').mockImplementation(function (
+        this: Client,
+        ...args
+      ) {
+        const url: string | undefined = cls.get(CLS_REQ)?.originalUrl;
+        if (url?.includes(table.id)) {
+          searchUrls.add(url);
+          const [query] = args;
+          requestSql.push(typeof query === 'string' ? query : query.text);
+        }
+        return Reflect.apply(originalQuery, this, args);
+      });
       try {
         const expectedIds = table.records
           .slice(0, 2)
@@ -1017,9 +1033,8 @@ describe.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)(
             })
           );
         }
-        const requestSql = queries.mock.calls.map(([query]) =>
-          typeof query === 'string' ? query : query.text
-        );
+        // Each mode issues three distinct HTTP requests. Background jobs share the pg driver.
+        expect(searchUrls.size).toBe(6);
         expect(requestSql.join('\n')).not.toMatch(
           /table_query_search_vector_config|pg_index|pg_attribute|\bEXPLAIN\b/i
         );

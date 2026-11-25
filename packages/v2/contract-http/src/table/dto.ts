@@ -551,6 +551,7 @@ export const tableDtoSchema = z.object({
   id: z.string(),
   baseId: z.string(),
   name: z.string(),
+  actorStorageVersion: z.union([z.literal(0), z.literal(1)]),
   description: z.string().optional(),
   icon: z.string().optional(),
   dbTableName: z.string().optional(),
@@ -561,6 +562,35 @@ export const tableDtoSchema = z.object({
 });
 
 export type ITableDto = z.infer<typeof tableDtoSchema>;
+
+type FieldDbFieldType = 'TEXT' | 'INTEGER' | 'DATETIME' | 'REAL' | 'BLOB' | 'JSON' | 'BOOLEAN';
+
+const fieldDbFieldTypes = new Set<string>([
+  'TEXT',
+  'INTEGER',
+  'DATETIME',
+  'REAL',
+  'BLOB',
+  'JSON',
+  'BOOLEAN',
+]);
+
+const resolveDbFieldType = (
+  persisted: string | undefined,
+  isMultiple: boolean | undefined,
+  cellValueType: string | undefined
+): FieldDbFieldType => {
+  const raw = persisted
+    ?.trim()
+    .toUpperCase()
+    .replace(/^JSONB$/, 'JSON');
+  if (raw && fieldDbFieldTypes.has(raw)) return raw as FieldDbFieldType;
+  if (isMultiple) return 'JSON';
+  if (cellValueType === 'number') return 'REAL';
+  if (cellValueType === 'boolean') return 'BOOLEAN';
+  if (cellValueType === 'dateTime') return 'DATETIME';
+  return 'TEXT';
+};
 
 const isLinkField = (field: Field): field is LinkField =>
   typeof (field as Partial<LinkField>).config === 'function' &&
@@ -600,25 +630,11 @@ class FieldToDtoVisitor implements IFieldVisitor<RegularFieldDto> {
       ? valueType.value.isMultipleCellValue.toBoolean()
       : undefined;
     const persistedDbFieldType = field.dbFieldType().andThen((type) => type.value());
-    const rawDbFieldType = persistedDbFieldType.isOk()
-      ? persistedDbFieldType.value
-          .trim()
-          .toUpperCase()
-          .replace(/^JSONB$/, 'JSON')
-      : undefined;
-    const dbFieldType = (
-      ['TEXT', 'INTEGER', 'DATETIME', 'REAL', 'BLOB', 'JSON', 'BOOLEAN'] as const
-    ).includes(rawDbFieldType as 'TEXT')
-      ? (rawDbFieldType as 'TEXT' | 'INTEGER' | 'DATETIME' | 'REAL' | 'BLOB' | 'JSON' | 'BOOLEAN')
-      : isMultipleCellValue
-        ? 'JSON'
-        : cellValueType === 'number'
-          ? 'REAL'
-          : cellValueType === 'boolean'
-            ? 'BOOLEAN'
-            : cellValueType === 'dateTime'
-              ? 'DATETIME'
-              : 'TEXT';
+    const dbFieldType = resolveDbFieldType(
+      persistedDbFieldType.isOk() ? persistedDbFieldType.value : undefined,
+      isMultipleCellValue,
+      cellValueType
+    );
     const isPrimary = field.id().equals(this.primaryFieldId);
 
     return {
@@ -1180,6 +1196,7 @@ export const mapTableToDto = (table: Table): Result<ITableDto, DomainError> => {
       id: table.id().toString(),
       baseId: table.baseId().toString(),
       name: table.name().toString(),
+      actorStorageVersion: table.actorStorageVersion() === 1 ? (1 as const) : (0 as const),
       ...(table.description() !== undefined ? { description: table.description() } : {}),
       ...(table.icon() !== undefined ? { icon: table.icon() } : {}),
       dbTableName,

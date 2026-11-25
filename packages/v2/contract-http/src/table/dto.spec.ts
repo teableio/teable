@@ -5,6 +5,35 @@ import { describe, expect, it } from 'vitest';
 import { fieldDtoSchema, mapTableToDto, tableDtoSchema } from './dto';
 
 describe('mapTableToDto', () => {
+  it.each([0, 1] as const)(
+    'preserves readonly actor capability %s through JSON and schema parsing',
+    (actorStorageVersion) => {
+      const primaryFieldId = `fld${'d'.repeat(16)}`;
+      const table = new DefaultTableMapper()
+        .toDomain({
+          id: `tbl${'b'.repeat(16)}`,
+          baseId: `bse${'a'.repeat(16)}`,
+          name: 'Actor serialization',
+          actorStorageVersion,
+          primaryFieldId,
+          fields: [{ id: primaryFieldId, name: 'Title', type: 'singleLineText' }],
+          views: [
+            {
+              id: `viw${'e'.repeat(16)}`,
+              name: 'Grid',
+              type: 'grid',
+              columnMeta: { [primaryFieldId]: { order: 0 } },
+            },
+          ],
+        })
+        ._unsafeUnwrap();
+      const mapped = mapTableToDto(table)._unsafeUnwrap();
+      expect(tableDtoSchema.parse(JSON.parse(JSON.stringify(mapped))).actorStorageVersion).toBe(
+        actorStorageVersion
+      );
+    }
+  );
+
   it('maps direct link fields without requiring link db config', () => {
     const baseId = `bse${'a'.repeat(16)}`;
     const tableId = `tbl${'b'.repeat(16)}`;

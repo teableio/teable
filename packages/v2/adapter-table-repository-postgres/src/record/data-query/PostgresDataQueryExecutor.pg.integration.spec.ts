@@ -10,16 +10,27 @@ import {
   FieldId,
   FieldName,
   LookupField,
+  NoopLogger,
+  RecordQueryPluginRunner,
   Table,
   TableId,
   TableName,
   type ITablePersistenceDTO,
   type ITracer,
 } from '@teable/v2-core';
-import { DataQueryDefinition, type DataQueryResult } from '@teable/v2-data-query';
+import {
+  dataQueryCompositionSource,
+  DataQueryDefinition,
+  DataQueryService,
+  prepareDataQueryComposition,
+  QueryExecutionService,
+  type DataQueryComposition,
+  type DataQueryResult,
+} from '@teable/v2-data-query';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { CompiledQuery, sql, type Kysely, type Transaction, type TransactionBuilder } from 'kysely';
+import { ok } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { PostgresDataQueryExecutor } from './PostgresDataQueryExecutor';
@@ -546,6 +557,74 @@ describePg('PostgresDataQueryExecutor transaction isolation (Postgres)', () => {
     await holder?.destroy();
     await db?.destroy();
     await container?.stop();
+  });
+
+  it.each([1, 2] as const)('enforces the shared metric group limit for v%s', async (version) => {
+    const table = tableFor(version === 1 ? 'm' : 'n');
+    const physical = sql.id(baseId.toString(), table.id().toString());
+    await sql`create table ${physical} (__id text primary key, "Title" text)`.execute(db);
+    await sql`insert into ${physical} select i::text, lpad(i::text, 3, '0')
+      from generate_series(1, 100) as g(i)`.execute(db);
+    const service = new QueryExecutionService(
+      new DataQueryService(
+        { findOne: async () => ok(table) },
+        new RecordQueryPluginRunner([], new NoopLogger()),
+        new PostgresDataQueryExecutor(db)
+      )
+    );
+    const title = { fieldId: titleId.toString(), alias: 'title' };
+    const source = dataQueryCompositionSource({
+      kind: 'records',
+      tableId: table.id().toString(),
+      // An explicit root source exercises the relation executor with the same records.
+      ...(version === 1
+        ? { version, select: [title] }
+        : { version, select: [{ ...title, source: 'root' }] }),
+    })._unsafeUnwrap();
+    const request = { definition: source.definition };
+    const { outputs } = (await service.validate(context, request))._unsafeUnwrap();
+    const prepare = (definition: DataQueryComposition) =>
+      prepareDataQueryComposition(definition, outputs, source);
+    const aggregate: DataQueryComposition = {
+      kind: 'composition',
+      source: { id: `qlb${'1'.repeat(16)}`, revision: 1 },
+      metrics: [{ alias: 'records', statistic: 'count' }],
+    };
+    const shared = { ...aggregate, metricDimensions: ['title'] };
+    const metric = prepare(shared)._unsafeUnwrap();
+    const runMetric = (parameters: Record<string, unknown>) => {
+      const { composition } = metric.bind(parameters)._unsafeUnwrap();
+      return service.executeComposition(context, request, composition);
+    };
+    expect((await runMetric({ groupBy: ['title'] }))._unsafeUnwrap().rows).toEqual(
+      Array.from({ length: 100 }, (_, i) => ({ title: String(i + 1).padStart(3, '0'), records: 1 }))
+    );
+
+    await sql`insert into ${physical} values ('101', '101')`.execute(db);
+    expect((await runMetric({ groupBy: ['title'] }))._unsafeUnwrapErr()).toMatchObject({
+      code: 'data_query.metric_group_limit_exceeded',
+      message: expect.stringMatching(/100 groups.*narrow the filters/i),
+    });
+    const narrowed = await runMetric({ groupBy: ['title'], where_title: '101' });
+    expect(narrowed._unsafeUnwrap().rows).toEqual([{ title: '101', records: 1 }]);
+    expect((await runMetric({}))._unsafeUnwrap().rows).toEqual([{ title: null, records: 101 }]);
+    expect((await service.execute(context, request))._unsafeUnwrap().rows).toHaveLength(100);
+
+    const capped = prepare({ ...shared, page: { limit: 5 } })._unsafeUnwrap();
+    const groups = capped.bind({ groupBy: ['title'] })._unsafeUnwrap().composition;
+    const overCap = await service.executeComposition(context, request, groups);
+    expect(overCap._unsafeUnwrapErr().message).toMatch(/limit of 5 groups/);
+
+    const page = { limit: 1, offset: 1, includeTotal: true };
+    const sampled = prepare({ ...shared, page });
+    expect(sampled._unsafeUnwrapErr().message).toMatch(/remove the page offset/i);
+    const paged = prepare({ ...aggregate, groupBy: ['title'], page })._unsafeUnwrap();
+    const { composition } = paged.bind()._unsafeUnwrap();
+    const result = await service.executeComposition(context, request, composition);
+    expect(result._unsafeUnwrap()).toEqual({
+      rows: [{ title: '002', records: 1 }],
+      page: { limit: 1, offset: 1, total: 101 },
+    });
   });
 
   it.each(['createdBy', 'lastModifiedBy'] as const)(
